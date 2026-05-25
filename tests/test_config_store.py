@@ -1,5 +1,3 @@
-import pytest
-from pathlib import Path
 from app.config_store import ConfigStore
 
 
@@ -36,6 +34,15 @@ def test_set_batch_persists_to_db(tmp_path):
     assert store2.get("persist_a") == "hello"
     assert store2.get("persist_b") == "world"
     store2.close()
+
+
+def test_first_run_seeds_config_defaults(tmp_path):
+    store = ConfigStore(db_path=tmp_path / "new.db")
+    assert store.get("danmu_speed") == "2"
+    assert store.get("freshness") == "medium"
+    assert store.get("eviction_mode") == "natural"
+    assert store.get("hotkey") == "Ctrl+Shift+B"
+    store.close()
 
 
 def test_set_batch_single_commit(tmp_path):

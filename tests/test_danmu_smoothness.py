@@ -1,8 +1,12 @@
+# NOTE: PipelineSimulator._maybe_schedule_screenshot mirrors pre-rhythm inventory
+# scheduling. Production main._maybe_schedule_screenshot is a no-op; do not infer
+# API pacing from these tests alone.
+
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 from app.config_store import ConfigStore
-from app.danmu_engine import DanmuEngine, DanmuItem
+from app.danmu_engine import DanmuEngine
 from app.reply_queue import AIReplyFIFOBuffer, QueuedReply
 
 
@@ -18,19 +22,6 @@ class FakeLogger:
 
     def error(self, m):
         self.messages.append(("error", m))
-
-
-class FakeControlPanel:
-    def update_stats(self, *a):
-        pass
-
-    def update_system_status(self, *a):
-        pass
-
-
-class FakeWindow:
-    def __init__(self):
-        self.control_panel = FakeControlPanel()
 
 
 class FakeConfig:
@@ -115,8 +106,11 @@ class FakeEngine:
         self.calls.append((content, persona))
         return SimpleNamespace(content=content, persona=persona)
 
-    def max_on_screen(self):
-        return self._config_values.get("max_on_screen", 0)
+    def min_on_screen(self):
+        return self._config_values.get("min_on_screen", 5)
+
+    def deficit_below_min(self):
+        return 0
 
     def current_display_count(self):
         return self._display_count
@@ -154,7 +148,6 @@ class PipelineSimulator:
         self._queue_run_dry_window_ms = 2000
         self._queue_batch_size = 5
         self.config = FakeConfig(config_values)
-        self.window = FakeWindow()
         self.screenshot_timer = FakeTimer()
 
     def _schedule_next_screenshot(self, delay_ms):
@@ -173,8 +166,8 @@ class PipelineSimulator:
                 return current_interval
 
         right_count = self.engine.right_zone_count()
-        limit = self.engine.max_on_screen()
-        right_target = max(1, (limit // 3) if limit > 0 else 2)
+        min_n = self.engine.min_on_screen()
+        right_target = max(1, (min_n // 3) if min_n > 0 else 2)
         if self.engine.current_display_count() == 0:
             return 120
         if right_count >= right_target:
@@ -226,8 +219,6 @@ class PipelineSimulator:
         return max(2000, base * 1000)
 
     def _consume_reply_queue(self):
-        import json
-        from json import JSONDecodeError
 
         queued = self.reply_buffer.pop()
         if queued is None:
@@ -256,8 +247,8 @@ class PipelineSimulator:
 
     def _on_ai_reply(self, text, persona_id, request_round):
         import json
-        from json import JSONDecodeError
         import time
+        from json import JSONDecodeError
 
         self.ai_in_flight = max(0, self.ai_in_flight - 1)
 
@@ -315,8 +306,8 @@ def test_consume_reply_queue_discarded_danmu_uses_short_delay():
 
 
 def test_consume_reply_queue_successful_danmu_uses_adaptive_delay():
-    sim = PipelineSimulator({"max_on_screen": 9})
-    sim.engine._config_values["max_on_screen"] = 9
+    sim = PipelineSimulator({"min_on_screen": 9})
+    sim.engine._config_values["min_on_screen"] = 9
     sim.engine._right_zone_count = 0
 
     sim.reply_buffer.push(QueuedReply("p1", 1, 0, "hello", screenshot_round=10))
@@ -455,7 +446,7 @@ def test_pipeline_does_not_schedule_second_request_when_in_flight():
     sim = PipelineSimulator({"capture_mode": "continuous"})
     sim.ai_in_flight = 1
     sim.engine._right_zone_count = 10
-    sim.engine._config_values["max_on_screen"] = 6
+    sim.engine._config_values["min_on_screen"] = 6
 
     sim._maybe_schedule_screenshot()
 
@@ -463,7 +454,7 @@ def test_pipeline_does_not_schedule_second_request_when_in_flight():
 
 
 def test_needs_refill_false_does_not_deadlock_pipeline():
-    sim = PipelineSimulator({"freq_mode": "auto", "max_on_screen": 5})
+    sim = PipelineSimulator({"freq_mode": "auto", "min_on_screen": 5})
     sim.engine.needs_refill = MagicMock(return_value=False)
     sim.engine.running = True
     sim.ai_in_flight = 0

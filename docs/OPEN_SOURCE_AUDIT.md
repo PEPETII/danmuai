@@ -17,6 +17,13 @@
 | cryptography | Apache-2.0 OR BSD-3-Clause | ❌ | |
 | volcengine-python-sdk | Apache-2.0 | ❌ | |
 | Pillow | HPND | ❌ | MIT-like 宽松许可证 |
+| fastapi | MIT | ❌ | Web 控制台 HTTP API |
+| python-multipart | Apache-2.0 | ❌ | FastAPI 上传压缩预览 multipart 解析 |
+| uvicorn | BSD-3-Clause | ❌ | ASGI 服务器 |
+| pywebview | BSD-3-Clause | ❌ | 桌面 Web 壳（Windows WebView2） |
+| sounddevice | MIT | ❌ | 麦克风采集 |
+| numpy | BSD-3-Clause | ❌ | 音频缓冲数值计算 |
+| websockets | BSD-3-Clause | ❌ | uvicorn WebSocket 实现 |
 
 ## 敏感文件审计
 
@@ -32,7 +39,7 @@
 
 - 截图默认不落盘，截图压缩在内存中完成
 - 日志会脱敏 API Key、Bearer Token 和长 base64 数据
-- 默认只截取配置区域，不做整屏抓图
+- 当前版本默认按 `screen_index` 截取所选显示器全屏；`region_*` 宽高大于 0 时会按所选屏幕相对坐标裁剪
 - 旧截图对应的 AI 回复会按 `screenshot_id` / `scene_generation` 丢弃
 
 ## 公开发布前仍需人工确认

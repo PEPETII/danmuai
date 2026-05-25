@@ -15,7 +15,7 @@ class TestP1007LogSanitization:
         """日志不应包含 API Key。"""
         msg = "请求失败，api_key: sk-abc1234567890abcdef1234567890abcdef"
         sanitized = logger._sanitize(msg)
-        
+
         assert "sk-abc1234567890abcdef1234567890abcdef" not in sanitized
         assert "sk-****" in sanitized
 
@@ -23,7 +23,7 @@ class TestP1007LogSanitization:
         """日志不应包含 Authorization header。"""
         msg = 'headers: {"Authorization": "Bearer abc1234567890abcdef1234567890abcdef"}'
         sanitized = logger._sanitize(msg)
-        
+
         assert "Bearer abc1234567890abcdef1234567890abcdef" not in sanitized
         assert "Authorization: Bearer (已隐藏)" in sanitized
 
@@ -33,7 +33,7 @@ class TestP1007LogSanitization:
         b64_data = "data:image/jpeg;base64," + "A" * 100
         msg = f"截图数据：{b64_data}"
         sanitized = logger._sanitize(msg)
-        
+
         assert b64_data not in sanitized
         assert "data:image/***;base64,(已隐藏)" in sanitized
 
@@ -43,7 +43,7 @@ class TestP1007LogSanitization:
         encrypted_key = "gAAAAABlZmhxY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6MTIzNDU2Nzg5MA"
         msg = f"加密数据：{encrypted_key}"
         sanitized = logger._sanitize(msg)
-        
+
         assert encrypted_key not in sanitized
         assert "gAAAA****(已隐藏)" in sanitized
 
@@ -51,7 +51,7 @@ class TestP1007LogSanitization:
         """日志不应包含通用 API Key 格式。"""
         msg = "配置：api_key = 'mysecretapikey1234567890abcdef'"
         sanitized = logger._sanitize(msg)
-        
+
         assert "mysecretapikey1234567890abcdef" not in sanitized
         assert "(api_key: ****)" in sanitized
 
@@ -61,7 +61,7 @@ class TestP1007LogSanitization:
         request_body = '{"model": "test", "messages": [{"role": "user", "content": "test"}]}'
         msg = f"请求体：{request_body}"
         sanitized = logger._sanitize(msg)
-        
+
         # 请求体本身不包含敏感模式，应原样保留
         # 但如果包含 API Key 等，应被脱敏
         assert sanitized == msg
@@ -74,7 +74,7 @@ class TestP1007LogSanitization:
             "图片：data:image/png;base64," + "B" * 100
         )
         sanitized = logger._sanitize(msg)
-        
+
         assert "sk-abc1234567890abcdef1234567890abcdef" not in sanitized
         assert "token1234567890abcdef1234567890abcdef" not in sanitized
         assert "B" * 100 not in sanitized
@@ -86,16 +86,16 @@ class TestP1007LogSanitization:
         """普通消息不应被修改。"""
         msg = "弹幕已启动，截图间隔 3 秒"
         sanitized = logger._sanitize(msg)
-        
+
         assert sanitized == msg
 
     def test_debug_log_sanitized(self, logger, caplog):
         """DEBUG 日志应脱敏。"""
         import logging
         caplog.set_level(logging.DEBUG)
-        
+
         logger.debug("API Key: sk-abc1234567890abcdef1234567890abcdef")
-        
+
         assert "sk-****" in caplog.text
         assert "sk-abc1234567890abcdef1234567890abcdef" not in caplog.text
 
@@ -103,8 +103,8 @@ class TestP1007LogSanitization:
         """ERROR 日志应脱敏。"""
         import logging
         caplog.set_level(logging.DEBUG)
-        
+
         logger.error("请求失败，Authorization: Bearer secret_token_1234567890abcdef")
-        
+
         assert "Authorization: Bearer (已隐藏)" in caplog.text
         assert "secret_token_1234567890abcdef" not in caplog.text

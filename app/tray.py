@@ -1,9 +1,8 @@
-from pathlib import Path
-
-from PyQt6.QtCore import Qt, QRect
+from PyQt6.QtCore import QRect, Qt
 from PyQt6.QtGui import QAction, QColor, QFont, QIcon, QPainter, QPixmap
 from PyQt6.QtWidgets import QMenu, QSystemTrayIcon
 
+from app.bundle_paths import resource_path
 from app.translations import Translator, tr
 
 
@@ -32,7 +31,7 @@ class TrayManager:
         return QIcon(pixmap)
 
     def _setup(self):
-        icon_path = Path(__file__).parent.parent / "resources" / "icon.png"
+        icon_path = resource_path("resources", "icon.png")
         if icon_path.exists():
             self.tray.setIcon(QIcon(str(icon_path)))
         else:

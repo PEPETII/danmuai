@@ -1,31 +1,14 @@
-# Prototype Directory
+# Prototype directory
 
-This directory contains HTML/CSS prototypes used for UI/UX validation before implementation.
+Current files (Web UI only):
 
-## Purpose
+| File | Purpose |
+|------|---------|
+| [Qwen_html_20260524_481u8vlmv.html](Qwen_html_20260524_481u8vlmv.html) | Warm Web console visual prototype |
+| [Qwen_markdown_20260525_4vyxmv819.md](Qwen_markdown_20260525_4vyxmv819.md) | Design tokens and component notes |
 
-- **UI Verification**: Visual and interaction design validation
-- **Rapid Prototyping**: Quick iteration on layout and styling
-- **Reference Only**: These files are NOT part of the production application
+**Removed from the repo (historical):** `scheme-e-*.html`, `scheme-e-tokens.css`, `scheme-e-app.css`, root `ui_preview.html`, and the legacy Qt main window (`ui/`). See [docs/archive/qt6_ui_redesign_plan.md](../docs/archive/qt6_ui_redesign_plan.md) and git history.
 
-## Contents
+**New UI work:** implement in `web/static/` + `app/web_api/`, aligned with the Qwen prototypes above.
 
-| File | Description |
-|------|-------------|
-| `settings.html` | Settings panel prototype |
-| `logs.html` | Log viewer prototype |
-| `history.html` | History panel prototype |
-| `templates.html` | Template management prototype |
-| `danmaku.html` | Danmaku overlay prototype |
-| `smart-frequency.html` | Smart frequency control prototype |
-| `enterprise-shell.html` | Enterprise shell prototype |
-| `control-claude.html` | Control panel prototype |
-| `index.html` | Main entry prototype |
-| `styles-claude.css` | Shared styles |
-| `test2-stale-reply-harness.html` | Test harness for stale reply handling |
-
-## Notes
-
-- File names and content may reflect internal development naming
-- These prototypes are not intended for end-user consumption
-- For production UI, see the `ui/` directory and actual application code
+**Naming:** Filenames prefixed with `Qwen_` indicate design-tool export provenance only. DanmuAI is not affiliated with Alibaba Cloud or the Qwen product line.

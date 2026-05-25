@@ -24,6 +24,7 @@ labels: bug
 - Windows 版本：
 - Python 版本：
 - DanmuAI 版本/commit：
+- 启动方式：`python main.py` / `python main.py --web-browser`
 
 ## 日志摘要
 

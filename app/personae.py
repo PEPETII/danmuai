@@ -1,34 +1,257 @@
 import json
 import random
+import re
 
 from app.config_store import ConfigStore
+from app.danmu_engine import (
+    DEFAULT_DANMU_MAX_CHARS_EN,
+    DEFAULT_DANMU_MAX_CHARS_ZH,
+    resolve_danmu_max_chars,
+)
 from app.translations import Translator, tr
 
+REPLY_COUNT_MIN = 2
+REPLY_COUNT_MAX = 7
+DEFAULT_REPLY_SCENE_COUNT = 2
+DEFAULT_REPLY_FILLER_COUNT = 3
 
-REPLY_CONTRACT_ZH = (
-    "你是直播弹幕评论员。必须且只能返回 JSON 字符串数组，不要解释，不要 Markdown。"
-    "固定返回 5 条弹幕：前 2 条必须强相关当前画面，后 3 条必须是适合直播间氛围的泛用弹幕。"
-    "每条不超过 15 个字，避免重复，输出格式："
-    '["弹幕1", "弹幕2", "弹幕3", "弹幕4", "弹幕5"]。'
+DEFAULT_NORMAL_REPLY_COUNT = 5
+NORMAL_REPLY_COUNT_MIN = 1
+NORMAL_REPLY_COUNT_MAX = 20
+
+_CONTRACT_ZH_RE = re.compile(
+    r"你是直播弹幕评论员。必须且只能返回 JSON 字符串数组，不要解释，不要 Markdown。"
+    r"固定返回 \d+ 条弹幕：前 \d+ 条必须强相关当前画面，后 \d+ 条必须是适合直播间氛围的泛用弹幕。"
+    r"每条不超过 \d+ 个字，避免重复，输出格式："
+    r'\["[^"]*"(?:, "[^"]*")*\]。'
+)
+_CONTRACT_EN_RE = re.compile(
+    r"You are a live-stream danmu commentator\. You must return a JSON string array only, "
+    r"with no explanations and no Markdown\. "
+    r"Always return exactly \d+ comments: the first \d+ must be strongly tied to the current frame, "
+    r"and the last \d+ must be generic danmu suitable for a live-stream atmosphere\. "
+    r"All comments MUST be written in English only\. "
+    r"Each comment must stay within \d+ characters\. Avoid repetition\. Output format: "
+    r'\["[^"]*"(?:, "[^"]*")*\]\.'
+)
+_CONTRACT_NORMAL_ZH_RE = re.compile(
+    r"你是直播弹幕评论员。必须且只能返回 JSON 字符串数组，不要解释，不要 Markdown。"
+    r"固定返回 \d+ 条弹幕，必须与当前画面或直播氛围相关，避免重复。"
+    r"每条不超过 \d+ 个字，输出格式："
+    r'\["[^"]*"(?:, "[^"]*")*\]。'
+)
+_CONTRACT_NORMAL_EN_RE = re.compile(
+    r"You are a live-stream danmu commentator\. You must return a JSON string array only, "
+    r"with no explanations and no Markdown\. "
+    r"Always return exactly \d+ comments that must relate to the current frame or live-stream atmosphere\. "
+    r"Avoid repetition\. All comments MUST be written in English only\. "
+    r"Each comment must stay within \d+ characters\. Output format: "
+    r'\["[^"]*"(?:, "[^"]*")*\]\.'
 )
 
-REPLY_CONTRACT_EN = (
-    "You are a live-stream danmu commentator. You must return a JSON string array only, with no explanations and no Markdown. "
-    "Always return exactly 5 comments: the first 2 must be strongly tied to the current frame, and the last 3 must be generic danmu suitable for a live-stream atmosphere. "
-    "All comments MUST be written in English only. "
-    "Each comment must stay within 40 characters. Avoid repetition. Output format: "
-    '["comment 1", "comment 2", "comment 3", "comment 4", "comment 5"].'
-)
+REPLY_CONTRACT_ZH = ""
+REPLY_CONTRACT_EN = ""
+REPLY_CONTRACT_ALIASES: set[str] = set()
+REPLY_CONTRACT = ""
 
-REPLY_CONTRACT_ALIASES = {
-    REPLY_CONTRACT_ZH,
-    REPLY_CONTRACT_EN,
-}
 
-REPLY_CONTRACT = REPLY_CONTRACT_ZH
+def _clamp_reply_count(value: int, default: int) -> int:
+    try:
+        n = int(value)
+    except (TypeError, ValueError):
+        return default
+    return max(REPLY_COUNT_MIN, min(REPLY_COUNT_MAX, n))
+
+
+def reply_counts_from_config(config: ConfigStore | None) -> tuple[int, int]:
+    if config is None:
+        return DEFAULT_REPLY_SCENE_COUNT, DEFAULT_REPLY_FILLER_COUNT
+    scene = _clamp_reply_count(
+        config.get_int("reply_scene_count", DEFAULT_REPLY_SCENE_COUNT),
+        DEFAULT_REPLY_SCENE_COUNT,
+    )
+    filler = _clamp_reply_count(
+        config.get_int("reply_filler_count", DEFAULT_REPLY_FILLER_COUNT),
+        DEFAULT_REPLY_FILLER_COUNT,
+    )
+    return scene, filler
+
+
+def _clamp_normal_reply_count(value: int, default: int = DEFAULT_NORMAL_REPLY_COUNT) -> int:
+    try:
+        n = int(value)
+    except (TypeError, ValueError):
+        return default
+    return max(NORMAL_REPLY_COUNT_MIN, min(NORMAL_REPLY_COUNT_MAX, n))
+
+
+def normal_reply_count_from_config(config: ConfigStore | None) -> int:
+    if config is None:
+        return DEFAULT_NORMAL_REPLY_COUNT
+    return _clamp_normal_reply_count(
+        config.get_int("normal_reply_count", DEFAULT_NORMAL_REPLY_COUNT),
+        DEFAULT_NORMAL_REPLY_COUNT,
+    )
+
+
+def is_normal_display_mode(config: ConfigStore | None) -> bool:
+    if config is None:
+        return False
+    return config.get("danmu_display_mode", "realtime").strip().lower() == "normal"
+
+
+def _json_example_zh(total: int) -> str:
+    items = [f"弹幕{i}" for i in range(1, total + 1)]
+    return '["' + '", "'.join(items) + '"]'
+
+
+def _json_example_en(total: int) -> str:
+    items = [f"comment {i}" for i in range(1, total + 1)]
+    return '["' + '", "'.join(items) + '"]'
+
+
+def build_reply_contract_zh(
+    scene_count: int,
+    filler_count: int,
+    max_chars: int | None = None,
+) -> str:
+    scene = _clamp_reply_count(scene_count, DEFAULT_REPLY_SCENE_COUNT)
+    filler = _clamp_reply_count(filler_count, DEFAULT_REPLY_FILLER_COUNT)
+    total = scene + filler
+    limit = max_chars if max_chars is not None else DEFAULT_DANMU_MAX_CHARS_ZH
+    return (
+        "你是直播弹幕评论员。必须且只能返回 JSON 字符串数组，不要解释，不要 Markdown。"
+        f"固定返回 {total} 条弹幕：前 {scene} 条必须强相关当前画面，后 {filler} 条必须是适合直播间氛围的泛用弹幕。"
+        f"每条不超过 {limit} 个字，避免重复，输出格式："
+        f"{_json_example_zh(total)}。"
+    )
+
+
+def build_reply_contract_en(
+    scene_count: int,
+    filler_count: int,
+    max_chars: int | None = None,
+) -> str:
+    scene = _clamp_reply_count(scene_count, DEFAULT_REPLY_SCENE_COUNT)
+    filler = _clamp_reply_count(filler_count, DEFAULT_REPLY_FILLER_COUNT)
+    total = scene + filler
+    limit = max_chars if max_chars is not None else DEFAULT_DANMU_MAX_CHARS_EN
+    return (
+        "You are a live-stream danmu commentator. You must return a JSON string array only, "
+        "with no explanations and no Markdown. "
+        f"Always return exactly {total} comments: the first {scene} must be strongly tied to the current frame, "
+        f"and the last {filler} must be generic danmu suitable for a live-stream atmosphere. "
+        "All comments MUST be written in English only. "
+        f"Each comment must stay within {limit} characters. Avoid repetition. Output format: "
+        f"{_json_example_en(total)}."
+    )
+
+
+def build_normal_reply_contract_zh(
+    count: int,
+    max_chars: int | None = None,
+) -> str:
+    total = _clamp_normal_reply_count(count, DEFAULT_NORMAL_REPLY_COUNT)
+    limit = max_chars if max_chars is not None else DEFAULT_DANMU_MAX_CHARS_ZH
+    return (
+        "你是直播弹幕评论员。必须且只能返回 JSON 字符串数组，不要解释，不要 Markdown。"
+        f"固定返回 {total} 条弹幕，必须与当前画面或直播氛围相关，避免重复。"
+        f"每条不超过 {limit} 个字，输出格式："
+        f"{_json_example_zh(total)}。"
+    )
+
+
+def build_normal_reply_contract_en(
+    count: int,
+    max_chars: int | None = None,
+) -> str:
+    total = _clamp_normal_reply_count(count, DEFAULT_NORMAL_REPLY_COUNT)
+    limit = max_chars if max_chars is not None else DEFAULT_DANMU_MAX_CHARS_EN
+    return (
+        "You are a live-stream danmu commentator. You must return a JSON string array only, "
+        "with no explanations and no Markdown. "
+        f"Always return exactly {total} comments that must relate to the current frame "
+        "or live-stream atmosphere. Avoid repetition. All comments MUST be written in English only. "
+        f"Each comment must stay within {limit} characters. Output format: "
+        f"{_json_example_en(total)}."
+    )
+
+
+def _refresh_legacy_contract_aliases() -> None:
+    global REPLY_CONTRACT_ZH, REPLY_CONTRACT_EN, REPLY_CONTRACT, REPLY_CONTRACT_ALIASES
+    REPLY_CONTRACT_ZH = build_reply_contract_zh(
+        DEFAULT_REPLY_SCENE_COUNT,
+        DEFAULT_REPLY_FILLER_COUNT,
+        DEFAULT_DANMU_MAX_CHARS_ZH,
+    )
+    REPLY_CONTRACT_EN = build_reply_contract_en(
+        DEFAULT_REPLY_SCENE_COUNT,
+        DEFAULT_REPLY_FILLER_COUNT,
+        DEFAULT_DANMU_MAX_CHARS_EN,
+    )
+    REPLY_CONTRACT = REPLY_CONTRACT_ZH
+    normal_zh = build_normal_reply_contract_zh(DEFAULT_NORMAL_REPLY_COUNT, DEFAULT_DANMU_MAX_CHARS_ZH)
+    normal_en = build_normal_reply_contract_en(DEFAULT_NORMAL_REPLY_COUNT, DEFAULT_DANMU_MAX_CHARS_EN)
+    REPLY_CONTRACT_ALIASES = {REPLY_CONTRACT_ZH, REPLY_CONTRACT_EN, normal_zh, normal_en}
+
+
+_refresh_legacy_contract_aliases()
+
+
+def get_reply_contract(config: ConfigStore | None = None) -> str:
+    lang = Translator.get_language()
+    if config is None:
+        max_chars = (
+            DEFAULT_DANMU_MAX_CHARS_EN if lang == "en" else DEFAULT_DANMU_MAX_CHARS_ZH
+        )
+    else:
+        max_chars = resolve_danmu_max_chars(config, lang=lang)
+    if is_normal_display_mode(config):
+        count = normal_reply_count_from_config(config)
+        if lang == "en":
+            return build_normal_reply_contract_en(count, max_chars)
+        return build_normal_reply_contract_zh(count, max_chars)
+    scene, filler = reply_counts_from_config(config)
+    if lang == "en":
+        return build_reply_contract_en(scene, filler, max_chars)
+    return build_reply_contract_zh(scene, filler, max_chars)
+
+
+def strip_reply_contract(system_pt: str) -> str:
+    base = (system_pt or "").strip()
+    for pattern in (_CONTRACT_ZH_RE, _CONTRACT_EN_RE, _CONTRACT_NORMAL_ZH_RE, _CONTRACT_NORMAL_EN_RE):
+        base = pattern.sub("", base).strip()
+    for contract in REPLY_CONTRACT_ALIASES:
+        if base.startswith(contract):
+            base = base[len(contract) :].strip()
+    return base
+
+
+def ensure_reply_contract(system_pt: str, config: ConfigStore | None = None) -> str:
+    custom_part = strip_reply_contract(system_pt)
+    contract = get_reply_contract(config)
+    return f"{contract} {custom_part}".strip() if custom_part else contract
+
+
+def normalize_persona_name(name: str) -> str:
+    if not name:
+        return ""
+    return LEGACY_NAME_MAP.get(name, name)
+
+
+def persona_display_name(name: str) -> str:
+    normalized = normalize_persona_name(name)
+    key = PERSONA_NAME_KEYS.get(normalized)
+    return tr(key) if key else normalized
+
+
+def default_user_prompt() -> str:
+    return tr("template.default_user_prompt")
+
+
+_REMOVED_PERSONAE = frozenset({"阿静"})
 
 LEGACY_NAME_MAP = {
-    "闂冨潡娼?": "阿静",
     "閸氭劖蝎閸?": "吐槽型",
     "閺傚洩澹撻崹?": "文艺型",
     "閹垛偓閺堫垰鐎?": "技术型",
@@ -36,7 +259,6 @@ LEGACY_NAME_MAP = {
 }
 
 PERSONA_NAME_KEYS = {
-    "阿静": "persona.ajing",
     "吐槽型": "persona.roast",
     "文艺型": "persona.poetic",
     "技术型": "persona.tech",
@@ -49,12 +271,6 @@ PERSONA_NAME_KEYS = {
 }
 
 BUILTIN_PERSONAE = {
-    "阿静": {
-        "system_zh": "风格要求：轻松、自然，像直播间里的高频弹幕。",
-        "user_zh": "请基于这张截图生成弹幕：",
-        "system_en": "Style requirement: relaxed and natural, like frequent danmu in a live stream. All comments must be in English.",
-        "user_en": "Generate English danmu comments based on this screenshot:",
-    },
     "吐槽型": {
         "system_zh": "风格要求：吐槽感更强一点，但不要恶意攻击。",
         "user_zh": "请基于这张截图生成弹幕：",
@@ -112,83 +328,81 @@ BUILTIN_PERSONAE = {
 }
 
 
-def get_reply_contract() -> str:
-    return REPLY_CONTRACT_EN if Translator.get_language() == "en" else REPLY_CONTRACT_ZH
-
-
-def strip_reply_contract(system_pt: str) -> str:
-    base = (system_pt or "").strip()
-    for contract in REPLY_CONTRACT_ALIASES:
-        if base.startswith(contract):
-            return base[len(contract):].strip()
-    return base
-
-
-def ensure_reply_contract(system_pt: str) -> str:
-    custom_part = strip_reply_contract(system_pt)
-    contract = get_reply_contract()
-    return f"{contract} {custom_part}".strip() if custom_part else contract
-
-
-def normalize_persona_name(name: str) -> str:
-    if not name:
-        return ""
-    return LEGACY_NAME_MAP.get(name, name)
-
-
-def persona_display_name(name: str) -> str:
-    normalized = normalize_persona_name(name)
-    key = PERSONA_NAME_KEYS.get(normalized)
-    return tr(key) if key else normalized
-
-
-def default_user_prompt() -> str:
-    return tr("template.default_user_prompt")
-
-
 class PersonaManager:
     DEFAULT_ACTIVE = ["路人惊讶型", "搞笑玩梗型", "专业分析型", "捧场活跃型", "轻度吐槽型"]
-    _ACTIVE_VERSION = 2
+    _ACTIVE_VERSION = 3
 
     def __init__(self, config: ConfigStore):
         self.config = config
         self._custom: dict = {}
         self._migrate_active_personae()
+        self._purge_removed_personae()
 
     def _migrate_active_personae(self):
         version = self.config.get_int("active_personae_version", 0)
         if version < self._ACTIVE_VERSION:
-            self.config.set_json("active_personae", self.DEFAULT_ACTIVE)
+            if version < 2:
+                self.config.set_json("active_personae", self.DEFAULT_ACTIVE)
+            else:
+                active = self.config.get_json("active_personae", self.DEFAULT_ACTIVE)
+                filtered = self._filter_removed_active(active)
+                self.config.set_json("active_personae", filtered)
             self.config.set("active_personae_version", str(self._ACTIVE_VERSION))
+
+    def _filter_removed_active(self, names: list[str]) -> list[str]:
+        filtered = [
+            normalize_persona_name(name)
+            for name in names
+            if name and normalize_persona_name(name) not in _REMOVED_PERSONAE
+        ]
+        return filtered or list(self.DEFAULT_ACTIVE)
+
+    def _purge_removed_personae(self):
+        active = self.config.get_json("active_personae", None)
+        if isinstance(active, list):
+            filtered = self._filter_removed_active(active)
+            if filtered != active:
+                self.config.set_json("active_personae", filtered)
+
+        custom = self._load_custom()
+        removed = [name for name in custom if name in _REMOVED_PERSONAE]
+        if removed:
+            for name in removed:
+                custom.pop(name, None)
+            self._custom = custom
+            self.config.set("custom_personae", json.dumps(custom, ensure_ascii=False))
 
     def list(self) -> list[str]:
         builtin = list(BUILTIN_PERSONAE.keys())
-        custom = self._load_custom_names()
+        builtin_set = set(builtin)
+        custom = [name for name in self._load_custom_names() if name not in builtin_set]
         return builtin + custom
 
     def get_prompt(self, name: str) -> tuple[str, str]:
         normalized = normalize_persona_name(name)
-        if normalized in BUILTIN_PERSONAE:
-            prompt = BUILTIN_PERSONAE[normalized]
-            if Translator.get_language() == "en":
-                return ensure_reply_contract(prompt["system_en"]), prompt["user_en"]
-            return ensure_reply_contract(prompt["system_zh"]), prompt["user_zh"]
-
         custom = self._load_custom()
         if normalized in custom:
             prompt = custom[normalized]
-            return ensure_reply_contract(prompt["system_pt"]), prompt["user_pt"]
+            system_pt = (prompt.get("system_pt") or "").strip()
+            if system_pt:
+                user_pt = prompt.get("user_pt") or default_user_prompt()
+                return ensure_reply_contract(system_pt, self.config), user_pt
+
+        if normalized in BUILTIN_PERSONAE:
+            prompt = BUILTIN_PERSONAE[normalized]
+            if Translator.get_language() == "en":
+                return ensure_reply_contract(prompt["system_en"], self.config), prompt["user_en"]
+            return ensure_reply_contract(prompt["system_zh"], self.config), prompt["user_zh"]
         return "", ""
 
     def get_active(self) -> list[str]:
         names = self.config.get_json("active_personae", self.DEFAULT_ACTIVE)
-        normalized = [normalize_persona_name(name) for name in names]
-        normalized = [name for name in normalized if name]
-        return normalized or self.DEFAULT_ACTIVE
+        normalized = self._filter_removed_active(names if isinstance(names, list) else [])
+        return normalized
 
     def set_active(self, names: list[str]):
-        normalized = [normalize_persona_name(name) for name in names if name]
-        self.config.set_json("active_personae", normalized or self.DEFAULT_ACTIVE)
+        normalized = self._filter_removed_active([normalize_persona_name(name) for name in names if name])
+        self.config.set_json("active_personae", normalized)
 
     def _load_custom_names(self) -> list[str]:
         return list(self._load_custom().keys())

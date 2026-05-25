@@ -1,4 +1,5 @@
 from datetime import datetime
+
 from app.config_store import ConfigStore
 
 
@@ -7,15 +8,16 @@ class TemplateManager:
         self.config = config
 
     def save(self, name: str, system_pt: str, user_pt: str):
-        rows = self.config.conn.execute(
-            "SELECT MAX(version) FROM templates WHERE name=?", (name,)
-        ).fetchone()
-        version = (rows[0] or 0) + 1
-        self.config.conn.execute(
-            "INSERT INTO templates (name, version, system_pt, user_pt, created_at) VALUES (?,?,?,?,?)",
-            (name, version, system_pt, user_pt, datetime.now().isoformat()),
-        )
-        self.config.conn.commit()
+        with self.config._write_lock:
+            rows = self.config.conn.execute(
+                "SELECT MAX(version) FROM templates WHERE name=?", (name,)
+            ).fetchone()
+            version = (rows[0] or 0) + 1
+            self.config.conn.execute(
+                "INSERT INTO templates (name, version, system_pt, user_pt, created_at) VALUES (?,?,?,?,?)",
+                (name, version, system_pt, user_pt, datetime.now().isoformat()),
+            )
+            self.config.conn.commit()
 
     def load(self, name: str, version: int | None = None) -> tuple[str, str]:
         if version:

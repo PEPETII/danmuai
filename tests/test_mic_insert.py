@@ -1,0 +1,114 @@
+import time
+from unittest.mock import Mock
+
+import pytest
+from main import BatchTracker, DanmuApp
+
+from tests.conftest import bind_minimal_danmu_app
+
+
+def _bind_main_methods(app):
+    for name in (
+        "_reply_request_id",
+        "_register_request_meta",
+        "_pop_request_meta",
+        "_release_inflight_for_source",
+        "_enqueue_reply_batch",
+        "_is_reply_stale",
+        "_handle_mic_ai_reply",
+        "_on_ai_reply",
+        "_on_ai_error",
+        "_default_batch_interval",
+        "_log_reply_drop",
+        "_consume_request_timing",
+        "_trigger_api_call_if_ready",
+        "_publish_live_status",
+        "_consume_reply_queue",
+    ):
+        setattr(app, name, getattr(DanmuApp, name).__get__(app, DanmuApp))
+    app.logger = Mock()
+    app.personae = Mock()
+    app.personae.pick_random = Mock(return_value="persona-1")
+    app._queue_capacity = lambda: 8
+
+
+@pytest.fixture
+def app():
+    instance = DanmuApp.__new__(DanmuApp)
+    bind_minimal_danmu_app(instance)
+    _bind_main_methods(instance)
+    instance._latest_screenshot_id = 10
+    instance._latest_requested_screenshot_id = 10
+    instance._latest_queued_screenshot_id = 0
+    instance._scene_generation = 0
+    return instance
+
+
+def test_mic_enqueue_does_not_reset_batch_tracker(app):
+    batch = BatchTracker(99)
+    batch.next_generation_time = 12345.0
+    app._current_batch = batch
+    app._batch_id = 7
+
+    app._enqueue_reply_batch(
+        "persona-1",
+        -1,
+        10,
+        time.monotonic(),
+        0,
+        ["接话1", "接话2", "a", "b", "c"],
+        from_mic_insert=True,
+    )
+
+    assert app._current_batch is batch
+    assert app._current_batch.next_generation_time == 12345.0
+    queued = list(app.reply_buffer._items)
+    assert queued
+    assert all(item.source == "mic" for item in queued)
+    assert all(item.replaceable is False for item in queued)
+
+
+def test_mic_reply_never_stale_ttl(app):
+    captured = time.monotonic() - 120.0
+    stale, reason = app._is_reply_stale(1, captured, 0, source="mic")
+    assert stale is False
+    assert reason == ""
+
+
+def test_mic_reply_stale_skips_newer_frame_supersede(app):
+    app._latest_screenshot_id = 20
+    app._latest_requested_screenshot_id = 20
+    captured = time.monotonic()
+    stale, reason = app._is_reply_stale(10, captured, 0, source="mic")
+    assert stale is False
+
+    stale_ai, reason_ai = app._is_reply_stale(10, captured, 0, source="ai")
+    assert stale_ai is True
+    assert reason_ai == "superseded_by_newer_frame"
+
+
+def test_on_ai_reply_mic_does_not_decrement_visual_inflight(app):
+    app.ai_in_flight = 1
+    app.mic_in_flight = 1
+    app._register_request_meta(-1, 10, 0, "mic")
+    app._consume_reply_queue = lambda: None
+    app._on_ai_reply('["m1","m2","m3","m4","m5"]', "persona-1", -1, 10, time.monotonic(), 0)
+    assert app.ai_in_flight == 1
+    assert app.mic_in_flight == 0
+    assert app.reply_buffer.size() == 5
+
+
+def test_on_ai_error_mic_does_not_increment_failures(app):
+    app._consecutive_failures = 0
+    app._register_request_meta(-2, 10, 0, "mic")
+    app._on_ai_error("mic failed", "persona-1", -2, 10, time.monotonic(), 0)
+    assert app._consecutive_failures == 0
+
+
+def test_visual_on_ai_reply_still_decrements_ai_inflight(app):
+    app.ai_in_flight = 1
+    app._is_generating = True
+    app._register_request_meta(5, 10, 0, "visual")
+    app._on_ai_reply('["v1","v2","v3","v4","v5"]', "persona-1", 5, 10, time.monotonic(), 0)
+    assert app.ai_in_flight == 0
+    assert app._is_generating is False

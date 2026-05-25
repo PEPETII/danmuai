@@ -1,5 +1,42 @@
 # Changelog
 
+## Unreleased
+
+### Removed
+
+- 遗留 Qt 主窗（`ui/`）及启动方式 `--qt-ui`、`--legacy-ui`、`DANMU_QT_UI`、`DANMU_WEB_CONSOLE=0`；请使用默认 Web 控制台
+
+### Changed
+
+- `DanmuApp` 始终启动 Web 控制台；废弃启动参数将 `sys.exit(2)` 并打印迁移说明
+- `docs/qt6_ui_redesign_plan.md` 移至 `docs/archive/`（只读历史）
+
+### Documentation
+
+- 文档：移除对已删除 `prototype/scheme-e-*` 的当前态引用；统一默认 Web 控制台叙事
+- 新增 `prototype/README.md`；更新 `AGENTS.md`、`README*.md`、`docs/ROADMAP*.md`、`docs/RELEASE_CHECKLIST*.md`、`docs/ARCHITECTURE*.md`、`CONTRIBUTING*.md`
+- `docs/qt6_ui_redesign_plan.md`：标注 Phase 0 / `scheme-e` 为历史；Qt 令牌以 `ui/theme.py` 为准
+- 隐私/安全/审计：`screen_index` 所选显示器全屏（修正「主屏 / screens[0]」过时表述）
+- 架构：恢复场景指纹与 `live_freshness` 文档；删除「场景指纹已禁用」错误描述
+- 用户文档：README / WEB_CONSOLE 补充 `DANMU_IMAGE_METRICS`、`DANMU_SCENE_DEBUG`；JPEG 压缩双入口说明；`scripts/` 索引
+- 合规：`OPEN_SOURCE_AUDIT*`、`THIRD_PARTY_NOTICES.md` 补充 fastapi、uvicorn、pywebview
+
+## 2026-05-24（Web 控制台迁入）
+
+- **默认启动**：`python main.py` → pywebview + 本地 Web 控制台（`127.0.0.1:18765`）+ Qt Overlay/托盘，不再默认加载 Qt 主窗
+- 新增 `app/web_console.py`、`app/webview_shell.py`、`web/static/`、`app/web_api/`（人格、自定义模型、`POST /api/preview/compress`）
+- Web 页面：运行概览、助手设置（含节奏/截图/图像参数）、人格工坊、弹幕日记（多级别过滤/复制/自动滚动）、隐私
+- `ui/main_window.py` 仅 `--qt-ui` / `DANMU_QT_UI=1` 加载，标记 **deprecated**
+- 文档：`docs/WEB_CONSOLE.md`、更新 `README.md`、`AGENTS.md`、`docs/ARCHITECTURE.md`
+- 测试：`test_web_persona_api.py`、`test_web_custom_models.py`、`test_image_compress.py`、`test_ui_mode.py`
+
+## 2026-05-24（方案 E Qt UI）
+
+- 主窗口 UI 全面切换为**方案 E（玻璃浅色）**：渐变背景、浮动侧栏、`GlassTopBar`、右下角 `LogDock`
+- 新增 `ui/glass_frame.py`、`ui/glass_top_bar.py`、`ui/log_dock.py`；`ui/theme.py` 增加 `USE_LEGACY_THEME` 回退开关
+- 新增 HTML 原型 `prototype/scheme-e-*.html`、`scheme-e-tokens.css`；`ui_preview.html` 指向主壳预览
+- 更新 `AGENTS.md`、`docs/ARCHITECTURE.md`、`README.md` 等文档以反映 UI 结构；详见 `docs/qt6_ui_redesign_plan.md`
+
 ## 2026-05-17
 
 - 项目许可证从 MIT 更改为 GPL-3.0+，与 PyQt6 (GPL-3.0) 和 python-Levenshtein (GPL-2.0+) 的 copyleft 要求一致

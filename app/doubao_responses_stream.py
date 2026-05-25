@@ -1,0 +1,185 @@
+"""Parse Volcengine / Doubao Responses API SSE streams and JSON bodies."""
+
+from __future__ import annotations
+
+import json
+from dataclasses import dataclass, field
+from typing import Any, Iterable
+
+
+@dataclass
+class DoubaoResponsesResult:
+    text: str = ""
+    input_tokens: int = 0
+    output_tokens: int = 0
+    error: str = ""
+    stream_events: list[str] = field(default_factory=list)
+
+
+def extract_text_from_response(response: dict[str, Any]) -> str:
+    parts: list[str] = []
+    for item in response.get("output", []) or []:
+        if not isinstance(item, dict):
+            continue
+        if item.get("type") == "message":
+            for content in item.get("content", []) or []:
+                if not isinstance(content, dict):
+                    continue
+                if content.get("type") == "output_text":
+                    text = content.get("text", "")
+                    if text:
+                        parts.append(str(text))
+        elif item.get("type") == "output_text":
+            text = item.get("text", "")
+            if text:
+                parts.append(str(text))
+    return "".join(parts)
+
+
+def _extract_error_message(chunk: dict[str, Any]) -> str:
+    err = chunk.get("error")
+    if isinstance(err, dict):
+        message = err.get("message") or err.get("code")
+        if message:
+            return str(message)
+    response = chunk.get("response")
+    if isinstance(response, dict):
+        nested = response.get("error")
+        if isinstance(nested, dict):
+            message = nested.get("message") or nested.get("code")
+            if message:
+                return str(message)
+        incomplete = response.get("incomplete_details")
+        if isinstance(incomplete, dict):
+            reason = incomplete.get("reason")
+            if reason:
+                return f"response incomplete: {reason}"
+    message = chunk.get("message")
+    if message:
+        return str(message)
+    return ""
+
+
+def _apply_usage(result: DoubaoResponsesResult, usage: dict[str, Any]) -> None:
+    if not usage:
+        return
+    result.input_tokens = int(usage.get("input_tokens", result.input_tokens) or 0)
+    result.output_tokens = int(usage.get("output_tokens", result.output_tokens) or 0)
+
+
+def _normalize_sse_line(raw: Any) -> str:
+    if isinstance(raw, bytes):
+        raw = raw.decode("utf-8", errors="replace")
+    return str(raw).strip()
+
+
+def consume_doubao_sse_lines(lines: Iterable[Any]) -> DoubaoResponsesResult:
+    collected: list[str] = []
+    summary_parts: list[str] = []
+    result = DoubaoResponsesResult()
+
+    for raw in lines:
+        line = _normalize_sse_line(raw)
+        if not line or not line.startswith("data: "):
+            continue
+        payload = line[6:]
+        if payload.strip() == "[DONE]":
+            continue
+        try:
+            chunk = json.loads(payload)
+        except json.JSONDecodeError:
+            continue
+
+        chunk_type = chunk.get("type", "")
+        if chunk_type and chunk_type not in result.stream_events:
+            result.stream_events.append(chunk_type)
+
+        if chunk_type == "response.output_text.delta":
+            delta = chunk.get("delta", "")
+            if delta:
+                collected.append(str(delta))
+        elif chunk_type == "response.output_text.done":
+            text = chunk.get("text", "") or chunk.get("delta", "")
+            if text:
+                collected.append(str(text))
+        elif chunk_type in (
+            "response.reasoning_summary_text.delta",
+            "response.reasoning_text.delta",
+        ):
+            delta = chunk.get("delta", "")
+            if delta:
+                summary_parts.append(str(delta))
+        elif chunk_type in (
+            "response.reasoning_summary_text.done",
+            "response.reasoning_text.done",
+        ):
+            text = chunk.get("text", "") or chunk.get("delta", "")
+            if text:
+                summary_parts.append(str(text))
+        elif chunk_type in ("response.completed", "response.incomplete", "response.failed"):
+            response = chunk.get("response", {})
+            if isinstance(response, dict):
+                _apply_usage(result, response.get("usage", {}) or {})
+                if not collected:
+                    collected.append(extract_text_from_response(response))
+            if chunk_type in ("response.failed", "response.incomplete"):
+                message = _extract_error_message(chunk)
+                if message:
+                    result.error = message
+        elif chunk_type == "error":
+            message = _extract_error_message(chunk)
+            if message:
+                result.error = message
+
+    text = "".join(collected)
+    if not text and summary_parts:
+        text = "".join(summary_parts)
+    result.text = text
+    return result
+
+
+def parse_doubao_json_body(body: dict[str, Any]) -> DoubaoResponsesResult:
+    result = DoubaoResponsesResult()
+    if isinstance(body.get("error"), dict):
+        result.error = _extract_error_message(body)
+        return result
+    if body.get("message") and (body.get("code") or body.get("error_code")):
+        result.error = str(body["message"])
+        return result
+
+    response = body.get("response")
+    if isinstance(response, dict):
+        _apply_usage(result, response.get("usage", {}) or {})
+        result.text = extract_text_from_response(response)
+        if response.get("status") in ("failed", "incomplete"):
+            result.error = _extract_error_message({"response": response}) or str(response.get("status", ""))
+        return result
+
+    _apply_usage(result, body.get("usage", {}) or {})
+    result.text = extract_text_from_response(body)
+    if body.get("status") in ("failed", "incomplete"):
+        result.error = _extract_error_message({"response": body}) or str(body.get("status", ""))
+    return result
+
+
+def stream_doubao_responses(
+    http_client,
+    url: str,
+    headers: dict[str, Any],
+    data: dict[str, Any],
+) -> DoubaoResponsesResult:
+    with http_client.stream("POST", url, headers=headers, json=data) as resp:
+        resp.raise_for_status()
+        content_type = (resp.headers.get("content-type") or "").lower()
+        if "application/json" in content_type:
+            body = resp.read()
+            if isinstance(body, bytes):
+                body = body.decode("utf-8", errors="replace")
+            try:
+                parsed = json.loads(body)
+            except json.JSONDecodeError:
+                return DoubaoResponsesResult(error=str(body)[:500])
+            if isinstance(parsed, dict):
+                return parse_doubao_json_body(parsed)
+            return DoubaoResponsesResult(error="invalid_json_response")
+        return consume_doubao_sse_lines(resp.iter_lines())

@@ -1,0 +1,6 @@
+pytest>=8.0
+pytest-qt>=4.4
+Pillow>=10.0
+ruff>=0.8.0
+pyinstaller>=6.10
+pyinstaller-hooks-contrib>=2024.10

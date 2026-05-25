@@ -1,114 +1,31 @@
 import time
-from types import SimpleNamespace
 
+import pytest
+from app.config_store import ConfigStore
+from app.danmu_engine import (
+    DanmuEngine,
+    clamp_danmu_lines,
+    layout_height_ratio,
+    normalize_layout_mode,
+    resolve_danmu_max_chars,
+)
 from app.reply_queue import AIReplyFIFOBuffer, QueuedReply
 from main import DanmuApp
 
-
-class FakeLogger:
-    def __init__(self):
-        self.debug_messages = []
-        self.info_messages = []
-        self.error_messages = []
-
-    def debug(self, message):
-        self.debug_messages.append(message)
-
-    def info(self, message):
-        self.info_messages.append(message)
-
-    def error(self, message):
-        self.error_messages.append(message)
+from tests.conftest import bind_minimal_danmu_app
 
 
-class FakeControlPanel:
-    def update_stats(self, *a):
-        pass
-    def update_system_status(self, *a):
-        pass
-    def set_error_status(self, *a):
-        pass
-
-
-class FakeWindow:
-    def __init__(self):
-        self.control_panel = FakeControlPanel()
-
-
-class FakeConfig:
-    def get(self, key, default=""):
-        return default
-    def get_int(self, key, default=0):
-        return default
-    def get_float(self, key, default=0.0):
-        return default
-
-
-class FakeEngine:
-    def __init__(self):
-        self.calls = []
-        self.running = False
-        self.screen_width = 1920.0
-
-    def add_text(self, content, persona, batch_id=0):
-        self.calls.append((content, persona))
-        return SimpleNamespace(content=content, persona=persona, batch_id=batch_id, x=2000.0, speed=2.2)
-
-    def max_on_screen(self):
-        return 0
-
-    def current_display_count(self):
-        return 0
-
-    def get_display_count(self):
-        return 0
-
-    def right_zone_count(self):
-        return 0
-
-
-class FakeHistory:
-    def __init__(self):
-        self.calls = []
-
-    def add(self, content, persona, round_num):
-        self.calls.append((content, persona, round_num))
-
-
-class FakeHistoryWriter:
-    def __init__(self):
-        self.calls = []
-
-    def enqueue(self, content, persona, round_num, image_bytes=None):
-        self.calls.append((content, persona, round_num, image_bytes))
-
-    def stop(self):
-        pass
-
-
-class FakeTimer:
-    def __init__(self):
-        self.active = False
-        self.started = 0
-        self.stopped = 0
-        self._interval = 800
-
-    def isActive(self):
-        return self.active
-
-    def start(self, ms=0):
-        self.active = True
-        self.started += 1
-
-    def stop(self):
-        self.active = False
-        self.stopped += 1
-
-    def interval(self):
-        return self._interval
-
-    def setInterval(self, ms):
-        self._interval = ms
+@pytest.fixture()
+def engine(workspace_tmp):
+    db_path = workspace_tmp / "config.db"
+    store = ConfigStore(db_path=db_path)
+    store.set("danmu_speed", "2.0")
+    store.set("danmu_lines", "2")
+    eng = DanmuEngine(store)
+    eng.recent.clear()
+    eng.recent_exact_set.clear()
+    eng.screen_width = 1000.0
+    return eng
 
 
 def test_reply_fifo_buffer_preserves_completion_order():
@@ -133,44 +50,154 @@ def test_reply_fifo_buffer_keeps_eight_latest_items_by_default():
     assert buffer.pop().content == "msg-1"
 
 
+def test_add_text_truncates_to_configured_max_chars(engine):
+    engine.config.set("danmu_max_chars", "8")
+    item = engine.add_text("一二三四五六七八九十")
+    assert item is not None
+    assert item.content == "一二三四五六七八..."
+
+
+def test_resolve_danmu_max_chars_defaults_and_clamp(engine):
+    engine.config.set("danmu_max_chars", "")
+    assert resolve_danmu_max_chars(engine.config, lang="zh") == 15
+    engine.config.set("danmu_max_chars", "99")
+    assert resolve_danmu_max_chars(engine.config) == 80
+    engine.config.set("danmu_max_chars", "2")
+    assert resolve_danmu_max_chars(engine.config) == 5
+
+
+def test_init_tracks_clamps_configured_and_auto_line_count(engine):
+    engine.config.set("danmu_lines", "5")
+    engine.set_screen_height(1080.0)
+    engine.reload_tracks()
+    assert len(engine.tracks) == 12
+
+    engine.config.set("danmu_lines", "18")
+    engine.reload_tracks()
+    assert len(engine.tracks) == 18
+
+    engine.config.set("danmu_lines", "0")
+    engine.set_screen_height(1080.0)
+    engine.reload_tracks()
+    assert len(engine.tracks) == 20
+
+
+def test_clamp_danmu_lines_bounds():
+    assert clamp_danmu_lines(5) == 12
+    assert clamp_danmu_lines(25) == 20
+    assert clamp_danmu_lines(16) == 16
+
+
+def test_layout_mode_normalization(engine):
+    assert normalize_layout_mode("1/2") == "1/2"
+    assert normalize_layout_mode("invalid") == "fullscreen"
+    engine.config.set("layout_mode", "1/2")
+    assert layout_height_ratio(engine.config) == 0.5
+
+
+def test_layout_half_reduces_auto_track_count(workspace_tmp):
+    store = ConfigStore(db_path=workspace_tmp / "layout.db")
+    store.set("danmu_lines", "0")
+    store.set("layout_mode", "fullscreen")
+    engine = DanmuEngine(store)
+    engine.set_screen_height(1080.0)
+    engine.reload_tracks()
+    full_count = len(engine.tracks)
+
+    store.set("layout_mode", "1/2")
+    engine.reload_tracks()
+    half_count = len(engine.tracks)
+
+    assert half_count < full_count
+    assert engine.tracks[-1].y < 1080 * 0.5
+
+
+def test_clear_dedup_window_empties_recent(engine):
+    engine._remember_content("seen")
+    assert len(engine.recent) == 1
+    engine.clear_dedup_window()
+    assert len(engine.recent) == 0
+    assert len(engine.recent_exact_set) == 0
+
+
+def test_drop_pending_below_generation_removes_offscreen_old_items(engine):
+    from app.danmu_engine import DanmuItem
+
+    engine.screen_width = 1000.0
+    track = engine.tracks[0]
+    pending = DanmuItem("pending", scene_generation=0, x=1100.0, width=80.0)
+    visible = DanmuItem("visible", scene_generation=0, x=400.0, width=80.0)
+    track.items = [pending, visible]
+    engine._rebuild_visibility_counts()
+
+    dropped = engine.drop_pending_below_generation(1)
+
+    assert dropped == 1
+    assert len(track.items) == 1
+    assert track.items[0].content == "visible"
+
+
+def test_drop_items_below_scene_generation_removes_all_old_generation(engine):
+    from app.danmu_engine import DanmuItem
+
+    engine.screen_width = 1000.0
+    track = engine.tracks[0]
+    old = DanmuItem("old", scene_generation=0, x=400.0, width=80.0)
+    new = DanmuItem("new", scene_generation=2, x=500.0, width=80.0)
+    track.items = [old, new]
+
+    dropped = engine.drop_items_below_scene_generation(2)
+
+    assert dropped == 1
+    assert len(track.items) == 1
+    assert track.items[0].content == "new"
+
+
+def test_drop_items_with_batch_id_removes_matching_track_items():
+    from app.danmu_engine import DanmuEngine, DanmuItem
+
+    from tests.fakes import FakeConfig
+
+    engine = DanmuEngine(FakeConfig())
+    engine.screen_width = 1000.0
+    track = engine.tracks[0]
+    keep = DanmuItem("keep", batch_id=1, x=400.0, width=80.0)
+    drop = DanmuItem("drop", batch_id=9, x=500.0, width=80.0)
+    track.items = [keep, drop]
+    engine._rebuild_visibility_counts()
+
+    removed = engine.drop_items_with_batch_id(9)
+
+    assert removed == 1
+    assert len(track.items) == 1
+    assert track.items[0].content == "keep"
+
+
+def test_drop_items_below_scene_generation_forgets_dedup(engine):
+    from app.danmu_engine import DanmuItem
+
+    engine.screen_width = 1000.0
+    track = engine.tracks[0]
+    old = DanmuItem("old-gen", scene_generation=0, x=400.0, width=80.0)
+    track.items = [old]
+    engine._remember_content("old-gen")
+    engine._rebuild_visibility_counts()
+
+    dropped = engine.drop_items_below_scene_generation(1)
+
+    assert dropped == 1
+    assert engine._is_duplicate("old-gen") is False
+
+
 def test_ai_reply_queue_uses_request_context_and_fifos_results():
     app = DanmuApp.__new__(DanmuApp)
-    app.logger = FakeLogger()
-    app.engine = FakeEngine()
-    app.history = FakeHistory()
-    app.history_writer = FakeHistoryWriter()
-    app.reply_buffer = AIReplyFIFOBuffer(max_items=8)
-    app.danmu_queue = app.reply_buffer
-    app.reply_timer = FakeTimer()
-    app.ai_in_flight = 1
-    app.MAX_IN_FLIGHT = 1
-    app._screenshot_scheduled = False
-    app._schedule_next_screenshot = lambda delay_ms: None
+    bind_minimal_danmu_app(
+        app,
+        ai_in_flight=1,
+        screenshot_round=10,
+        _latest_screenshot_id=10,
+    )
     app.reply_timer.active = False
-    app._queue_low_watermark = 3
-    app._queue_fallback_keep = 3
-    app._queue_run_dry_window_ms = 2000
-    app._queue_batch_size = 5
-    app.danmu_count = 0
-    app.screenshot_round = 10
-    app._latest_displayed_round = 0
-    app._rtt_history = []
-    app._request_started_at_by_id = {}
-    app.config = FakeConfig()
-    app.window = FakeWindow()
-    app._consecutive_failures = 0
-    app._failure_backoff_paused = False
-    app._last_error_message = ""
-    app._scene_generation = 0
-    app._latest_requested_screenshot_id = 0
-    app._latest_queued_screenshot_id = 0
-    app._latest_displayed_screenshot_id = 0
-    app._is_generating = False
-    app._batch_id = 0
-    app._current_batch = None
-    app._total_input_tokens = 0
-    app._total_output_tokens = 0
-    app._start_time = 0.0
 
     now = time.monotonic()
     app._on_ai_reply('["A1", "A2"]', "persona-1", 10, 10, now, 0)

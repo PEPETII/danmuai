@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DanmuAI - 你的温馨直播小助手</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        cream: '#FDFBF7',       // 奶油白背景
+                        warmPink: '#FFB6B9',    // 暖粉色按钮/图标
+                        softPeach: '#FFE5D9',   // 蜜桃色侧边栏/提示
+                        pastelYellow: '#FFF2CC',// 鹅黄色高亮
+                        warmText: '#5D5757',    // 暖灰色文字
+                    },
+                    fontFamily: {
+                        sans: ['Nunito', 'sans-serif'],
+                    },
+                    boxShadow: {
+                        'warm': '0 4px 15px -3px rgba(255, 182, 185, 0.2)',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #FDFBF7; color: #5D5757; }
+        .card {
+            background: white;
+            border-radius: 1.5rem;
+            box-shadow: 0 4px 20px rgba(255, 198, 198, 0.1);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 25px rgba(255, 198, 198, 0.2);
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #FFD1D1 0%, #FFB6B9 100%);
+            transition: all 0.3s ease;
+        }
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #FFB6B9 0%, #FFA5A5 100%);
+            box-shadow: 0 4px 15px rgba(255, 182, 185, 0.4);
+        }
+        .sidebar-item { transition: all 0.2s; }
+        .sidebar-item:hover, .sidebar-item.active {
+            background-color: #FFF2CC;
+            color: #D98A6C;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: #FFB6B9;
+            box-shadow: 0 0 0 3px rgba(255, 182, 185, 0.2);
+        }
+        /* 自定义滚动条 */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #FDFBF7; }
+        ::-webkit-scrollbar-thumb { background: #FFE5D9; border-radius: 4px; }
+    </style>
+</head>
+<body class="font-sans flex h-screen overflow-hidden">
+
+    <!-- 🌸 左侧温馨导航栏 -->
+    <aside class="w-64 bg-white p-6 flex flex-col border-r border-pastelYellow">
+        <div class="flex items-center gap-3 mb-10">
+            <div class="w-10 h-10 bg-softPeach rounded-full flex items-center justify-center text-xl shadow-sm">🐾</div>
+            <h1 class="text-xl font-bold text-warmText">DanmuAI</h1>
+        </div>
+        
+        <nav class="flex-1 space-y-2">
+            <a href="#" class="sidebar-item active flex items-center gap-3 px-4 py-3 rounded-xl font-semibold">
+                <i class="fas fa-home w-5"></i> 温馨控制台
+            </a>
+            <a href="#" class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-xl font-semibold">
+                <i class="fas fa-sliders-h w-5"></i> 助手设置
+            </a>
+            <a href="#" class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-xl font-semibold">
+                <i class="fas fa-book-open w-5"></i> 弹幕日记
+            </a>
+            <a href="#" class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-xl font-semibold">
+                <i class="fas fa-shield-alt w-5"></i> 隐私保护
+            </a>
+        </nav>
+
+        <!-- 隐私小贴士 -->
+        <div class="bg-pastelYellow/40 p-4 rounded-2xl text-sm text-warmText border border-pastelYellow">
+            <p class="font-bold mb-1 flex items-center gap-2">🌟 隐私小贴士</p>
+            <p class="leading-relaxed">小助手默认<span class="font-bold text-D98A6C">不保存截图</span>，您的 API Key 已穿上 Fernet 加密防弹衣哦！</p>
+        </div>
+    </aside>
+
+    <!-- 🌻 右侧主内容区 -->
+    <main class="flex-1 overflow-y-auto p-8 bg-cream">
+        
+        <!-- 顶部欢迎语 -->
+        <header class="flex justify-between items-center mb-8">
+            <div>
+                <h2 class="text-2xl font-bold text-warmText">下午好，今天也要开心直播呀！🌻</h2>
+                <p class="text-gray-500 mt-1">小助手正在待命，随时为你生成暖心弹幕~</p>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="flex items-center gap-2 bg-white px-4 py-2 rounded-full shadow-warm border border-softPeach">
+                    <div class="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
+                    <span class="text-sm font-semibold text-warmText">守护中</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- 状态统计卡片 -->
+        <div class="grid grid-cols-3 gap-6 mb-8">
+            <div class="card p-6">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 bg-softPeach rounded-2xl flex items-center justify-center text-2xl">💬</div>
+                    <div>
+                        <p class="text-gray-400 text-sm">今日生成弹幕</p>
+                        <p class="text-2xl font-bold text-warmText">1,204</p>
+                    </div>
+                </div>
+            </div>
+            <div class="card p-6">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 bg-pastelYellow rounded-2xl flex items-center justify-center text-2xl">✨</div>
+                    <div>
+                        <p class="text-gray-400 text-sm">画面强相关</p>
+                        <p class="text-2xl font-bold text-warmText">482</p>
+                    </div>
+                </div>
+            </div>
+            <div class="card p-6">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-2xl">🎈</div>
+                    <div>
+                        <p class="text-gray-400 text-sm">泛用暖场弹幕</p>
+                        <p class="text-2xl font-bold text-warmText">722</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 核心配置表单 -->
+        <div class="card p-8">
+            <h3 class="text-lg font-bold text-warmText mb-6 flex items-center gap-2">
+                <i class="fas fa-cog text-warmPink"></i> 助手配置
+            </h3>
+            
+            <div class="grid grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-semibold mb-2 text-warmText">☁️ API 地址</label>
+                    <input type="text" placeholder="https://api.openai.com/v1" class="w-full px-4 py-3 bg-cream border border-transparent rounded-xl text-warmText">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold mb-2 text-warmText">🧠 视觉模型</label>
+                    <select class="w-full px-4 py-3 bg-cream border border-transparent rounded-xl text-warmText">
+                        <option>GPT-4o (推荐)</option>
+                        <option>Qwen-VL</option>
+                        <option>GLM-4V</option>
+                    </select>
+                </div>
+                <div class="col-span-2">
+                    <label class="block text-sm font-semibold mb-2 text-warmText">🔑 API 密钥 <span class="text-xs text-gray-400 font-normal">(本地 Fernet 加密保护)</span></label>
+                    <div class="relative">
+                        <input type="password" placeholder="sk-..." class="w-full px-4 py-3 bg-cream border border-transparent rounded-xl pr-12 text-warmText">
+                        <button class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-warmPink">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <hr class="my-8 border-dashed border-pastelYellow">
+
+            <h4 class="text-md font-bold text-warmText mb-4 flex items-center gap-2">
+                <i class="fas fa-crop-alt text-warmPink"></i> 截图与隐私区域
+            </h4>
+            
+            <!-- 温馨提示框 -->
+            <div class="bg-softPeach/30 p-4 rounded-xl mb-6 text-sm text-warmText border border-softPeach flex gap-3">
+                <i class="fas fa-info-circle mt-1 text-D98A6C"></i> 
+                <p>请只框选游戏或直播画面哦！<strong className="text-D98A6C">千万不要</strong>框选包含密码、聊天记录或支付信息的区域。当前版本仅支持主屏幕，小助手会乖乖在顶层透明浮层滚动 5 条弹幕（2条画面相关+3条暖场）~</p>
+            </div>
+            
+            <!-- 坐标输入 -->
+            <div class="grid grid-cols-4 gap-4 mb-8">
+                <div>
+                    <label class="block text-xs font-semibold mb-1 text-gray-400">X 坐标</label>
+                    <input type="number" value="100" class="w-full px-4 py-2 bg-cream border border-transparent rounded-lg text-center">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold mb-1 text-gray-400">Y 坐标</label>
+                    <input type="number" value="100" class="w-full px-4 py-2 bg-cream border border-transparent rounded-lg text-center">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold mb-1 text-gray-400">宽度 (W)</label>
+                    <input type="number" value="800" class="w-full px-4 py-2 bg-cream border border-transparent rounded-lg text-center">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold mb-1 text-gray-400">高度 (H)</label>
+                    <input type="number" value="600" class="w-full px-4 py-2 bg-cream border border-transparent rounded-lg text-center">
+                </div>
+            </div>
+
+            <!-- 操作按钮 -->
+            <div class="flex justify-end gap-4">
+                <button class="px-6 py-3 bg-white border border-gray-200 rounded-xl font-semibold hover:bg-gray-50 transition text-warmText">取消</button>
+                <button class="btn-primary px-8 py-3 text-white rounded-xl font-bold shadow-warm flex items-center gap-2">
+                    保存并开启守护 <i class="fas fa-sparkles"></i>
+                </button>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

@@ -8,14 +8,11 @@ P1-002 / P1-003 测试：API Key 加密降级警告和密钥损坏恢复
 4. 解密失败时警告
 """
 
-import pytest
 import logging
-from unittest.mock import Mock, patch, MagicMock
-from pathlib import Path
-import tempfile
-import os
+from unittest.mock import patch
 
-from app.config_store import ConfigStore, _HAS_CRYPTO
+import pytest
+from app.config_store import _HAS_CRYPTO, ConfigStore
 
 
 @pytest.fixture
@@ -82,7 +79,6 @@ class TestP1002_Base64FallbackWarning:
     @staticmethod
     def _capture_logs():
         """捕获日志的上下文管理器"""
-        import logging
 
         class LogCapture(logging.Handler):
             def __init__(self):
@@ -221,7 +217,6 @@ class TestP1003_KeyFileCorruptionRecovery:
     @staticmethod
     def _capture_logs():
         """捕获日志的上下文管理器"""
-        import logging
 
         class LogCapture(logging.Handler):
             def __init__(self):

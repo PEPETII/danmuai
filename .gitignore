@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 *.pyo
 .pytest_cache/
+.pytest_tmp/
 .coverage
 htmlcov/
 *.log
@@ -12,6 +13,7 @@ htmlcov/
 # Local environments
 .env
 .env.*
+!.env.example
 .venv/
 venv/
 
@@ -53,3 +55,13 @@ skills-lock.json
 
 # Test/temp resources
 test_icon.png
+
+# Local benchmark artifacts (do not commit screenshots or bench output)
+scripts/output/
+danmu_jpeg_bench_*.json
+
+# Local reference clones (do not commit)
+python-mss-main/
+开源项目/
+Danmaku-master/
+.cursor/

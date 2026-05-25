@@ -3,7 +3,9 @@ import time
 from PyQt6.QtCore import QRunnable, pyqtSignal
 
 from app.ai_client import AiWorker
+from app.image_metrics import log_compress_metrics
 from app.logger import SanitizedLogger
+from app.mic_encode import pcm_to_wav_data_uri
 from app.translations import tr
 
 
@@ -23,6 +25,9 @@ class AiRunnable(QRunnable):
         captured_at: float,
         scene_generation: int,
         compress_fn,
+        image_quality: int | None = None,
+        mic_pcm: bytes | None = None,
+        mic_attach_audio: bool = False,
     ):
         super().__init__()
         self.worker = worker
@@ -35,6 +40,9 @@ class AiRunnable(QRunnable):
         self.captured_at = captured_at
         self.scene_generation = scene_generation
         self.compress_fn = compress_fn
+        self.image_quality = image_quality
+        self.mic_pcm = mic_pcm
+        self.mic_attach_audio = mic_attach_audio
         self.created_at = time.monotonic()
 
     def run(self):
@@ -50,6 +58,26 @@ class AiRunnable(QRunnable):
             compress_time = time.monotonic() - compress_start
             if compress_time > 0.1:
                 logger.warning(f"compress_screenshot took {compress_time:.2f}s")
+            if self.image_quality is not None:
+                log_compress_metrics(
+                    logger,
+                    orig_w=self.pixmap.width(),
+                    orig_h=self.pixmap.height(),
+                    quality=self.image_quality,
+                    compress_ms=compress_time * 1000.0,
+                    data_uri=image_data_uri,
+                )
+
+            audio_data_uri = None
+            if self.mic_attach_audio and self.mic_pcm:
+                audio_data_uri = pcm_to_wav_data_uri(self.mic_pcm)
+                if audio_data_uri:
+                    logger.info(
+                        f"mic audio attached pcm_bytes={len(self.mic_pcm)} "
+                        f"wav_b64_len={len(audio_data_uri.split(',', 1)[-1])}"
+                    )
+                else:
+                    logger.debug("mic audio skipped: buffer too short")
 
             request_start = time.monotonic()
             self.worker._request(
@@ -61,6 +89,7 @@ class AiRunnable(QRunnable):
                 self.screenshot_id,
                 self.captured_at,
                 self.scene_generation,
+                audio_data_uri=audio_data_uri,
             )
             request_time = time.monotonic() - request_start
             if request_time > 5.0:

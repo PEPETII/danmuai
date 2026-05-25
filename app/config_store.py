@@ -1,7 +1,7 @@
-import sqlite3
 import json
-import os
 import logging
+import os
+import sqlite3
 import threading
 from pathlib import Path
 
@@ -11,10 +11,21 @@ try:
 except ImportError:
     _HAS_CRYPTO = False
 
-from base64 import b64encode, b64decode
+from base64 import b64decode, b64encode
+
 from app.translations import tr
 
 logger = logging.getLogger(__name__)
+
+_SENSITIVE_CONFIG_KEYS = frozenset({"api_key_encrypted", "custom_models", "api_key"})
+
+
+def _redact_config_value_for_log(key: str, value: str) -> str:
+    if key in _SENSITIVE_CONFIG_KEYS or "encrypted" in key.lower() or key.endswith("_key"):
+        return "***"
+    if len(value) > 120:
+        return f"{value[:40]}…({len(value)} chars)"
+    return value
 
 
 CONFIG_DIR = Path(os.environ.get("APPDATA", ".")) / "DanmuAI"
@@ -44,9 +55,13 @@ class ConfigStore:
         self._init_db()
         self._cache: dict[str, str] = {}
         self._load_cache()
-        self._fernet = self._init_fernet()
-        # Write lock for thread-safe writes
         self._write_lock = threading.Lock()
+        if self.is_first_run or not self.get("danmu_speed"):
+            from app.config_defaults import seed_config_defaults
+
+            seed_config_defaults(self)
+            self._load_cache()
+        self._fernet = self._init_fernet()
 
     def get_startup_notice(self) -> str:
         if self.is_first_run:
@@ -99,12 +114,15 @@ class ConfigStore:
                 self.conn.execute("REPLACE INTO config (key, value) VALUES (?, ?)", (key, value))
                 self.conn.commit()
             except sqlite3.OperationalError as e:
-                logger.error(tr("config.write_failed").format(key=key, value=value, error=e))
+                safe_value = _redact_config_value_for_log(key, value)
+                logger.error(
+                    tr("config.write_failed").format(key=key, value=safe_value, error=e)
+                )
                 raise
 
     def set_batch(self, items: dict[str, str]):
         """Batch update with transaction protection.
-        
+
         Either all items are written successfully, or none are (rollback on failure).
         Cache is only updated after successful database commit.
         """
@@ -183,8 +201,8 @@ class ConfigStore:
     def get_region(self) -> tuple[int, int, int, int]:
         x = self.get_int("region_x", 0)
         y = self.get_int("region_y", 0)
-        w = self.get_int("region_w", 400)
-        h = self.get_int("region_h", 300)
+        w = self.get_int("region_w", 0)
+        h = self.get_int("region_h", 0)
         return x, y, w, h
 
     def set_region(self, x: int, y: int, w: int, h: int):
