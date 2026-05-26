@@ -18,7 +18,7 @@
 
 ## 本地存储
 
-- 配置库默认位于 `%APPDATA%/DanmuAI/config.db`。
+- 配置库默认位于 Windows `%APPDATA%/DanmuAI/config.db`，macOS `~/Library/Application Support/DanmuAI/config.db`。
 - API Key 优先使用 Fernet 加密；无 `cryptography` 依赖时会退化为 base64 编码，并在日志中明确提示风险。
 - 仓库中的 `log/`、`ph/`、`.coverage`、缓存目录均属于本地调试产物，发布前应忽略，不应进入版本控制。
 

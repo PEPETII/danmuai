@@ -10,6 +10,7 @@
 
 - 弹幕显示默认模式改为 **普通模式**（`danmu_display_mode=normal`）；新装/缺省键种子与 Web 表单默认一致；已保存为 `realtime` 的配置库不变
 - `DanmuApp` 始终启动 Web 控制台；废弃启动参数将 `sys.exit(2)` 并打印迁移说明
+- 增加 macOS 基础适配：用户数据目录、pywebview Cocoa 后端、WebView helper Dock 隐藏、非 Windows 快捷键降级、Overlay macOS 窗口标志与截图权限提示
 - `docs/qt6_ui_redesign_plan.md` 移至 `docs/archive/`（只读历史）
 
 ### Documentation
@@ -20,7 +21,8 @@
 - 隐私/安全/审计：`screen_index` 所选显示器全屏（修正「主屏 / screens[0]」过时表述）
 - 架构：恢复场景指纹与 `live_freshness` 文档；删除「场景指纹已禁用」错误描述
 - 用户文档：README / WEB_CONSOLE 补充 `DANMU_IMAGE_METRICS`、`DANMU_SCENE_DEBUG`；JPEG 压缩双入口说明；`scripts/` 索引
-- 合规：`OPEN_SOURCE_AUDIT*`、`THIRD_PARTY_NOTICES.md` 补充 fastapi、uvicorn、pywebview
+- 打包文档：新增 macOS `.app` 构建入口 `DanmuAI-macOS.spec`、`scripts/build_macos.sh` 与 `docs/PACKAGING_MACOS.md`
+- 合规：`OPEN_SOURCE_AUDIT*`、`THIRD_PARTY_NOTICES.md` 补充 fastapi、uvicorn、pywebview 与 PyObjC
 
 ## 2026-05-24（Web 控制台迁入）
 

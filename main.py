@@ -241,6 +241,7 @@ class DanmuApp(QObject):
         self._screenshot_backoff_level: int = 0
         self._local_fallback_active: bool = False
         self._local_fallback_for_batch: int = 0
+        self._capture_failure_hint_shown: bool = False
         self._live_status_timer = QTimer(self)
         self._live_status_timer.setInterval(500)
         self._live_status_timer.timeout.connect(self._publish_live_status)
@@ -1090,8 +1091,13 @@ class DanmuApp(QObject):
             return
         pixmap = self.capturer.grab()
         if pixmap is None:
-            self.logger.warning(tr("app.capture_failed"))
+            if sys.platform == "darwin" and not self._capture_failure_hint_shown:
+                self.logger.warning(tr("app.capture_failed_macos"))
+                self._capture_failure_hint_shown = True
+            else:
+                self.logger.warning(tr("app.capture_failed"))
             return
+        self._capture_failure_hint_shown = False
         self._latest_screenshot = pixmap
         self._latest_screenshot_time = time.monotonic()
         if not self._is_normal_mode():
@@ -2062,7 +2068,7 @@ def _check_deprecated_launch_args() -> None:
 
 
 def _web_launch_mode_from_argv() -> str:
-    """webview = pywebview 桌面窗（默认）；browser = 系统浏览器。"""
+    """webview = pywebview 桌面窗；browser = 系统浏览器。"""
     if "--web-browser" in sys.argv:
         return "browser"
     env = os.environ.get("DANMU_WEB_LAUNCH", "").strip().lower()
@@ -2076,6 +2082,8 @@ def main():
     _check_deprecated_launch_args()
     sys.excepthook = global_exception_hook
     app = QApplication(sys.argv)
+    app.setApplicationName("DanmuAI")
+    app.setOrganizationName("DanmuAI")
     app.setQuitOnLastWindowClosed(False)
 
     launch_mode = _web_launch_mode_from_argv()

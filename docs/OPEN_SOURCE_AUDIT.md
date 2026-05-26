@@ -20,7 +20,10 @@
 | fastapi | MIT | ❌ | Web 控制台 HTTP API |
 | python-multipart | Apache-2.0 | ❌ | FastAPI 上传压缩预览 multipart 解析 |
 | uvicorn | BSD-3-Clause | ❌ | ASGI 服务器 |
-| pywebview | BSD-3-Clause | ❌ | 桌面 Web 壳（Windows WebView2） |
+| pywebview | BSD-3-Clause | ❌ | 桌面 Web 壳（Windows WebView2 / macOS Cocoa WebKit） |
+| pyobjc-core | MIT | ❌ | macOS Objective-C bridge |
+| pyobjc-framework-Cocoa | MIT | ❌ | macOS pywebview Cocoa 后端 |
+| pyobjc-framework-WebKit | MIT | ❌ | macOS pywebview WebKit 后端 |
 | sounddevice | MIT | ❌ | 麦克风采集 |
 | numpy | BSD-3-Clause | ❌ | 音频缓冲数值计算 |
 | websockets | BSD-3-Clause | ❌ | uvicorn WebSocket 实现 |
@@ -44,6 +47,6 @@
 
 ## 公开发布前仍需人工确认
 
-- 确认工作目录中没有手工遗留的测试数据库或 `%APPDATA%/DanmuAI/` 导出副本
+- 确认工作目录中没有手工遗留的测试数据库或 Windows `%APPDATA%/DanmuAI/`、macOS `~/Library/Application Support/DanmuAI/` 导出副本
 - 确认截图样例、直播内容样例和本地日志不随发布包分发
 - 确认最终压缩包或 GitHub 发布资产中不包含调试缓存目录

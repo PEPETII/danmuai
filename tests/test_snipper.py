@@ -41,6 +41,11 @@ class FakeScreen:
         return "pixmap"
 
 
+class FakeNullPixmap:
+    def isNull(self):
+        return True
+
+
 def test_resolve_screen_index_clamps_to_available_screens():
     screens = [object(), object(), object()]
     config = MagicMock()
@@ -112,3 +117,11 @@ def test_screen_capturer_passes_region_to_qscreen_grab():
         assert ScreenCapturer(config).grab() == "pixmap"
 
     assert screen.grab_args == (0, 100, 50, 320, 180)
+
+
+def test_screen_capturer_treats_null_pixmap_as_failed_capture():
+    screen = FakeScreen()
+    screen.grabWindow = MagicMock(return_value=FakeNullPixmap())
+
+    with patch("app.snipper.QApplication.screens", return_value=[screen]):
+        assert ScreenCapturer(None).grab() is None

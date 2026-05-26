@@ -28,6 +28,24 @@ def preferred_webview_gui() -> str | None:
     return "gtk"
 
 
+def hide_macos_webview_helper_from_dock() -> bool:
+    """Hide the Cocoa WebView helper process from the Dock on macOS."""
+    if sys.platform != "darwin":
+        return False
+    try:
+        import AppKit
+        import webview.platforms.cocoa as cocoa
+
+        app = getattr(cocoa.BrowserView, "app", None) or AppKit.NSApplication.sharedApplication()
+        policy = getattr(AppKit, "NSApplicationActivationPolicyAccessory", 1)
+        app.setActivationPolicy_(policy)
+        append_frozen_log("macOS webview helper activation policy set to accessory")
+        return True
+    except Exception as exc:
+        append_frozen_log(f"failed to hide macOS webview helper from Dock: {exc!r}")
+        return False
+
+
 def wait_for_http_server(base_url: str, timeout: float = _SERVER_POLL_SEC) -> bool:
     deadline = time.monotonic() + timeout
     probe = f"{base_url.rstrip('/')}/api/session"
@@ -74,6 +92,8 @@ def _webview_worker(url: str, title: str, gui: str | None, ready_queue) -> None:
     try:
         import webview
 
+        hide_macos_webview_helper_from_dock()
+
         def on_closing():
             return True
 
@@ -89,6 +109,7 @@ def _webview_worker(url: str, title: str, gui: str | None, ready_queue) -> None:
             hidden=True,
             background_color="#FDFBF7",
         )
+        hide_macos_webview_helper_from_dock()
         window.events.closing += on_closing
         window.events.loaded += on_loaded
         ready_queue.put(True)

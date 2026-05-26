@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 
 from app.webview_shell import (
     WebViewShell,
+    hide_macos_webview_helper_from_dock,
     preferred_webview_gui,
     wait_for_http_server,
 )
@@ -13,6 +14,16 @@ from app.webview_shell import (
 def test_preferred_webview_gui_windows():
     with patch.object(sys, "platform", "win32"):
         assert preferred_webview_gui() == "edgechromium"
+
+
+def test_preferred_webview_gui_macos():
+    with patch.object(sys, "platform", "darwin"):
+        assert preferred_webview_gui() == "cocoa"
+
+
+def test_hide_macos_webview_helper_skips_non_macos():
+    with patch.object(sys, "platform", "linux"):
+        assert hide_macos_webview_helper_from_dock() is False
 
 
 def test_wait_for_http_server_success():

@@ -23,7 +23,7 @@ python main.py
 - 截图在**主线程**（`QTimer` 1s）
 - AI 请求在 `QThreadPool`（`MAX_IN_FLIGHT=1`）
 - HTTP 线程写 Qt 对象**必须**走 `WebConsoleBridge` 信号或 `QTimer.singleShot(0, ...)` 到主线程
-- `keyboard` 回调经 `_ToggleBridge` 到主线程
+- Windows `keyboard` 回调经 `_ToggleBridge` 到主线程；macOS 全局快捷键默认降级为空操作，使用托盘 / Web 控制
 
 **扩展 API**：`app/web_api/routes.py` 在 `web_console` 上注册；人格/模型逻辑复用 `PersonaManager`、`TemplateManager`、`validate_model_config`
 
@@ -40,7 +40,7 @@ python main.py
 | `app/scene_memory.py` | 兼容 re-export（`SceneMemoryStore`、`memory_window_from_config`） |
 | `app/reply_parser.py` | AI 回复 JSON 解析与标准化 |
 | `app/reply_queue.py` | `AIReplyFIFOBuffer` + 自适应延迟 100–1000ms |
-| `app/config_store.py` | SQLite `%APPDATA%/DanmuAI/config.db`，Fernet 加密 Key，WAL + 写锁 |
+| `app/config_store.py` | SQLite 用户数据目录（Windows `%APPDATA%/DanmuAI/config.db`，macOS `~/Library/Application Support/DanmuAI/config.db`），Fernet 加密 Key，WAL + 写锁 |
 | `app/mic_service.py` | 麦克风模式门面；`mic_mode_enabled` / `MicService` |
 | `app/mic_utterance.py` | RMS 语音端点检测（无 VAD 库），4 状态机 |
 | `app/mic_capture.py` | `sounddevice` 录音；`mic_encode.py` → WAV data URI |
@@ -83,7 +83,7 @@ CI：`.github/workflows/ci.yml` — Python 3.12 `windows-latest`
 
 ## 关键陷阱
 
-- **加密锁死**：丢失 `%APPDATA%/DanmuAI/.key` → 已加密 Key 不可恢复
+- **加密锁死**：丢失用户数据目录下 `.key` → 已加密 Key 不可恢复
 - **弹幕截断**：15 中文字 / 40 英文字 + `...`
 - **本地公式化弹幕库**：`danmu_pool_enabled=0` 时全应用禁用 `danmu_pool_zh.json`（AI 补齐、轻量兜底、同屏补足）；`min_on_screen` 默认 5，仅开关开启时生效，**0** 关闭补足
 - **去重**：`deque(30)` + `recent_exact_set` + Levenshtein `dedup_threshold=0.5`

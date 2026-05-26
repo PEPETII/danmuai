@@ -46,6 +46,14 @@
 - [ ] `%APPDATA%\DanmuAI\startup.log` 无 uvicorn/pywebview 崩溃栈
 - [ ] WebView2 缺失时文档说明安装 Runtime 或 `--web-browser` 回退
 
+## macOS app（可选）
+
+- [ ] 按 [PACKAGING_MACOS.md](PACKAGING_MACOS.md) 在 macOS 构建成功
+- [ ] `./scripts/build_macos.sh` 成功，产物为 `dist/DanmuAI.app`
+- [ ] 首次启动能打开 pywebview Cocoa 控制台或 `--web-browser` 回退
+- [ ] 授权屏幕录制后截图和 Overlay 正常；未授权时日志给出 macOS 权限提示
+- [ ] `~/Library/Application Support/DanmuAI/startup.log` 无 uvicorn/pywebview 崩溃栈
+
 ## Git 与发布
 
 - [ ] `git add -n .` 预演无意外文件

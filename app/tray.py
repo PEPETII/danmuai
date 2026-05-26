@@ -1,9 +1,15 @@
+import sys
+
 from PyQt6.QtCore import QRect, Qt
 from PyQt6.QtGui import QAction, QColor, QFont, QIcon, QPainter, QPixmap
 from PyQt6.QtWidgets import QMenu, QSystemTrayIcon
 
 from app.bundle_paths import resource_path
 from app.translations import Translator, tr
+
+
+def tray_font_family() -> str:
+    return "Helvetica Neue" if sys.platform == "darwin" else "Segoe UI"
 
 
 class TrayManager:
@@ -23,7 +29,7 @@ class TrayManager:
         painter.setPen(Qt.PenStyle.NoPen)
         painter.drawRoundedRect(4, 4, 56, 56, 12, 12)
         painter.setPen(QColor(255, 255, 255))
-        font = QFont("Segoe UI", 34)
+        font = QFont(tray_font_family(), 34)
         font.setBold(True)
         painter.setFont(font)
         painter.drawText(QRect(0, 0, 64, 64), Qt.AlignmentFlag.AlignCenter, "D")

@@ -81,4 +81,9 @@ class ScreenCapturer:
         target_screen = screens[resolve_screen_index(self.config)]
         geo = target_screen.geometry()
         x, y, width, height = grab_rect_screen_local(self.config, geo)
-        return target_screen.grabWindow(0, x, y, width, height)
+        pixmap = target_screen.grabWindow(0, x, y, width, height)
+        if pixmap is None:
+            return None
+        if hasattr(pixmap, "isNull") and pixmap.isNull():
+            return None
+        return pixmap

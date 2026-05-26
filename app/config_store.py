@@ -13,6 +13,7 @@ except ImportError:
 
 from base64 import b64decode, b64encode
 
+from app.platform_paths import user_data_dir
 from app.translations import tr
 
 logger = logging.getLogger(__name__)
@@ -28,7 +29,7 @@ def _redact_config_value_for_log(key: str, value: str) -> str:
     return value
 
 
-CONFIG_DIR = Path(os.environ.get("APPDATA", ".")) / "DanmuAI"
+CONFIG_DIR = user_data_dir()
 CONFIG_FILE = CONFIG_DIR / "config.db"
 _KEY_FILE = CONFIG_DIR / ".key"
 

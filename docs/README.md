@@ -32,6 +32,7 @@
 | 文档 | 说明 |
 |------|------|
 | [PACKAGING_WINDOWS.md](PACKAGING_WINDOWS.md) | Windows exe 打包流程、PyInstaller 配置与已知问题 |
+| [PACKAGING_MACOS.md](PACKAGING_MACOS.md) | macOS app 打包流程、权限与已知限制 |
 | [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) | 发布前检查清单 |
 | [OPEN_SOURCE_AUDIT.md](OPEN_SOURCE_AUDIT.md) | 许可证与第三方依赖审计 |
 | [SECURITY.md](../SECURITY.md) | 安全反馈流程 |
