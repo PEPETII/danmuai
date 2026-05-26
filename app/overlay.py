@@ -44,6 +44,23 @@ _overlay_logger = logging.getLogger("danmu.overlay")
 _overlay_profile_flag: bool | None = None
 
 
+def overlay_window_flags() -> Qt.WindowType:
+    flags = (
+        Qt.WindowType.FramelessWindowHint
+        | Qt.WindowType.WindowStaysOnTopHint
+        | Qt.WindowType.Tool
+    )
+    if sys.platform != "darwin":
+        flags |= Qt.WindowType.BypassWindowManagerHint
+    return flags
+
+
+def overlay_font_family() -> str:
+    if sys.platform == "darwin":
+        return "PingFang SC"
+    return "Microsoft YaHei"
+
+
 def overlay_profile_enabled() -> bool:
     global _overlay_profile_flag
     if _overlay_profile_flag is None:
@@ -58,12 +75,7 @@ class DanmuOverlay(QWidget):
         self.config = config
         self.engine = engine
 
-        self.setWindowFlags(
-            Qt.WindowType.FramelessWindowHint
-            | Qt.WindowType.WindowStaysOnTopHint
-            | Qt.WindowType.Tool
-            | Qt.WindowType.BypassWindowManagerHint
-        )
+        self.setWindowFlags(overlay_window_flags())
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
@@ -88,7 +100,7 @@ class DanmuOverlay(QWidget):
 
         size = self.config.get_int("font_size", DEFAULT_FONT_SIZE)
         size = max(12, min(72, size))
-        self.font = QFont("Microsoft YaHei", size)
+        self.font = QFont(overlay_font_family(), size)
         self.font.setBold(True)
         self.font_metrics = QFontMetrics(self.font)
 
@@ -99,6 +111,23 @@ class DanmuOverlay(QWidget):
         ex_style = _GetWindowLong(hwnd, _GWL_EXSTYLE)
         _SetWindowLong(hwnd, _GWL_EXSTYLE,
                        ex_style | _WS_EX_LAYERED | _WS_EX_TRANSPARENT)
+
+    def _apply_macos_click_through(self):
+        if sys.platform != "darwin":
+            return
+        try:
+            import objc
+
+            ns_view = objc.objc_object(c_void_p=ctypes.c_void_p(int(self.winId())))
+            ns_window = ns_view.window()
+            if ns_window is not None:
+                ns_window.setIgnoresMouseEvents_(True)
+        except Exception as exc:
+            _overlay_logger.debug("macOS click-through setup skipped: %r", exc)
+
+    def _apply_platform_click_through(self):
+        self._apply_win32_click_through()
+        self._apply_macos_click_through()
 
     def _has_animatable_content(self) -> bool:
         return self.engine.needs_render_tick()
@@ -465,4 +494,4 @@ class DanmuOverlay(QWidget):
                 self.engine.reload_tracks(preserve_visible=True)
         self._apply_font_from_config()
         self.show()
-        self._apply_win32_click_through()
+        self._apply_platform_click_through()

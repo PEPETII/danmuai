@@ -2,7 +2,7 @@
 
 ## `generate_app_icon.py`
 
-生成 `resources/icon.png`（托盘）与 `resources/icon.ico`（PyInstaller exe 图标）。`build_exe.ps1` 在图标缺失时会自动调用。
+生成 `resources/icon.png`（托盘 / macOS app 图标源）与 `resources/icon.ico`（PyInstaller exe 图标）。`build_exe.ps1` 在图标缺失时会自动调用。
 
 ```bash
 python scripts/generate_app_icon.py
@@ -18,6 +18,16 @@ Windows 发布包（PyInstaller onedir，`DanmuAI.spec`）。
 
 输出 `dist\DanmuAI\DanmuAI.exe`。需已存在 `data\danmu_pool_zh.json`。完整说明与问题记录见 [docs/PACKAGING_WINDOWS.md](../docs/PACKAGING_WINDOWS.md)。
 
+## `build_macos.sh`
+
+macOS `.app` 发布包（PyInstaller onedir + BUNDLE，`DanmuAI-macOS.spec`）。
+
+```bash
+./scripts/build_macos.sh
+```
+
+输出 `dist/DanmuAI.app`。完整说明见 [docs/PACKAGING_MACOS.md](../docs/PACKAGING_MACOS.md)。
+
 ## `bench_jpeg_quality.py`
 
 Local benchmark for `main.compress_screenshot()` (production path). Does **not** call AI APIs or write images into the repository.
@@ -27,7 +37,7 @@ Local benchmark for `main.compress_screenshot()` (production path). Does **not**
 - Project dependencies installed (`pip install -r requirements.txt`)
 - Run from repo root (or any cwd; the script adds the repo to `sys.path`)
 
-### Qt / Windows note
+### Qt note
 
 `--source file` tries an inline `QApplication` first. If Qt fails to initialize in this process (common in some terminals), it **automatically falls back** to a subprocess worker (`_bench_jpeg_worker.py`) that runs `main.compress_screenshot()` in a clean process. Force subprocess with `--subprocess`.
 

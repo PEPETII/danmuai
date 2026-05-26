@@ -3,7 +3,8 @@
 import pytest
 from app.config_store import ConfigStore
 from app.danmu_engine import DanmuEngine, DanmuItem
-from app.overlay import _INTERVAL_MAX_MS, DanmuOverlay
+from app.overlay import _INTERVAL_MAX_MS, DanmuOverlay, overlay_font_family, overlay_window_flags
+from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QApplication
 
 
@@ -166,3 +167,12 @@ def test_dt_motion_matches_legacy_per_frame(overlay_stack):
     engine.update(speed_factor=1.0, dt_sec=1.0 / 60.0)
     new_x = engine.tracks[0].items[0].x
     assert new_x == pytest.approx(old_x - 2.0)
+
+
+def test_overlay_window_flags_omit_bypass_on_macos(monkeypatch):
+    monkeypatch.setattr("app.overlay.sys.platform", "darwin")
+    flags = overlay_window_flags()
+
+    assert flags & Qt.WindowType.WindowStaysOnTopHint
+    assert not flags & Qt.WindowType.BypassWindowManagerHint
+    assert overlay_font_family() == "PingFang SC"

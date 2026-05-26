@@ -67,6 +67,11 @@ DanmuAI 使用以下第三方开源组件。每个组件保留其原始许可证
 - 来源：https://pypi.org/project/pywebview/
 - 仓库：https://github.com/r0x0r/pywebview
 
+### PyObjC（pyobjc-core、pyobjc-framework-Cocoa、pyobjc-framework-WebKit）
+- 许可证：MIT License
+- 来源：https://pypi.org/project/pyobjc-core/
+- 仓库：https://github.com/ronaldoussoren/pyobjc
+
 ### sounddevice
 - 许可证：MIT License
 - 来源：https://pypi.org/project/sounddevice/

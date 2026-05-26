@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+
+from app.platform_paths import startup_log_path
 
 
 def is_frozen() -> bool:
@@ -24,9 +25,7 @@ def resource_path(*parts: str) -> Path:
 
 
 def frozen_log_path() -> Path:
-    appdata = os.environ.get("APPDATA", "").strip()
-    base = Path(appdata) if appdata else Path.home()
-    return base / "DanmuAI" / "startup.log"
+    return startup_log_path()
 
 
 def append_frozen_log(message: str) -> None:
