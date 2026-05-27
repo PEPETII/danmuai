@@ -1,7 +1,6 @@
 """Tests for screen-relative region normalization (no Qt required)."""
 
 import pytest
-
 from app.region_selector import (
     MIN_REGION_SIZE,
     normalize_region_for_screen,

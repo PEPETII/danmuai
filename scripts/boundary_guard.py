@@ -3,11 +3,9 @@ from __future__ import annotations
 import argparse
 import re
 import subprocess
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
-
 
 RUNTIME_STATE_DOC = Path("docs/runtime-state-map.md")
 PIPELINE_DOC = Path("docs/main-pipeline-sequence.md")

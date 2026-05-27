@@ -6,7 +6,11 @@ from dataclasses import dataclass
 
 import httpx
 
-from app.ai_client import format_http_status_error, openai_compatible_request_extensions
+from app.ai_client import (
+    THINKING_DISABLED,
+    format_http_status_error,
+    openai_compatible_request_extensions,
+)
 from app.model_providers import normalize_endpoint, normalize_mode, resolve_api_transport
 from app.translations import tr
 

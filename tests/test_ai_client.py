@@ -4,7 +4,6 @@ from contextlib import contextmanager
 from unittest.mock import MagicMock, patch
 
 import httpx
-
 from app.ai_client import (
     DANMU_MIN_OUTPUT_TOKENS,
     DANMU_MIN_OUTPUT_TOKENS_THINKING,

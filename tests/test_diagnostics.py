@@ -4,14 +4,13 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-import pytest
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
-
 import app.api_schedule as api_schedule
 import main
+import pytest
 from app.application.diagnostic_snapshot import DiagnosticSnapshotBuilder, build_diagnostic_report
 from app.web_api.routes import register_web_routes
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
 from main import DanmuApp
 
 from tests.conftest import bind_minimal_danmu_app

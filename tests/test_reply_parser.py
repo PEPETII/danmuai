@@ -1,5 +1,5 @@
 from app.live_freshness import build_local_fallback_batch
-from app.personae import REPLY_CONTRACT, PersonaManager
+from app.personae import PersonaManager
 from app.reply_parser import (
     normalize_reply_batch,
     parse_ai_reply_payload,

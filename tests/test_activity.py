@@ -8,7 +8,6 @@ from app.memory.activity import (
     RecentActivityState,
 )
 from app.window_info import (
-    ActivityObservation,
     ACTIVITY_TYPE_BROWSER,
     ACTIVITY_TYPE_CHAT,
     ACTIVITY_TYPE_DESKTOP,
@@ -17,6 +16,7 @@ from app.window_info import (
     ACTIVITY_TYPE_IDE,
     ACTIVITY_TYPE_UNKNOWN,
     ACTIVITY_TYPE_VIDEO,
+    ActivityObservation,
 )
 
 

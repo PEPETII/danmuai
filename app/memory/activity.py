@@ -11,7 +11,7 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass, field
 
-from app.window_info import ActivityObservation, ACTIVITY_TYPE_GAME, ACTIVITY_TYPE_GAME_LAUNCHER
+from app.window_info import ACTIVITY_TYPE_GAME, ACTIVITY_TYPE_GAME_LAUNCHER, ActivityObservation
 
 ACTIVITY_OBSERVATION_WINDOW_SEC = 300  # 观察窗口：5 分钟内的活动才参与计算
 FREQUENT_SWITCH_THRESHOLD = 4  # 频繁切换判定：窗口内切换 ≥4 次

@@ -3,16 +3,15 @@
 from __future__ import annotations
 
 import pytest
-
-from app.web_console import apply_config_patch
 from app.model_catalog import default_catalog_model_id
+from app.model_providers import is_model_config_complete, resolve_active_model_id
 from app.model_selection import (
     infer_provider_id,
     resolve_model_status,
     validate_global_model_selection,
     validate_web_config_patch,
 )
-from app.model_providers import is_model_config_complete, resolve_active_model_id
+from app.web_console import apply_config_patch
 
 
 class _Cfg:

@@ -5,16 +5,22 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import Mock
 
-import pytest
-
 import app.api_schedule as api_schedule
 import main
+import pytest
 from app.application.request_scheduler import RequestScheduler
 from app.application.request_timing_service import RequestTimingService
 from main import DanmuApp
 
 from tests.conftest import bind_minimal_danmu_app
-from tests.fakes import FakeConfig, FakeEngine, FakeHistoryWriter, FakeLifetimeStats, FakeLogger, FakeTimer
+from tests.fakes import (
+    FakeConfig,
+    FakeEngine,
+    FakeHistoryWriter,
+    FakeLifetimeStats,
+    FakeLogger,
+    FakeTimer,
+)
 
 
 def _make_request_app(**overrides):

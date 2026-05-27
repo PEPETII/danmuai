@@ -1,7 +1,6 @@
 """Static assets for Supabase-backed announcements and feedback."""
 
 import pytest
-
 from app.bundle_paths import project_root
 
 

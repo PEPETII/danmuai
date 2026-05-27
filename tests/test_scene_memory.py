@@ -4,7 +4,7 @@ import time
 
 from app.memory.types import VisualMemoryUpdate
 from app.memory_prompt_builder import build_memory_prompt_block
-from app.reply_queue import AIReplyFIFOBuffer, QueuedReply
+from app.reply_queue import QueuedReply
 from app.scene_memory import SceneMemoryStore, append_memory_to_user_pt
 from main import DanmuApp
 

@@ -32,13 +32,6 @@ import traceback
 from datetime import datetime
 
 from app.ai_client import AiWorker
-from app.application.config_service import apply_web_config_patch
-from app.application.diagnostic_snapshot import DiagnosticSnapshotBuilder, build_diagnostic_report
-from app.application.request_scheduler import RequestScheduler
-from app.application.request_timing_service import RequestTimingService
-from app.application.stats_state import StatsState
-from app.application.status_snapshot import StatusSnapshotBuilder
-from app.application.web_runtime_state import WebRuntimeState
 from app.api_schedule import (
     api_schedule_debug_enabled,
     format_api_schedule_log,
@@ -46,6 +39,13 @@ from app.api_schedule import (
     pixels_per_second,
     time_to_anchor_boundary,
 )
+from app.application.config_service import apply_web_config_patch
+from app.application.diagnostic_snapshot import DiagnosticSnapshotBuilder, build_diagnostic_report
+from app.application.request_scheduler import RequestScheduler
+from app.application.request_timing_service import RequestTimingService
+from app.application.stats_state import StatsState
+from app.application.status_snapshot import StatusSnapshotBuilder
+from app.application.web_runtime_state import WebRuntimeState
 from app.config_store import ConfigStore
 from app.danmu_engine import (
     DanmuEngine,
@@ -65,6 +65,8 @@ from app.live_freshness import (
     should_backoff_screenshot,
 )
 from app.logger import SanitizedLogger
+from app.memory.activity import RecentActivityState
+from app.memory.activity_prompt import append_activity_line_to_user_pt, format_activity_prompt_line
 from app.memory.types import MEMORY_MODE_OFF, bullet_angle_from_index
 from app.mic_encode import pcm_to_wav_data_uri
 from app.mic_prompt import build_mic_insert_user_pt
@@ -102,8 +104,6 @@ from app.snipper import ScreenCapturer, resolve_screen_index
 from app.templates import TemplateManager
 from app.translations import Translator, tr
 from app.tray import TrayManager
-from app.memory.activity import RecentActivityState
-from app.memory.activity_prompt import append_activity_line_to_user_pt, format_activity_prompt_line
 from app.window_info import classify_foreground_window, get_foreground_window_info
 from PIL import Image
 from PyQt6.QtCore import QObject, QTimer, pyqtSignal

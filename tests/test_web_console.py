@@ -8,7 +8,6 @@ import pytest
 from app.application.generation_pipeline_state import GenerationPipelineState
 from app.application.stats_state import StatsState
 from app.application.web_runtime_state import WebRuntimeState
-from main import DanmuApp
 from app.web_console import (
     WEB_CONFIG_KEYS,
     WebConsoleBridge,
@@ -16,6 +15,7 @@ from app.web_console import (
     export_config,
     extract_config_payload,
 )
+from main import DanmuApp
 
 
 class FakeConfig:

@@ -1,13 +1,12 @@
 """Integration tests for RecentActivityState wired into DanmuApp."""
 
 import time
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from app.memory.activity import RecentActivityState
 from app.memory.activity_prompt import format_activity_prompt_line
-from app.memory.types import MEMORY_MODE_OFF
 from app.scene_memory import SceneMemoryStore
-from app.window_info import ActivityObservation, ACTIVITY_TYPE_GAME, ACTIVITY_TYPE_GAME_LAUNCHER
+from app.window_info import ACTIVITY_TYPE_GAME, ACTIVITY_TYPE_GAME_LAUNCHER, ActivityObservation
 from main import DanmuApp
 
 from tests.conftest import bind_minimal_danmu_app

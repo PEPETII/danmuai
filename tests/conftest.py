@@ -42,9 +42,9 @@ _ensure_feedback_static_images()
 import pytest
 from app.application.stats_state import StatsState
 from app.application.web_runtime_state import WebRuntimeState
+from app.memory.activity import RecentActivityState
 from app.reply_queue import AIReplyFIFOBuffer
 from app.scene_memory import SceneMemoryStore
-from app.memory.activity import RecentActivityState
 
 from tests.fakes import (  # noqa: E402 — tests package (tests/__init__.py)
     FakeConfig,

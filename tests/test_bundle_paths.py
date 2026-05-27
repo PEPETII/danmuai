@@ -1,7 +1,7 @@
 
 import pytest
-
 from app.bundle_paths import is_frozen, project_root, resource_path
+
 from tests.conftest import _ensure_feedback_static_images
 
 

@@ -8,8 +8,8 @@ import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from app.danmu_engine import dedup_profile_enabled
 from app.application.generation_pipeline_state import GenerationPipelineState
+from app.danmu_engine import dedup_profile_enabled
 from app.personae import persona_display_name
 
 if TYPE_CHECKING:

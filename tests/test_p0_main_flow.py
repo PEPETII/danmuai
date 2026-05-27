@@ -15,10 +15,10 @@ from unittest.mock import Mock
 from app.application.generation_pipeline_state import GenerationPipelineState
 from app.application.stats_state import StatsState
 from app.application.web_runtime_state import WebRuntimeState
+from app.memory.activity import RecentActivityState
 from app.reply_queue import AIReplyFIFOBuffer, QueuedReply
 from app.runnable import AiRunnable
 from app.scene_memory import SceneMemoryStore
-from app.memory.activity import RecentActivityState
 from main import DanmuApp, compress_screenshot
 
 from tests.fakes import FakeLifetimeStats, FakeLogger

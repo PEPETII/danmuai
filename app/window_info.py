@@ -6,8 +6,6 @@ import ctypes
 from ctypes import wintypes
 from dataclasses import dataclass
 
-from app.memory.types import INFERRED_CONFIDENCE
-
 
 @dataclass
 class WindowActivity:
