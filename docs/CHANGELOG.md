@@ -2,27 +2,43 @@
 
 ## Unreleased
 
+（暂无条目；下一版本发布前在此累积变更。）
+
+## 2026-05-29
+
+### Added
+
+- **直播网页弹幕层**：`LiveOverlayHub`、`/live-overlay`、`/api/live-overlay/events`（SSE）、`POST …/test`；`main.py` 在 normalize 成功后旁路广播（视觉 AI + 开麦 AI）；控制台「运行概览 → 直播输出」
+- **Provider 适配层**：`app/providers/`（registry、capabilities、Default/MiMo adapters）；`ai_client` / `api_probe` OpenAI 路径委托 adapter
+- MiMo 目录：`mimo-v2.5`（MiMo-V2.5）、`mimo-v2.5-pro`（无识图）；默认可视仍为 `mimo-v2.5`
+- 公告已读：`GET/PUT /api/announcements-read-state`（`config.db` 按公告 `id`）；顶栏简略条（前 30 字，独立 dismiss）
+- Web 内置 `tailwindcdn.js`；`app/single_instance.py` 单实例激活已有窗口
+- Web 侧栏 **公告** 页、**问题反馈** 表单（Supabase）；`supabase/migrations/001_announcements_feedback.sql`
+
+### Removed
+
+- `app/probe_runnable.py`（主链路未使用的库存预取探测）
+
 ### Fixed
 
 - RTT 计时键改为 `{request_round}:{screenshot_id}:{scene_generation}`，避免麦克风与视觉请求同帧互相覆盖
 - `ConfigStore.set()` 写入失败时不再污染内存缓存（与 `set_batch` 一致）
+- WebSocket：Starlette `WebSocketRoute`；日志 WS 1008 时 `refreshSession()`
 
 ### Changed
 
+- 主链路：清除 realtime/节奏模式遗留；截图 API 失败退避接入 `screenshot_interval_ms`
 - 截图：拒绝 null / `isNull()` / 零尺寸 pixmap，不递增 `screenshot_id`
 - 主链路可观测性：无效截图、空 AI 解析、缺失 request meta / RTT、视觉 in-flight 超时（45s）等 structured warning 日志
+- MiMo：OpenAI 兼容请求与探测对齐；`HOST_ENTRIES` 合并 endpoint guess
 - Web：`POST /api/personae/{name}/rollback` 需 Bearer；配置保存失败写入 Web 错误状态
-
-### Added
-
-- Web 侧栏 **公告** 页：从 Supabase 拉取已发布公告列表（置顶优先）
-- **问题反馈** 在线表单：提交至 Supabase；本机每 3 小时最多 2 条（数据库 RLS + `client_id` 限流）
-- `web/static/supabase-client.js`、`supabase-config.example.js`；迁移脚本 `supabase/migrations/001_announcements_feedback.sql`
 
 ### Documentation
 
-- [WEB_CONSOLE.md](WEB_CONSOLE.md)：公告/反馈与 Supabase 配置说明
-- 同步主链路/运行态文档： [MAIN_PIPELINE.md](MAIN_PIPELINE.md)、[main-pipeline-sequence.md](main-pipeline-sequence.md)、[RUNTIME_STATE.md](RUNTIME_STATE.md)、[ARCHITECTURE.md](ARCHITECTURE.md)、[AGENTS.md](../AGENTS.md)、[OPEN_SOURCE_AUDIT.md](OPEN_SOURCE_AUDIT.md)
+- [WEB_CONSOLE.md](WEB_CONSOLE.md)：直播 Overlay、公告、Supabase
+- [architecture/provider-adapter.md](architecture/provider-adapter.md)、[audits/token-consumption-audit.md](audits/token-consumption-audit.md)
+- [main-pipeline-sequence.md](main-pipeline-sequence.md)、[runtime-state-map.md](runtime-state-map.md)、[PACKAGING_WINDOWS.md](PACKAGING_WINDOWS.md)
+- GitHub Release 正文：[release/2026-05-29.md](release/2026-05-29.md)
 
 ## 2026-05-27
 
