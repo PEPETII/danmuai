@@ -145,6 +145,8 @@ class WebStatusSnapshot:
     uses_custom_credentials: bool = False
     model_source: str = "unknown"
     provider_model_mismatch: bool = False
+    capture_mode: str = "screen"
+    capture_window_hwnd: int = 0
     capture_region_mode: str = "full"
     region_x: int = 0
     region_y: int = 0
@@ -356,7 +358,10 @@ class WebConsoleBridge(QObject):
     def _on_save_config(self, payload: object) -> None:
         if not isinstance(payload, dict):
             return
+        done_event = payload.pop("__save_done_event", None)
         keys = sorted(payload.keys())
+        cap_mode = payload.get("capture_mode", "<missing>")
+        cap_hwnd = payload.get("capture_window_hwnd", "<missing>")
         try:
             self.danmu_app.apply_web_config_payload(payload)
         except Exception as exc:
@@ -372,7 +377,15 @@ class WebConsoleBridge(QObject):
             )
             self.publish_status()
             return
-        self.danmu_app.logger.info("配置保存成功: keys=%s", keys)
+        finally:
+            if done_event is not None:
+                done_event.set()
+        stored_mode = self.danmu_app.config.get("capture_mode", "screen")
+        stored_hwnd = self.danmu_app.config.get("capture_window_hwnd", "0")
+        self.danmu_app.logger.info(
+            "配置保存成功: keys=%s capture_mode=%s→%s capture_window_hwnd=%s→%s",
+            keys, cap_mode, stored_mode, cap_hwnd, stored_hwnd,
+        )
         self.danmu_app.set_web_error_status("", is_error=False)
         self.publish_status()
 
@@ -602,9 +615,12 @@ class WebConsoleServer:
                 validate_web_config_patch(bridge.danmu_app.config, data)
             except ValueError as exc:
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
-            # 与 /api/start 相同：跨线程直接 emit，由 Qt 排队到主线程槽。
-            # 勿用 QTimer.singleShot（在 uvicorn 线程创建定时器常无法触发，导致“已保存”但未写入 DB）。
+            # 跨线程 emit 给 Qt 主线程槽，用 Event 等待写入完成后再返回，
+            # 避免前端立即 reload 读到旧配置。
+            done = threading.Event()
+            data["__save_done_event"] = done
             bridge.save_config_requested.emit(data)
+            done.wait(timeout=5.0)
             return {"ok": True}
 
         @app.post("/api/start")

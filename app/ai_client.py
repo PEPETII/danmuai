@@ -431,6 +431,15 @@ class AiWorker(QObject):
         from app.doubao_responses_stream import stream_doubao_responses
 
         result = stream_doubao_responses(http_client, url, headers, data)
+        if not result.text:
+            logger.warning(
+                "doubao stream 返回空文本: input_tokens=%s output_tokens=%s "
+                "stream_events=%s error=%r",
+                result.input_tokens,
+                result.output_tokens,
+                result.stream_events,
+                result.error,
+            )
         return result.text, result.input_tokens, result.output_tokens, result.error
 
     def _request_openai(
@@ -470,7 +479,12 @@ class AiWorker(QObject):
         endpoint, api_key, model, api_mode = resolved
         temperature = self.config.get_float("temperature", 0.7)
         configured_max = self.config.get_int("max_tokens", DEFAULT_MAX_TOKENS)
-        max_tokens = resolve_danmu_max_output_tokens(configured_max, use_thinking=False)
+        caps = get_capabilities_for_endpoint(endpoint, api_mode)
+        # MiMo 等模型即使设了 thinking:disabled 仍可能产生 reasoning_content，
+        # 这些 token 也计入 max_completion_tokens，所以按 thinking 模式分配更大余量。
+        max_tokens = resolve_danmu_max_output_tokens(
+            configured_max, use_thinking=caps.thinking_param,
+        )
 
         if not api_key:
             self._emit_result("error", tr("ai.error_api_key_missing"), persona_id, request_round, screenshot_id, captured_at, scene_generation, 0, 0)
@@ -478,7 +492,6 @@ class AiWorker(QObject):
 
         http_client = self._get_http_client()
         adapter = get_openai_adapter(endpoint, api_mode)
-        caps = get_capabilities_for_endpoint(endpoint, api_mode)
         data: dict[str, object] = {
             "model": model,
             "messages": [
@@ -507,7 +520,7 @@ class AiWorker(QObject):
                 if text:
                     self._emit_result("finished", text.strip(), persona_id, request_round, screenshot_id, captured_at, scene_generation, input_tokens, output_tokens)
                 else:
-                    self._emit_result("error", tr("ai.error_empty_response"), persona_id, request_round, screenshot_id, captured_at, scene_generation, 0, 0)
+                    self._emit_result("error", tr("ai.error_empty_response"), persona_id, request_round, screenshot_id, captured_at, scene_generation, input_tokens, output_tokens)
                 return
             except httpx.TimeoutException:
                 if attempt < 1:
@@ -547,9 +560,9 @@ class AiWorker(QObject):
         _stopping=True 时提前中断循环。
         """
         collected: list[str] = []
+        reasoning_parts: list[str] = []
         input_tokens = 0
         output_tokens = 0
-        saw_reasoning = False
         caps = get_capabilities_for_endpoint(endpoint, api_mode)
         adapter = get_openai_adapter(endpoint, api_mode)
         with http_client.stream("POST", url, headers=headers, json=data) as resp:
@@ -572,22 +585,34 @@ class AiWorker(QObject):
                     content = delta.get("content", "")
                     if content:
                         collected.append(content)
-                    elif delta.get("reasoning_content"):
-                        saw_reasoning = True
-                    else:
+                    reasoning = delta.get("reasoning_content", "")
+                    if reasoning:
+                        reasoning_parts.append(reasoning)
+                    if not content and not reasoning:
                         message = choice.get("message", {})
                         message_content = message.get("content", "")
                         if message_content:
                             collected.append(message_content)
-                        elif message.get("reasoning_content"):
-                            saw_reasoning = True
+                        message_reasoning = message.get("reasoning_content", "")
+                        if message_reasoning:
+                            reasoning_parts.append(message_reasoning)
                 except (json.JSONDecodeError, IndexError, KeyError):
                     continue
         text = "".join(collected)
-        if not text and saw_reasoning and caps.thinking_param:
+        if not text and reasoning_parts:
+            reasoning_len = sum(len(p) for p in reasoning_parts)
             logger.warning(
-                "MiMo stream had reasoning_content but no content; "
-                "reason=mimo_reasoning_only endpoint=%s",
+                "openai stream 只有 reasoning_content 没有 content "
+                "(thinking:disabled 未生效，已通过增大 max_completion_tokens 缓解): "
+                "input_tokens=%s output_tokens=%s reasoning_chars=%s endpoint=%s",
+                input_tokens, output_tokens, reasoning_len,
+                normalize_endpoint(endpoint) if endpoint else url,
+            )
+        if not text:
+            logger.warning(
+                "openai stream 返回空文本: input_tokens=%s output_tokens=%s "
+                "endpoint=%s",
+                input_tokens, output_tokens,
                 normalize_endpoint(endpoint) if endpoint else url,
             )
         return text, input_tokens, output_tokens

@@ -100,16 +100,58 @@ def grab_rect_screen_local(config, screen_geometry) -> tuple[int, int, int, int]
     )
 
 
+def _grab_screen(config) -> QPixmap | None:
+    """截取选定显示器（全屏或子区域）。"""
+    screens = QApplication.screens()
+    if not screens:
+        return None
+    target_screen = screens[resolve_screen_index(config)]
+    geo = target_screen.geometry()
+    x, y, width, height = grab_rect_screen_local(config, geo)
+    return target_screen.grabWindow(0, x, y, width, height)
+
+
+def _grab_window(config) -> tuple[QPixmap | None, str]:
+    """截取选定窗口的客户区。返回 (pixmap, reason) 用于诊断。"""
+    hwnd = config.get_int("capture_window_hwnd", 0)
+    if hwnd <= 0:
+        return None, "hwnd_not_set"
+    from app.window_capture import grab_window
+    pixmap = grab_window(hwnd)
+    if pixmap is None:
+        return None, "grab_returned_none"
+    return pixmap, ""
+
+
 class ScreenCapturer:
     def __init__(self, config=None):
         self.config = config
+        self._last_logged_mode: str | None = None
+        self._fallback_count: int = 0
 
     def grab(self) -> QPixmap | None:
-        screens = QApplication.screens()
-        if not screens:
-            return None
-
-        target_screen = screens[resolve_screen_index(self.config)]
-        geo = target_screen.geometry()
-        x, y, width, height = grab_rect_screen_local(self.config, geo)
-        return target_screen.grabWindow(0, x, y, width, height)
+        mode = self.config.get("capture_mode", "screen") if self.config else "screen"
+        if mode == "window":
+            hwnd = self.config.get_int("capture_window_hwnd", 0) if self.config else 0
+            pixmap, reason = _grab_window(self.config)
+            if pixmap is not None and not pixmap.isNull():
+                if self._last_logged_mode != f"window:{hwnd}":
+                    self._last_logged_mode = f"window:{hwnd}"
+                    self._fallback_count = 0
+                    logger.info("捕获模式: window hwnd=%s size=%sx%s", hwnd, pixmap.width(), pixmap.height())
+                return pixmap
+            if reason == "":
+                reason = "null_pixmap"
+            self._fallback_count += 1
+            if self._fallback_count <= 3 or self._fallback_count % 20 == 0:
+                logger.info(
+                    "窗口捕获失败，回退到屏幕捕获 hwnd=%s reason=%s fallback_count=%d",
+                    hwnd, reason, self._fallback_count,
+                )
+            self._last_logged_mode = "screen:fallback"
+            return _grab_screen(self.config)
+        if self._last_logged_mode != "screen":
+            self._last_logged_mode = "screen"
+            self._fallback_count = 0
+            logger.info("捕获模式: screen")
+        return _grab_screen(self.config)

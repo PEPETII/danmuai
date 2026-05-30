@@ -1837,7 +1837,12 @@ class DanmuApp(QObject):
             return
 
         self._consume_request_timing(request_round, screenshot_id, scene_generation)
-        self.logger.error(f"{msg} [persona={persona_id}, round={request_round}, screenshot_id={screenshot_id}, scene_generation={scene_generation}]")
+        self.logger.error(
+            "%s [persona=%s, round=%s, screenshot_id=%s, scene_generation=%s, "
+            "input_tokens=%s, output_tokens=%s]",
+            msg, persona_id, request_round, screenshot_id, scene_generation,
+            input_tokens, output_tokens,
+        )
 
         self._consecutive_failures += 1
         self._last_error_message = msg
