@@ -2,13 +2,12 @@
 
 from unittest.mock import MagicMock
 
-import pytest
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
-
 from app.config_store import ConfigStore
 from app.danmu_read_service import export_danmu_read_config
 from app.web_api.routes import register_web_routes
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+
 
 def test_get_danmu_read_config_masks_key(workspace_tmp):
     app = FastAPI()

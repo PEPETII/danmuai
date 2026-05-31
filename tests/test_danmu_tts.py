@@ -2,16 +2,12 @@ import base64
 import io
 import wave
 
-import httpx
 import numpy as np
 import pytest
-
 from app.config_store import ConfigStore
 from app.danmu_engine import DanmuEngine, DanmuItem
 from app.danmu_read_service import (
-    DanmuReadService,
     danmu_read_enabled,
-    export_danmu_read_config,
 )
 from app.danmu_tts import (
     DanmuTtsError,
@@ -21,10 +17,7 @@ from app.danmu_tts import (
 )
 from app.danmu_tts_playback import DanmuTtsPlayback
 
-from main import DanmuApp
-
-from tests.conftest import bind_minimal_danmu_app
-from tests.fakes import FakeConfig, FakeEngine
+from tests.fakes import FakeConfig
 
 
 @pytest.fixture()

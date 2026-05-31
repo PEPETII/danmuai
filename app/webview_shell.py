@@ -1,5 +1,6 @@
 """pywebview desktop shell for the local DanmuAI web console."""
 from __future__ import annotations
+
 import json
 import multiprocessing
 import queue
@@ -9,8 +10,10 @@ import time
 import urllib.error
 import urllib.request
 from typing import TYPE_CHECKING, Any, Literal
+
 from app.bundle_paths import append_frozen_log, frozen_log_path, is_frozen
 from app.startup_trace import log_startup
+
 if TYPE_CHECKING:
     from app.web_console import WebConsoleServer
 _START_TIMEOUT_SEC = 20.0
@@ -53,6 +56,7 @@ def notify_web_console_failure(danmu_app, reason_key: str, *, detail: str = "") 
     """主线程弹窗 + 托盘气泡；HTTP 线程请经 QTimer.singleShot 调用本函数。"""
     from PyQt6.QtCore import QTimer
     from PyQt6.QtWidgets import QMessageBox, QSystemTrayIcon
+
     from app.translations import tr
     server = getattr(danmu_app, "web_server", None)
     base_url = server.base_url if server else "http://127.0.0.1:18765"

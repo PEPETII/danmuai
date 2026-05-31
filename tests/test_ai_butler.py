@@ -3,12 +3,11 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
-
 from app.config_store import ConfigStore
 from app.web_api import ai_butler
 from app.web_api.routes import register_web_routes
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
 
 @pytest.fixture

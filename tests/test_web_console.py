@@ -1388,10 +1388,9 @@ def test_ws_status_websocket_rejects_missing_token_with_1008():
 
 
 def test_invoke_on_main_runs_on_bridge_thread():
+    from app.web_console import WebConsoleBridge
     from PyQt6.QtCore import QThread
     from PyQt6.QtWidgets import QApplication
-
-    from app.web_console import WebConsoleBridge
 
     qt_app = QApplication.instance() or QApplication([])
     bridge = WebConsoleBridge(MagicMock())
@@ -1415,9 +1414,8 @@ def test_invoke_on_main_runs_on_bridge_thread():
 
 
 def test_invoke_on_main_fast_path_on_bridge_thread():
-    from PyQt6.QtWidgets import QApplication
-
     from app.web_console import WebConsoleBridge
+    from PyQt6.QtWidgets import QApplication
 
     _ = QApplication.instance() or QApplication([])
     bridge = WebConsoleBridge(MagicMock())

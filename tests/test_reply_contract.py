@@ -12,6 +12,7 @@ from app.personae import (
     strip_reply_contract,
 )
 
+
 class FakeConfig:
     def __init__(self, data=None):
         self._data = {}

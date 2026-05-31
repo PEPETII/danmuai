@@ -5,12 +5,11 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pytest
-from PyQt6.QtCore import QRect
-from PyQt6.QtWidgets import QApplication
-
 from app.config_store import ConfigStore
 from app.danmu_engine import DanmuEngine, DanmuItem, layout_height_ratio
 from app.overlay import DanmuOverlay
+from PyQt6.QtCore import QRect
+from PyQt6.QtWidgets import QApplication
 
 
 @pytest.fixture()

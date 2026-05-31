@@ -1,8 +1,7 @@
 from unittest.mock import MagicMock, patch
 
-from PyQt6.QtWidgets import QApplication
-
 from app.hotkey import HotkeyManager
+from PyQt6.QtWidgets import QApplication
 
 
 def _ensure_qapp():

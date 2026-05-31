@@ -2,11 +2,11 @@
 
 from unittest.mock import MagicMock
 
+from app.version import __version__
+from app.web_api.routes import register_web_routes
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.version import __version__
-from app.web_api.routes import register_web_routes
 from tests.test_web_console import FakeConfig
 
 

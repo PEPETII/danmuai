@@ -1,7 +1,6 @@
 """Tests for app.version_compare — numeric segment ordering, not string compare."""
 
 import pytest
-
 from app.version_compare import (
     compare_versions,
     is_version_newer,

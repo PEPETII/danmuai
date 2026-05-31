@@ -9,8 +9,8 @@ from PyQt6.QtCore import QObject, QRunnable, QThreadPool, QTimer, pyqtSignal
 
 from app.application.config_service import MASKED_API_KEY
 from app.danmu_tts import (
-    DanmuTtsError,
     TTS_PROBE_TEXT,
+    DanmuTtsError,
     clamp_read_interval_sec,
     normalize_tts_voice,
     synthesize_mimo_tts,

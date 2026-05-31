@@ -55,6 +55,7 @@ from app.danmu_engine import (
     normalize_danmu_display_text,
 )
 from app.danmu_pool import any_danmu_pool_source_enabled, sample_danmu_for_config
+from app.danmu_read_service import DanmuReadService
 from app.history_writer import HistoryWriter
 from app.hotkey import HotkeyManager
 from app.lifetime_stats import LifetimeStats
@@ -70,7 +71,6 @@ from app.memory.activity_prompt import append_activity_line_to_user_pt, format_a
 from app.memory.types import MEMORY_MODE_OFF, bullet_angle_from_index
 from app.mic_encode import pcm_to_wav_data_uri
 from app.mic_prompt import build_mic_insert_user_pt
-from app.danmu_read_service import DanmuReadService
 from app.mic_service import MicService, mic_mode_enabled, mic_window_sec_from_config
 from app.mic_test import pcm_metrics
 from app.mic_utterance import (
@@ -323,7 +323,7 @@ class DanmuApp(QObject):
         if startup_notice:
             self.logger.info(startup_notice)
 
-        from app.web_console import attach_web_console, open_web_console_browser
+        from app.web_console import attach_web_console
 
         self.web_server = attach_web_console(self)
         initial = "/#settings" if not self.config.get_api_key() else "/"

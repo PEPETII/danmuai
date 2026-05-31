@@ -33,8 +33,8 @@ from app.application.config_service import (
     apply_web_config_patch,
 )
 from app.bundle_paths import append_frozen_log, frozen_log_path, is_frozen, resource_path
-from app.startup_trace import log_startup, web_console_ready_timeout
 from app.live_overlay_hub import LiveOverlayHub
+from app.startup_trace import log_startup, web_console_ready_timeout
 
 if TYPE_CHECKING:
     from main import DanmuApp

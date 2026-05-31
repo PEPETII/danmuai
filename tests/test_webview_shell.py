@@ -4,9 +4,9 @@ import sys
 from unittest.mock import MagicMock, patch
 
 from app.webview_shell import (
-    WebViewShell,
     _SIGNAL_CREATED,
     _SIGNAL_LOADED,
+    WebViewShell,
     _webview_worker,
     notify_web_console_failure,
     preferred_webview_gui,

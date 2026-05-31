@@ -484,9 +484,8 @@ def test_runnable_request_uncaught_exception_emits_error():
 
 def test_runnable_request_failure_releases_in_flight():
     """_request 异常经 error 信号回主线程后应释放 ai_in_flight"""
-    from PyQt6.QtWidgets import QApplication
-
     from app.ai_client import AiWorker
+    from PyQt6.QtWidgets import QApplication
 
     _ = QApplication.instance() or QApplication([])
 
