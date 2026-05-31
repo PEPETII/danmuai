@@ -24,5 +24,5 @@ def test_single_instance_second_client_triggers_activate(qtbot):
     secondary = SingleInstanceGuard()
     assert secondary.try_acquire() is False
 
-    app.processEvents()
+    qtbot.waitUntil(lambda: activated == [True], timeout=3000)
     assert activated == [True]

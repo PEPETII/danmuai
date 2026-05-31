@@ -32,7 +32,10 @@ class SingleInstanceGuard:
             probe.write(_ACTIVATE_MSG)
             probe.flush()
             probe.waitForBytesWritten(1000)
-            probe.disconnectFromServer()
+            # Keep socket open briefly so the primary can read before disconnect (GHA timing).
+            probe.waitForDisconnected(500)
+            if probe.state() != QLocalSocket.LocalSocketState.UnconnectedState:
+                probe.disconnectFromServer()
             return False
 
         QLocalServer.removeServer(self._name)
@@ -46,13 +49,28 @@ class SingleInstanceGuard:
     def bind_activate(self, handler: Callable[[], None]) -> None:
         self._activate_handler = handler
 
+    def _read_activate_payload(self, conn: QLocalSocket) -> bytes:
+        """Read activate message; tolerate fast client disconnect on slow CI hosts."""
+        chunks: list[bytes] = []
+        for _ in range(6):
+            if conn.bytesAvailable():
+                chunks.append(conn.readAll().data())
+            joined = b"".join(chunks)
+            if joined == _ACTIVATE_MSG:
+                return _ACTIVATE_MSG
+            if len(joined) > len(_ACTIVATE_MSG):
+                return joined
+            if not conn.waitForReadyRead(500):
+                break
+        return b"".join(chunks)
+
     def _on_new_connection(self) -> None:
         if self._server is None:
             return
         conn = self._server.nextPendingConnection()
         if conn is None:
             return
-        if conn.waitForReadyRead(1000) and conn.readAll().data() == _ACTIVATE_MSG:
+        if self._read_activate_payload(conn) == _ACTIVATE_MSG:
             handler = self._activate_handler
             if handler is not None:
                 QTimer.singleShot(0, handler)
