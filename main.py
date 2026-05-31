@@ -2060,6 +2060,9 @@ class DanmuApp(QObject):
         if shell and shell.is_running():
             shell.open(path)
             return
+        if shell and shell.is_handshake_pending():
+            shell.request_navigate(path)
+            return
         attach_webview_shell(self, server, initial_path=path)
 
     def _schedule_webview_attach(self, initial_path: str, *, attempt: int = 0) -> None:
@@ -2067,7 +2070,7 @@ class DanmuApp(QObject):
         if self.web_launch_mode != "webview" or not self.web_server:
             return
         shell = getattr(self, "webview_shell", None)
-        if shell and shell.is_running():
+        if shell and (shell.is_running() or shell.is_handshake_pending()):
             return
         if attempt == 0:
             from app.bundle_paths import is_frozen
@@ -2086,6 +2089,19 @@ class DanmuApp(QObject):
         shell = getattr(self, "webview_shell", None)
         if shell and shell.is_running():
             shell.open(path)
+            return
+        if shell and shell.is_handshake_pending():
+            shell.request_navigate(path)
+            return
+        if (
+            shell
+            and shell.handshake_failed
+            and self.web_launch_mode == "webview"
+            and self.web_server
+        ):
+            from app.web_console import open_web_console_browser
+
+            open_web_console_browser(self.web_server, path)
             return
         if self.web_launch_mode == "webview" and self.web_server:
             self._open_web_console_when_ready(path, use_browser=False)

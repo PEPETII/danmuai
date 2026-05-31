@@ -81,6 +81,45 @@ def test_webview_shell_open_delegates_to_start_when_not_running(monkeypatch):
     assert called == ["/#settings"]
 
 
+def test_webview_shell_is_handshake_pending():
+    server = MagicMock()
+    server.base_url = "http://127.0.0.1:18765"
+    shell = WebViewShell(server)
+    assert shell.is_handshake_pending() is False
+
+    shell._process = MagicMock()
+    shell._process.is_alive.return_value = True
+    assert shell.is_handshake_pending() is True
+
+    shell._started = True
+    assert shell.is_handshake_pending() is False
+
+
+def test_attach_webview_shell_reuses_pending_without_second_process(monkeypatch):
+    from PyQt6.QtCore import QTimer
+    from app.webview_shell import attach_webview_shell
+
+    danmu = MagicMock()
+    server = MagicMock()
+    server.base_url = "http://127.0.0.1:18765"
+    existing = WebViewShell(server)
+    existing._process = MagicMock()
+    existing._process.is_alive.return_value = True
+    existing._nav_queue = MagicMock()
+    existing._got_created = True
+    danmu.webview_shell = existing
+
+    begin_calls = []
+    monkeypatch.setattr(existing, "begin_start", lambda path: begin_calls.append(path) or True)
+    monkeypatch.setattr(QTimer, "singleShot", lambda _ms, fn: fn())
+
+    shell = attach_webview_shell(danmu, server, initial_path="/#settings")
+
+    assert shell is existing
+    assert begin_calls == []
+    existing._nav_queue.put.assert_called_once_with("http://127.0.0.1:18765/#settings")
+
+
 def test_webview_shell_open_uses_nav_queue_when_running():
     server = MagicMock()
     server.base_url = "http://127.0.0.1:18765"
@@ -257,7 +296,8 @@ def test_webview_shell_poll_handshake_load_timeout(monkeypatch):
     assert shell.poll_handshake("/") == "pending"
     time.sleep(0.02)
     assert shell.poll_handshake("/") == "failure"
-    assert fallbacks == []
+    assert shell.handshake_failed is True
+    assert fallbacks == ["timeout waiting for pywebview loaded"]
 
 
 def test_notify_web_console_failure_schedules_ui(qtbot, monkeypatch):

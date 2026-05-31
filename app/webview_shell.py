@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 _START_TIMEOUT_SEC = 20.0
 _CREATED_TIMEOUT_SEC = 5.0
 _LOAD_TIMEOUT_SEC = 12.0
-_FROZEN_LOAD_TIMEOUT_SEC = 15.0
+_FROZEN_LOAD_TIMEOUT_SEC = 25.0
 _SERVER_POLL_SEC = 12.0
 _FROZEN_SERVER_POLL_SEC = 5.0
 _NAV_POLL_SEC = 0.25
@@ -205,9 +205,35 @@ class WebViewShell:
         self._handshake_deadline: float = 0.0
         self._got_created = False
         self._load_deadline: float = 0.0
-        self._pending_path: str = "/"
+        self._pending_path: str = ""
+        self._handshake_failed: bool = False
+
     def is_running(self) -> bool:
         return self._started and self._process is not None and self._process.is_alive()
+
+    def is_handshake_pending(self) -> bool:
+        """Child process alive but loaded handshake not complete yet."""
+        if self._started:
+            return False
+        proc = self._process
+        return proc is not None and proc.is_alive()
+
+    @property
+    def handshake_failed(self) -> bool:
+        return self._handshake_failed
+
+    def _resolve_path(self, initial_path: str) -> str:
+        pending = (self._pending_path or "").strip()
+        return pending if pending else initial_path
+
+    def request_navigate(self, path: str) -> None:
+        """Update desired path; navigate immediately if the window already exists."""
+        self._pending_path = path
+        if self._got_created and self._nav_queue is not None:
+            try:
+                self._nav_queue.put(self._url(path))
+            except Exception:
+                pass
     def _url(self, path: str = "/") -> str:
         base = self.server.base_url.rstrip("/")
         if not path or path == "/":
@@ -246,6 +272,7 @@ class WebViewShell:
         self._handshake_deadline = time.monotonic() + _START_TIMEOUT_SEC
         self._got_created = False
         self._load_deadline = 0.0
+        self._handshake_failed = False
         return True
     def _drain_ready_queue(self, initial_path: str) -> HandshakeResult:
         queue_ref = self._ready_queue
@@ -262,11 +289,11 @@ class WebViewShell:
                 self._load_deadline = time.monotonic() + _load_timeout_sec()
                 continue
             if signal == _SIGNAL_LOADED:
-                self._succeed_start(initial_path)
+                self._succeed_start(self._resolve_path(initial_path))
                 return "success"
             if signal in _PHASE_SIGNALS:
                 continue
-            self._fail_start(str(signal), initial_path)
+            self._fail_start(str(signal), self._resolve_path(initial_path))
             return "failure"
         return "pending"
     def poll_handshake(self, initial_path: str) -> HandshakeResult:
@@ -275,23 +302,24 @@ class WebViewShell:
             return "success"
         proc = self._process
         if self._got_created and proc is not None and not proc.is_alive():
-            self._fail_start("pywebview process exited early", initial_path)
+            self._fail_start("pywebview process exited early", self._resolve_path(initial_path))
             return "failure"
         now = time.monotonic()
+        resolved = self._resolve_path(initial_path)
         if now > self._handshake_deadline:
             if not self._got_created:
-                self._fail_start("timeout waiting for pywebview created", initial_path)
+                self._fail_start("timeout waiting for pywebview created", resolved)
             else:
-                self._fail_start("timeout waiting for pywebview loaded", initial_path)
+                self._fail_start("timeout waiting for pywebview loaded", resolved)
             return "failure"
         if self._got_created and self._load_deadline > 0 and now > self._load_deadline:
-            self._fail_start("timeout waiting for pywebview loaded", initial_path)
+            self._fail_start("timeout waiting for pywebview loaded", resolved)
             return "failure"
         result = self._drain_ready_queue(initial_path)
         if result != "pending":
             return result
         if not self._got_created and now + _CREATED_TIMEOUT_SEC > self._handshake_deadline:
-            self._fail_start("timeout waiting for pywebview created", initial_path)
+            self._fail_start("timeout waiting for pywebview created", resolved)
             return "failure"
         return "pending"
     def start(self, initial_path: str = "/") -> bool:
@@ -314,19 +342,18 @@ class WebViewShell:
         danmu_app.logger.error(f"pywebview 启动失败: {error}")
         append_frozen_log(f"pywebview start failed: {error}")
         log_startup("webview.handshake.failed", error=error)
+        self._handshake_failed = True
         self._terminate()
-        is_timeout = "timeout" in error.lower()
-        if is_timeout:
-            danmu_app.logger.warning(
-                "pywebview 握手超时，未自动打开浏览器；请从托盘再次打开设置。"
-            )
-        else:
-            _fallback_to_system_browser(self.server, initial_path, error)
+        _fallback_to_system_browser(self.server, initial_path, error)
         return False
+
     def _succeed_start(self, initial_path: str) -> bool:
         self._started = True
+        self._handshake_failed = False
         append_frozen_log(f"pywebview window ready url={self._url(initial_path)}")
         log_startup("webview.handshake.ok", url=self._url(initial_path))
+        if self._pending_path and self._pending_path != initial_path:
+            self.request_navigate(self._pending_path)
         return True
     def open(self, path: str = "/") -> None:
         if not self.is_running():
@@ -363,8 +390,10 @@ class WebViewShell:
         if proc.is_alive():
             proc.terminate()
             proc.join(timeout=2.0)
+
     def destroy(self) -> None:
         self._terminate()
+        self._handshake_failed = False
 def attach_webview_shell(
     danmu_app,
     server: WebConsoleServer,
@@ -373,6 +402,22 @@ def attach_webview_shell(
 ) -> WebViewShell:
     """Attach shell and start pywebview without blocking the Qt event loop."""
     from PyQt6.QtCore import QTimer
+
+    existing = getattr(danmu_app, "webview_shell", None)
+    if existing is not None:
+        if existing.server is not server:
+            existing.destroy()
+        elif existing.is_running():
+            existing.open(initial_path)
+            log_startup("attach_webview_shell.reuse_running", path=initial_path)
+            return existing
+        elif existing.is_handshake_pending():
+            existing.request_navigate(initial_path)
+            log_startup("attach_webview_shell.reuse_pending", path=initial_path)
+            return existing
+        else:
+            existing.destroy()
+
     shell = WebViewShell(server)
     danmu_app.webview_shell = shell
     log_startup("attach_webview_shell.begin", path=initial_path)
