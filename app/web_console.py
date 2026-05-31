@@ -42,6 +42,9 @@ if TYPE_CHECKING:
 STATIC_DIR = resource_path("web", "static")
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 18765
+SAVE_CONFIG_TIMEOUT_SEC = 5.0
+_SAVE_DONE_EVENT_KEY = "__save_done_event"
+_SAVE_RESULT_KEY = "__save_result"
 
 
 def _prepare_stdio_for_uvicorn() -> None:
@@ -208,6 +211,49 @@ def extract_config_payload(body: Any) -> dict[str, Any]:
 def apply_config_patch(danmu_app: "DanmuApp", payload: dict[str, Any]) -> None:
     """主线程执行：委托 ConfigService 统一处理 Web 配置 patch。"""
     apply_web_config_patch(danmu_app, payload)
+
+
+def _write_config_save_result(
+    result_holder: object,
+    *,
+    ok: bool,
+    error: str | None = None,
+    detail: str | None = None,
+) -> None:
+    if not isinstance(result_holder, dict):
+        return
+    result_holder.clear()
+    result_holder["ok"] = ok
+    if error:
+        result_holder["error"] = error
+    if detail:
+        result_holder["detail"] = detail
+
+
+def save_config_via_bridge(
+    bridge: "WebConsoleBridge",
+    payload: dict[str, Any],
+    *,
+    timeout_sec: float = SAVE_CONFIG_TIMEOUT_SEC,
+) -> dict[str, Any]:
+    done = threading.Event()
+    result: dict[str, Any] = {
+        "ok": False,
+        "error": "save_timeout",
+        "detail": "配置保存超时，请稍后重试。",
+    }
+    queued_payload = dict(payload)
+    queued_payload[_SAVE_DONE_EVENT_KEY] = done
+    queued_payload[_SAVE_RESULT_KEY] = result
+    bridge.save_config_requested.emit(queued_payload)
+    if done.wait(timeout=timeout_sec):
+        return result
+    bridge.danmu_app.logger.error(
+        "配置保存超时: keys=%s timeout_sec=%.1f",
+        sorted(payload.keys()),
+        timeout_sec,
+    )
+    return result
 
 
 class WebConsoleBridge(QObject):
@@ -392,13 +438,21 @@ class WebConsoleBridge(QObject):
     def _on_save_config(self, payload: object) -> None:
         if not isinstance(payload, dict):
             return
-        done_event = payload.pop("__save_done_event", None)
+        done_event = payload.pop(_SAVE_DONE_EVENT_KEY, None)
+        result_holder = payload.pop(_SAVE_RESULT_KEY, None)
         keys = sorted(payload.keys())
         cap_mode = payload.get("capture_mode", "<missing>")
         cap_hwnd = payload.get("capture_window_hwnd", "<missing>")
         try:
             self.danmu_app.apply_web_config_payload(payload)
         except Exception as exc:
+            detail = f"配置保存失败: {exc}"
+            _write_config_save_result(
+                result_holder,
+                ok=False,
+                error="save_failed",
+                detail=detail,
+            )
             self.danmu_app.logger.error(
                 "配置保存失败: keys=%s, error=%s",
                 keys,
@@ -406,14 +460,16 @@ class WebConsoleBridge(QObject):
                 exc_info=True,
             )
             self.danmu_app.set_web_error_status(
-                f"配置保存失败: {exc}",
+                detail,
                 is_error=True,
             )
             self.publish_status()
-            return
-        finally:
             if done_event is not None:
                 done_event.set()
+            return
+        _write_config_save_result(result_holder, ok=True)
+        if done_event is not None:
+            done_event.set()
         stored_mode = self.danmu_app.config.get("capture_mode", "screen")
         stored_hwnd = self.danmu_app.config.get("capture_window_hwnd", "0")
         self.danmu_app.logger.info(
@@ -512,7 +568,7 @@ class WebConsoleServer:
         try:
             import uvicorn
             from fastapi import Body, FastAPI, Header, HTTPException, WebSocket, WebSocketDisconnect
-            from fastapi.responses import FileResponse
+            from fastapi.responses import FileResponse, JSONResponse
             from fastapi.staticfiles import StaticFiles
             from starlette.routing import WebSocketRoute
         except ImportError as exc:
@@ -660,11 +716,11 @@ class WebConsoleServer:
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
             # 跨线程 emit 给 Qt 主线程槽，用 Event 等待写入完成后再返回，
             # 避免前端立即 reload 读到旧配置。
-            done = threading.Event()
-            data["__save_done_event"] = done
-            bridge.save_config_requested.emit(data)
-            done.wait(timeout=5.0)
-            return {"ok": True}
+            result = save_config_via_bridge(bridge, data)
+            if result.get("ok"):
+                return {"ok": True}
+            status_code = 504 if result.get("error") == "save_timeout" else 500
+            return JSONResponse(status_code=status_code, content=result)
 
         @app.post("/api/start")
         def api_start(authorization: str | None = Header(default=None)):

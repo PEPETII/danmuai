@@ -105,6 +105,8 @@ See also [AGENTS.md](../AGENTS.md) and `DANMU_SCENE_DEBUG` / `DANMU_API_SCHEDULE
 
 Startup timing: `app/startup_trace.py` → `%APPDATA%/DanmuAI/startup.log` (frozen).
 
+Shutdown note: `DanmuApp.quit()` waits `QThreadPool.globalInstance().waitForDone(2000)` before `ai_worker.close()`, so in-flight AI workers do not touch closed `httpx` clients during teardown.
+
 ## Non-goals
 
 - Full `_on_ai_error()` backoff branches.

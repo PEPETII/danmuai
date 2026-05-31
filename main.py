@@ -939,6 +939,29 @@ class DanmuApp(QObject):
     def resolve_request_credentials(self):
         return self.ai_worker._resolve_request_credentials()
 
+    def mic_audio_supported(self) -> bool:
+        return self._mic_audio_supported()
+
+    def capture_mic_test_sample(self, duration_sec: float, *, keep_running: bool):
+        from app.mic_test import capture_mic_sample
+
+        return capture_mic_sample(
+            self._mic_service,
+            duration_sec,
+            keep_running=keep_running,
+        )
+
+    def send_mic_test_probe(self, image_data_uri: str, user_pt: str, audio_data_uri: str):
+        from app.mic_test_send import send_mic_probe
+
+        return send_mic_probe(
+            self.config,
+            self.ai_worker,
+            image_data_uri,
+            user_pt,
+            audio_data_uri,
+        )
+
     def run_mic_test(self, duration_sec: float, *, send_to_ai: bool = False) -> dict[str, object]:
         from dataclasses import asdict
 
@@ -2136,10 +2159,12 @@ class DanmuApp(QObject):
         # 3. 隐藏托盘图标
         self.tray.hide()
 
-        # 4. 关闭 AI HTTP 客户端，等待线程池，再关闭历史写入与配置库
-        self.ai_worker.close()
+        # 4. 先等待在线程池中的请求完成，再关闭 AI HTTP 客户端，避免 worker 访问已关闭 client
         from PyQt6.QtCore import QThreadPool
-        QThreadPool.globalInstance().waitForDone(2000)
+        pool_done = QThreadPool.globalInstance().waitForDone(2000)
+        if not pool_done:
+            self.logger.warning("quit timed out waiting for AI worker thread pool")
+        self.ai_worker.close()
         self.history_writer.stop()
         self.config.close()
 

@@ -1,6 +1,9 @@
+import logging
 import threading
 from collections import deque
 from datetime import datetime
+
+_logger = logging.getLogger(__name__)
 
 
 class HistoryWriter:
@@ -31,7 +34,7 @@ class HistoryWriter:
             )
             self.config.conn.commit()
         except Exception:
-            pass
+            _logger.exception("history flush failed items=%d", len(items))
 
     def _run(self):
         while not self._stop_event.wait(self.flush_interval):

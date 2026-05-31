@@ -68,4 +68,4 @@ def log_startup(phase: str, **fields: Any) -> None:
 def web_console_ready_timeout() -> float:
     """Max main-thread wait for uvicorn bind during attach_web_console."""
     # Too short causes startup_ok=False → pywebview never attaches → browser-only UX.
-    return 10.0 if is_frozen() else 12.0
+    return 1.5 if is_frozen() else 0.5

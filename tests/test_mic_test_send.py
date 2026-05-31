@@ -16,8 +16,10 @@ def test_placeholder_image_data_uri():
 
 def test_run_mic_test_send_unsupported_api():
     app = MagicMock()
-    app._mic_audio_supported.return_value = False
+    app.mic_audio_supported.return_value = False
+
     result = run_mic_test_send(app)
+
     assert result.ok is False
     assert result.error == "unsupported_api_mode"
 
@@ -26,6 +28,7 @@ def test_send_mic_probe_incomplete_credentials():
     config = MagicMock()
     worker = MagicMock()
     worker._resolve_request_credentials.return_value = None
+
     result = send_mic_probe(
         config,
         worker,
@@ -33,6 +36,7 @@ def test_send_mic_probe_incomplete_credentials():
         "test",
         "data:audio/wav;base64,abc",
     )
+
     assert result.ok is False
     assert result.error == "incomplete_credentials"
 
@@ -46,6 +50,7 @@ def test_send_mic_probe_unsupported_model():
         "doubao-seed-1-6-flash-250828",
         "doubao",
     )
+
     result = send_mic_probe(
         config,
         worker,
@@ -53,6 +58,7 @@ def test_send_mic_probe_unsupported_model():
         "test",
         "data:audio/wav;base64,abc",
     )
+
     assert result.ok is False
     assert result.error == "unsupported_model"
 
@@ -66,6 +72,7 @@ def test_send_mic_probe_unsupported_generic_openai():
         "gpt-4o",
         "openai",
     )
+
     result = send_mic_probe(
         config,
         worker,
@@ -73,6 +80,7 @@ def test_send_mic_probe_unsupported_generic_openai():
         "test",
         "data:audio/wav;base64,abc",
     )
+
     assert result.ok is False
     assert result.error == "unsupported_model"
 
@@ -89,7 +97,7 @@ def test_send_mic_probe_success_mimo_via_request():
     def fake_request(*args, **kwargs):
         worker._emit_result(
             "finished",
-            "听到了",
+            "heard",
             "mic_probe",
             0,
             0,
@@ -100,6 +108,7 @@ def test_send_mic_probe_success_mimo_via_request():
         )
 
     worker._request.side_effect = fake_request
+
     result = send_mic_probe(
         MagicMock(),
         worker,
@@ -107,6 +116,7 @@ def test_send_mic_probe_success_mimo_via_request():
         "test",
         "data:audio/wav;base64,abc",
     )
+
     assert result.ok is True
     worker._request.assert_called_once()
     worker._request_doubao.assert_not_called()
@@ -124,7 +134,7 @@ def test_send_mic_probe_success_via_worker():
     def fake_request_doubao(*args, **kwargs):
         worker._emit_result(
             "finished",
-            "已收到音频",
+            "received",
             "mic_probe",
             0,
             0,
@@ -135,6 +145,7 @@ def test_send_mic_probe_success_via_worker():
         )
 
     worker._request_doubao.side_effect = fake_request_doubao
+
     result = send_mic_probe(
         MagicMock(),
         worker,
@@ -142,9 +153,10 @@ def test_send_mic_probe_success_via_worker():
         "test",
         "data:audio/wav;base64,abc",
     )
+
     assert result.ok is True
     assert result.input_tokens == 900
-    assert result.reply_preview == "已收到音频"
+    assert result.reply_preview == "received"
 
 
 def test_run_mic_test_send_success(monkeypatch):
@@ -158,31 +170,26 @@ def test_run_mic_test_send_success(monkeypatch):
         error="",
     )
     monkeypatch.setattr(
-        "app.mic_test_send.capture_mic_sample",
-        lambda *args, **kwargs: (pcm, capture_result),
-    )
-    monkeypatch.setattr(
         "app.mic_test_send.pcm_to_wav_data_uri",
-        lambda _: "data:audio/wav;base64,abc",
-    )
-    monkeypatch.setattr(
-        "app.mic_test_send.send_mic_probe",
-        lambda *args, **kwargs: MicSendProbeResult(
-            ok=True,
-            message="发送成功（input=900 · output=12）",
-            input_tokens=900,
-            output_tokens=12,
-            reply_preview="已收到音频",
-        ),
+        lambda _pcm: "data:audio/wav;base64,abc",
     )
 
     app = MagicMock()
-    app._mic_audio_supported.return_value = True
+    app.mic_audio_supported.return_value = True
     app.config = MagicMock()
     app.engine.running = False
+    app.capture_mic_test_sample.return_value = (pcm, capture_result)
+    app.send_mic_test_probe.return_value = MicSendProbeResult(
+        ok=True,
+        message="sent",
+        input_tokens=900,
+        output_tokens=12,
+        reply_preview="reply",
+    )
 
     result = run_mic_test_send(app)
+
     assert result.ok is True
     assert result.audio_attached is True
     assert result.input_tokens == 900
-    assert "已收到音频" in result.message
+    assert "reply" in result.message

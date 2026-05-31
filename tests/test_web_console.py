@@ -16,6 +16,7 @@ from app.web_console import (
     apply_config_patch,
     export_config,
     extract_config_payload,
+    save_config_via_bridge,
 )
 from main import DanmuApp
 
@@ -475,6 +476,51 @@ def test_bridge_save_config_uses_public_app_entry():
 
     app.apply_web_config_payload.assert_called_once_with({"api_endpoint": "https://new.example/v1"})
     assert app.build_status_snapshot.call_count >= 1
+
+
+def test_save_config_via_bridge_returns_success_after_main_thread_ack():
+    app = _make_status_app()
+    bridge = WebConsoleBridge(app)
+
+    result = save_config_via_bridge(bridge, {"api_endpoint": "https://new.example/v1"})
+
+    assert result == {"ok": True}
+    app.apply_web_config_payload.assert_called_once_with(
+        {"api_endpoint": "https://new.example/v1"}
+    )
+
+
+def test_save_config_via_bridge_returns_timeout_when_main_thread_does_not_ack():
+    bridge = SimpleNamespace(
+        save_config_requested=SimpleNamespace(emit=lambda _payload: None),
+        danmu_app=SimpleNamespace(logger=MagicMock()),
+    )
+
+    result = save_config_via_bridge(
+        bridge,
+        {"api_endpoint": "https://slow.example/v1"},
+        timeout_sec=0.01,
+    )
+
+    assert result["ok"] is False
+    assert result["error"] == "save_timeout"
+    assert "超时" in result["detail"]
+    bridge.danmu_app.logger.error.assert_called_once()
+
+
+def test_save_config_via_bridge_returns_failure_when_main_thread_save_raises():
+    app = _make_status_app()
+    app.apply_web_config_payload.side_effect = RuntimeError("db broken")
+    bridge = WebConsoleBridge(app)
+
+    result = save_config_via_bridge(bridge, {"api_endpoint": "https://broken.example/v1"})
+
+    assert result["ok"] is False
+    assert result["error"] == "save_failed"
+    assert "db broken" in result["detail"]
+    app.apply_web_config_payload.assert_called_once_with(
+        {"api_endpoint": "https://broken.example/v1"}
+    )
 
 
 def test_apply_config_patch_syncs_default_model_id_to_legacy_model():
@@ -1005,7 +1051,9 @@ def test_web_console_server_stop_schedules_shutdown_callback():
 def test_quit_stops_web_status_timer_before_server_shutdown(monkeypatch):
     import PyQt6.QtCore as qtcore
 
+    order = []
     fake_pool = MagicMock()
+    fake_pool.waitForDone.side_effect = lambda ms: order.append(f"wait:{ms}") or True
 
     class _FakeQThreadPool:
         @staticmethod
@@ -1029,6 +1077,9 @@ def test_quit_stops_web_status_timer_before_server_shutdown(monkeypatch):
         web_server=MagicMock(),
         stop_web_status_timer=MagicMock(),
     )
+    app.ai_worker.close.side_effect = lambda: order.append("close")
+    app.history_writer.stop.side_effect = lambda: order.append("history_stop")
+    app.config.close.side_effect = lambda: order.append("config_close")
 
     DanmuApp.quit(app)
 
@@ -1036,7 +1087,43 @@ def test_quit_stops_web_status_timer_before_server_shutdown(monkeypatch):
     app.stop_web_status_timer.assert_called_once_with()
     app.web_server.stop.assert_called_once_with()
     fake_pool.waitForDone.assert_called_once_with(2000)
+    assert order[:4] == ["wait:2000", "close", "history_stop", "config_close"]
     quit_mock.assert_called_once_with()
+
+
+def test_quit_logs_warning_when_thread_pool_does_not_finish(monkeypatch):
+    import PyQt6.QtCore as qtcore
+
+    fake_pool = MagicMock()
+    fake_pool.waitForDone.return_value = False
+
+    class _FakeQThreadPool:
+        @staticmethod
+        def globalInstance():
+            return fake_pool
+
+    monkeypatch.setattr(qtcore, "QThreadPool", _FakeQThreadPool)
+    monkeypatch.setattr("main.QApplication.quit", MagicMock())
+
+    app = SimpleNamespace(
+        logger=MagicMock(),
+        stop=MagicMock(),
+        hotkey=MagicMock(),
+        tray=MagicMock(),
+        ai_worker=MagicMock(),
+        history_writer=MagicMock(),
+        config=MagicMock(),
+        overlay=MagicMock(),
+        webview_shell=None,
+        web_server=MagicMock(),
+        stop_web_status_timer=MagicMock(),
+    )
+
+    DanmuApp.quit(app)
+
+    app.logger.warning.assert_called_once_with(
+        "quit timed out waiting for AI worker thread pool"
+    )
 
 
 def test_probe_route_accepts_json_body(monkeypatch):

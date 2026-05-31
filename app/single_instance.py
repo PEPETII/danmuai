@@ -26,27 +26,45 @@ class SingleInstanceGuard:
 
     def try_acquire(self) -> bool:
         """Return True if this process should become the primary instance."""
+        if self._activate_existing_instance():
+            return False
+        if self._listen_primary():
+            return True
+        # Race window: another instance may have claimed the name between probe and listen.
+        return False if self._activate_existing_instance() else False
+
+    def _activate_existing_instance(self) -> bool:
         probe = QLocalSocket()
         probe.connectToServer(self._name)
-        if probe.waitForConnected(500):
-            probe.write(_ACTIVATE_MSG)
-            probe.flush()
-            probe.waitForBytesWritten(1000)
-            # Same-process tests: pump Qt so the listening guard handles newConnection.
-            app = QCoreApplication.instance()
-            if app is not None:
-                app.processEvents()
-            probe.waitForDisconnected(2000)
-            if probe.state() != QLocalSocket.LocalSocketState.UnconnectedState:
-                probe.disconnectFromServer()
+        if not probe.waitForConnected(500):
+            return False
+        probe.write(_ACTIVATE_MSG)
+        probe.flush()
+        probe.waitForBytesWritten(1000)
+        # Same-process tests: pump Qt so the listening guard handles newConnection.
+        app = QCoreApplication.instance()
+        if app is not None:
+            app.processEvents()
+        probe.waitForDisconnected(2000)
+        if probe.state() != QLocalSocket.LocalSocketState.UnconnectedState:
+            probe.disconnectFromServer()
+        return True
+
+    def _listen_primary(self) -> bool:
+        server = QLocalServer()
+        if server.listen(self._name):
+            server.newConnection.connect(self._on_new_connection)
+            self._server = server
+            return True
+
+        if not QLocalServer.removeServer(self._name):
             return False
 
-        QLocalServer.removeServer(self._name)
-        server = QLocalServer()
-        if not server.listen(self._name):
-            return True
-        server.newConnection.connect(self._on_new_connection)
-        self._server = server
+        retry_server = QLocalServer()
+        if not retry_server.listen(self._name):
+            return False
+        retry_server.newConnection.connect(self._on_new_connection)
+        self._server = retry_server
         return True
 
     def bind_activate(self, handler: Callable[[], None]) -> None:

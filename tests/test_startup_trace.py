@@ -19,12 +19,12 @@ def test_mark_app_start_and_log_startup_monotonic_ms():
 
 def test_web_console_ready_timeout_dev():
     with patch("app.startup_trace.is_frozen", return_value=False):
-        assert web_console_ready_timeout() == 12.0
+        assert web_console_ready_timeout() == 0.5
 
 
 def test_web_console_ready_timeout_frozen():
     with patch("app.startup_trace.is_frozen", return_value=True):
-        assert web_console_ready_timeout() == 10.0
+        assert web_console_ready_timeout() == 1.5
 
 
 def test_log_startup_writes_file_when_trace_env(tmp_path, monkeypatch):

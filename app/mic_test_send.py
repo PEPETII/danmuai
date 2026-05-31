@@ -9,7 +9,6 @@ from dataclasses import dataclass
 from PIL import Image
 
 from app.mic_encode import pcm_to_wav_data_uri
-from app.mic_test import capture_mic_sample
 from app.model_providers import model_supports_mic_audio, resolve_api_transport
 from app.translations import tr
 
@@ -169,7 +168,7 @@ def send_mic_probe(
 
 
 def run_mic_test_send(danmu_app, duration_sec: float = 3.0) -> MicTestSendResult:
-    if not danmu_app._mic_audio_supported():
+    if not danmu_app.mic_audio_supported():
         return MicTestSendResult(
             ok=False,
             message=_MIC_UNSUPPORTED_MSG,
@@ -179,8 +178,7 @@ def run_mic_test_send(danmu_app, duration_sec: float = 3.0) -> MicTestSendResult
     from app.mic_service import mic_mode_enabled
 
     keep_running = mic_mode_enabled(danmu_app.config)
-    pcm, capture = capture_mic_sample(
-        danmu_app._mic_service,
+    pcm, capture = danmu_app.capture_mic_test_sample(
         duration_sec,
         keep_running=keep_running,
     )
@@ -207,9 +205,7 @@ def run_mic_test_send(danmu_app, duration_sec: float = 3.0) -> MicTestSendResult
 
     user_pt = _TEST_USER_PT
     image_uri = placeholder_image_data_uri()
-    probe = send_mic_probe(
-        danmu_app.config,
-        danmu_app.ai_worker,
+    probe = danmu_app.send_mic_test_probe(
         image_uri,
         user_pt,
         audio_uri,

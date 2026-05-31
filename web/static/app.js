@@ -3537,10 +3537,12 @@ const REALTIME = {
   degradedLogsPolling: false,
   statusWsDownAt: 0,
   logsWsDownAt: 0,
+  lastStatusPollToastAt: 0,
   lastLogsPollTs: 0,
   baseBackoffMs: 1000,
   maxBackoffMs: 16000,
   pollIntervalMs: 1500,
+  pollToastCooldownMs: 30000,
   wsGraceMs: 2500,
   logsWsGraceMs: 800,
 };
@@ -3688,7 +3690,11 @@ function startStatusPolling() {
       })
       .catch((e) => {
         console.warn('[realtime] status poll failed', e);
-        showToast('状态轮询失败，界面可能不是最新', true);
+        const now = Date.now();
+        if (now - REALTIME.lastStatusPollToastAt >= REALTIME.pollToastCooldownMs) {
+          REALTIME.lastStatusPollToastAt = now;
+          showToast('状态轮询失败，界面可能不是最新', true);
+        }
       });
   };
   tick();

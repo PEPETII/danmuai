@@ -96,8 +96,8 @@ def test_webview_shell_is_handshake_pending():
 
 
 def test_attach_webview_shell_reuses_pending_without_second_process(monkeypatch):
-    from PyQt6.QtCore import QTimer
     from app.webview_shell import attach_webview_shell
+    from PyQt6.QtCore import QTimer
 
     danmu = MagicMock()
     server = MagicMock()
