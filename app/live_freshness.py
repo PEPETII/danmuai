@@ -1,11 +1,11 @@
-"""Latest-frame-first（最新帧优先）直播新鲜度辅助模块。
+"""直播新鲜度辅助模块（常量、退避与本地兜底纯函数）。
 
-与 main.DanmuApp 配合，在模型慢、回复过期或场景抖动时保持弹幕「跟得上画面」：
+与 main.DanmuApp 配合：
 
-- **三档新鲜度 TTL**（配置项 freshness）：常量与辅助函数仍保留；普通模式下 main._is_reply_stale
-  当前恒返回不丢弃，避免队列积压误杀。截图退避与本地兜底仍使用本模块其它函数。
-- **截图退避**：30s 滑动窗口内过期丢弃 ≥ 4 次时抬高截图间隔（等级 0–4，最大 12s），
-  减轻无效 API 连打。
+- **过期回复丢弃**：main._is_reply_stale 当前恒为不丢弃，_record_stale_drop 路径未触发。
+  三档 freshness TTL 常量仍保留；freshness 配置仅影响 main 截图间隔因子，不丢弃队列回复。
+- **截图退避（dormant）**：30s 窗口内 stale 丢弃 ≥ 4 次时抬高截图间隔的逻辑仍保留，
+  供单测与未来策略；当前因无 stale 丢弃，退避通常由 API 成功回复降级等级。
 - **模型缓慢检测**：当前 in-flight 请求 ≥ 4s，或历史 RTT P90 ≥ 6s 时判定为慢，
   触发本地兜底等降级策略。
 - **本地兜底批次**：模型响应慢时队列/画面可能空窗，从公式化弹幕库抽样生成轻量弹幕填充。
@@ -49,7 +49,7 @@ class LiveStatusSnapshot:
         return tr("control.status_running_desc")
 
     def detail_message(self) -> str:
-        """副文案：当前延迟与累计 stale 丢弃次数（来自 main 新鲜度状态）。"""
+        """副文案：当前延迟与 stale 丢弃计数（统计字段；当前策略下通常为 0）。"""
         delay = max(0.0, self.delay_sec)
         return tr("control.live_detail").format(
             delay=f"{delay:.1f}",

@@ -40,12 +40,12 @@
 | `screenshot_timer` | `main.py:157` | 驱动主截图节奏的 `QTimer`。 | `main.py::start()`、`main.py::_on_config_changed()`、`main.py::_apply_screenshot_interval_backoff()`、`main.py::stop()` | `main.py::_on_screenshot_timer()`、`main.py::_on_ai_error()` | 否 | Qt 定时器对象，应保留在 `DanmuApp`。 |
 | `_latest_screenshot` | `main.py:175` | 缓存最新一帧 `QPixmap`，供视觉请求或麦克风插入复用。 | `main.py::_capture_screenshot()`、`main.py::start()` | `main.py::_trigger_api_call()`、`main.py::_trigger_mic_api_call()` | 部分 | 元数据可迁移，但 `QPixmap` 对象本身不宜放入纯状态对象。 |
 | `_latest_screenshot_time` | `main.py:176` | 记录最新截图的 `monotonic` 时间。 | `main.py::_capture_screenshot()`、`main.py::start()` | `main.py::_current_danmu_delay_sec()`、`main.py::_trigger_api_call()`、`main.py::_maybe_refill_after_scene_change()` | 是 | 纯时间戳。 |
-| `_latest_screenshot_id` | `main.py:212` | 当前缓存帧的单调递增编号（仅**有效** pixmap 接受后递增；无效帧 `reason=invalid_pixmap` 不递增）。 | `main.py::_capture_screenshot()`、`main.py::_on_scene_generation_advanced()` | `main.py::_trigger_api_call()`、`main.py::_trigger_mic_api_call()`、`main.py::_is_reply_stale()` | 是 | 是视觉链路的主键之一。 |
+| `_latest_screenshot_id` | `main.py:212` | 当前缓存帧的单调递增编号（仅**有效** pixmap 接受后递增；无效帧 `reason=invalid_pixmap` 不递增）。 | `main.py::_capture_screenshot()` | `main.py::_trigger_api_call()`、`main.py::_trigger_mic_api_call()` | 是 | RTT/请求元数据；当前不参与 stale 硬丢弃。 |
 | `_inflight_screenshot_id` | `main.py:236` | 当前在途视觉请求绑定的截图编号。 | `main.py::_trigger_api_call()`、`main.py::_release_inflight_for_source()`、`main.py::start()`、`main.py::stop()` | 日志/调试 | 是 | 纯请求元数据。 |
 | `_inflight_started_at` | `main.py:237` | 当前在途视觉请求开始时间。 | `main.py::_trigger_api_call()`、`main.py::_release_inflight_for_source()`、`main.py::start()`、`main.py::stop()` | `main.py::_current_danmu_delay_sec()`、`main.py::_build_live_status_snapshot()` | 是 | 可用于未来统一延迟状态。 |
-| `_stale_drop_count` | `main.py:238` | 记录因过期而丢弃的回复总次数。 | `main.py::_record_stale_drop()`、`main.py::start()` | `main.py::_build_live_status_snapshot()` | 是 | 统计性质状态。 |
-| `_stale_drop_times` | `main.py:239` | 最近过期丢弃时间窗口，用于截图退避。 | `main.py::_record_stale_drop()`、`main.py::start()` | `main.py::_record_stale_drop()` | 是 | 純时间序列状态。 |
-| `_screenshot_backoff_level` | `main.py:240` | 当前截图退避级别。 | `main.py::_record_stale_drop()`、`main.py::_on_ai_reply()`、`main.py::start()` | `main.py::_apply_screenshot_interval_backoff()` → `live_freshness.screenshot_interval_ms()` | 是 | W-002 已接线退避间隔缩放。 |
+| `_stale_drop_count` | `main.py:238` | stale 丢弃累计（扩展预留；`_is_reply_stale` 当前不触发，通常为 0）。 | `main.py::_record_stale_drop()`、`main.py::start()` | `main.py::_build_live_status_snapshot()` | 是 | dormant 统计。 |
+| `_stale_drop_times` | `main.py:239` | stale 丢弃时间窗口（扩展预留；退避逻辑 dormant）。 | `main.py::_record_stale_drop()`、`main.py::start()` | `main.py::_record_stale_drop()` | 是 | dormant。 |
+| `_screenshot_backoff_level` | `main.py:240` | 当前截图退避级别。 | `main.py::_record_stale_drop()`、`main.py::_on_ai_reply()`、`main.py::start()` | `main.py::_apply_screenshot_interval_backoff()` → `live_freshness.screenshot_interval_ms()` | 是 | 成功回复可降级；stale 突发退避当前少见。 |
 
 ## 请求状态
 
@@ -70,12 +70,12 @@
 | 字段名 | 当前定义位置 | 用途 | 主要写入位置 | 主要读取位置 | 是否可迁移到 `RuntimeState` | 备注 |
 | --- | --- | --- | --- | --- | --- | --- |
 | `_active_scene_probe_size` | `main.py` | 当前生效的场景探测采样尺寸（诊断/配置同步）。 | `main.py::_sync_scene_probe_size()` | `GenerationPipelineState`、`_scene_probe_size()` | 是 | W-019：无运行时 hash 比较。 |
-| `_scene_generation` | `main.py` | 当前场景代际（随请求/记忆携带；**运行期恒为 0**，截图不推进代际）。 | `main.py::start()`、`main.py::stop()` | `main.py::_trigger_api_call()`、`main.py::_on_ai_reply()`、`main.py::_append_scene_memory_to_user_pt()` | 是 | `_is_reply_stale` 恒不过期（W-001）。恢复探测见 ISSUE-014。 |
-| `_stale_scene_inflight_drop_count` | `main.py` | 因场景切换导致在途回复被丢弃的次数。 | `main.py::_log_reply_drop()`、`main.py::start()` | `main.py::_log_reply_drop()` | 是 | 统计性场景状态。 |
-| `_stale_scene_consume_drop_count` | `main.py` | 因场景切换导致消费队列时被丢弃的次数。 | `main.py::_log_reply_drop()`、`main.py::start()` | `main.py::_log_reply_drop()` | 是 | 与上一个字段成对出现。 |
-| `_scene_generation_bumped_at` | `main.py` | 最近一次场景代际推进时间（诊断投影；当前无写入方）。 | `main.py::start()` | `GenerationPipelineState` | 是 | ISSUE-014 / W-020。 |
-| `_scene_memory` | `main.py:222` | 当前场景记忆存储对象。 | `main.py::__init__()`、`main.py::_on_ai_reply()`、`main.py::_record_scene_memory_display()`、`main.py::_on_scene_generation_advanced()`、`main.py::start()` | `main.py::_append_scene_memory_to_user_pt()`、`main.py::_record_scene_memory_display()` | 部分 | 记忆对象引用建议保留在服务层，元数据可迁移。 |
-| `_activity_state` | `main.py:223` | 前台窗口/活动观察状态对象，用于把近期活动线索拼接进 prompt。 | `main.py::__init__()`、`main.py::_collect_activity_observation()`、`main.py::_on_scene_generation_advanced()`、`main.py::start()` | `main.py::_append_scene_memory_to_user_pt()`、`main.py::_collect_activity_observation()` | 部分 | 对象引用建议保留在编排层，投影元数据可后续迁移。 |
+| `_scene_generation` | `main.py` | 场景代际键（**运行期恒为 0**；产品策略不推进代际，仅随请求/记忆携带）。 | `main.py::start()`、`main.py::stop()` | `main.py::_trigger_api_call()`、`main.py::_on_ai_reply()`、`main.py::_append_scene_memory_to_user_pt()` | 是 | `_is_reply_stale` 恒不丢弃。 |
+| `_stale_scene_inflight_drop_count` | `main.py` | 场景切换在途丢弃计数（扩展预留；当前不触发）。 | `main.py::_log_reply_drop()`、`main.py::start()` | `main.py::_log_reply_drop()` | 是 | dormant。 |
+| `_stale_scene_consume_drop_count` | `main.py` | 场景切换消费丢弃计数（扩展预留；当前不触发）。 | `main.py::_log_reply_drop()`、`main.py::start()` | `main.py::_log_reply_drop()` | 是 | dormant。 |
+| `_scene_generation_bumped_at` | `main.py` | 最近一次代际推进时间（诊断投影；当前无写入方）。 | `main.py::start()` | `GenerationPipelineState` | 是 | 诊断只读。 |
+| `_scene_memory` | `main.py:222` | 当前场景记忆存储对象。 | `main.py::__init__()`、`main.py::_on_ai_reply()`、`main.py::_record_scene_memory_display()`、`main.py::start()` | `main.py::_append_scene_memory_to_user_pt()`、`main.py::_record_scene_memory_display()` | 部分 | 记忆对象引用建议保留在服务层，元数据可迁移。 |
+| `_activity_state` | `main.py:223` | 前台窗口/活动观察状态对象，用于把近期活动线索拼接进 prompt。 | `main.py::__init__()`、`main.py::_collect_activity_observation()`、`main.py::start()` | `main.py::_append_scene_memory_to_user_pt()`、`main.py::_collect_activity_observation()` | 部分 | 对象引用建议保留在编排层，投影元数据可后续迁移。 |
 | `_last_activity_collect_at` | `main.py:224` | 最近一次采集活动观察的 `monotonic` 时间。 | `main.py::_collect_activity_observation()`、`main.py::start()` | `main.py::_collect_activity_observation()` | 是 | 纯时间戳，可并入未来 `RuntimeState`。 |
 
 ## 队列状态
@@ -95,8 +95,8 @@
 | `_latest_displayed_round` | `main.py:203` | 已显示回复的最新 `screenshot_round`。 | `main.py::_consume_reply_queue()` | 当前仅写入，未形成核心控制分支 | 是 | 更像统计/调试状态。 |
 | `_current_batch` | `main.py:179` | 当前视觉批次 `BatchTracker`（锚点弹幕 + `next_generation_time`，供 debug/调度日志）。 | `main.py::_trigger_api_call()`、`main.py::_enqueue_reply_batch()`、`main.py::_on_ai_reply()`、`main.py::_on_ai_error()`、`main.py::start()`、`main.py::stop()` | `main.py::_consume_reply_queue()`、`_log_api_schedule()` | 部分 | 元数据可迁移；对象本身建议后续转成独立数据结构。 |
 | `_batch_id` | `main.py:178` | 视觉批次编号。 | `main.py::_trigger_api_call()`、`main.py::start()` | `main.py::_enqueue_reply_batch()` | 是 | 批次主键。 |
-| `_latest_requested_screenshot_id` | `main.py:213` | 最近一次已发请求的截图编号。 | `main.py::_trigger_api_call()`、`main.py::start()`、`main.py::stop()` | `main.py::_is_reply_stale()` | 是 | 纯元数据。 |
-| `_latest_queued_screenshot_id` | `main.py:214` | 最近一次已成功入队的截图编号。 | `main.py::_enqueue_reply_batch()`、`main.py::start()`、`main.py::stop()` | `main.py::_is_reply_stale()` | 是 | 纯元数据。 |
+| `_latest_requested_screenshot_id` | `main.py:213` | 最近一次已发请求的截图编号。 | `main.py::_trigger_api_call()`、`main.py::start()`、`main.py::stop()` | 观测/扩展 | 是 | 仍更新；当前不参与 stale 判定。 |
+| `_latest_queued_screenshot_id` | `main.py:214` | 最近一次已成功入队的截图编号。 | `main.py::_enqueue_reply_batch()`、`main.py::start()`、`main.py::stop()` | 观测/扩展 | 是 | 仍更新；当前不参与 stale 判定。 |
 | `_latest_displayed_screenshot_id` | `main.py:215` | 最近一次已上屏的截图编号。 | `main.py::_consume_reply_queue()`、`main.py::start()`、`main.py::stop()` | 当前主要作为状态观测值 | 是 | 可集中化。 |
 ## 麦克风状态
 

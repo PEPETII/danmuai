@@ -44,6 +44,7 @@ python main.py --web-browser    # 系统浏览器
 | 人格工坊 | 提示词编辑、版本回滚预览、新建/删除自定义人格 |
 | 弹幕日记 | 多级别过滤、复制可见、自动滚动 |
 | 教程 | 飞书文档外链 |
+| 社区 | 介绍页 + **进入社区** / **在浏览器中打开**（外链 Vercel 社区站；URL 见 `GET /api/community-site` 或 `DANMU_COMMUNITY_SITE_URL`；见 [community/DESKTOP-ENTRY.md](community/DESKTOP-ENTRY.md)） |
 | 公告 | Supabase 已发布公告列表（置顶优先；需 `web/static/supabase-config.js`）；**温馨控制台**顶栏可显示最新公告「标题：正文」前 30 字，可关闭 |
 | 侧栏左下角 | **赞赏**（微信赞赏码弹窗）；当前版本 / 最新版本（`GET /api/version` + Supabase `app_updates`） |
 | 问题反馈 | 在线反馈表单（Supabase）、社群说明、QQ 群二维码 |
@@ -78,6 +79,7 @@ python main.py --web-browser    # 系统浏览器
 | GET | `/api/providers` | 否 | 服务商预设 |
 | GET | `/api/model-catalog` | 否 | 视觉模型平台目录（模型 ID、价格、最便宜/麦克风标记） |
 | GET | `/api/meta` | 否 | UI 模式、快捷键等 |
+| GET | `/api/community-site` | 否 | 社区 Vercel 外链 URL（`DANMU_COMMUNITY_SITE_URL` 或默认常量） |
 | GET | `/api/version` | 否 | 本地构建版本 `{ current_version }`（[`app/version.py`](../app/version.py)） |
 | GET | `/api/app-update-state` | 否 | 更新弹窗忽略状态 `{ dismissedLatestVersion }`，持久化于 `config.db` 键 `app_update_state` |
 | PUT | `/api/app-update-state` | Bearer | 写入忽略状态；非空 `dismissedLatestVersion` 须为合法版本字符串 |

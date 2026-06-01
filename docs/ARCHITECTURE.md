@@ -95,8 +95,14 @@ Process-local scene memory and bullet dedup (`app/memory/`, `app/memory_prompt_b
 
 ## Scene metadata
 
-- Scene fingerprint helpers exist (`app/scene_fingerprint.py`); `scene_generation` is carried on requests/replies for memory and logging. Runtime scene-advance / API gate paths are largely idle (`_scene_api_block_reason()` returns empty).
-- Reply staleness: `_is_reply_stale()` currently does not TTL-drop visual/mic replies (avoids dropping backlog). Screenshot backoff still uses `app/live_freshness.py` helpers.
+- Scene fingerprint helpers exist (`app/scene_fingerprint.py`); `scene_generation` is carried on requests/replies for memory and logging. Runtime scene-advance / API gate is **intentionally inactive** (`_scene_generation` stays `0`; `_scene_api_block_reason()` returns empty).
+- **Normal mode reply policy** (current product):
+  - No scene-generation check before enqueue or consume.
+  - No hard drop of in-flight or queued replies by `screenshot_id`, `captured_at` TTL, or supersede.
+  - Slow models may show replies slightly behind the live picture; continuity is preferred over strict frame sync.
+  - `_is_reply_stale()` is kept as a compatibility hook and always returns not stale today.
+- `freshness` config still scales screenshot interval in `_calc_auto_interval()`; it does not drop replies.
+- Dormant stale-drop backoff counters (`_stale_drop_*`) and `app/live_freshness.py` helpers remain for tests/future policy.
 
 ## Stability
 

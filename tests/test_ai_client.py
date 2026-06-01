@@ -9,11 +9,13 @@ from app.ai_client import (
     DANMU_MIN_OUTPUT_TOKENS_THINKING,
     AiWorker,
     build_openai_vision_user_content,
+    format_http_status_error,
     format_openai_http_error,
     is_mimo_endpoint,
     openai_compatible_request_extensions,
     parse_stream_usage,
     resolve_danmu_max_output_tokens,
+    sanitize_provider_error_snippet,
 )
 from app.translations import tr
 
@@ -154,6 +156,36 @@ def test_build_openai_vision_user_content_other_text_first():
 def test_is_mimo_endpoint():
     assert is_mimo_endpoint("https://api.xiaomimimo.com/v1")
     assert not is_mimo_endpoint("https://api.siliconflow.cn/v1")
+
+
+def test_sanitize_provider_error_snippet_redacts_api_key():
+    raw = "x" * 50 + " sk-abc1234567890abcdef1234567890abcdef " + "y" * 300
+    snippet = sanitize_provider_error_snippet(raw, max_len=200)
+    assert "sk-abc1234567890abcdef1234567890abcdef" not in snippet
+    assert "sk-****" in snippet
+    assert snippet.endswith("…")
+
+
+def test_format_http_status_error_uses_truncated_message_instead_of_hidden():
+    long_msg = (
+        "error detail sk-abc1234567890abcdef1234567890abcdef "
+        + ("x" * 300)
+    )
+    request = httpx.Request("POST", "https://api.example.com/v1/chat/completions")
+    response = httpx.Response(400, request=request, json={"message": long_msg})
+    exc = httpx.HTTPStatusError("bad", request=request, response=response)
+    text = format_http_status_error(exc)
+    assert "HTTP 400" in text
+    assert tr("ai.error_http_hidden").format(status_code=400) not in text
+    assert "sk-abc1234567890abcdef1234567890abcdef" not in text
+    assert "sk-****" in text
+
+
+def test_format_http_status_error_hidden_when_body_empty():
+    request = httpx.Request("POST", "https://api.example.com/v1/chat/completions")
+    response = httpx.Response(500, request=request, content=b"")
+    exc = httpx.HTTPStatusError("bad", request=request, response=response)
+    assert format_http_status_error(exc) == tr("ai.error_http_hidden").format(status_code=500)
 
 
 def test_format_openai_http_error_maps_siliconflow_model_missing_code():

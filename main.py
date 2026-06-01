@@ -150,7 +150,7 @@ class DanmuApp(QObject):
     """单例应用状态机：bootstrap、生命周期与 Web 公开 façade 的持有者。
 
     普通模式（当前产品路径）：按 normal_recognition_interval_sec 截图，成功后立即 _trigger_api_call；
-    _is_reply_stale 不做 TTL 硬过期，避免队列积压时误丢。
+    _is_reply_stale 恒为不丢弃（视觉与 mic 均不做 TTL/代际硬过期），慢模型下允许轻微滞后，优先弹幕连续。
     麦克风轨：与视觉 ai_in_flight 独立，request_round 为负数以区分 _pending_request_meta。
 
     配置中遗留的 danmu_display_mode=realtime 会在加载时规范为 normal。
@@ -286,7 +286,7 @@ class DanmuApp(QObject):
         self._last_error_message = ""
         self.MAX_CONSECUTIVE_FAILURES = 5
 
-        # Latest-frame-first freshness
+        # Freshness metadata / dormant stale-drop backoff counters (_is_reply_stale 当前不触发丢弃)
         self._inflight_screenshot_id: int = 0
         self._inflight_started_at: float = 0.0
         self._stale_drop_count: int = 0
@@ -1140,7 +1140,13 @@ class DanmuApp(QObject):
         *,
         source: str = "ai",
     ) -> tuple[bool, str]:
-        """普通模式与 mic：不做 TTL / 代际硬过期，避免队列积压时误丢。"""
+        """普通模式与 mic：当前均不做过期回复硬丢弃。
+
+        产品策略：不比较 screenshot_id / captured_at TTL / scene_generation 来丢弃在途或
+        队列中的回复；慢模型下允许轻微滞后，优先保证弹幕连续性。
+        本函数保留为 _on_ai_reply / _consume_reply_queue 的兼容调用点及未来策略扩展入口；
+        当前固定返回 (False, "")，_log_reply_drop / _record_stale_drop 退避路径不会触发。
+        """
         return False, ""
 
     def _log_reply_drop(self, reason: str, screenshot_id: int, request_round: int, scene_generation: int):
@@ -1719,8 +1725,9 @@ class DanmuApp(QObject):
     def _consume_reply_queue(self):
         """从 FIFO 弹出一条回复上屏；成功时更新 BatchTracker 锚点与 next_generation_time。
 
-        消费前二次 _is_reply_stale；fallback/mic 可 skip_dedup。锚点弹幕滚到 75% 屏宽处的时间
-        写入 batch.next_generation_time（debug/批次元数据）。拒因（去重/入口过载）不入历史。
+        消费前二次调用 _is_reply_stale（当前恒为不丢弃）。fallback/mic 可 skip_dedup。
+        锚点弹幕滚到 75% 屏宽处的时间写入 batch.next_generation_time（debug/批次元数据）。
+        拒因（去重/入口过载）不入历史。
         """
         queued = self.reply_buffer.pop()
         if queued is None:

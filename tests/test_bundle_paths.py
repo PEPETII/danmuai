@@ -72,6 +72,9 @@ def test_error_report_flow_in_app_js():
     js = (project_root() / "web" / "static" / "app.js").read_text(encoding="utf-8")
     assert "function maybePromptErrorReport" in js
     assert "function collectErrorReportContext" in js
+    assert "function extractErrorReportSearchTerms" in js
+    assert "function findErrorLogAnchorIndex" in js
+    assert "localStorage.setItem(ERROR_REPORT_DISMISS_STORAGE" in js
     assert "submitErrorReport" in js
     assert "statusHadError" in js
 

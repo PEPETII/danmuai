@@ -387,6 +387,30 @@ def test_normal_mode_no_stale_ttl_when_drop_stale_enabled():
     assert reason == ""
 
 
+def test_on_ai_reply_enqueues_despite_stale_screenshot_id(monkeypatch):
+    """旧 screenshot_id / captured_at 仍入队；见 tests/test_scene_freshness.py 同族用例。"""
+    import main as main_mod
+
+    app = _make_minimal_app()
+    app.ai_in_flight = 1
+    app._latest_screenshot_id = 100
+    app._register_request_meta(10, 1, 0, "visual")
+    drop_calls = []
+    app._log_reply_drop = lambda *args, **kwargs: drop_calls.append(args)
+    monkeypatch.setattr(main_mod, "parse_ai_reply_with_memory", lambda text, sg: (["lagged"], None))
+    monkeypatch.setattr(main_mod, "normalize_reply_batch", lambda raw_items, **kwargs: raw_items)
+    app._on_ai_reply = main_mod.DanmuApp._on_ai_reply.__get__(app, main_mod.DanmuApp)
+    app._consume_reply_queue = lambda: None
+    app._publish_live_status = lambda: None
+
+    old_captured = time.monotonic() - 120.0
+    app._on_ai_reply('["lagged"]', "persona-1", 10, 1, old_captured, 0)
+
+    assert drop_calls == []
+    assert app._stale_scene_inflight_drop_count == 0
+    assert not app.reply_buffer.is_empty()
+
+
 def test_normal_mode_consumes_all_non_duplicate_items():
     app = _make_minimal_app()
     app.config = FakeConfig(

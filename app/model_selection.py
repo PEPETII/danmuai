@@ -11,6 +11,7 @@ from app.model_catalog import (
 from app.model_providers import (
     guess_provider_from_endpoint,
     is_model_config_complete,
+    is_valid_endpoint,
     provider_label,
     resolve_active_model_id,
 )
@@ -85,6 +86,11 @@ def validate_web_config_patch(config, payload: dict[str, Any]) -> None:
     touches = {"model", "default_model_id", "api_endpoint", "api_mode"}
     if not touches.intersection(payload.keys()):
         return
+
+    if "api_endpoint" in payload:
+        endpoint_val = str(payload.get("api_endpoint", "")).strip()
+        if endpoint_val and not is_valid_endpoint(endpoint_val):
+            raise ValueError(tr("config.error_api_endpoint_invalid"))
 
     endpoint = str(payload.get("api_endpoint", config.get("api_endpoint", ""))).strip()
     api_mode = str(payload.get("api_mode", config.get("api_mode", "doubao")))

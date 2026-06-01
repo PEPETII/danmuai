@@ -465,7 +465,14 @@ function applyStatus(st) {
 
 function loadErrorReportDismissMap() {
   try {
-    const raw = sessionStorage.getItem(ERROR_REPORT_DISMISS_STORAGE);
+    let raw = localStorage.getItem(ERROR_REPORT_DISMISS_STORAGE);
+    if (!raw) {
+      raw = sessionStorage.getItem(ERROR_REPORT_DISMISS_STORAGE);
+      if (raw) {
+        localStorage.setItem(ERROR_REPORT_DISMISS_STORAGE, raw);
+        sessionStorage.removeItem(ERROR_REPORT_DISMISS_STORAGE);
+      }
+    }
     return raw ? JSON.parse(raw) : {};
   } catch {
     return {};
@@ -481,7 +488,7 @@ function saveErrorReportDismissMap(map) {
         pruned[key] = entry;
       }
     });
-    sessionStorage.setItem(ERROR_REPORT_DISMISS_STORAGE, JSON.stringify(pruned));
+    localStorage.setItem(ERROR_REPORT_DISMISS_STORAGE, JSON.stringify(pruned));
   } catch {
     /* ignore */
   }
@@ -530,21 +537,64 @@ function mergeLogItemsUnique(items) {
   return Array.from(map.values()).sort((a, b) => (Number(a.ts) || 0) - (Number(b.ts) || 0));
 }
 
-function pickErrorLogExcerpt(merged, anchor) {
-  const anchorTs = Number(anchor.ts) || Date.now() / 1000;
-  const anchorMsg = String(anchor.errorMessage || '');
-  const snippet = anchorMsg.slice(0, 80);
+function extractErrorReportSearchTerms(errorMessage) {
+  const msg = String(errorMessage || '').trim();
+  const terms = [];
+  if (!msg) return terms;
+  const inner = msg.match(/最近错误[：:]\s*(.+)$/);
+  if (inner && inner[1]) {
+    terms.push(String(inner[1]).trim().slice(0, 120));
+  }
+  terms.push(msg.slice(0, 120));
+  const httpMatch = msg.match(/HTTP\s+(\d{3})/i);
+  if (httpMatch) terms.push(`HTTP ${httpMatch[1]}`);
+  return [...new Set(terms.filter(Boolean))];
+}
 
-  let anchorIdx = merged.findIndex(
-    (x) => x.level === 'ERROR' && snippet && String(x.message || '').includes(snippet),
-  );
-  if (anchorIdx < 0) {
-    anchorIdx = merged.reduce((best, item, idx) => {
+function findErrorLogAnchorIndex(merged, anchorMsg, anchorTs) {
+  const terms = extractErrorReportSearchTerms(anchorMsg);
+  for (const term of terms) {
+    const idx = merged.findIndex(
+      (x) =>
+        (x.level === 'ERROR' || x.level === 'WARNING') &&
+        String(x.message || '').includes(term),
+    );
+    if (idx >= 0) return idx;
+  }
+  const httpMatch = String(anchorMsg || '').match(/HTTP\s+(\d{3})/i);
+  if (httpMatch) {
+    const code = httpMatch[1];
+    const codeRe = new RegExp(`HTTP\\s+${code}\\b|status[=:]\\s*${code}\\b`, 'i');
+    const idx = merged.findIndex(
+      (x) => x.level === 'ERROR' && codeRe.test(String(x.message || '')),
+    );
+    if (idx >= 0) return idx;
+  }
+  const nearestError = merged.reduce(
+    (best, item, idx) => {
+      if (item.level !== 'ERROR' && item.level !== 'WARNING') return best;
       const delta = Math.abs((Number(item.ts) || 0) - anchorTs);
       if (best.idx < 0 || delta < best.delta) return { idx, delta };
       return best;
-    }, { idx: -1, delta: Infinity }).idx;
-  }
+    },
+    { idx: -1, delta: Infinity },
+  );
+  if (nearestError.idx >= 0) return nearestError.idx;
+  return merged.reduce(
+    (best, item, idx) => {
+      const delta = Math.abs((Number(item.ts) || 0) - anchorTs);
+      if (best.idx < 0 || delta < best.delta) return { idx, delta };
+      return best;
+    },
+    { idx: -1, delta: Infinity },
+  ).idx;
+}
+
+function pickErrorLogExcerpt(merged, anchor) {
+  const anchorTs = Number(anchor.ts) || Date.now() / 1000;
+  const anchorMsg = String(anchor.errorMessage || '');
+
+  let anchorIdx = findErrorLogAnchorIndex(merged, anchorMsg, anchorTs);
   if (anchorIdx < 0) anchorIdx = Math.max(0, merged.length - 1);
 
   const windowStart = anchorTs - ERROR_REPORT_LOG_WINDOW_SEC;
@@ -553,10 +603,18 @@ function pickErrorLogExcerpt(merged, anchor) {
     const ts = Number(x.ts) || 0;
     return ts >= windowStart && ts <= windowEnd;
   });
+  const errorsInWindow = merged.filter((x) => {
+    const ts = Number(x.ts) || 0;
+    return (
+      ts >= windowStart &&
+      ts <= windowEnd &&
+      (x.level === 'ERROR' || x.level === 'WARNING')
+    );
+  });
   const lineStart = Math.max(0, anchorIdx - ERROR_REPORT_LOG_LINE_RADIUS);
   const lineEnd = Math.min(merged.length, anchorIdx + ERROR_REPORT_LOG_LINE_RADIUS + 1);
   const byLines = merged.slice(lineStart, lineEnd);
-  const picked = mergeLogItemsUnique([...byTime, ...byLines]);
+  const picked = mergeLogItemsUnique([...byTime, ...byLines, ...errorsInWindow]);
   const structuredKeys = new Set();
   const structured = picked.filter((x) => {
     const match = /reason=|screenshot_id|scene_generation/i.test(x.message || '');
@@ -708,6 +766,7 @@ function formatDiagMs(value) {
 
 function buildDiagnosticReportText(diag) {
   if (!diag) return '等待诊断数据...';
+  const configContext = diag.config_context || {};
   const scheduler = diag.scheduler || {};
   const timing = diag.timing || {};
   const runtimeState = diag.runtime_state || {};
@@ -730,6 +789,12 @@ function buildDiagnosticReportText(diag) {
   }
   return [
     'DanmuAI Diagnostic Report',
+    '',
+    '[config_context]',
+    `active_model_id: ${configContext.active_model_id || '—'}`,
+    `provider_id: ${configContext.provider_id || '—'}`,
+    `api_endpoint_host: ${configContext.api_endpoint_host || '—'}`,
+    `api_mode: ${configContext.api_mode || '—'}`,
     '',
     '[scheduler]',
     `scheduler_blocked: ${!!diagnosis.scheduler_blocked}`,
@@ -2525,6 +2590,63 @@ const appUpdateDismissState = {
 
 let pendingAppUpdatePrompt = null;
 
+/** 社区 Vercel 生产站（由 GET /api/community-site 或环境变量提供） */
+const DEFAULT_COMMUNITY_SITE_URL = 'https://community-site-two.vercel.app';
+const communitySiteState = {
+  url: DEFAULT_COMMUNITY_SITE_URL,
+  loaded: false,
+};
+
+function getCommunitySiteUrl() {
+  const url = (communitySiteState.url || DEFAULT_COMMUNITY_SITE_URL).trim();
+  return url.replace(/\/$/, '');
+}
+
+async function loadCommunitySiteUrl() {
+  try {
+    const data = await apiFetch('/api/community-site');
+    if (data?.url && typeof data.url === 'string') {
+      communitySiteState.url = data.url.trim();
+    }
+  } catch (e) {
+    console.warn('[community] failed to load site url', e);
+  } finally {
+    communitySiteState.loaded = true;
+    renderCommunityPageHint();
+  }
+}
+
+function renderCommunityPageHint() {
+  const el = document.getElementById('communityUrlHint');
+  if (!el) return;
+  const url = getCommunitySiteUrl();
+  el.textContent = `社区地址：${url}`;
+}
+
+function openCommunitySiteInBrowser() {
+  const url = getCommunitySiteUrl();
+  if (!url.startsWith('http')) {
+    showToast('社区地址未配置', true);
+    return;
+  }
+  try {
+    const opened = window.open(url, '_blank', 'noopener,noreferrer');
+    if (!opened) {
+      navigator.clipboard?.writeText(url);
+      showToast('请在外部浏览器打开：已复制社区链接', false);
+    }
+  } catch {
+    showToast(`请在外部浏览器打开：${url}`, false);
+  }
+}
+
+function initCommunityPage() {
+  renderCommunityPageHint();
+  if (!communitySiteState.loaded) {
+    loadCommunitySiteUrl().catch(console.error);
+  }
+}
+
 /** 与 app/version_compare.py 一致：数字段比较，禁止字符串 > */
 function normalizeVersionString(raw) {
   let s = String(raw || '').trim();
@@ -3504,6 +3626,7 @@ function navigate(page) {
   if (page === 'persona') loadPersonaEditor().catch(console.error);
   if (page === 'danmu-pool') loadDanmuPoolPage().catch((e) => showToast(e.message, true));
   if (page === 'danmu-read') loadDanmuReadPage().catch((e) => showToast(e.message, true));
+  if (page === 'community') initCommunityPage();
   if (page === 'announcements') {
     updateAnnouncementsNavBadge(false);
     loadAnnouncementsPage().catch((e) => showToast(e.message, true));
@@ -3954,6 +4077,7 @@ async function init() {
   await loadModelCatalog();
   await loadProviders();
   await loadConfigDefaults();
+  loadCommunitySiteUrl().catch(console.error);
   const cfg = await reloadConfigFromServer();
   await loadScreens();
   if (cfg.screen_index !== undefined) {
@@ -4208,6 +4332,8 @@ async function init() {
   document.getElementById('btnAnnouncementsRefresh')?.addEventListener('click', () => {
     loadAnnouncementsPage().catch((e) => showToast(e.message, true));
   });
+  document.getElementById('btnCommunityOpen')?.addEventListener('click', openCommunitySiteInBrowser);
+  document.getElementById('btnCommunityOpenBrowser')?.addEventListener('click', openCommunitySiteInBrowser);
   document.getElementById('btnOverviewAnnouncementDismiss')?.addEventListener('click', () => {
     dismissOverviewAnnouncementBanner(overviewBannerLatestId);
   });

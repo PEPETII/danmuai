@@ -91,7 +91,7 @@ pip install -r requirements.txt -r requirements-dev.txt
 | `DANMU_WEB_LAUNCH=browser` | 强制系统浏览器（等同 `--web-browser`） |
 | `DANMU_DEDUP_PROFILE=1` | 开启弹幕去重统计（`/api/status.dedup_profile` 与 debug 汇总） |
 | `DANMU_IMAGE_METRICS=1` | 压缩路径 debug 指标（不落盘 Base64） |
-| `DANMU_SCENE_DEBUG=1` | 场景指纹探测与丢弃原因日志 |
+| `DANMU_SCENE_DEBUG=1` | 场景代际与请求元数据 debug 日志（当前不做过期回复硬丢弃） |
 
 更多运行时细节见 [AGENTS.md](AGENTS.md)、[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
 
@@ -140,7 +140,8 @@ pip install -r requirements.txt -r requirements-dev.txt
 
 ### 为什么旧画面的弹幕没显示出来？
 
-- 会丢弃过期 `screenshot_id`、低于当前 `scene_generation` 的回复，以及超出新鲜度 TTL 的回复（见 `app/live_freshness.py`）。用于避免旧内容覆盖新画面。
+- **当前普通模式策略**：不做场景代际（`scene_generation`）检查，也不因过期 `screenshot_id` 或新鲜度 TTL 硬丢弃 AI 回复；慢模型下弹幕可能相对画面略有滞后，优先保证弹幕连续性。
+- 若仍看不到弹幕，常见原因包括：API/截图失败、连续失败退避、去重拒绝、轨道已满导致 `add_text` 暂不上屏等。可在「弹幕日记」查看错误日志。
 
 ### 程序会保存截图吗？
 

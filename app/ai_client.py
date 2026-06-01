@@ -30,7 +30,18 @@ from app.model_providers import (
 )
 from app.providers import get_capabilities_for_endpoint, get_openai_adapter
 from app.providers.constants import THINKING_DISABLED
+from app.logger import (
+    API_KEY_PATTERN,
+    AUTH_HEADER_PATTERN,
+    BASE64_AUDIO_PATTERN,
+    BASE64_IMAGE_PATTERN,
+    ENCRYPTED_KEY_PATTERN,
+    GENERIC_API_KEY_PATTERN,
+)
 from app.translations import tr
+
+HTTP_ERROR_MESSAGE_DISPLAY_MAX = 240
+HTTP_ERROR_MESSAGE_SNIPPET_MAX = 200
 
 # 弹幕固定 5 条 JSON 数组需要输出 token 余量；过低会在 JSON 中途截断导致解析失败。
 DEFAULT_MAX_TOKENS = 512
@@ -83,6 +94,22 @@ def _http_error_message_and_code(exc: httpx.HTTPStatusError) -> tuple[str, objec
     return message, code
 
 
+def sanitize_provider_error_snippet(message: str, max_len: int = HTTP_ERROR_MESSAGE_SNIPPET_MAX) -> str:
+    """Redact secrets and truncate provider error text for user-visible summaries."""
+    text = str(message or "").strip()
+    if not text:
+        return ""
+    text = API_KEY_PATTERN.sub("sk-****", text)
+    text = BASE64_IMAGE_PATTERN.sub("data:image/***;base64,(hidden)", text)
+    text = BASE64_AUDIO_PATTERN.sub("data:audio/***;base64,(hidden)", text)
+    text = AUTH_HEADER_PATTERN.sub("Authorization: Bearer (hidden)", text)
+    text = ENCRYPTED_KEY_PATTERN.sub("gAAAA****(hidden)", text)
+    text = GENERIC_API_KEY_PATTERN.sub("(api_key: ****)", text)
+    if len(text) <= max_len:
+        return text
+    return f"{text[:max_len]}…"
+
+
 def _looks_like_model_not_found(status: int, code: object, message: str) -> bool:
     if status == 404:
         return True
@@ -110,8 +137,15 @@ def format_http_status_error(exc: httpx.HTTPStatusError) -> str:
     message, code = _http_error_message_and_code(exc)
     if _looks_like_model_not_found(status, code, message):
         return tr("ai.error_model_not_found")
-    if message and len(message) <= 240:
-        return tr("ai.error_http_with_message").format(status_code=status, message=message)
+    if message:
+        display_message = message
+        if len(message) > HTTP_ERROR_MESSAGE_DISPLAY_MAX:
+            display_message = sanitize_provider_error_snippet(message)
+        if display_message:
+            return tr("ai.error_http_with_message").format(
+                status_code=status,
+                message=display_message,
+            )
     return tr("ai.error_http_hidden").format(status_code=status)
 
 

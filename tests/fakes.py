@@ -72,6 +72,9 @@ class FakeConfig:
     def get_api_key(self):
         return str(self.values.get("_api_key", ""))
 
+    def get_custom_models(self):
+        return list(self.values.get("custom_models", []))
+
 
 class FakeLifetimeStats:
     def add_danmu(self, count: int = 1) -> None:

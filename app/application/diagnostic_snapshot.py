@@ -4,9 +4,11 @@ from __future__ import annotations
 import time
 from dataclasses import asdict
 from typing import TYPE_CHECKING, Any
+from urllib.parse import urlparse
 
 from app.api_schedule import min_api_interval_elapsed
 from app.application.generation_pipeline_state import GenerationPipelineState
+from app.model_providers import guess_provider_from_endpoint, resolve_active_model_id
 
 if TYPE_CHECKING:
     from main import DanmuApp
@@ -42,6 +44,7 @@ class DiagnosticSnapshotBuilder:
             stats_runtime_sec = float(stats_state.runtime_sec(now=now))
 
         return {
+            "config_context": self._config_context_summary(),
             "scheduler": {
                 "last_api_trigger_at": last_trigger_at,
                 "seconds_since_last_trigger": 0.0
@@ -71,6 +74,25 @@ class DiagnosticSnapshotBuilder:
             },
         }
 
+    def _config_context_summary(self) -> dict[str, Any]:
+        config = getattr(self._app, "config", None)
+        if config is None:
+            return {
+                "active_model_id": "",
+                "provider_id": "",
+                "api_endpoint_host": "",
+                "api_mode": "",
+            }
+        endpoint = str(config.get("api_endpoint", "") or "").strip()
+        api_mode = str(config.get("api_mode", "doubao") or "doubao")
+        host = urlparse(endpoint).netloc if endpoint else ""
+        return {
+            "active_model_id": resolve_active_model_id(config),
+            "provider_id": guess_provider_from_endpoint(endpoint, api_mode),
+            "api_endpoint_host": host,
+            "api_mode": api_mode,
+        }
+
     @staticmethod
     def _web_runtime_summary(web_runtime_state: Any) -> dict[str, Any]:
         return {
@@ -95,6 +117,7 @@ class DiagnosticSnapshotBuilder:
 
 
 def build_diagnostic_report(snapshot: dict[str, object]) -> str:
+    config_context = snapshot.get("config_context", {}) if isinstance(snapshot, dict) else {}
     scheduler = snapshot.get("scheduler", {}) if isinstance(snapshot, dict) else {}
     timing = snapshot.get("timing", {}) if isinstance(snapshot, dict) else {}
     runtime_state = snapshot.get("runtime_state", {}) if isinstance(snapshot, dict) else {}
@@ -119,6 +142,12 @@ def build_diagnostic_report(snapshot: dict[str, object]) -> str:
 
     lines = [
         "DanmuAI Diagnostic Report",
+        "",
+        "[config_context]",
+        f"active_model_id: {config_context.get('active_model_id', '')}",
+        f"provider_id: {config_context.get('provider_id', '')}",
+        f"api_endpoint_host: {config_context.get('api_endpoint_host', '')}",
+        f"api_mode: {config_context.get('api_mode', '')}",
         "",
         "[scheduler]",
         f"last_api_trigger_at: {scheduler.get('last_api_trigger_at', 0.0)}",

@@ -1,3 +1,8 @@
+"""消费节奏与缓冲模拟测试。
+
+PipelineSimulator 仅测 reply_timer 间隔与队列排水，不复制 main 已移除的
+drop_stale / freshness 轮次滞后丢弃策略（_is_reply_stale 恒为不丢弃）。
+"""
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -162,15 +167,6 @@ class PipelineSimulator:
         if queued is None:
             return
 
-        if self.config.get("drop_stale", "1") == "1" and self.screenshot_round > 0:
-            max_lag = {"loose": 5, "medium": 3, "strict": 2}
-            freshness = self.config.get("freshness", "medium")
-            lag = self.screenshot_round - queued.screenshot_round
-            if lag > max_lag.get(freshness, 3):
-                if not self.reply_buffer.is_empty():
-                    self.reply_timer.start(100)
-                return
-
         item = self.engine.add_text(queued.content, queued.persona_id)
         if item:
             self._latest_displayed_round = max(self._latest_displayed_round, queued.screenshot_round)
@@ -288,15 +284,16 @@ def test_on_ai_reply_reduces_timer_interval_when_buffer_small():
     assert sim.reply_timer._interval <= 200
 
 
-def test_stale_danmu_uses_short_delay():
-    sim = PipelineSimulator({"drop_stale": "1", "freshness": "medium"})
+def test_old_screenshot_round_still_consumes():
+    sim = PipelineSimulator()
     sim.screenshot_round = 20
 
     sim.reply_buffer.push(QueuedReply("p1", 1, 0, "old", screenshot_round=10))
     sim.reply_buffer.push(QueuedReply("p1", 1, 1, "also-old", screenshot_round=10))
     sim._consume_reply_queue()
+    sim._consume_reply_queue()
 
-    assert sim.reply_timer.intervals[-1] == 100
+    assert [c[0] for c in sim.engine.calls] == ["old", "also-old"]
 
 
 def test_engine_add_text_precomputes_width(tmp_path):

@@ -36,12 +36,14 @@ try {
     $gitSha = "unknown"
 }
 $builtAt = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+$appVersion = (python -c "from app.version import __version__; print(__version__)").Trim()
 @(
     "DanmuAI Windows x64 (PyInstaller onedir)"
+    "Version: $appVersion"
     "Release folder: $ReleaseName"
     "Built (UTC): $builtAt"
     "Git: $gitSha"
-    "Changelog: docs/CHANGELOG.md (2026-05-27)"
+    "Changelog: docs/CHANGELOG.md"
     ""
     "Run DanmuAI.exe inside this folder. Requires WebView2 Runtime on Windows 10/11."
     "Fallback: DanmuAI.exe --web-browser"

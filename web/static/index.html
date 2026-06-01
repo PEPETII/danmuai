@@ -108,6 +108,9 @@
       <button type="button" data-page="tutorial" class="sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-left">
         <svg class="ui-icon w-5" aria-hidden="true"><use href="#i-graduation"></use></svg> 教程
       </button>
+      <button type="button" data-page="community" class="sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-left">
+        <svg class="ui-icon w-5" aria-hidden="true"><use href="#i-users"></use></svg> 社区
+      </button>
       <button type="button" data-page="announcements" class="sidebar-item sidebar-item-with-badge w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-left">
         <svg class="ui-icon w-5" aria-hidden="true"><use href="#i-megaphone"></use></svg> 公告
         <span id="announcementsNavBadge" class="sidebar-nav-badge hidden" aria-label="有新公告"></span>
@@ -806,6 +809,33 @@
           rel="noopener noreferrer"
           class="tutorial-link break-all"
         >https://rcnp42h3qtlx.feishu.cn/wiki/BKiMwLW1tipDY5kzrOYcsvBNnTg</a>
+      </div>
+    </section>
+
+    <!-- 社区 -->
+    <section id="page-community" class="page-panel" aria-label="DanmuAI 社区">
+      <header class="mb-8">
+        <h2 class="text-2xl font-bold text-warmText">DanmuAI 社区</h2>
+        <p class="text-gray-500 mt-1">分享提示词、配置、使用经验和问题求助</p>
+      </header>
+      <div class="card community-page p-8 space-y-6">
+        <p class="community-lead text-warmText">
+          在这里分享提示词、配置、使用经验和问题求助。社区在独立网站运行，与本地 DanmuAI 软件配置互不影响。
+        </p>
+        <p id="communityUrlHint" class="community-url-hint text-sm text-gray-500 break-all" aria-live="polite">
+          社区地址加载中…
+        </p>
+        <div class="community-actions flex flex-wrap gap-3">
+          <button type="button" id="btnCommunityOpen" class="px-6 py-2.5 bg-warmPink hover:bg-warmPinkHover text-white rounded-xl font-semibold shadow-warm">
+            进入社区
+          </button>
+          <button type="button" id="btnCommunityOpenBrowser" class="px-6 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50">
+            在浏览器中打开
+          </button>
+        </div>
+        <p class="community-notice text-sm text-gray-500 leading-relaxed">
+          社区账号与本地软件配置互不影响。请勿发布隐私信息或 API Key。
+        </p>
       </div>
     </section>
 

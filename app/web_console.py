@@ -886,6 +886,38 @@ class WebConsoleServer:
             append_frozen_log(f"Web console thread crashed (serve):\n{detail}")
 
 
+def _notify_wait_ready_timeout(server: WebConsoleServer, danmu_app: "DanmuApp") -> None:
+    """Log wait_ready timeout; ERROR only when the console thread died or bind failed."""
+    thread = server._thread
+    thread_alive = bool(thread and thread.is_alive())
+    bind_failed = server._bind_failed.is_set()
+    append_frozen_log(
+        "wait_ready timeout: "
+        f"thread_alive={thread_alive} "
+        f"bind_failed={bind_failed} "
+        f"startup_ok={server.startup_ok}"
+    )
+    still_starting = thread_alive and not bind_failed
+    if still_starting:
+        msg = (
+            f"Web 控制台启动较慢，仍在后台等待 {server.base_url} 就绪"
+            "（就绪后将打开桌面壳）"
+        )
+        danmu_app.logger.warning(msg)
+        append_frozen_log(msg)
+        return
+    msg = (
+        f"Web 控制台未在 {server.base_url} 就绪（WebSocket 会报 1006）。"
+        "请检查终端是否有端口占用或依赖缺失，并执行: "
+        'pip install -r requirements.txt'
+    )
+    if is_frozen():
+        msg += f" 诊断日志: {frozen_log_path()}"
+    danmu_app.logger.error(msg)
+    append_frozen_log(msg)
+    danmu_app.set_web_error_status(msg, is_error=True)
+
+
 def attach_web_console(danmu_app: "DanmuApp", port: int = DEFAULT_PORT) -> WebConsoleServer:
     """构造 bridge + 启动 WebConsoleServer；主线程挂 500ms 状态刷新定时器。"""
     log_startup("attach_web_console.begin", port=port)
@@ -908,24 +940,7 @@ def attach_web_console(danmu_app: "DanmuApp", port: int = DEFAULT_PORT) -> WebCo
         startup_ok=server.startup_ok,
     )
     if not ready:
-        thread = server._thread
-        thread_alive = bool(thread and thread.is_alive())
-        append_frozen_log(
-            "wait_ready timeout: "
-            f"thread_alive={thread_alive} "
-            f"bind_failed={server._bind_failed.is_set()} "
-            f"startup_ok={server.startup_ok}"
-        )
-        msg = (
-            f"Web 控制台未在 {server.base_url} 就绪（WebSocket 会报 1006）。"
-            "请检查终端是否有端口占用或依赖缺失，并执行: "
-            'pip install -r requirements.txt'
-        )
-        if is_frozen():
-            msg += f" 诊断日志: {frozen_log_path()}"
-        danmu_app.logger.error(msg)
-        append_frozen_log(msg)
-        danmu_app.set_web_error_status(msg, is_error=True)
+        _notify_wait_ready_timeout(server, danmu_app)
 
     def _tick_status():
         if getattr(danmu_app, "web_bridge", None):

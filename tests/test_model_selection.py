@@ -84,6 +84,32 @@ def test_validate_allows_zhipu_freeform_model_id():
     )
 
 
+def test_validate_web_config_patch_rejects_invalid_endpoint():
+    cfg = _Cfg(
+        {
+            "api_endpoint": "https://ark.cn-beijing.volces.com/api/v3",
+            "api_mode": "doubao",
+            "model": "doubao-seed-1-6-flash-250828",
+        }
+    )
+    with pytest.raises(ValueError, match="http://|https://|Invalid API|格式无效"):
+        validate_web_config_patch(cfg, {"api_endpoint": "ark.cn-beijing.volces.com/api/v3"})
+
+
+def test_validate_web_config_patch_allows_valid_endpoint_change():
+    cfg = _Cfg(
+        {
+            "api_endpoint": "https://ark.cn-beijing.volces.com/api/v3",
+            "api_mode": "doubao",
+            "model": "doubao-seed-1-6-flash-250828",
+        }
+    )
+    validate_web_config_patch(
+        cfg,
+        {"api_endpoint": "https://ark.cn-beijing.volces.com/api/v3/"},
+    )
+
+
 def test_validate_web_config_patch_merges_payload_with_existing_config():
     cfg = _Cfg(
         {

@@ -5,8 +5,13 @@ Apply migrations in order (or use Supabase MCP `apply_migration`):
 1. `migrations/001_announcements_feedback.sql`
 2. `migrations/002_error_reports.sql`
 3. `migrations/003_app_updates.sql`
+4. `migrations/004_community_schema.sql` — **DanmuAI 社区**（`community_*` 表；供 `community-site/` 使用，与桌面 `supabase-config.js` 无关）
+5. `migrations/005_community_registration_guard.sql` — 注册审计表 + Edge Function `community-register-guard`（见 [docs/community/REGISTRATION-GUARD.md](../docs/community/REGISTRATION-GUARD.md)）
+6. `migrations/006_community_moderation.sql` — 举报 + 管理 RLS + 封禁（见 [docs/community/MODERATION.md](../docs/community/MODERATION.md)）
 
 Copy `../web/static/supabase-config.example.js` to `../web/static/supabase-config.js` and set `url` + `anonKey`.
+
+社区站环境变量见 [`../docs/community/SUPABASE-SCHEMA.md`](../docs/community/SUPABASE-SCHEMA.md) 与 [`../community-site/.env.example`](../community-site/.env.example).
 
 ## `app_updates`（版本更新提醒）
 

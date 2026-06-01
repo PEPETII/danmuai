@@ -3,8 +3,11 @@
 - /api/status 在 web_console 内注册，本文件不重复
 - /api/diagnostics 必须 build_diagnostic_snapshot()，与 status 分离
 - 写操作需 Bearer；须经 bridge.invoke_on_main（勿在 HTTP 线程直接写 Config / emit config_changed）
+
+社区站生产 URL：环境变量 ``DANMU_COMMUNITY_SITE_URL``（勿写入 Web 静态资源）。
 """
 
+import os
 import re
 from typing import TYPE_CHECKING, Callable
 from urllib.parse import unquote
@@ -18,6 +21,9 @@ from app.web_api import custom_models as cm_api
 from app.web_api import danmu_pool as pool_api
 from app.web_api import danmu_read as read_api
 from app.web_api import persona as persona_api
+
+# 桌面控制台「社区」外链默认地址；部署时请设 DANMU_COMMUNITY_SITE_URL 或改此常量。
+DEFAULT_COMMUNITY_SITE_URL = "https://community-site-two.vercel.app"
 
 ANNOUNCEMENTS_READ_STATE_KEY = "announcements_read_state"
 ANNOUNCEMENTS_READ_IDS_MAX = 200
@@ -193,6 +199,14 @@ def register_preview_compress_route(app, check_token: Callable) -> None:
 
 def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) -> None:
     register_preview_compress_route(app, check_token)
+
+    @app.get("/api/community-site")
+    def get_community_site():
+        """社区 Vercel 地址（只读）；供 Web 控制台侧栏打开外链，不含密钥。"""
+        raw = os.environ.get("DANMU_COMMUNITY_SITE_URL", DEFAULT_COMMUNITY_SITE_URL).strip()
+        if not raw.startswith(("http://", "https://")):
+            raw = DEFAULT_COMMUNITY_SITE_URL
+        return {"url": raw.rstrip("/")}
 
     class PersonaCreatePayload(BaseModel):
         name: str

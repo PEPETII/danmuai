@@ -136,9 +136,22 @@ def test_runtime_diagnostics_summarize_runtime_state_without_polluting_status_sn
     monkeypatch.setattr("app.application.diagnostic_snapshot.time.monotonic", lambda: 100.0)
     monkeypatch.setattr("app.application.runtime_state.time.monotonic", lambda: 100.0)
 
+    app.config.values.update(
+        {
+            "api_endpoint": "https://ark.cn-beijing.volces.com/api/v3",
+            "api_mode": "doubao",
+            "model": "doubao-seed-1-6-flash-250828",
+            "default_model_id": "doubao-seed-1-6-flash-250828",
+        }
+    )
+
     snapshot = app.build_diagnostic_snapshot()
     status = app.build_status_snapshot()
 
+    assert snapshot["config_context"]["active_model_id"] == "doubao-seed-1-6-flash-250828"
+    assert snapshot["config_context"]["provider_id"] == "doubao"
+    assert snapshot["config_context"]["api_endpoint_host"] == "ark.cn-beijing.volces.com"
+    assert snapshot["config_context"]["api_mode"] == "doubao"
     assert snapshot["runtime_state"]["web_runtime"] == {
         "error_message": "warn",
         "is_error": True,
@@ -160,6 +173,7 @@ def test_runtime_diagnostics_summarize_runtime_state_without_polluting_status_sn
         "latest_queued_screenshot_id": 102,
         "latest_displayed_screenshot_id": 103,
     }
+    assert "config_context" not in status
     assert "scheduler" not in status
     assert "timing" not in status
     assert "diagnosis" not in status
@@ -198,6 +212,12 @@ def test_diagnostics_api_returns_independent_read_only_payload(monkeypatch: pyte
     assert diagnostics_res.json() == {
         "ok": True,
         "diagnostics": {
+            "config_context": {
+                "active_model_id": "",
+                "provider_id": "custom_doubao",
+                "api_endpoint_host": "",
+                "api_mode": "doubao",
+            },
             "scheduler": {
                 "last_api_trigger_at": 100.0,
                 "seconds_since_last_trigger": 0.5,

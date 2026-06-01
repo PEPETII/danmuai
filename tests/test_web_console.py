@@ -1024,6 +1024,82 @@ def test_web_console_wait_ready_fails_fast_when_bind_failed():
     assert time.monotonic() - started < 1.0
 
 
+def test_notify_wait_ready_timeout_warns_when_thread_still_starting():
+    import threading
+
+    from app.web_console import (
+        WebConsoleBridge,
+        WebConsoleServer,
+        _notify_wait_ready_timeout,
+    )
+
+    bridge = WebConsoleBridge(MagicMock())
+    server = WebConsoleServer(bridge)
+    danmu_app = MagicMock()
+    danmu_app.logger = MagicMock()
+
+    def _sleep_forever() -> None:
+        time.sleep(5.0)
+
+    server._thread = threading.Thread(target=_sleep_forever, daemon=True)
+    server._thread.start()
+    try:
+        _notify_wait_ready_timeout(server, danmu_app)
+        danmu_app.logger.warning.assert_called_once()
+        danmu_app.logger.error.assert_not_called()
+        danmu_app.set_web_error_status.assert_not_called()
+        warning_msg = danmu_app.logger.warning.call_args[0][0]
+        assert "启动较慢" in warning_msg
+        assert server.base_url in warning_msg
+    finally:
+        server._bind_failed.set()
+
+
+def test_notify_wait_ready_timeout_errors_when_bind_failed():
+    from app.web_console import (
+        WebConsoleBridge,
+        WebConsoleServer,
+        _notify_wait_ready_timeout,
+    )
+
+    bridge = WebConsoleBridge(MagicMock())
+    server = WebConsoleServer(bridge)
+    danmu_app = MagicMock()
+    danmu_app.logger = MagicMock()
+    server._bind_failed.set()
+
+    _notify_wait_ready_timeout(server, danmu_app)
+
+    danmu_app.logger.error.assert_called_once()
+    danmu_app.logger.warning.assert_not_called()
+    danmu_app.set_web_error_status.assert_called_once()
+    error_msg = danmu_app.logger.error.call_args[0][0]
+    assert "未在" in error_msg
+    assert "pip install" in error_msg
+
+
+def test_notify_wait_ready_timeout_errors_when_thread_dead():
+    from app.web_console import (
+        WebConsoleBridge,
+        WebConsoleServer,
+        _notify_wait_ready_timeout,
+    )
+
+    bridge = WebConsoleBridge(MagicMock())
+    server = WebConsoleServer(bridge)
+    danmu_app = MagicMock()
+    danmu_app.logger = MagicMock()
+    server._thread = None
+
+    _notify_wait_ready_timeout(server, danmu_app)
+
+    danmu_app.logger.error.assert_called_once()
+    danmu_app.set_web_error_status.assert_called_once_with(
+        danmu_app.logger.error.call_args[0][0],
+        is_error=True,
+    )
+
+
 def test_web_console_server_stop_schedules_shutdown_callback():
     from app.web_console import WebConsoleBridge, WebConsoleServer
 

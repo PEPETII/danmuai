@@ -299,6 +299,7 @@ TRANSLATIONS = {
         "config.error_model_id_required": "请填写视觉模型 ID",
         "config.error_model_id_reserved_for_custom": "该模型 ID 已在「自定义模型」中使用。请在自定义模型列表中点击「设为默认」，不要通过助手设置重复保存。",
         "config.error_provider_model_mismatch": "平台与模型不匹配：当前 API 地址对应「{provider}」，模型「{model_id}」不在该平台目录中。请重新选择视觉模型或修改 API 地址。",
+        "config.error_api_endpoint_invalid": "API Endpoint 格式无效，需以 http:// 或 https:// 开头",
 
         "ai.error_api_key_missing": "API Key 未配置",
         "ai.error_empty_response": "AI 返回为空",
@@ -616,6 +617,7 @@ TRANSLATIONS = {
         "config.error_model_id_required": "Please enter a vision model ID",
         "config.error_model_id_reserved_for_custom": "This model ID is already used in Custom Models. Set it as default from that list instead of saving it again in Assistant Settings.",
         "config.error_provider_model_mismatch": "Provider and model do not match: the API endpoint is for \"{provider}\", but \"{model_id}\" is not in that platform catalog. Pick a model from the list or change the endpoint.",
+        "config.error_api_endpoint_invalid": "Invalid API endpoint; must start with http:// or https://",
 
         "ai.error_api_key_missing": "API key not configured",
         "ai.error_empty_response": "AI returned an empty response",

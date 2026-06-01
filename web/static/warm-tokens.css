@@ -468,6 +468,29 @@ textarea:focus {
   color: var(--color-primary-hover, #ff6b6b);
 }
 
+.community-page {
+  max-width: 42rem;
+}
+
+.community-lead {
+  font-size: 1.05rem;
+  line-height: 1.75;
+}
+
+.community-url-hint {
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+  background: rgba(var(--color-primary-rgb), 0.06);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.15);
+}
+
+.community-notice {
+  padding: 1rem 1.25rem;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-alt, #fff8f3);
+  border: 1px dashed rgba(var(--color-primary-rgb), 0.25);
+}
+
 .feedback-page {
   position: relative;
   display: flex;
