@@ -391,6 +391,13 @@ export async function refreshAnnouncementsUnreadBadge() {
   }
 }
 
+export function stopAnnouncementsBadgePolling() {
+  if (announcementsBadgePollTimer) {
+    clearInterval(announcementsBadgePollTimer);
+    announcementsBadgePollTimer = null;
+  }
+}
+
 export function startAnnouncementsBadgePolling() {
   if (announcementsBadgePollTimer) return;
   announcementsBadgePollTimer = setInterval(() => {

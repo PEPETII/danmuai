@@ -4,6 +4,7 @@ import pytest
 from app.config_store import ConfigStore
 from app.danmu_engine import (
     DanmuEngine,
+    DanmuItem,
     clamp_danmu_lines,
     layout_height_ratio,
     normalize_layout_mode,
@@ -222,3 +223,81 @@ def test_ai_reply_queue_uses_request_context_and_fifos_results():
         ("A1", "persona-1", 10, None),
         ("A2", "persona-1", 10, None),
     ]
+
+
+def _seed_many_visible(engine: DanmuEngine, n: int) -> None:
+    for i in range(n):
+        track = engine.tracks[i % len(engine.tracks)]
+        track.add(DanmuItem(content=f"d{i}", x=200.0 + (i % 40) * 35.0, width=80.0))
+    engine._rebuild_visibility_counts()
+
+
+def test_rebuild_visibility_counts_correct_after_reload_tracks(workspace_tmp):
+    """BUG-034: preserve reload must keep visible / right-zone counts consistent."""
+    store = ConfigStore(db_path=workspace_tmp / "reload_vis.db")
+    store.set("danmu_speed", "2.0")
+    store.set("danmu_lines", "4")
+    engine = DanmuEngine(store)
+    engine.set_screen_width(1920.0)
+    engine.set_screen_height(1080.0)
+    engine.reload_tracks(preserve_visible=False)
+
+    engine.tracks[0].add(DanmuItem(content="left", x=400.0, width=80.0))
+    engine.tracks[1].add(DanmuItem(content="right", x=1500.0, width=80.0))
+    engine.tracks[2].add(DanmuItem(content="pending", x=2000.0, width=80.0))
+    engine.tracks[3].add(DanmuItem(content="fade", x=1850.0, width=80.0))
+    engine._rebuild_visibility_counts()
+
+    assert engine.visible_display_count() == 3
+    assert engine.right_visible_count() == 2
+    assert engine.items_in_fade_zone() is True
+
+    engine.reload_tracks(preserve_visible=True)
+
+    assert engine.visible_display_count() == 3
+    assert engine.right_visible_count() == 2
+    assert engine.items_in_fade_zone() is True
+    contents = {item.content for track in engine.tracks for item in track.items}
+    assert contents == {"left", "right", "pending", "fade"}
+
+
+def test_visible_display_count_skips_rebuild_when_counts_fresh(engine):
+    """BUG-034: fresh visibility cache must not O(n) rebuild on every read."""
+    engine.tracks[0].add(DanmuItem(content="on-screen", x=400.0, width=80.0))
+    engine._rebuild_visibility_counts()
+
+    rebuild_calls: list[int] = []
+    original_rebuild = engine._rebuild_visibility_counts
+
+    def counting_rebuild() -> None:
+        rebuild_calls.append(1)
+        return original_rebuild()
+
+    engine._rebuild_visibility_counts = counting_rebuild  # type: ignore[method-assign]
+
+    for _ in range(50):
+        engine.visible_display_count()
+
+    assert rebuild_calls == []
+
+
+def test_needs_refill_always_rebuilds_visibility(engine):
+    """Documents BUG-070 hot path: needs_refill() always full-rebuilds today."""
+    engine.tracks[0].add(DanmuItem(content="one", x=400.0, width=80.0))
+    engine._rebuild_visibility_counts()
+    assert not engine._visibility_stale
+
+    rebuild_calls: list[int] = []
+    original_rebuild = engine._rebuild_visibility_counts
+
+    def counting_rebuild() -> None:
+        rebuild_calls.append(1)
+        return original_rebuild()
+
+    engine._rebuild_visibility_counts = counting_rebuild  # type: ignore[method-assign]
+
+    engine.config.set("danmu_pool_enabled", "1")
+    engine.config.set("min_on_screen", "5")
+    engine.needs_refill()
+
+    assert len(rebuild_calls) >= 1

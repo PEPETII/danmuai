@@ -75,6 +75,8 @@ def _prepare_stdio_for_uvicorn() -> None:
         sys.stdout = sys.stderr
 
 _WS_BROADCAST_LOG_INTERVAL_SEC = 5.0
+_WS_MAX_STATUS_CONSUMERS = 10
+_WS_MAX_LOG_CONSUMERS = 10
 
 
 def _ws_token_valid(query_token: str | None, expected: str) -> bool:
@@ -791,6 +793,9 @@ class WebConsoleServer:
             if not _ws_token_valid(ws_token, token):
                 await websocket.close(code=1008, reason="需要登录令牌")
                 return
+            if len(bridge._ws_status_queues) >= _WS_MAX_STATUS_CONSUMERS:
+                await websocket.close(code=1008, reason="连接数已满")
+                return
             client = websocket.client
             peer = f"{client.host}:{client.port}" if client else "unknown"
             await websocket.accept()
@@ -818,6 +823,9 @@ class WebConsoleServer:
             ws_token = websocket.query_params.get("ws_token")
             if not _ws_token_valid(ws_token, token):
                 await websocket.close(code=1008, reason="需要登录令牌")
+                return
+            if len(bridge._ws_log_queues) >= _WS_MAX_LOG_CONSUMERS:
+                await websocket.close(code=1008, reason="连接数已满")
                 return
             client = websocket.client
             peer = f"{client.host}:{client.port}" if client else "unknown"

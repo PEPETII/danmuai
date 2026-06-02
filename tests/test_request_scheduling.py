@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 from types import SimpleNamespace
 from unittest.mock import MagicMock, Mock
 
@@ -83,6 +84,148 @@ def _make_request_app(**overrides):
 def test_reply_request_id_format():
     assert reply_request_id(2, 7, 0) == "2:7:0"
     assert reply_request_id(-1, 5, 0) != reply_request_id(3, 5, 0)
+
+
+def test_reply_request_id_injective_across_ranges():
+    """BUG-073: colon-separated ids must be unique across visual/mic integer domains."""
+    keys: set[str] = set()
+    triple_count = 0
+    for request_round in range(-20, 201):
+        for screenshot_id in range(0, 201):
+            for scene_generation in range(0, 31):
+                key = reply_request_id(request_round, screenshot_id, scene_generation)
+                assert key not in keys, (
+                    request_round,
+                    screenshot_id,
+                    scene_generation,
+                    key,
+                )
+                keys.add(key)
+                triple_count += 1
+    assert triple_count > 0
+    assert reply_request_id(5, 0, 0) in keys
+    assert reply_request_id(-3, 0, 2) in keys
+
+
+_META_CONCURRENT_WORKERS = 8
+_META_ENTRIES_PER_WORKER = 50
+
+
+def test_pending_meta_unique_keys_under_concurrent_calls():
+    """BUG-073: concurrent register/pop must not lose or overwrite distinct request triples."""
+    app = _make_request_app()
+    logger = app.logger
+    assert isinstance(logger, FakeLogger)
+
+    triples: list[tuple[int, int, int, str]] = []
+    for worker_id in range(_META_CONCURRENT_WORKERS):
+        base = worker_id * 10_000
+        for index in range(_META_ENTRIES_PER_WORKER):
+            request_round = base + index
+            screenshot_id = base + index + 1
+            scene_generation = worker_id % 5
+            source = f"w{worker_id}-i{index}"
+            triples.append((request_round, screenshot_id, scene_generation, source))
+
+    expected_count = _META_CONCURRENT_WORKERS * _META_ENTRIES_PER_WORKER
+    register_errors: list[str] = []
+    register_lock = threading.Lock()
+
+    def register_batch(worker_id: int) -> None:
+        try:
+            for request_round, screenshot_id, scene_generation, source in triples:
+                if request_round // 10_000 != worker_id:
+                    continue
+                key = app._register_request_meta(
+                    request_round,
+                    screenshot_id,
+                    scene_generation,
+                    source,
+                )
+                expected_key = app._reply_request_id(
+                    request_round,
+                    screenshot_id,
+                    scene_generation,
+                )
+                if key != expected_key:
+                    with register_lock:
+                        register_errors.append(f"key_mismatch:{key}")
+                    return
+                stored = app._pending_request_meta.get(key)
+                if stored is None or stored.get("source") != source:
+                    with register_lock:
+                        register_errors.append(f"overwrite:{key}")
+        except Exception as exc:
+            with register_lock:
+                register_errors.append(f"register_exc:{exc!r}")
+
+    register_barrier = threading.Barrier(_META_CONCURRENT_WORKERS + 1)
+    register_threads = [
+        threading.Thread(
+            target=lambda wid=worker_id: (
+                register_barrier.wait(),
+                register_batch(wid),
+            ),
+            daemon=True,
+        )
+        for worker_id in range(_META_CONCURRENT_WORKERS)
+    ]
+    for thread in register_threads:
+        thread.start()
+    register_barrier.wait()
+    for thread in register_threads:
+        thread.join(timeout=5.0)
+        assert not thread.is_alive()
+
+    assert register_errors == []
+    assert len(app._pending_request_meta) == expected_count
+
+    sample_round, sample_sid, sample_gen, sample_source = triples[0]
+    sample_key = app._reply_request_id(sample_round, sample_sid, sample_gen)
+    assert app._pending_request_meta[sample_key]["source"] == sample_source
+
+    pop_errors: list[str] = []
+    pop_lock = threading.Lock()
+
+    def pop_batch(worker_id: int) -> None:
+        try:
+            for request_round, screenshot_id, scene_generation, source in triples:
+                if request_round // 10_000 != worker_id:
+                    continue
+                meta = app._pop_request_meta(request_round, screenshot_id, scene_generation)
+                if meta.get("source") != source:
+                    with pop_lock:
+                        pop_errors.append(
+                            f"pop_source_mismatch:{request_round}:{screenshot_id}:{scene_generation}"
+                        )
+        except Exception as exc:
+            with pop_lock:
+                pop_errors.append(f"pop_exc:{exc!r}")
+
+    pop_barrier = threading.Barrier(_META_CONCURRENT_WORKERS + 1)
+    pop_threads = [
+        threading.Thread(
+            target=lambda wid=worker_id: (
+                pop_barrier.wait(),
+                pop_batch(wid),
+            ),
+            daemon=True,
+        )
+        for worker_id in range(_META_CONCURRENT_WORKERS)
+    ]
+    for thread in pop_threads:
+        thread.start()
+    pop_barrier.wait()
+    for thread in pop_threads:
+        thread.join(timeout=5.0)
+        assert not thread.is_alive()
+
+    assert pop_errors == []
+    assert app._pending_request_meta == {}
+    assert not any(
+        "request_meta_missing" in msg or "pop_before_reply" in msg
+        for msg in logger.warning_messages
+    )
 
 
 def test_density_right_target():

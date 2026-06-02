@@ -10,12 +10,14 @@ from app.live_freshness import (
     screenshot_interval_ms,
     should_backoff_screenshot,
 )
+from main import DanmuApp
 
 from tests.fakes import FakeConfig, FakeTimer
 from tests.test_p0_main_flow import _make_minimal_app
 
 
 def test_is_reply_stale_never_stale_in_normal_mode():
+    """生产主链路不触发 _log_reply_drop；见 test_on_ai_reply_enqueues_despite_stale_screenshot_id。"""
     app = _make_minimal_app()
     app._latest_screenshot_id = 12
     app._latest_requested_screenshot_id = 10
@@ -61,8 +63,28 @@ def test_trigger_api_call_increments_in_flight(monkeypatch):
     pool.start.assert_called_once()
 
 
+def test_stale_drops_field_is_wired_to_main_pipeline():
+    """BUG-027: dormant 路径 _log_reply_drop → _stale_drop_count → LiveStatusSnapshot.stale_drops。"""
+    app = _make_minimal_app()
+    app._build_live_status_snapshot = DanmuApp._build_live_status_snapshot.__get__(app, DanmuApp)
+
+    app._log_reply_drop("stale_scene_in_flight", screenshot_id=1, request_round=10, scene_generation=0)
+    assert app._stale_scene_inflight_drop_count == 1
+    assert app._stale_scene_consume_drop_count == 0
+    assert app._stale_drop_count == 1
+
+    app._log_reply_drop("stale_scene", screenshot_id=2, request_round=11, scene_generation=0)
+    assert app._stale_scene_inflight_drop_count == 1
+    assert app._stale_scene_consume_drop_count == 1
+    assert app._stale_drop_count == 2
+
+    snap = app._build_live_status_snapshot()
+    assert snap.stale_drops == 2
+
+
 def test_stale_burst_raises_screenshot_interval():
     app = _make_minimal_app()
+    app._record_stale_drop = DanmuApp._record_stale_drop.__get__(app, DanmuApp)
     app.config = FakeConfig({"normal_recognition_interval_sec": "5"})
     app.screenshot_timer = FakeTimer()
     now = time.monotonic()

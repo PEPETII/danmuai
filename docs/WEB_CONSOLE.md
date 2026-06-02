@@ -181,6 +181,19 @@ python main.py --web-browser    # 系统浏览器
 - 非法字段进入 `discarded_fields`，不会返回给前端保存。
 - 应用修改：Web 页「应用修改」→ `POST /api/config`（与助手设置相同），**管家接口不直接写库**。
 
+### 诊断（`app/web_api/routes.py`）
+
+| 方法 | 路径 | 鉴权 | 说明 |
+|------|------|------|------|
+| GET | `/api/diagnostics` | 否 | 一次性诊断快照（`build_diagnostic_snapshot()`）；与 `/api/status` 互斥，禁止复用 |
+| GET | `/api/diagnostics/events` | Query `ws_token` | SSE 端点：实时推送诊断快照；返回 `text/event-stream`，事件类型 `diagnostic_snapshot`；替代前端轮询 |
+
+**行为说明**
+
+- `/api/diagnostics`：一次性 HTTP GET，返回完整诊断快照（含 `request_timing`、`pending_requests`、`scene_memory` 等）；用于调试或非实时场景。
+- `/api/diagnostics/events`：SSE 长连接，每秒推送 `event: diagnostic_snapshot` + JSON payload；前端 `diagnostics.js` 通过 WebSocket token 鉴权订阅，替代原有轮询逻辑。
+- **互斥约束**：`/api/diagnostics` 委托 `build_diagnostic_snapshot()`，**禁止**复用 `build_status_snapshot()`；`/api/status` **禁止**混入 diagnostics 字段（见 AGENTS.md §9.5）。
+
 ### 读弹幕 / TTS（`app/web_api/danmu_read.py`）
 
 | 方法 | 路径 | 鉴权 | 说明 |

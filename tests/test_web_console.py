@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import threading
 import time
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -374,6 +375,7 @@ def test_build_status_snapshot_includes_dedup_profile_when_enabled(monkeypatch):
 
     assert status["dedup_profile"] == {"enabled": True, "duplicate_checks": 3}
     assert status["live_message"] == "analyzing"
+    assert status["live_stale_drops"] == 2
     app.engine.get_dedup_profile_snapshot.assert_called_once()
 
 
@@ -1734,7 +1736,7 @@ def test_session_route_does_not_require_query_request():
 
 def _build_ws_status_test_app(bridge, token: str):
     """Mirror WebConsoleServer WebSocketRoute registration for /ws/status."""
-    from app.web_console import _ws_token_valid
+    from app.web_console import _WS_MAX_STATUS_CONSUMERS, _ws_token_valid
     from fastapi import FastAPI, WebSocket, WebSocketDisconnect
     from starlette.routing import WebSocketRoute
 
@@ -1744,6 +1746,10 @@ def _build_ws_status_test_app(bridge, token: str):
         ws_token = websocket.query_params.get("ws_token")
         if not _ws_token_valid(ws_token, token):
             await websocket.close(code=1008, reason="需要登录令牌")
+            return
+        status_queues = bridge._ws_status_queues
+        if isinstance(status_queues, list) and len(status_queues) >= _WS_MAX_STATUS_CONSUMERS:
+            await websocket.close(code=1008, reason="连接数已满")
             return
         await websocket.accept()
         bridge._ws_log_debug("WebSocket /ws/status accepted peer=test")
@@ -1829,6 +1835,43 @@ def test_ws_status_websocket_rejects_missing_token_with_1008():
     bridge.register_status_consumer.assert_not_called()
 
 
+def test_ws_status_max_connections_capped():
+    """BUG-038: reject excess /ws/status clients before register_status_consumer."""
+    from contextlib import ExitStack
+
+    from app.web_console import _WS_MAX_STATUS_CONSUMERS, WebConsoleBridge
+    from fastapi.testclient import TestClient
+    from starlette.websockets import WebSocketDisconnect
+
+    token = "ws-test-token-max-conn"
+    danmu_app = MagicMock()
+    danmu_app.logger = MagicMock()
+    bridge = WebConsoleBridge(danmu_app)
+    bridge._last_status_payload = {
+        "running": False,
+        "danmu_count": 0,
+        "queue_count": 0,
+        "display_count": 0,
+    }
+
+    app = _build_ws_status_test_app(bridge, token)
+    client = TestClient(app)
+    url = f"/ws/status?ws_token={token}"
+
+    with ExitStack() as stack:
+        for _ in range(_WS_MAX_STATUS_CONSUMERS):
+            ws = stack.enter_context(client.websocket_connect(url))
+            ws.receive_json()
+        assert len(bridge._ws_status_queues) == _WS_MAX_STATUS_CONSUMERS
+
+        with pytest.raises(WebSocketDisconnect) as exc_info:
+            stack.enter_context(client.websocket_connect(url))
+        assert exc_info.value.code == 1008
+        assert len(bridge._ws_status_queues) == _WS_MAX_STATUS_CONSUMERS
+
+    assert len(bridge._ws_status_queues) == 0
+
+
 def test_invoke_on_main_runs_on_bridge_thread():
     from app.web_console import WebConsoleBridge
     from PyQt6.QtCore import QThread
@@ -1862,6 +1905,105 @@ def test_invoke_on_main_fast_path_on_bridge_thread():
     _ = QApplication.instance() or QApplication([])
     bridge = WebConsoleBridge(MagicMock())
     assert bridge.invoke_on_main(lambda: 7) == 7
+
+
+def _pump_qt_until(qt_app, *, invoke_worker=None, extra_thread=None) -> None:
+    """Process Qt events until QThread worker and optional threading.Thread finish."""
+    while True:
+        running_invoke = invoke_worker is not None and invoke_worker.isRunning()
+        running_extra = extra_thread is not None and extra_thread.is_alive()
+        if not running_invoke and not running_extra:
+            break
+        qt_app.processEvents()
+        if invoke_worker is not None:
+            invoke_worker.wait(50)
+        if extra_thread is not None:
+            extra_thread.join(0.05)
+
+
+def test_invoke_on_main_timeout_under_main_thread_load():
+    """BUG-072: sync invoke vs save_config on the same Qt thread must not deadlock."""
+    from PyQt6.QtCore import QThread
+    from PyQt6.QtWidgets import QApplication
+
+    qt_app = QApplication.instance() or QApplication([])
+    app = _make_status_app()
+    bridge = WebConsoleBridge(app)
+    observed: dict[str, object] = {}
+    save_holder: dict[str, object] = {}
+
+    class InvokeWorker(QThread):
+        def run(self) -> None:
+            def slow_on_main() -> str:
+                time.sleep(0.15)
+                return "invoke_done"
+
+            observed["result"] = bridge.invoke_on_main(slow_on_main)
+
+    def run_save() -> None:
+        save_holder["result"] = save_config_via_bridge(
+            bridge,
+            {"api_endpoint": "https://contention.example/v1"},
+            timeout_sec=2.0,
+        )
+
+    t0 = time.perf_counter()
+    invoke_worker = InvokeWorker()
+    invoke_worker.start()
+    save_thread = threading.Thread(target=run_save, daemon=True)
+    save_thread.start()
+    _pump_qt_until(qt_app, invoke_worker=invoke_worker, extra_thread=save_thread)
+    elapsed = time.perf_counter() - t0
+
+    assert observed["result"] == "invoke_done"
+    assert save_holder["result"] == {"ok": True}
+    assert elapsed < 1.5
+    app.apply_web_config_payload.assert_called_with(
+        {"api_endpoint": "https://contention.example/v1"}
+    )
+
+
+def test_save_config_times_out_when_invoke_blocks_beyond_save_timeout():
+    """BUG-072 / P0: save waits on main thread while invoke_on_main holds it past save timeout."""
+    from PyQt6.QtCore import QThread
+    from PyQt6.QtWidgets import QApplication
+
+    qt_app = QApplication.instance() or QApplication([])
+    app = _make_status_app()
+    bridge = WebConsoleBridge(app)
+    save_holder: dict[str, object] = {}
+    invoke_holding_main = threading.Event()
+
+    class InvokeWorker(QThread):
+        def run(self) -> None:
+            def slow_on_main() -> None:
+                invoke_holding_main.set()
+                time.sleep(0.12)
+
+            bridge.invoke_on_main(slow_on_main)
+
+    def run_save() -> None:
+        if not invoke_holding_main.wait(timeout=2.0):
+            pytest.fail("invoke_on_main did not block main thread before save")
+        # Snapshot return value: _on_save_config may later mutate the shared result dict.
+        save_holder["result"] = dict(
+            save_config_via_bridge(
+                bridge,
+                {"api_endpoint": "https://timeout.example/v1"},
+                timeout_sec=0.05,
+            )
+        )
+
+    invoke_worker = InvokeWorker()
+    save_thread = threading.Thread(target=run_save, daemon=True)
+    invoke_worker.start()
+    save_thread.start()
+    _pump_qt_until(qt_app, invoke_worker=invoke_worker, extra_thread=save_thread)
+
+    result = save_holder["result"]
+    assert result["ok"] is False
+    assert result["error"] == "save_timeout"
+    assert "超时" in result["detail"]
 
 
 def test_announcements_read_state_get_default():

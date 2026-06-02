@@ -1,6 +1,7 @@
 import struct
 import threading
 import time
+from types import SimpleNamespace
 
 from app.mic_buffer import DEFAULT_MIC_SAMPLE_RATE, MicRingBuffer
 from app.mic_capture import MicCaptureService
@@ -145,6 +146,49 @@ def test_utterance_poll_does_not_block_audio_callback():
     finally:
         stop.set()
         worker.join(timeout=2.0)
+
+
+_POLL_STRESS_ITERATIONS = 500
+_POLL_LATENCY_BUDGET_SEC = 0.05
+
+
+def test_mic_poll_stress_try_snapshot_bounded_under_contention():
+    """BUG-018: high-frequency poll vs concurrent append must not block the callback path."""
+    cap = MicCaptureService()
+    stop = threading.Event()
+    chunk = b"\x00\x01" * 400
+
+    def append_loop() -> None:
+        while not stop.is_set():
+            cap._buffer.append(chunk)
+
+    worker = threading.Thread(target=append_loop, daemon=True)
+    worker.start()
+    try:
+        time.sleep(0.05)
+        start_bytes = cap._buffer.filled_bytes
+        assert start_bytes > 0
+        none_count = 0
+        for _ in range(_POLL_STRESS_ITERATIONS):
+            t0 = time.perf_counter()
+            pcm = cap.try_snapshot_pcm_ms(600)
+            assert time.perf_counter() - t0 < _POLL_LATENCY_BUDGET_SEC
+            if pcm is None:
+                none_count += 1
+        assert cap._buffer.filled_bytes >= start_bytes
+        assert none_count < _POLL_STRESS_ITERATIONS // 10
+    finally:
+        stop.set()
+        worker.join(timeout=2.0)
+
+
+def test_on_audio_sounddevice_status_records_last_error():
+    """RISK-017: sounddevice status in callback is observable via last_error (dropout proxy)."""
+    cap = MicCaptureService()
+    indata = SimpleNamespace(tobytes=lambda: b"\x00\x01" * 200)
+    cap._on_audio(indata, 100, None, "input overflow")
+    assert "overflow" in cap.last_error.lower()
+    assert cap._buffer.filled_bytes > 0
 
 
 def test_take_recent_ms():

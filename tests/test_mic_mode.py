@@ -1,10 +1,14 @@
 import time
+from types import SimpleNamespace
 
 from app.mic_buffer import MicRingBuffer, clamp_mic_window_sec
 from app.mic_capture import MicCaptureService
 from app.mic_encode import pcm_to_wav_data_uri
 from app.mic_prompt import build_mic_insert_user_pt
-from main import MIC_POLL_MS, MIC_POLL_PHASE_MS
+from main import MIC_POLL_MS, MIC_POLL_PHASE_MS, DanmuApp
+
+from tests.conftest import bind_minimal_danmu_app
+from tests.fakes import FakeConfig, FakeTimer
 
 
 def test_clamp_mic_window_sec():
@@ -59,6 +63,36 @@ def test_try_snapshot_pcm_ms_returns_none_when_lock_held():
         assert elapsed < 0.05
     finally:
         buf._lock.release()
+
+
+def test_sync_mic_service_keeps_capture_when_danmu_pauses(monkeypatch):
+    """BUG-032: pausing danmu must not stop mic capture when mic mode stays enabled."""
+    app = DanmuApp.__new__(DanmuApp)
+    bind_minimal_danmu_app(
+        app,
+        config=FakeConfig({"mic_mode_enabled": "1"}),
+    )
+    sync_calls: list[bool] = []
+    stop_called: list[bool] = []
+
+    mic_service = SimpleNamespace(
+        is_running=lambda: True,
+        sync=lambda *, enabled: sync_calls.append(enabled),
+        stop=lambda: stop_called.append(True),
+        last_error=lambda: "",
+    )
+    app._mic_service = mic_service
+    app._mic_poll_timer = FakeTimer()
+    app._mic_utterance_detector = None
+    app.engine.running = False
+
+    monkeypatch.setattr("main.mic_audio_supported_for_config", lambda _cfg: True)
+    app._stop_mic_utterance_detector = lambda: None
+
+    DanmuApp._sync_mic_service(app)
+
+    assert sync_calls == []
+    assert stop_called == []
 
 
 def test_build_mic_insert_user_pt():

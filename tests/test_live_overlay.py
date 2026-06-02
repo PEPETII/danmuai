@@ -195,3 +195,95 @@ def test_hub_broadcast_item_payload():
     assert item["text"] == "单条"
     assert item["y"] == 130.0
     loop.close()
+
+
+def test_hub_burst_broadcast_coalesces_call_soon_threadsafe():
+    """BUG-035：同线程突发 N 条只应调度一次 call_soon_threadsafe。"""
+    hub = LiveOverlayHub()
+    loop = asyncio.new_event_loop()
+    hub.set_loop(loop)
+    queue: asyncio.Queue = asyncio.Queue(maxsize=256)
+    hub.register(queue)
+    scheduled: list = []
+
+    def _capture(cb, *_args, **_kwargs):
+        scheduled.append(cb)
+
+    loop.call_soon_threadsafe = _capture  # type: ignore[method-assign]
+
+    for index in range(100):
+        hub.broadcast_item(
+            f"burst-{index}",
+            y=50.0 + index,
+            screen_width=1920.0,
+            screen_height=1080.0,
+            speed=2.0,
+            source="ai",
+        )
+
+    assert len(scheduled) == 1
+    scheduled[0]()
+    received = []
+    while not queue.empty():
+        received.append(queue.get_nowait())
+    assert len(received) == 100
+    assert received[0]["text"] == "burst-0"
+    assert received[99]["text"] == "burst-99"
+    snap = hub.snapshot()
+    assert snap["last_batch_size"] == 100
+    assert snap["last_source"] == "ai"
+    loop.close()
+
+
+def test_hub_burst_without_subscribers_schedules_nothing():
+    hub = LiveOverlayHub()
+    loop = asyncio.new_event_loop()
+    hub.set_loop(loop)
+    scheduled: list = []
+
+    def _capture(cb, *_args, **_kwargs):
+        scheduled.append(cb)
+
+    loop.call_soon_threadsafe = _capture  # type: ignore[method-assign]
+
+    for index in range(50):
+        hub.broadcast_item(
+            f"noop-{index}",
+            y=50.0,
+            screen_width=1920.0,
+            screen_height=1080.0,
+            speed=2.0,
+            source="ai",
+        )
+
+    assert scheduled == []
+    assert hub.snapshot()["last_broadcast_at"] is None
+    loop.close()
+
+
+def test_hub_broadcast_batch_under_high_fps_coalesces_enqueue():
+    """TEST-GAPS：broadcast_batch 多行突发合并 enqueue。"""
+    hub = LiveOverlayHub()
+    loop = asyncio.new_event_loop()
+    hub.set_loop(loop)
+    queue: asyncio.Queue = asyncio.Queue(maxsize=256)
+    hub.register(queue)
+    scheduled: list = []
+
+    def _capture(cb, *_args, **_kwargs):
+        scheduled.append(cb)
+
+    loop.call_soon_threadsafe = _capture  # type: ignore[method-assign]
+
+    lines = [f"line-{i}" for i in range(100)]
+    hub.broadcast_batch(lines, source="test")
+
+    assert len(scheduled) == 1
+    scheduled[0]()
+    count = 0
+    while not queue.empty():
+        item = queue.get_nowait()
+        assert item["event"] == "danmu_item"
+        count += 1
+    assert count == 100
+    loop.close()

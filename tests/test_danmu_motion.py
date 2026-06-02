@@ -1,7 +1,14 @@
+import time
+
 import pytest
 from app.config_store import ConfigStore
 from app.danmu_engine import DanmuEngine, DanmuItem
 from app.reply_queue import AIReplyFIFOBuffer, QueuedReply
+
+MANY_ITEM_COUNT = 1000
+UPDATE_FRAMES = 60
+# Regression ceiling only — not an absolute SLA.
+UPDATE_BUDGET_SEC = 3.0
 
 
 @pytest.fixture()
@@ -570,3 +577,35 @@ def test_high_density_no_same_track_cluster(config_store, monkeypatch):
     max_per_track = max(len(t.items) for t in engine.tracks)
     total_tracks = len(engine.tracks)
     assert max_per_track <= (60 // total_tracks + 3)
+
+
+def _seed_many_visible(engine: DanmuEngine, n: int) -> None:
+    for i in range(n):
+        track = engine.tracks[i % len(engine.tracks)]
+        track.add(DanmuItem(content=f"d{i}", x=200.0 + (i % 40) * 35.0, width=80.0))
+    engine._rebuild_visibility_counts()
+
+
+def test_engine_update_many_items_scrolls_within_budget(tmp_path, monkeypatch):
+    """BUG-070: 1000 on-screen items × 60 update ticks stay within CI budget."""
+    monkeypatch.setattr("app.danmu_engine.clamp_danmu_lines", lambda v: max(4, int(v)))
+    store = ConfigStore(db_path=tmp_path / "bulk_update.db")
+    store.set("danmu_speed", "2.0")
+    store.set("danmu_lines", "8")
+    engine = DanmuEngine(store)
+    engine.set_screen_width(1920.0)
+    engine.set_screen_height(1080.0)
+    engine.reload_tracks()
+    _seed_many_visible(engine, MANY_ITEM_COUNT)
+
+    probe = engine.tracks[0].items[0]
+    x0 = probe.x
+    speed = probe.speed
+
+    started = time.perf_counter()
+    for _ in range(UPDATE_FRAMES):
+        engine.update(speed_factor=1.0, dt_sec=1.0 / 60.0)
+    elapsed = time.perf_counter() - started
+
+    assert elapsed < UPDATE_BUDGET_SEC
+    assert probe.x == pytest.approx(x0 - speed * UPDATE_FRAMES)

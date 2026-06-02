@@ -208,7 +208,23 @@ function handlePanelVisibilityChange(entries) {
   }
 }
 
+function setDiagnosticsPanelVisible(visible) {
+  const panel = document.getElementById('diagnosticsPanel');
+  const btn = document.getElementById('btnToggleDiagnosticsPanel');
+  if (!panel) return;
+  panel.classList.toggle('hidden', !visible);
+  panel.setAttribute('aria-hidden', visible ? 'false' : 'true');
+  if (btn) btn.textContent = visible ? '隐藏诊断面板' : '显示诊断面板';
+  handlePanelVisibilityChange([{ target: panel, isIntersecting: visible }]);
+}
+
 export function initDiagnosticsPanel({ showToast }) {
+  document.getElementById('btnToggleDiagnosticsPanel')?.addEventListener('click', () => {
+    const panel = document.getElementById('diagnosticsPanel');
+    if (!panel) return;
+    setDiagnosticsPanelVisible(panel.classList.contains('hidden'));
+  });
+
   document.getElementById('btnCopyDiagnosticsReport')?.addEventListener('click', async () => {
     const text = buildDiagnosticReportText(DIAGNOSTICS.last);
     try {

@@ -2,6 +2,7 @@
 
 主线程（DanmuApp）调用 broadcast_batch；uvicorn 线程通过 asyncio.Queue 推送给 SSE 客户端。
 无订阅者时立即返回，不阻塞主链路。
+同线程突发多条 broadcast_item 合并为单次 call_soon_threadsafe flush。
 """
 
 from __future__ import annotations
@@ -13,21 +14,18 @@ from dataclasses import dataclass, field
 from typing import Any
 
 
-def _enqueue_overlay(loop: asyncio.AbstractEventLoop, queue: asyncio.Queue, item: Any) -> None:
-    def _put() -> None:
+def _put_on_queue(queue: asyncio.Queue, item: Any) -> None:
+    try:
+        queue.put_nowait(item)
+    except asyncio.QueueFull:
+        try:
+            queue.get_nowait()
+        except asyncio.QueueEmpty:
+            pass
         try:
             queue.put_nowait(item)
         except asyncio.QueueFull:
-            try:
-                queue.get_nowait()
-            except asyncio.QueueEmpty:
-                pass
-            try:
-                queue.put_nowait(item)
-            except asyncio.QueueFull:
-                pass
-
-    loop.call_soon_threadsafe(_put)
+            pass
 
 
 @dataclass
@@ -37,6 +35,8 @@ class LiveOverlayHub:
     _loop: asyncio.AbstractEventLoop | None = field(default=None, repr=False)
     _queues: list[asyncio.Queue] = field(default_factory=list, repr=False)
     _recent: deque = field(default_factory=lambda: deque(maxlen=80), repr=False)
+    _pending: list[tuple[dict[str, Any], str, int]] = field(default_factory=list, repr=False)
+    _flush_scheduled: bool = field(default=False, repr=False)
     last_broadcast_at: float | None = field(default=None, repr=False)
     last_batch_size: int = field(default=0, repr=False)
     last_source: str = field(default="", repr=False)
@@ -106,18 +106,39 @@ class LiveOverlayHub:
             "ts": time.time(),
         }
 
-    def _publish(self, payload: dict[str, Any], *, source: str, batch_size: int = 1) -> None:
-        queues = list(self._queues)
-        if not queues:
+    def _schedule_flush(self) -> None:
+        if self._flush_scheduled:
             return
         loop = self._loop
         if loop is None:
             return
-        self.last_broadcast_at = float(payload["ts"])
-        self.last_batch_size = batch_size
+        self._flush_scheduled = True
+        loop.call_soon_threadsafe(self._flush_pending)
+
+    def _flush_pending(self) -> None:
+        self._flush_scheduled = False
+        pending = self._pending
+        self._pending = []
+        if not pending:
+            return
+        queues = list(self._queues)
+        if not queues:
+            return
+        last_payload, source, _ = pending[-1]
+        self.last_broadcast_at = float(last_payload["ts"])
+        self.last_batch_size = len(pending)
         self.last_source = source
         for queue in queues:
-            _enqueue_overlay(loop, queue, payload)
+            for payload, _, _ in pending:
+                _put_on_queue(queue, payload)
+
+    def _publish(self, payload: dict[str, Any], *, source: str, batch_size: int = 1) -> None:
+        if not self._queues:
+            return
+        if self._loop is None:
+            return
+        self._pending.append((payload, source, batch_size))
+        self._schedule_flush()
 
     def broadcast_item(
         self,

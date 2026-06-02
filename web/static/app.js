@@ -49,6 +49,7 @@ import {
   loadAnnouncementsReadState,
   refreshAnnouncementsUnreadBadge,
   startAnnouncementsBadgePolling,
+  stopAnnouncementsBadgePolling,
   loadAnnouncementsPage,
   initFeedbackPage,
   initAiButlerPage,
@@ -1005,8 +1006,11 @@ function navigate(page) {
   if (page === 'danmu-pool') loadDanmuPoolPage().catch((e) => showToast(e.message, true));
   if (page === 'danmu-read') loadDanmuReadPage().catch((e) => showToast(e.message, true));
   if (page === 'announcements') {
+    stopAnnouncementsBadgePolling();
     updateAnnouncementsNavBadge(false);
     loadAnnouncementsPage().catch((e) => showToast(e.message, true));
+  } else {
+    startAnnouncementsBadgePolling();
   }
   if (page === 'feedback') initFeedbackPage();
   if (page === 'logs') {
@@ -1106,7 +1110,12 @@ async function init() {
   updateLogPanelState();
 
   await refreshAnnouncementsUnreadBadge();
-  startAnnouncementsBadgePolling();
+  const onAnnouncements = document
+    .getElementById('page-announcements')
+    ?.classList.contains('active');
+  if (!onAnnouncements) {
+    startAnnouncementsBadgePolling();
+  }
 
   document.getElementById('btnToggle').addEventListener('click', async () => {
     try {

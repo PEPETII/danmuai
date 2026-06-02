@@ -105,6 +105,58 @@ def test_web_console_modules_exist():
     assert "/static/app.js" in html
 
 
+def test_diagnostics_panel_visibility_toggle_wires_button_and_sse_gate():
+    """BUG-067: 诊断面板展开/收起按钮与 hidden 门控 SSE（静态符号回归）。"""
+    root = project_root()
+    index_html = (root / "web" / "static" / "index.html").read_text(encoding="utf-8")
+    diagnostics_js = (root / "web" / "static" / "modules" / "diagnostics.js").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'id="btnToggleDiagnosticsPanel"' in index_html
+    assert 'id="diagnosticsPanel"' in index_html
+    diag_panel_idx = index_html.index('id="diagnosticsPanel"')
+    diag_panel_chunk = index_html[max(0, diag_panel_idx - 80) : diag_panel_idx + 120]
+    assert "hidden" in diag_panel_chunk
+
+    assert "btnToggleDiagnosticsPanel" in diagnostics_js
+    assert "setDiagnosticsPanelVisible" in diagnostics_js
+    assert "classList.toggle('hidden'" in diagnostics_js
+    assert "aria-hidden" in diagnostics_js
+    init_start = diagnostics_js.index("export function initDiagnosticsPanel")
+    init_snippet = diagnostics_js[init_start : init_start + 2500]
+    assert "addEventListener('click'" in init_snippet
+    assert "显示诊断面板" in diagnostics_js
+    assert "隐藏诊断面板" in diagnostics_js
+
+    assert "!panel.classList.contains('hidden')" in diagnostics_js
+    assert "setInterval(refreshDiagnostics" not in diagnostics_js
+    assert "refreshDiagnostics, 2500" not in diagnostics_js
+
+
+def test_announcements_badge_polling_stops_on_announcements_page_navigate():
+    """BUG-042: 公告页停止 5min 轮询，其他页恢复（静态符号回归）。"""
+    root = project_root()
+    content_js = (root / "web" / "static" / "modules" / "content-pages.js").read_text(
+        encoding="utf-8"
+    )
+    app_js = (root / "web" / "static" / "app.js").read_text(encoding="utf-8")
+    assert "export function stopAnnouncementsBadgePolling" in content_js
+    assert "clearInterval(announcementsBadgePollTimer)" in content_js
+    assert "stopAnnouncementsBadgePolling" in app_js
+    nav_start = app_js.index("function navigate(page)")
+    nav_end = app_js.index("\nasync function init()", nav_start)
+    navigate_body = app_js[nav_start:nav_end]
+    assert "page === 'announcements'" in navigate_body
+    assert "stopAnnouncementsBadgePolling()" in navigate_body
+    assert "startAnnouncementsBadgePolling()" in navigate_body
+    init_start = app_js.index("async function init()")
+    init_snippet = app_js[init_start : init_start + 8000]
+    assert "page-announcements" in init_snippet
+    assert "startAnnouncementsBadgePolling()" in init_snippet
+    assert "onAnnouncements" in init_snippet or "page-announcements" in init_snippet
+
+
 def test_status_js_renders_legacy_lifetime_token_note():
     root = project_root()
     status_js = (root / "web" / "static" / "modules" / "status.js").read_text(encoding="utf-8")
@@ -112,6 +164,16 @@ def test_status_js_renders_legacy_lifetime_token_note():
     assert "const legacyExtra = lifetimeTotal - lifetimeIn - lifetimeOut;" in status_js
     assert "另有升级前累计" in status_js
     assert "formatTokenCount(legacyExtra)" in status_js
+
+
+def test_status_js_apply_status_uses_live_message_not_stale_drops():
+    """BUG-027: applyStatus 仅消费 live_message；live_stale_drops 未接线（生产常为 0）。"""
+    root = project_root()
+    status_js = (root / "web" / "static" / "modules" / "status.js").read_text(encoding="utf-8")
+    assert "export function applyStatus" in status_js
+    assert "liveStatusLine" in status_js
+    assert "st.live_message" in status_js
+    assert "live_stale_drops" not in status_js
 
 
 def test_error_report_flow_in_app_js():
