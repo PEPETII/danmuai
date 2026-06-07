@@ -74,6 +74,7 @@ def test_send_mic_probe_unsupported_model():
 
     assert result.ok is False
     assert result.error == "unsupported_model"
+    assert "未声明 mic_audio 支持" in result.message
 
 
 def test_send_mic_probe_unsupported_generic_openai():
@@ -95,6 +96,41 @@ def test_send_mic_probe_unsupported_generic_openai():
 
     assert result.ok is False
     assert result.error == "unsupported_model"
+    assert "未声明 mic_audio 支持" in result.message
+
+
+def test_send_mic_probe_allows_declared_custom_openai():
+    app = MagicMock()
+    app.ai_worker = MagicMock()
+    app.config = MagicMock()
+    app.config.get_default_model_id.return_value = "or-audio"
+    app.config.get_custom_models.return_value = [
+        {"modelId": "or-audio", "supportsMic": True},
+    ]
+    app.ai_worker.resolve_mic_request_credentials.return_value = (
+        "https://openrouter.ai/api/v1",
+        "sk-test",
+        "or-audio",
+        "openai-compatible",
+    )
+    app.run_mic_probe_in_pool = MagicMock(
+        return_value=AiProbeResult(
+            signal="finished",
+            message="ok",
+            input_tokens=1,
+            output_tokens=1,
+        ),
+    )
+
+    result = send_mic_probe(
+        app,
+        placeholder_image_data_uri(),
+        "test",
+        "data:audio/wav;base64,abc",
+    )
+
+    assert result.ok is True
+    app.run_mic_probe_in_pool.assert_called_once()
 
 
 def test_send_mic_probe_success_mimo(monkeypatch):

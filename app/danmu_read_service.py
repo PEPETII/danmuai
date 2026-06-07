@@ -299,7 +299,11 @@ class DanmuReadService(QObject):
         self._last_text = text
         voice = normalize_tts_voice(app.config.get("tts_voice", ""))
         style = app.config.get("tts_style_prompt", "")
-        resolved = resolve_tts_config(app.config)
+        try:
+            resolved = resolve_tts_config(app.config)
+        except ValueError as exc:
+            self._log_skip_once("bad_tts_config", f"TTS 配置无效，跳过朗读：{exc}")
+            return
         preview = text if len(text) <= 24 else f"{text[:24]}..."
         app.logger.info("danmu read: synthesizing %s", preview)
         self._tts_in_flight = True
@@ -356,6 +360,7 @@ def export_danmu_read_config(config) -> dict[str, object]:
         "provider": stored_provider,
         "custom_endpoint": stored_endpoint,
         "custom_model_id": stored_model_id,
+        "model_id": stored_model_id,
         "model": resolved.model,
         "endpoint": resolved.endpoint,
         "use_custom_model": resolved.is_custom,

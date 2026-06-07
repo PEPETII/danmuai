@@ -60,6 +60,9 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
         description: str = ""
         provider: str = ""
 
+    class CustomModelProbePayload(CustomModelPayload):
+        index: int = -1
+
     class ActivePersonaePayload(BaseModel):
         active: list[str]
 
@@ -98,12 +101,16 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
         provider: str | None = None
         endpoint: str | None = None
         model_id: str | None = None
+        custom_endpoint: str | None = None
+        custom_model_id: str | None = None
 
     class DanmuReadProbePayload(BaseModel):
         api_key: str | None = None
         provider: str | None = None
         endpoint: str | None = None
         model_id: str | None = None
+        custom_endpoint: str | None = None
+        custom_model_id: str | None = None
 
     class AnnouncementsReadStatePayload(BaseModel):
         readIds: list[str] = []
@@ -372,16 +379,17 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
 
     @app.post("/api/custom-models/probe")
     def probe_custom_model(
-        body: CustomModelPayload,
+        body: CustomModelProbePayload,
         authorization: str | None = Header(default=None),
     ):
         check_token(authorization)
-        payload = body.model_dump()
+        payload = body.model_dump(exclude={"index"})
+        resolved = cm_api.resolve_probe_credentials(bridge.danmu_app, payload, body.index)
         return bridge.danmu_app.probe_api_connection(
-            api_endpoint=str(payload.get("endpoint") or ""),
-            api_key=str(payload.get("apiKey") or ""),
-            model=str(payload.get("modelId") or ""),
-            api_mode=str(payload.get("mode") or ""),
+            api_endpoint=str(resolved.get("endpoint") or ""),
+            api_key=str(resolved.get("apiKey") or ""),
+            model=str(resolved.get("modelId") or ""),
+            api_mode=str(resolved.get("mode") or ""),
         )
 
     @app.post("/api/mic/test")

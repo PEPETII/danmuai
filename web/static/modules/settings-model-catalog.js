@@ -452,13 +452,35 @@ export function syncMicModelPickerFromForm(selectedModelId) {
   renderMicModelPicker(resolveMicProviderIdForPicker(), selectedModelId || '');
 }
 
-export function getMicConfigProviderId(apiMode, modelId, endpoint) {
+export function evaluateMicAudioSupported({
+  apiMode,
+  modelId,
+  endpoint,
+  supportsMicDeclared = false,
+  serverLikelySupported = false,
+}) {
+  const id = (modelId || '').trim();
+  if (serverLikelySupported) return true;
+  if (supportsMicDeclared) return true;
+  if (catalogModelSupportsMic(id)) return true;
   const providerId = guessProviderIdFromEndpoint(endpoint, apiMode);
   if (apiMode === 'doubao' || providerId === 'doubao') {
-    return { providerId, micSupported: catalogModelSupportsMic(modelId) };
+    return catalogModelSupportsMic(id);
   }
   if (providerId === 'mimo') {
-    return { providerId, micSupported: modelId === 'mimo-v2.5' && catalogModelSupportsMic(modelId) };
+    return id === 'mimo-v2.5' && catalogModelSupportsMic(id);
   }
-  return { providerId, micSupported: false };
+  return false;
+}
+
+export function getMicConfigProviderId(apiMode, modelId, endpoint, options = {}) {
+  const providerId = guessProviderIdFromEndpoint(endpoint, apiMode);
+  const micSupported = evaluateMicAudioSupported({
+    apiMode,
+    modelId,
+    endpoint,
+    supportsMicDeclared: options.supportsMicDeclared,
+    serverLikelySupported: options.serverLikelySupported,
+  });
+  return { providerId, micSupported };
 }

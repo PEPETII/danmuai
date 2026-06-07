@@ -15,7 +15,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from app.application.config_service import set_default_model_selection
-from app.model_providers import is_model_config_complete, validate_model_config
+from app.model_providers import (
+    is_model_config_complete,
+    normalize_endpoint,
+    normalize_mode,
+    validate_model_config,
+)
 
 if TYPE_CHECKING:
     from main import DanmuApp
@@ -44,23 +49,57 @@ def list_custom_models(app: "DanmuApp") -> dict[str, Any]:
 
 def _resolve_api_key(payload: dict, existing: dict | None, app: "DanmuApp") -> str:
     key = (payload.get("apiKey") or payload.get("api_key") or "").strip()
-    if key == MASKED_KEY and existing:
-        return existing.get("apiKey", "")
+    if key == MASKED_KEY:
+        # Masked key means "keep stored key" only when editing an existing entry.
+        return (existing.get("apiKey", "") if existing else "")
     if key:
         return key
     return ""
+
+
+def _find_existing_model(models: list[dict], payload: dict, index: int) -> dict | None:
+    if 0 <= index < len(models):
+        return models[index]
+    model_id = (payload.get("modelId") or payload.get("model_id") or "").strip()
+    if not model_id:
+        return None
+    for model in models:
+        if (model.get("modelId") or "").strip() == model_id:
+            return model
+    return None
+
+
+def _normalize_supports_mic(payload: dict, existing: dict | None) -> bool:
+    if "supportsMic" in payload:
+        value = payload.get("supportsMic")
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            return value.strip().lower() in ("1", "true", "yes", "on")
+        return bool(value)
+    if existing is not None:
+        return bool(existing.get("supportsMic"))
+    return False
 
 
 def _normalize_payload(payload: dict, existing: dict | None = None, app: "DanmuApp | None" = None) -> dict:
     return {
         "name": (payload.get("name") or "").strip(),
         "modelId": (payload.get("modelId") or payload.get("model_id") or "").strip(),
-        "mode": (payload.get("mode") or "doubao").strip(),
-        "endpoint": (payload.get("endpoint") or "").strip(),
+        "mode": normalize_mode((payload.get("mode") or "doubao").strip()),
+        "endpoint": normalize_endpoint((payload.get("endpoint") or "").strip()),
         "apiKey": _resolve_api_key(payload, existing, app),
         "description": (payload.get("description") or "").strip(),
         "provider": (payload.get("provider") or "").strip(),
+        "supportsMic": _normalize_supports_mic(payload, existing),
     }
+
+
+def resolve_probe_credentials(app: "DanmuApp", payload: dict, index: int = -1) -> dict:
+    """Resolve probe credentials the same way as save (masked key + endpoint normalization)."""
+    models = list(app.config.get_custom_models())
+    existing = _find_existing_model(models, payload, index)
+    return _normalize_payload(payload, existing, app)
 
 
 def create_custom_model(app: "DanmuApp", payload: dict) -> dict:

@@ -322,6 +322,14 @@ def request_openai(
 
     mic_audio = audio_data_uri
     if mic_audio and not model_supports_mic_audio(model, endpoint=endpoint, api_mode=api_mode):
+        from app.model_providers import mic_audio_unsupported_message
+
+        logger.info(
+            "mic audio stripped before openai request: model=%s endpoint=%s reason=%s",
+            model,
+            endpoint,
+            mic_audio_unsupported_message(model),
+        )
         mic_audio = None
 
     http_client = worker._get_http_client()

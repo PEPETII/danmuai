@@ -3,7 +3,15 @@ from pathlib import Path
 import pytest
 
 from app.bundle_paths import resource_path
-from app.pet.pet_assets import BUILTIN_PET_DIR, load_pet_assets, validate_pet_pack_dir
+from app.pet.pet_assets import (
+    BUILTIN_PET_DIR,
+    PET_FRAME_H,
+    PET_FRAME_W,
+    PET_STATE_FRAME_COUNTS,
+    PET_STATE_ROWS,
+    load_pet_assets,
+    validate_pet_pack_dir,
+)
 from tests.fakes import FakeConfig
 
 
@@ -18,11 +26,57 @@ def test_validate_pet_pack_dir_missing_json():
         validate_pet_pack_dir(Path("/nonexistent/pet-pack"))
 
 
+def test_frame_rect_review_on_row_8(qapp):
+    pack = load_pet_assets(FakeConfig({"pet_asset_source": "builtin"}))
+    _, sy, _, _ = pack.frame_rect("review", 0)
+    assert sy == 8 * PET_FRAME_H
+
+
+def test_frame_rect_run_on_row_7(qapp):
+    pack = load_pet_assets(FakeConfig({"pet_asset_source": "builtin"}))
+    _, sy, _, _ = pack.frame_rect("run", 0)
+    assert sy == 7 * PET_FRAME_H
+
+
+def test_frame_rect_wave_on_row_3(qapp):
+    pack = load_pet_assets(FakeConfig({"pet_asset_source": "builtin"}))
+    _, sy, _, _ = pack.frame_rect("wave", 0)
+    assert sy == 3 * PET_FRAME_H
+
+
+def test_frame_rect_jump_on_row_4(qapp):
+    pack = load_pet_assets(FakeConfig({"pet_asset_source": "builtin"}))
+    _, sy, _, _ = pack.frame_rect("jump", 0)
+    assert sy == 4 * PET_FRAME_H
+
+
+def test_state_frame_count_matches_petdex(qapp):
+    pack = load_pet_assets(FakeConfig({"pet_asset_source": "builtin"}))
+    assert pack.frame_count("idle") == 6
+    assert pack.frame_count("wave") == 4
+    assert pack.frame_count("run") == 6
+    assert pack.frame_count("jump") == 5
+    assert pack.frame_count("failed") == 8
+    assert pack.frame_count("review") == 6
+    assert PET_STATE_ROWS["idle"] == 0
+    assert PET_STATE_FRAME_COUNTS["idle"] == 6
+    sx, sy, sw, sh = pack.frame_rect("idle", 5)
+    assert (sx, sy, sw, sh) == (5 * PET_FRAME_W, 0, PET_FRAME_W, PET_FRAME_H)
+
+
+def test_state_frame_interval_sec(qapp):
+    pack = load_pet_assets(FakeConfig({"pet_asset_source": "builtin"}))
+    assert pack.state_frame_interval_sec("idle") == pytest.approx(1100 / 6 / 1000.0)
+    assert pack.state_frame_interval_sec("wave") == pytest.approx(700 / 4 / 1000.0)
+    assert pack.state_duration_ms("run") == 820
+
+
 def test_validate_builtin_dimensions(qapp):
     meta, sheet, cols, rows = validate_pet_pack_dir(BUILTIN_PET_DIR)
     assert meta["id"] == "yuexin-miao-animated"
     assert sheet.name.endswith(".webp")
-    assert cols >= 1 and rows >= 1
+    assert cols == 8
+    assert rows == 9
 
 
 def test_local_pack_path_from_config(qapp):

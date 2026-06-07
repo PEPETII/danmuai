@@ -52,6 +52,7 @@ import {
   closeModelModal,
   collectModelForm,
   configureSettingsCustomModels,
+  customModelSupportsMic,
   loadCustomModels,
   openModelModal,
 } from './settings-custom-models.js';
@@ -70,6 +71,7 @@ import {
 import {
   catalogModelSupportsMic,
   configureSettingsModelCatalog,
+  evaluateMicAudioSupported,
   loadModelCatalog,
   pickDefaultCatalogModelId as pickDefaultCatalogModelIdImpl,
   pickDefaultMicCatalogModelId as pickDefaultMicCatalogModelIdImpl,
@@ -183,6 +185,7 @@ export function configureSettingsBindings(deps) {
     applyMicIndependentVisibility,
     updateMicModeHint,
     updateModelActiveSourceBanner,
+    updateMicActiveSourceBanner,
     setMicAudioLikelySupported: (value) => {
       micAudioLikelySupported = value;
     },
@@ -286,15 +289,45 @@ function getMicConfigContext() {
 
 function micModeConfigSupported() {
   const { apiMode, modelId, endpoint } = getMicConfigContext();
-  const providerId = guessProviderIdFromEndpoint(endpoint, apiMode);
-  if (apiMode === 'doubao' || providerId === 'doubao') {
-    return micAudioLikelySupported || catalogModelSupportsMic(modelId);
+  const supportsMicDeclared = isMicUseVisualModel()
+    ? customModelSupportsMic(modelId)
+    : false;
+  return evaluateMicAudioSupported({
+    apiMode,
+    modelId,
+    endpoint,
+    supportsMicDeclared,
+    serverLikelySupported: micAudioLikelySupported,
+  });
+}
+
+export function updateMicActiveSourceBanner(cfg) {
+  const banner = document.getElementById('micActiveSourceBanner');
+  if (!banner) return;
+  const micOn = document.getElementById('mic_mode_enabled')?.checked
+    || cfg?.mic_mode_enabled === '1';
+  if (!micOn) {
+    banner.classList.add('hidden');
+    banner.textContent = '';
+    return;
   }
-  if (providerId === 'mimo') {
-    return micAudioLikelySupported
-      || (modelId === 'mimo-v2.5' && catalogModelSupportsMic(modelId));
+  const useVisual = document.getElementById('mic_use_visual_model')?.checked !== false
+    && cfg?.mic_use_visual_model !== '0';
+  if (useVisual) {
+    const usesCustom = cfg?.uses_custom_credentials === true;
+    const modelId = (cfg?.active_model_id || cfg?.model || document.getElementById('model')?.value || '').trim();
+    const endpoint = usesCustom
+      ? (cfg?.custom_models || []).find((m) => m.modelId === modelId)?.endpoint
+        || document.getElementById('api_endpoint')?.value
+        || ''
+      : (document.getElementById('api_endpoint')?.value || cfg?.api_endpoint || '');
+    banner.textContent = `开麦使用识图模型：${modelId || '未选'} @ ${endpoint || '未配置'}`;
+  } else {
+    const modelId = (document.getElementById('mic_model')?.value || cfg?.mic_model || '').trim();
+    const endpoint = document.getElementById('mic_api_endpoint')?.value || cfg?.mic_api_endpoint || '';
+    banner.textContent = `开麦使用独立麦克风模型：${modelId || '未选'} @ ${endpoint || '未配置'}`;
   }
-  return false;
+  banner.classList.remove('hidden');
 }
 
 export function updateMicModeHint() {
@@ -319,7 +352,7 @@ export function updateMicModeHint() {
     return;
   }
   if (apiMode !== 'doubao' && providerId !== 'doubao') {
-    hint.textContent = '麦克风模式需使用火山方舟豆包（doubao）或小米 MiMo（mimo-v2.5）。当前配置不支持开麦；可在本标签单独配置，或开启「与识图模型相同」。';
+    hint.textContent = `当前模型「${modelId || '未选'}」未声明 mic_audio 支持。请在自定义模型中勾选「支持麦克风」，或改用豆包/MiMo，或在麦克风标签单独配置。`;
     return;
   }
   hint.textContent = `当前模型「${modelId || '未选'}」可能听不懂麦克风。请改选带「支持麦克风」的模型（例如 doubao-seed-2-0-mini），保存后再开始弹幕。`;
@@ -366,10 +399,14 @@ export function bindSettingsControls(deps = {}) {
   configureSettingsBindings(deps);
   const { onConfigSaved } = bindDeps;
 
-  document.getElementById('mic_mode_enabled')?.addEventListener('change', updateMicModeHint);
+  document.getElementById('mic_mode_enabled')?.addEventListener('change', () => {
+    updateMicModeHint();
+    updateMicActiveSourceBanner({});
+  });
   document.getElementById('mic_use_visual_model')?.addEventListener('change', () => {
     applyMicIndependentVisibility();
     updateMicModeHint();
+    updateMicActiveSourceBanner({});
   });
   document.getElementById('micProviderPreset')?.addEventListener('change', (e) => {
     const id = e.target.value;
@@ -381,10 +418,12 @@ export function bindSettingsControls(deps = {}) {
       syncMicProviderPresetFromEndpoint();
       syncMicModelPickerFromForm(document.getElementById('mic_model')?.value || '');
       updateMicModeHint();
+      updateMicActiveSourceBanner({});
     });
     document.getElementById(id)?.addEventListener('input', () => {
       syncMicProviderPresetFromEndpoint();
       updateMicModeHint();
+      updateMicActiveSourceBanner({});
     });
   });
 
@@ -489,9 +528,10 @@ export function bindSettingsControls(deps = {}) {
   });
   document.getElementById('btnModelProbe')?.addEventListener('click', async () => {
     try {
+      const index = parseInt(document.getElementById('modelEditIndex')?.value || '-1', 10);
       const res = await apiFetch('/api/custom-models/probe', {
         method: 'POST',
-        body: JSON.stringify(collectModelForm()),
+        body: JSON.stringify({ ...collectModelForm(), index }),
       });
       showToast(res.message, !res.ok);
     } catch (err) {

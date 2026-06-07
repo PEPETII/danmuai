@@ -63,3 +63,7 @@ class MicService:
 
     def snapshot_pcm_ms(self, ms: int) -> bytes:
         return self._capture.snapshot_pcm_ms(ms)
+
+    def try_snapshot_pcm_ms(self, ms: int) -> bytes | None:
+        """Non-blocking PCM peek for utterance polling (may return None when lock busy)."""
+        return self._capture.try_snapshot_pcm_ms(ms)

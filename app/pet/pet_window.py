@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import math
 import sys
 import time
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable
 
 from PyQt6.QtCore import QEvent, QPoint, Qt, QTimer
@@ -37,7 +39,73 @@ if sys.platform == "win32":
     _SetWindowPos = ctypes.windll.user32.SetWindowPos
 
 _ANIM_INTERVAL_MS = 16
-_FRAME_DT = 1.0 / 9.0
+_DEFAULT_FRAME_INTERVAL_SEC = 1100 / 6 / 1000.0
+
+# PetDex Desktop drag/momentum parity (packages/petdex-desktop/src/main.zig).
+_DRAG_THRESHOLD_PX = 4
+_MIN_VEL_PX_PER_SEC = 65.0
+_MOMENTUM_FRICTION = 0.88
+_MOMENTUM_MAX_DURATION_MS = 900
+_POINTER_SAMPLE_WINDOW_SEC = 0.1
+_WAVING_HOLD_SEC = 1.2
+_MIN_SAMPLE_GAP_SEC = 0.016
+
+
+@dataclass(frozen=True)
+class PointerSample:
+    x: float
+    y: float
+    t: float
+
+
+def drag_run_state_for_dx(dx: float, *, threshold: float = _DRAG_THRESHOLD_PX) -> str | None:
+    if dx >= threshold:
+        return "running-right"
+    if dx <= -threshold:
+        return "running-left"
+    return None
+
+
+def momentum_run_state_for_vx(vx: float, *, min_vel: float = _MIN_VEL_PX_PER_SEC) -> str | None:
+    if vx >= min_vel:
+        return "running-right"
+    if vx <= -min_vel:
+        return "running-left"
+    return None
+
+
+def compute_pointer_velocity(
+    samples: list[PointerSample],
+    *,
+    min_sample_gap_sec: float = _MIN_SAMPLE_GAP_SEC,
+) -> tuple[float, float] | None:
+    if len(samples) < 2:
+        return None
+    last = samples[-1]
+    first = next((s for s in samples if last.t - s.t > min_sample_gap_sec), None)
+    if first is None:
+        return None
+    dt = last.t - first.t
+    if dt <= 0:
+        return None
+    return ((last.x - first.x) / dt, (last.y - first.y) / dt)
+
+
+def resolve_interaction_animation(
+    *,
+    dragging: bool,
+    momentum_active: bool,
+    drag_anim_state: str,
+    post_drag_waving_until: float,
+    now: float,
+    mapper_state: str,
+) -> str:
+    """Drag / throw / post-drag waving take precedence over agent mapper (PetDex parity)."""
+    if dragging or momentum_active:
+        return drag_anim_state
+    if post_drag_waving_until > now:
+        return "waving"
+    return mapper_state
 
 
 class PetWindow(QWidget):
@@ -56,6 +124,14 @@ class PetWindow(QWidget):
         self._one_shot_until = 0.0
         self._drag_offset: QPoint | None = None
         self._load_error: str | None = None
+        self._dragging = False
+        self._drag_anim_state = "jumping"
+        self._momentum_active = False
+        self._momentum_vx = 0.0
+        self._momentum_vy = 0.0
+        self._momentum_elapsed_ms = 0.0
+        self._pointer_samples: list[PointerSample] = []
+        self._post_drag_waving_until = 0.0
 
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint
@@ -175,19 +251,118 @@ class PetWindow(QWidget):
             _SWP_NOMOVE | _SWP_NOSIZE | _SWP_NOACTIVATE | _SWP_SHOWWINDOW,
         )
 
-    def _current_animation(self) -> str:
+    def _mapper_animation(self) -> str:
         return resolve_pet_animation_hint(
             self._app,
             one_shot=self._one_shot,
             one_shot_until=self._one_shot_until,
         )
 
+    def _current_animation(self) -> str:
+        return resolve_interaction_animation(
+            dragging=self._dragging,
+            momentum_active=self._momentum_active,
+            drag_anim_state=self._drag_anim_state,
+            post_drag_waving_until=self._post_drag_waving_until,
+            now=time.monotonic(),
+            mapper_state=self._mapper_animation(),
+        )
+
+    def _set_drag_anim_state(self, state: str) -> None:
+        if state == self._drag_anim_state:
+            return
+        self._drag_anim_state = state
+        self._frame_index = 0
+        self._frame_clock = 0.0
+
+    def _cancel_momentum(self) -> None:
+        self._momentum_active = False
+        self._momentum_vx = 0.0
+        self._momentum_vy = 0.0
+        self._momentum_elapsed_ms = 0.0
+
+    def _start_post_drag_waving(self) -> None:
+        self._post_drag_waving_until = time.monotonic() + _WAVING_HOLD_SEC
+        self._set_drag_anim_state("waving")
+
+    def _push_pointer_sample(self, x: float, y: float) -> None:
+        now = time.monotonic()
+        self._pointer_samples.append(PointerSample(x=x, y=y, t=now))
+        cutoff = now - _POINTER_SAMPLE_WINDOW_SEC
+        self._pointer_samples = [s for s in self._pointer_samples if s.t >= cutoff]
+
+    def _available_geometry(self):
+        screen = self.screen() or QApplication.primaryScreen()
+        if screen is None:
+            return None
+        return screen.availableGeometry()
+
+    def _move_window_clamped(self, dx: int, dy: int) -> tuple[bool, bool]:
+        geo = self._available_geometry()
+        if geo is None:
+            self.move(self.x() + dx, self.y() + dy)
+            return False, False
+        x = self.x() + dx
+        y = self.y() + dy
+        hit_x = hit_y = False
+        w, h = self.width(), self.height()
+        if x < geo.left():
+            x = geo.left()
+            hit_x = True
+        if y < geo.top():
+            y = geo.top()
+            hit_y = True
+        if x + w > geo.right():
+            x = geo.right() - w
+            hit_x = True
+        if y + h > geo.bottom():
+            y = geo.bottom() - h
+            hit_y = True
+        self.move(x, y)
+        return hit_x, hit_y
+
+    def _tick_momentum(self) -> None:
+        if not self._momentum_active:
+            return
+        self._momentum_elapsed_ms += _ANIM_INTERVAL_MS
+        dt_sec = _ANIM_INTERVAL_MS / 1000.0
+        hit_x, hit_y = self._move_window_clamped(
+            int(self._momentum_vx * dt_sec),
+            int(self._momentum_vy * dt_sec),
+        )
+        if hit_x:
+            self._momentum_vx = 0.0
+        if hit_y:
+            self._momentum_vy = 0.0
+        run_state = momentum_run_state_for_vx(self._momentum_vx)
+        if run_state:
+            self._set_drag_anim_state(run_state)
+        self._momentum_vx *= _MOMENTUM_FRICTION
+        self._momentum_vy *= _MOMENTUM_FRICTION
+        speed = math.hypot(self._momentum_vx, self._momentum_vy)
+        if self._momentum_elapsed_ms >= _MOMENTUM_MAX_DURATION_MS or speed < _MIN_VEL_PX_PER_SEC:
+            self._cancel_momentum()
+            self._start_post_drag_waving()
+            self._persist_position()
+
     def _on_anim_tick(self) -> None:
-        self._animation_state = self._current_animation()
-        self._frame_clock += _ANIM_INTERVAL_MS / 1000.0
-        if self._frame_clock >= _FRAME_DT:
+        self._tick_momentum()
+        new_state = self._current_animation()
+        if new_state != self._animation_state:
+            self._animation_state = new_state
+            self._frame_index = 0
             self._frame_clock = 0.0
-            frame_count = self._pack.frame_count if self._pack else 9
+        else:
+            self._animation_state = new_state
+        self._frame_clock += _ANIM_INTERVAL_MS / 1000.0
+        interval = (
+            self._pack.state_frame_interval_sec(self._animation_state)
+            if self._pack
+            else _DEFAULT_FRAME_INTERVAL_SEC
+        )
+        if self._frame_clock >= interval:
+            self._frame_clock = 0.0
+            frame_count = self._pack.state_frame_count(self._animation_state) if self._pack else 6
             self._frame_index = (self._frame_index + 1) % max(1, frame_count)
         self.update()
 
@@ -212,18 +387,47 @@ class PetWindow(QWidget):
             return
         if event.button() == Qt.MouseButton.LeftButton:
             self._drag_offset = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+            self._dragging = True
+            self._post_drag_waving_until = 0.0
+            self._cancel_momentum()
+            self._pointer_samples = []
+            gx = event.globalPosition().x()
+            gy = event.globalPosition().y()
+            self._push_pointer_sample(gx, gy)
+            self._set_drag_anim_state("jumping")
             event.accept()
 
     def mouseMoveEvent(self, event) -> None:
         if self._settings.click_through or self._drag_offset is None:
             return
         if event.buttons() & Qt.MouseButton.LeftButton:
-            self.move(event.globalPosition().toPoint() - self._drag_offset)
+            global_pos = event.globalPosition().toPoint()
+            target = global_pos - self._drag_offset
+            dx = target.x() - self.x()
+            dy = target.y() - self.y()
+            prev_sample = self._pointer_samples[-1] if self._pointer_samples else None
+            gx = event.globalPosition().x()
+            gy = event.globalPosition().y()
+            pointer_dx = gx - prev_sample.x if prev_sample else 0.0
+            self._move_window_clamped(dx, dy)
+            self._push_pointer_sample(gx, gy)
+            run_state = drag_run_state_for_dx(pointer_dx)
+            if run_state:
+                self._set_drag_anim_state(run_state)
             event.accept()
 
     def mouseReleaseEvent(self, event) -> None:
         if event.button() == Qt.MouseButton.LeftButton and self._drag_offset is not None:
+            global_pos = event.globalPosition().toPoint()
+            offset = self._drag_offset
+            target = global_pos - offset
+            gap_x = target.x() - self.x()
+            gap_y = target.y() - self.y()
+            self._move_window_clamped(gap_x, gap_y)
+            self._cancel_momentum()
             self._drag_offset = None
+            self._dragging = False
+            self._start_post_drag_waving()
             self._persist_position()
             event.accept()
 

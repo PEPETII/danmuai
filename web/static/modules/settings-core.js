@@ -23,6 +23,7 @@ let coreDeps = {
   applyMicIndependentVisibility: () => {},
   updateMicModeHint: () => {},
   updateModelActiveSourceBanner: () => {},
+  updateMicActiveSourceBanner: () => {},
   setMicAudioLikelySupported: () => {},
 };
 
@@ -260,6 +261,7 @@ export function fillForm(cfg) {
   if (modelEl) modelEl.value = modelId;
   coreDeps.syncVisionModelPickerFromForm(modelId);
   coreDeps.updateModelActiveSourceBanner(cfg);
+  coreDeps.updateMicActiveSourceBanner(cfg);
   document.getElementById('api_key').value = cfg.has_api_key ? MASKED_API_KEY : '';
 }
 
@@ -270,6 +272,7 @@ export async function reloadConfigFromServer() {
   const modelId = cfg.active_model_id || cfg.default_model_id || cfg.model || '';
   coreDeps.syncVisionModelPickerFromForm(modelId);
   coreDeps.updateModelActiveSourceBanner(cfg);
+  coreDeps.updateMicActiveSourceBanner(cfg);
   await coreDeps.loadCustomModels();
   coreDeps.applyCaptureRegionFromPayload({
     mode: cfg.capture_region_mode || (cfg.region_w > 0 && cfg.region_h > 0 ? 'custom' : 'full'),

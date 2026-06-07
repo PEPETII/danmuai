@@ -48,6 +48,16 @@ class DanmuTtsError(Exception):
     """TTS 请求或响应解析失败。"""
 
 
+def tts_audio_unsupported_message(model_id: str) -> str:
+    """读弹幕为 TTS 链路；普通 chat 模型响应无 message.audio.data 时提示用户。"""
+    mid = (model_id or "").strip() or "?"
+    return (
+        f"当前 provider/model「{mid}」不支持读弹幕 TTS 音频输出。"
+        "请使用支持 chat/completions 且响应含 message.audio.data 的 TTS 模型"
+        "（如小米 MiMo mimo-v2.5-tts）；普通聊天/视觉模型无法朗读。"
+    )
+
+
 def _extract_http_error_message(exc: httpx.HTTPStatusError) -> str:
     try:
         err_body = exc.response.json()
@@ -269,18 +279,28 @@ def _post_chat_audio(
         raise DanmuTtsError(f"TTS 网络错误: {exc}") from exc
 
     try:
-        choices = body.get("choices") or []
-        message = choices[0].get("message") or {}
-        audio = message.get("audio") or {}
-        data_b64 = audio.get("data") or ""
-        if not data_b64:
-            raise DanmuTtsError("TTS 响应无音频数据")
-        return base64.b64decode(data_b64)
+        return _decode_audio_wav_from_body(body, model_id=resolved.model)
     except DanmuTtsError:
         raise
     except Exception as exc:
         logger.debug("tts response parse failed: %s", exc)
         raise DanmuTtsError("TTS 响应解析失败") from exc
+
+
+def _decode_audio_wav_from_body(body: dict[str, Any], *, model_id: str) -> bytes:
+    """解析 chat/completions 响应中的 base64 WAV；文本-only 响应给出 TTS 能力提示。"""
+    choices = body.get("choices") or []
+    if not choices:
+        raise DanmuTtsError("TTS 响应无音频数据")
+    message = choices[0].get("message") or {}
+    audio = message.get("audio") or {}
+    data_b64 = audio.get("data") or ""
+    if data_b64:
+        return base64.b64decode(data_b64)
+    content = message.get("content")
+    if isinstance(content, str) and content.strip():
+        raise DanmuTtsError(tts_audio_unsupported_message(model_id))
+    raise DanmuTtsError("TTS 响应无音频数据")
 
 
 class MimoTtsAdapter:

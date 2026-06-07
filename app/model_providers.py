@@ -143,8 +143,22 @@ def apply_provider_to_form(provider_id: str) -> dict:
     }
 
 
+_ENDPOINT_PATH_SUFFIXES = ("/chat/completions", "/responses")
+
+
 def normalize_endpoint(url: str) -> str:
     value = (url or "").strip().rstrip("/")
+    # Users often paste full request URLs from provider docs; strip known API paths
+    # so runtime/probe can append /chat/completions or /responses once.
+    while True:
+        stripped = False
+        for suffix in _ENDPOINT_PATH_SUFFIXES:
+            if value.endswith(suffix):
+                value = value[: -len(suffix)].rstrip("/")
+                stripped = True
+                break
+        if not stripped:
+            break
     return value
 
 
@@ -238,20 +252,62 @@ def model_likely_supports_mic_audio(model_id: str) -> bool:
     return any(tag in mid for tag in ("vision", "seed-2-0", "seed-1-8"))
 
 
+def _coerce_supports_mic_declared(value) -> bool | None:
+    if value is True:
+        return True
+    if value is False:
+        return False
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in ("1", "true", "yes", "on"):
+            return True
+        if normalized in ("0", "false", "no", "off"):
+            return False
+    return None
+
+
 def model_supports_mic_audio(
     model_id: str,
     *,
     endpoint: str = "",
     api_mode: str = "",
+    supports_mic_declared: bool | str | None = None,
 ) -> bool:
-    """Whether mic insert may attach audio for the active endpoint/model."""
+    """Whether mic insert may attach audio for the active endpoint/model.
+
+    Gate order: doubao heuristic → explicit ``supportsMic`` on custom model →
+    built-in catalog → provider ``mic_audio`` capability (MiMo mimo-v2.5).
+    """
+    from app.model_catalog import catalog_model_supports_mic
+
     mode = normalize_mode(api_mode)
     ep = normalize_endpoint(endpoint)
-    if is_doubao_mode(mode) or resolve_api_transport(ep, mode) == "doubao":
+    transport = resolve_api_transport(ep, mode)
+    if is_doubao_mode(mode) or transport == "doubao":
         return model_likely_supports_mic_audio(model_id)
-    if resolve_api_transport(ep, mode) == "openai" and is_mimo_mic_model(model_id):
+
+    declared = _coerce_supports_mic_declared(supports_mic_declared)
+    if declared is True:
+        return True
+    if declared is False:
+        return False
+
+    if catalog_model_supports_mic(model_id):
+        return True
+
+    caps = get_capabilities_for_model(model_id, ep, mode)
+    if caps.mic_audio and is_mimo_mic_model(model_id):
         return True
     return False
+
+
+def mic_audio_unsupported_message(model_id: str) -> str:
+    """User-facing reason when local gate rejects mic audio attachment."""
+    mid = (model_id or "").strip() or "?"
+    return (
+        f"当前 provider/model「{mid}」未声明 mic_audio 支持。"
+        "请在自定义模型中勾选「支持麦克风」，或改用豆包全模态 / MiMo mimo-v2.5。"
+    )
 
 
 def mic_audio_supported_for_config(config) -> bool:
@@ -264,6 +320,7 @@ def mic_audio_supported_for_config(config) -> bool:
                     default_model_id,
                     endpoint=(model.get("endpoint") or ""),
                     api_mode=(model.get("mode") or ""),
+                    supports_mic_declared=model.get("supportsMic"),
                 )
     return model_supports_mic_audio(
         resolve_active_model_id(config),

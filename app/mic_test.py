@@ -58,6 +58,23 @@ def pcm_metrics(pcm: bytes) -> tuple[int, int]:
     return rms, peak
 
 
+def _wait_recording(seconds: float) -> None:
+    """Wait without freezing the Qt main-thread event loop when QApplication exists."""
+    try:
+        from PyQt6.QtCore import QEventLoop, QTimer
+        from PyQt6.QtWidgets import QApplication
+
+        app = QApplication.instance()
+        if app is not None:
+            loop = QEventLoop()
+            QTimer.singleShot(int(max(0.0, seconds) * 1000), loop.quit)
+            loop.exec()
+            return
+    except Exception:
+        pass
+    time.sleep(seconds)
+
+
 def _level_label(rms: int, pcm_bytes: int) -> str:
     if pcm_bytes < DEFAULT_MIC_SAMPLE_RATE * 2 // 10:
         return "error"
@@ -112,7 +129,7 @@ def capture_mic_sample(
         return b"", result
 
     mic_service.clear_buffer()
-    time.sleep(duration)
+    _wait_recording(duration)
 
     window = clamp_mic_window_sec(int(duration) + 1, maximum=MAX_TEST_SEC + 2)
     pcm = mic_service.snapshot_pcm(window)

@@ -37,28 +37,22 @@ def save_config(app: "DanmuApp", payload: dict[str, Any]) -> dict[str, object]:
 
 
 def run_probe(app: "DanmuApp", payload: dict[str, Any] | None = None) -> dict[str, object]:
-    overrides: dict[str, str | None] = {
-        "api_key_override": None,
-        "provider_override": None,
-        "endpoint_override": None,
-        "model_id_override": None,
-    }
-    if payload:
-        raw = payload.get("api_key")
-        if isinstance(raw, str):
-            key = raw.strip()
-            if key and key != MASKED_API_KEY:
-                overrides["api_key_override"] = key
-        if "provider" in payload:
-            provider = str(payload.get("provider") or "").strip()
-            overrides["provider_override"] = provider or TTS_PROVIDER_CUSTOM_OPENAI
-        if "endpoint" in payload:
-            endpoint = normalize_endpoint(str(payload.get("endpoint") or ""))
-            overrides["endpoint_override"] = endpoint
-        if "model_id" in payload:
-            model_id = str(payload.get("model_id") or "").strip()
-            overrides["model_id_override"] = model_id
+    overrides = normalize_probe_payload(payload)
     return app.run_danmu_read_probe(**overrides)
+
+
+def _pick_endpoint(body: dict[str, Any]) -> str:
+    raw = body.get("endpoint")
+    if raw is None:
+        raw = body.get("custom_endpoint")
+    return normalize_endpoint(str(raw or ""))
+
+
+def _pick_model_id(body: dict[str, Any]) -> str:
+    raw = body.get("model_id")
+    if raw is None:
+        raw = body.get("custom_model_id")
+    return str(raw or "").strip()
 
 
 def normalize_put_payload(body: dict[str, Any]) -> dict[str, Any]:
@@ -77,11 +71,35 @@ def normalize_put_payload(body: dict[str, Any]) -> dict[str, Any]:
             out["api_key"] = key
     if "provider" in body:
         out["provider"] = str(body.get("provider") or "").strip()
-    if "endpoint" in body:
-        out["endpoint"] = normalize_endpoint(str(body.get("endpoint") or ""))
-    if "model_id" in body:
-        out["model_id"] = str(body.get("model_id") or "").strip()
+    if "endpoint" in body or "custom_endpoint" in body:
+        out["endpoint"] = _pick_endpoint(body)
+    if "model_id" in body or "custom_model_id" in body:
+        out["model_id"] = _pick_model_id(body)
     return out
+
+
+def normalize_probe_payload(payload: dict[str, Any] | None) -> dict[str, str | None]:
+    overrides: dict[str, str | None] = {
+        "api_key_override": None,
+        "provider_override": None,
+        "endpoint_override": None,
+        "model_id_override": None,
+    }
+    if not payload:
+        return overrides
+    raw = payload.get("api_key")
+    if isinstance(raw, str):
+        key = raw.strip()
+        if key and key != MASKED_API_KEY:
+            overrides["api_key_override"] = key
+    if "provider" in payload:
+        provider = str(payload.get("provider") or "").strip()
+        overrides["provider_override"] = provider or TTS_PROVIDER_CUSTOM_OPENAI
+    if "endpoint" in payload or "custom_endpoint" in payload:
+        overrides["endpoint_override"] = _pick_endpoint(payload)
+    if "model_id" in payload or "custom_model_id" in payload:
+        overrides["model_id_override"] = _pick_model_id(payload)
+    return overrides
 
 
 def safe_read_api(fn, *args, **kwargs):

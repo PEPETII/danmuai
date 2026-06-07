@@ -23,6 +23,29 @@ def test_normalize_endpoint_strips_trailing_slash():
     assert normalize_endpoint("https://api.example.com/v1/") == "https://api.example.com/v1"
 
 
+def test_normalize_endpoint_strips_chat_completions_suffix():
+    assert (
+        normalize_endpoint("https://openrouter.ai/api/v1/chat/completions")
+        == "https://openrouter.ai/api/v1"
+    )
+    assert (
+        normalize_endpoint("https://openrouter.ai/api/v1/chat/completions/")
+        == "https://openrouter.ai/api/v1"
+    )
+
+
+def test_normalize_endpoint_strips_responses_suffix():
+    assert (
+        normalize_endpoint("https://ark.cn-beijing.volces.com/api/v3/responses")
+        == "https://ark.cn-beijing.volces.com/api/v3"
+    )
+
+
+def test_normalize_endpoint_strips_only_one_api_path_suffix():
+    # Must not produce double-strip bugs on already-normalized base URLs.
+    assert normalize_endpoint("https://api.example.com/v1") == "https://api.example.com/v1"
+
+
 def test_is_valid_endpoint_requires_https_or_http():
     assert is_valid_endpoint("https://ark.cn-beijing.volces.com/api/v3")
     assert not is_valid_endpoint("")
@@ -179,6 +202,35 @@ def test_model_supports_mic_audio_rejects_non_mimo_on_custom_openai():
     assert not model_supports_mic_audio("deepseek-chat", endpoint=ep, api_mode="openai-compatible")
 
 
+def test_model_supports_mic_audio_honors_supports_mic_declared():
+    from app.model_providers import model_supports_mic_audio
+
+    ep = "https://openrouter.ai/api/v1"
+    assert model_supports_mic_audio(
+        "openai/gpt-4o-audio-preview",
+        endpoint=ep,
+        api_mode="openai-compatible",
+        supports_mic_declared=True,
+    )
+    assert not model_supports_mic_audio(
+        "openai/gpt-4o-audio-preview",
+        endpoint=ep,
+        api_mode="openai-compatible",
+        supports_mic_declared=False,
+    )
+
+
+def test_model_supports_mic_audio_catalog_lookup():
+    from app.model_providers import model_supports_mic_audio
+
+    ep = "https://openrouter.ai/api/v1"
+    assert model_supports_mic_audio(
+        "doubao-seed-2-0-mini-260428",
+        endpoint=ep,
+        api_mode="openai-compatible",
+    )
+
+
 def test_resolve_openai_provider_id_mimo_v25_custom_endpoint():
     ep = "https://my-mimo-proxy.com/v1"
     assert resolve_openai_provider_id("mimo-v2.5", ep, "openai-compatible") == "mimo"
@@ -215,6 +267,22 @@ def test_resolve_mic_model_id_prefers_mic_model_when_unlinked():
         mic_model="doubao-seed-2-0-mini-260428",
     )
     assert resolve_mic_model_id(cfg) == "doubao-seed-2-0-mini-260428"
+
+
+def test_mic_audio_supported_for_config_custom_model_supports_mic_flag():
+    cfg = _Cfg(
+        default_model_id="or-audio",
+        custom_models=[
+            {
+                "modelId": "or-audio",
+                "endpoint": "https://openrouter.ai/api/v1",
+                "mode": "openai-compatible",
+                "apiKey": "sk",
+                "supportsMic": True,
+            }
+        ],
+    )
+    assert mic_audio_supported_for_config(cfg) is True
 
 
 def test_mic_audio_supported_for_config_custom_mimo_proxy():

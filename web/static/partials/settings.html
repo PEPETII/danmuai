@@ -132,6 +132,7 @@
               </label>
               <p class="text-xs text-gray-400 mt-1">开启后，说完一句话会额外生成几条接话弹幕，并插队显示，不影响看屏识图的节奏。请<strong>说完后停顿约半秒</strong>；环境较吵时启动后会自动校准。录音只在内存里处理，不会保存到硬盘。</p>
               <p id="micModeHint" class="text-xs text-amber-600 mt-1 hidden"></p>
+              <p id="micActiveSourceBanner" class="text-xs text-sky-700 mt-2 hidden"></p>
             </div>
             <div class="md:col-span-2">
               <label class="flex items-center gap-2 text-sm font-semibold text-warmText">
@@ -458,7 +459,8 @@
               <p class="settings-section-hint mt-1">每隔若干秒随机选一条当前屏上可见弹幕合成语音（3–120 秒）。间隔过短会在上一句<strong>播完之前</strong>无法开始下一句；合成约需 10–20 秒，建议间隔 ≥15 秒。</p>
             </div>
             <div class="p-4 bg-cream/60 rounded-xl border border-softPeach space-y-3">
-              <h4 class="text-sm font-bold text-warmText">自定义模型</h4>
+              <h4 class="text-sm font-bold text-warmText">自定义 TTS 模型</h4>
+              <p class="settings-section-hint -mt-1">读弹幕是<strong>语音合成（TTS）</strong>链路，与助手设置中的<strong>聊天/视觉模型</strong>不同。OpenRouter、One API 等普通聊天模型通常<strong>无法</strong>返回音频，请勿直接复用弹幕生成模型。</p>
               <div>
                 <label for="danmuReadProvider" class="block text-sm font-semibold mb-2 text-warmText">AI 平台</label>
                 <select id="danmuReadProvider" class="w-full px-4 py-3 bg-cream border border-transparent rounded-xl text-warmText">

@@ -6,6 +6,7 @@ from app.config_store import ConfigStore
 from app.danmu_read_service import export_danmu_read_config
 from app.model_providers import normalize_endpoint
 from app.tts_providers import TTS_PROVIDER_CUSTOM_OPENAI, validate_custom_tts_fields
+from app.web_api.danmu_read import normalize_probe_payload, normalize_put_payload
 from app.web_api.routes import register_web_routes
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -167,3 +168,53 @@ def test_export_danmu_read_config_empty_key(workspace_tmp):
     data = export_danmu_read_config(store)
     assert data["api_key"] == ""
     assert data["use_custom_model"] is False
+
+
+def test_normalize_put_payload_accepts_custom_field_aliases():
+    out = normalize_put_payload(
+        {
+            "provider": "custom_openai",
+            "custom_endpoint": "https://tts.example.com/v1",
+            "custom_model_id": "my-tts",
+        }
+    )
+    assert out["endpoint"] == "https://tts.example.com/v1"
+    assert out["model_id"] == "my-tts"
+
+
+def test_normalize_probe_payload_accepts_custom_field_aliases():
+    out = normalize_probe_payload(
+        {
+            "provider": "custom_openai",
+            "custom_endpoint": "https://tts.example.com/v1",
+            "custom_model_id": "probe-model",
+        }
+    )
+    assert out["endpoint_override"] == "https://tts.example.com/v1"
+    assert out["model_id_override"] == "probe-model"
+
+
+def test_danmu_read_probe_route_custom_field_aliases():
+    app = FastAPI()
+    bridge = MagicMock()
+    bridge.danmu_app.run_danmu_read_probe.return_value = {"ok": True, "message": "试听播放中"}
+    bridge.invoke_on_main = lambda fn, *args, **kwargs: fn(*args, **kwargs)
+
+    register_web_routes(app, bridge, lambda _auth=None: None)
+    client = TestClient(app)
+    res = client.post(
+        "/api/danmu-read/probe",
+        headers={"Authorization": "Bearer test"},
+        json={
+            "provider": "custom_openai",
+            "custom_endpoint": "https://tts.example.com/v1",
+            "custom_model_id": "probe-model",
+        },
+    )
+    assert res.status_code == 200
+    bridge.danmu_app.run_danmu_read_probe.assert_called_once_with(
+        api_key_override=None,
+        provider_override="custom_openai",
+        endpoint_override="https://tts.example.com/v1",
+        model_id_override="probe-model",
+    )

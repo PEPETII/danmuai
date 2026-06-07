@@ -179,6 +179,47 @@ def test_synthesize_mimo_tts_missing_key():
         synthesize_mimo_tts("", "hi")
 
 
+def test_synthesize_mimo_tts_text_only_response(monkeypatch):
+    """普通 chat 模型返回文本无 audio.data 时应提示 TTS 能力不匹配。"""
+    payload = {
+        "model": "openrouter/chat-model",
+        "choices": [{"message": {"content": "Hello, I am a text model."}}],
+    }
+
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return payload
+
+    class FakeClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def post(self, url, json, headers):
+            return FakeResponse()
+
+    monkeypatch.setattr("app.tts_providers.httpx.Client", FakeClient)
+    resolved = ResolvedTtsConfig(
+        provider=TTS_PROVIDER_CUSTOM_OPENAI,
+        endpoint="https://openrouter.ai/api/v1",
+        model="openrouter/chat-model",
+        is_custom=True,
+        stored_provider=TTS_PROVIDER_CUSTOM_OPENAI,
+        stored_endpoint="https://openrouter.ai/api/v1",
+        stored_model_id="openrouter/chat-model",
+    )
+    with pytest.raises(DanmuTtsError, match="不支持读弹幕 TTS 音频输出"):
+        synthesize_mimo_tts("sk-test", "你好", resolved=resolved)
+
+
 def test_config_tts_api_key_roundtrip(workspace_tmp):
     store = ConfigStore(db_path=workspace_tmp / "cfg.db")
     store.set_tts_api_key("tts-secret")

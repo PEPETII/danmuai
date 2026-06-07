@@ -103,7 +103,7 @@ class MicOrchestrator:
             return False
         if not self._mic_service.is_running() or self._mic_utterance_detector is None:
             return False
-        pcm = self._mic_service._capture.try_snapshot_pcm_ms(self._mic_poll_ms)
+        pcm = self._mic_service.try_snapshot_pcm_ms(self._mic_poll_ms)
         if pcm is None:
             return True
         self._mic_utterance_detector.poll(pcm)

@@ -35,6 +35,13 @@
           <label class="text-sm font-semibold text-warmText">备注</label>
           <input id="modelDescription" class="w-full px-4 py-2 bg-cream rounded-xl mt-1">
         </div>
+        <div>
+          <label class="flex items-center gap-2 text-sm font-semibold text-warmText">
+            <input type="checkbox" id="modelSupportsMic" class="accent-warmPink">
+            支持麦克风（input_audio）
+          </label>
+          <p class="text-xs text-gray-400 mt-1">OpenRouter 等自定义 OpenAI 兼容网关：若模型文档声明支持音频理解，请勾选此项以允许开麦附加音频。</p>
+        </div>
         <div class="flex flex-wrap gap-3 pt-2 justify-end">
           <button type="button" id="btnModelCancel" class="px-4 py-2 border border-gray-200 rounded-xl">取消</button>
           <button type="button" id="btnModelProbe" class="px-4 py-2 border border-gray-200 rounded-xl">测试连接</button>

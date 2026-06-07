@@ -6,6 +6,7 @@ from app.model_catalog import (
     MIMO_MODELS,
     SILICONFLOW_MODELS,
     catalog_model_ids,
+    catalog_model_supports_mic,
     default_catalog_model_id,
     enrich_platform_models,
     get_catalog_for_provider,
@@ -20,6 +21,13 @@ def test_doubao_cheapest_is_flash():
     assert len(cheapest) == 1
     assert cheapest[0]["id"] == "doubao-seed-1-6-flash-250828"
     assert cheapest[0]["price"]["input"] == 0.15
+
+
+def test_catalog_model_supports_mic():
+    assert catalog_model_supports_mic("doubao-seed-2-0-mini-260428")
+    assert catalog_model_supports_mic("mimo-v2.5")
+    assert not catalog_model_supports_mic("doubao-seed-1-6-flash-250828")
+    assert not catalog_model_supports_mic("unknown-model")
 
 
 def test_doubao_supports_mic_from_audio_price():

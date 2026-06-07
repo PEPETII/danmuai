@@ -7,12 +7,26 @@ let customModelDeps = {
   updateModelActiveSourceBanner: () => {},
 };
 
+let cachedCustomModels = [];
+
+export function getCachedCustomModels() {
+  return cachedCustomModels;
+}
+
+export function customModelSupportsMic(modelId) {
+  const id = (modelId || '').trim();
+  if (!id) return false;
+  const hit = cachedCustomModels.find((model) => (model.modelId || '').trim() === id);
+  return Boolean(hit?.supportsMic);
+}
+
 export function configureSettingsCustomModels(deps) {
   customModelDeps = { ...customModelDeps, ...deps };
 }
 
 export async function loadCustomModels() {
   const data = await apiFetch('/api/custom-models');
+  cachedCustomModels = data.items || [];
   const list = document.getElementById('customModelsList');
   if (!list) return;
   list.innerHTML = '';
@@ -28,6 +42,7 @@ export async function loadCustomModels() {
       <span class="font-semibold text-warmText">${model.name || '未命名'}</span>
       <span class="text-gray-400">${model.modelId}</span>
       ${isDefault ? '<span class="text-green-600 text-xs font-bold">默认</span>' : ''}
+      ${model.supportsMic ? '<span class="text-sky-600 text-xs font-bold">支持麦克风</span>' : ''}
       ${model.complete === false ? '<span class="text-amber-600 text-xs font-bold">配置不完整</span>' : ''}
     `;
     const editBtn = document.createElement('button');
@@ -83,6 +98,8 @@ export function openModelModal(index, model = {}) {
   document.getElementById('modelEndpoint').value = model.endpoint || '';
   document.getElementById('modelApiKey').value = model.apiKey === '********' ? '********' : (model.apiKey || '');
   document.getElementById('modelDescription').value = model.description || '';
+  const supportsMicEl = document.getElementById('modelSupportsMic');
+  if (supportsMicEl) supportsMicEl.checked = Boolean(model.supportsMic);
   const modal = document.getElementById('modelModal');
   modal.classList.remove('hidden');
   modal.classList.add('flex');
@@ -103,5 +120,6 @@ export function collectModelForm() {
     apiKey: document.getElementById('modelApiKey').value,
     description: document.getElementById('modelDescription').value,
     provider: document.getElementById('modelProvider').value,
+    supportsMic: Boolean(document.getElementById('modelSupportsMic')?.checked),
   };
 }

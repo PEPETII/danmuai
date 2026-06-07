@@ -277,3 +277,15 @@ def is_catalog_model_for_provider(provider_id: str, model_id: str) -> bool:
     if not mid:
         return False
     return mid in catalog_model_ids(provider_id)
+
+
+def catalog_model_supports_mic(model_id: str) -> bool:
+    """True when ``model_id`` is listed in a platform catalog with audio pricing."""
+    mid = (model_id or "").strip()
+    if not mid:
+        return False
+    for platform in PLATFORM_CATALOGS:
+        for model in platform.models:
+            if model.id == mid and model.price.audio is not None:
+                return True
+    return False

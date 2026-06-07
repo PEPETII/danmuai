@@ -15,17 +15,20 @@ from PIL import Image
 
 from app.ai_client import AiProbeResult
 from app.mic_encode import pcm_to_wav_data_uri
-from app.model_providers import model_supports_mic_audio
+from app.model_providers import mic_audio_unsupported_message, model_supports_mic_audio
 from app.translations import tr
 
 _TEST_USER_PT = "听得见吗？跟我打个招呼"
 _PREVIEW_MAX_LEN = 200
 _AUDIO_MODEL_HINT = "请确认当前模型支持音频理解（纯视觉 flash 模型可能无法处理 input_audio）。"
-_MIC_UNSUPPORTED_MSG = (
-    "当前配置不支持麦克风音频。"
-    "开麦请使用火山方舟豆包全模态模型（如 doubao-seed-2-0-mini-260428）"
-    "或小米 MiMo 的 mimo-v2.5。"
-)
+def _mic_unsupported_config_message(model_id: str = "") -> str:
+    if model_id:
+        return mic_audio_unsupported_message(model_id)
+    return (
+        "当前配置未声明 mic_audio 支持。"
+        "开麦请使用火山方舟豆包全模态模型（如 doubao-seed-2-0-mini-260428）"
+        "或小米 MiMo 的 mimo-v2.5，或在自定义模型中勾选「支持麦克风」。"
+    )
 @dataclass(frozen=True)
 class MicSendProbeResult:
     ok: bool
@@ -57,6 +60,25 @@ def placeholder_image_data_uri() -> str:
     image.save(buf, format="JPEG", quality=85)
     encoded = base64.b64encode(buf.getvalue()).decode("utf-8")
     return f"data:image/jpeg;base64,{encoded}"
+
+
+def _resolve_supports_mic_declared(danmu_app, model_id: str):
+    try:
+        config = danmu_app.config
+    except (AttributeError, RuntimeError):
+        return None
+    if config is None or not hasattr(config, "get_custom_models"):
+        return None
+    try:
+        default_id = (config.get_default_model_id() or "").strip()
+    except Exception:
+        return None
+    if default_id != (model_id or "").strip():
+        return None
+    for entry in config.get_custom_models():
+        if (entry.get("modelId") or "").strip() == default_id:
+            return entry.get("supportsMic")
+    return None
 
 
 def _probe_result_from_ai(outcome: AiProbeResult) -> MicSendProbeResult:
@@ -107,13 +129,16 @@ def send_mic_probe(
         )
 
     endpoint, _, model_id, api_mode = resolved
-    if not model_supports_mic_audio(model_id, endpoint=endpoint, api_mode=api_mode):
+    supports_declared = _resolve_supports_mic_declared(danmu_app, model_id)
+    if not model_supports_mic_audio(
+        model_id,
+        endpoint=endpoint,
+        api_mode=api_mode,
+        supports_mic_declared=supports_declared,
+    ):
         return MicSendProbeResult(
             ok=False,
-            message=(
-                f"当前模型「{model_id}」可能不支持 input_audio。"
-                f"开麦建议改用 doubao-seed-2-0-mini-260428 或 mimo-v2.5。{_AUDIO_MODEL_HINT}"
-            ),
+            message=f"{mic_audio_unsupported_message(model_id)} {_AUDIO_MODEL_HINT}",
             error="unsupported_model",
         )
 
@@ -127,9 +152,11 @@ def send_mic_probe(
 
 def run_mic_test_send(danmu_app, duration_sec: float = 3.0) -> MicTestSendResult:
     if not danmu_app.mic_audio_supported():
+        resolved = danmu_app.ai_worker.resolve_mic_request_credentials()
+        model_id = resolved[2] if resolved else ""
         return MicTestSendResult(
             ok=False,
-            message=_MIC_UNSUPPORTED_MSG,
+            message=_mic_unsupported_config_message(model_id),
             error="unsupported_api_mode",
         )
 
