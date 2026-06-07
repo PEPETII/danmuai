@@ -211,6 +211,17 @@ def test_mic_settings_tab_separate_from_api_panel():
     assert html.count('id="settingsTab-mic"') == 1
 
 
+def test_pet_page_in_index_html():
+    html = (project_root() / "web" / "static" / "index.html").read_text(encoding="utf-8")
+    assert 'data-page="pet"' in html
+    assert 'id="page-pet"' in html
+    assert 'id="petEnabled"' in html
+    assert 'id="btnPetSave"' in html
+    app_js = (project_root() / "web" / "static" / "app.js").read_text(encoding="utf-8")
+    assert "initPetPage" in app_js
+    assert "loadPetPage" in app_js
+
+
 def test_tailwind_offline_bundle_packaged():
     """BUG-059: 控制台使用内置 tailwindcdn.js，不依赖外网 CDN。"""
     root = project_root()

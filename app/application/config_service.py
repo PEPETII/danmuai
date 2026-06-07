@@ -61,6 +61,20 @@ WEB_CONFIG_KEYS = (
     "danmu_font_bold",
     "floating_panel_font_family",
     "floating_panel_font_bold",
+    # PET-003：桌宠
+    "pet_enabled",
+    "pet_visible",
+    "pet_asset_source",
+    "pet_asset_path",
+    "pet_scale",
+    "pet_opacity",
+    "pet_always_on_top",
+    "pet_click_through",
+    "pet_position_x",
+    "pet_position_y",
+    "pet_command_box_enabled",
+    "pet_command_ttl_sec",
+    "pet_command_apply_count",
 )
 
 # 助手设置「恢复默认」可恢复的键（= WEB_CONFIG_KEYS；不含 api_key / custom_models / region_*）
@@ -295,6 +309,34 @@ class ConfigService:
             if _key in items:
                 _v = str(items[_key]).strip()
                 items[_key] = _v if _v else "Microsoft YaHei"
+
+        # PET-003：桌宠配置归一化
+        if "pet_asset_source" in items:
+            _clamp_choice(items, "pet_asset_source", ("builtin", "local"), "builtin")
+        for _key in (
+            "pet_enabled",
+            "pet_visible",
+            "pet_always_on_top",
+            "pet_click_through",
+            "pet_command_box_enabled",
+        ):
+            if _key in items:
+                _v = str(items[_key]).strip().lower()
+                items[_key] = "1" if _v in ("1", "true", "yes", "on") else "0"
+        if "pet_scale" in items:
+            try:
+                scale = float(items["pet_scale"])
+                items["pet_scale"] = str(max(0.5, min(scale, 2.0)))
+            except (TypeError, ValueError):
+                items["pet_scale"] = "1.0"
+        if "pet_opacity" in items:
+            try:
+                opacity = float(items["pet_opacity"])
+                items["pet_opacity"] = str(max(0.2, min(opacity, 1.0)))
+            except (TypeError, ValueError):
+                items["pet_opacity"] = "1.0"
+        _clamp_int_key(items, "pet_command_ttl_sec", 30, 5, 300)
+        _clamp_int_key(items, "pet_command_apply_count", 1, 1, 5)
 
     def _merge_custom_models(self, payload_models: list[Any]) -> list[dict[str, Any]]:
         from app.web_api.custom_models import MASKED_KEY

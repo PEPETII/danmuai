@@ -36,7 +36,6 @@ class WebStatusSnapshot:
     queue_count: int = 0
     display_count: int = 0
     danmu_render_mode: str = "scrolling"
-    display_mode: str = "overlay"
     overlay_display_count: int = 0
     floating_panel_active_count: int = 0
     floating_panel_render_active: bool = False

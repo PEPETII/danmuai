@@ -594,6 +594,52 @@ def test_post_fonts_import_rejects_oversized_file():
     assert res.json()["detail"] == "file_too_large"
 
 
+def test_pet_settings_and_command_routes():
+    from app.web_api.routes import register_web_routes
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    app = FastAPI()
+    bridge = MagicMock()
+    bridge.invoke_on_main.side_effect = lambda fn, *args, **kwargs: fn(*args, **kwargs)
+    bridge.danmu_app.get_pet_settings_snapshot.return_value = {
+        "enabled": False,
+        "visible": False,
+        "has_pending_command": False,
+    }
+    bridge.danmu_app.apply_pet_settings_patch.return_value = {"enabled": True}
+    bridge.danmu_app.show_pet.return_value = {"ok": True}
+    bridge.danmu_app.submit_pet_command.return_value = {"ok": True, "id": "abc"}
+    bridge.danmu_app.get_pet_status_snapshot.return_value = {"animation": "idle"}
+
+    def _check_token(authorization: str | None = None) -> None:
+        if authorization != "Bearer pet-secret":
+            from fastapi import HTTPException
+
+            raise HTTPException(status_code=401)
+
+    register_web_routes(app, bridge, _check_token)
+    client = TestClient(app)
+
+    assert client.get("/api/pet/settings").status_code == 200
+    assert client.get("/api/pet/status").json()["animation"] == "idle"
+
+    denied = client.post("/api/pet/command", json={"text": "hi"})
+    assert denied.status_code == 401
+
+    ok = client.post(
+        "/api/pet/command",
+        json={"text": "接下来偏搞笑"},
+        headers={"Authorization": "Bearer pet-secret"},
+    )
+    assert ok.status_code == 200
+    bridge.danmu_app.submit_pet_command.assert_called_once_with("接下来偏搞笑", source="web_api")
+
+    show = client.post("/api/pet/show", headers={"Authorization": "Bearer pet-secret"})
+    assert show.status_code == 200
+    bridge.danmu_app.show_pet.assert_called_once()
+
+
 def test_delete_font_removes_from_list():
     reg = _mock_registry()
     reg.delete.return_value = True

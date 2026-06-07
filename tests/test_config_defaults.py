@@ -36,6 +36,7 @@ FP_KEYS = (
 
 def test_fp_keys_present_in_defaults():
     """W-FP-V2-001 字段在 CONFIG_DEFAULTS 中均有默认值。"""
+    assert "display_mode" not in CONFIG_DEFAULTS
     for key in FP_KEYS:
         assert key in CONFIG_DEFAULTS, f"missing default for {key}"
         assert CONFIG_DEFAULTS[key] != ""

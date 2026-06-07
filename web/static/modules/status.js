@@ -7,7 +7,7 @@
  *     - 4 张本场统计卡（弹幕 / 待播 / 运行时长 / 屏上弹幕）
  *     - 4 张累计统计卡（总弹幕 / 总时长 / 输入 Token / 输出 Token）
  *     - 当前人格、live 状态行、is_error 横幅
- *   - 状态栏 tooltip 按 display_mode 区分（overlay 模式 → "在屏条数"；
+ *   - 状态栏 tooltip 按 danmu_render_mode 区分（scrolling 模式 → "在屏条数"；
  *     floating_panel 模式 → 悬浮窗活跃数 / 渲染活跃度，详见 W-FP-005）
  *   - RUNTIME_CLOCK 1s tick 把 session_runtime / lifetime_runtime 平滑到秒，
  *     避免依赖 WS 推送的不规则间隔
@@ -203,7 +203,7 @@ export function applyStatus(st) {
   const displayEl = document.getElementById('statDisplay');
   if (displayEl) {
     displayEl.textContent = String(st.display_count ?? 0);
-    const mode = st.danmu_render_mode || st.display_mode || 'scrolling';
+    const mode = st.danmu_render_mode || 'scrolling';
     if (mode === 'floating_panel') {
       displayEl.title = '侧边悬浮窗在屏条数';
     } else {

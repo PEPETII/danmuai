@@ -103,6 +103,68 @@ class DanmuAppDisplayMixin:
             self.overlay.stop_render_loop()
             self.overlay.hide()
 
+    def _sync_pet_window_visibility(self) -> None:
+        """独立于 danmu_render_mode；pet_enabled + pet_visible 控制桌宠显隐。"""
+        from app.pet.pet_facade import sync_pet_window_visibility
+
+        sync_pet_window_visibility(self)
+
+    def get_pet_animation_hint(self) -> str:
+        from app.pet.pet_facade import get_pet_animation_hint
+
+        return get_pet_animation_hint(self)
+
+    def get_pet_settings_snapshot(self) -> dict[str, object]:
+        from app.pet.pet_facade import get_pet_settings_snapshot
+
+        return get_pet_settings_snapshot(self)
+
+    def apply_pet_settings_patch(self, payload: dict[str, object]) -> dict[str, object]:
+        from app.pet.pet_facade import apply_pet_settings_patch
+
+        return apply_pet_settings_patch(self, payload)
+
+    def show_pet(self) -> dict[str, object]:
+        from app.pet.pet_facade import show_pet
+
+        return show_pet(self)
+
+    def hide_pet(self) -> dict[str, object]:
+        from app.pet.pet_facade import hide_pet
+
+        return hide_pet(self)
+
+    def close_pet(self) -> dict[str, object]:
+        from app.pet.pet_facade import close_pet
+
+        return close_pet(self)
+
+    def submit_pet_command(self, text: str, *, source: str = "web_api") -> dict[str, object]:
+        from app.pet.pet_facade import submit_pet_command
+
+        return submit_pet_command(self, text, source=source)
+
+    def get_pet_status_snapshot(self) -> dict[str, object]:
+        from app.pet.pet_facade import get_pet_status_snapshot
+
+        return get_pet_status_snapshot(self)
+
+    def _notify_pet_visual_success(self) -> None:
+        window = self.__dict__.get("pet_window")
+        if window is not None:
+            try:
+                window.notify_reply_success()
+            except Exception as exc:
+                self.logger.debug(f"pet success animation skipped: {exc!r}")
+
+    def _notify_pet_visual_error(self) -> None:
+        window = self.__dict__.get("pet_window")
+        if window is not None:
+            try:
+                window.notify_error()
+            except Exception as exc:
+                self.logger.debug(f"pet error animation skipped: {exc!r}")
+
     def _sync_floating_panel_visibility(self) -> None:
         """engine.running 时按 danmu_render_mode 显示或隐藏侧边悬浮窗 V2。"""
         if not self.engine.running:

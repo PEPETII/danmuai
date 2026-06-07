@@ -93,7 +93,6 @@ RUNTIME_FIELD_EXCLUDE = {
     "tray",
     "hotkey",
     "ai_worker",
-    "floating_panel",  # deprecated alias → floating_panel_overlay
     "floating_panel_overlay",  # W-FP-V2-001
     "floating_panel_engine",  # W-FP-V2-001
     "font_registry",  # W-FONT-002

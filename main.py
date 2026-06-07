@@ -340,6 +340,15 @@ class DanmuApp(
         user_pt = user_pt.replace("{round}", str(self.screenshot_round))
         user_pt = self._append_scene_memory_to_user_pt(user_pt)
 
+        # PET-006：调度已通过且 record_trigger_time 完成，才消费桌宠待注入指令
+        pet_svc = self.__dict__.get("pet_command_service")
+        if pet_svc is not None:
+            from app.pet.pet_prompt import build_pet_command_user_pt
+
+            command_text = pet_svc.consume_for_prompt()
+            if command_text:
+                user_pt = build_pet_command_user_pt(user_pt, command_text)
+
         self._current_persona = persona
         self._get_request_timing_service().mark_started(
             request_id=request_id,
@@ -471,6 +480,7 @@ class DanmuApp(
             normalized_items,
             from_local_fallback=False,
         )
+        self._notify_pet_visual_success()
         self._publish_live_status()
 
         if not self.reply_timer.isActive():

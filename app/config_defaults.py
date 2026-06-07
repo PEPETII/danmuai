@@ -6,10 +6,10 @@
   ``danmu_pending_entry_cap`` + ``danmu_track_retention_cap`` + ``reply_queue_max_items``）
 - 截图策略（``screen_index`` + ``region_*`` + ``image_max_width`` + ``image_quality`` + ``normal_recognition_interval_sec``）
 - 麦克风（``mic_*``）
-- 悬浮窗（``danmu_render_mode`` + ``floating_panel_*``；W-FP-V2-001） — 枚举 ``danmu_render_mode``：
+- 悬浮窗（``danmu_render_mode`` + ``floating_panel_*``；W-FP-V2-001/002） — 枚举 ``danmu_render_mode``：
   - ``scrolling``（默认）：横向 DanmuOverlay
   - ``floating_panel``：侧边悬浮窗 V2
-  - 遗留 ``display_mode`` 只读兼容，由 ``resolve_danmu_render_mode`` 迁移
+  - 遗留 ``display_mode`` 在 ConfigStore 启动时由 ``migrate_legacy_display_mode_to_render_mode`` 写回 ``danmu_render_mode``
 - 字体（``danmu_font_*`` + ``floating_panel_font_*`` + ``imported_fonts``；W-FONT-001/002/003）
 - API（``api_mode`` + ``api_endpoint`` + ``api_key`` + ``model`` + ``temperature`` + ``max_tokens`` + ``use_thinking``）
 - 记忆（``memory_mode`` + ``memory_window``） — 枚举 ``memory_mode``：
@@ -89,9 +89,8 @@ CONFIG_DEFAULTS: dict[str, str] = {
     "tts_endpoint": "",
     "tts_model_id": "",
     "console_theme": "light",
-    # W-FP-V2-001：弹幕渲染模式（互斥）；display_mode 遗留只读
+    # W-FP-V2-001：弹幕渲染模式（互斥）
     "danmu_render_mode": "scrolling",
-    "display_mode": "overlay",
     "floating_panel_width": "360",
     "floating_panel_max_items": "12",
     "floating_panel_lifetime_sec": "7",
@@ -102,6 +101,20 @@ CONFIG_DEFAULTS: dict[str, str] = {
     "floating_panel_speed": "1.5",
     "floating_panel_click_through": "1",
     "imported_fonts": "[]",  # W-FONT-002：[{sha256, family, original_name, size, imported_at}, ...]
+    # PET-003：桌宠显示与指令注入（无独立模型配置）
+    "pet_enabled": "0",
+    "pet_visible": "0",
+    "pet_asset_source": "builtin",
+    "pet_asset_path": "",
+    "pet_scale": "1.0",
+    "pet_opacity": "1.0",
+    "pet_always_on_top": "1",
+    "pet_click_through": "0",
+    "pet_position_x": "",
+    "pet_position_y": "",
+    "pet_command_box_enabled": "1",
+    "pet_command_ttl_sec": "30",
+    "pet_command_apply_count": "1",
 }
 
 # 首装工厂默认服务商（与 model_providers doubao 预设一致）
@@ -144,17 +157,26 @@ def config_value_with_default(config, key: str) -> str:
     return CONFIG_DEFAULTS.get(key, "")
 
 
-def resolve_danmu_render_mode(config) -> str:
-    """Effective render mode: prefer danmu_render_mode; migrate legacy display_mode when blank.
+def migrate_legacy_display_mode_to_render_mode(config) -> bool:
+    """Write legacy display_mode → danmu_render_mode when render mode is empty or invalid.
 
-    display_mode=overlay → scrolling; floating_panel → floating_panel; both → scrolling (deprecated).
+    display_mode=floating_panel → floating_panel; overlay/both/other/empty → scrolling.
+    Returns True if danmu_render_mode was written.
     """
     raw = str(config.get("danmu_render_mode", "") or "").strip().lower()
     if raw in ("scrolling", "floating_panel"):
-        return raw
+        return False
     legacy = str(config.get("display_mode", "") or "").strip().lower()
-    if legacy == "floating_panel":
-        return "floating_panel"
+    mapped = "floating_panel" if legacy == "floating_panel" else "scrolling"
+    config.set("danmu_render_mode", mapped)
+    return True
+
+
+def resolve_danmu_render_mode(config) -> str:
+    """Effective render mode from danmu_render_mode only; invalid/missing → scrolling."""
+    raw = str(config.get("danmu_render_mode", "") or "").strip().lower()
+    if raw in ("scrolling", "floating_panel"):
+        return raw
     return "scrolling"
 
 

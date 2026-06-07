@@ -104,8 +104,12 @@ class DanmuAppLifecycleMixin:
         self.floating_panel_overlay = FloatingPanelOverlay(
             self.config, self.floating_panel_engine
         )
-        # Deprecated alias：status / 旧测试仍可读 active_count
-        self.floating_panel = self.floating_panel_overlay
+
+        from app.pet.pet_command_service import PetCommandService
+        from app.pet.pet_window import PetWindow
+
+        self.pet_command_service = PetCommandService()
+        self.pet_window = PetWindow(self)
 
     def _init_request_pipeline_state(self) -> None:
         self.ai_worker = AiWorker(self.config)
@@ -289,8 +293,15 @@ class DanmuAppLifecycleMixin:
             self.overlay.apply_display_settings()
         self._sync_overlay_visibility()
         self._sync_floating_panel_visibility()
+        self._sync_pet_window_visibility()
         self._sync_mic_service()
         fp_overlay = self.__dict__.get("floating_panel_overlay")
+        pet_window = self.__dict__.get("pet_window")
+        if pet_window is not None:
+            try:
+                pet_window.apply_config()
+            except Exception as exc:
+                self.logger.debug(f"pet window apply_config skipped: {exc!r}")
         if fp_overlay is None:
             return
         try:
@@ -325,6 +336,7 @@ class DanmuAppLifecycleMixin:
             return
 
         self._consume_request_timing(request_round, screenshot_id, scene_generation)
+        self._notify_pet_visual_error()
         self.logger.error(
             "%s [persona=%s, round=%s, screenshot_id=%s, scene_generation=%s, "
             "input_tokens=%s, output_tokens=%s]",
@@ -512,6 +524,14 @@ class DanmuAppLifecycleMixin:
                 self.logger.debug(f"floating panel stop cleanup skipped: {exc!r}")
         if fp_engine is not None:
             fp_engine.stop()
+
+        pet_window = self.__dict__.get("pet_window")
+        if pet_window is not None:
+            try:
+                pet_window.stop_render_loop()
+                pet_window.hide_pet()
+            except Exception as exc:
+                self.logger.debug(f"pet window stop cleanup skipped: {exc!r}")
 
         self.tray.update_state(running=False)
         self.state_changed.emit(False)

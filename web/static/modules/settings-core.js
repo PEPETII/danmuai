@@ -33,8 +33,6 @@ export function configureSettingsCore(deps) {
 function resolveRenderModeFromCfg(cfg) {
   const raw = String(cfg.danmu_render_mode || '').trim().toLowerCase();
   if (raw === 'scrolling' || raw === 'floating_panel') return raw;
-  const legacy = String(cfg.display_mode || '').trim().toLowerCase();
-  if (legacy === 'floating_panel') return 'floating_panel';
   return 'scrolling';
 }
 

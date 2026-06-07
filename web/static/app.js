@@ -62,6 +62,10 @@ import {
   loadDanmuPoolPage,
 } from './modules/app-danmu-pool-page.js';
 import {
+  initPetPage,
+  loadPetPage,
+} from './modules/app-pet-page.js';
+import {
   initPersonaTopicPage,
   loadPersonaEditor,
   loadPersonaTemplate,
@@ -253,6 +257,7 @@ function navigate(page) {
   }
   if (page === 'persona') loadPersonaEditor().catch(console.error);
   if (page === 'danmu-pool') loadDanmuPoolPage().catch((error) => showToast(error.message, true));
+  if (page === 'pet') loadPetPage().catch((error) => showToast(error.message, true));
   if (page === 'announcements') {
     stopAnnouncementsBadgePolling();
     updateAnnouncementsNavBadge(false);
@@ -287,6 +292,7 @@ async function init() {
   initErrorReporting({ showToast });
   initLiveOverlayPanel({ showToast });
   initDanmuPoolPage({ showToast });
+  initPetPage({ showToast });
   initPersonaTopicPage({ showToast });
   initAppUpdateModal({ showToast });
 

@@ -30,6 +30,7 @@ from app.web_api import danmu_pool as pool_api
 from app.web_api import danmu_read as read_api
 from app.web_api import font_registry as font_registry_api  # W-FONT-002
 from app.web_api import mic_test as mic_test_api
+from app.web_api import pet as pet_api
 from app.web_api import persona as persona_api
 from app.web_api.preview_compress import register_preview_compress_route
 
@@ -431,6 +432,80 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
         check_token(authorization)
         bridge.region_reset_requested.emit()
         return {"ok": True}
+
+    class PetSettingsPayload(BaseModel):
+        enabled: bool | None = None
+        visible: bool | None = None
+        asset_source: str | None = None
+        asset_path: str | None = None
+        scale: float | None = None
+        opacity: float | None = None
+        always_on_top: bool | None = None
+        click_through: bool | None = None
+        position_x: int | None = None
+        position_y: int | None = None
+        command_box_enabled: bool | None = None
+        command_ttl_sec: int | None = None
+        command_apply_count: int | None = None
+
+    class PetCommandPayload(BaseModel):
+        text: str = ""
+
+    @app.get("/api/pet/settings")
+    def get_pet_settings():
+        return pet_api.get_settings(bridge.danmu_app)
+
+    @app.post("/api/pet/settings")
+    def post_pet_settings(
+        body: PetSettingsPayload,
+        authorization: str | None = Header(default=None),
+    ):
+        check_token(authorization)
+        raw = body.model_dump(exclude_none=True)
+        payload = {
+            "pet_enabled": raw.get("enabled"),
+            "pet_visible": raw.get("visible"),
+            "pet_asset_source": raw.get("asset_source"),
+            "pet_asset_path": raw.get("asset_path"),
+            "pet_scale": raw.get("scale"),
+            "pet_opacity": raw.get("opacity"),
+            "pet_always_on_top": raw.get("always_on_top"),
+            "pet_click_through": raw.get("click_through"),
+            "pet_position_x": raw.get("position_x"),
+            "pet_position_y": raw.get("position_y"),
+            "pet_command_box_enabled": raw.get("command_box_enabled"),
+            "pet_command_ttl_sec": raw.get("command_ttl_sec"),
+            "pet_command_apply_count": raw.get("command_apply_count"),
+        }
+        payload = {k: v for k, v in payload.items() if v is not None}
+        return _invoke_main(pet_api.save_settings, bridge.danmu_app, payload)
+
+    @app.post("/api/pet/show")
+    def post_pet_show(authorization: str | None = Header(default=None)):
+        check_token(authorization)
+        return _invoke_main(pet_api.show_pet, bridge.danmu_app)
+
+    @app.post("/api/pet/hide")
+    def post_pet_hide(authorization: str | None = Header(default=None)):
+        check_token(authorization)
+        return _invoke_main(pet_api.hide_pet, bridge.danmu_app)
+
+    @app.post("/api/pet/close")
+    def post_pet_close(authorization: str | None = Header(default=None)):
+        check_token(authorization)
+        return _invoke_main(pet_api.close_pet, bridge.danmu_app)
+
+    @app.post("/api/pet/command")
+    def post_pet_command(
+        body: PetCommandPayload,
+        authorization: str | None = Header(default=None),
+    ):
+        check_token(authorization)
+        return _invoke_main(pet_api.submit_command, bridge.danmu_app, body.text)
+
+    @app.get("/api/pet/status")
+    def get_pet_status():
+        return pet_api.get_status(bridge.danmu_app)
 
     font_registry_api.register_font_registry_routes(app, bridge, check_token)  # W-FONT-002
 

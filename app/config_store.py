@@ -81,6 +81,8 @@ class ConfigStore:
         self._load_cache()
         # 所有 REPLACE/commit 串行化，保证 _cache 与 DB 同事务一致
         self._write_lock = threading.Lock()
+        # W-FP-V2-002：须在 seed 之前写回，避免 seed 先落 danmu_render_mode=scrolling 盖掉遗留 display_mode
+        self._migrate_legacy_display_mode_to_render_mode()
         if self.is_first_run or not self.get("danmu_speed"):
             from app.config_defaults import seed_config_defaults
 
@@ -89,6 +91,12 @@ class ConfigStore:
         self._fernet = self._init_fernet()
         self._repair_stale_region_if_needed()
         self._normalize_legacy_display_mode()
+
+    def _migrate_legacy_display_mode_to_render_mode(self) -> None:
+        # W-FP-V2-002：遗留 display_mode（overlay/floating_panel/both）→ danmu_render_mode 写回
+        from app.config_defaults import migrate_legacy_display_mode_to_render_mode
+
+        migrate_legacy_display_mode_to_render_mode(self)
 
     def _normalize_legacy_display_mode(self) -> None:
         from app.application.config_service import normalize_legacy_display_mode

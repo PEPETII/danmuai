@@ -49,15 +49,36 @@ def test_danmu_render_mode_invalid_falls_back_to_scrolling(tmp_path):
 
 
 def test_legacy_display_mode_migrates_when_render_mode_blank(tmp_path):
-    store = ConfigStore(db_path=tmp_path / "config.db")
-    store.set("display_mode", "floating_panel")
-    store.set("danmu_render_mode", "")
+    import sqlite3
+
+    db = tmp_path / "legacy_fp.db"
+    conn = sqlite3.connect(db)
+    conn.execute("CREATE TABLE config (key TEXT PRIMARY KEY, value TEXT)")
+    conn.execute("INSERT INTO config (key, value) VALUES ('display_mode', 'floating_panel')")
+    conn.commit()
+    conn.close()
+    store = ConfigStore(db_path=db)
+    assert store.get("danmu_render_mode") == "floating_panel"
     assert resolve_danmu_render_mode(store) == "floating_panel"
 
 
 def test_legacy_both_migrates_to_scrolling(tmp_path):
-    store = ConfigStore(db_path=tmp_path / "config.db")
-    store.set("display_mode", "both")
+    import sqlite3
+
+    db = tmp_path / "legacy_both.db"
+    conn = sqlite3.connect(db)
+    conn.execute("CREATE TABLE config (key TEXT PRIMARY KEY, value TEXT)")
+    conn.execute("INSERT INTO config (key, value) VALUES ('display_mode', 'both')")
+    conn.commit()
+    conn.close()
+    store = ConfigStore(db_path=db)
+    assert store.get("danmu_render_mode") == "scrolling"
+    assert resolve_danmu_render_mode(store) == "scrolling"
+
+
+def test_resolve_danmu_render_mode_does_not_read_display_mode(tmp_path):
+    store = ConfigStore(db_path=tmp_path / "no_fallback.db")
+    store.set("display_mode", "floating_panel")
     store.set("danmu_render_mode", "")
     assert resolve_danmu_render_mode(store) == "scrolling"
 
@@ -80,9 +101,11 @@ def test_floating_panel_v2_keys_round_trip(tmp_path):
 
 
 def test_config_defaults_include_v2_keys():
+    assert "display_mode" not in CONFIG_DEFAULTS
     for key in (
         "danmu_render_mode",
         "floating_panel_width",
         "floating_panel_lifetime_sec",
     ):
         assert key in CONFIG_DEFAULTS
+    assert "display_mode" not in CONFIG_DEFAULTS

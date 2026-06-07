@@ -20,7 +20,6 @@ def _minimal_status_app(*, config, floating_panel_overlay=None, visible_overlay:
         engine=SimpleNamespace(running=running),
         reply_buffer=SimpleNamespace(size=lambda: 0),
         visible_display_count=lambda: visible_overlay,
-        floating_panel=floating_panel_overlay,
         floating_panel_overlay=floating_panel_overlay,
         stats_state=StatsState(danmu_count=0, start_time=time.monotonic()),
         web_runtime_state=WebRuntimeState(),
@@ -47,7 +46,7 @@ def test_status_scrolling_mode_display_count(workspace_tmp):
     app = _minimal_status_app(config=config, visible_overlay=3)
     status = DanmuApp.build_status_snapshot(app)
     assert status["danmu_render_mode"] == "scrolling"
-    assert status["display_mode"] == "overlay"
+    assert "display_mode" not in status
     assert status["overlay_display_count"] == 3
     assert status["floating_panel_active_count"] == 0
     assert status["display_count"] == 3
@@ -67,7 +66,7 @@ def test_status_floating_panel_mode_uses_panel_count(qapp, workspace_tmp):
     app = _minimal_status_app(config=config, floating_panel_overlay=overlay, visible_overlay=0)
     status = DanmuApp.build_status_snapshot(app)
     assert status["danmu_render_mode"] == "floating_panel"
-    assert status["display_mode"] == "floating_panel"
+    assert "display_mode" not in status
     assert status["overlay_display_count"] == 0
     assert status["floating_panel_active_count"] == 1
     assert status["display_count"] == 1

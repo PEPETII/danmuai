@@ -55,6 +55,94 @@
       </div>
     </section>
 
+    <!-- ========== 区域：桌宠 ========== -->
+    <section id="page-pet" class="page-panel" aria-label="桌宠">
+      <header class="mb-8">
+        <h2 class="text-2xl font-bold text-warmText">桌宠</h2>
+        <p class="text-gray-500 mt-1">桌面互动宠物与弹幕指令入口；复用助手模型，不单独请求 AI</p>
+      </header>
+      <div class="card p-8 space-y-8 pet-page">
+        <div>
+          <p class="settings-section-title">状态</p>
+          <p id="petStatusText" class="text-warmText font-semibold">未启用</p>
+          <p class="settings-section-hint mt-2">当前宠物：<span id="petAssetText">默认宠物</span></p>
+        </div>
+        <div class="space-y-4">
+          <p class="settings-section-title">总开关</p>
+          <label class="flex items-center gap-2 font-semibold text-warmText">
+            <input type="checkbox" id="petEnabled" class="accent-warmPink"> 启用桌宠
+          </label>
+          <label class="flex items-center gap-2 font-semibold text-warmText">
+            <input type="checkbox" id="petVisible" class="accent-warmPink"> 桌面显示
+          </label>
+          <div class="flex flex-wrap gap-3">
+            <button type="button" id="btnPetShow" class="btn-primary px-5 py-2 text-white rounded-xl font-bold shadow-warm">显示</button>
+            <button type="button" id="btnPetHide" class="px-5 py-2 border border-gray-200 rounded-xl font-semibold text-warmText">隐藏</button>
+            <button type="button" id="btnPetClose" class="px-5 py-2 border border-gray-200 rounded-xl font-semibold text-warmText">关闭桌宠</button>
+          </div>
+        </div>
+        <div class="space-y-4">
+          <p class="settings-section-title">显示设置</p>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
+            <label class="settings-field">
+              <span class="settings-field-label">大小倍率</span>
+              <input type="number" id="petScale" min="0.5" max="2" step="0.1" value="1" class="settings-field-control">
+            </label>
+            <label class="settings-field">
+              <span class="settings-field-label">透明度</span>
+              <input type="number" id="petOpacity" min="0.2" max="1" step="0.1" value="1" class="settings-field-control">
+            </label>
+          </div>
+          <label class="flex items-center gap-2 text-warmText">
+            <input type="checkbox" id="petAlwaysOnTop" class="accent-warmPink" checked> 窗口置顶
+          </label>
+          <label class="flex items-center gap-2 text-warmText">
+            <input type="checkbox" id="petClickThrough" class="accent-warmPink"> 鼠标穿透（开启后不可拖动）
+          </label>
+        </div>
+        <div class="space-y-4">
+          <p class="settings-section-title">弹幕指令框</p>
+          <label class="flex items-center gap-2 text-warmText">
+            <input type="checkbox" id="petCommandBoxEnabled" class="accent-warmPink" checked> 双击桌宠弹出指令框
+          </label>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
+            <label class="settings-field">
+              <span class="settings-field-label">指令有效期（秒）</span>
+              <input type="number" id="petCommandTtl" min="5" max="300" value="30" class="settings-field-control">
+            </label>
+            <label class="settings-field">
+              <span class="settings-field-label">生效次数</span>
+              <input type="number" id="petCommandApplyCount" min="1" max="5" value="1" class="settings-field-control">
+            </label>
+          </div>
+          <p class="settings-section-hint">指令不会立即请求 AI，而是注入下一次正常截图弹幕生成。</p>
+          <div class="flex flex-wrap gap-3 items-end max-w-2xl">
+            <label class="settings-field flex-1 min-w-[200px]">
+              <span class="settings-field-label">Web 调试指令</span>
+              <input type="text" id="petCommandInput" maxlength="200" placeholder="例如：接下来弹幕偏搞笑一点" class="settings-field-control">
+            </label>
+            <button type="button" id="btnPetCommandSubmit" class="btn-primary px-5 py-2 text-white rounded-xl font-bold shadow-warm">提交指令</button>
+          </div>
+        </div>
+        <div class="space-y-2">
+          <p class="settings-section-title">宠物素材</p>
+          <label class="settings-field max-w-md">
+            <span class="settings-field-label">来源</span>
+            <select id="petAssetSource" class="settings-field-control">
+              <option value="builtin">内置默认</option>
+              <option value="local">本地 PetDex 包</option>
+            </select>
+          </label>
+          <label class="settings-field max-w-xl">
+            <span class="settings-field-label">本地包目录（含 pet.json + spritesheet）</span>
+            <input type="text" id="petAssetPath" placeholder="例如 D:\pets\my-pet" class="settings-field-control">
+          </label>
+          <p class="settings-section-hint">兼容 <a href="https://petdex.dev/zh" target="_blank" rel="noopener noreferrer" class="text-warmPink underline">PetDex</a> 8×9 spritesheet 格式；社区素材需自行下载导入。</p>
+        </div>
+        <button type="button" id="btnPetSave" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm">保存设置</button>
+      </div>
+    </section>
+
     <!-- ========== 区域：AI 管家 ========== -->
     <!-- section: 自然语言辅助助手设置（POST /api/ai-butler/chat；返回可审阅 patch，用户确认后 PUT /api/config） -->
     <section id="page-ai-butler" class="page-panel" aria-label="AI 管家">

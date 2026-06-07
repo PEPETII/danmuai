@@ -56,7 +56,6 @@ class StatusSnapshotBuilder:
             # W-FP-V2-001：display_count 按 danmu_render_mode 语义化
             "display_count": state.display_count,
             "danmu_render_mode": state.danmu_render_mode,
-            "display_mode": state.display_mode,
             "overlay_display_count": state.overlay_display_count,
             "floating_panel_active_count": state.floating_panel_active_count,
             "floating_panel_render_active": state.floating_panel_render_active,

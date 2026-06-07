@@ -227,7 +227,7 @@ def make_minimal_floating_panel_app(store, panel):
 
     app = DanmuApp.__new__(DanmuApp)
     object.__setattr__(app, "config", store)
-    object.__setattr__(app, "floating_panel", panel)
+    object.__setattr__(app, "floating_panel_overlay", panel)
     object.__setattr__(
         app,
         "logger",
