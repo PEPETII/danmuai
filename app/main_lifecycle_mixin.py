@@ -212,6 +212,17 @@ class DanmuAppLifecycleMixin:
         self._lifetime_flush_timer.setInterval(2000)
         self._lifetime_flush_timer.timeout.connect(self.lifetime_stats.flush_pending)
 
+        # PET-009：启动期一次性把 pet_enabled=1 + pet_visible=1 的桌宠显示出来。
+        # config_changed 信号在 _start_web_console_stack 才连接，启动期收不到；
+        # 因此这里直接复用 app.pet.pet_facade.sync_pet_window_visibility 主线程 façade，
+        # 后续 web / ConfigService 修改仍由 _on_config_changed 路径兜底，不绕开既有边界。
+        pet_window = self.__dict__.get("pet_window")
+        if pet_window is not None:
+            try:
+                self._sync_pet_window_visibility()
+            except Exception as exc:
+                self.logger.debug(f"pet startup visibility sync skipped: {exc!r}")
+
     def _start_web_console_stack(self, log_startup) -> None:
         from app.web_console import attach_web_console, classify_web_console_startup
         from app.webview_shell import notify_web_console_failure
