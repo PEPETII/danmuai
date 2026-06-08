@@ -34,7 +34,7 @@ class MicService:
         return MicCaptureService.is_available()
 
     def is_running(self) -> bool:
-        return self._capture.is_running()
+        return self._capture is not None and self._capture.is_running()
 
     def last_error(self) -> str:
         return self._capture.last_error

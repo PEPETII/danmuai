@@ -1,5 +1,5 @@
 import os
-import time
+import time  # noqa: F401 — used as danmu_engine_dedup.time from app.danmu_engine
 from dataclasses import dataclass
 
 _LEVENSHTEIN_RATIO = None

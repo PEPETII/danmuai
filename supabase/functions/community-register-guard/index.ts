@@ -9,17 +9,30 @@ const AUTH_DOMAIN = "danmuai.test";
 const RATE_LIMIT_MESSAGE = "今天已经注册过账号，请明天再试";
 const USERNAME_TAKEN_MESSAGE = "用户名已存在";
 
-const corsHeaders: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+/**
+ * W-SECURITY-003: CORS Origin 从环境变量读取，支持多域名（逗号分隔）。
+ * 未配置时使用默认值 https://community.danmuai.com
+ */
+function getAllowedOrigins(): string[] {
+  const raw = Deno.env.get("COMMUNITY_CORS_ORIGIN") ?? "https://community.danmuai.com";
+  return raw.split(",").map((s) => s.trim()).filter((s) => s.length > 0);
+}
 
-function jsonResponse(body: Record<string, unknown>, status: number) {
+function getCorsHeaders(origin: string | null): Record<string, string> {
+  const allowed = getAllowedOrigins();
+  const allowedOrigin = origin && allowed.includes(origin) ? origin : allowed[0] ?? "*";
+  return {
+    "Access-Control-Allow-Origin": allowedOrigin,
+    "Access-Control-Allow-Headers":
+      "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+  };
+}
+
+function jsonResponse(body: Record<string, unknown>, status: number, origin: string | null = null) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...getCorsHeaders(origin), "Content-Type": "application/json" },
   });
 }
 
@@ -70,12 +83,14 @@ function isValidPassword(password: unknown): password is string {
 }
 
 Deno.serve(async (req: Request) => {
+  const origin = req.headers.get("origin");
+
   if (req.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: corsHeaders });
+    return new Response(null, { status: 204, headers: getCorsHeaders(origin) });
   }
 
   if (req.method !== "POST") {
-    return jsonResponse({ error: "Method not allowed" }, 405);
+    return jsonResponse({ error: "Method not allowed" }, 405, origin);
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
@@ -89,7 +104,7 @@ Deno.serve(async (req: Request) => {
   try {
     body = await req.json();
   } catch {
-    return jsonResponse({ error: "Invalid JSON body" }, 400);
+    return jsonResponse({ error: "Invalid JSON body" }, 400, origin);
   }
 
   const rawUsername = body.username;
@@ -97,13 +112,13 @@ Deno.serve(async (req: Request) => {
   const deviceId = body.deviceId;
 
   if (typeof rawUsername !== "string" || !rawUsername.trim()) {
-    return jsonResponse({ error: "请输入用户名" }, 400);
+    return jsonResponse({ error: "请输入用户名" }, 400, origin);
   }
   if (!isValidPassword(password)) {
-    return jsonResponse({ error: "密码至少 6 位" }, 400);
+    return jsonResponse({ error: "密码至少 6 位" }, 400, origin);
   }
   if (!isValidDeviceId(deviceId)) {
-    return jsonResponse({ error: "无效的设备标识" }, 400);
+    return jsonResponse({ error: "无效的设备标识" }, 400, origin);
   }
 
   const admin = createClient(supabaseUrl, serviceRoleKey, {
@@ -125,10 +140,10 @@ Deno.serve(async (req: Request) => {
     if (msg.includes("username must be") || msg.includes("username required")) {
       return jsonResponse({
         error: "用户名为 3–24 位小写字母、数字或下划线",
-      }, 400);
+      }, 400, origin);
     }
     console.error("normalize username:", msg);
-    return jsonResponse({ error: "用户名格式无效" }, 400);
+    return jsonResponse({ error: "用户名格式无效" }, 400, origin);
   }
 
   const email = `${normalizedUsername}@${AUTH_DOMAIN}`;
@@ -150,7 +165,7 @@ Deno.serve(async (req: Request) => {
     .maybeSingle();
 
   if (existingProfile?.user_id) {
-    return jsonResponse({ error: USERNAME_TAKEN_MESSAGE }, 409);
+    return jsonResponse({ error: USERNAME_TAKEN_MESSAGE }, 409, origin);
   }
 
   if (!skipRateLimit) {
@@ -162,10 +177,10 @@ Deno.serve(async (req: Request) => {
 
     if (ipCountError) {
       console.error("ip rate check:", ipCountError.message);
-      return jsonResponse({ error: "注册服务暂时不可用，请稍后重试" }, 500);
+      return jsonResponse({ error: "注册服务暂时不可用，请稍后重试" }, 500, origin);
     }
     if ((ipCount ?? 0) >= 1) {
-      return jsonResponse({ error: RATE_LIMIT_MESSAGE }, 429);
+      return jsonResponse({ error: RATE_LIMIT_MESSAGE }, 429, origin);
     }
 
     const { count: deviceCount, error: deviceCountError } = await admin
@@ -176,10 +191,10 @@ Deno.serve(async (req: Request) => {
 
     if (deviceCountError) {
       console.error("device rate check:", deviceCountError.message);
-      return jsonResponse({ error: "注册服务暂时不可用，请稍后重试" }, 500);
+      return jsonResponse({ error: "注册服务暂时不可用，请稍后重试" }, 500, origin);
     }
     if ((deviceCount ?? 0) >= 1) {
-      return jsonResponse({ error: RATE_LIMIT_MESSAGE }, 429);
+      return jsonResponse({ error: RATE_LIMIT_MESSAGE }, 429, origin);
     }
   }
 
@@ -196,7 +211,7 @@ Deno.serve(async (req: Request) => {
       m.includes("already") || m.includes("registered") ||
       m.includes("exists")
     ) {
-      return jsonResponse({ error: USERNAME_TAKEN_MESSAGE }, 409);
+      return jsonResponse({ error: USERNAME_TAKEN_MESSAGE }, 409, origin);
     }
     if (
       m.includes("email rate limit") ||
@@ -206,15 +221,15 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({
         error:
           "认证邮件发送过于频繁（Supabase 默认约 2 封/小时）。请约 1 小时后再试，或在控制台关闭 Confirm email / 配置自定义 SMTP。",
-      }, 429);
+      }, 429, origin);
     }
     console.error("createUser:", createError.message);
-    return jsonResponse({ error: "注册失败，请稍后重试" }, 500);
+    return jsonResponse({ error: "注册失败，请稍后重试" }, 500, origin);
   }
 
   const uid = authUser.user?.id;
   if (!uid) {
-    return jsonResponse({ error: "注册失败，请稍后重试" }, 500);
+    return jsonResponse({ error: "注册失败，请稍后重试" }, 500, origin);
   }
 
   const { error: profileError } = await admin.from("community_profiles").insert({
@@ -230,9 +245,9 @@ Deno.serve(async (req: Request) => {
     console.error("profile insert:", profileError.message);
     await admin.auth.admin.deleteUser(uid);
     if (profileError.code === "23505") {
-      return jsonResponse({ error: USERNAME_TAKEN_MESSAGE }, 409);
+      return jsonResponse({ error: USERNAME_TAKEN_MESSAGE }, 409, origin);
     }
-    return jsonResponse({ error: "注册失败，请稍后重试" }, 500);
+    return jsonResponse({ error: "注册失败，请稍后重试" }, 500, origin);
   }
 
   const { error: logError } = await admin.from("community_registration_logs")
@@ -249,5 +264,5 @@ Deno.serve(async (req: Request) => {
     // User exists; do not fail registration for audit write failure.
   }
 
-  return jsonResponse({ ok: true }, 200);
+  return jsonResponse({ ok: true }, 200, origin);
 });

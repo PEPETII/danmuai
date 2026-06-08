@@ -396,3 +396,4 @@ class AiWorker(QObject):
                 pass
         if hasattr(self._thread_local, "client"):
             self._thread_local.client = None
+        logger.debug(f"AI client connections closed: {len(clients)} clients cleaned up")

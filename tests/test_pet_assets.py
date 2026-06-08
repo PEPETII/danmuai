@@ -1,7 +1,6 @@
 from pathlib import Path
 
 import pytest
-
 from app.bundle_paths import resource_path
 from app.pet.pet_assets import (
     BUILTIN_PET_DIR,
@@ -12,6 +11,7 @@ from app.pet.pet_assets import (
     load_pet_assets,
     validate_pet_pack_dir,
 )
+
 from tests.fakes import FakeConfig
 
 

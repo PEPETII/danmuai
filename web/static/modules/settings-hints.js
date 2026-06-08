@@ -44,13 +44,13 @@ const SETTINGS_FIELD_TIPS = {
   normal_recognition_interval_sec:
     '普通模式下，每隔多少秒识图并生成一批弹幕（1–60 秒）。',
   normal_reply_count:
-    '普通模式下，每次识图固定生成几条弹幕（1–20 条）。',
+    '普通模式下，每次识图固定生成几条弹幕（1–50 条）。',
   danmu_speed:
     '弹幕横向移动快慢（约 0.5–5）。数字越大滚得越快。',
   danmu_lines:
     '屏幕上最多几行弹幕轨道（12–20 行）。',
   danmu_max_chars:
-    '单条弹幕最多显示多少字（5–80），超出会截断并加省略号。未填写时默认中文约 15、英文约 40。',
+    'AI 生成弹幕最多显示多少字（5–80），超出会截断并加省略号。公式化弹幕（自定义库、烂梗）完整展示。未填写时默认中文约 15、英文约 40。',
   font_size:
     '弹幕字号，约 12–72 像素。',
   danmu_font_family:
@@ -80,9 +80,9 @@ const SETTINGS_FIELD_TIPS = {
   empty_accel:
     '某行轨道空了时，暂时加快滚动，让新弹幕更快占满空位。',
   danmu_render_mode:
-    '横向弹幕：全屏透明 Overlay 横向滚动。侧边悬浮窗：屏幕右侧窄窗，消息自下而上堆叠后淡出。',
+    '横向弹幕：全屏透明 Overlay 横向滚动。从下到上：消息自下而上堆叠后淡出（开发中）。',
   floating_panel_width:
-    '侧边悬浮窗宽度（200–800 px），默认靠右显示。',
+    '从下到上模式窗口宽度（200–800 px），默认靠右显示。',
   floating_panel_lifetime_sec:
     '每条消息停留秒数（2–60），到期后淡出移除。',
   floating_panel_x_offset:

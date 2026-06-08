@@ -4,7 +4,11 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 from app.application.config_service import WEB_CONFIG_KEYS, apply_web_config_patch
-from app.config_defaults import CONFIG_DEFAULTS, export_web_config_defaults, resolve_danmu_render_mode
+from app.config_defaults import (
+    CONFIG_DEFAULTS,
+    export_web_config_defaults,
+    resolve_danmu_render_mode,
+)
 from app.config_store import ConfigStore
 
 

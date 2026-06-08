@@ -59,6 +59,28 @@ def test_add_text_truncates_to_configured_max_chars(engine):
     assert item.content == "一二三四五六七八..."
 
 
+def test_add_text_keeps_custom_pool_line_untruncated(engine):
+    long_line = "这是一句保存于公式化弹幕库的超长句子应完整上屏展示"
+    engine.config.set("danmu_max_chars", "8")
+    engine.config.set_custom_danmu_pool([long_line])
+    item = engine.add_text(long_line, skip_dedup=True)
+    assert item is not None
+    assert item.content == long_line
+
+
+def test_add_text_keeps_meme_barrage_line_untruncated(engine):
+    long_line = "瓦批的一天：查看商店，练呲水枪，打开麻麻模拟器，启动！"
+    engine.config.set("danmu_max_chars", "8")
+    engine.config.meme_barrage_library_insert_many(
+        [(long_line, None, None)],
+        collected_at=0.0,
+        max_rows=10_000,
+    )
+    item = engine.add_text(long_line, skip_dedup=True)
+    assert item is not None
+    assert item.content == long_line
+
+
 def test_resolve_danmu_max_chars_defaults_and_clamp(engine):
     engine.config.set("danmu_max_chars", "")
     assert resolve_danmu_max_chars(engine.config, lang="zh") == 15

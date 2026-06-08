@@ -8,7 +8,6 @@
 
 from __future__ import annotations
 
-import os
 import time
 
 from app.config_defaults import resolve_danmu_render_mode

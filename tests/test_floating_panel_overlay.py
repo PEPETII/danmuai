@@ -2,8 +2,6 @@
 from __future__ import annotations
 
 import pytest
-from PyQt6.QtWidgets import QApplication
-
 from app.config_store import ConfigStore
 from app.floating_panel_engine import FloatingPanelEngine
 from app.floating_panel_overlay import FloatingPanelOverlay

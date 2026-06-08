@@ -159,15 +159,20 @@ def test_apply_config_patch_preserves_masked_custom_model_key_by_identity():
 
 
 def test_apply_config_patch_syncs_default_model_id_to_legacy_model():
-    config = FakeConfig({"model": "old-model"})
+    config = FakeConfig({
+        "model": "old-model",
+        "api_endpoint": "https://ark.cn-beijing.volces.com/api/v3",
+        "api_mode": "doubao",
+    })
     app = MagicMock()
     app.config = config
     app.personae = MagicMock()
 
-    apply_config_patch(app, {"default_model_id": "model-b"})
+    new_model = "doubao-seed-1-6-flash-250828"
+    apply_config_patch(app, {"default_model_id": new_model})
 
-    assert config.get_default_model_id() == "model-b"
-    assert config.get("model") == "model-b"
+    assert config.get_default_model_id() == new_model
+    assert config.get("model") == new_model
 
 
 def test_extract_config_payload_accepts_wrapped_and_flat():
@@ -322,7 +327,7 @@ def test_apply_config_patch_clamps_normal_batch_settings():
     )
 
     assert config.get("normal_recognition_interval_sec") == "1"
-    assert config.get("normal_reply_count") == "20"
+    assert config.get("normal_reply_count") == "50"
 
 
 def test_apply_config_patch_normalizes_legacy_realtime_display_mode():

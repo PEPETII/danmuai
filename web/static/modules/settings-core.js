@@ -37,6 +37,11 @@ function resolveRenderModeFromCfg(cfg) {
   return 'scrolling';
 }
 
+function resolveRenderModeForUI(cfg) {
+  const mode = resolveRenderModeFromCfg(cfg);
+  return mode === 'floating_panel' ? 'scrolling' : mode;
+}
+
 export function syncFloatingPanelV2FieldsVisibility() {
   const modeEl = document.getElementById('danmu_render_mode');
   const box = document.getElementById('floatingPanelV2Fields');
@@ -48,7 +53,13 @@ export function syncFloatingPanelV2FieldsVisibility() {
 export function initFloatingPanelV2Controls() {
   const modeEl = document.getElementById('danmu_render_mode');
   if (!modeEl) return;
-  modeEl.addEventListener('change', syncFloatingPanelV2FieldsVisibility);
+  modeEl.addEventListener('change', () => {
+    if (modeEl.value === 'floating_panel') {
+      modeEl.value = 'scrolling';
+      coreDeps.showToast('非常抱歉，该功能将在明日开发完成');
+    }
+    syncFloatingPanelV2FieldsVisibility();
+  });
   syncFloatingPanelV2FieldsVisibility();
 }
 
@@ -175,7 +186,7 @@ export function collectFormData() {
 }
 
 export function fillForm(cfg) {
-  const cfgWithMode = { ...cfg, danmu_render_mode: resolveRenderModeFromCfg(cfg) };
+  const cfgWithMode = { ...cfg, danmu_render_mode: resolveRenderModeForUI(cfg) };
   CONFIG_FIELDS.forEach((name) => {
     const el = document.getElementById(name);
     if (el && cfgWithMode[name] !== undefined) el.value = cfgWithMode[name];

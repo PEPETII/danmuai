@@ -31,7 +31,6 @@ from app.api_schedule import pixels_per_second, time_to_anchor_boundary
 from app.application.config_service import ConfigService
 from app.application.status_snapshot import StatusSnapshotBuilder
 from app.danmu_engine import (
-    DanmuEngine,
     normalize_danmu_display_text,
 )
 from app.live_freshness import (
@@ -42,27 +41,27 @@ from app.main_display_mixin import DanmuAppDisplayMixin
 from app.main_helpers import (
     MAX_IN_FLIGHT,
     VISUAL_INFLIGHT_WARN_SEC,
-    BatchTracker,
+    BatchTracker,  # noqa: F401 — re-exported for tests
 )
-from app.main_lifecycle_mixin import DanmuAppLifecycleMixin
 from app.main_launch import (
     DEPRECATED_LAUNCH_MSG,
     check_deprecated_launch_args,
     global_exception_hook,
-    show_startup_notice_if_needed,
+    show_startup_notice_if_needed,  # noqa: F401 — re-exported for tests
     web_launch_mode_from_argv,
 )
 from app.main_launch_mixin import DanmuAppLaunchMixin
+from app.main_lifecycle_mixin import DanmuAppLifecycleMixin
+from app.main_meme_mixin import DanmuAppMemeMixin
 from app.main_mic_mixin import MIC_POLL_MS, MIC_POLL_PHASE_MS, DanmuAppMicMixin  # noqa: F401
 from app.main_request_context_mixin import DanmuAppRequestContextMixin
 from app.main_state_mixin import DanmuAppStateMixin
 from app.main_web_facade_mixin import DanmuAppWebFacadeMixin
 from app.model_providers import (
     mic_audio_supported_for_mic_config,  # noqa: F401
-    resolve_active_model_id,
+    resolve_active_model_id,  # noqa: F401 — re-exported for tests
 )
 from app.personae import (
-    PersonaManager,
     append_live_topic_to_system_pt,
     append_nickname_to_system_pt,
     persona_display_name,
@@ -77,10 +76,10 @@ from app.screenshot_compress import (
     compress_screenshot,
 )
 from app.snipper import resolve_screen_index  # noqa: F401
-from app.translations import Translator, tr
+from app.translations import tr
 from app.window_info import classify_foreground_window, get_foreground_window_info  # noqa: F401
-from PyQt6.QtCore import QObject, QTimer, pyqtSignal
-from PyQt6.QtGui import QPixmap
+from PyQt6.QtCore import QObject, pyqtSignal
+from PyQt6.QtCore import QTimer as QTimer  # noqa: F401 — re-exported for tests
 from PyQt6.QtWidgets import QApplication
 
 # Re-export for scripts/tests that import from main.
@@ -97,6 +96,7 @@ class DanmuApp(
     DanmuAppMicMixin,
     DanmuAppDisplayMixin,
     DanmuAppRequestContextMixin,
+    DanmuAppMemeMixin,
     DanmuAppLifecycleMixin,
     QObject,
 ):
@@ -343,11 +343,15 @@ class DanmuApp(
         # PET-006：调度已通过且 record_trigger_time 完成，才消费桌宠待注入指令
         pet_svc = self.__dict__.get("pet_command_service")
         if pet_svc is not None:
-            from app.pet.pet_prompt import build_pet_command_user_pt
+            from app.pet.pet_prompt import (
+                append_pet_command_to_system_pt,
+                build_pet_command_user_pt,
+            )
 
             command_text = pet_svc.consume_for_prompt()
             if command_text:
                 user_pt = build_pet_command_user_pt(user_pt, command_text)
+                system_pt = append_pet_command_to_system_pt(system_pt, command_text)
 
         self._current_persona = persona
         self._get_request_timing_service().mark_started(

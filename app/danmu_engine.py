@@ -28,7 +28,13 @@ from PyQt6.QtCore import QObject
 
 from app import danmu_engine_dedup as dedup_profile
 from app.api_schedule import ENGINE_BASE_FPS
-from app.danmu_engine_dedup import DedupProfileStats, dedup_profile_enabled, log_dedup_profile_summary, reset_dedup_profile_for_tests, snapshot_dedup_profile
+from app.danmu_engine_dedup import (  # noqa: F401 — re-exported for app.danmu_engine callers
+    DedupProfileStats,
+    dedup_profile_enabled,
+    log_dedup_profile_summary,
+    reset_dedup_profile_for_tests,
+    snapshot_dedup_profile,
+)
 from app.danmu_engine_models import DanmuItem, Track
 from app.translations import Translator
 
@@ -101,11 +107,29 @@ def resolve_danmu_max_chars(config, *, lang: str | None = None) -> int:
 
 
 def normalize_danmu_display_text(content: str, config, *, lang: str | None = None) -> str:
-    """与 add_text 上屏前一致的截断规则，供去重判断与日志拒因对齐。"""
+    """与 add_text 上屏前一致的截断规则，供去重判断与日志拒因对齐。
+
+    公式化弹幕（自定义库、烂梗库）完整展示；仅 AI 等来源受 danmu_max_chars 限制。
+    """
+    from app.danmu_pool import is_formula_danmu_text
+
+    raw = str(content).strip()
+    if is_formula_danmu_text(config, raw):
+        return raw
     max_len = resolve_danmu_max_chars(config, lang=lang)
-    if len(content) > max_len:
-        return content[:max_len] + "..."
-    return content
+    if len(raw) > max_len:
+        return raw[:max_len] + "..."
+    return raw
+
+
+def is_normalized_danmu_overlay_safe(content: str, config, *, lang: str | None = None) -> bool:
+    """对已 normalize 的弹幕做 overlay 校验（含 ... 后缀时的长度上限）。"""
+    from app.danmu_pool_overlay import is_overlay_safe
+
+    max_len = resolve_danmu_max_chars(config, lang=lang)
+    if content.endswith("..."):
+        max_len += 3
+    return is_overlay_safe(content, max_chars=max_len)
 _LEVENSHTEIN_UNAVAILABLE = dedup_profile._LEVENSHTEIN_UNAVAILABLE
 _LEVENSHTEIN_RATIO = dedup_profile._LEVENSHTEIN_RATIO
 def _get_levenshtein_ratio():
@@ -411,8 +435,11 @@ class DanmuEngine(QObject):
 
         默认无固定上屏数量上限；初始 x 在屏幕右缘外（待滚入）。
         skip_dedup 用于池补齐等已在外层去重的文本。
+        公式化弹幕经 normalize_danmu_display_text 完整展示；AI 弹幕受 danmu_max_chars 限制。
         """
         content = normalize_danmu_display_text(content, self.config)
+        if not content:
+            return None
 
         if not skip_dedup and self._is_duplicate(content):
             return None
@@ -467,6 +494,8 @@ class DanmuEngine(QObject):
         if acceptable:
             weights = [1.0 / (1 + t.entry_zone_count(self.screen_width)) for t in acceptable]
             total = sum(weights)
+            if total == 0:  # 防护除零错误：所有轨道权重为0时随机选择
+                return random.choice(acceptable)
             weights = [w / total for w in weights]
             return random.choices(acceptable, weights=weights, k=1)[0]
 

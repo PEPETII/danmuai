@@ -40,18 +40,18 @@ def test_save_settings_maps_keys(pool_app):
     pool_app.config_changed.emit.assert_called_once()
 
 
-def test_append_custom_dedupes_and_skips_long(pool_app):
+def test_append_custom_dedupes_and_accepts_long_lines(pool_app):
     pool_app.config.set("danmu_max_chars", "5")
+    long_line = "这是一句明显超长的公式化弹幕句子用于完整展示测试"
     result = pool_api.append_custom(
         pool_app,
-        {"items": ["短句A", "短句A", "这是一句明显超长的弹幕"]},
+        {"items": ["短句A", "短句A", long_line]},
     )
-    assert result["added"] == 1
-    assert result["skipped"] == 2
+    assert result["added"] == 2
+    assert result["skipped"] == 1
     reasons = {item["reason"] for item in result["skipped_items"]}
-    assert "duplicate" in reasons
-    assert "too_long" in reasons
-    assert pool_app.config.get_custom_danmu_pool() == ["短句A"]
+    assert reasons == {"duplicate"}
+    assert pool_app.config.get_custom_danmu_pool() == ["短句A", long_line]
 
 
 def test_append_custom_via_textarea(pool_app):

@@ -27,7 +27,6 @@ from app.history_writer import HistoryWriter
 from app.hotkey import HotkeyManager
 from app.lifetime_stats import LifetimeStats
 from app.logger import SanitizedLogger
-from app.main_helpers import MAX_IN_FLIGHT
 from app.main_launch import show_startup_notice_if_needed
 from app.main_mic_mixin import MIC_POLL_MS
 from app.memory.activity import RecentActivityState
@@ -36,6 +35,7 @@ from app.mic_service import MicService
 from app.model_providers import resolve_active_model_id
 from app.overlay import DanmuOverlay
 from app.personae import PersonaManager
+from app.reply_queue import AIReplyFIFOBuffer
 from app.scene_memory import SceneMemoryStore
 from app.snipper import ScreenCapturer, resolve_screen_index
 from app.templates import TemplateManager
@@ -154,6 +154,7 @@ class DanmuAppLifecycleMixin:
         self._reply_scene_count = 2
         self._reply_filler_count = 3
         self._queue_batch_size = 5
+        self._init_meme_barrage_timers()
 
     def _init_runtime_tracking_state(self) -> None:
         self._pending = False
@@ -416,6 +417,16 @@ class DanmuAppLifecycleMixin:
                 self._open_web_console("/#settings")
             return
 
+        from app.model_selection import visual_api_endpoint_issue
+
+        endpoint_issue = visual_api_endpoint_issue(self.config)
+        if endpoint_issue:
+            self.logger.warning(endpoint_issue)
+            self._set_error_status_safe(endpoint_issue, is_error=True)
+            if self.web_server:
+                self._open_web_console("/#settings")
+            return
+
         self.engine.start()
         self.engine.clear_dedup_window()
         self.ai_worker.reset_stopping()
@@ -465,7 +476,9 @@ class DanmuAppLifecycleMixin:
             self.engine.trigger_acceleration(60)
         self._sync_overlay_visibility()
         self._sync_floating_panel_visibility()
+        self._sync_pet_window_visibility()
         self._pool_topup_timer.start()
+        self._start_meme_barrage_timers()
         self.tray.update_state(running=True)
         self.state_changed.emit(True)
         self._set_error_status_safe("", is_error=False)
@@ -510,6 +523,9 @@ class DanmuAppLifecycleMixin:
         self._current_batch = None
         self.reply_timer.stop()
         self._pool_topup_timer.stop()
+        stop_meme_timers = self.__dict__.get("_stop_meme_barrage_timers")
+        if callable(stop_meme_timers):
+            stop_meme_timers()
         self.reply_buffer.clear()
         self._get_request_timing_service().reset_started()
         self._latest_requested_screenshot_id = 0
@@ -536,14 +552,6 @@ class DanmuAppLifecycleMixin:
         if fp_engine is not None:
             fp_engine.stop()
 
-        pet_window = self.__dict__.get("pet_window")
-        if pet_window is not None:
-            try:
-                pet_window.stop_render_loop()
-                pet_window.hide_pet()
-            except Exception as exc:
-                self.logger.debug(f"pet window stop cleanup skipped: {exc!r}")
-
         self.tray.update_state(running=False)
         self.state_changed.emit(False)
         self.logger.info(tr("app.stopped"))
@@ -559,6 +567,9 @@ class DanmuAppLifecycleMixin:
         self.stop()
         self._mic_service.stop()
         self._pool_topup_timer.stop()
+        stop_meme_timers = self.__dict__.get("_stop_meme_barrage_timers")
+        if callable(stop_meme_timers):
+            stop_meme_timers()
 
         read_svc = self.__dict__.get("_danmu_read_service")
         if read_svc is not None:
@@ -588,6 +599,3 @@ class DanmuAppLifecycleMixin:
 
         self.logger.info(tr("app.quit_done"))
         QApplication.quit()
-
-
-from app.reply_queue import AIReplyFIFOBuffer

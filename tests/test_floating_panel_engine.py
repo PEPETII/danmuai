@@ -1,8 +1,6 @@
 """W-FP-V2-001：FloatingPanelEngine 单元测试。"""
 from __future__ import annotations
 
-import time
-
 from app.config_store import ConfigStore
 from app.floating_panel_engine import FloatingPanelEngine
 

@@ -91,9 +91,11 @@ BLOCK_REGEX_PATTERNS: tuple[str, ...] = (
 )
 
 
-def is_overlay_safe(text: str, *, max_chars: int = 15, min_chars: int = 2) -> bool:
+def is_overlay_safe(text: str, *, max_chars: int | None = 15, min_chars: int = 2) -> bool:
     text = text.strip()
-    if not text or len(text) < min_chars or len(text) > max_chars:
+    if not text or len(text) < min_chars:
+        return False
+    if max_chars is not None and len(text) > max_chars:
         return False
     if any(ch in text for ch in ("\n", "\r", "\t")):
         return False

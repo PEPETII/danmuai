@@ -40,12 +40,15 @@ def make_diagnostic_app(**overrides):
     return app
 
 
-def read_sse_lines(client, *, max_lines: int = 8, timeout_sec: float = 5.0):
+def read_sse_lines(client, *, max_lines: int = 8, timeout_sec: float = 5.0, token: str | None = None):
     """Sync TestClient 在无限 SSE 上会阻塞；在线程中读取若干行后 close。"""
     import concurrent.futures
 
     def _read():
-        with client.stream("GET", "/api/diagnostics/events") as response:
+        url = "/api/diagnostics/events"
+        if token:
+            url += f"?token={token}"
+        with client.stream("GET", url) as response:
             status_code = response.status_code
             headers = dict(response.headers)
             lines: list[str] = []

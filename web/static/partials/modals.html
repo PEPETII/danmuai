@@ -66,10 +66,21 @@
 
   <!-- 错误自动反馈确认 -->
   <div id="errorReportModal" class="fixed inset-0 bg-black/20 backdrop-blur-sm hidden items-center justify-center z-[60] p-4" role="dialog" aria-modal="true" aria-labelledby="errorReportModalTitle">
-    <div class="bg-white rounded-3xl shadow-warm max-w-md w-full p-8">
+    <div class="bg-white rounded-3xl shadow-warm max-w-lg w-full p-8 max-h-[90vh] overflow-y-auto">
       <h3 id="errorReportModalTitle" class="text-lg font-bold text-warmText mb-2">发现问题</h3>
       <p class="text-sm text-gray-600 mb-3">是否要将该问题反馈？我们将附带相关日志与诊断信息（已脱敏）。</p>
-      <p id="errorReportModalMessage" class="text-sm text-red-700 bg-red-50 border border-red-100 rounded-xl p-3 mb-6 max-h-32 overflow-y-auto whitespace-pre-wrap break-words"></p>
+      <p id="errorReportModalMessage" class="text-sm text-red-700 bg-red-50 border border-red-100 rounded-xl p-3 mb-4 max-h-32 overflow-y-auto whitespace-pre-wrap break-words"></p>
+      <div class="space-y-3 mb-4">
+        <div>
+          <label for="errorReportUserNote" class="block text-sm font-semibold text-warmText mb-1">补充说明 <span class="text-xs font-normal text-gray-400">（可选，如复现步骤、期望行为）</span></label>
+          <textarea id="errorReportUserNote" rows="3" maxlength="1000" class="w-full px-4 py-2 bg-cream rounded-xl text-sm resize-y" placeholder="例如：刚切换自定义豆包后出现，期望提示填写 API 地址"></textarea>
+        </div>
+        <div>
+          <label for="errorReportContact" class="block text-sm font-semibold text-warmText mb-1">联系方式 <span class="text-xs font-normal text-gray-400">（可选）</span></label>
+          <input id="errorReportContact" type="text" maxlength="200" class="w-full px-4 py-2 bg-cream rounded-xl text-sm" placeholder="邮箱 / QQ / 微信，便于跟进">
+        </div>
+        <p id="errorReportQuotaHint" class="text-xs text-gray-500"></p>
+      </div>
       <div class="flex flex-wrap gap-3 justify-end">
         <button type="button" id="btnErrorReportDismiss" class="px-5 py-2 border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50">暂不</button>
         <button type="button" id="btnErrorReportSubmit" class="btn-primary px-5 py-2 text-white rounded-xl text-sm font-bold">发送反馈</button>

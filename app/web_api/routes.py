@@ -28,9 +28,10 @@ from app.web_api import custom_models as cm_api
 from app.web_api import danmu_pool as pool_api
 from app.web_api import danmu_read as read_api
 from app.web_api import font_registry as font_registry_api  # W-FONT-002
+from app.web_api import meme_barrage as meme_api
 from app.web_api import mic_test as mic_test_api
-from app.web_api import pet as pet_api
 from app.web_api import persona as persona_api
+from app.web_api import pet as pet_api
 from app.web_api.preview_compress import register_preview_compress_route
 
 if TYPE_CHECKING:
@@ -86,6 +87,16 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
     class DanmuPoolCustomDeletePayload(BaseModel):
         texts: list[str]
 
+    class MemeBarrageSettingsPayload(BaseModel):
+        enabled: bool | None = None
+        category: str | None = None
+        tag: str | None = None
+        display_mode: str | None = None
+        collect_interval_sec: int | None = None
+        collect_batch_size: int | None = None
+        display_interval_sec: int | None = None
+        display_batch_size: int | None = None
+
     class TestDanmuPayload(BaseModel):
         items: list[str]
         persona: str = "测试"
@@ -129,8 +140,9 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.get("/api/diagnostics")
-    def get_diagnostics():
+    def get_diagnostics(authorization: str | None = Header(default=None)):
         # 只读诊断；调度/timing 数据经 DanmuApp 公开入口，不读 _last_api_trigger_at 等私有字段
+        check_token(authorization)
         return {
             "ok": True,
             "diagnostics": bridge.danmu_app.build_diagnostic_snapshot(),
@@ -284,6 +296,33 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
     ):
         check_token(authorization)
         return _invoke_main(bridge.danmu_app.inject_test_danmu_batch, body.items, persona_id=body.persona)
+
+    @app.get("/api/meme-barrage/meta")
+    def get_meme_barrage_meta():
+        return meme_api.get_meta(bridge.danmu_app)
+
+    @app.put("/api/meme-barrage/settings")
+    def put_meme_barrage_settings(
+        body: MemeBarrageSettingsPayload,
+        authorization: str | None = Header(default=None),
+    ):
+        check_token(authorization)
+        return _invoke_main(
+            meme_api.save_settings,
+            bridge.danmu_app,
+            body.model_dump(exclude_none=True),
+        )
+
+    @app.get("/api/meme-barrage/tags")
+    def get_meme_barrage_tags():
+        return meme_api.get_tags()
+
+    @app.post("/api/meme-barrage/clear")
+    def post_meme_barrage_clear(
+        authorization: str | None = Header(default=None),
+    ):
+        check_token(authorization)
+        return _invoke_main(meme_api.clear_library, bridge.danmu_app)
 
     @app.get("/api/danmu-read/config")
     def get_danmu_read_config():
@@ -502,7 +541,7 @@ def register_diagnostics_sse_route(app, diagnostics_hub, bridge, check_token) ->
     """注册 /api/diagnostics/events SSE 端点。
 
     推送初始 hello 事件、初始诊断快照，随后每 2.5 秒推送更新快照。
-    与 /api/diagnostics GET 一致，无需鉴权。
+    与 /api/diagnostics GET 一致，需要鉴权（通过 query 参数 token 传递）。
     """
     import asyncio
     import json
@@ -511,7 +550,9 @@ def register_diagnostics_sse_route(app, diagnostics_hub, bridge, check_token) ->
     from fastapi.responses import StreamingResponse
 
     @app.get("/api/diagnostics/events")
-    async def diagnostics_events():
+    async def diagnostics_events(token: str | None = None):
+        # SSE 端点通过 query 参数传递 Token（EventSource 不支持自定义 headers）
+        check_token(token)
         queue: asyncio.Queue = asyncio.Queue(maxsize=64)
         diagnostics_hub.register(queue)
 

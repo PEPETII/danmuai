@@ -21,10 +21,12 @@ let statusHadError = false;
 let lastAppliedStatus = null;
 let applyCaptureRegionFromPayload = () => {};
 let maybePromptErrorReport = async () => {};
+let openErrorReportModal = async () => {};
 
-export function configureStatus({ applyCaptureRegion, onErrorPrompt }) {
+export function configureStatus({ applyCaptureRegion, onErrorPrompt, onErrorReportManual }) {
   if (applyCaptureRegion) applyCaptureRegionFromPayload = applyCaptureRegion;
   if (onErrorPrompt) maybePromptErrorReport = onErrorPrompt;
+  if (onErrorReportManual) openErrorReportModal = onErrorReportManual;
 }
 
 export function getStatusHadError() {
@@ -262,12 +264,14 @@ export function applyStatus(st) {
   }
 
   const banner = document.getElementById('errorBanner');
+  const bannerMessage = document.getElementById('errorBannerMessage');
   if (st.error_message) {
-    banner.textContent = st.error_message;
-    banner.classList.remove('hidden');
-    banner.classList.toggle('text-red-700', st.is_error);
+    if (bannerMessage) bannerMessage.textContent = st.error_message;
+    else if (banner) banner.textContent = st.error_message;
+    banner?.classList.remove('hidden');
+    banner?.classList.toggle('text-red-700', st.is_error);
   } else {
-    banner.classList.add('hidden');
+    banner?.classList.add('hidden');
   }
 
   const isError = !!st.is_error;

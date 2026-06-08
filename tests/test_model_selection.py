@@ -10,6 +10,7 @@ from app.model_selection import (
     resolve_model_status,
     validate_global_model_selection,
     validate_web_config_patch,
+    visual_api_endpoint_issue,
 )
 from app.web_console import apply_config_patch
 
@@ -108,6 +109,30 @@ def test_validate_web_config_patch_allows_valid_endpoint_change():
         cfg,
         {"api_endpoint": "https://ark.cn-beijing.volces.com/api/v3/"},
     )
+
+
+def test_validate_web_config_patch_rejects_empty_endpoint():
+    cfg = _Cfg(
+        {
+            "api_endpoint": "https://ark.cn-beijing.volces.com/api/v3",
+            "api_mode": "doubao",
+            "model": "doubao-seed-1-6-flash-250828",
+        }
+    )
+    with pytest.raises(ValueError, match="API Endpoint|endpoint"):
+        validate_web_config_patch(cfg, {"api_endpoint": ""})
+
+
+def test_visual_api_endpoint_issue_flags_empty_global_endpoint():
+    cfg = _Cfg(
+        {
+            "api_endpoint": "",
+            "api_mode": "doubao",
+            "model": "doubao-seed-1-6-flash-250828",
+            "_api_key": "sk-test",
+        }
+    )
+    assert visual_api_endpoint_issue(cfg) is not None
 
 
 def test_validate_web_config_patch_merges_payload_with_existing_config():

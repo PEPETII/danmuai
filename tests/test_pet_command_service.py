@@ -1,7 +1,6 @@
 import time
 
 import pytest
-
 from app.pet.pet_command_service import MAX_COMMAND_LEN, PetCommandService
 
 
@@ -32,7 +31,8 @@ def test_max_one_pending_replaces_previous():
 def test_ttl_expiry_purges_on_peek():
     svc = PetCommandService()
     svc.submit("expire me", ttl_sec=1, apply_count=1)
-    svc._pending.created_at = time.monotonic() - 5  # noqa: SLF001
+    # submit() clamps ttl_sec to at least 5; expire one second past effective TTL.
+    svc._pending.created_at = time.monotonic() - svc._pending.ttl_sec - 1  # noqa: SLF001
     assert not svc.has_pending()
     assert svc.consume_for_prompt() is None
 

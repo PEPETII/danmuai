@@ -48,6 +48,7 @@ def test_trigger_api_call_fire_consumes_and_injects_prompt(monkeypatch):
         def __init__(self, _worker, _pixmap, system_pt, user_pt, *_rest, **_kw):
             captured["system_pt"] = system_pt
             captured["user_pt"] = user_pt
+            captured["persona"] = _rest[0] if _rest else ""
 
     pool = Mock()
     pool.start = Mock()
@@ -65,4 +66,6 @@ def test_trigger_api_call_fire_consumes_and_injects_prompt(monkeypatch):
     app._trigger_api_call()
     assert not app.pet_command_service.has_pending()
     assert "inject me" in captured["user_pt"]
-    assert "【桌宠临时指令】" in captured["user_pt"]
+    assert "【桌宠观众指令 · 本批优先】" in captured["user_pt"]
+    assert "inject me" in captured["system_pt"]
+    assert "桌宠指令" in captured["system_pt"]

@@ -1,7 +1,6 @@
 """PET-013: PetDex Desktop–aligned drag / momentum animation contracts."""
 
 import pytest
-
 from app.pet.pet_assets import PET_FRAME_H, load_pet_assets
 from app.pet.pet_window import (
     PointerSample,
@@ -11,6 +10,7 @@ from app.pet.pet_window import (
     resolve_interaction_animation,
 )
 from main import DanmuApp
+
 from tests.conftest import bind_minimal_danmu_app
 from tests.fakes import FakeConfig
 

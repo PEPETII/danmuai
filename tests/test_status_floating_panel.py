@@ -5,14 +5,13 @@ import time
 from types import SimpleNamespace
 
 import pytest
-from PyQt6.QtWidgets import QApplication
-
 from app.application.stats_state import StatsState
 from app.application.web_runtime_state import WebRuntimeState
 from app.config_store import ConfigStore
 from app.floating_panel_engine import FloatingPanelEngine
 from app.floating_panel_overlay import FloatingPanelOverlay
 from main import DanmuApp
+from PyQt6.QtWidgets import QApplication
 
 
 def _minimal_status_app(*, config, floating_panel_overlay=None, visible_overlay: int = 0, running: bool = True):

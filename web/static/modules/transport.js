@@ -148,10 +148,43 @@ function wsUrl(path) {
   const parsed = new URL(base);
   const proto = parsed.protocol === 'https:' ? 'wss' : 'ws';
   const url = new URL(`${proto}://${parsed.host}${path}`);
-  if (API.token) {
-    url.searchParams.set('ws_token', API.token);
-  }
   return url.toString();
+}
+
+/**
+ * 发送 WebSocket 认证消息（首次消息认证机制）。
+ * W-SECURITY-002: Token 不再通过 query 参数传递，改为连接后首条消息。
+ * @param {WebSocket} ws - WebSocket 实例
+ * @param {number} timeoutMs - 认证超时（毫秒）
+ * @returns {Promise<boolean>} 认证是否成功
+ */
+function authenticateWebSocket(ws, timeoutMs = 5000) {
+  return new Promise((resolve) => {
+    if (!API.token) {
+      resolve(false);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      console.warn('[realtime] WS auth timeout');
+      ws.close();
+      resolve(false);
+    }, timeoutMs);
+
+    const onMessage = (ev) => {
+      clearTimeout(timer);
+      ws.removeEventListener('message', onMessage);
+      try {
+        const data = JSON.parse(ev.data);
+        resolve(data.type === 'auth' && data.ok === true);
+      } catch (_) {
+        resolve(false);
+      }
+    };
+
+    ws.addEventListener('message', onMessage);
+    ws.send(JSON.stringify({ type: 'auth', token: API.token }));
+  });
 }
 
 /** @param {RealtimeConnMode} mode */
@@ -409,8 +442,14 @@ function connectStatusWebSocket() {
   const ws = new WebSocket(url);
   REALTIME.statusWs = ws;
 
-  ws.onopen = () => {
+  ws.onopen = async () => {
     console.debug('[realtime] status WS open');
+    const authOk = await authenticateWebSocket(ws);
+    if (!authOk) {
+      console.warn('[realtime] status WS auth failed');
+      ws.close();
+      return;
+    }
     REALTIME.statusAttempt = 0;
     REALTIME.statusOpen = true;
     REALTIME.statusWsDownAt = 0;
@@ -420,7 +459,10 @@ function connectStatusWebSocket() {
 
   ws.onmessage = (ev) => {
     try {
-      handlers.onStatus(JSON.parse(ev.data));
+      const data = JSON.parse(ev.data);
+      // 跳过认证响应消息
+      if (data.type === 'auth') return;
+      handlers.onStatus(data);
     } catch (e) {
       console.error('[realtime] status message parse error', e);
     }
@@ -459,8 +501,14 @@ function connectLogsWebSocket() {
   const ws = new WebSocket(url);
   REALTIME.logsWs = ws;
 
-  ws.onopen = () => {
+  ws.onopen = async () => {
     console.debug('[realtime] logs WS open');
+    const authOk = await authenticateWebSocket(ws);
+    if (!authOk) {
+      console.warn('[realtime] logs WS auth failed');
+      ws.close();
+      return;
+    }
     REALTIME.logsAttempt = 0;
     REALTIME.logsOpen = true;
     REALTIME.logsWsDownAt = 0;
@@ -473,7 +521,10 @@ function connectLogsWebSocket() {
 
   ws.onmessage = (ev) => {
     try {
-      handlers.onLog(JSON.parse(ev.data));
+      const data = JSON.parse(ev.data);
+      // 跳过认证响应消息
+      if (data.type === 'auth') return;
+      handlers.onLog(data);
     } catch (e) {
       console.error('[realtime] log message parse error', e);
     }

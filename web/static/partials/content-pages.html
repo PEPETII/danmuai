@@ -1,51 +1,136 @@
     <section id="page-danmu-pool" class="page-panel">
       <header class="mb-8">
         <h2 class="text-2xl font-bold text-warmText">公式化弹幕库</h2>
-        <p class="text-gray-500 mt-1">管理自定义公式化短句，用于同屏不足时自动补足</p>
+        <p class="text-gray-500 mt-1">烂梗公式化与自定义公式化弹幕，可独立配置采集与展示</p>
       </header>
-      <div class="card p-8 space-y-8 danmu-pool-page">
-        <div class="danmu-pool-section">
-          <p class="settings-section-title">弹幕库来源</p>
-          <div class="space-y-4">
+      <div class="card p-8 danmu-pool-page">
+        <div class="settings-tabs-bar mb-6">
+          <div class="settings-tabs danmu-pool-tabs" role="tablist" aria-label="公式化弹幕库分类">
+            <button type="button" role="tab" class="danmu-pool-tab active" data-danmu-pool-tab="meme" aria-selected="true">烂梗公式化</button>
+            <button type="button" role="tab" class="danmu-pool-tab" data-danmu-pool-tab="custom" aria-selected="false">自定义公式化</button>
+          </div>
+        </div>
+
+        <div id="danmuPoolTab-meme" class="danmu-pool-tab-panel active space-y-8" data-danmu-pool-panel="meme" role="tabpanel">
+          <div class="danmu-pool-section">
+            <p class="settings-section-title">总开关</p>
             <label class="flex items-center gap-2 font-semibold text-warmText">
-              <input type="checkbox" id="poolCustomEnabled" class="accent-warmPink">
-              自定义公式化弹幕库
+              <input type="checkbox" id="memeBarrageEnabled" class="accent-warmPink">
+              启用烂梗公式化
             </label>
-            <p class="settings-section-hint">启用后，系统会从你保存的自定义弹幕句中抽取短句，用于弹幕不足时补足。</p>
+            <p class="settings-section-hint">开启后按下方配置独立采集与展示烂梗弹幕，不与 AI 生成弹幕共用展示额度。</p>
+          </div>
+          <div class="danmu-pool-section">
+            <p class="settings-section-title">分类</p>
+            <div class="flex flex-wrap gap-4 meme-category-group" role="radiogroup" aria-label="烂梗分类">
+              <label class="flex items-center gap-2 font-semibold text-warmText">
+                <input type="radio" name="memeCategory" value="random" class="accent-warmPink" checked>
+                随机
+              </label>
+              <label class="flex items-center gap-2 font-semibold text-warmText">
+                <input type="radio" name="memeCategory" value="tagged" class="accent-warmPink">
+                自选
+              </label>
+              <label class="flex items-center gap-2 font-semibold text-warmText">
+                <input type="radio" name="memeCategory" value="local" class="accent-warmPink">
+                本地库<span id="memeLocalCountInline" class="text-gray-500 font-normal">【0】</span>
+              </label>
+            </div>
+          </div>
+          <div class="danmu-pool-section">
+            <p class="settings-section-title">显示形式</p>
+            <div class="flex flex-wrap gap-4" role="radiogroup" aria-label="显示形式">
+              <label class="flex items-center gap-2 font-semibold text-warmText">
+                <input type="radio" name="memeDisplayMode" value="full" class="accent-warmPink" checked>
+                全展示
+              </label>
+              <label class="flex items-center gap-2 font-semibold text-warmText">
+                <input type="radio" name="memeDisplayMode" value="ai" class="accent-warmPink">
+                AI识别展示
+              </label>
+            </div>
+            <p class="settings-section-hint mt-2">全展示：采集结果全部进入展示队列。AI识别展示：由 AI 根据当前画面从候选中筛选。</p>
+          </div>
+          <div class="danmu-pool-section">
+            <p class="settings-section-title">标签选择</p>
+            <p class="settings-section-hint mb-3">仅「自选」分类时可选择标签。</p>
+            <div id="memeTagGrid" class="meme-tag-grid"></div>
+          </div>
+          <div class="danmu-pool-section">
+            <p class="settings-section-title">采集配置</p>
+            <div class="flex flex-wrap items-center gap-2 text-warmText font-semibold">
+              <span>每</span>
+              <input type="number" id="memeCollectInterval" min="1" max="60" value="5" class="settings-field-control w-20">
+              <span>秒采集一次，每次采集</span>
+              <input type="number" id="memeCollectBatch" min="1" max="100" value="40" class="settings-field-control w-20">
+              <span>个弹幕</span>
+            </div>
+          </div>
+          <div class="danmu-pool-section">
+            <p class="settings-section-title">展示配置</p>
+            <div class="flex flex-wrap items-center gap-2 text-warmText font-semibold">
+              <span>每</span>
+              <input type="number" id="memeDisplayInterval" min="1" max="60" value="5" class="settings-field-control w-20">
+              <span>秒展示</span>
+              <input type="number" id="memeDisplayBatch" min="1" max="50" value="20" class="settings-field-control w-20">
+              <span>个弹幕</span>
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-3">
+            <button type="button" id="btnSaveMemeBarrageSettings" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm">保存设置</button>
+          </div>
+          <div class="danmu-pool-section">
+            <p class="settings-section-title">本地库</p>
+            <p class="text-warmText font-semibold">当前本地库弹幕数量：<span id="memeLibraryCount">0</span></p>
+            <p class="settings-section-hint">待展示队列：<span id="memeQueueCount">0</span> 条</p>
+            <button type="button" id="btnMemeBarrageClear" class="mt-3 px-6 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50">清除</button>
           </div>
         </div>
-        <div class="danmu-pool-section">
-          <p class="settings-section-title">补足规则</p>
-          <div id="poolMinOnScreenWrap" class="settings-field pool-min-on-screen max-w-xs">
-            <label for="poolMinOnScreen" class="settings-field-label">最小同屏条数</label>
-            <input type="number" id="poolMinOnScreen" min="0" max="50" value="5" class="settings-field-control">
+
+        <div id="danmuPoolTab-custom" class="danmu-pool-tab-panel space-y-8" data-danmu-pool-panel="custom" role="tabpanel" hidden>
+          <div class="danmu-pool-section">
+            <p class="settings-section-title">弹幕库来源</p>
+            <div class="space-y-4">
+              <label class="flex items-center gap-2 font-semibold text-warmText">
+                <input type="checkbox" id="poolCustomEnabled" class="accent-warmPink">
+                自定义公式化弹幕库
+              </label>
+              <p class="settings-section-hint">启用后，系统会从你保存的自定义弹幕句中抽取短句，用于弹幕不足时补足。</p>
+            </div>
           </div>
-          <p class="settings-section-hint">当屏幕上的弹幕少于该数量时，会从自定义公式化弹幕库中抽取短句补足。</p>
-          <p id="poolBothOffHint" class="settings-section-hint hidden">关闭自定义公式化弹幕库后，不会进行公式化弹幕补足。</p>
-          <button type="button" id="btnSavePoolSettings" class="btn-primary mt-4 px-6 py-2 text-white rounded-xl font-bold shadow-warm">保存设置</button>
-        </div>
-        <div class="danmu-pool-section">
-          <p class="settings-section-title">追加自定义句</p>
-          <p class="settings-section-hint mb-2">一行一条。建议短句，中文约 15 字以内，英文约 40 字符以内。</p>
-          <textarea id="poolCustomTextarea" rows="6" class="danmu-pool-textarea w-full px-4 py-3 bg-cream rounded-xl text-warmText border border-softPeach" placeholder="太真实了&#10;这也行？"></textarea>
-          <div class="flex flex-wrap gap-3 mt-3">
-            <button type="button" id="btnPoolCustomAppend" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm">保存 / 追加</button>
-            <button type="button" id="btnPoolCustomClearInput" class="px-6 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50">清空输入</button>
+          <div class="danmu-pool-section">
+            <p class="settings-section-title">补足规则</p>
+            <div id="poolMinOnScreenWrap" class="settings-field pool-min-on-screen max-w-xs">
+              <label for="poolMinOnScreen" class="settings-field-label">最小同屏条数</label>
+              <input type="number" id="poolMinOnScreen" min="0" max="50" value="5" class="settings-field-control">
+            </div>
+            <p class="settings-section-hint">当屏幕上的弹幕少于该数量时，会从自定义公式化弹幕库中抽取短句补足。</p>
+            <p id="poolBothOffHint" class="settings-section-hint hidden">关闭自定义公式化弹幕库后，不会进行公式化弹幕补足。</p>
+            <button type="button" id="btnSavePoolSettings" class="btn-primary mt-4 px-6 py-2 text-white rounded-xl font-bold shadow-warm">保存设置</button>
           </div>
-        </div>
-        <div class="danmu-pool-section">
-          <div class="flex flex-wrap items-center gap-4 mb-3">
-            <p class="settings-section-title mb-0">已保存自定义句</p>
-            <span id="poolCustomCount" class="text-sm text-gray-500">共 0 条</span>
+          <div class="danmu-pool-section">
+            <p class="settings-section-title">追加自定义句</p>
+            <p class="settings-section-hint mb-2">一行一条，保存后上屏时完整展示，无字数限制。</p>
+            <textarea id="poolCustomTextarea" rows="6" class="danmu-pool-textarea w-full px-4 py-3 bg-cream rounded-xl text-warmText border border-softPeach" placeholder="太真实了&#10;这也行？"></textarea>
+            <div class="flex flex-wrap gap-3 mt-3">
+              <button type="button" id="btnPoolCustomAppend" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm">保存 / 追加</button>
+              <button type="button" id="btnPoolCustomClearInput" class="px-6 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50">清空输入</button>
+            </div>
           </div>
-          <div class="flex flex-wrap items-center gap-3 mb-3">
-            <label class="flex items-center gap-2 text-sm font-semibold text-warmText">
-              <input type="checkbox" id="poolCustomSelectAll" class="accent-warmPink">
-              全选
-            </label>
-            <button type="button" id="btnPoolCustomDelete" class="px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50">删除选中</button>
+          <div class="danmu-pool-section">
+            <div class="flex flex-wrap items-center gap-4 mb-3">
+              <p class="settings-section-title mb-0">已保存自定义句</p>
+              <span id="poolCustomCount" class="text-sm text-gray-500">共 0 条</span>
+            </div>
+            <div class="flex flex-wrap items-center gap-3 mb-3">
+              <label class="flex items-center gap-2 text-sm font-semibold text-warmText">
+                <input type="checkbox" id="poolCustomSelectAll" class="accent-warmPink">
+                全选
+              </label>
+              <button type="button" id="btnPoolCustomDelete" class="px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50">删除选中</button>
+            </div>
+            <ul id="poolCustomList" class="danmu-pool-custom-list space-y-2"></ul>
           </div>
-          <ul id="poolCustomList" class="danmu-pool-custom-list space-y-2"></ul>
         </div>
       </div>
     </section>
@@ -103,7 +188,7 @@
               <input type="number" id="petCommandApplyCount" min="1" max="5" value="1" class="settings-field-control">
             </label>
           </div>
-          <p class="settings-section-hint">指令不会立即请求 AI，而是注入下一次正常截图弹幕生成。</p>
+          <p class="settings-section-hint">指令不会立即请求 AI，而是注入下一次正常截图弹幕生成；生成时会优先结合你的输入与当前画面。</p>
           <div class="flex flex-wrap gap-3 items-end max-w-2xl">
             <label class="settings-field flex-1 min-w-[200px]">
               <span class="settings-field-label">Web 调试指令</span>
@@ -114,18 +199,9 @@
         </div>
         <div class="space-y-2">
           <p class="settings-section-title">宠物素材</p>
-          <label class="settings-field max-w-md">
-            <span class="settings-field-label">来源</span>
-            <select id="petAssetSource" class="settings-field-control">
-              <option value="builtin">内置默认</option>
-              <option value="local">本地 PetDex 包</option>
-            </select>
-          </label>
-          <label class="settings-field max-w-xl">
-            <span class="settings-field-label">本地包目录（含 pet.json + spritesheet）</span>
-            <input type="text" id="petAssetPath" placeholder="例如 D:\pets\my-pet" class="settings-field-control">
-          </label>
-          <p class="settings-section-hint">兼容 <a href="https://petdex.dev/zh" target="_blank" rel="noopener noreferrer" class="text-warmPink underline">PetDex</a> 8×9 spritesheet 格式；社区素材需自行下载导入。</p>
+          <p class="text-warmText font-semibold">当前素材：内置默认</p>
+          <button type="button" id="btnPetImportFolder" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm">导入文件夹</button>
+          <p class="settings-section-hint">后续可通过文件夹导入自定义桌宠素材，当前暂未开放，仍使用内置默认素材。</p>
         </div>
         <button type="button" id="btnPetSave" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm">保存设置</button>
       </div>

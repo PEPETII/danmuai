@@ -22,6 +22,15 @@ def test_error_reports_migration_exists():
     assert "error_reports_quota" in sql
 
 
+def test_error_reports_user_note_migration_exists():
+    root = project_root()
+    path = root / "supabase" / "migrations" / "008_error_reports_user_note.sql"
+    assert path.is_file()
+    sql = path.read_text(encoding="utf-8")
+    assert "user_note" in sql
+    assert "contact" in sql
+
+
 def test_app_updates_migration_exists():
     root = project_root()
     path = root / "supabase" / "migrations" / "003_app_updates.sql"
@@ -36,6 +45,8 @@ def test_supabase_client_exports_error_report_api():
     assert "submitErrorReport" in text
     assert "getErrorReportQuota" in text
     assert "/rest/v1/error_reports" in text
+    assert "user_note" in text
+    assert "userNote" in text
     assert "fetchAppUpdate" in text
     assert "/rest/v1/app_updates" in text
 

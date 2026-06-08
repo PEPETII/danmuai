@@ -1,9 +1,8 @@
 import struct
-import time
 from unittest.mock import MagicMock
 
 import pytest
-from app.mic_test import clamp_test_duration, capture_mic_sample, pcm_metrics, run_mic_test
+from app.mic_test import capture_mic_sample, clamp_test_duration, pcm_metrics, run_mic_test
 from PyQt6.QtCore import QCoreApplication, QTimer
 from PyQt6.QtWidgets import QApplication
 

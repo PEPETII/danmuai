@@ -158,11 +158,14 @@ function connectDiagnosticsSSE() {
   }
 
   clearSseReconnect();
-  const url = `${API.base}/api/diagnostics/events`;
-  console.debug('[diagnostics] SSE connecting', url);
+  const url = new URL(`${API.base}/api/diagnostics/events`);
+  if (API.token) {
+    url.searchParams.set('token', API.token);
+  }
+  console.debug('[diagnostics] SSE connecting', url.toString());
 
   try {
-    const es = new EventSource(url);
+    const es = new EventSource(url.toString());
     DIAGNOSTICS.sse = es;
 
     es.onopen = () => {

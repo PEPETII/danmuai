@@ -6,10 +6,6 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
-if (-not (Test-Path "data\danmu_pool_zh.json")) {
-    Write-Error "Missing data\danmu_pool_zh.json — run from repo root after pool data is present."
-}
-
 if (-not (Test-Path "resources\icon.ico") -or -not (Test-Path "resources\icon.png")) {
     Write-Host "Generating resources\icon.ico + icon.png ..."
     python (Join-Path $Root "scripts\generate_app_icon.py")

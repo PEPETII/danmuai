@@ -1,8 +1,8 @@
 """Contract tests for app.pet.pet_animation_mapper (PET-011)."""
 
+from app.pet.pet_animation_mapper import resolve_base_animation, resolve_pet_animation_hint
 from main import DanmuApp
 
-from app.pet.pet_animation_mapper import resolve_base_animation, resolve_pet_animation_hint
 from tests.conftest import bind_minimal_danmu_app
 
 

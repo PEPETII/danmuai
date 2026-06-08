@@ -26,8 +26,6 @@ function fillPetForm(data) {
   const commandBox = document.getElementById('petCommandBoxEnabled');
   const ttl = document.getElementById('petCommandTtl');
   const applyCount = document.getElementById('petCommandApplyCount');
-  const assetSource = document.getElementById('petAssetSource');
-  const assetPath = document.getElementById('petAssetPath');
 
   if (enabled) enabled.checked = Boolean(data.enabled);
   if (scale) scale.value = String(data.scale ?? 1);
@@ -37,8 +35,6 @@ function fillPetForm(data) {
   if (commandBox) commandBox.checked = Boolean(data.command_box_enabled);
   if (ttl) ttl.value = String(data.command_ttl_sec ?? 30);
   if (applyCount) applyCount.value = String(data.command_apply_count ?? 1);
-  if (assetSource) assetSource.value = data.asset_source || 'builtin';
-  if (assetPath) assetPath.value = data.asset_path || '';
 
   const pending = data.pending_command;
   if (data.has_pending_command && pending?.preview) {
@@ -71,8 +67,8 @@ function collectPetPayload() {
     command_box_enabled: Boolean(document.getElementById('petCommandBoxEnabled')?.checked),
     command_ttl_sec: parseInt(document.getElementById('petCommandTtl')?.value, 10) || 30,
     command_apply_count: parseInt(document.getElementById('petCommandApplyCount')?.value, 10) || 1,
-    asset_source: document.getElementById('petAssetSource')?.value || 'builtin',
-    asset_path: document.getElementById('petAssetPath')?.value || '',
+    asset_source: 'builtin',
+    asset_path: '',
   };
 }
 
@@ -117,5 +113,8 @@ export function initPetPage(deps = {}) {
   });
   document.getElementById('btnPetCommandSubmit')?.addEventListener('click', () => {
     submitPetCommand().catch((error) => showToast(error.message, true));
+  });
+  document.getElementById('btnPetImportFolder')?.addEventListener('click', () => {
+    showToast('导入文件夹功能正在开发中，当前将继续使用内置默认素材。');
   });
 }

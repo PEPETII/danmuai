@@ -22,6 +22,7 @@ from app.model_providers import (
     guess_provider_from_endpoint,
     is_model_config_complete,
     is_valid_endpoint,
+    normalize_endpoint,
     provider_label,
     resolve_active_model_id,
 )
@@ -91,9 +92,46 @@ def _custom_models_list(config) -> list[Any]:
     return config.get_custom_models()
 
 
+def _uses_complete_custom_model(config, model_id: str) -> bool:
+    """True when active model uses a complete custom profile (own endpoint/key)."""
+    mid = (model_id or "").strip()
+    if not mid:
+        return False
+    default_id = (config.get_default_model_id() or "").strip()
+    if default_id != mid:
+        return False
+    custom = _custom_model_by_id(_custom_models_list(config), mid)
+    return custom is not None and is_model_config_complete(custom)
+
+
+def visual_api_endpoint_issue(config) -> str | None:
+    """Return user-facing error if global visual credentials lack a valid endpoint."""
+    model_id = resolve_active_model_id(config)
+    if _uses_complete_custom_model(config, model_id):
+        custom = _custom_model_by_id(_custom_models_list(config), model_id)
+        endpoint = normalize_endpoint((custom or {}).get("endpoint", ""))
+        if not is_valid_endpoint(endpoint):
+            return tr("config.error_api_endpoint_invalid")
+        return None
+    endpoint = normalize_endpoint(config.get("api_endpoint", ""))
+    if not endpoint:
+        return tr("config.error_api_endpoint_required")
+    if not is_valid_endpoint(endpoint):
+        return tr("config.error_api_endpoint_invalid")
+    return None
+
+
 def validate_web_config_patch(config, payload: dict[str, Any]) -> None:
     """Validate model selection for PUT /api/config (call before emit / set_batch)."""
-    touches = {"model", "default_model_id", "api_endpoint", "api_mode"}
+    touches = {
+        "model",
+        "default_model_id",
+        "api_endpoint",
+        "api_mode",
+        "mic_api_endpoint",
+        "mic_api_mode",
+        "mic_use_visual_model",
+    }
     if not touches.intersection(payload.keys()):
         return
 
@@ -111,17 +149,35 @@ def validate_web_config_patch(config, payload: dict[str, Any]) -> None:
         or config.get("model", "")
     ).strip()
 
-    if not model_id:
-        if "model" in payload or "default_model_id" in payload:
-            raise ValueError(tr("config.error_model_id_required"))
-        return
+    custom_models = _custom_models_list(config)
 
-    validate_global_model_selection(
-        endpoint,
-        api_mode,
-        model_id,
-        _custom_models_list(config),
-    )
+    if model_id:
+        if not _uses_complete_custom_model(config, model_id):
+            if not endpoint:
+                raise ValueError(tr("config.error_api_endpoint_required"))
+            if not is_valid_endpoint(endpoint):
+                raise ValueError(tr("config.error_api_endpoint_invalid"))
+
+        validate_global_model_selection(
+            endpoint,
+            api_mode,
+            model_id,
+            custom_models,
+        )
+    elif "model" in payload or "default_model_id" in payload:
+        raise ValueError(tr("config.error_model_id_required"))
+
+    mic_use_visual = str(
+        payload.get("mic_use_visual_model", config.get("mic_use_visual_model", "1"))
+    ).strip()
+    if mic_use_visual in ("0", "false", "no", "off"):
+        mic_endpoint = str(
+            payload.get("mic_api_endpoint", config.get("mic_api_endpoint", ""))
+        ).strip()
+        if not mic_endpoint:
+            raise ValueError(tr("config.error_api_endpoint_required"))
+        if not is_valid_endpoint(mic_endpoint):
+            raise ValueError(tr("config.error_api_endpoint_invalid"))
 
 
 def resolve_model_status(config) -> dict[str, Any]:

@@ -194,6 +194,8 @@
     logsExcerpt,
     diagnosticsJson,
     errorFingerprint,
+    userNote,
+    contact,
   }) {
     const summaryVal = String(summary || '').trim();
     if (!summaryVal) throw new Error('错误摘要不能为空');
@@ -205,12 +207,22 @@
     }
 
     const fingerprintVal = String(errorFingerprint || '').trim() || null;
+    let userNoteVal = userNote == null ? null : String(userNote).trim();
+    if (userNoteVal && userNoteVal.length > 1000) {
+      userNoteVal = `${userNoteVal.slice(0, 990)}…[truncated]`;
+    }
+    let contactVal = contact == null ? null : String(contact).trim();
+    if (contactVal && contactVal.length > 200) {
+      contactVal = contactVal.slice(0, 200);
+    }
     const clientId = getOrCreateClientId();
     const body = {
       summary: summaryVal,
       logs_excerpt: logsVal || null,
       diagnostics_json: diagnosticsJson ?? null,
       error_fingerprint: fingerprintVal,
+      user_note: userNoteVal || null,
+      contact: contactVal || null,
       client_id: clientId,
       app_version: resolveAppVersion() || null,
       platform: 'windows',

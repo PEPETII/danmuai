@@ -88,6 +88,39 @@ def custom_pool_size(config) -> int:
     return len(load_custom_danmu_pool(config))
 
 
+def is_stored_custom_pool_text(config, content: str) -> bool:
+    """True when content exactly matches a saved custom pool line (full display, no truncation)."""
+    if config is None:
+        return False
+    text = str(content).strip()
+    if not text:
+        return False
+    getter = getattr(config, "get_custom_danmu_pool", None)
+    if not callable(getter):
+        return False
+    return text in set(getter())
+
+
+def is_stored_meme_barrage_text(config, content: str) -> bool:
+    """True when content exactly matches a saved meme barrage library line."""
+    if config is None:
+        return False
+    text = str(content).strip()
+    if not text:
+        return False
+    checker = getattr(config, "meme_barrage_library_contains_text", None)
+    if not callable(checker):
+        return False
+    return bool(checker(text))
+
+
+def is_formula_danmu_text(config, content: str) -> bool:
+    """True when content is from formula sources (custom pool or meme barrage)."""
+    return is_stored_custom_pool_text(config, content) or is_stored_meme_barrage_text(
+        config, content
+    )
+
+
 def maybe_pool_topup(engine, config, scene_generation: int) -> int:
     """从自定义池抽样补足同屏密度。
 

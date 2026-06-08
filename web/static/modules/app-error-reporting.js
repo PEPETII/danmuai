@@ -217,7 +217,65 @@ async function collectErrorReportContext(anchor) {
 
   const summary = String(anchor.errorMessage || 'unknown error').trim().slice(0, 500);
   const errorFingerprint = anchor.fingerprint || (await hashErrorFingerprint(summary));
-  return { summary, logsExcerpt, diagnosticsJson, errorFingerprint };
+  const userNote = String(document.getElementById('errorReportUserNote')?.value || '').trim();
+  const contact = String(document.getElementById('errorReportContact')?.value || '').trim();
+  return {
+    summary,
+    logsExcerpt,
+    diagnosticsJson,
+    errorFingerprint,
+    userNote: userNote || null,
+    contact: contact || null,
+  };
+}
+
+function clearErrorReportFormFields() {
+  const noteEl = document.getElementById('errorReportUserNote');
+  const contactEl = document.getElementById('errorReportContact');
+  if (noteEl) noteEl.value = '';
+  if (contactEl) contactEl.value = '';
+}
+
+function updateErrorReportQuotaHint(quota) {
+  const el = document.getElementById('errorReportQuotaHint');
+  const submitBtn = document.getElementById('btnErrorReportSubmit');
+  if (!el) return;
+  if (!quota) {
+    el.textContent = '暂时无法查询提交额度';
+    if (submitBtn) submitBtn.disabled = false;
+    return;
+  }
+  const remaining = Number(quota.remaining ?? 0);
+  const limit = Number(quota.limit ?? 3);
+  const hint = quota.resets_hint || `每 3 小时最多提交 ${limit} 条`;
+  if (remaining <= 0) {
+    el.textContent = hint;
+    el.classList.add('text-red-600');
+    if (submitBtn) submitBtn.disabled = true;
+  } else {
+    el.textContent = `本机还可提交 ${remaining} / ${limit} 条错误报告（${hint}）`;
+    el.classList.remove('text-red-600');
+    if (submitBtn) submitBtn.disabled = false;
+  }
+}
+
+async function refreshErrorReportQuota() {
+  const el = document.getElementById('errorReportQuotaHint');
+  if (!el) return;
+  if (!window.DanmuSupabase?.isConfigured?.()) {
+    el.textContent = '未配置云端反馈服务，无法在线提交';
+    const submitBtn = document.getElementById('btnErrorReportSubmit');
+    if (submitBtn) submitBtn.disabled = true;
+    return;
+  }
+  el.textContent = '正在查询提交额度…';
+  el.classList.remove('text-red-600');
+  try {
+    const quota = await window.DanmuSupabase.getErrorReportQuota();
+    updateErrorReportQuotaHint(quota);
+  } catch (error) {
+    el.textContent = error.message || '无法查询提交额度';
+  }
 }
 
 function showErrorReportModal(anchor) {
@@ -233,6 +291,7 @@ function showErrorReportModal(anchor) {
     submitBtn.disabled = false;
     submitBtn.textContent = '发送反馈';
   }
+  refreshErrorReportQuota().catch(console.error);
 }
 
 function closeErrorReportModal() {
@@ -242,22 +301,35 @@ function closeErrorReportModal() {
   modal.classList.remove('flex');
 }
 
-export async function maybePromptErrorReport(status) {
-  if (!window.DanmuSupabase?.isConfigured?.()) return;
-  const message = String(status.error_message || '').trim();
-  if (!message) return;
-  const fingerprint = await hashErrorFingerprint(message);
-  if (isErrorReportSuppressed(fingerprint)) return;
-  errorReportAnchor = {
+function buildErrorReportAnchor(status) {
+  const message = String(status?.error_message || '').trim();
+  if (!message) return null;
+  return {
     errorMessage: message,
     ts: Date.now() / 1000,
-    fingerprint,
+    fingerprint: null,
     statusSnapshot: {
       active_model_id: status.active_model_id,
       persona_names: status.persona_names,
     },
   };
+}
+
+/**
+ * Open error report modal. force=true skips 24h fingerprint dedup (manual banner entry).
+ */
+export async function openErrorReportModal(status, { force = false } = {}) {
+  if (!window.DanmuSupabase?.isConfigured?.()) return;
+  const anchor = buildErrorReportAnchor(status);
+  if (!anchor) return;
+  anchor.fingerprint = await hashErrorFingerprint(anchor.errorMessage);
+  if (!force && isErrorReportSuppressed(anchor.fingerprint)) return;
+  errorReportAnchor = anchor;
   showErrorReportModal(errorReportAnchor);
+}
+
+export async function maybePromptErrorReport(status) {
+  return openErrorReportModal(status, { force: false });
 }
 
 async function submitErrorReportFromModal() {
@@ -276,6 +348,7 @@ async function submitErrorReportFromModal() {
     const payload = await collectErrorReportContext(errorReportAnchor);
     await window.DanmuSupabase.submitErrorReport(payload);
     markErrorReportHandled(errorReportAnchor.fingerprint, 'sent');
+    clearErrorReportFormFields();
     closeErrorReportModal();
     showToast('错误反馈已发送，感谢', false);
     errorReportAnchor = null;
@@ -285,6 +358,7 @@ async function submitErrorReportFromModal() {
       submitBtn.disabled = false;
       submitBtn.textContent = '发送反馈';
     }
+    await refreshErrorReportQuota();
   } finally {
     errorReportSubmitting = false;
   }
@@ -295,13 +369,22 @@ function dismissErrorReportModal() {
     markErrorReportHandled(errorReportAnchor.fingerprint, 'dismiss');
   }
   errorReportAnchor = null;
+  clearErrorReportFormFields();
   closeErrorReportModal();
 }
 
 export function initErrorReporting(deps = {}) {
   toast = deps.showToast || toast;
+  const getLastStatus = deps.getLastStatus || (() => null);
   if (handlersBound) return;
   handlersBound = true;
+  document.getElementById('btnErrorReportFromBanner')?.addEventListener('click', () => {
+    const st = getLastStatus();
+    if (!st?.error_message) return;
+    openErrorReportModal(st, { force: true }).catch((error) => {
+      console.warn('[error-report] manual open failed', error);
+    });
+  });
   document
     .getElementById('btnErrorReportDismiss')
     ?.addEventListener('click', dismissErrorReportModal);

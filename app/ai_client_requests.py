@@ -22,6 +22,7 @@ from app.ai_client_support import (
 from app.model_providers import (
     get_capabilities_for_model,
     get_openai_adapter_for_model,
+    is_valid_endpoint,
     model_supports_mic_audio,
     normalize_endpoint,
     normalize_mode,
@@ -55,15 +56,17 @@ def resolve_request_credentials(config) -> tuple[str, str, str, str] | None:
             return None
         return endpoint, api_key, model_id, api_mode
 
-    endpoint = normalize_endpoint(
-        config.get("api_endpoint", "https://ark.cn-beijing.volces.com/api/v3")
-    )
+    endpoint = normalize_endpoint(config.get("api_endpoint", ""))
+    if not endpoint or not is_valid_endpoint(endpoint):
+        return None
     api_key = (config.get_api_key() or "").strip()
     model_id = (
         config.get_default_model_id()
         or config.get("model", "doubao-seed-1-6-flash-250828")
     )
     api_mode = normalize_mode(config.get("api_mode", "doubao"))
+    if not api_key or not (model_id or "").strip():
+        return None
     return endpoint, api_key, model_id, api_mode
 
 

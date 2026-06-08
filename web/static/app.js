@@ -52,6 +52,7 @@ import {
 import {
   initErrorReporting,
   maybePromptErrorReport as maybePromptErrorReportImpl,
+  openErrorReportModal as openErrorReportModalImpl,
 } from './modules/app-error-reporting.js';
 import {
   initLiveOverlayPanel,
@@ -60,6 +61,11 @@ import {
   initDanmuPoolPage,
   loadDanmuPoolPage,
 } from './modules/app-danmu-pool-page.js';
+import {
+  initMemeBarragePage,
+  loadMemeBarragePage,
+  startMemeBarrageMetaPolling,
+} from './modules/app-meme-barrage-page.js';
 import {
   initPetPage,
   loadPetPage,
@@ -92,6 +98,7 @@ function maybePromptErrorReport(status) {
  * function collectErrorReportContext
  * function extractErrorReportSearchTerms
  * function findErrorLogAnchorIndex
+ * function openErrorReportModal
  * localStorage.setItem(ERROR_REPORT_DISMISS_STORAGE
  * submitErrorReport
  */
@@ -102,6 +109,16 @@ window.addEventListener('unhandledrejection', (event) => {
   console.warn('[app] unhandled promise rejection:', reason);
   showToast(`操作失败: ${message}`, true);
 });
+
+function handleDanmuReadProviderChange() {
+  const providerEl = document.getElementById('danmuReadProvider');
+  if (!providerEl) return;
+  if (providerEl.value === 'custom_openai') {
+    providerEl.value = '';
+    showToast('非常抱歉，该功能将在明日开发完成');
+  }
+  syncDanmuReadCustomFieldsUi();
+}
 
 function syncDanmuReadCustomFieldsUi() {
   const provider = document.getElementById('danmuReadProvider')?.value || '';
@@ -162,9 +179,8 @@ function applyDanmuReadForm(cfg) {
   if (keyEl) keyEl.value = cfg.api_key || '';
   if (voiceEl && cfg.voice) voiceEl.value = cfg.voice;
   if (styleEl) styleEl.value = cfg.style_prompt || '';
-  const useCustom = Boolean(cfg.use_custom_model);
   if (providerEl) {
-    providerEl.value = useCustom ? cfg.provider || 'custom_openai' : '';
+    providerEl.value = '';
   }
   if (endpointEl) endpointEl.value = cfg.custom_endpoint || '';
   if (modelIdEl) modelIdEl.value = cfg.custom_model_id || '';
@@ -223,7 +239,7 @@ async function probeDanmuRead() {
 function initDanmuReadPage() {
   document
     .getElementById('danmuReadProvider')
-    ?.addEventListener('change', syncDanmuReadCustomFieldsUi);
+    ?.addEventListener('change', handleDanmuReadProviderChange);
   document.getElementById('btnSaveDanmuRead')?.addEventListener('click', () => {
     saveDanmuReadSettings().catch((error) => showToast(error.message, true));
   });
@@ -254,7 +270,11 @@ function navigate(page) {
     loadCustomModels().catch(console.error);
   }
   if (page === 'persona') loadPersonaEditor().catch(console.error);
-  if (page === 'danmu-pool') loadDanmuPoolPage().catch((error) => showToast(error.message, true));
+  if (page === 'danmu-pool') {
+    Promise.all([loadMemeBarragePage(), loadDanmuPoolPage()])
+      .then(() => startMemeBarrageMetaPolling())
+      .catch((error) => showToast(error.message, true));
+  }
   if (page === 'pet') loadPetPage().catch((error) => showToast(error.message, true));
   if (page === 'announcements') {
     stopAnnouncementsBadgePolling();
@@ -287,9 +307,10 @@ async function init() {
     document.getElementById('screen_index').value = String(cfg.screen_index);
   }
 
-  initErrorReporting({ showToast });
+  initErrorReporting({ showToast, getLastStatus: getLastAppliedStatus });
   initLiveOverlayPanel({ showToast });
   initDanmuPoolPage({ showToast });
+  initMemeBarragePage({ showToast });
   initPetPage({ showToast });
   initPersonaTopicPage({ showToast });
   initAppUpdateModal({ showToast });
@@ -297,6 +318,7 @@ async function init() {
   configureStatus({
     applyCaptureRegion: applyCaptureRegionFromPayload,
     onErrorPrompt: maybePromptErrorReport,
+    onErrorReportManual: (status) => openErrorReportModalImpl(status, { force: true }),
   });
   setRealtimeHandlers({
     onStatus: applyStatus,

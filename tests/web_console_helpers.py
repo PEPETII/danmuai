@@ -65,16 +65,15 @@ def pump_qt_until(qt_app, *, invoke_worker=None, extra_thread=None) -> None:
 
 def build_ws_status_test_app(bridge, token: str):
     """Mirror WebConsoleServer WebSocketRoute registration for /ws/status."""
-    from app.web_console import _WS_MAX_STATUS_CONSUMERS, _ws_token_valid
+    from app.web_console import _WS_MAX_STATUS_CONSUMERS
+    from app.web_console_ws import _authenticate_websocket
     from fastapi import FastAPI, WebSocket, WebSocketDisconnect
     from starlette.routing import WebSocketRoute
 
     app = FastAPI()
 
     async def _ws_status_endpoint(websocket: WebSocket):
-        ws_token = websocket.query_params.get("ws_token")
-        if not _ws_token_valid(ws_token, token):
-            await websocket.close(code=1008, reason="需要登录令牌")
+        if not await _authenticate_websocket(websocket, token):
             return
         status_queues = bridge._ws_status_queues
         if isinstance(status_queues, list) and len(status_queues) >= _WS_MAX_STATUS_CONSUMERS:

@@ -542,6 +542,66 @@
   border: 1px solid var(--border);
 }
 
+.meme-tag-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.meme-tag-grid.is-disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.meme-tag-btn {
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--color-surface);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.meme-tag-btn.active {
+  border-color: var(--color-primary);
+  background: rgba(255, 182, 193, 0.2);
+  color: var(--color-primary-dark, var(--color-text));
+}
+
+.danmu-pool-tabs {
+  margin-bottom: 0;
+}
+
+.danmu-pool-tab {
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text-muted, #6b7280);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.danmu-pool-tab:hover {
+  background: var(--color-accent);
+  color: var(--color-text);
+}
+
+.danmu-pool-tab.active {
+  background: var(--color-accent);
+  color: var(--color-primary-hover);
+}
+
+.danmu-pool-tab-panel {
+  display: none;
+}
+
+.danmu-pool-tab-panel.active {
+  display: block;
+}
+
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-track { background: var(--color-bg); }
 ::-webkit-scrollbar-thumb { background: var(--color-secondary); border-radius: 4px; }

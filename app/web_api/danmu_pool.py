@@ -2,7 +2,7 @@
 
 路由（由 ``app.web_api.routes`` 注册）：
 - ``GET /api/danmu-pool/meta``：自定义开关 + pool size。
-- ``POST /api/danmu-pool/custom``：追加自定义句（去重 + 截断），上限 500。
+- ``POST /api/danmu-pool/custom``：追加自定义句（去重 + 安全校验），上限 500。
 - ``PUT /api/danmu-pool/settings``：写 ``danmu_pool_use_custom`` / ``min_on_screen``。
 - ``DELETE /api/danmu-pool/custom``：删除自定义句。
 """
@@ -11,7 +11,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from app.danmu_engine import resolve_danmu_max_chars
 from app.danmu_pool import (
     any_danmu_pool_source_enabled,
     custom_pool_size,
@@ -26,7 +25,6 @@ CUSTOM_POOL_MAX = 500
 APPEND_BATCH_MAX = 100
 MIN_ON_SCREEN_MAX = 50
 
-_SKIP_REASON_TOO_LONG = "too_long"
 _SKIP_REASON_DUPLICATE = "duplicate"
 _SKIP_REASON_EMPTY = "empty"
 _SKIP_REASON_UNSAFE = "unsafe"
@@ -80,7 +78,6 @@ def append_custom(app: "DanmuApp", payload: dict[str, Any]) -> dict[str, Any]:
     config = app.config
     existing = list(config.get_custom_danmu_pool())
     existing_set = set(existing)
-    max_len = resolve_danmu_max_chars(config)
 
     added: list[str] = []
     skipped_items: list[dict[str, str]] = []
@@ -93,10 +90,7 @@ def append_custom(app: "DanmuApp", payload: dict[str, Any]) -> dict[str, Any]:
         if text in existing_set:
             skipped_items.append({"text": text, "reason": _SKIP_REASON_DUPLICATE})
             continue
-        if len(text) > max_len:
-            skipped_items.append({"text": text, "reason": _SKIP_REASON_TOO_LONG})
-            continue
-        if not is_overlay_safe(text, max_chars=max_len):
+        if not is_overlay_safe(text, max_chars=None):
             skipped_items.append({"text": text, "reason": _SKIP_REASON_UNSAFE})
             continue
         if len(existing) + len(added) >= CUSTOM_POOL_MAX:

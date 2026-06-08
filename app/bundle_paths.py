@@ -9,13 +9,15 @@ from pathlib import Path
 
 
 def is_frozen() -> bool:
-    return bool(getattr(sys, "frozen", False))
+    # PyInstaller onedir sets sys._MEIPASS; some builds omit sys.frozen.
+    return bool(getattr(sys, "frozen", False)) or hasattr(sys, "_MEIPASS")
 
 
 def project_root() -> Path:
     """Repo root in dev; PyInstaller extract dir when frozen."""
-    if is_frozen():
-        return Path(getattr(sys, "_MEIPASS", Path(sys.executable).resolve().parent))
+    meipass = getattr(sys, "_MEIPASS", None)
+    if meipass:
+        return Path(meipass)
     return Path(__file__).resolve().parent.parent
 
 

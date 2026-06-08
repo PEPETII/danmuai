@@ -161,6 +161,7 @@ def test_mic_poll_stress_try_snapshot_bounded_under_contention():
     def append_loop() -> None:
         while not stop.is_set():
             cap._buffer.append(chunk)
+            time.sleep(0)  # yield GIL — real callbacks are periodic, not a tight spin
 
     worker = threading.Thread(target=append_loop, daemon=True)
     worker.start()

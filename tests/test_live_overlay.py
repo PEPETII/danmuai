@@ -6,6 +6,7 @@ import asyncio
 import time
 from unittest.mock import MagicMock
 
+from app.danmu_engine_models import DanmuItem
 from app.live_overlay_hub import LiveOverlayHub
 from app.web_api.live_overlay import register_live_overlay_routes
 from fastapi import FastAPI
@@ -138,7 +139,7 @@ def test_broadcast_failure_does_not_break_enqueue():
     bind_minimal_danmu_app(app)
     broken_hub = MagicMock()
     broken_hub.broadcast_item.side_effect = RuntimeError("hub down")
-    app.web_server = MagicMock(live_overlay_hub=broken_hub)
+    app.__dict__["web_server"] = MagicMock(live_overlay_hub=broken_hub)
 
     app._enqueue_reply_batch(
         "p1",
@@ -151,7 +152,7 @@ def test_broadcast_failure_does_not_break_enqueue():
     assert app.reply_buffer.size() == 2
     broken_hub.broadcast_item.assert_not_called()
 
-    fake_item = MagicMock(y=90.0, speed=2.0)
+    fake_item = DanmuItem(content="x", y=90.0, speed=2.0)
     app._broadcast_live_overlay_item(fake_item, "x", source="ai")
     broken_hub.broadcast_item.assert_called_once()
 

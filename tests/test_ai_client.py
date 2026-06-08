@@ -486,6 +486,21 @@ def test_resolve_credentials_uses_custom_model_without_global_fallback():
     worker.close()
 
 
+def test_resolve_credentials_empty_global_endpoint_returns_none():
+    worker = AiWorker(
+        FakeConfig(
+            data={
+                "api_endpoint": "",
+                "api_mode": "doubao",
+                "model": "doubao-seed-1-6-flash-250828",
+            },
+            api_key="sk-test",
+        )
+    )
+    assert worker._resolve_request_credentials() is None
+    worker.close()
+
+
 def test_resolve_credentials_incomplete_custom_model_returns_none():
     worker = AiWorker(
         FakeConfig(

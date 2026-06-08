@@ -317,3 +317,38 @@ def test_diagnostics_panel_files_use_independent_endpoint_and_render_targets():
     assert "btnCopyDiagnosticsReport" in diagnostics_js
     assert "诊断面板" in index_html
     assert "diagnosticReportPreview" in index_html
+
+
+def test_diagnostics_requires_auth():
+    """W-SECURITY-001: /api/diagnostics 无 Token 应返回 401。"""
+    from fastapi import HTTPException
+
+    def _check_token(authorization=None):
+        if not authorization:
+            raise HTTPException(status_code=401, detail="Missing token")
+
+    fastapi_app = FastAPI()
+    danmu_app = SimpleNamespace(
+        build_diagnostic_snapshot=MagicMock(return_value={})
+    )
+    bridge = SimpleNamespace(danmu_app=danmu_app)
+    register_web_routes(fastapi_app, bridge, _check_token)
+    client = TestClient(fastapi_app, raise_server_exceptions=False)
+
+    response = client.get("/api/diagnostics")
+    assert response.status_code == 401
+
+
+def test_diagnostics_accepts_valid_token():
+    """W-SECURITY-001: /api/diagnostics 有 Token 应返回 200。"""
+    fastapi_app = FastAPI()
+    danmu_app = SimpleNamespace(
+        build_diagnostic_snapshot=MagicMock(return_value={"scheduler": {}})
+    )
+    bridge = SimpleNamespace(danmu_app=danmu_app)
+    register_web_routes(fastapi_app, bridge, lambda _authorization=None: None)
+    client = TestClient(fastapi_app)
+
+    response = client.get("/api/diagnostics", headers={"Authorization": "Bearer test-token"})
+    assert response.status_code == 200
+    assert response.json()["ok"] is True

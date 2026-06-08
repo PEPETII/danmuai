@@ -17,6 +17,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from urllib.parse import urlparse
 
@@ -361,6 +362,8 @@ def validate_model_config(data: dict) -> list[str]:
         errors.append("custom_model.error_name")
     if not model_id:
         errors.append("custom_model.error_model_id")
+    elif not re.match(r'^[a-zA-Z0-9_./-]+$', model_id):  # 防止注入：仅允许字母数字、下划线、点、斜杠、连字符
+        errors.append("custom_model.error_model_id_invalid")
     if not endpoint:
         errors.append("custom_model.error_endpoint")
     elif not is_valid_endpoint(endpoint):

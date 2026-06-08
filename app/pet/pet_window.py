@@ -12,8 +12,8 @@ from PyQt6.QtCore import QEvent, QPoint, Qt, QTimer
 from PyQt6.QtGui import QAction, QFont, QPainter, QPixmap
 from PyQt6.QtWidgets import QApplication, QLineEdit, QMenu, QWidget
 
-from app.pet.pet_assets import PET_FRAME_H, PET_FRAME_W, PetAssetPack, load_pet_assets
 from app.pet.pet_animation_mapper import resolve_pet_animation_hint
+from app.pet.pet_assets import PET_FRAME_H, PET_FRAME_W, PetAssetPack, load_pet_assets
 from app.pet.pet_state import PetSettings
 
 if TYPE_CHECKING:
@@ -37,6 +37,8 @@ if sys.platform == "win32":
         _SetWindowLong = ctypes.windll.user32.SetWindowLongW
         _GetWindowLong = ctypes.windll.user32.GetWindowLongW
     _SetWindowPos = ctypes.windll.user32.SetWindowPos
+    _DWMWA_WINDOW_CORNER_PREFERENCE = 33
+    _DWMWCP_DONOTROUND = 1
 
 _ANIM_INTERVAL_MS = 16
 _DEFAULT_FRAME_INTERVAL_SEC = 1100 / 6 / 1000.0
@@ -49,6 +51,19 @@ _MOMENTUM_MAX_DURATION_MS = 900
 _POINTER_SAMPLE_WINDOW_SEC = 0.1
 _WAVING_HOLD_SEC = 1.2
 _MIN_SAMPLE_GAP_SEC = 0.016
+_COMMAND_EDIT_HEIGHT = 32
+_COMMAND_SPRITE_GAP = 4
+_COMMAND_BAND_HEIGHT = _COMMAND_EDIT_HEIGHT + _COMMAND_SPRITE_GAP
+
+
+def command_band_height(command_visible: bool) -> int:
+    """Extra window height reserved above the sprite when the command box is open."""
+    return _COMMAND_BAND_HEIGHT if command_visible else 0
+
+
+def sprite_y_offset(command_visible: bool) -> int:
+    """Vertical offset for sprite paint/draw when the command box occupies the top band."""
+    return _COMMAND_BAND_HEIGHT if command_visible else 0
 
 
 @dataclass(frozen=True)
@@ -137,14 +152,22 @@ class PetWindow(QWidget):
             Qt.WindowType.FramelessWindowHint
             | Qt.WindowType.WindowStaysOnTopHint
             | Qt.WindowType.Tool
+            | Qt.WindowType.BypassWindowManagerHint
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground, True)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
-        self.setStyleSheet("background: transparent;")
+        self.setAutoFillBackground(False)
+        self.setStyleSheet("background: transparent; border: none;")
 
         self._command_edit = QLineEdit(self)
         self._command_edit.setPlaceholderText("输入弹幕指令，Enter 提交，Esc 关闭")
         self._command_edit.setFont(QFont("Microsoft YaHei", 10))
+        self._command_edit.setAutoFillBackground(False)
+        self._command_edit.setStyleSheet(
+            "background: rgba(30, 30, 40, 200); color: white;"
+            " border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px;"
+        )
         self._command_edit.hide()
         self._command_edit.returnPressed.connect(self._submit_command)
         self._command_edit.installEventFilter(self)
@@ -154,8 +177,7 @@ class PetWindow(QWidget):
         self._anim_timer.timeout.connect(self._on_anim_tick)
 
         self.reload_assets()
-        self._apply_window_geometry()
-        self._sync_click_through()
+        self._apply_window_geometry(reposition=True)
 
     def reload_assets(self) -> None:
         try:
@@ -170,9 +192,9 @@ class PetWindow(QWidget):
     def apply_config(self) -> None:
         self._settings = PetSettings.from_config(self._app.config)
         self.reload_assets()
-        self._apply_window_geometry()
-        self._sync_click_through()
+        self._apply_window_geometry(reposition=True)
         if self.isVisible():
+            self._sync_click_through()
             self.update()
 
     def notify_command_submitted(self) -> None:
@@ -197,11 +219,17 @@ class PetWindow(QWidget):
         self._anim_timer.stop()
 
     def show_pet(self) -> None:
-        self._apply_window_geometry()
+        self._apply_window_geometry(reposition=True)
         self.show()
+        self._sync_click_through()
         self.raise_()
         self._reassert_topmost()
         self.start_render_loop()
+
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        self._sync_click_through()
+        self._reassert_topmost()
 
     def hide_pet(self) -> None:
         self.stop_render_loop()
@@ -212,10 +240,25 @@ class PetWindow(QWidget):
         scale = self._settings.scale
         return (int(PET_FRAME_W * scale), int(PET_FRAME_H * scale))
 
-    def _apply_window_geometry(self) -> None:
+    def _command_box_open(self) -> bool:
+        # isHidden() tracks user intent; isVisible() is false while the pet window itself is hidden.
+        return not self._command_edit.isHidden()
+
+    def _command_band_height(self) -> int:
+        return command_band_height(self._command_box_open())
+
+    def _sprite_y_offset(self) -> int:
+        return sprite_y_offset(self._command_box_open())
+
+    def _apply_window_geometry(self, *, reposition: bool = False) -> None:
         w, h = self._pet_size()
-        self.setFixedSize(w, h + 40)
-        self._command_edit.setGeometry(0, 0, w, 32)
+        band = self._command_band_height()
+        pos_before = (self.x(), self.y())
+        self.setFixedSize(w, h + band)
+        self._command_edit.setGeometry(0, 0, w, _COMMAND_EDIT_HEIGHT)
+        if not reposition:
+            self.move(pos_before[0], pos_before[1])
+            return
         screen = QApplication.primaryScreen()
         if screen is None:
             return
@@ -227,20 +270,42 @@ class PetWindow(QWidget):
             y = geo.bottom() - h - 80
         self.move(int(x), int(y))
 
-    def _sync_click_through(self) -> None:
-        if sys.platform != "win32":
+    def _apply_win32_surface(self) -> None:
+        """Win32: click-through layered style + disable Win11 DWM rounded corners on small pet HWND."""
+        if sys.platform != "win32" or not self.isVisible():
             return
         hwnd = int(self.winId())
+        if not hwnd:
+            return
+        try:
+            donotround = ctypes.c_int(_DWMWCP_DONOTROUND)
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                hwnd,
+                _DWMWA_WINDOW_CORNER_PREFERENCE,
+                ctypes.byref(donotround),
+                ctypes.sizeof(donotround),
+            )
+        except OSError:
+            pass
         ex_style = _GetWindowLong(hwnd, _GWL_EXSTYLE)
         if self._settings.click_through:
-            _SetWindowLong(hwnd, _GWL_EXSTYLE, ex_style | _WS_EX_LAYERED | _WS_EX_TRANSPARENT)
+            new_style = ex_style | _WS_EX_LAYERED | _WS_EX_TRANSPARENT
         else:
-            _SetWindowLong(hwnd, _GWL_EXSTYLE, (ex_style | _WS_EX_LAYERED) & ~_WS_EX_TRANSPARENT)
+            # WS_EX_LAYERED is required on Win32 for Qt per-pixel alpha; stripping it yields opaque black.
+            new_style = (ex_style | _WS_EX_LAYERED) & ~_WS_EX_TRANSPARENT
+        _SetWindowLong(hwnd, _GWL_EXSTYLE, new_style)
+        self.update()
+
+    def _sync_click_through(self) -> None:
+        """Backward-compatible alias; surface attrs must be applied after show()."""
+        self._apply_win32_surface()
 
     def _reassert_topmost(self) -> None:
         if not self._settings.always_on_top or sys.platform != "win32":
             return
         hwnd = int(self.winId())
+        if not hwnd:
+            return
         _SetWindowPos(
             hwnd,
             _HWND_TOPMOST,
@@ -250,6 +315,26 @@ class PetWindow(QWidget):
             0,
             _SWP_NOMOVE | _SWP_NOSIZE | _SWP_NOACTIVATE | _SWP_SHOWWINDOW,
         )
+        # Pet must stack above full-screen danmu / floating-panel overlays at the same screen point.
+        for layer_key in ("overlay", "floating_panel_overlay"):
+            layer = self._app.__dict__.get(layer_key)
+            if layer is None or not layer.isVisible():
+                continue
+            try:
+                layer_hwnd = int(layer.winId())
+            except Exception:
+                layer_hwnd = 0
+            if layer_hwnd:
+                _SetWindowPos(
+                    hwnd,
+                    layer_hwnd,
+                    0,
+                    0,
+                    0,
+                    0,
+                    _SWP_NOMOVE | _SWP_NOSIZE | _SWP_NOACTIVATE,
+                )
+        ctypes.windll.user32.BringWindowToTop(hwnd)
 
     def _mapper_animation(self) -> str:
         return resolve_pet_animation_hint(
@@ -368,17 +453,20 @@ class PetWindow(QWidget):
 
     def paintEvent(self, _event) -> None:
         painter = QPainter(self)
+        painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_Clear)
+        painter.fillRect(self.rect(), Qt.GlobalColor.transparent)
+        painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceOver)
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
-        opacity = max(0.2, min(self._settings.opacity, 1.0))
-        painter.setOpacity(opacity)
         w, h = self._pet_size()
-        y_offset = 36 if self._command_edit.isVisible() else 0
+        y_offset = self._sprite_y_offset()
         if self._load_error:
             painter.setPen(Qt.GlobalColor.red)
             painter.drawText(8, y_offset + 24, "宠物加载失败")
             return
         if self._pack is None or self._spritesheet is None or self._spritesheet.isNull():
             return
+        opacity = max(0.2, min(self._settings.opacity, 1.0))
+        painter.setOpacity(opacity)
         sx, sy, sw, sh = self._pack.frame_rect(self._animation_state, self._frame_index)
         painter.drawPixmap(0, y_offset, w, h, self._spritesheet, sx, sy, sw, sh)
 
@@ -474,15 +562,18 @@ class PetWindow(QWidget):
         pos = self.pos()
         self._app.config.set("pet_position_x", str(pos.x()))
         self._app.config.set("pet_position_y", str(pos.y()))
+        self._settings = PetSettings.from_config(self._app.config)
 
     def _show_command_box(self) -> None:
         self._command_edit.clear()
         self._command_edit.show()
         self._command_edit.setFocus()
+        self._apply_window_geometry()
         self.update()
 
     def _hide_command_box(self) -> None:
         self._command_edit.hide()
+        self._apply_window_geometry()
         self.update()
 
     def eventFilter(self, obj, event) -> bool:

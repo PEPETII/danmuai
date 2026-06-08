@@ -14,6 +14,7 @@ from typing import Any
 
 from app.bundle_paths import append_frozen_log, is_frozen
 from app.startup_trace import log_startup
+from app.web_console_session_auth import enforce_session_authorization
 from app.web_console_support import (
     enumerate_screens,
     export_config,
@@ -80,7 +81,21 @@ def run_uvicorn_locked(server) -> None:
             raise HTTPException(status_code=403, detail="令牌无效")
 
     @app.get("/api/session")
-    def read_console_session(host: str | None = Header(default=None)):
+    def read_console_session(
+        host: str | None = Header(default=None),
+        origin: str | None = Header(default=None),
+        referer: str | None = Header(default=None),
+        authorization: str | None = Header(default=None),
+    ):
+        # W-SEC-001：bug-audit/bug-03.md 缺陷 1 修复。
+        # 拒绝无同源 loopback 握手 / 无正确 token 的调用，避免任意本机进程零成本拿 Bearer Token。
+        enforce_session_authorization(
+            authorization=authorization,
+            origin=origin,
+            referer=referer,
+            host=host,
+            expected_token=token,
+        )
         host = (host or "").strip()
         base_url = f"http://{host}" if host else server.base_url
         return {"token": token, "base_url": base_url}

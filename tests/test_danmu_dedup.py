@@ -286,6 +286,24 @@ def test_normalize_danmu_display_text_matches_add_text_truncation(engine):
     assert normalize_danmu_display_text(raw, engine.config) == "一二三四五六七八..."
 
 
+def test_normalize_danmu_display_text_skips_formula_custom_pool(engine):
+    engine.config.set("danmu_max_chars", "8")
+    long_line = "这是一句保存于公式化弹幕库的超长句子应完整上屏展示"
+    engine.config.set_custom_danmu_pool([long_line])
+    assert normalize_danmu_display_text(long_line, engine.config) == long_line
+
+
+def test_normalize_danmu_display_text_skips_formula_meme_barrage(engine):
+    engine.config.set("danmu_max_chars", "8")
+    long_line = "瓦批的一天：查看商店，练呲水枪，打开麻麻模拟器，启动！"
+    engine.config.meme_barrage_library_insert_many(
+        [(long_line, None, None)],
+        collected_at=0.0,
+        max_rows=10_000,
+    )
+    assert normalize_danmu_display_text(long_line, engine.config) == long_line
+
+
 def test_start_clears_dedup_window(monkeypatch, workspace_tmp):
     from app.config_store import ConfigStore
 
@@ -324,7 +342,12 @@ def test_start_clears_dedup_window(monkeypatch, workspace_tmp):
     reply_buffer = type("B", (), {"set_max_items": _noop, "is_empty": lambda *a, **k: True})()
 
     stubs = {
-        "config": FakeConfig({"api_key": "sk-test"}),
+        "config": FakeConfig({
+            "api_key": "sk-test",
+            "api_endpoint": "https://ark.cn-beijing.volces.com/api/v3",
+            "api_mode": "doubao",
+            "model": "test-model",
+        }),
         "engine": eng,
         "logger": FakeLogger(),
         "_capture_screenshot": lambda: None,

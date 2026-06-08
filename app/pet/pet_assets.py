@@ -4,25 +4,14 @@
 
 from __future__ import annotations
 
-
-
 import json
-
 from dataclasses import dataclass
-
 from pathlib import Path
-
 from typing import TYPE_CHECKING
-
-
 
 from PyQt6.QtGui import QPixmap
 
-
-
 from app.bundle_paths import resource_path
-
-
 
 if TYPE_CHECKING:
 

@@ -51,11 +51,42 @@ def should_log_broadcast(last_at: float, *, consumer_count: int) -> tuple[bool, 
     return True, now
 
 
+async def _authenticate_websocket(websocket, expected_token: str, timeout_sec: float = 5.0) -> bool:
+    """首次消息认证：客户端连接后发送 {"type":"auth","token":"xxx"} 进行认证。
+
+    认证成功返回 True，失败或超时返回 False 并关闭连接。
+    保留 query 参数 ws_token 作为向后兼容（优先使用首次消息认证）。
+    """
+    import json
+
+    # 优先检查 query 参数（向后兼容）
+    query_token = websocket.query_params.get("ws_token")
+    if query_token and query_token.strip() == expected_token:
+        return True
+
+    # 首次消息认证
+    try:
+        data = await asyncio.wait_for(websocket.receive_json(), timeout=timeout_sec)
+        if isinstance(data, dict) and data.get("type") == "auth":
+            auth_token = data.get("token", "")
+            if auth_token.strip() == expected_token:
+                await websocket.send_json({"type": "auth", "ok": True})
+                return True
+        await websocket.send_json({"type": "auth", "ok": False, "error": "认证失败"})
+        await websocket.close(code=1008, reason="认证失败")
+        return False
+    except asyncio.TimeoutError:
+        await websocket.send_json({"type": "auth", "ok": False, "error": "认证超时"})
+        await websocket.close(code=1008, reason="认证超时")
+        return False
+    except Exception:
+        await websocket.close(code=1008, reason="认证异常")
+        return False
+
+
 def register_websocket_routes(app, bridge, token: str, websocket_route, websocket_disconnect) -> None:
     async def _ws_status_endpoint(websocket):
-        ws_token = websocket.query_params.get("ws_token")
-        if not _ws_token_valid(ws_token, token):
-            await websocket.close(code=1008, reason="需要登录令牌")
+        if not await _authenticate_websocket(websocket, token):
             return
         if len(bridge._ws_status_queues) >= _WS_MAX_STATUS_CONSUMERS:
             await websocket.close(code=1008, reason="连接数已满")
@@ -84,9 +115,7 @@ def register_websocket_routes(app, bridge, token: str, websocket_route, websocke
             bridge.unregister_status_consumer(queue)
 
     async def _ws_logs_endpoint(websocket):
-        ws_token = websocket.query_params.get("ws_token")
-        if not _ws_token_valid(ws_token, token):
-            await websocket.close(code=1008, reason="需要登录令牌")
+        if not await _authenticate_websocket(websocket, token):
             return
         if len(bridge._ws_log_queues) >= _WS_MAX_LOG_CONSUMERS:
             await websocket.close(code=1008, reason="连接数已满")

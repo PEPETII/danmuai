@@ -89,6 +89,11 @@ class StatusSnapshotBuilder:
             "region_w": rw,
             "region_h": rh,
             "region_selection_state": selection_state,
+            "meme_barrage": (
+                _safe_app_attr(self._app, "get_meme_barrage_status")()
+                if callable(_safe_app_attr(self._app, "get_meme_barrage_status"))
+                else {}
+            ),
             **model_status,
         }
 

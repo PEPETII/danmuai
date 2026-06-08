@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 
 def test_danmu_pool_use_custom_from_config(tmp_path):
     from app.config_store import ConfigStore

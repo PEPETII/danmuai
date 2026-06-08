@@ -222,6 +222,47 @@
           <h3 class="text-lg font-bold text-warmText flex items-center gap-2">
             <svg class="ui-icon text-warmPink" aria-hidden="true"><use href="#i-message"></use></svg> 弹幕与显示
           </h3>
+          <p class="settings-section-title">弹幕显示模式</p>
+          <div class="settings-field">
+            <label for="danmu_render_mode" class="settings-field-label">显示模式</label>
+            <select name="danmu_render_mode" id="danmu_render_mode" class="settings-field-control text-left">
+              <option value="scrolling">横向弹幕</option>
+              <option value="floating_panel">从下到上</option>
+            </select>
+          </div>
+          <div id="floatingPanelV2Fields" class="space-y-4 hidden">
+            <p class="settings-section-title">从下到上</p>
+            <div class="settings-params-grid cols-2">
+              <div class="settings-field">
+                <label for="floating_panel_width" class="settings-field-label">窗口宽度 (px)</label>
+                <input type="number" name="floating_panel_width" id="floating_panel_width" min="200" max="800" class="settings-field-control">
+              </div>
+              <div class="settings-field">
+                <label for="floating_panel_max_items" class="settings-field-label">最多条数</label>
+                <input type="number" name="floating_panel_max_items" id="floating_panel_max_items" min="1" max="50" class="settings-field-control">
+              </div>
+              <div class="settings-field">
+                <label for="floating_panel_lifetime_sec" class="settings-field-label">停留时间 (秒)</label>
+                <input type="number" name="floating_panel_lifetime_sec" id="floating_panel_lifetime_sec" min="2" max="60" class="settings-field-control">
+              </div>
+              <div class="settings-field">
+                <label for="floating_panel_opacity" class="settings-field-label">不透明度 (%)</label>
+                <input type="number" name="floating_panel_opacity" id="floating_panel_opacity" min="0" max="100" class="settings-field-control">
+              </div>
+              <div class="settings-field">
+                <label for="floating_panel_font_size" class="settings-field-label">字号 (px)</label>
+                <input type="number" name="floating_panel_font_size" id="floating_panel_font_size" min="12" max="48" class="settings-field-control">
+              </div>
+              <div class="settings-field">
+                <label for="floating_panel_x_offset" class="settings-field-label">右边距 (px)</label>
+                <input type="number" name="floating_panel_x_offset" id="floating_panel_x_offset" min="0" max="400" class="settings-field-control">
+              </div>
+              <div class="settings-field">
+                <label for="floating_panel_y_offset" class="settings-field-label">上下边距 (px)</label>
+                <input type="number" name="floating_panel_y_offset" id="floating_panel_y_offset" min="0" max="400" class="settings-field-control">
+              </div>
+            </div>
+          </div>
           <div id="normalModeOptions" class="settings-section space-y-3">
             <p class="settings-section-title">每批弹幕</p>
             <div class="settings-params-grid cols-2">
@@ -231,7 +272,7 @@
               </div>
               <div class="settings-field">
                 <label for="normal_reply_count" class="settings-field-label">每次生成弹幕数</label>
-                <input type="number" name="normal_reply_count" id="normal_reply_count" min="1" max="20" step="1" class="settings-field-control">
+                <input type="number" name="normal_reply_count" id="normal_reply_count" min="1" max="50" step="1" class="settings-field-control">
               </div>
             </div>
             <p id="normalBatchTotalHint" class="settings-section-hint">每次固定 5 条 · 保存后会同步到人格工坊的「输出契约」</p>
@@ -295,47 +336,6 @@
           <p class="settings-section-title">开关选项</p>
           <div class="settings-toggle-row">
             <label class="flex items-center gap-2"><input type="checkbox" id="empty_accel" class="accent-warmPink"> 空轨道时加速补位</label>
-          </div>
-          <p class="settings-section-title">弹幕显示模式</p>
-          <div class="settings-field">
-            <label for="danmu_render_mode" class="settings-field-label">显示模式</label>
-            <select name="danmu_render_mode" id="danmu_render_mode" class="settings-field-control text-left">
-              <option value="scrolling">横向弹幕</option>
-              <option value="floating_panel">侧边悬浮窗</option>
-            </select>
-          </div>
-          <div id="floatingPanelV2Fields" class="space-y-4 hidden">
-            <p class="settings-section-title">侧边悬浮窗</p>
-            <div class="settings-params-grid cols-2">
-              <div class="settings-field">
-                <label for="floating_panel_width" class="settings-field-label">窗口宽度 (px)</label>
-                <input type="number" name="floating_panel_width" id="floating_panel_width" min="200" max="800" class="settings-field-control">
-              </div>
-              <div class="settings-field">
-                <label for="floating_panel_max_items" class="settings-field-label">最多条数</label>
-                <input type="number" name="floating_panel_max_items" id="floating_panel_max_items" min="1" max="50" class="settings-field-control">
-              </div>
-              <div class="settings-field">
-                <label for="floating_panel_lifetime_sec" class="settings-field-label">停留时间 (秒)</label>
-                <input type="number" name="floating_panel_lifetime_sec" id="floating_panel_lifetime_sec" min="2" max="60" class="settings-field-control">
-              </div>
-              <div class="settings-field">
-                <label for="floating_panel_opacity" class="settings-field-label">不透明度 (%)</label>
-                <input type="number" name="floating_panel_opacity" id="floating_panel_opacity" min="0" max="100" class="settings-field-control">
-              </div>
-              <div class="settings-field">
-                <label for="floating_panel_font_size" class="settings-field-label">字号 (px)</label>
-                <input type="number" name="floating_panel_font_size" id="floating_panel_font_size" min="12" max="48" class="settings-field-control">
-              </div>
-              <div class="settings-field">
-                <label for="floating_panel_x_offset" class="settings-field-label">右边距 (px)</label>
-                <input type="number" name="floating_panel_x_offset" id="floating_panel_x_offset" min="0" max="400" class="settings-field-control">
-              </div>
-              <div class="settings-field">
-                <label for="floating_panel_y_offset" class="settings-field-label">上下边距 (px)</label>
-                <input type="number" name="floating_panel_y_offset" id="floating_panel_y_offset" min="0" max="400" class="settings-field-control">
-              </div>
-            </div>
           </div>
         </div>
 

@@ -266,10 +266,16 @@ class ConfigService:
         _clamp_int_key(items, "opacity", 100, 0, 100)
 
         if "normal_recognition_interval_sec" in items or "normal_reply_count" in items:
-            from app.personae import DEFAULT_NORMAL_REPLY_COUNT
+            from app.personae import DEFAULT_NORMAL_REPLY_COUNT, NORMAL_REPLY_COUNT_MAX
 
             _clamp_int_key(items, "normal_recognition_interval_sec", 5, 1, 60)
-            _clamp_int_key(items, "normal_reply_count", DEFAULT_NORMAL_REPLY_COUNT, 1, 20)
+            _clamp_int_key(
+                items,
+                "normal_reply_count",
+                DEFAULT_NORMAL_REPLY_COUNT,
+                1,
+                NORMAL_REPLY_COUNT_MAX,
+            )
 
         if "memory_mode" in items or "memory_window" in items:
             _clamp_choice(

@@ -458,3 +458,127 @@ def test_announcements_state_validate_payload_rejects_bad_uuid():
         validate_payload({"readIds": ["not-a-uuid"], "lastSeenMs": 0})
     assert exc.value.status_code == 400
 
+
+# -- W-SEC-001：/api/session 鉴权测试 -----------------------------------------
+# 覆盖 bug-audit/bug-03.md 缺陷 1：缺 / 错 token / 非 loopback 来源 / 无 Origin
+# 一律 401/403；同源 loopback 握手或正确 token 放行。
+
+def _build_session_app(expected_token: str = "secret-token"):
+    """构造一个最小 FastAPI app，仅挂载 /api/session，模拟 web_console_runtime.py 的闭包逻辑。
+
+    通过 mock 复制其核心行为，避开构造完整 WebConsoleServer 的繁重 fixture。
+    """
+    from app.web_console_session_auth import enforce_session_authorization
+    from fastapi import FastAPI, Header
+
+    app = FastAPI()
+
+    @app.get("/api/session")
+    def read_console_session(
+        host: str | None = Header(default=None),
+        origin: str | None = Header(default=None),
+        referer: str | None = Header(default=None),
+        authorization: str | None = Header(default=None),
+    ):
+        enforce_session_authorization(
+            authorization=authorization,
+            origin=origin,
+            referer=referer,
+            host=host,
+            expected_token=expected_token,
+        )
+        host = (host or "").strip()
+        base_url = f"http://{host}" if host else "http://127.0.0.1:18765"
+        return {"token": expected_token, "base_url": base_url}
+
+    return app
+
+
+def test_session_rejects_no_auth_no_origin():
+    """curl 风格调用（无 Authorization、无 Origin）→ 401。"""
+    from fastapi.testclient import TestClient
+
+    client = TestClient(_build_session_app())
+    res = client.get("/api/session", headers={"Host": "127.0.0.1:18765"})
+    assert res.status_code == 401
+
+
+def test_session_rejects_wrong_token():
+    """携带错误 token → 403。"""
+    from fastapi.testclient import TestClient
+
+    client = TestClient(_build_session_app(expected_token="right"))
+    res = client.get(
+        "/api/session",
+        headers={
+            "Host": "127.0.0.1:18765",
+            "Authorization": "Bearer wrong-token",
+        },
+    )
+    assert res.status_code == 403
+
+
+def test_session_allows_correct_token_regardless_of_origin():
+    """携带正确 token → 200；不要求 Origin/Referer。"""
+    from fastapi.testclient import TestClient
+
+    client = TestClient(_build_session_app(expected_token="right"))
+    res = client.get(
+        "/api/session",
+        headers={
+            "Host": "127.0.0.1:18765",
+            "Authorization": "Bearer right",
+        },
+    )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["token"] == "right"
+    assert body["base_url"] == "http://127.0.0.1:18765"
+
+
+def test_session_allows_loopback_origin_handshake():
+    """控制台同源 loopback fetch（无 token）→ 200；同源握手。"""
+    from fastapi.testclient import TestClient
+
+    client = TestClient(_build_session_app(expected_token="right"))
+    res = client.get(
+        "/api/session",
+        headers={
+            "Host": "127.0.0.1:18765",
+            "Origin": "http://127.0.0.1:18765",
+        },
+    )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["token"] == "right"
+
+
+def test_session_rejects_mismatched_loopback_origin():
+    """Origin 域名与 Host 不一致（同为 loopback 也拒）→ 403。"""
+    from fastapi.testclient import TestClient
+
+    client = TestClient(_build_session_app(expected_token="right"))
+    res = client.get(
+        "/api/session",
+        headers={
+            "Host": "127.0.0.1:18765",
+            "Origin": "http://localhost:9999",
+        },
+    )
+    assert res.status_code == 403
+
+
+def test_session_rejects_non_loopback_host():
+    """非 loopback Host + 无 token → 401（不能从外部拿 token）。"""
+    from fastapi.testclient import TestClient
+
+    client = TestClient(_build_session_app(expected_token="right"))
+    res = client.get(
+        "/api/session",
+        headers={
+            "Host": "evil.example.com",
+            "Origin": "http://evil.example.com",
+        },
+    )
+    assert res.status_code == 401
+

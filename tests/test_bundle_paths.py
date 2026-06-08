@@ -1,6 +1,6 @@
 
 import pytest
-from app.bundle_paths import is_frozen, project_root, resource_path
+from app.bundle_paths import is_frozen, project_root
 
 from tests.conftest import _ensure_feedback_static_images
 
@@ -65,6 +65,8 @@ def test_error_report_modal_in_index_html():
     assert 'id="errorReportModal"' in html
     assert 'id="btnErrorReportSubmit"' in html
     assert 'id="btnErrorReportDismiss"' in html
+    assert 'id="errorReportUserNote"' in html
+    assert 'id="btnErrorReportFromBanner"' in html
 
 
 def test_app_js_imports_transport_module():
@@ -174,14 +176,20 @@ def test_status_js_apply_status_uses_live_message_not_stale_drops():
 def test_error_report_flow_in_app_js():
     root = project_root()
     js = (root / "web" / "static" / "app.js").read_text(encoding="utf-8")
+    reporting_js = (root / "web" / "static" / "modules" / "app-error-reporting.js").read_text(
+        encoding="utf-8"
+    )
     status_js = (root / "web" / "static" / "modules" / "status.js").read_text(encoding="utf-8")
     assert "function maybePromptErrorReport" in js
-    assert "function collectErrorReportContext" in js
-    assert "function extractErrorReportSearchTerms" in js
-    assert "function findErrorLogAnchorIndex" in js
-    assert "localStorage.setItem(ERROR_REPORT_DISMISS_STORAGE" in js
+    assert "function openErrorReportModal" in js
+    assert "export async function openErrorReportModal" in reporting_js
+    assert "function collectErrorReportContext" in reporting_js
+    assert "function extractErrorReportSearchTerms" in reporting_js
+    assert "function findErrorLogAnchorIndex" in reporting_js
+    assert "localStorage.setItem(ERROR_REPORT_DISMISS_STORAGE" in reporting_js
     assert "submitErrorReport" in js
     assert "statusHadError" in status_js
+    assert "btnErrorReportFromBanner" in reporting_js
 
 
 def test_api_settings_visible_in_simplified_mode():

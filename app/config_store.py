@@ -153,6 +153,14 @@ class ConfigStore:
             "output_tokens INTEGER NOT NULL DEFAULT 0, "
             "danmu_count INTEGER NOT NULL DEFAULT 0)"
         )
+        self.conn.execute(
+            "CREATE TABLE IF NOT EXISTS meme_barrage_library ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+            "text TEXT NOT NULL UNIQUE, "
+            "source_tag TEXT, "
+            "remote_id INTEGER, "
+            "collected_at REAL NOT NULL)"
+        )
         self.conn.commit()
 
     def _load_cache(self):
@@ -237,10 +245,11 @@ class ConfigStore:
         """写入 API Key：有 Fernet 则加密存 api_key_encrypted 并清除旧 base64 行。
 
         无 cryptography 时仅 base64（不安全），日志会警告；生产环境应安装 cryptography。
+        锁提前获取，避免检查 _fernet 与使用之间被其他线程修改导致竞态条件。
         """
-        if _HAS_CRYPTO and self._fernet:
-            encrypted = self._fernet.encrypt(key.encode("utf-8")).decode("utf-8")
-            with self._write_lock:
+        with self._write_lock:
+            if _HAS_CRYPTO and self._fernet:
+                encrypted = self._fernet.encrypt(key.encode("utf-8")).decode("utf-8")
                 try:
                     self.conn.execute("REPLACE INTO config (key, value) VALUES (?, ?)", ("api_key_encrypted", encrypted))
                     if "api_key_encoded" in self._cache:
@@ -252,10 +261,10 @@ class ConfigStore:
                     self.conn.rollback()
                     logger.error(tr("config.api_key_write_failed").format(error=e))
                     raise
-        else:
-            logger.warning(tr("config.insecure_store"))
-            encoded = b64encode(key.encode("utf-8")).decode("utf-8")
-            self.set("api_key_encoded", encoded)
+            else:
+                logger.warning(tr("config.insecure_store"))
+                encoded = b64encode(key.encode("utf-8")).decode("utf-8")
+                self.set("api_key_encoded", encoded)
 
     def get_tts_api_key(self) -> str:
         """读弹幕专用 TTS API Key（tts_api_key_encrypted）。"""
@@ -388,6 +397,87 @@ class ConfigStore:
 
     def set_custom_danmu_pool(self, items: list[str]) -> None:
         self.set_json("custom_danmu_pool", items)
+
+    # --- Meme barrage library (meme_barrage_library table) ---
+
+    def meme_barrage_library_count(self) -> int:
+        row = self.conn.execute("SELECT COUNT(*) FROM meme_barrage_library").fetchone()
+        return int(row[0]) if row else 0
+
+    def meme_barrage_library_clear(self) -> None:
+        with self._write_lock:
+            self.conn.execute("DELETE FROM meme_barrage_library")
+            self.conn.commit()
+
+    def meme_barrage_library_insert_many(
+        self,
+        items: list[tuple[str, str | None, int | None]],
+        *,
+        collected_at: float,
+        max_rows: int,
+    ) -> int:
+        if not items:
+            return 0
+        added = 0
+        with self._write_lock:
+            for text, source_tag, remote_id in items:
+                text = str(text).strip()
+                if not text:
+                    continue
+                try:
+                    cur = self.conn.execute(
+                        "INSERT OR IGNORE INTO meme_barrage_library "
+                        "(text, source_tag, remote_id, collected_at) VALUES (?, ?, ?, ?)",
+                        (text, source_tag, remote_id, collected_at),
+                    )
+                    if cur.rowcount:
+                        added += 1
+                except sqlite3.Error:
+                    continue
+            self._trim_meme_barrage_library_locked(max_rows)
+            self.conn.commit()
+        return added
+
+    def meme_barrage_library_contains_text(self, text: str) -> bool:
+        """True when text exactly matches a row in meme_barrage_library."""
+        value = str(text).strip()
+        if not value:
+            return False
+        row = self.conn.execute(
+            "SELECT 1 FROM meme_barrage_library WHERE text = ? LIMIT 1",
+            (value,),
+        ).fetchone()
+        return row is not None
+
+    def meme_barrage_library_fetch_batch(
+        self, offset: int, limit: int
+    ) -> tuple[list[str], int]:
+        if limit <= 0:
+            return [], offset
+        total = self.meme_barrage_library_count()
+        if total <= 0:
+            return [], 0
+        offset = int(offset) % total
+        rows = self.conn.execute(
+            "SELECT text FROM meme_barrage_library ORDER BY id ASC LIMIT ? OFFSET ?",
+            (limit, offset),
+        ).fetchall()
+        texts = [str(row[0]) for row in rows if row and row[0]]
+        next_offset = (offset + len(texts)) % total if total else 0
+        return texts, next_offset
+
+    def _trim_meme_barrage_library_locked(self, max_rows: int) -> None:
+        count = self.conn.execute("SELECT COUNT(*) FROM meme_barrage_library").fetchone()
+        total = int(count[0]) if count else 0
+        if total <= max_rows:
+            return
+        excess = total - max_rows
+        self.conn.execute(
+            "DELETE FROM meme_barrage_library WHERE id IN ("
+            "SELECT id FROM meme_barrage_library ORDER BY id ASC LIMIT ?"
+            ")",
+            (excess,),
+        )
 
     def get_default_model_id(self) -> str:
         model_id = self.get("default_model_id", "")

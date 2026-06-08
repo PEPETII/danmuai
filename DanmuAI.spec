@@ -50,6 +50,8 @@ EXCLUDES = [
 
 datas = [
     (str(root / "web" / "static"), "web/static"),
+    # 内置人格 JSON（app.persona_builtin 在 import 时读取，须在 Analysis 前可解析）
+    (str(root / "data" / "personae_builtin.json"), "data"),
     # PET-009：内置桌宠素材（pet.json + spritesheet.webp），打包后通过
     # app.bundle_paths.resource_path("data", "pet", "default") 在 sys._MEIPASS
     # 下也能被 BUILTIN_PET_DIR 解析到；元组第二项必须是字符串，不能用 Path /

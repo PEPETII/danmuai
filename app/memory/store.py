@@ -18,9 +18,13 @@ store 只负责 context + dedup 两块。
 
 from __future__ import annotations
 
+import logging
+
 from app.memory.bullet_dedup import BulletDedupMemory
 from app.memory.scene_context import SceneContextMemory
 from app.memory.types import VisualMemoryUpdate
+
+logger = logging.getLogger(__name__)
 
 
 class SceneMemoryStore:
@@ -61,9 +65,12 @@ class SceneMemoryStore:
     def update_from_visual_result(self, update: VisualMemoryUpdate) -> None:
         """将 AI 回复信封中的 scene_memory 合并进当前代际 context。
 
-        代际不匹配时静默 return：迟到的视觉更新不写入当前代际卡片。
+        代际不匹配时记录警告日志：迟到的视觉更新不写入当前代际卡片。
         """
         if update.scene_generation != self._context.scene_generation:
+            logger.warning(
+                f"Generation mismatch in visual update: expected {self._context.scene_generation}, got {update.scene_generation}"
+            )
             return
         self._context.merge_visual_update(update)
 

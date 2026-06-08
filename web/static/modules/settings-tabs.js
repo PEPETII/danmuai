@@ -71,7 +71,7 @@ export function switchSettingsTab(tabId) {
 }
 
 export function initSettingsTabs() {
-  document.querySelectorAll('.settings-tab').forEach((tab) => {
+  document.querySelectorAll('#settingsForm .settings-tab').forEach((tab) => {
     tab.addEventListener('click', () => switchSettingsTab(tab.dataset.settingsTab));
   });
 }
