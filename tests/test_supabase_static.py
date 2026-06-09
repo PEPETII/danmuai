@@ -40,6 +40,16 @@ def test_app_updates_migration_exists():
     assert "anon_read_enabled_app_updates" in sql
 
 
+def test_tutorial_links_migration_exists():
+    root = project_root()
+    path = root / "supabase" / "migrations" / "009_tutorial_links.sql"
+    assert path.is_file()
+    sql = path.read_text(encoding="utf-8")
+    assert "tutorial_links" in sql
+    assert "anon_read_enabled_tutorial_links" in sql
+    assert "正在紧急赶制中" in sql
+
+
 def test_supabase_client_exports_error_report_api():
     text = (project_root() / "web" / "static" / "supabase-client.js").read_text(encoding="utf-8")
     assert "submitErrorReport" in text
@@ -49,6 +59,8 @@ def test_supabase_client_exports_error_report_api():
     assert "userNote" in text
     assert "fetchAppUpdate" in text
     assert "/rest/v1/app_updates" in text
+    assert "fetchTutorialVideoLink" in text
+    assert "/rest/v1/tutorial_links" in text
 
 
 def test_supabase_config_js_optional_local():

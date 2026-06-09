@@ -155,6 +155,9 @@ export async function loadPersonaEditor() {
   if (currentPersonaId) select.value = currentPersonaId;
   await loadPersonaTemplate();
   await loadPersonaeCheckboxes('personaActiveList');
+}
+
+export async function loadOverviewGlobalFields() {
   await loadLiveTopic();
   await loadUserNickname();
 }

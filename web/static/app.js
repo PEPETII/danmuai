@@ -47,6 +47,7 @@ import {
   initFeedbackPage,
   loadAnnouncementsPage,
   loadAnnouncementsReadState,
+  loadTutorialPage,
   refreshAnnouncementsUnreadBadge,
   startAnnouncementsBadgePolling,
   stopAnnouncementsBadgePolling,
@@ -75,6 +76,7 @@ import {
 } from './modules/app-pet-page.js';
 import {
   initPersonaTopicPage,
+  loadOverviewGlobalFields,
   loadPersonaEditor,
   loadPersonaTemplate,
 } from './modules/app-persona-topic-page.js';
@@ -362,6 +364,7 @@ function navigate(page) {
     loadScreens().catch(console.error);
     loadCustomModels().catch(console.error);
   }
+  if (page === 'overview') loadOverviewGlobalFields().catch(console.error);
   if (page === 'persona') loadPersonaEditor().catch(console.error);
   if (page === 'danmu-pool') {
     Promise.all([loadMemeBarragePage(), loadDanmuPoolPage()])
@@ -377,6 +380,7 @@ function navigate(page) {
     startAnnouncementsBadgePolling();
   }
   if (page === 'feedback') initFeedbackPage();
+  if (page === 'tutorial') loadTutorialPage().catch(console.error);
   if (page === 'logs') {
     renderLogView();
     updateLogPanelState();
@@ -406,6 +410,7 @@ async function init() {
   initMemeBarragePage({ showToast });
   initPetPage({ showToast });
   initPersonaTopicPage({ showToast });
+  loadOverviewGlobalFields().catch(console.error);
   initAppUpdateModal({ showToast });
 
   configureStatus({

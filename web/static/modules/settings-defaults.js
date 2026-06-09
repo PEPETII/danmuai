@@ -109,8 +109,6 @@ function buildNormalReplyContractPreviewZh(count, maxChars) {
   return (
     '直播弹幕评论员。只输出 JSON 对象，无解释、无 Markdown。'
     + `固定 ${total} 条 comments，每条≤${limit}字；scene_brief 为不超过 20 字的当前场景简述。`
-    + '像多位真实观众：短句口语碎片化；优先贴当前画面，可少量接梗或气氛句；条间口吻可不同。'
-    + '禁 AI腔/总结腔/客服腔/长句/说教/重复。'
     + `格式：{"scene_brief":"当前场景简述","comments":["${examples.join('", "')}"]}。`
   );
 }

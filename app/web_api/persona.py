@@ -21,6 +21,7 @@ from app.personae import (
     ensure_reply_contract,
     get_reply_contract,
     strip_reply_contract,
+    strip_system_style,
 )
 from app.templates import TemplateManager
 from app.translations import Translator
@@ -36,6 +37,10 @@ def _default_user_pt_for_save(name: str) -> str:
             return prompt["user_en"]
         return prompt["user_zh"]
     return default_user_prompt()
+
+
+def _system_custom_for_display(system_pt: str) -> str:
+    return strip_system_style(strip_reply_contract(system_pt))
 
 
 def _resolve_user_pt_for_save(name: str, user_pt: str, existing_user: str) -> str:
@@ -69,7 +74,7 @@ def get_template_detail(app: "DanmuApp", name: str) -> dict[str, Any]:
         "editable": not is_builtin,
         "system_editable": True,
         "can_save": True,
-        "system_custom": strip_reply_contract(system_pt),
+        "system_custom": _system_custom_for_display(system_pt),
         "user_pt": user_pt or default_user_prompt(),
         "reply_contract": get_reply_contract(app.config),
     }
@@ -87,14 +92,13 @@ def save_template(app: "DanmuApp", name: str, system_custom: str, user_pt: str) 
     from app.personae import normalize_persona_name
 
     name = normalize_persona_name(name)
-    reply_contract = get_reply_contract(app.config)
 
     _, existing_user = app.templates.load(name)
     user_pt = _resolve_user_pt_for_save(name, user_pt, existing_user)
 
-    custom = (system_custom or "").strip()
+    custom = strip_system_style((system_custom or "").strip())
     if custom:
-        full_system = f"{reply_contract} {custom}".strip()
+        full_system = ensure_reply_contract(custom, app.config)
     elif name in BUILTIN_PERSONAE:
         prompt = BUILTIN_PERSONAE[name]
         if Translator.get_language() == "en":
@@ -103,7 +107,7 @@ def save_template(app: "DanmuApp", name: str, system_custom: str, user_pt: str) 
             base = prompt["system_zh"]
         full_system = ensure_reply_contract(base, app.config)
     else:
-        full_system = reply_contract
+        full_system = ensure_reply_contract("", app.config)
 
     app.personae.save_custom(name, full_system, user_pt)
     app.templates.save(name, full_system, user_pt)
@@ -116,7 +120,7 @@ def rollback_preview(app: "DanmuApp", name: str, version: int) -> dict[str, Any]
     name = normalize_persona_name(name)
     system_pt, user_pt = app.templates.load(name, version)
     return {
-        "system_custom": strip_reply_contract(system_pt),
+        "system_custom": _system_custom_for_display(system_pt),
         "user_pt": user_pt or default_user_prompt(),
         "version": version,
     }
@@ -129,10 +133,10 @@ def create_persona(app: "DanmuApp", name: str) -> dict[str, Any]:
     if name in app.personae.list():
         raise ValueError("人格名称已存在")
 
-    contract = get_reply_contract(app.config)
     user_pt = default_user_prompt()
-    app.personae.save_custom(name, contract, user_pt)
-    app.templates.save(name, contract, user_pt)
+    full_system = ensure_reply_contract("", app.config)
+    app.personae.save_custom(name, full_system, user_pt)
+    app.templates.save(name, full_system, user_pt)
     app.config_changed.emit()
     return {"id": name, "label": persona_display_name(name)}
 

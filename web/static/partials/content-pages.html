@@ -241,34 +241,6 @@
       </header>
       <div class="card p-8 space-y-4">
         <div class="flex flex-wrap gap-3 items-end">
-          <div class="flex-1 min-w-[220px]">
-            <label for="liveTopicInput" class="block text-sm font-semibold mb-2 text-warmText">提示内容</label>
-            <textarea
-              id="liveTopicInput"
-              rows="2"
-              maxlength="200"
-              autocomplete="off"
-              class="w-full px-4 py-3 bg-cream rounded-xl text-warmText"
-              placeholder="本次直播主题/内容，例如：今晚播《黑神话：悟空》第三章，主玩大圣模式，欢迎弹幕互动"
-            ></textarea>
-          </div>
-          <button type="button" id="btnSaveLiveTopic" class="px-4 py-3 bg-white border border-gray-200 rounded-xl font-semibold text-warmText">保存主题</button>
-        </div>
-        <div class="flex flex-wrap gap-3 items-end">
-          <div class="flex-1 min-w-[220px]">
-            <label for="userNicknameInput" class="block text-sm font-semibold mb-2 text-warmText">昵称</label>
-            <input
-              id="userNicknameInput"
-              type="text"
-              maxlength="20"
-              autocomplete="off"
-              class="w-full px-4 py-3 bg-cream rounded-xl text-warmText"
-              placeholder="请输入你的昵称（AI 可在合适时自然称呼你）"
-            />
-          </div>
-          <button type="button" id="btnSaveUserNickname" class="px-4 py-3 bg-white border border-gray-200 rounded-xl font-semibold text-warmText">保存昵称</button>
-        </div>
-        <div class="flex flex-wrap gap-3 items-end">
           <div class="flex-1 min-w-[200px]">
             <label for="personaSelect" class="block text-sm font-semibold mb-2 text-warmText">选择人格</label>
             <select id="personaSelect" class="w-full px-4 py-3 bg-cream rounded-xl text-warmText"></select>
@@ -297,20 +269,34 @@
     </section>
 
     <!-- ========== 区域：教程 ========== -->
-    <!-- section: 使用教程（在浏览器中打开教程链接） -->
+    <!-- section: 使用教程（图文飞书链接 + Supabase 视频链接） -->
     <section id="page-tutorial" class="page-panel" aria-label="使用教程">
       <header class="mb-8">
         <h2 class="text-2xl font-bold text-warmText">教程</h2>
-        <p class="text-gray-500 mt-1">在浏览器中打开下方链接查看完整使用说明</p>
+        <p class="text-gray-500 mt-1">选择下方教程查看使用说明</p>
       </header>
-      <div class="card p-8">
-        <a
-          id="tutorialLink"
-          href="https://rcnp42h3qtlx.feishu.cn/wiki/BKiMwLW1tipDY5kzrOYcsvBNnTg"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="tutorial-link break-all"
-        >https://rcnp42h3qtlx.feishu.cn/wiki/BKiMwLW1tipDY5kzrOYcsvBNnTg</a>
+      <div class="card p-8 space-y-6">
+        <div class="tutorial-item">
+          <h3 class="tutorial-item-title">图文教程（暂时不完整）</h3>
+          <a
+            id="tutorialTextLink"
+            href="https://rcnp42h3qtlx.feishu.cn/wiki/BKiMwLW1tipDY5kzrOYcsvBNnTg"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="tutorial-link break-all"
+          >https://rcnp42h3qtlx.feishu.cn/wiki/BKiMwLW1tipDY5kzrOYcsvBNnTg</a>
+        </div>
+        <div class="tutorial-item">
+          <h3 class="tutorial-item-title">视频教程（完整展示）</h3>
+          <p id="tutorialVideoPlaceholder" class="tutorial-placeholder">正在紧急赶制中...</p>
+          <a
+            id="tutorialVideoLink"
+            href="#"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="tutorial-link break-all hidden"
+          ></a>
+        </div>
       </div>
     </section>
 

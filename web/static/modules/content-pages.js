@@ -26,6 +26,7 @@ import {
   configureFeedbackBindings,
   initFeedbackPage,
 } from './content-feedback.js';
+import { loadTutorialPage } from './content-tutorial.js';
 
 let bindDeps = { showToast: () => {}, navigate: () => {} };
 
@@ -80,6 +81,7 @@ export {
   initFeedbackPage,
   loadAnnouncementsPage,
   loadAnnouncementsReadState,
+  loadTutorialPage,
   refreshAnnouncementsUnreadBadge,
   updateAnnouncementsNavBadge,
 };

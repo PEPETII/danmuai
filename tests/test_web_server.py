@@ -110,7 +110,10 @@ def test_web_content_page_field_hints_wired():
     )
     html = (root / "web" / "static" / "index.html").read_text(encoding="utf-8")
     assert "initContentPageFieldHints" in hints_js
+    assert "OVERVIEW_FIELD_TIPS" in hints_js
     assert "liveTopicInput" in hints_js
+    assert "page-overview" in hints_js
+    assert "loadOverviewGlobalFields" in app_js
     assert "memeBarrageEnabled" in hints_js
     assert "petScale" in hints_js
     assert "initContentPageFieldHints()" in app_js

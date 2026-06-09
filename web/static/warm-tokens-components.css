@@ -253,6 +253,18 @@ textarea:focus {
   display: block;
 }
 
+.tutorial-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.tutorial-item-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-warm-text, #4a4a4a);
+}
+
 .tutorial-link {
   color: var(--color-primary, #ff8585);
   font-weight: 600;
@@ -262,4 +274,10 @@ textarea:focus {
 
 .tutorial-link:hover {
   color: var(--color-primary-hover, #ff6b6b);
+}
+
+.tutorial-placeholder {
+  color: var(--color-gray-500, #6b7280);
+  font-size: 0.9375rem;
+  margin: 0;
 }

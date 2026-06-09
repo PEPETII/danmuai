@@ -48,6 +48,27 @@ def test_announcements_page_in_index_html():
     assert "/static/supabase-client.js" in html
 
 
+def test_overview_global_fields_in_index_html():
+    root = project_root()
+    html = (root / "web" / "static" / "index.html").read_text(encoding="utf-8")
+    persona_html = (root / "web" / "static" / "partials" / "content-pages.html").read_text(
+        encoding="utf-8"
+    )
+    overview_start = html.index('id="page-overview"')
+    persona_start = html.index('id="page-persona"')
+    overview_slice = html[overview_start:persona_start]
+    assert 'id="liveTopicInput"' in overview_slice
+    assert 'id="userNicknameInput"' in overview_slice
+    assert 'id="btnSaveLiveTopic"' in overview_slice
+    assert 'id="btnSaveUserNickname"' in overview_slice
+    assert 'id="liveTopicInput"' not in persona_html
+    assert 'id="userNicknameInput"' not in persona_html
+    lifetime_idx = overview_slice.index('id="statLifetimeDanmu"')
+    topic_idx = overview_slice.index('id="liveTopicInput"')
+    persona_idx = overview_slice.index('id="activePersonae"')
+    assert lifetime_idx < topic_idx < persona_idx
+
+
 def test_overview_announcement_banner_in_content_pages_js():
     root = project_root()
     app_js = (root / "web" / "static" / "app.js").read_text(encoding="utf-8")

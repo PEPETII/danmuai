@@ -97,7 +97,7 @@ def test_apply_config_patch_updates_batch_and_key():
             "api_endpoint": "https://new.example/v1",
             "model": "gpt-4o",
             "api_key": "sk-new-key",
-            "active_personae": ["路人惊讶型"],
+            "active_personae": ["吐槽型"],
         },
     )
 

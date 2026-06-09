@@ -6,7 +6,9 @@
  *    - readState 仅本机维护（announcements_read_state，存 config.db）
  * 2) 用户反馈（feedback_messages 表）：
  *    - submitFeedback()：标题 + 详情 + 联系方式；24h 限 2 条（FEEDBACK_RATE_LIMIT）
- * 3) 错误报告（error_reports 表，W-ERROR-REPORT-001 引入）：
+ * 3) 教程视频链接（tutorial_links 表，kind=video）：
+ *    - fetchTutorialVideoLink()：拉取 enabled 视频链接；url 非 http(s) 时客户端显示占位文案
+ * 4) 错误报告（error_reports 表，W-ERROR-REPORT-001 引入）：
  *    - submitErrorReport()：fingerprint + summary + logs_excerpt + diagnostics；
  *      24h 同 fingerprint 去重（W-ERROR-REPORT-006 已迁 localStorage）
  *    - rate limit 3 条/3h（ERROR_REPORT_RATE_LIMIT）
@@ -19,7 +21,7 @@
  * 错误报告 / 反馈的 app_version 字段（运维按版本排障）。
  *
  * IIFE 模式：自包含，挂在 window.DanmuSupabase = {fetchAnnouncements,
- * submitFeedback, submitErrorReport, isConfigured, getClientId}。
+ * fetchTutorialVideoLink, submitFeedback, submitErrorReport, isConfigured, getClientId}。
  */
 (function initDanmuSupabase(global) {
   const STORAGE_CLIENT_ID = 'danmu_feedback_client_id';
@@ -131,6 +133,20 @@
       latest_version: String(row.latest_version || '').trim(),
       release_url: String(row.release_url || '').trim(),
       message: row.message == null ? '' : String(row.message).trim(),
+      updated_at: row.updated_at,
+    };
+  }
+
+  async function fetchTutorialVideoLink() {
+    if (!isConfigured()) return null;
+    const query =
+      '/rest/v1/tutorial_links?select=url,enabled,updated_at' +
+      '&kind=eq.video&enabled=eq.true&order=updated_at.desc&limit=1';
+    const rows = await supabaseFetch(query, { method: 'GET' });
+    if (!Array.isArray(rows) || rows.length === 0) return null;
+    const row = rows[0];
+    return {
+      url: String(row.url || '').trim(),
       updated_at: row.updated_at,
     };
   }
@@ -250,6 +266,7 @@
     isConfigured,
     getOrCreateClientId,
     fetchAppUpdate,
+    fetchTutorialVideoLink,
     listAnnouncements,
     getFeedbackQuota,
     submitFeedback,

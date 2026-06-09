@@ -35,6 +35,16 @@ DEFAULT_NORMAL_REPLY_COUNT = 5
 NORMAL_REPLY_COUNT_MIN = 1
 NORMAL_REPLY_COUNT_MAX = 50
 
+DEFAULT_SYSTEM_STYLE_ZH = (
+    "像多位真实观众：短句口语碎片化；优先贴当前画面，可少量接梗或气氛句；条间口吻可不同。"
+    "禁 AI腔/总结腔/客服腔/长句/说教/重复。"
+)
+DEFAULT_SYSTEM_STYLE_EN = (
+    "Multiple real viewers: short, casual, fragmented; prioritize the current frame; "
+    "a few meme or vibe lines OK; vary voice per line. "
+    "No AI tone, summaries, customer-service voice, long lines, preaching, or repetition."
+)
+
 _CONTRACT_ZH_RE = re.compile(
     r"你是直播弹幕评论员。必须且只能返回 JSON 字符串数组，不要解释，不要 Markdown。"
     r"固定返回 \d+ 条弹幕：前 \d+ 条必须强相关当前画面，后 \d+ 条必须是适合直播间氛围的泛用弹幕。"
@@ -85,11 +95,22 @@ _CONTRACT_NORMAL_EN_LEGACY_RE = re.compile(
 _CONTRACT_OBJECT_ZH_RE = re.compile(
     r"直播弹幕评论员。只输出 JSON 对象，无解释、无 Markdown。"
     r"固定 \d+ 条 comments，每条≤\d+字；scene_brief 为不超过 \d+ 字的当前场景简述。"
+    r'格式：\{"scene_brief":"[^"]*","comments":\["[^"]*"(?:, "[^"]*")*\]\}。'
+)
+_CONTRACT_OBJECT_ZH_LEGACY_RE = re.compile(
+    r"直播弹幕评论员。只输出 JSON 对象，无解释、无 Markdown。"
+    r"固定 \d+ 条 comments，每条≤\d+字；scene_brief 为不超过 \d+ 字的当前场景简述。"
     r"像多位真实观众：短句口语碎片化；优先贴当前画面，可少量接梗或气氛句；条间口吻可不同。"
     r"禁 AI腔/总结腔/客服腔/长句/说教/重复。"
     r'格式：\{"scene_brief":"[^"]*","comments":\["[^"]*"(?:, "[^"]*")*\]\}。'
 )
 _CONTRACT_OBJECT_EN_RE = re.compile(
+    r"Live-stream danmu commentator\. JSON object only, no explanation, no Markdown\. "
+    r"Exactly \d+ comments, max \d+ chars each; scene_brief is a current-frame summary within \d+ characters\. "
+    r"All comments MUST be in English only\. "
+    r'Format: \{"scene_brief":"[^"]*","comments":\["[^"]*"(?:, "[^"]*")*\]\}\.'
+)
+_CONTRACT_OBJECT_EN_LEGACY_RE = re.compile(
     r"Live-stream danmu commentator\. JSON object only, no explanation, no Markdown\. "
     r"Exactly \d+ comments, max \d+ chars each; scene_brief is a current-frame summary within \d+ characters\. "
     r"Multiple real viewers: short, casual, fragmented; prioritize the current frame; "
@@ -214,8 +235,6 @@ def build_normal_reply_contract_zh(
     return (
         "直播弹幕评论员。只输出 JSON 对象，无解释、无 Markdown。"
         f"固定 {total} 条 comments，每条≤{limit}字；scene_brief 为不超过 {brief_limit} 字的当前场景简述。"
-        "像多位真实观众：短句口语碎片化；优先贴当前画面，可少量接梗或气氛句；条间口吻可不同。"
-        "禁 AI腔/总结腔/客服腔/长句/说教/重复。"
         f"格式：{_json_object_example_zh(total)}。"
     )
 
@@ -231,9 +250,6 @@ def build_normal_reply_contract_en(
         "Live-stream danmu commentator. JSON object only, no explanation, no Markdown. "
         f"Exactly {total} comments, max {limit} chars each; "
         f"scene_brief is a current-frame summary within {brief_limit} characters. "
-        "Multiple real viewers: short, casual, fragmented; prioritize the current frame; "
-        "a few meme or vibe lines OK; vary voice per line. "
-        "No AI tone, summaries, customer-service voice, long lines, preaching, or repetition. "
         "All comments MUST be in English only. "
         f"Format: {_json_object_example_en(total)}."
     )
@@ -260,6 +276,26 @@ def _refresh_legacy_contract_aliases() -> None:
 _refresh_legacy_contract_aliases()
 
 
+def get_default_system_style() -> str:
+    if Translator.get_language() == "en":
+        return DEFAULT_SYSTEM_STYLE_EN
+    return DEFAULT_SYSTEM_STYLE_ZH
+
+
+def strip_system_style(system_custom: str) -> str:
+    base = (system_custom or "").strip()
+    for style in (DEFAULT_SYSTEM_STYLE_ZH, DEFAULT_SYSTEM_STYLE_EN):
+        if base.startswith(style):
+            base = base[len(style) :].strip()
+    return base
+
+
+def ensure_system_style(system_custom: str) -> str:
+    persona_part = strip_system_style(system_custom)
+    style = get_default_system_style()
+    return f"{style} {persona_part}".strip() if persona_part else style
+
+
 def get_reply_contract(config: ConfigStore | None = None) -> str:
     lang = Translator.get_language()
     if config is None:
@@ -277,6 +313,8 @@ def get_reply_contract(config: ConfigStore | None = None) -> str:
 def strip_reply_contract(system_pt: str) -> str:
     base = (system_pt or "").strip()
     for pattern in (
+        _CONTRACT_OBJECT_ZH_LEGACY_RE,
+        _CONTRACT_OBJECT_EN_LEGACY_RE,
         _CONTRACT_OBJECT_ZH_RE,
         _CONTRACT_OBJECT_EN_RE,
         _CONTRACT_ZH_RE,
@@ -294,9 +332,9 @@ def strip_reply_contract(system_pt: str) -> str:
 
 
 def ensure_reply_contract(system_pt: str, config: ConfigStore | None = None) -> str:
-    custom_part = strip_reply_contract(system_pt)
+    persona_part = strip_system_style(strip_reply_contract(system_pt))
     contract = get_reply_contract(config)
-    return f"{contract} {custom_part}".strip() if custom_part else contract
+    return f"{contract} {persona_part}".strip() if persona_part else contract
 
 
 # W-NICKNAME-001

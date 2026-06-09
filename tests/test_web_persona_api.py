@@ -96,11 +96,11 @@ def test_create_and_save_custom_persona(persona_app):
 
 
 def test_list_dedupes_builtin_with_custom_override(persona_app):
-    persona_api.save_template(persona_app, "搞笑玩梗型", "覆盖风格", "用户提示")
-    persona_api.save_template(persona_app, "捧场活跃型", "覆盖风格2", "用户提示2")
+    persona_api.save_template(persona_app, "吐槽型", "覆盖风格", "用户提示")
+    persona_api.save_template(persona_app, "文艺型", "覆盖风格2", "用户提示2")
     names = persona_app.personae.list()
-    assert names.count("搞笑玩梗型") == 1
-    assert names.count("捧场活跃型") == 1
+    assert names.count("吐槽型") == 1
+    assert names.count("文艺型") == 1
 
 
 def test_builtin_save_system_and_user_prompt(persona_app):
@@ -130,7 +130,8 @@ def test_reply_contract_follows_normal_reply_count(persona_app):
     detail = persona_api.get_template_detail(persona_app, "吐槽型")
     contract = detail["reply_contract"]
     assert "固定 9 条" in contract
-    assert "优先贴当前画面" in contract
+    assert "优先贴当前画面" not in contract
+    assert "优先贴当前画面" not in detail["system_custom"]
     assert "前 4 条必须强相关当前画面" not in contract
 
 
@@ -192,24 +193,52 @@ def test_save_builtin_test_persona_preserves_user_zh(persona_app):
     assert "【人格：真实直播间五人弹幕】" in user_pt
 
 
-def test_default_active_includes_test_personae(tmp_path):
+def test_default_active_is_six_personae(tmp_path):
     config = ConfigStore(db_path=tmp_path / "config.db")
     personae = PersonaManager(config)
     active = personae.get_active()
-    assert active[:4] == list(PersonaManager._TEST_DEFAULT_ACTIVE)
-    assert set(PersonaManager.DEFAULT_ACTIVE).issubset(set(active))
+    assert active == list(PersonaManager.DEFAULT_ACTIVE)
+    assert active == [
+        "测试1",
+        "测试2",
+        "测试3",
+        "吐槽型",
+        "傲娇型",
+        "腹黑型",
+    ]
 
 
-def test_active_personae_v4_migrates_test_personae(tmp_path):
+def test_active_personae_v4_migrates_to_v7_default(tmp_path):
     config = ConfigStore(db_path=tmp_path / "config-v4.db")
     config.set_json("active_personae", ["路人惊讶型", "搞笑玩梗型"])
     config.set("active_personae_version", "4")
     personae = PersonaManager(config)
     active = personae.get_active()
-    assert active[:4] == list(PersonaManager._TEST_DEFAULT_ACTIVE)
-    assert "路人惊讶型" in active
-    assert "搞笑玩梗型" in active
-    assert config.get_int("active_personae_version") == 5
+    assert active == list(PersonaManager.DEFAULT_ACTIVE)
+    assert "路人惊讶型" not in active
+    assert "搞笑玩梗型" not in active
+    assert config.get_int("active_personae_version") == 7
+
+
+def test_active_personae_v7_resets_legacy_active(tmp_path):
+    config = ConfigStore(db_path=tmp_path / "config-v6.db")
+    config.set_json(
+        "active_personae",
+        ["测试1", "测试2", "测试3", "吐槽型", "萌系型", "傲娇型", "腹黑型", "毒舌型"],
+    )
+    config.set("active_personae_version", "6")
+    personae = PersonaManager(config)
+    active = personae.get_active()
+    assert active == list(PersonaManager.DEFAULT_ACTIVE)
+    assert "萌系型" not in active
+    assert "毒舌型" not in active
+    assert config.get_int("active_personae_version") == 7
+
+
+def test_removed_builtin_personae_not_listed(persona_app):
+    names = persona_app.personae.list()
+    for removed in ("路人惊讶型", "搞笑玩梗型", "捧场活跃型", "轻度吐槽型"):
+        assert removed not in names
 
 
 def test_experimental_personae_pinned_first(persona_app):
@@ -220,11 +249,18 @@ def test_experimental_personae_pinned_first(persona_app):
 
 
 def test_experimental_personae_have_prompts(persona_app):
+    expected_snippets = {
+        "测试1": "随机选择一种口吻",
+        "测试2": "像真实直播间混杂路人",
+        "测试3": "短句、口语、碎片化",
+        "测试4": "五人阴阳弹幕",
+    }
     for name in BUILTIN_PERSONA_PINNED_FIRST:
         assert name in BUILTIN_PERSONAE
         detail = persona_api.get_template_detail(persona_app, name)
         assert detail["builtin"]
-        assert len(detail["system_custom"]) <= 28
+        if name in expected_snippets:
+            assert expected_snippets[name] in detail["system_custom"]
         system_pt, user_pt = persona_app.personae.get_prompt(name)
         assert system_pt
         assert "【人格" in user_pt

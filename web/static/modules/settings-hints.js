@@ -105,17 +105,20 @@ const SETTINGS_FIELD_TIPS = {
     '用当前填写的地址、模式和密钥试连一次 AI，不开始弹幕，也不改其它设置。',
 };
 
-const PERSONA_FIELD_TIPS = {
+const OVERVIEW_FIELD_TIPS = {
   liveTopicInput:
-    '告知 AI 本次直播主题或正在玩的游戏，会写入每次弹幕生成的系统提示词。留空则不注入；上限 200 字。',
+    '描述本次要玩的游戏或直播主题，便于 AI 生成更贴场景的弹幕。留空则不注入；建议 50 字内，上限 200 字。',
   userNicknameInput:
     '你的昵称，AI 可在合适时自然称呼你。全局生效，与当前人格无关；上限 20 字。',
+};
+
+const PERSONA_FIELD_TIPS = {
   personaSelect:
     '选择要编辑的人格模板。内置人格可覆盖保存，也可点「恢复默认」还原。',
   personaContract:
     '只读的 JSON 输出格式要求。每次生成条数与助手设置「弹幕显示」中的条数同步；改条数请去助手设置。',
   personaSystemCustom:
-    '追加到该人格系统提示词末尾的自定义风格要求；点「保存人格」后生效。',
+    '追加到该人格系统提示词的风格与人格要求；点「保存人格」后生效。',
 };
 
 const DANMU_POOL_FIELD_TIPS = {
@@ -347,10 +350,12 @@ export function initSettingsFieldHints() {
 }
 
 export function initContentPageFieldHints() {
+  const overviewRoot = document.getElementById('page-overview');
   const personaRoot = document.getElementById('page-persona');
   const danmuPoolRoot = document.getElementById('page-danmu-pool');
   const petRoot = document.getElementById('page-pet');
 
+  attachFieldHintsInRoot(overviewRoot, OVERVIEW_FIELD_TIPS);
   attachFieldHintsInRoot(personaRoot, PERSONA_FIELD_TIPS);
   attachFieldHintsInRoot(danmuPoolRoot, DANMU_POOL_FIELD_TIPS, CONTENT_PAGE_CONTROL_HINT_IDS);
   attachFieldHintsInRoot(petRoot, PET_FIELD_TIPS, CONTENT_PAGE_CONTROL_HINT_IDS);

@@ -112,6 +112,37 @@
       </div>
       <p id="statLifetimeTokenNote" class="text-xs text-gray-400 -mt-4 mb-8 hidden" role="note"></p>
 
+      <div class="card p-8 mb-6 space-y-4">
+        <div class="flex flex-wrap gap-3 items-end">
+          <div class="flex-1 min-w-[220px]">
+            <label for="liveTopicInput" class="block text-sm font-semibold mb-2 text-warmText">提示内容</label>
+            <textarea
+              id="liveTopicInput"
+              rows="2"
+              maxlength="200"
+              autocomplete="off"
+              class="w-full px-4 py-3 bg-cream rounded-xl text-warmText"
+              placeholder="描述本次你要玩的游戏或者直播主题等，以便 AI 更好地生成弹幕，文字尽量在 50 字内效果最佳"
+            ></textarea>
+          </div>
+          <button type="button" id="btnSaveLiveTopic" class="px-4 py-3 bg-white border border-gray-200 rounded-xl font-semibold text-warmText">保存主题</button>
+        </div>
+        <div class="flex flex-wrap gap-3 items-end">
+          <div class="flex-1 min-w-[220px]">
+            <label for="userNicknameInput" class="block text-sm font-semibold mb-2 text-warmText">昵称</label>
+            <input
+              id="userNicknameInput"
+              type="text"
+              maxlength="20"
+              autocomplete="off"
+              class="w-full px-4 py-3 bg-cream rounded-xl text-warmText"
+              placeholder="请输入你的昵称（AI 可在合适时自然称呼你）"
+            />
+          </div>
+          <button type="button" id="btnSaveUserNickname" class="px-4 py-3 bg-white border border-gray-200 rounded-xl font-semibold text-warmText">保存昵称</button>
+        </div>
+      </div>
+
       <div class="card p-8">
         <h3 class="text-lg font-bold text-warmText mb-4">当前人格</h3>
         <p class="text-warmText" id="activePersonae">—</p>

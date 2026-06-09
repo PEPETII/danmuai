@@ -5,7 +5,7 @@
 ``persona_version_history``（历史版本审计）。本文件**仅**作为 re-export 兼容层。
 
 ``BUILTIN_PERSONA_PINNED_FIRST``：人格工坊列表置顶的人格集合（当前为测试1–4）。
-``PersonaManager.DEFAULT_ACTIVE`` 在置顶测试人格之后含路人惊讶型/搞笑玩梗型/捧场活跃型/轻度吐槽型。
+``PersonaManager.DEFAULT_ACTIVE`` 为测试1–3 + 吐槽型/傲娇型/腹黑型；``BUILTIN_PERSONA_PINNED_FIRST`` 仍为工坊置顶测试1–4。
 **修改置顶顺序必须同步** ``PersonaManager._TEST_DEFAULT_ACTIVE``，否则列表顺序与默认激活不一致。
 """
 
@@ -23,6 +23,8 @@ from app.persona_contract import (
     DEFAULT_NORMAL_REPLY_COUNT,
     DEFAULT_REPLY_FILLER_COUNT,
     DEFAULT_REPLY_SCENE_COUNT,
+    DEFAULT_SYSTEM_STYLE_EN,
+    DEFAULT_SYSTEM_STYLE_ZH,
     LIVE_TOPIC_MAX_LEN,
     NICKNAME_MAX_LEN,
     NORMAL_REPLY_COUNT_MAX,
@@ -40,10 +42,13 @@ from app.persona_contract import (
     build_reply_contract_en,
     build_reply_contract_zh,
     ensure_reply_contract,
+    ensure_system_style,
+    get_default_system_style,
     get_reply_contract,
     normal_reply_count_from_config,
     reply_counts_from_config,
     strip_reply_contract,
+    strip_system_style,
 )
 from app.persona_manager import PersonaManager
 from app.translations import tr
@@ -65,6 +70,8 @@ __all__ = [
     "DEFAULT_NORMAL_REPLY_COUNT",
     "DEFAULT_REPLY_FILLER_COUNT",
     "DEFAULT_REPLY_SCENE_COUNT",
+    "DEFAULT_SYSTEM_STYLE_EN",
+    "DEFAULT_SYSTEM_STYLE_ZH",
     "LEGACY_NAME_MAP",
     "NORMAL_REPLY_COUNT_MAX",
     "NORMAL_REPLY_COUNT_MIN",
@@ -82,6 +89,8 @@ __all__ = [
     "build_reply_contract_zh",
     "default_user_prompt",
     "ensure_reply_contract",
+    "ensure_system_style",
+    "get_default_system_style",
     "get_reply_contract",
     "normal_reply_count_from_config",
     "normalize_persona_name",
@@ -89,6 +98,7 @@ __all__ = [
     "persona_display_name",
     "reply_counts_from_config",
     "strip_reply_contract",
+    "strip_system_style",
     "LIVE_TOPIC_MAX_LEN",
     "NICKNAME_MAX_LEN",
     "append_live_topic_to_system_pt",

@@ -24,7 +24,15 @@ from app.persona_builtin import (
 from app.persona_contract import ensure_reply_contract
 from app.translations import tr
 
-_REMOVED_PERSONAE = frozenset({"阿静", "测试", "专业分析型"})
+_REMOVED_PERSONAE = frozenset({
+    "阿静",
+    "测试",
+    "专业分析型",
+    "路人惊讶型",
+    "搞笑玩梗型",
+    "捧场活跃型",
+    "轻度吐槽型",
+})
 
 
 class PersonaManager:
@@ -40,13 +48,14 @@ class PersonaManager:
 
     _TEST_DEFAULT_ACTIVE = BUILTIN_PERSONA_PINNED_FIRST
     DEFAULT_ACTIVE = [
-        *_TEST_DEFAULT_ACTIVE,
-        "路人惊讶型",
-        "搞笑玩梗型",
-        "捧场活跃型",
-        "轻度吐槽型",
+        "测试1",
+        "测试2",
+        "测试3",
+        "吐槽型",
+        "傲娇型",
+        "腹黑型",
     ]
-    _ACTIVE_VERSION = 5
+    _ACTIVE_VERSION = 7
 
     def __init__(self, config: ConfigStore):
         self.config = config
@@ -69,10 +78,12 @@ class PersonaManager:
                 active = self.config.get_json("active_personae", self.DEFAULT_ACTIVE)
                 merged = self._merge_test_default_active(active if isinstance(active, list) else [])
                 self.config.set_json("active_personae", merged)
-            else:
+            if version < 6:
                 active = self.config.get_json("active_personae", self.DEFAULT_ACTIVE)
                 filtered = self._filter_removed_active(active if isinstance(active, list) else [])
                 self.config.set_json("active_personae", filtered)
+            if version < 7:
+                self.config.set_json("active_personae", self.DEFAULT_ACTIVE)
             self.config.set("active_personae_version", str(self._ACTIVE_VERSION))
 
     def _filter_removed_active(self, names: list[str]) -> list[str]:
