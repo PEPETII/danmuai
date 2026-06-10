@@ -92,3 +92,31 @@ docs/community/
 docs/guides/
 docs/audits/
 docs/test/
+
+# ── Local AI / IDE working documents (never publish) ──
+.local-ai/
+.local-ide/
+.ai-notes/
+ai-workspace/
+
+# Workorder & report path aliases (legacy + new)
+workorders/local/
+reports/local/
+docs/工单列表/
+docs/reports/
+
+# AI-generated completion / review artifacts (Chinese + English names)
+docs/archive/completion-reports/
+**/*-完成报告.md
+**/*-completion-report.md
+**/*-手动验收.md
+
+# Temporary AI / IDE markdown drafts (narrow patterns — avoid *report*.md)
+*.ai.md
+*.agent.md
+*.prompt.md
+*.workorder.md
+
+# Community subproject local agent docs
+community-site/AGENTS.md
+community-site/.local-ai/

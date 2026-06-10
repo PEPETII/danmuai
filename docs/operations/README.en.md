@@ -39,7 +39,7 @@ Platforms with a model picker catalog: Doubao, DashScope, SiliconFlow, MiMo (`GE
 
 - [CONTRIBUTING.md](CONTRIBUTING.md)
 - [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
-- Tests: `pip install -r requirements-dev.txt && python -m pytest tests/ -q`
+- Tests: install dev deps, then run **related** test files in batches (`-q -x`); avoid full `pytest tests/` locally (high memory). CI runs the full suite.
 
 ## License
 

@@ -216,12 +216,34 @@ def test_open_web_console_when_ready_skips_attach_on_terminal_failure(monkeypatc
     assert notified == ["web_console.startup_failed"]
 
 
-def test_open_web_console_after_handshake_failed_does_not_reopen_browser(monkeypatch):
+def _patch_fallback_message_box(monkeypatch, *, click_yes: bool, click_count: list | None = None):
+    """Patch QMessageBox for tray fallback tests; return the fake_box for assertions."""
+    yes_btn = MagicMock(name="yes_btn")
+    no_btn = MagicMock(name="no_btn")
+    fake_box = MagicMock()
+    fake_box.addButton.side_effect = [yes_btn, no_btn]
+    fake_box.clickedButton.return_value = yes_btn if click_yes else no_btn
+    fake_box.exec.side_effect = (
+        lambda: click_count.append(True) if click_count is not None else None
+    )
+    mock_cls = MagicMock(return_value=fake_box)
+    mock_cls.Icon = MagicMock()
+    mock_cls.Icon.Warning = 0
+    mock_cls.ButtonRole = MagicMock()
+    mock_cls.ButtonRole.YesRole = 0
+    mock_cls.ButtonRole.NoRole = 1
+    monkeypatch.setattr("PyQt6.QtWidgets.QMessageBox", mock_cls)
+    return fake_box
+
+
+def test_open_web_console_after_handshake_failed_prompts_browser_fallback(monkeypatch):
+    """W-OPEN-CONSOLE-FALLBACK-001: tray click after handshake failure prompts user."""
 
     app = make_minimal_danmu_app()
     object.__setattr__(app, "web_launch_mode", "webview")
     server = MagicMock()
     server.base_url = "http://127.0.0.1:18765"
+    server._browser_launch_opened = False
     object.__setattr__(app, "web_server", server)
 
     shell = MagicMock()
@@ -230,6 +252,7 @@ def test_open_web_console_after_handshake_failed_does_not_reopen_browser(monkeyp
     shell.handshake_failed = True
     object.__setattr__(app, "webview_shell", shell)
 
+    fake_box = _patch_fallback_message_box(monkeypatch, click_yes=True)
     browser_calls = []
     attach_calls = []
     monkeypatch.setattr(
@@ -242,6 +265,67 @@ def test_open_web_console_after_handshake_failed_does_not_reopen_browser(monkeyp
     )
 
     app._open_web_console("/#settings")
-    assert browser_calls == []
+    assert fake_box.exec.call_count == 1
+    assert browser_calls == ["/#settings"]
+    assert server._browser_launch_opened is True
     assert attach_calls == []
+
+
+def test_open_web_console_after_handshake_failed_no_prompt_when_browser_already_opened(
+    monkeypatch,
+):
+    """W-OPEN-CONSOLE-FALLBACK-001: dedupe — skip prompt when already fallback once."""
+
+    app = make_minimal_danmu_app()
+    object.__setattr__(app, "web_launch_mode", "webview")
+    server = MagicMock()
+    server.base_url = "http://127.0.0.1:18765"
+    server._browser_launch_opened = True
+    object.__setattr__(app, "web_server", server)
+
+    shell = MagicMock()
+    shell.is_running.return_value = False
+    shell.is_handshake_pending.return_value = False
+    shell.handshake_failed = True
+    object.__setattr__(app, "webview_shell", shell)
+
+    fake_box = _patch_fallback_message_box(monkeypatch, click_yes=True)
+    browser_calls = []
+    monkeypatch.setattr(
+        "app.web_console.open_web_console_browser",
+        lambda srv, p: browser_calls.append(p),
+    )
+
+    app._open_web_console("/#settings")
+    assert fake_box.exec.call_count == 0
+    assert browser_calls == []
+
+
+def test_open_web_console_after_handshake_failed_user_declines(monkeypatch):
+    """W-OPEN-CONSOLE-FALLBACK-001: user picks No — no browser open, dedupe stays off."""
+
+    app = make_minimal_danmu_app()
+    object.__setattr__(app, "web_launch_mode", "webview")
+    server = MagicMock()
+    server.base_url = "http://127.0.0.1:18765"
+    server._browser_launch_opened = False
+    object.__setattr__(app, "web_server", server)
+
+    shell = MagicMock()
+    shell.is_running.return_value = False
+    shell.is_handshake_pending.return_value = False
+    shell.handshake_failed = True
+    object.__setattr__(app, "webview_shell", shell)
+
+    fake_box = _patch_fallback_message_box(monkeypatch, click_yes=False)
+    browser_calls = []
+    monkeypatch.setattr(
+        "app.web_console.open_web_console_browser",
+        lambda srv, p: browser_calls.append(p),
+    )
+
+    app._open_web_console("/#settings")
+    assert fake_box.exec.call_count == 1
+    assert browser_calls == []
+    assert server._browser_launch_opened is False
 

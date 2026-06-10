@@ -174,11 +174,14 @@ _on_screenshot_timer
 
 ## 9. 提交前检查
 
+本地 **禁止** 全量 `python -m pytest tests/`（700+ 用例、内存压力大）。按改动范围分批，每批 `-q -x`；全量留给 CI。详见 `.local-ai/prompts/IDE_AGENT_RULES.md` §10。
+
 ```bash
 python scripts/boundary_guard.py
-python -m pytest tests/test_request_scheduling.py tests/test_boundary_guard_web_rules.py tests/test_boundary_guard_runtime_rules.py tests/test_boundary_guard_request_rules.py tests/test_boundary_guard_diagnostics_rules.py -q
-python -m pytest tests/ -q
+python -m pytest tests/test_request_scheduling.py tests/test_boundary_guard_web_rules.py tests/test_boundary_guard_runtime_rules.py tests/test_boundary_guard_request_rules.py tests/test_boundary_guard_diagnostics_rules.py -q -x
 ```
+
+另按本次改动追加相关 `tests/test_*.py` 批次（仍须 `-q -x`，禁止无参全量）。
 
 同时人工确认：
 

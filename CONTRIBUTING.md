@@ -18,13 +18,20 @@ python main.py
 
 ## 提交前检查
 
+本地 **不要** 跑全量 `python -m pytest tests/`：套件 700+ 条，内存占用高，易导致机器卡顿。请按改动范围 **分批** 执行（每批 `-q -x`）；全量仅 CI 或资源充足的维护者环境执行。细则见 `.local-ai/prompts/IDE_AGENT_RULES.md` §10。
+
 ```bash
 pip install -r requirements-dev.txt
 ruff check app main.py tests scripts
-python -m pytest tests/test_reply_parser.py tests/test_p0_main_flow.py tests/test_danmu_engine.py tests/test_config_store.py tests/test_ai_client.py -q
-python -m pytest tests/test_web_console.py tests/test_web_persona_api.py tests/test_web_custom_models.py tests/test_image_compress.py tests/test_ui_mode.py -q
-python -m pytest tests/ -q
+# 批次 1（失败即停）
+python -m pytest tests/test_reply_parser.py tests/test_p0_main_flow.py tests/test_danmu_engine.py tests/test_config_store.py tests/test_ai_client.py -q -x
+# 批次 2 — 若改动涉及 Web / UI
+python -m pytest tests/test_web_console.py tests/test_web_persona_api.py tests/test_web_custom_models.py tests/test_image_compress.py tests/test_ui_mode.py -q -x
+# 触达主链路 / Web API 时
+python scripts/boundary_guard.py
 ```
+
+与改动相关的其他 `tests/test_*.py` 请单独成批追加；**禁止**无文件参数的 `pytest` / `python -m pytest tests/`。
 
 请遵守 [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)。
 

@@ -8,6 +8,9 @@ MicUtteranceDetector 由 DanmuApp._poll_mic_utterance 周期轮询 PCM 块，无
 
 动态阈值：enter 取 max(配置, floor+120, floor*1.6+60) 抬高门槛抑制环境噪声误触；
 exit 取 max(80, floor+40, peak*0.45) 相对峰值回落判定「说完了」，避免单帧抖动。
+**滞回保证**：`_speech_exit_threshold()` 返回值始终严格小于 `_speech_enter_threshold()`，
+用 `min(raw_exit, enter - 1)` 钳位（user 大声说话时 peak_rms 推高 raw_exit）；否则
+SILENCE_PENDING ↔ SPEAKING 死循环，on_utterance_end 永不触发（W-MIC-UTTERANCE-HYSTERESIS-001）。
 """
 
 from __future__ import annotations
@@ -111,7 +114,14 @@ class MicUtteranceDetector:
     def _speech_exit_threshold(self) -> int:
         # 相对本次 utterance 的 peak 回落到 45% 以下视为「音量下降」；并与噪声底+40 取 max
         floor = self._noise_floor
-        return max(80, floor + 40, int(self._peak_rms * 0.45))
+        raw_exit = max(80, floor + 40, int(self._peak_rms * 0.45))
+        # 关键不变量：exit < enter 形成滞回；用户大声说话时 peak_rms 推高 raw_exit，
+        # 一旦 raw_exit 追平/反超 enter，状态机会在 SILENCE_PENDING/SPEAKING 死循环。
+        # 用 enter - 1 钳位，确保滞回区至少 1 RMS 宽度（W-MIC-UTTERANCE-HYSTERESIS-001）。
+        enter = self._speech_enter_threshold()
+        if enter <= 0:
+            return raw_exit
+        return min(raw_exit, enter - 1)
 
     def poll(self, pcm_chunk: bytes, *, now: float | None = None) -> None:
         """推进状态机；COOLDOWN 到期回 IDLE，其余状态按 RMS 与时长转换。"""

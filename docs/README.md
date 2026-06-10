@@ -6,30 +6,17 @@ Entry point: [README.md](../README.md) (install, quick start).
 
 | Document | Audience | Description |
 |----------|----------|-------------|
-| [agent/ai-project-context.md](agent/ai-project-context.md) | IDE / agents | Technical context and reading order |
-| [即时/DanmuAI_桌宠功能_IDE实施文档.md](即时/DanmuAI_桌宠功能_IDE实施文档.md) | IDE / agents | Desktop pet (桌宠) feature spec and acceptance |
 | [core/ARCHITECTURE.md](core/ARCHITECTURE.md) | Everyone | What DanmuAI is, modules, threading, pipeline summary |
 | [features/WEB_CONSOLE.md](features/WEB_CONSOLE.md) | Users & contributors | Web API, pages, launch modes |
 | [core/MAIN_PIPELINE.md](core/MAIN_PIPELINE.md) | Contributors | Screenshot → AI → queue → overlay (normal mode) |
 | [core/RUNTIME_STATE.md](core/RUNTIME_STATE.md) | Contributors | Status, diagnostics, state ownership |
 | [core/PRIVACY.md](core/PRIVACY.md) | Users | Screenshot, mic, keys, data boundaries |
 
-## Agent & workflow
-
-| Document | Description |
-|----------|-------------|
-| [workflow/README.md](workflow/README.md) | Codex / IDE Agent single-ticket workflow |
-| [workflow/工单列表.md](workflow/工单列表.md) | Executable work-order backlog |
-| [workflow/当前仓库状态.md](workflow/当前仓库状态.md) | Branch, tests, recent changes |
-| [agent/手动验收指南.md](agent/手动验收指南.md) | Manual acceptance guide |
-| [agent/Codex提示词手册.md](agent/Codex提示词手册.md) | Prompt patterns and common mistakes |
-| [templates/](templates/) | Blank templates (copy to fill, not live state) |
-
 ## Contributing
 
 | Document | Description |
 |----------|-------------|
-| [CONTRIBUTING.md](../CONTRIBUTING.md) | Dev setup, tests, PR hygiene |
+| [CONTRIBUTING.md](../CONTRIBUTING.md) | Dev setup, batched tests (no local full suite), PR hygiene |
 | [CONTRIBUTING_ARCHITECTURE.md](CONTRIBUTING_ARCHITECTURE.md) | Architecture boundaries and checklist |
 | [core/BOUNDARY_GUARD.md](core/BOUNDARY_GUARD.md) | `scripts/boundary_guard.py` usage |
 | [DANMAKU_FORMULA.md](DANMAKU_FORMULA.md) | AI output JSON contract |
@@ -61,16 +48,7 @@ Entry point: [README.md](../README.md) (install, quick start).
 | Document | Description |
 |----------|-------------|
 | [features/CAPTURE_AND_DANMAKU_REFERENCE.md](features/CAPTURE_AND_DANMAKU_REFERENCE.md) | External libs (mss, Danmaku.js) |
-| [reports/](reports/) | Audit / review / spike reports (not completion reports) |
 | [architecture/provider-adapter.md](architecture/provider-adapter.md) | Provider adapter layer |
-
-## Archive
-
-| Location | Content |
-|----------|---------|
-| [archive/completion-reports/](archive/completion-reports/) | Historical Codex completion reports |
-| [archive/workorders/](archive/workorders/) | Historical work-order bodies |
-| [archive/architecture-phases/](archive/architecture-phases/) | Legacy design phases (background only) |
 
 ## Maintainer registry (Boundary Guard)
 
@@ -89,3 +67,7 @@ These paths are **stable filenames**—do not rename without updating `scripts/b
 | [prototype/README.md](../prototype/README.md) | Prototype folder |
 | [prototype/Qwen_html_20260524_481u8vlmv.html](../prototype/Qwen_html_20260524_481u8vlmv.html) | Web UI reference |
 | [prototype/Qwen_markdown_20260525_4vyxmv819.md](../prototype/Qwen_markdown_20260525_4vyxmv819.md) | Design tokens |
+
+## Local AI / IDE documents
+
+Agent rules, work orders, completion reports, and IDE templates live in **`.local-ai/`** at the repository root. That directory is gitignored and not published on GitHub. Maintainers: see `.local-ai/prompts/AGENTS.md`.

@@ -49,24 +49,70 @@ class DanmuAppLaunchMixin:
 
     def _open_web_console(self, path: str = "/") -> None:
         shell = getattr(self, "webview_shell", None)
+        server = getattr(self, "web_server", None)
         if shell and shell.is_running():
             shell.open(path)
             return
         if shell and shell.is_handshake_pending():
             shell.request_navigate(path)
             return
-        if (
-            shell
-            and shell.handshake_failed
-            and self.web_launch_mode == "webview"
-            and self.web_server
-        ):
+        if shell and shell.handshake_failed and server:
+            self._prompt_browser_fallback_after_webview_failure(server, path)
             return
         if self.web_launch_mode == "webview" and self.web_server:
             self._open_web_console_when_ready(path, use_browser=False)
             return
         if self.web_launch_mode == "browser" and self.web_server:
             self._open_web_console_when_ready(path, use_browser=True)
+
+    def _prompt_browser_fallback_after_webview_failure(
+        self, server, path: str = "/"
+    ) -> None:
+        """Handshake 已失败的兜底：弹窗询问用户是否在系统浏览器打开控制台。
+
+        启动期已 fallback 过一次（``server._browser_launch_opened=True``）时不再弹窗，
+        保留 BUG-014 dedupe。仅 web_launch_mode 与 web_server 状态由调用方判断。
+        """
+        if getattr(server, "_browser_launch_opened", False):
+            return
+        from PyQt6.QtWidgets import QMessageBox
+
+        from app.translations import tr
+        from app.web_console import open_web_console_browser
+
+        base_url = getattr(server, "base_url", "http://127.0.0.1:18765")
+        title = tr("webview.fallback_to_browser_title", "桌面窗口不可用")
+        message = tr(
+            "webview.fallback_to_browser_message",
+            "pywebview 启动失败，是否在系统浏览器中打开本地网页端？\n地址：{base_url}",
+        ).format(base_url=base_url)
+
+        box = QMessageBox()
+        box.setIcon(QMessageBox.Icon.Warning)
+        box.setWindowTitle(title)
+        box.setText(message)
+        yes_btn = box.addButton(tr("common.yes"), QMessageBox.ButtonRole.YesRole)
+        no_btn = box.addButton(tr("common.no"), QMessageBox.ButtonRole.NoRole)
+        box.setDefaultButton(no_btn)
+        box.exec()
+
+        if box.clickedButton() == yes_btn:
+            server._browser_launch_opened = True
+            try:
+                open_web_console_browser(server, path)
+            except Exception as exc:
+                self.logger.warning(
+                    f"failed to open system browser after webview fallback: {exc!r}"
+                )
+                server._browser_launch_opened = False
+                return
+            self.logger.info(
+                f"tray fallback to system browser after webview handshake failed: {path}"
+            )
+        else:
+            self.logger.info(
+                "tray fallback to system browser declined by user after webview handshake failed"
+            )
 
     def show_settings(self) -> None:
         if self.web_server:

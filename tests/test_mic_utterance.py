@@ -199,3 +199,52 @@ def test_take_recent_ms():
     recent = buf.take_recent_ms(200)
     assert len(recent) <= 16_000 * 2 * 200 // 1000 + 4
     assert len(recent) > 0
+
+
+def test_exit_threshold_always_below_enter_with_high_peak():
+    """W-MIC-UTTERANCE-HYSTERESIS-001: peak_rms 推高时 exit 仍 < enter（滞回不变量）。
+
+    极端算例：floor=0, speech_rms=200, peak_rms=5000
+    原代码 raw_exit = max(80, 40, 5000*0.45) = 2250
+    原代码 enter    = max(200, 120, 60)     = 200
+    → exit (2250) > enter (200) 死循环
+    新代码钳位后   = min(2250, 199)         = 199
+    → exit (199) < enter (200) 滞回恢复
+    """
+    detector = MicUtteranceDetector(
+        on_utterance_end=lambda: None,
+        config=MicUtteranceConfig(speech_rms=200),
+    )
+    detector._peak_rms = 5000
+    detector._noise_floor = 0
+    enter = detector._speech_enter_threshold()
+    exit_ = detector._speech_exit_threshold()
+    assert enter > 0
+    assert exit_ < enter, f"hysteresis broken: enter={enter} exit={exit_}"
+    assert enter - exit_ >= 1
+
+
+def test_loud_utterance_still_fires_on_utterance_end():
+    """W-MIC-UTTERANCE-HYSTERESIS-001: loud utterance 不再卡死在 SILENCE_PENDING。
+
+    端到端：模拟"大声说话 (loud_rms=1500) → 静音"，状态机应走
+    SPEAKING → SILENCE_PENDING → COOLDOWN，on_utterance_end 调用 1 次。
+    """
+    fired = []
+
+    detector = MicUtteranceDetector(
+        on_utterance_end=lambda: fired.append(True),
+        config=MicUtteranceConfig(
+            speech_rms=200,
+            silence_ms=300,
+            min_speech_ms=200,
+            cooldown_sec=10.0,
+        ),
+    )
+
+    t0 = 1000.0
+    _finish_utterance(detector, t0=t0, speech_sec=0.3, silence_sec=0.35, loud_rms=1500)
+
+    assert detector.state == UtteranceState.COOLDOWN
+    assert fired == [True]
+
