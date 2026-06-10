@@ -19,15 +19,15 @@ main.py::DanmuApp.start()
 main.py::screenshot_timer.timeout
   -> main.py::_on_screenshot_timer()
   -> main.py::_on_normal_capture_tick()
-       -> [if visual in-flight: return; debug or inflight_watchdog if >= 45s]
+       -> [if visual in-flight: return; debug or inflight_watchdog warn if >= 45s;
+           force recover via _try_recover_stale_visual_inflight if >= 48s (S-011)]
        -> main.py::_capture_screenshot()
             -> app/snipper.py::ScreenCapturer.grab()
             -> [invalid pixmap: return, no id++]
             -> update _latest_screenshot / _latest_screenshot_id / time
-            -> _collect_activity_observation()
        -> main.py::_trigger_api_call(source="normal_interval")
             -> RequestScheduler.block_reason / record_trigger_time
-            -> QThreadPool.globalInstance().start(AiRunnable)
+            -> ai_worker_pool().start(AiRunnable)
                  -> compress_screenshot -> app/ai_client.py::AiWorker._request()
         -> main.py::_on_ai_reply()
            -> app/reply_parser.py::parse_ai_reply_with_memory()
@@ -48,11 +48,13 @@ app/overlay.py::DanmuOverlay.start_render_loop()
 |--------|-------------------|---------|------|
 | `screenshot_timer` | `normal_recognition_interval_ms` | `_on_screenshot_timer` | Normal-mode capture + API trigger |
 | `reply_timer` | adaptive (single-shot) | `_consume_reply_queue` | Dequeue to engine |
-| `_pool_topup_timer` | 500 ms | `_maybe_pool_topup` | Formula pool top-up |
+| `_pool_topup_timer` | 500 ms | `_maybe_pool_topup` | Custom formula pool top-up |
+| `_meme_collect_timer` | `meme_barrage_collect_interval_sec` | `_meme_collect_tick` | Meme barrage fetch / local ingest (if enabled) |
+| `_meme_display_timer` | `meme_barrage_display_interval_sec` | `_meme_display_tick` | Meme barrage dequeue to `DanmuEngine` (independent of `reply_buffer`) |
 | `_mic_poll_timer` | 600 ms single-shot; 250 ms initial phase (`MIC_POLL_PHASE_MS`); rescheduled in `_schedule_next_mic_poll` | `_poll_mic_utterance` | Mic RMS utterance endpoint (if enabled; `MIC_POLL_MS`) |
 | `_live_status_timer` | 500 ms | `_publish_live_status` | Web status push |
 | `_lifetime_flush_timer` | (config) | lifetime flush | Stats persistence |
-| `QThreadPool` | on demand | `AiRunnable.run` / `_MicProbeRunnable.run` | AI HTTP (visual + mic insert + mic test-send probe) |
+| `QThreadPool` | on demand | `AiRunnable.run` / `_MicProbeRunnable.run` / `MemeFetchRunnable.run` / `MemeAiSelectRunnable.run` | AI HTTP + meme barrage remote fetch / AI select |
 
 Removed from product: `_rhythm_check_timer`, `_check_rhythm_trigger()`, realtime display mode branch, inventory prefetch (`_schedule_next_screenshot` / `_should_request_new_batch`, W-002).
 
@@ -87,7 +89,7 @@ Removed from product: `_rhythm_check_timer`, `_check_rhythm_trigger()`, realtime
 | `timing_not_started` | RTT consume with no matching mark_started |
 | `empty_parse` | AI text parsed to zero danmu items |
 
-See also [AGENTS.md](../AGENTS.md) and `DANMU_SCENE_DEBUG` / `DANMU_API_SCHEDULE_DEBUG`.
+See also [AGENTS.md](../AGENTS.md) and `DANMU_API_SCHEDULE_DEBUG`.
 
 ## Web status side path (unchanged pipeline)
 
@@ -99,6 +101,8 @@ See also [AGENTS.md](../AGENTS.md) and `DANMU_SCENE_DEBUG` / `DANMU_API_SCHEDULE
 | Entry | Thread / process | Role |
 |-------|------------------|------|
 | `app/web_console.py::WebConsoleServer.start()` | `threading.Thread` (`DanmuWebConsole`) | uvicorn FastAPI on `127.0.0.1:18765` |
+| `attach_web_console` `web_status_timer` | Qt `QTimer` 500 ms on main thread | Status publish; S-006 capped uvicorn auto-restart (`maybe_restart_web_console`, max 3, backoff 2/5/10 s) |
+| Visual/mic `AiRunnable` | `app/worker_pools.ai_worker_pool()` (max 2) | S-014: isolated from global pool meme/TTS/probe workers |
 | `app/webview_shell.py::WebViewShell.begin_start()` | `multiprocessing.Process` (`DanmuWebView`, spawn) | pywebview desktop shell (child owns `webview.start()`); up to 3 spawn retries on early child exit / `Process.start()` OSError before handshake failure |
 | `app/webview_shell.py::_nav_poll_loop` | `threading.Thread` (`DanmuWebViewNav`, daemon, child process) | Cross-process `nav_queue` → `window.load_url` |
 | `attach_webview_shell` handshake | Qt `QTimer` 50 ms poll on main thread | Non-blocking `ready_queue` drain; does not block capture pipeline |
@@ -107,6 +111,10 @@ See also [AGENTS.md](../AGENTS.md) and `DANMU_SCENE_DEBUG` / `DANMU_API_SCHEDULE
 Startup timing: `app/startup_trace.py` → `%APPDATA%/DanmuAI/startup.log` (frozen).
 
 Shutdown note: `DanmuApp.quit()` waits `QThreadPool.globalInstance().waitForDone(2000)` before `ai_worker.close()`, so in-flight AI workers do not touch closed `httpx` clients during teardown.
+
+## Test modules (regression only)
+
+Split pytest modules under `tests/test_web_*.py`, `tests/test_capture_flow.py`, `tests/test_ai_pipeline.py`, and `tests/test_reply_enqueue.py` may reference `threading.Thread`, `QThreadPool`, or `QThread` to simulate production scheduling (Web console startup, `invoke_on_main` contention, `DanmuApp.quit()` pool drain). They do **not** register new runtime schedulers.
 
 ## Non-goals
 

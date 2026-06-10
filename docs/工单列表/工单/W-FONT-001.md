@@ -1,4 +1,4 @@
-# W-FONT-001 — 助手设置新增「字体设置」tab（横向弹幕 + 悬浮窗字体）
+﻿# W-FONT-001 — 助手设置新增「字体设置」tab（横向弹幕 + 悬浮窗字体）
 
 > **来源**：悬浮窗字体基础来自 W-FP-001 / W-FP-002 / W-FP-003（已完成的 `floating_panel_font_size`）。  
 > **执行者**：Codex / Cursor Agent  
@@ -62,8 +62,8 @@ W-FONT-001
 - `tests/test_floating_panel.py`（追加 2 个 Qt 用例：font family 变化时 `apply_config` 重建 `_active_items` pixmap；font_size 钳位 12–48 边界）
 - `tests/test_overlay_render.py`（追加 1 个 Qt 用例：`apply_display_settings` 在 family / bold 变化后正确重建 pixmap）
 - `docs/工单列表/工单/W-FONT-001.md`（本文件）
-- `docs/当前仓库状态.md`（追加最近变更）
-- `docs/工单列表.md`（追加登记表行）
+- `docs/workflow/当前仓库状态.md`（追加最近变更）
+- `docs/workflow/工单列表.md`（追加登记表行）
 - `docs/WEB_CONSOLE.md`（追加「字体设置」tab + 4 个新字段说明）
 
 ## 禁止修改的区域
@@ -355,7 +355,7 @@ W-FONT-001
 
 23. **文档 — `docs/WEB_CONSOLE.md`**：在「助手设置」小节追加「字体设置」tab 描述，列出 6 字段与默认值；说明「恢复默认」只恢复本 tab 字段。
 
-24. **文档 — `docs/当前仓库状态.md` / `docs/工单列表.md`**：按既有 §5 规则更新（追加最近变更 + 登记表新行）。
+24. **文档 — `docs/workflow/当前仓库状态.md` / `docs/workflow/工单列表.md`**：按既有 §5 规则更新（追加最近变更 + 登记表新行）。
 
 ## 非目标
 
@@ -410,14 +410,14 @@ W-FONT-001
 
 ## 完成后必须更新的文档
 
-- [x] [docs/当前仓库状态.md](../../当前仓库状态.md)
-- [x] [docs/工单列表.md](../../工单列表.md)（追加 W-FONT-001 登记表行，状态「待办」/「已完成」由执行者维护）
+- [x] [docs/workflow/当前仓库状态.md](../../workflow/当前仓库状态.md)
+- [x] [docs/workflow/工单列表.md](../../workflow/工单列表.md)（追加 W-FONT-001 登记表行，状态「待办」/「已完成」由执行者维护）
 - [x] [docs/WEB_CONSOLE.md](../../WEB_CONSOLE.md)（追加「字体设置」tab + 4 新字段说明）
 
 ## Codex 完成报告要求
 
 - 使用 [Codex完成报告模板.md](../Codex完成报告/Codex完成报告模板.md)
 - 必须列出**全部**修改文件路径（HTML / JS / Python / tests / docs 共约 12 个文件）
-- 范围外问题写入 [docs/已知问题与后续事项.md](../../已知问题与后续事项.md)，不得顺手修复
+- 范围外问题写入 [docs/已知问题与后续事项.md](../../workflow/已知问题与后续事项.md)，不得顺手修复
 - **强制**：完成报告 §3「未修改的关键区域」必须列出 `main.py` / `app/danmu_engine.py` / `app/ai_client.py` / `app/mic_*.py` / `app/web_console.py` / `app/web_console_runtime.py` 证明未越界
 - **强制**：完成报告 §7 须说明 6 个核心边界用例的手动验证结果（字体名切换 / 加粗切换 / 字号 9999 钳位 / `true` 归一 / 「恢复默认」作用域 / 持久化重启）

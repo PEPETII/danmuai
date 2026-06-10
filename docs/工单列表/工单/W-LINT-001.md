@@ -1,4 +1,4 @@
-# W-LINT-001 — 一次性修复 9 处历史 ruff I001/F401
+﻿# W-LINT-001 — 一次性修复 9 处历史 ruff I001/F401
 
 > **来源**：W-NICKNAME-001 完成报告 §8（发现但未处理，登记 ISSUE-041）  
 > **执行者**：Codex / Cursor Agent  
@@ -56,7 +56,7 @@
 - `tests/test_danmu_tts.py`
 - `tests/test_model_providers.py`
 - `scripts/rebalance_t008_tests2.py`（决策点：删 / 移走 / 收编）
-- `docs/当前仓库状态.md`
+- `docs/workflow/当前仓库状态.md`
 - `docs/已知问题与后续事项.md`
 - `docs/templates/Codex完成报告/W-LINT-001-完成报告.md`（新建）
 
@@ -66,7 +66,7 @@
 - `app/ai_client.py`、`app/overlay.py`、`app/danmu_engine.py`、`app/danmu_pool.py`、`app/persona_contract.py`、`app/personae.py` 等所有未列入"允许修改区域"的 `app/` 文件
 - `app/application/`（除可能因 import 自动 isort 而需轻动外，**禁止功能改动**）
 - `web/`、`tests/conftest.py`、`tests/fakes.py`、`requirements.txt`、CI 配置文件、锁文件
-- `docs/工单列表.md`（已登记 W-LINT-001，**不再改动**）
+- `docs/workflow/工单列表.md`（已登记 W-LINT-001，**不再改动**）
 - `docs/WEB_CONSOLE.md`、`docs/ARCHITECTURE.md` 等其他文档
 
 ## 需求
@@ -105,8 +105,8 @@
 - [ ] `git diff --stat` 仅显示允许修改区内的 8 个文件 + 可能的 `scripts/rebalance_t008_tests2.py` 删除/移动。
 - [ ] `untracked` 脚本的去留决定已写入完成报告（删 → 报告 §6 注明；留 → 报告 §6 注明新路径与 .gitignore 行）。
 - [ ] 完成报告已写至 `docs/templates/Codex完成报告/W-LINT-001-完成报告.md`。
-- [ ] [docs/当前仓库状态.md](../../当前仓库状态.md) 追加 W-LINT-001 最近变更段。
-- [ ] [docs/已知问题与后续事项.md](../../已知问题与后续事项.md) 中 ISSUE-041 状态由「待处理」改为「**已修复**」并指明新工单。
+- [ ] [docs/workflow/当前仓库状态.md](../../workflow/当前仓库状态.md) 追加 W-LINT-001 最近变更段。
+- [ ] [docs/已知问题与后续事项.md](../../workflow/已知问题与后续事项.md) 中 ISSUE-041 状态由「待处理」改为「**已修复**」并指明新工单。
 
 ## 手动验证步骤
 
@@ -150,9 +150,9 @@
 
 ## 完成后必须更新的文档
 
-- [x] [docs/当前仓库状态.md](../../当前仓库状态.md)（追加 W-LINT-001 最近变更段）
-- [x] [docs/工单列表.md](../../工单列表.md)（将 W-LINT-001 从「待办工单」移入「已完成工单」）
-- [x] [docs/已知问题与后续事项.md](../../已知问题与后续事项.md)（ISSUE-041 标为「**已修复**」并指向 W-LINT-001）
+- [x] [docs/workflow/当前仓库状态.md](../../workflow/当前仓库状态.md)（追加 W-LINT-001 最近变更段）
+- [x] [docs/workflow/工单列表.md](../../workflow/工单列表.md)（将 W-LINT-001 从「待办工单」移入「已完成工单」）
+- [x] [docs/已知问题与后续事项.md](../../workflow/已知问题与后续事项.md)（ISSUE-041 标为「**已修复**」并指向 W-LINT-001）
 - [x] [docs/templates/Codex完成报告/W-LINT-001-完成报告.md](../../templates/Codex完成报告/W-LINT-001-完成报告.md)（新建）
 
 ## Codex 完成报告要求

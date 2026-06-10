@@ -1,4 +1,4 @@
-# W-FONT-003 — 字体设置将 `<datalist>` 替换为可见下拉控件
+﻿# W-FONT-003 — 字体设置将 `<datalist>` 替换为可见下拉控件
 
 > **来源**：W-FONT-002 反馈（2026-06-06 debug session）；用户连续反馈"下拉框里无法找到原本的默认字体"——确认是 W-FONT-001 选型 bug（`<datalist>` 不适合字体选择场景），不是 UX 偏好问题。
 
@@ -43,7 +43,7 @@ W-FONT-003
 - `web/static/modules/settings.js`（**仅** `refreshFontDatalist` 替换实现 + 相关初始化；**不**改 `CONFIG_FIELDS` / `SETTINGS_RESTORE_GROUPS` / `applyDefaultToField` / `collectFormData`）
 - `web/static/warm-tokens.css` 或新 CSS（仅当下拉样式需要新规则时）
 - `tests/`：仅当新交互需要覆盖时追加 1-2 个用例
-- `docs/`：更新 `docs/WEB_CONSOLE.md` 字体设置地图、`docs/当前仓库状态.md`、本工单完成报告
+- `docs/`：更新 `docs/WEB_CONSOLE.md` 字体设置地图、`docs/workflow/当前仓库状态.md`、本工单完成报告
 
 ## 禁止修改的区域
 
@@ -101,8 +101,8 @@ W-FONT-003
 
 ## 完成后必须更新的文档
 
-- [ ] [docs/当前仓库状态.md](../../当前仓库状态.md)
-- [ ] [docs/工单列表.md](../../工单列表.md)（标为已完成）
+- [ ] [docs/workflow/当前仓库状态.md](../../workflow/当前仓库状态.md)
+- [ ] [docs/workflow/工单列表.md](../../workflow/工单列表.md)（标为已完成）
 - [ ] [docs/WEB_CONSOLE.md](../../WEB_CONSOLE.md)（字体设置地图更新）
 - [ ] [docs/工单列表/工单/W-FONT-003-完成报告.md](../../工单列表/工单/W-FONT-003-完成报告.md)
 
@@ -110,4 +110,4 @@ W-FONT-003
 
 - 使用 [Codex完成报告模板.md](../Codex完成报告/Codex完成报告模板.md)
 - 必须列出**全部**修改文件路径
-- 范围外问题写入 [docs/已知问题与后续事项.md](../../已知问题与后续事项.md)，不得顺手修复
+- 范围外问题写入 [docs/已知问题与后续事项.md](../../workflow/已知问题与后续事项.md)，不得顺手修复

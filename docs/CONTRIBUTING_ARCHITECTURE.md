@@ -1,108 +1,194 @@
-# Contributing — architecture boundaries
+# Contributing Architecture
 
-Rules for code changes that touch orchestration, Web API, or runtime state. For day-to-day setup and tests, see [CONTRIBUTING.md](../CONTRIBUTING.md). For agent-specific shortcuts, see [AGENTS.md](../AGENTS.md).
+> 适用范围：所有会触达 `main.py`、`app/main_*mixin.py`、`app/web_api/`、`app/application/`、`web/static/` 的改动。
 
-## Before you change high-risk code
+---
 
-Read:
+## 1. 改动前先确认
+
+先读：
 
 1. [ARCHITECTURE.md](ARCHITECTURE.md)
 2. [MAIN_PIPELINE.md](MAIN_PIPELINE.md)
 3. [RUNTIME_STATE.md](RUNTIME_STATE.md)
 4. [BOUNDARY_GUARD.md](BOUNDARY_GUARD.md)
 
-If you touch scheduling or RTT: [archive/architecture-phases/phase4-freeze.md](archive/architecture-phases/phase4-freeze.md).
+如果会改调度、RTT 或运行态归属，再读：
 
-## Where to implement features
+- [final-architecture-baseline.md](final-architecture-baseline.md)
+- [main-pipeline-sequence.md](main-pipeline-sequence.md)
+- [runtime-state-map.md](runtime-state-map.md)
 
-| Feature type | Location |
-|--------------|----------|
-| Web UI, settings, new REST | `web/static/`, `app/web_api/routes.py` |
-| Personas / templates / models | `app/web_api/`, existing managers |
-| Overlay appearance / tracks | `app/overlay.py`, `app/danmu_engine.py` |
-| Capture / AI / queue timing | `main.py` — **avoid** unless necessary |
+---
 
-## Web / API rules
+## 2. 代码应该落在哪里
 
-**Do not** add in `app/web_console.py` or `app/web_api/*`:
+| 需求 | 优先位置 |
+|------|----------|
+| 控制台 UI、前端页面、文案、交互 | `web/static/` |
+| Web API / 路由注册 | `app/web_api/` |
+| 主链路编排、截图、AI、回复队列 | `main.py`、`app/main_*mixin.py` |
+| Overlay / 轨道 / 渲染 | `app/overlay.py`、`app/danmu_engine.py` |
+| 调度 / 状态投影 / 只读快照 | `app/application/` |
+| 麦克风 / 读弹幕 / 音频链路 | `app/mic_*`、`app/danmu_read_service.py` |
 
-- `danmu_app._…`, `app._…`, `ai_worker._…`
-- `_mic_service`, `_set_error_status_safe`, `_build_live_status_snapshot`, `_visible_display_count`, `_resolve_request_credentials`
-- Direct reads of `_last_api_trigger_at`, `_request_started_at_by_id`, `_rtt_history`
-- `danmu_app.web_runtime_state` / `cached_danmu_lines` / `cached_layout_mode` for status
+---
 
-**Do** use public facades:
+## 3. Web / API 边界
 
-- `build_status_snapshot()`, `build_diagnostic_snapshot()`, `build_live_status_snapshot()`
-- `get_request_scheduler()`, `get_request_timing_service()`, `api_schedule_block_reason()`
-- `visible_display_count()`, `probe_api_connection()`
-- `apply_web_config_payload()`, `set_active_personae()`, `resolve_request_credentials()`
-- `run_mic_test()`, `set_web_error_status()`, `start()`, `stop()`, `toggle()`
-- `request_capture_region_selection()`, `reset_capture_region()`, `get_capture_region_status()`
+### 禁止
 
-If a façade is missing, add it on `DanmuApp` first, then call it from Web.
+在 `app/web_console.py`、`app/web_api/*` 中禁止新增：
 
-Temporary exception (must include comment):
+- `danmu_app._*`
+- `app._*`
+- `ai_worker._*`
+- 直接读取 `RequestScheduler` / `RequestTimingService` 的私有实现字段
+- 路由内手拼 `/api/status` 返回 dict
+- HTTP 线程直接改 Qt 对象
 
-```python
-TODO(phase2-boundary): reason=..., current_private_access=..., target_public_api=...
+### 允许
+
+Web 层应通过 `DanmuApp` 公开 façade：
+
+- `build_status_snapshot()`
+- `build_diagnostic_snapshot()`
+- `build_live_status_snapshot()`
+- `apply_web_config_payload()`
+- `get_request_scheduler()`
+- `get_request_timing_service()`
+- `api_schedule_block_reason()`
+- `start()` / `stop()` / `toggle()`
+- `probe_api_connection()`
+- `request_capture_region_selection()` / `reset_capture_region()` / `get_capture_region_status()`
+
+如果缺 façade，应先在 `DanmuApp` 上补 façade，再给 Web 用。
+
+---
+
+## 4. 主链路边界
+
+当前唯一视觉主链路：
+
+```text
+_on_screenshot_timer
+-> _on_normal_capture_tick
+-> _capture_screenshot
+-> _trigger_api_call
+-> _on_ai_reply
+-> _enqueue_reply_batch
+-> _consume_reply_queue
+-> DanmuEngine.add_text
+-> Overlay
 ```
 
-## Main pipeline
+### 冻结要求
 
-Protected call chain (do not reorder or bypass casually):
+以下 3 个入口继续留在 `main.py`：
 
-- `_on_screenshot_timer()` → `_on_normal_capture_tick()` → `_capture_screenshot()` → `_trigger_api_call()`
-- `_on_ai_reply()` → `_enqueue_reply_batch()` → `_consume_reply_queue()`
+- `_trigger_api_call`
+- `_on_ai_reply`
+- `_consume_reply_queue`
 
-Adding `QTimer`, `QThreadPool.globalInstance().start`, `threading.Thread`, or `asyncio.create_task` requires updating [main-pipeline-sequence.md](main-pipeline-sequence.md) in the **same commit**.
+允许把辅助逻辑拆到 mixin，但不允许：
 
-## Runtime fields
+- 绕开这 3 个入口再造平行流程
+- 改变截图到上屏的调用顺序
+- 把 `DanmuEngine` / `Overlay` 重写成另一套耦合方式
 
-- New `self._field` in `DanmuApp.__init__` → register in [runtime-state-map.md](runtime-state-map.md).
-- New Web-visible state → extend `StatusSnapshotBuilder`, not ad-hoc dict assembly in routes.
-- Do not write `danmu_count`, `_total_*_tokens`, `_start_time`, `_web_error_*`, `_cached_danmu_*` directly on `DanmuApp` (owned by `StatsState` / `WebRuntimeState`).
+---
 
-## Scheduling and timing (frozen)
+## 5. 运行态归属
 
-- Use `RequestScheduler` for trigger gating and `last_api_trigger_at`.
-- Use `RequestTimingService` for RTT / `request_started_at_by_id`.
-- Do not add parallel throttle fields on `DanmuApp`.
-- Tests: `python -m pytest tests/test_request_scheduling.py -q`
+### 继续留在 `DanmuApp`
 
-## Do not migrate (without explicit project decision)
+- `QTimer`
+- `QThreadPool` 的使用入口
+- `QPixmap` 最新截图缓存
+- `reply_buffer`
+- `ai_in_flight`
+- `mic_in_flight`
+- `_pending_request_meta`
+- `_scene_generation`
 
-- `reply_buffer`, `ai_in_flight`, `_latest_screenshot`, `_scene_generation`
-- Splitting `DanmuEngine` / `Overlay` or rewriting `_trigger_api_call` / `_consume_reply_queue`
-- Large storage repository split
+### 服务对象所有权
 
-## Storage
+| 状态 | 所有权 |
+|------|--------|
+| `last_api_trigger_at` | `RequestScheduler` |
+| `request_started_at_by_id`、`rtt_history` | `RequestTimingService` |
+| `danmu_count`、token 总数、会话开始时间 | `StatsState` |
+| Web 错误文案、layout/lines cache | `WebRuntimeState` |
 
-- `config.conn` only in: `config_store`, `history`, `history_writer`, `templates`, `danmu_engine` (whitelist enforced by Boundary Guard).
-- No new schema changes without migration plan and docs.
+禁止在 `DanmuApp` 重新引入这些已迁移字段的平行副本。
 
-## `DanmuEngine` / `Overlay`
+---
 
-- Engine may use overlay for measure/pixmap and SQLite for dedup warmup—do not add more UI or Web imports into engine.
-- Do not refactor engine/overlay coupling in drive-by PRs.
+## 6. 线程 / 定时器规则
 
-## Pre-submit checklist
+### 新增以下内容时，必须同步文档
+
+- `QTimer(...)`
+- `QTimer.singleShot(...)`
+- `QThreadPool.globalInstance().start(...)`
+- `threading.Thread(...)`
+- `asyncio.create_task(...)`
+
+同步文件：
+
+- [main-pipeline-sequence.md](main-pipeline-sequence.md)
+
+### 额外要求
+
+- 不要新建“第二套调度器”
+- 不要在非主线程写 Qt 对象
+- 不要把 pywebview / uvicorn / queue / overlay 的生命周期关系改成隐式
+
+---
+
+## 7. `DanmuEngine` / `Overlay` 边界
+
+- `DanmuEngine` 仍可受控依赖 `Overlay` 提供的测量与渲染事实
+- 不要在 `DanmuEngine` 中继续扩散 Web/API 依赖
+- 不要把前端需求顺手塞进 `DanmuEngine`
+- 不要把 Overlay 改成由 Web 直接驱动
+
+---
+
+## 8. 存储边界
+
+`config.conn` 仍只允许出现在白名单模块中。新增扩散前，先评估是否应复用已有 `ConfigStore` 能力。
+
+高风险存储改动包括：
+
+- schema 变更
+- `config.db` 新表 / 新索引
+- 批量迁移
+- 新的长期持久化文件
+
+这类改动必须带迁移说明与文档更新。
+
+- **写入临界区**（W-CONC-001）：`ConfigStore.with_write_lock()` 上下文管理器封装 `self._write_lock`，仅供同包模块（`HistoryWriter` 等）在批量 SQLite 写入时使用，禁止 HTTP 线程、Web 路由、其他包模块直接调用。普通 SET 仍走 `ConfigStore.set` / `set_batch`。
+
+---
+
+## 9. 提交前检查
 
 ```bash
 python scripts/boundary_guard.py
-python -m pytest tests/test_request_scheduling.py tests/test_boundary_guard.py -q
-# broader:
+python -m pytest tests/test_request_scheduling.py tests/test_boundary_guard_web_rules.py tests/test_boundary_guard_runtime_rules.py tests/test_boundary_guard_request_rules.py tests/test_boundary_guard_diagnostics_rules.py -q
 python -m pytest tests/ -q
 ```
 
-Manual checks:
+同时人工确认：
 
-- [ ] No new `._` access under `app/web_api` or `web_console`
-- [ ] `runtime-state-map.md` updated if `DanmuApp` fields added
-- [ ] `main-pipeline-sequence.md` updated if timers/threads added
-- [ ] `docs/CHANGELOG.md` for user-visible behavior
-- [ ] `docs/WEB_CONSOLE.md` if API/UI changed
+- 没有新增 `app/web_api/*` 对私有字段的访问
+- 没有新增未登记运行态字段
+- 没有引入新的线程 / 定时器却忘记更新 `main-pipeline-sequence.md`
+- 没有把状态展示逻辑从 snapshot builder 拉回路由层
 
-## Historical phase documents
+---
 
-Detailed phase plans live under [archive/architecture-phases/](archive/architecture-phases/). Use them for context, not as the primary onboarding path.
+## 10. 一句话约束
+
+**优先拆辅助，不重写主链路；优先补 façade，不让 Web 读私有；优先维护所有权，不扩散运行态。**

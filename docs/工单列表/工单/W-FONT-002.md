@@ -1,4 +1,4 @@
-# W-FONT-002 — 助手设置「字体设置」tab 新增本地字体文件导入
+﻿# W-FONT-002 — 助手设置「字体设置」tab 新增本地字体文件导入
 
 > **来源**：W-FONT-001（前置：字体设置 tab + 4 个 config key + `QFont(family, ...)` 渲染钩子）  
 > **执行者**：Codex / Cursor Agent  
@@ -69,7 +69,7 @@ W-FONT-001 已完成「系统字体名称选择」（`Microsoft YaHei` / `SimHei
 - `tests/test_floating_panel.py`（追加 1 个 Qt 用例：`imported_fonts` 列表注入后，`apply_config` 用 imported family 重建 `_active_items` pixmap）
 - `tests/test_overlay_render.py`（追加 1 个 Qt 用例：同 family 注入后 `apply_display_settings` 重建 pixmap）
 - `docs/工单列表/工单/W-FONT-002.md`（本文件）
-- `docs/工单列表.md`（追加登记表行）
+- `docs/workflow/工单列表.md`（追加登记表行）
 - `docs/WEB_CONSOLE.md`（追加「导入本地字体」UI + 3 个新路由说明）
 
 ## 禁止修改的区域
@@ -489,7 +489,7 @@ W-FONT-001 已完成「系统字体名称选择」（`Microsoft YaHei` / `SimHei
     - 「字体设置」tab 末段补充：导入本地字体区（4 项元素：文件 input、导入按钮、提示、列表）；
     - 路由清单追加 3 个：`POST /api/fonts/import` / `GET /api/fonts` / `DELETE /api/fonts/{sha256}`，含 request/response 示例与 4xx 错误码。
 
-22. **`docs/工单列表.md`** 追加 1 行（**W-FONT-001 行之后**）：
+22. **`docs/workflow/工单列表.md`** 追加 1 行（**W-FONT-001 行之后**）：
 
     ```
     | W-FONT-002 | 助手设置「字体设置」tab 新增本地 .ttf / .otf 字体文件导入 | 待办 | app/font_registry.py（新增）、app/web_api/font_registry.py（新增）、main.py（启动 hook）、web/static/index.html、web/static/modules/settings.js、tests、docs | — | 见 [工单/W-FONT-002.md](工单/W-FONT-002.md) |
@@ -568,7 +568,7 @@ W-FONT-001 已完成「系统字体名称选择」（`Microsoft YaHei` / `SimHei
 
 ## 完成后必须更新的文档
 
-- [ ] [docs/工单列表.md](../../工单列表.md)（追加 W-FONT-002 登记表行；顶部「最后更新」日期刷新）
+- [ ] [docs/workflow/工单列表.md](../../workflow/工单列表.md)（追加 W-FONT-002 登记表行；顶部「最后更新」日期刷新）
 - [ ] [docs/WEB_CONSOLE.md](../../WEB_CONSOLE.md)（追加「导入本地字体」UI 描述 + 3 路由说明）
 - [ ] [docs/工单列表/工单/W-FONT-002-完成报告.md](../../工单列表/工单/W-FONT-002-完成报告.md)（按 `Codex完成报告模板.md` 10 节结构；**强制** §3 列出未越界关键区域）
 
@@ -576,7 +576,7 @@ W-FONT-001 已完成「系统字体名称选择」（`Microsoft YaHei` / `SimHei
 
 - 使用 [Codex完成报告模板.md](../Codex完成报告/Codex完成报告模板.md)（10 节）
 - 必须列出**全部**修改文件路径（**新增** 3 个：`app/font_registry.py` / `app/web_api/font_registry.py` / `tests/test_font_registry.py`；**修改** ≈ 10 个：main.py / routes.py / constants.py / config_defaults.py / index.html / settings.js / test_config_defaults.py / test_web_routes.py / test_floating_panel.py / test_overlay_render.py / WEB_CONSOLE.md / 工单列表.md / 本完成报告）
-- 范围外问题写入 [docs/已知问题与后续事项.md](../../已知问题与后续事项.md)，**不**顺手修复
+- 范围外问题写入 [docs/已知问题与后续事项.md](../../workflow/已知问题与后续事项.md)，**不**顺手修复
 - **强制**：完成报告 §3「未修改的关键区域」必须列出 `app/overlay.py` / `app/floating_panel.py` / `app/danmu_engine.py` / `app/ai_client.py` / `app/mic_*.py` / `app/web_console.py` / `app/web_console_runtime.py` 证明未越界
 - **强制**：完成报告 §7 须说明 8 个核心边界用例的手动验证结果（合法导入 / 4 类 4xx 拒绝 / hot reload 上屏字体 / 重启后 `imported_fonts` 持久化 / 目录与 DB 互校验 / 删除幂等 / `_safe_str` 兜底 / `__danmu_token` 复用核查）
 - **强制**：完成报告 §8 必须确认 `window.__danmu_token` 名称与既有 `web/static/app.js` 一致；若不一致须写「ISSUE-XXX：token 注入需重命名」并停手

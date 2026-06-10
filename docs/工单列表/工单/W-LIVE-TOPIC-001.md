@@ -1,4 +1,4 @@
-# W-LIVE-TOPIC-001 — 人格工坊新增「提示内容」输入框并接入 AI 弹幕生成提示词
+﻿# W-LIVE-TOPIC-001 — 人格工坊新增「提示内容」输入框并接入 AI 弹幕生成提示词
 
 > **来源**：用户需求（2026-06-06 讨论确立）
 > **执行者**：Codex / Cursor Agent
@@ -51,10 +51,10 @@
 - `web/static/app.js`（追加 `loadLiveTopic` / `saveLiveTopic` 函数；`loadPersonaEditor` 末尾挂载；`#btnSaveLiveTopic` click 监听）
 - `tests/test_web_persona_api.py`（新增用例）
 - `tests/test_reply_contract.py`（可选，验证 `append_live_topic_to_system_pt` 行为）
-- `docs/当前仓库状态.md`（追加 W-LIVE-TOPIC-001 最近变更段）
+- `docs/workflow/当前仓库状态.md`（追加 W-LIVE-TOPIC-001 最近变更段）
 - `docs/WEB_CONSOLE.md`（「人格工坊」节加新输入框 + config key 说明）
 - `docs/CHANGELOG.md`（行为变更条目）
-- `docs/工单列表.md`（本工单登记为「已完成」）
+- `docs/workflow/工单列表.md`（本工单登记为「已完成」）
 - `docs/templates/Codex完成报告/W-LIVE-TOPIC-001-完成报告.md`（新建完成报告）
 
 ## 禁止修改的区域
@@ -173,8 +173,8 @@
 - [ ] **持久化往返**：保存后离开人格工坊页再回来，输入框内容仍存在（GET /api/config 返回值正确填入）。
 - [ ] **空值时按钮也可保存**：清空后点保存，DB 中 `live_topic` 变为 `""`，toast 提示"主题已清空"。
 - [ ] 完成报告已写至 `docs/templates/Codex完成报告/W-LIVE-TOPIC-001-完成报告.md`。
-- [ ] [docs/当前仓库状态.md](../../当前仓库状态.md) 追加 W-LIVE-TOPIC-001 最近变更段。
-- [ ] [docs/工单列表.md](../../工单列表.md) 将 W-LIVE-TOPIC-001 登记为「已完成」。
+- [ ] [docs/workflow/当前仓库状态.md](../../workflow/当前仓库状态.md) 追加 W-LIVE-TOPIC-001 最近变更段。
+- [ ] [docs/workflow/工单列表.md](../../workflow/工单列表.md) 将 W-LIVE-TOPIC-001 登记为「已完成」。
 
 ## 手动验证步骤
 
@@ -249,8 +249,8 @@
 
 ## 完成后必须更新的文档
 
-- [ ] [docs/当前仓库状态.md](../../当前仓库状态.md)（追加 W-LIVE-TOPIC-001 最近变更段）
-- [ ] [docs/工单列表.md](../../工单列表.md)（将 W-LIVE-TOPIC-001 从「待办」移入「已完成工单」表行）
+- [ ] [docs/workflow/当前仓库状态.md](../../workflow/当前仓库状态.md)（追加 W-LIVE-TOPIC-001 最近变更段）
+- [ ] [docs/workflow/工单列表.md](../../workflow/工单列表.md)（将 W-LIVE-TOPIC-001 从「待办」移入「已完成工单」表行）
 - [ ] [docs/WEB_CONSOLE.md](../../WEB_CONSOLE.md)（在「人格工坊」节追加新输入框说明 + `live_topic` config key）
 - [ ] [docs/CHANGELOG.md](../../CHANGELOG.md)（行为变更条目）
 - [ ] [docs/templates/Codex完成报告/W-LIVE-TOPIC-001-完成报告.md](../../templates/Codex完成报告/Codex完成报告模板.md)（新建完成报告）

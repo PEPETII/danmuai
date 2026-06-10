@@ -70,19 +70,19 @@ Danmaku-master/
 .cursor/
 docs/archive/architecture-phases/
 docs/archive/planning/
-docs/archive/*.md
+docs/archive/qt6_ui_redesign_plan.md
 
 # Maintainer docs (local only — not published on GitHub)
 AGENTS.md
-docs/ai-project-context.md
-docs/工单列表.md
-docs/当前仓库状态.md
-docs/已知问题与后续事项.md
-docs/手动验收指南.md
-docs/提示词上下文包.md
-docs/设计更新说明.md
-docs/Codex工单交接模板.md
-docs/Codex提示词手册.md
+docs/agent/ai-project-context.md
+docs/workflow/工单列表.md
+docs/workflow/当前仓库状态.md
+docs/workflow/已知问题与后续事项.md
+docs/agent/手动验收指南.md
+docs/agent/提示词上下文包.md
+docs/workflow/设计更新说明.md
+docs/agent/Codex工单交接模板.md
+docs/agent/Codex提示词手册.md
 docs/workflow/
 docs/templates/
 docs/bug-audit/
