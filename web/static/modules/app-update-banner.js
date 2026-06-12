@@ -1,6 +1,6 @@
 import { API, apiFetch } from './transport.js';
 
-const DEFAULT_RELEASE_URL = 'https://github.com/PEPETII/danmuai/releases';
+const DEFAULT_RELEASE_URL = 'https://updates.qiaoqiao.buzz/downloads/DanmuAI-Setup.exe';
 const APP_UPDATE_DISMISS_LOCAL_KEY = 'danmu_app_update_dismissed_latest';
 
 const appVersionState = {
@@ -229,10 +229,113 @@ export async function initAppVersionAndUpdateCheck() {
   }
 }
 
+let velopackUpdateAvailable = false;
+
+async function fetchVelopackUpdateStatus() {
+  try {
+    const res = await fetch(`${API.base}/api/update/status`, { cache: 'no-store' });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+async function runVelopackCheckUpdate() {
+  const res = await fetch(`${API.base}/api/update/check`, { method: 'POST' });
+  if (!res.ok) throw new Error('update check failed');
+  return res.json();
+}
+
+async function runVelopackDownloadUpdate() {
+  const res = await fetch(`${API.base}/api/update/download`, { method: 'POST' });
+  if (!res.ok) throw new Error('update download failed');
+  return res.json();
+}
+
+async function runVelopackRestartUpdate() {
+  const res = await fetch(`${API.base}/api/update/restart`, { method: 'POST' });
+  if (!res.ok) throw new Error('update restart failed');
+  return res.json();
+}
+
+function refreshVelopackUpdateButtons(data) {
+  const dlBtn = document.getElementById('btnDownloadRestartAppUpdate');
+  if (!dlBtn) return;
+  const show = Boolean(data?.frozen && (data?.download_ready || data?.update_available));
+  dlBtn.classList.toggle('hidden', !show);
+  velopackUpdateAvailable = Boolean(data?.update_available);
+  if (data?.latest_version && data.latest_version !== appVersionState.current) {
+    appVersionState.latest = normalizeVersionString(data.latest_version);
+    refreshAppVersionFooter();
+  }
+}
+
+export async function handleCheckAppUpdateClick() {
+  try {
+    const data = await runVelopackCheckUpdate();
+    refreshVelopackUpdateButtons(data);
+    if (!data.frozen) {
+      showToast(data.message || '源码模式不支持应用内更新');
+      return;
+    }
+    if (!data.ok) {
+      showToast(data.error || data.message || '检查更新失败', true);
+      return;
+    }
+    if (data.update_available) {
+      showToast(data.message || `发现新版本 ${data.latest_version}`);
+    } else {
+      showToast(data.message || '已是最新版本');
+    }
+  } catch (error) {
+    console.warn('[update] check failed', error);
+    showToast('检查更新失败', true);
+  }
+}
+
+export async function handleDownloadRestartAppUpdateClick() {
+  try {
+    let data = await runVelopackDownloadUpdate();
+    if (!data.ok) {
+      showToast(data.error || data.message || '下载失败', true);
+      return;
+    }
+    refreshVelopackUpdateButtons(data);
+    if (!data.download_ready) {
+      showToast(data.message || '请先检查更新');
+      return;
+    }
+  } catch (error) {
+    console.warn('[update] download failed', error);
+    showToast('下载更新失败', true);
+    return;
+  }
+  try {
+    await runVelopackRestartUpdate();
+  } catch (error) {
+    console.warn('[update] restart failed', error);
+    showToast('重启安装失败', true);
+  }
+}
+
+export function initVelopackUpdateButtons() {
+  document.getElementById('btnCheckAppUpdate')?.addEventListener('click', () => {
+    void handleCheckAppUpdateClick();
+  });
+  document.getElementById('btnDownloadRestartAppUpdate')?.addEventListener('click', () => {
+    void handleDownloadRestartAppUpdateClick();
+  });
+  void fetchVelopackUpdateStatus().then((data) => {
+    if (data) refreshVelopackUpdateButtons(data);
+  });
+}
+
 export function initAppUpdateModal(deps = {}) {
   toast = deps.showToast || toast;
   if (handlersBound) return;
   handlersBound = true;
+  initVelopackUpdateButtons();
 
   document.getElementById('btnAppUpdateYes')?.addEventListener('click', () => {
     const url = appVersionState.releaseUrl || DEFAULT_RELEASE_URL;

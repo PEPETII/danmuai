@@ -4,7 +4,7 @@
 create table public.app_updates (
   id uuid primary key default gen_random_uuid(),
   latest_version text not null,
-  release_url text not null default 'https://github.com/PEPETII/danmuai/releases',
+  release_url text not null default 'https://updates.qiaoqiao.buzz/downloads/DanmuAI-Setup.exe',
   enabled boolean not null default true,
   message text,
   updated_at timestamptz not null default now()

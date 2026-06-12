@@ -33,6 +33,7 @@ from app.web_api import meme_barrage as meme_api
 from app.web_api import mic_test as mic_test_api
 from app.web_api import persona as persona_api
 from app.web_api import pet as pet_api
+from app.web_api import update as update_api
 from app.web_api.preview_compress import register_preview_compress_route
 
 logger = logging.getLogger(__name__)
@@ -180,6 +181,22 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
         from app.version import __version__
 
         return {"current_version": __version__}
+
+    @app.get("/api/update/status")
+    def get_update_status_route():
+        return update_api.get_update_status()
+
+    @app.post("/api/update/check")
+    def post_update_check_route():
+        return update_api.post_update_check()
+
+    @app.post("/api/update/download")
+    def post_update_download_route():
+        return update_api.post_update_download()
+
+    @app.post("/api/update/restart")
+    def post_update_restart_route():
+        return update_api.post_update_restart()
 
     @app.get("/api/app-update-state")
     def get_app_update_state():

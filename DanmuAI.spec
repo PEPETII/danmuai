@@ -105,6 +105,11 @@ hiddenimports: list[str] = [
     "app.web_api.persona",
     "app.web_api.custom_models",
     "app.bundle_paths",
+    "app.velopack_runtime",
+    "app.velopack_config",
+    "app.update_service",
+    "app.web_api.update",
+    "velopack",
 ]
 
 a = Analysis(

@@ -671,10 +671,13 @@ _web_launch_mode_from_argv = web_launch_mode_from_argv
 
 def main():
     from app.startup_trace import log_startup, mark_app_start
+    from app.velopack_runtime import run_startup_apply_if_needed
+
     multiprocessing.freeze_support()
     mark_app_start()
     log_startup("main.begin")
     check_deprecated_launch_args()
+    run_startup_apply_if_needed()
     sys.excepthook = global_exception_hook
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)

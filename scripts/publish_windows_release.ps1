@@ -1,16 +1,14 @@
-# Build DanmuAI Windows x64 onedir and publish to release/DanmuAI-windows-x64 (+ zip).
-# Requires: Windows, Python 3.12+, repo root as cwd context.
+# Build DanmuAI Windows x64: PyInstaller onedir -> Velopack release bundle.
+# Requires: Windows, Python 3.12+, .NET SDK, vpk (dotnet tool install -g vpk)
 
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
-$ReleaseName = "DanmuAI-windows-x64"
-$ReleaseDir = Join-Path $Root "release\$ReleaseName"
 $ReleaseRoot = Join-Path $Root "release"
+$VelopackDir = Join-Path $ReleaseRoot "velopack"
 $DistDir = Join-Path $Root "dist\DanmuAI"
-$ZipPath = Join-Path $ReleaseRoot "$ReleaseName.zip"
-$VersionFile = Join-Path $ReleaseDir "VERSION.txt"
+$VersionFile = Join-Path $VelopackDir "VERSION.txt"
 
 & (Join-Path $Root "scripts\build_exe.ps1")
 if ($LASTEXITCODE -ne 0) {
@@ -22,43 +20,43 @@ if (-not (Test-Path (Join-Path $DistDir "DanmuAI.exe"))) {
 }
 
 New-Item -ItemType Directory -Force -Path $ReleaseRoot | Out-Null
-if (Test-Path $ReleaseDir) {
-    Remove-Item -LiteralPath $ReleaseDir -Recurse -Force
+if (Test-Path $VelopackDir) {
+    Remove-Item -LiteralPath $VelopackDir -Recurse -Force
 }
 
-Write-Host "Publishing to $ReleaseDir ..."
-Copy-Item -LiteralPath $DistDir -Destination $ReleaseDir -Recurse
+$packResult = & (Join-Path $Root "scripts\velopack_pack.ps1") -PackDir $DistDir -OutputDir $VelopackDir
 
-$gitSha = ""
+$gitSha = "unknown"
 try {
     $gitSha = (git -C $Root rev-parse --short HEAD 2>$null)
-} catch {
-    $gitSha = "unknown"
-}
+} catch { }
 $builtAt = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
-$appVersion = (python -c "from app.version import __version__; print(__version__)").Trim()
+$appVersion = $packResult.Version
+
 @(
-    "DanmuAI Windows x64 (PyInstaller onedir)"
+    "DanmuAI Windows x64 (PyInstaller onedir + Velopack)"
     "Version: $appVersion"
-    "Release folder: $ReleaseName"
     "Built (UTC): $builtAt"
     "Git: $gitSha"
-    "Changelog: docs/CHANGELOG.md"
+    "Changelog: docs/operations/CHANGELOG.md"
     ""
-    "Run DanmuAI.exe inside this folder. Requires WebView2 Runtime on Windows 10/11."
-    "Fallback: DanmuAI.exe --web-browser"
+    "Velopack outputs in this folder:"
+    "  PEPETII.DanmuAI-win-Setup.exe"
+    "  PEPETII.DanmuAI-$appVersion-Setup.exe"
+    "  PEPETII.DanmuAI-$appVersion-full.nupkg"
+    "  releases.win.json"
+    ""
+    "Primary download (after R2 upload): https://updates.qiaoqiao.buzz/downloads/DanmuAI-Setup.exe"
+    "Update feed: https://updates.qiaoqiao.buzz/releases/win/stable"
 ) | Set-Content -LiteralPath $VersionFile -Encoding utf8
-
-if (Test-Path $ZipPath) {
-    Remove-Item -LiteralPath $ZipPath -Force
-}
-Write-Host "Creating $ZipPath ..."
-Compress-Archive -LiteralPath $ReleaseDir -DestinationPath $ZipPath -CompressionLevel Optimal
 
 Write-Host ""
 Write-Host "Done."
-Write-Host "  Folder: $ReleaseDir"
-Write-Host "  Zip:    $ZipPath"
-$exe = Join-Path $ReleaseDir "DanmuAI.exe"
-$sizeMb = [math]::Round((Get-Item $exe).Length / 1MB, 2)
-Write-Host "  Exe:    $exe ($sizeMb MB)"
+Write-Host "  Output:   $VelopackDir"
+Write-Host "  Setup:    $($packResult.SetupExe)"
+Write-Host "  Versioned: $($packResult.VersionedSetup)"
+Write-Host "  Nupkg:    $($packResult.FullNupkg)"
+Write-Host "  Feed:     $($packResult.FeedJson)"
+if ($packResult.PortableZip) {
+    Write-Host "  Portable: $($packResult.PortableZip)"
+}

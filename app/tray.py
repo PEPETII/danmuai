@@ -9,7 +9,7 @@ QSystemTrayIcon 持有「显示控制台 / 退出 / 重启 Web 终端」菜单�
 
 from PyQt6.QtCore import QRect, Qt
 from PyQt6.QtGui import QAction, QColor, QFont, QIcon, QPainter, QPixmap
-from PyQt6.QtWidgets import QMenu, QSystemTrayIcon
+from PyQt6.QtWidgets import QMenu, QMessageBox, QSystemTrayIcon
 
 from app.bundle_paths import resource_path
 from app.translations import Translator, tr
@@ -55,8 +55,13 @@ class TrayManager:
         self.quit_action = QAction()
         self.quit_action.triggered.connect(self.app.quit)
 
+        self.check_update_action = QAction()
+        self.check_update_action.triggered.connect(self._on_check_update)
+
         self.menu.addAction(self.toggle_action)
         self.menu.addAction(self.settings_action)
+        self.menu.addSeparator()
+        self.menu.addAction(self.check_update_action)
         self.menu.addSeparator()
         self.menu.addAction(self.quit_action)
 
@@ -66,8 +71,49 @@ class TrayManager:
 
     def _retranslate_ui(self):
         self.settings_action.setText(tr("tray.settings"))
+        self.check_update_action.setText(tr("tray.check_update", "检查更新"))
         self.quit_action.setText(tr("tray.quit"))
         self.update_state(getattr(self.app.engine, "running", False))
+
+    def _on_check_update(self):
+        from app import update_service
+
+        result = update_service.check_for_updates()
+        title = tr("tray.check_update", "检查更新")
+        if not result.ok:
+            detail = result.message or result.error or tr("tray.update_check_failed", "检查失败")
+            QMessageBox.warning(None, title, detail)
+            return
+        if result.update_available:
+            reply = QMessageBox.question(
+                None,
+                title,
+                f"发现新版本 {result.latest_version}，是否下载？",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
+            if reply == QMessageBox.StandardButton.Yes:
+                dl = update_service.download_updates()
+                if dl.ok and dl.download_ready:
+                    restart = QMessageBox.question(
+                        None,
+                        title,
+                        tr("tray.update_restart_prompt", "更新已下载，是否立即重启安装？"),
+                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    )
+                    if restart == QMessageBox.StandardButton.Yes:
+                        update_service.apply_updates_and_restart()
+                else:
+                    QMessageBox.warning(
+                        None,
+                        title,
+                        dl.message or dl.error or tr("tray.update_download_failed", "下载失败"),
+                    )
+        else:
+            QMessageBox.information(
+                None,
+                title,
+                result.message or tr("tray.update_up_to_date", "已是最新版本"),
+            )
 
     def _on_activated(self, reason):
         if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
