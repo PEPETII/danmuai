@@ -13,6 +13,7 @@ from app.application.request_scheduler import RequestScheduler
 from app.application.request_timing_service import RequestTimingService
 from app.main_helpers import MAX_IN_FLIGHT, density_right_target, reply_request_id
 from main import DanmuApp
+from PyQt6.QtCore import QObject
 
 from tests.conftest import bind_minimal_danmu_app
 from tests.fakes import (
@@ -70,12 +71,50 @@ def _make_request_app(**overrides):
     object.__setattr__(app, "_log_api_schedule", lambda **_kwargs: None)
     object.__setattr__(app, "_publish_live_status", lambda: None)
     object.__setattr__(app, "_set_error_status_safe", lambda *_args, **_kwargs: None)
-    object.__setattr__(app, "_record_prompt_dedup_display", lambda *_args, **_kwargs: None)
-    object.__setattr__(app, "_memory_enabled", lambda: False)
     object.__setattr__(app, "_current_persona", "p1")
     object.__setattr__(app, "visible_display_count", lambda: 0)
     app.engine.running = True
     return app
+
+
+def test_lifecycle_init_creates_scheduler_and_timing_once(qapp, monkeypatch):
+    """W-LIFECYCLE-STATE-DEDUP-001: pipeline + tracking init must not recreate scheduler/timing."""
+    scheduler_calls: list[RequestScheduler] = []
+    timing_calls: list[RequestTimingService] = []
+
+    original_scheduler = RequestScheduler
+    original_timing = RequestTimingService
+
+    def tracking_scheduler(*args, **kwargs):
+        inst = original_scheduler(*args, **kwargs)
+        scheduler_calls.append(inst)
+        return inst
+
+    def tracking_timing(*args, **kwargs):
+        inst = original_timing(*args, **kwargs)
+        timing_calls.append(inst)
+        return inst
+
+    monkeypatch.setattr("app.main_lifecycle_mixin.RequestScheduler", tracking_scheduler)
+    monkeypatch.setattr("app.main_lifecycle_mixin.RequestTimingService", tracking_timing)
+
+    app = DanmuApp.__new__(DanmuApp)
+    QObject.__init__(app)
+    app.config = FakeConfig()
+    app.logger = FakeLogger()
+    for name in ("_on_ai_reply", "_on_ai_error", "_on_mic_utterance_end", "_publish_live_status"):
+        object.__setattr__(app, name, getattr(DanmuApp, name).__get__(app, DanmuApp))
+
+    DanmuApp._init_request_pipeline_state(app)
+    scheduler_ref = app._request_scheduler
+    timing_ref = app._request_timing_service
+
+    DanmuApp._init_runtime_tracking_state(app)
+
+    assert len(scheduler_calls) == 1
+    assert len(timing_calls) == 1
+    assert app._request_scheduler is scheduler_ref
+    assert app._request_timing_service is timing_ref
 
 
 def test_reply_request_id_format():
@@ -316,7 +355,7 @@ def test_on_ai_reply_consumes_timing_on_success_path(monkeypatch):
     app._consume_reply_queue = Mock()
     app.reply_timer.active = False
     monkeypatch.setattr(main.time, "monotonic", lambda: 11.2)
-    monkeypatch.setattr(main, "parse_ai_reply_with_memory", lambda text, scene_generation: (["A"], None))
+    monkeypatch.setattr(main, "parse_ai_reply_payload", lambda text: ["A"])
     monkeypatch.setattr(main, "normalize_reply_batch", lambda raw_items, **_kwargs: raw_items)
 
     app._on_ai_reply('["A"]', "p1", 3, 5, 10.0, 0)

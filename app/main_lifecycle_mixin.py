@@ -162,14 +162,12 @@ class DanmuAppLifecycleMixin:
     def _init_runtime_tracking_state(self) -> None:
         self._pending = False
         self._latest_displayed_round = 0
-        self._request_timing_service = RequestTimingService()
         self._scene_generation = 0
         self._inflight_scene_generation = 0
         self._latest_screenshot_id = 0
         self._latest_requested_screenshot_id = 0
         self._latest_queued_screenshot_id = 0
         self._latest_displayed_screenshot_id = 0
-        self._request_scheduler = RequestScheduler()
         self._scene_memory = SceneBriefStore()
         self._mic_service = MicService(log_fn=lambda msg: self.logger.info(msg))
         self._mic_orchestrator = MicOrchestrator(
