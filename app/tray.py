@@ -116,7 +116,10 @@ class TrayManager:
             )
 
     def _on_activated(self, reason):
-        if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
+        if reason in (
+            QSystemTrayIcon.ActivationReason.DoubleClick,
+            QSystemTrayIcon.ActivationReason.Trigger,
+        ):
             self.app.show_settings()
 
     def _tooltip_with_action_hint(self, state_key: str) -> str:

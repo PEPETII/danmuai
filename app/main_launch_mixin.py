@@ -59,6 +59,32 @@ class DanmuAppLaunchMixin:
         if shell and shell.handshake_failed and server:
             self._prompt_browser_fallback_after_webview_failure(server, path)
             return
+
+        # BUG-XXX: 服务器线程已终止时尝试恢复或兜底打开浏览器
+        if server:
+            from app.web_console import classify_web_console_startup, open_web_console_browser
+
+            phase = classify_web_console_startup(server)
+            if phase == "failed":
+                self.logger.warning(
+                    "Web 控制台进程不可用（phase=failed），尝试重启或打开系统浏览器"
+                )
+                # 尝试重启一次
+                server._startup_failure_user_notified = False
+                server.start()
+                from app.webview_shell import wait_for_http_server
+
+                if wait_for_http_server(server.base_url, timeout=3.0):
+                    server.startup_ok = True
+                    self.web_server = server
+                    self.logger.info("Web 控制台重启成功")
+                else:
+                    self.logger.warning(
+                        "Web 控制台重启失败，已打开系统浏览器作为兜底"
+                    )
+                    open_web_console_browser(server, path)
+                    return
+
         if self.web_launch_mode == "webview" and self.web_server:
             self._open_web_console_when_ready(path, use_browser=False)
             return
