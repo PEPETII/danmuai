@@ -2,13 +2,9 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
+from app.supabase_app_updates import clear_app_update_cache, fetch_app_update
 from app.velopack_config import UPDATE_FEED_URL
-from app.version_compare import compare_versions, is_version_newer, normalize_version
-
-if TYPE_CHECKING:
-    from app.update_service import UpdateStatus
+from app.version_compare import is_version_newer, normalize_version
 
 GITHUB_RELEASES_URL = "https://github.com/PEPETII/danmuai/releases"
 QUARK_URL = "https://pan.quark.cn/s/33bc4f23d1df"
@@ -19,10 +15,6 @@ QUARK_SHARE_TEXT = (
 BAIDU_URL = "https://pan.baidu.com/s/18GiqaUhpBw8w96-PpHU9Gw"
 BAIDU_EXTRACT_CODE = "1234"
 R2_LATEST_INSTALLER_URL = "https://updates.qiaoqiao.buzz/downloads/DanmuAI-Setup.exe"
-
-# Align with app.version.__version__ and Supabase app_updates on each release.
-LATEST_PUBLISHED_VERSION = "0.3.1"
-UPDATE_ANNOUNCEMENT_MESSAGE = ""
 
 
 def to_dict() -> dict[str, str]:
@@ -36,31 +28,29 @@ def to_dict() -> dict[str, str]:
     }
 
 
-def build_update_metadata(
-    *,
-    current_version: str,
-    velopack_status: UpdateStatus | None = None,
-) -> dict[str, str | bool]:
-    """Assemble channel metadata. velopack_status is for unit tests only; HTTP channels must not pass it."""
-    current = normalize_version(current_version)
-    latest = normalize_version(LATEST_PUBLISHED_VERSION)
-    message = UPDATE_ANNOUNCEMENT_MESSAGE
-    update_available = is_version_newer(latest, current)
+def resolve_published_update() -> tuple[str, str, str]:
+    """Return ``(latest_version, release_url, message)`` from Supabase or offline fallback."""
+    from app.version import __version__
 
-    if velopack_status is not None and velopack_status.frozen and velopack_status.ok:
-        vp_latest = normalize_version(velopack_status.latest_version or "")
-        if vp_latest and compare_versions(vp_latest, latest) > 0:
-            latest = vp_latest
-        if velopack_status.update_available:
-            update_available = True
-        elif vp_latest:
-            update_available = is_version_newer(vp_latest, current)
+    row = fetch_app_update()
+    if row is not None and row.latest_version:
+        release_url = row.release_url or R2_LATEST_INSTALLER_URL
+        return normalize_version(row.latest_version), release_url, row.message
+
+    # Unconfigured / unreachable: align latest with local build to avoid false prompts.
+    return normalize_version(__version__), R2_LATEST_INSTALLER_URL, ""
+
+
+def build_update_metadata(*, current_version: str) -> dict[str, str | bool]:
+    current = normalize_version(current_version)
+    latest, release_url, message = resolve_published_update()
+    update_available = is_version_newer(latest, current)
 
     payload: dict[str, str | bool] = {
         "current_version": current,
         "latest_version": latest,
         "update_available": update_available,
-        "release_url": R2_LATEST_INSTALLER_URL,
+        "release_url": release_url,
         "feed_url": UPDATE_FEED_URL,
         "message": message,
     }

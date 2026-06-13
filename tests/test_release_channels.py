@@ -6,14 +6,19 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 import pytest
 
-from app import release_channels, update_service
-from app.release_channels import (
-    LATEST_PUBLISHED_VERSION,
-    R2_LATEST_INSTALLER_URL,
-    UPDATE_FEED_URL,
-)
+from app import release_channels
+from app.release_channels import R2_LATEST_INSTALLER_URL, UPDATE_FEED_URL
+from app.supabase_app_updates import AppUpdateRemote, clear_app_update_cache
 from app.velopack_config import UPDATE_FEED_URL as VPK_FEED_URL
+from app.version import __version__
 from app.web_api import update as update_api_mod
+
+
+@pytest.fixture(autouse=True)
+def _reset_app_update_cache():
+    clear_app_update_cache()
+    yield
+    clear_app_update_cache()
 
 
 def test_release_channels_constants():
@@ -24,10 +29,6 @@ def test_release_channels_constants():
     assert d["baidu_url"] == "https://pan.baidu.com/s/18GiqaUhpBw8w96-PpHU9Gw"
     assert d["baidu_extract_code"] == "1234"
     assert d["r2_latest_installer_url"] == R2_LATEST_INSTALLER_URL
-    assert d["r2_latest_installer_url"] == (
-        "https://updates.qiaoqiao.buzz/downloads/DanmuAI-Setup.exe"
-    )
-    assert LATEST_PUBLISHED_VERSION
     assert UPDATE_FEED_URL == VPK_FEED_URL
 
 
@@ -53,65 +54,86 @@ def test_build_update_metadata_returns_all_keys():
         assert key in meta
 
 
+def test_resolve_published_update_uses_supabase_row():
+    remote = AppUpdateRemote(
+        latest_version="0.4.0",
+        release_url="https://example.com/DanmuAI-Setup.exe",
+        message="Security patch",
+    )
+    with patch.object(release_channels, "fetch_app_update", return_value=remote):
+        latest, release_url, message = release_channels.resolve_published_update()
+    assert latest == "0.4.0"
+    assert release_url == "https://example.com/DanmuAI-Setup.exe"
+    assert message == "Security patch"
+
+
+def test_resolve_published_update_offline_fallback_matches_local_version():
+    with patch.object(release_channels, "fetch_app_update", return_value=None):
+        latest, release_url, message = release_channels.resolve_published_update()
+    assert latest == __version__
+    assert release_url == R2_LATEST_INSTALLER_URL
+    assert message == ""
+
+
 @pytest.mark.parametrize(
-    "current,expected",
+    "current,remote_latest,expected",
     [
-        ("0.2.0", True),
-        ("0.3.1", False),
-        ("0.4.0", False),
+        ("0.2.0", "0.4.0", True),
+        ("0.4.0", "0.4.0", False),
+        ("0.5.0", "0.4.0", False),
     ],
 )
-def test_build_update_metadata_update_available(current, expected):
-    meta = release_channels.build_update_metadata(current_version=current)
+def test_build_update_metadata_update_available(current, remote_latest, expected):
+    remote = AppUpdateRemote(
+        latest_version=remote_latest,
+        release_url=R2_LATEST_INSTALLER_URL,
+        message="",
+    )
+    with patch.object(release_channels, "fetch_app_update", return_value=remote):
+        meta = release_channels.build_update_metadata(current_version=current)
     assert meta["update_available"] is expected
-    assert meta["latest_version"] == LATEST_PUBLISHED_VERSION
+    assert meta["latest_version"] == remote_latest
 
 
-def test_build_update_metadata_merges_velopack_when_newer():
-    vp = update_service.UpdateStatus(
-        ok=True,
-        frozen=True,
-        current_version="0.3.0",
-        latest_version="0.4.0",
-        update_available=True,
-    )
-    meta = release_channels.build_update_metadata(
-        current_version="0.3.0",
-        velopack_status=vp,
-    )
-    assert meta["latest_version"] == "0.4.0"
-    assert meta["update_available"] is True
+def test_build_update_metadata_offline_no_false_prompt():
+    with patch.object(release_channels, "fetch_app_update", return_value=None):
+        meta = release_channels.build_update_metadata(current_version=__version__)
+    assert meta["latest_version"] == __version__
+    assert meta["update_available"] is False
 
 
 def test_release_channels_api_route():
+    remote = AppUpdateRemote(
+        latest_version="0.4.0",
+        release_url=R2_LATEST_INSTALLER_URL,
+        message="",
+    )
     api = FastAPI()
 
     @api.get("/api/update/channels")
     def _channels():
         return update_api_mod.get_release_channels()
 
-    client = TestClient(api)
-    res = client.get("/api/update/channels")
+    with patch.object(release_channels, "fetch_app_update", return_value=remote):
+        client = TestClient(api)
+        res = client.get("/api/update/channels")
     assert res.status_code == 200
     body = res.json()
     for key in _METADATA_KEYS:
         assert key in body
+    assert body["latest_version"] == "0.4.0"
     assert body["github_releases_url"].startswith("https://github.com/")
     assert body["baidu_extract_code"] == "1234"
-    assert body["r2_latest_installer_url"] == R2_LATEST_INSTALLER_URL
     assert body["feed_url"] == UPDATE_FEED_URL
 
 
-@pytest.mark.parametrize("frozen", [False, True])
-def test_get_update_channels_never_calls_velopack_check(frozen):
-    with patch.object(update_service, "get_status") as mock_status:
-        with patch.object(update_service, "check_for_updates") as mock_check:
-            mock_status.return_value = update_service.UpdateStatus(
-                ok=True,
-                frozen=frozen,
-                current_version="0.3.0",
-            )
-            payload = update_api_mod.get_update_channels()
+def test_get_update_channels_never_calls_velopack_check():
+    from app import update_service
+
+    with patch.object(release_channels, "fetch_app_update", return_value=None):
+        with patch.object(update_service, "get_status") as mock_status:
+            with patch.object(update_service, "check_for_updates") as mock_check:
+                payload = update_api_mod.get_update_channels()
     mock_status.assert_not_called()
     mock_check.assert_not_called()
-    assert payload["latest_version"] == LATEST_PUBLISHED_VERSION
+    assert payload["latest_version"] == __version__

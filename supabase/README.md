@@ -12,7 +12,7 @@ Apply migrations in order (or use Supabase MCP `apply_migration`):
 8. `migrations/008_error_reports_user_note.sql` — 错误报告可选 `user_note`（补充说明）与 `contact`
 9. `migrations/009_tutorial_links.sql` — 教程页视频链接（`tutorial_links`，anon 只读）
 
-Copy `../web/static/supabase-config.example.js` to `../web/static/supabase-config.js` and set `url` + `anonKey`.
+Copy `../web/static/supabase-config.example.js` to `../web/static/supabase-config.js` and set `url` + `anonKey`. The desktop **backend** reads the same credentials (or `DANMU_SUPABASE_URL` / `DANMU_SUPABASE_ANON_KEY`) for `GET /api/update/channels` → Supabase `app_updates`.
 
 ## `error_reports`（自动错误反馈）
 
@@ -35,17 +35,17 @@ Copy `../web/static/supabase-config.example.js` to `../web/static/supabase-confi
 | 列 | 说明 |
 |----|------|
 | `latest_version` | 最新发布版本（semver `vx.x.x`，如 `0.3.0` 或 `v0.3.0`，与 `app/version.py` 一致） |
-| `release_url` | 下载页，默认 GitHub Releases |
+| `release_url` | 下载页；默认 **R2 主下载 Setup.exe**（`https://updates.qiaoqiao.buzz/downloads/DanmuAI-Setup.exe`）；便携版见 `PEPETII.DanmuAI-win-Portable.zip`；GitHub Releases 仅备用 |
 | `enabled` | `false` 时客户端不读取该行 |
 | `message` | 可选，更新弹窗副文案 |
 
-**运维**：发布 GitHub Release 并确认安装包无误后，在 Table Editor 插入或更新**一条** `enabled=true` 记录（通常只保留最新一行；客户端按 `updated_at desc` 取第一条）。
+**运维**：发布 GitHub Release 并确认安装包无误后，在 Table Editor 插入或更新**一条** `enabled=true` 记录（通常只保留最新一行；客户端按 `updated_at desc` 取第一条）。Web 控制台版本区与更新弹窗通过后端 `GET /api/update/channels` 读取本表，不再维护 `app/release_channels.py` 中的发布版本常量。
 
 ```sql
 insert into public.app_updates (latest_version, release_url, message)
 values (
   '0.3.0',
-  'https://github.com/PEPETII/danmuai/releases',
+  'https://updates.qiaoqiao.buzz/downloads/DanmuAI-Setup.exe',
   null
 );
 ```

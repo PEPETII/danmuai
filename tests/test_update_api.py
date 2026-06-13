@@ -71,36 +71,46 @@ def test_update_channels_public_without_token():
 
 
 def test_update_channels_readonly_never_calls_velopack_check():
-    from app.release_channels import LATEST_PUBLISHED_VERSION
+    from app import release_channels
+    from app.supabase_app_updates import AppUpdateRemote
+    from app.version import __version__
 
-    with patch.object(update_service, "get_status") as mock_status:
-        with patch.object(update_service, "check_for_updates") as mock_check:
-            client = _make_client()
-            res = client.get("/api/update/channels")
+    remote = AppUpdateRemote(
+        latest_version="0.4.0",
+        release_url="https://updates.qiaoqiao.buzz/downloads/DanmuAI-Setup.exe",
+        message="",
+    )
+    with patch.object(release_channels, "fetch_app_update", return_value=remote):
+        with patch.object(update_service, "get_status") as mock_status:
+            with patch.object(update_service, "check_for_updates") as mock_check:
+                client = _make_client()
+                res = client.get("/api/update/channels")
     mock_status.assert_not_called()
     mock_check.assert_not_called()
     assert res.status_code == 200
     body = res.json()
-    assert body["latest_version"] == LATEST_PUBLISHED_VERSION
+    assert body["latest_version"] == "0.4.0"
 
 
 @pytest.mark.parametrize("frozen", [False, True])
 def test_update_channels_frozen_still_skips_velopack_check(frozen):
-    from app.release_channels import LATEST_PUBLISHED_VERSION
+    from app import release_channels
+    from app.version import __version__
 
-    with patch.object(update_service, "get_status") as mock_status:
-        with patch.object(update_service, "check_for_updates") as mock_check:
-            mock_status.return_value = update_service.UpdateStatus(
-                ok=True,
-                frozen=frozen,
-                current_version="0.3.0",
-            )
-            client = _make_client()
-            res = client.get("/api/update/channels")
+    with patch.object(release_channels, "fetch_app_update", return_value=None):
+        with patch.object(update_service, "get_status") as mock_status:
+            with patch.object(update_service, "check_for_updates") as mock_check:
+                mock_status.return_value = update_service.UpdateStatus(
+                    ok=True,
+                    frozen=frozen,
+                    current_version="0.3.0",
+                )
+                client = _make_client()
+                res = client.get("/api/update/channels")
     mock_check.assert_not_called()
     assert res.status_code == 200
     body = res.json()
-    assert body["latest_version"] == LATEST_PUBLISHED_VERSION
+    assert body["latest_version"] == __version__
 
 
 @pytest.mark.parametrize(
