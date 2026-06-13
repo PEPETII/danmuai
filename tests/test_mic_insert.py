@@ -2,7 +2,6 @@ import time
 from unittest.mock import Mock
 
 import pytest
-from app.scene_memory import SceneBriefStore
 from main import BatchTracker, DanmuApp
 
 from tests.conftest import bind_minimal_danmu_app
@@ -23,8 +22,6 @@ def _bind_main_methods(app):
         "_consume_request_timing",
         "_publish_live_status",
         "_consume_reply_queue",
-        "_scene_memory_enabled",
-        "_prompt_dedup_enabled",
     ):
         setattr(app, name, getattr(DanmuApp, name).__get__(app, DanmuApp))
     app.logger = Mock()
@@ -96,10 +93,8 @@ def test_visual_on_ai_reply_still_decrements_ai_inflight(app):
     assert app._is_generating is False
 
 
-def test_mic_ai_reply_updates_scene_brief(app):
-    cfg = FakeConfig({"scene_memory_enabled": "1"})
-    app.config = cfg
-    app._scene_memory = SceneBriefStore()
+def test_mic_ai_reply_parses_object_envelope(app):
+    app.config = FakeConfig({})
     app._consume_reply_queue = lambda: None
 
     raw = (
@@ -108,21 +103,4 @@ def test_mic_ai_reply_updates_scene_brief(app):
     )
     app._handle_mic_ai_reply(raw, "persona-1", -1, 10, time.monotonic(), 0)
 
-    assert app._scene_memory.get_brief() == "用户在说话"
-    assert app.reply_buffer.size() == 5
-
-
-def test_mic_ai_reply_skips_scene_brief_when_off(app):
-    cfg = FakeConfig({"scene_memory_enabled": "0"})
-    app.config = cfg
-    app._scene_memory = SceneBriefStore()
-    app._consume_reply_queue = lambda: None
-
-    raw = (
-        '{"scene_brief": "不应写入", '
-        '"comments": ["mic1", "mic2", "mic3", "mic4", "mic5"]}'
-    )
-    app._handle_mic_ai_reply(raw, "persona-1", -1, 10, time.monotonic(), 0)
-
-    assert app._scene_memory.get_brief() == ""
     assert app.reply_buffer.size() == 5

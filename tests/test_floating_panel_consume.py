@@ -36,7 +36,6 @@ def _floating_panel_app(workspace_tmp, qapp):
     )
     object.__setattr__(app, "floating_panel_engine", fp_engine)
     object.__setattr__(app, "floating_panel_overlay", overlay)
-    object.__setattr__(app, "_record_prompt_dedup_display", lambda *a, **k: None)
     object.__setattr__(app, "_maybe_pool_topup", lambda: 0)
     object.__setattr__(app, "_current_batch", None)
     app._danmu_render_mode = DanmuApp._danmu_render_mode.__get__(app, DanmuApp)

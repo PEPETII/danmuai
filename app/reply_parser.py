@@ -1,12 +1,11 @@
 """AI 回复解析：多格式容错、标准化批次与本地弹幕池补齐。
 
 支持输入格式（按检测顺序）：
-  1. JSON 对象 — scene_brief + comments（主格式）
+  1. JSON 数组 — 直接作为弹幕列表（主格式）
   2. JSON 对象 — comments/replies/items/data 键（兼容信封）
-  3. JSON 数组 — 直接作为弹幕列表（兼容）
-  4. 纯文本 — 按换行拆分
+  3. 纯文本 — 按换行拆分
 
-调用方：DanmuApp._on_ai_reply() → parse_ai_reply_with_memory → normalize_reply_batch
+调用方：DanmuApp._on_ai_reply() → parse_ai_reply_payload → normalize_reply_batch
 """
 from __future__ import annotations
 
@@ -16,14 +15,13 @@ import re
 from typing import TYPE_CHECKING
 
 from app.danmu_pool import load_danmu_pool_for_config, sample_danmu_for_config
-from app.memory.types import truncate_scene_brief
 
 if TYPE_CHECKING:
     pass
 
 _COMMENT_KEYS = ("comments", "replies", "items", "data")
-_SCENE_BRIEF_RE = re.compile(r'"scene_brief"\s*:\s*"([^"]*)"')
 _COMMENTS_ARRAY_RE = re.compile(r'"comments"\s*:\s*\[([^\]]*)\]', re.DOTALL)
+_SCENE_BRIEF_VALUE_RE = re.compile(r'"scene_brief"\s*:\s*"([^"]*)"')
 _HEURISTIC_SKIP = frozenset({"comments", "scene_brief", ":", ""})
 
 
@@ -86,8 +84,8 @@ def _heuristic_comments_from_malformed_json(raw: str) -> list[str]:
     if "}{" in raw:
         raw = raw.split("}{", 1)[0] + "}"
 
-    scene_match = _SCENE_BRIEF_RE.search(raw)
-    scene_brief = scene_match.group(1) if scene_match else None
+    scene_brief_match = _SCENE_BRIEF_VALUE_RE.search(raw)
+    scene_brief_value = scene_brief_match.group(1) if scene_brief_match else None
 
     arr_match = _COMMENTS_ARRAY_RE.search(raw)
     if arr_match:
@@ -111,22 +109,12 @@ def _heuristic_comments_from_malformed_json(raw: str) -> list[str]:
     for value in re.findall(r'"((?:[^"\\]|\\.)*)"', raw):
         if not value or value in _HEURISTIC_SKIP or value in _COMMENT_KEYS:
             continue
-        if scene_brief and value == scene_brief:
+        if scene_brief_value and value == scene_brief_value:
             continue
         if len(value) == 1 and not value.isalnum():
             continue
         filtered.append(value)
     return _normalize_comment_list(filtered)
-
-
-def _heuristic_scene_brief_from_raw(raw: str) -> str | None:
-    match = _SCENE_BRIEF_RE.search(raw)
-    if not match:
-        return None
-    text = match.group(1).strip()
-    if not text:
-        return None
-    return truncate_scene_brief(text)
 
 
 def _try_parse_json_array(raw: str):
@@ -167,33 +155,13 @@ def _extract_comments_from_dict(parsed: dict) -> list[str]:
     return []
 
 
-def _extract_scene_brief(parsed: dict) -> str | None:
-    raw = parsed.get("scene_brief")
-    if raw is None:
-        return None
-    text = str(raw).strip()
-    if not text:
-        return None
-    return truncate_scene_brief(text)
-
-
-def parse_ai_reply_with_memory(
-    text: str,
-    scene_generation: int = 0,
-) -> tuple[list[str], str | None]:
-    """解析 AI 原始文本为弹幕列表，并提取可选 scene_brief。
-
-    返回 (comments, scene_brief)；无 scene_brief 时第二项为 None。
-    scene_generation 保留兼容签名，当前未使用。
-    """
-    _ = scene_generation
+def parse_ai_reply_payload(text: str) -> list[str]:
+    """解析 AI 原始文本为弹幕列表。"""
     raw = str(text or "").strip()
     if not raw:
-        return [], None
+        return []
 
     parsed = None
-    scene_brief: str | None = None
-
     if raw.startswith("[") or raw.startswith("{"):
         if raw.startswith("["):
             parsed = _try_parse_json_array(raw)
@@ -202,16 +170,12 @@ def parse_ai_reply_with_memory(
 
     if isinstance(parsed, dict):
         candidates = _extract_comments_from_dict(parsed)
-        scene_brief = _extract_scene_brief(parsed)
         if not candidates and raw.startswith("{"):
             candidates = _heuristic_comments_from_malformed_json(raw)
-        if scene_brief is None and raw.startswith("{"):
-            scene_brief = _heuristic_scene_brief_from_raw(raw)
     elif isinstance(parsed, list):
         candidates = parsed
-    elif raw.startswith("{") and ('"comments"' in raw or '"scene_brief"' in raw):
+    elif raw.startswith("{") and '"comments"' in raw:
         candidates = _heuristic_comments_from_malformed_json(raw)
-        scene_brief = _heuristic_scene_brief_from_raw(raw)
     else:
         candidates = [
             part.strip(" -\t\r\n")
@@ -219,13 +183,7 @@ def parse_ai_reply_with_memory(
             if part.strip()
         ]
 
-    return _normalize_comment_list(candidates), scene_brief
-
-
-def parse_ai_reply_payload(text: str) -> list[str]:
-    """仅解析弹幕列表，忽略 scene_brief（测试与无记忆路径用）。"""
-    items, _ = parse_ai_reply_with_memory(text)
-    return items
+    return _normalize_comment_list(candidates)
 
 
 def _append_next_unique_from_pool(

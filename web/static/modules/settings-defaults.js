@@ -40,7 +40,6 @@ export const CONFIG_FIELDS = [
   'eviction_mode', 'danmu_pending_entry_cap', 'danmu_track_retention_cap', 'reply_queue_max_items',
   'image_max_width', 'image_quality',
   'mic_window_sec', 'mic_api_endpoint', 'mic_api_mode', 'mic_model',
-  'scene_memory_enabled', 'prompt_dedup_enabled', 'scene_memory_interval_sec',
   'normal_recognition_interval_sec', 'normal_reply_count',
   'danmu_render_mode',
   'floating_panel_width',
@@ -57,7 +56,6 @@ export const CONFIG_FIELDS = [
 export const SETTINGS_RESTORE_GROUPS = {
   api: [
     'api_endpoint', 'api_mode', 'screen_index', 'model', 'temperature', 'max_tokens',
-    'scene_memory_enabled', 'prompt_dedup_enabled', 'scene_memory_interval_sec',
   ],
   mic: ['mic_window_sec', 'mic_api_endpoint', 'mic_api_mode', 'mic_model'],
   capture: [],
@@ -78,7 +76,7 @@ export const SETTINGS_RESTORE_GROUPS = {
 };
 
 export const SETTINGS_RESTORE_CHECKBOXES = {
-  api: ['scene_memory_enabled', 'prompt_dedup_enabled'],
+  api: [],
   mic: ['mic_mode_enabled', 'mic_use_visual_model'],
   capture: [],
   danmu: ['empty_accel'],
@@ -107,9 +105,9 @@ function buildNormalReplyContractPreviewZh(count, maxChars) {
   const limit = maxChars ?? resolveDanmuMaxCharsPreview('zh');
   const examples = Array.from({ length: total }, (_, i) => `弹幕${i + 1}`);
   return (
-    '直播弹幕评论员。只输出 JSON 对象，无解释、无 Markdown。'
-    + `固定 ${total} 条 comments，每条≤${limit}字；scene_brief 为不超过 20 字的当前场景简述。`
-    + `格式：{"scene_brief":"当前场景简述","comments":["${examples.join('", "')}"]}。`
+    '直播弹幕评论员。只输出 JSON 字符串数组，无解释、无 Markdown。'
+    + `固定 ${total} 条，每条≤${limit}字。`
+    + `格式：["${examples.join('", "')}"]。`
   );
 }
 

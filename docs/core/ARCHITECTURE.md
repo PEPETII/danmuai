@@ -81,21 +81,9 @@ Details: [MAIN_PIPELINE.md](MAIN_PIPELINE.md). Machine-checked sequence table: [
 - AI HTTP runs in **QThreadPool** (`MAX_IN_FLIGHT=1` for visual).
 - HTTP handlers must not touch Qt objects directly; use `WebConsoleBridge` signals or `QTimer.singleShot(0, ...)`.
 
-## Scene brief memory
-
-Process-local scene brief + optional prompt dedup (`app/memory/`, `app/memory_prompt_builder.py`). **Not persisted** across sessions; configured in the Web console as two independent toggles:
-
-| Setting | Default | Behavior |
-|---------|---------|----------|
-| `scene_memory_enabled` | off | Saves `scene_brief` on refresh ticks and injects the latest brief into each visual user prompt |
-| `scene_memory_interval_sec` | same as recognition interval | Refresh period for `scene_brief`; snapped to an integer multiple of `normal_recognition_interval_sec` (max 12×) |
-| `prompt_dedup_enabled` | on | Records recently displayed bullets and injects a dedup hint block into the next visual user prompt |
-
-AI replies use a single JSON object contract: `{"scene_brief":"…","comments":[…]}`. Mic insert does not inject either block but may still update `scene_brief` when scene memory is enabled. Engine-layer dedup (`dedup_threshold`) remains separate. Web/API details: [WEB_CONSOLE.md](WEB_CONSOLE.md).
-
 ## Scene metadata
 
-- **No screenshot hash / scene-change gate**: the product does not compare consecutive frames to skip API calls. `scene_generation` is still carried on requests/replies for memory keys and logging; it stays `0` for the whole run.
+- **No screenshot hash / scene-change gate**: the product does not compare consecutive frames to skip API calls. `scene_generation` is still carried on requests/replies for logging and request identity; it stays `0` for the whole run.
 - **Normal mode reply policy** (current product):
   - No hard drop of in-flight or queued replies by `screenshot_id`, `captured_at` TTL, scene generation, or supersede.
   - Slow models may show replies slightly behind the live picture; continuity is preferred over strict frame sync.

@@ -23,7 +23,6 @@ from app.danmu_engine import (
     DEFAULT_DANMU_MAX_CHARS_ZH,
     resolve_danmu_max_chars,
 )
-from app.memory.types import SCENE_BRIEF_MAX_LEN_EN, SCENE_BRIEF_MAX_LEN_ZH
 from app.translations import Translator
 
 REPLY_COUNT_MIN = 2
@@ -178,14 +177,31 @@ def _json_example_en(total: int) -> str:
     return '["' + '", "'.join(items) + '"]'
 
 
-def _json_object_example_zh(total: int) -> str:
-    items = [f"弹幕{i}" for i in range(1, total + 1)]
-    return '{"scene_brief":"当前场景简述","comments":["' + '", "'.join(items) + '"]}'
+def build_normal_reply_contract_zh(
+    count: int,
+    max_chars: int | None = None,
+) -> str:
+    total = _clamp_normal_reply_count(count, DEFAULT_NORMAL_REPLY_COUNT)
+    limit = max_chars if max_chars is not None else DEFAULT_DANMU_MAX_CHARS_ZH
+    return (
+        "直播弹幕评论员。只输出 JSON 字符串数组，无解释、无 Markdown。"
+        f"固定 {total} 条，每条≤{limit}字。"
+        f"格式：{_json_example_zh(total)}。"
+    )
 
 
-def _json_object_example_en(total: int) -> str:
-    items = [f"comment {i}" for i in range(1, total + 1)]
-    return '{"scene_brief":"current scene","comments":["' + '", "'.join(items) + '"]}'
+def build_normal_reply_contract_en(
+    count: int,
+    max_chars: int | None = None,
+) -> str:
+    total = _clamp_normal_reply_count(count, DEFAULT_NORMAL_REPLY_COUNT)
+    limit = max_chars if max_chars is not None else DEFAULT_DANMU_MAX_CHARS_EN
+    return (
+        "Live-stream danmu commentator. JSON string array only, no explanation, no Markdown. "
+        f"Exactly {total} comments, max {limit} chars each. "
+        "All comments MUST be in English only. "
+        f"Format: {_json_example_en(total)}."
+    )
 
 
 def build_reply_contract_zh(
@@ -222,36 +238,6 @@ def build_reply_contract_en(
         "All comments MUST be written in English only. "
         f"Each comment must stay within {limit} characters. Avoid repetition. Output format: "
         f"{_json_example_en(total)}."
-    )
-
-
-def build_normal_reply_contract_zh(
-    count: int,
-    max_chars: int | None = None,
-) -> str:
-    total = _clamp_normal_reply_count(count, DEFAULT_NORMAL_REPLY_COUNT)
-    limit = max_chars if max_chars is not None else DEFAULT_DANMU_MAX_CHARS_ZH
-    brief_limit = SCENE_BRIEF_MAX_LEN_ZH
-    return (
-        "直播弹幕评论员。只输出 JSON 对象，无解释、无 Markdown。"
-        f"固定 {total} 条 comments，每条≤{limit}字；scene_brief 为不超过 {brief_limit} 字的当前场景简述。"
-        f"格式：{_json_object_example_zh(total)}。"
-    )
-
-
-def build_normal_reply_contract_en(
-    count: int,
-    max_chars: int | None = None,
-) -> str:
-    total = _clamp_normal_reply_count(count, DEFAULT_NORMAL_REPLY_COUNT)
-    limit = max_chars if max_chars is not None else DEFAULT_DANMU_MAX_CHARS_EN
-    brief_limit = SCENE_BRIEF_MAX_LEN_EN
-    return (
-        "Live-stream danmu commentator. JSON object only, no explanation, no Markdown. "
-        f"Exactly {total} comments, max {limit} chars each; "
-        f"scene_brief is a current-frame summary within {brief_limit} characters. "
-        "All comments MUST be in English only. "
-        f"Format: {_json_object_example_en(total)}."
     )
 
 

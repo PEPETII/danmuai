@@ -35,7 +35,6 @@ from app.model_providers import resolve_active_model_id
 from app.overlay import DanmuOverlay
 from app.personae import PersonaManager
 from app.reply_queue import AIReplyFIFOBuffer
-from app.scene_memory import SceneBriefStore
 from app.snipper import ScreenCapturer, resolve_screen_index
 from app.templates import TemplateManager
 from app.translations import Translator, tr
@@ -168,7 +167,6 @@ class DanmuAppLifecycleMixin:
         self._latest_requested_screenshot_id = 0
         self._latest_queued_screenshot_id = 0
         self._latest_displayed_screenshot_id = 0
-        self._scene_memory = SceneBriefStore()
         self._mic_service = MicService(log_fn=lambda msg: self.logger.info(msg))
         self._mic_orchestrator = MicOrchestrator(
             mic_service=self._mic_service,
@@ -465,7 +463,6 @@ class DanmuAppLifecycleMixin:
         self._mic_request_seq = 0
         self._mic_batch_id = 0
         self._pending_request_meta.clear()
-        self._scene_memory.reset()
         self.reply_buffer.set_max_items(self._queue_capacity())
         self.screenshot_timer.stop()
         self.screenshot_timer.setInterval(self._normal_recognition_interval_ms())

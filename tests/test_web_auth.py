@@ -177,11 +177,11 @@ def test_apply_config_patch_syncs_default_model_id_to_legacy_model():
 
 def test_extract_config_payload_accepts_wrapped_and_flat():
     wrapped = extract_config_payload(
-        {"data": {"scene_memory_enabled": "0", "api_endpoint": "https://x"}}
+        {"data": {"empty_accel": "0", "api_endpoint": "https://x"}}
     )
-    assert wrapped["scene_memory_enabled"] == "0"
-    flat = extract_config_payload({"prompt_dedup_enabled": "1"})
-    assert flat["prompt_dedup_enabled"] == "1"
+    assert wrapped["empty_accel"] == "0"
+    flat = extract_config_payload({"mic_mode_enabled": "1"})
+    assert flat["mic_mode_enabled"] == "1"
 
 
 def test_extract_config_payload_rejects_empty():
@@ -207,9 +207,6 @@ def test_web_config_keys_cover_core_settings():
     assert "image_max_width" in WEB_CONFIG_KEYS
     assert "image_quality" in WEB_CONFIG_KEYS
     assert "scene_probe_size" not in WEB_CONFIG_KEYS
-    assert "scene_memory_enabled" in WEB_CONFIG_KEYS
-    assert "prompt_dedup_enabled" in WEB_CONFIG_KEYS
-    assert "scene_memory_interval_sec" in WEB_CONFIG_KEYS
     assert "mic_mode_enabled" in WEB_CONFIG_KEYS
     assert "mic_window_sec" in WEB_CONFIG_KEYS
     assert "mic_use_visual_model" in WEB_CONFIG_KEYS
@@ -378,40 +375,6 @@ def test_apply_config_patch_clamps_opacity():
 
     apply_config_patch(app, {"opacity": "200"})
     assert config.get("opacity") == "100"
-
-
-def test_apply_config_patch_validates_memory_settings():
-    config = FakeConfig({})
-    app = MagicMock()
-    app.config = config
-    app.personae = MagicMock()
-
-    apply_config_patch(
-        app,
-        {
-            "scene_memory_enabled": "evil",
-            "prompt_dedup_enabled": "maybe",
-        },
-    )
-
-    assert config.get("scene_memory_enabled") == "0"
-    assert config.get("prompt_dedup_enabled") == "1"
-    assert "evil" not in config.values.values()
-    assert "maybe" not in config.values.values()
-
-    apply_config_patch(
-        app,
-        {
-            "scene_memory_enabled": "1",
-            "prompt_dedup_enabled": "0",
-        },
-    )
-    assert config.get("scene_memory_enabled") == "1"
-    assert config.get("prompt_dedup_enabled") == "0"
-
-    apply_config_patch(app, {"prompt_dedup_enabled": "1"})
-    assert config.get("prompt_dedup_enabled") == "1"
-
 
 
 

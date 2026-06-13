@@ -87,21 +87,18 @@ def test_combo_font_family_and_bold_apply_together(workspace_tmp, qapp):
     assert app.overlay.font.bold() is True
 
 
-def test_combo_reply_queue_and_scene_memory_flag_resizes_buffer(workspace_tmp, qapp):
+def test_combo_reply_queue_resize_on_config_change(workspace_tmp, qapp):
     del qapp
     store = ConfigStore(workspace_tmp / "combo_queue.db")
     store.set("danmu_speed", "2")
     store.set("danmu_lines", "4")
     store.set("reply_queue_max_items", "8")
-    store.set("scene_memory_enabled", "0")
 
     app = _bind_config_changed_app(store)
     for i in range(6):
         app.reply_buffer.push(QueuedReply("p", 1, i, f"t{i}", screenshot_round=1))
 
     store.set("reply_queue_max_items", "2")
-    store.set("scene_memory_enabled", "1")
     app._on_config_changed()
 
     assert app.reply_buffer.size() == 2
-    assert store.get("scene_memory_enabled") == "1"

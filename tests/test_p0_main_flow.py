@@ -127,8 +127,6 @@ def test_visual_reply_enqueue_and_consume_to_engine(monkeypatch):
     app.engine.running = True
     app._on_ai_reply = main_mod.DanmuApp._on_ai_reply.__get__(app, main_mod.DanmuApp)
     app._consume_reply_queue = main_mod.DanmuApp._consume_reply_queue.__get__(app, main_mod.DanmuApp)
-    app._scene_memory_enabled = lambda: False
-    app._prompt_dedup_enabled = lambda: False
     app._notify_pet_visual_success = lambda: None
 
     request_round = 2

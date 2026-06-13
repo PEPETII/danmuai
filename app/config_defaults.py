@@ -12,7 +12,6 @@
   - 遗留 ``display_mode`` 在 ConfigStore 启动时由 ``migrate_legacy_display_mode_to_render_mode`` 写回 ``danmu_render_mode``
 - 字体（``danmu_font_*`` + ``floating_panel_font_*`` + ``imported_fonts``；W-FONT-001/002/003）
 - API（``api_mode`` + ``api_endpoint`` + ``api_key`` + ``model`` + ``temperature`` + ``max_tokens`` + ``use_thinking``）
-- 记忆（``scene_memory_enabled`` + ``scene_memory_interval_sec`` + ``prompt_dedup_enabled``） — **默认关闭**；首装 / 恢复默认时 `scene_memory_enabled=0` / `prompt_dedup_enabled=0`（W-SCENE-MEMORY-DEFAULTS-OFF-001），`scene_memory_interval_sec=5` 与 `normal_recognition_interval_sec=5` 对齐
 - TTS / 读弹幕（``tts_*`` + ``danmu_read_*``）
 - 公告 / 主题 / 更新 / 用户（``user_nickname`` / ``live_topic`` + ``console_theme`` + ``app_update_state``）
 
@@ -83,9 +82,6 @@ CONFIG_DEFAULTS: dict[str, str] = {
     "image_quality": "85",
     "hotkey": "Ctrl+Shift+B",
     "language": DEFAULT_LANGUAGE,
-    "scene_memory_enabled": "0",  # W-SCENE-MEMORY-DEFAULTS-OFF-001
-    "prompt_dedup_enabled": "0",  # W-SCENE-MEMORY-DEFAULTS-OFF-001
-    "scene_memory_interval_sec": "5",
     "mic_mode_enabled": "0",
     "mic_window_sec": "5",
     "mic_use_visual_model": "1",
@@ -202,31 +198,6 @@ def config_value_with_default(config, key: str) -> str:
         mode = resolve_danmu_render_mode(config)
         return default_config_value_for_mode(key, mode)
     return CONFIG_DEFAULTS.get(key, "")
-
-
-def _legacy_memory_flags(mode: str) -> tuple[str, str]:
-    """Map legacy memory_mode to (scene_memory_enabled, prompt_dedup_enabled)."""
-    normalized = str(mode or "off").strip().lower()
-    if normalized == "dedup_only":
-        return "0", "1"
-    if normalized in ("scene_card", "strong"):
-        return "1", "1"
-    return "0", "0"
-
-
-def migrate_legacy_memory_mode(config: "ConfigStore") -> bool:
-    """Map legacy memory_mode to scene_memory_enabled / prompt_dedup_enabled."""
-    if "scene_memory_enabled" in config._cache:
-        return False
-    legacy_mode = str(config._cache.get("memory_mode", "off") or "off")
-    scene, dedup = _legacy_memory_flags(legacy_mode)
-    config.set_batch(
-        {
-            "scene_memory_enabled": scene,
-            "prompt_dedup_enabled": dedup,
-        }
-    )
-    return True
 
 
 def migrate_legacy_display_mode_to_render_mode(config) -> bool:

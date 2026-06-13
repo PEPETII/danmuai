@@ -39,41 +39,6 @@ def test_normalize_pet_scale_clamped(config_service):
     assert items["pet_scale"] == "2.0"
 
 
-def test_normalize_scene_memory_flags_invalid_defaults(config_service):
-    items = {
-        "scene_memory_enabled": "evil",
-        "prompt_dedup_enabled": "maybe",
-    }
-    config_service._normalize_items(items)
-    assert items["scene_memory_enabled"] == "0"
-    assert items["prompt_dedup_enabled"] == "1"
-
-
-def test_normalize_scene_memory_interval_snaps_to_recognition_multiple(config_service):
-    items = {
-        "normal_recognition_interval_sec": "5",
-        "scene_memory_interval_sec": "7",
-    }
-    config_service._normalize_items(items)
-    assert items["scene_memory_interval_sec"] == "10"
-
-
-def test_normalize_scene_memory_interval_recenters_when_recognition_changes(config_service):
-    config_service._config.set("scene_memory_interval_sec", "10")
-    items = {"normal_recognition_interval_sec": "7"}
-    config_service._normalize_items(items)
-    assert items["normal_recognition_interval_sec"] == "7"
-    assert items["scene_memory_interval_sec"] == "14"
-
-
-def test_normalize_legacy_memory_mode_maps_to_new_flags(config_service):
-    items = {"memory_mode": "scene_card"}
-    config_service._normalize_items(items)
-    assert items["scene_memory_enabled"] == "1"
-    assert items["prompt_dedup_enabled"] == "1"
-    assert "memory_mode" not in items
-
-
 def test_normalize_danmu_speed_invalid_defaults(config_service):
     items = {"danmu_speed": "not-a-number"}
     config_service._normalize_items(items)

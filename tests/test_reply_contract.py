@@ -18,24 +18,7 @@ from app.personae import (
     strip_reply_contract,
     strip_system_style,
 )
-
-
-class FakeConfig:
-    def __init__(self, data=None):
-        self._data = {}
-        self._data.update(data or {})
-
-    def get(self, key, default=""):
-        return self._data.get(key, default)
-
-    def get_int(self, key, default=0):
-        raw = self._data.get(key)
-        if raw is None or raw == "":
-            return default
-        try:
-            return int(raw)
-        except (TypeError, ValueError):
-            return default
+from tests.fakes import FakeConfig
 
 
 def test_reply_counts_from_config_defaults():
@@ -100,8 +83,9 @@ def test_normal_mode_contract_uses_single_reply_count():
 
 def test_build_normal_reply_contract_zh():
     text = build_normal_reply_contract_zh(6, 20)
-    assert "固定 6 条 comments" in text
-    assert "scene_brief" in text
+    assert "固定 6 条" in text
+    assert "scene_brief" not in text
+    assert '["弹幕1"' in text
     assert "优先贴当前画面" not in text
     assert '"弹幕6"' in text
 

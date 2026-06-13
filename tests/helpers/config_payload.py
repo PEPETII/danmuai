@@ -45,8 +45,6 @@ def boundary_web_config_overrides() -> dict[str, str]:
         "floating_panel_max_items": "9999",
         "pet_scale": "9",
         "pet_opacity": "0.01",
-        "scene_memory_enabled": "evil",
-        "prompt_dedup_enabled": "maybe",
         "mic_window_sec": "999",
         "normal_recognition_interval_sec": "0",
         "normal_reply_count": "0",

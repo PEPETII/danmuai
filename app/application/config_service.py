@@ -35,9 +35,6 @@ WEB_CONFIG_KEYS = (
     "image_max_width",
     "image_quality",
     "hotkey",
-    "scene_memory_enabled",
-    "prompt_dedup_enabled",
-    "scene_memory_interval_sec",
     "mic_mode_enabled",
     "mic_window_sec",
     "mic_use_visual_model",
@@ -199,29 +196,6 @@ class ConfigService:
 
         self._app.config_changed.emit()
 
-    def _recognition_interval_sec(self, items: dict[str, str]) -> int:
-        if "normal_recognition_interval_sec" in items:
-            try:
-                return max(1, min(60, int(items["normal_recognition_interval_sec"])))
-            except (TypeError, ValueError):
-                pass
-        return max(1, self._config.get_int("normal_recognition_interval_sec", 5))
-
-    def _normalize_scene_memory_interval_sec(self, items: dict[str, str]) -> None:
-        from app.memory.types import snap_scene_memory_interval_sec
-
-        recognition = self._recognition_interval_sec(items)
-        if "scene_memory_interval_sec" in items:
-            try:
-                raw = int(items["scene_memory_interval_sec"])
-            except (TypeError, ValueError):
-                raw = recognition
-        else:
-            raw = self._config.get_int("scene_memory_interval_sec", recognition)
-        items["scene_memory_interval_sec"] = str(
-            snap_scene_memory_interval_sec(raw, recognition)
-        )
-
     def _normalize_items(self, items: dict[str, str]) -> None:
         if "api_endpoint" in items or "api_mode" in items:
             from app.model_providers import resolve_api_transport
@@ -324,23 +298,6 @@ class ConfigService:
                 1,
                 NORMAL_REPLY_COUNT_MAX,
             )
-
-        if "scene_memory_enabled" in items:
-            _clamp_choice(items, "scene_memory_enabled", ("0", "1"), "0")
-        if "prompt_dedup_enabled" in items:
-            _clamp_choice(items, "prompt_dedup_enabled", ("0", "1"), "1")
-        if (
-            "scene_memory_interval_sec" in items
-            or "normal_recognition_interval_sec" in items
-        ):
-            self._normalize_scene_memory_interval_sec(items)
-        if "memory_mode" in items and "scene_memory_enabled" not in items:
-            from app.config_defaults import _legacy_memory_flags
-
-            scene, dedup = _legacy_memory_flags(items.get("memory_mode", "off"))
-            items["scene_memory_enabled"] = scene
-            items["prompt_dedup_enabled"] = dedup
-            items.pop("memory_mode", None)
 
         # W-FP-V2-001：danmu_render_mode 与侧边悬浮窗配置归一化
         if "danmu_render_mode" in items:

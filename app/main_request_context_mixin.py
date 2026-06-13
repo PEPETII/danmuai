@@ -14,18 +14,11 @@ from app.api_schedule import min_api_interval_elapsed
 from app.danmu_engine import dedup_profile_enabled, log_dedup_profile_summary
 from app.main_helpers import (
     VISUAL_INFLIGHT_RECOVER_SEC,
-    config_flag_enabled,
     density_right_target,
     queue_capacity,
     reply_request_id,
 )
-from app.memory.types import (
-    bullet_angle_from_index,
-    prompt_dedup_window_from_config,
-    scene_memory_tick_multiplier,
-)
 from app.reply_queue import QueuedReply
-from app.scene_memory import append_blocks_to_user_pt
 from app.translations import tr
 
 
@@ -187,44 +180,6 @@ class DanmuAppRequestContextMixin:
             return
         self.logger.debug(
             f"[DEBUG] RTT={rtt:.1f}s, avg={self._rtt_avg():.1f}s, request_id={request_id}"
-        )
-
-    def _scene_memory_enabled(self) -> bool:
-        return config_flag_enabled(self.config, "scene_memory_enabled", default="1")
-
-    def _prompt_dedup_enabled(self) -> bool:
-        return config_flag_enabled(self.config, "prompt_dedup_enabled", default="1")
-
-    def _scene_memory_update_due(self, screenshot_round: int) -> bool:
-        if not self._scene_memory_enabled():
-            return False
-        multiplier = scene_memory_tick_multiplier(self.config)
-        return screenshot_round > 0 and screenshot_round % multiplier == 0
-
-    def _append_scene_context_to_user_pt(self, user_pt: str) -> str:
-        blocks: list[str] = []
-        if self._scene_memory_enabled():
-            brief_block = self._scene_memory.format_scene_brief_block()
-            if brief_block:
-                blocks.append(brief_block)
-        if self._prompt_dedup_enabled():
-            dedup_block = self._scene_memory.format_prompt_dedup_block()
-            if dedup_block:
-                blocks.append(dedup_block)
-        if not blocks:
-            return user_pt
-        return append_blocks_to_user_pt(user_pt, *blocks)
-
-    def _record_prompt_dedup_display(self, queued: QueuedReply) -> None:
-        if not self._prompt_dedup_enabled():
-            return
-        if not queued.memory_eligible or queued.is_fallback or queued.source not in ("ai", "mic"):
-            return
-        angle = bullet_angle_from_index(queued.content_index, self._reply_scene_count)
-        self._scene_memory.record_displayed_bullet(
-            queued.content,
-            window=prompt_dedup_window_from_config(self.config),
-            angle=angle,
         )
 
     def _queue_capacity(self) -> int:

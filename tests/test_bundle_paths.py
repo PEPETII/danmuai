@@ -214,14 +214,9 @@ def test_error_report_flow_in_app_js():
 
 
 def test_api_settings_visible_in_simplified_mode():
-    """记忆与温度控件不得带 settings-full-only，否则简化模式下会被 CSS 隐藏。"""
+    """温度控件不得带 settings-full-only，否则简化模式下会被 CSS 隐藏。"""
     html = (project_root() / "web" / "static" / "index.html").read_text(encoding="utf-8")
-    for field_id in (
-        "scene_memory_enabled",
-        "prompt_dedup_enabled",
-        "scene_memory_interval_sec",
-        "temperature",
-    ):
+    for field_id in ("temperature",):
         idx = html.index(f'id="{field_id}"')
         chunk = html[max(0, idx - 120) : idx]
         assert "settings-full-only" not in chunk, field_id
