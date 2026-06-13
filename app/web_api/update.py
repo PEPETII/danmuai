@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app import update_service
+from app import release_channels, update_service
 
 
 def get_update_status() -> dict:
@@ -19,3 +19,15 @@ def post_update_download() -> dict:
 
 def post_update_restart() -> dict:
     return update_service.apply_updates_and_restart().to_dict()
+
+
+def get_update_channels() -> dict:
+    """Read-only channel metadata; does not contact the Velopack update feed."""
+    from app.version import __version__
+
+    return release_channels.build_update_metadata(current_version=__version__)
+
+
+def get_release_channels() -> dict:
+    """Backward-compatible alias for channel metadata endpoint."""
+    return get_update_channels()
