@@ -4,52 +4,59 @@
 
 ## 代码与测试
 
-- [ ] 所有测试通过：`python -m pytest tests/ -q`
+- [ ] 按 `IDE_AGENT_RULES.md` 执行与本次改动相关的分批测试，未执行全量 `pytest`
 - [ ] `ruff check app main.py tests scripts` 通过
-- [ ] 无硬编码的 API Key、Token 或敏感路径
+- [ ] 无硬编码 API Key、Token、R2 Secret 或敏感本地路径
 
 ## 文档
 
-- [ ] `README.md` 中的环境要求、已知限制与代码一致
-- [ ] `docs/CHANGELOG.md` 已更新本次变更
-- [ ] `docs/core/ARCHITECTURE.md` 与实际代码结构一致（含场景指纹、`live_freshness` 时序）
-- [ ] `docs/PRIVACY.md`、`SECURITY.md`、`docs/OPEN_SOURCE_AUDIT.md` 与 `screen_index` 截图行为一致
-- [ ] `THIRD_PARTY_NOTICES.md` 与 `requirements.txt` 一致
+- [ ] `README.md`、`docs/operations/PACKAGING_WINDOWS.md`、`docs/release/README.md` 与实际发布链一致
+- [ ] `WINDOWS_RELEASE_CONTRACT.md`、`WINDOWS_RELEASE_BASELINE.md` 未被破坏
+- [ ] `docs/CHANGELOG.md` 已更新本次版本说明
 
-## Web 控制台（默认）
+## Web 控制台
 
-- [ ] `python main.py` 可打开 `http://127.0.0.1:18765`（pywebview 或 `--web-browser`）
-- [ ] Web 回归：`python -m pytest tests/test_web_console.py tests/test_web_persona_api.py tests/test_web_custom_models.py tests/test_image_compress.py tests/test_ui_mode.py tests/test_deprecated_launch_flags.py -q`
-- [ ] Web 视觉对照：`prototype/Qwen_html_20260524_481u8vlmv.html` 与 `web/static/warm-tokens.css` 无严重偏差（若本次改 UI）
+- [ ] `python main.py` 能打开 `http://127.0.0.1:18765`
+- [ ] 与本次改动相关的 Web/API 测试通过
 
-## Overlay / 弹幕核心（若本次改动相关）
+## Windows exe / Velopack 发布
 
-- [ ] `python -m pytest tests/test_overlay_render.py tests/test_danmu_engine.py tests/test_danmu_motion.py -q`
+- [ ] `.\scripts\build_exe.ps1` 可独立成功
+- [ ] `.\scripts\publish_windows_release.ps1` 生成 `release\velopack\`
+- [ ] `release\velopack\` 至少包含 `PEPETII.DanmuAI-win-Setup.exe`、`PEPETII.DanmuAI-<version>-Setup.exe`、`PEPETII.DanmuAI-<version>-full.nupkg`、`releases.win.json`
+- [ ] 升级发布时，`release\velopack\` 还包含 `PEPETII.DanmuAI-<version>-delta.nupkg`
+- [ ] 升级发布时，`releases.win.json` 同时包含当前版本的 Full 和 Delta 资产
+- [ ] 若本地没有上一版 full 包，已确认 `publish_windows_release.ps1` 的稳定 feed bootstrap 行为符合预期，或显式使用 `-SkipDeltaBootstrap`
+- [ ] `.\scripts\upload_r2_release.ps1` 会上传 `releases.win.json`、`*-full.nupkg`、`*-delta.nupkg`、版本化 MSI、版本化 Setup、`downloads/DanmuAI-Installer.msi`、`downloads/DanmuAI-Setup.exe`，以及 Portable.zip 别名（若存在）（可用 `-Version` 覆盖 `app.version`；产物版本以 `VERSION.txt` 或显式参数为准）
+- [ ] `.\scripts\upload_github_release.ps1` 仅作为镜像上传 Velopack 资产，不重新定义主真源
+- [ ] 主下载 URL 为 `https://updates.qiaoqiao.buzz/downloads/DanmuAI-Setup.exe`
+- [ ] 备选 MSI 下载 URL 为 `https://updates.qiaoqiao.buzz/downloads/DanmuAI-Installer.msi`
+- [ ] 便携版下载 URL 为 `https://updates.qiaoqiao.buzz/downloads/PEPETII.DanmuAI-win-Portable.zip`（若已上传 Portable）
+- [ ] 更新 feed 仍为 `https://updates.qiaoqiao.buzz/releases/win/stable`
 
-## 许可证与合规
+## 数据保护回归
 
-- [ ] `LICENSE` 文件正确
-- [ ] 新增依赖已记录在 `THIRD_PARTY_NOTICES.md` 和 `docs/OPEN_SOURCE_AUDIT.md`
-- [ ] 无许可证冲突
-
-## 安全与隐私
-
-- [ ] `.gitignore` 覆盖所有本地调试产物
-- [ ] `git status` 中无日志、缓存、数据库、密钥文件
-- [ ] 日志脱敏规则覆盖 API Key、Token、base64 图片
-
-## Windows exe（可选）
-
-- [ ] 按 [PACKAGING_WINDOWS.md](PACKAGING_WINDOWS.md) 在干净环境构建成功
-- [ ] `.\scripts\build_exe.ps1` 或 `.\scripts\publish_windows_release.ps1` 成功
-- [ ] `release\DanmuAI-windows-x64\DanmuAI.exe` 与 `release\DanmuAI-windows-x64.zip` 已生成（GitHub 附件）
-- [ ] 在未装 Python 的机器上启动 `DanmuAI.exe`，pywebview 控制台与 Overlay 正常
-- [ ] `%APPDATA%\DanmuAI\startup.log` 无 uvicorn/pywebview 崩溃栈
-- [ ] WebView2 缺失时文档说明安装 Runtime 或 `--web-browser` 回退
+- [ ] 就地升级后 `%APPDATA%\DanmuAI\config.db`、`.key` 保留
+- [ ] 卸载后 `%APPDATA%\DanmuAI\` 默认保留
+- [ ] 程序目录与用户数据目录仍保持分离：`%LocalAppData%\PEPETII.DanmuAI\` vs `%APPDATA%\DanmuAI\`
 
 ## Git 与发布
 
 - [ ] `git add -n .` 预演无意外文件
-- [ ] Tag 格式：`vX.Y.Z` 或日期 tag `vYYYY.MM.DD`（见 [release/README.md](release/README.md)）
-- [ ] GitHub Release 描述从 [release/](release/) 复制或链接 CHANGELOG 对应章节
-- [ ] `docs/CHANGELOG.md` 已固化本次版本（非空 Unreleased）
+- [ ] GitHub Release 描述与对应版本一致
+
+## Setup 主入口回切后续工单（W-REL-SETUP-001 之后）
+
+| 工单 | 状态 | 说明 |
+|------|------|------|
+| W-REL-SETUP-002 | 已完成 | R2 / 官网 / GitHub 文案核对与切换验收 — [报告](../../reports/W-REL-SETUP-002-online-verification-report.md) |
+| W-REL-SETUP-003 | 已完成 | Supabase 线上 `app_updates.release_url` 从 MSI 迁回 Setup.exe — [报告](../../reports/W-REL-SETUP-003-supabase-migration-report.md) |
+| W-REL-SETUP-004 | 已完成 | Windows 真机验收：Setup.exe 安装流程与自定义路径体验 — [报告](../../reports/W-REL-SETUP-004-setup-smoke-report.md) |
+
+**`app_updates.latest_version` 发布决策（003 收尾）**：线上仍为 `0.3.0`（R2 feed latest Full 已为 `0.3.1`）。**暂不**将 Supabase `latest_version` 升为 `0.3.1`，避免在未完成 frozen 客户端内嵌常量对齐前主动触发更新弹窗；需推送更新提醒时，运维在 Table Editor 单独执行 `UPDATE`（`release_url` 可保持 Setup 不变）。
+
+## 发布链收敛（SETUP 系列完成后）
+
+| 工单 | 状态 | 说明 |
+|------|------|------|
+| W-REL-CLEANUP-001 | 待执行 | 对外收敛为 Setup.exe + Portable.zip，归档 MSI / 旧 zip 链路 — [工单](W-REL-CLEANUP-001-发布链收敛Setup与Portable.md) |
