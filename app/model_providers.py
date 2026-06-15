@@ -196,6 +196,24 @@ def resolve_api_transport(endpoint: str, api_mode: str) -> str:
     return _resolve(endpoint, api_mode)
 
 
+def normalize_api_mode_for_select(mode: str, endpoint: str = "") -> str:
+    from app.providers.registry import normalize_api_mode_for_select as _normalize
+
+    return _normalize(mode, endpoint)
+
+
+def provider_rules_for_api() -> dict:
+    from app.providers.registry import provider_rules_for_api as _rules
+
+    return _rules()
+
+
+def resolve_provider_for_ui(endpoint: str, api_mode: str = "") -> dict:
+    from app.providers.registry import resolve_provider_for_ui as _resolve
+
+    return _resolve(endpoint, api_mode)
+
+
 def validate_endpoint_mode_consistency(endpoint: str, api_mode: str) -> str | None:
     """Return a translation key when a known provider host conflicts with api_mode."""
     from app.providers.registry import match_host_entry

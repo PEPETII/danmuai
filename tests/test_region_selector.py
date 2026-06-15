@@ -12,17 +12,7 @@ from app.web_api.capture_region import (
     clear_capture_region,
     read_capture_region_status,
 )
-
-
-class FakeConfig:
-    def __init__(self, region=(0, 0, 0, 0)):
-        self._region = region
-
-    def get_region(self):
-        return self._region
-
-    def set_region(self, x, y, w, h):
-        self._region = (x, y, w, h)
+from tests.fakes import FakeConfig
 
 
 def test_rect_from_drag_normalizes_negative_drag():
@@ -49,14 +39,19 @@ def test_normalize_region_rejects_empty_after_clamp():
 
 
 def test_capture_region_mode_full_and_custom():
-    cfg = FakeConfig((0, 0, 0, 0))
+    cfg = FakeConfig()
     assert capture_region_mode(cfg) == "full"
     cfg.set_region(10, 20, 100, 80)
     assert capture_region_mode(cfg) == "custom"
 
 
 def test_read_capture_region_status_shape():
-    cfg = FakeConfig((12, 34, 320, 180))
+    cfg = FakeConfig({
+        "region_x": "12",
+        "region_y": "34",
+        "region_w": "320",
+        "region_h": "180",
+    })
     data = read_capture_region_status(cfg, selection_state="idle")
     assert data["mode"] == "custom"
     assert data["region"] == {"x": 12, "y": 34, "w": 320, "h": 180}
@@ -75,7 +70,8 @@ def test_apply_capture_region_persists_normalized(tmp_path):
 
 
 def test_clear_capture_region():
-    cfg = FakeConfig((1, 2, 3, 4))
+    cfg = FakeConfig()
+    cfg.set_region(1, 2, 3, 4)
     clear_capture_region(cfg)
     assert cfg.get_region() == (0, 0, 0, 0)
 

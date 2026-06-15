@@ -20,7 +20,7 @@ from app.mic_prompt import build_mic_insert_user_pt
 from app.mic_service import mic_mode_enabled
 from app.model_providers import mic_audio_supported_for_mic_config, resolve_mic_model_id
 from app.personae import append_live_topic_to_system_pt, append_nickname_to_system_pt
-from app.reply_parser import normalize_reply_batch, parse_ai_reply_with_memory
+from app.reply_parser import normalize_reply_batch, parse_ai_reply_payload
 from app.screenshot_compress import (
     IMAGE_JPEG_QUALITY,
     IMAGE_MAX_WIDTH,
@@ -182,7 +182,7 @@ class DanmuAppMicMixin:
         captured_at: float,
         scene_generation: int,
     ) -> None:
-        raw_items, scene_brief = parse_ai_reply_with_memory(text, scene_generation)
+        raw_items = parse_ai_reply_payload(text)
         normalized_items = normalize_reply_batch(
             raw_items,
             scene_count=self._reply_scene_count,
@@ -192,15 +192,6 @@ class DanmuAppMicMixin:
         if not normalized_items:
             self.logger.debug("mic insert reply empty after parse")
             return
-
-        if (
-            self._scene_memory_enabled()
-            and scene_brief
-            and self._scene_memory_update_due(request_round)
-        ):
-            from app.translations import Translator
-
-            self._scene_memory.set_brief(scene_brief, lang=Translator.get_language())
 
         self._enqueue_reply_batch(
             persona_id,

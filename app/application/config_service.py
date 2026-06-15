@@ -164,31 +164,39 @@ class ConfigService:
 
         legacy_mode = payload.get("danmu_display_mode")
         if legacy_mode is not None:
-            normalize_legacy_display_mode({"danmu_display_mode": str(legacy_mode)})
-            if str(legacy_mode).strip().lower() == "realtime":
-                self._config.set("danmu_display_mode", "normal")
+            legacy_items = {"danmu_display_mode": str(legacy_mode)}
+            normalize_legacy_display_mode(legacy_items)
+            normalized_mode = str(legacy_items.get("danmu_display_mode", "")).strip()
+            if normalized_mode:
+                items["danmu_display_mode"] = normalized_mode
 
         if items:
             self._normalize_items(items)
-            self._config.set_batch(items)
-            model_id = (items.get("model") or "").strip()
-            if model_id:
-                set_default_model_selection(self._config, model_id, sync_legacy_model=False)
-
-        api_key = _submitted_api_key(payload.get("api_key", ""))
-        if api_key:
-            self._config.set_api_key(api_key)
-
-        mic_api_key = _submitted_api_key(payload.get("mic_api_key", ""))
-        if mic_api_key:
-            self._config.set_mic_api_key(mic_api_key)
 
         if "default_model_id" in payload:
-            set_default_model_selection(self._config, payload.get("default_model_id", ""))
+            model_id = str(payload.get("default_model_id", "")).strip()
+            if model_id:
+                items["default_model_id"] = model_id
+                items["model"] = model_id
+        else:
+            model_id = (items.get("model") or "").strip()
+            if model_id:
+                items["default_model_id"] = model_id
 
-        custom_models = payload.get("custom_models")
-        if isinstance(custom_models, list):
-            self._config.set_custom_models(self._merge_custom_models(custom_models))
+        api_key = _submitted_api_key(payload.get("api_key", ""))
+        mic_api_key = _submitted_api_key(payload.get("mic_api_key", ""))
+
+        custom_models: list[dict[str, Any]] | None = None
+        if isinstance(payload.get("custom_models"), list):
+            custom_models = self._merge_custom_models(payload["custom_models"])
+
+        if items or api_key or mic_api_key or custom_models is not None:
+            self._config.apply_web_save(
+                items=items or None,
+                api_key=api_key or None,
+                mic_api_key=mic_api_key or None,
+                custom_models=custom_models,
+            )
 
         active = payload.get("active_personae")
         if isinstance(active, list) and active:

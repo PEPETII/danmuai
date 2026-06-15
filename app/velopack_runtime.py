@@ -23,7 +23,11 @@ def run_startup_apply_if_needed() -> None:
         return
 
     try:
-        velopack.App().run()
+        from app.uninstall_service import delete_user_data_if_requested
+
+        app = velopack.App()
+        app.on_before_uninstall_fast_callback(delete_user_data_if_requested)
+        app.run()
         log_startup("velopack.done")
     except Exception as exc:
         log_startup("velopack.error", detail=str(exc))

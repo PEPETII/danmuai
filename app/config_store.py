@@ -85,13 +85,17 @@ class ConfigStore:
         self._closed = False
         # W-FP-V2-002：须在 seed 之前写回，避免 seed 先落 danmu_render_mode=scrolling 盖掉遗留 display_mode
         self._migrate_legacy_display_mode_to_render_mode()
-        self._migrate_legacy_memory_mode()
         if self.is_first_run or not self.get("danmu_speed"):
             from app.config_defaults import seed_config_defaults
 
             seed_config_defaults(self)
             self._load_cache()
         self._fernet = self._init_fernet()
+        # W-PERF-MED-001：解密明文与 custom_models 解析结果指纹缓存（进程内驻留至配置变更）
+        self._decrypted_secret_cache: dict[str, str] = {}
+        self._decrypted_secret_fp: dict[str, tuple[str, str]] = {}
+        self._custom_models_cache: list[dict] | None = None
+        self._custom_models_fp: str | None = None
         self._repair_stale_region_if_needed()
         self._normalize_legacy_display_mode()
 
@@ -100,11 +104,6 @@ class ConfigStore:
         from app.config_defaults import migrate_legacy_display_mode_to_render_mode
 
         migrate_legacy_display_mode_to_render_mode(self)
-
-    def _migrate_legacy_memory_mode(self) -> None:
-        from app.config_defaults import migrate_legacy_memory_mode
-
-        migrate_legacy_memory_mode(self)
 
     def _normalize_legacy_display_mode(self) -> None:
         from app.application.config_service import normalize_legacy_display_mode
@@ -194,27 +193,140 @@ class ConfigStore:
                 )
                 raise
 
+    def set_if_changed(self, key: str, value: str) -> bool:
+        """单键写入；值与缓存一致时跳过 DB 提交。返回 True 表示已写入。"""
+        if self._cache.get(key) == value:
+            return False
+        self.set(key, value)
+        return True
+
     def set_batch(self, items: dict[str, str]):
         """批量写入：单事务内多条 REPLACE，失败 rollback 且不改 _cache。
 
         Web PUT /api/config 一次提交多键，避免半写入导致 UI 与运行时状态不一致。
+        与缓存相同的键会被跳过，减少无意义 WAL 提交。
         """
+        changed = {k: v for k, v in items.items() if self._cache.get(k) != v}
+        if not changed:
+            return
         with self._write_lock:
             try:
-                pairs = list(items.items())
-                if pairs:
-                    self.conn.executemany(
-                        "REPLACE INTO config (key, value) VALUES (?, ?)",
-                        pairs,
-                    )
+                pairs = list(changed.items())
+                self.conn.executemany(
+                    "REPLACE INTO config (key, value) VALUES (?, ?)",
+                    pairs,
+                )
                 self.conn.commit()
                 # Only update cache after successful commit
-                for k, v in items.items():
+                for k, v in changed.items():
                     self._cache[k] = v
             except sqlite3.OperationalError as e:
                 self.conn.rollback()
                 logger.error(tr("config.batch_write_failed").format(error=type(e).__name__))
                 raise
+
+    def _encode_custom_models_json(self, models: list) -> str:
+        """Serialize custom models with encrypted apiKey fields (caller may hold write lock)."""
+        encrypted: list[dict] = []
+        for model in models:
+            if not isinstance(model, dict):
+                continue
+            entry = dict(model)
+            plain_key = (entry.get("apiKey") or "").strip()
+            if plain_key:
+                if self._looks_like_fernet_token(plain_key):
+                    entry["apiKey"] = plain_key
+                else:
+                    entry["apiKey"] = self._encrypt_custom_model_api_key(plain_key)
+            encrypted.append(entry)
+        return json.dumps(encrypted, ensure_ascii=False)
+
+    def _queue_secret_write(
+        self,
+        encrypted_key: str,
+        encoded_key: str,
+        key: str,
+        pairs: list[tuple[str, str]],
+        keys_to_delete: list[str],
+    ) -> None:
+        """Queue API key REPLACE/DELETE within an open transaction (caller holds _write_lock)."""
+        if _HAS_CRYPTO and self._fernet:
+            encrypted = self._fernet.encrypt(key.encode("utf-8")).decode("utf-8")
+            pairs.append((encrypted_key, encrypted))
+            if encoded_key in self._cache:
+                keys_to_delete.append(encoded_key)
+            return
+        logger.warning(tr("config.insecure_store"))
+        pairs.append((encoded_key, b64encode(key.encode("utf-8")).decode("utf-8")))
+
+    def apply_web_save(
+        self,
+        *,
+        items: dict[str, str] | None = None,
+        api_key: str | None = None,
+        mic_api_key: str | None = None,
+        custom_models: list[dict] | None = None,
+    ) -> None:
+        """Web PUT /api/config 原子落库：普通键、API Key、custom_models 单次 commit。
+
+        仅供 ConfigService.apply_web_payload 使用；失败 rollback 且不更新 _cache。
+        """
+        pairs: list[tuple[str, str]] = []
+        keys_to_delete: list[str] = []
+        invalidate_secrets: list[str] = []
+
+        if items:
+            pairs.extend(items.items())
+
+        if api_key:
+            self._queue_secret_write(
+                "api_key_encrypted",
+                "api_key_encoded",
+                api_key,
+                pairs,
+                keys_to_delete,
+            )
+            invalidate_secrets.append("api_key_encrypted")
+
+        if mic_api_key:
+            self._queue_secret_write(
+                "mic_api_key_encrypted",
+                "mic_api_key_encoded",
+                mic_api_key,
+                pairs,
+                keys_to_delete,
+            )
+            invalidate_secrets.append("mic_api_key_encrypted")
+
+        if custom_models is not None:
+            pairs.append(("custom_models", self._encode_custom_models_json(custom_models)))
+
+        if not pairs and not keys_to_delete:
+            return
+
+        with self._write_lock:
+            try:
+                if pairs:
+                    self.conn.executemany(
+                        "REPLACE INTO config (key, value) VALUES (?, ?)",
+                        pairs,
+                    )
+                for key in keys_to_delete:
+                    self.conn.execute("DELETE FROM config WHERE key=?", (key,))
+                self.conn.commit()
+                for key, value in pairs:
+                    self._cache[key] = value
+                for key in keys_to_delete:
+                    self._cache.pop(key, None)
+            except sqlite3.OperationalError as e:
+                self.conn.rollback()
+                logger.error(tr("config.batch_write_failed").format(error=type(e).__name__))
+                raise
+
+        for encrypted_key in invalidate_secrets:
+            self._invalidate_secret_cache(encrypted_key)
+        if custom_models is not None:
+            self._invalidate_custom_models_cache()
 
     @contextmanager
     def with_write_lock(self):
@@ -251,21 +363,41 @@ class ConfigStore:
 
     # --- API Key (Fernet encrypted) ---
 
+    def _secret_fingerprint(self, encrypted_key: str, encoded_key: str) -> tuple[str, str]:
+        return (self.get(encrypted_key, ""), self.get(encoded_key, ""))
+
+    def _invalidate_secret_cache(self, encrypted_key: str) -> None:
+        self._decrypted_secret_cache.pop(encrypted_key, None)
+        self._decrypted_secret_fp.pop(encrypted_key, None)
+
+    def _cache_decrypted_secret(
+        self, encrypted_key: str, encoded_key: str, plaintext: str
+    ) -> str:
+        self._decrypted_secret_cache[encrypted_key] = plaintext
+        self._decrypted_secret_fp[encrypted_key] = self._secret_fingerprint(
+            encrypted_key, encoded_key
+        )
+        return plaintext
+
     def _encrypted_get(self, encrypted_key: str, encoded_key: str) -> str:
-        """读取加密或 legacy base64 编码的 API Key 明文。"""
-        encrypted = self.get(encrypted_key, "")
+        """读取加密或 legacy base64 编码的 API Key 明文（指纹缓存避免重复解密）。"""
+        fp = self._secret_fingerprint(encrypted_key, encoded_key)
+        if self._decrypted_secret_fp.get(encrypted_key) == fp:
+            return self._decrypted_secret_cache[encrypted_key]
+
+        encrypted, encoded = fp
         if encrypted and _HAS_CRYPTO and self._fernet:
             try:
-                return self._fernet.decrypt(encrypted.encode("utf-8")).decode("utf-8")
+                plaintext = self._fernet.decrypt(encrypted.encode("utf-8")).decode("utf-8")
+                return self._cache_decrypted_secret(encrypted_key, encoded_key, plaintext)
             except Exception:
                 logger.warning(tr("config.decrypt_failed"))
-        encoded = self.get(encoded_key, "")
         if not encoded:
-            return ""
+            return self._cache_decrypted_secret(encrypted_key, encoded_key, "")
         try:
             plaintext = b64decode(encoded).decode("utf-8")
         except Exception:
-            return ""
+            return self._cache_decrypted_secret(encrypted_key, encoded_key, "")
         # W-MEDLOW-004：安装 cryptography 后首次读取 legacy base64 时自动升级为 Fernet。
         if _HAS_CRYPTO and self._fernet and not encrypted:
             try:
@@ -278,42 +410,32 @@ class ConfigStore:
                 )
         elif encrypted_key == "api_key_encrypted" and _HAS_CRYPTO and self._fernet is None:
             logger.warning(tr("config.insecure_read"))
-        return plaintext
+        return self._cache_decrypted_secret(encrypted_key, encoded_key, plaintext)
 
     def _encrypted_set(self, encrypted_key: str, encoded_key: str, key: str) -> None:
         """写入 API Key：Fernet 加密或退化为 base64；持 _write_lock 保证 cache/DB 一致。"""
+        pairs: list[tuple[str, str]] = []
+        keys_to_delete: list[str] = []
+        self._queue_secret_write(encrypted_key, encoded_key, key, pairs, keys_to_delete)
         with self._write_lock:
-            if _HAS_CRYPTO and self._fernet:
-                encrypted = self._fernet.encrypt(key.encode("utf-8")).decode("utf-8")
-                try:
-                    self.conn.execute(
+            try:
+                if pairs:
+                    self.conn.executemany(
                         "REPLACE INTO config (key, value) VALUES (?, ?)",
-                        (encrypted_key, encrypted),
+                        pairs,
                     )
-                    if encoded_key in self._cache:
-                        self.conn.execute("DELETE FROM config WHERE key=?", (encoded_key,))
-                        self._cache.pop(encoded_key, None)
-                    self.conn.commit()
-                    self._cache[encrypted_key] = encrypted
-                except sqlite3.OperationalError as e:
-                    self.conn.rollback()
-                    logger.error(tr("config.api_key_write_failed").format(error=type(e).__name__))
-                    raise
-            else:
-                logger.warning(tr("config.insecure_store"))
-                encoded = b64encode(key.encode("utf-8")).decode("utf-8")
-                # 已持 _write_lock；勿调 self.set()（threading.Lock 会死锁，见 ISSUE-042）
-                try:
-                    self.conn.execute(
-                        "REPLACE INTO config (key, value) VALUES (?, ?)",
-                        (encoded_key, encoded),
-                    )
-                    self.conn.commit()
-                    self._cache[encoded_key] = encoded
-                except sqlite3.OperationalError as e:
-                    self.conn.rollback()
-                    logger.error(tr("config.api_key_write_failed").format(error=type(e).__name__))
-                    raise
+                for delete_key in keys_to_delete:
+                    self.conn.execute("DELETE FROM config WHERE key=?", (delete_key,))
+                self.conn.commit()
+                for storage_key, value in pairs:
+                    self._cache[storage_key] = value
+                for delete_key in keys_to_delete:
+                    self._cache.pop(delete_key, None)
+            except sqlite3.OperationalError as e:
+                self.conn.rollback()
+                logger.error(tr("config.api_key_write_failed").format(error=type(e).__name__))
+                raise
+        self._invalidate_secret_cache(encrypted_key)
 
     def get_api_key(self) -> str:
         """读取明文 API Key：优先 Fernet 解密 api_key_encrypted，否则回退 base64 的 api_key_encoded。"""
@@ -374,15 +496,17 @@ class ConfigStore:
 
     # --- Custom model profiles (apiKey encrypted inline in JSON) ---
 
-    def _custom_model_key_is_encrypted(self, value: str) -> bool:
-        """True when value is a Fernet token decryptable with this store's .key."""
+    def _invalidate_custom_models_cache(self) -> None:
+        self._custom_models_cache = None
+        self._custom_models_fp = None
+
+    def _looks_like_fernet_token(self, value: str) -> bool:
+        """Heuristic Fernet token check — avoids trial decrypt on hot path."""
         if not value or not _HAS_CRYPTO or not self._fernet:
             return False
-        try:
-            self._fernet.decrypt(value.encode("utf-8"))
-            return True
-        except Exception:
+        if len(value) < 57 or not value.startswith("gAAAAA"):
             return False
+        return True
 
     def _encrypt_custom_model_api_key(self, key: str) -> str:
         """Encrypt custom-model apiKey with the same Fernet key as api_key_encrypted."""
@@ -393,56 +517,58 @@ class ConfigStore:
         logger.warning(tr("config.insecure_store"))
         return b64encode(key.encode("utf-8")).decode("utf-8")
 
-    def _decrypt_custom_model_api_key(self, stored: str) -> str:
-        """Decrypt Fernet token; legacy plaintext or base64-only values pass through."""
+    def _resolve_custom_model_api_key(self, stored: str) -> tuple[str, bool]:
+        """Return (plaintext apiKey, needs_encryption_upgrade)."""
         if not stored:
-            return ""
-        if self._custom_model_key_is_encrypted(stored):
-            return self._fernet.decrypt(stored.encode("utf-8")).decode("utf-8")
+            return "", False
+        if self._looks_like_fernet_token(stored):
+            try:
+                return self._fernet.decrypt(stored.encode("utf-8")).decode("utf-8"), False
+            except Exception:
+                pass
         try:
             decoded = b64decode(stored).decode("utf-8")
         except Exception:
-            return stored
+            decoded = stored
         if decoded.startswith("sk-") or decoded.startswith("Bearer "):
-            return decoded
-        return stored
+            return decoded, True
+        if stored.startswith("sk-") or stored.startswith("Bearer "):
+            return stored, True
+        return stored, bool(stored) and not self._looks_like_fernet_token(stored)
 
     def get_custom_models(self) -> list:
         """Return custom models with decrypted apiKey; upgrade legacy plaintext on read."""
-        raw = self.get_json("custom_models", [])
-        if not isinstance(raw, list):
+        raw = self.get("custom_models", "")
+        if self._custom_models_cache is not None and raw == self._custom_models_fp:
+            return [dict(m) for m in self._custom_models_cache]
+
+        parsed = json.loads(raw) if raw else []
+        if not isinstance(parsed, list):
             return []
         result: list[dict] = []
         needs_upgrade = False
-        for model in raw:
+        for model in parsed:
             if not isinstance(model, dict):
                 continue
             entry = dict(model)
             stored_key = (entry.get("apiKey") or "").strip()
             if stored_key:
-                entry["apiKey"] = self._decrypt_custom_model_api_key(stored_key)
-                if not self._custom_model_key_is_encrypted(stored_key):
+                plain_key, needs_encrypt = self._resolve_custom_model_api_key(stored_key)
+                entry["apiKey"] = plain_key
+                if needs_encrypt:
                     needs_upgrade = True
             result.append(entry)
         if needs_upgrade:
             self.set_custom_models(result)
-        return result
+            raw = self.get("custom_models", "")
+        self._custom_models_cache = [dict(m) for m in result]
+        self._custom_models_fp = raw
+        return [dict(m) for m in result]
 
     def set_custom_models(self, models: list):
         """Persist custom models; each apiKey is Fernet-encrypted before JSON serialization."""
-        encrypted: list[dict] = []
-        for model in models:
-            if not isinstance(model, dict):
-                continue
-            entry = dict(model)
-            plain_key = (entry.get("apiKey") or "").strip()
-            if plain_key:
-                if self._custom_model_key_is_encrypted(plain_key):
-                    entry["apiKey"] = plain_key
-                else:
-                    entry["apiKey"] = self._encrypt_custom_model_api_key(plain_key)
-            encrypted.append(entry)
-        self.set_json("custom_models", encrypted)
+        self.set("custom_models", self._encode_custom_models_json(models))
+        self._invalidate_custom_models_cache()
 
     def get_custom_danmu_pool(self) -> list[str]:
         raw = self.get_json("custom_danmu_pool", [])
@@ -484,24 +610,21 @@ class ConfigStore:
         collected_at: float,
         max_rows: int,
     ) -> int:
-        if not items:
+        params = []
+        for text, source_tag, remote_id in items:
+            stripped = str(text).strip()
+            if stripped:
+                params.append((stripped, source_tag, remote_id, collected_at))
+        if not params:
             return 0
-        added = 0
         with self._write_lock:
-            for text, source_tag, remote_id in items:
-                text = str(text).strip()
-                if not text:
-                    continue
-                try:
-                    cur = self.conn.execute(
-                        "INSERT OR IGNORE INTO meme_barrage_library "
-                        "(text, source_tag, remote_id, collected_at) VALUES (?, ?, ?, ?)",
-                        (text, source_tag, remote_id, collected_at),
-                    )
-                    if cur.rowcount:
-                        added += 1
-                except sqlite3.Error:
-                    continue
+            before = self.conn.total_changes
+            self.conn.executemany(
+                "INSERT OR IGNORE INTO meme_barrage_library "
+                "(text, source_tag, remote_id, collected_at) VALUES (?, ?, ?, ?)",
+                params,
+            )
+            added = self.conn.total_changes - before
             self._trim_meme_barrage_library_locked(max_rows)
             self.conn.commit()
         self._invalidate_formula_text_cache()

@@ -23,6 +23,7 @@ export const DIAGNOSTICS = {
   attempt: 0,
   last: null,
   observer: null,
+  mutationObserver: null,
 };
 
 const SSE_RECONNECT_BASE_MS = 1000;
@@ -122,6 +123,12 @@ function renderDiagnosticSnapshot(diag) {
   setText('diagnosticReportPreview', buildDiagnosticReportText(diag));
 }
 
+function isDiagnosticsPanelVisible() {
+  const panel = document.getElementById('diagnosticsPanel');
+  if (!panel || panel.classList.contains('hidden')) return false;
+  return document.getElementById('page-overview')?.classList.contains('active') ?? false;
+}
+
 function sseBackoffMs() {
   const exp = Math.min(DIAGNOSTICS.attempt, 4);
   return Math.min(SSE_RECONNECT_BASE_MS * 2 ** exp, SSE_MAX_RECONNECT_MS);
@@ -148,6 +155,22 @@ function disconnectDiagnosticsSSE() {
     DIAGNOSTICS.sse = null;
   }
   DIAGNOSTICS.attempt = 0;
+}
+
+export function disconnectDiagnosticsPanel() {
+  disconnectDiagnosticsSSE();
+}
+
+export function destroyDiagnosticsPanel() {
+  disconnectDiagnosticsSSE();
+  if (DIAGNOSTICS.observer) {
+    DIAGNOSTICS.observer.disconnect();
+    DIAGNOSTICS.observer = null;
+  }
+  if (DIAGNOSTICS.mutationObserver) {
+    DIAGNOSTICS.mutationObserver.disconnect();
+    DIAGNOSTICS.mutationObserver = null;
+  }
 }
 
 function connectDiagnosticsSSE() {
@@ -199,9 +222,7 @@ function connectDiagnosticsSSE() {
       console.debug(`[diagnostics] SSE reconnect in ${delay}ms (attempt ${DIAGNOSTICS.attempt})`);
       DIAGNOSTICS.reconnectTimer = setTimeout(() => {
         DIAGNOSTICS.reconnectTimer = null;
-        // 只在面板仍可见时重连
-        const panel = document.getElementById('diagnosticsPanel');
-        if (panel && !panel.classList.contains('hidden')) {
+        if (isDiagnosticsPanelVisible()) {
           connectDiagnosticsSSE();
         }
       }, delay);
@@ -217,8 +238,8 @@ function handlePanelVisibilityChange(entries) {
   const panel = document.getElementById('diagnosticsPanel');
   if (!panel) return;
 
-  // 面板可见（不含 hidden 类）且在视口内时连接 SSE
-  const isVisible = !panel.classList.contains('hidden') && entry.isIntersecting;
+  // 面板可见（不含 hidden 类）、在概览页且在视口内时连接 SSE
+  const isVisible = isDiagnosticsPanelVisible() && entry.isIntersecting;
   if (isVisible) {
     connectDiagnosticsSSE();
   } else {
@@ -233,7 +254,9 @@ function setDiagnosticsPanelVisible(visible) {
   panel.classList.toggle('hidden', !visible);
   panel.setAttribute('aria-hidden', visible ? 'false' : 'true');
   if (btn) btn.textContent = visible ? '隐藏诊断面板' : '显示诊断面板';
-  handlePanelVisibilityChange([{ target: panel, isIntersecting: visible }]);
+  handlePanelVisibilityChange([
+    { target: panel, isIntersecting: isDiagnosticsPanelVisible() },
+  ]);
 }
 
 export function initDiagnosticsPanel({ showToast }) {
@@ -263,10 +286,12 @@ export function initDiagnosticsPanel({ showToast }) {
     DIAGNOSTICS.observer.observe(panel);
 
     // 同时监听 hidden 类变化（MutationObserver）
-    const mutationObserver = new MutationObserver(() => {
-      handlePanelVisibilityChange([{ target: panel, isIntersecting: true }]);
+    DIAGNOSTICS.mutationObserver = new MutationObserver(() => {
+      handlePanelVisibilityChange([
+        { target: panel, isIntersecting: isDiagnosticsPanelVisible() },
+      ]);
     });
-    mutationObserver.observe(panel, {
+    DIAGNOSTICS.mutationObserver.observe(panel, {
       attributes: true,
       attributeFilter: ['class'],
     });

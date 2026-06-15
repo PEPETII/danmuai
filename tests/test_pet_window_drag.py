@@ -121,3 +121,24 @@ def test_pet_window_current_animation_priority_over_review(qapp):
     window._momentum_active = True
     window._drag_anim_state = "running-right"
     assert window._current_animation() == "running-right"
+
+
+def test_anim_tick_skips_redundant_repaint_when_frame_unchanged(qapp, monkeypatch):
+    from app.pet.pet_window import PetWindow
+
+    app = DanmuApp.__new__(DanmuApp)
+    bind_minimal_danmu_app(app, ai_in_flight=1)
+    window = PetWindow(app)
+    window._ensure_assets_loaded()
+    update_calls = {"n": 0}
+    original_update = window.update
+
+    def counting_update(*_args, **_kwargs):
+        update_calls["n"] += 1
+        return original_update(*_args, **_kwargs)
+
+    monkeypatch.setattr(window, "update", counting_update)
+    window._on_anim_tick()
+    assert update_calls["n"] == 1
+    window._on_anim_tick()
+    assert update_calls["n"] == 1

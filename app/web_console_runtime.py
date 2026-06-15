@@ -21,8 +21,10 @@ from app.web_console_support import (
     extract_config_payload,
     resolve_screens_for_api,
     save_config_via_bridge,
+    screens_for_api,
 )
 from app.web_console_ws import register_websocket_routes
+from app.web_static_mime import ensure_web_static_mime_types
 
 
 def run_uvicorn_locked(server) -> None:
@@ -139,7 +141,7 @@ def run_uvicorn_locked(server) -> None:
 
     @app.get("/api/screens")
     def screens():
-        return resolve_screens_for_api(bridge.cached_screens, enumerate_screens())
+        return screens_for_api(bridge)
 
     @app.get("/api/meta")
     def meta():
@@ -148,7 +150,7 @@ def run_uvicorn_locked(server) -> None:
             "ui_mode": "web",
             "hotkey": cfg.get("hotkey", "Ctrl+Shift+B"),
             "language": cfg.get("language", ""),
-            "screens": resolve_screens_for_api(bridge.cached_screens, enumerate_screens()),
+            "screens": screens_for_api(bridge),
         }
 
     @app.get("/api/providers")
@@ -230,6 +232,7 @@ def run_uvicorn_locked(server) -> None:
         return FileResponse(index_path)
 
     if server.static_dir.is_dir():
+        ensure_web_static_mime_types()
         app.mount("/static", StaticFiles(directory=str(server.static_dir)), name="static")
 
     config_kwargs: dict[str, Any] = {

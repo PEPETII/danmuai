@@ -225,7 +225,7 @@ def test_meme_collect_tick_uses_updated_batch_size(tmp_path, monkeypatch):
     pool = MagicMock()
     pool.start = lambda _runnable: None
     monkeypatch.setattr(
-        "app.main_meme_mixin.QThreadPool.globalInstance",
+        "app.main_meme_mixin.meme_fetch_pool",
         lambda: pool,
     )
 
@@ -285,3 +285,53 @@ def test_clear_all_resets_persisted_cursors(tmp_path):
     assert config.get("meme_barrage_remote_page_num") == "1"
     restarted = MemeBarrageService(config)
     assert restarted.next_page_num() == 1
+
+
+def test_meme_start_ai_select_does_not_compress_on_main_thread(tmp_path, monkeypatch):
+    """W-PERF-MED-004 P-14: 截图压缩在工作线程，不在主线程阻塞。"""
+    config = ConfigStore(db_path=tmp_path / "meme_ai_compress.db")
+    config.set("meme_barrage_display_batch_size", "2")
+    config.set("meme_barrage_display_mode", "ai")
+
+    app = DanmuApp.__new__(DanmuApp)
+    app.config = config
+    app.logger = MagicMock()
+    app.ai_worker = MagicMock()
+    app._meme_barrage_service = MemeBarrageService(config)
+    app._meme_barrage_bridge = MagicMock()
+
+    pixmap = MagicMock()
+    pixmap.isNull.return_value = False
+    app._latest_screenshot = pixmap
+
+    captured: dict[str, object] = {}
+
+    class FakeRunnable:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+        def setAutoDelete(self, _value: bool) -> None:
+            return None
+
+    pool = MagicMock()
+    monkeypatch.setattr("app.main_meme_mixin.MemeAiSelectRunnable", FakeRunnable)
+    monkeypatch.setattr("app.main_meme_mixin.ai_worker_pool", lambda: pool)
+
+    compress_calls: list[str] = []
+
+    def _track_main_compress(pix, max_width=0, quality=0):
+        compress_calls.append("main")
+        return "data:image/jpeg;base64,BBB"
+
+    monkeypatch.setattr("app.main_meme_mixin.compress_screenshot", _track_main_compress)
+
+    service = app._meme_barrage_service
+    settings = {"display_batch_size": 2, "display_mode": "ai"}
+    candidates = ["A", "B", "C"]
+
+    app._meme_start_ai_select(service, candidates, settings)
+
+    assert compress_calls == []
+    assert captured.get("pixmap") is pixmap
+    assert callable(captured.get("compress_fn"))
+    pool.start.assert_called_once()

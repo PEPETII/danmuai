@@ -59,13 +59,29 @@ class MemeBarrageApiClient:
     def __init__(self, base_url: str = API_BASE, *, verify_ssl: bool = False) -> None:
         self.base_url = base_url.rstrip("/")
         self._verify = verify_ssl
+        self._client: httpx.Client | None = None
+
+    def _get_client(self) -> httpx.Client:
+        if self._client is None:
+            self._client = httpx.Client(
+                headers=DEFAULT_HEADERS,
+                verify=self._verify,
+                timeout=20.0,
+                limits=httpx.Limits(max_keepalive_connections=2, max_connections=4),
+            )
+        return self._client
+
+    def close(self) -> None:
+        if self._client is not None:
+            self._client.close()
+            self._client = None
 
     def _request(self, method: str, path: str, **kwargs: Any) -> Any:
         url = f"{self.base_url}{path}"
-        with httpx.Client(headers=DEFAULT_HEADERS, verify=self._verify, timeout=20.0) as client:
-            resp = client.request(method, url, **kwargs)
-            resp.raise_for_status()
-            data = resp.json()
+        client = self._get_client()
+        resp = client.request(method, url, **kwargs)
+        resp.raise_for_status()
+        data = resp.json()
         if isinstance(data, dict) and data.get("code") not in (None, 200):
             raise RuntimeError(f"API error {data.get('code')}: {data.get('msg')}")
         return data

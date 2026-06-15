@@ -1,27 +1,8 @@
 import { API } from './transport.js';
 
-export function guessProviderIdFromEndpoint(endpoint, apiMode) {
-  const value = (endpoint || '').toLowerCase();
-  const ordered = [
-    ['ark.cn-beijing.volces.com', 'doubao'],
-    ['dashscope.aliyuncs.com', 'dashscope'],
-    ['open.bigmodel.cn', 'zhipu'],
-    ['api.moonshot.cn', 'moonshot'],
-    ['api.siliconflow.cn', 'siliconflow'],
-    ['api.xiaomimimo.com', 'mimo'],
-  ];
-  for (const [fragment, id] of ordered) {
-    if (value.includes(fragment)) return id;
-  }
-  const mode = apiMode ?? document.getElementById('api_mode')?.value ?? '';
-  if (mode === 'doubao') return 'custom_doubao';
-  return 'custom_openai';
-}
-
 const MANUAL_PROVIDER_LABEL = '手动填写';
-
-// Matches backend ProviderSpec.lock_mode=False presets only.
-const EDITABLE_API_MODE_PROVIDER_IDS = new Set(['custom_openai', 'custom_doubao']);
+const FALLBACK_DEFAULT_PROVIDER_ID = 'custom_openai';
+const FALLBACK_EDITABLE_API_MODE_PROVIDER_IDS = new Set(['custom_openai', 'custom_doubao']);
 
 export const API_MODE_OPTIONS = [
   { value: 'doubao', label: '豆包（火山方舟）' },
@@ -46,6 +27,50 @@ let providersDeps = {
 };
 
 let providersCache = [];
+let hostEntriesCache = [];
+let defaultProviderIdCache = FALLBACK_DEFAULT_PROVIDER_ID;
+let editableApiModeProviderIds = new Set(FALLBACK_EDITABLE_API_MODE_PROVIDER_IDS);
+
+function normalizeEndpointForMatch(endpoint) {
+  return String(endpoint || '').trim().toLowerCase().replace(/\/+$/, '');
+}
+
+function normalizeModeInput(apiMode) {
+  const raw = String(apiMode ?? '').trim().toLowerCase();
+  if (raw === 'doubao') return 'doubao';
+  if (raw === 'openai' || raw === 'openai-compatible' || raw === 'openai_compatible') {
+    return 'openai-compatible';
+  }
+  return raw;
+}
+
+function isDoubaoMode(apiMode) {
+  return normalizeModeInput(apiMode) === 'doubao';
+}
+
+function matchHostEntry(endpoint) {
+  const normalized = normalizeEndpointForMatch(endpoint);
+  if (!normalized) return null;
+  for (const entry of hostEntriesCache) {
+    if (normalized.includes(entry.fragment)) return entry;
+  }
+  return null;
+}
+
+export function resolveApiTransport(endpoint, apiMode) {
+  const entry = matchHostEntry(endpoint);
+  if (entry) return entry.transport;
+  if (isDoubaoMode(apiMode)) return 'doubao';
+  return 'openai';
+}
+
+export function guessProviderIdFromEndpoint(endpoint, apiMode) {
+  const entry = matchHostEntry(endpoint);
+  if (entry) return entry.provider_id;
+  const mode = apiMode ?? document.getElementById('api_mode')?.value ?? '';
+  if (isDoubaoMode(mode)) return 'custom_doubao';
+  return defaultProviderIdCache || FALLBACK_DEFAULT_PROVIDER_ID;
+}
 
 export function configureSettingsProviders(deps) {
   providersDeps = { ...providersDeps, ...deps };
@@ -64,15 +89,9 @@ export function initApiModeSelect() {
 }
 
 export function normalizeApiModeForSelect(mode, endpoint = '') {
-  const raw = String(mode || '').trim().toLowerCase();
-  if (raw === 'doubao') return 'doubao';
-  if (raw === 'openai' || raw === 'openai-compatible' || raw === 'openai_compatible') {
-    return 'openai';
-  }
   const endpointVal = endpoint || document.getElementById('api_endpoint')?.value || '';
-  const providerId = guessProviderIdFromEndpoint(endpointVal, '');
-  if (providerId === 'doubao' || providerId === 'custom_doubao') return 'doubao';
-  return 'openai';
+  const transport = resolveApiTransport(endpointVal, mode);
+  return transport === 'doubao' ? 'doubao' : 'openai';
 }
 
 export function applyApiModeValue(mode) {
@@ -90,7 +109,7 @@ export function syncApiModeLockState() {
   if (!sel) return;
   const presetSel = document.getElementById('providerPreset');
   const presetId = (presetSel?.value || '').trim() || resolveProviderIdForPicker();
-  const locked = Boolean(presetId && !EDITABLE_API_MODE_PROVIDER_IDS.has(presetId));
+  const locked = Boolean(presetId && !editableApiModeProviderIds.has(presetId));
   sel.disabled = locked;
 }
 
@@ -113,8 +132,22 @@ function fillProviderPresetSelect(sel, { mic = false } = {}) {
   appendManualProviderOption(sel);
 }
 
+function applyProviderRulesCache(rules) {
+  hostEntriesCache = Array.isArray(rules?.host_entries) ? rules.host_entries : [];
+  defaultProviderIdCache = rules?.default_provider_id || FALLBACK_DEFAULT_PROVIDER_ID;
+  const editableIds = Array.isArray(rules?.editable_api_mode_provider_ids)
+    ? rules.editable_api_mode_provider_ids
+    : [...FALLBACK_EDITABLE_API_MODE_PROVIDER_IDS];
+  editableApiModeProviderIds = new Set(editableIds);
+}
+
 export async function loadProviders() {
-  providersCache = await fetch(`${API.base}/api/providers`).then((r) => r.json());
+  const [providers, rules] = await Promise.all([
+    fetch(`${API.base}/api/providers`).then((r) => r.json()),
+    fetch(`${API.base}/api/provider-rules`).then((r) => r.json()),
+  ]);
+  providersCache = providers;
+  applyProviderRulesCache(rules);
   const sel = document.getElementById('providerPreset');
   if (sel) {
     fillProviderPresetSelect(sel);

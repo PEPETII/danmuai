@@ -567,3 +567,17 @@ export function startRealtimeTransport() {
   connectStatusWebSocket();
   connectLogsWebSocket();
 }
+
+export function stopRealtimeTransport() {
+  clearStatusReconnect();
+  clearLogsReconnect();
+  stopStatusPolling();
+  stopLogsPolling();
+  detachWebSocket(REALTIME.statusWs);
+  REALTIME.statusWs = null;
+  REALTIME.statusOpen = false;
+  detachWebSocket(REALTIME.logsWs);
+  REALTIME.logsWs = null;
+  REALTIME.logsOpen = false;
+  updateRealtimeConnUI();
+}

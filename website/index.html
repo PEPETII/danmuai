@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DanmuAI - AI 直播弹幕助手 | 温馨开源免费</title>
+  <meta name="description" content="DanmuAI 是 Windows 桌面 AI 弹幕工具，截取屏幕调用视觉模型生成弹幕，Qt 透明浮层滚动展示。隐私优先，截图不落盘。">
+  <meta property="og:title" content="DanmuAI - AI 直播弹幕助手">
+  <meta property="og:description" content="Windows 桌面 AI 弹幕工具，截图识屏生成弹幕，Qt 透明浮层展示。开源免费，隐私优先。">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="zh_CN">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="DanmuAI - AI 直播弹幕助手">
+  <meta name="twitter:description" content="Windows 桌面 AI 弹幕工具，截图识屏生成弹幕，Qt 透明浮层展示。">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ffa5a5' stroke='%23ff8585' stroke-width='1'%3E%3Ccircle cx='6' cy='8' r='2'/%3E%3Ccircle cx='10' cy='5' r='2'/%3E%3Ccircle cx='14' cy='5' r='2'/%3E%3Ccircle cx='18' cy='8' r='2'/%3E%3Cpath d='M8.5 15.5c0-2 1.6-3.5 3.5-3.5s3.5 1.5 3.5 3.5c0 2.2 2.5 2.2 2.5 4 0 1.5-1.5 2.5-3.2 2-1-.3-1.8-.5-2.8-.5s-1.8.2-2.8.5c-1.7.5-3.2-.5-3.2-2 0-1.8 2.5-1.8 2.5-4Z'/%3E%3C/svg%3E">
+  <!-- FOUC 防护：在 CSS 之前读取主题 -->
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('danmuai_site_theme');
+        if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+      } catch (e) {}
+    })();
+  </script>
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            cream: '#FDFBF7',
+            warmPink: '#FFA5A5',
+            warmPinkHover: '#FF8585',
+            softPeach: '#FFE5D9',
+            pastelYellow: '#FFF2CC',
+            warmText: '#5D5757',
+          },
+          fontFamily: { sans: ['Nunito', 'sans-serif'] },
+        },
+      },
+    };
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/animations.css">
+</head>
+<body class="font-sans">
+
+<!-- SVG Sprite -->
+<svg width="0" height="0" class="absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <symbol id="i-paw" viewBox="0 0 24 24"><circle cx="6" cy="8" r="2"/><circle cx="10" cy="5" r="2"/><circle cx="14" cy="5" r="2"/><circle cx="18" cy="8" r="2"/><path d="M8.5 15.5c0-2 1.6-3.5 3.5-3.5s3.5 1.5 3.5 3.5c0 2.2 2.5 2.2 2.5 4 0 1.5-1.5 2.5-3.2 2-1-.3-1.8-.5-2.8-.5s-1.8.2-2.8.5c-1.7.5-3.2-.5-3.2-2 0-1.8 2.5-1.8 2.5-4Z"/></symbol>
+    <symbol id="i-brain" viewBox="0 0 24 24"><path d="M9 4a4 4 0 0 0-4 4v1a4 4 0 0 0 0 8 4 4 0 0 0 7 2 4 4 0 0 0 7-2 4 4 0 0 0 0-8V8a4 4 0 0 0-7-2 4 4 0 0 0-3-2Z"/><path d="M12 6v13"/><path d="M8 10h4"/><path d="M12 14h4"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></symbol>
+    <symbol id="i-plug" viewBox="0 0 24 24"><path d="M9 7V2"/><path d="M15 7V2"/><path d="M7 7h10v4a5 5 0 0 1-10 0V7Z"/><path d="M12 16v6"/></symbol>
+    <symbol id="i-magic" viewBox="0 0 24 24"><path d="m15 4 1.5 3L20 8.5 16.5 10 15 13l-1.5-3L10 8.5 13.5 7 15 4Z"/><path d="m5 13 1 2 2 1-2 1-1 2-1-2-2-1 2-1 1-2Z"/><path d="m18 15 1 2 2 1-2 1-1 2-1-2-2-1 2-1 1-2Z"/></symbol>
+    <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8"/><path d="M12 16v4"/></symbol>
+    <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 6h10"/><path d="M18 6h2"/><path d="M4 12h2"/><path d="M10 12h10"/><path d="M4 18h8"/><path d="M16 18h4"/><circle cx="16" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="14" cy="18" r="2"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-key" viewBox="0 0 24 24"><circle cx="7" cy="15" r="4"/><path d="m10 12 9-9"/><path d="m15 6 3 3"/><path d="m13 8 2 2"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m8 11 4 4 4-4"/><path d="M4 19h16"/></symbol>
+    <symbol id="i-github" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12c0 4.42 2.87 8.17 6.84 9.49.5.09.66-.22.66-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.89 1.52 2.34 1.08 2.91.83.09-.65.35-1.08.63-1.33-2.22-.25-4.56-1.11-4.56-4.95 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02A9.56 9.56 0 0 1 12 6.8c.85 0 1.71.11 2.51.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.85-2.34 4.7-4.57 4.95.36.31.68.92.68 1.85v2.75c0 .27.16.58.67.48A10.01 10.01 0 0 0 22 12c0-5.52-4.48-10-10-10Z"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M21 14.5A8.5 8.5 0 0 1 9.5 3 7 7 0 1 0 21 14.5Z"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol>
+    <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="m12 3 1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3Z"/><path d="m19 14 .8 2.2L22 17l-2.2.8L19 20l-.8-2.2L16 17l2.2-.8L19 14Z"/></symbol>
+  </defs>
+</svg>
+
+<!-- ═══ 导航栏 ═══ -->
+<nav class="site-nav" aria-label="主导航">
+  <div class="nav-inner">
+    <a href="#" class="nav-logo" aria-label="DanmuAI 首页">
+      <span class="nav-logo-icon"><svg aria-hidden="true"><use href="#i-paw"></use></svg></span>
+      DanmuAI
+    </a>
+    <div class="nav-links">
+      <a href="#features" class="nav-link">功能特色</a>
+      <a href="#screenshots" class="nav-link">界面展示</a>
+      <a href="#download" class="nav-link">下载</a>
+      <a href="#faq" class="nav-link">常见问题</a>
+    </div>
+    <div class="nav-actions">
+      <button class="theme-toggle" type="button" aria-label="切换主题">
+        <svg class="icon-moon" aria-hidden="true"><use href="#i-moon"></use></svg>
+        <svg class="icon-sun" aria-hidden="true"><use href="#i-sun"></use></svg>
+      </button>
+      <button class="nav-hamburger" type="button" aria-label="打开菜单" aria-expanded="false">
+        <svg aria-hidden="true"><use href="#i-menu"></use></svg>
+      </button>
+    </div>
+  </div>
+</nav>
+
+<!-- 移动端菜单 -->
+<div class="mobile-menu" aria-label="移动端导航">
+  <a href="#features" class="mobile-link">功能特色</a>
+  <a href="#screenshots" class="mobile-link">界面展示</a>
+  <a href="#providers" class="mobile-link">AI 服务</a>
+  <a href="#download" class="mobile-link">下载安装</a>
+  <a href="#privacy" class="mobile-link">隐私保护</a>
+  <a href="#faq" class="mobile-link">常见问题</a>
+</div>
+
+<!-- ═══ Hero ═══ -->
+<section id="hero" class="section-hero">
+  <!-- 背景装饰 -->
+  <div class="hero-blob hero-blob-1" aria-hidden="true"></div>
+  <div class="hero-blob hero-blob-2" aria-hidden="true"></div>
+  <div class="danmu-bg-layer" aria-hidden="true">
+    <span class="danmu-float" style="top:18%;--danmu-duration:22s;--danmu-delay:0s;--danmu-opacity:0.07">哈哈哈笑死我了</span>
+    <span class="danmu-float" style="top:38%;--danmu-duration:26s;--danmu-delay:4s;--danmu-opacity:0.06">主播好可爱呀</span>
+    <span class="danmu-float" style="top:58%;--danmu-duration:20s;--danmu-delay:8s;--danmu-opacity:0.08">这个操作666</span>
+    <span class="danmu-float" style="top:75%;--danmu-duration:24s;--danmu-delay:12s;--danmu-opacity:0.05">前排围观大佬</span>
+    <span class="danmu-float" style="top:28%;--danmu-duration:28s;--danmu-delay:6s;--danmu-opacity:0.06">太好看了吧</span>
+  </div>
+
+  <div class="site-container relative z-10">
+    <div class="flex flex-col lg:flex-row items-center gap-10 lg:gap-16">
+      <!-- 左侧文案 -->
+      <div class="flex-1 text-center lg:text-left">
+        <h1 class="text-4xl md:text-5xl lg:text-6xl font-bold text-warmText mb-4 leading-tight">DanmuAI</h1>
+        <p class="text-xl md:text-2xl font-semibold mb-3" style="color: var(--color-primary-hover)">你的温馨弹幕小助手</p>
+        <p class="text-base mb-8" style="color: var(--color-text-dim)">AI 截图识屏 &middot; 5 条暖心弹幕 &middot; Qt 透明浮层滚动展示</p>
+        <div class="flex flex-wrap gap-4 justify-center lg:justify-start mb-6">
+          <a href="#download" class="btn-primary btn-pulse">
+            <svg class="ui-icon" aria-hidden="true"><use href="#i-download"></use></svg>
+            免费下载
+          </a>
+          <a href="https://github.com/PEPETII/danmuai" target="_blank" rel="noopener noreferrer" class="btn-outline">
+            <svg class="ui-icon" aria-hidden="true"><use href="#i-github"></use></svg>
+            GitHub 源码
+          </a>
+        </div>
+        <p class="text-xs" style="color: var(--color-text-dim)">Windows 10/11 &middot; 开源免费 &middot; GPL-3.0</p>
+      </div>
+      <!-- 右侧占位图 -->
+      <div class="flex-1 w-full max-w-xl">
+        <div class="warm-card overflow-hidden" style="transform: rotate(0.5deg)">
+          <div class="flex items-center gap-1.5 px-4 py-3" style="background: var(--color-bg-subtle); border-bottom: 1px solid var(--border)">
+            <span class="laptop-dot laptop-dot-red"></span>
+            <span class="laptop-dot laptop-dot-yellow"></span>
+            <span class="laptop-dot laptop-dot-green"></span>
+            <span class="laptop-titlebar-text">DanmuAI 温馨控制台</span>
+          </div>
+          <div class="flex items-center justify-center" style="aspect-ratio: 16/9; background: linear-gradient(135deg, var(--color-secondary) 0%, var(--color-accent) 50%, var(--color-primary-light) 100%)">
+            <div class="text-center p-6">
+              <svg style="width:3rem;height:3rem;stroke:var(--color-primary-hover);stroke-width:1.5;fill:none;margin:0 auto 1rem;display:block;stroke-linecap:round;stroke-linejoin:round" aria-hidden="true"><use href="#i-paw"></use></svg>
+              <p class="font-semibold" style="color:var(--color-primary-hover)">控制台界面截图</p>
+              <p class="text-sm mt-1" style="color:var(--color-text-dim)">后续替换为真实截图</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 核心功能 ═══ -->
+<section id="features" class="site-section" style="background: var(--color-bg-subtle)">
+  <div class="site-container">
+    <h2 class="section-title animate-on-scroll">为什么选择 DanmuAI？</h2>
+    <p class="section-subtitle animate-on-scroll">打造的轻量 AI 弹幕助手</p>
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 stagger-children">
+      <!-- 卡片 1 -->
+      <div class="warm-card p-6 animate-on-scroll">
+        <div class="feature-icon-wrap feature-icon-peach"><svg aria-hidden="true"><use href="#i-brain"></use></svg></div>
+        <h3 class="feature-title">AI 智能弹幕</h3>
+        <p class="feature-desc">每 5 秒截取屏幕画面，发送给视觉 AI 模型，自动生成 5 条贴合直播内容的弹幕，以 Qt 透明浮层滚动展示。</p>
+      </div>
+      <!-- 卡片 2 -->
+      <div class="warm-card p-6 animate-on-scroll">
+        <div class="feature-icon-wrap feature-icon-yellow"><svg aria-hidden="true"><use href="#i-shield"></use></svg></div>
+        <h3 class="feature-title">隐私优先</h3>
+        <p class="feature-desc">截图在内存中压缩后直接发送，默认不落盘。API Key 使用 Fernet 加密存储，Web API 仅监听本机 127.0.0.1。</p>
+      </div>
+      <!-- 卡片 3 -->
+      <div class="warm-card p-6 animate-on-scroll">
+        <div class="feature-icon-wrap feature-icon-peach"><svg aria-hidden="true"><use href="#i-plug"></use></svg></div>
+        <h3 class="feature-title">8+ AI 服务商</h3>
+        <p class="feature-desc">内置火山方舟、阿里云百炼、智谱、Moonshot、硅基流动、小米 MiMo 等服务商预设，一键切换，也支持自定义接口。</p>
+      </div>
+      <!-- 卡片 4 -->
+      <div class="warm-card p-6 animate-on-scroll">
+        <div class="feature-icon-wrap feature-icon-yellow"><svg aria-hidden="true"><use href="#i-magic"></use></svg></div>
+        <h3 class="feature-title">人格工坊</h3>
+        <p class="feature-desc">自定义 AI 角色与性格设定，打造专属直播人设。内置多种人格模板，也支持完全自定义提示词。</p>
+      </div>
+      <!-- 卡片 5 -->
+      <div class="warm-card p-6 animate-on-scroll">
+        <div class="feature-icon-wrap feature-icon-peach"><svg aria-hidden="true"><use href="#i-monitor"></use></svg></div>
+        <h3 class="feature-title">OBS 直播集成</h3>
+        <p class="feature-desc">提供透明 HTML 弹幕叠层页面，可作为浏览器源直接添加到 OBS、抖音直播伴侣、B 站直播姬等工具。</p>
+      </div>
+      <!-- 卡片 6 -->
+      <div class="warm-card p-6 animate-on-scroll">
+        <div class="feature-icon-wrap feature-icon-yellow"><svg aria-hidden="true"><use href="#i-sliders"></use></svg></div>
+        <h3 class="feature-title">Web 控制台</h3>
+        <p class="feature-desc">温馨的 pywebview 桌面壳配置界面，实时状态监控、弹幕日记、统计面板，所有设置一目了然。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 截图展示 ═══ -->
+<section id="screenshots" class="site-section">
+  <div class="site-container">
+    <h2 class="section-title animate-on-scroll">温馨界面，一目了然</h2>
+    <p class="section-subtitle animate-on-scroll">简洁直观的操作界面，让直播更专注</p>
+    <div class="gallery-tabs animate-on-scroll">
+      <button class="gallery-tab active" data-target="screen-overview" type="button">控制台概览</button>
+      <button class="gallery-tab" data-target="screen-settings" type="button">助手设置</button>
+      <button class="gallery-tab" data-target="screen-persona" type="button">人格工坊</button>
+    </div>
+    <div class="laptop-frame animate-on-scroll">
+      <div class="laptop-titlebar">
+        <span class="laptop-dot laptop-dot-red"></span>
+        <span class="laptop-dot laptop-dot-yellow"></span>
+        <span class="laptop-dot laptop-dot-green"></span>
+        <span class="laptop-titlebar-text">DanmuAI</span>
+      </div>
+      <div class="laptop-screen">
+        <div id="screen-overview" class="laptop-placeholder active" style="background: linear-gradient(135deg, var(--color-secondary) 0%, var(--color-bg) 100%)">
+          <div class="laptop-placeholder-inner">
+            <svg aria-hidden="true"><use href="#i-sparkles"></use></svg>
+            <p class="font-semibold" style="color:var(--color-text)">控制台概览</p>
+            <p class="text-sm mt-1">运行状态、统计卡片、弹幕场次记录</p>
+          </div>
+        </div>
+        <div id="screen-settings" class="laptop-placeholder" style="background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-bg) 100%)">
+          <div class="laptop-placeholder-inner">
+            <svg aria-hidden="true"><use href="#i-sliders"></use></svg>
+            <p class="font-semibold" style="color:var(--color-text)">助手设置</p>
+            <p class="text-sm mt-1">AI 模型、识图区域、弹幕样式等 7 个分页</p>
+          </div>
+        </div>
+        <div id="screen-persona" class="laptop-placeholder" style="background: linear-gradient(135deg, var(--color-primary-light) 0%, var(--color-bg) 100%)">
+          <div class="laptop-placeholder-inner">
+            <svg aria-hidden="true"><use href="#i-magic"></use></svg>
+            <p class="font-semibold" style="color:var(--color-text)">人格工坊</p>
+            <p class="text-sm mt-1">AI 角色设定、提示词编辑、人格模板库</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ AI 服务商 ═══ -->
+<section id="providers" class="site-section" style="background: var(--color-bg-subtle)">
+  <div class="site-container">
+    <h2 class="section-title animate-on-scroll">开箱即用的 AI 服务</h2>
+    <p class="section-subtitle animate-on-scroll">内置主流视觉模型服务商预设，一键配置即可使用</p>
+    <div class="provider-chips animate-on-scroll stagger-children">
+      <div class="provider-chip chip-peach animate-on-scroll">
+        <span>火山方舟</span><span class="chip-mode">豆包 Responses</span>
+      </div>
+      <div class="provider-chip chip-yellow animate-on-scroll">
+        <span>阿里云百炼</span><span class="chip-mode">OpenAI 兼容</span>
+      </div>
+      <div class="provider-chip chip-peach animate-on-scroll">
+        <span>智谱 AI</span><span class="chip-mode">OpenAI 兼容</span>
+      </div>
+      <div class="provider-chip chip-yellow animate-on-scroll">
+        <span>Moonshot (Kimi)</span><span class="chip-mode">OpenAI 兼容</span>
+      </div>
+      <div class="provider-chip chip-peach animate-on-scroll">
+        <span>硅基流动</span><span class="chip-mode">OpenAI 兼容</span>
+      </div>
+      <div class="provider-chip chip-yellow animate-on-scroll">
+        <span>小米 MiMo</span><span class="chip-mode">OpenAI 兼容</span>
+      </div>
+      <div class="provider-chip chip-peach animate-on-scroll">
+        <span>自定义 OpenAI</span><span class="chip-mode">完全自定义</span>
+      </div>
+      <div class="provider-chip chip-yellow animate-on-scroll">
+        <span>自定义豆包</span><span class="chip-mode">豆包 Responses</span>
+      </div>
+    </div>
+    <p class="text-center mt-8 text-sm animate-on-scroll" style="color:var(--color-text-dim)">支持任何 OpenAI 兼容接口 —— 你的 AI 你做主</p>
+  </div>
+</section>
+
+<!-- ═══ 下载与系统要求 ═══ -->
+<section id="download" class="site-section">
+  <div class="site-container">
+    <h2 class="section-title animate-on-scroll">立即开始</h2>
+    <p class="section-subtitle animate-on-scroll">无需安装 Python 或 Git，下载即用</p>
+    <div class="download-grid">
+      <!-- 系统要求 -->
+      <div class="warm-card p-6 animate-on-scroll">
+        <h3 class="text-lg font-bold mb-4" style="color:var(--color-text)">系统要求</h3>
+        <ul class="req-list">
+          <li>
+            <svg aria-hidden="true"><use href="#i-check"></use></svg>
+            <span>Windows 10 / 11（x64）</span>
+          </li>
+          <li>
+            <svg aria-hidden="true"><use href="#i-check"></use></svg>
+            <span>WebView2 Runtime（Win10/11 多数已预装）</span>
+          </li>
+          <li>
+            <svg aria-hidden="true"><use href="#i-check"></use></svg>
+            <span>无需安装 Python 或 Git</span>
+          </li>
+          <li>
+            <svg class="icon-warn" aria-hidden="true"><use href="#i-alert"></use></svg>
+            <span>安装包暂未代码签名，SmartScreen 提示「更多信息 &rarr; 仍要运行」即可</span>
+          </li>
+        </ul>
+      </div>
+      <!-- 下载区 -->
+      <div class="warm-card p-6 animate-on-scroll flex flex-col justify-between">
+        <div>
+          <h3 class="text-lg font-bold mb-2" style="color:var(--color-text)">下载安装包 <span class="text-sm font-semibold" style="color:var(--color-primary-hover)">v0.3.2</span></h3>
+          <p class="text-sm mb-6" style="color:var(--color-text-dim)">Windows x64 安装程序（Setup.exe），推荐下载，支持自定义安装路径。主下载源已同步至最新稳定版。</p>
+          <a href="https://updates.qiaoqiao.buzz/downloads/DanmuAI-Setup.exe" class="btn-primary btn-pulse w-full justify-center mb-3">
+            <svg class="ui-icon" aria-hidden="true"><use href="#i-download"></use></svg>
+            下载 Windows 安装版 (Setup.exe)
+          </a>
+          <div class="text-center text-xs" style="color:var(--color-text-dim)">
+            <p>其他下载方式：</p>
+            <p>
+              <a href="https://updates.qiaoqiao.buzz/downloads/PEPETII.DanmuAI-win-Portable.zip">便携版 ZIP</a> ·
+              <a href="https://github.com/PEPETII/danmuai/releases" target="_blank" rel="noopener noreferrer">GitHub Releases 镜像</a>
+            </p>
+            <p>高级用户：Setup.exe 支持 --installto 自定义安装路径</p>
+          </div>
+        </div>
+        <div class="download-steps">
+          <div class="download-step"><span class="download-step-num">1</span><span>下载并运行安装程序</span></div>
+          <div class="download-step"><span class="download-step-num">2</span><span>配置 AI 服务商与 API Key</span></div>
+          <div class="download-step"><span class="download-step-num">3</span><span>点击「生成弹幕」开始使用</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 隐私亮点 ═══ -->
+<section id="privacy" class="site-section" style="background: var(--color-bg-subtle)">
+  <div class="site-container">
+    <h2 class="section-title animate-on-scroll">你的隐私，我们认真对待</h2>
+    <p class="section-subtitle animate-on-scroll">从设计之初就将隐私保护融入每一个环节</p>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto stagger-children">
+      <div class="warm-card p-6 text-center animate-on-scroll">
+        <div class="privacy-icon"><svg aria-hidden="true"><use href="#i-eye"></use></svg></div>
+        <h3 class="feature-title">截图不落盘</h3>
+        <p class="feature-desc text-center">截图在内存中压缩后直接发送给 AI，默认不会保存到硬盘，也不会将截图原文写入日志。</p>
+      </div>
+      <div class="warm-card p-6 text-center animate-on-scroll">
+        <div class="privacy-icon"><svg aria-hidden="true"><use href="#i-key"></use></svg></div>
+        <h3 class="feature-title">密钥加密存储</h3>
+        <p class="feature-desc text-center">API Key 使用 Fernet 对称加密存储在本地配置库中，保护你的密钥安全。</p>
+      </div>
+      <div class="warm-card p-6 text-center animate-on-scroll">
+        <div class="privacy-icon"><svg aria-hidden="true"><use href="#i-shield"></use></svg></div>
+        <h3 class="feature-title">仅监听本机</h3>
+        <p class="feature-desc text-center">Web API 仅监听 127.0.0.1，写操作需要 Bearer token 验证，防止外部访问。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ FAQ ═══ -->
+<section id="faq" class="site-section">
+  <div class="site-container max-w-3xl">
+    <h2 class="section-title animate-on-scroll">常见问题</h2>
+    <p class="section-subtitle animate-on-scroll">遇到问题？这里可能有答案</p>
+    <div class="stagger-children">
+      <details class="faq-item animate-on-scroll">
+        <summary>为什么启动后没有弹幕？</summary>
+        <div class="faq-answer">
+          <p>常见原因：API Key 未配置、截图失败，或连续失败进入退避。请在 Web「助手设置」检查 API 配置，在「弹幕日记」查看错误日志。</p>
+        </div>
+      </details>
+      <details class="faq-item animate-on-scroll">
+        <summary>程序会保存截图吗？</summary>
+        <div class="faq-answer">
+          <p>默认不会。截图在内存中压缩后发送给 AI 模型，不会保存到硬盘。程序只保存弹幕文本历史。</p>
+        </div>
+      </details>
+      <details class="faq-item animate-on-scroll">
+        <summary>如何配置 API Key？</summary>
+        <div class="faq-answer">
+          <p>启动程序后，在 Web 控制台打开「助手设置」，填写 API Endpoint、API Key 和 Model。在「服务商预设」中选择平台可自动填入默认地址。点击「保存配置」后回到「温馨控制台」点击开始即可。</p>
+        </div>
+      </details>
+      <details class="faq-item animate-on-scroll">
+        <summary>Max Tokens 设得很低会怎样？</summary>
+        <div class="faq-answer">
+          <p>固定 5 条弹幕需要完整的 JSON/列表输出，过低会导致截断或解析失败。程序有下限保护（不低于 512），并固定关闭思考模式以确保输出稳定。</p>
+        </div>
+      </details>
+      <details class="faq-item animate-on-scroll">
+        <summary>小米 MiMo 报「AI 返回为空」？</summary>
+        <div class="faq-answer">
+          <p>请使用 OpenAI 兼容模式 + 预设 endpoint，模型优先选择 <code style="background:var(--color-secondary);padding:0.15em 0.4em;border-radius:0.3em;font-size:0.85em">mimo-v2.5</code>。应用已强制关闭思考模式；若仍为空，请检查 Key 权限、配额与模型 ID 是否已在控制台开通。</p>
+        </div>
+      </details>
+      <details class="faq-item animate-on-scroll">
+        <summary>Web 控制台打不开？</summary>
+        <div class="faq-answer">
+          <p>请确认 <code style="background:var(--color-secondary);padding:0.15em 0.4em;border-radius:0.3em;font-size:0.85em">127.0.0.1:18765</code> 端口未被占用，可尝试使用 <code style="background:var(--color-secondary);padding:0.15em 0.4em;border-radius:0.3em;font-size:0.85em">--web-browser</code> 参数在系统浏览器中打开。Windows 需要 WebView2 Runtime（Win10/11 多数已预装）。</p>
+        </div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 页脚 ═══ -->
+<footer class="site-footer">
+  <div class="site-container">
+    <div class="footer-grid">
+      <div>
+        <h4 class="footer-heading">项目</h4>
+        <a href="https://github.com/PEPETII/danmuai" target="_blank" rel="noopener noreferrer" class="footer-link">GitHub 仓库</a>
+        <a href="https://github.com/PEPETII/danmuai/blob/main/docs/ARCHITECTURE.md" target="_blank" rel="noopener noreferrer" class="footer-link">架构文档</a>
+        <a href="https://github.com/PEPETII/danmuai/blob/main/docs/ROADMAP.md" target="_blank" rel="noopener noreferrer" class="footer-link">更新路线图</a>
+        <a href="https://github.com/PEPETII/danmuai/blob/main/docs/WEB_CONSOLE.md" target="_blank" rel="noopener noreferrer" class="footer-link">Web 控制台文档</a>
+      </div>
+      <div>
+        <h4 class="footer-heading">社区</h4>
+        <a href="https://github.com/PEPETII/danmuai/blob/main/CODE_OF_CONDUCT.md" target="_blank" rel="noopener noreferrer" class="footer-link">行为准则</a>
+        <a href="https://github.com/PEPETII/danmuai/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener noreferrer" class="footer-link">贡献指南</a>
+        <a href="https://github.com/PEPETII/danmuai/issues" target="_blank" rel="noopener noreferrer" class="footer-link">问题反馈</a>
+      </div>
+      <div>
+        <h4 class="footer-heading">法律</h4>
+        <a href="https://github.com/PEPETII/danmuai/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" class="footer-link">GPL-3.0 许可证</a>
+        <a href="https://github.com/PEPETII/danmuai/blob/main/SECURITY.md" target="_blank" rel="noopener noreferrer" class="footer-link">安全策略</a>
+        <a href="https://github.com/PEPETII/danmuai/blob/main/docs/PRIVACY.md" target="_blank" rel="noopener noreferrer" class="footer-link">隐私说明</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>&copy; 2026 DanmuAI Contributors &middot; GPL-3.0-or-later</p>
+      <p class="mt-1 text-xs">DanmuAI 与 Bilibili、字节跳动、阿里巴巴等第三方无隶属关系。</p>
+    </div>
+  </div>
+</footer>
+
+<!-- JS -->
+<script src="js/theme.js"></script>
+<script src="js/nav.js"></script>
+<script src="js/animations.js"></script>
+<script src="js/gallery.js"></script>
+</body>
+</html>

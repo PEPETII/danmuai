@@ -1,10 +1,7 @@
 """System tray icon and menu for the DanmuApp desktop shell.
 
-QSystemTrayIcon 持有「显示控制台 / 退出 / 重启 Web 终端」菜单；点击「退出」经
-``DanmuApp.quit()`` 走完整清理流程（停止主链路 + 关闭 pywebview + 关 Web 终端 + 关 tray）。
-
-线程：tray icon 必须在主线程创建；菜单点击 handler 也在主线程，**不**需要
-``invoke_on_main`` 桥接。
+QSystemTrayIcon 持有“显示控制台 / 检查更新 / 卸载应用 / 退出”等菜单；
+所有 handler 都运行在主线程，不需要额外的 invoke_on_main 桥接。
 """
 
 from PyQt6.QtCore import QRect, Qt
@@ -52,16 +49,20 @@ class TrayManager:
         self.settings_action = QAction()
         self.settings_action.triggered.connect(self.app.show_settings)
 
-        self.quit_action = QAction()
-        self.quit_action.triggered.connect(self.app.quit)
-
         self.check_update_action = QAction()
         self.check_update_action.triggered.connect(self._on_check_update)
+
+        self.uninstall_action = QAction()
+        self.uninstall_action.triggered.connect(self._on_uninstall)
+
+        self.quit_action = QAction()
+        self.quit_action.triggered.connect(self.app.quit)
 
         self.menu.addAction(self.toggle_action)
         self.menu.addAction(self.settings_action)
         self.menu.addSeparator()
         self.menu.addAction(self.check_update_action)
+        self.menu.addAction(self.uninstall_action)
         self.menu.addSeparator()
         self.menu.addAction(self.quit_action)
 
@@ -72,6 +73,7 @@ class TrayManager:
     def _retranslate_ui(self):
         self.settings_action.setText(tr("tray.settings"))
         self.check_update_action.setText(tr("tray.check_update", "检查更新"))
+        self.uninstall_action.setText(tr("tray.uninstall", "卸载应用"))
         self.quit_action.setText(tr("tray.quit"))
         self.update_state(getattr(self.app.engine, "running", False))
 
@@ -115,16 +117,79 @@ class TrayManager:
                 result.message or tr("tray.update_up_to_date", "已是最新版本"),
             )
 
+    def _on_uninstall(self):
+        from app import uninstall_service
+
+        title = tr("tray.uninstall", "卸载应用")
+        status = uninstall_service.get_status()
+        if not status.supported:
+            detail = status.message or status.error or tr("tray.uninstall_unavailable", "当前环境不支持卸载。")
+            QMessageBox.warning(None, title, detail)
+            return
+
+        first = QMessageBox.question(
+            None,
+            title,
+            tr("tray.uninstall_prompt", "是否启动卸载？默认会保留用户数据。"),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if first != QMessageBox.StandardButton.Yes:
+            return
+
+        delete_choice = QMessageBox.question(
+            None,
+            title,
+            tr(
+                "tray.uninstall_delete_data_prompt",
+                "是否同时删除 %APPDATA%\\DanmuAI\\ 用户数据？选择“否”则仅卸载程序。",
+            ),
+            QMessageBox.StandardButton.Yes
+            | QMessageBox.StandardButton.No
+            | QMessageBox.StandardButton.Cancel,
+        )
+        if delete_choice == QMessageBox.StandardButton.Cancel:
+            return
+
+        delete_user_data = delete_choice == QMessageBox.StandardButton.Yes
+        if delete_user_data:
+            confirm = QMessageBox.question(
+                None,
+                title,
+                tr(
+                    "tray.uninstall_delete_data_confirm",
+                    "请再次确认：卸载时将删除 %APPDATA%\\DanmuAI\\ 下的配置与密钥，此操作不可恢复。",
+                ),
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
+            if confirm != QMessageBox.StandardButton.Yes:
+                return
+
+        launched = uninstall_service.request_uninstall(delete_user_data=delete_user_data)
+        if not launched.ok:
+            QMessageBox.warning(
+                None,
+                title,
+                launched.message or launched.error or tr("tray.uninstall_failed", "启动卸载失败。"),
+            )
+            return
+
+        QMessageBox.information(
+            None,
+            title,
+            launched.message or tr("tray.uninstall_started", "已启动卸载程序。"),
+        )
+
     def _on_activated(self, reason):
         if reason in (
-            QSystemTrayIcon.ActivationReason.DoubleClick,
             QSystemTrayIcon.ActivationReason.Trigger,
+            QSystemTrayIcon.ActivationReason.DoubleClick,
         ):
             self.app.show_settings()
 
     def _tooltip_with_action_hint(self, state_key: str) -> str:
-        """S-005: surface double-click recovery on hover (tray has no window chrome)."""
-        return f"{tr(state_key)} — {tr('tray.tooltip_action_hint')}"
+        """S-005: surface tray click recovery on hover (tray has no window chrome)."""
+        hint = tr("tray.tooltip_action_hint", "单击打开设置")
+        return f"{tr(state_key)} - {hint}"
 
     def update_state(self, running: bool):
         if running:

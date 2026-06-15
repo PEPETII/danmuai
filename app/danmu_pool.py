@@ -12,6 +12,7 @@ from typing import Any
 # 按 config 实例缓存公式化句集合；池/烂梗库写入后须 invalidate_formula_text_cache。
 _formula_custom_sets: dict[int, set[str]] = {}
 _formula_meme_sets: dict[int, set[str]] = {}
+_custom_pool_lists: dict[int, list[str]] = {}
 
 
 def danmu_pool_use_custom_from_config(config) -> bool:
@@ -45,13 +46,19 @@ def effective_min_on_screen(config) -> int:
 def load_custom_danmu_pool(config) -> list[str]:
     if config is None or not danmu_pool_use_custom_from_config(config):
         return []
+    key = id(config)
+    cached = _custom_pool_lists.get(key)
+    if cached is not None:
+        return cached
     getter = getattr(config, "get_custom_danmu_pool", None)
     if callable(getter):
         items = getter()
     else:
         raw = config.get_json("custom_danmu_pool", []) if hasattr(config, "get_json") else []
         items = raw if isinstance(raw, list) else []
-    return _dedupe_lines(str(item) for item in items)
+    result = _dedupe_lines(str(item) for item in items)
+    _custom_pool_lists[key] = result
+    return result
 
 
 def load_danmu_pool_for_config(config) -> list[str]:
@@ -98,10 +105,12 @@ def invalidate_formula_text_cache(config: Any | None = None) -> None:
     if config is None:
         _formula_custom_sets.clear()
         _formula_meme_sets.clear()
+        _custom_pool_lists.clear()
         return
     key = id(config)
     _formula_custom_sets.pop(key, None)
     _formula_meme_sets.pop(key, None)
+    _custom_pool_lists.pop(key, None)
 
 
 def _custom_pool_text_set(config) -> set[str]:

@@ -24,3 +24,12 @@ def test_consume_timing_still_pops_active_entry():
 
     assert rtt == 1.5
     assert "9:9:1" not in svc.request_started_at_by_id
+
+
+def test_record_rtt_deque_maxlen_drops_oldest():
+    svc = RequestTimingService()
+    for index in range(21):
+        svc.record_rtt(rtt=float(index))
+    assert len(svc.rtt_history) == 20
+    assert svc.rtt_history[0] == 1.0
+    assert svc.rtt_history[-1] == 20.0

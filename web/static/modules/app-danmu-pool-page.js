@@ -1,5 +1,8 @@
 import { apiFetch } from './transport.js';
 
+const MAX_IMPORT_FILES = 5;
+const MAX_LINES_PER_FILE = 1000;
+
 let danmuPoolMeta = null;
 let toast = () => {};
 let handlersBound = false;
@@ -22,10 +25,15 @@ function updatePoolMinOnScreenControl() {
   if (hint) hint.classList.toggle('hidden', Boolean(enabled));
 }
 
+function formatCustomPoolCount(length) {
+  const max = danmuPoolMeta?.custom_max;
+  return max != null ? `共 ${length} / ${max} 条` : `共 ${length} 条`;
+}
+
 function renderCustomDanmuPoolList(items) {
   const list = document.getElementById('poolCustomList');
   const countEl = document.getElementById('poolCustomCount');
-  if (countEl) countEl.textContent = `共 ${items.length} 条`;
+  if (countEl) countEl.textContent = formatCustomPoolCount(items.length);
   if (!list) return;
   list.replaceChildren();
   items.forEach((text) => {
@@ -44,6 +52,101 @@ function renderCustomDanmuPoolList(items) {
   });
   const selectAll = document.getElementById('poolCustomSelectAll');
   if (selectAll) selectAll.checked = false;
+}
+
+function readFileAsText(file, encoding) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result ?? ''));
+    reader.onerror = () => reject(reader.error || new Error('文件读取失败'));
+    reader.readAsText(file, encoding);
+  });
+}
+
+async function readPoolTxtFile(file) {
+  const utf8Text = await readFileAsText(file, 'utf-8');
+  if (!utf8Text.includes('\uFFFD')) {
+    return { text: utf8Text, encodingFallback: false, hasReplacement: false };
+  }
+  const gbkText = await readFileAsText(file, 'gbk');
+  return {
+    text: gbkText,
+    encodingFallback: true,
+    hasReplacement: gbkText.includes('\uFFFD'),
+  };
+}
+
+function countFileLines(text) {
+  if (!text) return 0;
+  return text.split(/\r?\n/).length;
+}
+
+function buildImportSkippedHint(skippedItems) {
+  if (!skippedItems?.length) return '';
+  const reasonLabels = {
+    duplicate: '重复',
+    empty: '空行',
+    limit_reached: '超限',
+    unsafe: '不安全',
+  };
+  const counts = {};
+  skippedItems.forEach((item) => {
+    const label = reasonLabels[item.reason] || item.reason;
+    counts[label] = (counts[label] || 0) + 1;
+  });
+  const parts = Object.entries(counts).map(([label, n]) => `${label} ${n}`);
+  return parts.length ? `（${parts.join('，')}）` : '';
+}
+
+async function importCustomDanmuPoolTxtFiles(fileList) {
+  const files = [...(fileList || [])];
+  const btn = document.getElementById('btnPoolImportTxt');
+  const input = document.getElementById('poolImportTxtInput');
+
+  if (!files.length) return;
+
+  if (files.length > MAX_IMPORT_FILES) {
+    showToast('最多同时导入 5 个文件', true);
+    if (input) input.value = '';
+    return;
+  }
+
+  if (btn) btn.disabled = true;
+
+  try {
+    const readResults = await Promise.all(files.map((file) => readPoolTxtFile(file)));
+
+    for (let i = 0; i < files.length; i += 1) {
+      const lineCount = countFileLines(readResults[i].text);
+      if (lineCount > MAX_LINES_PER_FILE) {
+        showToast(`文件「${files[i].name}」超过 ${MAX_LINES_PER_FILE} 行上限`, true);
+        return;
+      }
+    }
+
+    const combinedText = readResults.map((r) => r.text).join('\n');
+    const result = await apiFetch('/api/danmu-pool/custom', {
+      method: 'POST',
+      body: JSON.stringify({ text: combinedText }),
+    });
+
+    renderCustomDanmuPoolList(result.items || []);
+    danmuPoolMeta = await apiFetch('/api/danmu-pool/meta');
+
+    const added = result.added || 0;
+    const skipped = result.skipped || 0;
+    const skipHint = buildImportSkippedHint(result.skipped_items);
+    let message = `导入成功，新增 ${added} 条，跳过 ${skipped} 条${skipHint}`;
+    if (readResults.some((r) => r.hasReplacement)) {
+      message += '；部分字符无法识别';
+    }
+    showToast(message, skipped > 0 && !added);
+  } catch (error) {
+    showToast(error.message || '导入失败', true);
+  } finally {
+    if (btn) btn.disabled = false;
+    if (input) input.value = '';
+  }
 }
 
 export async function loadDanmuPoolPage() {
@@ -142,5 +245,13 @@ export function initDanmuPoolPage(deps = {}) {
       danmuPoolMeta.effective_pool_enabled = poolEffectiveEnabledLocal();
     }
     updatePoolMinOnScreenControl();
+  });
+  document.getElementById('btnPoolImportTxt')?.addEventListener('click', () => {
+    document.getElementById('poolImportTxtInput')?.click();
+  });
+  document.getElementById('poolImportTxtInput')?.addEventListener('change', (event) => {
+    importCustomDanmuPoolTxtFiles(event.target.files).catch((error) =>
+      showToast(error.message || '导入失败', true),
+    );
   });
 }

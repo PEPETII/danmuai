@@ -2,8 +2,10 @@
 
 线程模型：
 - GET 路由：HTTP 线程直接执行（只读快照）
-- PUT /api/config：经 save_config_requested.emit 异步信号到主线程
-- 其他写路由：经 bridge.invoke_on_main（BlockingQueuedConnection）同步到主线程
+- PUT /api/config：在 web_console_runtime.py 经 save_config_via_bridge（pyqtSignal +
+  threading.Event.wait）同步到主线程；**不是**本文件 _invoke_on_main
+- 其他写路由：经 bridge.invoke_on_main（QueuedConnection + Event.wait）同步到主线程，
+  超时时返回 504（见 MainThreadInvokeTimeout）
 
 边界约束：必须使用 DanmuApp 公开 façade，禁止访问内部私有属性：
 - build_status_snapshot() / build_diagnostic_snapshot()
@@ -33,6 +35,7 @@ from app.web_api import meme_barrage as meme_api
 from app.web_api import mic_test as mic_test_api
 from app.web_api import persona as persona_api
 from app.web_api import pet as pet_api
+from app.web_api import providers as providers_api
 from app.web_api import update as update_api
 from app.web_api.preview_compress import register_preview_compress_route
 
@@ -44,9 +47,12 @@ DIAGNOSTICS_SSE_INTERVAL_SEC = 2.5
 if TYPE_CHECKING:
     from app.web_console import WebConsoleBridge
 
+from app.web_console import MainThreadInvokeTimeout
+
 
 def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) -> None:
     register_preview_compress_route(app, check_token)
+    providers_api.register_provider_routes(app)
 
     class PersonaCreatePayload(BaseModel):
         name: str
@@ -143,6 +149,20 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
         """写 API：经 WebConsoleBridge.invoke_on_main 在主线程执行。"""
         try:
             return bridge.invoke_on_main(fn, *args, **kwargs)
+        except MainThreadInvokeTimeout as exc:
+            logger.error(
+                "invoke_on_main timed out for %r after %.1fs",
+                fn,
+                exc.timeout_sec,
+            )
+            raise HTTPException(
+                status_code=504,
+                detail={
+                    "ok": False,
+                    "error": "main_thread_timeout",
+                    "detail": "主线程操作超时，请稍后重试。",
+                },
+            ) from exc
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         except (PermissionError, RuntimeError) as exc:
@@ -182,20 +202,28 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
 
         return {"current_version": __version__}
 
+    @app.get("/api/update/channels")
+    def get_update_channels_route():
+        return update_api.get_release_channels()
+
     @app.get("/api/update/status")
-    def get_update_status_route():
+    def get_update_status_route(authorization: str | None = Header(default=None)):
+        check_token(authorization)
         return update_api.get_update_status()
 
     @app.post("/api/update/check")
-    def post_update_check_route():
+    def post_update_check_route(authorization: str | None = Header(default=None)):
+        check_token(authorization)
         return update_api.post_update_check()
 
     @app.post("/api/update/download")
-    def post_update_download_route():
+    def post_update_download_route(authorization: str | None = Header(default=None)):
+        check_token(authorization)
         return update_api.post_update_download()
 
     @app.post("/api/update/restart")
-    def post_update_restart_route():
+    def post_update_restart_route(authorization: str | None = Header(default=None)):
+        check_token(authorization)
         return update_api.post_update_restart()
 
     @app.get("/api/app-update-state")
@@ -602,21 +630,29 @@ def register_diagnostics_sse_route(app, diagnostics_hub, bridge, check_token) ->
 
         async def event_stream():
             try:
-                # 推送初始 hello 事件
                 hello = json.dumps(
                     {"event": "hello", "ts": time.time()},
                     ensure_ascii=False,
                 )
                 yield f"event: hello\ndata: {hello}\n\n"
 
-                # 推送初始诊断快照
-                snapshot = bridge.danmu_app.build_diagnostic_snapshot()
-                snapshot_data = json.dumps(snapshot, ensure_ascii=False)
-                yield f"event: diagnostic_snapshot\ndata: {snapshot_data}\n\n"
+                loop = asyncio.get_running_loop()
+                await loop.run_in_executor(
+                    None,
+                    lambda: bridge.invoke_on_main(bridge.publish_diagnostic_snapshot),
+                )
 
                 while True:
-                    await asyncio.sleep(DIAGNOSTICS_SSE_INTERVAL_SEC)
-                    snapshot = bridge.danmu_app.build_diagnostic_snapshot()
+                    try:
+                        item = await asyncio.wait_for(
+                            queue.get(), timeout=DIAGNOSTICS_SSE_INTERVAL_SEC
+                        )
+                    except asyncio.TimeoutError:
+                        yield ": ping\n\n"
+                        continue
+                    snapshot = item.get("data") if isinstance(item, dict) else None
+                    if snapshot is None:
+                        continue
                     snapshot_data = json.dumps(snapshot, ensure_ascii=False)
                     yield f"event: diagnostic_snapshot\ndata: {snapshot_data}\n\n"
             finally:

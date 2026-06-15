@@ -9,6 +9,15 @@ from tests.conftest import make_minimal_danmu_app
 from tests.fakes import FakeConfig
 
 
+class _FakeSignal:
+    def connect(self, *_args, **_kwargs):
+        return None
+
+
+class _FakeTranslator:
+    language_changed = _FakeSignal()
+
+
 def test_tray_double_click_opens_settings(qapp):
     from app.tray import TrayManager
     from PyQt6.QtWidgets import QSystemTrayIcon
@@ -19,6 +28,97 @@ def test_tray_double_click_opens_settings(qapp):
     tray = TrayManager(app)
     tray._on_activated(QSystemTrayIcon.ActivationReason.DoubleClick)
     show_settings.assert_called_once()
+
+
+def test_tray_single_click_opens_settings(qapp, monkeypatch):
+    """W-OPEN-CONSOLE-RECOVERY-002: tray left-click opens settings."""
+    from app.tray import TrayManager
+    from PyQt6.QtWidgets import QSystemTrayIcon
+
+    monkeypatch.setattr("app.tray.Translator.instance", lambda: _FakeTranslator())
+    app = make_minimal_danmu_app()
+    show_settings = MagicMock()
+    object.__setattr__(app, "show_settings", show_settings)
+    tray = TrayManager(app)
+    tray._on_activated(QSystemTrayIcon.ActivationReason.Trigger)
+    show_settings.assert_called_once()
+
+
+def test_tray_uninstall_keeps_user_data_without_second_delete_confirm(qapp, monkeypatch):
+    from app.tray import TrayManager
+    from PyQt6.QtWidgets import QMessageBox
+
+    app = make_minimal_danmu_app()
+    monkeypatch.setattr("app.tray.Translator.instance", lambda: _FakeTranslator())
+    tray = TrayManager(app)
+
+    monkeypatch.setattr(
+        "app.uninstall_service.get_status",
+        lambda: type(
+            "S",
+            (),
+            {"supported": True, "message": "ready", "error": None},
+        )(),
+    )
+    request_calls = []
+    monkeypatch.setattr(
+        "app.uninstall_service.request_uninstall",
+        lambda *, delete_user_data=False: request_calls.append(delete_user_data)
+        or type("S", (), {"ok": True, "message": "started", "error": None})(),
+    )
+
+    answers = iter(
+        [
+            QMessageBox.StandardButton.Yes,
+            QMessageBox.StandardButton.No,
+        ]
+    )
+    monkeypatch.setattr(QMessageBox, "question", lambda *args, **kwargs: next(answers))
+    info = []
+    monkeypatch.setattr(QMessageBox, "information", lambda *args, **kwargs: info.append(args))
+
+    tray._on_uninstall()
+
+    assert request_calls == [False]
+    assert len(info) == 1
+
+
+def test_tray_uninstall_delete_user_data_requires_second_confirm(qapp, monkeypatch):
+    from app.tray import TrayManager
+    from PyQt6.QtWidgets import QMessageBox
+
+    app = make_minimal_danmu_app()
+    monkeypatch.setattr("app.tray.Translator.instance", lambda: _FakeTranslator())
+    tray = TrayManager(app)
+
+    monkeypatch.setattr(
+        "app.uninstall_service.get_status",
+        lambda: type(
+            "S",
+            (),
+            {"supported": True, "message": "ready", "error": None},
+        )(),
+    )
+    request_calls = []
+    monkeypatch.setattr(
+        "app.uninstall_service.request_uninstall",
+        lambda *, delete_user_data=False: request_calls.append(delete_user_data)
+        or type("S", (), {"ok": True, "message": "started", "error": None})(),
+    )
+
+    answers = iter(
+        [
+            QMessageBox.StandardButton.Yes,
+            QMessageBox.StandardButton.Yes,
+            QMessageBox.StandardButton.Yes,
+        ]
+    )
+    monkeypatch.setattr(QMessageBox, "question", lambda *args, **kwargs: next(answers))
+    monkeypatch.setattr(QMessageBox, "information", lambda *args, **kwargs: None)
+
+    tray._on_uninstall()
+
+    assert request_calls == [True]
 
 
 def test_schedule_webview_shows_tray_hint_once(monkeypatch):

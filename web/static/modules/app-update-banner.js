@@ -1,12 +1,11 @@
 import { API, apiFetch } from './transport.js';
 
-const DEFAULT_RELEASE_URL = 'https://updates.qiaoqiao.buzz/downloads/DanmuAI-Setup.exe';
 const APP_UPDATE_DISMISS_LOCAL_KEY = 'danmu_app_update_dismissed_latest';
 
 const appVersionState = {
   current: '',
   latest: '',
-  releaseUrl: DEFAULT_RELEASE_URL,
+  releaseUrl: '',
   message: '',
   checkStatus: 'pending',
 };
@@ -14,6 +13,10 @@ const appVersionState = {
 const appUpdateDismissState = {
   dismissedLatestVersion: '',
 };
+
+let releaseChannels = {};
+let sessionSuppressedLatest = '';
+let channelDetailState = { copyText: '', openUrl: '' };
 
 let pendingAppUpdatePrompt = null;
 let toast = () => {};
@@ -29,41 +32,6 @@ function normalizeVersionString(raw) {
     value = value.slice(1);
   }
   return value;
-}
-
-function parseVersionSegments(raw) {
-  const normalized = normalizeVersionString(raw);
-  if (!normalized) throw new Error('empty version');
-  let core = normalized;
-  let prerelease = null;
-  const dash = normalized.indexOf('-');
-  if (dash >= 0) {
-    core = normalized.slice(0, dash);
-    prerelease = normalized.slice(dash + 1).trim() || null;
-  }
-  if (!core) return { segments: [0], prerelease };
-  const segments = core.split('.').map((piece) => {
-    const match = /^(\d*)/.exec(piece.trim());
-    if (!match || match[1] === '') throw new Error(`invalid segment: ${piece}`);
-    return parseInt(match[1], 10);
-  });
-  return { segments, prerelease };
-}
-
-function compareVersions(a, b) {
-  const pa = parseVersionSegments(a);
-  const pb = parseVersionSegments(b);
-  const len = Math.max(pa.segments.length, pb.segments.length);
-  for (let i = 0; i < len; i += 1) {
-    const va = pa.segments[i] ?? 0;
-    const vb = pb.segments[i] ?? 0;
-    if (va !== vb) return va < vb ? -1 : 1;
-  }
-  if (pa.prerelease === null && pb.prerelease === null) return 0;
-  if (pa.prerelease === null && pb.prerelease !== null) return 1;
-  if (pa.prerelease !== null && pb.prerelease === null) return -1;
-  if (pa.prerelease === pb.prerelease) return 0;
-  return pa.prerelease < pb.prerelease ? -1 : 1;
 }
 
 function readAppUpdateDismissFromLocal() {
@@ -109,6 +77,7 @@ async function loadAppUpdateDismissState() {
 async function persistAppUpdateDismiss(latestVersion) {
   const normalized = normalizeVersionString(latestVersion);
   appUpdateDismissState.dismissedLatestVersion = normalized;
+  sessionSuppressedLatest = normalized;
   writeAppUpdateDismissToLocal(normalized);
   try {
     await apiFetch('/api/app-update-state', {
@@ -119,6 +88,40 @@ async function persistAppUpdateDismiss(latestVersion) {
   } catch {
     /* localStorage remains */
   }
+}
+
+function suppressAppUpdateForSession(latestVersion) {
+  sessionSuppressedLatest = normalizeVersionString(latestVersion);
+}
+
+function isAppUpdateSuppressed(latest) {
+  const normalized = normalizeVersionString(latest);
+  return (
+    appUpdateDismissState.dismissedLatestVersion === normalized ||
+    sessionSuppressedLatest === normalized
+  );
+}
+
+function applyReleaseChannels(data) {
+  if (!data || typeof data !== 'object') {
+    releaseChannels = {};
+    return;
+  }
+  releaseChannels = {
+    github_releases_url: data.github_releases_url || '',
+    quark_url: data.quark_url || '',
+    quark_share_text: data.quark_share_text || '',
+    baidu_url: data.baidu_url || '',
+    baidu_extract_code: data.baidu_extract_code || '',
+    r2_latest_installer_url: data.r2_latest_installer_url || '',
+  };
+}
+
+async function loadUpdateMetadata() {
+  if (!API.base) return null;
+  const res = await fetch(`${API.base}/api/update/channels`, { cache: 'no-store' });
+  if (!res.ok) return null;
+  return res.json();
 }
 
 function refreshAppVersionFooter() {
@@ -145,20 +148,43 @@ function refreshAppVersionFooter() {
   latestEl.textContent = '-';
 }
 
+function hideChannelDetail() {
+  const panel = document.getElementById('appUpdateChannelDetail');
+  if (panel) panel.classList.add('hidden');
+  channelDetailState = { copyText: '', openUrl: '' };
+}
+
+function showChannelDetail(title, body, copyText, openUrl) {
+  const panel = document.getElementById('appUpdateChannelDetail');
+  const titleEl = document.getElementById('appUpdateChannelDetailTitle');
+  const bodyEl = document.getElementById('appUpdateChannelDetailBody');
+  if (!panel || !titleEl || !bodyEl) return;
+  titleEl.textContent = title;
+  bodyEl.textContent = body;
+  channelDetailState = { copyText, openUrl };
+  panel.classList.remove('hidden');
+}
+
 function showAppUpdateModal(latest, message) {
   const modal = document.getElementById('appUpdateModal');
   const msgEl = document.getElementById('appUpdateModalMessage');
   if (!modal || !msgEl) return;
-  let text = `发现新版本 ${latest}，是否前往下载？`;
+  const current = appVersionState.current || '-';
+  let text = `当前版本 ${current}，发现新版本 ${latest}。`;
   if (message) text += `\n\n${message}`;
   msgEl.textContent = text;
+  hideChannelDetail();
   modal.classList.remove('hidden');
   modal.classList.add('flex');
 }
 
-function closeAppUpdateModal() {
+function closeAppUpdateModal({ suppressSession = true } = {}) {
   const modal = document.getElementById('appUpdateModal');
   if (!modal) return;
+  if (suppressSession && appVersionState.latest) {
+    suppressAppUpdateForSession(appVersionState.latest);
+  }
+  hideChannelDetail();
   modal.classList.add('hidden');
   modal.classList.remove('flex');
 }
@@ -166,7 +192,7 @@ function closeAppUpdateModal() {
 function maybeShowAppUpdateModal() {
   if (!pendingAppUpdatePrompt) return;
   const { latest, message } = pendingAppUpdatePrompt;
-  if (appUpdateDismissState.dismissedLatestVersion === normalizeVersionString(latest)) {
+  if (isAppUpdateSuppressed(latest)) {
     pendingAppUpdatePrompt = null;
     return;
   }
@@ -189,29 +215,21 @@ export async function initAppVersionAndUpdateCheck() {
     window.DANMU_APP_VERSION = current;
     refreshAppVersionFooter();
 
-    let remoteRow = null;
-    try {
-      if (window.DanmuSupabase?.isConfigured?.()) {
-        remoteRow = await window.DanmuSupabase.fetchAppUpdate();
-      }
-    } catch (error) {
-      console.warn('[version] supabase check failed', error);
-      remoteRow = null;
-    }
-
-    if (!remoteRow?.latest_version) {
+    const metadata = await loadUpdateMetadata();
+    if (!metadata?.latest_version) {
       appVersionState.checkStatus = 'check_failed';
       refreshAppVersionFooter();
       await loadAppUpdateDismissState();
       return;
     }
 
-    const latest = normalizeVersionString(remoteRow.latest_version);
+    applyReleaseChannels(metadata);
+    const latest = normalizeVersionString(metadata.latest_version);
     appVersionState.latest = latest;
-    appVersionState.releaseUrl = remoteRow.release_url || DEFAULT_RELEASE_URL;
-    appVersionState.message = remoteRow.message || '';
+    appVersionState.releaseUrl = String(metadata.release_url || metadata.r2_latest_installer_url || '').trim();
+    appVersionState.message = String(metadata.message || '').trim();
 
-    if (compareVersions(latest, current) > 0) {
+    if (metadata.update_available) {
       appVersionState.checkStatus = 'update_available';
       pendingAppUpdatePrompt = { latest, message: appVersionState.message };
     } else {
@@ -233,30 +251,22 @@ let velopackUpdateAvailable = false;
 
 async function fetchVelopackUpdateStatus() {
   try {
-    const res = await fetch(`${API.base}/api/update/status`, { cache: 'no-store' });
-    if (!res.ok) return null;
-    return await res.json();
+    return await apiFetch('/api/update/status', { cache: 'no-store' });
   } catch {
     return null;
   }
 }
 
 async function runVelopackCheckUpdate() {
-  const res = await fetch(`${API.base}/api/update/check`, { method: 'POST' });
-  if (!res.ok) throw new Error('update check failed');
-  return res.json();
+  return apiFetch('/api/update/check', { method: 'POST' });
 }
 
 async function runVelopackDownloadUpdate() {
-  const res = await fetch(`${API.base}/api/update/download`, { method: 'POST' });
-  if (!res.ok) throw new Error('update download failed');
-  return res.json();
+  return apiFetch('/api/update/download', { method: 'POST' });
 }
 
 async function runVelopackRestartUpdate() {
-  const res = await fetch(`${API.base}/api/update/restart`, { method: 'POST' });
-  if (!res.ok) throw new Error('update restart failed');
-  return res.json();
+  return apiFetch('/api/update/restart', { method: 'POST' });
 }
 
 function refreshVelopackUpdateButtons(data) {
@@ -269,6 +279,113 @@ function refreshVelopackUpdateButtons(data) {
     appVersionState.latest = normalizeVersionString(data.latest_version);
     refreshAppVersionFooter();
   }
+}
+
+async function runVelopackInAppUpdateFlow({ fromModal = false } = {}) {
+  try {
+    const status = await fetchVelopackUpdateStatus();
+    if (status && !status.frozen) {
+      showToast(status.message || '源码模式不支持应用内更新');
+      return false;
+    }
+
+    showToast('正在检查更新…');
+    const checkData = await runVelopackCheckUpdate();
+    refreshVelopackUpdateButtons(checkData);
+
+    if (!checkData.frozen || checkData.error === 'not_frozen') {
+      showToast(checkData.message || '源码模式不支持应用内更新');
+      return false;
+    }
+    if (!checkData.ok) {
+      showToast(checkData.error || checkData.message || '检查更新失败', true);
+      return false;
+    }
+    if (!checkData.update_available) {
+      showToast(
+        checkData.message ||
+          'Velopack 更新源暂未检测到新版本，请稍后再试或使用其它下载渠道',
+      );
+      return false;
+    }
+
+    showToast(checkData.message || `发现新版本 ${checkData.latest_version}，正在下载…`);
+    const downloadData = await runVelopackDownloadUpdate();
+    refreshVelopackUpdateButtons(downloadData);
+    if (!downloadData.ok) {
+      showToast(downloadData.error || downloadData.message || '下载失败', true);
+      return false;
+    }
+    if (!downloadData.download_ready) {
+      showToast(downloadData.message || '请先检查更新');
+      return false;
+    }
+
+    if (fromModal) {
+      closeAppUpdateModal({ suppressSession: false });
+    }
+    showToast('更新已下载，正在重启安装…');
+    await runVelopackRestartUpdate();
+    return true;
+  } catch (error) {
+    console.warn('[update] in-app flow failed', error);
+    showToast('应用内更新失败', true);
+    return false;
+  }
+}
+
+function openExternalUrl(url, fallbackMessage) {
+  try {
+    const opened = window.open(url, '_blank', 'noopener,noreferrer');
+    if (!opened) {
+      navigator.clipboard?.writeText(url);
+      showToast(fallbackMessage || '链接已复制到剪贴板，请手动打开');
+      return;
+    }
+    showToast('已在浏览器中打开链接');
+  } catch {
+    showToast(fallbackMessage || `请手动打开：${url}`);
+  }
+}
+
+async function copyTextToClipboard(text, successMessage) {
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast(successMessage || '已复制到剪贴板');
+  } catch {
+    showToast('复制失败，请手动选择文本复制', true);
+  }
+}
+
+function handleGitHubUpdateClick() {
+  const url = releaseChannels.github_releases_url;
+  if (!url) {
+    showToast('渠道信息不可用', true);
+    return;
+  }
+  openExternalUrl(url, 'GitHub Releases 镜像链接已复制到剪贴板');
+}
+
+function handleQuarkUpdateClick() {
+  const url = releaseChannels.quark_url;
+  const shareText = releaseChannels.quark_share_text;
+  if (!url || !shareText) {
+    showToast('渠道信息不可用', true);
+    return;
+  }
+  const body = `${shareText}\n\n链接：${url}`;
+  showChannelDetail('夸克网盘', body, `${shareText}\n${url}`, url);
+}
+
+function handleBaiduUpdateClick() {
+  const url = releaseChannels.baidu_url;
+  const code = releaseChannels.baidu_extract_code;
+  if (!url || !code) {
+    showToast('渠道信息不可用', true);
+    return;
+  }
+  const body = `链接：${url}\n提取码：${code}`;
+  showChannelDetail('百度网盘', body, `${body}`, url);
 }
 
 export async function handleCheckAppUpdateClick() {
@@ -296,7 +413,7 @@ export async function handleCheckAppUpdateClick() {
 
 export async function handleDownloadRestartAppUpdateClick() {
   try {
-    let data = await runVelopackDownloadUpdate();
+    const data = await runVelopackDownloadUpdate();
     if (!data.ok) {
       showToast(data.error || data.message || '下载失败', true);
       return;
@@ -312,6 +429,7 @@ export async function handleDownloadRestartAppUpdateClick() {
     return;
   }
   try {
+    showToast('更新已下载，正在重启安装…');
     await runVelopackRestartUpdate();
   } catch (error) {
     console.warn('[update] restart failed', error);
@@ -337,27 +455,38 @@ export function initAppUpdateModal(deps = {}) {
   handlersBound = true;
   initVelopackUpdateButtons();
 
-  document.getElementById('btnAppUpdateYes')?.addEventListener('click', () => {
-    const url = appVersionState.releaseUrl || DEFAULT_RELEASE_URL;
-    closeAppUpdateModal();
-    try {
-      const opened = window.open(url, '_blank', 'noopener,noreferrer');
-      if (!opened) {
-        navigator.clipboard?.writeText(url);
-        showToast('请手动打开下载页：链接已复制到剪贴板');
-      }
-    } catch {
-      showToast(`请前往下载：${url}`);
+  document.getElementById('btnAppUpdateInApp')?.addEventListener('click', () => {
+    void runVelopackInAppUpdateFlow({ fromModal: true });
+  });
+  document.getElementById('btnAppUpdateGitHub')?.addEventListener('click', () => {
+    handleGitHubUpdateClick();
+  });
+  document.getElementById('btnAppUpdateQuark')?.addEventListener('click', () => {
+    handleQuarkUpdateClick();
+  });
+  document.getElementById('btnAppUpdateBaidu')?.addEventListener('click', () => {
+    handleBaiduUpdateClick();
+  });
+  document.getElementById('btnAppUpdateChannelCopy')?.addEventListener('click', () => {
+    if (channelDetailState.copyText) {
+      void copyTextToClipboard(channelDetailState.copyText, '分享信息已复制到剪贴板');
     }
   });
-  document.getElementById('btnAppUpdateNo')?.addEventListener('click', async () => {
+  document.getElementById('btnAppUpdateChannelOpen')?.addEventListener('click', () => {
+    if (channelDetailState.openUrl) {
+      openExternalUrl(channelDetailState.openUrl, '链接已复制到剪贴板');
+    }
+  });
+  document.getElementById('btnAppUpdateDismiss')?.addEventListener('click', async () => {
     const latest = appVersionState.latest;
-    closeAppUpdateModal();
+    closeAppUpdateModal({ suppressSession: false });
     if (latest) {
       await persistAppUpdateDismiss(latest);
     }
   });
   document.getElementById('appUpdateModal')?.addEventListener('click', (event) => {
-    if (event.target.id === 'appUpdateModal') closeAppUpdateModal();
+    if (event.target.id === 'appUpdateModal') {
+      closeAppUpdateModal({ suppressSession: true });
+    }
   });
 }

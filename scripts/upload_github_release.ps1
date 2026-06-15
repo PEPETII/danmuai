@@ -3,11 +3,13 @@
 # Usage:
 #   .\scripts\upload_github_release.ps1
 #   .\scripts\upload_github_release.ps1 -Tag v0.3.0 -NotesFile docs\release\2026-05-29.md
+#   .\scripts\upload_github_release.ps1 -Version 0.3.1 -Tag v0.3.1
 
 param(
     [string]$Tag = "",
     [string]$Title = "",
     [string]$NotesFile = "",
+    [string]$Version = "",
     [string]$ReleaseDir = "release\velopack",
     [string]$Repo = "PEPETII/danmuai"
 )
@@ -25,7 +27,27 @@ if (-not (Test-Path $releaseFull)) {
     Write-Error "Missing release dir: $releaseFull`nRun: .\scripts\publish_windows_release.ps1"
 }
 
-$appVersion = (python -c "from app.version import __version__; print(__version__)").Trim()
+function Get-VersionFromVersionFile {
+    param([string]$Dir)
+    $versionFile = Join-Path $Dir "VERSION.txt"
+    if (-not (Test-Path -LiteralPath $versionFile)) { return $null }
+    foreach ($line in Get-Content -LiteralPath $versionFile) {
+        if ($line -match '^\s*Version:\s*(\S+)\s*$') {
+            return $Matches[1]
+        }
+    }
+    return $null
+}
+
+function Resolve-UploadVersion {
+    param([string]$ExplicitVersion, [string]$Dir)
+    if ($ExplicitVersion) { return $ExplicitVersion.Trim() }
+    $fromFile = Get-VersionFromVersionFile -Dir $Dir
+    if ($fromFile) { return $fromFile }
+    return (python -c "from app.version import __version__; print(__version__)").Trim()
+}
+
+$appVersion = Resolve-UploadVersion -ExplicitVersion $Version -Dir $releaseFull
 if (-not $Tag) {
     $Tag = "v$appVersion"
 }
@@ -37,18 +59,18 @@ if (-not $NotesFile) {
 }
 
 $assets = @()
-$patterns = @(
-    "*-Setup.exe",
-    "PEPETII.DanmuAI-*-Setup.exe",
-    "*-full.nupkg",
-    "releases.win.json",
-    "*-Portable.zip"
+$assetFiles = @(
+    "PEPETII.DanmuAI-win-Setup.exe",
+    "PEPETII.DanmuAI-$appVersion-Setup.exe",
+    "PEPETII.DanmuAI-win-Portable.zip",
+    "PEPETII.DanmuAI-$appVersion-full.nupkg",
+    "PEPETII.DanmuAI-$appVersion-delta.nupkg",
+    "releases.win.json"
 )
-foreach ($pat in $patterns) {
-    Get-ChildItem -Path $releaseFull -Filter $pat -ErrorAction SilentlyContinue | ForEach-Object {
-        if ($assets -notcontains $_.FullName) {
-            $assets += $_.FullName
-        }
+foreach ($name in $assetFiles) {
+    $path = Join-Path $releaseFull $name
+    if (Test-Path -LiteralPath $path) {
+        $assets += $path
     }
 }
 if ($assets.Count -eq 0) {
@@ -92,3 +114,4 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host ""
 Write-Host "Done (GitHub mirror): https://github.com/$Repo/releases/tag/$Tag"
 Write-Host "Primary download: https://updates.qiaoqiao.buzz/downloads/DanmuAI-Setup.exe"
+Write-Host "Portable download: https://updates.qiaoqiao.buzz/downloads/PEPETII.DanmuAI-win-Portable.zip"

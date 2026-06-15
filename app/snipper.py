@@ -2,13 +2,31 @@
 
 坐标系统：region_w/h > 0 时按**屏内相对坐标**裁剪（不是绝对屏幕坐标）。
 与 POST/GET /api/capture-region/* 配合：Web 端框选区域后写入 config，本模块读取并裁剪。
+
+W-PERF-HIGH-001：主线程 ``build_capture_plan`` 解析屏几何；worker 线程 ``execute_capture`` 执行 grab。
 """
+from __future__ import annotations
+
 import logging
+from dataclasses import dataclass
 
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtWidgets import QApplication
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class CapturePlan:
+    """Immutable capture target resolved on the main thread."""
+
+    mode: str  # "screen" | "window"
+    screen_index: int
+    grab_x: int
+    grab_y: int
+    grab_w: int
+    grab_h: int
+    hwnd: int = 0
 
 
 def resolve_screen_index_with_meta(config=None) -> tuple[int, bool]:
@@ -112,27 +130,67 @@ def grab_rect_screen_local(config, screen_geometry) -> tuple[int, int, int, int]
     )
 
 
-def _grab_screen(config) -> QPixmap | None:
-    """截取选定显示器（全屏或子区域）。"""
+def build_capture_plan(config) -> CapturePlan | None:
+    """Resolve capture geometry on the main thread (no pixel grab)."""
     screens = QApplication.screens()
     if not screens:
         return None
-    target_screen = screens[resolve_screen_index(config)]
-    geo = target_screen.geometry()
-    x, y, width, height = grab_rect_screen_local(config, geo)
-    return target_screen.grabWindow(0, x, y, width, height)
+    screen_index = resolve_screen_index(config)
+    if screen_index >= len(screens):
+        screen_index = 0
+    geo = screens[screen_index].geometry()
+    grab_x, grab_y, grab_w, grab_h = grab_rect_screen_local(config, geo)
+    mode = config.get("capture_mode", "screen") if config is not None else "screen"
+    hwnd = 0
+    if mode == "window" and config is not None:
+        hwnd = config.get_int("capture_window_hwnd", 0)
+    return CapturePlan(
+        mode=mode,
+        screen_index=screen_index,
+        grab_x=grab_x,
+        grab_y=grab_y,
+        grab_w=grab_w,
+        grab_h=grab_h,
+        hwnd=hwnd,
+    )
 
 
-def _grab_window(config) -> tuple[QPixmap | None, str]:
+def _grab_screen_from_plan(plan: CapturePlan) -> QPixmap | None:
+    screens = QApplication.screens()
+    if not screens or plan.screen_index >= len(screens):
+        return None
+    target_screen = screens[plan.screen_index]
+    return target_screen.grabWindow(
+        0, plan.grab_x, plan.grab_y, plan.grab_w, plan.grab_h
+    )
+
+
+def _grab_window_by_hwnd(hwnd: int) -> tuple[QPixmap | None, str]:
     """截取选定窗口的客户区。返回 (pixmap, reason) 用于诊断。"""
-    hwnd = config.get_int("capture_window_hwnd", 0)
     if hwnd <= 0:
         return None, "hwnd_not_set"
     from app.window_capture import grab_window
+
     pixmap = grab_window(hwnd)
     if pixmap is None:
         return None, "grab_returned_none"
     return pixmap, ""
+
+
+def execute_capture(plan: CapturePlan) -> QPixmap | None:
+    """Execute pixel grab on a capture worker thread."""
+    if plan.mode == "window" and plan.hwnd > 0:
+        pixmap, reason = _grab_window_by_hwnd(plan.hwnd)
+        if pixmap is not None and not pixmap.isNull():
+            return pixmap
+        if reason == "":
+            reason = "null_pixmap"
+        logger.info(
+            "窗口捕获失败，回退到屏幕捕获 hwnd=%s reason=%s",
+            plan.hwnd,
+            reason,
+        )
+    return _grab_screen_from_plan(plan)
 
 
 class ScreenCapturer:
@@ -141,16 +199,29 @@ class ScreenCapturer:
         self._last_logged_mode: str | None = None
         self._fallback_count: int = 0
 
+    def build_plan(self) -> CapturePlan | None:
+        if self.config is None:
+            return None
+        return build_capture_plan(self.config)
+
     def grab(self) -> QPixmap | None:
-        mode = self.config.get("capture_mode", "screen") if self.config else "screen"
+        plan = self.build_plan()
+        if plan is None:
+            return None
+        mode = plan.mode
         if mode == "window":
-            hwnd = self.config.get_int("capture_window_hwnd", 0) if self.config else 0
-            pixmap, reason = _grab_window(self.config)
+            hwnd = plan.hwnd
+            pixmap, reason = _grab_window_by_hwnd(hwnd)
             if pixmap is not None and not pixmap.isNull():
                 if self._last_logged_mode != f"window:{hwnd}":
                     self._last_logged_mode = f"window:{hwnd}"
                     self._fallback_count = 0
-                    logger.info("捕获模式: window hwnd=%s size=%sx%s", hwnd, pixmap.width(), pixmap.height())
+                    logger.info(
+                        "捕获模式: window hwnd=%s size=%sx%s",
+                        hwnd,
+                        pixmap.width(),
+                        pixmap.height(),
+                    )
                 return pixmap
             if reason == "":
                 reason = "null_pixmap"
@@ -158,12 +229,14 @@ class ScreenCapturer:
             if self._fallback_count <= 3 or self._fallback_count % 20 == 0:
                 logger.info(
                     "窗口捕获失败，回退到屏幕捕获 hwnd=%s reason=%s fallback_count=%d",
-                    hwnd, reason, self._fallback_count,
+                    hwnd,
+                    reason,
+                    self._fallback_count,
                 )
             self._last_logged_mode = "screen:fallback"
-            return _grab_screen(self.config)
+            return _grab_screen_from_plan(plan)
         if self._last_logged_mode != "screen":
             self._last_logged_mode = "screen"
             self._fallback_count = 0
             logger.info("捕获模式: screen")
-        return _grab_screen(self.config)
+        return _grab_screen_from_plan(plan)

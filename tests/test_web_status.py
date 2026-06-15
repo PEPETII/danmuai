@@ -387,3 +387,21 @@ def test_web_console_server_stop_schedules_shutdown_callback():
     callback()
     assert server._server.should_exit is True
 
+
+def test_broadcast_log_skips_closed_event_loop():
+    import asyncio
+    import time
+
+    from app.web_console import WebConsoleBridge
+
+    danmu_app = MagicMock()
+    bridge = WebConsoleBridge(danmu_app)
+    loop = asyncio.new_event_loop()
+    bridge.set_event_loop(loop)
+    loop.close()
+
+    bridge._broadcast_log("INFO", "late log", time.time())
+
+    assert bridge._pending_log_items == []
+    assert bridge._log_flush_scheduled is False
+

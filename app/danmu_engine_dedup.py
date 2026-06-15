@@ -1,10 +1,14 @@
+import logging
 import os
 import time  # noqa: F401 — used as danmu_engine_dedup.time from app.danmu_engine
 from collections import deque
 from dataclasses import dataclass
 
+logger = logging.getLogger(__name__)
+
 _LEVENSHTEIN_RATIO = None
 _LEVENSHTEIN_UNAVAILABLE = object()
+_LEVENSHTEIN_FALLBACK_WARNED = False
 _DEDUP_PROFILE_FLAG: bool | None = None
 _DEDUP_THRESHOLD_FALLBACK = 0.5
 
@@ -67,14 +71,25 @@ def log_dedup_profile_summary(logger) -> None:
 
 
 def _get_levenshtein_ratio():
-    global _LEVENSHTEIN_RATIO
+    global _LEVENSHTEIN_RATIO, _LEVENSHTEIN_FALLBACK_WARNED
     if _LEVENSHTEIN_RATIO is None:
         try:
             from Levenshtein import ratio as _ratio
 
             _LEVENSHTEIN_RATIO = _ratio
         except ImportError:
-            _LEVENSHTEIN_RATIO = _LEVENSHTEIN_UNAVAILABLE
+            try:
+                from rapidfuzz.distance import Levenshtein as _rf_lev
+
+                _LEVENSHTEIN_RATIO = _rf_lev.normalized_similarity
+            except ImportError:
+                _LEVENSHTEIN_RATIO = _LEVENSHTEIN_UNAVAILABLE
+                if not _LEVENSHTEIN_FALLBACK_WARNED:
+                    _LEVENSHTEIN_FALLBACK_WARNED = True
+                    logger.warning(
+                        "Levenshtein C extension unavailable; "
+                        "danmu dedup will use slow pure-Python fallback"
+                    )
     if _LEVENSHTEIN_RATIO is _LEVENSHTEIN_UNAVAILABLE:
         return None
     return _LEVENSHTEIN_RATIO

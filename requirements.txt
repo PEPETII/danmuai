@@ -2,7 +2,7 @@ PyQt6>=6.6
 httpx[http2]>=0.27
 keyboard>=0.13
 cryptography>=41.0
-python-Levenshtein>=0.23; python_version >= "3.12"
+python-Levenshtein>=0.23
 volcengine-python-sdk[ark]>=5.0
 Pillow>=10.0
 sounddevice>=0.4.6

@@ -23,6 +23,7 @@ def test_run_startup_apply_calls_velopack_when_frozen():
             with patch("app.startup_trace.log_startup"):
                 velopack_runtime.run_startup_apply_if_needed()
     mock_app.run.assert_called_once()
+    mock_app.on_before_uninstall_fast_callback.assert_called_once()
 
 
 def test_run_startup_apply_skips_on_import_error_when_frozen():

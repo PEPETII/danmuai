@@ -101,6 +101,12 @@
 
         <div id="danmuPoolTab-custom" class="danmu-pool-tab-panel space-y-8" data-danmu-pool-panel="custom" role="tabpanel" hidden>
           <div class="danmu-pool-section">
+            <p class="settings-section-title">导入弹幕句库</p>
+            <p class="settings-section-hint">选择 TXT 文件（一行一条），最多同时导入 5 个文件，每个文件最多 1000 行，内容将追加到已有弹幕库。</p>
+            <button type="button" id="btnPoolImportTxt" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm">导入 TXT</button>
+            <input type="file" id="poolImportTxtInput" accept=".txt" multiple hidden>
+          </div>
+          <div class="danmu-pool-section">
             <p class="settings-section-title">弹幕库来源</p>
             <div class="space-y-4">
               <label class="flex items-center gap-2 font-semibold text-warmText">

@@ -183,3 +183,20 @@ def test_ws_logs_max_connections_capped():
 
     assert len(bridge._ws_log_queues) == 0
 
+
+def test_send_json_with_timeout_returns_false_on_slow_client():
+    """P-35: slow send_json disconnects via timeout helper."""
+    import asyncio
+
+    from app.web_console_ws import _send_json_with_timeout
+
+    class _SlowWebSocket:
+        async def send_json(self, _item):
+            await asyncio.sleep(5.0)
+
+    async def _run() -> None:
+        ok = await _send_json_with_timeout(_SlowWebSocket(), {"x": 1}, timeout_sec=0.05)
+        assert ok is False
+
+    asyncio.run(_run())
+

@@ -31,6 +31,7 @@ ph/
 dist/
 build/
 /release/
+release/_legacy_local/
 
 # IDE and OS
 .idea/

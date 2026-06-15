@@ -196,7 +196,6 @@ async function clearMemeBarrageLibrary() {
 export function startMemeBarrageMetaPolling() {
   if (metaPollTimer) return;
   metaPollTimer = window.setInterval(() => {
-    if (!document.getElementById('page-danmu-pool')?.classList.contains('active')) return;
     refreshMemeMeta().catch((error) => {
       console.warn('refreshMemeMeta failed', error);
     });

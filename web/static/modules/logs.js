@@ -21,6 +21,7 @@
 import { API, REALTIME } from './transport.js';
 
 export const logBuffer = [];
+const logKeySet = new Set();
 export let logLevelFilters = new Set(['INFO', 'WARNING', 'ERROR']);
 export let logAutoScroll = true;
 
@@ -51,6 +52,30 @@ export function mergeLogItemsUnique(items) {
   return Array.from(map.values()).sort((a, b) => (Number(a.ts) || 0) - (Number(b.ts) || 0));
 }
 
+export function clearLogBuffer() {
+  logBuffer.length = 0;
+  logKeySet.clear();
+}
+
+function filteredLogBuffer() {
+  return logBuffer.filter((x) => logLevelFilters.has(x.level));
+}
+
+function createLogLineElement(item) {
+  const line = document.createElement('div');
+  const ts = item.ts ? new Date(item.ts * 1000).toLocaleTimeString() : '';
+  line.className = `log-line ${item.level || 'INFO'}`;
+  line.textContent = `[${ts}] ${item.message}`;
+  return line;
+}
+
+function trimLogBuffer() {
+  while (logBuffer.length > 400) {
+    const evicted = logBuffer.shift();
+    if (evicted) logKeySet.delete(logEntryKey(evicted));
+  }
+}
+
 export function updateLogPanelState() {
   const panel = document.querySelector('.log-panel');
   const empty = document.getElementById('logViewEmpty');
@@ -72,36 +97,40 @@ export function updateLogPanelState() {
   }
 }
 
-export function renderLogView() {
+export function renderLogView({ force = false } = {}) {
   const view = document.getElementById('logView');
   if (!view) return;
-  view.innerHTML = '';
-  logBuffer
-    .filter((x) => logLevelFilters.has(x.level))
-    .forEach((item) => {
-      const line = document.createElement('div');
-      const ts = item.ts ? new Date(item.ts * 1000).toLocaleTimeString() : '';
-      line.className = `log-line ${item.level || 'INFO'}`;
-      line.textContent = `[${ts}] ${item.message}`;
-      view.appendChild(line);
-    });
+  const filtered = filteredLogBuffer();
+
+  if (force) {
+    view.innerHTML = '';
+    filtered.forEach((item) => view.appendChild(createLogLineElement(item)));
+  } else {
+    const rendered = view.childElementCount;
+    if (rendered > filtered.length) {
+      view.innerHTML = '';
+      filtered.forEach((item) => view.appendChild(createLogLineElement(item)));
+    } else {
+      for (let i = rendered; i < filtered.length; i += 1) {
+        view.appendChild(createLogLineElement(filtered[i]));
+      }
+    }
+  }
+
   if (logAutoScroll) view.scrollTop = view.scrollHeight;
   updateLogPanelState();
 }
 
 export function appendLog(item) {
   const key = logEntryKey(item);
-  if (logBuffer.some((x) => logEntryKey(x) === key)) return;
+  if (logKeySet.has(key)) return;
+  logKeySet.add(key);
   logBuffer.push(item);
-  while (logBuffer.length > 400) logBuffer.shift();
+  trimLogBuffer();
   if (logLevelFilters.has(item.level || 'INFO')) {
     const view = document.getElementById('logView');
     if (!view) return;
-    const line = document.createElement('div');
-    const ts = item.ts ? new Date(item.ts * 1000).toLocaleTimeString() : '';
-    line.className = `log-line ${item.level || 'INFO'}`;
-    line.textContent = `[${ts}] ${item.message}`;
-    view.appendChild(line);
+    view.appendChild(createLogLineElement(item));
     while (view.childElementCount > 400) view.removeChild(view.firstChild);
     if (logAutoScroll) view.scrollTop = view.scrollHeight;
     updateLogPanelState();
@@ -110,10 +139,21 @@ export function appendLog(item) {
 
 export function mergeLogItems(items) {
   if (!items.length) return;
+  let addedAny = false;
   items.forEach((item) => {
-    appendLog(item);
+    if (!item || item.message == null) return;
+    const key = logEntryKey(item);
+    if (logKeySet.has(key)) return;
+    logKeySet.add(key);
+    logBuffer.push(item);
+    trimLogBuffer();
     if (item.ts > REALTIME.lastLogsPollTs) REALTIME.lastLogsPollTs = item.ts;
+    addedAny = true;
   });
+  if (!addedAny) return;
+  const onLogsPage = document.getElementById('page-logs')?.classList.contains('active');
+  if (onLogsPage) renderLogView();
+  else updateLogPanelState();
 }
 
 /** Pull ring buffer from server (works when WS is down or page opened after events). */

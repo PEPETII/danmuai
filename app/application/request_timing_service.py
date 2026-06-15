@@ -5,6 +5,8 @@
 """
 from __future__ import annotations
 
+from collections import deque
+
 
 class RequestTimingService:
     """mark_started 在 _trigger_api_call；consume_timing 在 _on_ai_reply/_on_ai_error。
@@ -16,10 +18,15 @@ class RequestTimingService:
         self,
         *,
         request_started_at_by_id: dict[str, float] | None = None,
-        rtt_history: list[float] | None = None,
+        rtt_history: deque[float] | list[float] | None = None,
     ) -> None:
         self.request_started_at_by_id = request_started_at_by_id or {}
-        self.rtt_history = rtt_history or []
+        if rtt_history is None:
+            self.rtt_history: deque[float] = deque(maxlen=20)
+        elif isinstance(rtt_history, deque):
+            self.rtt_history = rtt_history
+        else:
+            self.rtt_history = deque(rtt_history, maxlen=20)
 
     def reset_started(self) -> None:
         self.request_started_at_by_id = {}
@@ -40,7 +47,7 @@ class RequestTimingService:
         return len(stale_keys)
 
     def reset_rtt_history(self) -> None:
-        self.rtt_history = []
+        self.rtt_history = deque(maxlen=20)
 
     def clear_rtt_history(self) -> None:
         self.rtt_history.clear()
@@ -76,9 +83,12 @@ class RequestTimingService:
         rtt: float,
         max_samples: int = 20,
     ) -> None:
+        if (
+            max_samples != self.rtt_history.maxlen
+            and isinstance(self.rtt_history, deque)
+        ):
+            self.rtt_history = deque(self.rtt_history, maxlen=max_samples)
         self.rtt_history.append(float(rtt))
-        if len(self.rtt_history) > max_samples:
-            self.rtt_history.pop(0)
 
     def avg_rtt(self) -> float:
         if not self.rtt_history:

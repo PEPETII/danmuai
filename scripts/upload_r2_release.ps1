@@ -10,10 +10,14 @@
 #   R2_RELEASE_DIR  (default: release/velopack)
 #
 # Requires AWS CLI v2: https://aws.amazon.com/cli/
-# Usage: .\scripts\upload_r2_release.ps1
+# Usage:
+#   .\scripts\upload_r2_release.ps1
+#   .\scripts\upload_r2_release.ps1 -Version 0.3.1
+#   .\scripts\upload_r2_release.ps1 -Version 0.3.1 -DryRun
 
 param(
     [string]$ReleaseDir = "",
+    [string]$Version = "",
     [switch]$DryRun
 )
 
@@ -31,6 +35,38 @@ if (-not $ReleaseDir) {
 $releaseFull = Join-Path $Root $ReleaseDir
 if (-not (Test-Path $releaseFull)) {
     Write-Error "Missing $releaseFull - run .\scripts\publish_windows_release.ps1 first"
+}
+
+function Get-VersionFromVersionFile {
+    param([string]$Dir)
+    $versionFile = Join-Path $Dir "VERSION.txt"
+    if (-not (Test-Path -LiteralPath $versionFile)) { return $null }
+    foreach ($line in Get-Content -LiteralPath $versionFile) {
+        if ($line -match '^\s*Version:\s*(\S+)\s*$') {
+            return $Matches[1]
+        }
+    }
+    return $null
+}
+
+function Resolve-UploadVersion {
+    param([string]$ExplicitVersion, [string]$Dir)
+    if ($ExplicitVersion) { return $ExplicitVersion.Trim() }
+    $fromFile = Get-VersionFromVersionFile -Dir $Dir
+    if ($fromFile) { return $fromFile }
+    return (python -c "from app.version import __version__; print(__version__)").Trim()
+}
+
+function Get-FeedLatestFullVersion {
+    param([string]$FeedPath)
+    $json = Get-Content -Raw -LiteralPath $FeedPath | ConvertFrom-Json
+    $fullVersions = @(
+        $json.Assets |
+            Where-Object { $_.Type -eq "Full" } |
+            ForEach-Object { [version]$_.Version }
+    )
+    if ($fullVersions.Count -eq 0) { return $null }
+    return ($fullVersions | Sort-Object -Descending | Select-Object -First 1).ToString()
 }
 
 function Ensure-AwsCommand {
@@ -62,54 +98,136 @@ if (-not $aws) {
 
 $endpoint = "https://$($env:R2_ACCOUNT_ID).r2.cloudflarestorage.com"
 $bucket = $env:R2_BUCKET
-$appVersion = (python -c "from app.version import __version__; print(__version__)").Trim()
+$appVersion = Resolve-UploadVersion -ExplicitVersion $Version -Dir $releaseFull
+$feed = Join-Path $releaseFull "releases.win.json"
+
+if (-not (Test-Path -LiteralPath $feed)) {
+    Write-Error "Missing $feed"
+}
+
+$feedLatest = Get-FeedLatestFullVersion -FeedPath $feed
+if (-not $feedLatest) {
+    Write-Error "releases.win.json has no Full assets"
+}
+if ($feedLatest -ne $appVersion) {
+    Write-Error "Upload version $appVersion does not match feed latest Full version $feedLatest"
+}
 
 $setup = Get-ChildItem -Path $releaseFull -Filter "PEPETII.DanmuAI-$appVersion-Setup.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
 if (-not $setup) {
-    $setup = Get-ChildItem -Path $releaseFull -Filter "*-Setup.exe" | Select-Object -First 1
+    $setup = Get-ChildItem -Path $releaseFull -Filter "PEPETII.DanmuAI-win-Setup.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
 }
-$nupkg = Get-ChildItem -Path $releaseFull -Filter "*-full.nupkg" | Select-Object -First 1
-$feed = Join-Path $releaseFull "releases.win.json"
+$nupkg = Get-ChildItem -Path $releaseFull -Filter "PEPETII.DanmuAI-$appVersion-full.nupkg" -ErrorAction SilentlyContinue | Select-Object -First 1
+$deltaNupkgs = @(Get-ChildItem -Path $releaseFull -Filter "PEPETII.DanmuAI-$appVersion-delta.nupkg" -ErrorAction SilentlyContinue | Sort-Object Name)
+$portable = Get-ChildItem -Path $releaseFull -Filter "PEPETII.DanmuAI-$appVersion-win-Portable.zip" -ErrorAction SilentlyContinue | Select-Object -First 1
+if (-not $portable) {
+    $portable = Get-ChildItem -Path $releaseFull -Filter "PEPETII.DanmuAI-win-Portable.zip" -ErrorAction SilentlyContinue | Select-Object -First 1
+}
 
-if (-not $setup -or -not $nupkg -or -not (Test-Path $feed)) {
-    Write-Error "Incomplete Velopack release in $releaseFull (need Setup, full.nupkg, releases.win.json)"
+if (-not $setup -or -not $nupkg) {
+    Write-Error "Incomplete Velopack release in $releaseFull for version $appVersion (need Setup and full.nupkg)"
 }
 
 $uploads = @(
-    @{ Local = $feed; Key = "releases/win/stable/releases.win.json"; Cache = "public, max-age=60" }
-    @{ Local = $nupkg.FullName; Key = "releases/win/stable/$($nupkg.Name)"; Cache = "public, max-age=3600" }
-    @{ Local = $setup.FullName; Key = "downloads/PEPETII.DanmuAI-$appVersion-Setup.exe"; Cache = "public, max-age=86400" }
-    @{ Local = $setup.FullName; Key = "downloads/DanmuAI-Setup.exe"; Cache = "no-cache" }
+    @{ Local = $feed; Key = "releases/win/stable/releases.win.json"; Cache = "public, max-age=60"; ExpectedSize = (Get-Item -LiteralPath $feed).Length }
+    @{ Local = $nupkg.FullName; Key = "releases/win/stable/$($nupkg.Name)"; Cache = "public, max-age=3600"; ExpectedSize = $nupkg.Length }
+    @{ Local = $setup.FullName; Key = "downloads/PEPETII.DanmuAI-$appVersion-Setup.exe"; Cache = "public, max-age=86400"; ExpectedSize = $setup.Length }
 )
+foreach ($delta in $deltaNupkgs) {
+    $uploads += @{ Local = $delta.FullName; Key = "releases/win/stable/$($delta.Name)"; Cache = "public, max-age=3600"; ExpectedSize = $delta.Length }
+}
+if ($portable) {
+    $portableKey = if ($portable.Name -match "^PEPETII\.DanmuAI-\d") {
+        "downloads/$($portable.Name)"
+    } else {
+        "downloads/PEPETII.DanmuAI-$appVersion-win-Portable.zip"
+    }
+    $uploads += @{ Local = $portable.FullName; Key = $portableKey; Cache = "public, max-age=86400"; ExpectedSize = $portable.Length }
+}
 
-function Invoke-R2Cp {
-    param([string]$LocalPath, [string]$Key, [string]$CacheControl)
-    $uri = "s3://$bucket/$Key"
-    Write-Host "$(if ($DryRun) { '[dry-run] ' })upload: $LocalPath -> $uri"
-    if ($DryRun) { return }
-    $args = @(
-        "s3", "cp", $LocalPath, $uri,
-        "--endpoint-url", $endpoint,
-        "--cache-control", $CacheControl
-    )
+$versionedSetupKey = "downloads/PEPETII.DanmuAI-$appVersion-Setup.exe"
+$versionedPortableKey = "downloads/PEPETII.DanmuAI-$appVersion-win-Portable.zip"
+
+function Set-AwsEnv {
     $env:AWS_ACCESS_KEY_ID = $env:R2_ACCESS_KEY_ID
     $env:AWS_SECRET_ACCESS_KEY = $env:R2_SECRET_ACCESS_KEY
     $env:AWS_DEFAULT_REGION = "auto"
+}
+
+function Assert-R2Object {
+    param([string]$Key, [long]$ExpectedSize)
+    if ($DryRun) { return }
+    Set-AwsEnv
+    $headJson = aws s3api head-object --bucket $bucket --key $Key --endpoint-url $endpoint 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Missing uploaded object: $Key"
+    }
+    $head = $headJson | ConvertFrom-Json
+    if ([long]$head.ContentLength -ne $ExpectedSize) {
+        Write-Error "Size mismatch for $Key (expected $ExpectedSize, got $($head.ContentLength))"
+    }
+}
+
+function Invoke-R2Cp {
+    param([string]$LocalPath, [string]$Key, [string]$CacheControl, [long]$ExpectedSize)
+    $uri = "s3://$bucket/$Key"
+    Write-Host "$(if ($DryRun) { '[dry-run] ' })upload: $LocalPath -> $uri"
+    if ($DryRun) { return }
+    Set-AwsEnv
+    $args = @(
+        "s3", "cp", $LocalPath, $uri,
+        "--endpoint-url", $endpoint,
+        "--cache-control", $CacheControl,
+        "--cli-read-timeout", "0",
+        "--cli-connect-timeout", "120",
+        "--only-show-errors"
+    )
     & aws @args
     if ($LASTEXITCODE -ne 0) {
         Write-Error "aws s3 cp failed for $Key"
     }
+    Assert-R2Object -Key $Key -ExpectedSize $ExpectedSize
+}
+
+function Invoke-R2LatestAliasCopy {
+    param(
+        [string]$SourceKey,
+        [string]$AliasKey,
+        [long]$ExpectedSize
+    )
+    $uri = "s3://$bucket/$AliasKey"
+    Write-Host "$(if ($DryRun) { '[dry-run] ' })copy latest alias: s3://$bucket/$SourceKey -> $uri"
+    if ($DryRun) { return }
+    Set-AwsEnv
+    & aws s3 cp "s3://$bucket/$SourceKey" $uri `
+        --endpoint-url $endpoint `
+        --cache-control "no-cache" `
+        --metadata-directive REPLACE `
+        --only-show-errors
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "aws s3 cp failed for latest alias $AliasKey"
+    }
+    Assert-R2Object -Key $AliasKey -ExpectedSize $ExpectedSize
 }
 
 Write-Host "R2 upload -> $bucket @ $endpoint"
 Write-Host "Version: $appVersion"
+Write-Host "Delta package(s): $($deltaNupkgs.Count)"
 Write-Host "Public URLs (custom domain):"
-Write-Host "  https://updates.qiaoqiao.buzz/downloads/DanmuAI-Setup.exe"
-Write-Host "  https://updates.qiaoqiao.buzz/releases/win/stable"
+Write-Host "  https://updates.qiaoqiao.buzz/downloads/DanmuAI-Setup.exe           (主入口)"
+if ($portable) {
+    Write-Host "  https://updates.qiaoqiao.buzz/downloads/PEPETII.DanmuAI-win-Portable.zip (便携版)"
+}
+Write-Host "  https://updates.qiaoqiao.buzz/releases/win/stable                   (更新 feed)"
 Write-Host ""
 
 foreach ($item in $uploads) {
-    Invoke-R2Cp -LocalPath $item.Local -Key $item.Key -CacheControl $item.Cache
+    Invoke-R2Cp -LocalPath $item.Local -Key $item.Key -CacheControl $item.Cache -ExpectedSize $item.ExpectedSize
+}
+
+Invoke-R2LatestAliasCopy -SourceKey $versionedSetupKey -AliasKey "downloads/DanmuAI-Setup.exe" -ExpectedSize $setup.Length
+if ($portable) {
+    Invoke-R2LatestAliasCopy -SourceKey $versionedPortableKey -AliasKey "downloads/PEPETII.DanmuAI-win-Portable.zip" -ExpectedSize $portable.Length
 }
 
 Write-Host ""

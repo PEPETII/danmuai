@@ -22,6 +22,7 @@ def test_get_meta_defaults(pool_app):
     assert meta["custom_enabled"] is False
     assert meta["min_on_screen"] == 5
     assert meta["custom_count"] == 0
+    assert meta["custom_max"] == 2500
     assert meta["effective_pool_enabled"] is False
     assert "builtin_enabled" not in meta
     assert "builtin_count" not in meta
@@ -67,6 +68,13 @@ def test_append_custom_respects_pool_limit(pool_app):
     assert any(item["reason"] == "limit_reached" for item in result["skipped_items"])
 
 
+def test_append_custom_accepts_large_text_batch(pool_app):
+    lines = [f"导入句{i}" for i in range(150)]
+    result = pool_api.append_custom(pool_app, {"text": "\n".join(lines)})
+    assert result["added"] == 150
+    assert len(pool_app.config.get_custom_danmu_pool()) == 150
+
+
 def test_delete_custom_by_texts(pool_app):
     pool_app.config.set_custom_danmu_pool(["保留", "删除A", "删除B"])
     result = pool_api.delete_custom(pool_app, {"texts": ["删除A", "删除B"]})
@@ -97,6 +105,7 @@ def test_danmu_pool_routes_registered(tmp_path):
     body = meta.json()
     assert "builtin_enabled" not in body
     assert "builtin_count" not in body
+    assert body["custom_max"] == 2500
 
     settings = client.put(
         "/api/danmu-pool/settings",

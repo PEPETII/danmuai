@@ -57,88 +57,52 @@ class DanmuAppLaunchMixin:
             shell.request_navigate(path)
             return
         if shell and shell.handshake_failed and server:
-            self._prompt_browser_fallback_after_webview_failure(server, path)
+            self._open_browser_fallback_after_webview_failure(server, path)
             return
-
-        # BUG-XXX: 服务器线程已终止时尝试恢复或兜底打开浏览器
         if server:
-            from app.web_console import classify_web_console_startup, open_web_console_browser
+            from app.web_console import (
+                classify_web_console_startup,
+                open_web_console_browser,
+                try_recover_web_console_for_user_action,
+            )
+            from app.webview_shell import notify_web_console_failure
 
-            phase = classify_web_console_startup(server)
-            if phase == "failed":
-                self.logger.warning(
-                    "Web 控制台进程不可用（phase=failed），尝试重启或打开系统浏览器"
-                )
-                # 尝试重启一次
-                server._startup_failure_user_notified = False
-                server.start()
-                from app.webview_shell import wait_for_http_server
-
-                if wait_for_http_server(server.base_url, timeout=3.0):
-                    server.startup_ok = True
-                    self.web_server = server
-                    self.logger.info("Web 控制台重启成功")
+            if classify_web_console_startup(server) == "failed":
+                if try_recover_web_console_for_user_action(server):
+                    pass
                 else:
-                    self.logger.warning(
-                        "Web 控制台重启失败，已打开系统浏览器作为兜底"
-                    )
-                    open_web_console_browser(server, path)
+                    if not getattr(server, "_browser_launch_opened", False):
+                        open_web_console_browser(server, path)
+                        server._browser_launch_opened = True
+                    if not getattr(server, "_startup_failure_user_notified", False):
+                        notify_web_console_failure(self, "web_console.startup_failed")
+                        server._startup_failure_user_notified = True
                     return
-
         if self.web_launch_mode == "webview" and self.web_server:
             self._open_web_console_when_ready(path, use_browser=False)
             return
         if self.web_launch_mode == "browser" and self.web_server:
             self._open_web_console_when_ready(path, use_browser=True)
 
-    def _prompt_browser_fallback_after_webview_failure(
+    def _open_browser_fallback_after_webview_failure(
         self, server, path: str = "/"
     ) -> None:
-        """Handshake 已失败的兜底：弹窗询问用户是否在系统浏览器打开控制台。
-
-        启动期已 fallback 过一次（``server._browser_launch_opened=True``）时不再弹窗，
-        保留 BUG-014 dedupe。仅 web_launch_mode 与 web_server 状态由调用方判断。
-        """
+        """Handshake 已失败时用户主动打开：自动改用系统浏览器（BUG-014 dedupe）。"""
         if getattr(server, "_browser_launch_opened", False):
             return
-        from PyQt6.QtWidgets import QMessageBox
-
-        from app.translations import tr
         from app.web_console import open_web_console_browser
 
-        base_url = getattr(server, "base_url", "http://127.0.0.1:18765")
-        title = tr("webview.fallback_to_browser_title", "桌面窗口不可用")
-        message = tr(
-            "webview.fallback_to_browser_message",
-            "pywebview 启动失败，是否在系统浏览器中打开本地网页端？\n地址：{base_url}",
-        ).format(base_url=base_url)
-
-        box = QMessageBox()
-        box.setIcon(QMessageBox.Icon.Warning)
-        box.setWindowTitle(title)
-        box.setText(message)
-        yes_btn = box.addButton(tr("common.yes"), QMessageBox.ButtonRole.YesRole)
-        no_btn = box.addButton(tr("common.no"), QMessageBox.ButtonRole.NoRole)
-        box.setDefaultButton(no_btn)
-        box.exec()
-
-        if box.clickedButton() == yes_btn:
-            server._browser_launch_opened = True
-            try:
-                open_web_console_browser(server, path)
-            except Exception as exc:
-                self.logger.warning(
-                    f"failed to open system browser after webview fallback: {exc!r}"
-                )
-                server._browser_launch_opened = False
-                return
-            self.logger.info(
-                f"tray fallback to system browser after webview handshake failed: {path}"
+        try:
+            open_web_console_browser(server, path)
+        except Exception as exc:
+            self.logger.warning(
+                f"failed to open system browser after webview fallback: {exc!r}"
             )
-        else:
-            self.logger.info(
-                "tray fallback to system browser declined by user after webview handshake failed"
-            )
+            return
+        server._browser_launch_opened = True
+        self.logger.info(
+            f"tray fallback to system browser after webview handshake failed: {path}"
+        )
 
     def show_settings(self) -> None:
         if self.web_server:

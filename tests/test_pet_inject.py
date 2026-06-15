@@ -35,7 +35,6 @@ def test_trigger_api_call_fire_consumes_and_injects_prompt(monkeypatch):
     app._latest_screenshot_id = 2
     app._latest_screenshot_time = time.monotonic()
     app.personae = Mock(pick_random=Mock(return_value="吐槽型"), get_prompt=Mock(return_value=("sys", "user")))
-    app._append_scene_context_to_user_pt = DanmuApp._append_scene_context_to_user_pt.__get__(app, DanmuApp)
 
     from app.pet.pet_command_service import PetCommandService
 
@@ -52,7 +51,7 @@ def test_trigger_api_call_fire_consumes_and_injects_prompt(monkeypatch):
 
     pool = Mock()
     pool.start = Mock()
-    monkeypatch.setattr("PyQt6.QtCore.QThreadPool", Mock(globalInstance=Mock(return_value=pool)))
+    monkeypatch.setattr("app.worker_pools.ai_worker_pool", lambda: pool)
     monkeypatch.setattr("app.runnable.AiRunnable", _Runnable)
 
     app._api_schedule_block_reason = Mock(return_value="")

@@ -6,16 +6,16 @@
 - 运行态对外展示委托 StatusSnapshotBuilder / DiagnosticSnapshotBuilder，勿在 Web 层拼私有字段
 
 主链路（普通模式，详见 docs/MAIN_PIPELINE.md）：
-  screenshot_timer → _on_normal_capture_tick → _capture_screenshot → _trigger_api_call
-  → AiRunnable(QThreadPool) → _on_ai_reply → _enqueue_reply_batch → _consume_reply_queue
-  → DanmuEngine.add_text → Overlay 绘制
+  screenshot_timer → _on_normal_capture_tick → _schedule_capture → CaptureRunnable
+  → _on_capture_completed → _trigger_api_call → AiRunnable → _on_ai_reply → ...
 
 关键设计：
 - screenshot_id：每帧截图递增，用于「更新帧优于在途回复」的 supersede 判定
 - scene_generation：请求/记忆兼容字段（运行期恒为 0，不做截图 hash 场景判定）
 - MAX_IN_FLIGHT=1：并发视觉请求会破坏过期判断与回复顺序，故硬限制为 1
 
-线程：DanmuApp 在 Qt 主线程；AiRunnable 在 QThreadPool 中调 AiWorker，finished 信号队列回主线程。
+线程：DanmuApp 在 Qt 主线程；CaptureRunnable 在 capture_worker_pool 抓屏；
+AiRunnable 在 ai_worker_pool 中调 AiWorker，finished 信号队列回主线程。
 
 Phase 4 冻结（勿迁移出本模块）：ai_in_flight、reply_buffer、QTimer/QThreadPool、_latest_screenshot 等，
 见 docs/archive/architecture-phases/phase4-freeze.md。
@@ -191,17 +191,11 @@ class DanmuApp(
             self.reply_timer.setInterval(min(self.reply_timer.interval(), 200))
         self._publish_live_status()
 
-    def _capture_screenshot(self):
-        """主线程截图：仅有效帧递增 screenshot_id 并缓存到 _latest_screenshot。
+    def _apply_capture_result(self, pixmap):
+        """主线程：校验 worker 回传的 pixmap，更新 _latest_screenshot*。
 
-        调用线程：主线程（QTimer 回调链）。
-        无效帧（None / isNull / 零尺寸）仅记 warning，不递增 screenshot_id、不触发 API。
+        无效帧（None / isNull / 零尺寸）仅记 warning，不递增 screenshot_id。
         """
-        if not self.engine.running:
-            return
-        if self._failure_backoff_paused:
-            return
-        pixmap = self.capturer.grab()
         if pixmap is None:
             self.logger.warning(tr("app.capture_failed"))
             self._note_capture_failure()
@@ -239,17 +233,62 @@ class DanmuApp(
             )
         )
 
+    def _capture_screenshot(self):
+        """同步截图（测试/脚本用）；生产主链路经 _schedule_capture 走 worker。"""
+        if not self.engine.running:
+            return
+        if self._failure_backoff_paused:
+            return
+        self._apply_capture_result(self.capturer.grab())
+
+    def _schedule_capture(self) -> None:
+        """主线程：构建 CapturePlan 并投递 capture_worker_pool。"""
+        if not self.engine.running:
+            return
+        if self._failure_backoff_paused:
+            return
+        if self._capture_in_flight:
+            self.logger.debug("跳过截图调度: reason=capture_in_flight")
+            return
+        plan = self.capturer.build_plan()
+        if plan is None:
+            self.logger.warning(tr("app.capture_failed"))
+            self._note_capture_failure()
+            return
+        self._capture_in_flight = True
+        from app.runnable import CaptureRunnable
+        from app.worker_pools import capture_worker_pool
+
+        runnable = CaptureRunnable(
+            plan,
+            self._capture_coordinator,
+            self.ai_worker._stopping,
+        )
+        capture_worker_pool().start(runnable)
+
+    def _on_capture_completed(self, pixmap) -> None:
+        """CaptureCoordinator.completed 主线程槽：应用截图结果并触发 API。"""
+        self._capture_in_flight = False
+        if not self.engine.running or self.ai_worker._stopping.is_set():
+            return
+        if self._failure_backoff_paused:
+            return
+        self._apply_capture_result(pixmap)
+        if self._latest_screenshot is None:
+            return
+        self._trigger_api_call(source="normal_interval")
+
     def _on_screenshot_timer(self):
         """screenshot_timer 超时回调（主线程 QTimer）；转发到 _on_normal_capture_tick。"""
         self._on_normal_capture_tick()
 
     def _on_normal_capture_tick(self):
-        """普通模式主链路入口（主线程）：检查 ai_in_flight 闸门 → 截图 → 同 tick 触发 API。
+        """普通模式主链路入口（主线程）：检查 ai_in_flight 闸门 → 异步截图 → 完成时触发 API。
 
         调用线程：主线程（screenshot_timer.timeout 信号）。
-        关键副作用：成功路径同 tick 内调用 _trigger_api_call（不等待 reply_timer）。
+        关键副作用：成功路径在 capture worker 回传后调用 _trigger_api_call（不等待 reply_timer）。
         """
-        # 普通模式主链路：无视觉 in-flight 才截图；成功则同 tick 内触发 API（不等待 reply_timer）
+        # 普通模式主链路：无视觉 in-flight 才截图；成功则 capture 完成后触发 API（不等待 reply_timer）
         if self._has_visual_request_in_flight():
             elapsed_ms = 0
             if self._inflight_started_at > 0:
@@ -275,10 +314,20 @@ class DanmuApp(
                 )
             self._maybe_inject_local_fallback()
             return
-        self._capture_screenshot()
-        if self._latest_screenshot is None:
-            return
-        self._trigger_api_call(source="normal_interval")
+        self._schedule_capture()
+
+    def _borrow_latest_screenshot_for_request(self) -> tuple[object, int, float]:
+        """Return borrowed screenshot ref and metadata for AiRunnable handoff.
+
+        Caller must only invoke on the fire path after guards pass. Production
+        visual in-flight gate prevents _latest_screenshot replacement while
+        AiRunnable retains the borrowed reference.
+        """
+        return (
+            self._latest_screenshot,
+            self._latest_screenshot_id,
+            self._latest_screenshot_time,
+        )
 
     def _trigger_api_call(self, source: str = "unknown"):
         """占用唯一视觉 in-flight 槽位，用当前 _latest_screenshot 发起 AiRunnable。
@@ -310,13 +359,9 @@ class DanmuApp(
         self._local_fallback_active = False
         self._get_request_scheduler().record_trigger_time(now=trigger_at)
         self._log_api_schedule(decision="fire", source=source)
-        # W-MEDLOW-001（M-003）：QPixmap 显式 copy 后再交给 QThreadPool；单测 Mock 无 copy 时原样传递。
-        raw_pixmap = self._latest_screenshot
-        pixmap = raw_pixmap.copy() if hasattr(raw_pixmap, "copy") else raw_pixmap
+        pixmap, screenshot_id, captured_at = self._borrow_latest_screenshot_for_request()
         self.screenshot_round += 1
         request_round = self.screenshot_round
-        screenshot_id = self._latest_screenshot_id
-        captured_at = self._latest_screenshot_time
         self._batch_id += 1
         batch_id = self._batch_id
         self._latest_requested_screenshot_id = screenshot_id

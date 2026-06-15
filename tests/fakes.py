@@ -78,6 +78,23 @@ class FakeConfig:
     def set_batch(self, items):
         self.values.update(items)
 
+    def apply_web_save(
+        self,
+        *,
+        items: dict[str, str] | None = None,
+        api_key: str | None = None,
+        mic_api_key: str | None = None,
+        custom_models: list[dict] | None = None,
+    ) -> None:
+        if items:
+            self.values.update(items)
+        if api_key:
+            self.set_api_key(api_key)
+        if mic_api_key:
+            self.set_mic_api_key(mic_api_key)
+        if custom_models is not None:
+            self.set_custom_models(custom_models)
+
     def set_api_key(self, key):
         self._api_key = key
         self.values["api_key_encrypted"] = "enc"
@@ -142,6 +159,29 @@ class FakeConfig:
         self.values[key] = json.dumps(value, ensure_ascii=False)
 
 
+AI_CLIENT_FAKE_DEFAULTS = {
+    "api_endpoint": "https://global.example.com/v1",
+    "api_mode": "doubao",
+    "model": "doubao-seed-1-6-flash-250828",
+    "_api_key": "sk-global-key",
+}
+
+
+def ai_client_fake_config(*, data=None, api_key=None, default_model_id=None, custom_models=None):
+    """Build ``FakeConfig`` with AI client test defaults (see ``test_ai_client.py``)."""
+    values = dict(AI_CLIENT_FAKE_DEFAULTS)
+    if data:
+        values.update(data)
+    if default_model_id is not None:
+        values["default_model_id"] = default_model_id
+    if custom_models is not None:
+        values["custom_models"] = custom_models
+    cfg = FakeConfig(values)
+    if api_key is not None:
+        cfg.set_api_key(api_key)
+    return cfg
+
+
 class FakeLifetimeStats:
     """空操作版 ``LifetimeStats``，不持久化、不递增。
 
@@ -203,7 +243,7 @@ class FakeEngine:
         - ``min_on_screen`` / ``danmu_pool_use_custom`` 来自 ``_config_values``
     """
 
-    def __init__(self):
+    def __init__(self, config_values=None):
         self.calls = []
         self.running = False
         self.dropped_pending = 0
@@ -212,7 +252,9 @@ class FakeEngine:
         self._accel_remaining = 0
         self._accel_peak = 1.0
         self.tracks = []
-        self._config_values = {}
+        self._config_values = dict(config_values or {})
+        self._right_zone_count = 0
+        self._display_count = 0
 
     def add_text(self, content, persona, batch_id=0, scene_generation=0, *, skip_dedup=False, **_kwargs):
         self.calls.append((content, persona))
@@ -248,13 +290,13 @@ class FakeEngine:
         return 0
 
     def current_display_count(self):
-        return 0
+        return self._display_count
 
     def get_display_count(self):
-        return 0
+        return self._display_count
 
     def right_zone_count(self):
-        return 0
+        return self._right_zone_count
 
     def needs_refill(self):
         return True
@@ -302,6 +344,21 @@ class FakeCapturer:
 
     def grab(self):
         return self._pixmap
+
+    def build_plan(self):
+        if self._pixmap is None:
+            return None
+        from app.snipper import CapturePlan
+
+        return CapturePlan(
+            mode="screen",
+            screen_index=0,
+            grab_x=0,
+            grab_y=0,
+            grab_w=200,
+            grab_h=200,
+            hwnd=0,
+        )
 
 
 class FakePixmap:
@@ -351,6 +408,7 @@ class FakeTimer:
         self.stopped = 0
         self._interval = 800
         self._single_shot = False
+        self.intervals = []
 
     def isActive(self):
         return self.active
@@ -358,6 +416,9 @@ class FakeTimer:
     def start(self, ms=0):
         self.active = True
         self.started += 1
+        if ms > 0:
+            self._interval = ms
+        self.intervals.append(ms)
 
     def stop(self):
         self.active = False

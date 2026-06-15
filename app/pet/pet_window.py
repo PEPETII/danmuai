@@ -138,6 +138,8 @@ class PetWindow(QWidget):
         self._momentum_elapsed_ms = 0.0
         self._pointer_samples: list[PointerSample] = []
         self._post_drag_waving_until = 0.0
+        self._last_painted_frame_index = -1
+        self._last_painted_animation_state = ""
 
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint
@@ -407,10 +409,12 @@ class PetWindow(QWidget):
     def _on_anim_tick(self) -> None:
         self._tick_momentum()
         new_state = self._current_animation()
+        frame_changed = False
         if new_state != self._animation_state:
             self._animation_state = new_state
             self._frame_index = 0
             self._frame_clock = 0.0
+            frame_changed = True
         else:
             self._animation_state = new_state
         self._frame_clock += _ANIM_INTERVAL_MS / 1000.0
@@ -423,7 +427,18 @@ class PetWindow(QWidget):
             self._frame_clock = 0.0
             frame_count = self._pack.state_frame_count(self._animation_state) if self._pack else 6
             self._frame_index = (self._frame_index + 1) % max(1, frame_count)
-        self.update()
+            frame_changed = True
+        needs_repaint = (
+            frame_changed
+            or self._dragging
+            or self._momentum_active
+            or self._frame_index != self._last_painted_frame_index
+            or self._animation_state != self._last_painted_animation_state
+        )
+        if needs_repaint:
+            self._last_painted_frame_index = self._frame_index
+            self._last_painted_animation_state = self._animation_state
+            self.update()
 
     def paintEvent(self, _event) -> None:
         painter = QPainter(self)

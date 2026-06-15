@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from app.config_store import ConfigStore
-from app.danmu_engine import DanmuEngine, DanmuItem
+from app.danmu_engine import DanmuEngine, DanmuItem, FADE_IN_PX
 from app.overlay import _INTERVAL_MAX_MS, DanmuOverlay, _use_fast_danmu_render
 from PyQt6.QtCore import QRect
 from PyQt6.QtWidgets import QApplication
@@ -362,3 +362,49 @@ def test_item_paint_opacity_includes_global(overlay_stack):
 
     assert full == pytest.approx(1.0)
     assert half == pytest.approx(0.5)
+
+
+def test_add_text_far_offscreen_defers_pixmap(overlay_stack, monkeypatch):
+    monkeypatch.setattr("app.danmu_engine.random.uniform", lambda a, b: (a + b) / 2)
+    _, engine, overlay = overlay_stack
+    overlay.setGeometry(0, 0, 1920, 1080)
+    overlay._screen_width = 1920.0
+    engine.set_screen_width(1920.0)
+
+    item = engine.add_text("deferred-pixmap", skip_dedup=True)
+    assert item is not None
+    assert item.x >= 1920.0
+    assert item._pixmap is None
+
+
+def test_prepare_pixmaps_near_visible_before_paint_band(overlay_stack):
+    _, engine, overlay = overlay_stack
+    overlay.setGeometry(0, 0, 1920, 1080)
+    overlay._screen_width = 1920.0
+    sw = 1920.0
+    item = DanmuItem(
+        content="approaching",
+        x=sw + FADE_IN_PX + 50.0,
+        width=120.0,
+        y=engine.tracks[0].y,
+    )
+    engine.tracks[0].add(item)
+    assert item._pixmap is None
+
+    overlay._prepare_pixmaps_near_visible()
+    assert item._pixmap is not None
+
+
+def test_paint_event_prepares_late_pixmap(overlay_stack, qapp):
+    _, engine, overlay = overlay_stack
+    overlay.setGeometry(0, 0, 1920, 1080)
+    overlay._screen_width = 1920.0
+    item = DanmuItem(content="late", x=500.0, width=100.0, y=engine.tracks[0].y)
+    engine.tracks[0].add(item)
+    assert item._pixmap is None
+
+    event = MagicMock()
+    event.region.return_value.boundingRect.return_value = QRect(0, 0, 1920, 1080)
+    overlay.paintEvent(event)
+    assert item._pixmap is not None
+

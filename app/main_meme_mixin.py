@@ -4,13 +4,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from PyQt6.QtCore import QObject, QThreadPool, QTimer, pyqtSignal
+from PyQt6.QtCore import QObject, QTimer, pyqtSignal
 
-from app.meme_barrage.client import format_tags_for_remote_api
+from app.meme_barrage.client import MemeBarrageApiClient, format_tags_for_remote_api
 from app.meme_barrage.config import meme_barrage_enabled, read_meme_barrage_settings
-from app.meme_barrage.runnable import MemeAiSelectRunnable, MemeFetchRunnable
+from app.meme_barrage.runnable import MemeAiSelectRunnable, MemeFetchRunnable, meme_fetch_pool
 from app.meme_barrage.service import MemeBarrageService
 from app.screenshot_compress import IMAGE_JPEG_QUALITY, IMAGE_MAX_WIDTH, compress_screenshot
+from app.worker_pools import ai_worker_pool
 
 if TYPE_CHECKING:
     pass
@@ -37,6 +38,13 @@ class DanmuAppMemeMixin:
             service = MemeBarrageService(self.config)
             self._meme_barrage_service = service
         return service
+
+    def _ensure_meme_barrage_client(self) -> MemeBarrageApiClient:
+        client = self.__dict__.get("_meme_barrage_api_client")
+        if client is None:
+            client = MemeBarrageApiClient()
+            self._meme_barrage_api_client = client
+        return client
 
     def _init_meme_barrage_timers(self) -> None:
         self._meme_barrage_service = MemeBarrageService(self.config)
@@ -184,8 +192,9 @@ class DanmuAppMemeMixin:
             page_size=batch_size,
             on_success=on_success,
             on_error=on_error,
+            client=self._ensure_meme_barrage_client(),
         )
-        QThreadPool.globalInstance().start(runnable)
+        meme_fetch_pool().start(runnable)
 
     def _on_meme_fetch_error(self) -> None:
         service = self._ensure_meme_barrage_service()
@@ -235,18 +244,9 @@ class DanmuAppMemeMixin:
             self.logger.warning("meme_ai_select_failed reason=no_screenshot")
             service.enqueue_display(candidates[: int(settings["display_batch_size"])])
             return
-        try:
-            max_width = self.config.get_int("image_max_width", IMAGE_MAX_WIDTH)
-            quality = self.config.get_int("image_quality", IMAGE_JPEG_QUALITY)
-            image_data_uri = compress_screenshot(pixmap, max_width=max_width, quality=quality)
-        except Exception as exc:
-            self.logger.warning(f"meme_ai_select_failed reason=compress_error detail={exc!r}")
-            service.enqueue_display(candidates[: int(settings["display_batch_size"])])
-            return
-        if not image_data_uri:
-            service.enqueue_display(candidates[: int(settings["display_batch_size"])])
-            return
 
+        max_width = self.config.get_int("image_max_width", IMAGE_MAX_WIDTH)
+        quality = self.config.get_int("image_quality", IMAGE_JPEG_QUALITY)
         service.set_ai_select_in_flight(True)
         pick_count = int(settings["display_batch_size"])
         fallback_n = pick_count
@@ -262,13 +262,14 @@ class DanmuAppMemeMixin:
         runnable = MemeAiSelectRunnable(
             worker=self.ai_worker,
             config=self.config,
-            image_data_uri=image_data_uri,
+            pixmap=pixmap,
+            compress_fn=lambda p: compress_screenshot(p, max_width=max_width, quality=quality),
             candidates=candidates,
             pick_count=pick_count,
             on_success=on_success,
             on_error=on_error,
         )
-        QThreadPool.globalInstance().start(runnable)
+        ai_worker_pool().start(runnable)
 
     def _on_meme_ai_select_done_signal(
         self,

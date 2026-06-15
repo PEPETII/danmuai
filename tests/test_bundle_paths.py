@@ -147,7 +147,10 @@ def test_diagnostics_panel_visibility_toggle_wires_button_and_sse_gate():
     assert "显示诊断面板" in diagnostics_js
     assert "隐藏诊断面板" in diagnostics_js
 
-    assert "!panel.classList.contains('hidden')" in diagnostics_js
+    assert "isIntersecting: true" not in diagnostics_js
+    assert "isDiagnosticsPanelVisible" in diagnostics_js
+    assert "page-overview" in diagnostics_js
+    assert "panel.classList.contains('hidden')" in diagnostics_js
     assert "setInterval(refreshDiagnostics" not in diagnostics_js
     assert "refreshDiagnostics, 2500" not in diagnostics_js
 
@@ -175,6 +178,42 @@ def test_announcements_badge_polling_stops_on_announcements_page_navigate():
     assert "onAnnouncements" in init_snippet or "page-announcements" in init_snippet
 
 
+def test_meme_barrage_meta_polling_stops_when_leaving_danmu_pool():
+    """W-PERF-MED-004 P-24: 离开弹幕池页停止 meta 轮询（静态符号回归）。"""
+    root = project_root()
+    meme_js = (root / "web" / "static" / "modules" / "app-meme-barrage-page.js").read_text(
+        encoding="utf-8"
+    )
+    app_js = (root / "web" / "static" / "app.js").read_text(encoding="utf-8")
+    assert "export function stopMemeBarrageMetaPolling" in meme_js
+    assert "clearInterval(metaPollTimer)" in meme_js
+    assert "stopMemeBarrageMetaPolling" in app_js
+    nav_start = app_js.index("function navigate(page)")
+    nav_end = app_js.index("\nasync function init()", nav_start)
+    navigate_body = app_js[nav_start:nav_end]
+    assert "page === 'danmu-pool'" in navigate_body
+    assert "startMemeBarrageMetaPolling()" in navigate_body
+    assert "stopMemeBarrageMetaPolling()" in navigate_body
+
+
+def test_realtime_transport_and_diagnostics_teardown_on_pagehide():
+    """W-PERF-MED-004 P-38: pagehide 统一清理 WS/SSE/轮询（静态符号回归）。"""
+    root = project_root()
+    transport_js = (root / "web" / "static" / "modules" / "transport.js").read_text(encoding="utf-8")
+    diagnostics_js = (root / "web" / "static" / "modules" / "diagnostics.js").read_text(
+        encoding="utf-8"
+    )
+    app_js = (root / "web" / "static" / "app.js").read_text(encoding="utf-8")
+    assert "export function stopRealtimeTransport" in transport_js
+    assert "detachWebSocket(REALTIME.statusWs)" in transport_js
+    assert "export function destroyDiagnosticsPanel" in diagnostics_js
+    assert "export function disconnectDiagnosticsPanel" in diagnostics_js
+    assert "pagehide" in app_js
+    assert "stopRealtimeTransport()" in app_js
+    assert "destroyDiagnosticsPanel()" in app_js
+    assert "disconnectDiagnosticsPanel()" in app_js
+
+
 def test_status_js_renders_legacy_lifetime_token_note():
     root = project_root()
     status_js = (root / "web" / "static" / "modules" / "status.js").read_text(encoding="utf-8")
@@ -192,6 +231,53 @@ def test_status_js_apply_status_uses_live_message_not_stale_drops():
     assert "liveStatusLine" in status_js
     assert "st.live_message" in status_js
     assert "live_stale_drops" not in status_js
+
+
+def test_logs_js_uses_set_dedup():
+    """W-PERF-MED-003: 日志去重使用 Set O(1) 查找，避免 logBuffer.some 线性扫描。"""
+    logs_js = (project_root() / "web" / "static" / "modules" / "logs.js").read_text(encoding="utf-8")
+    assert "logKeySet" in logs_js
+    assert "logKeySet.has" in logs_js
+    assert "logBuffer.some" not in logs_js
+
+
+def test_logs_js_exports_clear_log_buffer():
+    logs_js = (project_root() / "web" / "static" / "modules" / "logs.js").read_text(encoding="utf-8")
+    assert "export function clearLogBuffer" in logs_js
+
+
+def test_status_js_skips_unchanged_session_runs():
+    """W-PERF-MED-003: session runs 脏检查避免 500ms 全量 DOM 重建。"""
+    status_js = (project_root() / "web" / "static" / "modules" / "status.js").read_text(encoding="utf-8")
+    assert "lastSessionRunsKey" in status_js
+    assert "if (key === lastSessionRunsKey) return" in status_js
+
+
+def test_status_js_update_text_if_changed():
+    status_js = (project_root() / "web" / "static" / "modules" / "status.js").read_text(encoding="utf-8")
+    assert "function updateTextIfChanged" in status_js
+
+
+def test_app_init_parallelizes_independent_fetches():
+    """W-PERF-MED-003: init() 在 refreshSession 后并行拉取独立 API。"""
+    app_js = (project_root() / "web" / "static" / "app.js").read_text(encoding="utf-8")
+    init_start = app_js.index("async function init()")
+    init_end = app_js.index("\ndocument.addEventListener('visibilitychange'", init_start)
+    init_body = app_js[init_start:init_end]
+    assert "await Promise.all([" in init_body
+    assert "loadModelCatalog()" in init_body
+    assert "loadProviders()" in init_body
+    assert "loadConfigDefaults()" in init_body
+    assert "reloadConfigFromServer()" in init_body
+
+
+def test_index_html_font_preconnect():
+    html = (project_root() / "web" / "static" / "index.html").read_text(encoding="utf-8")
+    assert 'rel="preconnect"' in html
+    assert "fonts.gstatic.com" in html
+    head_end = html.index("</head>")
+    tailwind_idx = html.index("/static/tailwindcdn.js")
+    assert tailwind_idx > head_end, "tailwindcdn.js should load at end of body, not in head"
 
 
 def test_error_report_flow_in_app_js():
@@ -284,6 +370,23 @@ def test_tailwind_offline_bundle_packaged():
     html = (root / "web" / "static" / "index.html").read_text(encoding="utf-8")
     assert "/static/tailwindcdn.js" in html
     assert "cdn.tailwindcss.com" not in html
+
+
+def test_danmu_pool_txt_import_controls_in_content_pages():
+    root = project_root()
+    content_html = (root / "web" / "static" / "partials" / "content-pages.html").read_text(
+        encoding="utf-8"
+    )
+    index_html = (root / "web" / "static" / "index.html").read_text(encoding="utf-8")
+    pool_js = (root / "web" / "static" / "modules" / "app-danmu-pool-page.js").read_text(
+        encoding="utf-8"
+    )
+    for html in (content_html, index_html):
+        assert 'id="btnPoolImportTxt"' in html
+        assert 'id="poolImportTxtInput"' in html
+        assert "每个文件最多 1000 行" in html
+    assert "importCustomDanmuPoolTxtFiles" in pool_js
+    assert "formatCustomPoolCount" in pool_js
 
 
 def test_resource_path_pet_default_pet_json_and_spritesheet():

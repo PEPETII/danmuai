@@ -70,3 +70,14 @@ def test_supabase_config_js_optional_local():
     text = path.read_text(encoding="utf-8")
     assert "DANMU_SUPABASE" in text
     assert "YOUR_PROJECT" not in text
+
+
+def test_app_update_banner_uses_backend_metadata_only():
+    text = (project_root() / "web" / "static" / "modules" / "app-update-banner.js").read_text(
+        encoding="utf-8"
+    )
+    assert "DEFAULT_RELEASE_URL" not in text
+    assert "FALLBACK_CHANNELS" not in text
+    assert "function compareVersions" not in text
+    assert "/api/update/channels" in text
+    assert "fetchAppUpdate" not in text

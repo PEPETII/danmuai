@@ -135,6 +135,16 @@ def test_similarity_fallback_without_levenshtein(monkeypatch):
     assert DanmuEngine._similarity("kitten", "sitting") > 0.5
 
 
+def test_similarity_uses_c_extension_when_available(dedup_profile_on):
+    if _get_levenshtein_ratio() is None:
+        pytest.skip("Levenshtein C extension not available")
+
+    reset_dedup_profile_for_tests(clear_env_cache=False)
+    DanmuEngine._similarity("hello", "hallo")
+    snap = snapshot_dedup_profile()
+    assert snap["similarity_fallback_calls"] == 0
+
+
 def test_add_text_calls_is_duplicate_once(engine, monkeypatch):
     calls = []
     original = engine._is_duplicate

@@ -40,7 +40,7 @@ def test_on_ai_reply_enqueues_despite_mismatched_scene_generation(monkeypatch):
     app.ai_in_flight = 1
     app._scene_generation = 2
     app._register_request_meta(10, 10, 1, "visual")
-    monkeypatch.setattr(main_mod, "parse_ai_reply_with_memory", lambda text, sg: (["ok"], None))
+    monkeypatch.setattr(main_mod, "parse_ai_reply_payload", lambda text: ["ok"])
     monkeypatch.setattr(main_mod, "normalize_reply_batch", lambda raw_items, **kwargs: raw_items)
     app._on_ai_reply = main_mod.DanmuApp._on_ai_reply.__get__(app, main_mod.DanmuApp)
     app._consume_reply_queue = lambda: None

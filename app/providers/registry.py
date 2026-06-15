@@ -94,6 +94,41 @@ def resolve_api_transport(endpoint: str, api_mode: str) -> str:
     return "openai"
 
 
+def normalize_api_mode_for_select(mode: str, endpoint: str = "") -> str:
+    """Map stored api_mode + endpoint to UI select value (``doubao`` | ``openai``)."""
+    transport = resolve_api_transport(endpoint, mode)
+    return "doubao" if transport == "doubao" else "openai"
+
+
+def provider_rules_for_api() -> dict:
+    """Structured host rules for web settings UI (single source of truth)."""
+    return {
+        "host_entries": [
+            {
+                "fragment": entry.fragment,
+                "provider_id": entry.provider_id,
+                "transport": entry.transport,
+            }
+            for entry in HOST_ENTRIES
+        ],
+        "default_provider_id": DEFAULT_PROVIDER_ID,
+        "editable_api_mode_provider_ids": [
+            spec.id for spec in PROVIDERS if not spec.lock_mode
+        ],
+    }
+
+
+def resolve_provider_for_ui(endpoint: str, api_mode: str = "") -> dict:
+    """Resolve provider_id, transport, and api_mode_select for settings UI."""
+    provider_id = guess_provider_from_endpoint(endpoint, api_mode)
+    transport = resolve_api_transport(endpoint, api_mode)
+    return {
+        "provider_id": provider_id,
+        "transport": transport,
+        "api_mode_select": normalize_api_mode_for_select(api_mode, endpoint),
+    }
+
+
 # OpenRouter recommends Referer/Title for rate-limit priority; applied only when host matches.
 _OPENROUTER_REFERER = "https://github.com/PEPETII/danmuai"
 _OPENROUTER_APP_TITLE = "DanmuAI"

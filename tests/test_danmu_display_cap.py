@@ -1,17 +1,21 @@
-"""Configurable danmu display caps: default unlimited, optional eviction."""
+"""Configurable danmu display caps: safe defaults, optional unlimited via 0."""
 
-
+from app.config_defaults import (
+    DEFAULT_DANMU_PENDING_ENTRY_CAP,
+    DEFAULT_DANMU_TRACK_RETENTION_CAP,
+)
 from app.config_store import ConfigStore
 from app.danmu_engine import DanmuEngine, DanmuItem
 from app.main_helpers import queue_capacity
 from app.reply_queue import AIReplyFIFOBuffer, QueuedReply
 
 
-def test_default_no_pending_cap_accepts_many_entry_zone_items(tmp_path, monkeypatch):
+def test_explicit_zero_pending_cap_accepts_many_entry_zone_items(tmp_path, monkeypatch):
     monkeypatch.setattr("app.danmu_engine.clamp_danmu_lines", lambda v: max(2, int(v)))
     store = ConfigStore(db_path=tmp_path / "config.db")
     store.set("danmu_speed", "2.0")
     store.set("danmu_lines", "3")
+    store.set("danmu_pending_entry_cap", "0")
 
     engine = DanmuEngine(store)
     engine.set_screen_width(1000.0)
@@ -24,6 +28,28 @@ def test_default_no_pending_cap_accepts_many_entry_zone_items(tmp_path, monkeypa
     assert engine.max_pending_entry() == 0
     assert engine.entry_zone_overloaded() is False
     assert engine.add_text("still-accepts") is not None
+
+
+def test_default_pending_cap_is_300(tmp_path, monkeypatch):
+    monkeypatch.setattr("app.danmu_engine.clamp_danmu_lines", lambda v: max(2, int(v)))
+    store = ConfigStore(db_path=tmp_path / "config.db")
+    store.set("danmu_speed", "2.0")
+    store.set("danmu_lines", "3")
+
+    engine = DanmuEngine(store)
+    assert engine.max_pending_entry() == DEFAULT_DANMU_PENDING_ENTRY_CAP
+    assert DEFAULT_DANMU_PENDING_ENTRY_CAP == 300
+
+
+def test_default_track_retention_cap_is_600(tmp_path, monkeypatch):
+    monkeypatch.setattr("app.danmu_engine.clamp_danmu_lines", lambda v: max(2, int(v)))
+    store = ConfigStore(db_path=tmp_path / "config.db")
+    store.set("danmu_speed", "2.0")
+    store.set("danmu_lines", "3")
+
+    engine = DanmuEngine(store)
+    assert engine._track_retention_cap() == DEFAULT_DANMU_TRACK_RETENTION_CAP
+    assert DEFAULT_DANMU_TRACK_RETENTION_CAP == 600
 
 
 def test_pending_cap_evicts_furthest_offscreen_before_accept(tmp_path, monkeypatch):

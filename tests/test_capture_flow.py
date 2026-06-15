@@ -29,7 +29,24 @@ def test_normal_tick_skips_while_in_flight():
     app = make_minimal_danmu_app()
     app.config = FakeConfig({"danmu_display_mode": "normal"})
     app.engine.running = True
+    schedule_count = 0
+
+    def schedule():
+        nonlocal schedule_count
+        schedule_count += 1
+
+    app._schedule_capture = schedule
+    app.ai_in_flight = 1
+    app._on_normal_capture_tick()
+    assert schedule_count == 0
+
+
+def test_normal_tick_schedules_capture_without_main_thread_grab(monkeypatch):
+    app = make_minimal_danmu_app()
+    app.config = FakeConfig({"danmu_display_mode": "normal"})
+    app.engine.running = True
     grab_count = 0
+    started = []
 
     def grab():
         nonlocal grab_count
@@ -38,9 +55,74 @@ def test_normal_tick_skips_while_in_flight():
 
     app.capturer = FakeCapturer(FakePixmap(0))
     app.capturer.grab = grab
-    app.ai_in_flight = 1
+
+    class _FakePool:
+        def start(self, runnable):
+            started.append(runnable)
+
+    monkeypatch.setattr(
+        "app.worker_pools.capture_worker_pool",
+        lambda: _FakePool(),
+    )
+
     app._on_normal_capture_tick()
     assert grab_count == 0
+    assert len(started) == 1
+
+
+def test_capture_in_flight_skips_second_schedule(monkeypatch):
+    app = make_minimal_danmu_app()
+    app.engine.running = True
+    app._capture_in_flight = True
+    started = []
+
+    class _FakePool:
+        def start(self, runnable):
+            started.append(runnable)
+
+    monkeypatch.setattr(
+        "app.worker_pools.capture_worker_pool",
+        lambda: _FakePool(),
+    )
+
+    app._schedule_capture()
+    assert started == []
+
+
+def test_capture_completed_failure_does_not_trigger_api():
+    app = make_minimal_danmu_app()
+    app.engine.running = True
+    triggered = []
+    app._trigger_api_call = lambda **kwargs: triggered.append(kwargs)
+
+    app._on_capture_completed(None)
+    assert app._capture_in_flight is False
+    assert app._latest_screenshot is None
+    assert triggered == []
+
+
+def test_capture_completed_success_triggers_api():
+    app = make_minimal_danmu_app()
+    app.engine.running = True
+    triggered = []
+    app._trigger_api_call = lambda source="unknown": triggered.append(source)
+
+    app._on_capture_completed(FakePixmap(0b1))
+    assert app._capture_in_flight is False
+    assert app._latest_screenshot is not None
+    assert triggered == ["normal_interval"]
+
+
+def test_stop_ignores_late_capture_completed():
+    app = make_minimal_danmu_app()
+    app.engine.running = False
+    app._latest_screenshot_id = 2
+    triggered = []
+    app._trigger_api_call = lambda source="unknown": triggered.append(source)
+
+    app._on_capture_completed(FakePixmap(0b1))
+    assert app._latest_screenshot_id == 2
+    assert triggered == []
 
 
 def test_compress_screenshot_failure_path():
@@ -216,28 +298,8 @@ def test_open_web_console_when_ready_skips_attach_on_terminal_failure(monkeypatc
     assert notified == ["web_console.startup_failed"]
 
 
-def _patch_fallback_message_box(monkeypatch, *, click_yes: bool, click_count: list | None = None):
-    """Patch QMessageBox for tray fallback tests; return the fake_box for assertions."""
-    yes_btn = MagicMock(name="yes_btn")
-    no_btn = MagicMock(name="no_btn")
-    fake_box = MagicMock()
-    fake_box.addButton.side_effect = [yes_btn, no_btn]
-    fake_box.clickedButton.return_value = yes_btn if click_yes else no_btn
-    fake_box.exec.side_effect = (
-        lambda: click_count.append(True) if click_count is not None else None
-    )
-    mock_cls = MagicMock(return_value=fake_box)
-    mock_cls.Icon = MagicMock()
-    mock_cls.Icon.Warning = 0
-    mock_cls.ButtonRole = MagicMock()
-    mock_cls.ButtonRole.YesRole = 0
-    mock_cls.ButtonRole.NoRole = 1
-    monkeypatch.setattr("PyQt6.QtWidgets.QMessageBox", mock_cls)
-    return fake_box
-
-
-def test_open_web_console_after_handshake_failed_prompts_browser_fallback(monkeypatch):
-    """W-OPEN-CONSOLE-FALLBACK-001: tray click after handshake failure prompts user."""
+def test_open_web_console_after_handshake_failed_auto_browser(monkeypatch):
+    """W-OPEN-CONSOLE-RECOVERY-002: tray click after handshake failure opens browser."""
 
     app = make_minimal_danmu_app()
     object.__setattr__(app, "web_launch_mode", "webview")
@@ -252,7 +314,11 @@ def test_open_web_console_after_handshake_failed_prompts_browser_fallback(monkey
     shell.handshake_failed = True
     object.__setattr__(app, "webview_shell", shell)
 
-    fake_box = _patch_fallback_message_box(monkeypatch, click_yes=True)
+    message_boxes = []
+    monkeypatch.setattr(
+        "PyQt6.QtWidgets.QMessageBox",
+        lambda *a, **k: message_boxes.append(1),
+    )
     browser_calls = []
     attach_calls = []
     monkeypatch.setattr(
@@ -265,16 +331,16 @@ def test_open_web_console_after_handshake_failed_prompts_browser_fallback(monkey
     )
 
     app._open_web_console("/#settings")
-    assert fake_box.exec.call_count == 1
+    assert message_boxes == []
     assert browser_calls == ["/#settings"]
     assert server._browser_launch_opened is True
     assert attach_calls == []
 
 
-def test_open_web_console_after_handshake_failed_no_prompt_when_browser_already_opened(
+def test_open_web_console_after_handshake_failed_no_browser_when_already_opened(
     monkeypatch,
 ):
-    """W-OPEN-CONSOLE-FALLBACK-001: dedupe — skip prompt when already fallback once."""
+    """W-OPEN-CONSOLE-RECOVERY-002: dedupe — skip browser when already fallback once."""
 
     app = make_minimal_danmu_app()
     object.__setattr__(app, "web_launch_mode", "webview")
@@ -289,7 +355,6 @@ def test_open_web_console_after_handshake_failed_no_prompt_when_browser_already_
     shell.handshake_failed = True
     object.__setattr__(app, "webview_shell", shell)
 
-    fake_box = _patch_fallback_message_box(monkeypatch, click_yes=True)
     browser_calls = []
     monkeypatch.setattr(
         "app.web_console.open_web_console_browser",
@@ -297,35 +362,158 @@ def test_open_web_console_after_handshake_failed_no_prompt_when_browser_already_
     )
 
     app._open_web_console("/#settings")
-    assert fake_box.exec.call_count == 0
     assert browser_calls == []
 
 
-def test_open_web_console_after_handshake_failed_user_declines(monkeypatch):
-    """W-OPEN-CONSOLE-FALLBACK-001: user picks No — no browser open, dedupe stays off."""
+def test_open_web_console_failed_restarts_via_maybe_restart(monkeypatch):
+    """W-OPEN-CONSOLE-RECOVERY-002: failed server uses maybe_restart then when_ready."""
+    from app.web_console import WebConsoleBridge, WebConsoleServer
 
     app = make_minimal_danmu_app()
     object.__setattr__(app, "web_launch_mode", "webview")
-    server = MagicMock()
-    server.base_url = "http://127.0.0.1:18765"
-    server._browser_launch_opened = False
+    object.__setattr__(app, "webview_shell", None)
+    bridge = WebConsoleBridge(MagicMock())
+    server = WebConsoleServer(bridge)
+    server._bind_failed.set()
     object.__setattr__(app, "web_server", server)
 
-    shell = MagicMock()
-    shell.is_running.return_value = False
-    shell.is_handshake_pending.return_value = False
-    shell.handshake_failed = True
-    object.__setattr__(app, "webview_shell", shell)
+    restart_calls = []
+    when_ready_calls = []
+    monkeypatch.setattr(
+        "app.web_console.maybe_restart_web_console",
+        lambda srv: restart_calls.append(1) or True,
+    )
+    monkeypatch.setattr(
+        "app.webview_shell.wait_for_http_server",
+        lambda url, timeout: True,
+    )
+    monkeypatch.setattr(
+        app,
+        "_open_web_console_when_ready",
+        lambda path, **kw: when_ready_calls.append(path),
+    )
 
-    fake_box = _patch_fallback_message_box(monkeypatch, click_yes=False)
+    app._open_web_console("/#settings")
+    assert restart_calls == [1]
+    assert when_ready_calls == ["/#settings"]
+
+
+def test_open_web_console_failed_recovery_falls_back_to_browser(monkeypatch):
+    """W-OPEN-CONSOLE-RECOVERY-002: recovery probe fails → browser + notify once."""
+    from app.web_console import WebConsoleBridge, WebConsoleServer
+
+    app = make_minimal_danmu_app()
+    object.__setattr__(app, "web_launch_mode", "webview")
+    object.__setattr__(app, "webview_shell", None)
+    bridge = WebConsoleBridge(MagicMock())
+    server = WebConsoleServer(bridge)
+    server._bind_failed.set()
+    object.__setattr__(app, "web_server", server)
+
+    browser_calls = []
+    notified = []
+    when_ready_calls = []
+    monkeypatch.setattr(
+        "app.web_console.maybe_restart_web_console",
+        lambda srv: False,
+    )
+    monkeypatch.setattr(
+        "app.webview_shell.wait_for_http_server",
+        lambda url, timeout: False,
+    )
+    monkeypatch.setattr(
+        "app.web_console.open_web_console_browser",
+        lambda srv, p: browser_calls.append(p),
+    )
+    monkeypatch.setattr(
+        "app.webview_shell.notify_web_console_failure",
+        lambda danmu, key, **kw: notified.append(key),
+    )
+    monkeypatch.setattr(
+        app,
+        "_open_web_console_when_ready",
+        lambda path, **kw: when_ready_calls.append(path),
+    )
+
+    app._open_web_console("/#settings")
+    assert browser_calls == ["/#settings"]
+    assert notified == ["web_console.startup_failed"]
+    assert server._browser_launch_opened is True
+    assert when_ready_calls == []
+
+
+def test_open_web_console_failed_recovery_dedupes_browser_and_notify(monkeypatch):
+    """W-OPEN-CONSOLE-RECOVERY-002: repeated open does not re-notify or re-open browser."""
+    from app.web_console import WebConsoleBridge, WebConsoleServer
+
+    app = make_minimal_danmu_app()
+    object.__setattr__(app, "web_launch_mode", "webview")
+    object.__setattr__(app, "webview_shell", None)
+    bridge = WebConsoleBridge(MagicMock())
+    server = WebConsoleServer(bridge)
+    server._bind_failed.set()
+    object.__setattr__(app, "web_server", server)
+
+    browser_calls = []
+    notified = []
+    monkeypatch.setattr(
+        "app.web_console.maybe_restart_web_console",
+        lambda srv: False,
+    )
+    monkeypatch.setattr(
+        "app.webview_shell.wait_for_http_server",
+        lambda url, timeout: False,
+    )
+    monkeypatch.setattr(
+        "app.web_console.open_web_console_browser",
+        lambda srv, p: browser_calls.append(p),
+    )
+    monkeypatch.setattr(
+        "app.webview_shell.notify_web_console_failure",
+        lambda danmu, key, **kw: notified.append(key),
+    )
+
+    app._open_web_console("/#settings")
+    app._open_web_console("/#settings")
+    assert browser_calls == ["/#settings"]
+    assert notified == ["web_console.startup_failed"]
+
+
+def test_open_web_console_failed_respects_restart_cap(monkeypatch):
+    """W-OPEN-CONSOLE-RECOVERY-002: at restart cap, user open does not call server.start."""
+    from app.web_console import (
+        WEB_CONSOLE_MAX_RESTART_ATTEMPTS,
+        WebConsoleBridge,
+        WebConsoleServer,
+        maybe_restart_web_console,
+    )
+
+    app = make_minimal_danmu_app()
+    object.__setattr__(app, "web_launch_mode", "webview")
+    object.__setattr__(app, "webview_shell", None)
+    bridge = WebConsoleBridge(MagicMock())
+    server = WebConsoleServer(bridge)
+    server._bind_failed.set()
+    server._thread = None
+    server._restart_attempts = WEB_CONSOLE_MAX_RESTART_ATTEMPTS
+    object.__setattr__(app, "web_server", server)
+
+    start_calls = []
+    monkeypatch.setattr(server, "start", lambda: start_calls.append(1))
     browser_calls = []
     monkeypatch.setattr(
         "app.web_console.open_web_console_browser",
         lambda srv, p: browser_calls.append(p),
     )
+    monkeypatch.setattr(
+        "app.webview_shell.wait_for_http_server",
+        lambda url, timeout: False,
+    )
+
+    assert maybe_restart_web_console(server) is False
+    assert start_calls == []
 
     app._open_web_console("/#settings")
-    assert fake_box.exec.call_count == 1
-    assert browser_calls == []
-    assert server._browser_launch_opened is False
+    assert start_calls == []
+    assert browser_calls == ["/#settings"]
 

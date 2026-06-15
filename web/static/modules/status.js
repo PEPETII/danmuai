@@ -19,6 +19,10 @@
 
 let statusHadError = false;
 let lastAppliedStatus = null;
+let lastRunning = null;
+let lastLiveMessage = null;
+let lastSessionRunsKey = '';
+let lastCaptureRegionKey = '';
 let applyCaptureRegionFromPayload = () => {};
 let maybePromptErrorReport = async () => {};
 let openErrorReportModal = async () => {};
@@ -151,7 +155,17 @@ function formatSessionRunLine(run) {
   return `${start} - ${end}  ${model}  输入 ${input}  输出 ${output}  总 ${total}`;
 }
 
+function sessionRunsKey(runs) {
+  const list = Array.isArray(runs) ? runs : [];
+  const first = list[0];
+  return `${list.length}|${first?.ended_at ?? ''}|${first?.started_at ?? ''}`;
+}
+
 function renderSessionRuns(runs) {
+  const key = sessionRunsKey(runs);
+  if (key === lastSessionRunsKey) return;
+  lastSessionRunsKey = key;
+
   const container = document.getElementById('sessionRunLog');
   const empty = document.getElementById('sessionRunLogEmpty');
   if (!container) return;
@@ -175,64 +189,95 @@ function formatTokenCount(n) {
   return v >= 10000 ? v.toLocaleString('zh-CN') : String(v);
 }
 
-export function applyStatus(st) {
-  lastAppliedStatus = st;
-  const running = st.running;
+function updateTextIfChanged(el, newText) {
+  if (el && el.textContent !== String(newText ?? '')) {
+    el.textContent = String(newText ?? '');
+  }
+}
+
+function captureRegionKey(st) {
+  return [
+    st.capture_region_mode ?? '',
+    st.region_x ?? 0,
+    st.region_y ?? 0,
+    st.region_w ?? 0,
+    st.region_h ?? 0,
+    st.region_selection_state || 'idle',
+  ].join('|');
+}
+
+function applyRunningUi(st, running) {
   const dot = document.getElementById('statusDot');
   const pill = document.getElementById('statusPill');
   const sub = document.getElementById('statusSub');
   const btn = document.getElementById('btnToggle');
+  const liveMessage = st.live_message || '';
 
   if (running) {
-    dot.className = 'w-3 h-3 bg-green-400 rounded-full animate-pulse';
-    pill.textContent = '生成中';
-    sub.textContent = st.live_message || '小助手正在为你生成暖心弹幕~';
-    btn.textContent = '停止弹幕';
-    btn.classList.remove('btn-primary', 'text-white');
-    btn.classList.add('bg-white', 'border', 'border-gray-200', 'text-warmText');
+    if (dot) dot.className = 'w-3 h-3 bg-green-400 rounded-full animate-pulse';
+    updateTextIfChanged(pill, '生成中');
+    updateTextIfChanged(sub, liveMessage || '小助手正在为你生成暖心弹幕~');
+    updateTextIfChanged(btn, '停止弹幕');
+    btn?.classList.remove('btn-primary', 'text-white');
+    btn?.classList.add('bg-white', 'border', 'border-gray-200', 'text-warmText');
   } else {
-    dot.className = 'w-3 h-3 bg-gray-300 rounded-full';
-    pill.textContent = '待命';
-    sub.textContent = '小助手正在待命，随时为你生成暖心弹幕~';
-    btn.textContent = '生成弹幕';
-    btn.classList.remove('bg-white', 'border', 'border-gray-200', 'text-warmText');
-    btn.classList.add('btn-primary', 'text-white');
+    if (dot) dot.className = 'w-3 h-3 bg-gray-300 rounded-full';
+    updateTextIfChanged(pill, '待命');
+    updateTextIfChanged(sub, '小助手正在待命，随时为你生成暖心弹幕~');
+    updateTextIfChanged(btn, '生成弹幕');
+    btn?.classList.remove('bg-white', 'border', 'border-gray-200', 'text-warmText');
+    btn?.classList.add('btn-primary', 'text-white');
+  }
+}
+
+export function applyStatus(st) {
+  const running = !!st.running;
+  const liveMessage = st.live_message || '';
+  const runningChanged = lastRunning !== running;
+  const liveMessageChanged = lastLiveMessage !== liveMessage;
+
+  if (runningChanged || liveMessageChanged) {
+    applyRunningUi(st, running);
+    lastRunning = running;
+    lastLiveMessage = liveMessage;
   }
 
-  document.getElementById('statDanmu').textContent = String(st.danmu_count ?? 0);
-  document.getElementById('statQueue').textContent = String(st.queue_count ?? 0);
+  lastAppliedStatus = st;
+
+  updateTextIfChanged(document.getElementById('statDanmu'), String(st.danmu_count ?? 0));
+  updateTextIfChanged(document.getElementById('statQueue'), String(st.queue_count ?? 0));
   syncRuntimeClocks(st);
+
   const displayEl = document.getElementById('statDisplay');
   if (displayEl) {
-    displayEl.textContent = String(st.display_count ?? 0);
+    updateTextIfChanged(displayEl, String(st.display_count ?? 0));
     const mode = st.danmu_render_mode || 'scrolling';
-    if (mode === 'floating_panel') {
-      displayEl.title = '侧边悬浮窗在屏条数';
-    } else {
-      displayEl.title = '横向弹幕在屏条数';
-    }
+    const title = mode === 'floating_panel' ? '侧边悬浮窗在屏条数' : '横向弹幕在屏条数';
+    if (displayEl.title !== title) displayEl.title = title;
   }
+
   const lifetimeDanmuEl = document.getElementById('statLifetimeDanmu');
   const lifetimeInputEl = document.getElementById('statLifetimeInputTokens');
   const lifetimeOutputEl = document.getElementById('statLifetimeOutputTokens');
-  if (lifetimeDanmuEl) lifetimeDanmuEl.textContent = String(st.lifetime_danmu_count ?? 0);
-  if (lifetimeInputEl) {
-    lifetimeInputEl.textContent = formatTokenCount(st.lifetime_input_tokens ?? 0);
-  }
-  if (lifetimeOutputEl) {
-    lifetimeOutputEl.textContent = formatTokenCount(st.lifetime_output_tokens ?? 0);
-  }
+  updateTextIfChanged(lifetimeDanmuEl, String(st.lifetime_danmu_count ?? 0));
+  updateTextIfChanged(lifetimeInputEl, formatTokenCount(st.lifetime_input_tokens ?? 0));
+  updateTextIfChanged(lifetimeOutputEl, formatTokenCount(st.lifetime_output_tokens ?? 0));
+
   if (st.capture_region_mode !== undefined || st.region_selection_state !== undefined) {
-    applyCaptureRegionFromPayload({
-      mode: st.capture_region_mode,
-      region: {
-        x: st.region_x ?? 0,
-        y: st.region_y ?? 0,
-        w: st.region_w ?? 0,
-        h: st.region_h ?? 0,
-      },
-      selection_state: st.region_selection_state || 'idle',
-    });
+    const regionKey = captureRegionKey(st);
+    if (regionKey !== lastCaptureRegionKey) {
+      lastCaptureRegionKey = regionKey;
+      applyCaptureRegionFromPayload({
+        mode: st.capture_region_mode,
+        region: {
+          x: st.region_x ?? 0,
+          y: st.region_y ?? 0,
+          w: st.region_w ?? 0,
+          h: st.region_h ?? 0,
+        },
+        selection_state: st.region_selection_state || 'idle',
+      });
+    }
   }
 
   const lifetimeNoteEl = document.getElementById('statLifetimeTokenNote');
@@ -242,18 +287,22 @@ export function applyStatus(st) {
     const lifetimeOut = Number(st.lifetime_output_tokens) || 0;
     const legacyExtra = lifetimeTotal - lifetimeIn - lifetimeOut;
     if (legacyExtra > 0) {
-      lifetimeNoteEl.textContent =
+      const noteText =
         `另有升级前累计 ${formatTokenCount(legacyExtra)} Token（尚未区分输入/输出，已计入历史合计）`;
+      updateTextIfChanged(lifetimeNoteEl, noteText);
       lifetimeNoteEl.classList.remove('hidden');
     } else {
-      lifetimeNoteEl.textContent = '';
+      if (lifetimeNoteEl.textContent !== '') lifetimeNoteEl.textContent = '';
       lifetimeNoteEl.classList.add('hidden');
     }
   }
-  document.getElementById('activePersonae').textContent =
+
+  const personaText =
     (st.persona_names && st.persona_names.length) ? st.persona_names.join(' · ') : '—';
-  document.getElementById('liveStatusLine').textContent = st.live_message || '';
+  updateTextIfChanged(document.getElementById('activePersonae'), personaText);
+  updateTextIfChanged(document.getElementById('liveStatusLine'), liveMessage);
   renderSessionRuns(st.session_runs);
+
   if (st.provider_model_mismatch && st.active_model_id) {
     const mismatchNote = document.getElementById('modelActiveSourceBanner');
     if (mismatchNote && mismatchNote.classList.contains('hidden')) {
@@ -270,10 +319,10 @@ export function applyStatus(st) {
       String(st.screen_index_fallback_warning || '').trim(),
     ].filter(Boolean).join(' ');
     if (running && compatText) {
-      compatBanner.textContent = compatText;
+      updateTextIfChanged(compatBanner, compatText);
       compatBanner.classList.remove('hidden');
     } else {
-      compatBanner.textContent = '';
+      if (compatBanner.textContent !== '') compatBanner.textContent = '';
       compatBanner.classList.add('hidden');
     }
   }
@@ -281,8 +330,8 @@ export function applyStatus(st) {
   const banner = document.getElementById('errorBanner');
   const bannerMessage = document.getElementById('errorBannerMessage');
   if (st.error_message) {
-    if (bannerMessage) bannerMessage.textContent = st.error_message;
-    else if (banner) banner.textContent = st.error_message;
+    if (bannerMessage) updateTextIfChanged(bannerMessage, st.error_message);
+    else if (banner) updateTextIfChanged(banner, st.error_message);
     banner?.classList.remove('hidden');
     banner?.classList.toggle('text-red-700', st.is_error);
   } else {

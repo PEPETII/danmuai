@@ -9,14 +9,18 @@ from app.model_providers import (
     mic_audio_supported_for_config,
     mic_audio_supported_for_mic_config,
     model_likely_supports_mic_audio,
+    normalize_api_mode_for_select,
     normalize_endpoint,
     normalize_mode,
+    provider_rules_for_api,
     resolve_active_model_id,
     resolve_api_transport,
     resolve_mic_model_id,
     resolve_openai_provider_id,
+    resolve_provider_for_ui,
     validate_model_config,
 )
+from app.providers.registry import HOST_ENTRIES
 
 
 def test_normalize_endpoint_strips_trailing_slash():
@@ -127,6 +131,47 @@ def test_guess_provider_from_endpoint():
     assert guess_provider_from_endpoint("https://unknown.example/v1", "doubao") == "custom_doubao"
     assert guess_provider_from_endpoint("") == DEFAULT_PROVIDER_ID
     assert guess_provider_from_endpoint("https://api.xiaomimimo.com/v1") == "mimo"
+
+
+def test_provider_rules_for_api_matches_host_entries():
+    rules = provider_rules_for_api()
+    assert rules["default_provider_id"] == DEFAULT_PROVIDER_ID
+    assert rules["editable_api_mode_provider_ids"] == ["custom_openai", "custom_doubao"]
+    assert len(rules["host_entries"]) == len(HOST_ENTRIES)
+    for entry, api_entry in zip(HOST_ENTRIES, rules["host_entries"], strict=True):
+        assert api_entry == {
+            "fragment": entry.fragment,
+            "provider_id": entry.provider_id,
+            "transport": entry.transport,
+        }
+
+
+def test_normalize_api_mode_for_select_known_hosts():
+    for entry in HOST_ENTRIES:
+        ep = f"https://{entry.fragment}/v1"
+        opposite_mode = "openai-compatible" if entry.transport == "doubao" else "doubao"
+        assert normalize_api_mode_for_select(opposite_mode, ep) == (
+            "doubao" if entry.transport == "doubao" else "openai"
+        )
+
+
+def test_normalize_api_mode_for_select_unknown_host_fallback():
+    assert normalize_api_mode_for_select("doubao", "https://unknown.example/v1") == "doubao"
+    assert normalize_api_mode_for_select("openai", "https://unknown.example/v1") == "openai"
+    assert normalize_api_mode_for_select("openai-compatible", "https://unknown.example/v1") == "openai"
+
+
+def test_resolve_provider_for_ui_matches_guess_and_transport():
+    ep = "https://ark.cn-beijing.volces.com/api/v3"
+    resolved = resolve_provider_for_ui(ep, "openai")
+    assert resolved["provider_id"] == "doubao"
+    assert resolved["transport"] == "doubao"
+    assert resolved["api_mode_select"] == "doubao"
+
+    unknown = resolve_provider_for_ui("https://unknown.example/v1", "doubao")
+    assert unknown["provider_id"] == "custom_doubao"
+    assert unknown["transport"] == "doubao"
+    assert unknown["api_mode_select"] == "doubao"
 
 
 def test_resolve_api_transport_ark_endpoint_uses_doubao_even_when_mode_openai():

@@ -13,6 +13,33 @@ except ImportError:
     _HAS_CRYPTO = False
 
 
+class _CommitCountingConn:
+    """Wrap sqlite3.Connection to count commit() calls."""
+
+    def __init__(self, conn):
+        self._conn = conn
+        self.commit_call_count = 0
+
+    def execute(self, sql, params=()):
+        return self._conn.execute(sql, params)
+
+    def executemany(self, sql, seq_of_parameters):
+        return self._conn.executemany(sql, seq_of_parameters)
+
+    def commit(self):
+        self.commit_call_count += 1
+        return self._conn.commit()
+
+    def rollback(self):
+        return self._conn.rollback()
+
+    def close(self):
+        return self._conn.close()
+
+    def __getattr__(self, name):
+        return getattr(self._conn, name)
+
+
 def test_set_batch_writes_all_keys(tmp_path):
     store = ConfigStore(db_path=tmp_path / "config.db")
     items = {"key_a": "val_a", "key_b": "val_b", "key_c": "val_c"}
@@ -90,6 +117,39 @@ def test_set_batch_empty_dict(tmp_path):
     store.set_batch({})
 
     assert store.get("existing") == "kept"
+
+    store.close()
+
+
+def test_set_if_changed_skips_unchanged(tmp_path):
+    store = ConfigStore(db_path=tmp_path / "config.db")
+    counting = _CommitCountingConn(store.conn)
+    store.conn = counting
+    store.set("alpha", "one")
+    assert counting.commit_call_count == 1
+
+    assert store.set_if_changed("alpha", "one") is False
+    assert counting.commit_call_count == 1
+
+    assert store.set_if_changed("alpha", "two") is True
+    assert counting.commit_call_count == 2
+    assert store.get("alpha") == "two"
+
+    store.close()
+
+
+def test_set_batch_skips_unchanged_keys(tmp_path):
+    store = ConfigStore(db_path=tmp_path / "config.db")
+    store.set_batch({"a": "1", "b": "2"})
+    counting = _CommitCountingConn(store.conn)
+    store.conn = counting
+
+    store.set_batch({"a": "1", "b": "2"})
+    assert counting.commit_call_count == 0
+
+    store.set_batch({"a": "1", "b": "3"})
+    assert counting.commit_call_count == 1
+    assert store.get("b") == "3"
 
     store.close()
 
@@ -295,3 +355,142 @@ def test_legacy_base64_api_key_auto_upgrades_on_read(tmp_path):
     assert store2.get("api_key_encoded", "") == ""
     assert store2.get("api_key_encrypted", "") != ""
     store2.close()
+
+
+def test_api_key_cache_avoids_repeat_decrypt(tmp_path):
+    if not _HAS_CRYPTO:
+        pytest.skip("cryptography not available")
+
+    store = ConfigStore(db_path=tmp_path / "config.db")
+    store.set_api_key("cached-secret")
+    decrypt_calls: list[int] = []
+    original_decrypt = store._fernet.decrypt
+
+    def counting_decrypt(data):
+        decrypt_calls.append(1)
+        return original_decrypt(data)
+
+    store._fernet.decrypt = counting_decrypt  # type: ignore[method-assign]
+
+    assert store.get_api_key() == "cached-secret"
+    assert store.get_api_key() == "cached-secret"
+    assert len(decrypt_calls) == 1
+    store.close()
+
+
+def test_api_key_cache_invalidates_on_set(tmp_path):
+    if not _HAS_CRYPTO:
+        pytest.skip("cryptography not available")
+
+    store = ConfigStore(db_path=tmp_path / "config.db")
+    store.set_api_key("first-key")
+    assert store.get_api_key() == "first-key"
+    store.set_api_key("second-key")
+    assert store.get_api_key() == "second-key"
+    store.close()
+
+
+def test_custom_models_cache_invalidates_on_set_batch(tmp_path):
+    import json
+
+    if not _HAS_CRYPTO:
+        pytest.skip("cryptography not available")
+
+    store = ConfigStore(db_path=tmp_path / "config.db")
+    store.set_custom_models(
+        [
+            {
+                "name": "A",
+                "modelId": "model-a",
+                "mode": "openai",
+                "endpoint": "https://api.example.com/v1",
+                "apiKey": "sk-model-a",
+            }
+        ]
+    )
+    first = store.get_custom_models()
+    second = store.get_custom_models()
+    assert first[0]["apiKey"] == "sk-model-a"
+    assert second[0]["apiKey"] == "sk-model-a"
+    assert first is not second
+
+    store.set_batch(
+        {
+            "custom_models": json.dumps(
+                [
+                    {
+                        "name": "B",
+                        "modelId": "model-b",
+                        "mode": "openai",
+                        "endpoint": "https://api.example.com/v1",
+                        "apiKey": store._encrypt_custom_model_api_key("sk-model-b"),
+                    }
+                ],
+                ensure_ascii=False,
+            )
+        }
+    )
+    updated = store.get_custom_models()
+    assert updated[0]["modelId"] == "model-b"
+    assert updated[0]["apiKey"] == "sk-model-b"
+    store.close()
+
+
+def test_apply_web_save_single_commit(tmp_path):
+    store = ConfigStore(db_path=tmp_path / "config.db")
+    counting = _CommitCountingConn(store.conn)
+    store.conn = counting
+
+    store.apply_web_save(
+        items={"danmu_speed": "3", "model": "gpt-4o", "default_model_id": "gpt-4o"},
+        api_key="sk-test-key-1234567890",
+        mic_api_key="sk-mic-key-1234567890",
+        custom_models=[
+            {
+                "name": "Test",
+                "modelId": "test-model",
+                "mode": "openai",
+                "endpoint": "https://api.example.com/v1",
+                "apiKey": "sk-custom-key-1234567890",
+            }
+        ],
+    )
+
+    assert counting.commit_call_count == 1
+    assert store.get("danmu_speed") == "3"
+    assert store.get_default_model_id() == "gpt-4o"
+    assert store.get_api_key() == "sk-test-key-1234567890"
+    assert store.get_mic_api_key() == "sk-mic-key-1234567890"
+    models = store.get_custom_models()
+    assert models[0]["apiKey"] == "sk-custom-key-1234567890"
+    store.close()
+
+
+def test_apply_web_save_does_not_pollute_cache_on_failure(tmp_path):
+    store = ConfigStore(db_path=tmp_path / "config.db")
+    store.set("stable_key", "original")
+    inner = store.conn
+
+    class _FailingConn:
+        def execute(self, sql, params=()):
+            raise sqlite3.OperationalError("database is locked")
+
+        def executemany(self, sql, seq_of_parameters):
+            raise sqlite3.OperationalError("database is locked")
+
+        def commit(self):
+            return inner.commit()
+
+        def rollback(self):
+            return inner.rollback()
+
+        def close(self):
+            return inner.close()
+
+    store.conn = _FailingConn()
+
+    with pytest.raises(sqlite3.OperationalError):
+        store.apply_web_save(items={"stable_key": "new_value"})
+
+    assert store.get("stable_key") == "original"
+    store.close()

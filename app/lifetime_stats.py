@@ -60,13 +60,14 @@ class LifetimeStats:
         return self._input_tokens + self._output_tokens + self._untracked_tokens
 
     def _persist_token_keys(self) -> dict[str, str]:
-        total = self.total_tokens()
-        return {
+        payload = {
             STATS_LIFETIME_DANMU: str(self._danmu),
             STATS_LIFETIME_INPUT_TOKENS: str(self._input_tokens),
             STATS_LIFETIME_OUTPUT_TOKENS: str(self._output_tokens),
-            STATS_LIFETIME_TOKENS: str(total),
         }
+        if self._untracked_tokens > 0:
+            payload[STATS_LIFETIME_TOKENS] = str(self.total_tokens())
+        return payload
 
     def flush_pending(self) -> None:
         """Persist in-memory counters (batched; safe to call often)."""

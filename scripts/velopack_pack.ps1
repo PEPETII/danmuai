@@ -1,4 +1,4 @@
-# Shared Velopack pack step for DanmuAI (PyInstaller onedir -> Setup + nupkg + feed).
+# Shared Velopack pack step for DanmuAI (PyInstaller onedir -> Setup + nupkg + feed + Portable).
 # Dotnet SDK + vpk required: dotnet tool install -g vpk
 # Called by velopack_poc.ps1 and publish_windows_release.ps1.
 
@@ -57,28 +57,31 @@ Write-Host "Velopack pack: packId=$PackId version=$appVersion"
     --mainExe $MainExe `
     --packTitle $PackTitle `
     --outputDir $OutputDir `
+    --instLocation Either `
     @iconArg
 
 if ($LASTEXITCODE -ne 0) {
     Write-Error "vpk pack failed (exit $LASTEXITCODE)"
 }
 
-$setup = Get-ChildItem -Path $OutputDir -Filter "*-Setup.exe" | Select-Object -First 1
-$nupkg = Get-ChildItem -Path $OutputDir -Filter "*-full.nupkg" | Select-Object -First 1
+$setup = Get-ChildItem -Path $OutputDir -Filter "$PackId-win-Setup.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+$nupkg = Get-ChildItem -Path $OutputDir -Filter "$PackId-$appVersion-full.nupkg" -ErrorAction SilentlyContinue | Select-Object -First 1
 if (-not $setup -or -not $nupkg) {
-    Write-Error "Velopack output incomplete in $OutputDir"
+    Write-Error "Velopack output incomplete in $OutputDir (need Setup.exe and full.nupkg)"
 }
+$deltaNupkgs = @(Get-ChildItem -Path $OutputDir -Filter "$PackId-$appVersion-delta.nupkg" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName)
 
 # Contract naming for R2 / download entry (W-REL-R2V-002)
 $versionedSetup = Join-Path $OutputDir "PEPETII.DanmuAI-$appVersion-Setup.exe"
 Copy-Item -LiteralPath $setup.FullName -Destination $versionedSetup -Force
 
 return @{
-    Version       = $appVersion
-    OutputDir     = $OutputDir
-    SetupExe      = $setup.FullName
+    Version        = $appVersion
+    OutputDir      = $OutputDir
+    SetupExe       = $setup.FullName
     VersionedSetup = $versionedSetup
-    FullNupkg     = $nupkg.FullName
-    FeedJson      = Join-Path $OutputDir "releases.win.json"
-    PortableZip   = (Get-ChildItem -Path $OutputDir -Filter "*-Portable.zip" -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
+    FullNupkg      = $nupkg.FullName
+    DeltaNupkgs    = $deltaNupkgs
+    FeedJson       = Join-Path $OutputDir "releases.win.json"
+    PortableZip    = (Get-ChildItem -Path $OutputDir -Filter "$PackId-win-Portable.zip" -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
 }

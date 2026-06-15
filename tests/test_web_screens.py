@@ -9,6 +9,7 @@ from app.web_console_support import (
     enumerate_screens,
     is_empty_screens_fallback,
     resolve_screens_for_api,
+    screens_for_api,
     try_cache_screens,
 )
 from PyQt6.QtWidgets import QApplication
@@ -102,3 +103,20 @@ def test_screens_cached_after_qt_event_loop_starts(qapp, monkeypatch):
             break
         time.sleep(0.02)
     assert len(bridge.cached_screens) == 2
+
+
+def test_screens_for_api_skips_enumerate_when_cache_valid(monkeypatch):
+    bridge = MagicMock()
+    bridge.cached_screens = [
+        {"index": 0, "label": "显示器 1 — 1920×1080", "width": 1920, "height": 1080},
+    ]
+    calls = {"n": 0}
+
+    def fake_enumerate():
+        calls["n"] += 1
+        return [{"index": 0, "label": "should-not-run", "width": 1, "height": 1}]
+
+    monkeypatch.setattr("app.web_console_support.enumerate_screens", fake_enumerate)
+    result = screens_for_api(bridge)
+    assert calls["n"] == 0
+    assert result == bridge.cached_screens

@@ -58,6 +58,8 @@ from app.web_console_ws import (
 WebConsoleStartupPhase = Literal["ready", "slow", "failed"]
 
 __all__ = [
+    "INVOKE_ON_MAIN_TIMEOUT_SEC",
+    "MainThreadInvokeTimeout",
     "WEB_CONFIG_KEYS",
     "WebConsoleBridge",
     "WebConsoleServer",
@@ -77,6 +79,7 @@ __all__ = [
     "export_config",
     "extract_config_payload",
     "open_web_console_browser",
+    "try_recover_web_console_for_user_action",
     "save_config_via_bridge",
 ]
 
@@ -86,6 +89,15 @@ if TYPE_CHECKING:
 STATIC_DIR = resource_path("web", "static")
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 18765
+INVOKE_ON_MAIN_TIMEOUT_SEC = 10.0
+
+
+class MainThreadInvokeTimeout(TimeoutError):
+    """invoke_on_main 等待 Qt 主线程完成时超时。"""
+
+    def __init__(self, timeout_sec: float) -> None:
+        self.timeout_sec = float(timeout_sec)
+        super().__init__(f"主线程操作超时（{self.timeout_sec:.1f}s）")
 
 
 def _prepare_stdio_for_uvicorn() -> None:
@@ -103,11 +115,12 @@ def _prepare_stdio_for_uvicorn() -> None:
     if sys.stdout is None:
         sys.stdout = sys.stderr
 
+
 class WebConsoleBridge(QObject):
     """HTTP/WS 工作线程与 Qt 主线程之间的唯一写入口。
 
     模式：uvicorn 路由里只 bridge.xxx_requested.emit(...)；槽在主线程调 DanmuApp。
-    需同步返回的写操作（人格/弹幕库/麦克风测试等）用 invoke_on_main（BlockingQueuedConnection）。
+    需同步返回的写操作（人格/弹幕库/麦克风测试等）用 invoke_on_main（QueuedConnection + Event.wait）。
     勿在 uvicorn 线程对 invoke_on_main 使用 QTimer.singleShot（槽常不触发）。
     publish_status / _broadcast_* 从主线程经 call_soon_threadsafe 喂 asyncio 队列推 WS。
     日志环 _log_ring 供 /api/logs 与 /ws/logs 回放；状态 500ms 定时器在 attach 时挂到 danmu_app。
@@ -136,11 +149,14 @@ class WebConsoleBridge(QObject):
         self._last_broadcast_log_at: float = 0.0
         self._last_status_payload: dict[str, Any] | None = None
         self.cached_screens: list[dict[str, Any]] = []
+        self._diagnostics_hub: DiagnosticsHub | None = None
+        self._pending_log_items: list[dict[str, Any]] = []
+        self._log_flush_scheduled: bool = False
 
         self.status_refresh_requested.connect(self.publish_status)
         self.sync_invoke_requested.connect(
             self._on_sync_invoke,
-            Qt.ConnectionType.BlockingQueuedConnection,
+            Qt.ConnectionType.QueuedConnection,
         )
         self.start_requested.connect(danmu_app.start)
         self.stop_requested.connect(danmu_app.stop)
@@ -163,16 +179,28 @@ class WebConsoleBridge(QObject):
         )
         danmu_app.state_changed.connect(self._on_state_changed)
 
-    def invoke_on_main(self, fn, /, *args, **kwargs):
-        """在 bridge 所在线程（Qt 主线程）同步执行 fn；从 uvicorn 线程调用时阻塞直至完成。
+    def invoke_on_main(
+        self,
+        fn,
+        /,
+        *args,
+        timeout_sec: float | None = None,
+        **kwargs,
+    ):
+        """在 bridge 所在线程（Qt 主线程）同步执行 fn；从 uvicorn 线程调用时阻塞直至完成或超时。
 
-        线程安全机制：sync_invoke_requested 信号经 BlockingQueuedConnection 连接 _on_sync_invoke，
-        HTTP 线程阻塞等待主线程完成才返回回执。若改为 QueuedConnection，PUT /api/config 会在
-        保存完成前返回 "ok"，导致前端读到旧配置。
+        线程安全机制：sync_invoke_requested 经 QueuedConnection 排队到主线程；
+        HTTP 线程用 threading.Event.wait 等待完成，超时抛出 MainThreadInvokeTimeout。
         """
         if QThread.currentThread() is self.thread():
             return fn(*args, **kwargs)
 
+        timeout = (
+            INVOKE_ON_MAIN_TIMEOUT_SEC
+            if timeout_sec is None
+            else float(timeout_sec)
+        )
+        done = threading.Event()
         result_holder: dict[str, object] = {}
         error_holder: list[BaseException] = []
 
@@ -181,8 +209,17 @@ class WebConsoleBridge(QObject):
                 result_holder["result"] = fn(*args, **kwargs)
             except BaseException as exc:
                 error_holder.append(exc)
+            finally:
+                done.set()
 
         self.sync_invoke_requested.emit(runner)
+        if not done.wait(timeout=timeout):
+            self.danmu_app.logger.error(
+                "invoke_on_main timeout: fn=%r timeout_sec=%.1f",
+                fn,
+                timeout,
+            )
+            raise MainThreadInvokeTimeout(timeout)
         if error_holder:
             raise error_holder[0]
         if "result" in result_holder:
@@ -194,9 +231,16 @@ class WebConsoleBridge(QObject):
         if callable(runner):
             runner()
 
-    def set_event_loop(self, loop: asyncio.AbstractEventLoop) -> None:
+    def set_event_loop(self, loop: asyncio.AbstractEventLoop | None) -> None:
         self._loop = loop
-        self._ws_log_debug("asyncio event loop attached for WebSocket broadcast")
+        if loop is not None:
+            self._ws_log_debug("asyncio event loop attached for WebSocket broadcast")
+        else:
+            self._ws_log_debug("asyncio event loop detached for WebSocket broadcast")
+
+    def _ws_loop_active(self) -> bool:
+        loop = self._loop
+        return loop is not None and not loop.is_closed()
 
     def _ws_log_debug(self, message: str) -> None:
         self.danmu_app.logger.debug(f"[WebConsole] {message}")
@@ -254,6 +298,14 @@ class WebConsoleBridge(QObject):
         self.status_updated.emit(status)
         self._broadcast_status(payload)
 
+    def publish_diagnostic_snapshot(self) -> None:
+        """主线程构建诊断快照并推送给 SSE 订阅者；无订阅者时立即返回。"""
+        hub = self._diagnostics_hub
+        if hub is None or hub.connection_count <= 0:
+            return
+        snapshot = self.danmu_app.build_diagnostic_snapshot()
+        hub.broadcast_snapshot(snapshot)
+
     def _maybe_log_broadcast(self, kind: str, count: int) -> None:
         should_log, new_last_at = should_log_broadcast(
             self._last_broadcast_log_at,
@@ -266,7 +318,7 @@ class WebConsoleBridge(QObject):
 
     def _broadcast_status(self, payload: dict) -> None:
         loop = self._loop
-        if not loop:
+        if loop is None or loop.is_closed():
             return
         queues = list(self._ws_status_queues)
         self._maybe_log_broadcast("status", len(queues))
@@ -274,14 +326,43 @@ class WebConsoleBridge(QObject):
             _enqueue_ws(loop, queue, payload)
 
     def _broadcast_log(self, level: str, message: str, ts: float) -> None:
-        loop = self._loop
-        if not loop:
+        if not self._ws_loop_active():
             return
-        item = {"level": level, "message": message, "ts": ts}
+        self._pending_log_items.append(
+            {"level": level, "message": message, "ts": ts}
+        )
+        self._schedule_log_flush()
+
+    def _schedule_log_flush(self) -> None:
+        if self._log_flush_scheduled:
+            return
+        loop = self._loop
+        if loop is None or loop.is_closed():
+            return
+        self._log_flush_scheduled = True
+        loop.call_soon_threadsafe(self._flush_pending_logs)
+
+    def _flush_pending_logs(self) -> None:
+        self._log_flush_scheduled = False
+        pending = self._pending_log_items
+        self._pending_log_items = []
+        if not pending:
+            return
         queues = list(self._ws_log_queues)
         self._maybe_log_broadcast("log", len(queues))
         for queue in queues:
-            _enqueue_ws(loop, queue, item)
+            for item in pending:
+                try:
+                    queue.put_nowait(item)
+                except asyncio.QueueFull:
+                    try:
+                        queue.get_nowait()
+                    except asyncio.QueueEmpty:
+                        pass
+                    try:
+                        queue.put_nowait(item)
+                    except asyncio.QueueFull:
+                        pass
 
     @pyqtSlot(str, str)
     def _on_log(self, level: str, message: str) -> None:
@@ -491,6 +572,7 @@ def attach_web_console(danmu_app: "DanmuApp", port: int = DEFAULT_PORT) -> WebCo
     bridge = WebConsoleBridge(danmu_app)
     danmu_app.web_bridge = bridge
     server = WebConsoleServer(bridge, port=port)
+    bridge._diagnostics_hub = server.diagnostics_hub
     danmu_app.web_server = server
     log_startup("web_server.start")
     server.start()
@@ -509,15 +591,22 @@ def attach_web_console(danmu_app: "DanmuApp", port: int = DEFAULT_PORT) -> WebCo
     if not ready:
         _notify_wait_ready_timeout(server, danmu_app)
 
+    _diagnostic_tick = 0
+
     def _tick_status():
+        nonlocal _diagnostic_tick
         phase = classify_web_console_startup(server)
         if phase == "ready":
             server._restart_attempts = 0
             clear_startup_attach_error_if_needed(server)
         elif phase == "failed":
             maybe_restart_web_console(server)
-        if getattr(danmu_app, "web_bridge", None):
-            danmu_app.web_bridge.publish_status()
+        web_bridge = getattr(danmu_app, "web_bridge", None)
+        if web_bridge:
+            web_bridge.publish_status()
+            _diagnostic_tick += 1
+            if _diagnostic_tick % 5 == 0:
+                web_bridge.publish_diagnostic_snapshot()
 
     web_status_timer = QTimer(danmu_app)
     web_status_timer.setInterval(500)
@@ -529,6 +618,20 @@ def attach_web_console(danmu_app: "DanmuApp", port: int = DEFAULT_PORT) -> WebCo
 
     log_startup("attach_web_console.end", startup_ok=server.startup_ok)
     return server
+
+
+def try_recover_web_console_for_user_action(
+    server: WebConsoleServer,
+    *,
+    probe_timeout: float = 2.0,
+) -> bool:
+    """User-initiated: one maybe_restart + HTTP probe. Returns True if HTTP ready."""
+    if classify_web_console_startup(server) != "failed":
+        return True
+    maybe_restart_web_console(server)
+    from app.webview_shell import wait_for_http_server
+
+    return wait_for_http_server(server.base_url, timeout=probe_timeout)
 
 
 def open_web_console_browser(server: WebConsoleServer, path: str = "/") -> None:

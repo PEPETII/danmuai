@@ -129,6 +129,12 @@ class DanmuAppLifecycleMixin:
         self._mic_batch_id = 0
         self._pending_request_meta = {}
 
+        from app.runnable import CaptureCoordinator
+
+        self._capture_coordinator = CaptureCoordinator(self)
+        self._capture_coordinator.completed.connect(self._on_capture_completed)
+        self._capture_in_flight = False
+
         self._mic_poll_timer = QTimer(self)
         self._mic_poll_ms = MIC_POLL_MS
         self._mic_poll_timer.setInterval(self._mic_poll_ms)
@@ -137,6 +143,7 @@ class DanmuAppLifecycleMixin:
 
         self._latest_screenshot = None
         self._latest_screenshot_time = 0.0
+        self._capture_in_flight = False
         self._is_generating = False
         self._batch_id = 0
         self._current_batch = None
@@ -589,6 +596,18 @@ class DanmuAppLifecycleMixin:
 
         from PyQt6 import QtCore
 
+        from app.worker_pools import capture_worker_pool
+
+        capture_done = capture_worker_pool().waitForDone(2000)
+        if not capture_done:
+            cap_pool = capture_worker_pool()
+            self.logger.warning(
+                "quit timed out waiting for capture worker thread pool "
+                "active_threads=%s max_threads=%s",
+                cap_pool.activeThreadCount(),
+                cap_pool.maxThreadCount(),
+            )
+
         pool = QtCore.QThreadPool.globalInstance()
         pool_done = pool.waitForDone(2000)
         if not pool_done:
@@ -615,6 +634,10 @@ class DanmuAppLifecycleMixin:
                         getattr(server, "startup_ok", False),
                         bool(getattr(server, "_bind_failed", None) and server._bind_failed.is_set()),
                     )
+            bridge = getattr(server, "bridge", None)
+            if bridge is not None:
+                bridge.set_event_loop(None)
+            server._loop = None
 
         shell = getattr(self, "webview_shell", None)
         if shell:

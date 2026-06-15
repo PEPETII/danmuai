@@ -9,6 +9,8 @@ import pytest
 from app.application.config_service import MASKED_API_KEY, ConfigService
 from app.config_store import ConfigStore
 
+from tests.test_config_store import _CommitCountingConn
+
 
 @pytest.fixture
 def config_service(tmp_path):
@@ -58,3 +60,60 @@ def test_apply_web_payload_masks_api_key_unchanged(config_service):
     config_service.apply_web_payload({"api_key": MASKED_API_KEY, "danmu_speed": "2.5"})
     assert config_service._config.get_api_key() == "real-secret-key"
     assert config_service._config.get("danmu_speed") == "2.5"
+
+
+def _wrap_commit_counter(config_service):
+    counting = _CommitCountingConn(config_service._config.conn)
+    config_service._config.conn = counting
+    return counting
+
+
+def test_apply_web_payload_uses_single_commit_for_normal_save(config_service):
+    counting = _wrap_commit_counter(config_service)
+    config_service.apply_web_payload({"danmu_speed": "2.5", "font_size": "28"})
+    assert counting.commit_call_count == 1
+    assert config_service._config.get("danmu_speed") == "2.5"
+    assert config_service._config.get("font_size") == "28"
+
+
+def test_apply_web_payload_uses_single_commit_with_api_key(config_service):
+    counting = _wrap_commit_counter(config_service)
+    config_service.apply_web_payload(
+        {"api_key": "sk-new-key-1234567890", "danmu_speed": "3"}
+    )
+    assert counting.commit_call_count == 1
+    assert config_service._config.get_api_key() == "sk-new-key-1234567890"
+    assert config_service._config.get("danmu_speed") == "3"
+
+
+def test_apply_web_payload_uses_single_commit_with_custom_models(config_service):
+    counting = _wrap_commit_counter(config_service)
+    config_service.apply_web_payload(
+        {
+            "custom_models": [
+                {
+                    "name": "Test",
+                    "modelId": "test-model",
+                    "mode": "openai",
+                    "endpoint": "https://api.example.com/v1",
+                    "apiKey": "sk-custom-key-1234567890",
+                }
+            ]
+        }
+    )
+    assert counting.commit_call_count == 1
+    models = config_service._config.get_custom_models()
+    assert models[0]["apiKey"] == "sk-custom-key-1234567890"
+
+
+def test_apply_web_payload_syncs_default_model_id_to_legacy_model(config_service):
+    config_service._config.set_batch(
+        {
+            "model": "old-model",
+            "api_endpoint": "https://ark.cn-beijing.volces.com/api/v3",
+            "api_mode": "doubao",
+        }
+    )
+    config_service.apply_web_payload({"default_model_id": "doubao-seed-1-6-flash-250828"})
+    assert config_service._config.get_default_model_id() == "doubao-seed-1-6-flash-250828"
+    assert config_service._config.get("model") == "doubao-seed-1-6-flash-250828"

@@ -340,7 +340,7 @@ def test_consume_request_timing_updates_rtt_history(monkeypatch):
 
     app._consume_request_timing(1, 1, 0)
 
-    assert timing.rtt_history == [1.0]
+    assert list(timing.rtt_history) == [1.0]
 
 
 def test_on_ai_reply_consumes_timing_on_success_path(monkeypatch):

@@ -10,6 +10,7 @@ from app.application.web_runtime_state import WebRuntimeState
 from app.web_console import (
     _SAVE_DONE_EVENT_KEY,
     _SAVE_RESULT_KEY,
+    MainThreadInvokeTimeout,
     WebConsoleBridge,
     _write_config_save_result,
     save_config_via_bridge,
@@ -210,6 +211,35 @@ def test_invoke_on_main_fast_path_on_bridge_thread():
     _ = QApplication.instance() or QApplication([])
     bridge = WebConsoleBridge(MagicMock())
     assert bridge.invoke_on_main(lambda: 7) == 7
+
+
+def test_invoke_on_main_raises_timeout_when_main_thread_slow():
+    from PyQt6.QtCore import QThread
+    from PyQt6.QtWidgets import QApplication
+
+    qt_app = QApplication.instance() or QApplication([])
+    bridge = WebConsoleBridge(MagicMock())
+    observed: dict[str, object] = {}
+
+    class InvokeWorker(QThread):
+        def run(self) -> None:
+            def slow_on_main() -> None:
+                time.sleep(0.15)
+
+            try:
+                bridge.invoke_on_main(slow_on_main, timeout_sec=0.05)
+            except MainThreadInvokeTimeout as exc:
+                observed["exc"] = exc
+
+    t0 = time.perf_counter()
+    worker = InvokeWorker()
+    worker.start()
+    pump_qt_until(qt_app, invoke_worker=worker)
+    elapsed = time.perf_counter() - t0
+
+    assert isinstance(observed.get("exc"), MainThreadInvokeTimeout)
+    assert observed["exc"].timeout_sec == pytest.approx(0.05)
+    assert elapsed < 1.0
 
 
 def test_invoke_on_main_timeout_under_main_thread_load():

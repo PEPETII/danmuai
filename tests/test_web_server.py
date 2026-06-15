@@ -73,6 +73,75 @@ def test_providers_excludes_deepseek():
     assert "custom_openai" in ids
 
 
+def test_provider_rules_endpoint():
+    from app.model_providers import DEFAULT_PROVIDER_ID, provider_rules_for_api
+    from app.web_api.routes import register_web_routes
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    app = FastAPI()
+    bridge = MagicMock()
+    bridge.danmu_app.config = FakeConfig()
+
+    def _check_token(_authorization: str | None = None) -> None:
+        return None
+
+    register_web_routes(app, bridge, _check_token)
+    client = TestClient(app)
+
+    res = client.get("/api/provider-rules")
+    assert res.status_code == 200
+    payload = res.json()
+    assert payload == provider_rules_for_api()
+    assert payload["default_provider_id"] == DEFAULT_PROVIDER_ID
+    assert payload["editable_api_mode_provider_ids"] == ["custom_openai", "custom_doubao"]
+    fragments = [entry["fragment"] for entry in payload["host_entries"]]
+    assert fragments == sorted(fragments, key=len, reverse=True)
+
+
+def test_provider_rules_resolve_endpoint():
+    from app.model_providers import resolve_provider_for_ui
+    from app.web_api.routes import register_web_routes
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    app = FastAPI()
+    bridge = MagicMock()
+    bridge.danmu_app.config = FakeConfig()
+
+    def _check_token(_authorization: str | None = None) -> None:
+        return None
+
+    register_web_routes(app, bridge, _check_token)
+    client = TestClient(app)
+
+    cases = [
+        ("https://ark.cn-beijing.volces.com/api/v3", "openai"),
+        ("https://dashscope.aliyuncs.com/compatible-mode/v1", "doubao"),
+        ("https://unknown.example/v1", "doubao"),
+    ]
+    for endpoint, api_mode in cases:
+        res = client.get(
+            "/api/provider-rules/resolve",
+            params={"endpoint": endpoint, "api_mode": api_mode},
+        )
+        assert res.status_code == 200
+        assert res.json() == resolve_provider_for_ui(endpoint, api_mode)
+
+
+def test_settings_providers_js_no_hardcoded_host_table():
+    from app.bundle_paths import project_root
+
+    providers_js = (
+        project_root() / "web" / "static" / "modules" / "settings-providers.js"
+    ).read_text(encoding="utf-8")
+    assert "ark.cn-beijing.volces.com" not in providers_js
+    assert "api.xiaomimimo.com" not in providers_js
+    assert "hostEntriesCache" in providers_js
+    assert "/api/provider-rules" in providers_js
+    assert "const EDITABLE_API_MODE_PROVIDER_IDS" not in providers_js
+
+
 def test_web_settings_ui_provider_naming_unified():
     from app.bundle_paths import project_root
 
@@ -207,6 +276,74 @@ def test_enqueue_ws_replaces_oldest_on_full_queue():
         assert second == 3
 
     asyncio.run(_run())
+
+
+def test_log_broadcast_coalesces_call_soon_threadsafe():
+    """P-36: burst log lines schedule one call_soon_threadsafe flush."""
+    app = make_status_app()
+    app.logger = MagicMock()
+    bridge = WebConsoleBridge(app)
+    loop = asyncio.new_event_loop()
+    bridge.set_event_loop(loop)
+    scheduled: list = []
+
+    def _capture(cb, *_args, **_kwargs):
+        scheduled.append(cb)
+
+    loop.call_soon_threadsafe = _capture  # type: ignore[method-assign]
+    queue: asyncio.Queue = asyncio.Queue(maxsize=256)
+    bridge.register_log_consumer(queue)
+
+    for index in range(50):
+        bridge._broadcast_log("INFO", f"log-{index}", float(index))
+
+    assert len(scheduled) == 1
+    scheduled[0]()
+    received = []
+    while not queue.empty():
+        received.append(queue.get_nowait())
+    assert len(received) == 50
+    assert received[0]["message"] == "log-0"
+    assert received[49]["message"] == "log-49"
+    loop.close()
+
+
+def test_publish_diagnostic_snapshot_skips_without_subscribers():
+    app = make_status_app()
+    app.logger = MagicMock()
+    bridge = WebConsoleBridge(app)
+    bridge._diagnostics_hub = __import__(
+        "app.application.diagnostics_hub", fromlist=["DiagnosticsHub"]
+    ).DiagnosticsHub()
+    bridge.publish_diagnostic_snapshot()
+    app.build_diagnostic_snapshot.assert_not_called()
+
+
+def test_publish_diagnostic_snapshot_broadcasts_to_hub():
+    import asyncio
+
+    from app.application.diagnostics_hub import DiagnosticsHub
+
+    app = make_status_app()
+    app.build_diagnostic_snapshot.return_value = {
+        "scheduler": {},
+        "timing": {},
+        "runtime_state": {},
+        "diagnosis": {},
+    }
+    app.logger = MagicMock()
+    bridge = WebConsoleBridge(app)
+    hub = DiagnosticsHub()
+    loop = asyncio.new_event_loop()
+    hub.set_loop(loop)
+    bridge._diagnostics_hub = hub
+    queue: asyncio.Queue = asyncio.Queue(maxsize=64)
+    hub.register(queue)
+    bridge.publish_diagnostic_snapshot()
+    loop.run_until_complete(asyncio.sleep(0.05))
+    item = queue.get_nowait()
+    assert item["data"] == app.build_diagnostic_snapshot.return_value
+    loop.close()
 
 
 def test_web_console_wait_ready_fails_fast_when_bind_failed():
@@ -657,3 +794,101 @@ def test_session_rejects_non_loopback_host():
     )
     assert res.status_code == 401
 
+
+def _register_invoke_main_test_routes(bridge):
+    from app.web_api.routes import register_web_routes
+    from fastapi import FastAPI
+
+    app = FastAPI()
+
+    def _check_token(_authorization: str | None = None) -> None:
+        return None
+
+    register_web_routes(app, bridge, _check_token)
+    return app
+
+
+def test_invoke_main_route_success():
+    from fastapi.testclient import TestClient
+
+    bridge = MagicMock()
+    bridge.invoke_on_main.side_effect = lambda fn, *args, **kwargs: fn(*args, **kwargs)
+    client = TestClient(_register_invoke_main_test_routes(bridge), raise_server_exceptions=False)
+
+    res = client.put(
+        "/api/danmu-pool/settings",
+        json={"custom_enabled": True},
+        headers={"Authorization": "Bearer x"},
+    )
+    assert res.status_code == 200
+    assert res.json() == {"ok": True}
+    bridge.invoke_on_main.assert_called_once()
+
+
+def test_invoke_main_route_timeout_returns_504():
+    from app.web_console import MainThreadInvokeTimeout
+    from fastapi.testclient import TestClient
+
+    bridge = MagicMock()
+    bridge.invoke_on_main.side_effect = MainThreadInvokeTimeout(10.0)
+    client = TestClient(_register_invoke_main_test_routes(bridge), raise_server_exceptions=False)
+
+    res = client.put(
+        "/api/danmu-pool/settings",
+        json={"custom_enabled": True},
+        headers={"Authorization": "Bearer x"},
+    )
+    assert res.status_code == 504
+    assert res.json()["detail"] == {
+        "ok": False,
+        "error": "main_thread_timeout",
+        "detail": "主线程操作超时，请稍后重试。",
+    }
+
+
+def test_invoke_main_route_runtime_error_returns_400():
+    from fastapi.testclient import TestClient
+
+    bridge = MagicMock()
+    bridge.invoke_on_main.side_effect = RuntimeError("engine not running")
+    client = TestClient(_register_invoke_main_test_routes(bridge), raise_server_exceptions=False)
+
+    res = client.put(
+        "/api/danmu-pool/settings",
+        json={"custom_enabled": False},
+        headers={"Authorization": "Bearer x"},
+    )
+    assert res.status_code == 400
+    assert res.json()["detail"] == "engine not running"
+
+
+def test_ensure_web_static_mime_types_overrides_plain_js():
+    import mimetypes
+
+    from app.web_static_mime import ensure_web_static_mime_types
+
+    mimetypes.add_type("text/plain", ".js", strict=True)
+    ensure_web_static_mime_types()
+    assert mimetypes.guess_type("app.js")[0] == "application/javascript"
+
+
+def test_static_js_response_content_type(tmp_path):
+    from fastapi import FastAPI
+    from fastapi.staticfiles import StaticFiles
+    from fastapi.testclient import TestClient
+
+    import mimetypes
+
+    from app.web_static_mime import ensure_web_static_mime_types
+
+    mimetypes.add_type("text/plain", ".js", strict=True)
+    (tmp_path / "test.js").write_text("export const ok = true;\n", encoding="utf-8")
+
+    app = FastAPI()
+    ensure_web_static_mime_types()
+    app.mount("/static", StaticFiles(directory=str(tmp_path)), name="static")
+    client = TestClient(app)
+
+    res = client.get("/static/test.js")
+    assert res.status_code == 200
+    assert "javascript" in res.headers.get("content-type", "").lower()

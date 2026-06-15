@@ -18,46 +18,7 @@ from app.ai_client import (
     sanitize_provider_error_snippet,
 )
 from app.translations import tr
-
-
-class FakeConfig:
-    def __init__(self, **overrides):
-        self._data = {
-            "api_endpoint": "https://global.example.com/v1",
-            "api_mode": "doubao",
-            "model": "doubao-seed-1-6-flash-250828",
-        }
-        self._api_key = "sk-global-key"
-        self._default_model_id = ""
-        self._custom_models = []
-        self._data.update(overrides.get("data", {}))
-        self._api_key = overrides.get("api_key", self._api_key)
-        self._default_model_id = overrides.get("default_model_id", self._default_model_id)
-        self._custom_models = overrides.get("custom_models", self._custom_models)
-
-    def get(self, key, default=""):
-        return self._data.get(key, default)
-
-    def get_int(self, key, default=0):
-        val = self._data.get(key)
-        if val is None:
-            return default
-        return int(val)
-
-    def get_float(self, key, default=0.0):
-        return default
-
-    def get_api_key(self):
-        return self._api_key
-
-    def get_mic_api_key(self):
-        return self._data.get("_mic_api_key", "")
-
-    def get_default_model_id(self):
-        return self._default_model_id
-
-    def get_custom_models(self):
-        return self._custom_models
+from tests.fakes import ai_client_fake_config
 
 
 def test_parse_stream_usage_openai_fields():
@@ -70,7 +31,7 @@ def test_parse_stream_usage_dashscope_fields():
 
 def test_request_openai_enables_stream_usage_option():
     worker = AiWorker(
-        FakeConfig(
+        ai_client_fake_config(
             data={
                 "api_mode": "openai-compatible",
                 "api_endpoint": "https://api.siliconflow.cn/v1",
@@ -94,7 +55,7 @@ def test_request_openai_enables_stream_usage_option():
 
 def test_request_openai_includes_thinking_for_mimo():
     worker = AiWorker(
-        FakeConfig(
+        ai_client_fake_config(
             data={
                 "api_mode": "openai-compatible",
                 "api_endpoint": "https://api.xiaomimimo.com/v1",
@@ -204,7 +165,7 @@ def test_format_openai_http_error_maps_siliconflow_model_missing_code():
 
 def test_request_routes_ark_endpoint_to_doubao_when_api_mode_openai():
     worker = AiWorker(
-        FakeConfig(
+        ai_client_fake_config(
             data={
                 "api_mode": "openai",
                 "api_endpoint": "https://ark.cn-beijing.volces.com/api/v3",
@@ -220,7 +181,7 @@ def test_request_routes_ark_endpoint_to_doubao_when_api_mode_openai():
 
 
 def test_stream_openai_ignores_reasoning_content():
-    worker = AiWorker(FakeConfig())
+    worker = AiWorker(ai_client_fake_config())
 
     @contextmanager
     def fake_stream(*_args, **_kwargs):
@@ -253,7 +214,7 @@ def test_stream_openai_ignores_reasoning_content():
 def test_stream_openai_logs_mimo_reasoning_only(caplog):
     import logging
 
-    worker = AiWorker(FakeConfig())
+    worker = AiWorker(ai_client_fake_config())
 
     @contextmanager
     def fake_stream(*_args, **_kwargs):
@@ -298,7 +259,7 @@ def test_resolve_danmu_max_output_tokens_thinking_floor():
 
 
 def test_request_doubao_sends_effective_max_output_tokens():
-    worker = AiWorker(FakeConfig(data={"max_tokens": "200", "use_thinking": "0"}))
+    worker = AiWorker(ai_client_fake_config(data={"max_tokens": "200", "use_thinking": "0"}))
     with patch.object(worker, "_stream_doubao", return_value=("test", 100, 50, "")) as mock_stream:
         with patch.object(worker, "_emit_safe"):
             worker._request_doubao("data:image/jpeg;base64,abc", "sys", "user", "p1", 1, 1, 1.0, 0)
@@ -308,7 +269,7 @@ def test_request_doubao_sends_effective_max_output_tokens():
 
 
 def test_request_doubao_includes_input_audio_when_provided():
-    worker = AiWorker(FakeConfig())
+    worker = AiWorker(ai_client_fake_config())
     audio = "data:audio/wav;base64,QUJD"
     with patch.object(worker, "_stream_doubao", return_value=("test", 100, 50, "")) as mock_stream:
         with patch.object(worker, "_emit_safe"):
@@ -331,7 +292,7 @@ def test_request_doubao_includes_input_audio_when_provided():
 
 def test_request_openai_mimo_includes_input_audio_when_provided():
     worker = AiWorker(
-        FakeConfig(
+        ai_client_fake_config(
             data={
                 "api_endpoint": "https://api.xiaomimimo.com/v1",
                 "api_mode": "openai-compatible",
@@ -363,7 +324,7 @@ def test_request_openai_mimo_includes_input_audio_when_provided():
 
 
 def test_request_doubao_always_disables_thinking():
-    worker = AiWorker(FakeConfig(data={"max_tokens": "200", "use_thinking": "1"}))
+    worker = AiWorker(ai_client_fake_config(data={"max_tokens": "200", "use_thinking": "1"}))
     with patch.object(worker, "_stream_doubao", return_value=("test", 100, 50, "")) as mock_stream:
         with patch.object(worker, "_emit_safe"):
             worker._request_doubao("data:image/jpeg;base64,abc", "sys", "user", "p1", 1, 1, 1.0, 0)
@@ -374,7 +335,7 @@ def test_request_doubao_always_disables_thinking():
 
 
 def test_get_http_client_returns_same_instance_per_thread():
-    worker = AiWorker(FakeConfig())
+    worker = AiWorker(ai_client_fake_config())
     client1 = worker._get_http_client()
     client2 = worker._get_http_client()
     assert client1 is client2
@@ -382,7 +343,7 @@ def test_get_http_client_returns_same_instance_per_thread():
 
 
 def test_close_cleans_up_client():
-    worker = AiWorker(FakeConfig())
+    worker = AiWorker(ai_client_fake_config())
     client = worker._get_http_client()
     assert client is not None
     worker.close()
@@ -390,13 +351,13 @@ def test_close_cleans_up_client():
 
 
 def test_close_is_safe_when_no_client():
-    worker = AiWorker(FakeConfig())
+    worker = AiWorker(ai_client_fake_config())
     worker.close()
     assert not hasattr(worker._thread_local, 'client') or worker._thread_local.client is None
 
 
 def test_request_doubao_uses_thread_local_client():
-    worker = AiWorker(FakeConfig())
+    worker = AiWorker(ai_client_fake_config())
     with patch.object(worker, '_stream_doubao', return_value=("test", 100, 50, "")) as mock_stream:
         with patch.object(worker, '_emit_safe') as mock_emit:
             worker._request_doubao("data:image/jpeg;base64,abc", "sys", "user", "p1", 1, 1, 1.0, 0)
@@ -407,7 +368,7 @@ def test_request_doubao_uses_thread_local_client():
 
 
 def test_request_openai_uses_thread_local_client():
-    worker = AiWorker(FakeConfig())
+    worker = AiWorker(ai_client_fake_config())
     with patch.object(worker, '_stream_openai', return_value=("test", 100, 50)) as mock_stream:
         with patch.object(worker, '_emit_safe') as mock_emit:
             worker._request_openai("data:image/jpeg;base64,abc", "sys", "user", "p1", 1, 1, 1.0, 0)
@@ -418,7 +379,7 @@ def test_request_openai_uses_thread_local_client():
 
 
 def test_request_doubao_rebuilds_client_on_exception():
-    worker = AiWorker(FakeConfig())
+    worker = AiWorker(ai_client_fake_config())
     first_client = worker._get_http_client()
 
     call_count = 0
@@ -441,7 +402,7 @@ def test_request_doubao_rebuilds_client_on_exception():
 
 
 def test_request_openai_rebuilds_client_on_exception():
-    worker = AiWorker(FakeConfig())
+    worker = AiWorker(ai_client_fake_config())
     first_client = worker._get_http_client()
 
     call_count = 0
@@ -465,7 +426,7 @@ def test_request_openai_rebuilds_client_on_exception():
 
 def test_resolve_credentials_uses_custom_model_without_global_fallback():
     worker = AiWorker(
-        FakeConfig(
+        ai_client_fake_config(
             default_model_id="deepseek-chat",
             custom_models=[
                 {
@@ -488,7 +449,7 @@ def test_resolve_credentials_uses_custom_model_without_global_fallback():
 
 def test_resolve_credentials_empty_global_endpoint_returns_none():
     worker = AiWorker(
-        FakeConfig(
+        ai_client_fake_config(
             data={
                 "api_endpoint": "",
                 "api_mode": "doubao",
@@ -503,7 +464,7 @@ def test_resolve_credentials_empty_global_endpoint_returns_none():
 
 def test_resolve_credentials_incomplete_custom_model_returns_none():
     worker = AiWorker(
-        FakeConfig(
+        ai_client_fake_config(
             default_model_id="partial-model",
             custom_models=[
                 {
@@ -522,7 +483,7 @@ def test_resolve_credentials_incomplete_custom_model_returns_none():
 
 def test_request_openai_emits_incomplete_for_partial_custom_model():
     worker = AiWorker(
-        FakeConfig(
+        ai_client_fake_config(
             default_model_id="partial-model",
             custom_models=[
                 {
@@ -545,7 +506,7 @@ def test_request_openai_emits_incomplete_for_partial_custom_model():
 def test_format_credential_error_lists_missing_endpoint():
     from app.ai_client_requests import format_credential_error
 
-    cfg = FakeConfig(
+    cfg = ai_client_fake_config(
         data={
             "api_endpoint": "",
             "api_mode": "openai",
@@ -561,7 +522,7 @@ def test_request_openai_strips_unsupported_mic_audio_and_logs(caplog):
     import logging
 
     worker = AiWorker(
-        FakeConfig(
+        ai_client_fake_config(
             data={
                 "api_mode": "openai-compatible",
                 "api_endpoint": "https://api.deepseek.com/v1",
@@ -599,7 +560,7 @@ def test_request_openai_strips_unsupported_mic_audio_and_logs(caplog):
 def test_format_credential_error_lists_missing_api_key():
     from app.ai_client_requests import format_credential_error
 
-    cfg = FakeConfig(
+    cfg = ai_client_fake_config(
         data={
             "api_endpoint": "https://api.example.com/v1",
             "api_mode": "openai",
@@ -611,7 +572,7 @@ def test_format_credential_error_lists_missing_api_key():
 
 
 def test_request_doubao_resolves_credentials_once():
-    worker = AiWorker(FakeConfig(data={"api_mode": "doubao"}))
+    worker = AiWorker(ai_client_fake_config(data={"api_mode": "doubao"}))
     resolved = ("https://global.example.com/v1", "sk-global-key", "doubao-seed-1-6-flash-250828", "doubao")
     with patch.object(worker, "_resolve_request_credentials", return_value=resolved) as mock_resolve:
         with patch.object(worker, "_request_doubao") as mock_doubao:
@@ -623,7 +584,7 @@ def test_request_doubao_resolves_credentials_once():
 
 
 def test_request_openai_resolves_credentials_once():
-    worker = AiWorker(FakeConfig(data={"api_mode": "openai"}))
+    worker = AiWorker(ai_client_fake_config(data={"api_mode": "openai"}))
     resolved = ("https://global.example.com/v1", "sk-global-key", "gpt-4o", "openai")
     with patch.object(worker, "_resolve_request_credentials", return_value=resolved) as mock_resolve:
         with patch.object(worker, "_request_openai") as mock_openai:
@@ -636,7 +597,7 @@ def test_request_openai_resolves_credentials_once():
 
 def test_request_with_audio_uses_mic_credentials():
     worker = AiWorker(
-        FakeConfig(
+        ai_client_fake_config(
             data={
                 "api_mode": "doubao",
                 "model": "doubao-seed-1-6-flash-250828",
@@ -672,7 +633,7 @@ def test_request_with_audio_uses_mic_credentials():
 
 
 def test_request_doubao_direct_call_resolves_when_resolved_none():
-    worker = AiWorker(FakeConfig())
+    worker = AiWorker(ai_client_fake_config())
     resolved = ("https://global.example.com/v1", "sk-global-key", "doubao-seed-1-6-flash-250828", "doubao")
     with patch.object(worker, "_resolve_request_credentials", return_value=resolved) as mock_resolve:
         with patch.object(worker, "_stream_doubao", return_value=("test", 100, 50, "")):
@@ -683,7 +644,7 @@ def test_request_doubao_direct_call_resolves_when_resolved_none():
 
 
 def test_request_openai_direct_call_resolves_when_resolved_none():
-    worker = AiWorker(FakeConfig(data={"api_mode": "openai"}))
+    worker = AiWorker(ai_client_fake_config(data={"api_mode": "openai"}))
     resolved = ("https://global.example.com/v1", "sk-global-key", "gpt-4o", "openai")
     with patch.object(worker, "_resolve_request_credentials", return_value=resolved) as mock_resolve:
         with patch.object(worker, "_stream_openai", return_value=("test", 100, 50, "")):
@@ -694,7 +655,7 @@ def test_request_openai_direct_call_resolves_when_resolved_none():
 
 
 def test_stream_openai_malformed_json_chunk_returns_empty_with_error():
-    worker = AiWorker(FakeConfig(data={"api_mode": "openai"}))
+    worker = AiWorker(ai_client_fake_config(data={"api_mode": "openai"}))
     resolved = ("https://api.openai.com/v1", "sk-test", "gpt-4o", "openai")
 
     class BrokenStream:
@@ -712,7 +673,7 @@ def test_stream_openai_malformed_json_chunk_returns_empty_with_error():
 
     client = MagicMock()
     client.stream.return_value = BrokenStream()
-    text, inp, out, err = worker._stream_openai(
+    text, inp, out = worker._stream_openai(
         client,
         f"{resolved[0]}/chat/completions",
         {},
@@ -728,7 +689,7 @@ def test_stream_openai_malformed_json_chunk_returns_empty_with_error():
 
 def test_request_openai_http_429_surfaces_error_message():
     worker = AiWorker(
-        FakeConfig(
+        ai_client_fake_config(
             data={
                 "api_mode": "openai",
                 "api_endpoint": "https://api.openai.com/v1",
@@ -764,7 +725,7 @@ def test_openrouter_endpoint_builds_chat_completions_url():
     from app.ai_client_requests import request_openai
 
     worker = AiWorker(
-        FakeConfig(
+        ai_client_fake_config(
             data={"api_mode": "openai-compatible"},
             api_key="sk-test",
         )
@@ -802,7 +763,7 @@ def test_openrouter_endpoint_builds_chat_completions_url():
 
 
 def test_different_threads_get_different_clients():
-    worker = AiWorker(FakeConfig())
+    worker = AiWorker(ai_client_fake_config())
     results = {}
 
     def get_client(name):

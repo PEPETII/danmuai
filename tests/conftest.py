@@ -153,6 +153,7 @@ def bind_minimal_danmu_app(app, **overrides):
         "_consecutive_failures": 0,
         "_capture_fail_streak": 0,
         "_capture_error_active": False,
+        "_capture_in_flight": False,
         "_failure_backoff_paused": False,
         "_last_error_message": "",
         "_scene_generation": 0,
@@ -345,6 +346,11 @@ def make_minimal_danmu_app():
     app.screenshot_timer = FakeTimer()
     app._topmost_health_timer = FakeTimer()
     app.capturer = FakeCapturer(None)
+    app._capture_in_flight = False
+    app._capture_coordinator = Mock()
+    app._capture_coordinator.completed = Mock()
+    app.ai_worker = Mock()
+    app.ai_worker._stopping = __import__("threading").Event()
     app._is_generating = False
     app._batch_id = 0
     app._current_batch = None
@@ -354,7 +360,6 @@ def make_minimal_danmu_app():
     app._inflight_started_at = 0.0
     app._publish_live_status = lambda: None
     app.web_bridge = None
-    app.ai_worker = Mock()
     app.lifetime_stats = FakeLifetimeStats()
     app.session_run_log = Mock()
     app._lifetime_flush_timer = FakeTimer()
@@ -369,6 +374,16 @@ def make_minimal_danmu_app():
     app._consume_reply_queue = DanmuApp._consume_reply_queue.__get__(app, DanmuApp)
     app._on_screenshot_timer = DanmuApp._on_screenshot_timer.__get__(app, DanmuApp)
     app._on_normal_capture_tick = DanmuApp._on_normal_capture_tick.__get__(app, DanmuApp)
+    app._schedule_capture = DanmuApp._schedule_capture.__get__(app, DanmuApp)
+    app._apply_capture_result = DanmuApp._apply_capture_result.__get__(app, DanmuApp)
+    app._on_capture_completed = DanmuApp._on_capture_completed.__get__(app, DanmuApp)
+    app._has_visual_request_in_flight = DanmuApp._has_visual_request_in_flight.__get__(
+        app, DanmuApp
+    )
+    app._capture_screenshot = DanmuApp._capture_screenshot.__get__(app, DanmuApp)
+    app._note_capture_failure = DanmuApp._note_capture_failure.__get__(app, DanmuApp)
+    app._note_capture_success = DanmuApp._note_capture_success.__get__(app, DanmuApp)
+    app._set_error_status_safe = DanmuApp._set_error_status_safe.__get__(app, DanmuApp)
     app._reply_request_id = DanmuApp._reply_request_id.__get__(app, DanmuApp)
     app._register_request_meta = DanmuApp._register_request_meta.__get__(app, DanmuApp)
     app._pop_request_meta = DanmuApp._pop_request_meta.__get__(app, DanmuApp)

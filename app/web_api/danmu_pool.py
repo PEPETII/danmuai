@@ -2,7 +2,7 @@
 
 路由（由 ``app.web_api.routes`` 注册）：
 - ``GET /api/danmu-pool/meta``：自定义开关 + pool size。
-- ``POST /api/danmu-pool/custom``：追加自定义句（去重 + 安全校验），上限 500。
+- ``POST /api/danmu-pool/custom``：追加自定义句（去重 + 安全校验），上限 2500。
 - ``PUT /api/danmu-pool/settings``：写 ``danmu_pool_use_custom`` / ``min_on_screen``。
 - ``DELETE /api/danmu-pool/custom``：删除自定义句。
 """
@@ -21,8 +21,8 @@ from app.danmu_pool_overlay import is_overlay_safe
 if TYPE_CHECKING:
     from main import DanmuApp
 
-CUSTOM_POOL_MAX = 500
-APPEND_BATCH_MAX = 100
+CUSTOM_POOL_MAX = 2500
+APPEND_BATCH_MAX = 5000
 MIN_ON_SCREEN_MAX = 50
 
 _SKIP_REASON_DUPLICATE = "duplicate"
@@ -37,6 +37,7 @@ def get_meta(app: "DanmuApp") -> dict[str, Any]:
         "custom_enabled": danmu_pool_use_custom_from_config(config),
         "min_on_screen": config.get_int("min_on_screen", 5),
         "custom_count": custom_pool_size(config),
+        "custom_max": CUSTOM_POOL_MAX,
         "effective_pool_enabled": any_danmu_pool_source_enabled(config),
     }
 

@@ -87,11 +87,11 @@ def test_lifetime_stats_persists_increments():
     assert cfg.get(STATS_LIFETIME_DANMU) == "2"
     assert cfg.get(STATS_LIFETIME_INPUT_TOKENS) == "100"
     assert cfg.get(STATS_LIFETIME_OUTPUT_TOKENS) == "50"
-    assert cfg.get(STATS_LIFETIME_TOKENS) == "150"
+    assert cfg.get(STATS_LIFETIME_TOKENS, "") == ""
     stats.flush_runtime(30.0)
 
     assert cfg.get(STATS_LIFETIME_DANMU) == "2"
-    assert cfg.get(STATS_LIFETIME_TOKENS) == "150"
+    assert cfg.get(STATS_LIFETIME_TOKENS, "") == ""
     assert float(cfg.get(STATS_LIFETIME_RUNTIME_SEC)) == 30.0
 
     stats2 = LifetimeStats(cfg)
@@ -100,6 +100,21 @@ def test_lifetime_stats_persists_increments():
     assert snap["lifetime_input_tokens"] == 100
     assert snap["lifetime_output_tokens"] == 50
     assert snap["lifetime_total_tokens"] == 150
+
+
+def test_lifetime_stats_persists_legacy_aggregate_when_untracked_tokens():
+    cfg = FakeConfig(
+        {
+            STATS_LIFETIME_TOKENS: "420",
+            STATS_LIFETIME_INPUT_TOKENS: "100",
+            STATS_LIFETIME_OUTPUT_TOKENS: "40",
+        }
+    )
+    stats = LifetimeStats(cfg)
+    assert stats._untracked_tokens == 280
+    stats.add_tokens(5, 0)
+    stats.flush_pending()
+    assert cfg.get(STATS_LIFETIME_TOKENS) == "425"
 
 
 def test_refresh_status_includes_lifetime_fields():

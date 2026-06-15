@@ -58,4 +58,4 @@ if (-not (Test-Path $exe)) {
 
 Write-Host ""
 Write-Host "Done: $exe"
-Write-Host "Zip dist\DanmuAI\ for distribution. End users need WebView2 Runtime (usually preinstalled on Windows 10/11)."
+Write-Host "Next: .\scripts\publish_windows_release.ps1 for Velopack Setup + Portable release bundle."

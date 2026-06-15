@@ -28,6 +28,9 @@ class DanmuItem:
     _vis_on_screen: bool = field(default=False, repr=False, compare=False)
     _right_vis_on_screen: bool = field(default=False, repr=False, compare=False)
     _in_fade_zone: bool = field(default=False, repr=False, compare=False)
+    _cached_engine_entry_zone: bool = field(default=False, repr=False, compare=False)
+    _cached_offscreen_pending: bool = field(default=False, repr=False, compare=False)
+    _cached_track_entry_zone: bool = field(default=False, repr=False, compare=False)
 
 
 class Track:
@@ -36,6 +39,16 @@ class Track:
     def __init__(self, y: float):
         self.y = y
         self.items: list[DanmuItem] = []
+        self.entry_zone_count_cached: int = 0
+        self.tail_right_edge: float = float("-inf")
+        self._tail_item: DanmuItem | None = None
+        self.furthest_offscreen_x: float = float("-inf")
+        self._furthest_offscreen_item: DanmuItem | None = None
+
+    @staticmethod
+    def item_right_edge(item: DanmuItem) -> float:
+        w = item.width if item.width > 0 else len(item.content) * 25.0
+        return item.x + w
 
     def can_accept(self, item: DanmuItem, screen_width: float, min_gap: float = 150.0) -> bool:
         if not self.items:
@@ -50,12 +63,24 @@ class Track:
         zone: float = _ENTRY_ZONE_PX_FALLBACK,
     ) -> int:
         zone_left = screen_width - zone
-        return sum(1 for it in self.items if it.x + it.width > zone_left and it.x < screen_width)
+        live = sum(
+            1 for it in self.items if it.x + it.width > zone_left and it.x < screen_width
+        )
+        if zone != _ENTRY_ZONE_PX_FALLBACK:
+            return live
+        if live != self.entry_zone_count_cached:
+            self.entry_zone_count_cached = live
+        return self.entry_zone_count_cached
 
     def rightmost_edge(self) -> float:
         if not self.items:
             return float("-inf")
-        return max(it.x + (it.width if it.width > 0 else len(it.content) * 25.0) for it in self.items)
+        if self._tail_item is not None and self._tail_item in self.items:
+            return self.tail_right_edge
+        tail_item = max(self.items, key=Track.item_right_edge)
+        self._tail_item = tail_item
+        self.tail_right_edge = Track.item_right_edge(tail_item)
+        return self.tail_right_edge
 
     def add(self, item: DanmuItem):
         item.y = self.y
@@ -66,12 +91,16 @@ class Track:
         i = 0
         while i < len(self.items):
             item = self.items[i]
+            old_x = item.x
             item.x -= item.speed * speed_factor * scale
             if item.x + item.width <= 0:
                 engine._detach_item_visibility(item)
                 item._pixmap = None
                 self.items.pop(i)
+                engine._unregister_item(self, item)
             else:
+                if item.x != old_x:
+                    engine._on_item_x_changed(self, item, old_x)
                 engine._refresh_item_visibility(item)
                 i += 1
 

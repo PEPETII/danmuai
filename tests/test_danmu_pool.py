@@ -171,6 +171,28 @@ def test_formula_text_cache_reuses_meme_library_set(tmp_path, monkeypatch):
     assert len(calls) == 1
 
 
+def test_custom_pool_list_cache_reuses_getter(tmp_path, monkeypatch):
+    from app.config_store import ConfigStore
+    from app.danmu_pool import load_custom_danmu_pool
+
+    store = ConfigStore(db_path=tmp_path / "pool_list_cache.db")
+    store.set("danmu_pool_use_custom", "1")
+    store.set_custom_danmu_pool(["公式句A", "公式句B"])
+    calls: list[int] = []
+    original = store.get_custom_danmu_pool
+
+    def _counting_get():
+        calls.append(1)
+        return original()
+
+    monkeypatch.setattr(store, "get_custom_danmu_pool", _counting_get)
+    first = load_custom_danmu_pool(store)
+    second = load_custom_danmu_pool(store)
+    assert first == ["公式句A", "公式句B"]
+    assert second == first
+    assert len(calls) == 1
+
+
 def test_pool_topup_entry_zone_overloaded_non_callable_no_error(qapp, workspace_tmp):
     from app.config_store import ConfigStore
     from app.danmu_engine import DanmuEngine

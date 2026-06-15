@@ -67,7 +67,7 @@ def test_on_normal_capture_tick_recovers_stale_inflight(monkeypatch):
     def _capture():
         capture_called.append(True)
 
-    monkeypatch.setattr(app, "_capture_screenshot", _capture)
+    monkeypatch.setattr(app, "_schedule_capture", _capture)
     monkeypatch.setattr(app, "_maybe_inject_local_fallback", lambda: None)
 
     app._on_normal_capture_tick()

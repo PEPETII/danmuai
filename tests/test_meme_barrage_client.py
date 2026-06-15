@@ -4,7 +4,53 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
+from app.meme_barrage.client import MemeBarrageApiClient
 from app.meme_barrage.runnable import MemeFetchRunnable
+
+
+def test_meme_api_client_reuses_httpx_client():
+    with patch("app.meme_barrage.client.httpx.Client") as client_cls:
+        client_cls.return_value.request.return_value.json.return_value = {"code": 200, "data": {}}
+        client_cls.return_value.request.return_value.raise_for_status = MagicMock()
+        api = MemeBarrageApiClient()
+        api.page(page_num=1, page_size=5)
+        api.page(page_num=2, page_size=5)
+        client_cls.assert_called_once()
+    api.close()
+
+
+def test_meme_api_client_close_is_idempotent():
+    with patch("app.meme_barrage.client.httpx.Client") as client_cls:
+        client_cls.return_value.request.return_value.json.return_value = {"code": 200, "data": {}}
+        client_cls.return_value.request.return_value.raise_for_status = MagicMock()
+        api = MemeBarrageApiClient()
+        api.page()
+        api.close()
+        api.close()
+        client_cls.return_value.close.assert_called_once()
+
+
+def test_meme_fetch_runnable_uses_injected_client():
+    on_success = MagicMock()
+    on_error = MagicMock()
+    payload = {"code": 200, "data": {"list": []}}
+    injected = MagicMock()
+    injected.page.return_value = payload
+
+    with patch("app.meme_barrage.runnable.MemeBarrageApiClient") as client_cls:
+        MemeFetchRunnable(
+            category="remote",
+            tag="",
+            page_num=1,
+            page_size=5,
+            on_success=on_success,
+            on_error=on_error,
+            client=injected,
+        ).run()
+
+    client_cls.assert_not_called()
+    injected.page.assert_called_once_with(page_num=1, page_size=5)
+    on_success.assert_called_once_with(payload)
 
 
 def test_meme_fetch_runnable_page_success():

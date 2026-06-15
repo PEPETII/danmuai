@@ -42,6 +42,9 @@ SCROLLING_NORMAL_RECOGNITION_INTERVAL_SEC = 5
 FLOATING_PANEL_NORMAL_RECOGNITION_INTERVAL_SEC = 5
 FLOATING_PANEL_NORMAL_REPLY_COUNT = 10
 DEFAULT_FLOATING_PANEL_SPEED = "1"
+# 弹幕容量保护默认（0=用户显式无限制；键缺失时回落到下列值）
+DEFAULT_DANMU_PENDING_ENTRY_CAP = 300
+DEFAULT_DANMU_TRACK_RETENTION_CAP = 600
 
 # String values aligned with runtime fallbacks in main.py / danmu_engine / ai_client.
 CONFIG_DEFAULTS: dict[str, str] = {
@@ -75,8 +78,8 @@ CONFIG_DEFAULTS: dict[str, str] = {
     "meme_barrage_remote_page_num": "1",
     "empty_accel": "1",
     "eviction_mode": "natural",
-    "danmu_pending_entry_cap": "0",
-    "danmu_track_retention_cap": "0",
+    "danmu_pending_entry_cap": str(DEFAULT_DANMU_PENDING_ENTRY_CAP),
+    "danmu_track_retention_cap": str(DEFAULT_DANMU_TRACK_RETENTION_CAP),
     "reply_queue_max_items": "0",
     "image_max_width": "768",
     "image_quality": "85",

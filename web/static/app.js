@@ -5,11 +5,13 @@ import {
   refreshSession,
   setRealtimeHandlers,
   startRealtimeTransport,
+  stopRealtimeTransport,
 } from './modules/transport.js';
 import { applyStatus, configureStatus, getLastAppliedStatus } from './modules/status.js';
 import {
   appendLog,
   bootstrapLogsFromServer,
+  clearLogBuffer,
   logBuffer,
   logLevelFilters,
   mergeLogItems,
@@ -18,14 +20,12 @@ import {
   setLogAutoScroll,
   updateLogPanelState,
 } from './modules/logs.js';
-import { initDiagnosticsPanel } from './modules/diagnostics.js';
 import {
   applyCaptureRegionFromPayload,
   bindSettingsControls,
   initCaptureRegionControls,
   initNormalBatchControls,
   initFloatingPanelV2Controls,
-  initSceneMemoryIntervalControls,
   initRestoreDefaultsControls,
   initContentPageFieldHints,
   initSettingsFieldHints,
@@ -44,10 +44,8 @@ import { isMaskedApiKey } from './modules/settings-defaults.js';
 import { initTheme } from './modules/theme.js';
 import {
   bindContentPageControls,
-  initFeedbackPage,
   loadAnnouncementsPage,
   loadAnnouncementsReadState,
-  loadTutorialPage,
   refreshAnnouncementsUnreadBadge,
   startAnnouncementsBadgePolling,
   stopAnnouncementsBadgePolling,
@@ -62,19 +60,6 @@ import {
   initLiveOverlayPanel,
 } from './modules/app-live-overlay-panel.js';
 import {
-  initDanmuPoolPage,
-  loadDanmuPoolPage,
-} from './modules/app-danmu-pool-page.js';
-import {
-  initMemeBarragePage,
-  loadMemeBarragePage,
-  startMemeBarrageMetaPolling,
-} from './modules/app-meme-barrage-page.js';
-import {
-  initPetPage,
-  loadPetPage,
-} from './modules/app-pet-page.js';
-import {
   initPersonaTopicPage,
   loadOverviewGlobalFields,
   loadPersonaEditor,
@@ -87,6 +72,54 @@ import {
 
 let danmuReadConfigCache = null;
 let danmuReadCatalog = null;
+let danmuPoolPagesReady = false;
+let petPageReady = false;
+let diagnosticsReady = false;
+
+async function ensureDanmuPoolPages() {
+  const [poolMod, memeMod] = await Promise.all([
+    import('./modules/app-danmu-pool-page.js'),
+    import('./modules/app-meme-barrage-page.js'),
+  ]);
+  if (!danmuPoolPagesReady) {
+    poolMod.initDanmuPoolPage({ showToast });
+    memeMod.initMemeBarragePage({ showToast });
+    danmuPoolPagesReady = true;
+  }
+  return { poolMod, memeMod };
+}
+
+async function ensurePetPage() {
+  const mod = await import('./modules/app-pet-page.js');
+  if (!petPageReady) {
+    mod.initPetPage({ showToast });
+    petPageReady = true;
+  }
+  return mod;
+}
+
+async function ensureDiagnosticsPanel() {
+  if (diagnosticsReady) return;
+  const mod = await import('./modules/diagnostics.js');
+  mod.initDiagnosticsPanel({ showToast });
+  diagnosticsReady = true;
+}
+
+function wireLazyDiagnosticsToggle() {
+  const btn = document.getElementById('btnToggleDiagnosticsPanel');
+  if (!btn) return;
+  btn.addEventListener(
+    'click',
+    async function onFirstDiagnosticsClick(event) {
+      if (diagnosticsReady) return;
+      event.stopImmediatePropagation();
+      await ensureDiagnosticsPanel();
+      btn.removeEventListener('click', onFirstDiagnosticsClick, { capture: true });
+      btn.click();
+    },
+    { capture: true },
+  );
+}
 
 function invalidateDanmuReadCache() {
   danmuReadConfigCache = null;
@@ -365,13 +398,30 @@ function navigate(page) {
     loadCustomModels().catch(console.error);
   }
   if (page === 'overview') loadOverviewGlobalFields().catch(console.error);
+  else {
+    import('./modules/diagnostics.js')
+      .then((mod) => mod.disconnectDiagnosticsPanel())
+      .catch(() => {});
+  }
   if (page === 'persona') loadPersonaEditor().catch(console.error);
   if (page === 'danmu-pool') {
-    Promise.all([loadMemeBarragePage(), loadDanmuPoolPage()])
-      .then(() => startMemeBarrageMetaPolling())
+    ensureDanmuPoolPages()
+      .then(({ poolMod, memeMod }) =>
+        Promise.all([memeMod.loadMemeBarragePage(), poolMod.loadDanmuPoolPage()]).then(
+          () => memeMod.startMemeBarrageMetaPolling(),
+        ),
+      )
+      .catch((error) => showToast(error.message, true));
+  } else {
+    import('./modules/app-meme-barrage-page.js')
+      .then((mod) => mod.stopMemeBarrageMetaPolling())
+      .catch(() => {});
+  }
+  if (page === 'pet') {
+    ensurePetPage()
+      .then((mod) => mod.loadPetPage())
       .catch((error) => showToast(error.message, true));
   }
-  if (page === 'pet') loadPetPage().catch((error) => showToast(error.message, true));
   if (page === 'announcements') {
     stopAnnouncementsBadgePolling();
     updateAnnouncementsNavBadge(false);
@@ -379,10 +429,17 @@ function navigate(page) {
   } else {
     startAnnouncementsBadgePolling();
   }
-  if (page === 'feedback') initFeedbackPage();
-  if (page === 'tutorial') loadTutorialPage().catch(console.error);
+  if (page === 'feedback') {
+    import('./modules/content-feedback.js')
+      .then((mod) => mod.initFeedbackPage())
+      .catch(console.error);
+  }
+  if (page === 'tutorial') {
+    import('./modules/content-tutorial.js')
+      .then((mod) => mod.loadTutorialPage())
+      .catch(console.error);
+  }
   if (page === 'logs') {
-    renderLogView();
     updateLogPanelState();
     bootstrapLogsFromServer(REALTIME.lastLogsPollTs).catch((error) => {
       console.warn('[realtime] logs bootstrap on navigate failed', error);
@@ -393,25 +450,28 @@ function navigate(page) {
 async function init() {
   initTheme();
   await refreshSession();
-  await loadAnnouncementsReadState();
-  await loadModelCatalog();
-  await loadProviders();
-  await loadConfigDefaults();
 
-  const cfg = await reloadConfigFromServer();
-  await loadScreens();
+  await Promise.all([
+    loadAnnouncementsReadState(),
+    loadModelCatalog(),
+    loadProviders(),
+    loadConfigDefaults(),
+  ]);
+
+  const [cfg] = await Promise.all([
+    reloadConfigFromServer(),
+    loadScreens(),
+  ]);
   if (cfg.screen_index !== undefined) {
     document.getElementById('screen_index').value = String(cfg.screen_index);
   }
 
   initErrorReporting({ showToast, getLastStatus: getLastAppliedStatus });
   initLiveOverlayPanel({ showToast });
-  initDanmuPoolPage({ showToast });
-  initMemeBarragePage({ showToast });
-  initPetPage({ showToast });
   initPersonaTopicPage({ showToast });
   loadOverviewGlobalFields().catch(console.error);
   initAppUpdateModal({ showToast });
+  wireLazyDiagnosticsToggle();
 
   configureStatus({
     applyCaptureRegion: applyCaptureRegionFromPayload,
@@ -426,9 +486,11 @@ async function init() {
     showToast,
     bootstrapLogs: bootstrapLogsFromServer,
   });
-  applyStatus(await fetch(`${API.base}/api/status`).then((response) => response.json()));
-  initDiagnosticsPanel({ showToast });
+  const statusPromise = fetch(`${API.base}/api/status`)
+    .then((response) => response.json())
+    .then(applyStatus);
   startRealtimeTransport();
+  await statusPromise;
 
   initSettingsTabs();
   initSettingsUiMode();
@@ -441,7 +503,6 @@ async function init() {
   initCaptureRegionControls();
   initRestoreDefaultsControls();
   initFloatingPanelV2Controls();
-  initSceneMemoryIntervalControls();
 
   bindSettingsControls({
     showToast,
@@ -473,7 +534,7 @@ async function init() {
       replaceLogLevelFilters(
         new Set([...document.querySelectorAll('.log-level-cb:checked')].map((item) => item.value)),
       );
-      renderLogView();
+      renderLogView({ force: true });
     });
   });
   document.getElementById('logAutoScroll')?.addEventListener('change', (event) => {
@@ -487,7 +548,7 @@ async function init() {
     navigator.clipboard.writeText(text).then(() => showToast('已复制到剪贴板'));
   });
   document.getElementById('btnClearLogs')?.addEventListener('click', () => {
-    logBuffer.length = 0;
+    clearLogBuffer();
     document.getElementById('logView').innerHTML = '';
     updateLogPanelState();
     showToast('日志视图已清空');
@@ -495,7 +556,6 @@ async function init() {
 
   updateLogPanelState();
 
-  await refreshAnnouncementsUnreadBadge();
   const onAnnouncements = document
     .getElementById('page-announcements')
     ?.classList.contains('active');
@@ -518,7 +578,10 @@ async function init() {
     }
   });
 
-  await initAppVersionAndUpdateCheck();
+  await Promise.all([
+    refreshAnnouncementsUnreadBadge(),
+    initAppVersionAndUpdateCheck(),
+  ]);
 }
 
 document.addEventListener('visibilitychange', () => {
@@ -531,6 +594,17 @@ document.addEventListener('visibilitychange', () => {
       return bootstrapLogsFromServer(0);
     })
     .catch((error) => console.warn('[realtime] visibility refresh failed', error));
+});
+
+window.addEventListener('pagehide', () => {
+  stopRealtimeTransport();
+  import('./modules/diagnostics.js')
+    .then((mod) => mod.destroyDiagnosticsPanel())
+    .catch(() => {});
+  import('./modules/app-meme-barrage-page.js')
+    .then((mod) => mod.stopMemeBarrageMetaPolling())
+    .catch(() => {});
+  stopAnnouncementsBadgePolling();
 });
 
 init().catch((error) => {

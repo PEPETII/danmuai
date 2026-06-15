@@ -1,7 +1,7 @@
 """弹幕引擎：多轨道分配、去重、加速动画与可见性统计。
 
-弹幕显示不再有固定数量上限（默认 danmu_pending_entry_cap / danmu_track_retention_cap 为 0）。
-仅在用户配置 retention cap 时对屏外 pending 做淘汰，避免无限内存增长。
+默认 danmu_pending_entry_cap=300、danmu_track_retention_cap=600 作性能保护；
+用户显式配置 0 表示无限制。超 cap 时对屏外 pending 做淘汰，避免无限内存增长。
 
 轨道分配策略（_pick_track）：
   1. 空闲轨道优先（随机选一条）
@@ -42,6 +42,8 @@ from app.translations import Translator
 # 与 app.config_defaults 保持同步（避免循环导入）
 _DANMU_SPEED_FALLBACK = 2.0
 _DEDUP_THRESHOLD_FALLBACK = 0.5
+_DEFAULT_DANMU_PENDING_ENTRY_CAP = 300
+_DEFAULT_DANMU_TRACK_RETENTION_CAP = 600
 
 # 淡入淡出与入口区像素距离（与 overlay._item_opacity 协同）
 FADE_IN_PX = 120.0    # 右侧淡入区宽度，弹幕从右侧进入时在此区间渐显
@@ -87,13 +89,13 @@ def clamp_danmu_lines(value: int) -> int:
 
 def resolve_danmu_pending_entry_cap(config) -> int:
     """入口区 pending 上限；0 表示无限制。"""
-    raw = config.get_int("danmu_pending_entry_cap", 0)
+    raw = config.get_int("danmu_pending_entry_cap", _DEFAULT_DANMU_PENDING_ENTRY_CAP)
     return max(0, min(raw, DANMU_PENDING_ENTRY_CAP_MAX))
 
 
 def resolve_danmu_track_retention_cap(config) -> int:
     """全轨道总保留条数；0 表示无限制。"""
-    raw = config.get_int("danmu_track_retention_cap", 0)
+    raw = config.get_int("danmu_track_retention_cap", _DEFAULT_DANMU_TRACK_RETENTION_CAP)
     return max(0, min(raw, DANMU_TRACK_RETENTION_CAP_MAX))
 
 
@@ -165,6 +167,11 @@ class DanmuEngine(QObject):
         self._visibility_stale = False
         self._visibility_counts_seeded = False
         self._fade_zone_count = 0
+        self._pending_entry_count = 0
+        self._offscreen_pending_count = 0
+        self._total_item_count = 0
+        self._capacity_counts_stale = False
+        self._capacity_counts_seeded = False
         self._init_tracks()
         self._load_recent_from_history()
 
@@ -221,14 +228,196 @@ class DanmuEngine(QObject):
             if y > max_y:
                 break
             self.tracks.append(Track(y))
+        self._pending_entry_count = 0
+        self._offscreen_pending_count = 0
+        self._total_item_count = 0
+        self._capacity_counts_seeded = False
+        self._capacity_counts_stale = False
 
     def set_screen_width(self, w: float):
         if w != self.screen_width:
             self.screen_width = w
             self._mark_visibility_stale()
+            self._mark_capacity_stale()
 
     def set_screen_height(self, h: float):
         self.screen_height = h
+
+    def _mark_capacity_stale(self) -> None:
+        self._capacity_counts_stale = True
+
+    @staticmethod
+    def _scan_pending_entry_count(tracks: list[Track], screen_width: float) -> int:
+        zone_left = screen_width - ENTRY_ZONE_PX
+        return sum(1 for track in tracks for item in track.items if item.x >= zone_left)
+
+    @staticmethod
+    def _scan_offscreen_pending_count(tracks: list[Track], screen_width: float) -> int:
+        return sum(1 for track in tracks for item in track.items if item.x >= screen_width)
+
+    @staticmethod
+    def _scan_current_display_count(tracks: list[Track]) -> int:
+        return sum(len(track.items) for track in tracks)
+
+    def _item_in_track_entry_zone(self, item: DanmuItem) -> bool:
+        zone_left = self.screen_width - ENTRY_ZONE_PX
+        return item.x + item.width > zone_left and item.x < self.screen_width
+
+    def _classify_item_zones(self, item: DanmuItem) -> tuple[bool, bool, bool]:
+        return (
+            self._in_entry_zone(item),
+            self._is_offscreen_pending(item),
+            self._item_in_track_entry_zone(item),
+        )
+
+    def _recompute_track_tail_edge(self, track: Track) -> None:
+        if not track.items:
+            track.tail_right_edge = float("-inf")
+            track._tail_item = None
+            return
+        tail_item = max(track.items, key=Track.item_right_edge)
+        track._tail_item = tail_item
+        track.tail_right_edge = Track.item_right_edge(tail_item)
+
+    def _recompute_track_offscreen_meta(self, track: Track) -> None:
+        sw = self.screen_width
+        best_x = float("-inf")
+        best_item: DanmuItem | None = None
+        for item in track.items:
+            if item.x >= sw and item.x > best_x:
+                best_x = item.x
+                best_item = item
+        track.furthest_offscreen_x = best_x
+        track._furthest_offscreen_item = best_item
+
+    def _apply_item_zone_flags(
+        self,
+        item: DanmuItem,
+        *,
+        engine_entry: bool,
+        offscreen: bool,
+        track_entry: bool,
+    ) -> None:
+        if item._cached_engine_entry_zone != engine_entry:
+            self._pending_entry_count += 1 if engine_entry else -1
+            item._cached_engine_entry_zone = engine_entry
+        if item._cached_offscreen_pending != offscreen:
+            self._offscreen_pending_count += 1 if offscreen else -1
+            item._cached_offscreen_pending = offscreen
+        if item._cached_track_entry_zone != track_entry:
+            item._cached_track_entry_zone = track_entry
+
+    def _register_item(self, track: Track, item: DanmuItem) -> None:
+        self._total_item_count += 1
+        engine_entry, offscreen, track_entry = self._classify_item_zones(item)
+        self._apply_item_zone_flags(
+            item,
+            engine_entry=engine_entry,
+            offscreen=offscreen,
+            track_entry=track_entry,
+        )
+        if track_entry:
+            track.entry_zone_count_cached += 1
+        edge = Track.item_right_edge(item)
+        if edge > track.tail_right_edge:
+            track.tail_right_edge = edge
+            track._tail_item = item
+        if offscreen and item.x > track.furthest_offscreen_x:
+            track.furthest_offscreen_x = item.x
+            track._furthest_offscreen_item = item
+        self._capacity_counts_seeded = True
+        self._capacity_counts_stale = False
+
+    def _unregister_item(self, track: Track, item: DanmuItem) -> None:
+        self._total_item_count = max(0, self._total_item_count - 1)
+        if item._cached_engine_entry_zone:
+            self._pending_entry_count -= 1
+            item._cached_engine_entry_zone = False
+        if item._cached_offscreen_pending:
+            self._offscreen_pending_count -= 1
+            item._cached_offscreen_pending = False
+        if item._cached_track_entry_zone:
+            track.entry_zone_count_cached = max(0, track.entry_zone_count_cached - 1)
+            item._cached_track_entry_zone = False
+        if item is track._tail_item:
+            self._recompute_track_tail_edge(track)
+        if item is track._furthest_offscreen_item:
+            self._recompute_track_offscreen_meta(track)
+
+    def _on_item_x_changed(self, track: Track, item: DanmuItem, old_x: float) -> None:
+        engine_entry, offscreen, track_entry = self._classify_item_zones(item)
+        was_track_entry = item._cached_track_entry_zone
+        self._apply_item_zone_flags(
+            item,
+            engine_entry=engine_entry,
+            offscreen=offscreen,
+            track_entry=track_entry,
+        )
+        if was_track_entry != track_entry:
+            if track_entry:
+                track.entry_zone_count_cached += 1
+            else:
+                track.entry_zone_count_cached = max(0, track.entry_zone_count_cached - 1)
+        old_edge = old_x + (item.width if item.width > 0 else len(item.content) * 25.0)
+        new_edge = Track.item_right_edge(item)
+        if new_edge > track.tail_right_edge:
+            track.tail_right_edge = new_edge
+            track._tail_item = item
+        elif item is track._tail_item:
+            track.tail_right_edge = new_edge
+            if new_edge < old_edge:
+                self._recompute_track_tail_edge(track)
+        was_offscreen = old_x >= self.screen_width
+        if offscreen:
+            if item.x > track.furthest_offscreen_x:
+                track.furthest_offscreen_x = item.x
+                track._furthest_offscreen_item = item
+            elif item is track._furthest_offscreen_item:
+                self._recompute_track_offscreen_meta(track)
+        elif was_offscreen and item is track._furthest_offscreen_item:
+            self._recompute_track_offscreen_meta(track)
+
+    def _rebuild_capacity_counts(self) -> None:
+        sw = self.screen_width
+        pending = 0
+        offscreen = 0
+        total = 0
+        for track in self.tracks:
+            track.entry_zone_count_cached = 0
+            track.tail_right_edge = float("-inf")
+            track._tail_item = None
+            track.furthest_offscreen_x = float("-inf")
+            track._furthest_offscreen_item = None
+            for item in track.items:
+                total += 1
+                engine_entry = item.x >= sw - ENTRY_ZONE_PX
+                item_offscreen = item.x >= sw
+                track_entry = item.x + item.width > sw - ENTRY_ZONE_PX and item.x < sw
+                item._cached_engine_entry_zone = engine_entry
+                item._cached_offscreen_pending = item_offscreen
+                item._cached_track_entry_zone = track_entry
+                if engine_entry:
+                    pending += 1
+                if item_offscreen:
+                    offscreen += 1
+                    if item.x > track.furthest_offscreen_x:
+                        track.furthest_offscreen_x = item.x
+                        track._furthest_offscreen_item = item
+                if track_entry:
+                    track.entry_zone_count_cached += 1
+                edge = Track.item_right_edge(item)
+                if edge > track.tail_right_edge:
+                    track.tail_right_edge = edge
+                    track._tail_item = item
+        self._pending_entry_count = pending
+        self._offscreen_pending_count = offscreen
+        self._total_item_count = total
+        self._capacity_counts_stale = False
+        self._capacity_counts_seeded = True
+
+    def _ensure_capacity_counts(self) -> None:
+        if self._capacity_counts_stale or not self._capacity_counts_seeded:
+            self._rebuild_capacity_counts()
 
     def drawable_height(self) -> float:
         """当前 layout_mode 下弹幕可绘制区域高度（与 _init_tracks / Overlay clip 一致）。"""
@@ -252,14 +441,12 @@ class DanmuEngine(QObject):
         return item.x >= self.screen_width
 
     def pending_entry_count(self) -> int:
-        return sum(
-            1 for track in self.tracks for item in track.items if self._in_entry_zone(item)
-        )
+        self._ensure_capacity_counts()
+        return self._pending_entry_count
 
     def offscreen_pending_count(self) -> int:
-        return sum(
-            1 for track in self.tracks for item in track.items if self._is_offscreen_pending(item)
-        )
+        self._ensure_capacity_counts()
+        return self._offscreen_pending_count
 
     def right_entry_count(self) -> int:
         return self.pending_entry_count()
@@ -285,24 +472,32 @@ class DanmuEngine(QObject):
         """淘汰 x >= screen_width 中最远的 pending 条目，释放 pixmap/可见性计数。"""
         if max_drop <= 0:
             return 0
-        sw = self.screen_width
         dropped = 0
         for _ in range(max_drop):
-            best_item: DanmuItem | None = None
             best_track: Track | None = None
             best_x = float("-inf")
             for track in self.tracks:
-                for item in track.items:
-                    if item.x >= sw and item.x > best_x:
-                        best_x = item.x
-                        best_item = item
-                        best_track = track
-            if best_item is None or best_track is None:
+                if track.furthest_offscreen_x > best_x:
+                    best_x = track.furthest_offscreen_x
+                    best_track = track
+            if best_track is None or best_x == float("-inf"):
                 break
+            best_item = best_track._furthest_offscreen_item
+            if best_item is None or best_item.x < self.screen_width:
+                self._recompute_track_offscreen_meta(best_track)
+                if best_track.furthest_offscreen_x == float("-inf"):
+                    break
+                best_item = best_track._furthest_offscreen_item
+                if best_item is None:
+                    break
+            if best_item not in best_track.items:
+                self._recompute_track_offscreen_meta(best_track)
+                continue
             self._detach_item_visibility(best_item)
             best_item._pixmap = None
             self._forget_content(best_item.content)
             best_track.items.remove(best_item)
+            self._unregister_item(best_track, best_item)
             dropped += 1
         if dropped:
             self._visibility_stale = True
@@ -419,6 +614,7 @@ class DanmuEngine(QObject):
         if track is None:
             return False
         track.add(item)
+        self._register_item(track, item)
         self._remember_content(item.content)
         self._refresh_item_visibility(item)
         return True
@@ -463,10 +659,10 @@ class DanmuEngine(QObject):
         if track is None:
             return None
         track.add(item)
+        self._register_item(track, item)
         self._remember_content(content)
         if self.overlay is not None:
             self.overlay.measure_item_width(item)
-            self.overlay.prepare_item_pixmap(item)
             if self.overlay.isVisible():
                 self.overlay.ensure_render_loop()
         self._refresh_item_visibility(item)
@@ -493,7 +689,11 @@ class DanmuEngine(QObject):
         # 2. 可接受轨道：按入口区逆密度加权随机（入口区越空权重越高）
         acceptable = [t for t in self.tracks if t.can_accept(item, self.screen_width, min_gap)]
         if acceptable:
-            weights = [1.0 / (1 + t.entry_zone_count(self.screen_width)) for t in acceptable]
+            if self._capacity_counts_seeded:
+                zone_counts = [t.entry_zone_count_cached for t in acceptable]
+            else:
+                zone_counts = [t.entry_zone_count(self.screen_width) for t in acceptable]
+            weights = [1.0 / (1 + count) for count in zone_counts]
             total = sum(weights)
             if total == 0:  # 防护除零错误：所有轨道权重为0时随机选择
                 return random.choice(acceptable)
@@ -526,10 +726,8 @@ class DanmuEngine(QObject):
         return max(0, min_n - self.visible_display_count())
 
     def current_display_count(self) -> int:
-        count = 0
-        for track in self.tracks:
-            count += len(track.items)
-        return count
+        self._ensure_capacity_counts()
+        return self._total_item_count
 
     def needs_render_tick(self) -> bool:
         """True when overlay should run: accel or any item in/approaching the fade band."""
@@ -588,11 +786,17 @@ class DanmuEngine(QObject):
 
     def drop_pending_items(self) -> int:
         dropped = 0
+        sw = self.screen_width
         for track in self.tracks:
-            for item in track.items:
-                if item.x >= self.screen_width:
-                    self._detach_item_visibility(item)
-            dropped += track.drop_pending(self.screen_width)
+            to_drop = [item for item in track.items if item.x >= sw]
+            for item in to_drop:
+                self._detach_item_visibility(item)
+                item._pixmap = None
+                track.items.remove(item)
+                self._unregister_item(track, item)
+                dropped += 1
+        if dropped:
+            self._visibility_stale = True
         return dropped
 
     def drop_items_with_batch_id(self, batch_id: int) -> int:
@@ -601,16 +805,20 @@ class DanmuEngine(QObject):
             return 0
         dropped = 0
         for track in self.tracks:
+            to_drop: list[DanmuItem] = []
             kept: list[DanmuItem] = []
             for item in track.items:
                 if item.batch_id == batch_id:
-                    self._detach_item_visibility(item)
-                    item._pixmap = None
-                    self._forget_content(item.content)
-                    dropped += 1
+                    to_drop.append(item)
                 else:
                     kept.append(item)
             track.items = kept
+            for item in to_drop:
+                self._detach_item_visibility(item)
+                item._pixmap = None
+                self._forget_content(item.content)
+                self._unregister_item(track, item)
+                dropped += 1
         if dropped:
             self._visibility_stale = True
         return dropped
@@ -624,15 +832,19 @@ class DanmuEngine(QObject):
         dropped = 0
         sw = self.screen_width
         for track in self.tracks:
+            to_drop: list[DanmuItem] = []
             kept: list[DanmuItem] = []
             for item in track.items:
                 if item.scene_generation < min_generation and item.x >= sw:
-                    self._detach_item_visibility(item)
-                    item._pixmap = None
-                    dropped += 1
+                    to_drop.append(item)
                 else:
                     kept.append(item)
             track.items = kept
+            for item in to_drop:
+                self._detach_item_visibility(item)
+                item._pixmap = None
+                self._unregister_item(track, item)
+                dropped += 1
         if dropped:
             self._visibility_stale = True
         return dropped
@@ -746,12 +958,18 @@ class DanmuEngine(QObject):
                 track.add(item)
         if preserved:
             self._rebuild_visibility_counts()
+            self._rebuild_capacity_counts()
         else:
             self._visible_count = 0
             self._right_visible_count = 0
             self._fade_zone_count = 0
             self._visibility_stale = False
             self._visibility_counts_seeded = False
+            self._pending_entry_count = 0
+            self._offscreen_pending_count = 0
+            self._total_item_count = 0
+            self._capacity_counts_seeded = False
+            self._capacity_counts_stale = False
 
     def track_count(self) -> int:
         return len(self.tracks)

@@ -13,6 +13,21 @@ from typing import Any
 _WS_BROADCAST_LOG_INTERVAL_SEC = 5.0
 _WS_MAX_STATUS_CONSUMERS = 10
 _WS_MAX_LOG_CONSUMERS = 10
+_WS_SEND_TIMEOUT_SEC = 2.0
+
+
+async def _send_json_with_timeout(
+    websocket,
+    item: Any,
+    *,
+    timeout_sec: float = _WS_SEND_TIMEOUT_SEC,
+) -> bool:
+    """发送 JSON；超时返回 False（慢客户端保护）。"""
+    try:
+        await asyncio.wait_for(websocket.send_json(item), timeout=timeout_sec)
+        return True
+    except asyncio.TimeoutError:
+        return False
 
 
 def _ws_token_valid(query_token: str | None, expected: str) -> bool:
@@ -69,13 +84,22 @@ async def _authenticate_websocket(websocket, expected_token: str, timeout_sec: f
         if isinstance(data, dict) and data.get("type") == "auth":
             auth_token = data.get("token", "")
             if auth_token.strip() == expected_token:
-                await websocket.send_json({"type": "auth", "ok": True})
+                if not await _send_json_with_timeout(
+                    websocket, {"type": "auth", "ok": True}
+                ):
+                    return False
                 return True
-        await websocket.send_json({"type": "auth", "ok": False, "error": "认证失败"})
+        if not await _send_json_with_timeout(
+            websocket, {"type": "auth", "ok": False, "error": "认证失败"}
+        ):
+            return False
         await websocket.close(code=1008, reason="认证失败")
         return False
     except asyncio.TimeoutError:
-        await websocket.send_json({"type": "auth", "ok": False, "error": "认证超时"})
+        if not await _send_json_with_timeout(
+            websocket, {"type": "auth", "ok": False, "error": "认证超时"}
+        ):
+            return False
         await websocket.close(code=1008, reason="认证超时")
         return False
     except Exception:
@@ -98,12 +122,14 @@ def register_websocket_routes(app, bridge, token: str, websocket_route, websocke
         bridge.register_status_consumer(queue)
         cached = bridge._last_status_payload
         if cached:
-            await websocket.send_json(cached)
+            if not await _send_json_with_timeout(websocket, cached):
+                return
         bridge.status_refresh_requested.emit()
         try:
             while True:
                 item = await queue.get()
-                await websocket.send_json(item)
+                if not await _send_json_with_timeout(websocket, item):
+                    break
         except websocket_disconnect:
             bridge._ws_log_debug(f"WebSocket /ws/status disconnected peer={peer}")
         except Exception as exc:
@@ -128,7 +154,8 @@ def register_websocket_routes(app, bridge, token: str, websocket_route, websocke
         try:
             while True:
                 item = await queue.get()
-                await websocket.send_json(item)
+                if not await _send_json_with_timeout(websocket, item):
+                    break
         except websocket_disconnect:
             bridge._ws_log_debug(f"WebSocket /ws/logs disconnected peer={peer}")
         except Exception as exc:

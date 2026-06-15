@@ -10,6 +10,48 @@ from main import DanmuApp
 from PyQt6.QtWidgets import QApplication
 
 from tests.conftest import make_minimal_danmu_app
+from tests.fakes import FakePixmap
+
+
+def test_trigger_api_call_passes_latest_screenshot_without_copy(monkeypatch):
+    """W-PERF-HIGH-002: visual fire path borrows _latest_screenshot ref, no QPixmap.copy()."""
+    app = make_minimal_danmu_app()
+    app.engine.running = True
+    pixmap = FakePixmap(0b1, width=100, height=80)
+    app._latest_screenshot = pixmap
+    app._latest_screenshot_id = 7
+    app._latest_screenshot_time = time.monotonic()
+    app.personae = Mock(
+        pick_random=Mock(return_value="吐槽型"),
+        get_prompt=Mock(return_value=("sys", "user")),
+    )
+
+    captured: dict[str, object] = {}
+
+    class _Runnable:
+        def __init__(self, _worker, handed_pixmap, *_args, **_kwargs):
+            captured["pixmap"] = handed_pixmap
+
+    pool = Mock()
+    pool.start = Mock()
+    monkeypatch.setattr("app.worker_pools.ai_worker_pool", lambda: pool)
+    monkeypatch.setattr("app.runnable.AiRunnable", _Runnable)
+
+    app._api_schedule_block_reason = Mock(return_value="")
+    app._get_request_scheduler = Mock(return_value=Mock(record_trigger_time=Mock()))
+    app._get_request_timing_service = Mock(return_value=Mock(mark_started=Mock()))
+    app._register_request_meta = Mock()
+    app._publish_live_status = Mock()
+    app._log_api_schedule = Mock()
+    app._trigger_api_call = DanmuApp._trigger_api_call.__get__(app, DanmuApp)
+
+    app._trigger_api_call()
+
+    assert captured["pixmap"] is pixmap
+    assert captured["pixmap"] is app._latest_screenshot
+    assert captured["pixmap"].width() == 100
+    assert captured["pixmap"].height() == 80
+    pool.start.assert_called_once()
 
 
 def test_on_ai_reply_enqueues_despite_stale_screenshot_id(monkeypatch):
@@ -20,7 +62,7 @@ def test_on_ai_reply_enqueues_despite_stale_screenshot_id(monkeypatch):
     app.ai_in_flight = 1
     app._latest_screenshot_id = 100
     app._register_request_meta(10, 1, 0, "visual")
-    monkeypatch.setattr(main_mod, "parse_ai_reply_with_memory", lambda text, sg: (["lagged"], None))
+    monkeypatch.setattr(main_mod, "parse_ai_reply_payload", lambda text: ["lagged"])
     monkeypatch.setattr(main_mod, "normalize_reply_batch", lambda raw_items, **kwargs: raw_items)
     app._on_ai_reply = main_mod.DanmuApp._on_ai_reply.__get__(app, main_mod.DanmuApp)
     app._consume_reply_queue = lambda: None
@@ -248,8 +290,8 @@ def test_empty_ai_reply_logs_warning(monkeypatch):
     app.ai_in_flight = 1
     app._register_request_meta(10, 10, 0, "visual")
     monkeypatch.setattr(
-        "main.parse_ai_reply_with_memory",
-        lambda _text, _gen: ([], None),
+        "main.parse_ai_reply_payload",
+        lambda _text: [],
     )
     monkeypatch.setattr(
         "main.normalize_reply_batch",

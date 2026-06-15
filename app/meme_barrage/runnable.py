@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Callable
 
-from PyQt6.QtCore import QRunnable
+from PyQt6.QtCore import QRunnable, QThreadPool
 
 from app.meme_barrage.ai_select import (
     build_meme_select_system_prompt,
@@ -16,6 +16,17 @@ from app.meme_barrage.client import MemeBarrageApiClient
 if TYPE_CHECKING:
     from app.ai_client import AiWorker
     from app.config_store import ConfigStore
+
+_fetch_pool: QThreadPool | None = None
+
+
+def meme_fetch_pool() -> QThreadPool:
+    global _fetch_pool
+    if _fetch_pool is None:
+        pool = QThreadPool()
+        pool.setMaxThreadCount(1)
+        _fetch_pool = pool
+    return _fetch_pool
 
 
 def _safe_emit(callback: Callable[..., None] | None, *args: Any) -> None:
@@ -37,6 +48,7 @@ class MemeFetchRunnable(QRunnable):
         page_size: int,
         on_success: Callable[[dict[str, Any]], None],
         on_error: Callable[[str], None],
+        client: MemeBarrageApiClient | None = None,
     ) -> None:
         super().__init__()
         self._category = category
@@ -45,11 +57,12 @@ class MemeFetchRunnable(QRunnable):
         self._page_size = page_size
         self._on_success = on_success
         self._on_error = on_error
+        self._client = client
         self.setAutoDelete(True)
 
     def run(self) -> None:
         try:
-            client = MemeBarrageApiClient()
+            client = self._client if self._client is not None else MemeBarrageApiClient()
             if self._category == "tagged":
                 data = client.sort_all_barrage(
                     page_num=self._page_num,
@@ -69,16 +82,20 @@ class MemeAiSelectRunnable(QRunnable):
         *,
         worker: "AiWorker",
         config: "ConfigStore",
-        image_data_uri: str,
         candidates: list[str],
         pick_count: int,
         on_success: Callable[[list[str]], None],
         on_error: Callable[[str], None],
+        image_data_uri: str | None = None,
+        pixmap: Any = None,
+        compress_fn: Callable[[Any], str] | None = None,
     ) -> None:
         super().__init__()
         self._worker = worker
         self._config = config
         self._image_data_uri = image_data_uri
+        self._pixmap = pixmap
+        self._compress_fn = compress_fn
         self._candidates = list(candidates)
         self._pick_count = pick_count
         self._on_success = on_success
@@ -91,6 +108,20 @@ class MemeAiSelectRunnable(QRunnable):
             return
         if not self._candidates:
             _safe_emit(self._on_error, "empty_candidates")
+            return
+        if self._image_data_uri:
+            image_data_uri = self._image_data_uri
+        elif self._pixmap is not None and self._compress_fn is not None:
+            try:
+                image_data_uri = self._compress_fn(self._pixmap)
+            except Exception as exc:
+                _safe_emit(self._on_error, f"compress_error:{exc!r}")
+                return
+            if not image_data_uri:
+                _safe_emit(self._on_error, "compress_empty")
+                return
+        else:
+            _safe_emit(self._on_error, "no_image")
             return
         try:
             from app.model_providers import resolve_api_transport
@@ -105,7 +136,7 @@ class MemeAiSelectRunnable(QRunnable):
             persona_id = "meme_select"
             if resolve_api_transport(endpoint, api_mode) == "doubao":
                 result = self._worker._request_doubao(
-                    self._image_data_uri,
+                    image_data_uri,
                     system_pt,
                     user_pt,
                     persona_id,
@@ -118,7 +149,7 @@ class MemeAiSelectRunnable(QRunnable):
                 )
             else:
                 result = self._worker._request_openai(
-                    self._image_data_uri,
+                    image_data_uri,
                     system_pt,
                     user_pt,
                     persona_id,

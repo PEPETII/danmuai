@@ -144,6 +144,15 @@ def resolve_screens_for_api(
     return cached_list
 
 
+def screens_for_api(bridge: object) -> list[dict[str, Any]]:
+    """Return cached screens when valid; otherwise enumerate and merge."""
+    cached = getattr(bridge, "cached_screens", None)
+    if cached and not is_empty_screens_fallback(cached):
+        return list(cached)
+    live = enumerate_screens()
+    return resolve_screens_for_api(cached, live)
+
+
 def try_cache_screens(bridge: object) -> bool:
     """Write bridge.cached_screens when Qt reports real displays; return True if cached."""
     screens = enumerate_screens()

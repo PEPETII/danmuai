@@ -6,7 +6,8 @@
 - Win32：在 show 后对原生 HWND 叠加 WS_EX_LAYERED | WS_EX_TRANSPARENT，点击落到下层窗口。
 - 淡入（右侧 FADE_IN_PX）/ 淡出（左侧 FADE_OUT_PX）分段 alpha；弹幕文本预渲染为 QPixmap 描边+填充。
 
-调用方：DanmuApp.start() → show_for_screen + start_render_loop；engine.add_text → prepare_item_pixmap。
+调用方：DanmuApp.start() → show_for_screen + start_render_loop；engine.add_text → measure_item_width；
+接近可视区时由 overlay._prepare_pixmaps_near_visible / paintEvent 延迟预渲染 QPixmap。
 """
 import logging
 import os
@@ -41,6 +42,7 @@ _DT_CAP_SEC = 0.1
 _OPACITY_CACHE_BUCKET = 4.0
 _Y_OFFSET = 30
 _DIRTY_MARGIN_PX = 12
+_PRERENDER_AHEAD_PX = FADE_IN_PX + 80.0
 _FAST_DANMU_RENDER_MIN_LEN = 36
 _FAST_OUTLINE_OFFSETS = (
     (-2, 0),
@@ -322,6 +324,32 @@ class DanmuOverlay(QWidget):
             return False
         return True
 
+    def _prepare_pixmaps_near_visible(self) -> None:
+        """Lazy pixmap: pre-render items approaching the visible band, not at add_text time."""
+        sw = self._screen_width or float(self.width())
+        if sw <= 0:
+            return
+        threshold = sw + FADE_IN_PX + _PRERENDER_AHEAD_PX
+        for track in self.engine.tracks:
+            for item in track.items:
+                if item._pixmap is not None:
+                    continue
+                if item.x >= threshold:
+                    continue
+                if item.x + item.width <= 0:
+                    continue
+                self.prepare_item_pixmap(item)
+
+    def _iter_paint_dirty_items(self, margin: float):
+        """Yield visible items intersecting the dirty motion margin."""
+        for track in self.engine.tracks:
+            for item in track.items:
+                if not self._item_in_paint_band(item):
+                    continue
+                if not self._item_intersects_dirty(item, margin):
+                    continue
+                yield item
+
     def _union_dirty_rect(self, margin: float) -> QRect | None:
         bounds: QRectF | None = None
         for track in self.engine.tracks:
@@ -349,30 +377,22 @@ class DanmuOverlay(QWidget):
     def _tick_dirty_rects(
         self, margin: float
     ) -> tuple[QRect | None, QRect | None, int, int]:
-        """Snapshot dirty bounds before/after motion in one margin pass."""
+        """Snapshot dirty bounds before/after motion in one candidate pass."""
+        candidates = list(self._iter_paint_dirty_items(margin))
+
         pre_bounds: QRectF | None = None
-        for track in self.engine.tracks:
-            for item in track.items:
-                if not self._item_in_paint_band(item):
-                    continue
-                if not self._item_intersects_dirty(item, margin):
-                    continue
-                rect = self._item_paint_rect(item)
-                pre_bounds = rect if pre_bounds is None else pre_bounds.united(rect)
+        for item in candidates:
+            rect = self._item_paint_rect(item)
+            pre_bounds = rect if pre_bounds is None else pre_bounds.united(rect)
 
         before_visible = self.engine.visible_display_count()
         self.engine.update(dt_sec=self.last_tick_dt_sec)
         after_visible = self.engine.visible_display_count()
 
         post_bounds: QRectF | None = None
-        for track in self.engine.tracks:
-            for item in track.items:
-                if not self._item_in_paint_band(item):
-                    continue
-                if not self._item_intersects_dirty(item, margin):
-                    continue
-                rect = self._item_paint_rect(item)
-                post_bounds = rect if post_bounds is None else post_bounds.united(rect)
+        for item in candidates:
+            rect = self._item_paint_rect(item)
+            post_bounds = rect if post_bounds is None else post_bounds.united(rect)
 
         m = margin + _DIRTY_MARGIN_PX
 
@@ -445,6 +465,7 @@ class DanmuOverlay(QWidget):
         dt = self._tick_dt_sec()
         self.last_tick_dt_sec = dt
         margin = self._motion_margin_px()
+        self._prepare_pixmaps_near_visible()
         t_dirty = time.perf_counter() if overlay_profile_enabled() else 0.0
         pre_dirty, post_dirty, before_visible, after_visible = self._tick_dirty_rects(margin)
         dirty_ms = (time.perf_counter() - t_dirty) if overlay_profile_enabled() else 0.0
@@ -582,8 +603,10 @@ class DanmuOverlay(QWidget):
 
         for track in self.engine.tracks:
             for item in track.items:
-                if item._pixmap is None or not self._item_in_paint_band(item):
+                if not self._item_in_paint_band(item):
                     continue
+                if item._pixmap is None:
+                    self.prepare_item_pixmap(item)
 
                 item_rect = self._item_paint_rect(item)
                 if not clip.intersects(item_rect.toRect()):
