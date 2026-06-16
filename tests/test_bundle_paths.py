@@ -69,6 +69,24 @@ def test_overview_global_fields_in_index_html():
     assert lifetime_idx < topic_idx < persona_idx
 
 
+def test_persona_name_prefix_toggle_in_built_index_html():
+    """W-PERSONA-NAME-DISPLAY-001: partial edits must be rebuilt into index.html."""
+    root = project_root()
+    html = (root / "web" / "static" / "index.html").read_text(encoding="utf-8")
+    persona_html = (root / "web" / "static" / "partials" / "content-pages.html").read_text(
+        encoding="utf-8"
+    )
+    assert 'id="personaNamePrefixEnabled"' in persona_html
+    assert 'id="personaNamePrefixEnabled"' in html
+    persona_start = html.index('id="page-persona"')
+    tutorial_start = html.index('id="page-tutorial"')
+    persona_slice = html[persona_start:tutorial_start]
+    save_idx = persona_slice.index('id="btnSavePersona"')
+    prefix_idx = persona_slice.index('id="personaNamePrefixEnabled"')
+    active_idx = persona_slice.index('id="hintPersonaActiveTitle"')
+    assert save_idx < prefix_idx < active_idx
+
+
 def test_overview_announcement_banner_in_content_pages_js():
     root = project_root()
     app_js = (root / "web" / "static" / "app.js").read_text(encoding="utf-8")

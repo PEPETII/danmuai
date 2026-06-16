@@ -7,6 +7,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from app.config_store import ConfigStore
+from app.danmu_pool import CUSTOM_DANMU_POOL_MAX
 from app.web_api import danmu_pool as pool_api
 
 
@@ -22,7 +23,9 @@ def test_get_meta_defaults(pool_app):
     assert meta["custom_enabled"] is False
     assert meta["min_on_screen"] == 5
     assert meta["custom_count"] == 0
-    assert meta["custom_max"] == 2500
+    assert meta["manual_count"] == 0
+    assert meta["import_count"] == 0
+    assert meta["custom_max"] == CUSTOM_DANMU_POOL_MAX
     assert meta["effective_pool_enabled"] is False
     assert "builtin_enabled" not in meta
     assert "builtin_count" not in meta
@@ -61,8 +64,9 @@ def test_append_custom_via_textarea(pool_app):
     assert pool_app.config.get_custom_danmu_pool() == ["第一行", "第二行"]
 
 
-def test_append_custom_respects_pool_limit(pool_app):
-    pool_app.config.set_custom_danmu_pool([f"句{i}" for i in range(pool_api.CUSTOM_POOL_MAX)])
+def test_append_custom_respects_pool_limit(pool_app, monkeypatch):
+    monkeypatch.setattr(pool_api, "CUSTOM_POOL_MAX", 5)
+    pool_app.config.set_custom_danmu_pool([f"句{i}" for i in range(5)])
     result = pool_api.append_custom(pool_app, {"items": ["新句"]})
     assert result["added"] == 0
     assert any(item["reason"] == "limit_reached" for item in result["skipped_items"])
@@ -70,16 +74,45 @@ def test_append_custom_respects_pool_limit(pool_app):
 
 def test_append_custom_accepts_large_text_batch(pool_app):
     lines = [f"导入句{i}" for i in range(150)]
-    result = pool_api.append_custom(pool_app, {"text": "\n".join(lines)})
+    result = pool_api.append_custom(pool_app, {"text": "\n".join(lines), "source": "import"})
     assert result["added"] == 150
-    assert len(pool_app.config.get_custom_danmu_pool()) == 150
+    assert pool_app.config.custom_danmu_count() == 150
+    assert pool_app.config.custom_danmu_count("manual") == 0
+    assert "items" not in result
+
+
+def test_append_import_not_listed_in_manual_page(pool_app):
+    pool_api.append_custom(pool_app, {"items": ["导入句"], "source": "import"})
+    listed = pool_api.list_custom(pool_app, source="manual")
+    assert listed["items"] == []
+    assert listed["total"] == 0
+    assert pool_app.config.custom_danmu_count() == 1
+
+
+def test_list_custom_paginates_manual_only(pool_app):
+    pool_app.config.set_custom_danmu_pool([f"手动{i}" for i in range(3)])
+    pool_api.append_custom(pool_app, {"items": ["导入句"], "source": "import"})
+    page = pool_api.list_custom(pool_app, page=1, page_size=50, source="manual")
+    assert page["total"] == 3
+    assert len(page["items"]) == 3
+    assert all("id" in item and "text" in item for item in page["items"])
 
 
 def test_delete_custom_by_texts(pool_app):
     pool_app.config.set_custom_danmu_pool(["保留", "删除A", "删除B"])
     result = pool_api.delete_custom(pool_app, {"texts": ["删除A", "删除B"]})
     assert result["removed"] == 2
-    assert result["items"] == ["保留"]
+    assert "items" not in result
+    assert pool_app.config.get_custom_danmu_pool() == ["保留"]
+
+
+def test_delete_custom_by_ids(pool_app):
+    pool_app.config.set_custom_danmu_pool(["保留", "删除A"])
+    listed = pool_api.list_custom(pool_app)
+    delete_id = next(item["id"] for item in listed["items"] if item["text"] == "删除A")
+    result = pool_api.delete_custom(pool_app, {"ids": [delete_id]})
+    assert result["removed"] == 1
+    assert pool_app.config.get_custom_danmu_pool() == ["保留"]
 
 
 def test_danmu_pool_routes_registered(tmp_path):
@@ -105,7 +138,7 @@ def test_danmu_pool_routes_registered(tmp_path):
     body = meta.json()
     assert "builtin_enabled" not in body
     assert "builtin_count" not in body
-    assert body["custom_max"] == 2500
+    assert body["custom_max"] == CUSTOM_DANMU_POOL_MAX
 
     settings = client.put(
         "/api/danmu-pool/settings",
@@ -121,10 +154,13 @@ def test_danmu_pool_routes_registered(tmp_path):
     assert posted.status_code == 200
     assert posted.json()["added"] == 1
 
+    page = client.get("/api/danmu-pool/custom")
+    entry_id = page.json()["items"][0]["id"]
+
     deleted = client.request(
         "DELETE",
         "/api/danmu-pool/custom",
-        json={"texts": ["测试句"]},
+        json={"ids": [entry_id]},
     )
     assert deleted.status_code == 200
     assert deleted.json()["removed"] == 1

@@ -41,10 +41,13 @@ WEB_CONFIG_KEYS = (
     "mic_api_endpoint",
     "mic_api_mode",
     "mic_model",
+    "mic_insert_reply_count",
+    "mic_insert_voice_reply_count",
     "normal_recognition_interval_sec",
     "normal_reply_count",
     "user_nickname",  # W-NICKNAME-001
     "live_topic",  # W-LIVE-TOPIC-001
+    "persona_name_prefix_enabled",  # W-PERSONA-NAME-DISPLAY-001
     # W-FP-V2-001：弹幕渲染模式与侧边悬浮窗配置
     "danmu_render_mode",
     "floating_panel_width",
@@ -274,6 +277,10 @@ class ConfigService:
             _v = str(items["empty_accel"]).strip().lower()
             items["empty_accel"] = "1" if _v in ("1", "true", "yes", "on") else "0"
 
+        if "persona_name_prefix_enabled" in items:
+            _v = str(items["persona_name_prefix_enabled"]).strip().lower()
+            items["persona_name_prefix_enabled"] = "1" if _v in ("1", "true", "yes", "on") else "0"
+
         if (
             "danmu_pending_entry_cap" in items
             or "danmu_track_retention_cap" in items
@@ -306,6 +313,44 @@ class ConfigService:
                 1,
                 NORMAL_REPLY_COUNT_MAX,
             )
+
+        if "mic_insert_reply_count" in items or "mic_insert_voice_reply_count" in items:
+            from app.config_defaults import (
+                DEFAULT_MIC_INSERT_REPLY_COUNT,
+                DEFAULT_MIC_INSERT_VOICE_REPLY_COUNT,
+            )
+            from app.personae import NORMAL_REPLY_COUNT_MAX, NORMAL_REPLY_COUNT_MIN
+
+            if "mic_insert_reply_count" in items:
+                _clamp_int_key(
+                    items,
+                    "mic_insert_reply_count",
+                    DEFAULT_MIC_INSERT_REPLY_COUNT,
+                    NORMAL_REPLY_COUNT_MIN,
+                    NORMAL_REPLY_COUNT_MAX,
+                )
+            try:
+                x_raw = items.get(
+                    "mic_insert_reply_count",
+                    self._config.get(
+                        "mic_insert_reply_count",
+                        str(DEFAULT_MIC_INSERT_REPLY_COUNT),
+                    ),
+                )
+                x = max(
+                    NORMAL_REPLY_COUNT_MIN,
+                    min(int(x_raw), NORMAL_REPLY_COUNT_MAX),
+                )
+            except (TypeError, ValueError):
+                x = DEFAULT_MIC_INSERT_REPLY_COUNT
+            if "mic_insert_voice_reply_count" in items:
+                _clamp_int_key(
+                    items,
+                    "mic_insert_voice_reply_count",
+                    DEFAULT_MIC_INSERT_VOICE_REPLY_COUNT,
+                    0,
+                    x,
+                )
 
         # W-FP-V2-001：danmu_render_mode 与侧边悬浮窗配置归一化
         if "danmu_render_mode" in items:

@@ -361,13 +361,18 @@ class FloatingPanelEngine:
 
         skip_dedup: bool = False,
 
+        pre_resolved: bool = False,
+
         now: float | None = None,
 
     ) -> FloatingPanelItem | None:
 
         del persona, scene_generation  # API 对齐 DanmuEngine.add_text
 
-        text = normalize_danmu_display_text(content, self.config)
+        if pre_resolved:
+            text = str(content).strip()
+        else:
+            text = normalize_danmu_display_text(content, self.config)
 
         if not text:
 

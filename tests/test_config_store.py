@@ -494,3 +494,71 @@ def test_apply_web_save_does_not_pollute_cache_on_failure(tmp_path):
 
     assert store.get("stable_key") == "original"
     store.close()
+
+
+def test_custom_danmu_pool_json_migration(tmp_path):
+    import json as json_mod
+
+    db = tmp_path / "migrate.db"
+    conn = sqlite3.connect(db)
+    conn.execute("CREATE TABLE IF NOT EXISTS config (key TEXT PRIMARY KEY, value TEXT)")
+    conn.execute(
+        "REPLACE INTO config (key, value) VALUES (?, ?)",
+        ("custom_danmu_pool", json_mod.dumps(["旧句A", "旧句B", "旧句A", ""], ensure_ascii=False)),
+    )
+    conn.commit()
+    conn.close()
+
+    store = ConfigStore(db_path=db)
+    assert store.get("custom_danmu_pool_migrated") == "1"
+    assert store.get_custom_danmu_pool() == ["旧句A", "旧句B"]
+    store.close()
+
+
+def test_custom_danmu_pool_pagination_and_search(tmp_path):
+    store = ConfigStore(db_path=tmp_path / "pool_page.db")
+    store.set_custom_danmu_pool([f"手动句{i}" for i in range(5)])
+    page = store.custom_danmu_list(page=1, page_size=2, source="manual")
+    assert page["total"] == 5
+    assert len(page["items"]) == 2
+    assert page["items"][0]["id"] > 0
+
+    found = store.custom_danmu_list(page=1, page_size=50, search="手动句3", source="manual")
+    assert found["total"] == 1
+    assert found["items"][0]["text"] == "手动句3"
+    store.close()
+
+
+def test_custom_danmu_insert_many_sources_and_dedup(tmp_path):
+    store = ConfigStore(db_path=tmp_path / "pool_insert.db")
+    manual = store.custom_danmu_insert_many(["句A", "句A", ""], source="manual")
+    assert manual["added"] == 1
+    assert manual["skipped_duplicate"] == 1
+    assert manual["skipped_empty"] == 1
+
+    imported = store.custom_danmu_insert_many(["导入句", "句A"], source="import")
+    assert imported["added"] == 1
+    assert imported["skipped_duplicate"] == 1
+    assert store.custom_danmu_count("manual") == 1
+    assert store.custom_danmu_count("import") == 1
+    store.close()
+
+
+def test_custom_danmu_random_sample(tmp_path):
+    store = ConfigStore(db_path=tmp_path / "pool_sample.db")
+    store.set_custom_danmu_pool([f"句{i}" for i in range(10)])
+    picked = store.custom_danmu_random_sample(3)
+    assert len(picked) == 3
+    assert all(p in store.get_custom_danmu_pool() for p in picked)
+    store.close()
+
+
+def test_custom_danmu_pool_capacity_limit(tmp_path, monkeypatch):
+    store = ConfigStore(db_path=tmp_path / "pool_cap.db")
+    monkeypatch.setattr("app.danmu_pool.CUSTOM_DANMU_POOL_MAX", 3)
+    stats = store.custom_danmu_insert_many(["a", "b", "c", "d"], source="manual")
+    assert stats["added"] == 3
+    assert stats["skipped_limit"] == 1
+    assert store.custom_danmu_count() == 3
+    store.close()
+

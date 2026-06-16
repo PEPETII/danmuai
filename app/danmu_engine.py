@@ -125,6 +125,32 @@ def normalize_danmu_display_text(content: str, config, *, lang: str | None = Non
     return raw
 
 
+def is_persona_name_prefix_enabled(config) -> bool:
+    return str(config.get("persona_name_prefix_enabled", "0")).strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+
+
+def resolve_danmu_display_text(
+    content: str,
+    config,
+    persona_id: str = "",
+    *,
+    lang: str | None = None,
+) -> str:
+    """最终上屏文本：先截断正文，再按需拼接人格显示名前缀。"""
+    body = normalize_danmu_display_text(content, config, lang=lang)
+    if not body or not persona_id or not is_persona_name_prefix_enabled(config):
+        return body
+    from app.personae import persona_display_name
+
+    name = persona_display_name(persona_id).strip()
+    return f"{name}：{body}" if name else body
+
+
 def is_normalized_danmu_overlay_safe(content: str, config, *, lang: str | None = None) -> bool:
     """对已 normalize 的弹幕做 overlay 校验（含 ... 后缀时的长度上限）。"""
     from app.danmu_pool_overlay import is_overlay_safe
@@ -627,14 +653,19 @@ class DanmuEngine(QObject):
         scene_generation: int = 0,
         *,
         skip_dedup: bool = False,
+        pre_resolved: bool = False,
     ) -> DanmuItem | None:
         """弹幕入轨：截断 → 去重 → 可选屏外淘汰 → _pick_track → 记入 recent 窗口。
 
         默认无固定上屏数量上限；初始 x 在屏幕右缘外（待滚入）。
         skip_dedup 用于池补齐等已在外层去重的文本。
+        pre_resolved=True 时 content 已是最终上屏文本（含人格前缀），不再二次截断。
         公式化弹幕经 normalize_danmu_display_text 完整展示；AI 弹幕受 danmu_max_chars 限制。
         """
-        content = normalize_danmu_display_text(content, self.config)
+        if pre_resolved:
+            content = str(content).strip()
+        else:
+            content = normalize_danmu_display_text(content, self.config)
         if not content:
             return None
 

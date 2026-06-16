@@ -32,6 +32,16 @@ _REMOVED_PERSONAE = frozenset({
     "搞笑玩梗型",
     "捧场活跃型",
     "轻度吐槽型",
+    # W-PERSONA-TRIM-002: non-default built-ins removed from personae_builtin.json
+    "测试4",
+    "文艺型",
+    "技术型",
+    "萌系型",
+    "中二型",
+    "治愈型",
+    "毒舌型",
+    "元气型",
+    "社恐型",
 })
 
 

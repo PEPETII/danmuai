@@ -31,7 +31,7 @@ from app.api_schedule import pixels_per_second, time_to_anchor_boundary
 from app.application.config_service import ConfigService
 from app.application.status_snapshot import StatusSnapshotBuilder
 from app.danmu_engine import (
-    normalize_danmu_display_text,
+    resolve_danmu_display_text,
 )
 from app.live_freshness import (
     build_local_fallback_batch,
@@ -591,7 +591,11 @@ class DanmuApp(
                         self.reply_timer.start(max(50, delay))
                     return
 
-                display_peek = normalize_danmu_display_text(queued_peek.content, self.config)
+                display_peek = resolve_danmu_display_text(
+                    queued_peek.content,
+                    self.config,
+                    queued_peek.persona_id,
+                )
                 skip_dedup_peek = queued_peek.is_fallback or queued_peek.source == "fallback"
                 if not display_peek:
                     queued = self.reply_buffer.pop()
@@ -621,14 +625,19 @@ class DanmuApp(
             return
 
         self.logger.info(f"[{persona_display_name(queued.persona_id)}] {queued.content}")
-        display_content = normalize_danmu_display_text(queued.content, self.config)
+        display_content = resolve_danmu_display_text(
+            queued.content,
+            self.config,
+            queued.persona_id,
+        )
         skip_dedup = queued.is_fallback or queued.source == "fallback"
         item = self._display_danmu_text(
-            queued.content,
+            display_content,
             queued.persona_id,
             batch_id=queued.batch_id,
             scene_generation=queued.scene_generation,
             skip_dedup=skip_dedup,
+            pre_resolved=True,
         )
         if item:
             self._latest_displayed_round = max(self._latest_displayed_round, queued.screenshot_round)

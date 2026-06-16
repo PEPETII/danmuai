@@ -6,8 +6,10 @@ from app.danmu_engine import (
     DanmuEngine,
     DanmuItem,
     clamp_danmu_lines,
+    is_persona_name_prefix_enabled,
     layout_height_ratio,
     normalize_layout_mode,
+    resolve_danmu_display_text,
     resolve_danmu_max_chars,
 )
 from app.reply_queue import AIReplyFIFOBuffer, QueuedReply
@@ -57,6 +59,37 @@ def test_add_text_truncates_to_configured_max_chars(engine):
     item = engine.add_text("一二三四五六七八九十")
     assert item is not None
     assert item.content == "一二三四五六七八..."
+
+
+def test_resolve_danmu_display_text_without_prefix(engine):
+    engine.config.set("persona_name_prefix_enabled", "0")
+    assert resolve_danmu_display_text("你好世界", engine.config, "吐槽型") == "你好世界"
+
+
+def test_resolve_danmu_display_text_with_prefix(engine):
+    engine.config.set("persona_name_prefix_enabled", "1")
+    assert resolve_danmu_display_text("你好世界", engine.config, "吐槽型") == "吐槽型：你好世界"
+
+
+def test_resolve_danmu_display_text_truncates_body_before_prefix(engine):
+    engine.config.set("persona_name_prefix_enabled", "1")
+    engine.config.set("danmu_max_chars", "5")
+    assert resolve_danmu_display_text("一二三四五六", engine.config, "吐槽型") == "吐槽型：一二三四五..."
+
+
+def test_is_persona_name_prefix_enabled_parses_truthy_values(engine):
+    engine.config.set("persona_name_prefix_enabled", "on")
+    assert is_persona_name_prefix_enabled(engine.config) is True
+    engine.config.set("persona_name_prefix_enabled", "0")
+    assert is_persona_name_prefix_enabled(engine.config) is False
+
+
+def test_add_text_pre_resolved_skips_retruncate(engine):
+    engine.config.set("danmu_max_chars", "4")
+    prefixed = "吐槽型：这是一段很长的弹幕正文"
+    item = engine.add_text(prefixed, persona="吐槽型", pre_resolved=True, skip_dedup=True)
+    assert item is not None
+    assert item.content == prefixed
 
 
 def test_add_text_keeps_custom_pool_line_untruncated(engine):

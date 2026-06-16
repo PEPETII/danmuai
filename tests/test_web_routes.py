@@ -344,6 +344,48 @@ def test_user_nickname_in_web_config_keys():
     assert "user_nickname" in tuple(WEB_CONFIG_KEYS)
 
 
+# W-PERSONA-NAME-DISPLAY-001
+def test_persona_name_prefix_round_trip_via_config_service(tmp_path):
+    from app.application.config_service import apply_web_config_patch
+    from app.config_store import ConfigStore
+
+    db_path = tmp_path / "config.db"
+    store = ConfigStore(db_path)
+    assert store.get("persona_name_prefix_enabled", "") == "0"
+
+    class _PersonaeStub:
+        def set_active(self, _active):
+            return None
+
+    class _DanmuAppStub:
+        config_changed = MagicMock()
+
+    app = _DanmuAppStub()
+    app.config = store
+    app.personae = _PersonaeStub()
+
+    apply_web_config_patch(app, {"persona_name_prefix_enabled": "1"})
+    assert store.get("persona_name_prefix_enabled", "") == "1"
+
+    store2 = ConfigStore(db_path)
+    assert store2.get("persona_name_prefix_enabled", "") == "1"
+
+    apply_web_config_patch(app, {"persona_name_prefix_enabled": "0"})
+    assert store.get("persona_name_prefix_enabled", "") == "0"
+
+
+def test_persona_name_prefix_default_in_config_defaults():
+    from app.config_defaults import CONFIG_DEFAULTS
+
+    assert CONFIG_DEFAULTS.get("persona_name_prefix_enabled", "") == "0"
+
+
+def test_persona_name_prefix_in_web_config_keys():
+    from app.application.config_service import WEB_CONFIG_KEYS
+
+    assert "persona_name_prefix_enabled" in WEB_CONFIG_KEYS
+
+
 # W-FP-V2-001：danmu_render_mode 与悬浮窗 V2 配置走 PUT /api/config
 
 

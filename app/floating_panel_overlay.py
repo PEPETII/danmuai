@@ -143,6 +143,7 @@ class FloatingPanelOverlay(QWidget):
         batch_id: int = 0,
         scene_generation: int = 0,
         skip_dedup: bool = False,
+        pre_resolved: bool = False,
     ) -> FloatingPanelItem | None:
         item = self.engine.add_text(
             content,
@@ -151,6 +152,7 @@ class FloatingPanelOverlay(QWidget):
             batch_id=batch_id,
             scene_generation=scene_generation,
             skip_dedup=skip_dedup,
+            pre_resolved=pre_resolved,
         )
         if item is None:
             return None

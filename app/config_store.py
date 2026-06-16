@@ -54,6 +54,8 @@ CONFIG_DIR = Path(os.environ.get("APPDATA", ".")) / "DanmuAI"
 CONFIG_FILE = CONFIG_DIR / "config.db"
 _KEY_FILE = CONFIG_DIR / ".key"
 
+from app.danmu_pool import CUSTOM_DANMU_POOL_MAX  # noqa: E402
+
 
 def _restrict_key_file_permissions(path: Path):
     """Set file permissions so only the owner can read/write (best-effort)."""
@@ -98,6 +100,9 @@ class ConfigStore:
         self._custom_models_fp: str | None = None
         self._repair_stale_region_if_needed()
         self._normalize_legacy_display_mode()
+        from app.danmu_pool import migrate_custom_danmu_pool_json
+
+        migrate_custom_danmu_pool_json(self)
 
     def _migrate_legacy_display_mode_to_render_mode(self) -> None:
         # W-FP-V2-002：遗留 display_mode（overlay/floating_panel/both）→ danmu_render_mode 写回
@@ -167,6 +172,24 @@ class ConfigStore:
             "source_tag TEXT, "
             "remote_id INTEGER, "
             "collected_at REAL NOT NULL)"
+        )
+        self.conn.execute(
+            "CREATE TABLE IF NOT EXISTS custom_danmu_pool_entries ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+            "text TEXT NOT NULL UNIQUE, "
+            "source TEXT NOT NULL DEFAULT 'manual', "
+            "enabled INTEGER NOT NULL DEFAULT 1, "
+            "created_at REAL NOT NULL, "
+            "updated_at REAL NOT NULL, "
+            "use_count INTEGER NOT NULL DEFAULT 0)"
+        )
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_custom_danmu_pool_source_id "
+            "ON custom_danmu_pool_entries(source, id)"
+        )
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_custom_danmu_pool_text "
+            "ON custom_danmu_pool_entries(text)"
         )
         self.conn.commit()
 
@@ -570,15 +593,58 @@ class ConfigStore:
         self.set("custom_models", self._encode_custom_models_json(models))
         self._invalidate_custom_models_cache()
 
+    # --- Custom danmu pool (custom_danmu_pool_entries table) ---
+
+    def custom_danmu_count(self, source: str | None = None) -> int:
+        from app.danmu_pool import custom_danmu_count_for_store
+
+        return custom_danmu_count_for_store(self, source)
+
+    def custom_danmu_list(
+        self,
+        page: int = 1,
+        page_size: int = 100,
+        search: str = "",
+        source: str | None = "manual",
+    ) -> dict:
+        from app.danmu_pool import custom_danmu_list_for_store
+
+        return custom_danmu_list_for_store(self, page, page_size, search, source)
+
+    def custom_danmu_insert_many(self, texts: list[str], source: str = "manual") -> dict[str, int]:
+        from app.danmu_pool import custom_danmu_insert_many_for_store
+
+        return custom_danmu_insert_many_for_store(self, texts, source)
+
+    def custom_danmu_delete_ids(self, ids: list[int]) -> int:
+        from app.danmu_pool import custom_danmu_delete_ids_for_store
+
+        return custom_danmu_delete_ids_for_store(self, ids)
+
+    def custom_danmu_delete_texts(self, texts: list[str]) -> int:
+        from app.danmu_pool import custom_danmu_delete_texts_for_store
+
+        return custom_danmu_delete_texts_for_store(self, texts)
+
+    def custom_danmu_random_sample(self, count: int) -> list[str]:
+        from app.danmu_pool import custom_danmu_random_sample_for_store
+
+        return custom_danmu_random_sample_for_store(self, count)
+
+    def custom_danmu_contains_text(self, text: str) -> bool:
+        from app.danmu_pool import custom_danmu_contains_text_for_store
+
+        return custom_danmu_contains_text_for_store(self, text)
+
     def get_custom_danmu_pool(self) -> list[str]:
-        raw = self.get_json("custom_danmu_pool", [])
-        if not isinstance(raw, list):
-            return []
-        return [str(item).strip() for item in raw if str(item).strip()]
+        from app.danmu_pool import get_custom_danmu_pool_for_store
+
+        return get_custom_danmu_pool_for_store(self)
 
     def set_custom_danmu_pool(self, items: list[str]) -> None:
-        self.set_json("custom_danmu_pool", items)
-        self._invalidate_formula_text_cache()
+        from app.danmu_pool import set_custom_danmu_pool_for_store
+
+        set_custom_danmu_pool_for_store(self, items)
 
     # --- Meme barrage library (meme_barrage_library table) ---
 

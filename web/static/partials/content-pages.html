@@ -138,16 +138,23 @@
           <div class="danmu-pool-section">
             <div class="flex flex-wrap items-center gap-4 mb-3">
               <p class="settings-section-title mb-0">已保存自定义句</p>
-              <span id="poolCustomCount" class="text-sm text-gray-500">共 0 条</span>
+              <span id="poolCustomCount" class="text-sm text-gray-500">自定义库：0 / 20000</span>
             </div>
+            <p id="poolCustomListHint" class="settings-section-hint mb-2">当前展示：手动添加条目。txt 导入内容已入库参与抽取，但不在此列表逐条展示。</p>
             <div class="flex flex-wrap items-center gap-3 mb-3">
+              <input type="search" id="poolCustomSearch" class="settings-field-control max-w-xs px-3 py-2 bg-cream rounded-xl text-warmText border border-softPeach" placeholder="搜索手动条目" aria-label="搜索手动条目">
               <label class="flex items-center gap-2 text-sm font-semibold text-warmText">
                 <input type="checkbox" id="poolCustomSelectAll" class="accent-warmPink">
-                全选
+                全选本页
               </label>
               <button type="button" id="btnPoolCustomDelete" class="px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50">删除选中</button>
             </div>
             <ul id="poolCustomList" class="danmu-pool-custom-list space-y-2"></ul>
+            <div id="poolCustomPager" class="flex flex-wrap items-center gap-3 mt-4 text-sm text-warmText">
+              <button type="button" id="btnPoolCustomPrev" class="px-3 py-1.5 bg-white border border-gray-200 rounded-lg font-semibold hover:bg-gray-50">上一页</button>
+              <span id="poolCustomPageInfo" class="text-gray-500">第 1 页</span>
+              <button type="button" id="btnPoolCustomNext" class="px-3 py-1.5 bg-white border border-gray-200 rounded-lg font-semibold hover:bg-gray-50">下一页</button>
+            </div>
           </div>
         </div>
       </div>
@@ -265,6 +272,13 @@
         <div class="flex flex-wrap gap-3">
           <button type="button" id="btnSavePersona" class="btn-primary px-6 py-2 text-white rounded-xl font-bold">保存人格</button>
           <button type="button" id="btnRestorePersona" class="px-6 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText">恢复默认</button>
+        </div>
+        <div>
+          <label class="flex items-center gap-2 text-sm font-semibold text-warmText">
+            <input type="checkbox" id="personaNamePrefixEnabled" class="accent-warmPink">
+            名称显示
+          </label>
+          <p class="text-xs text-gray-500 mt-1">开启后，弹幕上屏为「人格名称：弹幕内容」</p>
         </div>
         <div>
           <label id="hintPersonaActiveTitle" class="block text-sm font-semibold mb-2 text-warmText">激活人格（运行时随机）</label>

@@ -25,6 +25,7 @@ import {
   bindSettingsControls,
   initCaptureRegionControls,
   initNormalBatchControls,
+  initMicInsertControls,
   initFloatingPanelV2Controls,
   initRestoreDefaultsControls,
   initContentPageFieldHints,
@@ -498,6 +499,7 @@ async function init() {
   initContentPageFieldHints();
   initSidebarNavFloatingHints();
   initNormalBatchControls();
+  initMicInsertControls();
   initDanmuReadPage();
   loadDanmuReadPage().catch(console.error);
   initCaptureRegionControls();

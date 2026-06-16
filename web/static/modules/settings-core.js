@@ -6,6 +6,7 @@ import {
   getConfigDefaultsCache,
   restorableKeysForScope,
   setConfigDefaultsCache,
+  updateMicInsertControls,
   updateNormalBatchPreview,
 } from './settings-defaults.js';
 import { getActiveSettingsTabId } from './settings-tabs.js';
@@ -199,6 +200,7 @@ export function fillForm(cfg) {
     'floating_panel_speed', 'floating_panel_x_offset', 'floating_panel_y_offset',
     'floating_panel_opacity', 'floating_panel_font_size', 'danmu_font_family',
     'floating_panel_font_family',
+    'mic_insert_reply_count', 'mic_insert_voice_reply_count',
   ].forEach(setIfEmpty);
   syncFloatingPanelV2FieldsVisibility();
   const danmuBold = document.getElementById('danmu_font_bold');
@@ -252,6 +254,7 @@ export function fillForm(cfg) {
     normalCount.value = configDefaultValue('normal_reply_count', renderMode) || '5';
   }
   updateNormalBatchPreview();
+  updateMicInsertControls();
   coreDeps.syncProviderPresetFromEndpoint();
   coreDeps.applyApiModeValue(cfg.api_mode);
   coreDeps.syncApiModeLockState();

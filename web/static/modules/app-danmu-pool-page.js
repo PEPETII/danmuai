@@ -2,8 +2,13 @@ import { apiFetch } from './transport.js';
 
 const MAX_IMPORT_FILES = 5;
 const MAX_LINES_PER_FILE = 1000;
+const PAGE_SIZE = 100;
 
 let danmuPoolMeta = null;
+let currentPage = 1;
+let listTotal = 0;
+let searchQuery = '';
+let searchTimer = null;
 let toast = () => {};
 let handlersBound = false;
 
@@ -25,18 +30,39 @@ function updatePoolMinOnScreenControl() {
   if (hint) hint.classList.toggle('hidden', Boolean(enabled));
 }
 
-function formatCustomPoolCount(length) {
-  const max = danmuPoolMeta?.custom_max;
-  return max != null ? `共 ${length} / ${max} 条` : `共 ${length} 条`;
+function formatCustomPoolCount() {
+  const total = danmuPoolMeta?.custom_count ?? 0;
+  const max = danmuPoolMeta?.custom_max ?? 20000;
+  const manual = danmuPoolMeta?.manual_count;
+  const base = `自定义库：${total} / ${max}`;
+  return manual != null ? `${base}（手动 ${manual} 条）` : base;
 }
 
-function renderCustomDanmuPoolList(items) {
+function updatePoolCustomPager() {
+  const pageInfo = document.getElementById('poolCustomPageInfo');
+  const prevBtn = document.getElementById('btnPoolCustomPrev');
+  const nextBtn = document.getElementById('btnPoolCustomNext');
+  const totalPages = Math.max(1, Math.ceil(listTotal / PAGE_SIZE));
+  if (pageInfo) {
+    pageInfo.textContent = `第 ${currentPage} / ${totalPages} 页（本页最多 ${PAGE_SIZE} 条）`;
+  }
+  if (prevBtn) prevBtn.disabled = currentPage <= 1;
+  if (nextBtn) nextBtn.disabled = currentPage >= totalPages;
+}
+
+function renderCustomDanmuPoolList(payload) {
+  const items = payload?.items || [];
+  listTotal = payload?.total ?? items.length;
+  currentPage = payload?.page ?? currentPage;
+
   const list = document.getElementById('poolCustomList');
   const countEl = document.getElementById('poolCustomCount');
-  if (countEl) countEl.textContent = formatCustomPoolCount(items.length);
+  if (countEl) countEl.textContent = formatCustomPoolCount();
   if (!list) return;
   list.replaceChildren();
-  items.forEach((text) => {
+  items.forEach((entry) => {
+    const text = typeof entry === 'string' ? entry : entry.text;
+    const id = typeof entry === 'object' && entry != null ? entry.id : null;
     const li = document.createElement('li');
     li.className = 'danmu-pool-custom-item';
     const label = document.createElement('label');
@@ -44,6 +70,7 @@ function renderCustomDanmuPoolList(items) {
     const cb = document.createElement('input');
     cb.type = 'checkbox';
     cb.className = 'pool-custom-cb accent-warmPink mt-1';
+    if (id != null) cb.dataset.id = String(id);
     const span = document.createElement('span');
     span.textContent = text;
     label.append(cb, span);
@@ -52,6 +79,22 @@ function renderCustomDanmuPoolList(items) {
   });
   const selectAll = document.getElementById('poolCustomSelectAll');
   if (selectAll) selectAll.checked = false;
+  updatePoolCustomPager();
+}
+
+async function fetchCustomPage(page = currentPage, search = searchQuery) {
+  const params = new URLSearchParams({
+    page: String(page),
+    page_size: String(PAGE_SIZE),
+    source: 'manual',
+  });
+  if (search.trim()) params.set('search', search.trim());
+  return apiFetch(`/api/danmu-pool/custom?${params.toString()}`);
+}
+
+async function loadCustomPage(page = currentPage) {
+  const payload = await fetchCustomPage(page, searchQuery);
+  renderCustomDanmuPoolList(payload);
 }
 
 function readFileAsText(file, encoding) {
@@ -81,8 +124,7 @@ function countFileLines(text) {
   return text.split(/\r?\n/).length;
 }
 
-function buildImportSkippedHint(skippedItems) {
-  if (!skippedItems?.length) return '';
+function buildImportSkippedHint(result) {
   const reasonLabels = {
     duplicate: '重复',
     empty: '空行',
@@ -90,10 +132,15 @@ function buildImportSkippedHint(skippedItems) {
     unsafe: '不安全',
   };
   const counts = {};
+  const skippedItems = result?.skipped_items || [];
   skippedItems.forEach((item) => {
     const label = reasonLabels[item.reason] || item.reason;
     counts[label] = (counts[label] || 0) + 1;
   });
+  if (result?.skipped_duplicate) counts['重复'] = (counts['重复'] || 0) + result.skipped_duplicate;
+  if (result?.skipped_empty) counts['空行'] = (counts['空行'] || 0) + result.skipped_empty;
+  if (result?.skipped_unsafe) counts['不安全'] = (counts['不安全'] || 0) + result.skipped_unsafe;
+  if (result?.skipped_limit) counts['超限'] = (counts['超限'] || 0) + result.skipped_limit;
   const parts = Object.entries(counts).map(([label, n]) => `${label} ${n}`);
   return parts.length ? `（${parts.join('，')}）` : '';
 }
@@ -127,15 +174,16 @@ async function importCustomDanmuPoolTxtFiles(fileList) {
     const combinedText = readResults.map((r) => r.text).join('\n');
     const result = await apiFetch('/api/danmu-pool/custom', {
       method: 'POST',
-      body: JSON.stringify({ text: combinedText }),
+      body: JSON.stringify({ text: combinedText, source: 'import' }),
     });
 
-    renderCustomDanmuPoolList(result.items || []);
     danmuPoolMeta = await apiFetch('/api/danmu-pool/meta');
+    const countEl = document.getElementById('poolCustomCount');
+    if (countEl) countEl.textContent = formatCustomPoolCount();
 
     const added = result.added || 0;
     const skipped = result.skipped || 0;
-    const skipHint = buildImportSkippedHint(result.skipped_items);
+    const skipHint = buildImportSkippedHint(result);
     let message = `导入成功，新增 ${added} 条，跳过 ${skipped} 条${skipHint}`;
     if (readResults.some((r) => r.hasReplacement)) {
       message += '；部分字符无法识别';
@@ -150,16 +198,16 @@ async function importCustomDanmuPoolTxtFiles(fileList) {
 }
 
 export async function loadDanmuPoolPage() {
-  const [meta, custom] = await Promise.all([
-    apiFetch('/api/danmu-pool/meta'),
-    apiFetch('/api/danmu-pool/custom'),
-  ]);
-  danmuPoolMeta = meta;
+  danmuPoolMeta = await apiFetch('/api/danmu-pool/meta');
   const customEl = document.getElementById('poolCustomEnabled');
   const minEl = document.getElementById('poolMinOnScreen');
-  if (customEl) customEl.checked = Boolean(meta.custom_enabled);
-  if (minEl) minEl.value = String(meta.min_on_screen ?? 5);
-  renderCustomDanmuPoolList(custom.items || []);
+  if (customEl) customEl.checked = Boolean(danmuPoolMeta.custom_enabled);
+  if (minEl) minEl.value = String(danmuPoolMeta.min_on_screen ?? 5);
+  currentPage = 1;
+  searchQuery = '';
+  const searchEl = document.getElementById('poolCustomSearch');
+  if (searchEl) searchEl.value = '';
+  await loadCustomPage(1);
   updatePoolMinOnScreenControl();
 }
 
@@ -184,35 +232,33 @@ async function addCustomDanmuPoolItems() {
     showToast('请先输入要追加的弹幕句子', true);
     return;
   }
-  const result = await apiFetch('/api/danmu-pool/custom', {
+  await apiFetch('/api/danmu-pool/custom', {
     method: 'POST',
-    body: JSON.stringify({ text }),
+    body: JSON.stringify({ text, source: 'manual' }),
   });
-  renderCustomDanmuPoolList(result.items || []);
   danmuPoolMeta = await apiFetch('/api/danmu-pool/meta');
   if (textarea) textarea.value = '';
-  const skipped = result.skipped || 0;
-  if (skipped > 0) {
-    showToast(`已追加 ${result.added} 条，跳过 ${skipped} 条`, skipped > 0 && !result.added);
-  } else {
-    showToast(`已追加 ${result.added} 条`);
-  }
+  currentPage = 1;
+  await loadCustomPage(1);
+  showToast('已追加手动条目');
 }
 
 async function deleteSelectedCustomDanmuPoolItems() {
-  const texts = [...document.querySelectorAll('#poolCustomList .pool-custom-cb:checked')]
-    .map((cb) => cb.closest('label')?.querySelector('span')?.textContent)
-    .filter(Boolean);
-  if (!texts.length) {
+  const ids = [...document.querySelectorAll('#poolCustomList .pool-custom-cb:checked')]
+    .map((cb) => parseInt(cb.dataset.id, 10))
+    .filter((id) => Number.isFinite(id) && id > 0);
+  if (!ids.length) {
     showToast('请先勾选要删除的句子', true);
     return;
   }
   const result = await apiFetch('/api/danmu-pool/custom', {
     method: 'DELETE',
-    body: JSON.stringify({ texts }),
+    body: JSON.stringify({ ids }),
   });
-  renderCustomDanmuPoolList(result.items || []);
   danmuPoolMeta = await apiFetch('/api/danmu-pool/meta');
+  const totalPages = Math.max(1, Math.ceil((danmuPoolMeta.custom_count || 0) / PAGE_SIZE));
+  if (currentPage > totalPages) currentPage = totalPages;
+  await loadCustomPage(currentPage);
   showToast(`已删除 ${result.removed} 条`);
 }
 
@@ -253,5 +299,24 @@ export function initDanmuPoolPage(deps = {}) {
     importCustomDanmuPoolTxtFiles(event.target.files).catch((error) =>
       showToast(error.message || '导入失败', true),
     );
+  });
+  document.getElementById('btnPoolCustomPrev')?.addEventListener('click', () => {
+    if (currentPage <= 1) return;
+    currentPage -= 1;
+    loadCustomPage(currentPage).catch((error) => showToast(error.message, true));
+  });
+  document.getElementById('btnPoolCustomNext')?.addEventListener('click', () => {
+    const totalPages = Math.max(1, Math.ceil(listTotal / PAGE_SIZE));
+    if (currentPage >= totalPages) return;
+    currentPage += 1;
+    loadCustomPage(currentPage).catch((error) => showToast(error.message, true));
+  });
+  document.getElementById('poolCustomSearch')?.addEventListener('input', (event) => {
+    searchQuery = event.target.value || '';
+    if (searchTimer) clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      currentPage = 1;
+      loadCustomPage(1).catch((error) => showToast(error.message, true));
+    }, 300);
   });
 }

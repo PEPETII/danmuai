@@ -96,9 +96,11 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
     class DanmuPoolCustomAppendPayload(BaseModel):
         text: str = ""
         items: list[str] | None = None
+        source: str = "manual"
 
     class DanmuPoolCustomDeletePayload(BaseModel):
-        texts: list[str]
+        ids: list[int] | None = None
+        texts: list[str] | None = None
 
     class MemeBarrageSettingsPayload(BaseModel):
         enabled: bool | None = None
@@ -328,8 +330,19 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
         return _invoke_main(pool_api.save_settings, bridge.danmu_app, body.model_dump(exclude_none=True))
 
     @app.get("/api/danmu-pool/custom")
-    def get_danmu_pool_custom():
-        return pool_api.list_custom(bridge.danmu_app)
+    def get_danmu_pool_custom(
+        page: int = 1,
+        page_size: int = pool_api.DEFAULT_PAGE_SIZE,
+        search: str = "",
+        source: str = "manual",
+    ):
+        return pool_api.list_custom(
+            bridge.danmu_app,
+            page=page,
+            page_size=page_size,
+            search=search,
+            source=source,
+        )
 
     @app.post("/api/danmu-pool/custom")
     def post_danmu_pool_custom(

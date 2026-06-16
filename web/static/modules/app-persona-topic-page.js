@@ -100,6 +100,32 @@ async function saveLiveTopic() {
   }
 }
 
+async function loadPersonaNamePrefix() {
+  const input = document.getElementById('personaNamePrefixEnabled');
+  if (!input) return;
+  try {
+    const cfg = await apiFetch('/api/config');
+    input.checked = String(cfg?.persona_name_prefix_enabled ?? '0') === '1';
+  } catch (error) {
+    console.warn('loadPersonaNamePrefix failed:', error);
+  }
+}
+
+async function savePersonaNamePrefix() {
+  const input = document.getElementById('personaNamePrefixEnabled');
+  if (!input) return;
+  const value = input.checked ? '1' : '0';
+  try {
+    await apiFetch('/api/config', {
+      method: 'PUT',
+      body: JSON.stringify({ persona_name_prefix_enabled: value }),
+    });
+    showToast(value === '1' ? '名称显示已开启' : '名称显示已关闭');
+  } catch (error) {
+    showToast(error.message || '名称显示保存失败', true);
+  }
+}
+
 async function loadUserNickname() {
   const input = document.getElementById('userNicknameInput');
   if (!input) return;
@@ -155,6 +181,7 @@ export async function loadPersonaEditor() {
   if (currentPersonaId) select.value = currentPersonaId;
   await loadPersonaTemplate();
   await loadPersonaeCheckboxes('personaActiveList');
+  await loadPersonaNamePrefix();
 }
 
 export async function loadOverviewGlobalFields() {
@@ -175,6 +202,9 @@ export function initPersonaTopicPage(deps = {}) {
   });
   document.getElementById('btnSaveUserNickname')?.addEventListener('click', () => {
     saveUserNickname().catch((error) => showToast(error.message || '昵称保存失败', true));
+  });
+  document.getElementById('personaNamePrefixEnabled')?.addEventListener('change', () => {
+    savePersonaNamePrefix().catch((error) => showToast(error.message || '名称显示保存失败', true));
   });
   document.getElementById('btnSavePersona')?.addEventListener('click', async () => {
     const name = document.getElementById('personaSelect')?.value;

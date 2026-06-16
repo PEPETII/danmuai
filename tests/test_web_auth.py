@@ -213,6 +213,8 @@ def test_web_config_keys_cover_core_settings():
     assert "mic_api_endpoint" in WEB_CONFIG_KEYS
     assert "mic_api_mode" in WEB_CONFIG_KEYS
     assert "mic_model" in WEB_CONFIG_KEYS
+    assert "mic_insert_reply_count" in WEB_CONFIG_KEYS
+    assert "mic_insert_voice_reply_count" in WEB_CONFIG_KEYS
     assert "reply_scene_count" not in WEB_CONFIG_KEYS
     assert "reply_filler_count" not in WEB_CONFIG_KEYS
     assert "danmu_display_mode" not in WEB_CONFIG_KEYS
@@ -331,6 +333,26 @@ def test_apply_config_patch_clamps_normal_batch_settings():
 
     assert config.get("normal_recognition_interval_sec") == "1"
     assert config.get("normal_reply_count") == "50"
+
+
+def test_apply_config_patch_clamps_mic_insert_counts():
+    config = FakeConfig({})
+    app = MagicMock()
+    app.config = config
+    app.personae = MagicMock()
+
+    apply_config_patch(app, {"mic_insert_reply_count": "99"})
+    assert config.get("mic_insert_reply_count") == "50"
+
+    apply_config_patch(
+        app,
+        {"mic_insert_reply_count": "4", "mic_insert_voice_reply_count": "9"},
+    )
+    assert config.get("mic_insert_reply_count") == "4"
+    assert config.get("mic_insert_voice_reply_count") == "4"
+
+    apply_config_patch(app, {"mic_insert_reply_count": "6", "mic_insert_voice_reply_count": "0"})
+    assert config.get("mic_insert_voice_reply_count") == "0"
 
 
 def test_apply_config_patch_normalizes_legacy_realtime_display_mode():

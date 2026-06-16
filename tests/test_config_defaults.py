@@ -52,6 +52,22 @@ def test_fp_keys_present_in_web_config_keys():
         assert key in WEB_CONFIG_KEYS, f"missing web key for {key}"
 
 
+MIC_INSERT_KEYS = (
+    "mic_insert_reply_count",
+    "mic_insert_voice_reply_count",
+)
+
+
+def test_mic_insert_keys_present_in_defaults():
+    assert CONFIG_DEFAULTS["mic_insert_reply_count"] == "6"
+    assert CONFIG_DEFAULTS["mic_insert_voice_reply_count"] == "3"
+
+
+def test_mic_insert_keys_present_in_web_config_keys():
+    for key in MIC_INSERT_KEYS:
+        assert key in WEB_CONFIG_KEYS, f"missing web key for {key}"
+
+
 def test_seed_writes_fp_defaults_on_blank_db(tmp_path):
     """空 DB seed 后 V2 键均落库为默认值。"""
     store = ConfigStore(db_path=tmp_path / "config.db")

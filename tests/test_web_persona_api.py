@@ -97,10 +97,10 @@ def test_create_and_save_custom_persona(persona_app):
 
 def test_list_dedupes_builtin_with_custom_override(persona_app):
     persona_api.save_template(persona_app, "吐槽型", "覆盖风格", "用户提示")
-    persona_api.save_template(persona_app, "文艺型", "覆盖风格2", "用户提示2")
+    persona_api.save_template(persona_app, "傲娇型", "覆盖风格2", "用户提示2")
     names = persona_app.personae.list()
     assert names.count("吐槽型") == 1
-    assert names.count("文艺型") == 1
+    assert names.count("傲娇型") == 1
 
 
 def test_builtin_save_system_and_user_prompt(persona_app):
@@ -143,7 +143,7 @@ def test_reply_contract_follows_danmu_max_chars(persona_app):
 
 def test_builtin_system_custom_differs_by_persona(persona_app):
     a = persona_api.get_template_detail(persona_app, "吐槽型")["system_custom"]
-    b = persona_api.get_template_detail(persona_app, "文艺型")["system_custom"]
+    b = persona_api.get_template_detail(persona_app, "傲娇型")["system_custom"]
     assert a and b and a != b
 
 
@@ -157,11 +157,6 @@ def test_delete_custom_persona(persona_app):
 _NEW_STYLE_PERSONAE = (
     "傲娇型",
     "腹黑型",
-    "中二型",
-    "治愈型",
-    "毒舌型",
-    "元气型",
-    "社恐型",
 )
 
 
@@ -235,17 +230,89 @@ def test_active_personae_v7_resets_legacy_active(tmp_path):
     assert config.get_int("active_personae_version") == 7
 
 
+_REMOVED_TRIM_002 = (
+    "测试4",
+    "文艺型",
+    "技术型",
+    "萌系型",
+    "中二型",
+    "治愈型",
+    "毒舌型",
+    "元气型",
+    "社恐型",
+)
+
+
+def test_builtin_personae_count_is_six(persona_app):
+    names = persona_app.personae.list()
+    assert len(names) == 6
+    assert set(names) == set(PersonaManager.DEFAULT_ACTIVE)
+
+
+def test_removed_builtin_purged_from_active_on_init(tmp_path):
+    config = ConfigStore(db_path=tmp_path / "config-trim-active.db")
+    config.set_json(
+        "active_personae",
+        [
+            "测试1",
+            "测试2",
+            "测试3",
+            "吐槽型",
+            "测试4",
+            "文艺型",
+            "傲娇型",
+            "腹黑型",
+            "萌系型",
+        ],
+    )
+    config.set("active_personae_version", "7")
+    personae = PersonaManager(config)
+    active = personae.get_active()
+    for removed in _REMOVED_TRIM_002:
+        assert removed not in active
+    assert active == list(PersonaManager.DEFAULT_ACTIVE)
+
+
+def test_removed_builtin_override_purged_from_custom(tmp_path):
+    import json
+
+    config = ConfigStore(db_path=tmp_path / "config-trim-custom.db")
+    config.set(
+        "custom_personae",
+        json.dumps(
+            {
+                "文艺型": {"system_pt": "override", "user_pt": "u"},
+                "测试4": {"system_pt": "override4", "user_pt": "u4"},
+            },
+            ensure_ascii=False,
+        ),
+    )
+    config.set("active_personae_version", "7")
+    PersonaManager(config)
+    stored = json.loads(config.get("custom_personae", "{}"))
+    assert "文艺型" not in stored
+    assert "测试4" not in stored
+
+
 def test_removed_builtin_personae_not_listed(persona_app):
     names = persona_app.personae.list()
-    for removed in ("路人惊讶型", "搞笑玩梗型", "捧场活跃型", "轻度吐槽型"):
+    for removed in (
+        "路人惊讶型",
+        "搞笑玩梗型",
+        "捧场活跃型",
+        "轻度吐槽型",
+        *_REMOVED_TRIM_002,
+    ):
         assert removed not in names
 
 
 def test_experimental_personae_pinned_first(persona_app):
     names = persona_app.personae.list()
-    assert names[:4] == list(BUILTIN_PERSONA_PINNED_FIRST)
+    assert names[:3] == list(BUILTIN_PERSONA_PINNED_FIRST)
     assert "测试" not in names
     assert "测试" not in BUILTIN_PERSONAE
+    assert "测试4" not in names
+    assert "测试4" not in BUILTIN_PERSONAE
 
 
 def test_experimental_personae_have_prompts(persona_app):
@@ -253,7 +320,6 @@ def test_experimental_personae_have_prompts(persona_app):
         "测试1": "随机选择一种口吻",
         "测试2": "像真实直播间混杂路人",
         "测试3": "短句、口语、碎片化",
-        "测试4": "五人阴阳弹幕",
     }
     for name in BUILTIN_PERSONA_PINNED_FIRST:
         assert name in BUILTIN_PERSONAE

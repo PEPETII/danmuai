@@ -493,6 +493,52 @@ def test_consume_reply_queue_skip_dedup_only_for_fallback(workspace_tmp, monkeyp
     assert captured == [False]
 
 
+def test_consume_reply_queue_applies_persona_name_prefix(workspace_tmp, monkeypatch):
+    from app.config_store import ConfigStore
+    from app.danmu_engine import resolve_danmu_display_text
+    from app.reply_queue import QueuedReply
+
+    monkeypatch.setattr("app.danmu_engine.random.uniform", lambda a, b: 50.0)
+    store = ConfigStore(db_path=workspace_tmp / "persona_prefix.db")
+    store.set("persona_name_prefix_enabled", "1")
+    eng = DanmuEngine(store)
+    eng.set_screen_width(1000.0)
+    captured: list[tuple[str, bool]] = []
+
+    def track_add_text(content, persona="", *args, **kwargs):
+        captured.append((content, kwargs.get("pre_resolved", False)))
+        return DanmuItem(content=content, persona=persona)
+
+    eng.add_text = track_add_text
+
+    app = DanmuApp.__new__(DanmuApp)
+    bind_minimal_danmu_app(app, engine=eng, config=store)
+    object.__setattr__(app, "_update_stats", lambda *a, **k: None)
+    object.__setattr__(app, "_visible_display_count", lambda: 0)
+    object.__setattr__(app, "_estimated_reply_gap_ms", lambda: 100)
+    object.__setattr__(app, "_latest_displayed_round", 0)
+    object.__setattr__(app, "_latest_displayed_screenshot_id", 0)
+    object.__setattr__(app, "_current_batch", None)
+
+    app.reply_buffer.push(
+        QueuedReply(
+            "吐槽型",
+            1,
+            0,
+            "上屏测试",
+            screenshot_round=1,
+            screenshot_id=1,
+            captured_at=time.monotonic(),
+            scene_generation=0,
+        )
+    )
+    DanmuApp._consume_reply_queue(app)
+
+    expected = resolve_danmu_display_text("上屏测试", store, "吐槽型")
+    assert captured == [(expected, True)]
+    assert expected == "吐槽型：上屏测试"
+
+
 def test_log_dedup_profile_summary_noop_when_disabled(engine, monkeypatch):
     from tests.fakes import FakeLogger
 

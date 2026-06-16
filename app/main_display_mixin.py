@@ -313,6 +313,7 @@ class DanmuAppDisplayMixin:
         batch_id: int,
         scene_generation: int,
         skip_dedup: bool,
+        pre_resolved: bool = False,
     ):
         overlay = self.__dict__.get("floating_panel_overlay")
         if overlay is None:
@@ -324,6 +325,7 @@ class DanmuAppDisplayMixin:
                 batch_id=batch_id,
                 scene_generation=scene_generation,
                 skip_dedup=skip_dedup,
+                pre_resolved=pre_resolved,
             )
         except Exception as exc:
             self.logger.debug(f"floating panel display skipped: {exc!r}")
@@ -337,6 +339,7 @@ class DanmuAppDisplayMixin:
         batch_id: int,
         scene_generation: int,
         skip_dedup: bool,
+        pre_resolved: bool = False,
     ):
         """按 danmu_render_mode 路由上屏：互斥，floating_panel 不触碰 DanmuEngine。"""
         if self._danmu_render_mode() == "floating_panel":
@@ -346,6 +349,7 @@ class DanmuAppDisplayMixin:
                 batch_id=batch_id,
                 scene_generation=scene_generation,
                 skip_dedup=skip_dedup,
+                pre_resolved=pre_resolved,
             )
         return self.engine.add_text(
             content,
@@ -353,6 +357,7 @@ class DanmuAppDisplayMixin:
             batch_id=batch_id,
             scene_generation=scene_generation,
             skip_dedup=skip_dedup,
+            pre_resolved=pre_resolved,
         )
 
     def inject_test_danmu_batch(
@@ -362,7 +367,7 @@ class DanmuAppDisplayMixin:
         persona_id: str = "测试",
     ) -> dict[str, object]:
         """主线程测试入口：按正常 reply -> overlay -> history 链路注入一批弹幕。"""
-        from app.danmu_engine import normalize_danmu_display_text
+        from app.danmu_engine import resolve_danmu_display_text
 
         normalized_items = [str(item).strip() for item in items if str(item).strip()]
         if not normalized_items:
@@ -421,7 +426,7 @@ class DanmuAppDisplayMixin:
             self.reply_timer.setInterval(min(self.reply_timer.interval(), 200))
 
         expected_texts = [
-            normalize_danmu_display_text(item_text, self.config)
+            resolve_danmu_display_text(item_text, self.config, persona_id)
             for item_text in normalized_items
         ]
         visible_texts = []

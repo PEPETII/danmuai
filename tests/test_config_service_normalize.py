@@ -86,6 +86,16 @@ def test_apply_web_payload_uses_single_commit_with_api_key(config_service):
     assert config_service._config.get("danmu_speed") == "3"
 
 
+def test_normalize_persona_name_prefix_enabled_bool(config_service):
+    items = {"persona_name_prefix_enabled": "true"}
+    config_service._normalize_items(items)
+    assert items["persona_name_prefix_enabled"] == "1"
+
+    items = {"persona_name_prefix_enabled": "off"}
+    config_service._normalize_items(items)
+    assert items["persona_name_prefix_enabled"] == "0"
+
+
 def test_apply_web_payload_uses_single_commit_with_custom_models(config_service):
     counting = _wrap_commit_counter(config_service)
     config_service.apply_web_payload(

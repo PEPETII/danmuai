@@ -117,23 +117,23 @@ def test_pool_topup_skips_recent_dedup_window(qapp, workspace_tmp):
     assert "撞车句" in all_texts
 
 
-def test_formula_text_cache_reuses_custom_pool_set(tmp_path, monkeypatch):
+def test_formula_text_cache_reuses_custom_pool_contains(tmp_path, monkeypatch):
     from app.config_store import ConfigStore
     from app.danmu_pool import is_stored_custom_pool_text
 
     store = ConfigStore(db_path=tmp_path / "formula_cache_custom.db")
     store.set_custom_danmu_pool(["公式句A"])
     calls: list[int] = []
-    original = store.get_custom_danmu_pool
+    original = store.custom_danmu_contains_text
 
-    def _counting_get():
+    def _counting_contains(text):
         calls.append(1)
-        return original()
+        return original(text)
 
-    monkeypatch.setattr(store, "get_custom_danmu_pool", _counting_get)
+    monkeypatch.setattr(store, "custom_danmu_contains_text", _counting_contains)
     assert is_stored_custom_pool_text(store, "公式句A") is True
     assert is_stored_custom_pool_text(store, "公式句A") is True
-    assert len(calls) == 1
+    assert len(calls) == 2
 
 
 def test_formula_text_cache_invalidates_on_pool_write(tmp_path):
@@ -171,26 +171,16 @@ def test_formula_text_cache_reuses_meme_library_set(tmp_path, monkeypatch):
     assert len(calls) == 1
 
 
-def test_custom_pool_list_cache_reuses_getter(tmp_path, monkeypatch):
+def test_sample_danmu_uses_sql_sampler(tmp_path):
     from app.config_store import ConfigStore
-    from app.danmu_pool import load_custom_danmu_pool
+    from app.danmu_pool import sample_danmu_for_config
 
-    store = ConfigStore(db_path=tmp_path / "pool_list_cache.db")
+    store = ConfigStore(db_path=tmp_path / "pool_sample.db")
     store.set("danmu_pool_use_custom", "1")
-    store.set_custom_danmu_pool(["公式句A", "公式句B"])
-    calls: list[int] = []
-    original = store.get_custom_danmu_pool
-
-    def _counting_get():
-        calls.append(1)
-        return original()
-
-    monkeypatch.setattr(store, "get_custom_danmu_pool", _counting_get)
-    first = load_custom_danmu_pool(store)
-    second = load_custom_danmu_pool(store)
-    assert first == ["公式句A", "公式句B"]
-    assert second == first
-    assert len(calls) == 1
+    store.set_custom_danmu_pool(["自定义A", "自定义B", "自定义C"])
+    picked = sample_danmu_for_config(store, 2)
+    assert len(picked) == 2
+    assert all(p in store.get_custom_danmu_pool() for p in picked)
 
 
 def test_pool_topup_entry_zone_overloaded_non_callable_no_error(qapp, workspace_tmp):
