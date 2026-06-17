@@ -176,6 +176,202 @@
   color: var(--color-text, #5d5757);
 }
 
+.setup-guide {
+  margin: 0 0 1.5rem;
+  padding: clamp(1rem, 2vw, 1.35rem);
+  border-radius: var(--radius-lg, 1rem);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.24);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-warm, 0 4px 15px -3px rgba(255, 165, 165, 0.15));
+}
+
+.setup-guide.hidden {
+  display: none;
+}
+
+.setup-guide-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.9rem;
+}
+
+.setup-guide-kicker {
+  margin: 0 0 0.18rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--color-primary-hover, #ff6b6b);
+}
+
+.setup-guide-title {
+  margin: 0;
+  color: var(--color-text, #5d5757);
+  font-size: clamp(1.02rem, 1.8vw, 1.2rem);
+  line-height: 1.35;
+  font-weight: 800;
+}
+
+.setup-guide-dismiss {
+  flex: 0 0 auto;
+  width: 2rem;
+  height: 2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 9999px;
+  background: transparent;
+  color: var(--color-text-muted, #9ca3af);
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.setup-guide-dismiss:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--color-text, #5d5757);
+}
+
+.setup-guide-progress {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.setup-guide-progress-track {
+  height: 0.42rem;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: rgba(148, 163, 184, 0.22);
+}
+
+.setup-guide-progress-bar {
+  width: 0%;
+  height: 100%;
+  border-radius: inherit;
+  background: rgb(var(--color-primary-rgb));
+  transition: width 180ms ease;
+}
+
+.setup-guide-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+  gap: 0.55rem;
+  margin: 0 0 1rem;
+  padding: 0;
+  list-style: none;
+}
+
+.setup-guide-step {
+  min-height: 2.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: var(--radius-md, 0.75rem);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: var(--color-bg-subtle);
+  color: var(--color-text-muted, #6b7280);
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.setup-guide-step.is-done {
+  border-color: rgba(34, 197, 94, 0.34);
+  background: rgba(240, 253, 244, 0.88);
+  color: #166534;
+}
+
+.setup-guide-step-dot {
+  flex: 0 0 auto;
+  width: 1rem;
+  height: 1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: rgba(148, 163, 184, 0.22);
+  color: #166534;
+  font-size: 0.68rem;
+}
+
+.setup-guide-step.is-done .setup-guide-step-dot {
+  background: rgba(34, 197, 94, 0.18);
+}
+
+.setup-guide-step-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.setup-guide-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+  gap: 0.65rem;
+}
+
+.setup-guide-action {
+  min-height: 2.45rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.55rem 0.9rem;
+  border-radius: var(--radius-md, 0.75rem);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.32);
+  background: var(--color-surface);
+  color: var(--color-text, #5d5757);
+  font-size: 0.85rem;
+  font-weight: 800;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.setup-guide-action:hover:not(:disabled) {
+  border-color: rgba(var(--color-primary-rgb), 0.55);
+  background: rgba(var(--color-primary-rgb), 0.08);
+  transform: translateY(-1px);
+}
+
+.setup-guide-action.primary {
+  border-color: rgba(var(--color-primary-rgb), 0.55);
+  background: rgb(var(--color-primary-rgb));
+  color: #fff;
+}
+
+.setup-guide-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+  transform: none;
+}
+
+.setup-guide-action.is-busy {
+  opacity: 0.72;
+}
+
+[data-theme="dark"] .setup-guide-step.is-done {
+  background: rgba(34, 197, 94, 0.12);
+  color: #86efac;
+}
+
+[data-theme="dark"] .setup-guide-step-dot {
+  background: rgba(168, 162, 158, 0.18);
+}
+
+[data-theme="dark"] .setup-guide-step.is-done .setup-guide-step-dot {
+  background: rgba(34, 197, 94, 0.18);
+  color: #86efac;
+}
+
 .reward-modal-panel {
   max-height: min(90vh, 720px);
   overflow-y: auto;

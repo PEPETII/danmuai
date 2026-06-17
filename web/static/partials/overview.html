@@ -33,6 +33,29 @@
 
       <p id="overlayCompatBanner" class="hidden text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2 mb-6" role="status"></p>
 
+      <div id="firstRunSetupGuide" class="setup-guide hidden" role="region" aria-label="首次配置向导" aria-live="polite">
+        <div class="setup-guide-header">
+          <div>
+            <p class="setup-guide-kicker">首次配置</p>
+            <h3 class="setup-guide-title">开播前检查</h3>
+          </div>
+          <button type="button" id="btnSetupGuideDismiss" class="setup-guide-dismiss" aria-label="不再显示首次配置向导">×</button>
+        </div>
+        <div class="setup-guide-progress">
+          <span id="setupGuideProgressText">0 / 5</span>
+          <div class="setup-guide-progress-track" aria-hidden="true">
+            <div id="setupGuideProgressBar" class="setup-guide-progress-bar"></div>
+          </div>
+        </div>
+        <ol id="setupGuideSteps" class="setup-guide-steps"></ol>
+        <div class="setup-guide-actions">
+          <button type="button" id="btnSetupGuideApi" class="setup-guide-action primary">配置接口</button>
+          <button type="button" id="btnSetupGuideProbe" class="setup-guide-action">测试连接</button>
+          <button type="button" id="btnSetupGuideCapture" class="setup-guide-action">选择识图</button>
+          <button type="button" id="btnSetupGuideTestDanmu" class="setup-guide-action">发送测试弹幕</button>
+        </div>
+      </div>
+
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
         <div class="card p-6">
           <div class="flex items-center gap-4">

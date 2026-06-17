@@ -70,6 +70,12 @@ import {
   initAppUpdateModal,
   initAppVersionAndUpdateCheck,
 } from './modules/app-update-banner.js';
+import {
+  configureSetupGuide,
+  initSetupGuide,
+  updateSetupGuideConfig,
+  updateSetupGuideStatus,
+} from './modules/app-setup-guide.js';
 
 let danmuReadConfigCache = null;
 let danmuReadCatalog = null;
@@ -473,6 +479,7 @@ async function init() {
   loadOverviewGlobalFields().catch(console.error);
   initAppUpdateModal({ showToast });
   wireLazyDiagnosticsToggle();
+  configureSetupGuide({ navigate, switchSettingsTab, showToast });
 
   configureStatus({
     applyCaptureRegion: applyCaptureRegionFromPayload,
@@ -480,7 +487,10 @@ async function init() {
     onErrorReportManual: (status) => openErrorReportModalImpl(status, { force: true }),
   });
   setRealtimeHandlers({
-    onStatus: applyStatus,
+    onStatus: (status) => {
+      applyStatus(status);
+      updateSetupGuideStatus(status);
+    },
     onLog: appendLog,
     onLogBatch: mergeLogItems,
     updateLogPanelState,
@@ -489,9 +499,13 @@ async function init() {
   });
   const statusPromise = fetch(`${API.base}/api/status`)
     .then((response) => response.json())
-    .then(applyStatus);
+    .then((status) => {
+      applyStatus(status);
+      updateSetupGuideStatus(status);
+      return status;
+    });
   startRealtimeTransport();
-  await statusPromise;
+  const initialStatus = await statusPromise;
 
   initSettingsTabs();
   initSettingsUiMode();
@@ -505,11 +519,13 @@ async function init() {
   initCaptureRegionControls();
   initRestoreDefaultsControls();
   initFloatingPanelV2Controls();
+  initSetupGuide(cfg, initialStatus);
 
   bindSettingsControls({
     showToast,
     navigate,
-    onConfigSaved: () => {
+    onConfigSaved: (savedCfg) => {
+      updateSetupGuideConfig(savedCfg);
       if (document.getElementById('personaSelect')?.value) {
         loadPersonaTemplate().catch(console.error);
       }

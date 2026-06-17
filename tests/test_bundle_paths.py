@@ -132,6 +132,7 @@ def test_web_console_modules_exist():
         "settings.js",
         "content-pages.js",
         "theme.js",
+        "app-setup-guide.js",
     ):
         path = modules / name
         assert path.is_file(), f"missing {path}"
@@ -139,6 +140,30 @@ def test_web_console_modules_exist():
     html = (root / "web" / "static" / "index.html").read_text(encoding="utf-8")
     assert 'type="module"' in html
     assert "/static/app.js" in html
+
+
+def test_first_run_setup_guide_wired_to_overview():
+    root = project_root()
+    html = (root / "web" / "static" / "index.html").read_text(encoding="utf-8")
+    app_js = (root / "web" / "static" / "app.js").read_text(encoding="utf-8")
+    setup_js = (root / "web" / "static" / "modules" / "app-setup-guide.js").read_text(
+        encoding="utf-8"
+    )
+    css = (root / "web" / "static" / "warm-tokens-pages.css").read_text(encoding="utf-8")
+
+    assert 'id="firstRunSetupGuide"' in html
+    assert 'id="setupGuideSteps"' in html
+    assert 'id="btnSetupGuideProbe"' in html
+    assert 'id="btnSetupGuideTestDanmu"' in html
+    assert "from './modules/app-setup-guide.js'" in app_js
+    assert "initSetupGuide(cfg, initialStatus)" in app_js
+    assert "updateSetupGuideConfig(savedCfg)" in app_js
+    assert "updateSetupGuideStatus(status)" in app_js
+    assert "danmu_setup_guide_dismissed_v1" in setup_js
+    assert "/api/probe" in setup_js
+    assert "/api/test/danmu" in setup_js
+    assert "switchSettingsTab(tabId)" in setup_js
+    assert ".setup-guide" in css
 
 
 def test_diagnostics_panel_visibility_toggle_wires_button_and_sse_gate():

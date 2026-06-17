@@ -456,7 +456,7 @@ export function bindSettingsControls(deps = {}) {
         ? `${cfg.model_display_name}（${active}）`
         : active;
       showToast(label ? `配置已保存，当前生效模型：${label}` : '配置已保存~');
-      if (onConfigSaved) onConfigSaved();
+      if (onConfigSaved) onConfigSaved(cfg);
       const keyInput = document.getElementById('api_key');
       if (keyInput?.value && keyInput.value !== MASKED_API_KEY) {
         keyInput.value = MASKED_API_KEY;
