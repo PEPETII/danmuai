@@ -795,6 +795,55 @@ def test_session_rejects_non_loopback_host():
     assert res.status_code == 401
 
 
+def test_session_rejects_port_mismatch_on_same_loopback():
+    """端口不一致的 loopback Origin 应被拒绝（防御端口剥离绕过）。
+
+    攻击场景：Host=127.0.0.1:18765, Origin=http://127.0.0.1:9999
+    两者主机名相同但端口不同，应 403。
+    """
+    from fastapi.testclient import TestClient
+
+    client = TestClient(_build_session_app(expected_token="right"))
+    res = client.get(
+        "/api/session",
+        headers={
+            "Host": "127.0.0.1:18765",
+            "Origin": "http://127.0.0.1:9999",
+        },
+    )
+    assert res.status_code == 403
+
+
+def test_session_allows_exact_same_port_loopback():
+    """端口完全一致的 loopback Origin 应放行（正常浏览器行为）。"""
+    from fastapi.testclient import TestClient
+
+    client = TestClient(_build_session_app(expected_token="right"))
+    res = client.get(
+        "/api/session",
+        headers={
+            "Host": "127.0.0.1:18765",
+            "Origin": "http://127.0.0.1:18765",
+        },
+    )
+    assert res.status_code == 200
+
+
+def test_session_rejects_loopback_origin_without_request_port():
+    """Host 有端口但 Origin 无端口 → 应拒绝。"""
+    from fastapi.testclient import TestClient
+
+    client = TestClient(_build_session_app(expected_token="right"))
+    res = client.get(
+        "/api/session",
+        headers={
+            "Host": "127.0.0.1:18765",
+            "Origin": "http://127.0.0.1",
+        },
+    )
+    assert res.status_code == 403
+
+
 def _register_invoke_main_test_routes(bridge):
     from app.web_api.routes import register_web_routes
     from fastapi import FastAPI

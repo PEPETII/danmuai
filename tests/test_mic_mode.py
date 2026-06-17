@@ -166,42 +166,27 @@ def test_build_mic_insert_user_pt():
     out = build_mic_insert_user_pt("请生成弹幕：")
     assert "请生成弹幕：" in out
     assert "麦克风" in out
-    assert "截图" in out
+    assert "画面" in out
 
     out = build_mic_insert_user_pt("base")
     assert "麦克风插入" in out
     assert out.startswith("base")
-    assert "请生成 6条 JSON 数组弹幕" in out
-    assert "前3条必须直接回应" in out
-    assert "后 3 条可结合截图氛围" in out or "其余 3 条可结合截图氛围" in out
-    assert "仍要在前 3 条体现听到了用户说话" in out
-
-
-def test_build_mic_insert_user_pt_partial_voice_reply():
-    from tests.fakes import FakeConfig
-
-    cfg = FakeConfig({"mic_insert_reply_count": "5", "mic_insert_voice_reply_count": "2"})
-    out = build_mic_insert_user_pt("base", cfg)
-    assert "请生成 5条 JSON 数组弹幕" in out
-    assert "前2条必须直接回应" in out
-    assert "其余 3 条可结合截图氛围" in out
-
-
-def test_build_mic_insert_user_pt_zero_voice_reply():
-    from tests.fakes import FakeConfig
-
-    cfg = FakeConfig({"mic_insert_reply_count": "4", "mic_insert_voice_reply_count": "0"})
-    out = build_mic_insert_user_pt("base", cfg)
-    assert "请生成 4条 JSON 数组弹幕" in out
-    assert "不强制要求某几条必须回应语音" in out
+    assert "请生成 6 条 JSON 数组弹幕" in out
+    assert "全部同时结合当前画面与用户刚才说话内容" in out
+    assert "不要只复述语音，也不要只描述截图" in out
+    assert "前3条" not in out
+    assert "前几条" not in out
+    assert "其余" not in out
     assert "前0" not in out
     assert "前 0" not in out
 
 
-def test_build_mic_insert_user_pt_all_voice_reply():
+def test_build_mic_insert_user_pt_ignores_config():
     from tests.fakes import FakeConfig
 
-    cfg = FakeConfig({"mic_insert_reply_count": "4", "mic_insert_voice_reply_count": "4"})
-    out = build_mic_insert_user_pt("base", cfg)
-    assert "请生成 4条 JSON 数组弹幕" in out
-    assert "全部 4 条弹幕都需要直接回应" in out
+    cfg = FakeConfig({"mic_insert_reply_count": "5", "mic_insert_voice_reply_count": "2"})
+    out_with_cfg = build_mic_insert_user_pt("base", cfg)
+    out_without_cfg = build_mic_insert_user_pt("base")
+    assert out_with_cfg == out_without_cfg
+    assert "请生成 5条" not in out_with_cfg
+    assert "前2条" not in out_with_cfg

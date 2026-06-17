@@ -45,8 +45,6 @@ DEFAULT_FLOATING_PANEL_SPEED = "1"
 # 弹幕容量保护默认（0=用户显式无限制；键缺失时回落到下列值）
 DEFAULT_DANMU_PENDING_ENTRY_CAP = 300
 DEFAULT_DANMU_TRACK_RETENTION_CAP = 600
-DEFAULT_MIC_INSERT_REPLY_COUNT = 6
-DEFAULT_MIC_INSERT_VOICE_REPLY_COUNT = 3
 
 # String values aligned with runtime fallbacks in main.py / danmu_engine / ai_client.
 CONFIG_DEFAULTS: dict[str, str] = {
@@ -92,8 +90,6 @@ CONFIG_DEFAULTS: dict[str, str] = {
     "mic_use_visual_model": "1",
     "mic_api_mode": "doubao",
     "mic_model": "doubao-seed-2-0-mini-260428",
-    "mic_insert_reply_count": str(DEFAULT_MIC_INSERT_REPLY_COUNT),
-    "mic_insert_voice_reply_count": str(DEFAULT_MIC_INSERT_VOICE_REPLY_COUNT),
     "normal_recognition_interval_sec": "5",
     "normal_reply_count": str(DEFAULT_NORMAL_REPLY_COUNT),
     "danmu_read_enabled": "0",
@@ -134,6 +130,12 @@ CONFIG_DEFAULTS: dict[str, str] = {
     "pet_command_box_enabled": "1",
     "pet_command_ttl_sec": "30",
     "pet_command_apply_count": "1",
+    "pet_barrage_mode_enabled": "0",
+    "pet_barrage_count": "5",
+    "pet_barrage_slots": "[]",
+    "pet_barrage_slot_positions": "[]",
+    "pet_barrage_previous_render_mode": "scrolling",
+    "pet_barrage_previous_reply_count": str(DEFAULT_NORMAL_REPLY_COUNT),
 }
 
 # 首装视觉 API 默认服务商（与 model_providers.DEFAULT_PROVIDER_ID 一致）

@@ -52,12 +52,13 @@ class AIReplyFIFOBuffer:
         self._max_items = max(0, max_items)
 
     def _drop_one_tail_replaceable_fallback(self) -> bool:
+        # Single-element delete: deque supports indexed del (Py 3.5+), avoiding
+        # list copy + deque rebuild. Bulk filters (prepend_batch, drop_*,
+        # purge_*) keep deque(...) rebuild — small max_items, O(n) scan anyway.
         for index in range(len(self._items) - 1, -1, -1):
             item = self._items[index]
             if item.is_fallback and item.replaceable and item.source == "fallback":
-                left = list(self._items)
-                left.pop(index)
-                self._items = deque(left)
+                del self._items[index]
                 return True
         return False
 

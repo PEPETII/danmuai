@@ -577,6 +577,60 @@ class DanmuApp(
         意外上屏失败时回插队首，避免静默丢失。
         """
         floating_panel = self._danmu_render_mode() == "floating_panel"
+        if self._pet_barrage_mode_enabled():
+            barrage = self.__dict__.get("pet_barrage_controller")
+            if barrage is None:
+                return
+            batch = []
+            while len(batch) < 5 and not self.reply_buffer.is_empty():
+                queued_item = self.reply_buffer.pop()
+                if queued_item is None:
+                    break
+                batch.append(queued_item)
+            if not batch:
+                return
+            rendered_rows: list[tuple[object, str]] = []
+            for queued_item in batch:
+                display_text = resolve_danmu_display_text(
+                    queued_item.content,
+                    self.config,
+                    queued_item.persona_id,
+                )
+                if not display_text:
+                    self.logger.info(
+                        tr("app.danmu_not_entered").format(content=f"{queued_item.content[:20]}...")
+                        + " [桌宠气泡/空文本]"
+                    )
+                    continue
+                rendered_rows.append((queued_item, display_text))
+            if not rendered_rows:
+                if not self.reply_buffer.is_empty():
+                    self.reply_timer.start(100)
+                self._update_stats(success=False)
+                self._maybe_pool_topup()
+                return
+            barrage.deliver_batch(
+                [text for _, text in rendered_rows[:5]],
+                persona_id=rendered_rows[0][0].persona_id,
+                batch_id=rendered_rows[0][0].batch_id,
+                scene_generation=rendered_rows[0][0].scene_generation,
+                source=rendered_rows[0][0].source,
+            )
+            for queued_item, text in rendered_rows[:5]:
+                self.history_writer.enqueue(text, queued_item.persona_id, queued_item.batch_index)
+            self._latest_displayed_round = max(
+                self._latest_displayed_round,
+                max(item.screenshot_round for item, _ in rendered_rows),
+            )
+            self._latest_displayed_screenshot_id = max(
+                self._latest_displayed_screenshot_id,
+                max(item.screenshot_id for item, _ in rendered_rows),
+            )
+            if not self.reply_buffer.is_empty():
+                self.reply_timer.start(self._estimated_reply_gap_ms())
+            self._update_stats(success=True, count=len(rendered_rows[:5]))
+            self._maybe_pool_topup()
+            return
         if floating_panel:
             queued_peek = self.reply_buffer.peek()
             if queued_peek is None:

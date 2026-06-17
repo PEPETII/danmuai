@@ -37,7 +37,6 @@ import {
 import {
   CONFIG_FIELDS,
   initNormalBatchControls,
-  initMicInsertControls,
   MASKED_API_KEY,
 } from './settings-defaults.js';
 import {
@@ -108,7 +107,7 @@ import {
 } from './settings-tabs.js';
 
 export { MASKED_API_KEY } from './settings-defaults.js';
-export { initNormalBatchControls, initMicInsertControls } from './settings-defaults.js';
+export { initNormalBatchControls } from './settings-defaults.js';
 export {
   applyCaptureRegionFromPayload,
   initCaptureRegionControls,

@@ -103,11 +103,20 @@ class DanmuAppLifecycleMixin:
             self.config, self.floating_panel_engine
         )
 
+    def _ensure_pet_components(self) -> None:
+        """按需创建宠物组件（PetWindow / PetBarrageWindows / PetBarrageController / PetCommandService）。
+        仅在主线程调用，幂等：已创建则直接返回。"""
+        if self.__dict__.get("pet_window") is not None:
+            return
+        from app.pet.pet_barrage import PET_BARRAGE_COUNT, PetBarrageController
         from app.pet.pet_command_service import PetCommandService
         from app.pet.pet_window import PetWindow
 
         self.pet_command_service = PetCommandService()
         self.pet_window = PetWindow(self)
+        self.pet_barrage_windows = [PetWindow(self, slot_id=idx) for idx in range(PET_BARRAGE_COUNT)]
+        self.pet_barrage_controller = PetBarrageController(self)
+        self.pet_barrage_controller.attach_windows(self.pet_barrage_windows)
 
     def _init_request_pipeline_state(self) -> None:
         self.ai_worker = AiWorker(self.config)
@@ -414,10 +423,11 @@ class DanmuAppLifecycleMixin:
             is_error=True,
         )
 
-    def _update_stats(self, *, success: bool = True) -> None:
+    def _update_stats(self, *, success: bool = True, count: int = 1) -> None:
         if success:
-            self._ensure_stats_state().add_danmu(1)
-            self.lifetime_stats.add_danmu(1)
+            safe_count = max(1, int(count))
+            self._ensure_stats_state().add_danmu(safe_count)
+            self.lifetime_stats.add_danmu(safe_count)
         self._maybe_log_dedup_profile()
 
     def start(self) -> None:

@@ -86,3 +86,56 @@ def test_drop_replaceable_fallbacks_removes_matching_batch():
     assert dropped == 1
     assert buf.size() == 1
     assert buf.pop().content == "keep"
+
+
+def test_drop_one_tail_removes_single_replaceable_fallback():
+    buf = AIReplyFIFOBuffer(max_items=8)
+    buf.push(_ai_item("keep"))
+    buf.push(_fallback_item("fb"))
+
+    assert buf._drop_one_tail_replaceable_fallback() is True
+    assert buf.size() == 1
+    assert buf.pop().content == "keep"
+    assert buf.pop() is None
+
+
+def test_drop_one_tail_removes_rightmost_of_multiple_fallbacks():
+    buf = AIReplyFIFOBuffer(max_items=8)
+    buf.push(_ai_item("keep"))
+    buf.push(_fallback_item("fb-old"))
+    buf.push(_fallback_item("fb-new"))
+
+    assert buf._drop_one_tail_replaceable_fallback() is True
+
+    remaining = []
+    while not buf.is_empty():
+        remaining.append(buf.pop().content)
+    assert remaining == ["keep", "fb-old"]
+
+
+def test_drop_one_tail_returns_false_without_replaceable_fallback():
+    buf = AIReplyFIFOBuffer(max_items=8)
+    buf.push(_ai_item("ai"))
+
+    assert buf._drop_one_tail_replaceable_fallback() is False
+    assert buf.size() == 1
+    assert buf.pop().content == "ai"
+
+
+def test_drop_one_tail_skips_non_replaceable_fallback():
+    buf = AIReplyFIFOBuffer(max_items=8)
+    buf.push(
+        QueuedReply(
+            persona_id="p",
+            batch_index=0,
+            content_index=0,
+            content="locked-fb",
+            source="fallback",
+            is_fallback=True,
+            replaceable=False,
+        )
+    )
+
+    assert buf._drop_one_tail_replaceable_fallback() is False
+    assert buf.size() == 1
+    assert buf.pop().content == "locked-fb"

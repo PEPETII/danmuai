@@ -9,68 +9,22 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from app.config_defaults import (
-    DEFAULT_MIC_INSERT_REPLY_COUNT,
-    DEFAULT_MIC_INSERT_VOICE_REPLY_COUNT,
-)
-from app.personae import NORMAL_REPLY_COUNT_MAX, NORMAL_REPLY_COUNT_MIN
-
 if TYPE_CHECKING:
     from app.config_store import ConfigStore
 
-
-def _mic_insert_counts_from_config(config: "ConfigStore | None") -> tuple[int, int]:
-    if config is None:
-        return DEFAULT_MIC_INSERT_REPLY_COUNT, DEFAULT_MIC_INSERT_VOICE_REPLY_COUNT
-    try:
-        x = int(config.get("mic_insert_reply_count", str(DEFAULT_MIC_INSERT_REPLY_COUNT)))
-    except (TypeError, ValueError):
-        x = DEFAULT_MIC_INSERT_REPLY_COUNT
-    x = max(NORMAL_REPLY_COUNT_MIN, min(x, NORMAL_REPLY_COUNT_MAX))
-    try:
-        y = int(config.get("mic_insert_voice_reply_count", str(DEFAULT_MIC_INSERT_VOICE_REPLY_COUNT)))
-    except (TypeError, ValueError):
-        y = DEFAULT_MIC_INSERT_VOICE_REPLY_COUNT
-    y = max(0, min(y, x))
-    return x, y
-
-
-def _build_mic_insert_block(x: int, y: int) -> str:
-    prefix = "【麦克风插入】用户刚说完一句话，附带了真实语音。"
-    count_line = f"请生成 {x}条 JSON 数组弹幕。"
-
-    if y == 0:
-        voice_part = (
-            "不强制要求某几条必须回应语音，但可以自然参考用户刚才说话内容；"
-            "其余弹幕可结合截图氛围。"
-        )
-        footer = "若语音与截图无关，仍要体现听到了用户说话，不要只描述截图。"
-    elif y == x:
-        voice_part = (
-            f"全部 {x} 条弹幕都需要直接回应用户刚才说了什么"
-            "（复述要点、接话、提问或吐槽均可），可同时结合截图氛围。"
-        )
-        footer = ""
-    else:
-        rest = x - y
-        voice_part = (
-            f"前{y}条必须直接回应用户刚才说了什么（复述要点、接话、提问或吐槽均可）；"
-            f"其余 {rest} 条可结合截图氛围。"
-        )
-        footer = (
-            f"若语音与截图无关，仍要在前 {y} 条体现听到了用户说话，不要只描述截图。"
-        )
-
-    parts = [prefix, count_line, voice_part]
-    if footer:
-        parts.append(footer)
-    return "".join(parts)
+MIC_INSERT_BLOCK = (
+    "【麦克风插入】用户刚说完一句话，附带了真实语音。请生成 6 条 JSON 数组弹幕。\n"
+    "这 6 条弹幕必须全部同时结合当前画面与用户刚才说话内容，把用户说话内容优化成适合直播弹幕展示的短句。\n"
+    "每一条都要既体现听到了用户说话，又贴合当前画面氛围。\n"
+    "不要只复述语音，也不要只描述截图。\n"
+    "表达要自然、口语化、像真实观众弹幕，可以接话、提问、吐槽、补充或玩梗。\n"
+    "每条尽量短，不要解释，不要输出多余内容，只输出 JSON 字符串数组。"
+)
 
 
 def build_mic_insert_user_pt(user_pt: str, config: "ConfigStore | None" = None) -> str:
-    x, y = _mic_insert_counts_from_config(config)
-    block = _build_mic_insert_block(x, y)
+    _ = config  # retained for call-site compatibility; insert contract is fixed
     base = (user_pt or "").rstrip()
     if not base:
-        return block
-    return f"{base}\n\n{block}"
+        return MIC_INSERT_BLOCK
+    return f"{base}\n\n{MIC_INSERT_BLOCK}"

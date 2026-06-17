@@ -100,7 +100,20 @@ class HistoryWriter:
                 self._maybe_prune_rows()
                 self.config.conn.commit()
         except Exception:
-            _logger.exception("history flush failed items=%d", len(items))
+            _logger.exception("history flush failed items=%d, will retry on next flush", len(items))
+            # W-DATA-LOSS-001：回填失败批次到 buffer 队首，防止永久丢失
+            with self._lock:
+                for item in reversed(items):
+                    if self._buffer.maxlen is None or len(self._buffer) < self._buffer.maxlen:
+                        self._buffer.appendleft(item)
+                    else:
+                        self._dropped_total += 1
+                        _logger.warning(
+                            "history_writer retry backfill overflow: dropped=1 "
+                            "dropped_total=%s max_items=%s reason=retry_backfill_trim",
+                            self._dropped_total,
+                            self._buffer.maxlen,
+                        )
 
     def _run(self):
         while not self._stop_event.wait(self.flush_interval):

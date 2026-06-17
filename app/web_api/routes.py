@@ -550,9 +550,16 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
         command_box_enabled: bool | None = None
         command_ttl_sec: int | None = None
         command_apply_count: int | None = None
+        pet_barrage_mode_enabled: bool | None = None
+        pet_barrage_slots: list[dict] | None = None
+        pet_barrage_slot_positions: list[dict] | None = None
 
     class PetCommandPayload(BaseModel):
         text: str = ""
+
+    class PetBarrageSlotAssetPayload(BaseModel):
+        asset_source: str = "builtin"
+        asset_path: str = ""
 
     @app.get("/api/pet/settings")
     def get_pet_settings():
@@ -578,6 +585,9 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
             "pet_command_box_enabled": raw.get("command_box_enabled"),
             "pet_command_ttl_sec": raw.get("command_ttl_sec"),
             "pet_command_apply_count": raw.get("command_apply_count"),
+            "pet_barrage_mode_enabled": raw.get("pet_barrage_mode_enabled"),
+            "pet_barrage_slots": raw.get("pet_barrage_slots"),
+            "pet_barrage_slot_positions": raw.get("pet_barrage_slot_positions"),
         }
         payload = {k: v for k, v in payload.items() if v is not None}
         return _invoke_main(pet_api.save_settings, bridge.danmu_app, payload)
@@ -591,6 +601,41 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
     def post_pet_reset_asset(authorization: str | None = Header(default=None)):
         check_token(authorization)
         return _invoke_main(pet_api.reset_asset_to_builtin, bridge.danmu_app)
+
+    @app.get("/api/pet/barrage-slots/{slot_id}/preview")
+    def get_pet_barrage_slot_preview(slot_id: int):
+        return pet_api.get_barrage_slot_preview(bridge.danmu_app, slot_id)
+
+    @app.post("/api/pet/barrage-slots/{slot_id}/asset")
+    def post_pet_barrage_slot_asset(
+        slot_id: int,
+        body: PetBarrageSlotAssetPayload,
+        authorization: str | None = Header(default=None),
+    ):
+        check_token(authorization)
+        return _invoke_main(
+            pet_api.set_barrage_slot_asset,
+            bridge.danmu_app,
+            slot_id,
+            asset_source=body.asset_source,
+            asset_path=body.asset_path,
+        )
+
+    @app.post("/api/pet/barrage-slots/{slot_id}/import-folder")
+    def post_pet_barrage_slot_import_folder(
+        slot_id: int,
+        authorization: str | None = Header(default=None),
+    ):
+        check_token(authorization)
+        return _invoke_main(pet_api.import_barrage_slot_asset_via_dialog, bridge.danmu_app, slot_id)
+
+    @app.post("/api/pet/barrage-slots/{slot_id}/reset")
+    def post_pet_barrage_slot_reset(
+        slot_id: int,
+        authorization: str | None = Header(default=None),
+    ):
+        check_token(authorization)
+        return _invoke_main(pet_api.reset_barrage_slot_asset, bridge.danmu_app, slot_id)
 
     @app.post("/api/pet/show")
     def post_pet_show(authorization: str | None = Header(default=None)):

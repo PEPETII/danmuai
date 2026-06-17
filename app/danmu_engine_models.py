@@ -31,6 +31,7 @@ class DanmuItem:
     _cached_engine_entry_zone: bool = field(default=False, repr=False, compare=False)
     _cached_offscreen_pending: bool = field(default=False, repr=False, compare=False)
     _cached_track_entry_zone: bool = field(default=False, repr=False, compare=False)
+    _needs_motion_tick: bool = field(default=False, repr=False, compare=False)
 
 
 class Track:

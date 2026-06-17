@@ -41,8 +41,6 @@ WEB_CONFIG_KEYS = (
     "mic_api_endpoint",
     "mic_api_mode",
     "mic_model",
-    "mic_insert_reply_count",
-    "mic_insert_voice_reply_count",
     "normal_recognition_interval_sec",
     "normal_reply_count",
     "user_nickname",  # W-NICKNAME-001
@@ -76,6 +74,12 @@ WEB_CONFIG_KEYS = (
     "pet_command_box_enabled",
     "pet_command_ttl_sec",
     "pet_command_apply_count",
+    "pet_barrage_mode_enabled",
+    "pet_barrage_count",
+    "pet_barrage_slots",
+    "pet_barrage_slot_positions",
+    "pet_barrage_previous_render_mode",
+    "pet_barrage_previous_reply_count",
 )
 
 # 助手设置「恢复默认」可恢复的键（= WEB_CONFIG_KEYS；不含 api_key / custom_models / region_*）
@@ -314,44 +318,6 @@ class ConfigService:
                 NORMAL_REPLY_COUNT_MAX,
             )
 
-        if "mic_insert_reply_count" in items or "mic_insert_voice_reply_count" in items:
-            from app.config_defaults import (
-                DEFAULT_MIC_INSERT_REPLY_COUNT,
-                DEFAULT_MIC_INSERT_VOICE_REPLY_COUNT,
-            )
-            from app.personae import NORMAL_REPLY_COUNT_MAX, NORMAL_REPLY_COUNT_MIN
-
-            if "mic_insert_reply_count" in items:
-                _clamp_int_key(
-                    items,
-                    "mic_insert_reply_count",
-                    DEFAULT_MIC_INSERT_REPLY_COUNT,
-                    NORMAL_REPLY_COUNT_MIN,
-                    NORMAL_REPLY_COUNT_MAX,
-                )
-            try:
-                x_raw = items.get(
-                    "mic_insert_reply_count",
-                    self._config.get(
-                        "mic_insert_reply_count",
-                        str(DEFAULT_MIC_INSERT_REPLY_COUNT),
-                    ),
-                )
-                x = max(
-                    NORMAL_REPLY_COUNT_MIN,
-                    min(int(x_raw), NORMAL_REPLY_COUNT_MAX),
-                )
-            except (TypeError, ValueError):
-                x = DEFAULT_MIC_INSERT_REPLY_COUNT
-            if "mic_insert_voice_reply_count" in items:
-                _clamp_int_key(
-                    items,
-                    "mic_insert_voice_reply_count",
-                    DEFAULT_MIC_INSERT_VOICE_REPLY_COUNT,
-                    0,
-                    x,
-                )
-
         # W-FP-V2-001：danmu_render_mode 与侧边悬浮窗配置归一化
         if "danmu_render_mode" in items:
             _clamp_choice(
@@ -399,6 +365,7 @@ class ConfigService:
             "pet_always_on_top",
             "pet_click_through",
             "pet_command_box_enabled",
+            "pet_barrage_mode_enabled",
         ):
             if _key in items:
                 _v = str(items[_key]).strip().lower()
@@ -417,6 +384,24 @@ class ConfigService:
                 items["pet_opacity"] = "1.0"
         _clamp_int_key(items, "pet_command_ttl_sec", 30, 5, 300)
         _clamp_int_key(items, "pet_command_apply_count", 1, 1, 5)
+        _clamp_int_key(items, "pet_barrage_count", 5, 5, 5)
+        if "pet_barrage_previous_render_mode" in items:
+            _clamp_choice(
+                items,
+                "pet_barrage_previous_render_mode",
+                ("scrolling", "floating_panel"),
+                "scrolling",
+            )
+        if "pet_barrage_previous_reply_count" in items:
+            from app.personae import DEFAULT_NORMAL_REPLY_COUNT, NORMAL_REPLY_COUNT_MAX
+
+            _clamp_int_key(
+                items,
+                "pet_barrage_previous_reply_count",
+                DEFAULT_NORMAL_REPLY_COUNT,
+                1,
+                NORMAL_REPLY_COUNT_MAX,
+            )
         for _key in ("pet_position_x", "pet_position_y"):
             if _key not in items:
                 continue
@@ -430,6 +415,14 @@ class ConfigService:
                 items[_key] = ""
                 continue
             items[_key] = str(max(-32000, min(pos, 32000)))
+        for _key in ("pet_barrage_slots", "pet_barrage_slot_positions"):
+            if _key not in items:
+                continue
+            raw = str(items[_key] or "").strip()
+            if not raw:
+                items[_key] = "[]"
+                continue
+            items[_key] = raw
 
     def _merge_custom_models(self, payload_models: list[Any]) -> list[dict[str, Any]]:
         from app.web_api.custom_models import MASKED_KEY

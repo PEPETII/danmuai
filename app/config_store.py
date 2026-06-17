@@ -53,6 +53,8 @@ def _redact_config_value_for_log(key: str, value: str) -> str:
 CONFIG_DIR = Path(os.environ.get("APPDATA", ".")) / "DanmuAI"
 CONFIG_FILE = CONFIG_DIR / "config.db"
 _KEY_FILE = CONFIG_DIR / ".key"
+# Python 3.12 默认 cached_statements=128；显式放大以覆盖 meme/custom 池等高频查询变体。
+_SQLITE_CACHED_STATEMENTS = 256
 
 from app.danmu_pool import CUSTOM_DANMU_POOL_MAX  # noqa: E402
 
@@ -73,7 +75,12 @@ class ConfigStore:
         db_path.parent.mkdir(parents=True, exist_ok=True)
         self.db_path = db_path
         self._key_file = db_path.parent / ".key"
-        self.conn = sqlite3.connect(str(db_path), check_same_thread=False)
+        # 连接级 statement cache（sqlite3 内置）；不手写 prepared statement、不长期持有 cursor。
+        self.conn = sqlite3.connect(
+            str(db_path),
+            check_same_thread=False,
+            cached_statements=_SQLITE_CACHED_STATEMENTS,
+        )
         # WAL：读不阻塞写、写不阻塞读；Web/主线程并发读配置时减少 database is locked
         # 选择原因：主线程读配置 + HTTP 线程写配置并发场景，WAL 比 DELETE 模式更适合
         self.conn.execute("PRAGMA journal_mode=WAL")
@@ -210,6 +217,7 @@ class ConfigStore:
                 self.conn.commit()
                 self._cache[key] = value
             except sqlite3.OperationalError as e:
+                self.conn.rollback()
                 safe_value = _redact_config_value_for_log(key, value)
                 logger.error(
                     tr("config.write_failed").format(key=key, value=safe_value, error=e)
@@ -584,9 +592,9 @@ class ConfigStore:
         if needs_upgrade:
             self.set_custom_models(result)
             raw = self.get("custom_models", "")
-        self._custom_models_cache = [dict(m) for m in result]
+        self._custom_models_cache = result
         self._custom_models_fp = raw
-        return [dict(m) for m in result]
+        return [dict(m) for m in self._custom_models_cache]
 
     def set_custom_models(self, models: list):
         """Persist custom models; each apiKey is Fernet-encrypted before JSON serialization."""

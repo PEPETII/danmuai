@@ -436,6 +436,42 @@ def test_custom_models_cache_invalidates_on_set_batch(tmp_path):
     store.close()
 
 
+def test_get_custom_models_returned_copy_does_not_pollute_cache(tmp_path):
+    if not _HAS_CRYPTO:
+        pytest.skip("cryptography not available")
+
+    store = ConfigStore(db_path=tmp_path / "config.db")
+    store.set_custom_models(
+        [
+            {
+                "name": "A",
+                "modelId": "model-a",
+                "mode": "openai",
+                "endpoint": "https://api.example.com/v1",
+                "apiKey": "sk-model-a",
+            }
+        ]
+    )
+    first = store.get_custom_models()
+    first[0]["apiKey"] = "mutated-key"
+    first.append(
+        {
+            "name": "Injected",
+            "modelId": "injected",
+            "mode": "openai",
+            "endpoint": "https://api.example.com/v1",
+            "apiKey": "sk-injected",
+        }
+    )
+
+    second = store.get_custom_models()
+    assert len(second) == 1
+    assert second[0]["modelId"] == "model-a"
+    assert second[0]["apiKey"] == "sk-model-a"
+    assert first is not second
+    store.close()
+
+
 def test_apply_web_save_single_commit(tmp_path):
     store = ConfigStore(db_path=tmp_path / "config.db")
     counting = _CommitCountingConn(store.conn)
@@ -560,5 +596,17 @@ def test_custom_danmu_pool_capacity_limit(tmp_path, monkeypatch):
     assert stats["added"] == 3
     assert stats["skipped_limit"] == 1
     assert store.custom_danmu_count() == 3
+    store.close()
+
+
+def test_meme_barrage_library_contains_text_after_init(tmp_path):
+    store = ConfigStore(db_path=tmp_path / "meme_contains.db")
+    store.meme_barrage_library_insert_many(
+        [("烂梗句", None, None)],
+        collected_at=0.0,
+        max_rows=10_000,
+    )
+    assert store.meme_barrage_library_contains_text("烂梗句") is True
+    assert store.meme_barrage_library_contains_text("不存在") is False
     store.close()
 

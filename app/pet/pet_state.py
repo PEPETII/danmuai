@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -34,6 +35,61 @@ def _int_or_none(value: str) -> int | None:
         return None
 
 
+def _int_clamped(value, default: int, lo: int, hi: int) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return default
+    return max(lo, min(parsed, hi))
+
+
+def _json_list(value: str) -> list:
+    raw = str(value or "").strip()
+    if not raw:
+        return []
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        return []
+    return data if isinstance(data, list) else []
+
+
+@dataclass(frozen=True)
+class PetBarrageSlot:
+    slot_id: int
+    asset_source: str
+    asset_path: str
+    position_x: int | None
+    position_y: int | None
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "slot_id": self.slot_id,
+            "asset_source": self.asset_source,
+            "asset_path": self.asset_path,
+            "position_x": self.position_x,
+            "position_y": self.position_y,
+        }
+
+
+@dataclass(frozen=True)
+class PetBarrageSettings:
+    enabled: bool
+    count: int
+    previous_render_mode: str
+    previous_reply_count: int
+    slots: tuple[PetBarrageSlot, ...]
+
+    def to_api_dict(self) -> dict[str, object]:
+        return {
+            "enabled": self.enabled,
+            "count": self.count,
+            "previous_render_mode": self.previous_render_mode,
+            "previous_reply_count": self.previous_reply_count,
+            "slots": [slot.to_dict() for slot in self.slots],
+        }
+
+
 @dataclass(frozen=True)
 class PetSettings:
     enabled: bool
@@ -49,6 +105,7 @@ class PetSettings:
     command_box_enabled: bool
     command_ttl_sec: int
     command_apply_count: int
+    barrage: PetBarrageSettings
 
     @classmethod
     def from_config(cls, config: "ConfigStore") -> "PetSettings":
@@ -63,6 +120,31 @@ class PetSettings:
         source = str(config.get("pet_asset_source", "builtin") or "builtin").strip().lower()
         if source not in ("builtin", "local"):
             source = "builtin"
+        barrage_count = _int_clamped(config.get("pet_barrage_count", "5"), 5, 5, 5)
+        slots_config = _json_list(config.get("pet_barrage_slots", "[]"))
+        positions_config = _json_list(config.get("pet_barrage_slot_positions", "[]"))
+        barrage_slots: list[PetBarrageSlot] = []
+        for slot_id in range(barrage_count):
+            slot_raw = slots_config[slot_id] if slot_id < len(slots_config) and isinstance(slots_config[slot_id], dict) else {}
+            pos_raw = positions_config[slot_id] if slot_id < len(positions_config) and isinstance(positions_config[slot_id], dict) else {}
+            slot_source = str(slot_raw.get("asset_source", source) or source).strip().lower()
+            if slot_source not in ("builtin", "local"):
+                slot_source = "builtin"
+            slot_path = str(slot_raw.get("asset_path", "") or "")
+            barrage_slots.append(
+                PetBarrageSlot(
+                    slot_id=slot_id,
+                    asset_source=slot_source,
+                    asset_path=slot_path,
+                    position_x=_int_or_none(pos_raw.get("x", slot_raw.get("position_x", ""))),
+                    position_y=_int_or_none(pos_raw.get("y", slot_raw.get("position_y", ""))),
+                )
+            )
+        previous_render_mode = str(
+            config.get("pet_barrage_previous_render_mode", "scrolling") or "scrolling"
+        ).strip().lower()
+        if previous_render_mode not in ("scrolling", "floating_panel"):
+            previous_render_mode = "scrolling"
         return cls(
             enabled=_truthy(config.get("pet_enabled", "0")),
             visible=_truthy(config.get("pet_visible", "0")),
@@ -77,6 +159,18 @@ class PetSettings:
             command_box_enabled=_truthy(config.get("pet_command_box_enabled", "1"), default=True),
             command_ttl_sec=max(5, min(ttl, 300)),
             command_apply_count=max(1, min(apply_count, 5)),
+            barrage=PetBarrageSettings(
+                enabled=_truthy(config.get("pet_barrage_mode_enabled", "0")),
+                count=barrage_count,
+                previous_render_mode=previous_render_mode,
+                previous_reply_count=_int_clamped(
+                    config.get("pet_barrage_previous_reply_count", "5"),
+                    5,
+                    1,
+                    50,
+                ),
+                slots=tuple(barrage_slots),
+            ),
         )
 
     def to_api_dict(self) -> dict[str, object]:
@@ -94,4 +188,5 @@ class PetSettings:
             "command_box_enabled": self.command_box_enabled,
             "command_ttl_sec": self.command_ttl_sec,
             "command_apply_count": self.command_apply_count,
+            "pet_barrage": self.barrage.to_api_dict(),
         }

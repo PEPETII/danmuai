@@ -222,6 +222,8 @@ def export_config(config) -> dict[str, Any]:
         if isinstance(model, dict)
     ]
     data["reply_batch_total"] = normal_reply_count_from_config(config)
+    data["pet_barrage_mode_enabled"] = str(config.get("pet_barrage_mode_enabled", "0") or "0")
+    data["pet_barrage_count"] = str(config.get("pet_barrage_count", "5") or "5")
     rx, ry, rw, rh = config.get_region()
     data["region_x"] = rx
     data["region_y"] = ry

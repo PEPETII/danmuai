@@ -195,6 +195,7 @@ class DanmuOverlay(QWidget):
                 self.measure_item_width(item)
                 self.prepare_item_pixmap(item)
                 self.engine._refresh_item_visibility(item)
+                self.engine._update_item_motion_tick_state(item)
         self._sync_applied_display_settings_markers()
         if self.isVisible():
             dirty = self._union_dirty_rect(self._motion_margin_px())
@@ -340,15 +341,22 @@ class DanmuOverlay(QWidget):
                     continue
                 self.prepare_item_pixmap(item)
 
-    def _iter_paint_dirty_items(self, margin: float):
-        """Yield visible items intersecting the dirty motion margin."""
+    def _collect_dirty_candidates_and_bounds(
+        self, margin: float
+    ) -> tuple[list[DanmuItem], QRectF | None]:
+        """One pass: paint-band + dirty-margin filter, candidates list, pre-motion bounds."""
+        candidates: list[DanmuItem] = []
+        pre_bounds: QRectF | None = None
         for track in self.engine.tracks:
             for item in track.items:
                 if not self._item_in_paint_band(item):
                     continue
                 if not self._item_intersects_dirty(item, margin):
                     continue
-                yield item
+                candidates.append(item)
+                rect = self._item_paint_rect(item)
+                pre_bounds = rect if pre_bounds is None else pre_bounds.united(rect)
+        return candidates, pre_bounds
 
     def _union_dirty_rect(self, margin: float) -> QRect | None:
         bounds: QRectF | None = None
@@ -377,13 +385,8 @@ class DanmuOverlay(QWidget):
     def _tick_dirty_rects(
         self, margin: float
     ) -> tuple[QRect | None, QRect | None, int, int]:
-        """Snapshot dirty bounds before/after motion in one candidate pass."""
-        candidates = list(self._iter_paint_dirty_items(margin))
-
-        pre_bounds: QRectF | None = None
-        for item in candidates:
-            rect = self._item_paint_rect(item)
-            pre_bounds = rect if pre_bounds is None else pre_bounds.united(rect)
+        """Snapshot dirty bounds before/after motion; pre_bounds merged into candidate collect."""
+        candidates, pre_bounds = self._collect_dirty_candidates_and_bounds(margin)
 
         before_visible = self.engine.visible_display_count()
         self.engine.update(dt_sec=self.last_tick_dt_sec)

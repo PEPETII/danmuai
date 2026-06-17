@@ -51,6 +51,18 @@ def _assert_track_cache_matches_scan(engine: DanmuEngine) -> None:
         assert track.rightmost_edge() == expected_tail
 
 
+def _scan_motion_tick_oracle(engine: DanmuEngine) -> int:
+    return DanmuEngine._scan_motion_tick_count(engine.tracks, engine.screen_width)
+
+
+def _assert_motion_tick_matches_scan(engine: DanmuEngine) -> None:
+    engine._ensure_motion_tick_count()
+    assert engine._motion_tick_count == _scan_motion_tick_oracle(engine)
+    assert engine.needs_render_tick() == (
+        engine._accel_remaining > 0 or _scan_motion_tick_oracle(engine) > 0
+    )
+
+
 def test_capacity_counts_match_scan_after_seeded_adds(tmp_path, monkeypatch):
     monkeypatch.setattr("app.danmu_engine.clamp_danmu_lines", lambda v: max(4, int(v)))
     engine = _make_engine(tmp_path, lines=6, width=1000.0)
@@ -64,6 +76,7 @@ def test_capacity_counts_match_scan_after_seeded_adds(tmp_path, monkeypatch):
 
     _assert_counts_match_scan(engine)
     _assert_track_cache_matches_scan(engine)
+    _assert_motion_tick_matches_scan(engine)
 
 
 def test_capacity_counts_match_scan_after_add_text_burst(tmp_path, monkeypatch):
@@ -76,6 +89,7 @@ def test_capacity_counts_match_scan_after_add_text_burst(tmp_path, monkeypatch):
 
     _assert_counts_match_scan(engine)
     _assert_track_cache_matches_scan(engine)
+    _assert_motion_tick_matches_scan(engine)
 
 
 def test_capacity_counts_match_scan_after_motion_and_eviction(tmp_path, monkeypatch):
@@ -100,6 +114,7 @@ def test_capacity_counts_match_scan_after_motion_and_eviction(tmp_path, monkeypa
 
     _assert_counts_match_scan(engine)
     _assert_track_cache_matches_scan(engine)
+    _assert_motion_tick_matches_scan(engine)
 
 
 def test_eviction_still_drops_furthest_offscreen(tmp_path, monkeypatch):
@@ -236,3 +251,109 @@ def test_update_many_items_still_within_budget(tmp_path, monkeypatch):
     assert elapsed < UPDATE_BUDGET_SEC
     _assert_counts_match_scan(engine)
     _assert_track_cache_matches_scan(engine)
+    _assert_motion_tick_matches_scan(engine)
+
+
+def test_motion_tick_matches_scan_after_seeded_adds(tmp_path, monkeypatch):
+    monkeypatch.setattr("app.danmu_engine.clamp_danmu_lines", lambda v: max(4, int(v)))
+    engine = _make_engine(tmp_path, lines=6, width=1000.0)
+
+    for i in range(40):
+        track = engine.tracks[i % len(engine.tracks)]
+        x = 700.0 + (i % 12) * 30.0 if i % 3 else 200.0 + i * 5.0
+        item = DanmuItem(content=f"c{i}", x=x, width=60.0)
+        track.add(item)
+        engine._register_item(track, item)
+
+    _assert_motion_tick_matches_scan(engine)
+
+
+def test_motion_tick_stays_consistent_during_update(tmp_path, monkeypatch):
+    monkeypatch.setattr("app.danmu_engine.clamp_danmu_lines", lambda v: max(4, int(v)))
+    engine = _make_engine(tmp_path, lines=4, width=1000.0)
+
+    for i in range(12):
+        track = engine.tracks[i % len(engine.tracks)]
+        item = DanmuItem(content=f"move-{i}", x=900.0 + i * 15.0, width=50.0, speed=6.0)
+        track.add(item)
+        engine._register_item(track, item)
+
+    for frame in range(90):
+        engine.update(speed_factor=1.0, dt_sec=1.0 / 60.0)
+        if frame % 10 == 0:
+            _assert_motion_tick_matches_scan(engine)
+
+    _assert_motion_tick_matches_scan(engine)
+
+
+def test_motion_tick_zero_after_item_exits_left(tmp_path, monkeypatch):
+    monkeypatch.setattr("app.danmu_engine.clamp_danmu_lines", lambda v: max(2, int(v)))
+    engine = _make_engine(tmp_path, lines=2, width=800.0)
+
+    item = DanmuItem(content="exit-left", x=30.0, width=60.0, speed=20.0)
+    engine.tracks[0].add(item)
+    engine._register_item(engine.tracks[0], item)
+
+    for _ in range(120):
+        engine.update(speed_factor=1.0, dt_sec=1.0 / 60.0)
+        if engine.current_display_count() == 0:
+            break
+
+    assert engine.current_display_count() == 0
+    assert engine._motion_tick_count == 0
+    assert not engine.needs_render_tick()
+
+
+def test_motion_tick_rebuilds_after_screen_width_change(tmp_path, monkeypatch):
+    monkeypatch.setattr("app.danmu_engine.clamp_danmu_lines", lambda v: max(2, int(v)))
+    engine = _make_engine(tmp_path, lines=2, width=1000.0)
+
+    item = DanmuItem(content="near-edge", x=1080.0, width=50.0)
+    engine.tracks[0].add(item)
+    engine._register_item(engine.tracks[0], item)
+    _assert_motion_tick_matches_scan(engine)
+
+    engine.set_screen_width(900.0)
+    _assert_motion_tick_matches_scan(engine)
+    assert not engine.needs_render_tick()
+
+    engine.set_screen_width(2000.0)
+    _assert_motion_tick_matches_scan(engine)
+    assert engine.needs_render_tick()
+
+
+def test_motion_tick_skip_rebuild_when_fresh(tmp_path, monkeypatch):
+    monkeypatch.setattr("app.danmu_engine.clamp_danmu_lines", lambda v: max(4, int(v)))
+    engine = _make_engine(tmp_path, lines=4, width=1000.0)
+    for i in range(20):
+        track = engine.tracks[i % len(engine.tracks)]
+        item = DanmuItem(content=f"x{i}", x=950.0 + i, width=40.0)
+        track.add(item)
+        engine._register_item(track, item)
+
+    rebuild_calls: list[int] = []
+    original = engine._rebuild_motion_tick_count
+
+    def counting_rebuild() -> None:
+        rebuild_calls.append(1)
+        return original()
+
+    engine._rebuild_motion_tick_count = counting_rebuild  # type: ignore[method-assign]
+
+    for _ in range(50):
+        engine.needs_render_tick()
+
+    assert rebuild_calls == []
+
+
+def test_motion_tick_after_reload_tracks_preserve(tmp_path, monkeypatch):
+    monkeypatch.setattr("app.danmu_engine.clamp_danmu_lines", lambda v: max(2, int(v)))
+    engine = _make_engine(tmp_path, lines=4, width=1920.0)
+
+    item = DanmuItem(content="stay", x=500.0, width=100.0)
+    engine.tracks[0].add(item)
+    engine._register_item(engine.tracks[0], item)
+
+    engine.reload_tracks(preserve_visible=True)
+    _assert_motion_tick_matches_scan(engine)
+    assert engine.needs_render_tick()

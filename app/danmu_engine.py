@@ -198,6 +198,9 @@ class DanmuEngine(QObject):
         self._total_item_count = 0
         self._capacity_counts_stale = False
         self._capacity_counts_seeded = False
+        self._motion_tick_count = 0
+        self._motion_tick_stale = False
+        self._motion_tick_seeded = False
         self._init_tracks()
         self._load_recent_from_history()
 
@@ -259,12 +262,16 @@ class DanmuEngine(QObject):
         self._total_item_count = 0
         self._capacity_counts_seeded = False
         self._capacity_counts_stale = False
+        self._motion_tick_count = 0
+        self._motion_tick_stale = False
+        self._motion_tick_seeded = False
 
     def set_screen_width(self, w: float):
         if w != self.screen_width:
             self.screen_width = w
             self._mark_visibility_stale()
             self._mark_capacity_stale()
+            self._mark_motion_tick_stale()
 
     def set_screen_height(self, h: float):
         self.screen_height = h
@@ -284,6 +291,16 @@ class DanmuEngine(QObject):
     @staticmethod
     def _scan_current_display_count(tracks: list[Track]) -> int:
         return sum(len(track.items) for track in tracks)
+
+    @staticmethod
+    def _scan_motion_tick_count(tracks: list[Track], screen_width: float) -> int:
+        enter_x = screen_width + FADE_IN_PX
+        return sum(
+            1
+            for track in tracks
+            for item in track.items
+            if item.x + item.width > 0 and item.x < enter_x
+        )
 
     def _item_in_track_entry_zone(self, item: DanmuItem) -> bool:
         zone_left = self.screen_width - ENTRY_ZONE_PX
@@ -353,9 +370,13 @@ class DanmuEngine(QObject):
             track._furthest_offscreen_item = item
         self._capacity_counts_seeded = True
         self._capacity_counts_stale = False
+        self._update_item_motion_tick_state(item)
 
     def _unregister_item(self, track: Track, item: DanmuItem) -> None:
         self._total_item_count = max(0, self._total_item_count - 1)
+        if item._needs_motion_tick:
+            self._motion_tick_count = max(0, self._motion_tick_count - 1)
+            item._needs_motion_tick = False
         if item._cached_engine_entry_zone:
             self._pending_entry_count -= 1
             item._cached_engine_entry_zone = False
@@ -402,6 +423,7 @@ class DanmuEngine(QObject):
                 self._recompute_track_offscreen_meta(track)
         elif was_offscreen and item is track._furthest_offscreen_item:
             self._recompute_track_offscreen_meta(track)
+        self._update_item_motion_tick_state(item)
 
     def _rebuild_capacity_counts(self) -> None:
         sw = self.screen_width
@@ -576,6 +598,42 @@ class DanmuEngine(QObject):
     def _mark_visibility_stale(self) -> None:
         self._visibility_stale = True
 
+    def _mark_motion_tick_stale(self) -> None:
+        self._motion_tick_stale = True
+
+    def _item_needs_render_tick(self, item: DanmuItem) -> bool:
+        if item.x + item.width <= 0:
+            return False
+        return item.x < self.screen_width + FADE_IN_PX
+
+    def _update_item_motion_tick_state(self, item: DanmuItem) -> None:
+        needs = self._item_needs_render_tick(item)
+        if item._needs_motion_tick == needs:
+            return
+        if needs:
+            self._motion_tick_count += 1
+        else:
+            self._motion_tick_count = max(0, self._motion_tick_count - 1)
+        item._needs_motion_tick = needs
+        self._motion_tick_seeded = True
+        self._motion_tick_stale = False
+
+    def _rebuild_motion_tick_count(self) -> None:
+        count = 0
+        for track in self.tracks:
+            for item in track.items:
+                needs = self._item_needs_render_tick(item)
+                item._needs_motion_tick = needs
+                if needs:
+                    count += 1
+        self._motion_tick_count = count
+        self._motion_tick_stale = False
+        self._motion_tick_seeded = True
+
+    def _ensure_motion_tick_count(self) -> None:
+        if self._motion_tick_stale or not self._motion_tick_seeded:
+            self._rebuild_motion_tick_count()
+
     def _set_item_visibility(self, item: DanmuItem, visible: bool, right: bool) -> None:
         if item._vis_on_screen != visible:
             self._visible_count += 1 if visible else -1
@@ -696,6 +754,7 @@ class DanmuEngine(QObject):
             self.overlay.measure_item_width(item)
             if self.overlay.isVisible():
                 self.overlay.ensure_render_loop()
+            self._update_item_motion_tick_state(item)
         self._refresh_item_visibility(item)
         return item
 
@@ -764,15 +823,8 @@ class DanmuEngine(QObject):
         """True when overlay should run: accel or any item in/approaching the fade band."""
         if self._accel_remaining > 0:
             return True
-        sw = self.screen_width
-        enter_x = sw + FADE_IN_PX
-        for track in self.tracks:
-            for item in track.items:
-                if item.x + item.width <= 0:
-                    continue
-                if item.x < enter_x:
-                    return True
-        return False
+        self._ensure_motion_tick_count()
+        return self._motion_tick_count > 0
 
     def right_zone_count(self) -> int:
         threshold = self.screen_width * 2 / 3
@@ -944,9 +996,7 @@ class DanmuEngine(QObject):
         self.running = False
 
     def _item_needs_motion(self, item: DanmuItem) -> bool:
-        if item.x + item.width <= 0:
-            return False
-        return item.x < self.screen_width + FADE_IN_PX
+        return self._item_needs_render_tick(item)
 
     def _collect_items_for_track_reload(self, *, clip_to_drawable: bool = False) -> list[DanmuItem]:
         preserved: list[DanmuItem] = []
@@ -990,6 +1040,7 @@ class DanmuEngine(QObject):
         if preserved:
             self._rebuild_visibility_counts()
             self._rebuild_capacity_counts()
+            self._rebuild_motion_tick_count()
         else:
             self._visible_count = 0
             self._right_visible_count = 0
@@ -1001,6 +1052,9 @@ class DanmuEngine(QObject):
             self._total_item_count = 0
             self._capacity_counts_seeded = False
             self._capacity_counts_stale = False
+            self._motion_tick_count = 0
+            self._motion_tick_stale = False
+            self._motion_tick_seeded = False
 
     def track_count(self) -> int:
         return len(self.tracks)

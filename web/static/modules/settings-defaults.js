@@ -2,8 +2,6 @@ const NORMAL_REPLY_COUNT_MIN = 1;
 const NORMAL_REPLY_COUNT_MAX = 50;
 const DEFAULT_NORMAL_REPLY_COUNT = 5;
 const FLOATING_PANEL_NORMAL_REPLY_COUNT = 10;
-const DEFAULT_MIC_INSERT_REPLY_COUNT = 6;
-const DEFAULT_MIC_INSERT_VOICE_REPLY_COUNT = 3;
 const NORMAL_RECOGNITION_INTERVAL_SEC = 5;
 const DEFAULT_FLOATING_PANEL_SPEED = '1';
 
@@ -42,7 +40,6 @@ export const CONFIG_FIELDS = [
   'eviction_mode', 'danmu_pending_entry_cap', 'danmu_track_retention_cap', 'reply_queue_max_items',
   'image_max_width', 'image_quality',
   'mic_window_sec', 'mic_api_endpoint', 'mic_api_mode', 'mic_model',
-  'mic_insert_reply_count', 'mic_insert_voice_reply_count',
   'normal_recognition_interval_sec', 'normal_reply_count',
   'danmu_render_mode',
   'floating_panel_width',
@@ -62,7 +59,6 @@ export const SETTINGS_RESTORE_GROUPS = {
   ],
   mic: [
     'mic_window_sec', 'mic_api_endpoint', 'mic_api_mode', 'mic_model',
-    'mic_insert_reply_count', 'mic_insert_voice_reply_count',
   ],
   capture: [],
   danmu: [
@@ -120,7 +116,8 @@ function buildNormalReplyContractPreviewZh(count, maxChars) {
 export function updateNormalBatchPreview() {
   const countEl = document.getElementById('normal_reply_count');
   if (!countEl) return;
-  const count = clampNormalReplyCount(countEl.value, DEFAULT_NORMAL_REPLY_COUNT);
+  const barrageEnabled = document.getElementById('petBarrageModeEnabled')?.checked === true;
+  const count = barrageEnabled ? 5 : clampNormalReplyCount(countEl.value, DEFAULT_NORMAL_REPLY_COUNT);
   countEl.value = String(count);
   const hint = document.getElementById('normalBatchTotalHint');
   if (hint) {
@@ -140,37 +137,6 @@ export function initNormalBatchControls() {
     document.getElementById(id)?.addEventListener('change', updateNormalBatchPreview);
   });
   updateNormalBatchPreview();
-}
-
-function clampMicInsertReplyCount(value, fallback = DEFAULT_MIC_INSERT_REPLY_COUNT) {
-  const n = parseInt(value, 10);
-  if (Number.isNaN(n)) return fallback;
-  return Math.max(NORMAL_REPLY_COUNT_MIN, Math.min(NORMAL_REPLY_COUNT_MAX, n));
-}
-
-function clampMicInsertVoiceReplyCount(value, x, fallback = DEFAULT_MIC_INSERT_VOICE_REPLY_COUNT) {
-  const n = parseInt(value, 10);
-  if (Number.isNaN(n)) return Math.min(fallback, x);
-  return Math.max(0, Math.min(n, x));
-}
-
-export function updateMicInsertControls() {
-  const xEl = document.getElementById('mic_insert_reply_count');
-  const yEl = document.getElementById('mic_insert_voice_reply_count');
-  if (!xEl || !yEl) return;
-  const x = clampMicInsertReplyCount(xEl.value, DEFAULT_MIC_INSERT_REPLY_COUNT);
-  xEl.value = String(x);
-  yEl.max = String(x);
-  const y = clampMicInsertVoiceReplyCount(yEl.value, x, DEFAULT_MIC_INSERT_VOICE_REPLY_COUNT);
-  yEl.value = String(y);
-}
-
-export function initMicInsertControls() {
-  ['mic_insert_reply_count', 'mic_insert_voice_reply_count'].forEach((id) => {
-    document.getElementById(id)?.addEventListener('input', updateMicInsertControls);
-    document.getElementById(id)?.addEventListener('change', updateMicInsertControls);
-  });
-  updateMicInsertControls();
 }
 
 export function resolveRenderModeDefault(mode, key) {

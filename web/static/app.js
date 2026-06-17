@@ -25,7 +25,6 @@ import {
   bindSettingsControls,
   initCaptureRegionControls,
   initNormalBatchControls,
-  initMicInsertControls,
   initFloatingPanelV2Controls,
   initRestoreDefaultsControls,
   initContentPageFieldHints,
@@ -395,6 +394,7 @@ function navigate(page) {
   if (btn) btn.classList.add('active');
 
   if (page === 'settings') {
+    reloadConfigFromServer().catch(console.error);
     loadScreens().catch(console.error);
     loadCustomModels().catch(console.error);
   }
@@ -499,7 +499,6 @@ async function init() {
   initContentPageFieldHints();
   initSidebarNavFloatingHints();
   initNormalBatchControls();
-  initMicInsertControls();
   initDanmuReadPage();
   loadDanmuReadPage().catch(console.error);
   initCaptureRegionControls();

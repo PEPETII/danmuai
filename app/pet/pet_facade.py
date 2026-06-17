@@ -5,6 +5,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from app.pet.pet_barrage import (
+    PET_BARRAGE_COUNT,
+    build_barrage_slots_payload,
+    resolve_slot_asset_summary,
+)
 from app.pet.pet_animation_mapper import resolve_pet_animation_hint
 from app.pet.pet_assets import validate_pet_pack_dir
 from app.pet.pet_state import PetSettings, _truthy
@@ -26,11 +31,21 @@ PET_CONFIG_KEYS = (
     "pet_command_box_enabled",
     "pet_command_ttl_sec",
     "pet_command_apply_count",
+    "pet_barrage_mode_enabled",
+    "pet_barrage_count",
+    "pet_barrage_slots",
+    "pet_barrage_slot_positions",
+    "pet_barrage_previous_render_mode",
+    "pet_barrage_previous_reply_count",
 )
 
 
 def _pet_window(app: "DanmuApp"):
     return app.__dict__.get("pet_window")
+
+
+def _pet_barrage_controller(app: "DanmuApp"):
+    return app.__dict__.get("pet_barrage_controller")
 
 
 def _pet_command_service(app: "DanmuApp"):
@@ -58,6 +73,14 @@ def get_pet_settings_snapshot(app: "DanmuApp") -> dict[str, object]:
     out["asset"] = pack_info
     out["has_pending_command"] = pending is not None
     out["pending_command"] = pending
+    out["pet_barrage"]["slots"] = build_barrage_slots_payload(settings)
+    out["pet_barrage"]["slot_assets"] = [
+        resolve_slot_asset_summary(app, slot_id)
+        for slot_id in range(PET_BARRAGE_COUNT)
+    ]
+    ctrl = _pet_barrage_controller(app)
+    if ctrl is not None:
+        out["pet_barrage"]["status"] = ctrl.snapshot()
     return out
 
 
@@ -87,6 +110,34 @@ def import_pet_asset_via_dialog(app: "DanmuApp") -> dict[str, object]:
     )
 
 
+def import_pet_barrage_slot_asset_via_dialog(app: "DanmuApp", slot_id: int) -> dict[str, object]:
+    from PyQt6.QtWidgets import QFileDialog
+
+    settings = PetSettings.from_config(app.config)
+    if slot_id < 0 or slot_id >= PET_BARRAGE_COUNT:
+        raise ValueError("无效的桌宠槽位")
+    current_slot = settings.barrage.slots[slot_id]
+    start_dir = str(current_slot.asset_path or settings.asset_path or "").strip()
+    if not start_dir:
+        start_dir = str(Path.home())
+    selected_dir = QFileDialog.getExistingDirectory(
+        None,
+        f"选择槽位 {slot_id + 1} 桌宠文件夹",
+        start_dir,
+        QFileDialog.Option.ShowDirsOnly,
+    )
+    if not selected_dir:
+        snapshot = get_pet_settings_snapshot(app)
+        snapshot["cancelled"] = True
+        return snapshot
+    return set_pet_barrage_slot_asset(
+        app,
+        slot_id,
+        asset_source="local",
+        asset_path=selected_dir,
+    )
+
+
 def reset_pet_asset_to_builtin(app: "DanmuApp") -> dict[str, object]:
     """Unbind any custom local pack and fall back to the builtin default pet."""
     return apply_pet_settings_patch(
@@ -98,8 +149,43 @@ def reset_pet_asset_to_builtin(app: "DanmuApp") -> dict[str, object]:
     )
 
 
+def set_pet_barrage_slot_asset(
+    app: "DanmuApp",
+    slot_id: int,
+    *,
+    asset_source: str,
+    asset_path: str,
+) -> dict[str, object]:
+    if slot_id < 0 or slot_id >= PET_BARRAGE_COUNT:
+        raise ValueError("无效的桌宠槽位")
+    return apply_pet_settings_patch(
+        app,
+        {
+            "pet_barrage_slots": [
+                {
+                    "slot_id": slot_id,
+                    "asset_source": asset_source,
+                    "asset_path": asset_path,
+                }
+            ]
+        },
+    )
+
+
+def reset_pet_barrage_slot_asset(app: "DanmuApp", slot_id: int) -> dict[str, object]:
+    settings = PetSettings.from_config(app.config)
+    return set_pet_barrage_slot_asset(
+        app,
+        slot_id,
+        asset_source=settings.asset_source,
+        asset_path=settings.asset_path,
+    )
+
+
 def apply_pet_settings_patch(app: "DanmuApp", payload: dict[str, object]) -> dict[str, object]:
     items: dict[str, str] = {}
+    slot_updates = payload.get("pet_barrage_slots")
+    position_updates = payload.get("pet_barrage_slot_positions")
     for key in PET_CONFIG_KEYS:
         if key not in payload or payload[key] is None:
             continue
@@ -128,8 +214,85 @@ def apply_pet_settings_patch(app: "DanmuApp", payload: dict[str, object]) -> dic
         if new_enabled != old_enabled:
             items["pet_visible"] = items["pet_enabled"]
 
+    if "pet_barrage_mode_enabled" in items:
+        old_enabled = _truthy(app.config.get("pet_barrage_mode_enabled", "0"))
+        new_enabled = _truthy(items["pet_barrage_mode_enabled"])
+        if new_enabled and not old_enabled:
+            from app.personae import DEFAULT_NORMAL_REPLY_COUNT
+
+            items.setdefault(
+                "pet_barrage_previous_render_mode",
+                str(app.config.get("danmu_render_mode", "scrolling") or "scrolling"),
+            )
+            items.setdefault(
+                "pet_barrage_previous_reply_count",
+                str(app.config.get("normal_reply_count", str(DEFAULT_NORMAL_REPLY_COUNT)) or DEFAULT_NORMAL_REPLY_COUNT),
+            )
+            items["normal_reply_count"] = str(PET_BARRAGE_COUNT)
+        if (not new_enabled) and old_enabled:
+            items["danmu_render_mode"] = str(
+                app.config.get("pet_barrage_previous_render_mode", "scrolling") or "scrolling"
+            )
+            items["normal_reply_count"] = str(
+                app.config.get("pet_barrage_previous_reply_count", str(PET_BARRAGE_COUNT)) or PET_BARRAGE_COUNT
+            )
+
     if items:
         app.config.set_batch(items)
+    ctrl = _pet_barrage_controller(app)
+    if ctrl is not None:
+        ctrl.sync_slots_to_config(
+            slots=slot_updates if isinstance(slot_updates, list) else None,
+            positions=position_updates if isinstance(position_updates, list) else None,
+        )
+        ctrl.apply_config()
+    elif slot_updates is not None or position_updates is not None:
+        settings = PetSettings.from_config(app.config)
+        merged = build_barrage_slots_payload(settings)
+        if isinstance(slot_updates, list):
+            for row in slot_updates:
+                if not isinstance(row, dict):
+                    continue
+                try:
+                    slot_id = int(row.get("slot_id", -1))
+                except (TypeError, ValueError):
+                    continue
+                if 0 <= slot_id < len(merged):
+                    merged[slot_id]["asset_source"] = str(row.get("asset_source", merged[slot_id]["asset_source"]) or "builtin")
+                    merged[slot_id]["asset_path"] = str(row.get("asset_path", merged[slot_id]["asset_path"]) or "")
+        if isinstance(position_updates, list):
+            for row in position_updates:
+                if not isinstance(row, dict):
+                    continue
+                try:
+                    slot_id = int(row.get("slot_id", -1))
+                    x = int(row.get("x", merged[slot_id]["position_x"]))
+                    y = int(row.get("y", merged[slot_id]["position_y"]))
+                except (TypeError, ValueError, IndexError):
+                    continue
+                if 0 <= slot_id < len(merged):
+                    merged[slot_id]["position_x"] = x
+                    merged[slot_id]["position_y"] = y
+        slot_rows = [
+            {
+                "slot_id": int(row["slot_id"]),
+                "asset_source": str(row["asset_source"]),
+                "asset_path": str(row["asset_path"]),
+            }
+            for row in merged
+        ]
+        pos_rows = [
+            {
+                "slot_id": int(row["slot_id"]),
+                "x": int(row["position_x"]),
+                "y": int(row["position_y"]),
+            }
+            for row in merged
+        ]
+        import json
+
+        app.config.set("pet_barrage_slots", json.dumps(slot_rows, ensure_ascii=False))
+        app.config.set("pet_barrage_slot_positions", json.dumps(pos_rows, ensure_ascii=False))
         app.config_changed.emit()
 
     sync_pet_window_visibility(app)
@@ -186,6 +349,7 @@ def submit_pet_command(
 
 def get_pet_status_snapshot(app: "DanmuApp") -> dict[str, object]:
     window = _pet_window(app)
+    barrage = _pet_barrage_controller(app)
     animation = get_pet_animation_hint(app)
     svc = _pet_command_service(app)
     return {
@@ -194,6 +358,7 @@ def get_pet_status_snapshot(app: "DanmuApp") -> dict[str, object]:
         "animation": animation,
         "has_pending_command": svc.has_pending() if svc else False,
         "pending_command": svc.peek_summary() if svc else None,
+        "pet_barrage": barrage.snapshot() if barrage is not None else {"enabled": False, "count": PET_BARRAGE_COUNT, "slots": []},
     }
 
 
@@ -210,9 +375,18 @@ def get_pet_animation_hint(app: "DanmuApp") -> str:
 
 def sync_pet_window_visibility(app: "DanmuApp") -> None:
     window = _pet_window(app)
+    barrage = _pet_barrage_controller(app)
+    settings = PetSettings.from_config(app.config)
+    if barrage is not None:
+        barrage.apply_config()
+        if settings.enabled and settings.visible and settings.barrage.enabled:
+            if window is not None:
+                window.hide_pet()
+            barrage.show()
+            return
+        barrage.hide()
     if window is None:
         return
-    settings = PetSettings.from_config(app.config)
     if settings.enabled and settings.visible:
         window.show_pet()
     else:

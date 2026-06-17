@@ -6,7 +6,6 @@ import {
   getConfigDefaultsCache,
   restorableKeysForScope,
   setConfigDefaultsCache,
-  updateMicInsertControls,
   updateNormalBatchPreview,
 } from './settings-defaults.js';
 import { getActiveSettingsTabId } from './settings-tabs.js';
@@ -38,6 +37,35 @@ function resolveRenderModeFromCfg(cfg) {
   const raw = String(cfg.danmu_render_mode || '').trim().toLowerCase();
   if (raw === 'scrolling' || raw === 'floating_panel') return raw;
   return 'scrolling';
+}
+
+function petBarrageModeEnabledFromCfg(cfg) {
+  if (cfg == null) {
+    return document.documentElement.dataset.petBarrageModeEnabled === '1';
+  }
+  const raw = String(cfg?.pet_barrage_mode_enabled ?? '').trim().toLowerCase();
+  return raw === '1' || raw === 'true';
+}
+
+export function syncPetBarrageSettingsLock(cfg = null) {
+  const enabled = petBarrageModeEnabledFromCfg(cfg);
+  const modeEl = document.getElementById('danmu_render_mode');
+  const countEl = document.getElementById('normal_reply_count');
+  const hintEl = document.getElementById('petBarrageSettingsLockHint');
+  if (modeEl) {
+    modeEl.disabled = enabled;
+    modeEl.classList.toggle('opacity-60', enabled);
+    modeEl.classList.toggle('cursor-not-allowed', enabled);
+  }
+  if (countEl) {
+    if (enabled) countEl.value = '5';
+    countEl.disabled = enabled;
+    countEl.classList.toggle('opacity-60', enabled);
+    countEl.classList.toggle('cursor-not-allowed', enabled);
+  }
+  if (hintEl) {
+    hintEl.classList.toggle('hidden', !enabled);
+  }
 }
 
 export function syncFloatingPanelV2FieldsVisibility() {
@@ -179,6 +207,7 @@ export function collectFormData() {
 }
 
 export function fillForm(cfg) {
+  document.documentElement.dataset.petBarrageModeEnabled = petBarrageModeEnabledFromCfg(cfg) ? '1' : '0';
   const renderMode = resolveRenderModeFromCfg(cfg);
   const cfgWithMode = { ...cfg, danmu_render_mode: renderMode };
   CONFIG_FIELDS.forEach((name) => {
@@ -200,7 +229,6 @@ export function fillForm(cfg) {
     'floating_panel_speed', 'floating_panel_x_offset', 'floating_panel_y_offset',
     'floating_panel_opacity', 'floating_panel_font_size', 'danmu_font_family',
     'floating_panel_font_family',
-    'mic_insert_reply_count', 'mic_insert_voice_reply_count',
   ].forEach(setIfEmpty);
   syncFloatingPanelV2FieldsVisibility();
   const danmuBold = document.getElementById('danmu_font_bold');
@@ -253,8 +281,8 @@ export function fillForm(cfg) {
   if (normalCount && !cfg.normal_reply_count) {
     normalCount.value = configDefaultValue('normal_reply_count', renderMode) || '5';
   }
+  syncPetBarrageSettingsLock(cfg);
   updateNormalBatchPreview();
-  updateMicInsertControls();
   coreDeps.syncProviderPresetFromEndpoint();
   coreDeps.applyApiModeValue(cfg.api_mode);
   coreDeps.syncApiModeLockState();

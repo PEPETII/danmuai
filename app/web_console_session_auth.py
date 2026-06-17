@@ -81,21 +81,23 @@ def enforce_session_authorization(
         # curl/无头调用：拒绝
         raise HTTPException(status_code=401, detail="需要登录令牌")
 
-    # 校验 Origin / Referer 是否与请求 host 同源 loopback
+    # 校验 Origin / Referer 是否与请求 host 同源 loopback（含端口，防止端口剥离绕过）
     candidate = origin or referer or ""
     candidate = candidate.strip().lower()
     if not candidate.startswith(("http://", "https://")):
         raise HTTPException(status_code=401, detail="来源不合法")
 
-    # 提取 Origin/Referer 中的 host 部分
+    # 提取 Origin/Referer 中的完整 host[:port]（保留端口用于精确同源比较）
     try:
-        # 简易解析：scheme://host[:port][/...]
         rest = candidate.split("://", 1)[1]
-        origin_host = rest.split("/", 1)[0]
-        origin_host = origin_host.split("@")[-1]  # 处理 userinfo
-        origin_host = _normalize_host(origin_host)
+        origin_full = rest.split("/", 1)[0]
+        origin_full = origin_full.split("@")[-1]  # 处理 userinfo
     except (IndexError, ValueError):
         raise HTTPException(status_code=401, detail="来源不合法")
 
-    if origin_host != request_host:
+    # 构造请求方的完整 host[:port]
+    request_full = (host or "").strip().lower()
+
+    # 同源校验必须包含端口：防止本机进程用任意端口 Origin 绕过
+    if origin_full != request_full:
         raise HTTPException(status_code=403, detail="来源不匹配")

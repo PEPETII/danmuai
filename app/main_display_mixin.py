@@ -91,9 +91,13 @@ class DanmuAppDisplayMixin:
             self.logger.debug(f"live overlay broadcast skipped: {exc!r}")
 
     def _overlay_display_enabled(self) -> bool:
+        if self._pet_barrage_mode_enabled():
+            return False
         return self._danmu_render_mode() == "scrolling"
 
     def _floating_panel_v2_enabled(self) -> bool:
+        if self._pet_barrage_mode_enabled():
+            return False
         return self._danmu_render_mode() == "floating_panel"
 
     def _sync_overlay_visibility(self) -> None:
@@ -109,9 +113,21 @@ class DanmuAppDisplayMixin:
 
     def _sync_pet_window_visibility(self) -> None:
         """独立于 danmu_render_mode；pet_enabled + pet_visible 控制桌宠显隐。"""
+        # 未初始化且配置未启用桌宠 → 快速跳过（保留 PERF-002 惰性初始化收益）
+        if self.__dict__.get("pet_window") is None:
+            if self.config.get("pet_enabled", "0") != "1":
+                return
+            # 配置要求启用桌宠 → 触发惰性初始化
+            self._ensure_pet_components()
         from app.pet.pet_facade import sync_pet_window_visibility
 
         sync_pet_window_visibility(self)
+
+    def _pet_barrage_mode_enabled(self) -> bool:
+        try:
+            return self.config.get("pet_barrage_mode_enabled", "0") == "1"
+        except Exception:
+            return False
 
     def get_pet_animation_hint(self) -> str:
         from app.pet.pet_facade import get_pet_animation_hint
@@ -133,22 +149,51 @@ class DanmuAppDisplayMixin:
 
         return import_pet_asset_via_dialog(self)
 
+    def import_pet_barrage_slot_asset_via_dialog(self, slot_id: int) -> dict[str, object]:
+        from app.pet.pet_facade import import_pet_barrage_slot_asset_via_dialog
+
+        return import_pet_barrage_slot_asset_via_dialog(self, slot_id)
+
     def reset_pet_asset_to_builtin(self) -> dict[str, object]:
         from app.pet.pet_facade import reset_pet_asset_to_builtin
 
         return reset_pet_asset_to_builtin(self)
 
+    def set_pet_barrage_slot_asset(
+        self,
+        slot_id: int,
+        *,
+        asset_source: str,
+        asset_path: str,
+    ) -> dict[str, object]:
+        from app.pet.pet_facade import set_pet_barrage_slot_asset
+
+        return set_pet_barrage_slot_asset(
+            self,
+            slot_id,
+            asset_source=asset_source,
+            asset_path=asset_path,
+        )
+
+    def reset_pet_barrage_slot_asset(self, slot_id: int) -> dict[str, object]:
+        from app.pet.pet_facade import reset_pet_barrage_slot_asset
+
+        return reset_pet_barrage_slot_asset(self, slot_id)
+
     def show_pet(self) -> dict[str, object]:
+        self._ensure_pet_components()
         from app.pet.pet_facade import show_pet
 
         return show_pet(self)
 
     def hide_pet(self) -> dict[str, object]:
+        self._ensure_pet_components()
         from app.pet.pet_facade import hide_pet
 
         return hide_pet(self)
 
     def close_pet(self) -> dict[str, object]:
+        self._ensure_pet_components()
         from app.pet.pet_facade import close_pet
 
         return close_pet(self)
@@ -165,6 +210,12 @@ class DanmuAppDisplayMixin:
 
     def _notify_pet_visual_success(self) -> None:
         window = self.__dict__.get("pet_window")
+        barrage = self.__dict__.get("pet_barrage_controller")
+        if barrage is not None and hasattr(barrage, "notify_success"):
+            try:
+                barrage.notify_success()
+            except Exception as exc:
+                self.logger.debug(f"pet barrage success animation skipped: {exc!r}")
         if window is not None:
             try:
                 window.notify_reply_success()
@@ -173,6 +224,12 @@ class DanmuAppDisplayMixin:
 
     def _notify_pet_visual_error(self) -> None:
         window = self.__dict__.get("pet_window")
+        barrage = self.__dict__.get("pet_barrage_controller")
+        if barrage is not None and hasattr(barrage, "notify_error"):
+            try:
+                barrage.notify_error()
+            except Exception as exc:
+                self.logger.debug(f"pet barrage error animation skipped: {exc!r}")
         if window is not None:
             try:
                 window.notify_error()
@@ -342,6 +399,8 @@ class DanmuAppDisplayMixin:
         pre_resolved: bool = False,
     ):
         """按 danmu_render_mode 路由上屏：互斥，floating_panel 不触碰 DanmuEngine。"""
+        if self._pet_barrage_mode_enabled():
+            return None
         if self._danmu_render_mode() == "floating_panel":
             return self._display_floating_panel_text(
                 content,

@@ -183,6 +183,13 @@
           <p class="settings-section-hint">开启后桌宠将显示在桌面；临时隐藏请使用桌宠右键菜单。</p>
         </div>
         <div class="space-y-4">
+          <p class="settings-section-title">桌宠弹幕模式</p>
+          <label class="flex items-center gap-2 font-semibold text-warmText">
+            <input type="checkbox" id="petBarrageModeEnabled" class="accent-warmPink"> 开启桌宠弹幕模式
+          </label>
+          <p class="settings-section-hint">开启后固定展示 5 个桌宠，弹幕会以聊天气泡形式显示在桌宠头顶。</p>
+        </div>
+        <div class="space-y-4">
           <p class="settings-section-title">显示设置</p>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
             <label class="settings-field">
@@ -243,6 +250,13 @@
             <button type="button" id="btnPetResetAsset" class="px-6 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50">恢复默认桌宠</button>
           </div>
           <p class="settings-section-hint">目录中需包含 pet.json 与 spritesheet.webp 或 spritesheet.png。导入成功后会直接替换当前桌宠，不会删除你原来的本地文件。</p>
+        </div>
+        <div id="petBarrageSlotsSection" class="space-y-4 hidden">
+          <div>
+            <p class="settings-section-title">桌宠弹幕槽位</p>
+            <p class="settings-section-hint">5 个槽位默认都使用当前默认桌宠。你可以分别为每个槽位切换资源，位置会在桌面上独立保存。</p>
+          </div>
+          <div id="petBarrageSlots" class="grid grid-cols-1 xl:grid-cols-2 gap-4"></div>
         </div>
         <button type="button" id="btnPetSave" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm">保存设置</button>
       </div>
