@@ -23,12 +23,79 @@ _COMMENT_KEYS = ("comments", "replies", "items", "data")
 _COMMENTS_ARRAY_RE = re.compile(r'"comments"\s*:\s*\[([^\]]*)\]', re.DOTALL)
 _SCENE_BRIEF_VALUE_RE = re.compile(r'"scene_brief"\s*:\s*"([^"]*)"')
 _HEURISTIC_SKIP = frozenset({"comments", "scene_brief", ":", ""})
+_THINK_BLOCK_RE = re.compile(r"<think\b[^>]*>.*?</think>", re.IGNORECASE | re.DOTALL)
+_THINK_OPEN_TO_END_RE = re.compile(r"<think\b[^>]*>.*$", re.IGNORECASE | re.DOTALL)
+_THINK_CLOSE_RE = re.compile(r"</think>", re.IGNORECASE)
+_JSON_DECODER = json.JSONDecoder()
+
+_REASONING_LINE_PREFIXES = (
+    "let me ",
+    "i need to ",
+    "i should ",
+    "i can see",
+    "i see ",
+    "looking at ",
+    "wait, this",
+    "wait, it",
+    "the user ",
+    "the image shows",
+    "the scene is",
+    "this doesn't look",
+    "it looks like",
+    "here are ",
+)
+_REASONING_LINE_MARKERS = (
+    "create 5 comments",
+    "create five comments",
+    "json array",
+    "json object",
+    "scene_brief",
+    "reasoning_content",
+    "thinking content",
+    "as a live stream comment",
+)
+
+
+def _strip_reasoning_markup(raw: str) -> str:
+    """Remove model reasoning tags that some OpenAI-compatible providers leak in content."""
+    text = _THINK_BLOCK_RE.sub("\n", raw)
+    text = _THINK_OPEN_TO_END_RE.sub("\n", text)
+    text = _THINK_CLOSE_RE.sub("\n", text)
+    return text.strip()
+
+
+def _looks_like_reasoning_line(text: str) -> bool:
+    normalized = re.sub(r"\s+", " ", str(text or "").strip().lower())
+    if not normalized:
+        return False
+    if any(normalized.startswith(prefix) for prefix in _REASONING_LINE_PREFIXES):
+        return True
+    return any(marker in normalized for marker in _REASONING_LINE_MARKERS)
+
+
+def _try_parse_embedded_json_payload(raw: str):
+    """Find the first JSON list/object embedded after model preface text."""
+    for index, char in enumerate(raw):
+        if char not in "[{":
+            continue
+        try:
+            parsed, _end = _JSON_DECODER.raw_decode(raw[index:])
+        except json.JSONDecodeError:
+            continue
+        if isinstance(parsed, (list, dict)):
+            return parsed
+    return None
 
 
 def _is_usable_comment(value: str) -> bool:
     """过滤 JSON 碎片、纯标点等不可上屏的伪弹幕。"""
     text = str(value).strip()
     if not text or text in _HEURISTIC_SKIP:
+        return False
+    lower = text.lower()
+    if "<think" in lower or "</think" in lower:
+        return False
+    if _looks_like_reasoning_line(text):
         return False
     if len(text) == 1 and not text.isalnum():
         return False
@@ -157,7 +224,7 @@ def _extract_comments_from_dict(parsed: dict) -> list[str]:
 
 def parse_ai_reply_payload(text: str) -> list[str]:
     """解析 AI 原始文本为弹幕列表。"""
-    raw = str(text or "").strip()
+    raw = _strip_reasoning_markup(str(text or "").strip())
     if not raw:
         return []
 
@@ -167,6 +234,8 @@ def parse_ai_reply_payload(text: str) -> list[str]:
             parsed = _try_parse_json_array(raw)
         else:
             parsed = _try_parse_json_object(raw)
+    else:
+        parsed = _try_parse_embedded_json_payload(raw)
 
     if isinstance(parsed, dict):
         candidates = _extract_comments_from_dict(parsed)

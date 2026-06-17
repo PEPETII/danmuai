@@ -21,6 +21,7 @@ from app.providers import (
     get_capabilities_for_endpoint,
     get_openai_adapter,
     guess_provider_from_endpoint,
+    provider_extra_body,
 )
 from app.translations import tr
 
@@ -47,6 +48,7 @@ def openai_compatible_request_extensions(endpoint: str, *, max_tokens: int = 0) 
     if max_tokens > 0:
         data["max_tokens"] = max_tokens
     adapter.patch_probe_body(data, caps=caps)
+    data.update(provider_extra_body(endpoint))
     return data
 
 

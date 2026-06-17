@@ -115,3 +115,24 @@ def test_probe_openai_adds_openrouter_headers(mock_client_cls):
     headers = mock_client.post.call_args.kwargs["headers"]
     assert headers.get("HTTP-Referer")
     assert headers.get("X-Title") == "DanmuAI"
+
+
+@patch("app.api_probe.httpx.Client")
+def test_probe_openai_adds_minimax_reasoning_split(mock_client_cls):
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.raise_for_status = MagicMock()
+    mock_client = MagicMock()
+    mock_client.__enter__ = MagicMock(return_value=mock_client)
+    mock_client.__exit__ = MagicMock(return_value=False)
+    mock_client.post.return_value = mock_resp
+    mock_client_cls.return_value = mock_client
+
+    probe_connection(
+        "https://api.minimax.io/v1",
+        "sk-test",
+        "MiniMax-M3",
+        "openai-compatible",
+    )
+    payload = mock_client.post.call_args.kwargs["json"]
+    assert payload["reasoning_split"] is True

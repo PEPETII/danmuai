@@ -106,6 +106,46 @@ def test_parse_ai_reply_splits_duplicated_json_objects():
     assert items == ["这报错看着我头大", "这日志也太详细了", "API报错咋整啊"]
 
 
+def test_parse_ai_reply_strips_complete_think_block_before_json():
+    raw = (
+        '<think>The user wants five live comments. I should inspect the image.</think>\n'
+        '["这配置页挺满", "按钮都在右侧", "继续看", "我先记一下", "节奏可以"]'
+    )
+    items = parse_ai_reply_payload(raw)
+    assert items == ["这配置页挺满", "按钮都在右侧", "继续看", "我先记一下", "节奏可以"]
+
+
+def test_parse_ai_reply_drops_unclosed_think_block():
+    raw = "<think>The model leaked its private reasoning and never returned JSON"
+    assert parse_ai_reply_payload(raw) == []
+
+
+def test_parse_ai_reply_filters_minimax_reasoning_plaintext():
+    raw = (
+        'Let me create 5 comments in a "嘴碎吐槽党" style.\n'
+        "The scene is: AI弹幕工具后台数据面板，不是杀戮尖塔2游戏画面\n"
+        "<think>The user wants me to act as a live stream commentor.\n"
+        "Looking at the image, I can see a configuration interface.\n"
+        "The image shows:\n"
+        'A game launcher interface with "百科大全" and "退出" options'
+    )
+    assert parse_ai_reply_payload(raw) == []
+
+
+def test_parse_ai_reply_extracts_embedded_json_after_preface():
+    raw = (
+        "Here are the comments:\n"
+        '["左边开团了？", "血量还能打", "绝了", "弹幕跟上", "继续看"]'
+    )
+    items = parse_ai_reply_payload(raw)
+    assert items == ["左边开团了？", "血量还能打", "绝了", "弹幕跟上", "继续看"]
+
+
+def test_parse_ai_reply_keeps_plain_english_danmu_lines():
+    raw = "Wild play\nKeep going\nThat timing"
+    assert parse_ai_reply_payload(raw) == ["Wild play", "Keep going", "That timing"]
+
+
 def test_normalize_reply_batch_pads_to_default_five_items(monkeypatch):
     monkeypatch.setattr(
         "app.reply_parser._scene_fillers",

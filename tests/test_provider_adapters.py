@@ -7,6 +7,7 @@ from app.providers import (
     get_openai_adapter,
     guess_provider_from_endpoint,
     match_host_entry,
+    provider_extra_body,
     provider_extra_headers,
     resolve_api_transport,
 )
@@ -126,10 +127,22 @@ def test_provider_extra_headers_openrouter():
     assert provider_extra_headers("https://api.deepseek.com/v1") == {}
 
 
+def test_provider_extra_body_minimax_reasoning_split():
+    assert provider_extra_body("https://api.minimax.io/v1") == {"reasoning_split": True}
+    assert provider_extra_body("https://api.minimaxi.com/v1") == {"reasoning_split": True}
+    assert provider_extra_body("https://api.deepseek.com/v1") == {}
+
+
 def test_openai_extensions_shim_siliconflow_empty():
     from app.ai_client import openai_compatible_request_extensions
 
     assert openai_compatible_request_extensions("https://api.siliconflow.cn/v1") == {}
+
+
+def test_openai_extensions_shim_minimax_reasoning_split():
+    from app.ai_client import openai_compatible_request_extensions
+
+    assert openai_compatible_request_extensions("https://api.minimax.io/v1") == {"reasoning_split": True}
 
 
 def test_host_registry_no_duplicate_openai_doubao_tables():

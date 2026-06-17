@@ -9,7 +9,12 @@ import httpx
 from app.ai_client import THINKING_DISABLED, format_http_status_error
 from app.ai_client_support import sanitize_provider_error_snippet
 from app.model_providers import normalize_endpoint, normalize_mode, resolve_api_transport
-from app.providers import get_capabilities_for_endpoint, get_openai_adapter, provider_extra_headers
+from app.providers import (
+    get_capabilities_for_endpoint,
+    get_openai_adapter,
+    provider_extra_body,
+    provider_extra_headers,
+)
 from app.translations import tr
 
 
@@ -105,6 +110,7 @@ def _probe_openai(endpoint: str, api_key: str, model_id: str, mode: str) -> Prob
         "stream": False,
     }
     adapter.patch_probe_body(data, caps=caps)
+    data.update(provider_extra_body(endpoint))
     with httpx.Client(timeout=httpx.Timeout(10.0, connect=5.0)) as client:
         resp = client.post(url, headers=headers, json=data)
         resp.raise_for_status()

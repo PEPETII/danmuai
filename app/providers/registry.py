@@ -132,6 +132,7 @@ def resolve_provider_for_ui(endpoint: str, api_mode: str = "") -> dict:
 # OpenRouter recommends Referer/Title for rate-limit priority; applied only when host matches.
 _OPENROUTER_REFERER = "https://github.com/PEPETII/danmuai"
 _OPENROUTER_APP_TITLE = "DanmuAI"
+_MINIMAX_HOST_FRAGMENTS = ("api.minimax.io", "api.minimaxi.com")
 
 
 def provider_extra_headers(endpoint: str) -> dict[str, str]:
@@ -142,4 +143,12 @@ def provider_extra_headers(endpoint: str) -> dict[str, str]:
             "HTTP-Referer": _OPENROUTER_REFERER,
             "X-Title": _OPENROUTER_APP_TITLE,
         }
+    return {}
+
+
+def provider_extra_body(endpoint: str) -> dict[str, object]:
+    """Optional provider-specific Chat Completions body fields."""
+    normalized = normalize_endpoint(endpoint).lower()
+    if any(fragment in normalized for fragment in _MINIMAX_HOST_FRAGMENTS):
+        return {"reasoning_split": True}
     return {}

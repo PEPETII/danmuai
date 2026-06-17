@@ -84,6 +84,30 @@ def test_request_openai_includes_thinking_for_mimo():
     worker.close()
 
 
+def test_request_openai_includes_minimax_reasoning_split():
+    worker = AiWorker(
+        ai_client_fake_config(
+            data={
+                "api_mode": "openai-compatible",
+                "api_endpoint": "https://api.minimax.io/v1",
+                "model": "MiniMax-M3",
+            }
+        )
+    )
+    captured: dict = {}
+
+    def capture(_http_client, _url, _headers, data, **kwargs):
+        captured["data"] = data
+        return ("ok", 1, 1)
+
+    with patch.object(worker, "_stream_openai", side_effect=capture):
+        with patch.object(worker, "_emit_safe"):
+            worker._request_openai("data:image/jpeg;base64,abc", "sys", "user", "p1", 1, 1, 1.0, 0)
+
+    assert captured["data"]["reasoning_split"] is True
+    worker.close()
+
+
 def test_openai_compatible_request_extensions_siliconflow_omits_thinking():
     assert openai_compatible_request_extensions("https://api.siliconflow.cn/v1") == {}
 

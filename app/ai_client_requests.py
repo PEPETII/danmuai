@@ -31,6 +31,7 @@ from app.model_providers import (
 from app.providers import (
     get_capabilities_for_endpoint,
     get_openai_adapter,
+    provider_extra_body,
     provider_extra_headers,
 )
 from app.providers.constants import THINKING_DISABLED
@@ -446,6 +447,7 @@ def request_openai(
         "stream": True,
     }
     adapter.patch_openai_chat_body(data, max_tokens=max_tokens, caps=caps)
+    data.update(provider_extra_body(endpoint))
     url = f"{endpoint}/chat/completions"
     headers = {
         "Authorization": f"Bearer {api_key}",
