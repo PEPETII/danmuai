@@ -301,6 +301,10 @@ def test_empty_ai_reply_logs_warning(monkeypatch):
     app._on_ai_reply("not-json", "persona-1", 10, 10, time.monotonic(), 0)
 
     assert any("empty_parse" in msg for msg in app.logger.warning_messages)
+    snapshot = app.danmu_diagnostics.snapshot()
+    assert snapshot["latest"]["reason"] == "empty_parse"
+    assert snapshot["latest"]["stage"] == "parse"
+    assert snapshot["latest"]["screenshot_id"] == 10
 
 
 def test_legacy_overlay_cache_fields_proxy_to_web_runtime_state():

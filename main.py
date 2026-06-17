@@ -153,6 +153,36 @@ class DanmuApp(
             startup_ok=bool(self.web_server and self.web_server.startup_ok),
         )
 
+    def _record_danmu_diagnostic(
+        self,
+        reason: str,
+        *,
+        stage: str,
+        source: str = "visual",
+        detail: str = "",
+        screenshot_id: int | None = None,
+        request_round: int | None = None,
+    ) -> None:
+        diagnostics = getattr(self, "danmu_diagnostics", None)
+        if diagnostics is None:
+            return
+        diagnostics.record(
+            reason,
+            stage=stage,
+            source=source,
+            detail=detail,
+            screenshot_id=(
+                getattr(self, "_latest_screenshot_id", 0)
+                if screenshot_id is None
+                else screenshot_id
+            ),
+            request_round=(
+                getattr(self, "screenshot_round", 0)
+                if request_round is None
+                else request_round
+            ),
+        )
+
     def _has_visual_request_in_flight(self) -> bool:
         return self._is_generating or self.ai_in_flight >= MAX_IN_FLIGHT
 
@@ -528,6 +558,14 @@ class DanmuApp(
         )
         if not normalized_items:
             request_id = self._reply_request_id(request_round, screenshot_id, scene_generation)
+            self._record_danmu_diagnostic(
+                "empty_parse",
+                stage="parse",
+                source=source,
+                detail=f"text_len={len(text or '')} raw_count={len(raw_items)}",
+                screenshot_id=screenshot_id,
+                request_round=request_round,
+            )
             self.logger.warning(
                 "AI 回复解析为空: request_id=%s screenshot_id=%s request_round=%s "
                 "scene_generation=%s text_len=%s raw_count=%s reason=empty_parse",
@@ -587,6 +625,14 @@ class DanmuApp(
                 est_h = fp_overlay.estimate_item_height()
                 if not fp_engine.can_accept_new_item(est_h):
                     delay = fp_engine.estimate_entry_delay_ms(est_h)
+                    self._record_danmu_diagnostic(
+                        "floating_panel_spacing",
+                        stage="display",
+                        source=queued_peek.source,
+                        detail=f"delay_ms={delay}",
+                        screenshot_id=queued_peek.screenshot_id,
+                        request_round=queued_peek.screenshot_round,
+                    )
                     if not self.reply_buffer.is_empty():
                         self.reply_timer.start(max(50, delay))
                     return
@@ -599,6 +645,13 @@ class DanmuApp(
                 skip_dedup_peek = queued_peek.is_fallback or queued_peek.source == "fallback"
                 if not display_peek:
                     queued = self.reply_buffer.pop()
+                    self._record_danmu_diagnostic(
+                        "empty_text",
+                        stage="display",
+                        source=queued.source,
+                        screenshot_id=queued.screenshot_id,
+                        request_round=queued.screenshot_round,
+                    )
                     self.logger.info(
                         tr("app.danmu_not_entered").format(content=f"{queued.content[:20]}...")
                         + " [悬浮窗/空文本]"
@@ -610,6 +663,13 @@ class DanmuApp(
                     return
                 if not skip_dedup_peek and fp_engine.is_duplicate(display_peek):
                     queued = self.reply_buffer.pop()
+                    self._record_danmu_diagnostic(
+                        "duplicate",
+                        stage="display",
+                        source=queued.source,
+                        screenshot_id=queued.screenshot_id,
+                        request_round=queued.screenshot_round,
+                    )
                     self.logger.info(
                         tr("app.danmu_not_entered").format(content=f"{queued.content[:20]}...")
                         + " [去重]"
@@ -690,6 +750,19 @@ class DanmuApp(
                 reject = "入口区过载"
             else:
                 reject = "轨道/布局"
+            diagnostic_reason = {
+                "去重": "duplicate",
+                "入口区过载": "entry_overloaded",
+                "悬浮窗": "layout_reject",
+                "轨道/布局": "layout_reject",
+            }.get(reject, "layout_reject")
+            self._record_danmu_diagnostic(
+                diagnostic_reason,
+                stage="display",
+                source=queued.source,
+                screenshot_id=queued.screenshot_id,
+                request_round=queued.screenshot_round,
+            )
             self.logger.info(
                 tr("app.danmu_not_entered").format(content=f"{queued.content[:20]}...")
                 + f" [{reject}]"

@@ -15,6 +15,7 @@ from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import QApplication, QMessageBox
 
 from app.ai_client import AiWorker
+from app.application.danmu_diagnostics import DanmuDiagnostics
 from app.application.request_scheduler import RequestScheduler
 from app.application.request_timing_service import RequestTimingService
 from app.application.stats_state import StatsState
@@ -185,6 +186,7 @@ class DanmuAppLifecycleMixin:
         self._consecutive_failures = 0
         self._capture_fail_streak = 0
         self._capture_error_active = False
+        self.danmu_diagnostics = DanmuDiagnostics()
         self._failure_backoff_paused = False
         self._last_error_message = ""
         self.MAX_CONSECUTIVE_FAILURES = 5
@@ -347,6 +349,13 @@ class DanmuAppLifecycleMixin:
         is_mic = source == "mic"
 
         self._release_inflight_for_source(source)
+        self._record_danmu_diagnostic(
+            "ai_error",
+            stage="request",
+            source=source,
+            screenshot_id=screenshot_id,
+            request_round=request_round,
+        )
         self._publish_live_status()
 
         if is_mic:
@@ -456,6 +465,7 @@ class DanmuAppLifecycleMixin:
             model=resolve_active_model_id(self.config),
         )
         self._consecutive_failures = 0
+        self.danmu_diagnostics.reset()
         self._failure_backoff_paused = False
         self._last_error_message = ""
         self._get_request_timing_service().reset_started()

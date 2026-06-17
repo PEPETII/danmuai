@@ -30,7 +30,7 @@
 | request meta / 调度 | `_pending_request_meta`、`_request_scheduler`、`_request_timing_service`、`_inflight_scene_generation` |
 | memory / 场景 | `_scene_generation` |
 | 显示与可见性 | `_latest_displayed_round`、`_latest_queued_screenshot_id`、`_latest_displayed_screenshot_id`、`floating_panel_engine`、`floating_panel_overlay` |
-| 失败与状态推送 | `_local_fallback_active`、`_consecutive_failures`、`_capture_fail_streak`、`_capture_error_active`、`_failure_backoff_paused`、`_last_error_message`、`MAX_CONSECUTIVE_FAILURES`、`_live_status_timer` |
+| 失败与状态推送 | `_local_fallback_active`、`_consecutive_failures`、`_capture_fail_streak`、`_capture_error_active`、`danmu_diagnostics`、`_failure_backoff_paused`、`_last_error_message`、`MAX_CONSECUTIVE_FAILURES`、`_live_status_timer` |
 | 统计与持久累计 | `stats_state`、`session_run_log`、`lifetime_stats`、`_lifetime_flush_timer` |
 
 ---
@@ -120,6 +120,7 @@
 - `_consecutive_failures`
 - `_capture_fail_streak`
 - `_capture_error_active`
+- `danmu_diagnostics`
 - `_failure_backoff_paused`
 - `_last_error_message`
 - `MAX_CONSECUTIVE_FAILURES`

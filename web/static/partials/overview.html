@@ -222,6 +222,28 @@
             <p class="font-semibold text-warmText break-all" id="diagRuntimeStats">等待诊断数据...</p>
           </div>
         </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-4 text-sm">
+          <div class="rounded-2xl bg-cream px-4 py-3">
+            <p class="text-gray-400">最近未上屏记录</p>
+            <p class="font-bold text-warmText" id="diagNoDanmuRecentCount">0</p>
+          </div>
+          <div class="rounded-2xl bg-cream px-4 py-3">
+            <p class="text-gray-400">本轮累计记录</p>
+            <p class="font-bold text-warmText" id="diagNoDanmuTotal">0</p>
+          </div>
+          <div class="rounded-2xl bg-cream px-4 py-3">
+            <p class="text-gray-400">主要未上屏原因</p>
+            <p class="font-bold text-warmText" id="diagNoDanmuTopReason">暂无</p>
+          </div>
+          <div class="rounded-2xl bg-cream px-4 py-3">
+            <p class="text-gray-400">最近一次</p>
+            <p class="font-bold text-warmText" id="diagNoDanmuLatest">暂无</p>
+          </div>
+        </div>
+        <div class="rounded-2xl bg-white border border-softPeach/60 px-4 py-3 mb-4 text-sm">
+          <p class="text-gray-400 mb-1">最近未上屏原因</p>
+          <p class="font-semibold text-warmText break-all" id="diagNoDanmuRecent">暂无记录</p>
+        </div>
         <pre id="diagnosticReportPreview" class="rounded-2xl bg-cream px-4 py-3 text-xs text-warmText whitespace-pre-wrap overflow-x-auto">等待诊断数据...</pre>
       </div>
 

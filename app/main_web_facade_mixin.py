@@ -48,6 +48,7 @@ class DanmuAppWebFacadeMixin:
 
     def _note_capture_failure(self) -> None:
         """S-009: surface repeated capture failures on Web status bar (not every tick)."""
+        self._record_danmu_diagnostic("capture_failed", stage="capture")
         self._capture_fail_streak += 1
         if (
             self._capture_fail_streak >= CAPTURE_FAIL_WARN_THRESHOLD

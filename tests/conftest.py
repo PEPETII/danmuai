@@ -61,6 +61,7 @@ def _ensure_feedback_static_images() -> None:
 _ensure_feedback_static_images()
 
 import pytest
+from app.application.danmu_diagnostics import DanmuDiagnostics
 from app.application.request_scheduler import RequestScheduler
 from app.application.request_timing_service import RequestTimingService
 from app.application.stats_state import StatsState
@@ -150,6 +151,7 @@ def bind_minimal_danmu_app(app, **overrides):
         "_latest_displayed_round": 0,
         "config": FakeConfig(),
         "web_runtime_state": WebRuntimeState(),
+        "danmu_diagnostics": DanmuDiagnostics(),
         "_consecutive_failures": 0,
         "_capture_fail_streak": 0,
         "_capture_error_active": False,
@@ -329,6 +331,7 @@ def make_minimal_danmu_app():
     object.__setattr__(app, "_request_scheduler", RequestScheduler())
     object.__setattr__(app, "_request_timing_service", RequestTimingService())
     app.web_runtime_state = WebRuntimeState()
+    app.danmu_diagnostics = DanmuDiagnostics()
     app._consecutive_failures = 0
     app._capture_fail_streak = 0
     app._capture_error_active = False

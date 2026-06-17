@@ -140,6 +140,13 @@ def test_runtime_diagnostics_summarize_runtime_state_without_polluting_status_sn
         "latest_queued_screenshot_id": 102,
         "latest_displayed_screenshot_id": 103,
     }
+    assert snapshot["danmu_diagnostics"] == {
+        "recent_count": 0,
+        "total_recorded": 0,
+        "top_reasons": [],
+        "latest": None,
+        "recent": [],
+    }
     assert "config_context" not in status
     assert "scheduler" not in status
     assert "timing" not in status
@@ -220,6 +227,13 @@ def test_diagnostics_api_returns_independent_read_only_payload(monkeypatch: pyte
                     "latest_displayed_screenshot_id": 0,
                 },
             },
+            "danmu_diagnostics": {
+                "recent_count": 0,
+                "total_recorded": 0,
+                "top_reasons": [],
+                "latest": None,
+                "recent": [],
+            },
             "diagnosis": {
                 "scheduler_blocked": True,
                 "high_rtt": True,
@@ -281,12 +295,38 @@ def test_diagnostic_report_is_read_only_and_contains_recommendations(monkeypatch
     assert timing.rtt_history == before_history
 
 
+def test_diagnostics_snapshot_includes_recent_no_danmu_reasons(monkeypatch: pytest.MonkeyPatch):
+    app = make_diagnostic_app()
+    app.danmu_diagnostics.record(
+        "empty_parse",
+        stage="parse",
+        detail="text_len=120 raw_count=0",
+        screenshot_id=9,
+        request_round=4,
+        at=98.0,
+    )
+    monkeypatch.setattr(api_schedule.time, "monotonic", lambda: 100.0)
+    monkeypatch.setattr("app.application.diagnostic_snapshot.time.monotonic", lambda: 100.0)
+
+    snapshot = app.build_diagnostic_snapshot()
+
+    assert snapshot["danmu_diagnostics"]["recent_count"] == 1
+    assert snapshot["danmu_diagnostics"]["total_recorded"] == 1
+    assert snapshot["danmu_diagnostics"]["top_reasons"] == [
+        {"reason": "empty_parse", "label": "AI 回复解析为空", "count": 1}
+    ]
+    assert snapshot["danmu_diagnostics"]["latest"]["age_sec"] == 2.0
+
+
 def test_build_diagnostic_report_formats_existing_snapshot():
     report = build_diagnostic_report(
         {
             "scheduler": {"block_reason": "", "seconds_since_last_trigger": 1.0},
             "timing": {"request_started_count": 0, "avg_rtt": 0.0, "smart_cooldown_ms": 3000, "recent_rtt_samples": []},
             "runtime_state": {"web_runtime": {}, "stats": {}, "generation_pipeline": {}},
+            "danmu_diagnostics": {
+                "top_reasons": [{"reason": "empty_parse", "label": "AI 回复解析为空", "count": 2}]
+            },
             "diagnosis": {
                 "scheduler_blocked": False,
                 "high_rtt": False,
@@ -295,7 +335,8 @@ def test_build_diagnostic_report_formats_existing_snapshot():
         }
     )
 
-    assert "No immediate scheduler/timing anomaly detected" in report
+    assert "Inspect recent no-danmu reason" in report
+    assert "AI 回复解析为空" in report
 
 
 def test_diagnostics_panel_files_use_independent_endpoint_and_render_targets():
@@ -314,6 +355,8 @@ def test_diagnostics_panel_files_use_independent_endpoint_and_render_targets():
     assert "btnCopyDiagnosticsReport" in diagnostics_js
     assert "诊断面板" in index_html
     assert "diagnosticReportPreview" in index_html
+    assert "diagNoDanmuTopReason" in index_html
+    assert "danmu_diagnostics" in diagnostics_js
 
 
 def test_diagnostics_requires_auth():

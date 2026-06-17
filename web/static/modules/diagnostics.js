@@ -44,6 +44,7 @@ export function buildDiagnosticReportText(diag) {
   const scheduler = diag.scheduler || {};
   const timing = diag.timing || {};
   const runtimeState = diag.runtime_state || {};
+  const danmuDiagnostics = diag.danmu_diagnostics || {};
   const diagnosis = diag.diagnosis || {};
   const webRuntime = runtimeState.web_runtime || {};
   const stats = runtimeState.stats || {};
@@ -57,6 +58,10 @@ export function buildDiagnosticReportText(diag) {
   }
   if (diagnosis.has_pending_timing) {
     suggestions.push('- 检查请求 timing 是否长时间未消费，重点看 reply/error 清理路径');
+  }
+  if ((danmuDiagnostics.top_reasons || []).length) {
+    const top = danmuDiagnostics.top_reasons[0];
+    suggestions.push(`- 检查最近未上屏原因：${top.label || top.reason || 'unknown'}`);
   }
   if (!suggestions.length) {
     suggestions.push('- 当前快照未发现明显调度或 timing 异常');
@@ -87,6 +92,12 @@ export function buildDiagnosticReportText(diag) {
     `cached_layout_mode: ${webRuntime.cached_layout_mode || 'fullscreen'}`,
     `latest_displayed_round: ${generation.latest_displayed_round ?? 0}`,
     '',
+    '[danmu_diagnostics]',
+    `recent_count: ${danmuDiagnostics.recent_count ?? 0}`,
+    `total_recorded: ${danmuDiagnostics.total_recorded ?? 0}`,
+    `top_reasons: ${JSON.stringify(danmuDiagnostics.top_reasons || [])}`,
+    `latest: ${JSON.stringify(danmuDiagnostics.latest || null)}`,
+    '',
     '[next_steps]',
     ...suggestions,
   ].join('\n');
@@ -98,6 +109,7 @@ function renderDiagnosticSnapshot(diag) {
   const timing = diag?.timing || {};
   const diagnosis = diag?.diagnosis || {};
   const stats = diag?.runtime_state?.stats || {};
+  const danmuDiagnostics = diag?.danmu_diagnostics || {};
 
   const setText = (id, value) => {
     const el = document.getElementById(id);
@@ -119,6 +131,32 @@ function renderDiagnosticSnapshot(diag) {
   setText(
     'diagRuntimeStats',
     `danmu=${stats.danmu_count ?? 0} · input=${stats.total_input_tokens ?? 0} · output=${stats.total_output_tokens ?? 0} · runtime=${formatDiagSeconds(stats.runtime_sec)}`,
+  );
+  const latestNoDanmu = danmuDiagnostics.latest || null;
+  const topReasons = danmuDiagnostics.top_reasons || [];
+  setText('diagNoDanmuRecentCount', String(danmuDiagnostics.recent_count ?? 0));
+  setText('diagNoDanmuTotal', String(danmuDiagnostics.total_recorded ?? 0));
+  setText(
+    'diagNoDanmuTopReason',
+    topReasons.length
+      ? `${topReasons[0].label || topReasons[0].reason} (${topReasons[0].count})`
+      : '暂无',
+  );
+  setText(
+    'diagNoDanmuLatest',
+    latestNoDanmu
+      ? `${latestNoDanmu.label || latestNoDanmu.reason} · ${formatDiagSeconds(latestNoDanmu.age_sec)}前`
+      : '暂无',
+  );
+  setText(
+    'diagNoDanmuRecent',
+    (danmuDiagnostics.recent || [])
+      .map((item) => {
+        const repeat = item.repeat_count > 1 ? ` ×${item.repeat_count}` : '';
+        const meta = item.screenshot_id ? `#${item.screenshot_id}` : item.stage || 'unknown';
+        return `${item.label || item.reason}${repeat} (${meta})`;
+      })
+      .join(' / ') || '暂无记录',
   );
   setText('diagnosticReportPreview', buildDiagnosticReportText(diag));
 }

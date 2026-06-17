@@ -30,6 +30,7 @@ class DiagnosticSnapshotBuilder:
         timing = self._app.get_request_timing_service()
         stats_state = getattr(self._app, "stats_state", None)
         web_runtime_state = getattr(self._app, "web_runtime_state", None)
+        danmu_diagnostics_state = getattr(self._app, "danmu_diagnostics", None)
         generation_pipeline = GenerationPipelineState.from_app(self._app)
 
         last_trigger_at = float(scheduler.last_api_trigger_at)
@@ -71,6 +72,10 @@ class DiagnosticSnapshotBuilder:
                 "stats": self._stats_summary(stats_state, runtime_sec=stats_runtime_sec),
                 "generation_pipeline": asdict(generation_pipeline),
             },
+            "danmu_diagnostics": self._danmu_diagnostics_summary(
+                danmu_diagnostics_state,
+                now=now,
+            ),
             "diagnosis": {
                 "scheduler_blocked": bool(block_reason),
                 "high_rtt": avg_rtt >= 3.0,
@@ -119,12 +124,25 @@ class DiagnosticSnapshotBuilder:
             "runtime_sec": float(runtime_sec),
         }
 
+    @staticmethod
+    def _danmu_diagnostics_summary(danmu_diagnostics_state: Any, *, now: float) -> dict[str, Any]:
+        if danmu_diagnostics_state is None or not hasattr(danmu_diagnostics_state, "snapshot"):
+            return {
+                "recent_count": 0,
+                "total_recorded": 0,
+                "top_reasons": [],
+                "latest": None,
+                "recent": [],
+            }
+        return dict(danmu_diagnostics_state.snapshot(now=now))
+
 
 def build_diagnostic_report(snapshot: dict[str, object]) -> str:
     config_context = snapshot.get("config_context", {}) if isinstance(snapshot, dict) else {}
     scheduler = snapshot.get("scheduler", {}) if isinstance(snapshot, dict) else {}
     timing = snapshot.get("timing", {}) if isinstance(snapshot, dict) else {}
     runtime_state = snapshot.get("runtime_state", {}) if isinstance(snapshot, dict) else {}
+    danmu_diagnostics = snapshot.get("danmu_diagnostics", {}) if isinstance(snapshot, dict) else {}
     diagnosis = snapshot.get("diagnosis", {}) if isinstance(snapshot, dict) else {}
     web_runtime = runtime_state.get("web_runtime", {}) if isinstance(runtime_state, dict) else {}
     stats = runtime_state.get("stats", {}) if isinstance(runtime_state, dict) else {}
@@ -141,6 +159,12 @@ def build_diagnostic_report(snapshot: dict[str, object]) -> str:
         recommendations.append("- Inspect network latency or upstream model response time")
     if diagnosis.get("has_pending_timing"):
         recommendations.append("- Inspect in-flight request completion and timing cleanup paths")
+    top_reasons = danmu_diagnostics.get("top_reasons", [])
+    if top_reasons:
+        top = top_reasons[0]
+        recommendations.append(
+            f"- Inspect recent no-danmu reason: {top.get('label') or top.get('reason')}"
+        )
     if not recommendations:
         recommendations.append("- No immediate scheduler/timing anomaly detected from snapshot")
 
@@ -183,6 +207,12 @@ def build_diagnostic_report(snapshot: dict[str, object]) -> str:
         f"latest_requested_screenshot_id: {generation.get('latest_requested_screenshot_id', 0)}",
         f"latest_queued_screenshot_id: {generation.get('latest_queued_screenshot_id', 0)}",
         f"latest_displayed_screenshot_id: {generation.get('latest_displayed_screenshot_id', 0)}",
+        "",
+        "[danmu_diagnostics]",
+        f"recent_count: {danmu_diagnostics.get('recent_count', 0)}",
+        f"total_recorded: {danmu_diagnostics.get('total_recorded', 0)}",
+        f"top_reasons: {danmu_diagnostics.get('top_reasons', [])}",
+        f"latest: {danmu_diagnostics.get('latest')}",
         "",
         "[diagnosis]",
         f"scheduler_blocked: {diagnosis.get('scheduler_blocked', False)}",
