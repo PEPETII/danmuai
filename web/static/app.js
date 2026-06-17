@@ -24,6 +24,7 @@ import {
   applyCaptureRegionFromPayload,
   bindSettingsControls,
   initCaptureRegionControls,
+  initDanmuStylePreview,
   initNormalBatchControls,
   initMicInsertControls,
   initFloatingPanelV2Controls,
@@ -500,6 +501,7 @@ async function init() {
   initSidebarNavFloatingHints();
   initNormalBatchControls();
   initMicInsertControls();
+  initDanmuStylePreview();
   initDanmuReadPage();
   loadDanmuReadPage().catch(console.error);
   initCaptureRegionControls();

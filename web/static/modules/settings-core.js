@@ -1,4 +1,5 @@
 import { apiFetch } from './transport.js';
+import { updateDanmuStylePreview } from './settings-danmu-preview.js';
 import {
   CONFIG_FIELDS,
   MASKED_API_KEY,
@@ -131,6 +132,7 @@ function applySettingsDefaults(scope) {
   coreDeps.applyMicIndependentVisibility();
   coreDeps.updateMicModeHint();
   updateNormalBatchPreview();
+  updateDanmuStylePreview();
   closeRestoreDefaultsModal();
   coreDeps.showToast('已恢复默认值，请点击「保存配置」生效');
 }
@@ -255,6 +257,7 @@ export function fillForm(cfg) {
   }
   updateNormalBatchPreview();
   updateMicInsertControls();
+  updateDanmuStylePreview();
   coreDeps.syncProviderPresetFromEndpoint();
   coreDeps.applyApiModeValue(cfg.api_mode);
   coreDeps.syncApiModeLockState();

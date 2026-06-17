@@ -130,6 +130,7 @@ def test_web_console_modules_exist():
         "logs.js",
         "diagnostics.js",
         "settings.js",
+        "settings-danmu-preview.js",
         "content-pages.js",
         "theme.js",
     ):
@@ -139,6 +140,30 @@ def test_web_console_modules_exist():
     html = (root / "web" / "static" / "index.html").read_text(encoding="utf-8")
     assert 'type="module"' in html
     assert "/static/app.js" in html
+
+
+def test_danmu_style_preview_wired_to_settings_page():
+    root = project_root()
+    index_html = (root / "web" / "static" / "index.html").read_text(encoding="utf-8")
+    app_js = (root / "web" / "static" / "app.js").read_text(encoding="utf-8")
+    settings_js = (root / "web" / "static" / "modules" / "settings.js").read_text(
+        encoding="utf-8"
+    )
+    preview_js = (
+        root / "web" / "static" / "modules" / "settings-danmu-preview.js"
+    ).read_text(encoding="utf-8")
+    css = (root / "web" / "static" / "warm-tokens-pages.css").read_text(encoding="utf-8")
+
+    assert 'id="danmuStylePreviewStage"' in index_html
+    assert 'id="danmuStylePreviewMode"' in index_html
+    assert 'id="danmuStylePreviewMeta"' in index_html
+    assert "initDanmuStylePreview" in app_js
+    assert "settings-danmu-preview.js" in settings_js
+    assert "export function initDanmuStylePreview" in preview_js
+    assert "'danmu_speed'" in preview_js
+    assert "'floating_panel_speed'" in preview_js
+    assert ".danmu-style-preview-stage" in css
+    assert "@keyframes danmuPreviewScroll" in css
 
 
 def test_diagnostics_panel_visibility_toggle_wires_button_and_sse_gate():

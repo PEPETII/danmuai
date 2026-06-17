@@ -121,6 +121,7 @@ export {
   loadConfigDefaults,
   reloadConfigFromServer,
 } from './settings-core.js';
+export { initDanmuStylePreview } from './settings-danmu-preview.js';
 export { loadCustomModels } from './settings-custom-models.js';
 export { loadFontFamilies, uploadFontFile } from './settings-fonts.js';
 export {

@@ -504,6 +504,167 @@
   border: 1px dashed var(--border);
 }
 
+.danmu-style-preview-section {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.danmu-style-preview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.danmu-style-preview-head .settings-section-title {
+  margin-bottom: 0;
+}
+
+.danmu-style-preview-badge {
+  flex: 0 0 auto;
+  padding: 0.25rem 0.65rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-primary-hover);
+  background: rgba(var(--color-primary-rgb), 0.1);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.22);
+}
+
+.danmu-style-preview-stage {
+  position: relative;
+  height: 180px;
+  min-height: 180px;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(17, 24, 39, 0.16);
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px) 0 0 / 40px 40px,
+    linear-gradient(0deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px) 0 0 / 40px 40px,
+    linear-gradient(135deg, #20232b 0%, #313847 52%, #23262f 100%);
+  isolation: isolate;
+}
+
+.danmu-style-preview-stage::before,
+.danmu-style-preview-stage::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+}
+
+.danmu-style-preview-stage::before {
+  inset: auto 16px 16px;
+  height: 36px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.09);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.danmu-style-preview-stage::after {
+  left: 18px;
+  top: 18px;
+  width: 96px;
+  height: 14px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow: 0 24px 0 rgba(255, 255, 255, 0.08);
+}
+
+.danmu-style-preview-scrolling,
+.danmu-style-preview-floating {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.danmu-preview-item {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  max-width: min(76%, 480px);
+  padding: 0.22rem 0.58rem;
+  border-radius: 9999px;
+  color: rgba(255, 255, 255, 0.96);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.58);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  will-change: transform;
+  background: rgba(17, 24, 39, 0.34);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.danmu-preview-item.is-bold {
+  font-weight: 800;
+}
+
+.danmu-style-preview-scrolling .danmu-preview-item {
+  left: 100%;
+  transform: translate3d(0, -50%, 0);
+  animation-name: danmuPreviewScroll;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+.danmu-preview-floating-panel {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  bottom: 12px;
+  overflow: hidden;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.danmu-preview-floating-item {
+  left: 10px;
+  right: 10px;
+  bottom: -2.75rem;
+  justify-content: center;
+  max-width: none;
+  width: calc(100% - 20px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  animation-name: danmuPreviewFloat;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+.danmu-style-preview-meta {
+  min-height: 1.25rem;
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
+
+@keyframes danmuPreviewScroll {
+  from {
+    transform: translate3d(18%, -50%, 0);
+  }
+  to {
+    transform: translate3d(calc(-100vw - 100%), -50%, 0);
+  }
+}
+
+@keyframes danmuPreviewFloat {
+  from {
+    transform: translate3d(0, 108%, 0);
+  }
+  to {
+    transform: translate3d(0, -760%, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .danmu-style-preview-scrolling .danmu-preview-item,
+  .danmu-preview-floating-item {
+    animation-play-state: paused;
+  }
+}
+
 .preview-slot img:not(.hidden) + p {
   display: none;
 }

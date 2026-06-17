@@ -263,6 +263,17 @@
               <option value="floating_panel">从下到上</option>
             </select>
           </div>
+          <div id="danmuStylePreviewSection" class="settings-section danmu-style-preview-section" aria-label="弹幕样式预览">
+            <div class="danmu-style-preview-head">
+              <p class="settings-section-title">弹幕样式预览</p>
+              <span id="danmuStylePreviewMode" class="danmu-style-preview-badge">横向弹幕</span>
+            </div>
+            <div id="danmuStylePreviewStage" class="danmu-style-preview-stage" data-mode="scrolling" aria-hidden="true">
+              <div id="danmuStylePreviewScrolling" class="danmu-style-preview-scrolling"></div>
+              <div id="danmuStylePreviewFloating" class="danmu-style-preview-floating hidden"></div>
+            </div>
+            <p id="danmuStylePreviewMeta" class="danmu-style-preview-meta">速度 2.0 · 字号 24px · 透明度 100%</p>
+          </div>
           <div id="floatingPanelV2Fields" class="space-y-4 hidden">
             <p class="settings-section-title">从下到上</p>
             <div class="settings-params-grid cols-2">
