@@ -3,8 +3,6 @@
 import sys
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 
 def test_run_startup_apply_skips_when_not_frozen():
     from app.velopack_runtime import run_startup_apply_if_needed

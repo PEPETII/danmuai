@@ -16,10 +16,8 @@ from app.bundle_paths import append_frozen_log, is_frozen
 from app.startup_trace import log_startup
 from app.web_console_session_auth import enforce_session_authorization
 from app.web_console_support import (
-    enumerate_screens,
     export_config,
     extract_config_payload,
-    resolve_screens_for_api,
     save_config_via_bridge,
     screens_for_api,
 )

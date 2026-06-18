@@ -873,13 +873,12 @@ def test_ensure_web_static_mime_types_overrides_plain_js():
 
 
 def test_static_js_response_content_type(tmp_path):
-    from fastapi import FastAPI
-    from fastapi.staticfiles import StaticFiles
-    from fastapi.testclient import TestClient
-
     import mimetypes
 
     from app.web_static_mime import ensure_web_static_mime_types
+    from fastapi import FastAPI
+    from fastapi.staticfiles import StaticFiles
+    from fastapi.testclient import TestClient
 
     mimetypes.add_type("text/plain", ".js", strict=True)
     (tmp_path / "test.js").write_text("export const ok = true;\n", encoding="utf-8")

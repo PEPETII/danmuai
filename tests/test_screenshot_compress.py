@@ -6,13 +6,12 @@ import base64
 import statistics
 import time
 
-from PyQt6.QtGui import QColor, QImage, QPixmap
-
 from app.screenshot_compress import (
     IMAGE_JPEG_QUALITY,
     IMAGE_MAX_WIDTH,
     compress_screenshot,
 )
+from PyQt6.QtGui import QColor, QImage, QPixmap
 
 _DATA_URI_PREFIX = "data:image/jpeg;base64,"
 

@@ -18,6 +18,7 @@ from app.ai_client import (
     sanitize_provider_error_snippet,
 )
 from app.translations import tr
+
 from tests.fakes import ai_client_fake_config
 
 

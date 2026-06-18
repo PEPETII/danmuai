@@ -10,9 +10,8 @@ from app.application.config_service import apply_web_config_patch
 from app.config_store import ConfigStore
 
 from tests.conftest import make_minimal_danmu_app
-from tests.fakes import FakeLogger
+from tests.fakes import FakeLogger, ai_client_fake_config
 from tests.helpers.config_payload import make_config_app_stub
-from tests.test_ai_client import FakeConfig
 from tests.test_p0_main_flow import _bind_on_ai_reply
 
 
@@ -61,7 +60,7 @@ def test_immediate_stop_after_start_clears_inflight():
 
 def test_incomplete_custom_model_with_global_key_does_not_fallback():
     """Documents current resolve behavior: incomplete custom blocks global fallback."""
-    cfg = FakeConfig(
+    cfg = ai_client_fake_config(
         data={
             "api_endpoint": "https://global.example.com/v1",
             "api_mode": "openai",
