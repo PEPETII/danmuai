@@ -3,6 +3,7 @@
 import time
 
 import app.danmu_engine as danmu_engine_mod
+import app.danmu_engine_dedup as danmu_engine_dedup_mod
 import pytest
 from app.config_store import ConfigStore
 from app.danmu_engine import (
@@ -130,8 +131,13 @@ def test_dedup_threshold_one_skips_similarity(engine, monkeypatch):
 
 def test_similarity_fallback_without_levenshtein(monkeypatch):
     monkeypatch.setattr(danmu_engine_mod, "_LEVENSHTEIN_RATIO", _LEVENSHTEIN_UNAVAILABLE)
+    monkeypatch.setattr(
+        danmu_engine_dedup_mod,
+        "_LEVENSHTEIN_RATIO",
+        _LEVENSHTEIN_UNAVAILABLE,
+    )
 
-    assert _get_levenshtein_ratio() is None
+    assert danmu_engine_dedup_mod._get_levenshtein_ratio() is None
     assert DanmuEngine._similarity("kitten", "sitting") > 0.5
 
 
@@ -222,6 +228,11 @@ def test_dedup_profile_records_exact_set_hit(engine, dedup_profile_on):
 
 def test_dedup_profile_records_fallback_path(engine, dedup_profile_on, monkeypatch):
     monkeypatch.setattr(danmu_engine_mod, "_LEVENSHTEIN_RATIO", _LEVENSHTEIN_UNAVAILABLE)
+    monkeypatch.setattr(
+        danmu_engine_dedup_mod,
+        "_LEVENSHTEIN_RATIO",
+        _LEVENSHTEIN_UNAVAILABLE,
+    )
     engine._remember_content("kitten")
 
     assert engine._is_duplicate("sitting") is False
