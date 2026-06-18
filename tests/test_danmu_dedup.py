@@ -394,6 +394,7 @@ def test_start_clears_dedup_window(monkeypatch, workspace_tmp):
         "_topmost_health_timer": timer,
         "lifetime_stats": type("L", (), {"flush_pending": _noop})(),
         "session_run_log": type("R", (), {"begin": _noop})(),
+        "danmu_diagnostics": type("D", (), {"reset": _noop})(),
         "_pending_request_meta": {},
         "state_changed": type("S", (), {"emit": lambda *a: None})(),
         "_queue_capacity": lambda: 8,
