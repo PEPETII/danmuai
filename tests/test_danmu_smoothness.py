@@ -9,6 +9,7 @@ from unittest.mock import MagicMock
 from app.config_store import ConfigStore
 from app.danmu_engine import DanmuEngine
 from app.reply_queue import AIReplyFIFOBuffer, QueuedReply
+
 from tests.fakes import FakeConfig, FakeEngine, FakeHistoryWriter, FakeLogger, FakeTimer
 
 

@@ -141,6 +141,33 @@ def test_web_console_modules_exist():
     assert "/static/app.js" in html
 
 
+def test_live_overlay_setup_assistant_in_overview():
+    root = project_root()
+    html = (root / "web" / "static" / "index.html").read_text(encoding="utf-8")
+    partial = (root / "web" / "static" / "partials" / "overview.html").read_text(
+        encoding="utf-8"
+    )
+    overlay_js = (root / "web" / "static" / "modules" / "app-live-overlay-panel.js").read_text(
+        encoding="utf-8"
+    )
+    css = (root / "web" / "static" / "warm-tokens-pages.css").read_text(encoding="utf-8")
+
+    for marker in (
+        'id="liveOverlaySetupState"',
+        'id="btnOpenLiveOverlayUrl"',
+        'id="btnRefreshLiveOverlayStatus"',
+        'id="liveOverlaySetupSteps"',
+        'id="liveOverlaySetupHint"',
+    ):
+        assert marker in partial
+        assert marker in html
+    assert "danmu_live_overlay_url_copied_v1" in overlay_js
+    assert "danmu_live_overlay_test_sent_v1" in overlay_js
+    assert "renderLiveOverlaySetup" in overlay_js
+    assert "btnRefreshLiveOverlayStatus" in overlay_js
+    assert ".live-overlay-setup" in css
+
+
 def test_diagnostics_panel_visibility_toggle_wires_button_and_sse_gate():
     """BUG-067: 诊断面板展开/收起按钮与 hidden 门控 SSE（静态符号回归）。"""
     root = project_root()

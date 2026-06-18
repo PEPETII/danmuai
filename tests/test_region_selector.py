@@ -12,6 +12,7 @@ from app.web_api.capture_region import (
     clear_capture_region,
     read_capture_region_status,
 )
+
 from tests.fakes import FakeConfig
 
 

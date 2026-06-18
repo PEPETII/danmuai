@@ -27,6 +27,7 @@ except ImportError:
 
 from base64 import b64decode, b64encode
 
+from app.danmu_pool import CUSTOM_DANMU_POOL_MAX as CUSTOM_DANMU_POOL_MAX
 from app.translations import tr
 
 logger = logging.getLogger(__name__)
@@ -54,7 +55,6 @@ CONFIG_DIR = Path(os.environ.get("APPDATA", ".")) / "DanmuAI"
 CONFIG_FILE = CONFIG_DIR / "config.db"
 _KEY_FILE = CONFIG_DIR / ".key"
 
-from app.danmu_pool import CUSTOM_DANMU_POOL_MAX  # noqa: E402
 
 
 def _restrict_key_file_permissions(path: Path):

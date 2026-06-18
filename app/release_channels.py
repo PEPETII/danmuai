@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.supabase_app_updates import clear_app_update_cache, fetch_app_update
+from app.supabase_app_updates import fetch_app_update
 from app.velopack_config import UPDATE_FEED_URL
 from app.version_compare import is_version_newer, normalize_version
 
