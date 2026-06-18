@@ -168,12 +168,20 @@ def normal_reply_count_from_config(config: ConfigStore | None) -> int:
 
 
 def _json_example_zh(total: int) -> str:
-    items = [f"弹幕{i}" for i in range(1, total + 1)]
+    items = ["这波可以", "有点离谱", "什么情况", "别急别急", "绷不住了"]
+    if total <= len(items):
+        return '["' + '", "'.join(items[:total]) + '"]'
+    extra = [f"示例短句{idx}" for idx in range(1, total - len(items) + 1)]
+    items = items + extra
     return '["' + '", "'.join(items) + '"]'
 
 
 def _json_example_en(total: int) -> str:
-    items = [f"comment {i}" for i in range(1, total + 1)]
+    items = ["nice play", "what happened", "that was close", "no way", "calm down"]
+    if total <= len(items):
+        return '["' + '", "'.join(items[:total]) + '"]'
+    extra = [f"sample line {idx}" for idx in range(1, total - len(items) + 1)]
+    items = items + extra
     return '["' + '", "'.join(items) + '"]'
 
 

@@ -500,6 +500,10 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
             body.send_to_ai,
         )
 
+    @app.get("/api/mic/devices")
+    def get_mic_devices():
+        return mic_test_api.list_mic_devices(bridge.danmu_app)
+
     @app.post("/api/mic/test-send")
     def mic_test_send(
         body: MicTestPayload,

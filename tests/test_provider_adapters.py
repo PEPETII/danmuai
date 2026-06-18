@@ -6,6 +6,7 @@ from app.providers import (
     get_capabilities_for_endpoint,
     get_openai_adapter,
     guess_provider_from_endpoint,
+    is_minimax_endpoint,
     match_host_entry,
     provider_extra_headers,
     resolve_api_transport,
@@ -19,6 +20,7 @@ def test_host_entries_derived_from_providers_single_source():
     assert "ark.cn-beijing.volces.com" in fragments
     assert "api.xiaomimimo.com" in fragments
     assert "dashscope.aliyuncs.com" in fragments
+    assert "api.z.ai" in fragments
     assert len(fragments) == len(HOST_ENTRIES)
 
 
@@ -138,3 +140,23 @@ def test_host_registry_no_duplicate_openai_doubao_tables():
         ep = f"https://{entry.fragment}/v1"
         assert guess_provider_from_endpoint(ep) == entry.provider_id
         assert resolve_api_transport(ep, "openai-compatible" if entry.transport == "openai" else "doubao") == entry.transport
+
+
+# --- MiniMax endpoint detection (W-PR-INTAKE-020) ---
+
+
+def test_is_minimax_endpoint_detects_official_hosts():
+    assert is_minimax_endpoint("https://api.minimax.chat/v1") is True
+    assert is_minimax_endpoint("https://api.minimaxi.com/v1") is True
+
+
+def test_is_minimax_endpoint_rejects_non_minimax():
+    assert is_minimax_endpoint("https://api.xiaomimimo.com/v1") is False
+    assert is_minimax_endpoint("https://api.deepseek.com/v1") is False
+    assert is_minimax_endpoint("https://ark.cn-beijing.volces.com/api/v3") is False
+    assert is_minimax_endpoint("") is False
+
+
+def test_is_minimax_endpoint_case_insensitive():
+    assert is_minimax_endpoint("https://API.Minimax.Chat/v1") is True
+    assert is_minimax_endpoint("https://API.MINIMAXI.COM/v1") is True

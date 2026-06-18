@@ -33,6 +33,31 @@
 
       <p id="overlayCompatBanner" class="hidden text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2 mb-6" role="status"></p>
 
+      <div id="setupGuide" class="hidden mb-6 rounded-2xl bg-white border border-softPeach/60 px-6 py-4">
+        <div class="flex items-center justify-between mb-3">
+          <p class="text-sm font-bold text-warmText">首次设置引导</p>
+          <button type="button" id="btnSetupGuideDismiss" class="text-gray-400 hover:text-warmText text-lg leading-none" aria-label="关闭引导">×</button>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
+          <div class="setup-guide-step" data-step="api">
+            <span class="setup-guide-step-icon">○</span>
+            <span class="setup-guide-step-text">API / 模型已配置</span>
+          </div>
+          <div class="setup-guide-step" data-step="probe">
+            <span class="setup-guide-step-icon">○</span>
+            <span class="setup-guide-step-text">Probe / 连通性检查</span>
+          </div>
+          <div class="setup-guide-step" data-step="screen">
+            <span class="setup-guide-step-icon">○</span>
+            <span class="setup-guide-step-text">识图屏幕已设置</span>
+          </div>
+          <div class="setup-guide-step" data-step="test">
+            <span class="setup-guide-step-icon">○</span>
+            <span class="setup-guide-step-text">测试弹幕 / 启动生成</span>
+          </div>
+        </div>
+      </div>
+
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
         <div class="card p-6">
           <div class="flex items-center gap-4">
@@ -244,6 +269,33 @@
           <div class="rounded-2xl bg-white border border-softPeach/60 px-4 py-3">
             <p class="text-gray-400 mb-1">Runtime 摘要</p>
             <p class="font-semibold text-warmText break-all" id="diagRuntimeStats">等待诊断数据...</p>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4 text-sm">
+          <div class="rounded-2xl bg-white border border-softPeach/60 px-4 py-3">
+            <p class="text-gray-400 mb-1">未上屏弹幕</p>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <p class="text-xs text-gray-400">最近次数</p>
+                <p class="font-bold text-warmText" id="diagUndisplayedRecent">0</p>
+              </div>
+              <div>
+                <p class="text-xs text-gray-400">总次数</p>
+                <p class="font-bold text-warmText" id="diagUndisplayedTotal">0</p>
+              </div>
+              <div>
+                <p class="text-xs text-gray-400">最新原因</p>
+                <p class="font-bold text-warmText" id="diagUndisplayedLatest">-</p>
+              </div>
+              <div>
+                <p class="text-xs text-gray-400">Top 原因</p>
+                <p class="font-bold text-warmText" id="diagUndisplayedTop">-</p>
+              </div>
+            </div>
+          </div>
+          <div class="rounded-2xl bg-white border border-softPeach/60 px-4 py-3">
+            <p class="text-gray-400 mb-1">最近未上屏原因</p>
+            <p class="font-semibold text-warmText break-all text-xs" id="diagUndisplayedRecentList">-</p>
           </div>
         </div>
         <pre id="diagnosticReportPreview" class="rounded-2xl bg-cream px-4 py-3 text-xs text-warmText whitespace-pre-wrap overflow-x-auto">等待诊断数据...</pre>

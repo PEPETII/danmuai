@@ -205,6 +205,42 @@ def maybe_pool_topup(engine, config, scene_generation: int) -> int:
     return added
 
 
+def maybe_duplicate_loss_topup(
+    engine,
+    config,
+    scene_generation: int,
+    *,
+    duplicate_loss_total: int,
+    threshold: int = 2,
+    limit: int = 3,
+) -> int:
+    """当单批 duplicate 损耗达到阈值时，额外做一次小剂量补偿。"""
+    if duplicate_loss_total < max(1, int(threshold)):
+        return 0
+    if not engine.running:
+        return 0
+    if not any_danmu_pool_source_enabled(config):
+        return 0
+    entry_checker = getattr(engine, "entry_zone_overloaded", None)
+    if callable(entry_checker) and entry_checker():
+        return 0
+    texts = sample_danmu_for_config(config, max(1, int(limit)))
+    if not texts:
+        return 0
+    added = 0
+    for text in texts:
+        item = engine.add_text(
+            text,
+            persona="",
+            batch_id=0,
+            scene_generation=scene_generation,
+            skip_dedup=True,
+        )
+        if item:
+            added += 1
+    return added
+
+
 def _custom_danmu_count_locked(store, source: str | None = None) -> int:
     if source:
         row = store.conn.execute(

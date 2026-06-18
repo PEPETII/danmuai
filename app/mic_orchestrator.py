@@ -13,6 +13,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Callable
 
 from app.mic_service import mic_mode_enabled
+from app.mic_service import mic_input_device_id_from_config
 from app.mic_test import pcm_metrics
 from app.mic_utterance import (
     MicUtteranceDetector,
@@ -53,8 +54,9 @@ class MicOrchestrator:
             self._mic_service.sync(enabled=False)
             self.stop_detector()
             return
+        preferred_device_id = mic_input_device_id_from_config(config)
         if engine_running:
-            self._mic_service.sync(enabled=True)
+            self._mic_service.sync(enabled=True, preferred_device_id=preferred_device_id)
         elif not self._mic_service.is_running():
             self.stop_detector()
             self._log("mic mode enabled; capture starts when danmu is running")

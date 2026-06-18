@@ -27,6 +27,44 @@ def test_consume_doubao_sse_lines_collects_done_event():
     assert result.text == "hello"
     assert result.input_tokens == 900
     assert result.output_tokens == 12
+    assert result.reasoning_only is False
+
+
+def test_consume_doubao_sse_lines_collects_delta_and_done_text():
+    lines = [
+        'data: {"type":"response.output_text.delta","delta":"hel"}',
+        'data: {"type":"response.output_text.done","text":"lo"}',
+        'data: {"type":"response.completed","response":{"usage":{"input_tokens":256,"output_tokens":8}}}',
+    ]
+    result = consume_doubao_sse_lines(lines)
+    assert result.text == "hello"
+    assert result.input_tokens == 256
+    assert result.output_tokens == 8
+    assert result.reasoning_only is False
+
+
+def test_consume_doubao_sse_lines_reasoning_only_does_not_fallback_to_text():
+    lines = [
+        'data: {"type":"response.reasoning_summary_text.delta","delta":"先想一下"}',
+        'data: {"type":"response.reasoning_summary_text.done","text":"最终也只有思考"}',
+        'data: {"type":"response.completed","response":{"usage":{"input_tokens":111,"output_tokens":22}}}',
+    ]
+    result = consume_doubao_sse_lines(lines)
+    assert result.text == ""
+    assert result.input_tokens == 111
+    assert result.output_tokens == 22
+    assert result.reasoning_only is True
+
+
+def test_consume_doubao_sse_lines_completed_response_extracts_text_without_stream_deltas():
+    lines = [
+        'data: {"type":"response.completed","response":{"usage":{"input_tokens":300,"output_tokens":16},"output":[{"type":"message","content":[{"type":"output_text","text":"从 completed 提取正文"}]}]}}',
+    ]
+    result = consume_doubao_sse_lines(lines)
+    assert result.text == "从 completed 提取正文"
+    assert result.input_tokens == 300
+    assert result.output_tokens == 16
+    assert result.reasoning_only is False
 
 
 def test_consume_doubao_sse_lines_failed_event():

@@ -11,7 +11,7 @@
 
 关键设计：
 - screenshot_id：每帧截图递增，用于「更新帧优于在途回复」的 supersede 判定
-- scene_generation：请求/记忆兼容字段（运行期恒为 0，不做截图 hash 场景判定）
+- scene_generation：场景配置指纹版本（live_topic/user_nickname/screen_index/region_* 变更递增；start/stop 重置；截图不推进）
 - MAX_IN_FLIGHT=1：并发视觉请求会破坏过期判断与回复顺序，故硬限制为 1
 
 线程：DanmuApp 在 Qt 主线程；CaptureRunnable 在 capture_worker_pool 抓屏；
@@ -33,6 +33,7 @@ from app.application.status_snapshot import StatusSnapshotBuilder
 from app.danmu_engine import (
     resolve_danmu_display_text,
 )
+from app.danmu_engine_dedup import get_last_duplicate_observation
 from app.live_freshness import (
     build_local_fallback_batch,
     is_model_slow,
@@ -55,7 +56,10 @@ from app.main_launch_mixin import DanmuAppLaunchMixin
 from app.main_lifecycle_mixin import DanmuAppLifecycleMixin
 from app.main_meme_mixin import DanmuAppMemeMixin
 from app.main_mic_mixin import MIC_POLL_MS, MIC_POLL_PHASE_MS, DanmuAppMicMixin  # noqa: F401
-from app.main_request_context_mixin import DanmuAppRequestContextMixin
+from app.main_request_context_mixin import (
+    DanmuAppRequestContextMixin,
+    format_reply_request_id,
+)
 from app.main_state_mixin import DanmuAppStateMixin
 from app.main_web_facade_mixin import DanmuAppWebFacadeMixin
 from app.model_providers import (
@@ -156,6 +160,12 @@ class DanmuApp(
     def _has_visual_request_in_flight(self) -> bool:
         return self._is_generating or self.ai_in_flight >= MAX_IN_FLIGHT
 
+    def _record_undisplayed(self, reason: str, *, persona_id: str = "") -> None:
+        """安全记录未上屏事件（兼容 minimal DanmuApp 测试模式）。"""
+        recorder = self.__dict__.get("_danmu_diagnostics")
+        if recorder is not None:
+            recorder.record(reason, persona_id=persona_id)
+
     def _maybe_inject_local_fallback(self) -> None:
         """慢模型 in-flight 时注入公式化弹幕库轻量批次，避免长时间空窗。"""
         if not self.engine.running or self._local_fallback_active:
@@ -199,6 +209,7 @@ class DanmuApp(
         if pixmap is None:
             self.logger.warning(tr("app.capture_failed"))
             self._note_capture_failure()
+            self._record_undisplayed("capture_failure")
             return
         if pixmap.isNull() or pixmap.width() <= 0 or pixmap.height() <= 0:
             screen_index = self.config.get_int("screen_index", 0)
@@ -219,6 +230,7 @@ class DanmuApp(
                 region_h,
             )
             self._note_capture_failure()
+            self._record_undisplayed("capture_failure")
             return
         self._note_capture_success()
         self._latest_screenshot = pixmap
@@ -276,7 +288,14 @@ class DanmuApp(
         self._apply_capture_result(pixmap)
         if self._latest_screenshot is None:
             return
-        self._trigger_api_call(source="normal_interval")
+        source = self._pending_api_trigger_source or "normal_interval"
+        self._pending_api_trigger_source = None
+        self._trigger_api_call(
+            source=source,
+            enforce_min_interval=(source != "scene_refresh"),
+        )
+        if self._scene_refresh_wanted and not self._has_visual_request_in_flight():
+            self._try_scene_refresh()
 
     def _on_screenshot_timer(self):
         """screenshot_timer 超时回调（主线程 QTimer）；转发到 _on_normal_capture_tick。"""
@@ -329,7 +348,7 @@ class DanmuApp(
             self._latest_screenshot_time,
         )
 
-    def _trigger_api_call(self, source: str = "unknown"):
+    def _trigger_api_call(self, source: str = "unknown", *, enforce_min_interval: bool = True):
         """占用唯一视觉 in-flight 槽位，用当前 _latest_screenshot 发起 AiRunnable。
 
         调用线程：主线程（由 _on_normal_capture_tick 或 local fallback 调用）。
@@ -340,7 +359,7 @@ class DanmuApp(
         - 递增 screenshot_round / _batch_id，登记 _inflight_* 供回复到达时做过期判断
         - 成功触发后清除 local_fallback 标记，避免与真 AI 回复重复占位
         """
-        block = self._api_schedule_block_reason(enforce_min_interval=True)
+        block = self._api_schedule_block_reason(enforce_min_interval=enforce_min_interval)
         if block:
             self._log_api_schedule(decision="block", source=source, block_reason=block)
             if block == "in_flight":
@@ -359,6 +378,7 @@ class DanmuApp(
         self._local_fallback_active = False
         self._get_request_scheduler().record_trigger_time(now=trigger_at)
         self._log_api_schedule(decision="fire", source=source)
+        self._scene_refresh_wanted = False
         pixmap, screenshot_id, captured_at = self._borrow_latest_screenshot_for_request()
         self.screenshot_round += 1
         request_round = self.screenshot_round
@@ -411,9 +431,21 @@ class DanmuApp(
                 system_pt = append_pet_command_to_system_pt(system_pt, command_text)
 
         self._current_persona = persona
-        self._get_request_timing_service().mark_started(
+        request_started_at = self._get_request_timing_service().mark_started(
             request_id=request_id,
             now=time.monotonic(),
+        )
+        self._log_reply_pipeline(
+            "request_started",
+            request_id=format_reply_request_id(request_round, screenshot_id, self._scene_generation),
+            request_round=request_round,
+            screenshot_id=screenshot_id,
+            captured_at=captured_at,
+            request_started_at=request_started_at,
+            scene_generation=self._scene_generation,
+            dropped_as_stale=False,
+            enqueued=False,
+            displayed=False,
         )
         self._register_request_meta(request_round, screenshot_id, self._scene_generation, "visual")
 
@@ -468,6 +500,7 @@ class DanmuApp(
         - 麦克风回复：走 _handle_mic_ai_reply 独立路径
         """
         self.logger.debug(f"[DEBUG] _on_ai_reply called, text length={len(text)}")
+        reply_received_at = time.monotonic()
         meta = self._pop_request_meta(request_round, screenshot_id, scene_generation)
         # W-RACE-001（bug-03 缺陷 3 修复）：陈旧 AiRunnable 在 stop()→start() 之间
         # 完成时，_pending_request_meta 已被 stop() 清空，_pop_request_meta 返回
@@ -475,6 +508,21 @@ class DanmuApp(
         # 第二道防线：若 meta 为空（stop 后到位的 reply），既不释放新会话的 in-flight
         # 槽位，也不入队。
         if not meta:
+            self._log_reply_pipeline(
+                "reply_received",
+                request_id=format_reply_request_id(request_round, screenshot_id, scene_generation),
+                request_round=request_round,
+                screenshot_id=screenshot_id,
+                captured_at=captured_at,
+                request_started_at=self._peek_request_started_at(
+                    request_round, screenshot_id, scene_generation
+                ),
+                reply_received_at=reply_received_at,
+                scene_generation=scene_generation,
+                dropped_as_stale=True,
+                enqueued=False,
+                displayed=False,
+            )
             self.logger.warning(
                 "stale_reply_dropped: request_round=%s screenshot_id=%s "
                 "scene_generation=%s reason=meta_missing_after_stop",
@@ -485,6 +533,41 @@ class DanmuApp(
             return
         source = meta.get("source") or "visual"
         is_mic = source == "mic"
+
+        if not is_mic:
+            stale_reason = self._visual_reply_stale_reason(scene_generation)
+            if stale_reason:
+                self._release_inflight_for_source(source)
+                self._consume_request_timing(request_round, screenshot_id, scene_generation)
+                self._log_reply_pipeline(
+                    "reply_received",
+                    request_id=format_reply_request_id(
+                        request_round, screenshot_id, scene_generation
+                    ),
+                    request_round=request_round,
+                    screenshot_id=screenshot_id,
+                    captured_at=captured_at,
+                    request_started_at=self._peek_request_started_at(
+                        request_round, screenshot_id, scene_generation
+                    ),
+                    reply_received_at=reply_received_at,
+                    scene_generation=scene_generation,
+                    current_scene_generation=self._scene_generation,
+                    dropped_as_stale=True,
+                    enqueued=False,
+                    displayed=False,
+                )
+                self.logger.warning(
+                    "stale_reply_dropped: request_round=%s screenshot_id=%s "
+                    "scene_generation=%s current_scene_generation=%s reason=%s",
+                    request_round,
+                    screenshot_id,
+                    scene_generation,
+                    self._scene_generation,
+                    stale_reason,
+                )
+                self._try_scene_refresh()
+                return
 
         self._release_inflight_for_source(source)
 
@@ -497,7 +580,24 @@ class DanmuApp(
                 f"total_input={stats_state.total_input_tokens}, total_output={stats_state.total_output_tokens}"
             )
 
+        request_started_at = self._peek_request_started_at(
+            request_round, screenshot_id, scene_generation
+        )
         if is_mic:
+            self._log_reply_pipeline(
+                "reply_received",
+                request_id=format_reply_request_id(request_round, screenshot_id, scene_generation),
+                request_round=request_round,
+                screenshot_id=screenshot_id,
+                captured_at=captured_at,
+                request_started_at=request_started_at,
+                reply_received_at=reply_received_at,
+                scene_generation=scene_generation,
+                source="mic",
+                dropped_as_stale=False,
+                enqueued=False,
+                displayed=False,
+            )
             self._handle_mic_ai_reply(
                 text,
                 persona_id,
@@ -528,6 +628,19 @@ class DanmuApp(
         )
         if not normalized_items:
             request_id = self._reply_request_id(request_round, screenshot_id, scene_generation)
+            self._log_reply_pipeline(
+                "reply_received",
+                request_id=format_reply_request_id(request_round, screenshot_id, scene_generation),
+                request_round=request_round,
+                screenshot_id=screenshot_id,
+                captured_at=captured_at,
+                request_started_at=request_started_at,
+                reply_received_at=reply_received_at,
+                scene_generation=scene_generation,
+                dropped_as_stale=False,
+                enqueued=False,
+                displayed=False,
+            )
             self.logger.warning(
                 "AI 回复解析为空: request_id=%s screenshot_id=%s request_round=%s "
                 "scene_generation=%s text_len=%s raw_count=%s reason=empty_parse",
@@ -538,9 +651,23 @@ class DanmuApp(
                 len(text or ""),
                 len(raw_items),
             )
+            self._record_undisplayed("empty_parse", persona_id=persona_id)
             return
 
         request_id = self._reply_request_id(request_round, screenshot_id, scene_generation)
+        self._log_reply_pipeline(
+            "reply_received",
+            request_id=format_reply_request_id(request_round, screenshot_id, scene_generation),
+            request_round=request_round,
+            screenshot_id=screenshot_id,
+            captured_at=captured_at,
+            request_started_at=request_started_at,
+            reply_received_at=reply_received_at,
+            scene_generation=scene_generation,
+            dropped_as_stale=False,
+            enqueued=True,
+            displayed=False,
+        )
         self.reply_buffer.drop_replaceable_fallbacks(
             request_id=request_id,
             batch_id=self._batch_id,
@@ -554,6 +681,8 @@ class DanmuApp(
             scene_generation,
             normalized_items,
             from_local_fallback=False,
+            request_started_at=request_started_at,
+            reply_received_at=reply_received_at,
         )
         self._notify_pet_visual_success()
         self._publish_live_status()
@@ -601,6 +730,11 @@ class DanmuApp(
                         tr("app.danmu_not_entered").format(content=f"{queued_item.content[:20]}...")
                         + " [桌宠气泡/空文本]"
                     )
+                    self._log_reply_pipeline_from_queued(
+                        "reply_displayed",
+                        queued_item,
+                        displayed=False,
+                    )
                     continue
                 rendered_rows.append((queued_item, display_text))
             if not rendered_rows:
@@ -618,6 +752,11 @@ class DanmuApp(
             )
             for queued_item, text in rendered_rows[:5]:
                 self.history_writer.enqueue(text, queued_item.persona_id, queued_item.batch_index)
+                self._log_reply_pipeline_from_queued(
+                    "reply_displayed",
+                    queued_item,
+                    displayed=True,
+                )
             self._latest_displayed_round = max(
                 self._latest_displayed_round,
                 max(item.screenshot_round for item, _ in rendered_rows),
@@ -657,6 +796,12 @@ class DanmuApp(
                         tr("app.danmu_not_entered").format(content=f"{queued.content[:20]}...")
                         + " [悬浮窗/空文本]"
                     )
+                    self._log_reply_pipeline_from_queued(
+                        "reply_displayed",
+                        queued,
+                        displayed=False,
+                    )
+                    self._record_undisplayed("empty_text", persona_id=queued.persona_id)
                     if not self.reply_buffer.is_empty():
                         self.reply_timer.start(100)
                     self._update_stats(success=False)
@@ -664,9 +809,31 @@ class DanmuApp(
                     return
                 if not skip_dedup_peek and fp_engine.is_duplicate(display_peek):
                     queued = self.reply_buffer.pop()
+                    duplicate_observation = get_last_duplicate_observation()
+                    duplicate_match_type = str(duplicate_observation.get("match_type") or "")
+                    duplicate_stats = self._track_duplicate_rejection(
+                        queued,
+                        match_type=duplicate_match_type or "duplicate",
+                    )
                     self.logger.info(
                         tr("app.danmu_not_entered").format(content=f"{queued.content[:20]}...")
                         + " [去重]"
+                    )
+                    self._log_reply_pipeline_from_queued(
+                        "reply_displayed",
+                        queued,
+                        displayed=False,
+                        duplicate_match_type=duplicate_match_type or "duplicate",
+                        duplicate_loss=1,
+                        duplicate_loss_total=duplicate_stats["duplicate_loss_total"],
+                        duplicate_exact_set_hit=duplicate_stats["duplicate_exact_set_hit"],
+                        duplicate_exact_window_hit=duplicate_stats["duplicate_exact_window_hit"],
+                        duplicate_similarity_hit=duplicate_stats["duplicate_similarity_hit"],
+                    )
+                    self._record_undisplayed("duplicate", persona_id=queued.persona_id)
+                    self._record_undisplayed(
+                        "duplicate_exact_set_hit",
+                        persona_id=queued.persona_id,
                     )
                     if not self.reply_buffer.is_empty():
                         self.reply_timer.start(100)
@@ -696,6 +863,11 @@ class DanmuApp(
         if item:
             self._latest_displayed_round = max(self._latest_displayed_round, queued.screenshot_round)
             self._latest_displayed_screenshot_id = max(self._latest_displayed_screenshot_id, queued.screenshot_id)
+            self._log_reply_pipeline_from_queued(
+                "reply_displayed",
+                queued,
+                displayed=True,
+            )
             self.history_writer.enqueue(display_content, queued.persona_id, queued.batch_index)
             from app.danmu_engine_models import DanmuItem
 
@@ -732,18 +904,59 @@ class DanmuApp(
                 else:
                     batch.next_generation_time = time.monotonic()
         else:
+            duplicate_match_type = ""
             if self._danmu_render_mode() == "floating_panel":
                 fp_engine = self.__dict__.get("floating_panel_engine")
                 if fp_engine and (not skip_dedup) and fp_engine.is_duplicate(display_content):
+                    duplicate_observation = get_last_duplicate_observation()
+                    duplicate_match_type = str(duplicate_observation.get("match_type") or "")
                     reject = "去重"
+                    diag_reason = "duplicate"
                 else:
                     reject = "悬浮窗"
+                    diag_reason = "floating_panel_spacing"
             elif (not skip_dedup) and self.engine.is_duplicate(display_content):
+                duplicate_observation = get_last_duplicate_observation()
+                duplicate_match_type = str(duplicate_observation.get("match_type") or "")
                 reject = "去重"
+                diag_reason = "duplicate"
             elif self.engine.entry_zone_overloaded():
                 reject = "入口区过载"
+                diag_reason = "entry_zone_overload"
             else:
                 reject = "轨道/布局"
+                diag_reason = "layout_rejection"
+            self._record_undisplayed(diag_reason, persona_id=queued.persona_id)
+            extra_fields = {}
+            if diag_reason == "duplicate":
+                duplicate_stats = self._track_duplicate_rejection(
+                    queued,
+                    match_type=duplicate_match_type or "duplicate",
+                )
+                duplicate_topup_added = self._maybe_duplicate_loss_topup(
+                    queued,
+                    duplicate_stats,
+                )
+                self._record_undisplayed(
+                    f"duplicate_{duplicate_match_type or 'duplicate'}",
+                    persona_id=queued.persona_id,
+                )
+                extra_fields = {
+                    "duplicate_match_type": duplicate_match_type or "duplicate",
+                    "duplicate_loss": 1,
+                    "duplicate_loss_total": duplicate_stats["duplicate_loss_total"],
+                    "duplicate_exact_set_hit": duplicate_stats["duplicate_exact_set_hit"],
+                    "duplicate_exact_window_hit": duplicate_stats["duplicate_exact_window_hit"],
+                    "duplicate_similarity_hit": duplicate_stats["duplicate_similarity_hit"],
+                    "duplicate_topup_triggered": duplicate_stats["duplicate_topup_triggered"],
+                    "duplicate_topup_added": duplicate_topup_added,
+                }
+            self._log_reply_pipeline_from_queued(
+                "reply_displayed",
+                queued,
+                displayed=False,
+                **extra_fields,
+            )
             self.logger.info(
                 tr("app.danmu_not_entered").format(content=f"{queued.content[:20]}...")
                 + f" [{reject}]"
@@ -779,12 +992,21 @@ def main():
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
     log_startup("qapplication.created")
-    from app.single_instance import SingleInstanceGuard
+    from app.single_instance import SingleInstanceAcquireKind, SingleInstanceGuard
     instance_guard = SingleInstanceGuard()
-    if not instance_guard.try_acquire():
-        log_startup("single_instance.done", acquired=False)
+    acquire_result = instance_guard.try_acquire()
+    if acquire_result.kind is SingleInstanceAcquireKind.ACTIVATED_EXISTING:
+        log_startup(
+            "single_instance.done",
+            acquired=False,
+            activated_existing=True,
+        )
         return sys.exit(0)
-    log_startup("single_instance.done", acquired=True)
+    log_startup(
+        "single_instance.done",
+        acquired=acquire_result.became_primary,
+        activated_existing=False,
+    )
     launch_mode = web_launch_mode_from_argv()
     _danmu = DanmuApp(web_launch_mode=launch_mode)
     instance_guard.bind_activate(_danmu.show_settings)

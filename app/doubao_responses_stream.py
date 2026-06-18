@@ -25,6 +25,7 @@ class DoubaoResponsesResult:
     input_tokens: int = 0
     output_tokens: int = 0
     error: str = ""
+    reasoning_only: bool = False
     stream_events: list[str] = field(default_factory=list)
 
 
@@ -149,10 +150,8 @@ def consume_doubao_sse_lines(
             if message:
                 result.error = message
 
-    text = "".join(collected)
-    if not text and summary_parts:
-        text = "".join(summary_parts)
-    result.text = text
+    result.text = "".join(collected)
+    result.reasoning_only = not result.text and bool(summary_parts)
     return result
 
 

@@ -6,6 +6,7 @@ import time
 
 from app.config_store import ConfigStore
 from app.danmu_engine import DanmuEngine, DanmuItem
+from app.danmu_pool import maybe_duplicate_loss_topup
 from main import DanmuApp
 
 MANY_ITEM_COUNT = 1000
@@ -174,3 +175,47 @@ def test_maybe_pool_topup_calls_deficit_at_most_once(tmp_path, monkeypatch):
     added = app._maybe_pool_topup()
     assert added >= 1
     assert len(deficit_calls) == 1
+
+
+def test_duplicate_loss_topup_not_triggered_below_threshold(tmp_path, monkeypatch):
+    store = ConfigStore(db_path=tmp_path / "dup_loss_none.db")
+    store.set("danmu_pool_use_custom", "1")
+    store.set_custom_danmu_pool(["补位1", "补位2", "补位3"])
+    engine = DanmuEngine(store)
+    engine.set_screen_width(900.0)
+    engine.reload_tracks()
+    engine.running = True
+    monkeypatch.setattr("app.danmu_pool.sample_danmu_for_config", lambda _cfg, n: ["补位1", "补位2"][:n])
+
+    added = maybe_duplicate_loss_topup(
+        engine,
+        store,
+        0,
+        duplicate_loss_total=1,
+        threshold=2,
+    )
+    assert added == 0
+
+
+def test_duplicate_loss_topup_triggers_once_when_threshold_met(tmp_path, monkeypatch):
+    store = ConfigStore(db_path=tmp_path / "dup_loss_yes.db")
+    store.set("danmu_pool_use_custom", "1")
+    store.set_custom_danmu_pool(["补位1", "补位2", "补位3"])
+    engine = DanmuEngine(store)
+    engine.set_screen_width(900.0)
+    engine.reload_tracks()
+    engine.running = True
+    monkeypatch.setattr(
+        "app.danmu_pool.sample_danmu_for_config",
+        lambda _cfg, n: ["补位1", "补位2", "补位3"][:n],
+    )
+
+    added = maybe_duplicate_loss_topup(
+        engine,
+        store,
+        0,
+        duplicate_loss_total=2,
+        threshold=2,
+        limit=2,
+    )
+    assert added == 2

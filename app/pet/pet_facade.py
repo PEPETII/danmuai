@@ -52,6 +52,30 @@ def _pet_command_service(app: "DanmuApp"):
     return app.__dict__.get("pet_command_service")
 
 
+def _maybe_ensure_pet_components(app: "DanmuApp") -> None:
+    settings = PetSettings.from_config(app.config)
+    if not (settings.enabled and settings.visible):
+        return
+    ensure = getattr(app, "_ensure_pet_components", None)
+    if callable(ensure):
+        ensure()
+
+
+def _pet_barrage_disable_config_items(app: "DanmuApp") -> dict[str, str]:
+    """Return config items to exit pet barrage mode and restore prior danmu settings."""
+    if not _truthy(app.config.get("pet_barrage_mode_enabled", "0")):
+        return {}
+    return {
+        "pet_barrage_mode_enabled": "0",
+        "danmu_render_mode": str(
+            app.config.get("pet_barrage_previous_render_mode", "scrolling") or "scrolling"
+        ),
+        "normal_reply_count": str(
+            app.config.get("pet_barrage_previous_reply_count", str(PET_BARRAGE_COUNT)) or PET_BARRAGE_COUNT
+        ),
+    }
+
+
 def get_pet_settings_snapshot(app: "DanmuApp") -> dict[str, object]:
     settings = PetSettings.from_config(app.config)
     svc = _pet_command_service(app)
@@ -230,12 +254,7 @@ def apply_pet_settings_patch(app: "DanmuApp", payload: dict[str, object]) -> dic
             )
             items["normal_reply_count"] = str(PET_BARRAGE_COUNT)
         if (not new_enabled) and old_enabled:
-            items["danmu_render_mode"] = str(
-                app.config.get("pet_barrage_previous_render_mode", "scrolling") or "scrolling"
-            )
-            items["normal_reply_count"] = str(
-                app.config.get("pet_barrage_previous_reply_count", str(PET_BARRAGE_COUNT)) or PET_BARRAGE_COUNT
-            )
+            items.update(_pet_barrage_disable_config_items(app))
 
     if items:
         app.config.set_batch(items)
@@ -295,6 +314,7 @@ def apply_pet_settings_patch(app: "DanmuApp", payload: dict[str, object]) -> dic
         app.config.set("pet_barrage_slot_positions", json.dumps(pos_rows, ensure_ascii=False))
         app.config_changed.emit()
 
+    _maybe_ensure_pet_components(app)
     sync_pet_window_visibility(app)
     window = _pet_window(app)
     if window is not None:
@@ -303,8 +323,13 @@ def apply_pet_settings_patch(app: "DanmuApp", payload: dict[str, object]) -> dic
 
 
 def show_pet(app: "DanmuApp") -> dict[str, object]:
-    app.config.set_batch({"pet_enabled": "1", "pet_visible": "1"})
+    items = {"pet_enabled": "1", "pet_visible": "1"}
+    items.update(_pet_barrage_disable_config_items(app))
+    app.config.set_batch(items)
     app.config_changed.emit()
+    ctrl = _pet_barrage_controller(app)
+    if ctrl is not None:
+        ctrl.apply_config()
     sync_pet_window_visibility(app)
     return {"ok": True, "visible": True}
 

@@ -60,6 +60,8 @@ WebConsoleStartupPhase = Literal["ready", "slow", "failed"]
 __all__ = [
     "INVOKE_ON_MAIN_TIMEOUT_SEC",
     "MainThreadInvokeTimeout",
+    "WEB_CONSOLE_SHUTDOWN_TIMEOUT_SEC",
+    "WEB_CONSOLE_THREAD_JOIN_GRACE_SEC",
     "WEB_CONFIG_KEYS",
     "WebConsoleBridge",
     "WebConsoleServer",
@@ -90,6 +92,8 @@ STATIC_DIR = resource_path("web", "static")
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 18765
 INVOKE_ON_MAIN_TIMEOUT_SEC = 10.0
+WEB_CONSOLE_SHUTDOWN_TIMEOUT_SEC = 2.0
+WEB_CONSOLE_THREAD_JOIN_GRACE_SEC = 0.2
 
 
 class MainThreadInvokeTimeout(TimeoutError):
@@ -382,7 +386,11 @@ class WebConsoleBridge(QObject):
 
 
 class WebConsoleServer:
-    """在独立线程运行 uvicorn；frozen 包用非 daemon 线程避免 Qt 初始化期间被回收。"""
+    """在独立线程运行 uvicorn。
+
+    frozen 安装版保留 non-daemon 线程，避免 Qt / pywebview 尚未完成收尾时
+    Web 控制台线程被解释器当作守护线程直接回收；源码运行仍可用 daemon。
+    """
 
     def __init__(self, bridge: WebConsoleBridge, host: str = DEFAULT_HOST, port: int = DEFAULT_PORT):
         self.bridge = bridge
@@ -397,6 +405,8 @@ class WebConsoleServer:
         self._loop: asyncio.AbstractEventLoop | None = None
         self._ready = threading.Event()
         self._bind_failed = threading.Event()
+        self._shutdown_requested = threading.Event()
+        self._shutdown_complete = threading.Event()
         self.startup_ok = False
         self._startup_error_from_attach = False
         self._startup_failure_user_notified = False
@@ -414,16 +424,29 @@ class WebConsoleServer:
             return
         self._ready.clear()
         self._bind_failed.clear()
+        self._shutdown_requested.clear()
+        self._shutdown_complete.clear()
         self.startup_ok = False
         self._startup_error_from_attach = False
         self._startup_failure_user_notified = False
-        # PyInstaller：非 daemon，避免 pywebview/Qt 尚未 enter 事件循环时守护线程被回收
+        # frozen 安装版保留 non-daemon，源码运行则允许 daemon。
         self._thread = threading.Thread(
             target=self._run,
             name="DanmuWebConsole",
             daemon=not is_frozen(),
         )
         self._thread.start()
+
+    def wait_shutdown_complete(self, timeout: float = WEB_CONSOLE_SHUTDOWN_TIMEOUT_SEC) -> bool:
+        """等待 uvicorn 线程完成退出；这是 quit() 的主要收尾判据。"""
+        if self._shutdown_complete.is_set():
+            return True
+        thread = self._thread
+        if thread is None:
+            return True
+        if not thread.is_alive():
+            return self._shutdown_complete.is_set()
+        return self._shutdown_complete.wait(timeout=timeout)
 
     def wait_ready(self, timeout: float = 12.0) -> bool:
         deadline = time.monotonic() + timeout
@@ -455,6 +478,8 @@ class WebConsoleServer:
         log_startup("uvicorn.started", base_url=self.base_url)
         self._ready.set()
         self.startup_ok = True
+        if self._shutdown_requested.is_set() and self._server is not None:
+            self._server.should_exit = True
         clear_startup_attach_error_if_needed(self)
 
     def stop(self) -> None:
@@ -462,6 +487,7 @@ class WebConsoleServer:
         danmu_app = self.bridge.danmu_app
         danmu_app.stop_web_status_timer()
         danmu_app.detach_web_status_timer()
+        self._shutdown_requested.set()
         if self._loop and self._server:
             server = self._server
 
@@ -482,6 +508,9 @@ class WebConsoleServer:
             detail = traceback.format_exc()
             bridge.danmu_app.logger.error(f"Web 控制台线程异常退出: {exc!r}")
             append_frozen_log(f"Web console thread crashed (outer):\n{detail}")
+        finally:
+            self._shutdown_complete.set()
+            self._loop = None
 
     def _run_uvicorn_locked(self) -> None:
         run_uvicorn_locked(self)

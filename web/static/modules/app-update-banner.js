@@ -7,6 +7,9 @@ const appVersionState = {
   latest: '',
   releaseUrl: '',
   message: '',
+  stale: false,
+  cacheState: 'pending',
+  cacheAgeSec: null,
   checkStatus: 'pending',
 };
 
@@ -21,6 +24,180 @@ let channelDetailState = { copyText: '', openUrl: '' };
 let pendingAppUpdatePrompt = null;
 let toast = () => {};
 let handlersBound = false;
+let inAppUpdateBusy = false;
+
+const UPDATE_POLL_INTERVAL_MS = 400;
+const UPDATE_POLL_TIMEOUT_MS = 10 * 60 * 1000;
+
+const updateProgressState = {
+  visible: false,
+  phase: 'idle',
+  progress: 0,
+  totalBytes: 0,
+  downloadedBytes: 0,
+  statusText: '',
+  errorText: '',
+};
+
+function formatBytes(bytes) {
+  const value = Number(bytes);
+  if (!Number.isFinite(value) || value <= 0) return '—';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let size = value;
+  let unitIndex = 0;
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex += 1;
+  }
+  const digits = unitIndex === 0 ? 0 : size >= 100 ? 0 : size >= 10 ? 1 : 2;
+  return `${size.toFixed(digits)} ${units[unitIndex]}`;
+}
+
+function formatProgressMeta({ progress, downloadedBytes, totalBytes }) {
+  const pct = Math.max(0, Math.min(100, Number(progress) || 0));
+  if (totalBytes > 0) {
+    const downloaded = downloadedBytes > 0 ? downloadedBytes : Math.round((totalBytes * pct) / 100);
+    return `${pct}% · ${formatBytes(downloaded)} / 约 ${formatBytes(totalBytes)}`;
+  }
+  return `${pct}%`;
+}
+
+function refreshUpdateProgressUI() {
+  const roots = document.querySelectorAll('[data-update-progress-root]');
+  roots.forEach((root) => {
+    root.classList.toggle('hidden', !updateProgressState.visible);
+    const statusEl = root.querySelector('.update-progress-status');
+    const trackEl = root.querySelector('.update-progress-track');
+    const fillEl = root.querySelector('.update-progress-fill');
+    const metaEl = root.querySelector('.update-progress-meta');
+    const errorEl = root.querySelector('.update-progress-error');
+    const progress = Math.max(0, Math.min(100, Number(updateProgressState.progress) || 0));
+    const showBar = ['checking', 'downloading', 'ready', 'applying'].includes(updateProgressState.phase);
+
+    if (statusEl) statusEl.textContent = updateProgressState.statusText || '';
+    if (trackEl) {
+      trackEl.classList.toggle('hidden', !showBar);
+      trackEl.setAttribute('aria-valuenow', String(progress));
+    }
+    if (fillEl) fillEl.style.width = `${progress}%`;
+    if (metaEl) {
+      metaEl.textContent = showBar
+        ? formatProgressMeta({
+            progress,
+            downloadedBytes: updateProgressState.downloadedBytes,
+            totalBytes: updateProgressState.totalBytes,
+          })
+        : '';
+      metaEl.classList.toggle('hidden', !showBar);
+    }
+    if (errorEl) {
+      const hasError = Boolean(updateProgressState.errorText);
+      errorEl.textContent = updateProgressState.errorText || '';
+      errorEl.classList.toggle('hidden', !hasError);
+    }
+  });
+}
+
+function setUpdateProgress({
+  visible = true,
+  phase = 'idle',
+  progress = 0,
+  totalBytes = 0,
+  downloadedBytes = 0,
+  statusText = '',
+  errorText = '',
+} = {}) {
+  updateProgressState.visible = visible;
+  updateProgressState.phase = phase;
+  updateProgressState.progress = progress;
+  updateProgressState.totalBytes = totalBytes;
+  updateProgressState.downloadedBytes = downloadedBytes;
+  updateProgressState.statusText = statusText;
+  updateProgressState.errorText = errorText;
+  refreshUpdateProgressUI();
+}
+
+function hideUpdateProgress() {
+  setUpdateProgress({
+    visible: false,
+    phase: 'idle',
+    progress: 0,
+    totalBytes: 0,
+    downloadedBytes: 0,
+    statusText: '',
+    errorText: '',
+  });
+}
+
+function applyVelopackStatusToProgress(status, { fallbackStatusText = '' } = {}) {
+  const phase = String(status?.download_phase || 'idle');
+  const progress = Number(status?.download_progress) || 0;
+  const totalBytes = Number(status?.package_size_bytes) || 0;
+  const downloadedBytes = Number(status?.downloaded_bytes) || 0;
+  let statusText = fallbackStatusText;
+  if (phase === 'checking') statusText = '正在检查更新…';
+  else if (phase === 'downloading' || status?.downloading) statusText = '正在下载更新…';
+  else if (phase === 'ready') statusText = '更新已下载，正在重启安装…';
+  else if (phase === 'applying') statusText = '正在重启安装…';
+  else if (phase === 'error') statusText = '更新失败';
+  else if (status?.message) statusText = String(status.message);
+
+  const latest = normalizeVersionString(status?.latest_version || '');
+  if (phase === 'checking' && latest && totalBytes > 0) {
+    statusText = `发现新版本 ${latest}，更新包约 ${formatBytes(totalBytes)}`;
+  }
+
+  setUpdateProgress({
+    visible: true,
+    phase,
+    progress: phase === 'ready' || phase === 'applying' ? 100 : progress,
+    totalBytes,
+    downloadedBytes,
+    statusText,
+    errorText: phase === 'error' ? String(status?.error || status?.message || '更新失败') : '',
+  });
+}
+
+function setUpdateControlsDisabled(disabled) {
+  const ids = ['btnCheckAppUpdate', 'btnDownloadRestartAppUpdate', 'btnAppUpdateInApp'];
+  ids.forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = disabled;
+  });
+}
+
+function setModalUpdateSectionsHidden(hidden) {
+  document.getElementById('appUpdateModalAlternateChannels')?.classList.toggle('hidden', hidden);
+  document.getElementById('appUpdateModalDismissRow')?.classList.toggle('hidden', hidden);
+  document.getElementById('appUpdateChannelDetail')?.classList.toggle('hidden', hidden);
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function pollUpdateStatusUntilDone() {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < UPDATE_POLL_TIMEOUT_MS) {
+    const status = await fetchVelopackUpdateStatus();
+    if (!status) {
+      throw new Error('无法获取更新状态');
+    }
+    applyVelopackStatusToProgress(status);
+    refreshVelopackUpdateButtons(status);
+
+    const phase = String(status.download_phase || 'idle');
+    if (phase === 'ready') return status;
+    if (phase === 'error') {
+      throw new Error(status.error || status.message || '下载失败');
+    }
+    if (!status.downloading && phase !== 'downloading' && status.download_ready) {
+      return status;
+    }
+    await sleep(UPDATE_POLL_INTERVAL_MS);
+  }
+  throw new Error('下载超时，请稍后重试');
+}
 
 function showToast(message, isError = false) {
   toast(message, isError);
@@ -136,12 +313,14 @@ function refreshAppVersionFooter() {
     return;
   }
   if (appVersionState.checkStatus === 'update_available') {
-    latestEl.textContent = appVersionState.latest || '-';
+    latestEl.textContent = appVersionState.stale
+      ? `${appVersionState.latest || '-'}（缓存）`
+      : appVersionState.latest || '-';
     latestEl.classList.add('version-latest-update');
     return;
   }
   if (appVersionState.checkStatus === 'up_to_date') {
-    latestEl.textContent = '已是最新';
+    latestEl.textContent = appVersionState.stale ? '已是最新（缓存）' : '已是最新';
     latestEl.classList.add('version-latest-ok');
     return;
   }
@@ -228,6 +407,10 @@ export async function initAppVersionAndUpdateCheck() {
     appVersionState.latest = latest;
     appVersionState.releaseUrl = String(metadata.release_url || metadata.r2_latest_installer_url || '').trim();
     appVersionState.message = String(metadata.message || '').trim();
+    appVersionState.stale = Boolean(metadata.stale);
+    appVersionState.cacheState = String(metadata.cache_state || '');
+    appVersionState.cacheAgeSec =
+      typeof metadata.cache_age_sec === 'number' ? metadata.cache_age_sec : null;
 
     if (metadata.update_available) {
       appVersionState.checkStatus = 'update_available';
@@ -272,7 +455,9 @@ async function runVelopackRestartUpdate() {
 function refreshVelopackUpdateButtons(data) {
   const dlBtn = document.getElementById('btnDownloadRestartAppUpdate');
   if (!dlBtn) return;
-  const show = Boolean(data?.frozen && (data?.download_ready || data?.update_available));
+  const show = Boolean(
+    data?.frozen && (data?.download_ready || data?.update_available) && !inAppUpdateBusy,
+  );
   dlBtn.classList.toggle('hidden', !show);
   velopackUpdateAvailable = Boolean(data?.update_available);
   if (data?.latest_version && data.latest_version !== appVersionState.current) {
@@ -281,57 +466,135 @@ function refreshVelopackUpdateButtons(data) {
   }
 }
 
-async function runVelopackInAppUpdateFlow({ fromModal = false } = {}) {
+async function runInAppUpdateWithProgress({ fromModal = false, skipCheck = false } = {}) {
+  if (inAppUpdateBusy) return false;
+  inAppUpdateBusy = true;
+  setUpdateControlsDisabled(true);
+  setModalUpdateSectionsHidden(true);
+
   try {
-    const status = await fetchVelopackUpdateStatus();
-    if (status && !status.frozen) {
-      showToast(status.message || '源码模式不支持应用内更新');
+    const initialStatus = await fetchVelopackUpdateStatus();
+    if (initialStatus && !initialStatus.frozen) {
+      showToast(initialStatus.message || '源码模式不支持应用内更新');
       return false;
     }
 
-    showToast('正在检查更新…');
-    const checkData = await runVelopackCheckUpdate();
-    refreshVelopackUpdateButtons(checkData);
+    let checkData = initialStatus;
+    if (!skipCheck) {
+      setUpdateProgress({
+        visible: true,
+        phase: 'checking',
+        progress: 0,
+        statusText: '正在检查更新…',
+      });
+      checkData = await runVelopackCheckUpdate();
+      refreshVelopackUpdateButtons(checkData);
 
-    if (!checkData.frozen || checkData.error === 'not_frozen') {
-      showToast(checkData.message || '源码模式不支持应用内更新');
-      return false;
+      if (!checkData.frozen || checkData.error === 'not_frozen') {
+        showToast(checkData.message || '源码模式不支持应用内更新');
+        return false;
+      }
+      if (!checkData.ok) {
+        applyVelopackStatusToProgress({
+          ...checkData,
+          download_phase: 'error',
+        });
+        showToast(checkData.error || checkData.message || '检查更新失败', true);
+        return false;
+      }
+      if (!checkData.update_available) {
+        hideUpdateProgress();
+        showToast(checkData.message || '已是最新版本');
+        return false;
+      }
+
+      applyVelopackStatusToProgress({
+        ...checkData,
+        download_phase: 'checking',
+      });
+    } else if (!checkData?.update_available && !checkData?.download_ready) {
+      checkData = await runVelopackCheckUpdate();
+      refreshVelopackUpdateButtons(checkData);
+      if (!checkData.update_available) {
+        hideUpdateProgress();
+        showToast(checkData.message || '请先检查更新');
+        return false;
+      }
     }
-    if (!checkData.ok) {
-      showToast(checkData.error || checkData.message || '检查更新失败', true);
-      return false;
-    }
-    if (!checkData.update_available) {
-      showToast(
-        checkData.message ||
-          'Velopack 更新源暂未检测到新版本，请稍后再试或使用其它下载渠道',
-      );
+
+    setUpdateProgress({
+      visible: true,
+      phase: 'downloading',
+      progress: 0,
+      totalBytes: Number(checkData?.package_size_bytes) || 0,
+      statusText:
+        checkData?.latest_version
+          ? `发现新版本 ${checkData.latest_version}，正在下载…`
+          : '正在下载更新…',
+    });
+
+    const downloadStart = await runVelopackDownloadUpdate();
+    refreshVelopackUpdateButtons(downloadStart);
+    if (!downloadStart.ok) {
+      applyVelopackStatusToProgress({
+        ...downloadStart,
+        download_phase: 'error',
+      });
+      showToast(downloadStart.error || downloadStart.message || '下载失败', true);
       return false;
     }
 
-    showToast(checkData.message || `发现新版本 ${checkData.latest_version}，正在下载…`);
-    const downloadData = await runVelopackDownloadUpdate();
-    refreshVelopackUpdateButtons(downloadData);
-    if (!downloadData.ok) {
-      showToast(downloadData.error || downloadData.message || '下载失败', true);
-      return false;
-    }
-    if (!downloadData.download_ready) {
-      showToast(downloadData.message || '请先检查更新');
-      return false;
+    if (downloadStart.download_ready || downloadStart.download_phase === 'ready') {
+      applyVelopackStatusToProgress({
+        ...downloadStart,
+        download_phase: 'ready',
+        download_progress: 100,
+      });
+    } else {
+      await pollUpdateStatusUntilDone();
     }
 
     if (fromModal) {
       closeAppUpdateModal({ suppressSession: false });
     }
+
+    setUpdateProgress({
+      visible: true,
+      phase: 'applying',
+      progress: 100,
+      totalBytes: Number(checkData?.package_size_bytes) || 0,
+      downloadedBytes: Number(checkData?.package_size_bytes) || 0,
+      statusText: '更新已下载，正在重启安装…',
+    });
     showToast('更新已下载，正在重启安装…');
     await runVelopackRestartUpdate();
     return true;
   } catch (error) {
     console.warn('[update] in-app flow failed', error);
-    showToast('应用内更新失败', true);
+    setUpdateProgress({
+      visible: true,
+      phase: 'error',
+      progress: updateProgressState.progress,
+      totalBytes: updateProgressState.totalBytes,
+      downloadedBytes: updateProgressState.downloadedBytes,
+      statusText: '更新失败',
+      errorText: error?.message || '应用内更新失败',
+    });
+    showToast(error?.message || '应用内更新失败', true);
     return false;
+  } finally {
+    inAppUpdateBusy = false;
+    setUpdateControlsDisabled(false);
+    setModalUpdateSectionsHidden(false);
+    if (updateProgressState.phase !== 'applying') {
+      const shouldHide = updateProgressState.phase !== 'error';
+      if (shouldHide) hideUpdateProgress();
+    }
   }
+}
+
+async function runVelopackInAppUpdateFlow({ fromModal = false } = {}) {
+  return runInAppUpdateWithProgress({ fromModal, skipCheck: false });
 }
 
 function openExternalUrl(url, fallbackMessage) {
@@ -389,52 +652,65 @@ function handleBaiduUpdateClick() {
 }
 
 export async function handleCheckAppUpdateClick() {
+  if (inAppUpdateBusy) return;
+  inAppUpdateBusy = true;
+  setUpdateControlsDisabled(true);
   try {
+    setUpdateProgress({
+      visible: true,
+      phase: 'checking',
+      progress: 0,
+      statusText: '正在检查更新…',
+    });
     const data = await runVelopackCheckUpdate();
     refreshVelopackUpdateButtons(data);
     if (!data.frozen) {
+      hideUpdateProgress();
       showToast(data.message || '源码模式不支持应用内更新');
       return;
     }
     if (!data.ok) {
+      applyVelopackStatusToProgress({ ...data, download_phase: 'error' });
       showToast(data.error || data.message || '检查更新失败', true);
       return;
     }
     if (data.update_available) {
+      const totalBytes = Number(data.package_size_bytes) || 0;
+      const sizeHint = totalBytes > 0 ? `，更新包约 ${formatBytes(totalBytes)}` : '';
+      setUpdateProgress({
+        visible: true,
+        phase: 'idle',
+        progress: 0,
+        totalBytes,
+        statusText: `发现新版本 ${data.latest_version || ''}${sizeHint}`,
+      });
       showToast(data.message || `发现新版本 ${data.latest_version}`);
+      window.setTimeout(() => {
+        if (updateProgressState.phase === 'idle' && updateProgressState.visible) {
+          hideUpdateProgress();
+        }
+      }, 5000);
     } else {
+      hideUpdateProgress();
       showToast(data.message || '已是最新版本');
     }
   } catch (error) {
     console.warn('[update] check failed', error);
+    setUpdateProgress({
+      visible: true,
+      phase: 'error',
+      statusText: '检查更新失败',
+      errorText: error?.message || '检查更新失败',
+    });
     showToast('检查更新失败', true);
+  } finally {
+    inAppUpdateBusy = false;
+    setUpdateControlsDisabled(false);
   }
 }
 
 export async function handleDownloadRestartAppUpdateClick() {
-  try {
-    const data = await runVelopackDownloadUpdate();
-    if (!data.ok) {
-      showToast(data.error || data.message || '下载失败', true);
-      return;
-    }
-    refreshVelopackUpdateButtons(data);
-    if (!data.download_ready) {
-      showToast(data.message || '请先检查更新');
-      return;
-    }
-  } catch (error) {
-    console.warn('[update] download failed', error);
-    showToast('下载更新失败', true);
-    return;
-  }
-  try {
-    showToast('更新已下载，正在重启安装…');
-    await runVelopackRestartUpdate();
-  } catch (error) {
-    console.warn('[update] restart failed', error);
-    showToast('重启安装失败', true);
-  }
+  await runInAppUpdateWithProgress({ skipCheck: velopackUpdateAvailable });
 }
 
 export function initVelopackUpdateButtons() {

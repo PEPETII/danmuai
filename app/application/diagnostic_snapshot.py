@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
 from app.api_schedule import min_api_interval_elapsed
+from app.application.danmu_diagnostics import DanmuDiagnosticsRecorder
 from app.application.generation_pipeline_state import GenerationPipelineState
 from app.model_providers import guess_provider_from_endpoint, resolve_active_model_id
 
@@ -47,6 +48,13 @@ class DiagnosticSnapshotBuilder:
         if stats_state is not None and hasattr(stats_state, "runtime_sec"):
             stats_runtime_sec = float(stats_state.runtime_sec(now=now))
 
+        undisplayed_recorder = self._app.__dict__.get("_danmu_diagnostics")
+        undisplayed_summary = (
+            undisplayed_recorder.snapshot().to_dict()
+            if isinstance(undisplayed_recorder, DanmuDiagnosticsRecorder)
+            else {}
+        )
+
         return {
             "config_context": self._config_context_summary(),
             "scheduler": {
@@ -76,6 +84,7 @@ class DiagnosticSnapshotBuilder:
                 "high_rtt": avg_rtt >= 3.0,
                 "has_pending_timing": request_started_count > 0,
             },
+            "undisplayed": undisplayed_summary,
         }
 
     def _config_context_summary(self) -> dict[str, Any]:
@@ -126,6 +135,7 @@ def build_diagnostic_report(snapshot: dict[str, object]) -> str:
     timing = snapshot.get("timing", {}) if isinstance(snapshot, dict) else {}
     runtime_state = snapshot.get("runtime_state", {}) if isinstance(snapshot, dict) else {}
     diagnosis = snapshot.get("diagnosis", {}) if isinstance(snapshot, dict) else {}
+    undisplayed = snapshot.get("undisplayed", {}) if isinstance(snapshot, dict) else {}
     web_runtime = runtime_state.get("web_runtime", {}) if isinstance(runtime_state, dict) else {}
     stats = runtime_state.get("stats", {}) if isinstance(runtime_state, dict) else {}
     generation = (
@@ -188,6 +198,13 @@ def build_diagnostic_report(snapshot: dict[str, object]) -> str:
         f"scheduler_blocked: {diagnosis.get('scheduler_blocked', False)}",
         f"high_rtt: {diagnosis.get('high_rtt', False)}",
         f"has_pending_timing: {diagnosis.get('has_pending_timing', False)}",
+        "",
+        "[undisplayed]",
+        f"recent_count: {undisplayed.get('recent_count', 0)}",
+        f"total_count: {undisplayed.get('total_count', 0)}",
+        f"latest_reason: {undisplayed.get('latest_reason', '')}",
+        f"top_reason: {undisplayed.get('top_reason', '')} ({undisplayed.get('top_reason_count', 0)})",
+        f"reason_counts: {undisplayed.get('reason_counts', {})}",
         "",
         "[boundary_guard]",
         "- Phase 4 ownership freeze remains in force",

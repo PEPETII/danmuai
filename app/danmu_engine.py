@@ -22,6 +22,7 @@
 """
 
 import random
+import time
 from collections import deque
 
 from PyQt6.QtCore import QObject
@@ -31,6 +32,7 @@ from app.api_schedule import ENGINE_BASE_FPS
 from app.danmu_engine_dedup import (  # noqa: F401 — re-exported for app.danmu_engine callers
     DedupProfileStats,
     dedup_profile_enabled,
+    get_last_duplicate_observation,
     is_duplicate_in_recent,
     log_dedup_profile_summary,
     reset_dedup_profile_for_tests,
@@ -42,6 +44,7 @@ from app.translations import Translator
 # 与 app.config_defaults 保持同步（避免循环导入）
 _DANMU_SPEED_FALLBACK = 2.0
 _DEDUP_THRESHOLD_FALLBACK = 0.5
+_DANMU_RECENT_TTL_FALLBACK = 30
 _DEFAULT_DANMU_PENDING_ENTRY_CAP = 300
 _DEFAULT_DANMU_TRACK_RETENTION_CAP = 600
 
@@ -182,6 +185,8 @@ class DanmuEngine(QObject):
         self.overlay = None
         self.recent: deque[str] = deque(maxlen=30)
         self.recent_exact_set: set[str] = set()
+        self.recent_timestamps: dict[str, float] = {}
+        self._dedup_scene_generation = 0
         self.tracks: list[Track] = []
         self.screen_width: float = 1920.0
         self.screen_height: float = 1080.0
@@ -214,14 +219,43 @@ class DanmuEngine(QObject):
         except Exception:
             pass
 
+    def _recent_ttl_sec(self) -> int:
+        value = self.config.get_int("danmu_recent_ttl_sec", _DANMU_RECENT_TTL_FALLBACK)
+        return max(1, min(int(value), 600))
+
+    def _prune_recent_by_ttl(self) -> None:
+        ttl = self._recent_ttl_sec()
+        if ttl <= 0:
+            return
+        cutoff = time.monotonic() - ttl
+        removed = [content for content, ts in self.recent_timestamps.items() if ts < cutoff]
+        if not removed:
+            return
+        for content in removed:
+            self.recent_timestamps.pop(content, None)
+            try:
+                self.recent.remove(content)
+            except ValueError:
+                pass
+            if content not in self.recent:
+                self.recent_exact_set.discard(content)
+
+    def _sync_dedup_window_generation(self, scene_generation: int) -> None:
+        if int(scene_generation) != int(getattr(self, "_dedup_scene_generation", 0)):
+            self.clear_dedup_window()
+            self._dedup_scene_generation = int(scene_generation)
+
     def _remember_content(self, content: str) -> None:
+        self._prune_recent_by_ttl()
         evicted = None
         if self.recent.maxlen and len(self.recent) == self.recent.maxlen:
             evicted = self.recent[0]
         self.recent.append(content)
         self.recent_exact_set.add(content)
+        self.recent_timestamps[content] = time.monotonic()
         if evicted is not None and evicted not in self.recent:
             self.recent_exact_set.discard(evicted)
+            self.recent_timestamps.pop(evicted, None)
 
     def _forget_content(self, content: str) -> None:
         """从去重窗口移除一条上屏记录（如弹幕被场景/批次清屏）。"""
@@ -231,6 +265,7 @@ class DanmuEngine(QObject):
             pass
         if content not in self.recent:
             self.recent_exact_set.discard(content)
+            self.recent_timestamps.pop(content, None)
 
     def _init_tracks(self):
         line_height = 40
@@ -691,6 +726,7 @@ class DanmuEngine(QObject):
         return self._visible_count, self._right_visible_count
 
     def add_item(self, item: DanmuItem) -> bool:
+        self._sync_dedup_window_generation(item.scene_generation)
         if self._is_duplicate(item.content):
             return False
 
@@ -726,6 +762,8 @@ class DanmuEngine(QObject):
             content = normalize_danmu_display_text(content, self.config)
         if not content:
             return None
+
+        self._sync_dedup_window_generation(scene_generation)
 
         if not skip_dedup and self._is_duplicate(content):
             return None
@@ -909,6 +947,8 @@ class DanmuEngine(QObject):
     def clear_dedup_window(self) -> None:
         self.recent.clear()
         self.recent_exact_set.clear()
+        self.recent_timestamps.clear()
+        self._dedup_scene_generation = int(getattr(self, "_dedup_scene_generation", 0))
 
     def drop_pending_below_generation(self, min_generation: int) -> int:
         """丢弃旧场景代际且仍在屏外的 pending 弹幕（medium 策略：保留已滚入可见区的）。"""
@@ -959,6 +999,7 @@ class DanmuEngine(QObject):
 
     def _is_duplicate(self, content: str) -> bool:
         """去重：委托 danmu_engine_dedup.is_duplicate_in_recent（与悬浮窗共用）。"""
+        self._prune_recent_by_ttl()
         return is_duplicate_in_recent(
             content,
             self.recent,

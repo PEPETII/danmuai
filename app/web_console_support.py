@@ -216,6 +216,7 @@ def export_config(config) -> dict[str, Any]:
     data["mic_api_key"] = _mask_mic_api_key(config)
     data["has_mic_api_key"] = bool(getattr(config, "get_mic_api_key", lambda: "")())
     data["mic_audio_likely_supported"] = mic_audio_supported_for_mic_config(config)
+    data["mic_input_device_id"] = str(config.get("mic_input_device_id", "") or "")
     data["custom_models"] = [
         _mask_model(model)
         for model in config.get_custom_models()

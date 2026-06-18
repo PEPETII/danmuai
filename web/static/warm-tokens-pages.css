@@ -736,3 +736,109 @@
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-track { background: var(--color-bg); }
 ::-webkit-scrollbar-thumb { background: var(--color-secondary); border-radius: 4px; }
+
+/* Live overlay setup assistant (W-PR-INTAKE-024) */
+.live-overlay-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  color: var(--color-text-secondary, #6b7280);
+  transition: color 0.2s ease;
+}
+.live-overlay-step-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 50%;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: var(--color-bg, #faf6f0);
+  color: var(--color-text-secondary, #6b7280);
+  border: 1px solid var(--color-border, #e5d3c0);
+}
+.live-overlay-step-done {
+  color: var(--color-text, #4a3728);
+}
+.live-overlay-step-done .live-overlay-step-icon {
+  background: var(--color-accent, #d97757);
+  color: #fff;
+  border-color: var(--color-accent, #d97757);
+}
+
+/* Setup guide (W-PR-INTAKE-023) */
+.setup-guide-step {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--color-text-secondary, #6b7280);
+  transition: color 0.2s ease;
+}
+.setup-guide-step-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  font-size: 0.875rem;
+  font-weight: 700;
+  background: var(--color-bg, #faf6f0);
+  color: var(--color-text-secondary, #6b7280);
+  border: 1px solid var(--color-border, #e5d3c0);
+  flex-shrink: 0;
+}
+.setup-guide-step-done {
+  color: var(--color-text, #4a3728);
+}
+.setup-guide-step-done .setup-guide-step-icon {
+  background: var(--color-accent, #d97757);
+  color: #fff;
+  border-color: var(--color-accent, #d97757);
+}
+
+/* Danmu style preview (W-PR-INTAKE-022) */
+.danmu-style-preview {
+  position: relative;
+  width: 100%;
+  min-height: 7.5rem;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
+  overflow: hidden;
+  border: 1px solid var(--color-border, #e5d3c0);
+}
+.danmu-preview-scrolling {
+  position: relative;
+  width: 100%;
+  height: 7.5rem;
+  overflow: hidden;
+}
+.danmu-preview-track {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+.danmu-preview-floating {
+  position: relative;
+  width: 100%;
+  min-height: 7.5rem;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 0.5rem;
+}
+.danmu-preview-floating-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  max-height: 7.5rem;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 0.375rem;
+  padding: 0.25rem 0.5rem;
+}
+.danmu-style-preview .hidden {
+  display: none !important;
+}

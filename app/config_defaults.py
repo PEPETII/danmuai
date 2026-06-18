@@ -35,6 +35,7 @@ DANMU_SPEED_MAX = 10.0
 DEFAULT_FONT_SIZE = 24
 DEFAULT_DANMU_FONT_FAMILY = "Microsoft YaHei"
 DEFAULT_DEDUP_THRESHOLD = 0.5
+DEFAULT_DANMU_RECENT_TTL_SEC = 30
 DEFAULT_IMAGE_MAX_WIDTH = 768
 DEFAULT_LANGUAGE = "zh"
 # 横屏 scrolling 与从下到上 floating_panel 的节奏默认值（仅键缺失时按 render mode 回落）
@@ -56,6 +57,7 @@ CONFIG_DEFAULTS: dict[str, str] = {
     "danmu_lines": "20",
     "danmu_max_chars": "15",
     "dedup_threshold": "0.5",
+    "danmu_recent_ttl_sec": str(DEFAULT_DANMU_RECENT_TTL_SEC),
     "screen_index": "0",
     "layout_mode": "fullscreen",
     "opacity": "100",
@@ -87,6 +89,7 @@ CONFIG_DEFAULTS: dict[str, str] = {
     "language": DEFAULT_LANGUAGE,
     "mic_mode_enabled": "0",
     "mic_window_sec": "5",
+    "mic_input_device_id": "",
     "mic_use_visual_model": "1",
     "mic_api_mode": "doubao",
     "mic_model": "doubao-seed-2-0-mini-260428",

@@ -7,7 +7,7 @@ import time
 from dataclasses import dataclass
 
 from app.mic_buffer import DEFAULT_MIC_SAMPLE_RATE, clamp_mic_window_sec
-from app.mic_capture import MicCaptureService, default_input_device_label
+from app.mic_capture import MicCaptureService, default_input_device_id, default_input_device_label
 from app.mic_encode import pcm_to_wav_data_uri
 from app.mic_service import MicService
 
@@ -37,6 +37,9 @@ class MicTestResult:
     wav_ok: bool = False
     capture_running: bool = False
     default_input: str = ""
+    active_input_device_id: int | None = None
+    active_input_device_label: str = ""
+    fallback_to_default: bool = False
     error: str = ""
 
 
@@ -103,10 +106,12 @@ def capture_mic_sample(
     duration_sec: float = 3.0,
     *,
     keep_running: bool = False,
+    preferred_device_id: int | None = None,
 ) -> tuple[bytes, MicTestResult]:
     """Record a short PCM sample and return metrics (no AI call)."""
     duration = clamp_test_duration(duration_sec)
     device = default_input_device_label()
+    default_device_id = default_input_device_id()
 
     if not MicCaptureService.is_available():
         result = MicTestResult(
@@ -118,13 +123,14 @@ def capture_mic_sample(
         return b"", result
 
     temp_start = not mic_service.is_running()
-    if temp_start and not mic_service.ensure_capture():
+    if temp_start and not mic_service.ensure_capture(preferred_device_id=preferred_device_id):
         err = mic_service.last_error() or "capture_start_failed"
         result = MicTestResult(
             ok=False,
             message=f"无法打开麦克风：{err}",
             error=err,
             default_input=device,
+            active_input_device_id=default_device_id,
         )
         return b"", result
 
@@ -153,6 +159,9 @@ def capture_mic_sample(
         wav_ok=wav_ok,
         capture_running=mic_service.is_running(),
         default_input=device,
+        active_input_device_id=mic_service.active_input_device_id(),
+        active_input_device_label=mic_service.active_input_device_label(),
+        fallback_to_default=mic_service.fallback_to_default(),
     )
     return pcm, result
 
@@ -162,10 +171,12 @@ def run_mic_test(
     duration_sec: float = 3.0,
     *,
     keep_running: bool = False,
+    preferred_device_id: int | None = None,
 ) -> MicTestResult:
     _, result = capture_mic_sample(
         mic_service,
         duration_sec,
         keep_running=keep_running,
+        preferred_device_id=preferred_device_id,
     )
     return result

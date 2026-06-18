@@ -168,6 +168,39 @@ def test_live_overlay_setup_assistant_in_overview():
     assert ".live-overlay-setup" in css
 
 
+def test_index_html_uses_safe_tailwind_config_bootstrap():
+    html = (project_root() / "web" / "static" / "index.html").read_text(encoding="utf-8")
+    assert "window.tailwind = window.tailwind || {};" in html
+    assert "window.tailwind.config = {" in html
+    assert 'src="/static/tailwindcdn.js"' in html
+
+
+def test_settings_js_exports_populate_mic_input_devices_once():
+    settings_js = (project_root() / "web" / "static" / "modules" / "settings.js").read_text(
+        encoding="utf-8"
+    )
+    assert settings_js.count("export async function populateMicInputDevices") == 1
+    assert "export { populateMicInputDevices };" not in settings_js
+
+
+def test_model_modal_endpoint_has_autocomplete():
+    modals_html = (project_root() / "web" / "static" / "partials" / "modals.html").read_text(
+        encoding="utf-8"
+    )
+    assert 'id="modelEndpoint"' in modals_html
+    assert 'type="url"' in modals_html
+    assert 'autocomplete="url"' in modals_html
+
+
+def test_settings_core_fill_form_is_async_and_reload_awaits_it():
+    settings_core_js = (
+        project_root() / "web" / "static" / "modules" / "settings-core.js"
+    ).read_text(encoding="utf-8")
+    assert "export async function fillForm(cfg)" in settings_core_js
+    assert "await coreDeps.populateMicInputDevices" in settings_core_js
+    assert "await fillForm(cfg);" in settings_core_js
+
+
 def test_diagnostics_panel_visibility_toggle_wires_button_and_sse_gate():
     """BUG-067: 诊断面板展开/收起按钮与 hidden 门控 SSE（静态符号回归）。"""
     root = project_root()

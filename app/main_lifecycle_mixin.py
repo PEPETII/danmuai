@@ -15,6 +15,7 @@ from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import QApplication, QMessageBox
 
 from app.ai_client import AiWorker
+from app.application.config_service import scene_version_fingerprint
 from app.application.request_scheduler import RequestScheduler
 from app.application.request_timing_service import RequestTimingService
 from app.application.stats_state import StatsState
@@ -179,6 +180,8 @@ class DanmuAppLifecycleMixin:
         self._latest_displayed_round = 0
         self._scene_generation = 0
         self._inflight_scene_generation = 0
+        self._scene_refresh_wanted = False
+        self._pending_api_trigger_source = None
         self._latest_screenshot_id = 0
         self._latest_requested_screenshot_id = 0
         self._latest_queued_screenshot_id = 0
@@ -199,6 +202,9 @@ class DanmuAppLifecycleMixin:
         self.MAX_CONSECUTIVE_FAILURES = 5
         self._inflight_screenshot_id = 0
         self._inflight_started_at = 0.0
+        from app.application.danmu_diagnostics import DanmuDiagnosticsRecorder
+
+        self._danmu_diagnostics = DanmuDiagnosticsRecorder()
         self._live_status_timer = QTimer(self)
         self._live_status_timer.setInterval(500)
         self._live_status_timer.timeout.connect(self._publish_live_status)
@@ -206,6 +212,54 @@ class DanmuAppLifecycleMixin:
         self._topmost_health_timer = QTimer(self)
         self._topmost_health_timer.setInterval(500)
         self._topmost_health_timer.timeout.connect(self._on_topmost_health_tick)
+        self._reset_scene_generation_baseline()
+
+    def _reset_scene_generation_baseline(self) -> None:
+        self._scene_generation = 0
+        self._scene_version_fingerprint = scene_version_fingerprint(self.config)
+        self._scene_refresh_wanted = False
+        self._pending_api_trigger_source = None
+
+    def _maybe_bump_scene_generation_on_config(self) -> bool:
+        fp = scene_version_fingerprint(self.config)
+        prev = self.__dict__.get("_scene_version_fingerprint")
+        if prev is None:
+            self._scene_version_fingerprint = fp
+            return False
+        if fp == prev:
+            return False
+        self._scene_version_fingerprint = fp
+        self._scene_generation = int(self.__dict__.get("_scene_generation", 0)) + 1
+        self.logger.info(
+            "scene_generation=%s reason=scene_config_changed",
+            self._scene_generation,
+        )
+        return True
+
+    def _on_scene_generation_bumped(self) -> None:
+        """W-THEME-LAG-QUEUE-PURGE-001 / REFRESH: purge stale ai/fallback queue, keep mic."""
+        dropped = self.reply_buffer.purge_stale_by_generation(self._scene_generation)
+        if dropped > 0:
+            self.logger.info(
+                "scene_queue_purged scene_generation=%s dropped=%s",
+                self._scene_generation,
+                dropped,
+            )
+        self._scene_refresh_wanted = True
+        QTimer.singleShot(0, self._try_scene_refresh)
+
+    def _try_scene_refresh(self) -> None:
+        """Run one capture tick for scene refresh when pipeline gates allow."""
+        if not getattr(self, "_scene_refresh_wanted", False):
+            return
+        if not self.engine.running or self._failure_backoff_paused:
+            return
+        if self._has_visual_request_in_flight():
+            return
+        if self._capture_in_flight:
+            return
+        self._pending_api_trigger_source = "scene_refresh"
+        self._on_normal_capture_tick()
 
     def _init_startup_services(self, log_startup) -> None:
         self.tray.show()
@@ -232,12 +286,13 @@ class DanmuAppLifecycleMixin:
         self._lifetime_flush_timer.setInterval(2000)
         self._lifetime_flush_timer.timeout.connect(self.lifetime_stats.flush_pending)
 
-        # PET-009：启动期一次性把 pet_enabled=1 + pet_visible=1 的桌宠显示出来。
+        # PET-009 / W-PET-LAZY-INIT-VISIBILITY-001：启动期按需初始化并同步桌宠显隐。
         # config_changed 信号在 _start_web_console_stack 才连接，启动期收不到；
-        # 因此这里直接复用 app.pet.pet_facade.sync_pet_window_visibility 主线程 façade，
-        # 后续 web / ConfigService 修改仍由 _on_config_changed 路径兜底，不绕开既有边界。
-        pet_window = self.__dict__.get("pet_window")
-        if pet_window is not None:
+        # _sync_pet_window_visibility 会在 enabled+visible 时触发 _ensure_pet_components。
+        if (
+            self.config.get("pet_enabled", "0") == "1"
+            and self.config.get("pet_visible", "0") == "1"
+        ):
             try:
                 self._sync_pet_window_visibility()
             except Exception as exc:
@@ -295,6 +350,8 @@ class DanmuAppLifecycleMixin:
                 self._schedule_webview_attach(initial)
 
     def _on_config_changed(self) -> None:
+        if self._maybe_bump_scene_generation_on_config():
+            self._on_scene_generation_bumped()
         self._sync_reply_batch_config()
         web_runtime_state = self._ensure_web_runtime_state()
         self.screenshot_timer.setInterval(self._normal_recognition_interval_ms())
@@ -384,6 +441,7 @@ class DanmuAppLifecycleMixin:
         self._consecutive_failures += 1
         self._capture_error_active = False
         self._last_error_message = msg
+        self._record_undisplayed("ai_request_failure", persona_id=persona_id)
         lower_msg = msg.lower()
         is_fatal = (
             "401" in msg
@@ -452,6 +510,9 @@ class DanmuAppLifecycleMixin:
 
         self.engine.start()
         self.engine.clear_dedup_window()
+        recorder = self.__dict__.get("_danmu_diagnostics")
+        if recorder is not None:
+            recorder.reset()
         self.ai_worker.reset_stopping()
         self.ai_in_flight = 0
         self._is_generating = False
@@ -472,7 +533,7 @@ class DanmuAppLifecycleMixin:
         self._latest_queued_screenshot_id = 0
         self._latest_displayed_screenshot_id = 0
         self._latest_requested_screenshot_id = 0
-        self._scene_generation = 0
+        self._reset_scene_generation_baseline()
         self._inflight_scene_generation = 0
         self._inflight_started_at = 0.0
         self._inflight_screenshot_id = 0
@@ -557,7 +618,7 @@ class DanmuAppLifecycleMixin:
         self._latest_requested_screenshot_id = 0
         self._latest_queued_screenshot_id = 0
         self._latest_displayed_screenshot_id = 0
-        self._scene_generation = 0
+        self._reset_scene_generation_baseline()
         self._inflight_scene_generation = 0
         self.engine.stop()
 
@@ -635,15 +696,22 @@ class DanmuAppLifecycleMixin:
         if server:
             server.stop()
             web_thread = getattr(server, "_thread", None)
-            if web_thread is not None and web_thread.is_alive():
-                web_thread.join(timeout=3.0)
-                if web_thread.is_alive():
-                    self.logger.warning(
-                        "quit timed out waiting for Web console thread "
-                        "startup_ok=%s bind_failed=%s",
-                        getattr(server, "startup_ok", False),
-                        bool(getattr(server, "_bind_failed", None) and server._bind_failed.is_set()),
-                    )
+            shutdown_done = False
+            wait_shutdown_complete = getattr(server, "wait_shutdown_complete", None)
+            if callable(wait_shutdown_complete):
+                shutdown_done = bool(wait_shutdown_complete())
+            if not shutdown_done and web_thread is not None and web_thread.is_alive():
+                web_thread.join(timeout=0.2)
+                shutdown_done = not web_thread.is_alive()
+            if not shutdown_done:
+                self.logger.warning(
+                    "quit timed out waiting for Web console shutdown "
+                    "startup_ok=%s bind_failed=%s shutdown_requested=%s shutdown_complete=%s",
+                    getattr(server, "startup_ok", False),
+                    bool(getattr(server, "_bind_failed", None) and server._bind_failed.is_set()),
+                    bool(getattr(server, "_shutdown_requested", None) and server._shutdown_requested.is_set()),
+                    bool(getattr(server, "_shutdown_complete", None) and server._shutdown_complete.is_set()),
+                )
             bridge = getattr(server, "bridge", None)
             if bridge is not None:
                 bridge.set_event_loop(None)

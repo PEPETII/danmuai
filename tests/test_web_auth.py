@@ -209,6 +209,7 @@ def test_web_config_keys_cover_core_settings():
     assert "scene_probe_size" not in WEB_CONFIG_KEYS
     assert "mic_mode_enabled" in WEB_CONFIG_KEYS
     assert "mic_window_sec" in WEB_CONFIG_KEYS
+    assert "mic_input_device_id" in WEB_CONFIG_KEYS
     assert "mic_use_visual_model" in WEB_CONFIG_KEYS
     assert "mic_api_endpoint" in WEB_CONFIG_KEYS
     assert "mic_api_mode" in WEB_CONFIG_KEYS
@@ -242,6 +243,7 @@ def test_export_web_config_defaults():
     assert data["model"] == default_catalog_model_id("custom_openai")
 
     assert data["mic_api_endpoint"] == doubao.default_endpoint
+    assert data["mic_input_device_id"] == ""
     assert data["temperature"] == "0.8"
     assert data["pet_scale"] == "0.5"
 

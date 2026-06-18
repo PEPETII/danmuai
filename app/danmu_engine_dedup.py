@@ -11,6 +11,12 @@ _LEVENSHTEIN_UNAVAILABLE = object()
 _LEVENSHTEIN_FALLBACK_WARNED = False
 _DEDUP_PROFILE_FLAG: bool | None = None
 _DEDUP_THRESHOLD_FALLBACK = 0.5
+_last_duplicate_observation = {
+    "content": "",
+    "match_type": "",
+    "threshold": _DEDUP_THRESHOLD_FALLBACK,
+    "result": False,
+}
 
 
 @dataclass
@@ -18,6 +24,7 @@ class DedupProfileStats:
     duplicate_checks: int = 0
     duplicate_hits: int = 0
     exact_set_hits: int = 0
+    similarity_hits: int = 0
     length_pruned: int = 0
     similarity_calls: int = 0
     similarity_fallback_calls: int = 0
@@ -37,10 +44,16 @@ def dedup_profile_enabled() -> bool:
 
 
 def reset_dedup_profile_for_tests(clear_env_cache: bool = True) -> None:
-    global _DEDUP_PROFILE_FLAG, _dedup_profile_stats
+    global _DEDUP_PROFILE_FLAG, _dedup_profile_stats, _last_duplicate_observation
     if clear_env_cache:
         _DEDUP_PROFILE_FLAG = None
     _dedup_profile_stats = DedupProfileStats()
+    _last_duplicate_observation = {
+        "content": "",
+        "match_type": "",
+        "threshold": _DEDUP_THRESHOLD_FALLBACK,
+        "result": False,
+    }
 
 
 def snapshot_dedup_profile() -> dict:
@@ -52,6 +65,7 @@ def snapshot_dedup_profile() -> dict:
         "duplicate_checks": stats.duplicate_checks,
         "duplicate_hits": stats.duplicate_hits,
         "exact_set_hits": stats.exact_set_hits,
+        "similarity_hits": stats.similarity_hits,
         "length_pruned": stats.length_pruned,
         "similarity_calls": stats.similarity_calls,
         "similarity_fallback_calls": stats.similarity_fallback_calls,
@@ -68,6 +82,10 @@ def log_dedup_profile_summary(logger) -> None:
     if not dedup_profile_enabled():
         return
     logger.debug(f"dedup profile: {snapshot_dedup_profile()}")
+
+
+def get_last_duplicate_observation() -> dict[str, object]:
+    return dict(_last_duplicate_observation)
 
 
 def _get_levenshtein_ratio():
@@ -140,18 +158,21 @@ def is_duplicate_in_recent(
     """横向/悬浮窗共用：exact_set → 长度剪枝 → Levenshtein。"""
     profile = dedup_profile_enabled()
     started = time.perf_counter_ns() if profile else 0
+    match_type = ""
+    threshold = config.get_float("dedup_threshold", threshold_fallback)
 
     if content in recent_exact_set:
         if profile:
             _dedup_profile_stats.exact_set_hits += 1
+        match_type = "exact_set_hit"
         result = True
     elif not recent:
         result = False
     else:
-        threshold = config.get_float("dedup_threshold", threshold_fallback)
         result = False
         for prev in recent:
             if content == prev:
+                match_type = "exact_window_hit"
                 result = True
                 break
             if threshold >= 1.0:
@@ -163,13 +184,25 @@ def is_duplicate_in_recent(
                     _dedup_profile_stats.length_pruned += 1
                 continue
             if similarity(content, prev) > threshold:
+                match_type = "similarity_hit"
                 result = True
                 break
+
+    _last_duplicate_observation.update(
+        {
+            "content": content,
+            "match_type": match_type,
+            "threshold": threshold,
+            "result": result,
+        }
+    )
 
     if profile:
         _dedup_profile_stats.duplicate_checks += 1
         if result:
             _dedup_profile_stats.duplicate_hits += 1
+            if match_type == "similarity_hit":
+                _dedup_profile_stats.similarity_hits += 1
         _dedup_profile_stats.is_duplicate_ns += time.perf_counter_ns() - started
     return result
 
@@ -180,6 +213,7 @@ __all__ = [
     "reset_dedup_profile_for_tests",
     "snapshot_dedup_profile",
     "log_dedup_profile_summary",
+    "get_last_duplicate_observation",
     "is_duplicate_in_recent",
     "similarity",
 ]

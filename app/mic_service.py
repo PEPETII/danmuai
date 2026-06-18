@@ -12,7 +12,12 @@ from __future__ import annotations
 from typing import Callable
 
 from app.mic_buffer import clamp_mic_window_sec
-from app.mic_capture import MicCaptureService
+from app.mic_capture import (
+    MicCaptureService,
+    input_device_exists,
+    list_input_devices,
+    resolve_preferred_input_device_id,
+)
 
 
 def mic_mode_enabled(config) -> bool:
@@ -22,6 +27,10 @@ def mic_mode_enabled(config) -> bool:
 def mic_window_sec_from_config(config) -> int:
     raw = config.get_int("mic_window_sec", 5)
     return clamp_mic_window_sec(raw)
+
+
+def mic_input_device_id_from_config(config) -> int | None:
+    return resolve_preferred_input_device_id(config.get("mic_input_device_id", ""))
 
 
 class MicService:
@@ -39,18 +48,38 @@ class MicService:
     def last_error(self) -> str:
         return self._capture.last_error
 
-    def ensure_capture(self) -> bool:
+    def active_input_device_id(self) -> int | None:
+        return self._capture.active_device_id
+
+    def active_input_device_label(self) -> str:
+        return self._capture.active_device_label
+
+    def fallback_to_default(self) -> bool:
+        return self._capture.fallback_to_default
+
+    def requested_input_device_id(self) -> int | None:
+        return self._capture.requested_device_id
+
+    @staticmethod
+    def list_input_devices() -> list:
+        return list_input_devices()
+
+    @staticmethod
+    def input_device_exists(device_id: int | None) -> bool:
+        return input_device_exists(device_id)
+
+    def ensure_capture(self, *, preferred_device_id: int | None = None) -> bool:
         if self._capture.is_running():
             return True
-        return self._capture.start()
+        return self._capture.start(preferred_device_id=preferred_device_id)
 
     def clear_buffer(self) -> None:
         self._capture.clear_buffer()
 
-    def sync(self, *, enabled: bool) -> None:
+    def sync(self, *, enabled: bool, preferred_device_id: int | None = None) -> None:
         if enabled:
             if not self._capture.is_running():
-                self._capture.start()
+                self._capture.start(preferred_device_id=preferred_device_id)
         else:
             if self._capture.is_running():
                 self._capture.stop()

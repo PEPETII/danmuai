@@ -115,3 +115,47 @@ def test_probe_openai_adds_openrouter_headers(mock_client_cls):
     headers = mock_client.post.call_args.kwargs["headers"]
     assert headers.get("HTTP-Referer")
     assert headers.get("X-Title") == "DanmuAI"
+
+
+@patch("app.api_probe.httpx.Client")
+def test_probe_minimax_adds_reasoning_split(mock_client_cls):
+    """MiniMax probe request must include reasoning_split: true (W-PR-INTAKE-020)."""
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.raise_for_status = MagicMock()
+    mock_client = MagicMock()
+    mock_client.__enter__ = MagicMock(return_value=mock_client)
+    mock_client.__exit__ = MagicMock(return_value=False)
+    mock_client.post.return_value = mock_resp
+    mock_client_cls.return_value = mock_client
+
+    probe_connection(
+        "https://api.minimax.chat/v1",
+        "sk-test",
+        "MiniMax-Text-01",
+        "openai-compatible",
+    )
+    payload = mock_client.post.call_args.kwargs["json"]
+    assert payload.get("reasoning_split") is True
+
+
+@patch("app.api_probe.httpx.Client")
+def test_probe_non_minimax_omits_reasoning_split(mock_client_cls):
+    """Non-MiniMax probe must NOT include reasoning_split (W-PR-INTAKE-020)."""
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.raise_for_status = MagicMock()
+    mock_client = MagicMock()
+    mock_client.__enter__ = MagicMock(return_value=mock_client)
+    mock_client.__exit__ = MagicMock(return_value=False)
+    mock_client.post.return_value = mock_resp
+    mock_client_cls.return_value = mock_client
+
+    probe_connection(
+        "https://api.deepseek.com/v1",
+        "sk-test",
+        "deepseek-chat",
+        "openai-compatible",
+    )
+    payload = mock_client.post.call_args.kwargs["json"]
+    assert "reasoning_split" not in payload

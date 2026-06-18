@@ -113,11 +113,12 @@ class DanmuAppDisplayMixin:
 
     def _sync_pet_window_visibility(self) -> None:
         """独立于 danmu_render_mode；pet_enabled + pet_visible 控制桌宠显隐。"""
-        # 未初始化且配置未启用桌宠 → 快速跳过（保留 PERF-002 惰性初始化收益）
+        # 未初始化且配置不要求显示桌宠 → 快速跳过（保留 PERF-002 惰性初始化收益）
         if self.__dict__.get("pet_window") is None:
             if self.config.get("pet_enabled", "0") != "1":
                 return
-            # 配置要求启用桌宠 → 触发惰性初始化
+            if self.config.get("pet_visible", "0") != "1":
+                return
             self._ensure_pet_components()
         from app.pet.pet_facade import sync_pet_window_visibility
 

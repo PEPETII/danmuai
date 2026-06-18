@@ -39,7 +39,7 @@ def test_build_reply_contract_zh_dynamic():
     assert "固定返回 9 条弹幕" in text
     assert "前 4 条必须强相关当前画面" in text
     assert "后 5 条必须是适合直播间氛围的泛用弹幕" in text
-    assert '"弹幕9"' in text
+    assert '"示例短句4"' in text
 
 
 def test_build_reply_contract_en_dynamic():
@@ -85,9 +85,21 @@ def test_build_normal_reply_contract_zh():
     text = build_normal_reply_contract_zh(6, 20)
     assert "固定 6 条" in text
     assert "scene_brief" not in text
-    assert '["弹幕1"' in text
+    assert '["这波可以"' in text
     assert "优先贴当前画面" not in text
-    assert '"弹幕6"' in text
+    assert '"示例短句1"' in text
+
+
+def test_build_normal_reply_contract_zh_avoids_numbered_placeholders():
+    text = build_normal_reply_contract_zh(5, 20)
+    assert "弹幕1" not in text
+    assert "评论1" not in text
+
+
+def test_build_reply_contract_en_avoids_numbered_placeholders():
+    text = build_reply_contract_en(3, 2)
+    assert "comment 1" not in text
+    assert "comment1" not in text
 
 
 def test_strip_reply_contract_removes_custom_max_chars():
@@ -130,6 +142,18 @@ def test_strip_system_style_removes_default_prefix():
 
 
 def test_test1_persona_strip_roundtrip():
+    system_zh = BUILTIN_PERSONAE["高压吐槽型"]["system_zh"]
+    user_zh = BUILTIN_PERSONAE["高压吐槽型"]["user_zh"]
+    assert "直播间弹幕观众" in system_zh
+    assert "【人格：高压吐槽型】" in user_zh
+    cfg = FakeConfig({"normal_reply_count": "5"})
+    merged = ensure_reply_contract(system_zh, cfg)
+    assert "固定 5 条" in merged
+    assert strip_system_style(strip_reply_contract(merged)) == system_zh
+    assert "测试" not in BUILTIN_PERSONAE
+
+
+def test_legacy_test1_persona_strip_roundtrip():
     system_zh = BUILTIN_PERSONAE["测试1"]["system_zh"]
     user_zh = BUILTIN_PERSONAE["测试1"]["user_zh"]
     assert "随机选择一种口吻" in system_zh
@@ -138,7 +162,6 @@ def test_test1_persona_strip_roundtrip():
     merged = ensure_reply_contract(system_zh, cfg)
     assert "固定 5 条" in merged
     assert strip_system_style(strip_reply_contract(merged)) == system_zh
-    assert "测试" not in BUILTIN_PERSONAE
 
 
 # W-NICKNAME-001

@@ -3,9 +3,10 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 from app.mic_buffer import MicRingBuffer, clamp_mic_window_sec
-from app.mic_capture import MicCaptureService
+from app.mic_capture import MicCaptureService, list_input_devices, resolve_preferred_input_device_id
 from app.mic_encode import pcm_to_wav_data_uri
-from app.mic_prompt import build_mic_insert_user_pt
+from app.mic_prompt import build_mic_insert_user_pt, mic_insert_reply_count
+from app.mic_service import mic_input_device_id_from_config
 from main import MIC_POLL_MS, MIC_POLL_PHASE_MS, DanmuApp
 
 from tests.conftest import bind_minimal_danmu_app
@@ -64,6 +65,110 @@ def test_try_snapshot_pcm_ms_returns_none_when_lock_held():
         assert elapsed < 0.05
     finally:
         buf._lock.release()
+
+
+def test_resolve_preferred_input_device_id():
+    assert resolve_preferred_input_device_id("") is None
+    assert resolve_preferred_input_device_id("  ") is None
+    assert resolve_preferred_input_device_id("3") == 3
+    assert resolve_preferred_input_device_id("-1") is None
+
+
+def test_mic_input_device_id_from_config():
+    cfg = FakeConfig({"mic_input_device_id": "7"})
+    assert mic_input_device_id_from_config(cfg) == 7
+    assert mic_input_device_id_from_config(FakeConfig({})) is None
+
+
+def test_list_input_devices_without_sounddevice(monkeypatch):
+    monkeypatch.setattr("app.mic_capture._HAS_SOUNDDEVICE", False)
+    assert list_input_devices() == []
+
+
+def test_mic_capture_start_uses_preferred_device(monkeypatch):
+    calls = []
+
+    class FakeStream:
+        def start(self):
+            return None
+
+        def stop(self):
+            return None
+
+        def close(self):
+            return None
+
+    class FakeSd:
+        def __init__(self):
+            self.default = SimpleNamespace(device=(5, 7))
+
+        def query_devices(self, device_id=None):
+            if device_id is None:
+                return [
+                    {"name": "Mic A", "max_input_channels": 1},
+                    {"name": "Mic B", "max_input_channels": 2},
+                ]
+            return {"name": f"Mic {device_id}", "max_input_channels": 1}
+
+        def InputStream(self, **kwargs):
+            calls.append(kwargs)
+            return FakeStream()
+
+    monkeypatch.setattr("app.mic_capture._HAS_SOUNDDEVICE", True)
+    monkeypatch.setattr("app.mic_capture.sd", FakeSd())
+
+    cap = MicCaptureService()
+    assert cap.start(preferred_device_id=1) is True
+    assert calls[0]["device"] == 1
+    assert cap.active_device_id == 1
+    assert cap.fallback_to_default is False
+
+
+def test_mic_capture_start_falls_back_to_default_device(monkeypatch):
+    calls = []
+
+    class FakeStream:
+        def start(self):
+            return None
+
+        def stop(self):
+            return None
+
+        def close(self):
+            return None
+
+    class FakeSd:
+        def __init__(self):
+            self.default = SimpleNamespace(device=(4, 7))
+
+        def query_devices(self, device_id=None):
+            if device_id is None:
+                return [
+                    {"name": "Mic A", "max_input_channels": 1},
+                    {"name": "Mic B", "max_input_channels": 0},
+                    {"name": "Mic C", "max_input_channels": 0},
+                    {"name": "Mic D", "max_input_channels": 0},
+                    {"name": "Default Mic", "max_input_channels": 1},
+                ]
+            info = {
+                4: {"name": "Default Mic", "max_input_channels": 1},
+            }
+            if device_id in info:
+                return info[device_id]
+            raise RuntimeError("missing")
+
+        def InputStream(self, **kwargs):
+            calls.append(kwargs)
+            return FakeStream()
+
+    monkeypatch.setattr("app.mic_capture._HAS_SOUNDDEVICE", True)
+    monkeypatch.setattr("app.mic_capture.sd", FakeSd())
+
+    cap = MicCaptureService()
+    assert cap.start(preferred_device_id=9) is True
+    assert calls[0]["device"] == 4
+    assert cap.active_device_id == 4
+    assert cap.fallback_to_default is True
 
 
 def test_sync_mic_service_keeps_capture_when_danmu_pauses(monkeypatch):
@@ -171,7 +276,7 @@ def test_build_mic_insert_user_pt():
     out = build_mic_insert_user_pt("base")
     assert "麦克风插入" in out
     assert out.startswith("base")
-    assert "请生成 6 条 JSON 数组弹幕" in out
+    assert "请生成 5 条 JSON 数组弹幕" in out
     assert "全部同时结合当前画面与用户刚才说话内容" in out
     assert "不要只复述语音，也不要只描述截图" in out
     assert "前3条" not in out
@@ -190,3 +295,10 @@ def test_build_mic_insert_user_pt_ignores_config():
     assert out_with_cfg == out_without_cfg
     assert "请生成 5条" not in out_with_cfg
     assert "前2条" not in out_with_cfg
+
+
+def test_mic_insert_reply_count_follows_normal_reply_count():
+    cfg = FakeConfig({"normal_reply_count": "8"})
+    assert mic_insert_reply_count(cfg) == 8
+    out = build_mic_insert_user_pt("base", cfg)
+    assert "请生成 8 条 JSON 数组弹幕" in out

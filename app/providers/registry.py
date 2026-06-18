@@ -143,3 +143,19 @@ def provider_extra_headers(endpoint: str) -> dict[str, str]:
             "X-Title": _OPENROUTER_APP_TITLE,
         }
     return {}
+
+
+def is_minimax_endpoint(endpoint: str) -> bool:
+    """Detect official MiniMax Chat Completions endpoint by host.
+
+    MiniMax is not a registered ProviderSpec; users configure it via
+    ``custom_openai``. This helper enables ``reasoning_split: true``
+    injection only for MiniMax, avoiding pollution of other OpenAI-compat
+    providers.
+    """
+    normalized = normalize_endpoint(endpoint).lower() if endpoint else ""
+    if not normalized:
+        return False
+    parsed = urlparse(normalized)
+    netloc = (parsed.netloc or "").lower()
+    return "minimax" in netloc or "minimaxi" in netloc

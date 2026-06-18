@@ -23,11 +23,11 @@ export function bindMicTestControls() {
         method: 'POST',
         body: JSON.stringify({ duration_sec: 3 }),
       });
-      const detail = `pcm=${res.pcm_bytes || 0}B · rms=${res.rms ?? 0} · ${res.level || 'unknown'}`;
+      const deviceLabel = res.active_input_device_label || res.default_input || '未知输入设备';
+      const fallbackBit = res.fallback_to_default ? ' · 已回退默认输入' : '';
+      const detail = `${deviceLabel}${fallbackBit} · pcm=${res.pcm_bytes || 0}B · rms=${res.rms ?? 0} · ${res.level || 'unknown'}`;
       if (statusEl) {
-        statusEl.textContent = res.default_input
-          ? `${res.default_input} · ${detail}`
-          : detail;
+        statusEl.textContent = detail;
       }
       micToolsDeps.showToast(res.message || (res.ok ? '麦克风测试通过' : '麦克风测试未通过'), !res.ok);
     } catch (error) {
@@ -53,7 +53,9 @@ export function bindMicTestControls() {
         method: 'POST',
         body: JSON.stringify({ duration_sec: 3, send_to_ai: true }),
       });
-      const detail = `input=${res.input_tokens ?? 0} · output=${res.output_tokens ?? 0} · pcm=${res.pcm_bytes || 0}B`;
+      const deviceLabel = res.active_input_device_label || res.default_input || '未知输入设备';
+      const fallbackBit = res.fallback_to_default ? ' · 已回退默认输入' : '';
+      const detail = `${deviceLabel}${fallbackBit} · input=${res.input_tokens ?? 0} · output=${res.output_tokens ?? 0} · pcm=${res.pcm_bytes || 0}B`;
       if (statusEl) {
         statusEl.textContent = res.reply_preview
           ? `${detail} · ${res.reply_preview}`

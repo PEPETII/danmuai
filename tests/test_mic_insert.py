@@ -6,6 +6,7 @@ from main import BatchTracker, DanmuApp
 
 from tests.conftest import bind_minimal_danmu_app
 from tests.fakes import FakeConfig
+from app.mic_prompt import mic_insert_reply_count
 
 
 def _bind_main_methods(app):
@@ -75,6 +76,7 @@ def test_on_ai_reply_mic_does_not_decrement_visual_inflight(app):
     assert app.ai_in_flight == 1
     assert app.mic_in_flight == 0
     assert app.reply_buffer.size() == 5
+    assert mic_insert_reply_count(app.config) == 5
 
 
 def test_on_ai_error_mic_does_not_increment_failures(app):
@@ -104,3 +106,20 @@ def test_mic_ai_reply_parses_object_envelope(app):
     app._handle_mic_ai_reply(raw, "persona-1", -1, 10, time.monotonic(), 0)
 
     assert app.reply_buffer.size() == 5
+
+
+def test_mic_ai_reply_shortfall_pads_to_five(app, monkeypatch):
+    app.config = FakeConfig({})
+    app._consume_reply_queue = lambda: None
+    monkeypatch.setattr("app.reply_parser._scene_fillers", lambda config=None: ["scene-a", "scene-b"])
+    monkeypatch.setattr(
+        "app.reply_parser._generic_fillers",
+        lambda config=None: ["generic-a", "generic-b", "generic-c"],
+    )
+
+    app._handle_mic_ai_reply('["mic1", "mic2"]', "persona-1", -1, 10, time.monotonic(), 0)
+
+    queued = [item.content for item in app.reply_buffer._items]
+    assert len(queued) == mic_insert_reply_count(app.config)
+    assert queued[:2] == ["mic1", "mic2"]
+    assert len(queued) == len(set(queued))

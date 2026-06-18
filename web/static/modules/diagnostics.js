@@ -45,6 +45,7 @@ export function buildDiagnosticReportText(diag) {
   const timing = diag.timing || {};
   const runtimeState = diag.runtime_state || {};
   const diagnosis = diag.diagnosis || {};
+  const undisplayed = diag.undisplayed || {};
   const webRuntime = runtimeState.web_runtime || {};
   const stats = runtimeState.stats || {};
   const generation = runtimeState.generation_pipeline || {};
@@ -87,6 +88,13 @@ export function buildDiagnosticReportText(diag) {
     `cached_layout_mode: ${webRuntime.cached_layout_mode || 'fullscreen'}`,
     `latest_displayed_round: ${generation.latest_displayed_round ?? 0}`,
     '',
+    '[undisplayed]',
+    `recent_count: ${undisplayed.recent_count ?? 0}`,
+    `total_count: ${undisplayed.total_count ?? 0}`,
+    `latest_reason: ${undisplayed.latest_reason || '-'}`,
+    `top_reason: ${undisplayed.top_reason || '-'} (${undisplayed.top_reason_count ?? 0})`,
+    `reason_counts: ${JSON.stringify(undisplayed.reason_counts || {})}`,
+    '',
     '[next_steps]',
     ...suggestions,
   ].join('\n');
@@ -98,6 +106,7 @@ function renderDiagnosticSnapshot(diag) {
   const timing = diag?.timing || {};
   const diagnosis = diag?.diagnosis || {};
   const stats = diag?.runtime_state?.stats || {};
+  const undisplayed = diag?.undisplayed || {};
 
   const setText = (id, value) => {
     const el = document.getElementById(id);
@@ -120,6 +129,20 @@ function renderDiagnosticSnapshot(diag) {
     'diagRuntimeStats',
     `danmu=${stats.danmu_count ?? 0} · input=${stats.total_input_tokens ?? 0} · output=${stats.total_output_tokens ?? 0} · runtime=${formatDiagSeconds(stats.runtime_sec)}`,
   );
+  // 未上屏弹幕诊断
+  setText('diagUndisplayedRecent', String(undisplayed.recent_count ?? 0));
+  setText('diagUndisplayedTotal', String(undisplayed.total_count ?? 0));
+  setText('diagUndisplayedLatest', undisplayed.latest_reason || '-');
+  const topReason = undisplayed.top_reason
+    ? `${undisplayed.top_reason} (${undisplayed.top_reason_count ?? 0})`
+    : '-';
+  setText('diagUndisplayedTop', topReason);
+  const recentEvents = undisplayed.recent_events || [];
+  const recentList = recentEvents
+    .slice(-10)
+    .map((ev) => `${ev.reason}`)
+    .join(', ');
+  setText('diagUndisplayedRecentList', recentList || '-');
   setText('diagnosticReportPreview', buildDiagnosticReportText(diag));
 }
 

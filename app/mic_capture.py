@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import threading
+from dataclasses import dataclass
 from typing import Callable
 
 from app.mic_buffer import (
@@ -32,6 +33,14 @@ except ImportError:  # pragma: no cover - optional dependency
     _HAS_SOUNDDEVICE = False
     np = None  # type: ignore
     sd = None  # type: ignore
+
+
+@dataclass(frozen=True)
+class MicInputDeviceInfo:
+    id: int
+    name: str
+    is_default: bool
+    max_input_channels: int
 
 
 def default_input_device_id() -> int | None:
@@ -60,6 +69,59 @@ def default_input_device_label(device_id: int | None = None) -> str:
         return ""
 
 
+def list_input_devices() -> list[MicInputDeviceInfo]:
+    """Enumerate PortAudio input devices for the Web settings picker."""
+    if not _HAS_SOUNDDEVICE:
+        return []
+    default_id = default_input_device_id()
+    try:
+        devices = sd.query_devices()
+    except Exception:
+        return []
+    items: list[MicInputDeviceInfo] = []
+    for index, device in enumerate(devices):
+        try:
+            max_input = int(device.get("max_input_channels", 0) or 0)
+        except Exception:
+            max_input = 0
+        if max_input <= 0:
+            continue
+        items.append(
+            MicInputDeviceInfo(
+                id=int(index),
+                name=str(device.get("name", "") or f"Input {index}"),
+                is_default=int(index) == default_id,
+                max_input_channels=max_input,
+            )
+        )
+    return items
+
+
+def resolve_preferred_input_device_id(raw_value) -> int | None:
+    text = str(raw_value or "").strip()
+    if not text:
+        return None
+    try:
+        value = int(text)
+    except (TypeError, ValueError):
+        return None
+    return value if value >= 0 else None
+
+
+def input_device_exists(device_id: int | None) -> bool:
+    if not _HAS_SOUNDDEVICE or device_id is None:
+        return False
+    try:
+        info = sd.query_devices(int(device_id))
+    except Exception:
+        return False
+    try:
+        max_input = int(info.get("max_input_channels", 0) or 0)
+    except Exception:
+        max_input = 0
+    return max_input > 0
+
+
 class MicCaptureService:
     """Capture PCM into a ring buffer; never writes audio to disk."""
 
@@ -78,6 +140,11 @@ class MicCaptureService:
         self._running = False
         self._last_error = ""
         self._active_device_id: int | None = None
+        self._requested_device_id: int | None = None
+        self._requested_follow_default = True
+        self._fallback_to_default = False
+        self._active_device_label = ""
+        self._last_start_reason = ""
 
     @staticmethod
     def is_available() -> bool:
@@ -87,20 +154,53 @@ class MicCaptureService:
     def last_error(self) -> str:
         return self._last_error
 
+    @property
+    def active_device_id(self) -> int | None:
+        return self._active_device_id
+
+    @property
+    def active_device_label(self) -> str:
+        return self._active_device_label
+
+    @property
+    def requested_device_id(self) -> int | None:
+        return self._requested_device_id
+
+    @property
+    def fallback_to_default(self) -> bool:
+        return self._fallback_to_default
+
+    @property
+    def last_start_reason(self) -> str:
+        return self._last_start_reason
+
     def is_running(self) -> bool:
         with self._lock:
             return self._running
 
-    def start(self) -> bool:
-        desired_id = default_input_device_id()
+    def start(self, *, preferred_device_id: int | None = None) -> bool:
+        follow_default = preferred_device_id is None
+        desired_id = default_input_device_id() if follow_default else preferred_device_id
+        fallback_to_default = False
+        start_reason = ""
+        if not follow_default and not input_device_exists(desired_id):
+            fallback_id = default_input_device_id()
+            fallback_to_default = True
+            start_reason = "preferred_device_unavailable"
+            desired_id = fallback_id
         with self._lock:
             if self._running:
-                if desired_id == self._active_device_id:
+                if (
+                    desired_id == self._active_device_id
+                    and follow_default == self._requested_follow_default
+                    and preferred_device_id == self._requested_device_id
+                ):
                     return True
                 stream = self._stream
                 self._stream = None
                 self._running = False
                 self._active_device_id = None
+                self._active_device_label = ""
             else:
                 stream = None
         if stream is not None:
@@ -109,7 +209,10 @@ class MicCaptureService:
                 stream.close()
             except Exception:
                 pass
-            self._log("mic capture restarted: system default input device changed")
+            if follow_default:
+                self._log("mic capture restarted: system default input device changed")
+            else:
+                self._log("mic capture restarted: selected input device changed")
         with self._lock:
             if not _HAS_SOUNDDEVICE:
                 self._last_error = "sounddevice_unavailable"
@@ -128,10 +231,21 @@ class MicCaptureService:
                 self._stream.start()
                 self._running = True
                 self._active_device_id = desired_id
+                self._requested_device_id = preferred_device_id
+                self._requested_follow_default = follow_default
+                self._fallback_to_default = fallback_to_default
+                self._last_start_reason = start_reason
                 self._last_error = ""
                 device = default_input_device_label(desired_id)
+                self._active_device_label = device
                 if device:
-                    self._log(f"mic capture started (input={device})")
+                    if fallback_to_default:
+                        self._log(
+                            "mic capture started with default input fallback "
+                            f"(preferred={preferred_device_id}, input={device})"
+                        )
+                    else:
+                        self._log(f"mic capture started (input={device})")
                 else:
                     self._log("mic capture started")
                 return True
@@ -140,6 +254,11 @@ class MicCaptureService:
                 self._stream = None
                 self._running = False
                 self._active_device_id = None
+                self._active_device_label = ""
+                self._requested_device_id = preferred_device_id
+                self._requested_follow_default = follow_default
+                self._fallback_to_default = fallback_to_default
+                self._last_start_reason = start_reason
                 self._log(f"mic capture failed: {exc}")
                 return False
 
@@ -150,6 +269,7 @@ class MicCaptureService:
             self._stream = None
             self._running = False
             self._active_device_id = None
+            self._active_device_label = ""
         if not was_running:
             return
         if stream is not None:

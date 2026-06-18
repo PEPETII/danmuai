@@ -112,6 +112,17 @@ function renderBarrageSlots(data) {
   });
 }
 
+function updateBarrageModeHint() {
+  const petEnabled = Boolean(document.getElementById('petEnabled')?.checked);
+  const barrageEnabled = Boolean(document.getElementById('petBarrageModeEnabled')?.checked);
+  if (!petEnabled) return;
+  if (barrageEnabled) {
+    setStatusText('已启用 · 桌宠弹幕形式（保存后生效）');
+  } else {
+    setStatusText('已启用 · 将显示普通单桌宠（保存后生效）');
+  }
+}
+
 function updateBarrageUi(data) {
   const enabled = Boolean(data?.pet_barrage?.enabled);
   const toggle = document.getElementById('petBarrageModeEnabled');
@@ -278,5 +289,6 @@ export function initPetPage(deps = {}) {
   document.getElementById('btnPetResetAsset')?.addEventListener('click', () => {
     resetPetAsset().catch((error) => showToast(error.message, true));
   });
+  document.getElementById('petBarrageModeEnabled')?.addEventListener('change', updateBarrageModeHint);
   bindSlotActions();
 }

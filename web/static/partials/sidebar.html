@@ -63,6 +63,14 @@
           <button type="button" id="btnCheckAppUpdate" class="text-xs font-semibold px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 text-warmText">检查更新</button>
           <button type="button" id="btnDownloadRestartAppUpdate" class="text-xs font-semibold px-3 py-1.5 rounded-lg btn-primary text-white hidden">下载并重启</button>
         </div>
+        <div class="update-progress-panel hidden mt-3" data-update-progress-root>
+          <p class="update-progress-status text-xs text-warmText mb-2" aria-live="polite"></p>
+          <div class="update-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <div class="update-progress-fill"></div>
+          </div>
+          <p class="update-progress-meta text-xs text-gray-400 mt-1"></p>
+          <p class="update-progress-error hidden text-xs mt-1"></p>
+        </div>
       </div>
     </div>
   </aside>

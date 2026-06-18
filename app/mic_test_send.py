@@ -51,6 +51,10 @@ class MicTestSendResult:
     output_tokens: int = 0
     reply_preview: str = ""
     used_placeholder_image: bool = True
+    active_input_device_id: int | None = None
+    active_input_device_label: str = ""
+    default_input: str = ""
+    fallback_to_default: bool = False
     error: str = ""
 
 
@@ -176,6 +180,10 @@ def run_mic_test_send(danmu_app, duration_sec: float = 3.0) -> MicTestSendResult
             pcm_bytes=capture.pcm_bytes,
             rms=capture.rms,
             level=capture.level,
+            active_input_device_id=capture.active_input_device_id,
+            active_input_device_label=capture.active_input_device_label,
+            default_input=capture.default_input,
+            fallback_to_default=capture.fallback_to_default,
             error=capture.error or "capture_failed",
         )
 
@@ -187,6 +195,10 @@ def run_mic_test_send(danmu_app, duration_sec: float = 3.0) -> MicTestSendResult
             pcm_bytes=len(pcm),
             rms=capture.rms,
             level=capture.level,
+            active_input_device_id=capture.active_input_device_id,
+            active_input_device_label=capture.active_input_device_label,
+            default_input=capture.default_input,
+            fallback_to_default=capture.fallback_to_default,
             error="encode_failed",
         )
 
@@ -225,5 +237,9 @@ def run_mic_test_send(danmu_app, duration_sec: float = 3.0) -> MicTestSendResult
         output_tokens=probe.output_tokens,
         reply_preview=probe.reply_preview,
         used_placeholder_image=True,
+        active_input_device_id=capture.active_input_device_id,
+        active_input_device_label=capture.active_input_device_label,
+        default_input=capture.default_input,
+        fallback_to_default=capture.fallback_to_default,
         error=probe.error,
     )

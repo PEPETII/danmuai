@@ -16,7 +16,7 @@ from PyQt6.QtCore import QTimer
 
 from app.main_helpers import MAX_MIC_IN_FLIGHT
 from app.mic_encode import pcm_to_wav_data_uri
-from app.mic_prompt import build_mic_insert_user_pt
+from app.mic_prompt import build_mic_insert_user_pt, mic_insert_reply_count
 from app.mic_service import mic_mode_enabled
 from app.model_providers import mic_audio_supported_for_mic_config, resolve_mic_model_id
 from app.personae import append_live_topic_to_system_pt, append_nickname_to_system_pt
@@ -183,10 +183,11 @@ class DanmuAppMicMixin:
         scene_generation: int,
     ) -> None:
         raw_items = parse_ai_reply_payload(text)
+        reply_count = mic_insert_reply_count(self.config)
         normalized_items = normalize_reply_batch(
             raw_items,
-            scene_count=self._reply_scene_count,
-            filler_count=self._reply_filler_count,
+            scene_count=reply_count,
+            filler_count=0,
             config=self.config,
         )
         if not normalized_items:

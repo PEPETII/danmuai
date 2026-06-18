@@ -105,7 +105,7 @@ def test_capture_completed_success_triggers_api():
     app = make_minimal_danmu_app()
     app.engine.running = True
     triggered = []
-    app._trigger_api_call = lambda source="unknown": triggered.append(source)
+    app._trigger_api_call = lambda source="unknown", **kwargs: triggered.append(source)
 
     app._on_capture_completed(FakePixmap(0b1))
     assert app._capture_in_flight is False
@@ -118,7 +118,7 @@ def test_stop_ignores_late_capture_completed():
     app.engine.running = False
     app._latest_screenshot_id = 2
     triggered = []
-    app._trigger_api_call = lambda source="unknown": triggered.append(source)
+    app._trigger_api_call = lambda source="unknown", **kwargs: triggered.append(source)
 
     app._on_capture_completed(FakePixmap(0b1))
     assert app._latest_screenshot_id == 2

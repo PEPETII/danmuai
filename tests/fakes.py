@@ -149,6 +149,9 @@ class FakeConfig:
     def get_custom_models(self):
         return list(self.values.get("custom_models", []))
 
+    def get_mic_devices(self):
+        return list(self.values.get("mic_devices", []))
+
     def get_json(self, key: str, default=None):
         val = self.get(key)
         if not val:

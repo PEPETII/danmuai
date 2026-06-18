@@ -82,6 +82,52 @@ def test_normal_mode_consumes_all_non_duplicate_items():
     assert len(app.history_writer.calls) == 2
 
 
+def test_duplicate_loss_topup_only_triggers_once_per_request(monkeypatch):
+    app = make_minimal_danmu_app()
+    app.config = FakeConfig(
+        {
+            "danmu_display_mode": "normal",
+            "drop_stale": "0",
+            "danmu_pool_use_custom": "1",
+        }
+    )
+    app._sync_reply_batch_config()
+    app.engine = DedupFakeEngine("dup")
+    app.engine.running = True
+    now = time.monotonic()
+    for idx in range(2):
+        app.reply_buffer.push(
+            QueuedReply(
+                "p1",
+                1,
+                idx,
+                "dup",
+                screenshot_id=1,
+                captured_at=now,
+                scene_generation=0,
+                request_id="req-1",
+            )
+        )
+
+    calls: list[int] = []
+    monkeypatch.setattr(
+        "app.main_request_context_mixin.maybe_duplicate_loss_topup",
+        lambda *args, **kwargs: 1,
+        raising=False,
+    )
+    original = app._maybe_duplicate_loss_topup
+
+    def counting_topup(queued, stats):
+        calls.append(int(stats["duplicate_loss_total"]))
+        return original(queued, stats)
+
+    app._maybe_duplicate_loss_topup = counting_topup
+    app._consume_reply_queue()
+    app._consume_reply_queue()
+
+    assert calls == [1, 2]
+
+
 def test_history_enqueue_matches_display_truncation():
     """BUG-015: history row content matches on-screen truncation."""
     app = make_minimal_danmu_app()
@@ -492,12 +538,12 @@ def test_delete_custom_prunes_active_personae(tmp_path):
     personae = PersonaManager(store)
     contract = get_reply_contract(store)
     personae.save_custom("测试A", contract, "看图发弹幕：")
-    personae.set_active(["测试A", "吐槽型"])
+    personae.set_active(["测试A", "高压吐槽型"])
     personae.delete_custom("测试A")
 
     stored = store.get_json("active_personae", [])
     assert "测试A" not in stored
-    assert "吐槽型" in stored
+    assert "高压吐槽型" in stored
     assert "测试A" not in personae.get_active()
 
 

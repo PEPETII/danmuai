@@ -97,10 +97,7 @@
             </div>
           </div>
           <div id="customModelsSection" class="settings-full-only space-y-3">
-            <div class="flex justify-between items-center">
-              <h4 class="text-md font-bold text-warmText">模型配置档案</h4>
-              <button type="button" id="btnAddCustomModel" class="btn-primary px-4 py-2 text-white rounded-xl text-sm font-bold">新增模型</button>
-            </div>
+            <h4 class="text-md font-bold text-warmText">模型配置档案</h4>
             <div id="customModelsList" class="space-y-2"></div>
           </div>
         </div>
@@ -169,6 +166,13 @@
             <div>
               <label class="block text-sm font-semibold mb-2 text-warmText"><svg class="ui-icon field-label-icon" aria-hidden="true"><use href="#i-message"></use></svg>麦克风窗口（秒）</label>
               <input type="number" name="mic_window_sec" id="mic_window_sec" min="1" max="30" step="1" value="5" class="w-full px-4 py-3 bg-cream border border-transparent rounded-xl text-warmText">
+            </div>
+            <div>
+              <label class="block text-sm font-semibold mb-2 text-warmText"><svg class="ui-icon field-label-icon" aria-hidden="true"><use href="#i-mic"></use></svg>输入设备</label>
+              <select name="mic_input_device_id" id="mic_input_device_id" class="w-full px-4 py-3 bg-cream border border-transparent rounded-xl text-warmText">
+                <option value="">跟随系统默认</option>
+              </select>
+              <p id="micInputDeviceHint" class="text-xs text-gray-400 mt-1">默认跟随 Windows 当前默认录音设备；也可以手动固定到某一只麦克风。</p>
             </div>
             <div class="md:col-span-2 flex flex-wrap items-center gap-3">
               <button type="button" id="btnMicTest" class="px-4 py-2 rounded-xl text-sm font-bold border border-softPeach text-warmText hover:bg-softPeach/40 transition">
@@ -481,6 +485,18 @@
                 <button type="button" class="settings-action-btn-sm btn-delete-font">删除</button>
               </div>
             </template>
+          </div>
+          <div class="settings-section space-y-3">
+            <p class="settings-section-title">样式预览</p>
+            <p class="settings-section-hint">根据当前表单值实时预览弹幕效果，不会保存或发送到 overlay。</p>
+            <div id="danmuStylePreview" class="danmu-style-preview">
+              <div id="danmuPreviewScrolling" class="danmu-preview-scrolling">
+                <div class="danmu-preview-track" id="danmuPreviewTrack"></div>
+              </div>
+              <div id="danmuPreviewFloating" class="danmu-preview-floating hidden">
+                <div class="danmu-preview-floating-panel" id="danmuPreviewFloatingPanel"></div>
+              </div>
+            </div>
           </div>
         </div>
         <div class="settings-form-footer flex flex-wrap justify-end gap-4">

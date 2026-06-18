@@ -126,11 +126,19 @@ def test_apply_provider_to_form_mimo():
     assert form["lock_mode"] is True
 
 
+def test_apply_provider_to_form_zai():
+    form = apply_provider_to_form("zai")
+    assert "api.z.ai" in form["endpoint"]
+    assert form["mode"] == "openai-compatible"
+    assert form["lock_mode"] is True
+
+
 def test_guess_provider_from_endpoint():
     assert guess_provider_from_endpoint("https://api.deepseek.com/v1") == DEFAULT_PROVIDER_ID
     assert guess_provider_from_endpoint("https://unknown.example/v1", "doubao") == "custom_doubao"
     assert guess_provider_from_endpoint("") == DEFAULT_PROVIDER_ID
     assert guess_provider_from_endpoint("https://api.xiaomimimo.com/v1") == "mimo"
+    assert guess_provider_from_endpoint("https://api.z.ai/api/paas/v4") == "zai"
 
 
 def test_provider_rules_for_api_matches_host_entries():

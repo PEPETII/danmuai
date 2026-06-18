@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import os
 import time
 
 from app.api_schedule import min_api_interval_elapsed
@@ -20,6 +21,18 @@ from app.main_helpers import (
 )
 from app.reply_queue import QueuedReply
 from app.translations import tr
+
+
+def reply_pipeline_log_enabled() -> bool:
+    return os.environ.get("DANMU_REPLY_PIPELINE_LOG", "").strip() == "1"
+
+
+def format_reply_request_id(
+    request_round: int,
+    screenshot_id: int,
+    scene_generation: int,
+) -> str:
+    return f"{int(request_round)}:{int(screenshot_id)}:{int(scene_generation)}"
 
 
 class DanmuAppRequestContextMixin:
@@ -53,6 +66,13 @@ class DanmuAppRequestContextMixin:
             )
             return {}
         return meta
+
+    def _visual_reply_stale_reason(self, scene_generation: int) -> str | None:
+        """Return stale reason when reply scene_generation lags current version."""
+        current = int(getattr(self, "_scene_generation", 0))
+        if int(scene_generation) < current:
+            return "scene_generation_lagged"
+        return None
 
     def _acquire_visual_inflight(self, screenshot_id: int, scene_generation: int) -> None:
         """W-MAIN-INFLIGHT-ATOMIC-001：视觉 in-flight 计数与关联字段同处写入（主线程）。"""
@@ -193,6 +213,107 @@ class DanmuAppRequestContextMixin:
     ) -> str:
         return reply_request_id(request_round, screenshot_id, scene_generation)
 
+    def _peek_request_started_at(
+        self,
+        request_round: int,
+        screenshot_id: int,
+        scene_generation: int,
+    ) -> float | None:
+        request_id = self._reply_request_id(request_round, screenshot_id, scene_generation)
+        started_at = self._get_request_timing_service().request_started_at_by_id.get(request_id)
+        if started_at is None:
+            return None
+        return float(started_at)
+
+    def _log_reply_pipeline(self, event: str, **fields) -> None:
+        if not reply_pipeline_log_enabled():
+            return
+        parts = " ".join(f"{key}={value}" for key, value in fields.items())
+        self.logger.debug("reply_pipeline event=%s %s", event, parts)
+
+    def _log_reply_pipeline_from_queued(
+        self,
+        event: str,
+        queued: QueuedReply,
+        *,
+        displayed: bool,
+        dropped_as_stale: bool = False,
+        enqueued: str = "n/a",
+        **extra,
+    ) -> None:
+        request_round = int(queued.screenshot_round)
+        screenshot_id = int(queued.screenshot_id)
+        scene_generation = int(queued.scene_generation)
+        request_id_raw = queued.request_id
+        if isinstance(request_id_raw, tuple) and len(request_id_raw) == 3:
+            request_id = format_reply_request_id(*request_id_raw)
+        elif request_id_raw:
+            request_id = str(request_id_raw)
+        else:
+            request_id = format_reply_request_id(request_round, screenshot_id, scene_generation)
+        fields = {
+            "request_id": request_id,
+            "request_round": request_round,
+            "screenshot_id": screenshot_id,
+            "captured_at": queued.captured_at,
+            "scene_generation": scene_generation,
+            "dropped_as_stale": dropped_as_stale,
+            "enqueued": enqueued,
+            "displayed": displayed,
+            **extra,
+        }
+        self._log_reply_pipeline(event, **fields)
+
+    def _track_duplicate_rejection(
+        self,
+        queued: QueuedReply,
+        *,
+        match_type: str,
+    ) -> dict[str, int | str]:
+        """记录单条 duplicate 损耗与单批累计，供 diagnostics / pipeline log 复用。"""
+        if not match_type:
+            match_type = "duplicate"
+        duplicate_by_request = self.__dict__.setdefault("_duplicate_rejections_by_request", {})
+        stats = duplicate_by_request.setdefault(
+            str(queued.request_id or ""),
+            {
+                "request_id": str(queued.request_id or ""),
+                "batch_id": int(queued.batch_id),
+                "request_round": int(queued.screenshot_round),
+                "screenshot_id": int(queued.screenshot_id),
+                "scene_generation": int(queued.scene_generation),
+                "duplicate_loss_total": 0,
+                "duplicate_exact_set_hit": 0,
+                "duplicate_exact_window_hit": 0,
+                "duplicate_similarity_hit": 0,
+                "duplicate_topup_triggered": 0,
+            },
+        )
+        stats["duplicate_loss_total"] += 1
+        key = f"duplicate_{match_type}"
+        if key in stats:
+            stats[key] += 1
+        return stats
+
+    def _maybe_duplicate_loss_topup(
+        self,
+        queued: QueuedReply,
+        stats: dict[str, int | str],
+    ) -> int:
+        if int(stats.get("duplicate_topup_triggered", 0)) > 0:
+            return 0
+        from app.danmu_pool import maybe_duplicate_loss_topup
+
+        added = maybe_duplicate_loss_topup(
+            self.engine,
+            self.config,
+            queued.scene_generation,
+            duplicate_loss_total=int(stats.get("duplicate_loss_total", 0)),
+        )
+        if added > 0:
+            stats["duplicate_topup_triggered"] = 1
+        return added
+
     def _min_density_target(self) -> int:
         return self.engine.min_on_screen()
 
@@ -256,6 +377,8 @@ class DanmuAppRequestContextMixin:
         *,
         from_local_fallback: bool = False,
         from_mic_insert: bool = False,
+        request_started_at: float | None = None,
+        reply_received_at: float | None = None,
     ):
         """构造 QueuedReply 批次写入 reply_buffer。"""
         request_id = self._reply_request_id(request_round, screenshot_id, scene_generation)
@@ -302,6 +425,7 @@ class DanmuAppRequestContextMixin:
 
         if not from_mic_insert:
             self._latest_queued_screenshot_id = max(self._latest_queued_screenshot_id, screenshot_id)
+        queue_size_before_enqueue = self.reply_buffer.size()
         if from_mic_insert or from_local_fallback:
             self.reply_buffer.prepend_batch(
                 batch_items,
@@ -311,6 +435,25 @@ class DanmuAppRequestContextMixin:
             )
         else:
             self.reply_buffer.extend(batch_items)
+        queue_size_after_enqueue = self.reply_buffer.size()
+        enqueue_fields = {
+            "request_id": format_reply_request_id(request_round, screenshot_id, scene_generation),
+            "request_round": request_round,
+            "screenshot_id": screenshot_id,
+            "captured_at": captured_at,
+            "scene_generation": scene_generation,
+            "queue_size_before_enqueue": queue_size_before_enqueue,
+            "queue_size_after_enqueue": queue_size_after_enqueue,
+            "dropped_as_stale": False,
+            "enqueued": True,
+            "displayed": False,
+            "batch_count": len(normalized_items),
+        }
+        if request_started_at is not None:
+            enqueue_fields["request_started_at"] = request_started_at
+        if reply_received_at is not None:
+            enqueue_fields["reply_received_at"] = reply_received_at
+        self._log_reply_pipeline("reply_enqueued", **enqueue_fields)
 
         if from_local_fallback:
             self.logger.info(tr("app.local_fallback_batch").format(count=len(normalized_items)))

@@ -1,8 +1,9 @@
 """Provider presets and validation for custom model configurations.
 
-8 个服务商预设（``PROVIDERS`` 列表，按 preset id 排序）：
+9 个服务商预设（``PROVIDERS`` 列表，按 preset id 排序）：
 - doubao（火山方舟） — mode=doubao，lock_mode=True（不可切换 Chat Completions）
 - dashscope（阿里云百炼） — OpenAI 兼容
+- zai（Z.AI / 智谱） — OpenAI 兼容
 - zhipu（智谱 AI） — OpenAI 兼容
 - moonshot（Moonshot Kimi） — OpenAI 兼容
 - siliconflow（硅基流动） — OpenAI 兼容
@@ -53,6 +54,15 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         mode="openai-compatible",
         model_id_hint_zh="例如：qwen-vl-max",
         model_id_hint_en="e.g. qwen-vl-max",
+    ),
+    ProviderSpec(
+        id="zai",
+        label_zh="Z.AI / 智谱",
+        label_en="Z.AI / Zhipu",
+        default_endpoint="https://api.z.ai/api/paas/v4",
+        mode="openai-compatible",
+        model_id_hint_zh="截图弹幕：glm-4.6v / glm-4.5v（图片输入 + 文本输入 → 文本输出）",
+        model_id_hint_en="Vision danmu: glm-4.6v / glm-4.5v (image + text input to text output)",
     ),
     ProviderSpec(
         id="zhipu",

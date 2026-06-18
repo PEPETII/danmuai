@@ -23,6 +23,7 @@ WEB_CONFIG_KEYS = (
     "danmu_lines",
     "danmu_max_chars",
     "dedup_threshold",
+    "danmu_recent_ttl_sec",
     "screen_index",
     "layout_mode",
     "opacity",
@@ -37,6 +38,7 @@ WEB_CONFIG_KEYS = (
     "hotkey",
     "mic_mode_enabled",
     "mic_window_sec",
+    "mic_input_device_id",
     "mic_use_visual_model",
     "mic_api_endpoint",
     "mic_api_mode",
@@ -84,6 +86,32 @@ WEB_CONFIG_KEYS = (
 
 # 助手设置「恢复默认」可恢复的键（= WEB_CONFIG_KEYS；不含 api_key / custom_models / region_*）
 RESTORABLE_CONFIG_KEYS = WEB_CONFIG_KEYS
+
+# W-THEME-LAG-SCENE-VERSION-001：变更时递增 _scene_generation 的配置键
+SCENE_VERSION_CONFIG_KEYS = (
+    "live_topic",
+    "user_nickname",
+    "screen_index",
+    "region_x",
+    "region_y",
+    "region_w",
+    "region_h",
+)
+
+_SCENE_VERSION_INT_KEYS = frozenset(
+    {"screen_index", "region_x", "region_y", "region_w", "region_h"}
+)
+
+
+def scene_version_fingerprint(config) -> tuple[str, ...]:
+    """Return a stable tuple fingerprint for scene-affecting config values."""
+    parts: list[str] = []
+    for key in SCENE_VERSION_CONFIG_KEYS:
+        if key in _SCENE_VERSION_INT_KEYS:
+            parts.append(str(config.get_int(key, 0)))
+        else:
+            parts.append(str(config.get(key, "") or "").strip())
+    return tuple(parts)
 
 
 def normalize_legacy_display_mode(items: dict[str, str]) -> None:
@@ -277,6 +305,8 @@ class ConfigService:
                 items["dedup_threshold"] = f"{threshold:.3f}".rstrip("0").rstrip(".")
             except (TypeError, ValueError):
                 items["dedup_threshold"] = "0.5"
+        if "danmu_recent_ttl_sec" in items:
+            _clamp_int_key(items, "danmu_recent_ttl_sec", 30, 1, 600)
         if "empty_accel" in items:
             _v = str(items["empty_accel"]).strip().lower()
             items["empty_accel"] = "1" if _v in ("1", "true", "yes", "on") else "0"

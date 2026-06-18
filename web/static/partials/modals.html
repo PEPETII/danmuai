@@ -25,7 +25,7 @@
         </div>
         <div>
           <label class="text-sm font-semibold text-warmText">Endpoint</label>
-          <input id="modelEndpoint" class="w-full px-4 py-2 bg-cream rounded-xl mt-1">
+          <input id="modelEndpoint" type="url" autocomplete="url" class="w-full px-4 py-2 bg-cream rounded-xl mt-1">
         </div>
         <div>
           <label class="text-sm font-semibold text-warmText">API Key</label>
@@ -98,9 +98,17 @@
         <p class="text-xs font-semibold text-warmText mb-1">立即应用内更新</p>
         <p class="text-xs text-gray-400 mb-2">推荐：通过 Velopack 直接下载并安装（主更新源 R2）</p>
         <button type="button" id="btnAppUpdateInApp" class="btn-primary w-full px-5 py-2.5 text-white rounded-xl text-sm font-bold">应用内更新</button>
+        <div class="update-progress-panel hidden mt-3" data-update-progress-root>
+          <p class="update-progress-status text-xs text-warmText mb-2" aria-live="polite"></p>
+          <div class="update-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <div class="update-progress-fill"></div>
+          </div>
+          <p class="update-progress-meta text-xs text-gray-400 mt-1"></p>
+          <p class="update-progress-error hidden text-xs mt-1"></p>
+        </div>
       </div>
 
-      <div class="mb-5 border-t border-gray-100 pt-4">
+      <div id="appUpdateModalAlternateChannels" class="mb-5 border-t border-gray-100 pt-4">
         <p class="text-xs font-semibold text-warmText mb-1">其它下载渠道</p>
         <p class="text-xs text-gray-400 mb-3">若应用内更新较慢，可使用镜像或网盘（非主更新源）</p>
         <div class="flex flex-col gap-2">
@@ -119,7 +127,7 @@
         </div>
       </div>
 
-      <div class="flex justify-end border-t border-gray-100 pt-4">
+      <div id="appUpdateModalDismissRow" class="flex justify-end border-t border-gray-100 pt-4">
         <button type="button" id="btnAppUpdateDismiss" class="px-5 py-2 border border-gray-200 rounded-xl text-sm font-semibold text-gray-500 hover:bg-gray-50">暂不更新</button>
       </div>
     </div>

@@ -66,11 +66,12 @@ export function pickDefaultCatalogModelId(providerId) {
   return (cheapest || platform.models[0]).id;
 }
 
-function formatTokenPrice(value) {
+function formatTokenPrice(value, currency = 'CNY') {
   if (value === null || value === undefined) return '-';
   const num = Number(value);
   if (Number.isNaN(num)) return '-';
-  return `${Number.isInteger(num) ? String(num) : String(num)} 元 / M tokens`;
+  const unit = String(currency || 'CNY').toUpperCase() === 'USD' ? 'USD' : '元';
+  return `${Number.isInteger(num) ? String(num) : String(num)} ${unit} / M tokens`;
 }
 
 function buildModelRowBadges(model) {
@@ -96,9 +97,9 @@ function buildModelTooltipHtml(model) {
   return (
     `<span class="model-tooltip-line">模型名称：${model.name}</span>`
     + `<span class="model-tooltip-line">模型 ID：${model.id}</span>`
-    + `<span class="model-tooltip-line">输入价格：${formatTokenPrice(price.input)}</span>`
-    + `<span class="model-tooltip-line">音频价格：${formatTokenPrice(price.audio)}</span>`
-    + `<span class="model-tooltip-line">输出价格：${formatTokenPrice(price.output)}</span>`
+    + `<span class="model-tooltip-line">输入价格：${formatTokenPrice(price.input, price.currency)}</span>`
+    + `<span class="model-tooltip-line">音频价格：${formatTokenPrice(price.audio, price.currency)}</span>`
+    + `<span class="model-tooltip-line">输出价格：${formatTokenPrice(price.output, price.currency)}</span>`
   );
 }
 
@@ -495,4 +496,3 @@ export function getMicConfigProviderId(apiMode, modelId, endpoint, options = {})
   });
   return { providerId, micSupported };
 }
-

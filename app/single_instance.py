@@ -12,12 +12,37 @@ from __future__ import annotations
 
 import hashlib
 import os
+from dataclasses import dataclass
+from enum import Enum
 from typing import Callable
 
 from PyQt6.QtCore import QCoreApplication
 from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 
 _ACTIVATE_MSG = b"activate"
+
+
+class SingleInstanceAcquireKind(str, Enum):
+    PRIMARY = "primary"
+    ACTIVATED_EXISTING = "activated_existing"
+    ACTIVATION_FAILED = "activation_failed"
+
+
+@dataclass(frozen=True)
+class SingleInstanceAcquireResult:
+    kind: SingleInstanceAcquireKind
+
+    @property
+    def became_primary(self) -> bool:
+        return self.kind is SingleInstanceAcquireKind.PRIMARY
+
+    @property
+    def activated_existing(self) -> bool:
+        return self.kind is SingleInstanceAcquireKind.ACTIVATED_EXISTING
+
+    @property
+    def activation_failed(self) -> bool:
+        return self.kind is SingleInstanceAcquireKind.ACTIVATION_FAILED
 
 
 def _server_name() -> str:
@@ -32,14 +57,20 @@ class SingleInstanceGuard:
         self._server: QLocalServer | None = None
         self._activate_handler: Callable[[], None] | None = None
 
-    def try_acquire(self) -> bool:
-        """Return True if this process should become the primary instance."""
+    def try_acquire(self) -> SingleInstanceAcquireResult:
+        """Return explicit single-instance outcome for main() to branch on."""
         if self._activate_existing_instance():
-            return False
+            return SingleInstanceAcquireResult(
+                SingleInstanceAcquireKind.ACTIVATED_EXISTING
+            )
         if self._listen_primary():
-            return True
+            return SingleInstanceAcquireResult(SingleInstanceAcquireKind.PRIMARY)
         # Race window: another instance may have claimed the name between probe and listen.
-        return False if self._activate_existing_instance() else False
+        if self._activate_existing_instance():
+            return SingleInstanceAcquireResult(
+                SingleInstanceAcquireKind.ACTIVATED_EXISTING
+            )
+        return SingleInstanceAcquireResult(SingleInstanceAcquireKind.ACTIVATION_FAILED)
 
     def _activate_existing_instance(self) -> bool:
         probe = QLocalSocket()

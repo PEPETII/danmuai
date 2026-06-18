@@ -303,6 +303,40 @@ def test_empty_ai_reply_logs_warning(monkeypatch):
     assert any("empty_parse" in msg for msg in app.logger.warning_messages)
 
 
+def test_ai_reply_pipeline_fuzzy_dedup_keeps_fixed_five_contract(monkeypatch):
+    app = make_minimal_danmu_app()
+    app.ai_in_flight = 1
+    app._register_request_meta(10, 10, 0, "visual")
+    monkeypatch.setattr(
+        "app.reply_parser._scene_fillers",
+        lambda config=None: ["场景补位A", "场景补位B"],
+    )
+    monkeypatch.setattr(
+        "app.reply_parser._generic_fillers",
+        lambda config=None: ["泛用补位1", "泛用补位2", "泛用补位3"],
+    )
+    monkeypatch.setattr(
+        "main.parse_ai_reply_payload",
+        lambda _text: [
+            "这波操作太秀了",
+            "这波操作太秀啦",
+            "主播这波操作太秀了",
+            "后排围观一下",
+        ],
+    )
+
+    app._on_ai_reply('["ignored"]', "persona-1", 10, 10, time.monotonic(), 0)
+
+    assert app.reply_buffer.size() == 4
+    assert len(app.engine.calls) == 1
+    rendered, _persona = app.engine.calls[0]
+    queued = [item.content for item in app.reply_buffer._items]
+    all_items = [rendered, *queued]
+    assert len(all_items) == 5
+    assert "这波操作太秀啦" not in all_items
+    assert "主播这波操作太秀了" not in all_items
+
+
 def test_legacy_overlay_cache_fields_proxy_to_web_runtime_state():
     app = make_minimal_danmu_app()
 

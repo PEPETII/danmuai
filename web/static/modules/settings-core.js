@@ -22,11 +22,13 @@ let coreDeps = {
   syncVisionModelPickerFromForm: () => {},
   syncMicProviderPresetFromEndpoint: () => {},
   syncMicModelPickerFromForm: () => {},
+  populateMicInputDevices: async () => {},
   applyMicIndependentVisibility: () => {},
   updateMicModeHint: () => {},
   updateModelActiveSourceBanner: () => {},
   updateMicActiveSourceBanner: () => {},
   setMicAudioLikelySupported: () => {},
+  refreshDanmuPreview: () => {},
 };
 
 export function configureSettingsCore(deps) {
@@ -156,9 +158,14 @@ function applySettingsDefaults(scope) {
   coreDeps.syncMicProviderPresetFromEndpoint();
   const micModelId = configDefaultsCache.mic_model || document.getElementById('mic_model')?.value || '';
   coreDeps.syncMicModelPickerFromForm(micModelId);
+  coreDeps.populateMicInputDevices(
+    configDefaultsCache.mic_input_device_id || '',
+    { useConfigCurrentLabel: true },
+  );
   coreDeps.applyMicIndependentVisibility();
   coreDeps.updateMicModeHint();
   updateNormalBatchPreview();
+  coreDeps.refreshDanmuPreview();
   closeRestoreDefaultsModal();
   coreDeps.showToast('已恢复默认值，请点击「保存配置」生效');
 }
@@ -206,7 +213,7 @@ export function collectFormData() {
   return data;
 }
 
-export function fillForm(cfg) {
+export async function fillForm(cfg) {
   document.documentElement.dataset.petBarrageModeEnabled = petBarrageModeEnabledFromCfg(cfg) ? '1' : '0';
   const renderMode = resolveRenderModeFromCfg(cfg);
   const cfgWithMode = { ...cfg, danmu_render_mode: renderMode };
@@ -258,6 +265,7 @@ export function fillForm(cfg) {
   if (micUseVisual) micUseVisual.checked = cfg.mic_use_visual_model !== '0';
   const micWindow = document.getElementById('mic_window_sec');
   if (micWindow && !cfg.mic_window_sec) micWindow.value = configDefaultValue('mic_window_sec') || '5';
+  await coreDeps.populateMicInputDevices(cfg.mic_input_device_id || '');
   const micModelEl = document.getElementById('mic_model');
   const micModelId = cfg.mic_model || configDefaultValue('mic_model') || '';
   if (micModelEl) micModelEl.value = micModelId;
@@ -297,7 +305,8 @@ export function fillForm(cfg) {
 
 export async function reloadConfigFromServer() {
   const cfg = await apiFetch('/api/config');
-  fillForm(cfg);
+  await fillForm(cfg);
+  coreDeps.refreshDanmuPreview();
   coreDeps.syncProviderPresetFromEndpoint();
   const modelId = cfg.active_model_id || cfg.default_model_id || cfg.model || '';
   coreDeps.syncVisionModelPickerFromForm(modelId);

@@ -326,8 +326,8 @@ def test_apply_pet_settings_patch_invalid_local_path_keeps_existing_config(qapp)
 
 
 def test_sync_pet_window_visibility_noop_when_window_missing():
-    """PET-009: 启动期 _init_core_subsystems 顺序保证 pet_window 已创建；
-    但若缺失（如旧路径装配失败），façade 必须安全 no-op，不能抛异常。"""
+    """W-PET-LAZY-INIT-VISIBILITY-001: façade 纯显隐同步不负责创建；
+    直接调用 sync_pet_window_visibility 在 window 缺失时必须安全 no-op。"""
     from app.pet.pet_facade import sync_pet_window_visibility
 
     app = type("StubApp", (), {})()

@@ -264,7 +264,7 @@ class DanmuAppWebFacadeMixin:
     def run_mic_test(self, duration_sec: float, *, send_to_ai: bool = False) -> dict[str, object]:
         from dataclasses import asdict
 
-        from app.mic_service import mic_mode_enabled
+        from app.mic_service import mic_input_device_id_from_config, mic_mode_enabled
 
         if send_to_ai:
             from app.mic_test_send import run_mic_test_send
@@ -285,15 +285,18 @@ class DanmuAppWebFacadeMixin:
         from app.mic_test import run_mic_test
 
         keep_running = mic_mode_enabled(self.config)
+        preferred_device_id = mic_input_device_id_from_config(self.config)
         result = run_mic_test(
             self._mic_service,
             duration_sec,
             keep_running=keep_running,
+            preferred_device_id=preferred_device_id,
         )
         self.logger.info(
             "mic test "
             f"ok={result.ok} level={result.level} pcm_bytes={result.pcm_bytes} "
             f"rms={result.rms} peak={result.peak} wav_ok={result.wav_ok} "
-            f"device={result.default_input or 'unknown'}"
+            f"device={result.active_input_device_label or result.default_input or 'unknown'} "
+            f"fallback_to_default={result.fallback_to_default}"
         )
         return asdict(result)

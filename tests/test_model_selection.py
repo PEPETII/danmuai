@@ -37,7 +37,7 @@ def test_infer_provider_id_from_dashscope_endpoint():
     assert infer_provider_id(endpoint, "openai") == "dashscope"
 
 
-def test_validate_rejects_dashscope_endpoint_with_doubao_model():
+def test_validate_rejects_known_catalog_model_on_wrong_provider():
     with pytest.raises(ValueError, match="平台与模型不匹配|Provider and model"):
         validate_global_model_selection(
             "https://dashscope.aliyuncs.com/compatible-mode/v1",
@@ -69,6 +69,33 @@ def test_validate_allows_dashscope_catalog_model():
         "openai",
         dash_model,
         [],
+    )
+
+
+def test_validate_allows_freeform_model_for_catalog_provider():
+    validate_global_model_selection(
+        "https://ark.cn-beijing.volces.com/api/v3",
+        "doubao",
+        "ep-20260618-custom-vision",
+        [],
+    )
+
+
+def test_validate_web_config_allows_freeform_model_for_catalog_provider():
+    cfg = _Cfg(
+        {
+            "api_endpoint": "https://ark.cn-beijing.volces.com/api/v3",
+            "api_mode": "doubao",
+            "model": "doubao-seed-1-6-flash-250828",
+        }
+    )
+    validate_web_config_patch(
+        cfg,
+        {
+            "api_endpoint": "https://ark.cn-beijing.volces.com/api/v3",
+            "api_mode": "doubao",
+            "model": "ep-20260618-custom-vision",
+        },
     )
 
 
@@ -161,6 +188,35 @@ def test_validate_web_config_patch_merges_payload_with_existing_config():
     )
     with pytest.raises(ValueError):
         validate_web_config_patch(cfg, {"api_endpoint": "https://dashscope.aliyuncs.com/compatible-mode/v1"})
+
+
+def test_validate_web_config_patch_allows_active_custom_model_save():
+    model_id = "my-custom-vision"
+    cfg = _Cfg(
+        {
+            "api_endpoint": "https://ark.cn-beijing.volces.com/api/v3",
+            "api_mode": "doubao",
+            "model": model_id,
+            "default_model_id": model_id,
+            "custom_models": [
+                {
+                    "name": "Custom Vision",
+                    "modelId": model_id,
+                    "endpoint": "https://custom.example/v1",
+                    "apiKey": "sk-test",
+                    "mode": "openai",
+                }
+            ],
+        }
+    )
+    validate_web_config_patch(
+        cfg,
+        {
+            "api_endpoint": "https://ark.cn-beijing.volces.com/api/v3",
+            "api_mode": "doubao",
+            "model": model_id,
+        },
+    )
 
 
 def test_resolve_model_status_catalog_display_name():

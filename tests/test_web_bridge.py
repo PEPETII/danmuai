@@ -392,7 +392,10 @@ def test_quit_stops_web_status_timer_before_server_shutdown(monkeypatch):
         config=MagicMock(),
         overlay=MagicMock(),
         webview_shell=None,
-        web_server=MagicMock(),
+        web_server=MagicMock(
+            wait_shutdown_complete=MagicMock(return_value=True),
+            _thread=None,
+        ),
         stop_web_status_timer=MagicMock(),
         _pool_topup_timer=FakeTimer(),
     )
@@ -405,6 +408,7 @@ def test_quit_stops_web_status_timer_before_server_shutdown(monkeypatch):
     app.stop.assert_called_once_with()
     app.stop_web_status_timer.assert_called_once_with()
     app.web_server.stop.assert_called_once_with()
+    app.web_server.wait_shutdown_complete.assert_called_once_with()
     fake_pool.waitForDone.assert_called_once_with(2000)
     assert order[:4] == ["wait:2000", "history_stop", "close", "config_close"]
     quit_mock.assert_called_once_with()
@@ -435,7 +439,10 @@ def test_quit_logs_warning_when_thread_pool_does_not_finish(monkeypatch):
         config=MagicMock(),
         overlay=MagicMock(),
         webview_shell=None,
-        web_server=MagicMock(),
+        web_server=MagicMock(
+            wait_shutdown_complete=MagicMock(return_value=True),
+            _thread=None,
+        ),
         stop_web_status_timer=MagicMock(),
         _pool_topup_timer=FakeTimer(),
     )
@@ -445,5 +452,60 @@ def test_quit_logs_warning_when_thread_pool_does_not_finish(monkeypatch):
     app.logger.warning.assert_called_once()
     args = app.logger.warning.call_args[0]
     assert args[0].startswith("quit timed out waiting for AI worker thread pool")
+
+
+def test_quit_warns_when_web_console_shutdown_does_not_finish(monkeypatch):
+    import PyQt6.QtCore as qtcore
+
+    fake_pool = MagicMock()
+    fake_pool.waitForDone.return_value = True
+
+    class _FakeQThreadPool:
+        @staticmethod
+        def globalInstance():
+            return fake_pool
+
+    monkeypatch.setattr(qtcore, "QThreadPool", _FakeQThreadPool)
+    monkeypatch.setattr("main.QApplication.quit", MagicMock())
+
+    fake_thread = MagicMock()
+    fake_thread.is_alive.return_value = True
+    shutdown_requested = threading.Event()
+    shutdown_complete = threading.Event()
+    shutdown_requested.set()
+
+    web_server = MagicMock(
+        wait_shutdown_complete=MagicMock(return_value=False),
+        _thread=fake_thread,
+        startup_ok=False,
+    )
+    web_server._bind_failed = threading.Event()
+    web_server._shutdown_requested = shutdown_requested
+    web_server._shutdown_complete = shutdown_complete
+
+    app = SimpleNamespace(
+        logger=MagicMock(),
+        stop=MagicMock(),
+        _mic_service=MagicMock(),
+        hotkey=MagicMock(),
+        tray=MagicMock(),
+        ai_worker=MagicMock(),
+        history_writer=MagicMock(),
+        config=MagicMock(),
+        overlay=MagicMock(),
+        webview_shell=None,
+        web_server=web_server,
+        stop_web_status_timer=MagicMock(),
+        _pool_topup_timer=FakeTimer(),
+    )
+
+    DanmuApp.quit(app)
+
+    fake_thread.join.assert_called_once_with(timeout=0.2)
+    warning_calls = app.logger.warning.call_args_list
+    assert any(
+        call.args[0].startswith("quit timed out waiting for Web console shutdown")
+        for call in warning_calls
+    )
 
 

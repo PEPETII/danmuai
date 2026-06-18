@@ -5,6 +5,7 @@ from __future__ import annotations
 import threading
 import time
 from dataclasses import dataclass
+from typing import Literal
 
 import httpx
 
@@ -19,6 +20,7 @@ _APP_UPDATES_PATH = (
 
 _cache_lock = threading.Lock()
 _cache: tuple[float, AppUpdateRemote | None] | None = None
+AppUpdateCacheState = Literal["fresh", "cache_hit", "stale_fallback", "miss"]
 
 
 @dataclass(frozen=True)
@@ -26,6 +28,13 @@ class AppUpdateRemote:
     latest_version: str
     release_url: str
     message: str
+
+
+@dataclass(frozen=True)
+class AppUpdateFetchResult:
+    update: AppUpdateRemote | None
+    cache_state: AppUpdateCacheState
+    cache_age_sec: float | None = None
 
 
 def clear_app_update_cache() -> None:
@@ -66,26 +75,45 @@ def _fetch_remote() -> AppUpdateRemote | None:
     )
 
 
-def fetch_app_update(*, force_refresh: bool = False) -> AppUpdateRemote | None:
-    """Return latest enabled ``app_updates`` row; cache successes and reuse on transient errors."""
+def fetch_app_update_result(*, force_refresh: bool = False) -> AppUpdateFetchResult:
+    """Return latest enabled ``app_updates`` row with cache freshness metadata."""
     global _cache
     now = time.monotonic()
     with _cache_lock:
-        if (
-            not force_refresh
-            and _cache is not None
-            and now - _cache[0] < _CACHE_TTL_SEC
-        ):
-            return _cache[1]
+        cached = _cache
+        if not force_refresh and cached is not None and now - cached[0] < _CACHE_TTL_SEC:
+            cached_age = max(0.0, now - cached[0])
+            if cached[1] is None:
+                return AppUpdateFetchResult(update=None, cache_state="miss", cache_age_sec=cached_age)
+            return AppUpdateFetchResult(
+                update=cached[1],
+                cache_state="cache_hit",
+                cache_age_sec=cached_age,
+            )
 
     try:
         result = _fetch_remote()
     except (httpx.HTTPError, ValueError, TypeError):
         with _cache_lock:
-            if _cache is not None:
-                return _cache[1]
-        return None
+            cached = _cache
+        if cached is not None:
+            cached_age = max(0.0, time.monotonic() - cached[0])
+            if cached[1] is None:
+                return AppUpdateFetchResult(update=None, cache_state="miss", cache_age_sec=cached_age)
+            return AppUpdateFetchResult(
+                update=cached[1],
+                cache_state="stale_fallback",
+                cache_age_sec=cached_age,
+            )
+        return AppUpdateFetchResult(update=None, cache_state="miss")
 
     with _cache_lock:
         _cache = (now, result)
-    return result
+    if result is None:
+        return AppUpdateFetchResult(update=None, cache_state="miss", cache_age_sec=0.0)
+    return AppUpdateFetchResult(update=result, cache_state="fresh", cache_age_sec=0.0)
+
+
+def fetch_app_update(*, force_refresh: bool = False) -> AppUpdateRemote | None:
+    """Return latest enabled ``app_updates`` row; cache successes and reuse on transient errors."""
+    return fetch_app_update_result(force_refresh=force_refresh).update

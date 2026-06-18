@@ -13,6 +13,7 @@
 """
 import json
 import logging
+import math
 import os
 import sqlite3
 import threading
@@ -377,13 +378,40 @@ class ConfigStore:
         with self._write_lock:
             yield self.conn
 
+    @staticmethod
+    def _normalize_numeric_text(value: object) -> str:
+        if value is None:
+            return ""
+        if isinstance(value, str):
+            return value.strip()
+        return str(value).strip()
+
     def get_int(self, key: str, default: int = 0) -> int:
-        val = self.get(key)
-        return int(val) if val else default
+        val = self._normalize_numeric_text(self.get(key, ""))
+        if not val:
+            return default
+        try:
+            return int(val)
+        except (TypeError, ValueError):
+            try:
+                parsed = float(val)
+            except (TypeError, ValueError):
+                return default
+            if not math.isfinite(parsed) or not parsed.is_integer():
+                return default
+            return int(parsed)
 
     def get_float(self, key: str, default: float = 0.0) -> float:
-        val = self.get(key)
-        return float(val) if val else default
+        val = self._normalize_numeric_text(self.get(key, ""))
+        if not val:
+            return default
+        try:
+            parsed = float(val)
+        except (TypeError, ValueError):
+            return default
+        if not math.isfinite(parsed):
+            return default
+        return parsed
 
     def get_json(self, key: str, default: list | dict | None = None) -> list | dict:
         val = self.get(key)

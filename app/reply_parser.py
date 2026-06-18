@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import random
 import re
+from difflib import SequenceMatcher
 from typing import TYPE_CHECKING
 
 from app.danmu_pool import load_danmu_pool_for_config, sample_danmu_for_config
@@ -23,12 +24,59 @@ _COMMENT_KEYS = ("comments", "replies", "items", "data")
 _COMMENTS_ARRAY_RE = re.compile(r'"comments"\s*:\s*\[([^\]]*)\]', re.DOTALL)
 _SCENE_BRIEF_VALUE_RE = re.compile(r'"scene_brief"\s*:\s*"([^"]*)"')
 _HEURISTIC_SKIP = frozenset({"comments", "scene_brief", ":", ""})
+_PLACEHOLDER_COMMENT_RE = re.compile(
+    r"^(?:comment|comments|评论|弹幕)\s*[-_#:]?\s*\d{1,3}$",
+    re.IGNORECASE,
+)
+_FUZZY_BATCH_THRESHOLD = 0.82
+
+# MiniMax reasoning tags: <think>...</think> blocks leak into replies when
+# reasoning_split is not honored; strip them before parsing.
+_REASONING_OPEN = "<think>"
+_REASONING_CLOSE = "</think>"
+_REASONING_BLOCK_RE = re.compile(r"<think>.*?</think>", re.DOTALL)
+_REASONING_OPEN_RE = re.compile(r"<think>.*$", re.DOTALL)
+_REASONING_CLOSE_LEADING_RE = re.compile(r"^.*?</think>", re.DOTALL)
+
+# Plain-text reasoning preamble prefixes (conservative: only obvious leakage).
+# Note: no \b after Chinese prefixes — \b doesn't work between CJK chars.
+_REASONING_PREAMBLE_LINE_RE = re.compile(
+    r"^\s*(?:\.{3}|>>|让我想想|让我思考|思考一下|思考[：:]|reasoning\s*[:：]|let me think)",
+    re.IGNORECASE,
+)
+
+
+def _strip_reasoning_tags(raw: str) -> str:
+    """Remove MiniMax-style </think>...</think> reasoning blocks from raw text.
+
+    Handles three cases:
+    1. Complete ``\u200b...\u200b`` blocks (tags included).
+    2. Unclosed ``\u200b...`` (from ``\u200b`` to end of string).
+    3. Unclosed ``...\u200b`` (from start of string to ``\u200b``).
+    """
+    if not raw or _REASONING_OPEN not in raw and _REASONING_CLOSE not in raw:
+        return raw
+    result = _REASONING_BLOCK_RE.sub("", raw)
+    result = _REASONING_OPEN_RE.sub("", result)
+    result = _REASONING_CLOSE_LEADING_RE.sub("", result)
+    return result
+
+
+def _is_reasoning_preamble_line(line: str) -> bool:
+    """Detect obvious reasoning preamble leakage in plain-text fallback.
+
+    Conservative: only matches lines that clearly look like reasoning preamble
+    (e.g. ``让我想想...``, ``思考：...``, ``reasoning: ...``, ``>> ...``).
+    """
+    return _REASONING_PREAMBLE_LINE_RE.match(line) is not None
 
 
 def _is_usable_comment(value: str) -> bool:
     """过滤 JSON 碎片、纯标点等不可上屏的伪弹幕。"""
     text = str(value).strip()
     if not text or text in _HEURISTIC_SKIP:
+        return False
+    if _PLACEHOLDER_COMMENT_RE.match(text):
         return False
     if len(text) == 1 and not text.isalnum():
         return False
@@ -145,6 +193,23 @@ def _normalize_comment_list(candidates) -> list[str]:
     return normalized
 
 
+def _batch_has_similar_text(
+    value: str,
+    existing: list[str],
+    *,
+    threshold: float = _FUZZY_BATCH_THRESHOLD,
+) -> bool:
+    """批内模糊去重：只拦截已经出现过的近似重复短句。"""
+    for prev in existing:
+        if value == prev:
+            return True
+        if abs(len(value) - len(prev)) > 3:
+            continue
+        if SequenceMatcher(None, value, prev).ratio() >= threshold:
+            return True
+    return False
+
+
 def _extract_comments_from_dict(parsed: dict) -> list[str]:
     for key in _COMMENT_KEYS:
         value = parsed.get(key)
@@ -157,7 +222,7 @@ def _extract_comments_from_dict(parsed: dict) -> list[str]:
 
 def parse_ai_reply_payload(text: str) -> list[str]:
     """解析 AI 原始文本为弹幕列表。"""
-    raw = str(text or "").strip()
+    raw = _strip_reasoning_tags(str(text or "").strip()).strip()
     if not raw:
         return []
 
@@ -180,7 +245,7 @@ def parse_ai_reply_payload(text: str) -> list[str]:
         candidates = [
             part.strip(" -\t\r\n")
             for part in raw.replace("\r", "\n").split("\n")
-            if part.strip()
+            if part.strip() and not _is_reasoning_preamble_line(part)
         ]
 
     return _normalize_comment_list(candidates)
@@ -231,6 +296,8 @@ def normalize_reply_batch(
     for item in items:
         value = str(item).strip()
         if not _is_usable_comment(value) or value in seen:
+            continue
+        if _batch_has_similar_text(value, cleaned):
             continue
         seen.add(value)
         cleaned.append(value)

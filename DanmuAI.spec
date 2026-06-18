@@ -13,8 +13,10 @@ PyInstaller spec for DanmuAI（Web 控制台 + pywebview + Qt overlay）。
       ``uvicorn.protocols.http.auto`` / ``uvicorn.protocols.websockets.auto``
       / ``uvicorn.lifespan.on``（PyInstaller 静态分析不到协议自动选择）
     - 我们的 app 子模块（``app.web_console`` / ``app.webview_shell`` /
-      ``app.startup_trace`` / ``app.web_api.*`` / ``app.bundle_paths``）
-      也显式列出 — 这些模块用 importlib 动态 import，PyInstaller 扫描不到
+      ``app.startup_trace`` / ``app.web_api.*`` / ``app.bundle_paths`` 等）
+      及函数内延迟 import 路径（桌宠、卸载、live_overlay）也显式列出 —
+      PyInstaller 静态分析可能漏收子进程入口与延迟 ``from app…``
+    - 可选第三方懒加载（``keyboard``、``dashscope`` TTS）亦列入 hiddenimports
     - ``console=False``：发布为 GUI 应用（无控制台窗口）；debug 关闭
 
 产物路径：``dist/DanmuAI/DanmuAI.exe``（Windows）。
@@ -112,6 +114,17 @@ hiddenimports: list[str] = [
     "app.velopack_config",
     "app.update_service",
     "app.web_api.update",
+    "app.web_api.live_overlay",
+    "app.uninstall_service",
+    "app.font_registry",
+    "app.pet.pet_window",
+    "app.pet.pet_barrage",
+    "app.pet.pet_command_service",
+    "app.pet.pet_facade",
+    "app.pet.pet_assets",
+    "keyboard",
+    "dashscope",
+    "dashscope.audio.qwen_tts_realtime",
     "velopack",
 ]
 

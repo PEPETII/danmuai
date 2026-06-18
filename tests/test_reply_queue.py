@@ -139,3 +139,62 @@ def test_drop_one_tail_skips_non_replaceable_fallback():
     assert buf._drop_one_tail_replaceable_fallback() is False
     assert buf.size() == 1
     assert buf.pop().content == "locked-fb"
+
+
+def test_purge_stale_by_generation_drops_old_ai_and_fallback():
+    buf = AIReplyFIFOBuffer(max_items=8)
+    buf.push(
+        QueuedReply("p", 0, 0, "old-ai", source="ai", scene_generation=0)
+    )
+    buf.push(
+        QueuedReply(
+            "p",
+            0,
+            0,
+            "old-fb",
+            source="fallback",
+            is_fallback=True,
+            replaceable=True,
+            scene_generation=0,
+        )
+    )
+    buf.push(
+        QueuedReply("p", 0, 0, "fresh-ai", source="ai", scene_generation=1)
+    )
+
+    dropped = buf.purge_stale_by_generation(1)
+
+    assert dropped == 2
+    assert buf.size() == 1
+    assert buf.pop().content == "fresh-ai"
+
+
+def test_purge_stale_by_generation_preserves_old_mic():
+    buf = AIReplyFIFOBuffer(max_items=8)
+    buf.push(
+        QueuedReply("p", 0, 0, "old-ai", source="ai", scene_generation=0)
+    )
+    buf.push(
+        QueuedReply("p", 0, 0, "keep-mic", source="mic", scene_generation=0)
+    )
+
+    dropped = buf.purge_stale_by_generation(1)
+
+    assert dropped == 1
+    assert buf.size() == 1
+    assert buf.pop().content == "keep-mic"
+
+
+def test_drop_older_generations_removes_all_sources_including_mic():
+    buf = AIReplyFIFOBuffer(max_items=8)
+    buf.push(
+        QueuedReply("p", 0, 0, "old-mic", source="mic", scene_generation=0)
+    )
+    buf.push(
+        QueuedReply("p", 0, 0, "old-ai", source="ai", scene_generation=0)
+    )
+
+    dropped = buf.drop_older_generations(1)
+
+    assert dropped == 2
+    assert buf.is_empty()

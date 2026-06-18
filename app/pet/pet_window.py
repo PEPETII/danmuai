@@ -10,7 +10,19 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
 from PyQt6.QtCore import QEvent, QPoint, QRectF, Qt, QTimer
-from PyQt6.QtGui import QAction, QColor, QFont, QPainter, QPainterPath, QPen, QPixmap, QTextOption
+from PyQt6.QtGui import (
+    QAction,
+    QAbstractTextDocumentLayout,
+    QColor,
+    QFont,
+    QPainter,
+    QPainterPath,
+    QPalette,
+    QPen,
+    QPixmap,
+    QTextDocument,
+    QTextOption,
+)
 from PyQt6.QtWidgets import QApplication, QLineEdit, QMenu, QWidget
 
 from app.pet.pet_animation_mapper import resolve_pet_animation_hint
@@ -49,6 +61,136 @@ _COMMAND_BAND_HEIGHT = _COMMAND_EDIT_HEIGHT + _COMMAND_SPRITE_GAP
 _BUBBLE_MAX_WIDTH = 280
 _BUBBLE_FADE_STEP = 0.14
 _BUBBLE_MAX_ALPHA = 0.92
+_BUBBLE_RADIUS = 20
+_BUBBLE_BORDER_WIDTH = 2
+_BUBBLE_BG_RGB = (255, 252, 248)
+_BUBBLE_BORDER_RGB = (45, 45, 50)
+_BUBBLE_TEXT_RGB = (35, 35, 40)
+_BUBBLE_TAIL_GAP = 10
+_BUBBLE_PADDING_X = 14
+_BUBBLE_PADDING_Y = 11
+_BUBBLE_MAX_HEIGHT = 180
+_BUBBLE_MIN_HEIGHT = 44
+_BUBBLE_MIN_WIDTH = 160
+_BUBBLE_BAND_HEIGHT = 200
+_BUBBLE_HEAD_ANCHOR_Y = 12
+_BUBBLE_TAIL_LENGTH = 18
+_BUBBLE_TAIL_BASE_HALF_W = 9
+@dataclass(frozen=True)
+class BubbleLayout:
+    bubble_x: float
+    bubble_y: float
+    bubble_w: float
+    bubble_h: float
+    show_left: bool
+    sprite_x: float
+    text_rect: QRectF
+    text_document: QTextDocument
+    tail_tip_x: float
+    tail_tip_y: float
+
+
+def bubble_layout_width(pet_w: int) -> int:
+    return min(_BUBBLE_MAX_WIDTH, max(_BUBBLE_MIN_WIDTH, int(pet_w * 1.35)))
+
+
+def window_content_width(pet_w: int) -> int:
+    return max(pet_w, bubble_layout_width(pet_w))
+
+
+def bubble_colors(alpha: float) -> tuple[QColor, QColor, QColor]:
+    channel = int(255 * alpha)
+    bg = QColor(*_BUBBLE_BG_RGB, channel)
+    border = QColor(*_BUBBLE_BORDER_RGB, channel)
+    text = QColor(*_BUBBLE_TEXT_RGB, channel)
+    return bg, border, text
+
+
+def _build_bubble_text_document(*, text: str, text_width: float, font: QFont) -> QTextDocument:
+    document = QTextDocument()
+    document.setDocumentMargin(0.0)
+    document.setDefaultFont(font)
+    option = document.defaultTextOption()
+    option.setWrapMode(QTextOption.WrapMode.WrapAtWordBoundaryOrAnywhere)
+    document.setDefaultTextOption(option)
+    document.setPlainText(text)
+    document.setTextWidth(max(0.0, float(text_width)))
+    return document
+
+
+def compute_bubble_layout(
+    *,
+    pet_w: int,
+    sprite_y: int,
+    command_band_y: int,
+    bubble_text: str,
+    painter: QPainter,
+    geo_center_x: float,
+    window_x: int,
+) -> BubbleLayout | None:
+    text = str(bubble_text or "").strip()
+    if not text:
+        return None
+    bubble_w = bubble_layout_width(pet_w)
+    text_inner_w = bubble_w - 2 * _BUBBLE_PADDING_X
+    text_document = _build_bubble_text_document(
+        text=text,
+        text_width=text_inner_w,
+        font=painter.font(),
+    )
+    text_height = text_document.size().height()
+    bubble_h = min(
+        _BUBBLE_MAX_HEIGHT,
+        max(_BUBBLE_MIN_HEIGHT, text_height + 2 * _BUBBLE_PADDING_Y),
+    )
+    content_w = window_content_width(pet_w)
+    overflow = content_w - pet_w
+    show_left = window_x + content_w - pet_w / 2.0 > geo_center_x
+    if show_left:
+        sprite_x = float(overflow)
+        bubble_x = 0.0 if overflow > 0 else float(pet_w - bubble_w)
+    else:
+        sprite_x = 0.0
+        bubble_x = 0.0
+    tail_tip_y = float(sprite_y + _BUBBLE_HEAD_ANCHOR_Y)
+    bubble_y = tail_tip_y - _BUBBLE_TAIL_LENGTH - _BUBBLE_TAIL_GAP - bubble_h
+    bubble_y = max(float(command_band_y), bubble_y)
+    return BubbleLayout(
+        bubble_x=bubble_x,
+        bubble_y=bubble_y,
+        bubble_w=float(bubble_w),
+        bubble_h=float(bubble_h),
+        show_left=show_left,
+        sprite_x=sprite_x,
+        text_rect=QRectF(
+            bubble_x + _BUBBLE_PADDING_X,
+            bubble_y + _BUBBLE_PADDING_Y,
+            text_inner_w,
+            max(0.0, bubble_h - 2 * _BUBBLE_PADDING_Y),
+        ),
+        text_document=text_document,
+        tail_tip_x=sprite_x + pet_w * 0.5,
+        tail_tip_y=tail_tip_y,
+    )
+
+
+def build_bubble_path(layout: BubbleLayout) -> QPainterPath:
+    path = QPainterPath()
+    rect = QRectF(layout.bubble_x, layout.bubble_y, layout.bubble_w, layout.bubble_h)
+    path.addRoundedRect(rect, _BUBBLE_RADIUS, _BUBBLE_RADIUS)
+
+    tail_base_x = layout.bubble_x + (layout.bubble_w * (0.28 if layout.show_left else 0.72))
+    base_y = rect.bottom() - 1.0
+    left_x = tail_base_x - _BUBBLE_TAIL_BASE_HALF_W
+    right_x = tail_base_x + _BUBBLE_TAIL_BASE_HALF_W
+    tip_x = layout.tail_tip_x
+    tip_y = layout.tail_tip_y
+
+    path.moveTo(left_x, base_y)
+    path.lineTo(tip_x, tip_y)
+    path.lineTo(right_x, base_y)
+    path.closeSubpath()
+    return path
 
 
 def command_band_height(command_visible: bool) -> int:
@@ -56,9 +198,19 @@ def command_band_height(command_visible: bool) -> int:
     return _COMMAND_BAND_HEIGHT if command_visible else 0
 
 
+def bubble_band_height() -> int:
+    """Fixed top band reserved for speech-bubble paint above the sprite."""
+    return _BUBBLE_BAND_HEIGHT
+
+
 def sprite_y_offset(command_visible: bool) -> int:
-    """Vertical offset for sprite paint/draw when the command box occupies the top band."""
-    return _COMMAND_BAND_HEIGHT if command_visible else 0
+    """Vertical offset for sprite paint/draw below command and bubble bands."""
+    return command_band_height(command_visible) + bubble_band_height()
+
+
+def window_content_height(pet_h: int, command_visible: bool) -> int:
+    """Total PetWindow height: sprite + command band + bubble band."""
+    return pet_h + command_band_height(command_visible) + bubble_band_height()
 
 
 @dataclass(frozen=True)
@@ -152,6 +304,7 @@ class PetWindow(QWidget):
         self._bubble_text = ""
         self._bubble_alpha = 0.0
         self._bubble_target_alpha = 0.0
+        self._bubble_show_left: bool | None = None
 
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint
@@ -318,14 +471,37 @@ class PetWindow(QWidget):
     def _sprite_y_offset(self) -> int:
         return sprite_y_offset(self._command_box_open())
 
+    def _sync_bubble_horizontal_side(self, show_left: bool, pet_w: int) -> int:
+        overflow = max(0, window_content_width(pet_w) - pet_w)
+        prev = self._bubble_show_left
+        if overflow > 0:
+            if prev is None and show_left:
+                self.move(self.x() - overflow, self.y())
+            elif prev is not None and prev != show_left:
+                self.move(self.x() + (-overflow if show_left else overflow), self.y())
+        self._bubble_show_left = show_left
+        return overflow if show_left else 0
+
+    def _resolve_sprite_x(self, pet_w: int) -> int:
+        geo = self._available_geometry()
+        if geo is None:
+            return 0
+        content_w = window_content_width(pet_w)
+        show_left = self.x() + content_w - pet_w / 2.0 > geo.center().x()
+        return self._sync_bubble_horizontal_side(show_left, pet_w)
+
     def _apply_window_geometry(self, *, reposition: bool = False) -> None:
         w, h = self._pet_size()
-        band = self._command_band_height()
+        content_w = window_content_width(w)
+        command_open = self._command_box_open()
+        total_h = window_content_height(h, command_open)
         pos_before = (self.x(), self.y())
-        self.setFixedSize(w, h + band)
-        self._command_edit.setGeometry(0, 0, w, _COMMAND_EDIT_HEIGHT)
+        old_h = self.height() if self.height() > 0 else total_h
+        self.setFixedSize(content_w, total_h)
+        self._command_edit.setGeometry(0, 0, content_w, _COMMAND_EDIT_HEIGHT)
         if not reposition:
-            self.move(pos_before[0], pos_before[1])
+            delta = total_h - old_h
+            self.move(pos_before[0], pos_before[1] - delta)
             return
         screen = QApplication.primaryScreen()
         if screen is None:
@@ -338,10 +514,10 @@ class PetWindow(QWidget):
         if y is None:
             y = self._settings.position_y
         if x is None or y is None:
-            x = geo.right() - w - 40
-            y = geo.bottom() - h - 80
-        x = max(geo.left(), min(int(x), geo.right() - w))
-        y = max(geo.top(), min(int(y), geo.bottom() - (h + band)))
+            x = geo.right() - content_w - 40
+            y = geo.bottom() - total_h - 80
+        x = max(geo.left(), min(int(x), geo.right() - content_w))
+        y = max(geo.top(), min(int(y), geo.bottom() - total_h))
         self.move(int(x), int(y))
 
     def _apply_win32_surface(self) -> None:
@@ -538,52 +714,44 @@ class PetWindow(QWidget):
         opacity = max(0.2, min(self._settings.opacity, 1.0))
         painter.setOpacity(opacity)
         sx, sy, sw, sh = self._pack.frame_rect(self._animation_state, self._frame_index)
-        painter.drawPixmap(0, y_offset, w, h, self._spritesheet, sx, sy, sw, sh)
-        self._paint_bubble(painter, w, h, y_offset)
+        sprite_x = self._resolve_sprite_x(w)
+        painter.drawPixmap(sprite_x, y_offset, w, h, self._spritesheet, sx, sy, sw, sh)
+        painter.setOpacity(1.0)
+        self._paint_bubble(painter, w, y_offset)
 
-    def _paint_bubble(self, painter: QPainter, pet_w: int, _pet_h: int, y_offset: int) -> None:
+    def _paint_bubble(self, painter: QPainter, pet_w: int, sprite_y: int) -> None:
         if not self._bubble_text or self._bubble_alpha <= 0.01:
             return
         geo = self._available_geometry()
         if geo is None:
             return
         painter.save()
+        painter.setOpacity(1.0)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         font = QFont("Microsoft YaHei", 10)
         painter.setFont(font)
-        option = QTextOption()
-        option.setWrapMode(QTextOption.WrapMode.WordWrap)
-        bubble_w = min(_BUBBLE_MAX_WIDTH, max(160, int(pet_w * 1.35)))
-        measure = painter.boundingRect(
-            QRectF(0, 0, bubble_w - 24, 180).toRect(),
-            int(Qt.TextFlag.TextWordWrap),
-            self._bubble_text,
+        layout = compute_bubble_layout(
+            pet_w=pet_w,
+            sprite_y=sprite_y,
+            command_band_y=self._command_band_height(),
+            bubble_text=self._bubble_text,
+            painter=painter,
+            geo_center_x=geo.center().x(),
+            window_x=self.x(),
         )
-        bubble_h = min(180, max(44, measure.height() + 18))
-        show_left = self.x() + pet_w > geo.center().x()
-        bubble_x = pet_w - bubble_w if show_left else 0
-        bubble_y = max(2, y_offset - bubble_h - 14)
-
-        path = QPainterPath()
-        rect = QRectF(bubble_x, bubble_y, bubble_w, bubble_h)
-        path.addRoundedRect(rect, 14, 14)
-        tail_base_x = bubble_x + (bubble_w * (0.28 if show_left else 0.72))
-        path.moveTo(tail_base_x - 10, rect.bottom() - 2)
-        path.lineTo(tail_base_x + 10, rect.bottom() - 2)
-        path.lineTo((pet_w * 0.5), y_offset + 6)
-        path.closeSubpath()
-
-        bg = QColor(30, 30, 38, int(255 * self._bubble_alpha))
-        border = QColor(255, 255, 255, int(120 * self._bubble_alpha))
-        text_color = QColor(255, 255, 255, int(255 * self._bubble_alpha))
+        if layout is None:
+            painter.restore()
+            return
+        path = build_bubble_path(layout)
+        bg, border, text_color = bubble_colors(self._bubble_alpha)
         painter.fillPath(path, bg)
-        painter.setPen(QPen(border, 1))
+        painter.setPen(QPen(border, _BUBBLE_BORDER_WIDTH))
         painter.drawPath(path)
-        painter.setPen(text_color)
-        painter.drawText(
-            QRectF(bubble_x + 12, bubble_y + 9, bubble_w - 24, bubble_h - 16),
-            self._bubble_text,
-            option,
-        )
+        painter.translate(layout.text_rect.topLeft())
+        context = QAbstractTextDocumentLayout.PaintContext()
+        context.clip = QRectF(0, 0, layout.text_rect.width(), layout.text_rect.height())
+        context.palette.setColor(QPalette.ColorRole.Text, text_color)
+        layout.text_document.documentLayout().draw(painter, context)
         painter.restore()
 
     def mousePressEvent(self, event) -> None:

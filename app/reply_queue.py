@@ -15,13 +15,16 @@
 1. **入队 push**：按到达顺序追加；超出 max_items 时从队首丢弃最旧条目（容量裁剪）。
 2. **fallback 替换**：本地轻量兜底弹幕（replaceable=True）可被同批次的 AI 回复顶掉。
 
-scene_generation 字段随请求携带供记忆/日志；运行期恒为 0。本队列不做 TTL 判定。
+scene_generation 随请求携带，场景配置变更时由 DanmuApp 递增；purge_stale_by_generation
+在 bump 后清理队列内落后的 ai/fallback（mic 保留）。本队列不做 TTL 判定。
 """
 import logging
 from collections import deque
 from dataclasses import dataclass
 
 _logger = logging.getLogger(__name__)
+
+_STALE_VISUAL_SOURCES = frozenset({"ai", "fallback"})
 
 
 @dataclass(frozen=True)
@@ -35,7 +38,7 @@ class QueuedReply:
     screenshot_round: int = 0  # 调度轮次（粗粒度）；purge_before_round 按此淘汰
     screenshot_id: int = 0  # 逐帧 id，随请求/RTT 元数据携带；当前不参与 stale 硬丢弃
     captured_at: float = 0.0  # 截图 monotonic 时间戳（元数据）；当前不参与 TTL 硬丢弃
-    scene_generation: int = 0  # 记忆/日志兼容字段（运行期恒为 0）
+    scene_generation: int = 0  # 场景版本；live_topic 等变更时递增，供 stale 判定与 purge
     batch_id: int = 0  # drop_replaceable_fallbacks / 批次锚点加速
     request_id: str = ""  # 视觉 vs 麦克风来源；drop_replaceable_fallbacks 匹配
     is_fallback: bool = False  # True=本地轻量兜底批次，非模型输出
@@ -70,6 +73,7 @@ class AIReplyFIFOBuffer:
     ) -> None:
         if self._max_items <= 0:
             return
+        size_before = len(self._items)
         dropped = 0
         while len(self._items) > self._max_items:
             if (
@@ -85,12 +89,21 @@ class AIReplyFIFOBuffer:
                 self._items.pop()
             dropped += 1
         if dropped:
+            from app.main_request_context_mixin import reply_pipeline_log_enabled
+
+            extra = ""
+            if reply_pipeline_log_enabled():
+                extra = (
+                    f" queue_size_before={size_before}"
+                    f" queue_size_after={len(self._items)}"
+                )
             _logger.warning(
                 "reply_queue trim: dropped=%s max_items=%s drop_from_left=%s "
-                "reason=reply_queue_trim",
+                "reason=reply_queue_trim%s",
                 dropped,
                 self._max_items,
                 drop_from_left,
+                extra,
             )
 
     def push(self, item: QueuedReply):
@@ -186,8 +199,29 @@ class AIReplyFIFOBuffer:
             item for item in self._items if item.screenshot_round >= min_round
         )
 
-    def drop_older_generations(self, min_generation: int):
-        """丢弃 scene_generation < min_generation 的条目（历史兼容；运行期 generation 常为 0）。"""
-        self._items = deque(
-            item for item in self._items if item.scene_generation >= min_generation
-        )
+    def purge_stale_by_generation(
+        self,
+        min_generation: int,
+        *,
+        sources: frozenset[str] | None = _STALE_VISUAL_SOURCES,
+    ) -> int:
+        """丢弃 scene_generation < min_generation 的条目，返回删除条数。
+
+        默认仅清理 source 为 ai/fallback 的项，mic 保留。
+        sources=None 时与 drop_older_generations 一致（全部来源）。
+        """
+        before = len(self._items)
+
+        def _keep(item: QueuedReply) -> bool:
+            if item.scene_generation >= min_generation:
+                return True
+            if sources is None:
+                return False
+            return item.source not in sources
+
+        self._items = deque(item for item in self._items if _keep(item))
+        return before - len(self._items)
+
+    def drop_older_generations(self, min_generation: int) -> int:
+        """丢弃 scene_generation < min_generation 的条目（全部来源，含 mic）。"""
+        return self.purge_stale_by_generation(min_generation, sources=None)

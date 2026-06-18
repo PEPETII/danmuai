@@ -20,36 +20,39 @@ def test_model_catalog_api_payload():
     from app.model_catalog import list_platform_catalogs
 
     platforms = list_platform_catalogs()
-    assert len(platforms) == 4
+    assert len(platforms) == 5
     by_id = {p["platform_id"]: p for p in platforms}
 
     doubao = by_id["doubao"]
     assert doubao["provider_id"] == "doubao"
-    assert len(doubao["models"]) == 5
+    assert len(doubao["models"]) == 7
     doubao_cheapest = [m for m in doubao["models"] if m["cheapest"]]
     assert len(doubao_cheapest) == 1
     assert doubao_cheapest[0]["id"] == "doubao-seed-1-6-flash-250828"
     doubao_mic = {m["id"] for m in doubao["models"] if m["supports_mic"]}
     assert doubao_mic == {
+        "doubao-seed-2-0-pro-260215",
         "doubao-seed-2-0-lite-260428",
         "doubao-seed-2-0-mini-260428",
     }
 
     dashscope = by_id["dashscope"]
     assert dashscope["provider_id"] == "dashscope"
-    assert len(dashscope["models"]) == 6
+    assert len(dashscope["models"]) == 10
     dash_cheapest = [m for m in dashscope["models"] if m["cheapest"]]
     assert len(dash_cheapest) == 1
     assert dash_cheapest[0]["id"] == "qwen3-vl-flash"
+    assert all(m["id"] != "qwen3-vl-max" for m in dashscope["models"])
     dash_mic = {m["id"] for m in dashscope["models"] if m["supports_mic"]}
     assert dash_mic == set()
 
     siliconflow = by_id["siliconflow"]
     assert siliconflow["platform_label"] == "硅基流动"
-    assert len(siliconflow["models"]) == 9
+    assert len(siliconflow["models"]) == 10
     sf_cheapest = [m for m in siliconflow["models"] if m["cheapest"]]
     assert len(sf_cheapest) == 1
     assert sf_cheapest[0]["id"] == "Qwen/Qwen3-VL-8B-Instruct"
+    assert all(m["id"] != "zai-org/GLM-4.6V" for m in siliconflow["models"])
 
     mimo = by_id["mimo"]
     assert mimo["provider_id"] == "mimo"
@@ -58,6 +61,11 @@ def test_model_catalog_api_payload():
     mimo_ids = {m["id"] for m in mimo["models"]}
     assert mimo_ids == {"mimo-v2.5"}
     assert mimo["models"][0]["supports_mic"] is True
+
+    zai = by_id["zai"]
+    assert zai["provider_id"] == "zai"
+    assert zai["default_model_id"] == "glm-4.6v"
+    assert {m["id"] for m in zai["models"]} == {"glm-4.6v", "glm-4.5v"}
 
 
 def test_providers_excludes_deepseek():
@@ -127,6 +135,64 @@ def test_provider_rules_resolve_endpoint():
         )
         assert res.status_code == 200
         assert res.json() == resolve_provider_for_ui(endpoint, api_mode)
+
+
+def test_mic_devices_endpoint_payload(monkeypatch):
+    from app.web_api.routes import register_web_routes
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    app = FastAPI()
+    bridge = MagicMock()
+    bridge.danmu_app.config = FakeConfig()
+
+    def _check_token(_authorization: str | None = None) -> None:
+        return None
+
+    monkeypatch.setattr(
+        "app.web_api.mic_test.list_mic_devices",
+        lambda _app: {
+            "available": True,
+            "default_input_device_id": 2,
+            "default_input_device_label": "Mic 2",
+            "devices": [
+                {"id": 2, "name": "Mic 2", "is_default": True, "max_input_channels": 1},
+                {"id": 5, "name": "Mic 5", "is_default": False, "max_input_channels": 2},
+            ],
+        },
+    )
+
+    register_web_routes(app, bridge, _check_token)
+    client = TestClient(app)
+
+    res = client.get("/api/mic/devices")
+    assert res.status_code == 200
+    payload = res.json()
+    assert payload["available"] is True
+    assert payload["default_input_device_id"] == 2
+    assert payload["default_input_device_label"] == "Mic 2"
+    assert payload["devices"][0]["is_default"] is True
+
+
+def test_web_settings_ui_contains_mic_input_device_field():
+    from app.bundle_paths import project_root
+
+    root = project_root()
+    html = (root / "web" / "static" / "partials" / "settings.html").read_text(encoding="utf-8")
+    settings_defaults = (
+        root / "web" / "static" / "modules" / "settings-defaults.js"
+    ).read_text(encoding="utf-8")
+    settings_js = (root / "web" / "static" / "modules" / "settings.js").read_text(
+        encoding="utf-8"
+    )
+    mic_tools_js = (
+        root / "web" / "static" / "modules" / "settings-mic-tools.js"
+    ).read_text(encoding="utf-8")
+
+    assert 'id="mic_input_device_id"' in html
+    assert "mic_input_device_id" in settings_defaults
+    assert "populateMicInputDevices" in settings_js
+    assert "active_input_device_label" in mic_tools_js
 
 
 def test_settings_providers_js_no_hardcoded_host_table():

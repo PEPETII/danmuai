@@ -5,8 +5,10 @@ from app.model_catalog import (
     DOUBAO_MODELS,
     MIMO_MODELS,
     SILICONFLOW_MODELS,
+    ZAI_MODELS,
     catalog_model_ids,
     catalog_model_supports_mic,
+    catalog_provider_ids_for_model,
     default_catalog_model_id,
     enrich_platform_models,
     get_catalog_for_provider,
@@ -33,6 +35,7 @@ def test_catalog_model_supports_mic():
 def test_doubao_supports_mic_from_audio_price():
     enriched = enrich_platform_models(DOUBAO_MODELS)
     by_id = {m["id"]: m for m in enriched}
+    assert by_id["doubao-seed-2-0-pro-260215"]["supports_mic"] is True
     assert by_id["doubao-seed-2-0-lite-260428"]["supports_mic"] is True
     assert by_id["doubao-seed-2-0-mini-260428"]["supports_mic"] is True
     assert by_id["doubao-seed-1-6-flash-250828"]["supports_mic"] is False
@@ -55,29 +58,43 @@ def _platform_by_id(platforms, platform_id):
     return next(p for p in platforms if p["platform_id"] == platform_id)
 
 
-def test_list_platform_catalogs_has_four_platforms():
+def test_list_platform_catalogs_has_vision_platforms():
     platforms = list_platform_catalogs()
-    assert len(platforms) == 4
+    assert len(platforms) == 5
     doubao = _platform_by_id(platforms, "doubao")
     assert doubao["provider_id"] == "doubao"
-    assert len(doubao["models"]) == 5
+    assert len(doubao["models"]) == 7
     dashscope = _platform_by_id(platforms, "dashscope")
     assert dashscope["provider_id"] == "dashscope"
     assert dashscope["platform_label"] == "DashScope"
-    assert len(dashscope["models"]) == 6
+    assert len(dashscope["models"]) == 10
     siliconflow = _platform_by_id(platforms, "siliconflow")
     assert siliconflow["provider_id"] == "siliconflow"
     assert siliconflow["platform_label"] == "硅基流动"
-    assert len(siliconflow["models"]) == 9
+    assert len(siliconflow["models"]) == 10
     mimo = _platform_by_id(platforms, "mimo")
     assert mimo["provider_id"] == "mimo"
     assert mimo["platform_label"] == "小米 MiMo"
     assert len(mimo["models"]) == 1
-    all_models = doubao["models"] + dashscope["models"] + siliconflow["models"] + mimo["models"]
+    zai = _platform_by_id(platforms, "zai")
+    assert zai["provider_id"] == "zai"
+    assert zai["platform_label"] == "Z.AI / 智谱"
+    assert len(zai["models"]) == 2
+    all_models = (
+        doubao["models"]
+        + dashscope["models"]
+        + siliconflow["models"]
+        + mimo["models"]
+        + zai["models"]
+    )
     for model in all_models:
         assert "name" in model
         assert "id" in model
         assert "price" in model
+        assert "currency" in model["price"]
+        assert "modality" in model
+        assert model["supports_vision"] is True
+        assert model["main_flow_recommended"] is True
         assert "cheapest" in model
         assert "supports_mic" in model
 
@@ -106,7 +123,7 @@ def test_get_catalog_for_provider_dashscope():
     catalog = get_catalog_for_provider("dashscope")
     assert catalog is not None
     assert catalog["platform_label"] == "DashScope"
-    assert len(catalog["models"]) == 6
+    assert len(catalog["models"]) == 10
 
 
 def test_siliconflow_cheapest_is_qwen3_vl_8b_instruct():
@@ -126,7 +143,26 @@ def test_get_catalog_for_provider_siliconflow():
     catalog = get_catalog_for_provider("siliconflow")
     assert catalog is not None
     assert catalog["platform_label"] == "硅基流动"
-    assert len(catalog["models"]) == 9
+    assert len(catalog["models"]) == 10
+
+
+def test_doubao_catalog_uses_current_official_ids():
+    ids = {m.id for m in DOUBAO_MODELS}
+    assert "doubao-seed-2-0-pro-260215" in ids
+    assert "doubao-seed-1-6-vision-250815" in ids
+    assert "doubao-seed-2-0-pro-260428" not in ids
+    assert "doubao-seed-1-6-vision-250615" not in ids
+
+
+def test_dashscope_catalog_excludes_qwen3_vl_max():
+    ids = {m.id for m in DASHSCOPE_MODELS}
+    assert "qwen3-vl-max" not in ids
+    assert "qwen-vl-max" in ids
+
+
+def test_siliconflow_catalog_excludes_deprecated_glm_4_6v():
+    ids = {m.id for m in SILICONFLOW_MODELS}
+    assert "zai-org/GLM-4.6V" not in ids
 
 
 def test_mimo_cheapest_is_v2_5():
@@ -134,6 +170,13 @@ def test_mimo_cheapest_is_v2_5():
     cheapest = [m for m in enriched if m["cheapest"]]
     assert len(cheapest) == 1
     assert cheapest[0]["id"] == "mimo-v2.5"
+
+
+def test_zai_cheapest_is_glm_4_5v():
+    enriched = enrich_platform_models(ZAI_MODELS)
+    cheapest = [m for m in enriched if m["cheapest"]]
+    assert len(cheapest) == 1
+    assert cheapest[0]["id"] == "glm-4.6v"
 
 
 def test_get_catalog_for_provider_mimo():
@@ -145,6 +188,18 @@ def test_get_catalog_for_provider_mimo():
     assert by_id["mimo-v2.5"]["name"] == "MiMo-V2.5"
     assert by_id["mimo-v2.5"]["price"]["input"] == 1.0
     assert by_id["mimo-v2.5"]["price"]["output"] == 2.0
+
+
+def test_get_catalog_for_provider_zai():
+    catalog = get_catalog_for_provider("zai")
+    assert catalog is not None
+    assert catalog["platform_label"] == "Z.AI / 智谱"
+    assert {m["id"] for m in catalog["models"]} == {"glm-4.6v", "glm-4.5v"}
+    by_id = {m["id"]: m for m in catalog["models"]}
+    assert by_id["glm-4.6v"]["name"] == "GLM-4.6V"
+    assert by_id["glm-4.5v"]["name"] == "GLM-4.5V"
+    assert by_id["glm-4.5v"]["price"]["currency"] == "USD"
+    assert by_id["glm-4.5v"]["modality"] == "图片输入 + 文本输入 → 文本输出"
 
 
 def test_get_catalog_for_provider_unknown():
@@ -162,6 +217,7 @@ def test_default_catalog_model_id_uses_cheapest():
     assert default_catalog_model_id("dashscope") == "qwen3-vl-flash"
     assert default_catalog_model_id("siliconflow") == "Qwen/Qwen3-VL-8B-Instruct"
     assert default_catalog_model_id("mimo") == "mimo-v2.5"
+    assert default_catalog_model_id("zai") == "glm-4.6v"
 
 
 def test_default_catalog_model_id_unknown_provider():
@@ -173,3 +229,8 @@ def test_is_catalog_model_for_provider():
     assert is_catalog_model_for_provider("dashscope", "qwen3-vl-flash")
     assert not is_catalog_model_for_provider("dashscope", "doubao-seed-1-6-flash-250828")
     assert not is_catalog_model_for_provider("zhipu", "qwen3-vl-flash")
+
+
+def test_catalog_provider_ids_for_model():
+    assert catalog_provider_ids_for_model("glm-4.6v") == frozenset({"zai"})
+    assert catalog_provider_ids_for_model("ep-20260618-custom-vision") == frozenset()

@@ -386,6 +386,21 @@ def test_web_console_server_stop_schedules_shutdown_callback():
     assert callable(callback)
     callback()
     assert server._server.should_exit is True
+    assert server._shutdown_requested.is_set() is True
+
+
+def test_web_console_server_wait_shutdown_complete_uses_event():
+    from app.web_console import WebConsoleBridge, WebConsoleServer
+
+    bridge = WebConsoleBridge(MagicMock())
+    server = WebConsoleServer(bridge)
+    fake_thread = MagicMock()
+    fake_thread.is_alive.return_value = True
+    server._thread = fake_thread
+
+    assert server.wait_shutdown_complete(timeout=0.01) is False
+    server._shutdown_complete.set()
+    assert server.wait_shutdown_complete(timeout=0.01) is True
 
 
 def test_broadcast_log_skips_closed_event_loop():

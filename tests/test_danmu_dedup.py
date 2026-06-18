@@ -1,8 +1,10 @@
 """Danmu deduplication window and similarity fallback tests."""
 
 import time
+from collections import deque
 
 import app.danmu_engine as danmu_engine_mod
+import app.danmu_engine_dedup as danmu_dedup_mod
 import pytest
 from app.config_store import ConfigStore
 from app.danmu_engine import (
@@ -10,6 +12,7 @@ from app.danmu_engine import (
     DanmuEngine,
     DanmuItem,
     _get_levenshtein_ratio,
+    get_last_duplicate_observation,
     dedup_profile_enabled,
     normalize_danmu_display_text,
     reset_dedup_profile_for_tests,
@@ -57,6 +60,40 @@ def test_clear_dedup_window_allows_repeat_after_scene_change(engine):
     engine.clear_dedup_window()
 
     assert engine.add_text(text) is not None
+
+
+def test_scene_generation_change_resets_recent_window(engine):
+    text = "跨场景不该被误杀"
+    assert engine.add_text(text, scene_generation=1) is not None
+    assert engine.add_text(text, scene_generation=1) is None
+    assert engine.add_text(text, scene_generation=2) is not None
+
+
+def test_same_scene_generation_still_dedups(engine):
+    text = "同代内仍去重"
+    assert engine.add_text(text, scene_generation=3) is not None
+    assert engine.add_text(text, scene_generation=3) is None
+
+
+def test_recent_ttl_blocks_within_window(engine):
+    engine.config.set("danmu_recent_ttl_sec", "30")
+    now = time.monotonic()
+    engine.recent = deque(["ttl-hit"], maxlen=30)
+    engine.recent_exact_set = {"ttl-hit"}
+    engine.recent_timestamps = {"ttl-hit": now}
+
+    assert engine._is_duplicate("ttl-hit") is True
+
+
+def test_recent_ttl_expires_old_content(engine):
+    engine.config.set("danmu_recent_ttl_sec", "1")
+    now = time.monotonic()
+    engine.recent = deque(["ttl-expired"], maxlen=30)
+    engine.recent_exact_set = {"ttl-expired"}
+    engine.recent_timestamps = {"ttl-expired": now - 5}
+
+    assert engine._is_duplicate("ttl-expired") is False
+    assert "ttl-expired" not in engine.recent_exact_set
 
 
 def test_remember_content_caps_recent_window_at_thirty(engine):
@@ -130,6 +167,7 @@ def test_dedup_threshold_one_skips_similarity(engine, monkeypatch):
 
 def test_similarity_fallback_without_levenshtein(monkeypatch):
     monkeypatch.setattr(danmu_engine_mod, "_LEVENSHTEIN_RATIO", _LEVENSHTEIN_UNAVAILABLE)
+    monkeypatch.setattr(danmu_dedup_mod, "_LEVENSHTEIN_RATIO", _LEVENSHTEIN_UNAVAILABLE)
 
     assert _get_levenshtein_ratio() is None
     assert DanmuEngine._similarity("kitten", "sitting") > 0.5
@@ -218,10 +256,24 @@ def test_dedup_profile_records_exact_set_hit(engine, dedup_profile_on):
     assert snap["duplicate_checks"] == 1
     assert snap["exact_set_hits"] == 1
     assert snap["similarity_calls"] == 0
+    assert get_last_duplicate_observation()["match_type"] == "exact_set_hit"
+
+
+def test_dedup_profile_records_similarity_hit_type(engine, dedup_profile_on):
+    engine._remember_content("hello world")
+    reset_dedup_profile_for_tests(clear_env_cache=False)
+
+    assert engine._is_duplicate("hello wurld") is True
+
+    snap = snapshot_dedup_profile()
+    assert snap["duplicate_hits"] == 1
+    assert snap["similarity_hits"] == 1
+    assert get_last_duplicate_observation()["match_type"] == "similarity_hit"
 
 
 def test_dedup_profile_records_fallback_path(engine, dedup_profile_on, monkeypatch):
     monkeypatch.setattr(danmu_engine_mod, "_LEVENSHTEIN_RATIO", _LEVENSHTEIN_UNAVAILABLE)
+    monkeypatch.setattr(danmu_dedup_mod, "_LEVENSHTEIN_RATIO", _LEVENSHTEIN_UNAVAILABLE)
     engine._remember_content("kitten")
 
     assert engine._is_duplicate("sitting") is False

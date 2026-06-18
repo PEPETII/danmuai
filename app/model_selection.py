@@ -4,7 +4,7 @@
 - ``infer_provider_id`` / ``resolve_active_*``：根据 endpoint/model 推断当前 provider。
 - ``set_default_model_selection``：双写「默认视觉模型」到 ``default_model_id`` + 自定义模型列表，
   Web 端切换默认模型调用此函数。
-- ``validate_model_selection_for_save``：保存前校验 endpoint 协议、model 在目录中。
+- ``validate_model_selection_for_save``：保存前校验 endpoint 协议，目录仅用于识别明确跨平台误选。
 - 状态投影：``project_*`` 函数供 ``StatusSnapshotBuilder`` 使用，避免路由层直接读 model 配置。
 
 约束：本模块**不**触达 Qt、不调主链路函数；可在 HTTP 线程安全调用。
@@ -16,6 +16,7 @@ from typing import Any
 
 from app.model_catalog import (
     _CATALOG_BY_PROVIDER,
+    catalog_provider_ids_for_model,
     is_catalog_model_for_provider,
 )
 from app.model_providers import (
@@ -77,7 +78,8 @@ def validate_global_model_selection(
         raise ValueError(tr("config.error_model_id_reserved_for_custom"))
 
     provider_id = infer_provider_id(api_endpoint, api_mode)
-    if _provider_has_catalog(provider_id) and not is_catalog_model_for_provider(provider_id, mid):
+    catalog_provider_ids = catalog_provider_ids_for_model(mid)
+    if catalog_provider_ids and provider_id not in catalog_provider_ids:
         label = provider_label(provider_id, "zh")
         raise ValueError(
             tr("config.error_provider_model_mismatch").format(
@@ -156,18 +158,19 @@ def validate_web_config_patch(config, payload: dict[str, Any]) -> None:
     custom_models = _custom_models_list(config)
 
     if model_id:
-        if not _uses_complete_custom_model(config, model_id):
+        uses_custom = _uses_complete_custom_model(config, model_id)
+        if not uses_custom:
             if not endpoint:
                 raise ValueError(tr("config.error_api_endpoint_required"))
             if not is_valid_endpoint(endpoint):
                 raise ValueError(tr("config.error_api_endpoint_invalid"))
 
-        validate_global_model_selection(
-            endpoint,
-            api_mode,
-            model_id,
-            custom_models,
-        )
+            validate_global_model_selection(
+                endpoint,
+                api_mode,
+                model_id,
+                custom_models,
+            )
     elif "model" in payload or "default_model_id" in payload:
         raise ValueError(tr("config.error_model_id_required"))
 

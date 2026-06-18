@@ -65,6 +65,7 @@ _register(
     max_tokens_field="max_output_tokens",
 )
 _register("dashscope", usage_token_style="dashscope")
+_register("zai")
 _register("zhipu")
 _register("moonshot")
 _register("siliconflow")

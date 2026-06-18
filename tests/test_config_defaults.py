@@ -52,6 +52,11 @@ def test_fp_keys_present_in_web_config_keys():
         assert key in WEB_CONFIG_KEYS, f"missing web key for {key}"
 
 
+def test_danmu_recent_ttl_default_and_web_key_present():
+    assert CONFIG_DEFAULTS["danmu_recent_ttl_sec"] == "30"
+    assert "danmu_recent_ttl_sec" in WEB_CONFIG_KEYS
+
+
 def test_mic_insert_keys_absent_from_defaults():
     assert "mic_insert_reply_count" not in CONFIG_DEFAULTS
     assert "mic_insert_voice_reply_count" not in CONFIG_DEFAULTS

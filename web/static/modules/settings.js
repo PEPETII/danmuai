@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 模块：settings — 助手设置页（7 个 tab）+ 视觉模型选择 + 识图框选 + 压缩预览。
  *
  * 关键数据：
@@ -105,6 +105,8 @@ import {
   initSettingsUiMode,
   switchSettingsTab,
 } from './settings-tabs.js';
+import { markProbeSuccess } from './app-setup-guide.js';
+import { initDanmuPreview, refreshDanmuPreview } from './settings-danmu-preview.js';
 
 export { MASKED_API_KEY } from './settings-defaults.js';
 export { initNormalBatchControls } from './settings-defaults.js';
@@ -134,7 +136,6 @@ export {
   initSettingsUiMode,
   switchSettingsTab,
 } from './settings-tabs.js';
-
 let bindDeps = {
   showToast: () => {},
   navigate: () => {},
@@ -191,6 +192,7 @@ export function configureSettingsBindings(deps) {
     syncVisionModelPickerFromForm,
     syncMicProviderPresetFromEndpoint,
     syncMicModelPickerFromForm,
+    populateMicInputDevices,
     applyMicIndependentVisibility,
     updateMicModeHint,
     updateModelActiveSourceBanner,
@@ -198,6 +200,7 @@ export function configureSettingsBindings(deps) {
     setMicAudioLikelySupported: (value) => {
       micAudioLikelySupported = value;
     },
+    refreshDanmuPreview,
   });
 }
 
@@ -278,6 +281,73 @@ function applyMicProviderPreset(providerId) {
 }
 
 let micAudioLikelySupported = true;
+let micDevicesCache = null;
+
+function micInputDeviceSelectValue() {
+  return document.getElementById('mic_input_device_id')?.value || '';
+}
+
+function currentMicDeviceContext() {
+  const selectedValue = micInputDeviceSelectValue();
+  const selectedId = selectedValue === '' ? null : Number.parseInt(selectedValue, 10);
+  const devices = micDevicesCache?.devices || [];
+  const selected = Number.isInteger(selectedId)
+    ? devices.find((item) => item.id === selectedId)
+    : null;
+  return {
+    selectedId: Number.isInteger(selectedId) ? selectedId : null,
+    selectedLabel: selected?.name || '',
+    defaultLabel: micDevicesCache?.default_input_device_label || '',
+  };
+}
+
+function refreshMicInputDeviceHint() {
+  const hint = document.getElementById('micInputDeviceHint');
+  if (!hint) return;
+  const { selectedId, selectedLabel, defaultLabel } = currentMicDeviceContext();
+  if (selectedId === null) {
+    hint.textContent = defaultLabel
+      ? `当前将跟随 Windows 默认录音设备：${defaultLabel}`
+      : '默认跟随 Windows 当前默认录音设备；也可以手动固定到某一只麦克风。';
+    return;
+  }
+  hint.textContent = selectedLabel
+    ? `当前固定使用：${selectedLabel}`
+    : '当前已手动固定设备；如设备拔出，将在运行时回退到系统默认输入。';
+}
+
+export async function populateMicInputDevices(selectedValue = '', options = {}) {
+  const { useConfigCurrentLabel = false } = options;
+  const select = document.getElementById('mic_input_device_id');
+  if (!select) return;
+  try {
+    micDevicesCache = await apiFetch('/api/mic/devices');
+  } catch (_error) {
+    micDevicesCache = { available: false, default_input_device_label: '', devices: [] };
+  }
+  const currentFallbackLabel = useConfigCurrentLabel
+    ? document.getElementById('micActiveSourceBanner')?.dataset.defaultInputLabel || ''
+    : '';
+  const defaultLabel = micDevicesCache?.default_input_device_label || currentFallbackLabel || '未检测到默认输入';
+  select.innerHTML = '';
+  const follow = document.createElement('option');
+  follow.value = '';
+  follow.textContent = `跟随系统默认（当前：${defaultLabel}）`;
+  select.appendChild(follow);
+  (micDevicesCache?.devices || []).forEach((device) => {
+    const opt = document.createElement('option');
+    opt.value = String(device.id);
+    opt.textContent = device.is_default ? `${device.name}（默认）` : device.name;
+    select.appendChild(opt);
+  });
+  if ([...select.options].some((opt) => opt.value === String(selectedValue || ''))) {
+    select.value = String(selectedValue || '');
+  } else {
+    select.value = '';
+  }
+  select.disabled = micDevicesCache?.available === false;
+  refreshMicInputDeviceHint();
+}
 
 function isMicUseVisualModel() {
   return document.getElementById('mic_use_visual_model')?.checked !== false;
@@ -326,10 +396,19 @@ export function updateMicActiveSourceBanner(cfg) {
   if (!micOn) {
     banner.classList.add('hidden');
     banner.textContent = '';
+    delete banner.dataset.defaultInputLabel;
     return;
+  }
+  const activeInputLabel = cfg?.active_input_device_label || '';
+  const defaultInputLabel = cfg?.default_input || micDevicesCache?.default_input_device_label || '';
+  if (defaultInputLabel) {
+    banner.dataset.defaultInputLabel = defaultInputLabel;
   }
   const useVisual = document.getElementById('mic_use_visual_model')?.checked !== false
     && cfg?.mic_use_visual_model !== '0';
+  const inputSuffix = activeInputLabel
+    ? ` · 输入：${activeInputLabel}`
+    : (defaultInputLabel ? ` · 默认输入：${defaultInputLabel}` : '');
   if (useVisual) {
     const usesCustom = cfg?.uses_custom_credentials === true;
     const modelId = (cfg?.active_model_id || cfg?.model || document.getElementById('model')?.value || '').trim();
@@ -338,13 +417,17 @@ export function updateMicActiveSourceBanner(cfg) {
         || document.getElementById('api_endpoint')?.value
         || ''
       : (document.getElementById('api_endpoint')?.value || cfg?.api_endpoint || '');
-    banner.textContent = `开麦使用识图模型：${modelId || '未选'} @ ${endpoint || '未配置'}`;
+    banner.textContent = `开麦使用识图模型：${modelId || '未选'} @ ${endpoint || '未配置'}${inputSuffix}`;
   } else {
     const modelId = (document.getElementById('mic_model')?.value || cfg?.mic_model || '').trim();
     const endpoint = document.getElementById('mic_api_endpoint')?.value || cfg?.mic_api_endpoint || '';
-    banner.textContent = `开麦使用独立麦克风模型：${modelId || '未选'} @ ${endpoint || '未配置'}`;
+    banner.textContent = `开麦使用独立麦克风模型：${modelId || '未选'} @ ${endpoint || '未配置'}${inputSuffix}`;
+  }
+  if (cfg?.fallback_to_default) {
+    banner.textContent += ` · 所选设备不可用，已回退到系统默认`;
   }
   banner.classList.remove('hidden');
+  refreshMicInputDeviceHint();
 }
 
 export function updateMicModeHint() {
@@ -358,6 +441,12 @@ export function updateMicModeHint() {
   }
   const { apiMode, modelId, endpoint } = getMicConfigContext();
   const providerId = guessProviderIdFromEndpoint(endpoint, apiMode);
+  const { selectedId, selectedLabel, defaultLabel } = currentMicDeviceContext();
+  if (selectedId !== null && micDevicesCache?.available && !selectedLabel) {
+    hint.classList.remove('hidden');
+    hint.textContent = `麦克风输入设备不可用：已选择的设备当前不存在，运行时将回退到系统默认（${defaultLabel || '未检测到默认输入'}）。`;
+    return;
+  }
   if (micModeConfigSupported()) {
     hint.classList.add('hidden');
     hint.textContent = '';
@@ -421,6 +510,11 @@ export function bindSettingsControls(deps = {}) {
     updateMicModeHint();
     updateMicActiveSourceBanner({});
   });
+  document.getElementById('mic_input_device_id')?.addEventListener('change', () => {
+    refreshMicInputDeviceHint();
+    updateMicModeHint();
+    updateMicActiveSourceBanner({});
+  });
   document.getElementById('mic_use_visual_model')?.addEventListener('change', () => {
     applyMicIndependentVisibility();
     updateMicModeHint();
@@ -450,6 +544,7 @@ export function bindSettingsControls(deps = {}) {
     try {
       await apiFetch('/api/config', { method: 'POST', body: JSON.stringify({ data: collectFormData() }) });
       const cfg = await reloadConfigFromServer();
+      refreshDanmuPreview();
       const active = cfg.active_model_id || cfg.model || '';
       const label = cfg.model_display_name && cfg.model_display_name !== active
         ? `${cfg.model_display_name}（${active}）`
@@ -494,6 +589,7 @@ export function bindSettingsControls(deps = {}) {
         }),
       });
       showToast(res.message || (res.ok ? '连接成功' : '连接失败'), !res.ok);
+      if (res.ok) markProbeSuccess();
     } catch (err) {
       showToast(err.message || '网络连接似乎睡着了', true);
     }
@@ -513,7 +609,6 @@ export function bindSettingsControls(deps = {}) {
 
   bindCompressPreviewControls();
 
-  document.getElementById('btnAddCustomModel')?.addEventListener('click', () => openModelModal(-1));
   document.getElementById('btnModelCancel')?.addEventListener('click', closeModelModal);
 
   document.getElementById('providerPreset')?.addEventListener('change', (e) => {
@@ -560,6 +655,7 @@ export function bindSettingsControls(deps = {}) {
   });
 
   bindFontControls();
+  initDanmuPreview();
 }
 
 

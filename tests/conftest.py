@@ -338,6 +338,8 @@ def make_minimal_danmu_app():
     app._pending = False
     app._scene_generation = 0
     app._inflight_scene_generation = 0
+    app._scene_refresh_wanted = False
+    app._pending_api_trigger_source = None
     app._mic_orchestrator = None
     app._latest_screenshot_id = 0
     app._latest_requested_screenshot_id = 0
@@ -380,6 +382,7 @@ def make_minimal_danmu_app():
     app._has_visual_request_in_flight = DanmuApp._has_visual_request_in_flight.__get__(
         app, DanmuApp
     )
+    app._try_scene_refresh = DanmuApp._try_scene_refresh.__get__(app, DanmuApp)
     app._capture_screenshot = DanmuApp._capture_screenshot.__get__(app, DanmuApp)
     app._note_capture_failure = DanmuApp._note_capture_failure.__get__(app, DanmuApp)
     app._note_capture_success = DanmuApp._note_capture_success.__get__(app, DanmuApp)

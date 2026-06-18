@@ -31,6 +31,7 @@ from app.model_providers import (
 from app.providers import (
     get_capabilities_for_endpoint,
     get_openai_adapter,
+    is_minimax_endpoint,
     provider_extra_headers,
 )
 from app.providers.constants import THINKING_DISABLED
@@ -357,9 +358,10 @@ def stream_doubao(worker, http_client, url: str, headers: dict, data: dict) -> t
     if not result.text:
         logger.warning(
             "doubao stream 返回空文本: input_tokens=%s output_tokens=%s "
-            "stream_events=%s error=%r",
+            "reasoning_only=%s stream_events=%s error=%r",
             result.input_tokens,
             result.output_tokens,
+            result.reasoning_only,
             result.stream_events,
             result.error,
         )
@@ -446,6 +448,8 @@ def request_openai(
         "stream": True,
     }
     adapter.patch_openai_chat_body(data, max_tokens=max_tokens, caps=caps)
+    if is_minimax_endpoint(endpoint):
+        data["reasoning_split"] = True
     url = f"{endpoint}/chat/completions"
     headers = {
         "Authorization": f"Bearer {api_key}",

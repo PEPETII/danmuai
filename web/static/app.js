@@ -37,11 +37,13 @@ import {
   loadModelCatalog,
   loadProviders,
   loadScreens,
+  populateMicInputDevices,
   reloadConfigFromServer,
   switchSettingsTab,
 } from './modules/settings.js';
 import { isMaskedApiKey } from './modules/settings-defaults.js';
 import { initTheme } from './modules/theme.js';
+import { initSetupGuide, refreshSetupGuide, markProbeSuccess, markTestDanmuSent } from './modules/app-setup-guide.js';
 import {
   bindContentPageControls,
   loadAnnouncementsPage,
@@ -463,6 +465,7 @@ async function init() {
     reloadConfigFromServer(),
     loadScreens(),
   ]);
+  window.__danmuaiConfig = cfg;
   if (cfg.screen_index !== undefined) {
     document.getElementById('screen_index').value = String(cfg.screen_index);
   }
@@ -474,13 +477,22 @@ async function init() {
   initAppUpdateModal({ showToast });
   wireLazyDiagnosticsToggle();
 
+  initSetupGuide({
+    getConfig: () => window.__danmuaiConfig || {},
+    getStatus: () => getLastAppliedStatus() || {},
+  });
+  refreshSetupGuide(cfg, getLastAppliedStatus() || {});
+
   configureStatus({
     applyCaptureRegion: applyCaptureRegionFromPayload,
     onErrorPrompt: maybePromptErrorReport,
     onErrorReportManual: (status) => openErrorReportModalImpl(status, { force: true }),
   });
   setRealtimeHandlers({
-    onStatus: applyStatus,
+    onStatus: (status) => {
+      applyStatus(status);
+      refreshSetupGuide(window.__danmuaiConfig || {}, status || {});
+    },
     onLog: appendLog,
     onLogBatch: mergeLogItems,
     updateLogPanelState,

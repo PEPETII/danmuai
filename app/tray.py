@@ -94,7 +94,7 @@ class TrayManager:
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             )
             if reply == QMessageBox.StandardButton.Yes:
-                dl = update_service.download_updates()
+                dl = update_service.download_updates(wait=True)
                 if dl.ok and dl.download_ready:
                     restart = QMessageBox.question(
                         None,

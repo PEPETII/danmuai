@@ -121,6 +121,58 @@ def test_set_batch_empty_dict(tmp_path):
     store.close()
 
 
+@pytest.mark.parametrize(
+    ("stored_value", "default", "expected"),
+    [
+        (None, 7, 7),
+        ("", 7, 7),
+        ("   ", 7, 7),
+        ("abc", 7, 7),
+        ("0", 7, 0),
+        ("0.0", 7, 0),
+        ("12", 7, 12),
+        ("-5", 7, -5),
+    ],
+)
+def test_get_int_tolerates_invalid_values_and_preserves_zero(
+    tmp_path, stored_value, default, expected
+):
+    store = ConfigStore(db_path=tmp_path / "config.db")
+    key = "int_key"
+    if stored_value is not None:
+        store.set(key, stored_value)
+
+    assert store.get_int(key, default) == expected
+
+    store.close()
+
+
+@pytest.mark.parametrize(
+    ("stored_value", "default", "expected"),
+    [
+        (None, 1.5, 1.5),
+        ("", 1.5, 1.5),
+        ("   ", 1.5, 1.5),
+        ("abc", 1.5, 1.5),
+        ("0", 1.5, 0.0),
+        ("0.0", 1.5, 0.0),
+        ("2.5", 1.5, 2.5),
+        ("-3.25", 1.5, -3.25),
+    ],
+)
+def test_get_float_tolerates_invalid_values_and_preserves_zero(
+    tmp_path, stored_value, default, expected
+):
+    store = ConfigStore(db_path=tmp_path / "config.db")
+    key = "float_key"
+    if stored_value is not None:
+        store.set(key, stored_value)
+
+    assert store.get_float(key, default) == expected
+
+    store.close()
+
+
 def test_set_if_changed_skips_unchanged(tmp_path):
     store = ConfigStore(db_path=tmp_path / "config.db")
     counting = _CommitCountingConn(store.conn)
