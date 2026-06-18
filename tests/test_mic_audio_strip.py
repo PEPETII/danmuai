@@ -7,12 +7,12 @@ from unittest.mock import patch
 from app.ai_client import AiWorker
 from app.ai_client_requests import request_openai
 
-from tests.test_ai_client import FakeConfig
+from tests.fakes import ai_client_fake_config
 
 
 def test_request_openai_strips_mic_audio_and_logs_when_unsupported():
     worker = AiWorker(
-        FakeConfig(
+        ai_client_fake_config(
             data={
                 "api_mode": "openai",
                 "api_endpoint": "https://api.openai.com/v1",

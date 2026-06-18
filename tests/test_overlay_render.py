@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from app.config_store import ConfigStore
-from app.danmu_engine import DanmuEngine, DanmuItem, FADE_IN_PX
+from app.danmu_engine import FADE_IN_PX, DanmuEngine, DanmuItem
 from app.overlay import _INTERVAL_MAX_MS, DanmuOverlay, _use_fast_danmu_render
 from PyQt6.QtCore import QRect
 from PyQt6.QtWidgets import QApplication
