@@ -13,7 +13,7 @@ from app.mic_test_send import (
 from PyQt6.QtCore import QCoreApplication, QTimer
 from PyQt6.QtWidgets import QApplication
 
-from tests.fakes import FakeLogger
+from tests.fakes import FakeConfig, FakeLogger
 
 
 @pytest.fixture(scope="module")
@@ -32,6 +32,7 @@ def test_placeholder_image_data_uri():
 def test_run_mic_test_send_unsupported_api():
     app = MagicMock()
     app.mic_audio_supported.return_value = False
+    app.ai_worker.resolve_mic_request_credentials.return_value = None
 
     result = run_mic_test_send(app)
 
@@ -42,6 +43,7 @@ def test_run_mic_test_send_unsupported_api():
 def test_send_mic_probe_incomplete_credentials():
     app = MagicMock()
     app.ai_worker = MagicMock()
+    app.config = FakeConfig()
     app.ai_worker.resolve_mic_request_credentials.return_value = None
 
     result = send_mic_probe(
@@ -58,6 +60,7 @@ def test_send_mic_probe_incomplete_credentials():
 def test_send_mic_probe_unsupported_model():
     app = MagicMock()
     app.ai_worker = MagicMock()
+    app.config = FakeConfig()
     app.ai_worker.resolve_mic_request_credentials.return_value = (
         "https://ark.cn-beijing.volces.com/api/v3",
         "sk-test",
@@ -80,6 +83,7 @@ def test_send_mic_probe_unsupported_model():
 def test_send_mic_probe_unsupported_generic_openai():
     app = MagicMock()
     app.ai_worker = MagicMock()
+    app.config = FakeConfig()
     app.ai_worker.resolve_mic_request_credentials.return_value = (
         "https://example.com/v1",
         "sk-test",
@@ -102,11 +106,12 @@ def test_send_mic_probe_unsupported_generic_openai():
 def test_send_mic_probe_allows_declared_custom_openai():
     app = MagicMock()
     app.ai_worker = MagicMock()
-    app.config = MagicMock()
-    app.config.get_default_model_id.return_value = "or-audio"
-    app.config.get_custom_models.return_value = [
-        {"modelId": "or-audio", "supportsMic": True},
-    ]
+    app.config = FakeConfig(
+        {
+            "default_model_id": "or-audio",
+            "custom_models": [{"modelId": "or-audio", "supportsMic": True}],
+        }
+    )
     app.ai_worker.resolve_mic_request_credentials.return_value = (
         "https://openrouter.ai/api/v1",
         "sk-test",
@@ -136,6 +141,7 @@ def test_send_mic_probe_allows_declared_custom_openai():
 def test_send_mic_probe_success_mimo(monkeypatch):
     app = MagicMock()
     app.ai_worker = MagicMock()
+    app.config = FakeConfig()
     app.ai_worker.resolve_mic_request_credentials.return_value = (
         "https://api.xiaomimimo.com/v1",
         "sk-test",
@@ -166,6 +172,7 @@ def test_send_mic_probe_success_mimo(monkeypatch):
 def test_send_mic_probe_supports_mimo_v2_5_on_custom_endpoint():
     app = MagicMock()
     app.ai_worker = MagicMock()
+    app.config = FakeConfig()
     app.ai_worker.resolve_mic_request_credentials.return_value = (
         "https://my-mimo-proxy.com/v1",
         "sk-test",
@@ -197,6 +204,7 @@ def test_send_mic_probe_supports_mimo_v2_5_on_custom_endpoint():
 def test_send_mic_probe_success_doubao(monkeypatch):
     app = MagicMock()
     app.ai_worker = MagicMock()
+    app.config = FakeConfig()
     app.ai_worker.resolve_mic_request_credentials.return_value = (
         "https://ark.cn-beijing.volces.com/api/v3",
         "sk-test",
@@ -242,7 +250,7 @@ def test_run_mic_test_send_success(monkeypatch):
 
     app = MagicMock()
     app.mic_audio_supported.return_value = True
-    app.config = MagicMock()
+    app.config = FakeConfig()
     app.engine.running = False
     app.capture_mic_test_sample.return_value = (pcm, capture_result)
     monkeypatch.setattr(
@@ -282,6 +290,7 @@ def test_run_mic_test_send_does_not_block_main_thread(qapp):
         return AiProbeResult(signal="finished", message="ok", input_tokens=1, output_tokens=1)
 
     app = DanmuApp.__new__(DanmuApp)
+    app.config = FakeConfig()
     app.ai_worker = MagicMock()
     app.ai_worker.run_mic_audio_probe.side_effect = slow_probe
     app.run_mic_probe_in_pool = DanmuApp.run_mic_probe_in_pool.__get__(app, DanmuApp)
@@ -309,6 +318,7 @@ def test_run_mic_test_send_does_not_emit_pop_before_reply_warning(monkeypatch):
     from main import DanmuApp
 
     app = DanmuApp.__new__(DanmuApp)
+    app.config = FakeConfig()
     app.logger = FakeLogger()
     app._pending_request_meta = {}
     app.ai_worker = MagicMock()
