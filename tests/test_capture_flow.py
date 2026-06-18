@@ -509,6 +509,11 @@ def test_open_web_console_failed_respects_restart_cap(monkeypatch):
         "app.webview_shell.wait_for_http_server",
         lambda url, timeout: False,
     )
+    notified = []
+    monkeypatch.setattr(
+        "app.webview_shell.notify_web_console_failure",
+        lambda danmu, key, **kw: notified.append(key),
+    )
 
     assert maybe_restart_web_console(server) is False
     assert start_calls == []
@@ -516,4 +521,5 @@ def test_open_web_console_failed_respects_restart_cap(monkeypatch):
     app._open_web_console("/#settings")
     assert start_calls == []
     assert browser_calls == ["/#settings"]
+    assert notified == ["web_console.startup_failed"]
 

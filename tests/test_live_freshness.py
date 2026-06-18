@@ -34,10 +34,7 @@ def test_trigger_api_call_increments_in_flight(monkeypatch):
 
     pool = Mock()
     pool.start = Mock()
-    monkeypatch.setattr(
-        "PyQt6.QtCore.QThreadPool",
-        Mock(globalInstance=Mock(return_value=pool)),
-    )
+    monkeypatch.setattr("app.worker_pools.ai_worker_pool", lambda: pool)
     monkeypatch.setattr("app.runnable.AiRunnable", lambda *a, **k: Mock())
 
     app._trigger_api_call()

@@ -313,6 +313,7 @@ def test_tray_icon_for_notify_tolerates_partial_danmu_app():
 
 
 def test_notify_web_console_failure_schedules_ui(qtbot, monkeypatch):
+    from PyQt6.QtCore import QTimer
     from PyQt6.QtWidgets import QApplication, QMessageBox
 
     app = QApplication.instance() or QApplication([])
@@ -327,6 +328,7 @@ def test_notify_web_console_failure_schedules_ui(qtbot, monkeypatch):
         "warning",
         lambda *args, **kwargs: warnings.append(args),
     )
+    monkeypatch.setattr(QTimer, "singleShot", lambda _ms, fn: fn())
 
     notify_web_console_failure(danmu, "web_console.startup_failed")
     app.processEvents()

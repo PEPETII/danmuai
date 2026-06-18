@@ -35,7 +35,7 @@ class DiagnosticSnapshotBuilder:
 
         last_trigger_at = float(scheduler.last_api_trigger_at)
         now = time.monotonic()
-        recent_rtt_samples = [float(sample) for sample in timing.rtt_history[-5:]]
+        recent_rtt_samples = [float(sample) for sample in list(timing.rtt_history)[-5:]]
         request_started_count = len(timing.request_started_at_by_id)
         avg_rtt = float(timing.avg_rtt())
         block_reason = self._app.api_schedule_block_reason(enforce_min_interval=True)
