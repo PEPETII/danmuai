@@ -2,10 +2,8 @@
 
 import time
 
-import pytest
-
 from app.config_store import ConfigStore
-from app.danmu_engine import DanmuEngine, DanmuItem, ENTRY_ZONE_PX
+from app.danmu_engine import ENTRY_ZONE_PX, DanmuEngine, DanmuItem
 from app.danmu_engine_models import Track
 
 

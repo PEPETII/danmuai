@@ -12,13 +12,12 @@ import time
 
 from PyQt6.QtCore import QObject, QRunnable, pyqtSignal
 
-from app.snipper import CapturePlan, execute_capture
-
 from app.ai_client import AiWorker
 from app.image_metrics import log_compress_metrics
 from app.logger import SanitizedLogger
 from app.main_helpers import REQUEST_WALL_CLOCK_SEC
 from app.mic_encode import pcm_to_wav_data_uri
+from app.snipper import CapturePlan, execute_capture
 from app.translations import tr
 
 

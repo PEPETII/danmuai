@@ -3,11 +3,11 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+from app import update_service
+from app.web_api.routes import register_web_routes
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
-from app import update_service
-from app.web_api.routes import register_web_routes
 from tests.fakes import FakeConfig
 
 _TEST_TOKEN = "Bearer test-token"
@@ -73,7 +73,6 @@ def test_update_channels_public_without_token():
 def test_update_channels_readonly_never_calls_velopack_check():
     from app import release_channels
     from app.supabase_app_updates import AppUpdateRemote
-    from app.version import __version__
 
     remote = AppUpdateRemote(
         latest_version="0.4.0",

@@ -173,16 +173,40 @@
       </div>
 
       <div class="card p-8 mt-6" id="liveOverlayPanel">
-        <h3 class="text-lg font-bold text-warmText mb-2">直播输出</h3>
-        <p class="text-sm text-gray-400 mb-4">供 OBS、抖音直播伴侣等添加「浏览器源 / 网页源」，采集透明背景 AI 弹幕（本机 127.0.0.1）。</p>
+        <div class="flex flex-wrap items-start justify-between gap-3 mb-2">
+          <div>
+            <h3 class="text-lg font-bold text-warmText">直播输出</h3>
+            <p class="text-sm text-gray-400 mt-1">供 OBS、抖音直播伴侣等添加「浏览器源 / 网页源」，采集透明背景 AI 弹幕（本机 127.0.0.1）。</p>
+          </div>
+          <span id="liveOverlaySetupState" class="live-overlay-setup-state" aria-live="polite">待接入</span>
+        </div>
         <label class="text-sm text-gray-400 block mb-1" for="liveOverlayUrl">网页弹幕地址</label>
         <div class="flex flex-wrap gap-2 mb-4">
           <input type="text" id="liveOverlayUrl" readonly class="flex-1 min-w-[200px] px-3 py-2 rounded-xl border border-gray-200 bg-cream text-sm text-warmText" value="http://127.0.0.1:18765/live-overlay" />
           <button type="button" id="btnCopyLiveOverlayUrl" class="px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50">复制地址</button>
+          <button type="button" id="btnOpenLiveOverlayUrl" class="px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50">打开预览</button>
+          <button type="button" id="btnRefreshLiveOverlayStatus" class="px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50">刷新状态</button>
         </div>
         <div class="flex flex-wrap items-center gap-4 text-sm mb-4">
           <span class="text-gray-400">SSE 连接数：<strong class="text-warmText" id="liveOverlayConnections">0</strong></span>
           <span class="text-gray-400">上次广播：<strong class="text-warmText" id="liveOverlayLastBroadcast">—</strong></span>
+        </div>
+        <div id="liveOverlaySetupGuide" class="live-overlay-setup" aria-label="直播输出接入检查">
+          <ol id="liveOverlaySetupSteps" class="live-overlay-setup-steps">
+            <li class="live-overlay-setup-step" data-live-overlay-step="copy">
+              <span class="live-overlay-step-dot"></span>
+              <span>复制地址</span>
+            </li>
+            <li class="live-overlay-setup-step" data-live-overlay-step="connect">
+              <span class="live-overlay-step-dot"></span>
+              <span>添加网页源</span>
+            </li>
+            <li class="live-overlay-setup-step" data-live-overlay-step="test">
+              <span class="live-overlay-step-dot"></span>
+              <span>发送测试</span>
+            </li>
+          </ol>
+          <p id="liveOverlaySetupHint" class="live-overlay-setup-hint">先复制地址，粘贴到直播软件的浏览器源 / 网页源。</p>
         </div>
         <button type="button" id="btnLiveOverlayTest" class="px-4 py-2 bg-accent text-white rounded-xl text-sm font-semibold hover:opacity-90">发送测试弹幕</button>
       </div>

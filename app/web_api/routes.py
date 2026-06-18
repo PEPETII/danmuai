@@ -38,6 +38,7 @@ from app.web_api import pet as pet_api
 from app.web_api import providers as providers_api
 from app.web_api import update as update_api
 from app.web_api.preview_compress import register_preview_compress_route
+from app.web_console import MainThreadInvokeTimeout
 
 logger = logging.getLogger(__name__)
 
@@ -46,8 +47,6 @@ DIAGNOSTICS_SSE_INTERVAL_SEC = 2.5
 
 if TYPE_CHECKING:
     from app.web_console import WebConsoleBridge
-
-from app.web_console import MainThreadInvokeTimeout
 
 
 def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) -> None:
