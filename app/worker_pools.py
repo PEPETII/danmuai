@@ -14,9 +14,19 @@ _ai_pool: QThreadPool | None = None
 _capture_pool: QThreadPool | None = None
 
 
+def _pool_is_usable(pool) -> bool:
+    if pool is None:
+        return False
+    try:
+        pool.maxThreadCount()
+    except RuntimeError:
+        return False
+    return True
+
+
 def ai_worker_pool() -> QThreadPool:
     global _ai_pool
-    if _ai_pool is None:
+    if not _pool_is_usable(_ai_pool):
         pool = QThreadPool()
         pool.setMaxThreadCount(2)
         _ai_pool = pool
@@ -25,7 +35,7 @@ def ai_worker_pool() -> QThreadPool:
 
 def capture_worker_pool() -> QThreadPool:
     global _capture_pool
-    if _capture_pool is None:
+    if not _pool_is_usable(_capture_pool):
         pool = QThreadPool()
         pool.setMaxThreadCount(1)
         _capture_pool = pool
