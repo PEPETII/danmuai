@@ -67,6 +67,13 @@ _CONTRACT_NORMAL_ZH_RE = re.compile(
     r"格式："
     r'\["[^"]*"(?:, "[^"]*")*\]。'
 )
+# Matches the current build_normal_reply_contract_zh output (no style text)
+_CONTRACT_NORMAL_ZH_PLAIN_RE = re.compile(
+    r"直播弹幕评论员。只输出 JSON 字符串数组，无解释、无 Markdown。"
+    r"固定 \d+ 条，每条≤\d+字。"
+    r"格式："
+    r'\["[^"]*"(?:, "[^"]*")*\]。?'
+)
 _CONTRACT_NORMAL_ZH_LEGACY_RE = re.compile(
     r"你是直播弹幕评论员。必须且只能返回 JSON 字符串数组，不要解释，不要 Markdown。"
     r"固定返回 \d+ 条弹幕，必须与当前画面或直播氛围相关，避免重复。"
@@ -82,6 +89,14 @@ _CONTRACT_NORMAL_EN_RE = re.compile(
     r"All comments MUST be in English only\. "
     r"Format: "
     r'\["[^"]*"(?:, "[^"]*")*\]\.'
+)
+# Matches the current build_normal_reply_contract_en output (no style text)
+_CONTRACT_NORMAL_EN_PLAIN_RE = re.compile(
+    r"Live-stream danmu commentator\. JSON string array only, no explanation, no Markdown\. "
+    r"Exactly \d+ comments, max \d+ chars each\. "
+    r"All comments MUST be in English only\. "
+    r"Format: "
+    r'\["[^"]*"(?:, "[^"]*")*\]\.?'
 )
 _CONTRACT_NORMAL_EN_LEGACY_RE = re.compile(
     r"You are a live-stream danmu commentator\. You must return a JSON string array only, "
@@ -314,8 +329,10 @@ def strip_reply_contract(system_pt: str) -> str:
         _CONTRACT_ZH_RE,
         _CONTRACT_EN_RE,
         _CONTRACT_NORMAL_ZH_RE,
+        _CONTRACT_NORMAL_ZH_PLAIN_RE,
         _CONTRACT_NORMAL_ZH_LEGACY_RE,
         _CONTRACT_NORMAL_EN_RE,
+        _CONTRACT_NORMAL_EN_PLAIN_RE,
         _CONTRACT_NORMAL_EN_LEGACY_RE,
     ):
         base = pattern.sub("", base).strip()

@@ -97,10 +97,10 @@ def test_create_and_save_custom_persona(persona_app):
 
 def test_list_dedupes_builtin_with_custom_override(persona_app):
     persona_api.save_template(persona_app, "高压吐槽型", "覆盖风格", "用户提示")
-    persona_api.save_template(persona_app, "团战解说型", "覆盖风格2", "用户提示2")
+    persona_api.save_template(persona_app, "熬夜陪看型", "覆盖风格2", "用户提示2")
     names = persona_app.personae.list()
     assert names.count("高压吐槽型") == 1
-    assert names.count("团战解说型") == 1
+    assert names.count("熬夜陪看型") == 1
 
 
 def test_builtin_save_system_and_user_prompt(persona_app):
@@ -143,7 +143,7 @@ def test_reply_contract_follows_danmu_max_chars(persona_app):
 
 def test_builtin_system_custom_differs_by_persona(persona_app):
     a = persona_api.get_template_detail(persona_app, "高压吐槽型")["system_custom"]
-    b = persona_api.get_template_detail(persona_app, "团战解说型")["system_custom"]
+    b = persona_api.get_template_detail(persona_app, "阴阳锐评型")["system_custom"]
     assert a and b and a != b
 
 
@@ -155,8 +155,8 @@ def test_delete_custom_persona(persona_app):
 
 
 _NEW_STYLE_PERSONAE = (
-    "团战解说型",
     "阴阳锐评型",
+    "抽象玩梗型",
 )
 
 
@@ -208,7 +208,6 @@ def test_default_active_is_eleven_personae(tmp_path):
     assert active == list(PersonaManager.DEFAULT_ACTIVE)
     assert active == [
         "高压吐槽型",
-        "团战解说型",
         "熬夜陪看型",
         "阴阳锐评型",
         "抽象玩梗型",
@@ -230,7 +229,7 @@ def test_active_personae_v4_migrates_to_v9_default(tmp_path):
     assert active == list(PersonaManager.DEFAULT_ACTIVE)
     assert "路人惊讶型" not in active
     assert "搞笑玩梗型" not in active
-    assert config.get_int("active_personae_version") == 9
+    assert config.get_int("active_personae_version") == 10
 
 
 def test_active_personae_v8_resets_to_eleven_default(tmp_path):
@@ -244,7 +243,6 @@ def test_active_personae_v8_resets_to_eleven_default(tmp_path):
     active = personae.get_active()
     for name in (
         "高压吐槽型",
-        "团战解说型",
         "熬夜陪看型",
         "阴阳锐评型",
         "抽象玩梗型",
@@ -258,7 +256,7 @@ def test_active_personae_v8_resets_to_eleven_default(tmp_path):
         assert name in active
     assert "萌系型" not in active
     assert "毒舌型" not in active
-    assert config.get_int("active_personae_version") == 9
+    assert config.get_int("active_personae_version") == 10
 
 
 _REMOVED_TRIM_002 = (
@@ -274,9 +272,9 @@ _REMOVED_TRIM_002 = (
 )
 
 
-def test_builtin_personae_count_is_eleven(persona_app):
+def test_builtin_personae_count_is_ten(persona_app):
     names = persona_app.personae.list()
-    assert len(names) == 11
+    assert len(names) == 10
     for name in PersonaManager.DEFAULT_ACTIVE:
         assert name in names
     for name in ("测试1", "测试2", "测试3", "吐槽型", "傲娇型", "腹黑型"):
@@ -289,7 +287,6 @@ def test_removed_builtin_purged_from_active_on_init(tmp_path):
         "active_personae",
         [
             "高压吐槽型",
-            "团战解说型",
             "熬夜陪看型",
             "阴阳锐评型",
             "抽象玩梗型",
@@ -345,7 +342,7 @@ def test_removed_builtin_personae_not_listed(persona_app):
 
 def test_experimental_personae_pinned_first(persona_app):
     names = persona_app.personae.list()
-    assert names[:5] == list(BUILTIN_PERSONA_PINNED_FIRST)
+    assert names[:4] == list(BUILTIN_PERSONA_PINNED_FIRST)
     assert "测试1" in names
     assert "吐槽型" in names
     assert "测试4" not in names
@@ -355,7 +352,6 @@ def test_experimental_personae_pinned_first(persona_app):
 def test_experimental_personae_have_prompts(persona_app):
     expected_snippets = {
         "高压吐槽型": "直播间弹幕观众",
-        "团战解说型": "情绪很高的观众",
         "熬夜陪看型": "深夜直播间里的普通观众",
         "阴阳锐评型": "轻微阴阳的观众",
         "抽象玩梗型": "接梗整活的观众",
