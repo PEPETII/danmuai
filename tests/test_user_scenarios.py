@@ -10,9 +10,8 @@ from app.application.config_service import apply_web_config_patch
 from app.config_store import ConfigStore
 
 from tests.conftest import make_minimal_danmu_app
-from tests.fakes import FakeLogger
+from tests.fakes import FakeConfig, FakeLogger
 from tests.helpers.config_payload import make_config_app_stub
-from tests.test_ai_client import FakeConfig
 from tests.test_p0_main_flow import _bind_on_ai_reply
 
 
