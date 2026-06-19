@@ -2,6 +2,32 @@
 
 ## Unreleased
 
+## 0.3.4 (2026-06-20)
+
+### Changed
+
+- **W-REL-034-RELEASE-001**：将本地发布版本号提升到 `0.3.4`，按固定顺序核对 Windows 发布链：`scripts/build_exe.ps1` → `scripts/publish_windows_release.ps1` → 检查 `release/velopack/` → `scripts/upload_r2_release.ps1`（GitHub / Supabase 本轮延后）
+
+### Added
+
+- **公式化弹幕库 / 反馈 / 诊断**：自定义句库上限与去重逻辑增强；内容反馈上下文（`feedback-context.js`）；诊断快照扩展；CI workflow 补充（`82e792d`）
+- **人格工坊**：完整 system/user prompt 预览（`61dd61b`）；内置人格 prompt 统一追加真人观众【风格要求】块；`active_personae_version` 升至 11，默认激活列表移除「测试2」
+
+### Fixed
+
+- **人格 / 读弹幕设置**：人格列表展示与读弹幕保存 handler 修复（`1c8a80c`）
+- **回复契约**：恢复 plain reply contract 措辞；退役「团战解说型」内置人格（`4f35108`、`63e8495`）
+
+### Changed（UI / 文案）
+
+- 麦克风与 TTS 设置页文案优化（`3f4a7e9`）
+- 托盘 / pywebview / Web 错误上报与反馈 UI 调整（`8bfb4e2`）
+- Windows 发布脚本 `publish_windows_release.ps1` 行为更新（`82e792d`）
+
+### Documentation
+
+- 发布文档与工作流状态整理（`5fb8907`）
+
 ## 0.3.3 (2026-06-19)
 
 ### Changed

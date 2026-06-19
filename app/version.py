@@ -5,4 +5,4 @@ Align with Git tag and Supabase `app_updates.latest_version` on each release.
 """
 
 # 发布时与 Git tag、Supabase app_updates 对齐（vx.x.x，可带或不带 v 前缀）
-__version__ = "0.3.3"
+__version__ = "0.3.4"
