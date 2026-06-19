@@ -1,4 +1,5 @@
 import { apiFetch } from './transport.js';
+import { activateFocusTrap, deactivateFocusTrap } from './modal-focus-trap.js';
 import {
   CONFIG_FIELDS,
   MASKED_API_KEY,
@@ -117,9 +118,11 @@ function openRestoreDefaultsModal() {
   if (!modal) return;
   modal.classList.remove('hidden');
   modal.classList.add('flex');
+  activateFocusTrap(modal, closeRestoreDefaultsModal);
 }
 
 function closeRestoreDefaultsModal() {
+  deactivateFocusTrap();
   const modal = document.getElementById('restoreDefaultsModal');
   if (!modal) return;
   modal.classList.add('hidden');
@@ -291,6 +294,7 @@ export async function fillForm(cfg) {
   }
   syncPetBarrageSettingsLock(cfg);
   updateNormalBatchPreview();
+  refreshOpacityWarning();
   coreDeps.syncProviderPresetFromEndpoint();
   coreDeps.applyApiModeValue(cfg.api_mode);
   coreDeps.syncApiModeLockState();
@@ -324,4 +328,83 @@ export async function reloadConfigFromServer() {
     selection_state: 'idle',
   });
   return cfg;
+}
+
+export function refreshOpacityWarning() {
+  const el = document.getElementById('opacity');
+  const warn = document.getElementById('opacity-warning');
+  if (!el || !warn) return;
+  const val = parseInt(el.value, 10);
+  if (!isNaN(val) && val <= 5) {
+    warn.classList.remove('hidden');
+  } else {
+    warn.classList.add('hidden');
+  }
+}
+
+export function initOpacityWarning() {
+  const el = document.getElementById('opacity');
+  if (el) {
+    el.addEventListener('input', refreshOpacityWarning);
+    refreshOpacityWarning();
+  }
+}
+
+function _clearFieldError(input) {
+  input.classList.remove('field-error');
+  const hint = input.parentElement?.querySelector('.field-error-hint');
+  if (hint) hint.remove();
+}
+
+function _showFieldError(input, message) {
+  input.classList.add('field-error');
+  if (!input.parentElement?.querySelector('.field-error-hint')) {
+    const span = document.createElement('span');
+    span.className = 'field-error-hint';
+    span.textContent = message;
+    input.parentElement?.appendChild(span);
+  }
+}
+
+function _validateNumberInput(input) {
+  const val = input.value.trim();
+  if (val === '') { _clearFieldError(input); return; }
+  const num = Number(val);
+  if (isNaN(num)) { _clearFieldError(input); return; }
+  const min = input.min !== '' ? Number(input.min) : null;
+  const max = input.max !== '' ? Number(input.max) : null;
+  if (min !== null && num < min) {
+    _showFieldError(input, `最小值 ${min}，当前 ${num}`);
+    return;
+  }
+  if (max !== null && num > max) {
+    _showFieldError(input, `最大值 ${max}，当前 ${num}`);
+    return;
+  }
+  // Step compliance check: only for inputs with an explicit step
+  // that is neither "any" nor "1" (HTML default).
+  const stepAttr = input.getAttribute('step');
+  if (stepAttr && stepAttr !== 'any' && stepAttr !== '1') {
+    const step = Number(stepAttr);
+    const stepBase = (min !== null) ? min : 0;
+    // Floating-point tolerance: remainder within 1e-9 of zero or of step
+    const remainder = Math.abs((num - stepBase) % step);
+    if (remainder > 1e-9 && Math.abs(remainder - step) > 1e-9) {
+      _showFieldError(input, `步长为 ${stepAttr}，请输入合规值`);
+      return;
+    }
+  }
+  _clearFieldError(input);
+}
+
+export function initNumberFieldValidation() {
+  const form = document.getElementById('settingsForm');
+  if (!form) return;
+  form.setAttribute('novalidate', '');
+  form.querySelectorAll('input[type="number"]').forEach((input) => {
+    input.addEventListener('blur', () => _validateNumberInput(input));
+    input.addEventListener('input', () => {
+      if (input.classList.contains('field-error')) _validateNumberInput(input);
+    });
+  });
 }

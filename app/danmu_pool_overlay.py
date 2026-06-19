@@ -99,11 +99,12 @@ def is_overlay_safe(text: str, *, max_chars: int | None = 15, min_chars: int = 2
         return False
     if any(ch in text for ch in ("\n", "\r", "\t")):
         return False
-    if not CJK_RE.search(text):
-        return False
-    cjk = len(CJK_RE.findall(text))
-    if cjk < min(2, len(text)):
-        return False
+    # CJK 不再是硬性前置条件：有 CJK 时检查数量，无 CJK 但满足其他条件也可通过
+    has_cjk = bool(CJK_RE.search(text))
+    if has_cjk:
+        cjk = len(CJK_RE.findall(text))
+        if cjk < min(2, len(text)):
+            return False
     if REPEAT_CHAR_RE.search(text):
         return False
     if URL_RE.search(text):

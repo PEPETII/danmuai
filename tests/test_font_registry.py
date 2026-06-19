@@ -57,19 +57,19 @@ def test_import_bytes_writes_to_fonts_dir(registry, fonts_dir, qapp):
 
 
 def test_import_bytes_rejects_empty_file(registry, qapp):
-    with pytest.raises(ValueError, match="empty_file"):
+    with pytest.raises(ValueError, match="文件为空"):
         registry.import_bytes(b"", "empty.ttf")
 
 
 def test_import_bytes_rejects_unsupported_extension(registry, qapp):
-    with pytest.raises(ValueError, match="unsupported_extension"):
+    with pytest.raises(ValueError, match="不支持的文件格式"):
         registry.import_bytes(b"abc", "foo.zip")
 
 
 def test_import_bytes_rejects_oversized_file(registry, qapp):
     from app.font_registry import MAX_FILE_BYTES
     data = b"\x00" * (MAX_FILE_BYTES + 1)
-    with pytest.raises(ValueError, match="file_too_large"):
+    with pytest.raises(ValueError, match="文件过大"):
         registry.import_bytes(data, "big.ttf")
 
 

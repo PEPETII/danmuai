@@ -5,7 +5,6 @@ from __future__ import annotations
 from unittest.mock import Mock
 
 import main as main_mod
-
 from app.application.config_service import apply_web_config_patch, scene_version_fingerprint
 from app.config_store import ConfigStore
 from main import DanmuApp

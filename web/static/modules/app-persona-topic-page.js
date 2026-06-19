@@ -197,76 +197,95 @@ export function initPersonaTopicPage(deps = {}) {
   document.getElementById('personaSelect')?.addEventListener('change', () => {
     loadPersonaTemplate().catch((error) => showToast(error.message, true));
   });
-  document.getElementById('btnSaveLiveTopic')?.addEventListener('click', () => {
-    saveLiveTopic().catch((error) => showToast(error.message || '主题保存失败', true));
+  document.getElementById('btnSaveLiveTopic')?.addEventListener('click', (e) => {
+    const btn = e.currentTarget;
+    window.withLoadingState(btn, btn.textContent, () =>
+      saveLiveTopic()
+    ).catch((error) => showToast(error.message || '主题保存失败', true));
   });
-  document.getElementById('btnSaveUserNickname')?.addEventListener('click', () => {
-    saveUserNickname().catch((error) => showToast(error.message || '昵称保存失败', true));
+  document.getElementById('btnSaveUserNickname')?.addEventListener('click', (e) => {
+    const btn = e.currentTarget;
+    window.withLoadingState(btn, btn.textContent, () =>
+      saveUserNickname()
+    ).catch((error) => showToast(error.message || '昵称保存失败', true));
   });
   document.getElementById('personaNamePrefixEnabled')?.addEventListener('change', () => {
     savePersonaNamePrefix().catch((error) => showToast(error.message || '名称显示保存失败', true));
   });
-  document.getElementById('btnSavePersona')?.addEventListener('click', async () => {
-    const name = document.getElementById('personaSelect')?.value;
-    try {
-      await apiFetch(`/api/personae/${enc(name)}/template`, {
-        method: 'PUT',
-        body: JSON.stringify({
-          system_custom: document.getElementById('personaSystemCustom').value,
-        }),
-      });
-      showToast('人格已保存');
-      loadPersonaTemplate().catch(console.error);
-    } catch (error) {
-      showToast(error.message, true);
-    }
+  document.getElementById('btnSavePersona')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    await window.withLoadingState(btn, btn.textContent, async () => {
+      const name = document.getElementById('personaSelect')?.value;
+      try {
+        await apiFetch(`/api/personae/${enc(name)}/template`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            system_custom: document.getElementById('personaSystemCustom').value,
+          }),
+        });
+        showToast('人格已保存');
+        loadPersonaTemplate().catch(console.error);
+      } catch (error) {
+        showToast(error.message, true);
+      }
+    });
   });
-  document.getElementById('btnRestorePersona')?.addEventListener('click', async () => {
-    const name = document.getElementById('personaSelect')?.value;
-    try {
-      const data = await apiFetch(`/api/personae/${enc(name)}/restore`, { method: 'POST' });
-      document.getElementById('personaSystemCustom').value = data.system_custom || '';
-      showToast('已恢复默认');
-    } catch (error) {
-      showToast(error.message, true);
-    }
+  document.getElementById('btnRestorePersona')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    await window.withLoadingState(btn, btn.textContent, async () => {
+      const name = document.getElementById('personaSelect')?.value;
+      try {
+        const data = await apiFetch(`/api/personae/${enc(name)}/restore`, { method: 'POST' });
+        document.getElementById('personaSystemCustom').value = data.system_custom || '';
+        showToast('已恢复默认');
+      } catch (error) {
+        showToast(error.message, true);
+      }
+    });
   });
-  document.getElementById('btnNewPersona')?.addEventListener('click', async () => {
+  document.getElementById('btnNewPersona')?.addEventListener('click', async (e) => {
     const name = prompt('新人格名称：');
     if (!name?.trim()) return;
     if (/[/\\%#?]/.test(name)) {
       showToast('人格名称不能包含 / \\ % # ? 等特殊字符', true);
       return;
     }
-    try {
-      await apiFetch('/api/personae', {
-        method: 'POST',
-        body: JSON.stringify({ name: name.trim() }),
-      });
-      currentPersonaId = name.trim();
-      showToast('新人格已创建');
-      loadPersonaEditor().catch(console.error);
-    } catch (error) {
-      showToast(error.message, true);
-    }
-  });
-  document.getElementById('btnDeletePersona')?.addEventListener('click', async () => {
-    const name = document.getElementById('personaSelect')?.value;
-    if (name) await deletePersonaByName(name);
-  });
-  document.getElementById('btnSavePersonaActive')?.addEventListener('click', async () => {
-    const active = [];
-    document.querySelectorAll('#personaActiveList input:checked').forEach((cb) => {
-      active.push(cb.value);
+    const btn = e.currentTarget;
+    await window.withLoadingState(btn, btn.textContent, async () => {
+      try {
+        await apiFetch('/api/personae', {
+          method: 'POST',
+          body: JSON.stringify({ name: name.trim() }),
+        });
+        currentPersonaId = name.trim();
+        showToast('新人格已创建');
+        loadPersonaEditor().catch(console.error);
+      } catch (error) {
+        showToast(error.message, true);
+      }
     });
-    try {
-      await apiFetch('/api/personae/active', {
-        method: 'PUT',
-        body: JSON.stringify({ active }),
+  });
+  document.getElementById('btnDeletePersona')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    const name = document.getElementById('personaSelect')?.value;
+    if (name) await window.withLoadingState(btn, btn.textContent, () => deletePersonaByName(name));
+  });
+  document.getElementById('btnSavePersonaActive')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    await window.withLoadingState(btn, btn.textContent, async () => {
+      const active = [];
+      document.querySelectorAll('#personaActiveList input:checked').forEach((cb) => {
+        active.push(cb.value);
       });
-      showToast('激活人格已更新');
-    } catch (error) {
-      showToast(error.message, true);
-    }
+      try {
+        await apiFetch('/api/personae/active', {
+          method: 'PUT',
+          body: JSON.stringify({ active }),
+        });
+        showToast('激活人格已更新');
+      } catch (error) {
+        showToast(error.message, true);
+      }
+    });
   });
 }

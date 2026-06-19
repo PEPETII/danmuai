@@ -18,6 +18,7 @@ from app.personae import (
     strip_reply_contract,
     strip_system_style,
 )
+
 from tests.fakes import FakeConfig
 
 

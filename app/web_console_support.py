@@ -35,6 +35,7 @@ class WebStatusSnapshot:
     danmu_count: int = 0
     queue_count: int = 0
     display_count: int = 0
+    dropped_by_cap: int = 0
     danmu_render_mode: str = "scrolling"
     overlay_display_count: int = 0
     floating_panel_active_count: int = 0

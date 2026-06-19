@@ -118,7 +118,9 @@ export {
   collectFormData,
   fillForm,
   initFloatingPanelV2Controls,
+  initOpacityWarning,
   initRestoreDefaultsControls,
+  initNumberFieldValidation,
   loadConfigDefaults,
   reloadConfigFromServer,
 } from './settings-core.js';
@@ -541,58 +543,67 @@ export function bindSettingsControls(deps = {}) {
 
   document.getElementById('settingsForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    try {
-      await apiFetch('/api/config', { method: 'POST', body: JSON.stringify({ data: collectFormData() }) });
-      const cfg = await reloadConfigFromServer();
-      refreshDanmuPreview();
-      const active = cfg.active_model_id || cfg.model || '';
-      const label = cfg.model_display_name && cfg.model_display_name !== active
-        ? `${cfg.model_display_name}（${active}）`
-        : active;
-      showToast(label ? `配置已保存，当前生效模型：${label}` : '配置已保存~');
-      if (onConfigSaved) onConfigSaved();
-      const keyInput = document.getElementById('api_key');
-      if (keyInput?.value && keyInput.value !== MASKED_API_KEY) {
-        keyInput.value = MASKED_API_KEY;
+    const btn = e.submitter || document.activeElement;
+    await window.withLoadingState(btn, btn?.textContent, async () => {
+      try {
+        await apiFetch('/api/config', { method: 'POST', body: JSON.stringify({ data: collectFormData() }) });
+        const cfg = await reloadConfigFromServer();
+        refreshDanmuPreview();
+        const active = cfg.active_model_id || cfg.model || '';
+        const label = cfg.model_display_name && cfg.model_display_name !== active
+          ? `${cfg.model_display_name}（${active}）`
+          : active;
+        showToast(label ? `配置已保存，当前生效模型：${label}` : '配置已保存~');
+        if (onConfigSaved) onConfigSaved();
+        const keyInput = document.getElementById('api_key');
+        if (keyInput?.value && keyInput.value !== MASKED_API_KEY) {
+          keyInput.value = MASKED_API_KEY;
+        }
+        const micKeyInput = document.getElementById('mic_api_key');
+        if (micKeyInput?.value && micKeyInput.value !== MASKED_API_KEY) {
+          micKeyInput.value = MASKED_API_KEY;
+        }
+      } catch (err) {
+        showToast(err.message || '保存时出了点小状况', true);
       }
-      const micKeyInput = document.getElementById('mic_api_key');
-      if (micKeyInput?.value && micKeyInput.value !== MASKED_API_KEY) {
-        micKeyInput.value = MASKED_API_KEY;
-      }
-    } catch (err) {
-      showToast(err.message || '保存时出了点小状况', true);
-    }
+    });
   });
 
-  document.getElementById('btnSaveAndStart')?.addEventListener('click', async () => {
-    try {
-      await apiFetch('/api/config', { method: 'POST', body: JSON.stringify({ data: collectFormData() }) });
-      await apiFetch('/api/start', { method: 'POST' });
-      showToast('已保存并开始生成弹幕！');
-      navigate('overview');
-    } catch (err) {
-      showToast(err.message, true);
-    }
+  document.getElementById('btnSaveAndStart')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    await window.withLoadingState(btn, btn.textContent, async () => {
+      try {
+        await apiFetch('/api/config', { method: 'POST', body: JSON.stringify({ data: collectFormData() }) });
+        await apiFetch('/api/start', { method: 'POST' });
+        showToast('已保存并开始生成弹幕！');
+        navigate('overview');
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    });
   });
 
-  document.getElementById('btnProbe')?.addEventListener('click', async () => {
-    const data = collectFormData();
-    const keyField = (document.getElementById('api_key')?.value || '').trim();
-    try {
-      const res = await apiFetch('/api/probe', {
-        method: 'POST',
-        body: JSON.stringify({
-          api_endpoint: data.api_endpoint,
-          api_key: keyField === MASKED_API_KEY ? MASKED_API_KEY : (data.api_key || ''),
-          model: data.model,
-          api_mode: data.api_mode,
-        }),
-      });
-      showToast(res.message || (res.ok ? '连接成功' : '连接失败'), !res.ok);
-      if (res.ok) markProbeSuccess();
-    } catch (err) {
-      showToast(err.message || '网络连接似乎睡着了', true);
-    }
+  document.getElementById('btnProbe')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    await window.withLoadingState(btn, btn.textContent, async () => {
+      const data = collectFormData();
+      const keyField = (document.getElementById('api_key')?.value || '').trim();
+      try {
+        const res = await apiFetch('/api/probe', {
+          method: 'POST',
+          body: JSON.stringify({
+            api_endpoint: data.api_endpoint,
+            api_key: keyField === MASKED_API_KEY ? MASKED_API_KEY : (data.api_key || ''),
+            model: data.model,
+            api_mode: data.api_mode,
+          }),
+        });
+        showToast(res.message || (res.ok ? '连接成功' : '连接失败'), !res.ok);
+        if (res.ok) markProbeSuccess();
+      } catch (err) {
+        showToast(err.message || '网络连接似乎睡着了', true);
+      }
+    });
   });
 
   bindMicTestControls();
@@ -626,36 +637,43 @@ export function bindSettingsControls(deps = {}) {
 
   document.getElementById('modelModalForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const index = parseInt(document.getElementById('modelEditIndex').value, 10);
-    const body = collectModelForm();
-    try {
-      if (index >= 0) {
-        await apiFetch(`/api/custom-models/${index}`, { method: 'PUT', body: JSON.stringify(body) });
-      } else {
-        await apiFetch('/api/custom-models', { method: 'POST', body: JSON.stringify(body) });
+    const btn = e.submitter || document.activeElement;
+    await window.withLoadingState(btn, btn?.textContent, async () => {
+      const index = parseInt(document.getElementById('modelEditIndex').value, 10);
+      const body = collectModelForm();
+      try {
+        if (index >= 0) {
+          await apiFetch(`/api/custom-models/${index}`, { method: 'PUT', body: JSON.stringify(body) });
+        } else {
+          await apiFetch('/api/custom-models', { method: 'POST', body: JSON.stringify(body) });
+        }
+        closeModelModal();
+        showToast('模型已保存~');
+        loadCustomModels();
+      } catch (err) {
+        showToast(err.message, true);
       }
-      closeModelModal();
-      showToast('模型已保存~');
-      loadCustomModels();
-    } catch (err) {
-      showToast(err.message, true);
-    }
+    });
   });
-  document.getElementById('btnModelProbe')?.addEventListener('click', async () => {
-    try {
-      const index = parseInt(document.getElementById('modelEditIndex')?.value || '-1', 10);
-      const res = await apiFetch('/api/custom-models/probe', {
-        method: 'POST',
-        body: JSON.stringify({ ...collectModelForm(), index }),
-      });
-      showToast(res.message, !res.ok);
-    } catch (err) {
-      showToast(err.message, true);
-    }
+  document.getElementById('btnModelProbe')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    await window.withLoadingState(btn, btn.textContent, async () => {
+      try {
+        const index = parseInt(document.getElementById('modelEditIndex')?.value || '-1', 10);
+        const res = await apiFetch('/api/custom-models/probe', {
+          method: 'POST',
+          body: JSON.stringify({ ...collectModelForm(), index }),
+        });
+        showToast(res.message, !res.ok);
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    });
   });
 
   bindFontControls();
   initDanmuPreview();
+  initNumberFieldValidation();
 }
 
 

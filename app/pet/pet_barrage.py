@@ -11,10 +11,11 @@ from typing import TYPE_CHECKING
 from PyQt6.QtWidgets import QApplication
 
 from app.pet.pet_assets import BUILTIN_PET_DIR, validate_pet_pack_dir
-from app.pet.pet_state import PetBarrageSlot, PetSettings
+from app.pet.pet_state import PetSettings
 
 if TYPE_CHECKING:
     from main import DanmuApp
+
     from app.pet.pet_window import PetWindow
 
 
@@ -223,7 +224,11 @@ class PetBarrageController:
     ) -> list[PetBarrageDelivery]:
         deliveries: list[PetBarrageDelivery] = []
         for idx, window in enumerate(self._windows):
-            text = texts[idx] if idx < len(texts) else ""
+            if idx >= len(texts):
+                break
+            text = texts[idx]
+            if not text:
+                continue
             delivery = PetBarrageDelivery(
                 slot_id=window.slot_id,
                 text=text,

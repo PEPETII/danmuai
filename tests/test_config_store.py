@@ -662,3 +662,81 @@ def test_meme_barrage_library_contains_text_after_init(tmp_path):
     assert store.meme_barrage_library_contains_text("不存在") is False
     store.close()
 
+
+# --- Fernet key loss / regeneration startup notice tests ---
+
+
+@pytest.mark.skipif(not _HAS_CRYPTO, reason="cryptography not installed")
+def test_corrupted_key_shows_key_lost_notice(tmp_path):
+    """密钥文件损坏后重新生成，get_startup_notice() 应包含密钥丢失提醒。"""
+    db_path = tmp_path / "corrupt_key.db"
+    store = ConfigStore(db_path=db_path)
+    # 写入加密 API Key
+    store.set_api_key("sk-test-secret-key")
+    assert store.get_api_key() == "sk-test-secret-key"
+    store.close()
+
+    # 损坏密钥文件
+    key_file = db_path.parent / ".key"
+    assert key_file.exists()
+    key_file.write_bytes(b"corrupted_invalid_key_data")
+
+    store2 = ConfigStore(db_path=db_path)
+    assert store2._key_regenerated is True
+    notice = store2.get_startup_notice()
+    assert "密钥" in notice or "key" in notice.lower()
+    # 旧 API Key 不可恢复
+    assert store2.get_api_key() == ""
+    store2.close()
+
+
+@pytest.mark.skipif(not _HAS_CRYPTO, reason="cryptography not installed")
+def test_deleted_key_with_encrypted_data_shows_notice(tmp_path):
+    """密钥文件被删除且数据库中有加密数据时，应显示密钥丢失提醒。"""
+    db_path = tmp_path / "deleted_key.db"
+    store = ConfigStore(db_path=db_path)
+    store.set_api_key("sk-another-secret")
+    assert store.get_api_key() == "sk-another-secret"
+    store.close()
+
+    # 删除密钥文件
+    key_file = db_path.parent / ".key"
+    assert key_file.exists()
+    key_file.unlink()
+
+    store2 = ConfigStore(db_path=db_path)
+    assert store2._key_regenerated is True
+    notice = store2.get_startup_notice()
+    assert "密钥" in notice or "key" in notice.lower()
+    assert store2.get_api_key() == ""
+    store2.close()
+
+
+@pytest.mark.skipif(not _HAS_CRYPTO, reason="cryptography not installed")
+def test_first_run_no_key_lost_notice(tmp_path):
+    """首次安装时，get_startup_notice() 不应包含密钥丢失提醒。"""
+    db_path = tmp_path / "first_run.db"
+    store = ConfigStore(db_path=db_path)
+    assert store.is_first_run is True
+    assert store._key_regenerated is False
+    notice = store.get_startup_notice()
+    # 首次安装提示不包含密钥丢失关键词
+    assert "密钥已丢失" not in notice
+    assert "未找到配置文件" in notice
+    store.close()
+
+
+@pytest.mark.skipif(not _HAS_CRYPTO, reason="cryptography not installed")
+def test_normal_startup_empty_notice(tmp_path):
+    """正常启动（密钥完好）时，get_startup_notice() 返回空字符串。"""
+    db_path = tmp_path / "normal.db"
+    store = ConfigStore(db_path=db_path)
+    store.set_api_key("sk-normal-key")
+    store.close()
+
+    store2 = ConfigStore(db_path=db_path)
+    assert store2.is_first_run is False
+    assert store2._key_regenerated is False
+    assert store2.get_startup_notice() == ""
+    store2.close()
+

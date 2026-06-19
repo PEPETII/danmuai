@@ -6,11 +6,10 @@ import os
 import tracemalloc
 
 import pytest
-from PyQt6.QtWidgets import QApplication
-
 from app.config_store import ConfigStore
-from app.danmu_engine import DanmuEngine, FADE_IN_PX
-from app.overlay import DanmuOverlay, _PRERENDER_AHEAD_PX
+from app.danmu_engine import FADE_IN_PX, DanmuEngine
+from app.overlay import _PRERENDER_AHEAD_PX, DanmuOverlay
+from PyQt6.QtWidgets import QApplication
 
 _STEADY_PLATEAU_RATIO_MAX = 0.25
 _FAR_OFFSCREEN_PIXMAP_NONE_RATIO_MIN = 0.5

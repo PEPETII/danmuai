@@ -11,8 +11,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from app.config_store import CUSTOM_DANMU_POOL_MAX
 from app.danmu_pool import (
+    CUSTOM_DANMU_POOL_MAX,
     any_danmu_pool_source_enabled,
     custom_pool_size,
     danmu_pool_use_custom_from_config,
@@ -60,6 +60,7 @@ def get_meta(app: "DanmuApp") -> dict[str, Any]:
 
 def save_settings(app: "DanmuApp", payload: dict[str, Any]) -> dict[str, Any]:
     items: dict[str, str] = {}
+    clamped_fields: dict[str, dict[str, int]] = {}
     if "custom_enabled" in payload:
         items["danmu_pool_use_custom"] = "1" if payload.get("custom_enabled") else "0"
     if "min_on_screen" in payload:
@@ -67,11 +68,17 @@ def save_settings(app: "DanmuApp", payload: dict[str, Any]) -> dict[str, Any]:
             min_n = int(payload.get("min_on_screen", 5))
         except (TypeError, ValueError):
             min_n = 5
-        items["min_on_screen"] = str(max(0, min(min_n, MIN_ON_SCREEN_MAX)))
+        actual = max(0, min(min_n, MIN_ON_SCREEN_MAX))
+        if actual != min_n:
+            clamped_fields["min_on_screen"] = {"requested": min_n, "actual": actual}
+        items["min_on_screen"] = str(actual)
     if items:
         app.config.set_batch(items)
         app.config_changed.emit()
-    return {"ok": True}
+    result: dict[str, Any] = {"ok": True}
+    if clamped_fields:
+        result["clamped_fields"] = clamped_fields
+    return result
 
 
 def list_custom(

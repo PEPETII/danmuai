@@ -11,8 +11,8 @@ from typing import TYPE_CHECKING, Callable
 
 from PyQt6.QtCore import QEvent, QPoint, QRectF, Qt, QTimer
 from PyQt6.QtGui import (
-    QAction,
     QAbstractTextDocumentLayout,
+    QAction,
     QColor,
     QFont,
     QPainter,
@@ -26,7 +26,13 @@ from PyQt6.QtGui import (
 from PyQt6.QtWidgets import QApplication, QLineEdit, QMenu, QWidget
 
 from app.pet.pet_animation_mapper import resolve_pet_animation_hint
-from app.pet.pet_assets import PET_FRAME_H, PET_FRAME_W, PetAssetPack, load_pet_assets, validate_pet_pack_dir
+from app.pet.pet_assets import (
+    PET_FRAME_H,
+    PET_FRAME_W,
+    PetAssetPack,
+    load_pet_assets,
+    validate_pet_pack_dir,
+)
 from app.pet.pet_state import PetSettings
 
 if TYPE_CHECKING:
@@ -372,6 +378,8 @@ class PetWindow(QWidget):
 
     def apply_config(self) -> None:
         self._settings = PetSettings.from_config(self._app.config)
+        old_source = self._slot_asset_source
+        old_path = self._slot_asset_path
         if self.slot_id < len(self._settings.barrage.slots):
             slot = self._settings.barrage.slots[self.slot_id]
             self._slot_asset_source = slot.asset_source or self._settings.asset_source
@@ -383,13 +391,16 @@ class PetWindow(QWidget):
             self._slot_asset_path = self._settings.asset_path
             self._slot_position_x = self._settings.position_x
             self._slot_position_y = self._settings.position_y
-        self.reload_assets()
+        if self._slot_asset_source != old_source or self._slot_asset_path != old_path:
+            self.reload_assets()
         self._apply_window_geometry(reposition=True)
         if self.isVisible():
             self._sync_click_through()
             self.update()
 
     def apply_slot_config(self, slot_data: dict[str, object]) -> None:
+        old_source = self._slot_asset_source
+        old_path = self._slot_asset_path
         self._slot_asset_source = str(slot_data.get("asset_source", self._settings.asset_source) or self._settings.asset_source).strip().lower()
         if self._slot_asset_source not in ("builtin", "local"):
             self._slot_asset_source = "builtin"
@@ -402,7 +413,8 @@ class PetWindow(QWidget):
             self._slot_position_y = int(slot_data.get("position_y")) if slot_data.get("position_y") is not None else None
         except (TypeError, ValueError):
             self._slot_position_y = None
-        self.reload_assets()
+        if self._slot_asset_source != old_source or self._slot_asset_path != old_path:
+            self.reload_assets()
         self._apply_window_geometry(reposition=True)
         self.update()
 

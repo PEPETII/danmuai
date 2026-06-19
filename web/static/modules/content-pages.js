@@ -43,14 +43,18 @@ function showToast(msg, isError = false) {
   bindDeps.showToast(msg, isError);
 }
 
+import { activateFocusTrap, deactivateFocusTrap } from './modal-focus-trap.js';
+
 function openRewardModal() {
   const modal = document.getElementById('rewardModal');
   if (!modal) return;
   modal.classList.remove('hidden');
   modal.classList.add('flex');
+  activateFocusTrap(modal, closeRewardModal);
 }
 
 function closeRewardModal() {
+  deactivateFocusTrap();
   const modal = document.getElementById('rewardModal');
   if (!modal) return;
   modal.classList.add('hidden');

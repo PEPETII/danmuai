@@ -1,8 +1,6 @@
 """Tests for app.application.danmu_diagnostics (W-PR-INTAKE-021)."""
 from __future__ import annotations
 
-import time
-
 from app.application.danmu_diagnostics import DanmuDiagnosticsRecorder
 
 

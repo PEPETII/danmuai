@@ -4,10 +4,9 @@ from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
-
 from app.supabase_app_updates import (
-    AppUpdateRemote,
     AppUpdateFetchResult,
+    AppUpdateRemote,
     clear_app_update_cache,
     fetch_app_update,
     fetch_app_update_result,

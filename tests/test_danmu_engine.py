@@ -116,7 +116,7 @@ def test_add_text_keeps_meme_barrage_line_untruncated(engine):
 
 def test_resolve_danmu_max_chars_defaults_and_clamp(engine):
     engine.config.set("danmu_max_chars", "")
-    assert resolve_danmu_max_chars(engine.config, lang="zh") == 15
+    assert resolve_danmu_max_chars(engine.config, lang="zh") == 20
     engine.config.set("danmu_max_chars", "99")
     assert resolve_danmu_max_chars(engine.config) == 80
     engine.config.set("danmu_max_chars", "2")

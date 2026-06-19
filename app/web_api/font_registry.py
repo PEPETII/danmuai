@@ -29,7 +29,7 @@ def register_font_registry_routes(app, bridge, check_token) -> None:
             )
         except ValueError as exc:
             detail = str(exc)
-            if detail == "font_registry_disabled":
+            if detail == "字体注册表不可用":
                 raise HTTPException(status_code=503, detail=detail) from exc
             raise HTTPException(status_code=400, detail=detail) from exc
         registry = bridge.danmu_app.font_registry
@@ -53,10 +53,10 @@ def register_font_registry_routes(app, bridge, check_token) -> None:
         try:
             ok = bridge.invoke_on_main(bridge.danmu_app.font_registry.delete, sha256)
         except ValueError as exc:
-            if str(exc) == "font_registry_disabled":
+            if str(exc) == "字体注册表不可用":
                 raise HTTPException(status_code=503, detail=str(exc)) from exc
             raise
         if not ok:
-            raise HTTPException(status_code=404, detail="font_not_found")
+            raise HTTPException(status_code=404, detail="字体记录不存在")
         registry = bridge.danmu_app.font_registry
         return {"ok": True, "families": registry.list_families()}

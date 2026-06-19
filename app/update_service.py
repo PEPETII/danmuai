@@ -114,12 +114,24 @@ def _downloaded_bytes(package_size: int, progress: int) -> int:
     return int(package_size * progress / 100)
 
 
-def _enrich_status(status: UpdateStatus) -> UpdateStatus:
+def _take_snapshot() -> dict[str, Any]:
+    """Acquire _lock and return a consistent snapshot of _state fields used by _enrich_status."""
     with _lock:
-        phase = str(_state.get("download_phase") or "idle")
-        progress = int(_state.get("download_progress") or 0)
-        package_size = int(_state.get("package_size_bytes") or 0)
-        last_error = _state.get("last_error")
+        return {
+            "download_phase": str(_state.get("download_phase") or "idle"),
+            "download_progress": int(_state.get("download_progress") or 0),
+            "package_size_bytes": int(_state.get("package_size_bytes") or 0),
+            "last_error": _state.get("last_error"),
+        }
+
+
+def _enrich_status(status: UpdateStatus, snapshot: dict[str, Any] | None = None) -> UpdateStatus:
+    if snapshot is None:
+        snapshot = _take_snapshot()
+    phase = snapshot["download_phase"]
+    progress = snapshot["download_progress"]
+    package_size = snapshot["package_size_bytes"]
+    last_error = snapshot.get("last_error")
 
     status.download_phase = phase
     status.download_progress = progress
@@ -162,22 +174,30 @@ def get_status() -> UpdateStatus:
         with _lock:
             pending_info = _state.get("pending_update")
             phase = str(_state.get("download_phase") or "idle")
-        latest = _latest_version_from_info(pending_info)
-        download_ready = phase == "ready" or pending
-        message = ""
-        if pending or phase == "ready":
-            message = "已下载更新，可重启安装"
+            latest = _latest_version_from_info(pending_info)
+            download_ready = phase == "ready" or pending
+            update_available = bool(pending_info) and phase not in {"ready", "downloading"}
+            message = ""
+            if pending or phase == "ready":
+                message = "已下载更新，可重启安装"
+            snapshot = {
+                "download_phase": phase,
+                "download_progress": int(_state.get("download_progress") or 0),
+                "package_size_bytes": int(_state.get("package_size_bytes") or 0),
+                "last_error": _state.get("last_error"),
+            }
         return _enrich_status(
             UpdateStatus(
                 ok=True,
                 frozen=True,
                 current_version=current or __version__,
                 latest_version=latest,
-                update_available=bool(pending_info) and phase not in {"ready", "downloading"},
+                update_available=update_available,
                 download_ready=download_ready,
                 pending_restart=pending,
                 message=message,
-            )
+            ),
+            snapshot,
         )
     except Exception as exc:
         return _enrich_status(
@@ -186,7 +206,7 @@ def get_status() -> UpdateStatus:
                 frozen=True,
                 current_version=__version__,
                 error=str(exc),
-            )
+            ),
         )
 
 
@@ -267,39 +287,47 @@ def download_updates(*, wait: bool = False) -> UpdateStatus:
     if not _is_frozen():
         return UpdateStatus(ok=False, frozen=False, error="not_frozen")
 
+    # Single lock acquisition for all state reads + decisions
     with _lock:
         phase = str(_state.get("download_phase") or "idle")
         pending_info = _state.get("pending_update")
+        snapshot = {
+            "download_phase": phase,
+            "download_progress": int(_state.get("download_progress") or 0),
+            "package_size_bytes": int(_state.get("package_size_bytes") or 0),
+            "last_error": _state.get("last_error"),
+        }
 
-    if phase == "downloading":
-        return _enrich_status(
-            UpdateStatus(
-                ok=True,
-                frozen=True,
-                downloading=True,
-                message="正在下载更新…",
-            )
-        )
-    if phase == "ready":
-        mgr = None
-        try:
-            mgr = _manager()
-        except Exception:
-            mgr = None
-        current = _current_version(mgr) if mgr else ""
-        return _enrich_status(
-            UpdateStatus(
-                ok=True,
-                frozen=True,
-                current_version=current,
-                latest_version=_latest_version_from_info(pending_info),
-                update_available=True,
-                download_ready=True,
-                message="更新已下载，请重启应用以完成安装",
-            )
-        )
+        if phase == "downloading":
+            active_thread = _state.get("download_thread")
+            if active_thread is not None and active_thread.is_alive():
+                return _enrich_status(
+                    UpdateStatus(
+                        ok=True,
+                        frozen=True,
+                        downloading=True,
+                        message="正在下载更新…",
+                    ),
+                    snapshot,
+                )
+            # Thread died without updating phase; fall through to restart
 
-    info = pending_info
+        if phase == "ready":
+            return _enrich_status(
+                UpdateStatus(
+                    ok=True,
+                    frozen=True,
+                    latest_version=_latest_version_from_info(pending_info),
+                    update_available=True,
+                    download_ready=True,
+                    message="更新已下载，请重启应用以完成安装",
+                ),
+                snapshot,
+            )
+
+        info = pending_info
+
+    # check_for_updates() acquires its own lock; call outside ours
     if info is None:
         check = check_for_updates()
         if not check.update_available:
@@ -311,33 +339,51 @@ def download_updates(*, wait: bool = False) -> UpdateStatus:
         return UpdateStatus(ok=False, frozen=True, error="no_update_info")
 
     package_size = _estimate_package_size(info)
+
+    # Atomic check-and-set: decide whether to start download under one lock
     with _lock:
-        if str(_state.get("download_phase") or "idle") == "downloading":
-            already_downloading = True
-        else:
-            already_downloading = False
+        phase = str(_state.get("download_phase") or "idle")
+        snapshot = {
+            "download_phase": phase,
+            "download_progress": int(_state.get("download_progress") or 0),
+            "package_size_bytes": int(_state.get("package_size_bytes") or 0),
+            "last_error": _state.get("last_error"),
+        }
+        if phase == "downloading":
             active_thread = _state.get("download_thread")
             if active_thread is not None and active_thread.is_alive():
-                already_downloading = True
-            else:
-                _state["download_phase"] = "downloading"
-                _state["download_progress"] = 0
-                _state["package_size_bytes"] = package_size
-                _state["last_error"] = None
+                return _enrich_status(
+                    UpdateStatus(
+                        ok=True,
+                        frozen=True,
+                        downloading=True,
+                        message="正在下载更新…",
+                    ),
+                    snapshot,
+                )
+            # Thread died without updating phase; fall through to restart
 
-    if already_downloading:
-        return _enrich_status(
-            UpdateStatus(
-                ok=True,
-                frozen=True,
-                downloading=True,
-                message="正在下载更新…",
+        if phase == "ready":
+            return _enrich_status(
+                UpdateStatus(
+                    ok=True,
+                    frozen=True,
+                    latest_version=_latest_version_from_info(info),
+                    update_available=True,
+                    download_ready=True,
+                    message="更新已下载，请重启应用以完成安装",
+                ),
+                snapshot,
             )
-        )
 
-    thread = threading.Thread(target=_run_download_thread, args=(info,), daemon=True)
-    with _lock:
+        _state["download_phase"] = "downloading"
+        _state["download_progress"] = 0
+        _state["package_size_bytes"] = package_size
+        _state["last_error"] = None
+        thread = threading.Thread(target=_run_download_thread, args=(info,), daemon=True)
         _state["download_thread"] = thread
+
+    # Start thread outside the lock (blocking)
     thread.start()
 
     if wait:
@@ -387,25 +433,22 @@ def apply_updates_and_restart() -> UpdateStatus:
     with _lock:
         info = _state.get("pending_update")
         phase = str(_state.get("download_phase") or "idle")
-    if info is None:
-        return UpdateStatus(
-            ok=False,
-            frozen=True,
-            error="no_downloaded_update",
-            message="请先检查并下载更新",
-        )
-    if phase not in {"ready", "idle"} and phase != "error":
-        with _lock:
-            if _state.get("download_phase") == "downloading":
-                return UpdateStatus(
-                    ok=False,
-                    frozen=True,
-                    error="download_in_progress",
-                    message="更新仍在下载中，请稍候",
-                )
+        if info is None:
+            return UpdateStatus(
+                ok=False,
+                frozen=True,
+                error="no_downloaded_update",
+                message="请先检查并下载更新",
+            )
+        if phase == "downloading":
+            return UpdateStatus(
+                ok=False,
+                frozen=True,
+                error="download_in_progress",
+                message="更新仍在下载中，请稍候",
+            )
+        _state["download_phase"] = "applying"
     try:
-        with _lock:
-            _state["download_phase"] = "applying"
         mgr = _manager()
         mgr.apply_updates_and_restart(info)
         return UpdateStatus(ok=True, frozen=True, message="正在重启…", download_phase="applying")

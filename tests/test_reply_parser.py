@@ -5,6 +5,7 @@ from app.reply_parser import (
     normalize_reply_batch,
     parse_ai_reply_payload,
 )
+
 from tests.fakes import FakeConfig
 
 

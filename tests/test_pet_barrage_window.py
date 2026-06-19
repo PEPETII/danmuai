@@ -1,6 +1,6 @@
+from app.pet.pet_window import PetWindow
 from main import DanmuApp
 
-from app.pet.pet_window import PetWindow
 from tests.conftest import bind_minimal_danmu_app
 from tests.fakes import FakeConfig
 

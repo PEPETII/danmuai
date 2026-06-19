@@ -61,6 +61,7 @@ def get_meta(app: "DanmuApp") -> dict[str, Any]:
 def save_settings(app: "DanmuApp", payload: dict[str, Any]) -> dict[str, Any]:
     items: dict[str, str] = {}
     reset_cursors = False
+    clamped_fields: dict[str, dict[str, int]] = {}
 
     if "enabled" in payload:
         items["meme_barrage_enabled"] = "1" if payload.get("enabled") else "0"
@@ -90,33 +91,37 @@ def save_settings(app: "DanmuApp", payload: dict[str, Any]) -> dict[str, Any]:
             sec = int(payload.get("collect_interval_sec", 5))
         except (TypeError, ValueError):
             sec = 5
-        items["meme_barrage_collect_interval_sec"] = str(
-            max(COLLECT_INTERVAL_MIN, min(sec, COLLECT_INTERVAL_MAX))
-        )
+        actual = max(COLLECT_INTERVAL_MIN, min(sec, COLLECT_INTERVAL_MAX))
+        if actual != sec:
+            clamped_fields["collect_interval_sec"] = {"requested": sec, "actual": actual}
+        items["meme_barrage_collect_interval_sec"] = str(actual)
     if "collect_batch_size" in payload:
         try:
             n = int(payload.get("collect_batch_size", 2))
         except (TypeError, ValueError):
             n = 2
-        items["meme_barrage_collect_batch_size"] = str(
-            max(COLLECT_BATCH_MIN, min(n, COLLECT_BATCH_MAX))
-        )
+        actual = max(COLLECT_BATCH_MIN, min(n, COLLECT_BATCH_MAX))
+        if actual != n:
+            clamped_fields["collect_batch_size"] = {"requested": n, "actual": actual}
+        items["meme_barrage_collect_batch_size"] = str(actual)
     if "display_interval_sec" in payload:
         try:
             sec = int(payload.get("display_interval_sec", 5))
         except (TypeError, ValueError):
             sec = 5
-        items["meme_barrage_display_interval_sec"] = str(
-            max(DISPLAY_INTERVAL_MIN, min(sec, DISPLAY_INTERVAL_MAX))
-        )
+        actual = max(DISPLAY_INTERVAL_MIN, min(sec, DISPLAY_INTERVAL_MAX))
+        if actual != sec:
+            clamped_fields["display_interval_sec"] = {"requested": sec, "actual": actual}
+        items["meme_barrage_display_interval_sec"] = str(actual)
     if "display_batch_size" in payload:
         try:
             n = int(payload.get("display_batch_size", 2))
         except (TypeError, ValueError):
             n = 2
-        items["meme_barrage_display_batch_size"] = str(
-            max(DISPLAY_BATCH_MIN, min(n, DISPLAY_BATCH_MAX))
-        )
+        actual = max(DISPLAY_BATCH_MIN, min(n, DISPLAY_BATCH_MAX))
+        if actual != n:
+            clamped_fields["display_batch_size"] = {"requested": n, "actual": actual}
+        items["meme_barrage_display_batch_size"] = str(actual)
 
     if items:
         app.config.set_batch(items)
@@ -125,7 +130,10 @@ def save_settings(app: "DanmuApp", payload: dict[str, Any]) -> dict[str, Any]:
         if callable(apply):
             apply(reset_cursors=reset_cursors)
 
-    return get_meta(app)
+    result = get_meta(app)
+    if clamped_fields:
+        result["clamped_fields"] = clamped_fields
+    return result
 
 
 def get_tags() -> dict[str, Any]:

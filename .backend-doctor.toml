@@ -1,5 +1,5 @@
 # Backend Doctor configuration — W-DOCTOR-IGNORE-001
-# 仅禁用 2 条已确认 C/D 类规则；venv / community-site / tailwindcdn.js 排除待工具支持文件级 ignore
+# 仅禁用 2 条已确认 C/D 类规则；venv / community / tailwindcdn.js 排除待工具支持文件级 ignore
 disabled-rules = [
   "security/hardcoded-secret",
   "node/dead-export",

@@ -26,6 +26,7 @@ import {
   initCaptureRegionControls,
   initNormalBatchControls,
   initFloatingPanelV2Controls,
+  initOpacityWarning,
   initRestoreDefaultsControls,
   initContentPageFieldHints,
   initSettingsFieldHints,
@@ -128,11 +129,42 @@ function invalidateDanmuReadCache() {
   danmuReadCatalog = null;
 }
 
+let _toastExitTimer = null;
+
 function showToast(message, isError = false) {
   const el = document.getElementById('toast');
+  if (_toastExitTimer) {
+    clearTimeout(_toastExitTimer);
+    _toastExitTimer = null;
+  }
   el.textContent = message;
   el.className = `toast show ${isError ? 'text-red-700' : 'text-warmText'}`;
-  setTimeout(() => el.classList.remove('show'), 3200);
+  _toastExitTimer = setTimeout(() => {
+    el.classList.add('toast-exit');
+    el.classList.remove('show');
+    _toastExitTimer = setTimeout(() => {
+      el.classList.remove('toast-exit');
+      el.className = 'toast';
+      _toastExitTimer = null;
+    }, 300);
+  }, 3200);
+}
+
+async function withLoadingState(btn, originalText, asyncFn) {
+  if (!btn) return asyncFn();
+  const loadingText = originalText ? `${originalText}中...` : '处理中...';
+  btn.disabled = true;
+  btn.dataset.originalText = btn.textContent;
+  btn.textContent = loadingText;
+  btn.style.opacity = '0.7';
+  try {
+    return await asyncFn();
+  } finally {
+    btn.textContent = btn.dataset.originalText || originalText;
+    btn.disabled = false;
+    btn.style.opacity = '';
+    delete btn.dataset.originalText;
+  }
 }
 
 function maybePromptErrorReport(status) {
@@ -370,11 +402,17 @@ function initDanmuReadPage() {
   document
     .getElementById('danmuReadModelSelect')
     ?.addEventListener('change', handleDanmuReadModelChange);
-  document.getElementById('btnSaveDanmuRead')?.addEventListener('click', () => {
-    saveDanmuReadSettings().catch((error) => showToast(error.message, true));
+  document.getElementById('btnSaveDanmuRead')?.addEventListener('click', (e) => {
+    const btn = e.currentTarget;
+    withLoadingState(btn, btn.textContent, () =>
+      saveDanmuReadSettings()
+    ).catch((error) => showToast(error.message, true));
   });
-  document.getElementById('btnDanmuReadProbe')?.addEventListener('click', () => {
-    probeDanmuRead().catch((error) => {
+  document.getElementById('btnDanmuReadProbe')?.addEventListener('click', (e) => {
+    const btn = e.currentTarget;
+    withLoadingState(btn, btn.textContent, () =>
+      probeDanmuRead()
+    ).catch((error) => {
       const status = document.getElementById('danmuReadStatus');
       if (status) status.textContent = '';
       showToast(error.message, true);
@@ -516,6 +554,7 @@ async function init() {
   initCaptureRegionControls();
   initRestoreDefaultsControls();
   initFloatingPanelV2Controls();
+  initOpacityWarning();
 
   bindSettingsControls({
     showToast,
@@ -536,11 +575,19 @@ async function init() {
   document.querySelectorAll('.sidebar-nav-hint').forEach((btn) => {
     btn.addEventListener('click', (event) => event.stopPropagation());
   });
-  document.querySelectorAll('#nav [data-page]').forEach((btn) => {
-    btn.addEventListener('click', () => navigate(btn.dataset.page));
+  document.querySelectorAll('#nav [data-page]').forEach((el) => {
+    el.addEventListener('click', (event) => {
+      event.preventDefault();
+      navigate(el.dataset.page);
+    });
   });
   const hash = (location.hash || '').replace('#', '');
   if (hash) navigate(hash);
+
+  document.getElementById('btnErrorBannerDismiss')?.addEventListener('click', () => {
+    const banner = document.getElementById('errorBanner');
+    if (banner) banner.classList.add('hidden');
+  });
 
   document.querySelectorAll('.log-level-cb').forEach((cb) => {
     cb.addEventListener('change', () => {

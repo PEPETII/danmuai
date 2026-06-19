@@ -12,8 +12,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Callable
 
-from app.mic_service import mic_mode_enabled
-from app.mic_service import mic_input_device_id_from_config
+from app.mic_service import mic_input_device_id_from_config, mic_mode_enabled
 from app.mic_test import pcm_metrics
 from app.mic_utterance import (
     MicUtteranceDetector,

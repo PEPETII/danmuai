@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import os
 import re
 import sys
@@ -24,7 +23,6 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-
 
 DEFAULT_ENDPOINT = "https://ark.cn-beijing.volces.com/api/v3"
 DEFAULT_TIMEOUT_SEC = 60.0

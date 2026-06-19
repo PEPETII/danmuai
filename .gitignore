@@ -27,6 +27,9 @@ venv/
 log/
 ph/
 
+# Supabase credentials (copy from supabase-config.example.js)
+web/static/supabase-config.js
+
 # Build and caches
 .npmcache/
 dist/
@@ -74,6 +77,9 @@ docs/archive/architecture-phases/
 docs/archive/planning/
 docs/archive/qt6_ui_redesign_plan.md
 
+# Local community subproject (not published on GitHub)
+community/
+
 # Maintainer docs (local only — not published on GitHub)
 AGENTS.md
 docs/agent/ai-project-context.md
@@ -90,7 +96,6 @@ docs/templates/
 docs/bug-audit/
 docs/refactor/
 docs/architecture-governance/
-docs/community/
 docs/guides/
 docs/audits/
 docs/test/
@@ -118,7 +123,3 @@ docs/archive/completion-reports/
 *.agent.md
 *.prompt.md
 *.workorder.md
-
-# Community subproject local agent docs
-community-site/AGENTS.md
-community-site/.local-ai/

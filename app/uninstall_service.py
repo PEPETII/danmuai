@@ -14,7 +14,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-
 APPDATA_DIR_NAME = "DanmuAI"
 DELETE_MARKER_NAME = ".delete_data_on_uninstall"
 

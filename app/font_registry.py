@@ -55,7 +55,7 @@ class FontRegistry:
 
     def _ensure_enabled(self) -> None:
         if self._disabled:
-            raise ValueError("font_registry_disabled")
+            raise ValueError("字体注册表不可用")
 
     def _read_imported_list(self) -> list[dict[str, Any]]:
         raw = self._config.get(CONFIG_KEY_IMPORTED, "[]") or "[]"
@@ -86,11 +86,11 @@ class FontRegistry:
 
         font_id = QFontDatabase.addApplicationFont(str(path))
         if font_id < 0:
-            raise ValueError("qfont_load_failed")
+            raise ValueError("字体加载失败")
         families = QFontDatabase.applicationFontFamilies(font_id)
         if not families:
             QFontDatabase.removeApplicationFont(font_id)
-            raise ValueError("no_family_detected")
+            raise ValueError("未检测到字体族名称")
         family = family_override or families[0]
         record = {
             "sha256": sha256,
@@ -164,12 +164,12 @@ class FontRegistry:
     def import_bytes(self, data: bytes, original_name: str) -> dict[str, Any]:
         self._ensure_enabled()
         if len(data) == 0:
-            raise ValueError("empty_file")
+            raise ValueError("文件为空")
         if len(data) > MAX_FILE_BYTES:
-            raise ValueError("file_too_large")
+            raise ValueError("文件过大")
         suffix = Path(original_name).suffix.lower()
         if suffix not in ALLOWED_SUFFIXES:
-            raise ValueError("unsupported_extension")
+            raise ValueError("不支持的文件格式，仅支持 .ttf 和 .otf")
 
         sha256 = hashlib.sha256(data).hexdigest()
         target = FONTS_DIR / safe_filename(sha256, suffix)

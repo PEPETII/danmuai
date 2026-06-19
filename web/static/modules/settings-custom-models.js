@@ -90,6 +90,8 @@ export async function loadCustomModels() {
   });
 }
 
+import { activateFocusTrap, deactivateFocusTrap } from './modal-focus-trap.js';
+
 export function openModelModal(index, model = {}) {
   document.getElementById('modelEditIndex').value = String(index);
   document.getElementById('modelModalTitle').textContent = index >= 0 ? '编辑模型' : '新增模型';
@@ -106,9 +108,11 @@ export function openModelModal(index, model = {}) {
   const modal = document.getElementById('modelModal');
   modal.classList.remove('hidden');
   modal.classList.add('flex');
+  activateFocusTrap(modal, closeModelModal);
 }
 
 export function closeModelModal() {
+  deactivateFocusTrap();
   const modal = document.getElementById('modelModal');
   modal.classList.add('hidden');
   modal.classList.remove('flex');

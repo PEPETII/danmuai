@@ -277,16 +277,27 @@
   position: fixed;
   top: 24px;
   left: 50%;
-  transform: translateX(-50%);
+  transform: translateX(-50%) translateY(-20px);
   z-index: 100;
   padding: 12px 20px;
   border-radius: var(--radius-md);
   background: var(--color-surface);
   box-shadow: var(--shadow-warm-hover);
-  display: none;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease, transform 0.3s ease;
 }
 
-.toast.show { display: block; }
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+  pointer-events: auto;
+}
+
+.toast.toast-exit {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-20px);
+}
 
 /* 助手设置 — 顶部分类 Tab + 简化/全面模式 */
 .settings-tabs-bar {
@@ -458,6 +469,20 @@
   cursor: not-allowed;
   background-color: var(--color-secondary);
   color: var(--color-text-dim);
+}
+
+/* 表单自定义验证反馈 */
+.field-error {
+  border-color: #ef4444 !important;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2) !important;
+}
+
+.field-error-hint {
+  display: block;
+  color: #ef4444;
+  font-size: 0.75rem;
+  margin-top: 0.25rem;
 }
 
 .settings-params-grid {

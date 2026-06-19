@@ -72,11 +72,11 @@ def global_exception_hook(exc_type, exc_value, exc_tb) -> None:
         return
     try:
         if QApplication.instance() is not None:
-            QMessageBox.critical(
-                None,
-                tr("app.error_title"),
-                tr("app.unhandled_exception").format(message=exc_value),
-            )
+            msg_box = QMessageBox(QMessageBox.Icon.Critical)
+            msg_box.setWindowTitle(tr("app.error_title"))
+            msg_box.setText(tr("app.error_friendly_message"))
+            msg_box.setDetailedText(message)
+            msg_box.exec()
     except Exception:
         pass
     sys.exit(1)

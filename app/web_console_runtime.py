@@ -16,10 +16,8 @@ from app.bundle_paths import append_frozen_log, is_frozen
 from app.startup_trace import log_startup
 from app.web_console_session_auth import enforce_session_authorization
 from app.web_console_support import (
-    enumerate_screens,
     export_config,
     extract_config_payload,
-    resolve_screens_for_api,
     save_config_via_bridge,
     screens_for_api,
 )
@@ -32,7 +30,7 @@ def run_uvicorn_locked(server) -> None:
     try:
         import uvicorn
         from fastapi import Body, FastAPI, Header, HTTPException, WebSocketDisconnect
-        from fastapi.responses import FileResponse, JSONResponse
+        from fastapi.responses import FileResponse
         from fastapi.staticfiles import StaticFiles
         from starlette.routing import WebSocketRoute
     except ImportError as exc:
@@ -191,7 +189,10 @@ def run_uvicorn_locked(server) -> None:
         if result.get("ok"):
             return {"ok": True}
         status_code = 504 if result.get("error") == "save_timeout" else 500
-        return JSONResponse(status_code=status_code, content=result)
+        raise HTTPException(
+            status_code=status_code,
+            detail=result.get("detail", f"配置保存失败（{result.get('error', 'unknown')}）"),
+        )
 
     @app.post("/api/start")
     def api_start(authorization: str | None = Header(default=None)):

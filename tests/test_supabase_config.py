@@ -1,7 +1,6 @@
 """Supabase credential resolution for backend PostgREST reads."""
 
 import pytest
-
 from app.bundle_paths import project_root
 from app.supabase_config import SupabaseCredentials, get_supabase_credentials
 

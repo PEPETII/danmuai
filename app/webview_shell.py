@@ -28,7 +28,7 @@ _FROZEN_SERVER_POLL_SEC = 1.5
 _NAV_POLL_SEC = 0.25
 _BROWSER_PROBE_SEC = 3.0
 _HANDSHAKE_POLL_MS = 50
-_SLOW_START_PROMPT_SEC = 10.0
+_SLOW_START_PROMPT_SEC = 5.0
 _SPAWN_MAX_ATTEMPTS = 3
 _WEBVIEW_ATTACH_MAX_ATTEMPTS = 2
 _WEBVIEW_ATTACH_RETRY_MS = 1200
@@ -235,8 +235,23 @@ def _webview_worker(
     stop_nav = threading.Event()
     try:
         import webview
-        def on_closing(*_args, **_kwargs):
-            return True
+        def on_closing(window, *_args, **_kwargs):
+            try:
+                window.hide()
+            except Exception:
+                pass
+            try:
+                window.evaluate_js(
+                    "try{"
+                    "  var t=document.getElementById('toast');"
+                    "  if(t){t.textContent='窗口已最小化到系统托盘，右键托盘图标可退出';"
+                    "  t.className='toast show text-warmText';"
+                    "  setTimeout(function(){t.classList.remove('show')},4000);}"
+                    "}catch(e){}"
+                )
+            except Exception:
+                pass
+            return False
         def on_loaded(window):
             window.show()
             append_frozen_log("pywebview window loaded")

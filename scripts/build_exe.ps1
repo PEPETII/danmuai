@@ -56,6 +56,16 @@ if (-not (Test-Path $exe)) {
     Write-Error "Build failed: $exe not found"
 }
 
+# Credential leak check: supabase-config.js must not be in the dist output.
+$leakedConfig = Join-Path $distDir "web\static\supabase-config.js"
+if (Test-Path $leakedConfig) {
+    Write-Error @"
+Credential leak detected: $leakedConfig exists in dist output.
+supabase-config.js contains Supabase credentials and must NOT be packaged.
+Remove it from dist and verify DanmuAI.spec excludes it.
+"@
+}
+
 Write-Host ""
 Write-Host "Done: $exe"
 Write-Host "Next: .\scripts\publish_windows_release.ps1 for Velopack Setup + Portable release bundle."

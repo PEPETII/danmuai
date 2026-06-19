@@ -1,4 +1,5 @@
 import { API, apiFetch } from './transport.js';
+import { activateFocusTrap, deactivateFocusTrap } from './modal-focus-trap.js';
 import { buildDiagnosticReportText } from './diagnostics.js';
 import {
   formatLogLine,
@@ -286,6 +287,7 @@ function showErrorReportModal(anchor) {
   messageEl.textContent = preview.length > 200 ? `${preview.slice(0, 200)}...` : preview;
   modal.classList.remove('hidden');
   modal.classList.add('flex');
+  activateFocusTrap(modal, closeErrorReportModal);
   const submitBtn = document.getElementById('btnErrorReportSubmit');
   if (submitBtn) {
     submitBtn.disabled = false;
@@ -295,6 +297,7 @@ function showErrorReportModal(anchor) {
 }
 
 function closeErrorReportModal() {
+  deactivateFocusTrap();
   const modal = document.getElementById('errorReportModal');
   if (!modal) return;
   modal.classList.add('hidden');

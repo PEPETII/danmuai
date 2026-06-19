@@ -10,6 +10,12 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
+# Guard: supabase-config.js contains credentials and must not be packaged.
+$supabaseConfigPath = Join-Path $Root "web\static\supabase-config.js"
+if (Test-Path $supabaseConfigPath) {
+    Write-Error "ABORT: web/static/supabase-config.js exists — it contains credentials and must not be packaged. Remove it before publishing (only supabase-config.example.js should be present)."
+}
+
 $ReleaseRoot = Join-Path $Root "release"
 $VelopackDir = Join-Path $ReleaseRoot "velopack"
 $DistDir = Join-Path $Root "dist\DanmuAI"

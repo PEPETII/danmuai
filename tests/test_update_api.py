@@ -3,11 +3,11 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+from app import update_service
+from app.web_api.routes import register_web_routes
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
-from app import update_service
-from app.web_api.routes import register_web_routes
 from tests.fakes import FakeConfig
 
 _TEST_TOKEN = "Bearer test-token"
@@ -238,6 +238,13 @@ def test_download_does_not_start_second_thread(reset_update_state):
     with update_service._lock:
         update_service._state["pending_update"] = info
         update_service._state["download_phase"] = "downloading"
+        # Simulate an active download thread so download_updates() sees it as alive
+        # and does not start a second one.  Without this, the new code treats
+        # download_phase=="downloading" with no live thread as a dead-thread
+        # recovery case and falls through to start a new download.
+        alive_thread = MagicMock()
+        alive_thread.is_alive.return_value = True
+        update_service._state["download_thread"] = alive_thread
 
     with patch.object(update_service, "_is_frozen", return_value=True):
         with patch.object(update_service, "_manager", return_value=mock_mgr):
@@ -279,9 +286,8 @@ def test_update_channels_public_without_token():
 
 
 def test_update_channels_readonly_never_calls_velopack_check():
-    from app import release_channels
-    from app.web_api import update as update_api
     from app.supabase_app_updates import AppUpdateFetchResult, AppUpdateRemote
+    from app.web_api import update as update_api
 
     remote = AppUpdateFetchResult(
         update=AppUpdateRemote(
@@ -309,9 +315,9 @@ def test_update_channels_readonly_never_calls_velopack_check():
 
 @pytest.mark.parametrize("frozen", [False, True])
 def test_update_channels_frozen_still_skips_velopack_check(frozen):
-    from app.web_api import update as update_api
     from app.supabase_app_updates import AppUpdateFetchResult
     from app.version import __version__
+    from app.web_api import update as update_api
 
     with patch.object(
         update_api,
@@ -336,8 +342,8 @@ def test_update_channels_frozen_still_skips_velopack_check(frozen):
 
 
 def test_update_channels_exposes_stale_fallback_when_network_failed():
-    from app.web_api import update as update_api
     from app.supabase_app_updates import AppUpdateFetchResult, AppUpdateRemote
+    from app.web_api import update as update_api
 
     stale_remote = AppUpdateFetchResult(
         update=AppUpdateRemote(

@@ -9,7 +9,12 @@ import httpx
 from app.ai_client import THINKING_DISABLED, format_http_status_error
 from app.ai_client_support import sanitize_provider_error_snippet
 from app.model_providers import normalize_endpoint, normalize_mode, resolve_api_transport
-from app.providers import get_capabilities_for_endpoint, get_openai_adapter, is_minimax_endpoint, provider_extra_headers
+from app.providers import (
+    get_capabilities_for_endpoint,
+    get_openai_adapter,
+    is_minimax_endpoint,
+    provider_extra_headers,
+)
 from app.translations import tr
 
 

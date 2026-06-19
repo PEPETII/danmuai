@@ -83,6 +83,10 @@ export function formatApiError(detail, fallback = '请求失败') {
       })
       .join('；');
   }
+  // dict/object 类型兜底 — 提取 .detail / .error / .message
+  if (typeof detail === 'object' && detail !== null) {
+    return detail.detail || detail.error || detail.message || JSON.stringify(detail);
+  }
   return String(detail);
 }
 
@@ -228,6 +232,16 @@ function statusBackoffMs() {
 function logsBackoffMs() {
   const exp = Math.min(REALTIME.logsAttempt, 5);
   return Math.min(REALTIME.baseBackoffMs * 2 ** exp, REALTIME.maxBackoffMs);
+}
+
+/**
+ * 判断 WS 关闭是否因"连接数已满"导致。
+ * UX-012: 1008 + reason 含 "连接数已满" 或 "max consumers" 时停止重连并提示用户。
+ */
+function isMaxConsumersClose(code, reason) {
+  if (code !== 1008) return false;
+  const r = (reason || '').toLowerCase();
+  return r.includes('连接数已满') || r.includes('max consumers');
 }
 
 function clearStatusReconnect() {
@@ -483,6 +497,12 @@ function connectStatusWebSocket() {
     console.debug('[realtime] status WS close', ev.code, ev.reason || '');
     REALTIME.statusOpen = false;
     if (!REALTIME.statusWsDownAt) REALTIME.statusWsDownAt = Date.now();
+    if (isMaxConsumersClose(ev.code, ev.reason)) {
+      console.warn('[realtime] status WS closed: max consumers reached, stopping reconnect');
+      handlers.showToast('WebSocket 连接数已达上限，请关闭其他控制台窗口后刷新页面', true);
+      updateRealtimeConnUI();
+      return;
+    }
     if (ev.code === 1008) {
       refreshSession()
         .catch((e) => console.warn('[realtime] session refresh after WS 1008 failed', e))
@@ -545,6 +565,12 @@ function connectLogsWebSocket() {
     console.debug('[realtime] logs WS close', ev.code, ev.reason || '');
     REALTIME.logsOpen = false;
     if (!REALTIME.logsWsDownAt) REALTIME.logsWsDownAt = Date.now();
+    if (isMaxConsumersClose(ev.code, ev.reason)) {
+      console.warn('[realtime] logs WS closed: max consumers reached, stopping reconnect');
+      handlers.showToast('WebSocket 连接数已达上限，请关闭其他控制台窗口后刷新页面', true);
+      updateRealtimeConnUI();
+      return;
+    }
     if (ev.code === 1008) {
       refreshSession()
         .catch((e) => console.warn('[realtime] session refresh after WS 1008 failed', e))

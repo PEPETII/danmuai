@@ -1,9 +1,8 @@
 from unittest.mock import MagicMock
 
+from app.web_api.routes import register_web_routes
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-
-from app.web_api.routes import register_web_routes
 
 
 def test_pet_settings_route_accepts_pet_barrage_payload():

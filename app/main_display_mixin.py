@@ -11,7 +11,7 @@ from __future__ import annotations
 import sys
 import time
 
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtWidgets import QApplication, QSystemTrayIcon
 
 from app.config_defaults import resolve_danmu_render_mode
 from app.danmu_engine_models import DanmuItem
@@ -352,6 +352,24 @@ class DanmuAppDisplayMixin:
             bridge = getattr(self, "web_bridge", None)
             if bridge:
                 bridge.publish_status()
+        if at_risk:
+            _last_fs_warn_key = "_last_fullscreen_warn_tick"
+            last_warn = getattr(self, _last_fs_warn_key, 0)
+            now = time.monotonic()
+            if now - last_warn > 30:
+                setattr(self, _last_fs_warn_key, now)
+                try:
+                    tray_mgr = getattr(self, "tray", None)
+                    tray = getattr(tray_mgr, "tray", None) if tray_mgr else None
+                except (RuntimeError, AttributeError):
+                    tray = None
+                if tray is not None and QSystemTrayIcon.isSystemTrayAvailable():
+                    tray.showMessage(
+                        "DanmuAI",
+                        tr("overlay.exclusive_fullscreen_hint"),
+                        QSystemTrayIcon.MessageIcon.Warning,
+                        8000,
+                    )
 
     def _on_topmost_health_tick(self) -> None:
         if not self.engine.running:

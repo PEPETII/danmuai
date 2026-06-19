@@ -1,4 +1,5 @@
 import { API, apiFetch } from './transport.js';
+import { activateFocusTrap, deactivateFocusTrap } from './modal-focus-trap.js';
 
 const APP_UPDATE_DISMISS_LOCAL_KEY = 'danmu_app_update_dismissed_latest';
 
@@ -355,9 +356,11 @@ function showAppUpdateModal(latest, message) {
   hideChannelDetail();
   modal.classList.remove('hidden');
   modal.classList.add('flex');
+  activateFocusTrap(modal, () => closeAppUpdateModal({ suppressSession: true }));
 }
 
 function closeAppUpdateModal({ suppressSession = true } = {}) {
+  deactivateFocusTrap();
   const modal = document.getElementById('appUpdateModal');
   if (!modal) return;
   if (suppressSession && appVersionState.latest) {

@@ -2,16 +2,15 @@
 
 from unittest.mock import patch
 
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
 import pytest
-
 from app import release_channels
 from app.release_channels import R2_LATEST_INSTALLER_URL, UPDATE_FEED_URL
 from app.supabase_app_updates import AppUpdateRemote, clear_app_update_cache
 from app.velopack_config import UPDATE_FEED_URL as VPK_FEED_URL
 from app.version import __version__
 from app.web_api import update as update_api_mod
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
 
 @pytest.fixture(autouse=True)

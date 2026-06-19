@@ -6,10 +6,10 @@ import time
 from unittest.mock import MagicMock, Mock
 
 import main as main_mod
+from app.reply_queue import QueuedReply
 from main import DanmuApp
 
-from app.reply_queue import QueuedReply
-from tests.fakes import FakeCapturer, FakeLogger, FakePixmap
+from tests.fakes import FakeCapturer, FakePixmap
 from tests.test_scene_generation_version import _scene_version_app
 
 

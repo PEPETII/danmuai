@@ -1,12 +1,10 @@
 """W-PET-BUBBLE-STYLE-001 / W-PET-BUBBLE-MULTILINE-001: comic speech-bubble contracts."""
 
-from PyQt6.QtGui import QFont, QFontMetricsF, QPainter, QPixmap
-
 from app.pet.pet_window import (
-    PetWindow,
     _BUBBLE_HEAD_ANCHOR_Y,
     _BUBBLE_MAX_ALPHA,
     _BUBBLE_RADIUS,
+    PetWindow,
     bubble_band_height,
     bubble_colors,
     bubble_layout_width,
@@ -14,6 +12,7 @@ from app.pet.pet_window import (
     window_content_width,
 )
 from main import DanmuApp
+from PyQt6.QtGui import QFont, QFontMetricsF, QPainter, QPixmap
 
 from tests.conftest import bind_minimal_danmu_app
 from tests.fakes import FakeConfig

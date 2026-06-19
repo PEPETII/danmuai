@@ -390,6 +390,12 @@ class DanmuAppLifecycleMixin:
                 pet_window.apply_config()
             except Exception as exc:
                 self.logger.warning(f"pet window apply_config failed: {exc!r}")
+        pet_barrage_ctrl = self.__dict__.get("pet_barrage_controller")
+        if pet_barrage_ctrl is not None:
+            try:
+                pet_barrage_ctrl.apply_config()
+            except Exception as exc:
+                self.logger.warning(f"pet barrage controller apply_config failed: {exc!r}")
         if fp_overlay is None:
             return
         try:

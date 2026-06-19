@@ -2,9 +2,8 @@
 
 from unittest.mock import MagicMock
 
-import pytest
-
 from main import DanmuApp
+
 from tests.conftest import bind_minimal_danmu_app
 from tests.fakes import FakeConfig
 

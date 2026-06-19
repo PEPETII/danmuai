@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from app import release_channels, update_service
-from app.velopack_config import UPDATE_FEED_URL
 from app.supabase_app_updates import fetch_app_update_result
+from app.velopack_config import UPDATE_FEED_URL
 from app.version import __version__
 from app.version_compare import is_version_newer, normalize_version
 

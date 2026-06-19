@@ -38,6 +38,7 @@ from app.web_api import pet as pet_api
 from app.web_api import providers as providers_api
 from app.web_api import update as update_api
 from app.web_api.preview_compress import register_preview_compress_route
+from app.web_console import MainThreadInvokeTimeout
 
 logger = logging.getLogger(__name__)
 
@@ -46,8 +47,6 @@ DIAGNOSTICS_SSE_INTERVAL_SEC = 2.5
 
 if TYPE_CHECKING:
     from app.web_console import WebConsoleBridge
-
-from app.web_console import MainThreadInvokeTimeout
 
 
 def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) -> None:
@@ -159,15 +158,13 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
             )
             raise HTTPException(
                 status_code=504,
-                detail={
-                    "ok": False,
-                    "error": "main_thread_timeout",
-                    "detail": "主线程操作超时，请稍后重试。",
-                },
+                detail="主线程操作超时，请稍后重试。",
             ) from exc
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
-        except (PermissionError, RuntimeError) as exc:
+        except PermissionError as exc:
+            raise HTTPException(status_code=403, detail=str(exc)) from exc
+        except RuntimeError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         except HTTPException:
             raise

@@ -57,7 +57,6 @@ _KEY_FILE = CONFIG_DIR / ".key"
 # Python 3.12 默认 cached_statements=128；显式放大以覆盖 meme/custom 池等高频查询变体。
 _SQLITE_CACHED_STATEMENTS = 256
 
-from app.danmu_pool import CUSTOM_DANMU_POOL_MAX  # noqa: E402
 
 
 def _restrict_key_file_permissions(path: Path):
@@ -100,6 +99,7 @@ class ConfigStore:
 
             seed_config_defaults(self)
             self._load_cache()
+        self._key_regenerated = False
         self._fernet = self._init_fernet()
         # W-PERF-MED-001：解密明文与 custom_models 解析结果指纹缓存（进程内驻留至配置变更）
         self._decrypted_secret_cache: dict[str, str] = {}
@@ -129,9 +129,11 @@ class ConfigStore:
             self.set("danmu_display_mode", normalized_mode)
 
     def get_startup_notice(self) -> str:
-        """首装会话返回本地化引导文案；config.db 已存在时恒为空（二次启动不误弹）。"""
+        """首装会话返回本地化引导文案；密钥丢失时返回告警文案；否则为空。"""
         if self.is_first_run:
             return tr("config.startup_notice")
+        if self._key_regenerated:
+            return tr("config.key_lost_notice")
         return ""
 
     def _init_fernet(self):
@@ -151,7 +153,17 @@ class ConfigStore:
                     tr("config.crypto_key_regenerated")
                 )
                 # Key corrupted, generate a new one (old encrypted data becomes unreadable)
+                self._key_regenerated = True
                 pass
+        # Key file missing — check if encrypted data exists that's now unreadable
+        if not self._key_file.exists() and not self.is_first_run:
+            has_encrypted = bool(
+                self._cache.get("api_key_encrypted")
+                or self._cache.get("mic_api_key_encrypted")
+                or self._cache.get("tts_api_key_encrypted")
+            )
+            if has_encrypted:
+                self._key_regenerated = True
         key = Fernet.generate_key()
         self._key_file.write_bytes(key)
         _restrict_key_file_permissions(self._key_file)

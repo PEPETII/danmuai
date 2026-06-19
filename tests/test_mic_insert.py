@@ -2,11 +2,11 @@ import time
 from unittest.mock import Mock
 
 import pytest
+from app.mic_prompt import mic_insert_reply_count
 from main import BatchTracker, DanmuApp
 
 from tests.conftest import bind_minimal_danmu_app
 from tests.fakes import FakeConfig
-from app.mic_prompt import mic_insert_reply_count
 
 
 def _bind_main_methods(app):
