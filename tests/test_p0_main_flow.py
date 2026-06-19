@@ -8,7 +8,10 @@ from unittest.mock import MagicMock
 
 import main as main_mod
 
-from tests.conftest import make_minimal_danmu_app
+from app.application.request_timing_service import RequestTimingService
+from app.main_helpers import VISUAL_INFLIGHT_RECOVER_SEC
+
+from tests.conftest import bind_minimal_danmu_app, make_minimal_danmu_app
 from tests.fakes import FakeLogger
 
 
@@ -173,3 +176,85 @@ def test_acquire_and_release_visual_inflight_atomic():
     assert app._inflight_started_at == 0.0
     # 不应有 stale_reply_dropped
     assert not any("stale_reply_dropped" in msg for msg in app.logger.warning_messages)
+
+
+def test_pop_request_meta_for_inflight_tuple_key():
+    """W-VISUAL-INFLIGHT-WATCHDOG-001：tuple 键精确 pop，不调用 endswith。"""
+    app = make_minimal_danmu_app()
+    app._pending_request_meta = {
+        (30, 7, 0): {"source": "visual"},
+        (29, 7, 0): {"source": "visual"},
+    }
+
+    popped = app._pop_request_meta_for_inflight(30, 7, 0)
+
+    assert popped == [(30, 7, 0)]
+    assert (30, 7, 0) not in app._pending_request_meta
+    assert (29, 7, 0) in app._pending_request_meta
+
+
+def test_recover_stale_visual_inflight_tuple_keys_releases_slot():
+    """W-VISUAL-INFLIGHT-WATCHDOG-001：watchdog 恢复路径在 tuple 键下不崩溃并释放槽位。"""
+    app = make_minimal_danmu_app()
+    bind_minimal_danmu_app(
+        app,
+        ai_in_flight=1,
+        screenshot_round=30,
+        _is_generating=True,
+        _inflight_screenshot_id=30,
+        _inflight_scene_generation=0,
+        _inflight_started_at=time.monotonic() - VISUAL_INFLIGHT_RECOVER_SEC - 2.0,
+        _pending_request_meta={(30, 30, 0): {"source": "visual"}},
+        _consecutive_failures=0,
+    )
+    object.__setattr__(app, "_request_timing_service", RequestTimingService())
+    app._get_request_timing_service().mark_started(
+        request_id=(30, 30, 0),
+        now=time.monotonic() - 50.0,
+    )
+
+    assert app._try_recover_stale_visual_inflight() is True
+    assert app.ai_in_flight == 0
+    assert app._is_generating is False
+    assert app._inflight_started_at == 0.0
+    assert app._inflight_screenshot_id == 0
+    assert app._inflight_scene_generation == 0
+    assert app._pending_request_meta == {}
+    assert app._get_request_timing_service().request_started_at_by_id == {}
+    assert app._consecutive_failures == 1
+    assert any(
+        "inflight_watchdog_recover" in msg for msg in app.logger.error_messages
+    )
+
+
+def test_recover_stale_visual_inflight_preserves_unrelated_meta():
+    """W-VISUAL-INFLIGHT-WATCHDOG-001：恢复只清理当前 request_round 的视觉 meta。"""
+    app = make_minimal_danmu_app()
+    bind_minimal_danmu_app(
+        app,
+        ai_in_flight=1,
+        screenshot_round=30,
+        _is_generating=True,
+        _inflight_screenshot_id=30,
+        _inflight_scene_generation=0,
+        _inflight_started_at=time.monotonic() - VISUAL_INFLIGHT_RECOVER_SEC - 1.0,
+        _pending_request_meta={
+            (30, 30, 0): {"source": "visual"},
+            (29, 30, 0): {"source": "visual"},
+            (-1, 30, 0): {"source": "mic"},
+        },
+        _consecutive_failures=0,
+    )
+    object.__setattr__(app, "_request_timing_service", RequestTimingService())
+    app._get_request_timing_service().mark_started(
+        request_id=(30, 30, 0),
+        now=time.monotonic() - 50.0,
+    )
+
+    assert app._try_recover_stale_visual_inflight() is True
+    assert app.ai_in_flight == 0
+    assert (30, 30, 0) not in app._pending_request_meta
+    assert app._pending_request_meta == {
+        (29, 30, 0): {"source": "visual"},
+        (-1, 30, 0): {"source": "mic"},
+    }

@@ -187,6 +187,7 @@ export function syncProviderPresetFromEndpoint() {
 
 export function syncProviderPresetAfterEndpointEdit() {
   syncProviderPresetFromEndpoint();
+  applyApiModeValue(document.getElementById('api_mode')?.value || '');
   providersDeps.renderVisionModelPicker(resolveProviderIdForPicker(), document.getElementById('model')?.value || '');
 }
 

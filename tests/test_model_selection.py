@@ -47,7 +47,8 @@ def test_validate_rejects_known_catalog_model_on_wrong_provider():
         )
 
 
-def test_validate_web_config_rejects_doubao_mode_with_openai_host():
+def test_validate_web_config_normalizes_stale_api_mode_for_known_host():
+    """Save must match probe/runtime: host wins over stale api_mode in payload."""
     cfg = _Cfg(
         {
             "api_endpoint": "https://dashscope.aliyuncs.com/compatible-mode/v1",
@@ -55,11 +56,10 @@ def test_validate_web_config_rejects_doubao_mode_with_openai_host():
             "model": "qwen-plus",
         }
     )
-    with pytest.raises(ValueError, match="不匹配|does not match"):
-        validate_web_config_patch(
-            cfg,
-            {"api_mode": "doubao"},
-        )
+    validate_web_config_patch(
+        cfg,
+        {"api_mode": "doubao"},
+    )
 
 
 def test_validate_allows_dashscope_catalog_model():
@@ -177,17 +177,22 @@ def test_visual_api_endpoint_issue_flags_empty_global_endpoint():
     assert visual_api_endpoint_issue(cfg) is not None
 
 
-def test_validate_web_config_patch_merges_payload_with_existing_config():
+def test_validate_web_config_normalizes_api_mode_when_only_endpoint_changes():
+    dash_model = default_catalog_model_id("dashscope")
     cfg = _Cfg(
         {
-            "api_endpoint": "https://dashscope.aliyuncs.com/compatible-mode/v1",
-            "api_mode": "openai",
+            "api_endpoint": "https://ark.cn-beijing.volces.com/api/v3",
+            "api_mode": "doubao",
             "model": "doubao-seed-1-6-flash-250828",
-            "default_model_id": "doubao-seed-1-6-flash-250828",
         }
     )
-    with pytest.raises(ValueError):
-        validate_web_config_patch(cfg, {"api_endpoint": "https://dashscope.aliyuncs.com/compatible-mode/v1"})
+    validate_web_config_patch(
+        cfg,
+        {
+            "api_endpoint": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+            "model": dash_model,
+        },
+    )
 
 
 def test_validate_web_config_patch_allows_active_custom_model_save():

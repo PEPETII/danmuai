@@ -27,7 +27,7 @@
   const STORAGE_CLIENT_ID = 'danmu_feedback_client_id';
   const FEEDBACK_RATE_LIMIT_MSG = '每 3 小时最多提交 2 条反馈，请稍后再试';
   const ERROR_REPORT_RATE_LIMIT_MSG =
-    '每 3 小时最多自动提交 3 条错误报告，请稍后再试或使用侧栏「问题反馈」';
+    '每 3 小时最多自动提交 3 条错误报告，请稍后再试或使用侧栏「问题反馈与群聊」';
   // 由 app.js 在 GET /api/version 后写入；反馈提交前可懒加载
   function resolveAppVersion() {
     const v = global.DANMU_APP_VERSION;
@@ -167,12 +167,17 @@
     });
   }
 
-  async function submitFeedback({ content, contact }) {
+  async function submitFeedback({ content, contact, contextJson, logsExcerpt }) {
     const trimmed = String(content || '').trim();
     if (!trimmed) throw new Error('请填写反馈内容');
     if (trimmed.length > 2000) throw new Error('反馈内容不能超过 2000 字');
     const contactVal = String(contact || '').trim();
     if (contactVal.length > 200) throw new Error('联系方式不能超过 200 字');
+
+    let logsExcerptVal = logsExcerpt == null ? null : String(logsExcerpt);
+    if (logsExcerptVal && logsExcerptVal.length > 8000) {
+      logsExcerptVal = `${logsExcerptVal.slice(0, 7990)}\n…[truncated]`;
+    }
 
     const clientId = getOrCreateClientId();
     try {
@@ -182,6 +187,8 @@
         body: JSON.stringify({
           content: trimmed,
           contact: contactVal || null,
+          context_json: contextJson ?? null,
+          logs_excerpt: logsExcerptVal || null,
           client_id: clientId,
           app_version: resolveAppVersion() || null,
           platform: 'windows',

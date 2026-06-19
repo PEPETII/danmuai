@@ -14,6 +14,7 @@ from app.api_schedule import min_api_interval_elapsed
 from app.application.danmu_diagnostics import DanmuDiagnosticsRecorder
 from app.application.generation_pipeline_state import GenerationPipelineState
 from app.model_providers import guess_provider_from_endpoint, resolve_active_model_id
+from app.model_selection import resolve_model_status
 
 if TYPE_CHECKING:
     from main import DanmuApp
@@ -35,7 +36,7 @@ class DiagnosticSnapshotBuilder:
 
         last_trigger_at = float(scheduler.last_api_trigger_at)
         now = time.monotonic()
-        recent_rtt_samples = [float(sample) for sample in timing.rtt_history[-5:]]
+        recent_rtt_samples = [float(sample) for sample in list(timing.rtt_history)[-5:]]
         request_started_count = len(timing.request_started_at_by_id)
         avg_rtt = float(timing.avg_rtt())
         block_reason = self._app.api_schedule_block_reason(enforce_min_interval=True)
@@ -87,6 +88,17 @@ class DiagnosticSnapshotBuilder:
             "undisplayed": undisplayed_summary,
         }
 
+    @staticmethod
+    def _sanitize_api_endpoint(endpoint: str) -> str:
+        """Return scheme + host + path, stripping query/fragment/userinfo."""
+        parsed = urlparse(endpoint.strip())
+        if not parsed.scheme or not parsed.hostname:
+            return ""
+        netloc = parsed.hostname
+        if parsed.port:
+            netloc = f"{netloc}:{parsed.port}"
+        return parsed._replace(netloc=netloc, params="", query="", fragment="").geturl()
+
     def _config_context_summary(self) -> dict[str, Any]:
         config = getattr(self._app, "config", None)
         if config is None:
@@ -95,15 +107,21 @@ class DiagnosticSnapshotBuilder:
                 "provider_id": "",
                 "api_endpoint_host": "",
                 "api_mode": "",
+                "model_name": "",
+                "api_endpoint": "",
             }
         endpoint = str(config.get("api_endpoint", "") or "").strip()
         api_mode = str(config.get("api_mode", "doubao") or "doubao")
         host = urlparse(endpoint).netloc if endpoint else ""
+        active_model_id = resolve_active_model_id(config)
+        model_status = resolve_model_status(config)
         return {
-            "active_model_id": resolve_active_model_id(config),
+            "active_model_id": active_model_id,
             "provider_id": guess_provider_from_endpoint(endpoint, api_mode),
             "api_endpoint_host": host,
             "api_mode": api_mode,
+            "model_name": model_status.get("model_display_name") or active_model_id,
+            "api_endpoint": self._sanitize_api_endpoint(endpoint),
         }
 
     @staticmethod
@@ -162,6 +180,8 @@ def build_diagnostic_report(snapshot: dict[str, object]) -> str:
         f"provider_id: {config_context.get('provider_id', '')}",
         f"api_endpoint_host: {config_context.get('api_endpoint_host', '')}",
         f"api_mode: {config_context.get('api_mode', '')}",
+        f"model_name: {config_context.get('model_name', '')}",
+        f"api_endpoint: {config_context.get('api_endpoint', '')}",
         "",
         "[scheduler]",
         f"last_api_trigger_at: {scheduler.get('last_api_trigger_at', 0.0)}",

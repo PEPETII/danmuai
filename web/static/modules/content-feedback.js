@@ -1,3 +1,5 @@
+import { collectFeedbackContext } from './feedback-context.js';
+
 let showToast = () => {};
 let feedbackPageInitialized = false;
 
@@ -60,7 +62,13 @@ export function initFeedbackPage() {
     const btn = document.getElementById('btnFeedbackSubmit');
     if (btn) btn.disabled = true;
     try {
-      await window.DanmuSupabase.submitFeedback({ content, contact });
+      const context = await collectFeedbackContext();
+      await window.DanmuSupabase.submitFeedback({
+        content,
+        contact,
+        contextJson: context,
+        logsExcerpt: context.recent_logs,
+      });
       showToast('反馈已提交，感谢你的帮助~');
       const textarea = document.getElementById('feedbackContent');
       const input = document.getElementById('feedbackContact');

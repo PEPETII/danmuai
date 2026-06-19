@@ -40,7 +40,14 @@ See docs/operations/PACKAGING_WINDOWS.md
 
 Ensure-Vpk
 
-$appVersion = (python -c "from app.version import __version__; print(__version__)").Trim()
+$versionOutput = python -c "from app.version import __version__; print(__version__)" 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Failed to read app version from app.version.__version__ (exit $LASTEXITCODE): $versionOutput"
+}
+$appVersion = $versionOutput.Trim()
+if (-not $appVersion -or $appVersion -notmatch '^\d+\.\d+\.\d+') {
+    Write-Error "Invalid version string from app.version.__version__: '$appVersion' (expected semver x.y.z)"
+}
 $icon = Join-Path $Root "resources\icon.ico"
 $iconArg = @()
 if (Test-Path $icon) {
@@ -48,6 +55,23 @@ if (Test-Path $icon) {
 }
 
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
+
+# Code signing gate (SIGN-004 / W-PACK-001).
+# When DANMU_CODE_SIGN=1, pass signing params to vpk pack.
+# Credentials via environment variables ONLY — never commit PFX, passwords, or PINs.
+# See docs/operations/WINDOWS_CODE_SIGNING.md
+$signArgs = @()
+if ($env:DANMU_CODE_SIGN -eq "1") {
+    if ($env:VPK_AZURE_TRUSTED_SIGN_FILE) {
+        $signArgs = @("--azureTrustedSignFile", $env:VPK_AZURE_TRUSTED_SIGN_FILE)
+        Write-Host "Code signing enabled: Azure Artifact Signing"
+    } elseif ($env:VPK_SIGN_PARAMS) {
+        $signArgs = @("--signParams", $env:VPK_SIGN_PARAMS)
+        Write-Host "Code signing enabled: signtool (--signParams)"
+    } else {
+        Write-Error "DANMU_CODE_SIGN=1 but neither VPK_SIGN_PARAMS nor VPK_AZURE_TRUSTED_SIGN_FILE is set. See docs/operations/WINDOWS_CODE_SIGNING.md"
+    }
+}
 
 Write-Host "Velopack pack: packId=$PackId version=$appVersion"
 & vpk pack `
@@ -58,7 +82,8 @@ Write-Host "Velopack pack: packId=$PackId version=$appVersion"
     --packTitle $PackTitle `
     --outputDir $OutputDir `
     --instLocation Either `
-    @iconArg
+    @iconArg `
+    @signArgs
 
 if ($LASTEXITCODE -ne 0) {
     Write-Error "vpk pack failed (exit $LASTEXITCODE)"

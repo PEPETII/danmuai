@@ -418,9 +418,10 @@ def validate_model_config(data: dict) -> list[str]:
     if not api_key:
         errors.append("custom_model.error_api_key")
 
+    mode_raw = (data.get("mode") or data.get("api_mode") or "doubao")
     mode_key = validate_endpoint_mode_consistency(
         endpoint,
-        (data.get("mode") or data.get("api_mode") or "doubao"),
+        normalize_api_mode_for_select(mode_raw, endpoint),
     )
     if mode_key:
         errors.append(mode_key)

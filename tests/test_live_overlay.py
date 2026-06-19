@@ -300,3 +300,128 @@ def test_hub_broadcast_batch_under_high_fps_coalesces_enqueue():
         count += 1
     assert count == 100
     loop.close()
+
+
+def _app_with_hub():
+    app = DanmuApp.__new__(DanmuApp)
+    bind_minimal_danmu_app(app)
+    hub = MagicMock()
+    app.__dict__["web_server"] = MagicMock(live_overlay_hub=hub)
+    return app, hub
+
+
+def test_pool_topup_broadcasts_with_source(monkeypatch):
+    app, hub = _app_with_hub()
+    app.engine.running = True
+    app._scene_generation = 0
+    monkeypatch.setattr(
+        "app.danmu_pool.plan_pool_topup",
+        lambda _engine, _config: (2, ["pool-a", "pool-b"]),
+    )
+
+    def _add_text(text, persona="", **kwargs):
+        return DanmuItem(content=text, y=90.0, speed=2.2)
+
+    app.engine.add_text = _add_text
+
+    added = app._maybe_pool_topup()
+    assert added == 2
+    assert hub.broadcast_item.call_count == 2
+    hub.broadcast_item.assert_any_call(
+        "pool-a",
+        y=90.0,
+        screen_width=1920.0,
+        screen_height=1080.0,
+        speed=2.2,
+        source="pool_topup",
+    )
+
+
+def test_duplicate_loss_topup_broadcasts_with_source(monkeypatch):
+    app, hub = _app_with_hub()
+    app.engine.running = True
+    monkeypatch.setattr(
+        "app.danmu_pool.plan_duplicate_loss_topup",
+        lambda *_args, **_kwargs: ["dup-a"],
+    )
+
+    def _add_text(text, persona="", **kwargs):
+        return DanmuItem(content=text, y=130.0, speed=2.5)
+
+    app.engine.add_text = _add_text
+
+    queued = MagicMock(scene_generation=3)
+    stats: dict[str, int | str] = {"duplicate_loss_total": 2, "duplicate_topup_triggered": 0}
+    added = app._maybe_duplicate_loss_topup(queued, stats)
+    assert added == 1
+    assert stats["duplicate_topup_triggered"] == 1
+    hub.broadcast_item.assert_called_once_with(
+        "dup-a",
+        y=130.0,
+        screen_width=1920.0,
+        screen_height=1080.0,
+        speed=2.5,
+        source="pool_duplicate_topup",
+    )
+
+
+def test_meme_display_tick_broadcasts_with_source(tmp_path, monkeypatch):
+    from app.config_store import ConfigStore
+    from app.meme_barrage.service import MemeBarrageService
+
+    config = ConfigStore(db_path=tmp_path / "meme_overlay.db")
+    config.set("meme_barrage_enabled", "1")
+    config.set("meme_barrage_display_batch_size", "2")
+
+    app, hub = _app_with_hub()
+    app.config = config
+    app.engine.running = True
+    app._scene_generation = 0
+    app._update_stats = MagicMock()
+    app._meme_barrage_service = MemeBarrageService(config)
+    app._meme_barrage_service.enqueue_display(["烂梗1", "烂梗2"])
+    app._meme_display_ticking = False
+
+    def _add_text(text, persona="", **kwargs):
+        return DanmuItem(content=text, y=50.0, speed=2.0)
+
+    app.engine.add_text = _add_text
+
+    app._meme_display_tick()
+    assert hub.broadcast_item.call_count == 2
+    hub.broadcast_item.assert_any_call(
+        "烂梗1",
+        y=50.0,
+        screen_width=1920.0,
+        screen_height=1080.0,
+        speed=2.0,
+        source="meme_barrage",
+    )
+
+
+def test_formula_add_text_failure_skips_broadcast(monkeypatch):
+    app, hub = _app_with_hub()
+    app.engine.running = True
+    monkeypatch.setattr(
+        "app.danmu_pool.plan_pool_topup",
+        lambda _engine, _config: (1, ["pool-fail"]),
+    )
+    app.engine.add_text = lambda *_args, **_kwargs: None
+
+    added = app._maybe_pool_topup()
+    assert added == 0
+    hub.broadcast_item.assert_not_called()
+
+
+def test_ai_reply_broadcast_unchanged():
+    app, hub = _app_with_hub()
+    fake_item = DanmuItem(content="AI弹幕", y=90.0, speed=2.0)
+    app._broadcast_live_overlay_item(fake_item, "AI弹幕", source="ai")
+    hub.broadcast_item.assert_called_once_with(
+        "AI弹幕",
+        y=90.0,
+        screen_width=1920.0,
+        screen_height=1080.0,
+        speed=2.0,
+        source="ai",
+    )

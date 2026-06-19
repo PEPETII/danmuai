@@ -241,20 +241,18 @@ class ConfigService:
 
     def _normalize_items(self, items: dict[str, str]) -> None:
         if "api_endpoint" in items or "api_mode" in items:
-            from app.model_providers import resolve_api_transport
+            from app.model_providers import normalize_api_mode_for_select
 
             endpoint = items.get("api_endpoint", self._config.get("api_endpoint", ""))
             api_mode = items.get("api_mode", self._config.get("api_mode", "doubao"))
-            transport = resolve_api_transport(endpoint, api_mode)
-            items["api_mode"] = "doubao" if transport == "doubao" else "openai"
+            items["api_mode"] = normalize_api_mode_for_select(api_mode, endpoint)
 
         if "mic_api_endpoint" in items or "mic_api_mode" in items:
-            from app.model_providers import resolve_api_transport
+            from app.model_providers import normalize_api_mode_for_select
 
             endpoint = items.get("mic_api_endpoint", self._config.get("mic_api_endpoint", ""))
             api_mode = items.get("mic_api_mode", self._config.get("mic_api_mode", "doubao"))
-            transport = resolve_api_transport(endpoint, api_mode)
-            items["mic_api_mode"] = "doubao" if transport == "doubao" else "openai"
+            items["mic_api_mode"] = normalize_api_mode_for_select(api_mode, endpoint)
 
         if "mic_use_visual_model" in items:
             value = str(items["mic_use_visual_model"]).strip()

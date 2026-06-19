@@ -23,6 +23,7 @@ from app.model_providers import (
     guess_provider_from_endpoint,
     is_model_config_complete,
     is_valid_endpoint,
+    normalize_api_mode_for_select,
     normalize_endpoint,
     provider_label,
     resolve_active_model_id,
@@ -144,7 +145,10 @@ def validate_web_config_patch(config, payload: dict[str, Any]) -> None:
             raise ValueError(tr("config.error_api_endpoint_invalid"))
 
     endpoint = str(payload.get("api_endpoint", config.get("api_endpoint", ""))).strip()
-    api_mode = str(payload.get("api_mode", config.get("api_mode", "doubao")))
+    api_mode_raw = str(payload.get("api_mode", config.get("api_mode", "doubao")))
+    # Align with probe/runtime: known hosts dictate transport; raw api_mode may be stale
+    # after the user edits endpoint without touching the mode select.
+    api_mode = normalize_api_mode_for_select(api_mode_raw, endpoint)
     mode_mismatch = validate_endpoint_mode_consistency(endpoint, api_mode)
     if mode_mismatch:
         raise ValueError(tr(mode_mismatch))

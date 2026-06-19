@@ -169,25 +169,57 @@ def is_formula_danmu_text(config, content: str) -> bool:
     )
 
 
+def _pool_entry_zone_overloaded(engine) -> bool:
+    entry_checker = getattr(engine, "entry_zone_overloaded", None)
+    return callable(entry_checker) and entry_checker()
+
+
+def plan_pool_topup(engine, config) -> tuple[int, list[str]]:
+    """规划同屏密度补池：返回 (limit, texts)，无补池时 limit=0。"""
+    if not engine.running:
+        return 0, []
+    if not any_danmu_pool_source_enabled(config):
+        return 0, []
+    # W-DANMU-POOL-003: 用户配了 danmu_pending_entry_cap 时，避免入口区被池句占满
+    if _pool_entry_zone_overloaded(engine):
+        return 0, []
+    deficit = engine.deficit_below_min()
+    if deficit <= 0:
+        return 0, []
+    limit = min(deficit, 8)
+    texts = sample_danmu_for_config(config, limit)
+    if not texts:
+        return 0, []
+    return limit, texts
+
+
+def plan_duplicate_loss_topup(
+    engine,
+    config,
+    *,
+    duplicate_loss_total: int,
+    threshold: int = 2,
+    limit: int = 3,
+) -> list[str]:
+    """规划 duplicate loss 补偿补池文本；无补偿时返回空列表。"""
+    if duplicate_loss_total < max(1, int(threshold)):
+        return []
+    if not engine.running:
+        return []
+    if not any_danmu_pool_source_enabled(config):
+        return []
+    if _pool_entry_zone_overloaded(engine):
+        return []
+    return sample_danmu_for_config(config, max(1, int(limit)))
+
+
 def maybe_pool_topup(engine, config, scene_generation: int) -> int:
     """从自定义池抽样补足同屏密度。
 
     Returns the number of items actually added.
     """
-    if not engine.running:
-        return 0
-    if not any_danmu_pool_source_enabled(config):
-        return 0
-    # W-DANMU-POOL-003: 用户配了 danmu_pending_entry_cap 时，避免入口区被池句占满
-    entry_checker = getattr(engine, "entry_zone_overloaded", None)
-    if callable(entry_checker) and entry_checker():
-        return 0
-    deficit = engine.deficit_below_min()
-    if deficit <= 0:
-        return 0
-    limit = min(deficit, 8)
-    texts = sample_danmu_for_config(config, limit)
-    if not texts:
+    limit, texts = plan_pool_topup(engine, config)
+    if limit <= 0 or not texts:
         return 0
     added = 0
     for text in texts:
@@ -215,16 +247,13 @@ def maybe_duplicate_loss_topup(
     limit: int = 3,
 ) -> int:
     """当单批 duplicate 损耗达到阈值时，额外做一次小剂量补偿。"""
-    if duplicate_loss_total < max(1, int(threshold)):
-        return 0
-    if not engine.running:
-        return 0
-    if not any_danmu_pool_source_enabled(config):
-        return 0
-    entry_checker = getattr(engine, "entry_zone_overloaded", None)
-    if callable(entry_checker) and entry_checker():
-        return 0
-    texts = sample_danmu_for_config(config, max(1, int(limit)))
+    texts = plan_duplicate_loss_topup(
+        engine,
+        config,
+        duplicate_loss_total=duplicate_loss_total,
+        threshold=threshold,
+        limit=limit,
+    )
     if not texts:
         return 0
     added = 0

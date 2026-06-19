@@ -1,4 +1,5 @@
-# Optional Windows code-signing helper for DanmuAI (NOT wired into publish_windows_release.ps1).
+# Optional Windows code-signing helper for DanmuAI.
+# Integrated into publish_windows_release.ps1: when DANMU_CODE_SIGN=1, post-pack verification runs automatically.
 #
 # Default: signing DISABLED. Set DANMU_CODE_SIGN=1 to enable.
 # Credentials via environment variables ONLY — never commit PFX, passwords, or PINs.
@@ -10,8 +11,9 @@
 #   .\scripts\sign_windows_release.ps1 -VerifyOnly     # verify Setup.exe signatures
 #   .\scripts\sign_windows_release.ps1                 # print signing prerequisites (no pack)
 #
-# Future (SIGN-004): velopack_pack.ps1 will read VPK_SIGN_PARAMS / VPK_AZURE_TRUSTED_SIGN_FILE
+# SIGN-004 (done): velopack_pack.ps1 reads VPK_SIGN_PARAMS / VPK_AZURE_TRUSTED_SIGN_FILE
 # when DANMU_CODE_SIGN=1 during vpk pack.
+# W-PACK-007 (done): publish_windows_release.ps1 calls this script with -VerifyOnly after pack.
 
 param(
     [string]$ReleaseDir = "",
@@ -117,6 +119,7 @@ if ($env:VPK_AZURE_TRUSTED_SIGN_FILE) {
     Write-Host "  --signParams (from VPK_SIGN_PARAMS)"
 }
 Write-Host ""
-Write-Host "This script does not run vpk pack. Use publish flow after SIGN-004 enables signing in velopack_pack.ps1."
+Write-Host "This script does not run vpk pack. Signing is handled by velopack_pack.ps1 (SIGN-004)."
+Write-Host "Post-pack verification is integrated into publish_windows_release.ps1 (W-PACK-007)."
 Write-Host "To verify existing release artifacts:"
 Write-Host "  .\scripts\sign_windows_release.ps1 -VerifyOnly"

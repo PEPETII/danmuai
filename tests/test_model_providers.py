@@ -106,7 +106,7 @@ def test_validate_model_config_invalid_endpoint():
     assert "custom_model.error_endpoint_invalid" in errors
 
 
-def test_validate_model_config_rejects_doubao_mode_on_openai_host():
+def test_validate_model_config_normalizes_stale_mode_on_known_host():
     errors = validate_model_config(
         {
             "name": "x",
@@ -116,7 +116,8 @@ def test_validate_model_config_rejects_doubao_mode_on_openai_host():
             "mode": "doubao",
         }
     )
-    assert "config.error_endpoint_mode_mismatch" in errors
+    assert "config.error_endpoint_mode_mismatch" not in errors
+    assert errors == []
 
 
 def test_apply_provider_to_form_mimo():

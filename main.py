@@ -160,6 +160,66 @@ class DanmuApp(
     def _has_visual_request_in_flight(self) -> bool:
         return self._is_generating or self.ai_in_flight >= MAX_IN_FLIGHT
 
+    def _maybe_pool_topup(self) -> int:
+        from app.danmu_pool import plan_pool_topup
+
+        limit, texts = plan_pool_topup(self.engine, self.config)
+        if limit <= 0 or not texts:
+            return 0
+        scene_generation = int(getattr(self, "_scene_generation", 0))
+        added = 0
+        for text in texts:
+            if added >= limit:
+                break
+            item = self.engine.add_text(
+                text,
+                persona="",
+                batch_id=0,
+                scene_generation=scene_generation,
+                skip_dedup=True,
+            )
+            if item:
+                self._broadcast_live_overlay_item(item, item.content, source="pool_topup")
+                added += 1
+        return added
+
+    def _maybe_duplicate_loss_topup(
+        self,
+        queued,
+        stats: dict[str, int | str],
+    ) -> int:
+        if int(stats.get("duplicate_topup_triggered", 0)) > 0:
+            return 0
+        from app.danmu_pool import plan_duplicate_loss_topup
+
+        texts = plan_duplicate_loss_topup(
+            self.engine,
+            self.config,
+            duplicate_loss_total=int(stats.get("duplicate_loss_total", 0)),
+        )
+        if not texts:
+            return 0
+        scene_generation = int(getattr(queued, "scene_generation", 0))
+        added = 0
+        for text in texts:
+            item = self.engine.add_text(
+                text,
+                persona="",
+                batch_id=0,
+                scene_generation=scene_generation,
+                skip_dedup=True,
+            )
+            if item:
+                self._broadcast_live_overlay_item(
+                    item,
+                    item.content,
+                    source="pool_duplicate_topup",
+                )
+                added += 1
+        if added > 0:
+            stats["duplicate_topup_triggered"] = 1
+        return added
+
     def _record_undisplayed(self, reason: str, *, persona_id: str = "") -> None:
         """安全记录未上屏事件（兼容 minimal DanmuApp 测试模式）。"""
         recorder = self.__dict__.get("_danmu_diagnostics")

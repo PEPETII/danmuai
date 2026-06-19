@@ -42,7 +42,7 @@ class DanmuAppRequestContextMixin:
         screenshot_id: int,
         scene_generation: int,
         source: str,
-    ) -> str:
+    ) -> tuple[int, int, int]:
         key = self._reply_request_id(request_round, screenshot_id, scene_generation)
         self._pending_request_meta[key] = {"source": source}
         return key
@@ -94,18 +94,15 @@ class DanmuAppRequestContextMixin:
 
     def _pop_request_meta_for_inflight(
         self,
+        request_round: int,
         screenshot_id: int,
         scene_generation: int,
-    ) -> list[str]:
-        """Pop pending meta keys matching inflight screenshot/scene (main thread)."""
-        suffix = f":{screenshot_id}:{scene_generation}"
-        popped: list[str] = []
-        for key in list(self._pending_request_meta.keys()):
-            if not key.endswith(suffix):
-                continue
-            if self._pending_request_meta.pop(key, None) is not None:
-                popped.append(key)
-        return popped
+    ) -> list[tuple[int, int, int]]:
+        """Pop pending meta for the exact in-flight visual request (main thread)."""
+        key = self._reply_request_id(request_round, screenshot_id, scene_generation)
+        if self._pending_request_meta.pop(key, None) is None:
+            return []
+        return [key]
 
     def _try_recover_stale_visual_inflight(self) -> bool:
         """Force-release visual in-flight when HTTP never completes (S-011 / S-024).
@@ -123,7 +120,12 @@ class DanmuAppRequestContextMixin:
 
         screenshot_id = self._inflight_screenshot_id
         scene_generation = self._inflight_scene_generation
-        popped_keys = self._pop_request_meta_for_inflight(screenshot_id, scene_generation)
+        request_round = int(self.screenshot_round)
+        popped_keys = self._pop_request_meta_for_inflight(
+            request_round,
+            screenshot_id,
+            scene_generation,
+        )
         timing_service = self._get_request_timing_service()
         now = time.monotonic()
         for key in popped_keys:
@@ -210,7 +212,7 @@ class DanmuAppRequestContextMixin:
         request_round: int,
         screenshot_id: int,
         scene_generation: int,
-    ) -> str:
+    ) -> tuple[int, int, int]:
         return reply_request_id(request_round, screenshot_id, scene_generation)
 
     def _peek_request_started_at(

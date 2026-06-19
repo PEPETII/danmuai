@@ -35,6 +35,16 @@ def test_feedback_page_in_index_html():
     assert 'id="feedbackContent"' in html
     assert "/static/image/qrcode_1779738450536.jpg" in html
     assert 'id="rewardModal"' in html
+    assert "提交时会自动附带当前运行信息（已脱敏）" in html
+
+
+def test_feedback_context_module_exists():
+    root = project_root()
+    path = root / "web" / "static" / "modules" / "feedback-context.js"
+    assert path.is_file(), f"missing {path}"
+    text = path.read_text(encoding="utf-8")
+    assert "export async function collectFeedbackContext" in text
+    assert "export function sanitizeApiEndpoint" in text
 
 
 def test_announcements_page_in_index_html():

@@ -338,6 +338,11 @@ class DanmuAppMemeMixin:
                 )
                 if item:
                     self._update_stats(success=True)
+                    self._broadcast_live_overlay_item(
+                        item,
+                        item.content,
+                        source="meme_barrage",
+                    )
             if self._meme_display_backlog:
                 QTimer.singleShot(0, self._meme_display_tick)
         finally:

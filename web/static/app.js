@@ -316,12 +316,8 @@ function applyDanmuReadForm(cfg) {
   if (keyEl) keyEl.value = cfg.api_key || '';
   if (styleEl) styleEl.value = cfg.style_prompt || '';
   let storedProvider = cfg.provider || '';
-  if (storedProvider === 'custom_openai') {
+  if (storedProvider === 'custom_openai' || storedProvider === 'doubao') {
     storedProvider = '';
-    showToast('已不再支持自定义 OpenAI 兼容 TTS，请重新选择平台并保存', true);
-  } else if (storedProvider === 'doubao') {
-    storedProvider = '';
-    showToast('已不再支持火山豆包语音 TTS，请改选 MiMo 或百炼并保存', true);
   }
   if (providerEl) providerEl.value = storedProvider || '';
   const effProvider = storedProvider || '';

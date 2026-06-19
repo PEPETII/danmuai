@@ -72,6 +72,24 @@ def test_supabase_config_js_optional_local():
     assert "YOUR_PROJECT" not in text
 
 
+def test_feedback_context_migration_exists():
+    root = project_root()
+    path = root / "supabase" / "migrations" / "010_feedback_context.sql"
+    assert path.is_file()
+    sql = path.read_text(encoding="utf-8")
+    assert "context_json" in sql
+    assert "logs_excerpt" in sql
+
+
+def test_supabase_feedback_forwards_context_fields():
+    text = (project_root() / "web" / "static" / "supabase-client.js").read_text(encoding="utf-8")
+    func_start = text.index("async function submitFeedback(")
+    func_end = text.index("\n  async function getErrorReportQuota()", func_start)
+    func_body = text[func_start:func_end]
+    assert "context_json" in func_body
+    assert "logs_excerpt" in func_body
+
+
 def test_app_update_banner_uses_backend_metadata_only():
     text = (project_root() / "web" / "static" / "modules" / "app-update-banner.js").read_text(
         encoding="utf-8"

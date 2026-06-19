@@ -2,6 +2,10 @@ import { API, apiFetch } from './transport.js';
 import { activateFocusTrap, deactivateFocusTrap } from './modal-focus-trap.js';
 import { buildDiagnosticReportText } from './diagnostics.js';
 import {
+  collectFeedbackContext,
+  sanitizeApiEndpoint,
+} from './feedback-context.js';
+import {
   formatLogLine,
   logBuffer,
   logEntryKey,
@@ -173,6 +177,13 @@ async function collectErrorReportContext(anchor) {
   const anchorTs = Number(anchor.ts) || Date.now() / 1000;
   const sinceTs = Math.max(0, anchorTs - ERROR_REPORT_LOG_WINDOW_SEC);
 
+  // Fetch unified feedback context in parallel with error-specific logs/diagnostics.
+  // This guarantees diagnosticsJson.config_context contains the same minimum runtime
+  // fields used by the regular feedback page.
+  const baseContextPromise = collectFeedbackContext({
+    logWindowSec: ERROR_REPORT_LOG_WINDOW_SEC,
+  });
+
   let serverItems = [];
   try {
     const base = API.base || window.location.origin.replace(/\/$/, '');
@@ -201,6 +212,35 @@ async function collectErrorReportContext(anchor) {
     }
   } catch (error) {
     console.warn('[error-report] diagnostics failed', error);
+  }
+
+  // Merge the unified minimum runtime context into diagnosticsJson.config_context.
+  try {
+    const baseContext = await baseContextPromise;
+    if (baseContext) {
+      const configContext = diagnosticsJson?.config_context || {};
+      diagnosticsJson = diagnosticsJson || {};
+      diagnosticsJson.config_context = {
+        ...configContext,
+        current_model_name:
+          baseContext.current_model_name ||
+          configContext.model_name ||
+          configContext.active_model_id ||
+          '-',
+        api_endpoint:
+          baseContext.api_endpoint ||
+          sanitizeApiEndpoint(configContext.api_endpoint || configContext.api_endpoint_host || ''),
+        provider_id: baseContext.provider_id || configContext.provider_id || '-',
+        api_mode: baseContext.api_mode || configContext.api_mode || '-',
+        recent_logs: baseContext.recent_logs || '',
+        app_version: baseContext.app_version || globalThis.DANMU_APP_VERSION || null,
+        reported_at: baseContext.reported_at || new Date().toISOString(),
+        error_message:
+          baseContext.error_message || String(anchor.errorMessage || '') || null,
+      };
+    }
+  } catch (error) {
+    console.warn('[error-report] merging feedback context failed', error);
   }
 
   if (anchor.statusSnapshot) {

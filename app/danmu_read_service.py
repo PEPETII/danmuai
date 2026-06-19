@@ -398,6 +398,11 @@ def export_danmu_read_config(config) -> dict[str, object]:
     stored_provider = (config.get("tts_provider") or "").strip()
     stored_endpoint = normalize_endpoint(config.get("tts_endpoint") or "")
     stored_model_id = (config.get("tts_model_id") or "").strip()
+    # Auto-migrate legacy TTS providers so the frontend never sees them
+    if stored_provider in ("doubao", "custom_openai"):
+        config.set_batch({"tts_provider": "", "tts_endpoint": ""})
+        stored_provider = ""
+        stored_endpoint = ""
     try:
         resolved = resolve_tts_config(config)
     except ValueError:

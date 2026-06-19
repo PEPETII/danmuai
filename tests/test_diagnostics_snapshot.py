@@ -24,7 +24,8 @@ def test_diagnostic_snapshot_is_read_only(monkeypatch: pytest.MonkeyPatch):
     timing = app.get_request_timing_service()
     scheduler.last_api_trigger_at = 100.0
     timing.request_started_at_by_id[7] = 10.0
-    timing.rtt_history[:] = [1.0, 2.0, 3.0]
+    timing.rtt_history.clear()
+    timing.rtt_history.extend([1.0, 2.0, 3.0])
 
     before_last_trigger = scheduler.last_api_trigger_at
     before_started = dict(timing.request_started_at_by_id)
@@ -38,7 +39,7 @@ def test_diagnostic_snapshot_is_read_only(monkeypatch: pytest.MonkeyPatch):
     assert snapshot["scheduler"]["last_api_trigger_at"] == 100.0
     assert scheduler.last_api_trigger_at == before_last_trigger
     assert timing.request_started_at_by_id == before_started
-    assert timing.rtt_history == before_history
+    assert list(timing.rtt_history) == before_history
 
 
 def test_request_scheduler_diagnostics_match_current_block_reason(monkeypatch: pytest.MonkeyPatch):
@@ -65,7 +66,8 @@ def test_request_timing_diagnostics_match_current_avg_and_cooldown(monkeypatch: 
     timing = app.get_request_timing_service()
     timing.request_started_at_by_id[1] = 10.0
     timing.request_started_at_by_id[2] = 11.0
-    timing.rtt_history[:] = [1.0, 2.0, 3.0, 4.0]
+    timing.rtt_history.clear()
+    timing.rtt_history.extend([1.0, 2.0, 3.0, 4.0])
 
     monkeypatch.setattr(api_schedule.time, "monotonic", lambda: 15.0)
     monkeypatch.setattr("app.application.diagnostic_snapshot.time.monotonic", lambda: 15.0)
@@ -152,7 +154,8 @@ def test_diagnostics_api_returns_independent_read_only_payload(monkeypatch: pyte
     timing = app.get_request_timing_service()
     scheduler.last_api_trigger_at = 100.0
     timing.request_started_at_by_id[7] = 10.0
-    timing.rtt_history[:] = [4.0, 4.0, 4.0]
+    timing.rtt_history.clear()
+    timing.rtt_history.extend([4.0, 4.0, 4.0])
 
     before_last_trigger = scheduler.last_api_trigger_at
     before_started = dict(timing.request_started_at_by_id)
@@ -186,6 +189,8 @@ def test_diagnostics_api_returns_independent_read_only_payload(monkeypatch: pyte
                 "provider_id": "custom_doubao",
                 "api_endpoint_host": "",
                 "api_mode": "doubao",
+                "model_name": "",
+                "api_endpoint": "",
             },
             "scheduler": {
                 "last_api_trigger_at": 100.0,
@@ -225,14 +230,16 @@ def test_diagnostics_api_returns_independent_read_only_payload(monkeypatch: pyte
                 "high_rtt": True,
                 "has_pending_timing": True,
             },
+            "undisplayed": {},
         },
     }
+    assert diagnostics_res.status_code == 200
     assert status_res.status_code == 200
     assert status_res.json() == status_payload
     assert "diagnostics" not in status_res.json()
     assert scheduler.last_api_trigger_at == before_last_trigger
     assert timing.request_started_at_by_id == before_started
-    assert timing.rtt_history == before_history
+    assert list(timing.rtt_history) == before_history
 
 
 def test_diagnostics_api_uses_public_app_facade():
@@ -259,7 +266,8 @@ def test_diagnostic_report_is_read_only_and_contains_recommendations(monkeypatch
     timing = app.get_request_timing_service()
     scheduler.last_api_trigger_at = 100.0
     timing.request_started_at_by_id[5] = 10.0
-    timing.rtt_history[:] = [4.0, 4.0, 4.0]
+    timing.rtt_history.clear()
+    timing.rtt_history.extend([4.0, 4.0, 4.0])
 
     before_last_trigger = scheduler.last_api_trigger_at
     before_started = dict(timing.request_started_at_by_id)
@@ -278,7 +286,7 @@ def test_diagnostic_report_is_read_only_and_contains_recommendations(monkeypatch
     assert "Inspect scheduler block reason" in report
     assert scheduler.last_api_trigger_at == before_last_trigger
     assert timing.request_started_at_by_id == before_started
-    assert timing.rtt_history == before_history
+    assert list(timing.rtt_history) == before_history
 
 
 def test_build_diagnostic_report_formats_existing_snapshot():

@@ -1,12 +1,12 @@
 /**
- * 模块：logs — 实时日志环形缓冲 + 弹幕日记页渲染 + 历史 bootstrap。
+ * 模块：logs — 实时日志环形缓冲 + 弹幕日志页渲染 + 历史 bootstrap。
  *
  * 数据流：
  *   接收 → logBuffer（数组，按 ts 升序）
  *     - WebSocket：onLog（单条）/ onLogBatch（批量）
  *     - HTTP bootstrap：bootstrapLogsFromServer(lastLogsPollTs) 拉
  *       GET /api/logs/recent?since_ts=... 用于首屏补齐 + 降级轮询
- *   渲染 → 弹幕日记页（page-logs）
+ *   渲染 → 弹幕日志页（page-logs）
  *     - renderLogView() 按 logLevelFilters 过滤后写到 DOM
  *     - mergeLogItemsUnique() 按 (ts|level|message) 去重
  *

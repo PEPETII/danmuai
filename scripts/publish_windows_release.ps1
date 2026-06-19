@@ -46,9 +46,46 @@ if (-not (Test-Path (Join-Path $DistDir "DanmuAI.exe"))) {
 }
 
 New-Item -ItemType Directory -Force -Path $ReleaseRoot | Out-Null
-$appVersion = (python -c "from app.version import __version__; print(__version__)").Trim()
+$versionOutput = python -c "from app.version import __version__; print(__version__)" 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Failed to read app version from app.version.__version__ (exit $LASTEXITCODE): $versionOutput"
+}
+$appVersion = $versionOutput.Trim()
+if (-not $appVersion -or $appVersion -notmatch '^\d+\.\d+\.\d+') {
+    Write-Error "Invalid version string from app.version.__version__: '$appVersion' (expected semver x.y.z)"
+}
 
 New-Item -ItemType Directory -Force -Path $VelopackDir | Out-Null
+
+function Test-FileLocked {
+    param([string]$Path)
+    if (-not (Test-Path -LiteralPath $Path)) { return $false }
+    try {
+        [IO.File]::Open($Path, 'Open', 'ReadWrite', 'None').Close()
+        return $false
+    } catch {
+        return $true
+    }
+}
+
+function Test-DirectoryFilesLocked {
+    param([string]$Dir)
+    if (-not (Test-Path -LiteralPath $Dir)) { return @() }
+    $locked = @()
+    Get-ChildItem -LiteralPath $Dir -File -ErrorAction SilentlyContinue | ForEach-Object {
+        if (Test-FileLocked -Path $_.FullName) {
+            $locked += $_.Name
+        }
+    }
+    return $locked
+}
+
+$lockedFiles = Test-DirectoryFilesLocked -Dir $VelopackDir
+if ($lockedFiles.Count -gt 0) {
+    Write-Warning "Locked files in $VelopackDir (may be held by antivirus, explorer, or another process):"
+    $lockedFiles | ForEach-Object { Write-Warning "  $_" }
+    Write-Error "Cannot clean release directory — close applications locking these files and rerun."
+}
 
 $currentVersionPatterns = @(
     "PEPETII.DanmuAI-win-Setup.exe",
@@ -126,6 +163,16 @@ if ($deltaCount -gt 0 -and $deltaFeedCount -eq 0) {
     "Portable download: https://updates.qiaoqiao.buzz/downloads/PEPETII.DanmuAI-win-Portable.zip"
     "Update feed: https://updates.qiaoqiao.buzz/releases/win/stable"
 ) | Set-Content -LiteralPath $VersionFile -Encoding utf8
+
+# Post-pack signature verification (W-PACK-007).
+if ($env:DANMU_CODE_SIGN -eq "1") {
+    Write-Host "Verifying release signatures..."
+    & (Join-Path $Root "scripts\sign_windows_release.ps1") -VerifyOnly -ReleaseDir $VelopackDir
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Signature verification failed — see above for details"
+    }
+    Write-Host "Signature verification passed."
+}
 
 Write-Host ""
 Write-Host "Done."
