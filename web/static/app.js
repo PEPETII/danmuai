@@ -41,6 +41,7 @@ import {
   populateMicInputDevices,
   reloadConfigFromServer,
   switchSettingsTab,
+  getActiveSettingsTabId,
 } from './modules/settings.js';
 import { isMaskedApiKey } from './modules/settings-defaults.js';
 import { initTheme } from './modules/theme.js';
@@ -370,8 +371,8 @@ async function saveDanmuReadSettings() {
     body: JSON.stringify(body),
   });
   applyDanmuReadForm(cfg);
-  showToast('读弹幕设置已保存');
 }
+window.saveDanmuReadSettings = saveDanmuReadSettings;
 
 async function probeDanmuRead() {
   const customPayload = collectDanmuReadCustomPayload();
@@ -399,12 +400,6 @@ function initDanmuReadPage() {
   document
     .getElementById('danmuReadModelSelect')
     ?.addEventListener('change', handleDanmuReadModelChange);
-  document.getElementById('btnSaveDanmuRead')?.addEventListener('click', (e) => {
-    const btn = e.currentTarget;
-    withLoadingState(btn, btn.textContent, () =>
-      saveDanmuReadSettings()
-    ).catch((error) => showToast(error.message, true));
-  });
   document.getElementById('btnDanmuReadProbe')?.addEventListener('click', (e) => {
     const btn = e.currentTarget;
     withLoadingState(btn, btn.textContent, () =>
@@ -434,6 +429,9 @@ function navigate(page) {
     reloadConfigFromServer().catch(console.error);
     loadScreens().catch(console.error);
     loadCustomModels().catch(console.error);
+    if (getActiveSettingsTabId() === 'danmu-read') {
+      loadDanmuReadPage().catch(() => {});
+    }
   }
   if (page === 'overview') loadOverviewGlobalFields().catch(console.error);
   else {

@@ -40,7 +40,7 @@ def _default_user_pt_for_save(name: str) -> str:
 
 
 def _system_custom_for_display(system_pt: str) -> str:
-    return strip_system_style(strip_reply_contract(system_pt))
+    return strip_reply_contract(system_pt)
 
 
 def _resolve_user_pt_for_save(name: str, user_pt: str, existing_user: str) -> str:
@@ -162,12 +162,12 @@ def restore_builtin_default(app: "DanmuApp", name: str) -> dict[str, Any]:
     app.config_changed.emit()
     prompt = BUILTIN_PERSONAE[name]
     if Translator.get_language() == "en":
-        system_custom = prompt["system_en"]
+        system_pt = ensure_reply_contract(prompt["system_en"], app.config)
         user_pt = prompt["user_en"]
     else:
-        system_custom = prompt["system_zh"]
+        system_pt = ensure_reply_contract(prompt["system_zh"], app.config)
         user_pt = prompt["user_zh"]
     return {
-        "system_custom": system_custom,
+        "system_custom": _system_custom_for_display(system_pt),
         "user_pt": user_pt,
     }

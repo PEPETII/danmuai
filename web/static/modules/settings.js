@@ -136,6 +136,7 @@ export {
 export { loadModelCatalog } from './settings-model-catalog.js';
 export { loadProviders } from './settings-providers.js';
 export {
+  getActiveSettingsTabId,
   initSettingsTabs,
   initSettingsUiMode,
   switchSettingsTab,
@@ -551,6 +552,10 @@ export function bindSettingsControls(deps = {}) {
         await apiFetch('/api/config', { method: 'POST', body: JSON.stringify({ data: collectFormData() }) });
         const cfg = await reloadConfigFromServer();
         refreshDanmuPreview();
+        // 同时保存 danmu-read 专用配置
+        if (window.saveDanmuReadSettings) {
+          await window.saveDanmuReadSettings();
+        }
         const active = cfg.active_model_id || cfg.model || '';
         const label = cfg.model_display_name && cfg.model_display_name !== active
           ? `${cfg.model_display_name}（${active}）`
@@ -565,25 +570,16 @@ export function bindSettingsControls(deps = {}) {
         if (micKeyInput?.value && micKeyInput.value !== MASKED_API_KEY) {
           micKeyInput.value = MASKED_API_KEY;
         }
+        const danmuReadKeyInput = document.getElementById('danmuReadApiKey');
+        if (danmuReadKeyInput?.value && danmuReadKeyInput.value !== MASKED_API_KEY) {
+          danmuReadKeyInput.value = MASKED_API_KEY;
+        }
       } catch (err) {
         showToast(err.message || '保存时出了点小状况', true);
       }
     });
   });
 
-  document.getElementById('btnSaveAndStart')?.addEventListener('click', async (e) => {
-    const btn = e.currentTarget;
-    await window.withLoadingState(btn, btn.textContent, async () => {
-      try {
-        await apiFetch('/api/config', { method: 'POST', body: JSON.stringify({ data: collectFormData() }) });
-        await apiFetch('/api/start', { method: 'POST' });
-        showToast('已保存并开始生成弹幕！');
-        navigate('overview');
-      } catch (err) {
-        showToast(err.message, true);
-      }
-    });
-  });
 
   document.getElementById('btnProbe')?.addEventListener('click', async (e) => {
     const btn = e.currentTarget;

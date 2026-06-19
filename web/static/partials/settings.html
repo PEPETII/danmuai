@@ -239,7 +239,6 @@
             <p id="danmuReadModelHint" class="text-xs text-gray-500">模型：<span id="danmuReadModelLabel">mimo-v2.5-tts</span> · 接口：<span id="danmuReadEndpointLabel">—</span></p>
           </div>
           <div class="flex flex-wrap items-center gap-3">
-            <button type="button" id="btnSaveDanmuRead" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm">保存设置</button>
             <button type="button" id="btnDanmuReadProbe" class="px-6 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50">试听</button>
             <span id="danmuReadStatus" class="text-xs text-gray-400" aria-live="polite">试听可使用上方输入框中的 Key，无需先保存；定时朗读须保存并「开始生成」。</span>
           </div>
@@ -509,9 +508,6 @@
           </button>
           <button type="submit" class="btn-primary px-8 py-3 text-white rounded-xl font-bold shadow-warm flex items-center gap-2">
             保存配置 <svg class="ui-icon" aria-hidden="true"><use href="#i-sparkles"></use></svg>
-          </button>
-          <button type="button" id="btnSaveAndStart" class="btn-primary px-8 py-3 text-white rounded-xl font-bold shadow-warm">
-            保存并生成弹幕
           </button>
         </div>
       </form>
