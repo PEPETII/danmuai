@@ -23,6 +23,7 @@ from app.personae import (
     strip_reply_contract,
     strip_system_style,
 )
+from app.persona_contract import append_nickname_to_system_pt, append_live_topic_to_system_pt
 from app.templates import TemplateManager
 from app.translations import Translator
 
@@ -67,6 +68,10 @@ def get_template_detail(app: "DanmuApp", name: str) -> dict[str, Any]:
     if not system_pt:
         system_pt, user_pt = templates.load(name)
 
+    # 完整提示词预览：含契约 + 风格 + 自定义 + 昵称 + 主题（与 main.py 实际发送一致）
+    system_pt_full = append_nickname_to_system_pt(system_pt, app.config)
+    system_pt_full = append_live_topic_to_system_pt(system_pt_full, app.config)
+
     return {
         "id": name,
         "label": persona_display_name(name),
@@ -77,6 +82,7 @@ def get_template_detail(app: "DanmuApp", name: str) -> dict[str, Any]:
         "system_custom": _system_custom_for_display(system_pt),
         "user_pt": user_pt or default_user_prompt(),
         "reply_contract": get_reply_contract(app.config),
+        "system_pt_full": system_pt_full,
     }
 
 

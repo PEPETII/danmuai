@@ -160,6 +160,7 @@ export async function loadPersonaTemplate() {
   const tpl = await personaFetch(`/api/personae/${enc(name)}/template`);
   document.getElementById('personaContract').value = tpl.reply_contract || '';
   document.getElementById('personaSystemCustom').value = tpl.system_custom || '';
+  document.getElementById('personaSystemPtFull').value = tpl.system_pt_full || '';
   const systemEditable = tpl.system_editable ?? tpl.editable;
   document.getElementById('personaSystemCustom').readOnly = !systemEditable;
   document.getElementById('btnSavePersona').disabled = tpl.can_save === false;
