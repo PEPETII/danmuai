@@ -2,8 +2,6 @@
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from app.pet.pet_window import PetWindow
 from main import DanmuApp
 

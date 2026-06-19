@@ -193,7 +193,7 @@ class TrayManager:
                 "选择「卸载并删除数据」将同时删除 %APPDATA%\\DanmuAI\\ 下的配置与密钥。",
             )
         )
-        btn_keep = box.addButton(
+        _btn_keep = box.addButton(
             tr("tray.uninstall_keep_data", "卸载（保留数据）"),
             QMessageBox.ButtonRole.AcceptRole,
         )

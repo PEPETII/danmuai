@@ -28,8 +28,6 @@ from collections import deque
 
 from PyQt6.QtCore import QObject
 
-_log = logging.getLogger(__name__)
-
 from app import danmu_engine_dedup as dedup_profile
 from app.api_schedule import ENGINE_BASE_FPS
 from app.danmu_engine_dedup import (  # noqa: F401 — re-exported for app.danmu_engine callers
@@ -43,6 +41,8 @@ from app.danmu_engine_dedup import (  # noqa: F401 — re-exported for app.danmu
 )
 from app.danmu_engine_models import DanmuItem, Track
 from app.translations import Translator
+
+_log = logging.getLogger(__name__)
 
 # 与 app.config_defaults 保持同步（避免循环导入）
 _DANMU_SPEED_FALLBACK = 2.0

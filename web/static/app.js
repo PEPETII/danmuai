@@ -166,6 +166,7 @@ async function withLoadingState(btn, originalText, asyncFn) {
     delete btn.dataset.originalText;
   }
 }
+window.withLoadingState = withLoadingState;
 
 function maybePromptErrorReport(status) {
   return maybePromptErrorReportImpl(status);

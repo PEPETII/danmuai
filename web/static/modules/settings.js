@@ -44,6 +44,8 @@ import {
   configureSettingsCore,
   fillForm,
   initFloatingPanelV2Controls,
+  initNumberFieldValidation,
+  initOpacityWarning,
   initRestoreDefaultsControls,
   loadConfigDefaults,
   reloadConfigFromServer,

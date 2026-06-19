@@ -36,6 +36,10 @@ dist/
 build/
 /release/
 release/_legacy_local/
+node_modules/
+
+# Windows reserved device name
+/nul
 
 # IDE and OS
 .idea/
