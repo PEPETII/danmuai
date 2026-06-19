@@ -2,6 +2,30 @@
 
 ## Unreleased
 
+## 0.3.3 (2026-06-19)
+
+### Changed
+
+- **W-REL-033-RELEASE-001**：将本地发布版本号提升到 `0.3.3`，按固定顺序核对 Windows 发布链：`scripts/build_exe.ps1` → `scripts/publish_windows_release.ps1` → 检查 `release/velopack/` → `scripts/upload_r2_release.ps1` → `scripts/upload_github_release.ps1`
+
+### Documentation
+
+- **W-REL-033-RELEASE-001**：补充 `0.3.3` 发布准备与校验记录，明确 **R2 是主更新源**、**GitHub Releases 仅镜像**、更新 feed 为 `https://updates.qiaoqiao.buzz/releases/win/stable`、最新安装包别名为 `https://updates.qiaoqiao.buzz/downloads/DanmuAI-Setup.exe`
+
+### Added（W-PR-INTAKE 批次，PR #20–#24 本地适配）
+
+- **W-PR-INTAKE-020（PR #20）**：`reply_parser` 解析前剥离完整或未闭合 `...` 与常见推理前言（`让我想想` / `思考一下` / `reasoning:` 等），provider 前言后含 JSON 仍可提取；MiniMax 端点（host 含 `minimax` / `minimaxi`）请求路径补齐 `reasoning_split: true`，probe 与正式请求一致；不影响其他 OpenAI 兼容 provider
+- **W-PR-INTAKE-021（PR #21）**：新增 `app/application/danmu_diagnostics.py`（`DanmuDiagnosticsRecorder`，线程安全 `threading.Lock` + `deque` + `Counter`）；`main.py` 8 个失败分支记录未上屏原因（capture failure / AI request failure / empty parse / duplicate / empty text / floating-panel spacing / entry-zone overload / layout rejection）；`diagnostic_snapshot` 暴露 `undisplayed` 摘要；`overview.html` + `diagnostics.js` 展示最近未上屏统计与原因列表
+- **W-PR-INTAKE-022（PR #22）**：设置页「弹幕」标签新增「样式预览」区域（`settings-danmu-preview.js`），实时预览横向弹幕（速度、轨道数、字号、透明度、最大字数、字体、加粗）与悬浮窗（面板宽度、最大条数、速度、透明度、字号、字体、加粗）；表单 input/change 即时刷新，保存配置 / 恢复默认后同步刷新；纯前端，不接入真实 overlay，不写持久化
+- **W-PR-INTAKE-023（PR #23）**：overview 页面新增首次运行设置引导（`app-setup-guide.js`），覆盖 API / 模型已配置、probe / 连通性检查、识图屏幕已设置、测试弹幕 / 启动生成进度；dismiss / probe / test 痕迹存 localStorage；不新增后端 API，不改变开始/停止主流程
+- **W-PR-INTAKE-024（PR #24）**：直播输出面板内新增 setup assistant（地址已复制、overlay 已连接、测试弹幕已发送三阶段），copied / tested 存 localStorage，连接状态来自运行时状态源；不重建整块 `liveOverlayPanel` DOM，不新增后端 API
+
+### Fixed
+
+- **W-BUG-AUDIT-03**：从 Git 跟踪中移除误提交的 `.venv-build/`；`.gitignore` 补齐默认构建 venv 名，避免再次 `git add` 整棵 site-packages
+
+## 0.3.2 (2026-06-14)
+
 ### Changed
 
 - **W-DANMU-POOL-BUILTIN-REMOVE-001**：移除内置公式化弹幕库（`data/danmu_pool_zh.json`、bootstrap 数据、`danmu_pool_enabled` 配置键）；公式化补足与填充仅走自定义句库（`danmu_pool_use_custom` + `/api/danmu-pool/*`）；`/api/danmu-pool/meta` 不再返回 `builtin_enabled` / `builtin_count`
@@ -15,6 +39,7 @@
 
 ### Fixed（P3 全量修复，W-P3-*，2026-06-03）
 
+- **W-WEB-MIME-001**：Windows 注册表将 `.js` 映射为 `text/plain` 时 Web 控制台空白；启动 uvicorn 前强制 `application/javascript` / `text/css`（`app/web_static_mime.py`）
 - 移除 `danmu_queue` 遗留别名；`_pending_request_meta` 改用 tuple 键；JPEG 压缩共享 `app/jpeg_resize.py`
 - legacy `realtime` 显示模式归一化收口至 `ConfigStore.__init__`
 - Web：`btnToggle` 不再切换前额外 `GET /api/status`；框选超时重置 `selection_state`；save_config 超时 10s

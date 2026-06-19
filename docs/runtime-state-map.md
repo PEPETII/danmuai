@@ -24,7 +24,7 @@
 | 类别 | 字段 |
 |------|------|
 | Web / 壳状态 | `web_launch_mode`、`web_server`、`web_bridge`、`webview_shell`、`web_runtime_state`、`_region_selector`、`_region_selection_state`、`_region_selection_screen_index` |
-| 截图与视觉请求 | `screenshot_round`、`screenshot_timer`、`ai_in_flight`、`_latest_screenshot`、`_latest_screenshot_time`、`_latest_screenshot_id`、`_latest_requested_screenshot_id`、`_inflight_screenshot_id`、`_inflight_started_at`、`_is_generating` |
+| 截图与视觉请求 | `screenshot_round`、`screenshot_timer`、`ai_in_flight`、`_capture_in_flight`、`_latest_screenshot`、`_latest_screenshot_time`、`_latest_screenshot_id`、`_latest_requested_screenshot_id`、`_inflight_screenshot_id`、`_inflight_started_at`、`_is_generating` |
 | 麦克风与语音 | `mic_in_flight`、`_mic_request_seq`、`_mic_batch_id`、`_mic_poll_timer`、`_mic_poll_ms`、`_mic_service`、`_mic_orchestrator`、`_danmu_read_service` |
 | 队列与批次 | `reply_buffer`、`reply_timer`、`_pool_topup_timer`、`_meme_collect_timer`、`_meme_display_timer`、`_meme_barrage_service`、`_queue_low_watermark`、`_queue_fallback_keep`、`_reply_scene_count`、`_reply_filler_count`、`_queue_batch_size`、`_batch_id`、`_current_batch`、`_pending` |
 | request meta / 调度 | `_pending_request_meta`、`_request_scheduler`、`_request_timing_service`、`_inflight_scene_generation` |
@@ -53,6 +53,7 @@
 - `screenshot_round`
 - `screenshot_timer`
 - `ai_in_flight`
+- `_capture_in_flight`
 - `mic_in_flight`
 - `_latest_screenshot`
 - `_latest_screenshot_time`

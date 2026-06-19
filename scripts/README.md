@@ -16,11 +16,20 @@ Windows 发布包（PyInstaller onedir，`DanmuAI.spec`）。
 .\scripts\build_exe.ps1
 ```
 
-输出 `dist\DanmuAI\DanmuAI.exe`。需已存在 `data\danmu_pool_zh.json`。完整说明与问题记录见 [docs/PACKAGING_WINDOWS.md](../docs/PACKAGING_WINDOWS.md)。
+输出 `dist\DanmuAI\DanmuAI.exe`。完整说明见 [docs/operations/PACKAGING_WINDOWS.md](../docs/operations/PACKAGING_WINDOWS.md)。
+
+## `velopack_poc.ps1` / `velopack_pack.ps1`
+
+Velopack 打包（需 .NET SDK + `dotnet tool install -g vpk`）：
+
+```powershell
+.\scripts\velopack_poc.ps1
+.\scripts\velopack_poc.ps1 -SkipBuild
+```
 
 ## `publish_windows_release.ps1`
 
-在 `build_exe.ps1` 之后，将 `dist\DanmuAI\` 复制到本地发布目录（已 gitignore）并打 zip，供 GitHub Release 附件上传：
+`build_exe.ps1` + Velopack → `release\velopack\`：
 
 ```powershell
 .\scripts\publish_windows_release.ps1
@@ -28,8 +37,31 @@ Windows 发布包（PyInstaller onedir，`DanmuAI.spec`）。
 
 | 输出 | 说明 |
 |------|------|
-| `release\DanmuAI-windows-x64\` | 完整 onedir（含 `DanmuAI.exe`、`_internal\`） |
-| `release\DanmuAI-windows-x64.zip` | 同上，压缩包 |
+| `release\velopack\PEPETII.DanmuAI-win-Setup.exe` | Velopack 安装器（本地原始输出） |
+| `release\velopack\PEPETII.DanmuAI-<version>-Setup.exe` | 版本化 Setup（R2 上传源） |
+| `release\velopack\PEPETII.DanmuAI-win-Portable.zip` | 便携版 |
+| `release\velopack\PEPETII.DanmuAI-<version>-full.nupkg` | 全量更新包 |
+| `release\velopack\releases.win.json` | 更新 feed |
+
+## `upload_r2_release.ps1`
+
+上传至 Cloudflare R2（**主真源**）。环境变量：`R2_ACCOUNT_ID`、`R2_ACCESS_KEY_ID`、`R2_SECRET_ACCESS_KEY`、`R2_BUCKET`（仅本机/CI secret，**禁止入库**）。
+
+```powershell
+.\scripts\upload_r2_release.ps1
+.\scripts\upload_r2_release.ps1 -Version 0.3.1
+.\scripts\upload_r2_release.ps1 -Version 0.3.1 -DryRun
+```
+
+- 未传 `-Version` 时，优先读 `release/velopack/VERSION.txt`，再回退 `app.version.__version__`。
+- 上传前校验 `releases.win.json` 最新 Full 版本与目标版本一致。
+- `downloads/DanmuAI-Setup.exe`（Setup 主入口）、`downloads/PEPETII.DanmuAI-win-Portable.zip`（便携版）latest alias 均通过 R2 服务端复制对应版本化文件，避免大文件重复本地上传。
+
+R2 为正式更新与主下载源（Setup.exe 为主入口）；不得改回 COS 或 Inno Setup。
+
+## `upload_github_release.ps1`
+
+上传 Velopack 资产至 GitHub Releases（**镜像 / 备用**，非主真源）。
 
 ## `bench_jpeg_quality.py`
 
@@ -86,3 +118,9 @@ python scripts/write_formula_bootstrap.py
 ## `filter_pool_sensitive.py`
 
 Post-process `data/danmu_pool_zh.json` to drop lines matching the built-in sensitive-word list. Run after `extract_danmu_pool.py` when refreshing the pool.
+
+## Windows release delta notes
+
+- `publish_windows_release.ps1` no longer deletes the whole `release\velopack\` directory. It keeps older `*.nupkg` files so `vpk pack` can emit `*-delta.nupkg`.
+- If no previous full package exists locally, `publish_windows_release.ps1` bootstraps from `https://updates.qiaoqiao.buzz/releases/win/stable`. Use `-SkipDeltaBootstrap` to disable that behavior.
+- `upload_r2_release.ps1` and `upload_github_release.ps1` now upload `*-delta.nupkg` alongside `releases.win.json`, `*-full.nupkg`, Setup, and Portable (when present).

@@ -2,6 +2,20 @@
 
 本文档记录 DanmuAI 在 Windows 上打包为可分发 exe 的完整流程，以及实际打包过程中遇到的问题与对应修复。以仓库当前代码为准。
 
+## 发布基线（v0.3.0 冻结）
+
+| 维度 | 说明 |
+|------|------|
+| **冻结主链路** | `PyInstaller onedir` → **Velopack** → **Cloudflare R2**（`updates.qiaoqiao.buzz`）→ **GitHub Releases 镜像**。脚本顺序：`publish_windows_release.ps1` → `upload_r2_release.ps1` → `upload_github_release.ps1`。 |
+| **主真源** | Cloudflare R2；用户主下载 `https://updates.qiaoqiao.buzz/downloads/DanmuAI-Setup.exe`（Setup.exe 主入口，支持自定义安装路径）；便携版 `https://updates.qiaoqiao.buzz/downloads/PEPETII.DanmuAI-win-Portable.zip`；更新 feed `https://updates.qiaoqiao.buzz/releases/win/stable`。 |
+| **镜像** | GitHub Releases **仅作备用**；不得重新定义为主真源。 |
+| **应用内更新** | Velopack `UpdateManager` 已打通（v0.3.0 真机验收通过）；Web 控制台启动后主动弹出四渠道更新对话框（W-REL-R2V-010）。 |
+| **已废弃** | 旧 `docs/COS_VELOPACK_UPDATE_DESIGN.md` 已删除；**不得**回退 COS、Inno Setup 双栈或 zip 主分发。 |
+| **契约与基线** | 发布契约见 [WINDOWS_RELEASE_CONTRACT.md](WINDOWS_RELEASE_CONTRACT.md)；现状基线见 [WINDOWS_RELEASE_BASELINE.md](WINDOWS_RELEASE_BASELINE.md)；v0.3.0 实跑见 [reports/windows-release-final-check.md](../../reports/windows-release-final-check.md)。 |
+| **代码签名** | 当前无签名预算，不承诺消除 Windows SmartScreen；见 [WINDOWS_CODE_SIGNING.md](WINDOWS_CODE_SIGNING.md)。 |
+
+---
+
 ## 架构简述
 
 ```text
@@ -28,7 +42,7 @@ DanmuAI.exe（主进程）
 | Python | 建议 **3.12**（`README` / CI 约定）；当前仓库曾在 **3.14** 下打包通过，但 PyInstaller 对 3.14 仍有「Pydantic V1 不兼容」等警告 |
 | 依赖 | `requirements.txt` + `requirements-dev.txt`（含 `pyinstaller`、`pyinstaller-hooks-contrib`） |
 | 应用图标 | `resources/icon.ico`（exe）、`resources/icon.png`（托盘）；缺失时 `build_exe.ps1` 会调用 `scripts/generate_app_icon.py` 生成 |
-| 分发依赖 | 最终用户机器需 [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)（Win10/11 多数已预装） |
+| 分发依赖 | 最终用户机器需 [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)（Win10/11 多数已预装）；[Microsoft Visual C++ Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist)（PyInstaller 打包的 `.pyd` 依赖 `msvcp140.dll` / `vcruntime140.dll`，Win10/11 多数已预装） |
 
 ---
 
@@ -84,7 +98,106 @@ python -m PyInstaller --noconfirm --clean DanmuAI.spec
 | `dist\DanmuAI\_internal\` | 依赖与打包资源（PyInstaller 6 onedir 布局） |
 | `build\DanmuAI\warn-DanmuAI.txt` | 构建警告（缺失模块提示，供排查） |
 
-**分发时必须提供整个 `dist\DanmuAI\` 目录**（zip 或安装包），不能只拷贝单个 `DanmuAI.exe`。
+**开发/调试**：可直接运行 `dist\DanmuAI\DanmuAI.exe`（未经过 Velopack 安装器）。
+
+**正式发布**：使用 Velopack 产物（见下文 §Velopack POC 与发布流水线）。
+
+---
+
+## Velopack POC 与发布流水线
+
+### 前置：vpk CLI
+
+Velopack 打包需要 **.NET SDK** 与 **vpk** 全局工具：
+
+```powershell
+dotnet tool install -g vpk
+```
+
+若 `vpk` 不在 PATH，确保 `%USERPROFILE%\.dotnet\tools` 已加入 PATH。
+
+### POC（W-REL-R2V-003）
+
+```powershell
+.\scripts\build_exe.ps1
+.\scripts\velopack_poc.ps1 -SkipBuild
+```
+
+| POC 输出（`release\velopack-poc\`） | 说明 |
+|-------------------------------------|------|
+| `PEPETII.DanmuAI-win-Setup.exe` | 一键安装器 |
+| `PEPETII.DanmuAI-<version>-full.nupkg` | 全量更新包 |
+| `releases.win.json` | Windows 更新 feed |
+| `PEPETII.DanmuAI-<version>-win-Portable.zip` | 便携包（镜像用） |
+
+已验证参数：`--packId PEPETII.DanmuAI`、`--mainExe DanmuAI.exe`、版本取自 `app.version.__version__`。
+
+安装目录：`%LocalAppData%\PEPETII.DanmuAI\`（与 `%APPDATA%\DanmuAI\` 用户数据分离）。
+
+### 用户数据与更新/卸载（W-REL-R2V-008）
+
+| 路径 | 职责 |
+|------|------|
+| `%LocalAppData%\PEPETII.DanmuAI\` | Velopack 程序文件；更新时替换 `current/` |
+| `%APPDATA%\DanmuAI\config.db` | 配置库 |
+| `%APPDATA%\DanmuAI\.key` | API Key 加密密钥（丢失则密文不可恢复） |
+| `%APPDATA%\DanmuAI\startup.log` | 启动诊断 |
+
+**预期**：就地升级、卸载、重装均**不删除** `%APPDATA%\DanmuAI\`。卸载程序仅移除 `%LocalAppData%\PEPETII.DanmuAI\`。
+
+### 应用内主动更新提示（W-REL-R2V-010 / W-UPDATE-METADATA）
+
+Web 控制台在 UI 就绪后（`app.js` → `initAppVersionAndUpdateCheck()`）请求 **`GET /api/update/channels`**（公开、只读），由**后端**从 Supabase `app_updates` 组装 `latest_version` / `release_url` / `message` / `update_available`；前端不再直连 Supabase 拉版本，也不再本地 semver 比较。
+
+| 入口 | 行为 |
+|------|------|
+| **应用内更新** | Bearer `POST /api/update/check` → `download` → `restart`；**仅 frozen 安装版**可用；**不**经 `/api/update/channels` 访问 Velopack feed |
+| **主下载 / 更新弹窗** | `release_url` 来自 Supabase `app_updates`（空时回退 `R2_LATEST_INSTALLER_URL`） |
+| **GitHub 更新** | 镜像备用：`https://github.com/PEPETII/danmuai/releases` |
+| **夸克 / 百度网盘** | 链接与口令来自 `app/release_channels.py` 静态镜像目录（`GET /api/update/channels` 一并返回） |
+
+**事实源分工**：
+
+| 数据 | 权威来源 |
+|------|----------|
+| `latest_version`、`release_url`、`message` | Supabase `public.app_updates`（`enabled=true`，`updated_at desc`，limit 1） |
+| `current_version` | `app/version.py::__version__` |
+| 镜像 URL（GitHub / 夸克 / 百度 / `r2_latest_installer_url`） | `app/release_channels.py`（仅渠道目录；非发布版本事实） |
+| Velopack 就地升级 | R2 feed `https://updates.qiaoqiao.buzz/releases/win/stable`（仅 Bearer 写接口触发检查） |
+
+**Supabase 凭证**（后端与前端公告/反馈共用）：
+
+1. 复制 [`web/static/supabase-config.example.js`](../../web/static/supabase-config.example.js) → `web/static/supabase-config.js`，填写 `url` + `anonKey`（gitignore，打包时随 `web/static` 分发）；或
+2. 环境变量 `DANMU_SUPABASE_URL`、`DANMU_SUPABASE_ANON_KEY`（优先于 js 文件）。
+
+未配置或远端不可达时，后端将 `latest_version` 对齐本地 `__version__`，避免虚假更新弹窗。详见 [`supabase/README.md`](../../supabase/README.md)。
+
+主下载 latest 别名：`https://updates.qiaoqiao.buzz/downloads/DanmuAI-Setup.exe`；便携版：`https://updates.qiaoqiao.buzz/downloads/PEPETII.DanmuAI-win-Portable.zip`。
+
+**去重**：用户点「暂不更新」写入 `dismissedLatestVersion`（localStorage + `config.db`）；关闭弹窗后在**本次运行**内不再重复提示同版本。托盘菜单与侧栏「检查更新」保留为手动入口。
+
+### 正式发布脚本
+
+```powershell
+.\scripts\publish_windows_release.ps1    # build + vpk -> release\velopack\
+.\scripts\upload_r2_release.ps1           # 主源：R2 自定义域（需环境变量）
+.\scripts\upload_github_release.ps1       # 镜像：GitHub Releases
+```
+
+契约详见 [WINDOWS_RELEASE_CONTRACT.md](WINDOWS_RELEASE_CONTRACT.md)。
+
+### 正式发布与代码签名（未默认启用）
+
+当前 `publish_windows_release.ps1` **默认不签名**。SmartScreen「未知发布者」风险见 [README.md](../../README.md) 与 [WINDOWS_CODE_SIGNING.md](WINDOWS_CODE_SIGNING.md)。
+
+证书就绪后，签名应在 **`velopack_pack.ps1` / `vpk pack` 过程中**完成（`--signParams` 或 `--azureTrustedSignFile`），而非仅签 PyInstaller 输出或最终 Setup。完整方案见 [reports/windows-code-signing-assessment.md](../../reports/windows-code-signing-assessment.md)。
+
+可选草案（默认关闭）：
+
+```powershell
+# 仅当 DANMU_CODE_SIGN=1 且已配置 VPK_SIGN_PARAMS 或 VPK_AZURE_TRUSTED_SIGN_FILE
+.\scripts\sign_windows_release.ps1 -VerifyOnly   # 验签 release\velopack\*-Setup.exe
+```
 
 ### 5. 本地验证
 
@@ -116,6 +229,8 @@ python -m venv .venv-build
 pip install -r requirements.txt -r requirements-dev.txt
 .\scripts\build_exe.ps1
 ```
+
+`.venv-build` 为本地构建环境，不得提交到 Git（已在 `.gitignore` 中忽略）。
 
 ---
 
@@ -319,6 +434,29 @@ python scripts/generate_app_icon.py   # 生成 icon.png + icon.ico
 
 ---
 
+### 问题 10：Web 控制台空白、版本号不显示、按钮无响应
+
+**现象**：托盘图标与右键菜单正常，但桌面壳或浏览器中的 Web 控制台为空白页；版本号缺失，所有按钮点不动。浏览器 DevTools 控制台报错：
+
+```text
+Failed to load module script: Expected a JavaScript-or-Wasm module script
+but the server responded with a MIME type of "text/plain".
+```
+
+**原因**：部分 Windows 机器上 `HKCR\.js\Content Type` 被第三方软件改成 `text/plain`。Python `mimetypes` 读取该注册表后，Uvicorn 对 `/static/*.js` 返回错误 `Content-Type`，浏览器拒绝执行 `<script type="module">`。
+
+**修复**（W-WEB-MIME-001，0.3.2+）：`app/web_console_runtime.py` 挂载 `StaticFiles` 前调用 `ensure_web_static_mime_types()`，强制 `.js` → `application/javascript`、`.css` → `text/css`，不依赖注册表。
+
+**用户侧临时修复**（旧版本或未升级时）：
+
+```bat
+reg add HKCU\Software\Classes\.js /v "Content Type" /t REG_SZ /d "application/javascript" /f
+```
+
+重启 DanmuAI 后验证 DevTools → Network → `/static/app.js` 的 `Content-Type` 含 `javascript`。
+
+---
+
 ### 问题 7：`startup.log` 仅「未就绪」无栈
 
 **现象**：只有 `Web 控制台未在 http://127.0.0.1:18765 就绪`，没有崩溃详情。
@@ -368,8 +506,9 @@ build\DanmuAI\warn-DanmuAI.txt
 1. 解压 **整个** `DanmuAI` 文件夹后运行 `DanmuAI.exe`。
 2. 首次运行可在 Web「助手设置」配置 API；数据保存在 `%APPDATA%\DanmuAI\`。
 3. 需 **WebView2 Runtime**；若无，安装 Runtime 或使用 `DanmuAI.exe --web-browser`。
-4. 全局快捷键在部分环境需**管理员身份**运行。
-5. 故障时提供 `%APPDATA%\DanmuAI\startup.log`。
+4. 需 **Microsoft Visual C++ Redistributable**（Win10/11 多数已预装）；若启动报 `msvcp140.dll` 缺失，安装 [VC++ Redist](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist) x64；
+5. 全局快捷键在部分环境需**管理员身份**运行。
+6. 故障时提供 `%APPDATA%\DanmuAI\startup.log`。
 
 ---
 
@@ -381,7 +520,9 @@ build\DanmuAI\warn-DanmuAI.txt
 - [ ] 未运行中的 exe 不锁定 `dist`
 - [ ] 无 Python 机器上 exe 能打开控制台且 Overlay 正常
 - [ ] `startup.log` 无新崩溃栈
-- [ ] 分发 zip 含完整 `dist\DanmuAI\` 目录
+- [ ] `release\velopack\` 含 Setup、nupkg、`releases.win.json`（见 [WINDOWS_RELEASE_CONTRACT.md](WINDOWS_RELEASE_CONTRACT.md)）
+- [ ] R2 契约路径已上传；`downloads/DanmuAI-Setup.exe`（主入口）、`downloads/PEPETII.DanmuAI-win-Portable.zip`（便携版）可公网访问
+- [ ] Portable.zip 仅作 GitHub 镜像附件，非普通用户主入口
 
 ---
 
@@ -390,5 +531,18 @@ build\DanmuAI\warn-DanmuAI.txt
 - [docs/WEB_CONSOLE.md](WEB_CONSOLE.md) — Web API 与控制台
 - [docs/core/ARCHITECTURE.md](../core/ARCHITECTURE.md) — 线程模型
 - [AGENTS.md](../../AGENTS.md) — 开发约定
-- [pywebview FAQ — main thread](https://pywebview.flowrl.com/guide/faq)
+- [pywebview FAQ – main thread](https://pywebview.flowrl.com/guide/faq)
 - [PyInstaller spec files](https://pyinstaller.org/en/stable/spec-files.html)
+
+## Delta release notes
+
+- `publish_windows_release.ps1` now keeps historical `release\velopack\*.nupkg` files instead of deleting the whole directory before every pack.
+- When the local release directory does not contain a previous full package, the script bootstraps from `https://updates.qiaoqiao.buzz/releases/win/stable` so `vpk pack` can still generate `*-delta.nupkg`.
+- `upload_r2_release.ps1` and `upload_github_release.ps1` upload both `*-full.nupkg` and `*-delta.nupkg`; `releases.win.json` remains the single feed contract for `UpdateManager`.
+
+## Install path and uninstall notes
+
+- First install custom path: Velopack officially supports `Setup.exe --installto <DIR>`.
+- The app runtime does not hardcode `%LocalAppData%\PEPETII.DanmuAI\`; update location is still resolved by Velopack, so changing the install root does not require repository-side path keys.
+- Uninstall entry remains the Windows ARP entry backed by Velopack. The app tray now exposes the same uninstall path explicitly.
+- Default uninstall keeps `%APPDATA%\DanmuAI\`. Optional data deletion is only performed after user opt-in plus a second confirmation, then handled in `on_before_uninstall_fast_callback`.

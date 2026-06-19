@@ -31,17 +31,22 @@ screenshot_timer.timeout
   -> _on_screenshot_timer()
   -> _on_normal_capture_tick()
        -> 若视觉请求在途：返回
-       -> _capture_screenshot()
-       -> _trigger_api_call(source="normal_interval")
+       -> _schedule_capture()
+            -> app/snipper.py::build_capture_plan()     [主线程，仅几何]
+            -> capture_worker_pool().start(CaptureRunnable)
+                 -> app/snipper.py::execute_capture()   [worker，grabWindow]
+                 -> CaptureCoordinator.completed → _on_capture_completed()
+                      -> _apply_capture_result()
+                      -> _trigger_api_call(source="normal_interval")
             -> RequestScheduler.block_reason()
             -> RequestScheduler.record_trigger_time()
             -> RequestTimingService.mark_started()
-            -> QThreadPool.start(AiRunnable)
+            -> ai_worker_pool().start(AiRunnable)
                  -> AiWorker._request()
 
 AiWorker.finished
   -> _on_ai_reply()
-       -> parse_ai_reply_with_memory()
+       -> parse_ai_reply_payload()
        -> normalize_reply_batch()
        -> _enqueue_reply_batch()
        -> 立即消费或调度 reply_timer
@@ -77,8 +82,10 @@ reply_timer.timeout
 | 阶段 | 当前入口 | 说明 |
 |------|----------|------|
 | 启动 | `DanmuApp.start()` | 重置会话状态，启动截图与队列节奏 |
-| 截图 tick | `_on_normal_capture_tick()` | in-flight 闸门、截图、同 tick 触发 API |
-| 截图 | `_capture_screenshot()` | 仅有效 `QPixmap` 递增 `screenshot_id` |
+| 截图 tick | `_on_normal_capture_tick()` | in-flight 闸门、调度异步截图 |
+| 截图计划 | `_schedule_capture()` | 主线程 `build_capture_plan`，投递 `CaptureRunnable` |
+| 截图执行 | `CaptureRunnable.run()` → `execute_capture()` | worker 线程 `grabWindow`；结果经 `CaptureCoordinator.completed` 回主线程 |
+| 截图落盘 | `_apply_capture_result()` | 仅有效 `QPixmap` 递增 `screenshot_id` |
 | 触发 | `_trigger_api_call()` | 注册 request meta、RTT 起点、投递 `AiRunnable` |
 | 回复 | `_on_ai_reply()` | 解析、memory 更新、入队 |
 | 入队 | `_enqueue_reply_batch()` | 生成 `QueuedReply` 批次并更新库存 |
@@ -92,7 +99,7 @@ reply_timer.timeout
 
 ### `screenshot_id`
 
-- 只在 `_capture_screenshot()` 成功得到有效截图后递增
+- 只在 `_apply_capture_result()` 成功得到有效截图后递增
 - 无效截图必须记录 `reason=invalid_pixmap`
 - 无效截图不会触发 API
 
@@ -190,3 +197,20 @@ reply_timer.timeout
 4. 是否让 Web 层得以直接碰触主链路私有状态？
 
 只要其中一项回答是“会”，就应先停下来补边界评估。
+
+---
+
+## 11. 截图线程边界（W-PERF-HIGH-001）
+
+| 步骤 | 线程 | 说明 |
+|------|------|------|
+| `build_capture_plan` | Qt 主线程 | 读取 `QApplication.screens()` 与区域配置，不抓像素 |
+| `execute_capture` / `grabWindow` | `capture_worker_pool`（max 1） | 像素抓取；禁止触碰 `DanmuApp` / QWidget |
+| `_apply_capture_result` | Qt 主线程 | 校验 pixmap、更新 `_latest_screenshot*`、失败计数 |
+| `_trigger_api_call` | Qt 主线程 | 调度与 RTT 仍经 `RequestScheduler` / `RequestTimingService` |
+
+失败回传：`CaptureRunnable` emit `None` 或无效 pixmap → `_on_capture_completed` → `_apply_capture_result` 记 `invalid_pixmap` / `capture_failed`，**不**触发 API。`stop()` / `quit()` 后迟到的 `completed` 信号在主线程槽内丢弃（`!engine.running` 或 `ai_worker._stopping`）。
+
+`quit()` 在 `ai_worker.close()` 前对 `capture_worker_pool().waitForDone(2000)` 与全局池同样 drain。
+
+---
