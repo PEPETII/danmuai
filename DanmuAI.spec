@@ -27,6 +27,18 @@ from PyInstaller.utils.hooks import collect_submodules
 
 root = Path(SPECPATH)
 
+
+def _collect_dir_datas(src_dir: Path, dest_prefix: str, *, exclude_names: frozenset[str] = frozenset()) -> list:
+    """Collect (src, dest_dir) pairs for PyInstaller datas (replaces Tree)."""
+    entries: list = []
+    for path in sorted(src_dir.rglob("*")):
+        if not path.is_file() or path.name in exclude_names:
+            continue
+        rel_parent = path.parent.relative_to(src_dir)
+        dest_dir = dest_prefix if rel_parent == Path(".") else f"{dest_prefix}/{rel_parent.as_posix()}"
+        entries.append((str(path), dest_dir))
+    return entries
+
 # Only PyQt6 is used; exclude other Qt bindings and dev tools that pull PyQt5 in.
 EXCLUDES = [
     "matplotlib",
@@ -49,16 +61,19 @@ EXCLUDES = [
     "zmq",
 ]
 
-datas = [
-    # web/static — 排除 supabase-config.js（含凭据，不应打入发布包）
-    Tree(str(root / "web" / "static"), prefix="web/static", excludes=["supabase-config.js"]),
-    # 内置人格 JSON（app.persona_builtin 在 import 时读取，须在 Analysis 前可解析）
-    (str(root / "data" / "personae_builtin.json"), "data"),
-    # PET-009：内置桌宠素材（pet.json + spritesheet.webp），打包后通过
-    # app.bundle_paths.resource_path("data", "pet", "default") 在 sys._MEIPASS
-    # 下也能被 BUILTIN_PET_DIR 解析到；元组第二项必须是字符串，不能用 Path /
-    (str(root / "data" / "pet" / "default"), "data/pet/default"),
-]
+datas = []
+# web/static — 排除 supabase-config.js（含凭据，不应打入发布包）
+datas += _collect_dir_datas(
+    root / "web" / "static",
+    "web/static",
+    exclude_names=frozenset({"supabase-config.js"}),
+)
+# 内置人格 JSON（app.persona_builtin 在 import 时读取，须在 Analysis 前可解析）
+datas.append((str(root / "data" / "personae_builtin.json"), "data"))
+# PET-009：内置桌宠素材（pet.json + spritesheet.webp），打包后通过
+# app.bundle_paths.resource_path("data", "pet", "default") 在 sys._MEIPASS
+# 下也能被 BUILTIN_PET_DIR 解析到；元组第二项必须是字符串，不能用 Path /
+datas.append((str(root / "data" / "pet" / "default"), "data/pet/default"))
 if (root / "resources" / "icon.png").is_file():
     datas.append((str(root / "resources" / "icon.png"), "resources"))
 
@@ -283,8 +298,6 @@ a = Analysis(
     hooksconfig={},
     runtime_hooks=[],
     excludes=EXCLUDES,
-    win_no_prefer_redirects=True,
-    win_private_assemblies=True,
     cipher=None,
     noarchive=False,
 )
