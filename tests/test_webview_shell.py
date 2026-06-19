@@ -572,7 +572,7 @@ def _patch_message_box(monkeypatch, *, click_yes: bool):
     return fake_box
 
 
-def test_slow_start_prompt_yes_opens_browser(monkeypatch):
+def test_slow_start_prompt_disabled_no_browser(monkeypatch):
     server, shell = _slow_pending_shell()
     _patch_message_box(monkeypatch, click_yes=True)
     browser_calls = []
@@ -583,12 +583,12 @@ def test_slow_start_prompt_yes_opens_browser(monkeypatch):
 
     _maybe_prompt_slow_webview_start(shell, "/")
 
-    assert server._slow_webview_prompt_shown is True
-    assert server._browser_launch_opened is True
-    assert browser_calls == [(server, "/")]
+    assert server._slow_webview_prompt_shown is False
+    assert server._browser_launch_opened is False
+    assert browser_calls == []
 
 
-def test_slow_start_prompt_no_does_not_open_browser(monkeypatch):
+def test_slow_start_prompt_disabled_no_dialog(monkeypatch):
     server, shell = _slow_pending_shell()
     _patch_message_box(monkeypatch, click_yes=False)
     browser_calls = []
@@ -599,12 +599,12 @@ def test_slow_start_prompt_no_does_not_open_browser(monkeypatch):
 
     _maybe_prompt_slow_webview_start(shell, "/")
 
-    assert server._slow_webview_prompt_shown is True
+    assert server._slow_webview_prompt_shown is False
     assert browser_calls == []
     assert server._browser_launch_opened is False
 
 
-def test_slow_start_prompt_skipped_before_10s(monkeypatch):
+def test_slow_start_prompt_disabled_before_threshold(monkeypatch):
     server, shell = _slow_pending_shell(attach_elapsed_sec=5.0)
     fake_box = _patch_message_box(monkeypatch, click_yes=True)
 
@@ -614,7 +614,7 @@ def test_slow_start_prompt_skipped_before_10s(monkeypatch):
     assert server._slow_webview_prompt_shown is False
 
 
-def test_slow_start_prompt_skipped_when_browser_already_opened(monkeypatch):
+def test_slow_start_prompt_disabled_with_browser_opened(monkeypatch):
     server, shell = _slow_pending_shell()
     server._browser_launch_opened = True
     fake_box = _patch_message_box(monkeypatch, click_yes=True)
@@ -624,7 +624,7 @@ def test_slow_start_prompt_skipped_when_browser_already_opened(monkeypatch):
     fake_box.exec.assert_not_called()
 
 
-def test_slow_start_prompt_skipped_when_http_not_ready(monkeypatch):
+def test_slow_start_prompt_disabled_http_not_ready(monkeypatch):
     server, shell = _slow_pending_shell()
     server.startup_ok = False
     fake_box = _patch_message_box(monkeypatch, click_yes=True)
@@ -639,17 +639,18 @@ def test_slow_start_prompt_skipped_when_http_not_ready(monkeypatch):
     assert server._slow_webview_prompt_shown is False
 
 
-def test_slow_start_prompt_only_once(monkeypatch):
+def test_slow_start_prompt_disabled_no_dialog_at_all(monkeypatch):
     server, shell = _slow_pending_shell()
     fake_box = _patch_message_box(monkeypatch, click_yes=False)
 
     _maybe_prompt_slow_webview_start(shell, "/")
     _maybe_prompt_slow_webview_start(shell, "/")
 
-    assert fake_box.exec.call_count == 1
+    fake_box.exec.assert_not_called()
+    assert server._slow_webview_prompt_shown is False
 
 
-def test_poll_handshake_slow_prompt_yes_stays_pending(monkeypatch):
+def test_poll_handshake_slow_prompt_disabled_stays_pending(monkeypatch):
     server, shell = _slow_pending_shell()
     _patch_message_box(monkeypatch, click_yes=True)
     monkeypatch.setattr(
@@ -664,4 +665,4 @@ def test_poll_handshake_slow_prompt_yes_stays_pending(monkeypatch):
     assert result == "pending"
     assert shell._started is False
     assert terminate_calls == []
-    assert server._browser_launch_opened is True
+    assert server._browser_launch_opened is False

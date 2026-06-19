@@ -68,7 +68,12 @@
   <div id="errorReportModal" class="fixed inset-0 bg-black/20 backdrop-blur-sm hidden items-center justify-center z-[60] p-4" role="dialog" aria-modal="true" aria-labelledby="errorReportModalTitle">
     <div class="bg-white rounded-3xl shadow-warm max-w-lg w-full p-8 max-h-[90vh] overflow-y-auto">
       <h3 id="errorReportModalTitle" class="text-lg font-bold text-warmText mb-2">发现问题</h3>
-      <p class="text-sm text-gray-600 mb-3">是否要将该问题反馈？我们将附带相关日志与诊断信息（已脱敏）。</p>
+      <p class="text-sm text-gray-600 mb-3">是否要将该问题反馈？我们将附带相关日志（已脱敏）。</p>
+      <label class="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none mb-3">
+        <input type="checkbox" id="errorReportIncludeRuntimeInfo" checked class="rounded border-gray-300 text-warmPink focus:ring-warmPink">
+        <span>附带当前运行信息（推荐）</span>
+        <span class="text-xs text-gray-400">模型名、API 地址、服务商、API 模式（已脱敏）</span>
+      </label>
       <p id="errorReportModalMessage" class="text-sm text-red-700 bg-red-50 border border-red-100 rounded-xl p-3 mb-4 max-h-32 overflow-y-auto whitespace-pre-wrap break-words"></p>
       <div class="space-y-3 mb-4">
         <div>

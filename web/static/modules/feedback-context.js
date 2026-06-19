@@ -48,6 +48,7 @@ function truncateLogs(text) {
  *
  * @param {object} options
  * @param {number} [options.logWindowSec=90] 最近日志时间窗口（秒）。
+ * @param {boolean} [options.includeRuntimeInfo=true] 是否采集运行信息（模型名、API 地址、服务商、API 模式）。
  * @returns {Promise<object>}
  *
  * 返回对象始终包含以下字段：
@@ -64,6 +65,7 @@ function truncateLogs(text) {
  */
 export async function collectFeedbackContext(options = {}) {
   const windowSec = Number(options.logWindowSec) || FEEDBACK_LOG_WINDOW_SEC;
+  const includeRuntimeInfo = options.includeRuntimeInfo !== false;
   const nowSec = Date.now() / 1000;
   const sinceTs = Math.max(0, nowSec - windowSec);
 
@@ -78,34 +80,31 @@ export async function collectFeedbackContext(options = {}) {
     error_message: null,
   };
 
-  let diagnosticsJson = null;
-  try {
-    const res = await apiFetch('/api/diagnostics');
-    diagnosticsJson = res.diagnostics || res || null;
-  } catch (error) {
-    console.warn('[feedback-context] /api/diagnostics failed', error);
-  }
-
-  const configContext = diagnosticsJson?.config_context || {};
-  const context = {
-    ...empty,
-    current_model_name: configContext.model_name || configContext.active_model_id || '-',
-    api_endpoint: sanitizeApiEndpoint(configContext.api_endpoint || configContext.api_endpoint_host || ''),
-    provider_id: configContext.provider_id || '-',
-    api_mode: configContext.api_mode || '-',
-    app_version: globalThis.DANMU_APP_VERSION || null,
-  };
-
-  try {
-    const statusRes = await apiFetch('/api/status');
-    const status = statusRes || {};
-    if (status.error_message != null) {
-      context.error_message = String(status.error_message);
+  // --- 运行信息采集（从 /api/status + /api/config，不依赖 /api/diagnostics）---
+  let runtimeInfo = {};
+  if (includeRuntimeInfo) {
+    try {
+      const [statusRes, configRes] = await Promise.all([
+        apiFetch('/api/status').catch(() => ({})),
+        apiFetch('/api/config').catch(() => ({})),
+      ]);
+      runtimeInfo = {
+        current_model_name: statusRes.model_display_name || statusRes.active_model_id || '-',
+        api_endpoint: sanitizeApiEndpoint(configRes.api_endpoint || ''),
+        provider_id: statusRes.inferred_provider_id || '-',
+        api_mode: configRes.api_mode || '-',
+      };
+      if (statusRes.error_message != null) {
+        runtimeInfo.error_message = String(statusRes.error_message);
+      }
+    } catch (error) {
+      console.warn('[feedback-context] runtime info fetch failed', error);
     }
-  } catch (error) {
-    console.warn('[feedback-context] /api/status optional fetch failed', error);
   }
 
+  const context = { ...empty, ...runtimeInfo, app_version: globalThis.DANMU_APP_VERSION || null };
+
+  // --- 日志采集 ---
   let serverItems = [];
   try {
     const logsRes = await apiFetch(`/api/logs/recent?since_ts=${encodeURIComponent(sinceTs)}`);

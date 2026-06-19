@@ -349,17 +349,21 @@
       </div>
     </section>
 
-    <!-- ========== 区域：问题反馈 ========== -->
-    <!-- section: 问题反馈（社群入口 + 错误反馈已分发给 W-ERROR-REPORT-*） -->
-    <section id="page-feedback" class="page-panel" aria-label="问题反馈">
+    <!-- ========== 区域：问题反馈与群聊 ========== -->
+    <!-- section: 问题反馈与群聊（社群入口 + 错误反馈已分发给 W-ERROR-REPORT-*） -->
+    <section id="page-feedback" class="page-panel" aria-label="问题反馈与群聊">
       <header class="mb-8">
-        <h2 class="text-2xl font-bold text-warmText">问题反馈</h2>
+        <h2 class="text-2xl font-bold text-warmText">问题反馈与群聊</h2>
         <p class="text-gray-500 mt-1">加入社群或在群内 @ 我，比私信更不容易触发平台限制</p>
       </header>
       <div class="card feedback-page p-8 space-y-6">
         <form id="feedbackForm" class="feedback-form space-y-4">
           <p id="feedbackQuotaHint" class="feedback-quota-hint text-sm text-gray-500">正在查询提交额度…</p>
-          <p class="text-xs text-gray-500">提交时会自动附带当前运行信息（已脱敏），便于定位问题。</p>
+          <label class="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
+            <input type="checkbox" id="feedbackIncludeRuntimeInfo" checked class="rounded border-gray-300 text-warmPink focus:ring-warmPink">
+            <span>附带当前运行信息（推荐）</span>
+            <span class="text-xs text-gray-400">模型名、API 地址、服务商、API 模式（已脱敏）</span>
+          </label>
           <div>
             <label for="feedbackContent" class="block text-sm font-semibold mb-2 text-warmText">反馈内容</label>
             <textarea
@@ -398,12 +402,12 @@
       </div>
     </section>
 
-    <!-- ========== 区域：弹幕日记 ========== -->
+    <!-- ========== 区域：弹幕日志 ========== -->
     <!-- section: 实时日志（/api/logs/recent + WebSocket logs 通道，等级过滤/自动滚动） -->
     <section id="page-logs" class="page-panel">
       <header class="mb-8 flex flex-wrap justify-between items-start gap-4">
         <div>
-          <h2 class="text-2xl font-bold text-warmText">弹幕日记</h2>
+          <h2 class="text-2xl font-bold text-warmText">弹幕日志</h2>
           <p class="text-gray-500 mt-1">运行日志实时同步（WebSocket 优先，失败时自动 HTTP 轮询），已脱敏，不会展示 API Key</p>
         </div>
         <div class="flex items-center gap-2 bg-white px-4 py-2 rounded-full shadow-warm border border-softPeach text-sm">

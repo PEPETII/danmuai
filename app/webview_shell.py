@@ -29,6 +29,7 @@ _NAV_POLL_SEC = 0.25
 _BROWSER_PROBE_SEC = 3.0
 _HANDSHAKE_POLL_MS = 50
 _SLOW_START_PROMPT_SEC = 5.0
+_DISABLE_SLOW_START_PROMPT = True
 _SPAWN_MAX_ATTEMPTS = 3
 _WEBVIEW_ATTACH_MAX_ATTEMPTS = 2
 _WEBVIEW_ATTACH_RETRY_MS = 1200
@@ -155,9 +156,10 @@ def _maybe_prompt_slow_webview_start(shell: "WebViewShell", initial_path: str) -
     """Offer system browser while pywebview loaded handshake is still pending.
 
     UX guard only — unlike ``_fallback_to_system_browser`` we do not terminate the
-    child process so the desktop shell may still appear later. Called from
-    ``poll_handshake`` on the Qt main thread (modal dialog blocks the 50 ms poll).
+    child process so the desktop shell may still appear later. Called from ``poll_handshake`` on the Qt main thread (modal dialog blocks the 50 ms poll).
     """
+    if _DISABLE_SLOW_START_PROMPT:
+        return
     if shell._started:
         return
     if shell._attach_started_at <= 0:
@@ -713,12 +715,6 @@ def schedule_webview_attach(
     if attempt == 0:
         from app.bundle_paths import is_frozen
 
-        server = danmu_app.web_server
-        if server and not getattr(server, "_webview_start_hint_shown", False):
-            tray = getattr(danmu_app, "tray", None)
-            if tray is not None:
-                tray.show_webview_starting_hint()
-            server._webview_start_hint_shown = True
         delay_ms = 400 if is_frozen() else 800
         log_startup("webview_shell.scheduled", delay_ms=delay_ms)
         QTimer.singleShot(

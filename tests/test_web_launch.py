@@ -121,24 +121,6 @@ def test_tray_uninstall_delete_user_data_requires_second_confirm(qapp, monkeypat
     assert request_calls == [True]
 
 
-def test_schedule_webview_shows_tray_hint_once(monkeypatch):
-    from app.webview_shell import schedule_webview_attach
-
-    app = make_minimal_danmu_app()
-    object.__setattr__(app, "web_launch_mode", "webview")
-    server = MagicMock()
-    server._webview_start_hint_shown = False
-    object.__setattr__(app, "web_server", server)
-    object.__setattr__(app, "webview_shell", None)
-    tray = MagicMock()
-    object.__setattr__(app, "tray", tray)
-    monkeypatch.setattr("PyQt6.QtCore.QTimer.singleShot", lambda ms, cb: None)
-
-    schedule_webview_attach(app, "/")
-    tray.show_webview_starting_hint.assert_called_once()
-    assert server._webview_start_hint_shown is True
-
-
 def test_schedule_webview_skipped_when_startup_terminal_failed(monkeypatch):
 
     from app.web_console import WebConsoleBridge, WebConsoleServer

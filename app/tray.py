@@ -291,17 +291,6 @@ class TrayManager:
             3000,
         )
 
-    def show_webview_starting_hint(self):
-        """S-004: tray bubble while pywebview attach is pending (once per launch)."""
-        if not QSystemTrayIcon.isSystemTrayAvailable():
-            return
-        self.tray.showMessage(
-            "DanmuAI",
-            tr("tray.webview_starting_message"),
-            QSystemTrayIcon.MessageIcon.Information,
-            3000,
-        )
-
     def show_api_key_missing_hint(self):
         if not QSystemTrayIcon.isSystemTrayAvailable():
             return

@@ -62,7 +62,8 @@ export function initFeedbackPage() {
     const btn = document.getElementById('btnFeedbackSubmit');
     if (btn) btn.disabled = true;
     try {
-      const context = await collectFeedbackContext();
+      const includeRuntimeInfo = document.getElementById('feedbackIncludeRuntimeInfo')?.checked !== false;
+      const context = await collectFeedbackContext({ includeRuntimeInfo });
       await window.DanmuSupabase.submitFeedback({
         content,
         contact,

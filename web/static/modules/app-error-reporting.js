@@ -177,11 +177,14 @@ async function collectErrorReportContext(anchor) {
   const anchorTs = Number(anchor.ts) || Date.now() / 1000;
   const sinceTs = Math.max(0, anchorTs - ERROR_REPORT_LOG_WINDOW_SEC);
 
+  const includeRuntimeInfo = document.getElementById('errorReportIncludeRuntimeInfo')?.checked !== false;
+
   // Fetch unified feedback context in parallel with error-specific logs/diagnostics.
   // This guarantees diagnosticsJson.config_context contains the same minimum runtime
   // fields used by the regular feedback page.
   const baseContextPromise = collectFeedbackContext({
     logWindowSec: ERROR_REPORT_LOG_WINDOW_SEC,
+    includeRuntimeInfo,
   });
 
   let serverItems = [];
@@ -203,15 +206,17 @@ async function collectErrorReportContext(anchor) {
   let logsExcerpt = pickErrorLogExcerpt(merged, { ...anchor, ts: anchorTs });
 
   let diagnosticsJson = null;
-  try {
-    const diagRes = await apiFetch('/api/diagnostics');
-    diagnosticsJson = diagRes.diagnostics || diagRes;
-    const diagText = buildDiagnosticReportText(diagnosticsJson);
-    if (diagText) {
-      logsExcerpt = `${logsExcerpt}\n\n--- diagnostics ---\n${diagText}`;
+  if (includeRuntimeInfo) {
+    try {
+      const diagRes = await apiFetch('/api/diagnostics');
+      diagnosticsJson = diagRes.diagnostics || diagRes;
+      const diagText = buildDiagnosticReportText(diagnosticsJson);
+      if (diagText) {
+        logsExcerpt = `${logsExcerpt}\n\n--- diagnostics ---\n${diagText}`;
+      }
+    } catch (error) {
+      console.warn('[error-report] diagnostics failed', error);
     }
-  } catch (error) {
-    console.warn('[error-report] diagnostics failed', error);
   }
 
   // Merge the unified minimum runtime context into diagnosticsJson.config_context.
