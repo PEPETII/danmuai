@@ -119,9 +119,9 @@ def test_builtin_save_system_and_user_prompt(persona_app):
 def test_builtin_restore_clears_saved_override(persona_app):
     persona_api.save_template(persona_app, "高压吐槽型", "临时覆盖", "自定义用户提示")
     restored = persona_api.restore_builtin_default(persona_app, "高压吐槽型")
-    assert "直播间弹幕观众" in restored["system_custom"]
+    assert "吐槽观众" in restored["system_custom"]
     detail = persona_api.get_template_detail(persona_app, "高压吐槽型")
-    assert "直播间弹幕观众" in detail["system_custom"]
+    assert "吐槽观众" in detail["system_custom"]
     assert "临时覆盖" not in detail["system_custom"]
 
 
@@ -212,7 +212,6 @@ def test_default_active_is_eleven_personae(tmp_path):
         "阴阳锐评型",
         "抽象玩梗型",
         "测试1",
-        "测试2",
         "测试3",
         "吐槽型",
         "傲娇型",
@@ -229,14 +228,14 @@ def test_active_personae_v4_migrates_to_v9_default(tmp_path):
     assert active == list(PersonaManager.DEFAULT_ACTIVE)
     assert "路人惊讶型" not in active
     assert "搞笑玩梗型" not in active
-    assert config.get_int("active_personae_version") == 10
+    assert config.get_int("active_personae_version") == 11
 
 
 def test_active_personae_v8_resets_to_eleven_default(tmp_path):
     config = ConfigStore(db_path=tmp_path / "config-v6.db")
     config.set_json(
         "active_personae",
-        ["测试1", "测试2", "测试3", "吐槽型", "萌系型", "傲娇型", "腹黑型", "毒舌型"],
+        ["测试1", "测试3", "吐槽型", "萌系型", "傲娇型", "腹黑型", "毒舌型"],
     )
     config.set("active_personae_version", "8")
     personae = PersonaManager(config)
@@ -247,7 +246,6 @@ def test_active_personae_v8_resets_to_eleven_default(tmp_path):
         "阴阳锐评型",
         "抽象玩梗型",
         "测试1",
-        "测试2",
         "测试3",
         "吐槽型",
         "傲娇型",
@@ -256,7 +254,7 @@ def test_active_personae_v8_resets_to_eleven_default(tmp_path):
         assert name in active
     assert "萌系型" not in active
     assert "毒舌型" not in active
-    assert config.get_int("active_personae_version") == 10
+    assert config.get_int("active_personae_version") == 11
 
 
 _REMOVED_TRIM_002 = (
@@ -272,12 +270,12 @@ _REMOVED_TRIM_002 = (
 )
 
 
-def test_builtin_personae_count_is_ten(persona_app):
+def test_builtin_personae_count_is_nine(persona_app):
     names = persona_app.personae.list()
-    assert len(names) == 10
+    assert len(names) == 9
     for name in PersonaManager.DEFAULT_ACTIVE:
         assert name in names
-    for name in ("测试1", "测试2", "测试3", "吐槽型", "傲娇型", "腹黑型"):
+    for name in ("测试1", "测试3", "吐槽型", "傲娇型", "腹黑型"):
         assert name in names
 
 
@@ -351,10 +349,10 @@ def test_experimental_personae_pinned_first(persona_app):
 
 def test_experimental_personae_have_prompts(persona_app):
     expected_snippets = {
-        "高压吐槽型": "直播间弹幕观众",
-        "熬夜陪看型": "深夜直播间里的普通观众",
-        "阴阳锐评型": "轻微阴阳的观众",
-        "抽象玩梗型": "接梗整活的观众",
+        "高压吐槽型": "吐槽观众",
+        "熬夜陪看型": "佛系观众",
+        "阴阳锐评型": "句句带味的观众",
+        "抽象玩梗型": "整活的观众",
     }
     for name in BUILTIN_PERSONA_PINNED_FIRST:
         assert name in BUILTIN_PERSONAE
@@ -370,13 +368,12 @@ def test_experimental_personae_have_prompts(persona_app):
 
 def test_legacy_builtin_personae_still_have_prompts(persona_app):
     expected = {
-        "测试1": "随机选择一种口吻",
-        "测试2": "像真实直播间混杂路人",
-        "测试3": "短句、口语、碎片化",
-        "吐槽型": "嘴碎吐槽党",
-        "傲娇型": "嘴硬心软傲娇",
-        "腹黑型": "表面客气",
-    }
+            "测试1": "随机选择一种口吻",
+            "测试3": "短句、口语、碎片化",
+            "吐槽型": "嘴碎吐槽党",
+            "傲娇型": "嘴硬心软",
+            "腹黑型": "表面客气",
+        }
     for name, snippet in expected.items():
         assert name in BUILTIN_PERSONAE
         detail = persona_api.get_template_detail(persona_app, name)

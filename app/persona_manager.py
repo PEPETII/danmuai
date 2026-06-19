@@ -43,6 +43,7 @@ _REMOVED_PERSONAE = frozenset({
     "元气型",
     "社恐型",
     "团战解说型",
+    "测试2",
 })
 
 
@@ -64,13 +65,12 @@ class PersonaManager:
         "阴阳锐评型",
         "抽象玩梗型",
         "测试1",
-        "测试2",
         "测试3",
         "吐槽型",
         "傲娇型",
         "腹黑型",
     ]
-    _ACTIVE_VERSION = 10
+    _ACTIVE_VERSION = 11
 
     def __init__(self, config: ConfigStore):
         self.config = config
