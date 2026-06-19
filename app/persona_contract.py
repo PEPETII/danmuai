@@ -74,6 +74,13 @@ _CONTRACT_NORMAL_ZH_PLAIN_RE = re.compile(
     r"格式："
     r'\["[^"]*"(?:, "[^"]*")*\]。?'
 )
+# Matches the new bullet-list contract format (v2)
+_CONTRACT_NORMAL_ZH_V2_RE = re.compile(
+    r"- 只输出JSON字符串数组格式，如：\[[^\]]+\]\n"
+    r"- 每条弹幕不超过\d+个汉字\n"
+    r"- 固定输出\d+条\n"
+    r"- 不要任何解释、Markdown格式或其他文字"
+)
 _CONTRACT_NORMAL_ZH_LEGACY_RE = re.compile(
     r"你是直播弹幕评论员。必须且只能返回 JSON 字符串数组，不要解释，不要 Markdown。"
     r"固定返回 \d+ 条弹幕，必须与当前画面或直播氛围相关，避免重复。"
@@ -97,6 +104,13 @@ _CONTRACT_NORMAL_EN_PLAIN_RE = re.compile(
     r"All comments MUST be in English only\. "
     r"Format: "
     r'\["[^"]*"(?:, "[^"]*")*\]\.?'
+)
+# Matches the new bullet-list contract format (v2)
+_CONTRACT_NORMAL_EN_V2_RE = re.compile(
+    r"- Only output JSON string array format, e\.g\.: \[[^\]]+\]\n"
+    r"- Each danmu must not exceed \d+ characters\n"
+    r"- Always output exactly \d+ danmu\n"
+    r"- No explanations, Markdown formatting, or other text"
 )
 _CONTRACT_NORMAL_EN_LEGACY_RE = re.compile(
     r"You are a live-stream danmu commentator\. You must return a JSON string array only, "
@@ -207,9 +221,11 @@ def build_normal_reply_contract_zh(
     total = _clamp_normal_reply_count(count, DEFAULT_NORMAL_REPLY_COUNT)
     limit = max_chars if max_chars is not None else DEFAULT_DANMU_MAX_CHARS_ZH
     return (
-        "直播弹幕评论员。只输出 JSON 字符串数组，无解释、无 Markdown。"
-        f"固定 {total} 条，每条≤{limit}字。"
-        f"格式：{_json_example_zh(total)}。"
+        "- 只输出JSON字符串数组格式，如："
+        f'{_json_example_zh(total)}\n'
+        f"- 每条弹幕不超过{limit}个汉字\n"
+        f"- 固定输出{total}条\n"
+        "- 不要任何解释、Markdown格式或其他文字"
     )
 
 
@@ -220,10 +236,11 @@ def build_normal_reply_contract_en(
     total = _clamp_normal_reply_count(count, DEFAULT_NORMAL_REPLY_COUNT)
     limit = max_chars if max_chars is not None else DEFAULT_DANMU_MAX_CHARS_EN
     return (
-        "Live-stream danmu commentator. JSON string array only, no explanation, no Markdown. "
-        f"Exactly {total} comments, max {limit} chars each. "
-        "All comments MUST be in English only. "
-        f"Format: {_json_example_en(total)}."
+        "- Only output JSON string array format, e.g.: "
+        f'{_json_example_en(total)}\n'
+        f"- Each danmu must not exceed {limit} characters\n"
+        f"- Always output exactly {total} danmu\n"
+        "- No explanations, Markdown formatting, or other text"
     )
 
 
@@ -237,10 +254,11 @@ def build_reply_contract_zh(
     total = scene + filler
     limit = max_chars if max_chars is not None else DEFAULT_DANMU_MAX_CHARS_ZH
     return (
-        "你是直播弹幕评论员。必须且只能返回 JSON 字符串数组，不要解释，不要 Markdown。"
-        f"固定返回 {total} 条弹幕：前 {scene} 条必须强相关当前画面，后 {filler} 条必须是适合直播间氛围的泛用弹幕。"
-        f"每条不超过 {limit} 个字，避免重复，输出格式："
-        f"{_json_example_zh(total)}。"
+        "- 只输出JSON字符串数组格式，如："
+        f'{_json_example_zh(total)}\n'
+        f"- 每条弹幕不超过{limit}个汉字\n"
+        f"- 固定输出{total}条\n"
+        "- 不要任何解释、Markdown格式或其他文字"
     )
 
 
@@ -254,13 +272,11 @@ def build_reply_contract_en(
     total = scene + filler
     limit = max_chars if max_chars is not None else DEFAULT_DANMU_MAX_CHARS_EN
     return (
-        "You are a live-stream danmu commentator. You must return a JSON string array only, "
-        "with no explanations and no Markdown. "
-        f"Always return exactly {total} comments: the first {scene} must be strongly tied to the current frame, "
-        f"and the last {filler} must be generic danmu suitable for a live-stream atmosphere. "
-        "All comments MUST be written in English only. "
-        f"Each comment must stay within {limit} characters. Avoid repetition. Output format: "
-        f"{_json_example_en(total)}."
+        "- Only output JSON string array format, e.g.: "
+        f'{_json_example_en(total)}\n'
+        f"- Each danmu must not exceed {limit} characters\n"
+        f"- Always output exactly {total} danmu\n"
+        "- No explanations, Markdown formatting, or other text"
     )
 
 
@@ -328,9 +344,11 @@ def strip_reply_contract(system_pt: str) -> str:
         _CONTRACT_OBJECT_EN_RE,
         _CONTRACT_ZH_RE,
         _CONTRACT_EN_RE,
+        _CONTRACT_NORMAL_ZH_V2_RE,
         _CONTRACT_NORMAL_ZH_RE,
         _CONTRACT_NORMAL_ZH_PLAIN_RE,
         _CONTRACT_NORMAL_ZH_LEGACY_RE,
+        _CONTRACT_NORMAL_EN_V2_RE,
         _CONTRACT_NORMAL_EN_RE,
         _CONTRACT_NORMAL_EN_PLAIN_RE,
         _CONTRACT_NORMAL_EN_LEGACY_RE,

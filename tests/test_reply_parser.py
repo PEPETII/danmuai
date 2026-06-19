@@ -258,8 +258,8 @@ def test_build_local_fallback_batch_empty_when_pool_disabled(monkeypatch):
 def test_builtin_persona_prompt_contains_release_contract():
     manager = PersonaManager(FakeConfig())
     system_pt, user_pt = manager.get_prompt("高压吐槽型")
-    assert "固定 5 条" in system_pt
-    assert "直播弹幕评论员" in system_pt
+    assert "固定输出5条" in system_pt
+    assert "只输出JSON字符串数组格式" in system_pt
     assert "【人格：高压吐槽型】" in user_pt
     assert user_pt.endswith("看图发弹幕：")
     assert "前 2 条必须强相关当前画面" not in system_pt
@@ -272,8 +272,8 @@ def test_builtin_persona_prompt_reflects_normal_reply_count():
     cfg = FakeConfig({"normal_reply_count": "9"})
     manager = PersonaManager(cfg)
     system_pt, _ = manager.get_prompt("高压吐槽型")
-    assert "固定 9 条" in system_pt
-    assert "直播弹幕评论员" in system_pt
+    assert "固定输出9条" in system_pt
+    assert "只输出JSON字符串数组格式" in system_pt
     assert "前 4 条必须强相关当前画面" not in system_pt
 
 

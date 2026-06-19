@@ -129,7 +129,7 @@ def test_reply_contract_follows_normal_reply_count(persona_app):
     persona_app.config.set("normal_reply_count", "9")
     detail = persona_api.get_template_detail(persona_app, "高压吐槽型")
     contract = detail["reply_contract"]
-    assert "固定 9 条" in contract
+    assert "固定输出9条" in contract
     assert "优先贴当前画面" not in contract
     assert "优先贴当前画面" not in detail["system_custom"]
     assert "前 4 条必须强相关当前画面" not in contract
@@ -138,7 +138,7 @@ def test_reply_contract_follows_normal_reply_count(persona_app):
 def test_reply_contract_follows_danmu_max_chars(persona_app):
     persona_app.config.set("danmu_max_chars", "28")
     detail = persona_api.get_template_detail(persona_app, "高压吐槽型")
-    assert "每条≤28字" in detail["reply_contract"]
+    assert "每条弹幕不超过28个汉字" in detail["reply_contract"]
 
 
 def test_builtin_system_custom_differs_by_persona(persona_app):
