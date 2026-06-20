@@ -232,3 +232,24 @@ def test_apply_pet_settings_patch_disable_barrage_shows_normal_window(monkeypatc
     assert window.hide_calls == 0
     assert barrage.hide_calls == 1
     assert barrage.show_calls == 0
+
+
+def test_barrage_show_when_disabled_does_not_call_hide_pet():
+    """W-BUG-E02: barrage 未启用时调用 show() 不触发任何 hide_pet()。"""
+    from app.pet.pet_barrage import PetBarrageController
+
+    app = _make_pet_app(
+        {
+            "pet_enabled": "1",
+            "pet_visible": "1",
+            "pet_barrage_mode_enabled": "0",
+        }
+    )
+    window = _FakeWindow()
+    ctrl = PetBarrageController(app)
+    ctrl.attach_windows([window])
+
+    ctrl.show()
+
+    assert window.hide_calls == 0
+    assert window.show_calls == 0

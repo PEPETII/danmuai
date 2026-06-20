@@ -116,3 +116,27 @@ def test_enrich_status_default_snapshot(reset_state):
     result = update_service._enrich_status(status)
     assert result.download_phase == "idle"
     assert result.downloading is False
+
+
+# ── _manager() caching (BUG-H05) ──────────────────────────────────
+
+
+def test_manager_returns_same_instance(reset_state):
+    """BUG-H05: Consecutive _manager() calls should return the same instance."""
+    # Reset cached manager before test
+    update_service._cached_manager = None
+
+    mock_mgr = MagicMock()
+    mock_velopack = MagicMock()
+    mock_velopack.UpdateManager.return_value = mock_mgr
+    with patch.dict("sys.modules", {"velopack": mock_velopack}):
+        mgr1 = update_service._manager()
+        mgr2 = update_service._manager()
+
+    assert mgr1 is mgr2
+    assert mgr1 is mock_mgr
+    # UpdateManager should only be constructed once
+    mock_velopack.UpdateManager.assert_called_once()
+
+    # Cleanup
+    update_service._cached_manager = None

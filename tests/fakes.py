@@ -111,6 +111,9 @@ class FakeConfig:
             return []
         return [str(item).strip() for item in raw if str(item).strip()]
 
+    def get_recent_history(self, limit: int = 30) -> list[str]:
+        return []
+
     def set_custom_danmu_pool(self, items):
         self.values["custom_danmu_pool"] = list(items)
 
@@ -156,7 +159,10 @@ class FakeConfig:
         val = self.get(key)
         if not val:
             return default if default is not None else {}
-        return json.loads(val)
+        try:
+            return json.loads(val)
+        except (json.JSONDecodeError, TypeError):
+            return default if default is not None else {}
 
     def set_json(self, key: str, value):
         self.values[key] = json.dumps(value, ensure_ascii=False)

@@ -97,6 +97,31 @@ def test_meme_fetch_runnable_tagged_uses_sort_all():
     on_error.assert_not_called()
 
 
+def test_meme_api_client_default_ssl_verify_enabled():
+    """BUG-G01: 默认 verify_ssl=True，防止中间人攻击。"""
+    with patch("app.meme_barrage.client.httpx.Client") as client_cls:
+        client_cls.return_value.request.return_value.json.return_value = {"code": 200, "data": {}}
+        client_cls.return_value.request.return_value.raise_for_status = MagicMock()
+        api = MemeBarrageApiClient()
+        api.page()
+        client_cls.assert_called_once()
+        _, kwargs = client_cls.call_args
+        assert kwargs.get("verify") is True
+    api.close()
+
+
+def test_meme_api_client_explicit_ssl_verify_false():
+    """显式 verify_ssl=False 仍可禁用（向后兼容调试场景）。"""
+    with patch("app.meme_barrage.client.httpx.Client") as client_cls:
+        client_cls.return_value.request.return_value.json.return_value = {"code": 200, "data": {}}
+        client_cls.return_value.request.return_value.raise_for_status = MagicMock()
+        api = MemeBarrageApiClient(verify_ssl=False)
+        api.page()
+        _, kwargs = client_cls.call_args
+        assert kwargs.get("verify") is False
+    api.close()
+
+
 def test_meme_fetch_runnable_emits_error_on_failure():
     on_success = MagicMock()
     on_error = MagicMock()

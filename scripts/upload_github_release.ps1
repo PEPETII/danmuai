@@ -55,7 +55,10 @@ if (-not $Title) {
     $Title = "DanmuAI $appVersion"
 }
 if (-not $NotesFile) {
-    $NotesFile = "docs\release\2026-05-29.md"
+    $versionNotes = "docs\release\v$appVersion.md"
+    if (Test-Path -LiteralPath (Join-Path $Root $versionNotes)) {
+        $NotesFile = $versionNotes
+    }
 }
 
 $assets = @()
@@ -77,9 +80,14 @@ if ($assets.Count -eq 0) {
     Write-Error "No Velopack assets found in $releaseFull"
 }
 
-$notesFull = Join-Path $Root $NotesFile
-if (-not (Test-Path -LiteralPath $notesFull)) {
-    Write-Error "Missing release notes: $notesFull"
+$notesFull = ""
+$hasNotes = $false
+if ($NotesFile) {
+    $notesFull = Join-Path $Root $NotesFile
+    $hasNotes = Test-Path -LiteralPath $notesFull
+    if (-not $hasNotes) {
+        Write-Warning "Release notes not found: $notesFull — publishing without notes"
+    }
 }
 
 gh auth status 2>$null | Out-Null
@@ -100,11 +108,19 @@ if ($LASTEXITCODE -eq 0) {
 } else {
     Write-Host "Creating release $Tag with $($assets.Count) asset(s) ..."
     $assetArgs = $assets -join " "
-    gh release create $Tag @assets `
-        --repo $Repo `
-        --title $Title `
-        --notes-file $notesFull `
-        --target main
+    if ($hasNotes) {
+        gh release create $Tag @assets `
+            --repo $Repo `
+            --title $Title `
+            --notes-file $notesFull `
+            --target main
+    } else {
+        gh release create $Tag @assets `
+            --repo $Repo `
+            --title $Title `
+            --notes "Release $Tag" `
+            --target main
+    }
 }
 
 if ($LASTEXITCODE -ne 0) {

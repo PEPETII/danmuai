@@ -872,8 +872,10 @@ class PetWindow(QWidget):
             self._slot_position_x = pos.x()
             self._slot_position_y = pos.y()
             return
-        self._app.config.set("pet_position_x", str(pos.x()))
-        self._app.config.set("pet_position_y", str(pos.y()))
+        self._app.config.set_batch({
+            "pet_position_x": str(pos.x()),
+            "pet_position_y": str(pos.y()),
+        })
         self._settings = PetSettings.from_config(self._app.config)
 
     def _show_command_box(self) -> None:

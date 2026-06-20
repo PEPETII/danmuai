@@ -41,3 +41,20 @@ def test_run_startup_apply_skips_on_import_error_when_frozen():
             with patch("app.startup_trace.log_startup") as log:
                 velopack_runtime.run_startup_apply_if_needed()
     assert any("velopack.skip" in str(c) for c in log.call_args_list)
+
+
+def test_run_startup_apply_returns_on_velopack_error():
+    """BUG-H03: velopack.App() or app.run() exception should not crash the app."""
+    from app import velopack_runtime
+
+    velopack_mod = MagicMock()
+    velopack_mod.App.side_effect = RuntimeError("velopack runtime error")
+
+    with patch.object(sys, "frozen", True, create=True):
+        with patch.dict("sys.modules", {"velopack": velopack_mod}):
+            with patch("app.startup_trace.log_startup") as log:
+                # Should not raise — just log and return
+                velopack_runtime.run_startup_apply_if_needed()
+
+    # Verify error was logged
+    assert any("velopack.error" in str(c) for c in log.call_args_list)

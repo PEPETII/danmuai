@@ -56,7 +56,7 @@ FALLBACK_TAGS: list[dict[str, str]] = [
 
 
 class MemeBarrageApiClient:
-    def __init__(self, base_url: str = API_BASE, *, verify_ssl: bool = False) -> None:
+    def __init__(self, base_url: str = API_BASE, *, verify_ssl: bool = True) -> None:
         self.base_url = base_url.rstrip("/")
         self._verify = verify_ssl
         self._client: httpx.Client | None = None

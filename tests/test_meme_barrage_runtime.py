@@ -127,6 +127,61 @@ def test_meme_display_tick_reentrancy_guard(tmp_path):
     assert len(added) == _MEME_DISPLAY_MAX_PER_TICK
 
 
+def test_meme_display_tick_recursion_depth_limit(tmp_path, monkeypatch):
+    """BUG-G06: 递归调度有深度上限，超限 backlog 保留在队列中。"""
+    from app.main_meme_mixin import _MEME_DISPLAY_MAX_PER_TICK, _MEME_DISPLAY_MAX_RECURSION
+
+    config = ConfigStore(db_path=tmp_path / "meme_recursion.db")
+    config.set("meme_barrage_enabled", "1")
+    config.set("meme_barrage_display_batch_size", "100")
+
+    app = DanmuApp.__new__(DanmuApp)
+    app.config = config
+    app.engine = FakeEngine()
+    app.engine.running = True
+    app.logger = MagicMock()
+    app._scene_generation = 0
+    app._update_stats = MagicMock()
+    app._meme_display_ticking = False
+    app._meme_barrage_service = MemeBarrageService(config)
+
+    added: list[str] = []
+
+    def _add_text(content, persona="", **kwargs):
+        added.append(content)
+        return MagicMock()
+
+    app.engine.add_text = _add_text
+
+    # Collect scheduled callbacks; execute them after the current tick finishes
+    # (simulating QTimer.singleShot(0, ...) deferring to next event loop iteration).
+    scheduled: list[object] = []
+
+    def _fake_single_shot(_ms, fn):
+        scheduled.append(fn)
+
+    monkeypatch.setattr("app.main_meme_mixin.QTimer.singleShot", _fake_single_shot)
+
+    # Enqueue more items than max recursion can handle
+    total_items = _MEME_DISPLAY_MAX_PER_TICK * _MEME_DISPLAY_MAX_RECURSION + 5
+    service = app._meme_barrage_service
+    service.enqueue_display([f"item-{i}" for i in range(total_items)])
+
+    app._meme_display_tick()
+
+    # Drain scheduled callbacks (each may schedule more)
+    while scheduled:
+        fn = scheduled.pop(0)
+        fn()
+
+    # Should have processed at most _MEME_DISPLAY_MAX_RECURSION rounds
+    max_expected = _MEME_DISPLAY_MAX_PER_TICK * _MEME_DISPLAY_MAX_RECURSION
+    assert len(added) == max_expected
+    # Remaining backlog should still exist
+    remaining = list(app.__dict__.get("_meme_display_backlog") or [])
+    assert len(remaining) == total_items - max_expected
+
+
 def test_filter_remote_items_keeps_long_barrage_untruncated(tmp_path):
     config = ConfigStore(db_path=tmp_path / "meme_filter.db")
     service = MemeBarrageService(config)
@@ -315,7 +370,7 @@ def test_meme_start_ai_select_does_not_compress_on_main_thread(tmp_path, monkeyp
 
     pool = MagicMock()
     monkeypatch.setattr("app.main_meme_mixin.MemeAiSelectRunnable", FakeRunnable)
-    monkeypatch.setattr("app.main_meme_mixin.ai_worker_pool", lambda: pool)
+    monkeypatch.setattr("app.main_meme_mixin.meme_ai_pool", lambda: pool)
 
     compress_calls: list[str] = []
 

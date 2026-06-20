@@ -11,12 +11,13 @@ from app.meme_barrage.config import meme_barrage_enabled, read_meme_barrage_sett
 from app.meme_barrage.runnable import MemeAiSelectRunnable, MemeFetchRunnable, meme_fetch_pool
 from app.meme_barrage.service import MemeBarrageService
 from app.screenshot_compress import IMAGE_JPEG_QUALITY, IMAGE_MAX_WIDTH, compress_screenshot
-from app.worker_pools import ai_worker_pool
+from app.worker_pools import ai_worker_pool, meme_ai_pool
 
 if TYPE_CHECKING:
     pass
 
 _MEME_DISPLAY_MAX_PER_TICK = 2
+_MEME_DISPLAY_MAX_RECURSION = 10  # BUG-G06: limit recursive singleShot rounds
 
 
 class _MemeBarrageBridge(QObject):
@@ -269,7 +270,7 @@ class DanmuAppMemeMixin:
             on_success=on_success,
             on_error=on_error,
         )
-        ai_worker_pool().start(runnable)
+        meme_ai_pool().start(runnable)
 
     def _on_meme_ai_select_done_signal(
         self,
@@ -307,7 +308,7 @@ class DanmuAppMemeMixin:
         self.logger.warning("meme_ai_select_failed reason=request_failed")
         service.enqueue_display(candidates[:fallback_n])
 
-    def _meme_display_tick(self) -> None:
+    def _meme_display_tick(self, _depth: int = 0) -> None:
         if self.__dict__.get("_meme_display_ticking", False):
             return
         self.__dict__["_meme_display_ticking"] = True
@@ -343,7 +344,7 @@ class DanmuAppMemeMixin:
                         item.content,
                         source="meme_barrage",
                     )
-            if self._meme_display_backlog:
-                QTimer.singleShot(0, self._meme_display_tick)
+            if self._meme_display_backlog and _depth + 1 < _MEME_DISPLAY_MAX_RECURSION:
+                QTimer.singleShot(0, lambda: self._meme_display_tick(_depth + 1))
         finally:
             self.__dict__["_meme_display_ticking"] = False

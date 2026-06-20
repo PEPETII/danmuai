@@ -76,3 +76,33 @@ def test_preview_compress_rejects_missing_token(preview_client):
         files={"file": ("shot.png", _png_bytes(), "image/png")},
     )
     assert res.status_code == 401
+
+
+def test_preview_compress_clamps_oversized_params(preview_client):
+    """max_width and quality are clamped to safe upper bounds."""
+    data = _png_bytes(1200, 800)
+    res = preview_client.post(
+        "/api/preview/compress",
+        headers={"Authorization": f"Bearer {_TEST_TOKEN}"},
+        files={"file": ("shot.png", data, "image/png")},
+        data={"max_width": "999999", "quality": "100"},
+    )
+    assert res.status_code == 200, res.text
+    body = res.json()
+    # max_width clamped to 4096; image is 1200px wide so output stays at 1200
+    assert body["out_w"] == 1200
+
+
+def test_preview_compress_clamps_zero_params(preview_client):
+    """max_width=0 and quality=0 are clamped to minimum (64 and 1 respectively)."""
+    data = _png_bytes(400, 300)
+    res = preview_client.post(
+        "/api/preview/compress",
+        headers={"Authorization": f"Bearer {_TEST_TOKEN}"},
+        files={"file": ("shot.png", data, "image/png")},
+        data={"max_width": "0", "quality": "0"},
+    )
+    assert res.status_code == 200, res.text
+    body = res.json()
+    # max_width clamped to 64; image is 400px wide so it resizes to 64
+    assert body["out_w"] == 64

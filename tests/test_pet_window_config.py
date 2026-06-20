@@ -95,3 +95,25 @@ def test_apply_slot_config_position_update_without_reload():
          patch.object(w, "update"):
         w.apply_slot_config({"asset_source": "builtin", "asset_path": "", "position_x": 100, "position_y": 200})
         mock_reload.assert_not_called()
+
+
+# ── _persist_position: atomic batch write ──────────────────────────
+
+
+def test_persist_position_uses_set_batch():
+    """W-BUG-E03: _persist_position must use set_batch for atomic x/y write."""
+    app = _make_app()
+    w = _make_window(app, slot_id=0)
+    w._settings.barrage = MagicMock()
+    w._settings.barrage.enabled = False
+
+    with patch.object(w, "pos", return_value=MagicMock(x=lambda: 42, y=lambda: 99)), \
+         patch.object(app.config, "set_batch") as mock_batch, \
+         patch("app.pet.pet_window.PetSettings") as mock_settings_cls:
+        mock_settings_cls.from_config.return_value = w._settings
+        w._persist_position()
+
+    mock_batch.assert_called_once_with({
+        "pet_position_x": "42",
+        "pet_position_y": "99",
+    })

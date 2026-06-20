@@ -292,20 +292,7 @@ class MicCaptureService:
 
     def try_snapshot_pcm_ms(self, ms: int) -> bytes | None:
         """Non-blocking PCM snapshot for utterance poll; None if ring buffer lock is busy."""
-        ms = max(1, min(int(ms), 30_000))
-        buf = self._buffer
-        if not buf._lock.acquire(blocking=False):
-            return None
-        try:
-            want = min(
-                len(buf._data),
-                ms * buf.sample_rate * BYTES_PER_SAMPLE // 1000,
-            )
-            if want <= 0:
-                return b""
-            return bytes(buf._data[-want:])
-        finally:
-            buf._lock.release()
+        return self._buffer.try_take_recent_ms(ms)
 
     def _on_audio(self, indata, frames, time_info, status) -> None:  # pragma: no cover
         if status:

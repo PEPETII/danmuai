@@ -82,6 +82,12 @@ def delete_user_data_if_requested() -> None:
     marker = _delete_marker_path()
     if not marker.exists():
         return
+    try:
+        content = marker.read_text(encoding="utf-8").strip()
+    except OSError:
+        return
+    if "delete-user-data=1" not in content:
+        return
     data_dir = _appdata_dir()
     if data_dir.name != APPDATA_DIR_NAME:
         return

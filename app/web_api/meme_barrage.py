@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import time
 from typing import TYPE_CHECKING, Any
 
 from app.meme_barrage.client import FALLBACK_TAGS, MemeBarrageApiClient
@@ -25,6 +26,9 @@ if TYPE_CHECKING:
     from main import DanmuApp
 
 _tags_cache: list[dict[str, str]] | None = None
+_tags_cache_ts: float = 0.0
+_TAGS_CACHE_TTL_SEC: float = 300.0  # 5 minutes
+_TAGS_CACHE_FALLBACK_TTL_SEC: float = 30.0  # 30 seconds for FALLBACK_TAGS on error
 
 
 def _status_fields(app: "DanmuApp") -> dict[str, object]:
@@ -130,6 +134,11 @@ def save_settings(app: "DanmuApp", payload: dict[str, Any]) -> dict[str, Any]:
         if callable(apply):
             apply(reset_cursors=reset_cursors)
 
+    # Invalidate tags cache so tag/category changes are reflected immediately.
+    global _tags_cache, _tags_cache_ts
+    _tags_cache = None
+    _tags_cache_ts = 0.0
+
     result = get_meta(app)
     if clamped_fields:
         result["clamped_fields"] = clamped_fields
@@ -137,14 +146,23 @@ def save_settings(app: "DanmuApp", payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def get_tags() -> dict[str, Any]:
-    global _tags_cache
-    if _tags_cache:
-        return {"tags": _tags_cache}
+    global _tags_cache, _tags_cache_ts
+    now = time.monotonic()
+    if _tags_cache is not None:
+        # Determine TTL based on whether cache is FALLBACK_TAGS or real data.
+        is_fallback = len(_tags_cache) == len(FALLBACK_TAGS) and all(
+            a.get("value") == b.get("value") for a, b in zip(_tags_cache, FALLBACK_TAGS)
+        )
+        ttl = _TAGS_CACHE_FALLBACK_TTL_SEC if is_fallback else _TAGS_CACHE_TTL_SEC
+        if now - _tags_cache_ts < ttl:
+            return {"tags": _tags_cache}
     try:
         client = MemeBarrageApiClient()
         _tags_cache = client.dict_list()
+        _tags_cache_ts = now
     except Exception:
         _tags_cache = list(FALLBACK_TAGS)
+        _tags_cache_ts = now
     return {"tags": _tags_cache}
 
 

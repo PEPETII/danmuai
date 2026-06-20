@@ -740,3 +740,64 @@ def test_normal_startup_empty_notice(tmp_path):
     assert store2.get_startup_notice() == ""
     store2.close()
 
+
+# --- F05: ConfigStore close 后安全 ---
+
+
+def test_get_after_close_returns_cached_value(tmp_path):
+    """F05: close() 后 get() 返回缓存值且不抛异常。"""
+    store = ConfigStore(db_path=tmp_path / "close_get.db")
+    store.set("test_key", "cached_value")
+    assert store.get("test_key") == "cached_value"
+    store.close()
+    assert store._closed is True
+    # close 后 get 仍返回缓存值，不抛异常
+    assert store.get("test_key") == "cached_value"
+    assert store.get("nonexistent", "default") == "default"
+
+
+def test_set_after_close_does_not_raise(tmp_path):
+    """F05: close() 后 set() 不抛 ProgrammingError，静默跳过。"""
+    store = ConfigStore(db_path=tmp_path / "close_set.db")
+    store.set("before_close", "yes")
+    store.close()
+    assert store._closed is True
+    # close 后 set 不抛异常
+    store.set("after_close", "should_not_persist")
+    # 缓存也不应被更新（因为写被跳过）
+    assert store.get("after_close", "") == ""
+
+
+def test_set_batch_after_close_does_not_raise(tmp_path):
+    """F05: close() 后 set_batch() 不抛 ProgrammingError，静默跳过。"""
+    store = ConfigStore(db_path=tmp_path / "close_batch.db")
+    store.set("batch_key", "original")
+    store.close()
+    assert store._closed is True
+    # close 后 set_batch 不抛异常
+    store.set_batch({"batch_key": "updated", "new_key": "new_val"})
+    # 缓存不应被更新
+    assert store.get("batch_key") == "original"
+    assert store.get("new_key", "") == ""
+
+
+def test_get_recent_history(tmp_path):
+    """BUG-A03: ConfigStore.get_recent_history facade method."""
+    store = ConfigStore(db_path=tmp_path / "test_history.db")
+    # Insert some history entries
+    store.conn.execute("INSERT INTO history (content) VALUES (?)", ("弹幕1",))
+    store.conn.execute("INSERT INTO history (content) VALUES (?)", ("弹幕2",))
+    store.conn.execute("INSERT INTO history (content) VALUES (?)", ("弹幕3",))
+    store.conn.commit()
+
+    result = store.get_recent_history(2)
+    # Should return the 2 most recent, oldest first
+    assert result == ["弹幕2", "弹幕3"]
+
+    result_all = store.get_recent_history(30)
+    assert result_all == ["弹幕1", "弹幕2", "弹幕3"]
+
+    # After close, should return empty
+    store.close()
+    assert store.get_recent_history(30) == []
+

@@ -27,6 +27,8 @@ def register_preview_compress_route(app, check_token: Callable) -> None:
         authorization: str | None = Header(default=None),
     ):
         check_token(authorization)
+        max_width = max(64, min(max_width, 4096))
+        quality = max(1, min(quality, 95))
         data = await file.read()
         if len(data) > 10 * 1024 * 1024:
             raise HTTPException(status_code=400, detail="图片太大了，请换一张小一点的~")

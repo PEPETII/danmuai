@@ -88,8 +88,129 @@ def test_get_tags_fallback(monkeypatch):
         lambda self: (_ for _ in ()).throw(RuntimeError("offline")),
     )
     meme_api._tags_cache = None
+    meme_api._tags_cache_ts = 0.0
     resp = meme_api.get_tags()
     assert len(resp["tags"]) == 27
+
+
+def test_get_tags_fallback_cache_expires_quickly(monkeypatch):
+    """BUG-G02: FALLBACK_TAGS 缓存 TTL 仅 30 秒，过期后重新请求。"""
+    import time
+
+    monkeypatch.setattr(
+        meme_api.MemeBarrageApiClient,
+        "dict_list",
+        lambda self: (_ for _ in ()).throw(RuntimeError("offline")),
+    )
+    meme_api._tags_cache = None
+    meme_api._tags_cache_ts = 0.0
+
+    # First call: caches FALLBACK_TAGS
+    resp1 = meme_api.get_tags()
+    assert len(resp1["tags"]) == 27
+    assert meme_api._tags_cache is not None
+
+    # Within fallback TTL: returns cached
+    resp2 = meme_api.get_tags()
+    assert resp2 is resp1 or resp2["tags"] is meme_api._tags_cache
+
+    # After fallback TTL expires: re-requests (still fails, re-caches)
+    meme_api._tags_cache_ts = time.monotonic() - meme_api._TAGS_CACHE_FALLBACK_TTL_SEC - 1
+    resp3 = meme_api.get_tags()
+    assert len(resp3["tags"]) == 27
+
+
+def test_get_tags_success_cache_has_long_ttl(monkeypatch):
+    """BUG-G02: 成功请求缓存 TTL 为 5 分钟。"""
+    import time
+
+    fresh_tags = [{"value": "99", "label": "新标签"}]
+    call_count = {"n": 0}
+
+    def _dict_list(self):
+        call_count["n"] += 1
+        return fresh_tags
+
+    monkeypatch.setattr(meme_api.MemeBarrageApiClient, "dict_list", _dict_list)
+    meme_api._tags_cache = None
+    meme_api._tags_cache_ts = 0.0
+
+    # First call: fetches from API
+    resp1 = meme_api.get_tags()
+    assert resp1["tags"] == fresh_tags
+    assert call_count["n"] == 1
+
+    # Second call: uses cache (within TTL)
+    resp2 = meme_api.get_tags()
+    assert resp2["tags"] == fresh_tags
+    assert call_count["n"] == 1  # not called again
+
+    # After main TTL expires: re-fetches
+    meme_api._tags_cache_ts = time.monotonic() - meme_api._TAGS_CACHE_TTL_SEC - 1
+    resp3 = meme_api.get_tags()
+    assert resp3["tags"] == fresh_tags
+    assert call_count["n"] == 2
+
+
+def test_get_tags_fallback_then_success_refreshes(monkeypatch):
+    """BUG-G02: 首次失败缓存 FALLBACK_TAGS，后续成功请求刷新缓存。"""
+    import time
+
+    fresh_tags = [{"value": "88", "label": "恢复后的标签"}]
+    call_count = {"n": 0}
+    fail = [True]
+
+    def _dict_list(self):
+        call_count["n"] += 1
+        if fail[0]:
+            raise RuntimeError("offline")
+        return fresh_tags
+
+    monkeypatch.setattr(meme_api.MemeBarrageApiClient, "dict_list", _dict_list)
+    meme_api._tags_cache = None
+    meme_api._tags_cache_ts = 0.0
+
+    # First call: API fails → FALLBACK_TAGS cached with short TTL
+    resp1 = meme_api.get_tags()
+    assert len(resp1["tags"]) == 27  # FALLBACK_TAGS
+    assert call_count["n"] == 1
+
+    # API recovers
+    fail[0] = False
+
+    # After fallback TTL expires: re-requests and gets fresh data
+    meme_api._tags_cache_ts = time.monotonic() - meme_api._TAGS_CACHE_FALLBACK_TTL_SEC - 1
+    resp2 = meme_api.get_tags()
+    assert resp2["tags"] == fresh_tags
+    assert call_count["n"] == 2
+
+
+def test_save_settings_clears_tags_cache(meme_app, monkeypatch):
+    """BUG-G02: save_settings 后 _tags_cache 被清除。"""
+    fresh_tags = [{"value": "77", "label": "设置后的标签"}]
+    call_count = {"n": 0}
+
+    def _dict_list(self):
+        call_count["n"] += 1
+        return fresh_tags
+
+    monkeypatch.setattr(meme_api.MemeBarrageApiClient, "dict_list", _dict_list)
+    meme_api._tags_cache = None
+    meme_api._tags_cache_ts = 0.0
+
+    # Populate cache
+    meme_api.get_tags()
+    assert call_count["n"] == 1
+    assert meme_api._tags_cache is not None
+
+    # save_settings clears cache
+    meme_api.save_settings(meme_app, {"enabled": True})
+    assert meme_api._tags_cache is None
+    assert meme_api._tags_cache_ts == 0.0
+
+    # Next get_tags re-fetches
+    meme_api.get_tags()
+    assert call_count["n"] == 2
 
 
 def test_meme_barrage_routes_registered(tmp_path):

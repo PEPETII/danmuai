@@ -214,14 +214,8 @@ class DanmuEngine(QObject):
         self._load_recent_from_history()
 
     def _load_recent_from_history(self):
-        try:
-            rows = self.config.conn.execute(
-                "SELECT content FROM history ORDER BY id DESC LIMIT 30"
-            ).fetchall()
-            for row in reversed(rows):
-                self._remember_content(row[0])
-        except Exception:
-            pass
+        for content in self.config.get_recent_history(30):
+            self._remember_content(content)
 
     def _recent_ttl_sec(self) -> int:
         value = self.config.get_int("danmu_recent_ttl_sec", _DANMU_RECENT_TTL_FALLBACK)

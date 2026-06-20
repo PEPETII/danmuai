@@ -17,7 +17,7 @@ import wave
 
 import numpy as np
 import sounddevice as sd
-from PyQt6.QtCore import QObject, pyqtSignal
+from PyQt6.QtCore import QMetaObject, QObject, Qt, pyqtSignal
 
 logger = logging.getLogger(__name__)
 
@@ -93,4 +93,7 @@ class DanmuTtsPlayback(QObject):
             logger.warning("danmu tts playback failed: %s", exc)
         finally:
             self._set_busy(False)
-            self.playback_finished.emit()
+            # 跨线程安全 emit：通过主线程事件循环投递，避免在播放线程直接调用
+            QMetaObject.invokeMethod(
+                self, "playback_finished", Qt.ConnectionType.QueuedConnection
+            )

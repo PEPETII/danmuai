@@ -44,7 +44,9 @@ def test_custom_only_pool_for_config(tmp_path):
     store = ConfigStore(db_path=tmp_path / "custom_only.db")
     store.set("danmu_pool_use_custom", "1")
     store.set_custom_danmu_pool(["自定义A", "自定义B", "自定义C"])
-    assert load_danmu_pool_for_config(store) == ["自定义A", "自定义B", "自定义C"]
+    result = load_danmu_pool_for_config(store)
+    # BUG-A01: load_danmu_pool_for_config now uses SQL RANDOM() sampling, order is not guaranteed
+    assert sorted(result) == ["自定义A", "自定义B", "自定义C"]
     picked = sample_danmu_for_config(store, 2)
     assert len(picked) == 2
     assert all(p in store.get_custom_danmu_pool() for p in picked)
@@ -202,3 +204,114 @@ def test_pool_topup_entry_zone_overloaded_non_callable_no_error(qapp, workspace_
 
     added = maybe_pool_topup(engine, store, scene_generation=0)
     assert added >= 0
+
+
+def test_custom_danmu_list_search_like_escape_percent(tmp_path):
+    """F02: 搜索 '100%' 不匹配 '100X'。"""
+    from app.config_store import ConfigStore
+
+    store = ConfigStore(db_path=tmp_path / "like_escape.db")
+    store.set_custom_danmu_pool(["100%", "100X", "完成率100%", "测试句"])
+    found = store.custom_danmu_list(page=1, page_size=50, search="100%", source="manual")
+    assert found["total"] == 2
+    texts = [item["text"] for item in found["items"]]
+    assert "100%" in texts
+    assert "完成率100%" in texts
+    assert "100X" not in texts
+    store.close()
+
+
+def test_custom_danmu_list_search_like_escape_underscore(tmp_path):
+    """F02: 搜索 '_test' 不匹配 'atest'。"""
+    from app.config_store import ConfigStore
+
+    store = ConfigStore(db_path=tmp_path / "like_escape_us.db")
+    store.set_custom_danmu_pool(["_test", "atest", "b_test", "xtest"])
+    found = store.custom_danmu_list(page=1, page_size=50, search="_test", source="manual")
+    texts = [item["text"] for item in found["items"]]
+    assert "_test" in texts
+    assert "b_test" in texts
+    assert "atest" not in texts
+    assert "xtest" not in texts
+    store.close()
+
+
+def test_custom_danmu_list_search_like_escape_backslash(tmp_path):
+    """F02: 搜索含反斜杠的文本正确匹配。"""
+    from app.config_store import ConfigStore
+
+    store = ConfigStore(db_path=tmp_path / "like_escape_bs.db")
+    store.set_custom_danmu_pool([r"path\to\file", "pathXtoYfile", "normal"])
+    found = store.custom_danmu_list(page=1, page_size=50, search=r"path\to", source="manual")
+    texts = [item["text"] for item in found["items"]]
+    assert r"path\to\file" in texts
+    assert "pathXtoYfile" not in texts
+    store.close()
+
+
+def test_set_custom_danmu_pool_respects_max(tmp_path, monkeypatch):
+    """F03: set_custom_danmu_pool 超过 CUSTOM_DANMU_POOL_MAX 时截断。"""
+    from app.config_store import ConfigStore
+
+    store = ConfigStore(db_path=tmp_path / "pool_set_max.db")
+    monkeypatch.setattr("app.danmu_pool.CUSTOM_DANMU_POOL_MAX", 5)
+    store.set_custom_danmu_pool([f"句{i}" for i in range(10)])
+    assert store.custom_danmu_count() == 5
+    store.close()
+
+
+def test_read_without_write_lock_no_deadlock(tmp_path):
+    """BUG-A02: Read operations should not hold _write_lock, avoiding deadlock with writes."""
+    from app.config_store import ConfigStore
+    import threading
+
+    store = ConfigStore(tmp_path / "test_concurrency.db")
+    store.custom_danmu_insert_many(["弹幕A", "弹幕B", "弹幕C"])
+
+    errors = []
+    barrier = threading.Barrier(2, timeout=5)
+
+    def reader():
+        try:
+            barrier.wait()
+            store.custom_danmu_count()
+        except Exception as e:
+            errors.append(e)
+
+    def writer():
+        try:
+            barrier.wait()
+            store.custom_danmu_insert_many(["弹幕D"])
+        except Exception as e:
+            errors.append(e)
+
+    t1 = threading.Thread(target=reader)
+    t2 = threading.Thread(target=writer)
+    t1.start()
+    t2.start()
+    t1.join(timeout=10)
+    t2.join(timeout=10)
+
+    assert not errors, f"Concurrent read/write errors: {errors}"
+    assert store.custom_danmu_count() >= 3
+    store.close()
+
+
+def test_load_danmu_pool_for_config_uses_sampling(tmp_path):
+    """BUG-A01: load_danmu_pool_for_config should use SQL sampling, not full load."""
+    from app.config_store import ConfigStore
+    from app.danmu_pool import load_danmu_pool_for_config
+
+    store = ConfigStore(tmp_path / "test_sampling.db")
+    # Insert 500 entries
+    texts = [f"弹幕{i:04d}" for i in range(500)]
+    store.custom_danmu_insert_many(texts)
+    store.set("danmu_pool_use_custom", "1")
+
+    result = load_danmu_pool_for_config(store)
+    # Should return at most 200 (sample size), not 500 (full load)
+    assert len(result) <= 200
+    assert len(result) > 0
+    # All results should be from the pool
+    assert all(t.startswith("弹幕") for t in result)
+    store.close()

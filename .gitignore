@@ -41,6 +41,9 @@ node_modules/
 # Windows reserved device name
 /nul
 
+# Vercel project metadata (contains org/project IDs)
+.vercel/
+
 # IDE and OS
 .idea/
 .vscode/

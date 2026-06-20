@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PyQt6.QtGui import QPixmap
+from PyQt6.QtGui import QImageReader
 
 from app.bundle_paths import resource_path
 
@@ -189,16 +189,17 @@ def validate_pet_pack_dir(pack_dir: Path) -> tuple[dict, Path, int, int]:
             else:
                 raise ValueError(f"找不到 spritesheet：{sheet_path}")
 
-    pixmap = QPixmap(str(sheet_path))
-    if pixmap.isNull():
+    reader = QImageReader(str(sheet_path))
+    size = reader.size()
+    if not size.isValid():
         raise ValueError(f"spritesheet 无法加载：{sheet_path}")
-    if pixmap.width() % PET_FRAME_W or pixmap.height() % PET_FRAME_H:
+    if size.width() % PET_FRAME_W or size.height() % PET_FRAME_H:
         raise ValueError(
             f"spritesheet 宽高须为 {PET_FRAME_W}×{PET_FRAME_H} 的整数倍，"
-            f"实际为 {pixmap.width()}×{pixmap.height()}"
+            f"实际为 {size.width()}×{size.height()}"
         )
-    grid_cols = pixmap.width() // PET_FRAME_W
-    grid_rows = pixmap.height() // PET_FRAME_H
+    grid_cols = size.width() // PET_FRAME_W
+    grid_rows = size.height() // PET_FRAME_H
     if not (1 <= grid_cols <= PET_MAX_COLS and 1 <= grid_rows <= PET_MAX_ROWS):
         raise ValueError(
             f"spritesheet 网格须在 1–{PET_MAX_COLS} 列、1–{PET_MAX_ROWS} 行内，"

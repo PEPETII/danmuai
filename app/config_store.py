@@ -220,10 +220,15 @@ class ConfigStore:
     # --- 通用配置读写 ---
 
     def get(self, key: str, default: str = "") -> str:
+        if self._closed:
+            logger.debug("ConfigStore.get(%s) called after close(), returning cached value", key)
         return self._cache.get(key, default)
 
     def set(self, key: str, value: str):
         """单键写入：commit 成功后再更新 _cache（与 set_batch 一致，失败不污染缓存）。"""
+        if self._closed:
+            logger.warning("ConfigStore.set(%s) called after close(), write skipped", key)
+            return
         with self._write_lock:
             try:
                 self.conn.execute("REPLACE INTO config (key, value) VALUES (?, ?)", (key, value))
@@ -250,6 +255,9 @@ class ConfigStore:
         Web PUT /api/config 一次提交多键，避免半写入导致 UI 与运行时状态不一致。
         与缓存相同的键会被跳过，减少无意义 WAL 提交。
         """
+        if self._closed:
+            logger.warning("ConfigStore.set_batch() called after close(), write skipped")
+            return
         changed = {k: v for k, v in items.items() if self._cache.get(k) != v}
         if not changed:
             return
@@ -427,7 +435,13 @@ class ConfigStore:
 
     def get_json(self, key: str, default: list | dict | None = None) -> list | dict:
         val = self.get(key)
-        return json.loads(val) if val else (default or {})
+        if not val:
+            return default or {}
+        try:
+            return json.loads(val)
+        except (json.JSONDecodeError, TypeError):
+            logger.warning("config key=%s has invalid JSON, returning default", key)
+            return default or {}
 
     def set_json(self, key: str, value: list | dict):
         self.set(key, json.dumps(value, ensure_ascii=False))
@@ -694,6 +708,19 @@ class ConfigStore:
 
         set_custom_danmu_pool_for_store(self, items)
 
+    def get_recent_history(self, limit: int = 30) -> list[str]:
+        """Return the most recent `limit` history entries (oldest first)."""
+        if not self._conn_usable():
+            return []
+        try:
+            rows = self.conn.execute(
+                "SELECT content FROM history ORDER BY id DESC LIMIT ?",
+                (int(limit),),
+            ).fetchall()
+            return [str(row[0]) for row in reversed(rows) if row and row[0]]
+        except Exception:
+            return []
+
     # --- Meme barrage library (meme_barrage_library table) ---
 
     def _conn_usable(self) -> bool:
@@ -764,10 +791,11 @@ class ConfigStore:
         value = str(text).strip()
         if not value:
             return False
-        row = self.conn.execute(
-            "SELECT 1 FROM meme_barrage_library WHERE text = ? LIMIT 1",
-            (value,),
-        ).fetchone()
+        with self._write_lock:
+            row = self.conn.execute(
+                "SELECT 1 FROM meme_barrage_library WHERE text = ? LIMIT 1",
+                (value,),
+            ).fetchone()
         return row is not None
 
     def meme_barrage_library_fetch_batch(
@@ -779,10 +807,11 @@ class ConfigStore:
         if total <= 0:
             return [], 0
         offset = int(offset) % total
-        rows = self.conn.execute(
-            "SELECT text FROM meme_barrage_library ORDER BY id ASC LIMIT ? OFFSET ?",
-            (limit, offset),
-        ).fetchall()
+        with self._write_lock:
+            rows = self.conn.execute(
+                "SELECT text FROM meme_barrage_library ORDER BY id ASC LIMIT ? OFFSET ?",
+                (limit, offset),
+            ).fetchall()
         texts = [str(row[0]) for row in rows if row and row[0]]
         next_offset = (offset + len(texts)) % total if total else 0
         return texts, next_offset

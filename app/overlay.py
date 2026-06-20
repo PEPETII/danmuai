@@ -67,7 +67,11 @@ def overlay_profile_enabled() -> bool:
 
 
 def _use_fast_danmu_render(content: str) -> bool:
-    """长文本/emoji 走 drawText 描边，避免 QPainterPath.addText 阻塞主线程数秒。"""
+    """长文本/CJK/emoji 走 drawText 描边，避免 QPainterPath.addText 阻塞主线程。
+
+    CJK 和 emoji 字符即使文本较短，QPainterPath.addText 仍然很慢，
+    因此对这些字符始终走 fast 路径。
+    """
     if len(content) >= _FAST_DANMU_RENDER_MIN_LEN:
         return True
     # S-021: short CJK/emoji strings still hit the slow QPainterPath path by length alone.

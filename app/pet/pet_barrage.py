@@ -126,7 +126,6 @@ class PetBarrageController:
 
     def show(self) -> None:
         if not self.is_enabled():
-            self.hide()
             return
         for window in self._windows:
             window.show_pet()

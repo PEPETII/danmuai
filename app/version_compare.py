@@ -36,6 +36,9 @@ def _parse_numeric_segments(core: str) -> tuple[int, ...]:
 
 
 def _split_core_prerelease(normalized: str) -> tuple[str, str | None]:
+    # Strip build metadata (+build) per semver — it must be ignored for comparison.
+    if "+" in normalized:
+        normalized = normalized.split("+", 1)[0]
     if "-" not in normalized:
         return normalized, None
     core, prerelease = normalized.split("-", 1)

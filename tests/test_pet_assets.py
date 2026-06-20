@@ -334,3 +334,12 @@ def test_sync_pet_window_visibility_noop_when_window_missing():
     app.config = FakeConfig({"pet_enabled": "1", "pet_visible": "1"})
     # 故意不设 pet_window
     sync_pet_window_visibility(app)  # 不应抛异常
+
+
+def test_validate_pet_pack_dir_repeated_calls_no_accumulation(qapp):
+    """W-BUG-E01: 连续调用 validate_pet_pack_dir 10 次不抛异常（QImageReader 不累积显存）。"""
+    for _ in range(10):
+        meta, sheet, cols, rows = validate_pet_pack_dir(BUILTIN_PET_DIR)
+        assert meta["id"] == "yuexin-miao-animated"
+        assert cols == 8
+        assert rows == 9

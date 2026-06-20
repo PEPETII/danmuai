@@ -67,6 +67,9 @@ def load_danmu_pool_for_config(config) -> list[str]:
     count_fn = getattr(config, "custom_danmu_count", None)
     if callable(count_fn) and count_fn() <= 0:
         return []
+    sampler = getattr(config, "custom_danmu_random_sample", None)
+    if callable(sampler):
+        return sampler(200)
     return load_custom_danmu_pool(config)
 
 
@@ -318,8 +321,7 @@ def custom_danmu_count_for_store(store, source: str | None = None) -> int:
     if not store._conn_usable():
         return 0
     try:
-        with store._write_lock:
-            return _custom_danmu_count_locked(store, source)
+        return _custom_danmu_count_locked(store, source)
     except sqlite3.ProgrammingError:
         return 0
 
@@ -331,6 +333,8 @@ def custom_danmu_list_for_store(
     search: str = "",
     source: str | None = "manual",
 ) -> dict:
+    if not store._conn_usable():
+        return {"items": [], "total": 0, "page": 1, "page_size": 100, "source": source or ""}
     page = max(1, int(page))
     page_size = max(1, min(200, int(page_size)))
     offset = (page - 1) * page_size
@@ -341,8 +345,9 @@ def custom_danmu_list_for_store(
         params.append(source)
     query = str(search or "").strip()
     if query:
-        clauses.append("text LIKE ?")
-        params.append(f"%{query}%")
+        escaped = query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        clauses.append("text LIKE ? ESCAPE '\\'")
+        params.append(f"%{escaped}%")
     where = " AND ".join(clauses)
     total_row = store.conn.execute(
         f"SELECT COUNT(*) FROM custom_danmu_pool_entries WHERE {where}",
@@ -454,7 +459,7 @@ def custom_danmu_random_sample_for_store(store, count: int) -> list[str]:
 
 def custom_danmu_contains_text_for_store(store, text: str) -> bool:
     value = str(text).strip()
-    if not value:
+    if not value or not store._conn_usable():
         return False
     row = store.conn.execute(
         "SELECT 1 FROM custom_danmu_pool_entries WHERE text = ? LIMIT 1",
@@ -468,7 +473,7 @@ def get_custom_danmu_pool_for_store(store) -> list[str]:
         return []
     try:
         rows = store.conn.execute(
-            "SELECT text FROM custom_danmu_pool_entries ORDER BY id ASC"
+            "SELECT text FROM custom_danmu_pool_entries ORDER BY id ASC LIMIT 20000"
         ).fetchall()
     except sqlite3.ProgrammingError:
         return []
@@ -483,6 +488,8 @@ def set_custom_danmu_pool_for_store(store, items: list[str]) -> None:
         text = str(raw).strip()
         if text and text not in seen:
             seen.add(text)
+            if len(params) >= CUSTOM_DANMU_POOL_MAX:
+                break
             params.append((text, now, now))
     with store._write_lock:
         store.conn.execute("DELETE FROM custom_danmu_pool_entries")

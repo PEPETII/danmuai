@@ -56,6 +56,19 @@ class MicRingBuffer:
                 return b""
             return bytes(self._data[-want:])
 
+    def try_take_recent_ms(self, ms: int) -> bytes | None:
+        """Non-blocking version of ``take_recent_ms``; returns *None* if the lock is busy."""
+        ms = max(1, min(int(ms), 30_000))
+        if not self._lock.acquire(blocking=False):
+            return None
+        try:
+            want = min(len(self._data), ms * self.sample_rate * BYTES_PER_SAMPLE // 1000)
+            if want <= 0:
+                return b""
+            return bytes(self._data[-want:])
+        finally:
+            self._lock.release()
+
     def clear(self) -> None:
         with self._lock:
             self._data.clear()

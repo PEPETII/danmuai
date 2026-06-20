@@ -601,7 +601,8 @@ def stream_openai(
                     message_reasoning = message.get("reasoning_content", "")
                     if message_reasoning:
                         reasoning_parts.append(message_reasoning)
-            except (json.JSONDecodeError, IndexError, KeyError):
+            except (json.JSONDecodeError, IndexError, KeyError) as exc:
+                logger.debug("stream chunk parse skipped: %r payload=%.80s", exc, payload)
                 continue
     text = "".join(collected)
     if not text and reasoning_parts:

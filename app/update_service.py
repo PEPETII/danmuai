@@ -63,10 +63,17 @@ def _is_frozen() -> bool:
     return bool(getattr(sys, "frozen", False))
 
 
+_cached_manager = None
+
+
 def _manager():
+    global _cached_manager
+    if _cached_manager is not None:
+        return _cached_manager
     import velopack
 
-    return velopack.UpdateManager(UPDATE_FEED_URL)
+    _cached_manager = velopack.UpdateManager(UPDATE_FEED_URL)
+    return _cached_manager
 
 
 def _current_version(manager) -> str:

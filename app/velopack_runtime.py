@@ -31,4 +31,4 @@ def run_startup_apply_if_needed() -> None:
         log_startup("velopack.done")
     except Exception as exc:
         log_startup("velopack.error", detail=str(exc))
-        raise
+        return
