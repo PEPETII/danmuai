@@ -247,6 +247,9 @@ def test_ai_error_releases_in_flight():
     app.ai_in_flight = 2
     app.MAX_CONSECUTIVE_FAILURES = 5  # 确保不会触发退避
 
+    # 需要预注册 meta，否则 _on_ai_error 的陈旧守卫会提前返回
+    app._register_request_meta(5, 5, 0, "visual")
+
     # 模拟 AI 错误
     app._on_ai_error("AI timeout", "persona-1", 5, 5, time.monotonic(), 0)
 
@@ -267,6 +270,7 @@ def test_nonfatal_ai_error_schedules_next_screenshot():
     app.engine.running = True
     app.ai_in_flight = 1
 
+    app._register_request_meta(5, 5, 0, "visual")
     app._on_ai_error("AI timeout", "persona-1", 5, 5, time.monotonic(), 0)
 
     assert app._failure_backoff_paused is False
@@ -278,10 +282,36 @@ def test_ai_error_does_not_crash_on_missing_ui():
     app = make_minimal_danmu_app()
     app.window = None  # 模拟 UI 未初始化
 
+    app._register_request_meta(1, 1, 0, "visual")
     app._on_ai_error("test error", "persona-1", 1, 1, 1.0, 0)
 
     assert app._consecutive_failures == 1
     assert app._last_error_message == "test error"
+
+
+def test_stale_ai_error_does_not_affect_new_session():
+    """BUG-A01: stop→start 后旧 AiRunnable 错误信号到达时，新会话不受影响。
+
+    复现路径：旧请求的 401 错误在 stop→start 后到达，_pop_request_meta 返回 {}
+    （因 stop 清空了 _pending_request_meta），若无守卫，致命错误会暂停新会话。
+    """
+    app = make_minimal_danmu_app()
+    app.engine.running = True
+    app._failure_backoff_paused = False
+    app._consecutive_failures = 0
+    app.screenshot_timer.start()
+
+    # 模拟 stop→start 后 _pending_request_meta 已被清空
+    # _pop_request_meta 对不存在的 key 返回 {}
+    app._pending_request_meta.clear()
+
+    # 旧 AiRunnable 的 401 致命错误信号到达
+    app._on_ai_error("401 Unauthorized", "persona-1", 5, 5, time.monotonic(), 0)
+
+    # 守卫应阻止陈旧错误影响新会话
+    assert app._failure_backoff_paused is False
+    assert app._consecutive_failures == 0
+    assert app.screenshot_timer.active
 
 
 def test_empty_ai_reply_logs_warning(monkeypatch):
@@ -369,9 +399,11 @@ def test_consecutive_failures_triggers_backoff_at_production_threshold():
     app.screenshot_timer.active = True
 
     for i in range(4):
+        app._register_request_meta(i, i, 0, "visual")
         app._on_ai_error(f"AI timeout: error {i}", "persona-1", i, i, 1.0 + i, 0)
         assert app._failure_backoff_paused is False
 
+    app._register_request_meta(4, 4, 0, "visual")
     app._on_ai_error("AI timeout: error 4", "persona-1", 4, 4, 5.0, 0)
 
     assert app._consecutive_failures == 5
@@ -386,6 +418,7 @@ def test_fatal_error_immediate_backoff():
     app._on_ai_error = DanmuApp._on_ai_error.__get__(app, DanmuApp)
     app.screenshot_timer.active = True
 
+    app._register_request_meta(1, 1, 0, "visual")
     app._on_ai_error("401 API Key failure", "persona-1", 1, 1, time.monotonic(), 0)
 
     assert app._failure_backoff_paused is True
@@ -400,6 +433,7 @@ def test_fatal_403_and_402_immediate_backoff():
 
     app.ai_in_flight = 1
     app.screenshot_timer.active = True
+    app._register_request_meta(1, 1, 0, "visual")
     app._on_ai_error("403 Forbidden", "persona-1", 1, 1, time.monotonic(), 0)
     assert app._failure_backoff_paused is True
     assert app.screenshot_timer.active is False
@@ -408,6 +442,7 @@ def test_fatal_403_and_402_immediate_backoff():
     app._consecutive_failures = 0
     app.screenshot_timer.active = True
     app.ai_in_flight = 1
+    app._register_request_meta(2, 2, 0, "visual")
     app._on_ai_error("HTTP 402 Payment Required", "persona-1", 2, 2, time.monotonic(), 0)
     assert app._failure_backoff_paused is True
     assert app.screenshot_timer.active is False

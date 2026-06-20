@@ -118,9 +118,10 @@ def consume_doubao_sse_lines(
             if delta:
                 collected.append(str(delta))
         elif chunk_type == "response.output_text.done":
-            text = chunk.get("text", "") or chunk.get("delta", "")
-            if text:
-                collected.append(str(text))
+            if not collected:  # 仅在无 delta 时取 done 文本（done.text 为完整文本，非增量）
+                text = chunk.get("text", "") or chunk.get("delta", "")
+                if text:
+                    collected.append(str(text))
         elif chunk_type in (
             "response.reasoning_summary_text.delta",
             "response.reasoning_text.delta",
@@ -132,9 +133,10 @@ def consume_doubao_sse_lines(
             "response.reasoning_summary_text.done",
             "response.reasoning_text.done",
         ):
-            text = chunk.get("text", "") or chunk.get("delta", "")
-            if text:
-                summary_parts.append(str(text))
+            if not summary_parts:  # 仅在无 delta 时取 done 文本（done.text 为完整文本，非增量）
+                text = chunk.get("text", "") or chunk.get("delta", "")
+                if text:
+                    summary_parts.append(str(text))
         elif chunk_type in ("response.completed", "response.incomplete", "response.failed"):
             response = chunk.get("response", {})
             if isinstance(response, dict):

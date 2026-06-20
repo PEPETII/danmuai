@@ -153,7 +153,6 @@ class DanmuAppLifecycleMixin:
 
         self._latest_screenshot = None
         self._latest_screenshot_time = 0.0
-        self._capture_in_flight = False
         self._is_generating = False
         self._batch_id = 0
         self._current_batch = None
@@ -415,6 +414,12 @@ class DanmuAppLifecycleMixin:
         output_tokens: int = 0,
     ) -> None:
         meta = self._pop_request_meta(request_round, screenshot_id, scene_generation)
+        if not meta:
+            self.logger.warning(
+                "stale_error_dropped: request_round=%s screenshot_id=%s scene_generation=%s",
+                request_round, screenshot_id, scene_generation,
+            )
+            return
         source = meta.get("source") or "visual"
         is_mic = source == "mic"
 
@@ -521,6 +526,7 @@ class DanmuAppLifecycleMixin:
             recorder.reset()
         self.ai_worker.reset_stopping()
         self.ai_in_flight = 0
+        self._capture_in_flight = False
         self._is_generating = False
         self._local_fallback_active = False
         self._batch_id = 0

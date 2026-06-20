@@ -14,6 +14,7 @@ W-FP-V3-003：竖向 min_gap 准入与独立调度；间距逻辑与横向 ``Dan
 
 from __future__ import annotations
 
+import time
 from collections import deque
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -97,6 +98,8 @@ class FloatingPanelEngine:
 
         self._recent_exact_set: set[str] = set()
 
+        self._recent_timestamps: dict[str, float] = {}
+
         self.running: bool = False
 
         self._panel_height: float = 600.0
@@ -171,6 +174,8 @@ class FloatingPanelEngine:
 
         self._recent_exact_set.clear()
 
+        self._recent_timestamps.clear()
+
 
 
     def visible_items(self) -> list[FloatingPanelItem]:
@@ -207,6 +212,8 @@ class FloatingPanelEngine:
 
     def is_duplicate(self, content: str) -> bool:
 
+        self._prune_recent_by_ttl()
+
         return is_duplicate_in_recent(
 
             content,
@@ -223,6 +230,8 @@ class FloatingPanelEngine:
 
     def _remember(self, content: str) -> None:
 
+        self._prune_recent_by_ttl()
+
         evicted = None
 
         if self._recent.maxlen and len(self._recent) == self._recent.maxlen:
@@ -233,9 +242,55 @@ class FloatingPanelEngine:
 
         self._recent_exact_set.add(content)
 
+        self._recent_timestamps[content] = time.monotonic()
+
         if evicted is not None and evicted not in self._recent:
 
             self._recent_exact_set.discard(evicted)
+
+            self._recent_timestamps.pop(evicted, None)
+
+
+
+    def _recent_ttl_sec(self) -> int:
+
+        value = self.config.get_int("danmu_recent_ttl_sec", 120)
+
+        return max(1, min(int(value), 600))
+
+
+
+    def _prune_recent_by_ttl(self) -> None:
+
+        ttl = self._recent_ttl_sec()
+
+        if ttl <= 0:
+
+            return
+
+        cutoff = time.monotonic() - ttl
+
+        removed = [content for content, ts in self._recent_timestamps.items() if ts < cutoff]
+
+        if not removed:
+
+            return
+
+        for content in removed:
+
+            self._recent_timestamps.pop(content, None)
+
+            try:
+
+                self._recent.remove(content)
+
+            except ValueError:
+
+                pass
+
+            if content not in self._recent:
+
+                self._recent_exact_set.discard(content)
 
 
 

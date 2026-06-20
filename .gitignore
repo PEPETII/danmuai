@@ -85,7 +85,6 @@ docs/archive/qt6_ui_redesign_plan.md
 community/
 
 # Maintainer docs (local only — not published on GitHub)
-AGENTS.md
 docs/agent/ai-project-context.md
 docs/workflow/工单列表.md
 docs/workflow/当前仓库状态.md

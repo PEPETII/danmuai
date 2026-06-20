@@ -237,7 +237,7 @@ def request_doubao(
     }
     if system_pt:
         data["instructions"] = system_pt
-    if temperature:
+    if temperature is not None and temperature >= 0:
         data["temperature"] = temperature
     data["thinking"] = dict(THINKING_DISABLED)  # 固定关闭思考模式：降低延迟，避免 MiMo 返回空内容
     data["max_output_tokens"] = max_output_tokens

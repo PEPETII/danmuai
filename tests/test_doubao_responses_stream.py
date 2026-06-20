@@ -31,13 +31,14 @@ def test_consume_doubao_sse_lines_collects_done_event():
 
 
 def test_consume_doubao_sse_lines_collects_delta_and_done_text():
+    """done.text 为完整文本时，已有 delta 则跳过 done，避免重复。"""
     lines = [
         'data: {"type":"response.output_text.delta","delta":"hel"}',
-        'data: {"type":"response.output_text.done","text":"lo"}',
+        'data: {"type":"response.output_text.done","text":"hello"}',
         'data: {"type":"response.completed","response":{"usage":{"input_tokens":256,"output_tokens":8}}}',
     ]
     result = consume_doubao_sse_lines(lines)
-    assert result.text == "hello"
+    assert result.text == "hel"
     assert result.input_tokens == 256
     assert result.output_tokens == 8
     assert result.reasoning_only is False
@@ -102,3 +103,37 @@ def test_parse_doubao_json_body_completed_response():
     assert result.text == "ok"
     assert result.input_tokens == 1200
     assert result.output_tokens == 20
+
+
+def test_consume_doubao_sse_lines_done_with_full_text_does_not_duplicate():
+    """BUG-C01：delta + done(完整文本) 不应产生重复。"""
+    lines = [
+        'data: {"type":"response.output_text.delta","delta":"hel"}',
+        'data: {"type":"response.output_text.done","text":"hello"}',
+        'data: {"type":"response.completed","response":{"usage":{"input_tokens":100,"output_tokens":5}}}',
+    ]
+    result = consume_doubao_sse_lines(lines)
+    assert result.text == "hel"
+    assert "helhello" not in result.text
+
+
+def test_consume_doubao_sse_lines_done_only_collects_full_text():
+    """仅有 done 事件（无 delta）时，done.text 作为完整文本收集。"""
+    lines = [
+        'data: {"type":"response.output_text.done","text":"hello"}',
+        'data: {"type":"response.completed","response":{"usage":{"input_tokens":100,"output_tokens":5}}}',
+    ]
+    result = consume_doubao_sse_lines(lines)
+    assert result.text == "hello"
+
+
+def test_consume_doubao_sse_lines_reasoning_done_no_duplicate():
+    """reasoning done 事件同理：已有 delta 时跳过 done 完整文本。"""
+    lines = [
+        'data: {"type":"response.reasoning_summary_text.delta","delta":"先想一下"}',
+        'data: {"type":"response.reasoning_summary_text.done","text":"先想一下最终也只有思考"}',
+        'data: {"type":"response.completed","response":{"usage":{"input_tokens":111,"output_tokens":22}}}',
+    ]
+    result = consume_doubao_sse_lines(lines)
+    assert result.text == ""
+    assert result.reasoning_only is True

@@ -130,7 +130,15 @@ def _try_parse_json_object(raw: str):
 def _heuristic_comments_from_malformed_json(raw: str) -> list[str]:
     """模型偶发畸形 JSON（comments 非数组、重复对象拼接）时的兜底抽取。"""
     if "}{" in raw:
-        raw = raw.split("}{", 1)[0] + "}"
+        merged: list[str] = []
+        segments = raw.split("}{")
+        for i, seg in enumerate(segments):
+            if i > 0:
+                seg = "{" + seg
+            if i < len(segments) - 1:
+                seg = seg + "}"
+            merged.extend(_heuristic_comments_from_malformed_json(seg))
+        return _normalize_comment_list(merged)
 
     scene_brief_match = _SCENE_BRIEF_VALUE_RE.search(raw)
     scene_brief_value = scene_brief_match.group(1) if scene_brief_match else None
@@ -230,6 +238,19 @@ def parse_ai_reply_payload(text: str) -> list[str]:
     if raw.startswith("[") or raw.startswith("{"):
         if raw.startswith("["):
             parsed = _try_parse_json_array(raw)
+        elif "}{" in raw:
+            # B03 修复：}{ 拼接时逐段解析并合并 comments
+            merged: list[str] = []
+            segments = raw.split("}{")
+            for i, seg in enumerate(segments):
+                if i > 0:
+                    seg = "{" + seg
+                if i < len(segments) - 1:
+                    seg = seg + "}"
+                obj = _try_parse_json_object(seg)
+                if isinstance(obj, dict):
+                    merged.extend(_extract_comments_from_dict(obj))
+            parsed = merged if merged else None
         else:
             parsed = _try_parse_json_object(raw)
 

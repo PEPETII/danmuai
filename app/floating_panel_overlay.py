@@ -29,6 +29,24 @@ _TEXT_FILL = QColor(255, 255, 255)
 _TEXT_OUTLINE = QColor(0, 0, 0, 200)
 _OUTLINE_WIDTH = 3
 _CARD_BG = QColor(20, 20, 28, 170)
+_FAST_DANMU_RENDER_MIN_LEN = 36
+_FAST_OUTLINE_OFFSETS = (
+    (-2, 0),
+    (2, 0),
+    (0, -2),
+    (0, 2),
+    (-1, -1),
+    (1, 1),
+    (-1, 1),
+    (1, -1),
+)
+
+
+def _use_fast_danmu_render(content: str) -> bool:
+    """长文本/CJK 走 drawText 描边，避免 QPainterPath.addText 阻塞主线程。"""
+    if len(content) >= _FAST_DANMU_RENDER_MIN_LEN:
+        return True
+    return any(ord(ch) > 127 for ch in content)
 
 
 class FloatingPanelOverlay(QWidget):
@@ -195,17 +213,28 @@ class FloatingPanelOverlay(QWidget):
                     Qt.TextElideMode.ElideRight,
                     max_text_w,
                 )
-            text_path = QPainterPath()
-            text_path.addText(text_x, baseline_y, self._font, draw_text)
-            pen = QPen(_TEXT_OUTLINE)
-            pen.setWidth(_OUTLINE_WIDTH)
-            pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-            pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-            painter.setPen(pen)
-            painter.drawPath(text_path)
-            painter.setPen(Qt.PenStyle.NoPen)
-            painter.setBrush(_TEXT_FILL)
-            painter.drawPath(text_path)
+            if _use_fast_danmu_render(draw_text):
+                # 快路径：drawText + 8 方向偏移描边，避免 QPainterPath.addText 对 CJK 的路径计算开销
+                outline_pen = QPen(_TEXT_OUTLINE)
+                outline_pen.setWidth(_OUTLINE_WIDTH)
+                for dx, dy in _FAST_OUTLINE_OFFSETS:
+                    painter.setPen(outline_pen)
+                    painter.drawText(int(text_x + dx), int(baseline_y + dy), draw_text)
+                painter.setPen(QPen(_TEXT_FILL))
+                painter.drawText(int(text_x), int(baseline_y), draw_text)
+            else:
+                # 慢路径：QPainterPath.addText 描边 + 填充（短 ASCII 文本）
+                text_path = QPainterPath()
+                text_path.addText(text_x, baseline_y, self._font, draw_text)
+                pen = QPen(_TEXT_OUTLINE)
+                pen.setWidth(_OUTLINE_WIDTH)
+                pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+                pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+                painter.setPen(pen)
+                painter.drawPath(text_path)
+                painter.setPen(Qt.PenStyle.NoPen)
+                painter.setBrush(_TEXT_FILL)
+                painter.drawPath(text_path)
         finally:
             painter.end()
         return pm

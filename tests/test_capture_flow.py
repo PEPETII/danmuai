@@ -7,7 +7,7 @@ from app.runnable import AiRunnable
 from main import compress_screenshot
 
 from tests.conftest import make_minimal_danmu_app, start_app_timers
-from tests.fakes import FakeCapturer, FakeConfig, FakePixmap
+from tests.fakes import FakeCapturer, FakeConfig, FakePixmap, FakeTimer
 
 
 def test_normal_mode_start_uses_configured_capture_interval():
@@ -87,6 +87,54 @@ def test_capture_in_flight_skips_second_schedule(monkeypatch):
 
     app._schedule_capture()
     assert started == []
+
+
+def test_start_resets_capture_in_flight(monkeypatch):
+    """BUG-A02: start() 应重置 _capture_in_flight，避免 stop→start 快速切换后截图管道卡死。"""
+    from main import DanmuApp
+
+    app = make_minimal_danmu_app()
+    # 模拟 stop 前的状态：截图正在进行
+    app._capture_in_flight = True
+    app.engine.running = True
+
+    # 设置 start() 所需的最小依赖
+    app.config = FakeConfig({"api_key": "test-key"})
+    app.tray = Mock()
+    app.tray.update_state = Mock()
+    app.overlay = Mock()
+    app.overlay.stop_render_loop = Mock()
+    app.overlay.hide = Mock()
+    app._sync_overlay_visibility = Mock()
+    app._sync_floating_panel_visibility = Mock()
+    app._reassert_active_overlay_topmost = Mock()
+    app._sync_pet_window_visibility = Mock()
+    app._sync_mic_service = Mock()
+    app._start_meme_barrage_timers = Mock()
+    app._reset_scene_generation_baseline = Mock()
+    app._ensure_stats_state = Mock(return_value=Mock(
+        reset_session=Mock(), start_time=0
+    ))
+    app.session_run_log = Mock()
+    app._live_status_timer = FakeTimer()
+    app._lifetime_flush_timer = FakeTimer()
+    app._topmost_health_timer = FakeTimer()
+    app._pool_topup_timer = FakeTimer()
+    app.state_changed = Mock()
+    app._set_error_status_safe = Mock()
+    app._open_web_console = Mock()
+
+    # mock model_selection 避免端点检查失败
+    monkeypatch.setattr("app.model_selection.visual_api_endpoint_issue", lambda c: None)
+
+    # 绑定真实 start 方法
+    app.start = DanmuApp.start.__get__(app, DanmuApp)
+
+    app.start()
+
+    assert app._capture_in_flight is False, (
+        "start() 应将 _capture_in_flight 重置为 False"
+    )
 
 
 def test_capture_completed_failure_does_not_trigger_api():

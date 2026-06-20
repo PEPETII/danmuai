@@ -324,6 +324,18 @@ def test_request_openai_mimo_includes_input_audio_when_provided():
     worker.close()
 
 
+def test_request_doubao_includes_temperature_zero():
+    """BUG-C02：temperature=0.0 时请求体必须包含 temperature 字段。"""
+    worker = AiWorker(ai_client_fake_config(data={"temperature": "0"}))
+    with patch.object(worker, "_stream_doubao", return_value=("test", 100, 50, "")) as mock_stream:
+        with patch.object(worker, "_emit_safe"):
+            worker._request_doubao("data:image/jpeg;base64,abc", "sys", "user", "p1", 1, 1, 1.0, 0)
+    payload = mock_stream.call_args[0][3]
+    assert "temperature" in payload
+    assert payload["temperature"] == 0.0
+    worker.close()
+
+
 def test_request_doubao_always_disables_thinking():
     worker = AiWorker(ai_client_fake_config(data={"max_tokens": "200", "use_thinking": "1"}))
     with patch.object(worker, "_stream_doubao", return_value=("test", 100, 50, "")) as mock_stream:

@@ -112,12 +112,15 @@ def test_parse_ai_reply_keeps_normal_short_comments():
 
 
 def test_parse_ai_reply_splits_duplicated_json_objects():
+    """B03 修复后，}{ 拼接的相同对象会合并所有段 comments（去重由下游处理）。"""
     obj = (
         '{"scene_brief":"程序员调试代码遇API报错","comments":["这报错看着我头大",'
         '"这日志也太详细了","API报错咋整啊"]}'
     )
     items = parse_ai_reply_payload(obj + obj)
-    assert items == ["这报错看着我头大", "这日志也太详细了", "API报错咋整啊"]
+    # 合并后包含两段的 comments（6 条），去重由 normalize_reply_batch 处理
+    assert len(items) == 6
+    assert items[:3] == ["这报错看着我头大", "这日志也太详细了", "API报错咋整啊"]
 
 
 def test_normalize_reply_batch_pads_to_default_five_items(monkeypatch):
@@ -341,3 +344,30 @@ def test_parse_no_reasoning_tags_unchanged():
     raw = '["弹幕一", "弹幕二"]'
     items = parse_ai_reply_payload(raw)
     assert items == ["弹幕一", "弹幕二"]
+
+
+# --- B03: }{ concatenated JSON objects ---
+
+
+def test_parse_ai_reply_merges_concatenated_json_objects_with_different_comments():
+    """B03: }{ 拼接的不同内容 JSON 对象应合并所有 comments。"""
+    raw = '{"comments":["弹幕A","弹幕B"]}{"comments":["弹幕C"]}'
+    items = parse_ai_reply_payload(raw)
+    assert "弹幕A" in items
+    assert "弹幕B" in items
+    assert "弹幕C" in items
+
+
+def test_parse_ai_reply_merges_concatenated_json_objects_with_scene_brief():
+    """B03: }{ 拼接时每段的 scene_brief 被忽略，comments 合并。"""
+    raw = '{"scene_brief":"场景1","comments":["弹幕A"]}{"scene_brief":"场景2","comments":["弹幕B"]}'
+    items = parse_ai_reply_payload(raw)
+    assert "弹幕A" in items
+    assert "弹幕B" in items
+
+
+def test_parse_ai_reply_concatenated_first_segment_invalid():
+    """B03: }{ 拼接时第一段无效，仍尝试解析后续段。"""
+    raw = '{invalid}{"comments":["弹幕A"]}'
+    items = parse_ai_reply_payload(raw)
+    assert "弹幕A" in items
