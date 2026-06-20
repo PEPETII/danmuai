@@ -70,6 +70,7 @@ DEFAULT_DANMU_LINES = 20
 # 0 = 无限制；>0 时仅作性能保护（屏外淘汰，非拒绝上屏）
 DANMU_PENDING_ENTRY_CAP_MAX = 9999
 DANMU_TRACK_RETENTION_CAP_MAX = 9999
+MAX_EVICT_ITERATIONS = 512  # _prepare_capacity_for_new_item 淘汰循环硬性上限
 
 LAYOUT_MODE_RATIOS: dict[str, float] = {
     "fullscreen": 1.0,
@@ -598,7 +599,7 @@ class DanmuEngine(QObject):
         retention_cap = self._track_retention_cap()
         if pending_cap <= 0 and retention_cap <= 0:
             return True
-        safety = max(self.current_display_count(), pending_cap, retention_cap, 1) + 8
+        safety = min(max(self.current_display_count(), pending_cap, retention_cap, 1) + 8, MAX_EVICT_ITERATIONS)
         for _ in range(safety):
             pending_over = pending_cap > 0 and self.pending_entry_count() >= pending_cap
             retention_over = retention_cap > 0 and self.current_display_count() >= retention_cap
@@ -805,6 +806,8 @@ class DanmuEngine(QObject):
             self.overlay.measure_item_width(item)
             if self.overlay.isVisible():
                 self.overlay.ensure_render_loop()
+            # 入待渲染队列，避免 _prepare_pixmaps_near_visible 每帧全量扫描
+            self.overlay._pending_render.append(item)
             self._update_item_motion_tick_state(item)
         self._refresh_item_visibility(item)
         return item

@@ -4,8 +4,10 @@
 后续进程连 socket 发送 ``_ACTIVATE_MSG`` 后退出，激活原窗口。``_server_name`` 哈希
 ``%USERNAME% + config 数据库路径``生成唯一 server 名，避免多用户 / 多 profile 误判。
 
-约束：必须主线程构造 ``QLocalServer``；socket 连接超时 200ms，失败时新进程继续启动
-（不阻塞），仅在 ``_send_activate`` 成功时 exit 0。
+竞态窗口：若原实例正在启动但 ``QLocalServer`` 尚未就绪，新进程 ``_activate_existing_instance``
+超时返回 False，``_listen_primary`` 可能抢占成功（server 名尚未注册），导致双实例。
+``main()`` 对 ``ACTIVATION_FAILED`` 结果执行最多 2 次重试（间隔 500ms），重试期间原实例
+``QLocalServer`` 有机会就绪；重试耗尽则 ``sys.exit(2)`` 退出，阻止双实例。
 """
 
 from __future__ import annotations

@@ -20,6 +20,9 @@ VISUAL_INFLIGHT_WARN_SEC = 45.0
 VISUAL_INFLIGHT_RECOVER_SEC = 48.0
 # AiRunnable wall clock: hung SSE must error before double-retry ceiling (S-012).
 REQUEST_WALL_CLOCK_SEC = 45.0
+# W-PERF-STREAM-001：流式首内容超时 — 从请求开始到收到第一个 content delta 的最大等待时间。
+# 超过此时间仍未收到 content，视为"模型未产出弹幕"，提前终止流式响应。
+STREAM_FIRST_CONTENT_TIMEOUT_SEC: float = 20.0
 MAX_IN_FLIGHT = 1
 MAX_MIC_IN_FLIGHT = 1
 # S-009: consecutive capture failures before surfacing Web status bar warning.

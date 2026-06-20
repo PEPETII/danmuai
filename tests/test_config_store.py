@@ -306,6 +306,7 @@ def test_config_store_repairs_stale_region_on_init(tmp_path):
     store1.close()
 
     store2 = ConfigStore(db_path=db)
+    store2.run_deferred_migrations()  # W-PERF-STARTUP-001：修复操作已延迟到启动后执行
     assert store2.get_region() == (0, 0, 0, 0)
     assert store2.get("region_x") == "0"
     assert store2.get("region_y") == "0"
@@ -598,6 +599,7 @@ def test_custom_danmu_pool_json_migration(tmp_path):
     conn.close()
 
     store = ConfigStore(db_path=db)
+    store.run_deferred_migrations()  # W-PERF-STARTUP-001：迁移已延迟到启动后执行
     assert store.get("custom_danmu_pool_migrated") == "1"
     assert store.get_custom_danmu_pool() == ["旧句A", "旧句B"]
     store.close()
@@ -800,4 +802,54 @@ def test_get_recent_history(tmp_path):
     # After close, should return empty
     store.close()
     assert store.get_recent_history(30) == []
+
+
+# ── BUG-A10: get_json invalid JSON tolerance ──────────────────────
+
+
+def test_get_json_invalid_json_returns_default(tmp_path):
+    """BUG-A10: get_json with invalid JSON value returns default instead of raising."""
+    store = ConfigStore(db_path=tmp_path / "test_json.db")
+    # Write invalid JSON directly to the database
+    store.conn.execute(
+        "INSERT INTO config (key, value) VALUES (?, ?)",
+        ("bad_key", "{invalid json"),
+    )
+    store.conn.commit()
+    store._cache["bad_key"] = "{invalid json"
+
+    result = store.get_json("bad_key")
+    assert result == {}  # default is {}
+
+    result_with_default = store.get_json("bad_key", default={"fallback": True})
+    assert result_with_default == {"fallback": True}
+    store.close()
+
+
+def test_get_json_invalid_json_with_list_default(tmp_path):
+    """BUG-A10: get_json with invalid JSON and list default returns the list."""
+    store = ConfigStore(db_path=tmp_path / "test_json2.db")
+    store.conn.execute(
+        "INSERT INTO config (key, value) VALUES (?, ?)",
+        ("bad_list_key", "not json"),
+    )
+    store.conn.commit()
+    store._cache["bad_list_key"] = "not json"
+
+    # Note: default=[] returns {} due to `default or {}` in get_json (empty list is falsy).
+    # This is a pre-existing behavior, not part of BUG-A10 which only added try-except.
+    # Using a non-empty list default works correctly.
+    result = store.get_json("bad_list_key", default=["fallback"])
+    assert result == ["fallback"]
+    store.close()
+
+
+def test_get_json_valid_json_returns_parsed(tmp_path):
+    """BUG-A10: get_json with valid JSON still returns parsed value."""
+    store = ConfigStore(db_path=tmp_path / "test_json3.db")
+    store.set_json("good_key", ["item1", "item2"])
+
+    result = store.get_json("good_key")
+    assert result == ["item1", "item2"]
+    store.close()
 

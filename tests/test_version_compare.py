@@ -44,3 +44,29 @@ def test_invalid_version_raises():
         parse_version("")
     with pytest.raises(ValueError):
         parse_version("not-a-version")
+
+
+# ── BUG-A07: +build metadata handling ──────────────────────────────
+
+
+def test_build_metadata_ignored_in_comparison():
+    """BUG-A07: +build metadata must be ignored per semver spec."""
+    assert compare_versions("0.3.4", "0.3.4+build.1") == 0
+    assert compare_versions("0.3.4+build.1", "0.3.4") == 0
+
+
+def test_build_metadata_different_builds_equal():
+    """BUG-A07: Different +build metadata still compares as equal."""
+    assert compare_versions("0.3.4+build.1", "0.3.4+build.2") == 0
+
+
+def test_build_metadata_newer_version_with_build():
+    """BUG-A07: Version comparison ignores +build when determining newer."""
+    assert is_version_newer("0.3.5", "0.3.4+build.1")
+    assert not is_version_newer("0.3.4+build.1", "0.3.5")
+
+
+def test_build_metadata_prerelease_with_build():
+    """BUG-A07: +build is stripped before prerelease comparison."""
+    assert compare_versions("0.3.4-alpha+build.1", "0.3.4-alpha") == 0
+    assert compare_versions("0.3.4-alpha", "0.3.4-alpha+build.2") == 0

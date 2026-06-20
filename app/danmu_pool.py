@@ -18,6 +18,8 @@ CUSTOM_DANMU_POOL_MAX = 20000
 
 # 按 config 实例缓存烂梗库句集合；池/烂梗库写入后须 invalidate_formula_text_cache。
 _formula_meme_sets: dict[int, set[str]] = {}
+# 按 config 实例缓存自定义弹幕库句集合；池/烂梗库写入后须 invalidate_formula_text_cache。
+_formula_custom_sets: dict[int, set[str]] = {}
 
 
 def danmu_pool_use_custom_from_config(config) -> bool:
@@ -116,9 +118,11 @@ def invalidate_formula_text_cache(config: Any | None = None) -> None:
     """Drop cached formula-text sets after custom pool or meme library writes."""
     if config is None:
         _formula_meme_sets.clear()
+        _formula_custom_sets.clear()
         return
     key = id(config)
     _formula_meme_sets.pop(key, None)
+    _formula_custom_sets.pop(key, None)
 
 
 def _meme_barrage_text_set(config) -> set[str]:
@@ -135,6 +139,22 @@ def _meme_barrage_text_set(config) -> set[str]:
     return cached
 
 
+def _custom_pool_text_set(config) -> set[str]:
+    """Cached set of all enabled custom pool texts for *config*."""
+    key = id(config)
+    cached = _formula_custom_sets.get(key)
+    if cached is not None:
+        return cached
+    # Prefer the store-level bulk loader if available.
+    getter = getattr(config, "get_custom_danmu_pool", None)
+    if callable(getter):
+        cached = {str(t).strip() for t in getter() if str(t).strip()}
+    else:
+        cached = set()
+    _formula_custom_sets[key] = cached
+    return cached
+
+
 def is_stored_custom_pool_text(config, content: str) -> bool:
     """True when content exactly matches a saved custom pool line (full display, no truncation)."""
     if config is None:
@@ -142,6 +162,10 @@ def is_stored_custom_pool_text(config, content: str) -> bool:
     text = str(content).strip()
     if not text:
         return False
+    # Fast path: cached set lookup (no SQLite hit).
+    if callable(getattr(config, "get_custom_danmu_pool", None)):
+        return text in _custom_pool_text_set(config)
+    # Fallback for non-store configs.
     contains = getattr(config, "custom_danmu_contains_text", None)
     if callable(contains):
         return bool(contains(text))
@@ -287,7 +311,7 @@ def _custom_danmu_count_locked(store, source: str | None = None) -> int:
 def migrate_custom_danmu_pool_json(store) -> None:
     if store.get("custom_danmu_pool_migrated") == "1":
         return
-    with store._write_lock:
+    with store._pool_write_lock:
         if _custom_danmu_count_locked(store) > 0:
             pass
         else:
@@ -377,7 +401,7 @@ def custom_danmu_insert_many_for_store(
     now = time.time()
     batch: list[tuple[str, str, float, float]] = []
     seen: set[str] = set()
-    with store._write_lock:
+    with store._pool_write_lock:
         room = max(0, CUSTOM_DANMU_POOL_MAX - _custom_danmu_count_locked(store))
         for raw in texts:
             text = str(raw).strip()
@@ -412,7 +436,7 @@ def custom_danmu_delete_ids_for_store(store, ids: list[int]) -> int:
     if not clean:
         return 0
     placeholders = ",".join("?" for _ in clean)
-    with store._write_lock:
+    with store._pool_write_lock:
         before = store.conn.total_changes
         store.conn.execute(
             f"DELETE FROM custom_danmu_pool_entries WHERE id IN ({placeholders})",
@@ -430,7 +454,7 @@ def custom_danmu_delete_texts_for_store(store, texts: list[str]) -> int:
     if not clean:
         return 0
     placeholders = ",".join("?" for _ in clean)
-    with store._write_lock:
+    with store._pool_write_lock:
         before = store.conn.total_changes
         store.conn.execute(
             f"DELETE FROM custom_danmu_pool_entries WHERE text IN ({placeholders})",
@@ -480,20 +504,63 @@ def get_custom_danmu_pool_for_store(store) -> list[str]:
     return [str(row[0]).strip() for row in rows if row and row[0] and str(row[0]).strip()]
 
 
-def set_custom_danmu_pool_for_store(store, items: list[str]) -> None:
-    now = time.time()
-    params: list[tuple[str, float, float]] = []
+def _diff_custom_danmu_pool(
+    existing: set[str], new_items: list[str], max_count: int
+) -> tuple[list[str], list[str]]:
+    """计算增量差异：返回 (to_add, to_remove)。
+
+    to_add: 新列表中有、旧库中没有的文本（按顺序，去重，截断到 max_count - len(existing ∩ new)）
+    to_remove: 旧库中有、新列表中没有的文本
+    """
     seen: set[str] = set()
-    for raw in items:
+    new_ordered: list[str] = []
+    for raw in new_items:
         text = str(raw).strip()
         if text and text not in seen:
             seen.add(text)
-            if len(params) >= CUSTOM_DANMU_POOL_MAX:
-                break
-            params.append((text, now, now))
-    with store._write_lock:
-        store.conn.execute("DELETE FROM custom_danmu_pool_entries")
-        if params:
+            new_ordered.append(text)
+
+    new_set = set(new_ordered)
+    to_remove = existing - new_set
+    to_add_ordered = [t for t in new_ordered if t not in existing]
+
+    # 上限截断：保留的 + 新增的 ≤ max_count
+    keep_count = len(existing) - len(to_remove)
+    add_budget = max(0, max_count - keep_count)
+    to_add = to_add_ordered[:add_budget]
+
+    return to_add, list(to_remove)
+
+
+def set_custom_danmu_pool_for_store(store, items: list[str]) -> None:
+    """增量 diff 更新自定义弹幕库，避免全量 DELETE+INSERT 导致的 WAL 膨胀。"""
+    now = time.time()
+
+    # 读取当前库中所有 text
+    existing: set[str] = set()
+    if store._conn_usable():
+        try:
+            rows = store.conn.execute(
+                "SELECT text FROM custom_danmu_pool_entries"
+            ).fetchall()
+            existing = {str(row[0]).strip() for row in rows if row and row[0]}
+        except sqlite3.ProgrammingError:
+            pass
+
+    to_add, to_remove = _diff_custom_danmu_pool(existing, items, CUSTOM_DANMU_POOL_MAX)
+
+    if not to_add and not to_remove:
+        return
+
+    with store._pool_write_lock:
+        if to_remove:
+            placeholders = ",".join("?" for _ in to_remove)
+            store.conn.execute(
+                f"DELETE FROM custom_danmu_pool_entries WHERE text IN ({placeholders})",
+                to_remove,
+            )
+        if to_add:
+            params = [(text, now, now) for text in to_add]
             store.conn.executemany(
                 "INSERT INTO custom_danmu_pool_entries "
                 "(text, source, enabled, created_at, updated_at) VALUES (?, 'manual', 1, ?, ?)",

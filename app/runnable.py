@@ -152,6 +152,8 @@ class AiRunnable(QRunnable):
             audio_data_uri = pcm_to_wav_data_uri(self.mic_pcm)
 
         self.worker._request_deadline_at = started + REQUEST_WALL_CLOCK_SEC
+        # W-PERF-STREAM-001：记录请求开始时间，供流式首内容超时检查
+        self.worker._request_started_at = started
         try:
             self.worker._request(
                 image_data_uri,
@@ -182,3 +184,4 @@ class AiRunnable(QRunnable):
                 )
         finally:
             self.worker._request_deadline_at = None
+            self.worker._request_started_at = None

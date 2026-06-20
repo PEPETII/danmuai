@@ -340,8 +340,8 @@ class AiWorker(QObject):
             emit=emit,
         )
 
-    def _stream_doubao(self, http_client, url: str, headers: dict, data: dict) -> tuple[str, int, int, str]:
-        return stream_doubao(self, http_client, url, headers, data)
+    def _stream_doubao(self, http_client, url: str, headers: dict, data: dict, *, first_content_timeout: float | None = None) -> tuple[str, int, int, str]:
+        return stream_doubao(self, http_client, url, headers, data, first_content_timeout=first_content_timeout)
 
     def _request_openai(
         self,
@@ -382,6 +382,7 @@ class AiWorker(QObject):
         *,
         endpoint: str = "",
         api_mode: str = "",
+        first_content_timeout: float | None = None,
     ) -> tuple[str, int, int]:
         return stream_openai(
             self,
@@ -391,6 +392,7 @@ class AiWorker(QObject):
             data,
             endpoint=endpoint,
             api_mode=api_mode,
+            first_content_timeout=first_content_timeout,
         )
 
 

@@ -43,7 +43,7 @@ _OPACITY_CACHE_BUCKET = 4.0
 _Y_OFFSET = 30
 _DIRTY_MARGIN_PX = 12
 _PRERENDER_AHEAD_PX = FADE_IN_PX + 80.0
-_FAST_DANMU_RENDER_MIN_LEN = 36
+_FAST_DANMU_RENDER_MIN_LEN = 8
 _FAST_OUTLINE_OFFSETS = (
     (-2, 0),
     (2, 0),
@@ -145,6 +145,8 @@ class DanmuOverlay(QWidget):
         self._profile_last_log_at: float = 0.0
         self._last_layout_ratio: float = layout_height_ratio(config)
         self._clear_drawable_on_next_paint: bool = False
+        # 待渲染队列：只含 _pixmap is None 且尚未过屏的 item，避免每帧 O(n) 全量扫描
+        self._pending_render: list[DanmuItem] = []
 
         self.timer = QTimer(self)
         self.timer.setTimerType(Qt.TimerType.PreciseTimer)
@@ -190,6 +192,8 @@ class DanmuOverlay(QWidget):
     def apply_display_settings(self) -> None:
         """Re-read font_size / danmu_max_chars and rebuild on-screen item metrics and pixmaps."""
         self._apply_font_from_config()
+        # 重置待渲染队列：apply 后所有 item 都需要重新渲染
+        self._pending_render.clear()
         for track in self.engine.tracks:
             for item in track.items:
                 item.content = normalize_danmu_display_text(item.content, self.config)
@@ -330,11 +334,30 @@ class DanmuOverlay(QWidget):
         return True
 
     def _prepare_pixmaps_near_visible(self) -> None:
-        """Lazy pixmap: pre-render items approaching the visible band, not at add_text time."""
+        """Lazy pixmap: pre-render items approaching the visible band, not at add_text time.
+
+        优先遍历 _pending_render 队列（O(待渲染)）；队列为空时回退全量扫描（兜底直接入轨的 item）。
+        """
         sw = self._screen_width or float(self.width())
         if sw <= 0:
             return
         threshold = sw + FADE_IN_PX + _PRERENDER_AHEAD_PX
+
+        if self._pending_render:
+            still_pending: list[DanmuItem] = []
+            for item in self._pending_render:
+                if item._pixmap is not None:
+                    continue
+                if item.x + item.width <= 0:
+                    continue
+                if item.x < threshold:
+                    self.prepare_item_pixmap(item)
+                    continue
+                still_pending.append(item)
+            self._pending_render = still_pending
+            return
+
+        # 兜底：队列为空时全量扫描（reload_tracks / 测试直接入轨等场景）
         for track in self.engine.tracks:
             for item in track.items:
                 if item._pixmap is not None:

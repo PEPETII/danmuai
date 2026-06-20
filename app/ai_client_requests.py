@@ -20,6 +20,7 @@ from app.ai_client_support import (
     format_http_status_error,
     resolve_danmu_max_output_tokens,
 )
+from app.main_helpers import STREAM_FIRST_CONTENT_TIMEOUT_SEC
 from app.model_providers import (
     get_capabilities_for_model,
     get_openai_adapter_for_model,
@@ -267,6 +268,7 @@ def request_doubao(
                 url,
                 headers,
                 data,
+                first_content_timeout=STREAM_FIRST_CONTENT_TIMEOUT_SEC,
             )
             if text:
                 return worker._deliver_outcome(
@@ -344,16 +346,19 @@ def request_doubao(
     )
 
 
-def stream_doubao(worker, http_client, url: str, headers: dict, data: dict) -> tuple[str, int, int, str]:
+def stream_doubao(worker, http_client, url: str, headers: dict, data: dict, *, first_content_timeout: float | None = None) -> tuple[str, int, int, str]:
     from app.doubao_responses_stream import stream_doubao_responses
 
     deadline_at = getattr(worker, "_request_deadline_at", None)
+    started_at = getattr(worker, "_request_started_at", None)
     result = stream_doubao_responses(
         http_client,
         url,
         headers,
         data,
         deadline_at=deadline_at,
+        first_content_timeout=first_content_timeout,
+        started_at=started_at,
     )
     if not result.text:
         logger.warning(
@@ -477,6 +482,7 @@ def request_openai(
                 data,
                 endpoint=endpoint,
                 api_mode=api_mode,
+                first_content_timeout=STREAM_FIRST_CONTENT_TIMEOUT_SEC,
             )
             if text:
                 return worker._deliver_outcome(
@@ -562,11 +568,13 @@ def stream_openai(
     *,
     endpoint: str = "",
     api_mode: str = "",
+    first_content_timeout: float | None = None,
 ) -> tuple[str, int, int]:
     collected: list[str] = []
     reasoning_parts: list[str] = []
     input_tokens = 0
     output_tokens = 0
+    got_first_content = False
     caps = get_capabilities_for_endpoint(endpoint, api_mode)
     adapter = get_openai_adapter(endpoint, api_mode)
     with http_client.stream("POST", url, headers=headers, json=data) as resp:
@@ -575,6 +583,16 @@ def stream_openai(
             if worker._stopping.is_set():
                 break
             _raise_if_wall_clock_exceeded(worker)
+            # W-PERF-STREAM-001：首内容超时检查
+            if first_content_timeout is not None and not got_first_content:
+                started_at = getattr(worker, "_request_started_at", None)
+                if started_at is not None and time.monotonic() - started_at > first_content_timeout:
+                    logger.warning(
+                        "openai stream first content timeout: %.1fs elapsed, no content delta received, endpoint=%s",
+                        first_content_timeout,
+                        normalize_endpoint(endpoint) if endpoint else url,
+                    )
+                    break
             if not line or not line.startswith("data: "):
                 continue
             payload = line[6:]
@@ -589,6 +607,7 @@ def stream_openai(
                 delta = choice.get("delta", {})
                 content = delta.get("content", "")
                 if content:
+                    got_first_content = True
                     collected.append(content)
                 reasoning = delta.get("reasoning_content", "")  # 忽略：豆包/OpenAI 思考内容不应作为弹幕
                 if reasoning:
@@ -597,6 +616,7 @@ def stream_openai(
                     message = choice.get("message", {})
                     message_content = message.get("content", "")
                     if message_content:
+                        got_first_content = True
                         collected.append(message_content)
                     message_reasoning = message.get("reasoning_content", "")
                     if message_reasoning:

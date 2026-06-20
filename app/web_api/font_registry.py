@@ -12,6 +12,8 @@ from __future__ import annotations
 
 from fastapi import File, Header, HTTPException, Path, UploadFile
 
+from app.web_console import MainThreadInvokeTimeout
+
 
 def register_font_registry_routes(app, bridge, check_token) -> None:
     @app.post("/api/fonts/import")
@@ -27,6 +29,8 @@ def register_font_registry_routes(app, bridge, check_token) -> None:
                 data,
                 file.filename or "uploaded.ttf",
             )
+        except MainThreadInvokeTimeout as exc:
+            raise HTTPException(status_code=504, detail="主线程操作超时，请稍后重试。") from exc
         except ValueError as exc:
             detail = str(exc)
             if detail == "字体注册表不可用":
@@ -52,6 +56,8 @@ def register_font_registry_routes(app, bridge, check_token) -> None:
         check_token(authorization)
         try:
             ok = bridge.invoke_on_main(bridge.danmu_app.font_registry.delete, sha256)
+        except MainThreadInvokeTimeout as exc:
+            raise HTTPException(status_code=504, detail="主线程操作超时，请稍后重试。") from exc
         except ValueError as exc:
             if str(exc) == "字体注册表不可用":
                 raise HTTPException(status_code=503, detail=str(exc)) from exc

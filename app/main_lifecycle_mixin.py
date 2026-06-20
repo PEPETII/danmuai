@@ -266,6 +266,9 @@ class DanmuAppLifecycleMixin:
         if qt_app is not None:
             qt_app.processEvents()
 
+        # W-PERF-STARTUP-001：延迟执行非关键迁移，减少启动阻塞
+        QTimer.singleShot(0, self.config.run_deferred_migrations)
+
         hotkey_started = time.perf_counter()
         try:
             self.hotkey.register()

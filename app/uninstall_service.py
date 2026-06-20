@@ -91,6 +91,16 @@ def delete_user_data_if_requested() -> None:
     data_dir = _appdata_dir()
     if data_dir.name != APPDATA_DIR_NAME:
         return
+    # BUG-A06: 验证父路径为 %APPDATA%，防止环境变量篡改导致意外删除
+    appdata_env = os.environ.get("APPDATA", "")
+    if appdata_env:
+        expected_parent = Path(appdata_env).resolve()
+        try:
+            actual_parent = data_dir.parent.resolve()
+        except OSError:
+            return
+        if actual_parent != expected_parent:
+            return
     shutil.rmtree(data_dir, ignore_errors=True)
 
 

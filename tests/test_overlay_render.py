@@ -191,10 +191,12 @@ def test_use_fast_danmu_render_for_long_formula_lines():
     short_ascii = "hi"
     short_cjk = "短弹幕"
     short_emoji = "😀短弹幕"
+    ascii_at_threshold = "hello!!!"
     long_line = "x" * 40
     assert _use_fast_danmu_render(short_ascii) is False
     assert _use_fast_danmu_render(short_cjk) is True
     assert _use_fast_danmu_render(short_emoji) is True
+    assert _use_fast_danmu_render(ascii_at_threshold) is True
     assert _use_fast_danmu_render(long_line) is True
 
 

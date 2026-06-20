@@ -1062,6 +1062,32 @@ def main():
             activated_existing=True,
         )
         return sys.exit(0)
+    # BUG-A09: Retry on ACTIVATION_FAILED to cover the race window where the
+    # original instance's QLocalServer is not yet ready.
+    if acquire_result.kind is SingleInstanceAcquireKind.ACTIVATION_FAILED:
+        log_startup("single_instance.retry_begin")
+        for _attempt in range(2):
+            time.sleep(0.5)
+            acquire_result = instance_guard.try_acquire()
+            if acquire_result.kind is SingleInstanceAcquireKind.ACTIVATED_EXISTING:
+                log_startup(
+                    "single_instance.done",
+                    acquired=False,
+                    activated_existing=True,
+                    retry=True,
+                )
+                return sys.exit(0)
+            if acquire_result.kind is SingleInstanceAcquireKind.PRIMARY:
+                log_startup(
+                    "single_instance.done",
+                    acquired=True,
+                    activated_existing=False,
+                    retry=True,
+                )
+                break
+        else:
+            log_startup("single_instance.retry_exhausted")
+            return sys.exit(2)
     log_startup(
         "single_instance.done",
         acquired=acquire_result.became_primary,

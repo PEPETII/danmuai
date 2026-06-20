@@ -24,6 +24,7 @@ _COMMENT_KEYS = ("comments", "replies", "items", "data")
 _COMMENTS_ARRAY_RE = re.compile(r'"comments"\s*:\s*\[([^\]]*)\]', re.DOTALL)
 _SCENE_BRIEF_VALUE_RE = re.compile(r'"scene_brief"\s*:\s*"([^"]*)"')
 _HEURISTIC_SKIP = frozenset({"comments", "scene_brief", ":", ""})
+_MAX_HEURISTIC_DEPTH = 16
 _PLACEHOLDER_COMMENT_RE = re.compile(
     r"^(?:comment|comments|评论|弹幕)\s*[-_#:]?\s*\d{1,3}$",
     re.IGNORECASE,
@@ -127,9 +128,9 @@ def _try_parse_json_object(raw: str):
     return None
 
 
-def _heuristic_comments_from_malformed_json(raw: str) -> list[str]:
+def _heuristic_comments_from_malformed_json(raw: str, *, depth: int = 0) -> list[str]:
     """模型偶发畸形 JSON（comments 非数组、重复对象拼接）时的兜底抽取。"""
-    if "}{" in raw:
+    if "}{" in raw and depth < _MAX_HEURISTIC_DEPTH:
         merged: list[str] = []
         segments = raw.split("}{")
         for i, seg in enumerate(segments):
@@ -137,7 +138,7 @@ def _heuristic_comments_from_malformed_json(raw: str) -> list[str]:
                 seg = "{" + seg
             if i < len(segments) - 1:
                 seg = seg + "}"
-            merged.extend(_heuristic_comments_from_malformed_json(seg))
+            merged.extend(_heuristic_comments_from_malformed_json(seg, depth=depth + 1))
         return _normalize_comment_list(merged)
 
     scene_brief_match = _SCENE_BRIEF_VALUE_RE.search(raw)

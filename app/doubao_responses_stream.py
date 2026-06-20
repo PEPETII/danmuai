@@ -12,11 +12,14 @@
 from __future__ import annotations
 
 import json
+import logging
 import time
 from dataclasses import dataclass, field
 from typing import Any, Iterable
 
 import httpx
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -90,14 +93,25 @@ def consume_doubao_sse_lines(
     lines: Iterable[Any],
     *,
     deadline_at: float | None = None,
+    first_content_timeout: float | None = None,
+    started_at: float | None = None,
 ) -> DoubaoResponsesResult:
     collected: list[str] = []
     summary_parts: list[str] = []
     result = DoubaoResponsesResult()
+    got_first_content = False
 
     for raw in lines:
         if deadline_at is not None and time.monotonic() > float(deadline_at):
             raise httpx.TimeoutException("request wall clock exceeded")
+        # W-PERF-STREAM-001：首内容超时检查
+        if first_content_timeout is not None and not got_first_content and started_at is not None:
+            if time.monotonic() - started_at > first_content_timeout:
+                logger.warning(
+                    "doubao stream first content timeout: %.1fs elapsed, no content delta received",
+                    first_content_timeout,
+                )
+                break
         line = _normalize_sse_line(raw)
         if not line or not line.startswith("data: "):
             continue
@@ -116,11 +130,13 @@ def consume_doubao_sse_lines(
         if chunk_type == "response.output_text.delta":
             delta = chunk.get("delta", "")
             if delta:
+                got_first_content = True
                 collected.append(str(delta))
         elif chunk_type == "response.output_text.done":
             if not collected:  # 仅在无 delta 时取 done 文本（done.text 为完整文本，非增量）
                 text = chunk.get("text", "") or chunk.get("delta", "")
                 if text:
+                    got_first_content = True
                     collected.append(str(text))
         elif chunk_type in (
             "response.reasoning_summary_text.delta",
@@ -188,6 +204,8 @@ def stream_doubao_responses(
     data: dict[str, Any],
     *,
     deadline_at: float | None = None,
+    first_content_timeout: float | None = None,
+    started_at: float | None = None,
 ) -> DoubaoResponsesResult:
     with http_client.stream("POST", url, headers=headers, json=data) as resp:
         resp.raise_for_status()
@@ -203,4 +221,9 @@ def stream_doubao_responses(
             if isinstance(parsed, dict):
                 return parse_doubao_json_body(parsed)
             return DoubaoResponsesResult(error="invalid_json_response")
-        return consume_doubao_sse_lines(resp.iter_lines(), deadline_at=deadline_at)
+        return consume_doubao_sse_lines(
+            resp.iter_lines(),
+            deadline_at=deadline_at,
+            first_content_timeout=first_content_timeout,
+            started_at=started_at,
+        )

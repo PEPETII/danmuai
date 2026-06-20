@@ -91,6 +91,8 @@ class ConfigStore:
         self._load_cache()
         # 所有 REPLACE/commit 串行化，保证 _cache 与 DB 同事务一致
         self._write_lock = threading.Lock()
+        # 弹幕库写操作独立锁，与配置读写互不阻塞
+        self._pool_write_lock = threading.Lock()
         self._closed = False
         # W-FP-V2-002：须在 seed 之前写回，避免 seed 先落 danmu_render_mode=scrolling 盖掉遗留 display_mode
         self._migrate_legacy_display_mode_to_render_mode()
@@ -106,11 +108,8 @@ class ConfigStore:
         self._decrypted_secret_fp: dict[str, tuple[str, str]] = {}
         self._custom_models_cache: list[dict] | None = None
         self._custom_models_fp: str | None = None
-        self._repair_stale_region_if_needed()
-        self._normalize_legacy_display_mode()
-        from app.danmu_pool import migrate_custom_danmu_pool_json
-
-        migrate_custom_danmu_pool_json(self)
+        # W-PERF-STARTUP-001：非关键迁移延迟到主线程空闲时执行，减少启动阻塞
+        self._pending_deferred_migrations = True
 
     def _migrate_legacy_display_mode_to_render_mode(self) -> None:
         # W-FP-V2-002：遗留 display_mode（overlay/floating_panel/both）→ danmu_render_mode 写回
@@ -127,6 +126,17 @@ class ConfigStore:
         normalized_mode = str(items.get("danmu_display_mode", "")).strip().lower()
         if normalized_mode and normalized_mode != legacy_mode.strip().lower():
             self.set("danmu_display_mode", normalized_mode)
+
+    def run_deferred_migrations(self) -> None:
+        """执行启动时延迟的迁移/修复操作，由主线程空闲时调用（W-PERF-STARTUP-001）。"""
+        if not self._pending_deferred_migrations:
+            return
+        self._pending_deferred_migrations = False
+        self._repair_stale_region_if_needed()
+        self._normalize_legacy_display_mode()
+        from app.danmu_pool import migrate_custom_danmu_pool_json
+
+        migrate_custom_danmu_pool_json(self)
 
     def get_startup_notice(self) -> str:
         """首装会话返回本地化引导文案；密钥丢失时返回告警文案；否则为空。"""
@@ -396,6 +406,20 @@ class ConfigStore:
             - 不可重入：同线程内嵌套调用会死锁。
         """
         with self._write_lock:
+            yield self.conn
+
+    @contextmanager
+    def with_pool_write_lock(self):
+        """Acquire the pool write lock for danmu_pool operations.
+
+        与 ``_write_lock`` 独立，弹幕库写入不阻塞配置读写。
+        仅供 ``app/danmu_pool.py`` 使用。
+
+        限制：
+            - 不可重入：同线程内嵌套调用会死锁。
+            - 不可与 ``_write_lock`` 嵌套使用（会死锁）。
+        """
+        with self._pool_write_lock:
             yield self.conn
 
     @staticmethod

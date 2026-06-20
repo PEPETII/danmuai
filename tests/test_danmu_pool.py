@@ -126,16 +126,16 @@ def test_formula_text_cache_reuses_custom_pool_contains(tmp_path, monkeypatch):
     store = ConfigStore(db_path=tmp_path / "formula_cache_custom.db")
     store.set_custom_danmu_pool(["公式句A"])
     calls: list[int] = []
-    original = store.custom_danmu_contains_text
+    original = store.get_custom_danmu_pool
 
-    def _counting_contains(text):
+    def _counting_get():
         calls.append(1)
-        return original(text)
+        return original()
 
-    monkeypatch.setattr(store, "custom_danmu_contains_text", _counting_contains)
+    monkeypatch.setattr(store, "get_custom_danmu_pool", _counting_get)
     assert is_stored_custom_pool_text(store, "公式句A") is True
     assert is_stored_custom_pool_text(store, "公式句A") is True
-    assert len(calls) == 2
+    assert len(calls) == 1
 
 
 def test_formula_text_cache_invalidates_on_pool_write(tmp_path):
@@ -297,6 +297,46 @@ def test_read_without_write_lock_no_deadlock(tmp_path):
     store.close()
 
 
+def test_pool_write_lock_independent_from_config_lock(tmp_path):
+    """W-PERF-CONFIG-POOL-LOCK-SPLIT-001: pool 写锁不阻塞配置读写。"""
+    from app.config_store import ConfigStore
+    import threading
+
+    store = ConfigStore(tmp_path / "pool_lock_split.db")
+    store.custom_danmu_insert_many(["弹幕A"])
+
+    errors = []
+    barrier = threading.Barrier(2, timeout=5)
+
+    def pool_writer():
+        """持 _pool_write_lock 写弹幕库。"""
+        try:
+            barrier.wait()
+            store.custom_danmu_insert_many(["弹幕B"])
+        except Exception as e:
+            errors.append(e)
+
+    def config_writer():
+        """持 _write_lock 写配置。应不被 pool 锁阻塞。"""
+        try:
+            barrier.wait()
+            store.set("test_key", "test_value")
+        except Exception as e:
+            errors.append(e)
+
+    t1 = threading.Thread(target=pool_writer)
+    t2 = threading.Thread(target=config_writer)
+    t1.start()
+    t2.start()
+    t1.join(timeout=10)
+    t2.join(timeout=10)
+
+    assert not errors, f"Concurrent pool/config write errors: {errors}"
+    assert store.get("test_key") == "test_value"
+    assert store.custom_danmu_count() >= 2
+    store.close()
+
+
 def test_load_danmu_pool_for_config_uses_sampling(tmp_path):
     """BUG-A01: load_danmu_pool_for_config should use SQL sampling, not full load."""
     from app.config_store import ConfigStore
@@ -314,4 +354,115 @@ def test_load_danmu_pool_for_config_uses_sampling(tmp_path):
     assert len(result) > 0
     # All results should be from the pool
     assert all(t.startswith("弹幕") for t in result)
+    store.close()
+
+
+def test_custom_pool_cache_invalidates_on_insert(tmp_path):
+    """BUG-A04: Custom pool cache invalidates after insert, new text becomes visible."""
+    from app.config_store import ConfigStore
+    from app.danmu_pool import is_stored_custom_pool_text
+
+    store = ConfigStore(db_path=tmp_path / "cache_invalidate_insert.db")
+    store.set_custom_danmu_pool(["旧句"])
+    assert is_stored_custom_pool_text(store, "旧句") is True
+    assert is_stored_custom_pool_text(store, "新句") is False
+    # Insert new text — cache should be invalidated
+    store.custom_danmu_insert_many(["新句"])
+    assert is_stored_custom_pool_text(store, "新句") is True
+    store.close()
+
+
+def test_invalidate_formula_text_cache_none_clears_all(tmp_path):
+    """BUG-A04: invalidate_formula_text_cache(None) clears both custom and meme caches."""
+    from app.config_store import ConfigStore
+    from app.danmu_pool import (
+        _formula_custom_sets,
+        _formula_meme_sets,
+        invalidate_formula_text_cache,
+        is_stored_custom_pool_text,
+    )
+
+    store = ConfigStore(db_path=tmp_path / "cache_clear_all.db")
+    store.set_custom_danmu_pool(["句A"])
+    # Populate caches
+    assert is_stored_custom_pool_text(store, "句A") is True
+    assert id(store) in _formula_custom_sets
+    # Clear all
+    invalidate_formula_text_cache(None)
+    assert id(store) not in _formula_custom_sets
+    assert len(_formula_custom_sets) == 0
+    assert len(_formula_meme_sets) == 0
+    # Cache is rebuilt on next access
+    assert is_stored_custom_pool_text(store, "句A") is True
+    assert id(store) in _formula_custom_sets
+    store.close()
+
+
+# --- 增量 diff 测试 ---
+
+
+def test_diff_custom_danmu_pool_add_to_empty():
+    from app.danmu_pool import _diff_custom_danmu_pool
+
+    to_add, to_remove = _diff_custom_danmu_pool(set(), ["A", "B", "C"], 100)
+    assert to_add == ["A", "B", "C"]
+    assert to_remove == []
+
+
+def test_diff_custom_danmu_pool_partial_overlap():
+    from app.danmu_pool import _diff_custom_danmu_pool
+
+    existing = {"A", "B", "C"}
+    to_add, to_remove = _diff_custom_danmu_pool(existing, ["B", "C", "D"], 100)
+    assert to_add == ["D"]
+    assert set(to_remove) == {"A"}
+
+
+def test_diff_custom_danmu_pool_no_change():
+    from app.danmu_pool import _diff_custom_danmu_pool
+
+    existing = {"A", "B", "C"}
+    to_add, to_remove = _diff_custom_danmu_pool(existing, ["A", "B", "C"], 100)
+    assert to_add == []
+    assert to_remove == []
+
+
+def test_diff_custom_danmu_pool_respects_max():
+    from app.danmu_pool import _diff_custom_danmu_pool
+
+    existing = {"A", "B"}
+    # max=3, keep 2, budget=1 → only 1 new item
+    to_add, to_remove = _diff_custom_danmu_pool(existing, ["A", "B", "C", "D"], 3)
+    assert to_add == ["C"]
+    assert to_remove == []
+
+
+def test_set_custom_danmu_pool_incremental_noop(tmp_path):
+    """替换为相同内容时无数据库操作。"""
+    from app.config_store import ConfigStore
+
+    store = ConfigStore(db_path=tmp_path / "incr_noop.db")
+    store.set_custom_danmu_pool(["句A", "句B"])
+    changes_before = store.conn.total_changes
+    store.set_custom_danmu_pool(["句A", "句B"])
+    changes_after = store.conn.total_changes
+    assert changes_after == changes_before
+    assert store.custom_danmu_count() == 2
+    store.close()
+
+
+def test_set_custom_danmu_pool_incremental_partial(tmp_path):
+    """部分新增/删除，保留不变项。"""
+    from app.config_store import ConfigStore
+
+    store = ConfigStore(db_path=tmp_path / "incr_partial.db")
+    store.set_custom_danmu_pool(["旧A", "旧B", "旧C"])
+    store.set_custom_danmu_pool(["旧B", "新D", "新E"])
+    pool = store.get_custom_danmu_pool()
+    assert "旧B" in pool
+    assert "新D" in pool
+    assert "新E" in pool
+    assert "旧A" not in pool
+    assert "旧C" not in pool
+    assert store.custom_danmu_count() == 3
     store.close()
