@@ -483,7 +483,6 @@ class DanmuAppDisplayMixin:
                 batch_id=batch_id,
                 request_id=request_id,
                 source="test",
-                memory_eligible=False,
             )
             for content_index, item_text in enumerate(normalized_items)
         ]

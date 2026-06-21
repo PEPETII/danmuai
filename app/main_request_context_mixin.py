@@ -392,17 +392,14 @@ class DanmuAppRequestContextMixin:
         if from_mic_insert:
             source = "mic"
             replaceable = False
-            memory_eligible = True
             is_fallback = False
         elif from_local_fallback:
             source = "fallback"
             replaceable = True
-            memory_eligible = False
             is_fallback = True
         else:
             source = "ai"
             replaceable = False
-            memory_eligible = True
             is_fallback = False
 
         batch_items = [
@@ -420,7 +417,6 @@ class DanmuAppRequestContextMixin:
                 is_fallback=is_fallback,
                 source=source,
                 replaceable=replaceable,
-                memory_eligible=memory_eligible,
             )
             for content_index, item_text in enumerate(normalized_items)
         ]

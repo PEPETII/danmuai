@@ -100,8 +100,7 @@ def test_mic_ai_reply_parses_object_envelope(app):
     app._consume_reply_queue = lambda: None
 
     raw = (
-        '{"scene_brief": "用户在说话", '
-        '"comments": ["mic1", "mic2", "mic3", "mic4", "mic5"]}'
+        '{"comments": ["mic1", "mic2", "mic3", "mic4", "mic5"]}'
     )
     app._handle_mic_ai_reply(raw, "persona-1", -1, 10, time.monotonic(), 0)
 

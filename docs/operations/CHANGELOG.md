@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Removed
+
+- **场景简述 / `scene_brief`**（`W-SCENEBRIEF-REMOVE-002`–`004`）：删除 `app/memory/`、`app/memory_prompt_builder.py`、`app/scene_memory.py` 及运行时 prompt 注入；回复契约与解析不再要求或提取 `scene_brief` 字段；配置键 `scene_memory_interval_sec`、`prompt_dedup_window`（`memory_window` 别名）不再使用
+
 ## 0.3.4 (2026-06-20)
 
 ### Changed

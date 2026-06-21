@@ -165,7 +165,6 @@ hiddenimports: list[str] = [
     "app.main_request_context_mixin",
     "app.main_state_mixin",
     "app.main_web_facade_mixin",
-    "app.memory_prompt_builder",
     "app.mic_buffer",
     "app.mic_capture",
     "app.mic_encode",
@@ -189,7 +188,6 @@ hiddenimports: list[str] = [
     "app.reply_parser",
     "app.reply_queue",
     "app.runnable",
-    "app.scene_memory",
     "app.screenshot_compress",
     "app.session_run_log",
     "app.single_instance",
@@ -235,11 +233,6 @@ hiddenimports: list[str] = [
     "app.application.stats_state",
     "app.application.status_snapshot",
     "app.application.web_runtime_state",
-    # ── app.memory.* ─────────────────────────────────────────────
-    "app.memory",
-    "app.memory.bullet_dedup",
-    "app.memory.store",
-    "app.memory.types",
     # ── app.meme_barrage.* ───────────────────────────────────────
     "app.meme_barrage",
     "app.meme_barrage.ai_select",

@@ -120,34 +120,6 @@ _CONTRACT_NORMAL_EN_LEGACY_RE = re.compile(
     r"Each comment must stay within \d+ characters\. Output format: "
     r'\["[^"]*"(?:, "[^"]*")*\]\.'
 )
-_CONTRACT_OBJECT_ZH_RE = re.compile(
-    r"直播弹幕评论员。只输出 JSON 对象，无解释、无 Markdown。"
-    r"固定 \d+ 条 comments，每条≤\d+字；scene_brief 为不超过 \d+ 字的当前场景简述。"
-    r'格式：\{"scene_brief":"[^"]*","comments":\["[^"]*"(?:, "[^"]*")*\]\}。'
-)
-_CONTRACT_OBJECT_ZH_LEGACY_RE = re.compile(
-    r"直播弹幕评论员。只输出 JSON 对象，无解释、无 Markdown。"
-    r"固定 \d+ 条 comments，每条≤\d+字；scene_brief 为不超过 \d+ 字的当前场景简述。"
-    r"像多位真实观众：短句口语碎片化；优先贴当前画面，可少量接梗或气氛句；条间口吻可不同。"
-    r"禁 AI腔/总结腔/客服腔/长句/说教/重复。"
-    r'格式：\{"scene_brief":"[^"]*","comments":\["[^"]*"(?:, "[^"]*")*\]\}。'
-)
-_CONTRACT_OBJECT_EN_RE = re.compile(
-    r"Live-stream danmu commentator\. JSON object only, no explanation, no Markdown\. "
-    r"Exactly \d+ comments, max \d+ chars each; scene_brief is a current-frame summary within \d+ characters\. "
-    r"All comments MUST be in English only\. "
-    r'Format: \{"scene_brief":"[^"]*","comments":\["[^"]*"(?:, "[^"]*")*\]\}\.'
-)
-_CONTRACT_OBJECT_EN_LEGACY_RE = re.compile(
-    r"Live-stream danmu commentator\. JSON object only, no explanation, no Markdown\. "
-    r"Exactly \d+ comments, max \d+ chars each; scene_brief is a current-frame summary within \d+ characters\. "
-    r"Multiple real viewers: short, casual, fragmented; prioritize the current frame; "
-    r"a few meme or vibe lines OK; vary voice per line\. "
-    r"No AI tone, summaries, customer-service voice, long lines, preaching, or repetition\. "
-    r"All comments MUST be in English only\. "
-    r'Format: \{"scene_brief":"[^"]*","comments":\["[^"]*"(?:, "[^"]*")*\]\}\.'
-)
-
 REPLY_CONTRACT_ZH = ""
 REPLY_CONTRACT_EN = ""
 REPLY_CONTRACT_ALIASES: set[str] = set()
@@ -338,10 +310,6 @@ def get_reply_contract(config: ConfigStore | None = None) -> str:
 def strip_reply_contract(system_pt: str) -> str:
     base = (system_pt or "").strip()
     for pattern in (
-        _CONTRACT_OBJECT_ZH_LEGACY_RE,
-        _CONTRACT_OBJECT_EN_LEGACY_RE,
-        _CONTRACT_OBJECT_ZH_RE,
-        _CONTRACT_OBJECT_EN_RE,
         _CONTRACT_ZH_RE,
         _CONTRACT_EN_RE,
         _CONTRACT_NORMAL_ZH_V2_RE,

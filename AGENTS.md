@@ -198,7 +198,7 @@ python scripts/boundary_guard.py
 
 8. **视觉请求看门狗**：`VISUAL_INFLIGHT_WARN_SEC=45`、`VISUAL_INFLIGHT_RECOVER_SEC=48`、`REQUEST_WALL_CLOCK_SEC=45`、`MAX_IN_FLIGHT=1`、`MAX_MIC_IN_FLIGHT=1`、`CAPTURE_FAIL_WARN_THRESHOLD=3` 均定义在 `app/main_helpers.py`（非 `main.py`），由 `main.py` 通过 `from app.main_helpers import ...` 引入。`reason=inflight_watchdog_recover` 由 `_try_recover_stale_visual_inflight()` 触发；仅告警，不自动复位应用层 `ai_in_flight`。  
 
-9. **配置键与场景记忆**：实际使用的内存/防重键为 `scene_memory_interval_sec`（默认 = 识别周期，量化到 1-12x）与 `prompt_dedup_window`（旧别名 `memory_window`，范围 1-20，默认 10）。代码中**没有** `scene_memory_enabled` 或 `prompt_dedup_enabled` 这两个键；写文档/工单时**勿**引用它们。  
+9. **场景简述已移除**：`scene_brief`、`app/memory/`、`scene_memory_interval_sec`、`prompt_dedup_window`（`memory_window` 别名）已于 2026-06 删除（`W-SCENEBRIEF-REMOVE-*`）。写文档/工单时**勿**把它们当作现行能力或配置键。  
 
 10. **维护者登记表位置**：`docs/runtime-state-map.md`、`docs/main-pipeline-sequence.md`、`docs/final-architecture-baseline.md` 位于仓库 **`docs/` 根**（**不**在 `docs/core/`）；`boundary_guard` 依赖其路径，禁止移动。
 
@@ -311,15 +311,7 @@ python main.py
 | `app/danmu_engine_dedup.py` | 去重：`deque(30)` + `recent_exact_set` + Levenshtein `dedup_threshold=0.5` |
 | `app/image_compress.py` | PIL + JPEG + Base64，`max_width=768`、`quality=85`（运行时由 `image_max_width` / `image_quality` 配置覆盖），**无临时文件** |
 
-#### A.3.4 记忆与场景简述
-
-| 模块 | 职责 |
-|------|------|
-| `app/memory/` | `__init__.py` / `store.py` / `types.py` / `bullet_dedup.py`；`SceneBriefStore` + `BulletAngle` |
-| `app/memory_prompt_builder.py` | `scene_brief` + prompt 层防重复组装；**真实配置键**：`scene_memory_interval_sec`（默认 = 识别周期，1-12x 量化）、`prompt_dedup_window`（旧别名 `memory_window`，1-20，默认 10）。**不存在** `scene_memory_enabled` / `prompt_dedup_enabled` |
-| `app/scene_memory.py` | 兼容 re-export（`SceneBriefStore` / `SceneMemoryStore` / `MAX_SNIPPET_LEN` 等别名） |
-
-#### A.3.5 持久化与运行态
+#### A.3.4 持久化与运行态
 
 | 模块 | 职责 |
 |------|------|
@@ -328,7 +320,7 @@ python main.py
 | `app/lifetime_stats.py` | 持久累计统计（弹幕/运行时长/Token），`stop()` 时并入 |
 | `app/session_run_log.py` | 场次记录；`session_runs` 表（最近 100 条） |
 
-#### A.3.6 模型与适配器
+#### A.3.5 模型与适配器
 
 | 模块 | 职责 |
 |------|------|
@@ -337,7 +329,7 @@ python main.py
 | `app/model_providers.py` | **9 个服务商预设**（`doubao` / `dashscope` / `zai` / `zhipu` / `moonshot` / `siliconflow` / `mimo` / `custom_openai` / `custom_doubao`）+ `guess_provider_from_endpoint` |
 | `app/model_catalog.py` | **5 平台**（`doubao` / `dashscope` / `siliconflow` / `mimo` / `zai`）；定价元数据用于 Web 视觉模型选择器 |
 
-#### A.3.7 麦克风子系统（10 个文件）
+#### A.3.6 麦克风子系统（10 个文件）
 
 | 模块 | 职责 |
 |------|------|
@@ -352,7 +344,7 @@ python main.py
 | `app/mic_test_send.py` | 麦克风自检发送路径 |
 | `app/web_api/mic_test.py` | `/api/mic/test`、`/api/mic/devices`、`/api/mic/test-send` 路由 |
 
-#### A.3.8 桌宠子系统
+#### A.3.7 桌宠子系统
 
 | 模块 | 职责 |
 |------|------|
@@ -366,7 +358,7 @@ python main.py
 | `app/pet/pet_facade.py` | 对外 façade（供 `app/web_api/pet.py` 调用） |
 | `app/web_api/pet.py` | 桌宠 REST 路由（`/api/pet/*`） |
 
-#### A.3.9 TTS / 读弹幕
+#### A.3.8 TTS / 读弹幕
 
 | 模块 | 职责 |
 |------|------|
@@ -378,7 +370,7 @@ python main.py
 | `app/danmu_read_service.py` | 读弹幕 probe service（**当前在主线程跑 HTTP**，慢） |
 | `app/web_api/danmu_read.py` | `/api/danmu-read/*` 路由 |
 
-#### A.3.10 烂梗子系统
+#### A.3.9 烂梗子系统
 
 | 模块 | 职责 |
 |------|------|
@@ -390,7 +382,7 @@ python main.py
 | `app/meme_barrage/runnable.py` | 后台 runnable |
 | `app/web_api/meme_barrage.py` | `/api/meme-barrage/*` 路由 |
 
-#### A.3.11 杂项
+#### A.3.10 杂项
 
 | 模块 | 职责 |
 |------|------|
@@ -594,6 +586,5 @@ TTS / 读弹幕               → app/danmu_tts*.py + app/tts_*.py + app/danmu_r
 - [../docs/core/BOUNDARY_GUARD.md](../docs/core/BOUNDARY_GUARD.md) — `scripts/boundary_guard.py`（+ `scripts/boundary_guard/` 子包）
 - [../docs/features/WEB_CONSOLE.md](../docs/features/WEB_CONSOLE.md) — Web API 与页面地图
 - [../docs/operations/ROADMAP.md](../docs/operations/ROADMAP.md) — ROADMAP（不进入工单授权即不得实现）
-- 场景简述记忆：`scene_memory_interval_sec` + `prompt_dedup_window`（`memory_window` 别名）；见 [../docs/core/ARCHITECTURE.md](../docs/core/ARCHITECTURE.md)
 - 维护者登记：`docs/runtime-state-map.md`、`docs/main-pipeline-sequence.md`、`docs/final-architecture-baseline.md`（位于 **`docs/` 根**，**非** `docs/core/`；`boundary_guard` 依赖其路径，禁止移动或重命名）
 - 文档与源码不一致时，以 `main.py` 与 `app/` 源码为准

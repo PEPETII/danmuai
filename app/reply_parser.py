@@ -22,7 +22,6 @@ if TYPE_CHECKING:
 
 _COMMENT_KEYS = ("comments", "replies", "items", "data")
 _COMMENTS_ARRAY_RE = re.compile(r'"comments"\s*:\s*\[([^\]]*)\]', re.DOTALL)
-_SCENE_BRIEF_VALUE_RE = re.compile(r'"scene_brief"\s*:\s*"([^"]*)"')
 _HEURISTIC_SKIP = frozenset({"comments", "scene_brief", ":", ""})
 _MAX_HEURISTIC_DEPTH = 16
 _PLACEHOLDER_COMMENT_RE = re.compile(
@@ -141,9 +140,6 @@ def _heuristic_comments_from_malformed_json(raw: str, *, depth: int = 0) -> list
             merged.extend(_heuristic_comments_from_malformed_json(seg, depth=depth + 1))
         return _normalize_comment_list(merged)
 
-    scene_brief_match = _SCENE_BRIEF_VALUE_RE.search(raw)
-    scene_brief_value = scene_brief_match.group(1) if scene_brief_match else None
-
     arr_match = _COMMENTS_ARRAY_RE.search(raw)
     if arr_match:
         items = re.findall(r'"((?:[^"\\]|\\.)*)"', arr_match.group(1))
@@ -165,8 +161,6 @@ def _heuristic_comments_from_malformed_json(raw: str, *, depth: int = 0) -> list
     filtered: list[str] = []
     for value in re.findall(r'"((?:[^"\\]|\\.)*)"', raw):
         if not value or value in _HEURISTIC_SKIP or value in _COMMENT_KEYS:
-            continue
-        if scene_brief_value and value == scene_brief_value:
             continue
         if len(value) == 1 and not value.isalnum():
             continue

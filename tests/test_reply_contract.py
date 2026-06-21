@@ -8,6 +8,7 @@ from app.personae import (
     REPLY_CONTRACT,
     append_live_topic_to_system_pt,
     append_nickname_to_system_pt,
+    build_normal_reply_contract_en,
     build_normal_reply_contract_zh,
     build_reply_contract_en,
     build_reply_contract_zh,
@@ -84,11 +85,18 @@ def test_normal_mode_contract_uses_single_reply_count():
 
 def test_build_normal_reply_contract_zh():
     text = build_normal_reply_contract_zh(6, 20)
-    assert "固定 6 条" in text
-    assert "scene_brief" not in text
+    assert "固定输出6条" in text
+    assert "JSON object" not in text
     assert '["这波可以"' in text
     assert "优先贴当前画面" not in text
     assert '"示例短句1"' in text
+
+
+def test_build_normal_reply_contract_en_uses_json_array_only():
+    text = build_normal_reply_contract_en(6, 20)
+    assert "Always output exactly 6 danmu" in text
+    assert "JSON object" not in text
+    assert '"current-frame summary"' not in text
 
 
 def test_build_normal_reply_contract_zh_avoids_numbered_placeholders():

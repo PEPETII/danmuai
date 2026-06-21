@@ -15,14 +15,6 @@ def test_parse_ai_reply_payload_accepts_json_array():
 
 
 def test_parse_ai_reply_payload_object_envelope_with_comments():
-    raw = (
-        '{"scene_brief": "主播在打团", "comments": ["画面相关", "氛围弹幕"]}'
-    )
-    items = parse_ai_reply_payload(raw)
-    assert items == ["画面相关", "氛围弹幕"]
-
-
-def test_parse_ai_reply_payload_envelope_without_scene_brief():
     raw = '{"comments": ["画面相关", "氛围弹幕"]}'
     items = parse_ai_reply_payload(raw)
     assert items == ["画面相关", "氛围弹幕"]
@@ -62,7 +54,7 @@ def test_parse_ai_reply_payload_splits_duplicated_json_arrays():
 
 def test_parse_ai_reply_malformed_comments_as_bare_strings():
     raw = (
-        '{"scene_brief":"代码工具界面运行中","comments":"这是啥代码工具？",'
+        '{"comments":"这是啥代码工具？",'
         '"弹弹幕好有意思","界面看着好专业","启动了？这是在干啥"'
     )
     items = parse_ai_reply_payload(raw)
@@ -76,7 +68,7 @@ def test_parse_ai_reply_malformed_comments_as_bare_strings():
 
 def test_parse_ai_reply_malformed_comments_double_colon():
     raw = (
-        '{"scene_brief":"弹幕工具界面待命状态","comments":"":"待命中？",'
+        '{"comments":"":"待命中？",'
         '"这是啥工具啊？","生成弹幕按钮亮着","运行时长刚0分",'
     )
     items = parse_ai_reply_payload(raw)
@@ -86,7 +78,7 @@ def test_parse_ai_reply_malformed_comments_double_colon():
 
 def test_parse_ai_reply_unclosed_comments_array():
     raw = (
-        '{"scene_brief":"电脑端AI弹幕生成界面运行中","comments":["这弹幕生成挺有意思啊",'
+        '{"comments":["这弹幕生成挺有意思啊",'
         '"这工具还能生成弹幕？","API Key报错'
     )
     items = parse_ai_reply_payload(raw)
@@ -94,7 +86,7 @@ def test_parse_ai_reply_unclosed_comments_array():
 
 
 def test_parse_ai_reply_rejects_punctuation_only_comments():
-    raw = '{"scene_brief":"x","comments":[",", "这工具真专业！", ":"]}'
+    raw = '{"comments":[",", "这工具真专业！", ":"]}'
     items = parse_ai_reply_payload(raw)
     assert items == ["这工具真专业！"]
 
@@ -114,7 +106,7 @@ def test_parse_ai_reply_keeps_normal_short_comments():
 def test_parse_ai_reply_splits_duplicated_json_objects():
     """B03 修复后，}{ 拼接的相同对象会合并所有段 comments（去重由下游处理）。"""
     obj = (
-        '{"scene_brief":"程序员调试代码遇API报错","comments":["这报错看着我头大",'
+        '{"comments":["这报错看着我头大",'
         '"这日志也太详细了","API报错咋整啊"]}'
     )
     items = parse_ai_reply_payload(obj + obj)
@@ -358,9 +350,9 @@ def test_parse_ai_reply_merges_concatenated_json_objects_with_different_comments
     assert "弹幕C" in items
 
 
-def test_parse_ai_reply_merges_concatenated_json_objects_with_scene_brief():
-    """B03: }{ 拼接时每段的 scene_brief 被忽略，comments 合并。"""
-    raw = '{"scene_brief":"场景1","comments":["弹幕A"]}{"scene_brief":"场景2","comments":["弹幕B"]}'
+def test_parse_ai_reply_merges_concatenated_json_objects_envelope_only():
+    """B03: 纯 comments 协议 }{ 拼接合并。"""
+    raw = '{"comments":["弹幕A"]}{"comments":["弹幕B"]}'
     items = parse_ai_reply_payload(raw)
     assert "弹幕A" in items
     assert "弹幕B" in items
