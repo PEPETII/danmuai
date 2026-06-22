@@ -746,6 +746,21 @@
       tl.to("#s4-glow", { opacity: 0, duration: 0.6, ease: "power2.in" }, 31.5);
 
       window.__timelines["main"] = tl;
+
+      /* ── Browser Preview: auto-play + click to replay ─── */
+      (function () {
+        var played = false;
+        function play() {
+          if (!played) { played = true; tl.play(0); }
+          else { tl.pause(0); setTimeout(function () { tl.play(0); }, 50); }
+        }
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", function () { setTimeout(play, 300); });
+        } else {
+          setTimeout(play, 300);
+        }
+        document.addEventListener("click", play);
+      })();
     </script>
   </body>
 </html>
