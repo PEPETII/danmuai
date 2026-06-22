@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: #0a0a0e;
+        font-family: "IBM Plex Sans", "Noto Sans SC", sans-serif;
+      }
+
+      /* ── Scene Base ── */
+      .scene {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+      }
+
+      /* ═══════════════════════════════
+         SCENE 1 — Title Card
+         ═══════════════════════════════ */
+      #scene1 {
+        z-index: 1;
+        background: #0a0a0e;
+      }
+      .s1-bg-grid {
+        position: absolute;
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(0, 212, 255, 0.03) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(0, 212, 255, 0.03) 1px, transparent 1px);
+        background-size: 80px 80px;
+        opacity: 0.6;
+      }
+      .s1-glow {
+        position: absolute;
+        width: 900px;
+        height: 900px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(0, 212, 255, 0.12) 0%, transparent 70%);
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+      }
+      .s1-glow-warm {
+        position: absolute;
+        width: 600px;
+        height: 600px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(255, 107, 53, 0.08) 0%, transparent 70%);
+        top: 20%;
+        right: 15%;
+      }
+      .s1-content {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        width: 100%;
+        height: 100%;
+        padding: 120px 160px;
+        gap: 32px;
+        position: relative;
+        z-index: 2;
+      }
+      .s1-badge {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 18px;
+        font-weight: 400;
+        letter-spacing: 0.3em;
+        text-transform: uppercase;
+        color: #00d4ff;
+        border: 1px solid rgba(0, 212, 255, 0.3);
+        padding: 8px 24px;
+        border-radius: 4px;
+        background: rgba(0, 212, 255, 0.06);
+      }
+      .s1-title {
+        font-family: "Bebas Neue", "Noto Sans SC", sans-serif;
+        font-size: 180px;
+        font-weight: 400;
+        color: #ffffff;
+        letter-spacing: 0.08em;
+        line-height: 1;
+        text-shadow: 0 0 60px rgba(0, 212, 255, 0.3);
+      }
+      .s1-title-accent {
+        color: #00d4ff;
+      }
+      .s1-subtitle {
+        font-size: 36px;
+        font-weight: 300;
+        color: #9ca3af;
+        letter-spacing: 0.15em;
+      }
+      .s1-line {
+        width: 200px;
+        height: 3px;
+        background: linear-gradient(90deg, transparent, #00d4ff, transparent);
+        border-radius: 2px;
+      }
+      .s1-desc {
+        font-size: 22px;
+        font-weight: 300;
+        color: #6b7280;
+        max-width: 700px;
+        text-align: center;
+        line-height: 1.6;
+      }
+
+      /* Floating danmaku particles */
+      .danmu-particle {
+        position: absolute;
+        font-size: 16px;
+        font-weight: 300;
+        color: rgba(0, 212, 255, 0.12);
+        white-space: nowrap;
+        pointer-events: none;
+      }
+
+      /* ═══════════════════════════════
+         SCENE 2 — Core Flow
+         ═══════════════════════════════ */
+      #scene2 {
+        z-index: 2;
+        background: #0a0a0e;
+        opacity: 0;
+      }
+      .s2-bg-lines {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+      }
+      .s2-h-line {
+        position: absolute;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.08), transparent);
+        width: 100%;
+        left: 0;
+      }
+      .s2-content {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        width: 100%;
+        height: 100%;
+        padding: 100px 160px;
+        gap: 60px;
+        position: relative;
+        z-index: 2;
+      }
+      .s2-label {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 16px;
+        letter-spacing: 0.3em;
+        text-transform: uppercase;
+        color: #00d4ff;
+        opacity: 0.7;
+      }
+      .s2-steps {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 40px;
+        width: 100%;
+      }
+      .s2-step {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+        width: 320px;
+      }
+      .s2-step-icon {
+        width: 120px;
+        height: 120px;
+        border-radius: 24px;
+        background: rgba(0, 212, 255, 0.06);
+        border: 1px solid rgba(0, 212, 255, 0.15);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 48px;
+        color: #00d4ff;
+      }
+      .s2-step-num {
+        font-family: "Bebas Neue", sans-serif;
+        font-size: 64px;
+        font-weight: 400;
+        color: rgba(0, 212, 255, 0.15);
+        position: absolute;
+        top: -8px;
+        left: 16px;
+      }
+      .s2-step-text {
+        font-size: 28px;
+        font-weight: 600;
+        color: #e8eaed;
+        letter-spacing: 0.05em;
+      }
+      .s2-step-desc {
+        font-size: 18px;
+        font-weight: 300;
+        color: #6b7280;
+        text-align: center;
+        line-height: 1.5;
+      }
+      .s2-arrow {
+        font-size: 40px;
+        color: rgba(0, 212, 255, 0.3);
+        margin-top: -60px;
+      }
+
+      /* ═══════════════════════════════
+         SCENE 3 — Features
+         ═══════════════════════════════ */
+      #scene3 {
+        z-index: 3;
+        background: #0a0a0e;
+        opacity: 0;
+      }
+      .s3-bg-radial {
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(ellipse at 20% 30%, rgba(0, 212, 255, 0.05) 0%, transparent 50%),
+          radial-gradient(ellipse at 80% 70%, rgba(255, 107, 53, 0.04) 0%, transparent 50%);
+      }
+      .s3-content {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        height: 100%;
+        padding: 80px 120px;
+        gap: 48px;
+        position: relative;
+        z-index: 2;
+      }
+      .s3-header {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .s3-label {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 16px;
+        letter-spacing: 0.3em;
+        text-transform: uppercase;
+        color: #ff6b35;
+        opacity: 0.8;
+      }
+      .s3-title {
+        font-family: "Bebas Neue", "Noto Sans SC", sans-serif;
+        font-size: 72px;
+        font-weight: 400;
+        color: #ffffff;
+        letter-spacing: 0.04em;
+      }
+      .s3-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 32px;
+        flex: 1;
+        align-content: center;
+      }
+      .s3-card {
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 16px;
+        padding: 40px 36px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        position: relative;
+        overflow: hidden;
+      }
+      .s3-card::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 4px;
+        height: 100%;
+        background: linear-gradient(180deg, #00d4ff, rgba(0, 212, 255, 0.2));
+        border-radius: 4px 0 0 4px;
+      }
+      .s3-card-icon {
+        width: 52px;
+        height: 52px;
+        border-radius: 12px;
+        background: rgba(0, 212, 255, 0.08);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 26px;
+        color: #00d4ff;
+      }
+      .s3-card-title {
+        font-size: 26px;
+        font-weight: 700;
+        color: #e8eaed;
+        letter-spacing: 0.02em;
+      }
+      .s3-card-desc {
+        font-size: 19px;
+        font-weight: 300;
+        color: #9ca3af;
+        line-height: 1.6;
+      }
+      .s3-card-tag {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 13px;
+        color: #00d4ff;
+        opacity: 0.6;
+        letter-spacing: 0.1em;
+        margin-top: auto;
+        padding-top: 12px;
+      }
+
+      /* ═══════════════════════════════
+         SCENE 4 — CTA / End
+         ═══════════════════════════════ */
+      #scene4 {
+        z-index: 4;
+        background: #0a0a0e;
+        opacity: 0;
+      }
+      .s4-bg-vignette {
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(ellipse at center, transparent 30%, rgba(10, 10, 14, 0.8) 100%);
+      }
+      .s4-glow-center {
+        position: absolute;
+        width: 800px;
+        height: 800px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(0, 212, 255, 0.08) 0%, transparent 60%);
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+      }
+      .s4-content {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        width: 100%;
+        height: 100%;
+        padding: 120px 160px;
+        gap: 32px;
+        position: relative;
+        z-index: 2;
+      }
+      .s4-logo {
+        font-family: "Bebas Neue", "Noto Sans SC", sans-serif;
+        font-size: 140px;
+        font-weight: 400;
+        color: #ffffff;
+        letter-spacing: 0.08em;
+      }
+      .s4-logo-accent {
+        color: #00d4ff;
+      }
+      .s4-tagline {
+        font-size: 32px;
+        font-weight: 300;
+        color: #9ca3af;
+        letter-spacing: 0.2em;
+      }
+      .s4-meta {
+        display: flex;
+        gap: 24px;
+        align-items: center;
+      }
+      .s4-badge {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 15px;
+        letter-spacing: 0.12em;
+        color: #6b7280;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 8px 20px;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.02);
+      }
+      .s4-divider {
+        width: 3px;
+        height: 3px;
+        border-radius: 50%;
+        background: #4b5563;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="main"
+      data-width="1920"
+      data-height="1080"
+      data-start="0"
+      data-duration="33"
+    >
+
+      <!-- ═══════════════════════════════
+           SCENE 1 — Title Card (0 – 7s)
+           ═══════════════════════════════ -->
+      <div id="scene1" class="scene">
+        <div class="s1-bg-grid"></div>
+        <div class="s1-glow" id="s1-glow"></div>
+        <div class="s1-glow-warm" id="s1-glow-warm"></div>
+
+        <!-- Floating particles -->
+        <span class="danmu-particle" style="top:15%;left:8%;">666666</span>
+        <span class="danmu-particle" style="top:25%;right:12%;color:rgba(255,107,53,0.10);">主播牛逼</span>
+        <span class="danmu-particle" style="top:68%;left:15%;">前方高能</span>
+        <span class="danmu-particle" style="top:75%;right:18%;color:rgba(255,107,53,0.10);">哈哈哈哈</span>
+        <span class="danmu-particle" style="top:45%;left:5%;color:rgba(0,212,255,0.08);">AI 弹幕</span>
+        <span class="danmu-particle" style="top:85%;left:40%;color:rgba(0,212,255,0.08);">好厉害</span>
+
+        <div class="s1-content">
+          <div class="s1-badge" id="s1-badge">AI Powered Danmaku</div>
+          <div class="s1-title" id="s1-title">Danmu<span class="s1-title-accent">AI</span></div>
+          <div class="s1-line" id="s1-line"></div>
+          <div class="s1-subtitle" id="s1-subtitle">智能弹幕助手</div>
+          <div class="s1-desc" id="s1-desc">为直播而生 · AI 驱动 · 隐私优先</div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════
+           SCENE 2 — Core Flow (7 – 15s)
+           ═══════════════════════════════ -->
+      <div id="scene2" class="scene">
+        <div class="s2-bg-lines" id="s2-lines">
+          <div class="s2-h-line" style="top:20%"></div>
+          <div class="s2-h-line" style="top:45%"></div>
+          <div class="s2-h-line" style="top:70%"></div>
+          <div class="s2-h-line" style="top:90%"></div>
+        </div>
+        <div class="s2-content">
+          <div class="s2-label" id="s2-label">How It Works</div>
+          <div class="s2-steps">
+            <div class="s2-step" id="s2-step1">
+              <div class="s2-step-icon" style="position:relative;">
+                <span class="s2-step-num">01</span>
+                &#128247;
+              </div>
+              <div class="s2-step-text">截取屏幕</div>
+              <div class="s2-step-desc">全屏截图<br/>内存压缩</div>
+            </div>
+            <div class="s2-arrow" id="s2-arrow1">&#10132;</div>
+            <div class="s2-step" id="s2-step2">
+              <div class="s2-step-icon" style="position:relative;">
+                <span class="s2-step-num">02</span>
+                &#129302;
+              </div>
+              <div class="s2-step-text">AI 识别</div>
+              <div class="s2-step-desc">视觉模型分析<br/>智能生成弹幕</div>
+            </div>
+            <div class="s2-arrow" id="s2-arrow2">&#10132;</div>
+            <div class="s2-step" id="s2-step3">
+              <div class="s2-step-icon" style="position:relative;">
+                <span class="s2-step-num">03</span>
+                &#128172;
+              </div>
+              <div class="s2-step-text">弹幕展示</div>
+              <div class="s2-step-desc">透明浮层滚动<br/>实时覆盖画面</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════
+           SCENE 3 — Features (15 – 26s)
+           ═══════════════════════════════ -->
+      <div id="scene3" class="scene">
+        <div class="s3-bg-radial"></div>
+        <div class="s3-content">
+          <div class="s3-header">
+            <div class="s3-label" id="s3-label">Core Features</div>
+            <div class="s3-title" id="s3-title">为什么选择 DanmuAI</div>
+          </div>
+          <div class="s3-grid">
+            <div class="s3-card" id="s3-card1">
+              <div class="s3-card-icon">&#129302;</div>
+              <div class="s3-card-title">AI 视觉模型</div>
+              <div class="s3-card-desc">调用视觉大模型，自动识别直播画面内容，智能生成 5 条高质量弹幕</div>
+              <div class="s3-card-tag">VISION MODEL</div>
+            </div>
+            <div class="s3-card" id="s3-card2">
+              <div class="s3-card-icon">&#128274;</div>
+              <div class="s3-card-title">隐私优先</div>
+              <div class="s3-card-desc">截图在内存中压缩发送，默认不落盘。API Key 本机加密存储，数据不外泄</div>
+              <div class="s3-card-tag">PRIVACY FIRST</div>
+            </div>
+            <div class="s3-card" id="s3-card3">
+              <div class="s3-card-icon">&#9889;</div>
+              <div class="s3-card-title">多服务商支持</div>
+              <div class="s3-card-desc">火山方舟、阿里云百炼、智谱、Moonshot、小米 MiMo、硅基流动等</div>
+              <div class="s3-card-tag">MULTI-PROVIDER</div>
+            </div>
+            <div class="s3-card" id="s3-card4">
+              <div class="s3-card-icon">&#128187;</div>
+              <div class="s3-card-title">Web 控制台</div>
+              <div class="s3-card-desc">温馨 Web 界面管理配置与启停。人格工坊自定义 AI 人格，弹幕日记追踪历史</div>
+              <div class="s3-card-tag">WEB CONSOLE</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════
+           SCENE 4 — CTA / End (26 – 33s)
+           ═══════════════════════════════ -->
+      <div id="scene4" class="scene">
+        <div class="s4-bg-vignette"></div>
+        <div class="s4-glow-center" id="s4-glow"></div>
+        <div class="s4-content">
+          <div class="s4-logo" id="s4-logo">Danmu<span class="s4-logo-accent">AI</span></div>
+          <div class="s4-tagline" id="s4-tagline">为直播而生的 AI 弹幕助手</div>
+          <div class="s4-meta" id="s4-meta">
+            <div class="s4-badge">OPEN SOURCE</div>
+            <div class="s4-divider"></div>
+            <div class="s4-badge">GPL-3.0</div>
+            <div class="s4-divider"></div>
+            <div class="s4-badge">PYTHON 3.12</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      var tl = gsap.timeline({ paused: true });
+
+      /* ────────────────────────────────
+         Scene 1: Title Card (0 – 7s)
+         Rhythm: SLAM entrance → hold → breathe
+         ──────────────────────────────── */
+
+      // Ambient glow breathing
+      tl.to("#s1-glow", { scale: 1.15, opacity: 0.8, duration: 3, yoyo: true, repeat: 2, ease: "sine.inOut" }, 0);
+      tl.to("#s1-glow-warm", { scale: 1.2, opacity: 1, duration: 3.5, yoyo: true, repeat: 1, ease: "sine.inOut" }, 0.5);
+
+      // Particle drift
+      tl.fromTo(".danmu-particle",
+        { x: -30, opacity: 0 },
+        { x: 30, opacity: 1, duration: 2, ease: "sine.inOut", stagger: 0.2 },
+        0.3
+      );
+
+      // Badge slides in from top
+      tl.fromTo("#s1-badge",
+        { y: -40, opacity: 0 },
+        { y: 0, opacity: 1, duration: 0.5, ease: "expo.out" },
+        0.3
+      );
+
+      // Title SLAMS in from below
+      tl.fromTo("#s1-title",
+        { y: 80, scale: 0.92, opacity: 0 },
+        { y: 0, scale: 1, opacity: 1, duration: 0.7, ease: "back.out(1.4)" },
+        0.5
+      );
+
+      // Line draws in
+      tl.fromTo("#s1-line",
+        { scaleX: 0 },
+        { scaleX: 1, duration: 0.5, ease: "expo.out" },
+        0.9
+      );
+
+      // Subtitle fades up
+      tl.fromTo("#s1-subtitle",
+        { y: 30, opacity: 0 },
+        { y: 0, opacity: 1, duration: 0.55, ease: "power3.out" },
+        1.1
+      );
+
+      // Description fades in
+      tl.fromTo("#s1-desc",
+        { y: 20, opacity: 0 },
+        { y: 0, opacity: 1, duration: 0.5, ease: "power2.out" },
+        1.35
+      );
+
+      /* ─── Transition S1 → S2: Crossfade at 7s ─── */
+      tl.to("#scene1", { opacity: 0, duration: 0.6, ease: "power2.inOut" }, 6.8);
+      tl.set("#scene1", { visibility: "hidden" }, 7.4);
+
+      /* ────────────────────────────────
+         Scene 2: Core Flow (7 – 15s)
+         Rhythm: Sequential build → hold
+         ──────────────────────────────── */
+
+      // Reveal scene 2
+      tl.set("#scene2", { opacity: 1 }, 7.0);
+
+      // Label
+      tl.fromTo("#s2-label",
+        { x: -30, opacity: 0 },
+        { x: 0, opacity: 0.7, duration: 0.45, ease: "expo.out" },
+        7.3
+      );
+
+      // Step 1 — SLIDE in from left
+      tl.fromTo("#s2-step1",
+        { x: -80, opacity: 0 },
+        { x: 0, opacity: 1, duration: 0.6, ease: "back.out(1.2)" },
+        7.6
+      );
+      tl.fromTo("#s2-arrow1",
+        { x: -20, opacity: 0, scale: 0.5 },
+        { x: 0, opacity: 0.3, scale: 1, duration: 0.35, ease: "expo.out" },
+        8.1
+      );
+
+      // Step 2 — FLOAT up
+      tl.fromTo("#s2-step2",
+        { y: 60, opacity: 0 },
+        { y: 0, opacity: 1, duration: 0.6, ease: "power3.out" },
+        8.3
+      );
+      tl.fromTo("#s2-arrow2",
+        { x: -20, opacity: 0, scale: 0.5 },
+        { x: 0, opacity: 0.3, scale: 1, duration: 0.35, ease: "expo.out" },
+        8.8
+      );
+
+      // Step 3 — SLIDE in from right
+      tl.fromTo("#s2-step3",
+        { x: 80, opacity: 0 },
+        { x: 0, opacity: 1, duration: 0.6, ease: "back.out(1.2)" },
+        9.0
+      );
+
+      // BG lines animate
+      tl.fromTo(".s2-h-line",
+        { scaleX: 0 },
+        { scaleX: 1, duration: 1.2, ease: "none", stagger: 0.3 },
+        7.2
+      );
+
+      /* ─── Transition S2 → S3: Domain Warp feel via CSS at 15s ─── */
+      tl.to("#scene2", { opacity: 0, duration: 0.7, ease: "power2.inOut" }, 14.5);
+      tl.set("#scene2", { visibility: "hidden" }, 15.2);
+
+      /* ────────────────────────────────
+         Scene 3: Features (15 – 26s)
+         Rhythm: Fast-fire staggered cards
+         ──────────────────────────────── */
+
+      // Reveal scene 3
+      tl.set("#scene3", { opacity: 1 }, 15.0);
+
+      // Header elements
+      tl.fromTo("#s3-label",
+        { x: -40, opacity: 0 },
+        { x: 0, opacity: 0.8, duration: 0.4, ease: "expo.out" },
+        15.3
+      );
+      tl.fromTo("#s3-title",
+        { y: 30, opacity: 0 },
+        { y: 0, opacity: 1, duration: 0.55, ease: "power3.out" },
+        15.5
+      );
+
+      // Cards — each from different direction
+      tl.fromTo("#s3-card1",
+        { x: -100, rotationY: -8, opacity: 0 },
+        { x: 0, rotationY: 0, opacity: 1, duration: 0.6, ease: "expo.out" },
+        16.0
+      );
+      tl.fromTo("#s3-card2",
+        { x: 100, rotationY: 8, opacity: 0 },
+        { x: 0, rotationY: 0, opacity: 1, duration: 0.6, ease: "expo.out" },
+        16.25
+      );
+      tl.fromTo("#s3-card3",
+        { x: -100, rotationY: -8, opacity: 0 },
+        { x: 0, rotationY: 0, opacity: 1, duration: 0.6, ease: "expo.out" },
+        16.5
+      );
+      tl.fromTo("#s3-card4",
+        { x: 100, rotationY: 8, opacity: 0 },
+        { x: 0, rotationY: 0, opacity: 1, duration: 0.6, ease: "expo.out" },
+        16.75
+      );
+
+      /* ─── Transition S3 → S4: Blur crossfade at 26s ─── */
+      tl.to("#scene3", { opacity: 0, duration: 0.6, ease: "power2.inOut" }, 25.6);
+      tl.set("#scene3", { visibility: "hidden" }, 26.2);
+
+      /* ────────────────────────────────
+         Scene 4: CTA / End (26 – 33s)
+         Rhythm: Gentle reveal → fade out (final scene)
+         ──────────────────────────────── */
+
+      // Reveal scene 4
+      tl.set("#scene4", { opacity: 1 }, 26.0);
+
+      // Glow pulse
+      tl.fromTo("#s4-glow",
+        { scale: 0.8, opacity: 0 },
+        { scale: 1, opacity: 1, duration: 1.2, ease: "sine.out" },
+        26.1
+      );
+
+      // Logo
+      tl.fromTo("#s4-logo",
+        { y: 50, scale: 0.94, opacity: 0 },
+        { y: 0, scale: 1, opacity: 1, duration: 0.75, ease: "expo.out" },
+        26.4
+      );
+
+      // Tagline
+      tl.fromTo("#s4-tagline",
+        { y: 25, opacity: 0 },
+        { y: 0, opacity: 1, duration: 0.55, ease: "power3.out" },
+        27.0
+      );
+
+      // Meta badges
+      tl.fromTo("#s4-meta",
+        { y: 20, opacity: 0 },
+        { y: 0, opacity: 1, duration: 0.5, ease: "power2.out" },
+        27.4
+      );
+
+      /* Final fade out (only on last scene) */
+      tl.to("#s4-logo", { opacity: 0, duration: 0.6, ease: "power2.in" }, 31.5);
+      tl.to("#s4-tagline", { opacity: 0, duration: 0.5, ease: "power2.in" }, 31.7);
+      tl.to("#s4-meta", { opacity: 0, duration: 0.4, ease: "power2.in" }, 31.9);
+      tl.to("#s4-glow", { opacity: 0, duration: 0.6, ease: "power2.in" }, 31.5);
+
+      window.__timelines["main"] = tl;
+    </script>
+  </body>
+</html>
