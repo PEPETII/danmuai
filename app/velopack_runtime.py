@@ -1,8 +1,19 @@
-"""Velopack startup hook — must run before QApplication (frozen builds only)."""
+"""Velopack startup hook — must run before QApplication (Velopack installs only)."""
 
 from __future__ import annotations
 
 import sys
+from pathlib import Path
+
+
+def _is_velopack_install() -> bool:
+    if not getattr(sys, "frozen", False):
+        return False
+    exe_path = getattr(sys, "executable", "") or ""
+    if not exe_path:
+        return False
+    resolved = Path(exe_path).resolve()
+    return resolved.parent.name.lower() == "current" and (resolved.parent.parent / "Update.exe").is_file()
 
 
 def run_startup_apply_if_needed() -> None:
@@ -10,7 +21,7 @@ def run_startup_apply_if_needed() -> None:
 
     Source runs skip entirely. Import or runtime errors are logged, not swallowed.
     """
-    if not getattr(sys, "frozen", False):
+    if not _is_velopack_install():
         return
 
     from app.startup_trace import log_startup

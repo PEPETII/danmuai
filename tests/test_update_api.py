@@ -88,11 +88,20 @@ def test_update_check_source_mode():
     assert d["error"] == "not_frozen"
 
 
+def test_update_status_portable_frozen_mode_reports_not_install():
+    with patch.object(update_service, "_is_velopack_install", return_value=False):
+        st = update_service.get_status()
+    d = st.to_dict()
+    assert d["ok"] is True
+    assert d["frozen"] is False
+    assert "当前运行不是 Velopack 安装版" in d["message"]
+
+
 def test_update_check_frozen_mock():
     mock_mgr = MagicMock()
     mock_mgr.get_current_version.return_value = "0.3.0"
     mock_mgr.check_for_updates.return_value = None
-    with patch.object(update_service, "_is_frozen", return_value=True):
+    with patch.object(update_service, "_is_velopack_install", return_value=True):
         with patch.object(update_service, "_manager", return_value=mock_mgr):
             st = update_service.check_for_updates()
     assert st.ok is True
@@ -104,7 +113,7 @@ def test_check_frozen_returns_package_size(reset_update_state):
     mock_mgr = MagicMock()
     mock_mgr.get_current_version.return_value = "0.3.0"
     mock_mgr.check_for_updates.return_value = info
-    with patch.object(update_service, "_is_frozen", return_value=True):
+    with patch.object(update_service, "_is_velopack_install", return_value=True):
         with patch.object(update_service, "_manager", return_value=mock_mgr):
             st = update_service.check_for_updates()
     assert st.ok is True
@@ -118,7 +127,7 @@ def test_check_frozen_prefers_delta_package_size(reset_update_state):
     mock_mgr = MagicMock()
     mock_mgr.get_current_version.return_value = "0.3.0"
     mock_mgr.check_for_updates.return_value = info
-    with patch.object(update_service, "_is_frozen", return_value=True):
+    with patch.object(update_service, "_is_velopack_install", return_value=True):
         with patch.object(update_service, "_manager", return_value=mock_mgr):
             st = update_service.check_for_updates()
     assert st.package_size_bytes == 5_000_000
@@ -154,7 +163,7 @@ def test_download_starts_background_and_reports_progress(reset_update_state):
     with update_service._lock:
         update_service._state["pending_update"] = info
 
-    with patch.object(update_service, "_is_frozen", return_value=True):
+    with patch.object(update_service, "_is_velopack_install", return_value=True):
         with patch.object(update_service, "_manager", return_value=mock_mgr):
             with patch("app.update_service.threading.Thread", ImmediateThread):
                 started = update_service.download_updates(wait=True)
@@ -200,7 +209,7 @@ def test_download_returns_in_progress_without_wait(reset_update_state):
         update_service._state["pending_update"] = info
         update_service._state["download_phase"] = "idle"
 
-    with patch.object(update_service, "_is_frozen", return_value=True):
+    with patch.object(update_service, "_is_velopack_install", return_value=True):
         with patch.object(update_service, "_manager", return_value=mock_mgr):
             with patch("app.update_service.threading.Thread", DeferredThread):
                 started = update_service.download_updates()
@@ -246,7 +255,7 @@ def test_download_does_not_start_second_thread(reset_update_state):
         alive_thread.is_alive.return_value = True
         update_service._state["download_thread"] = alive_thread
 
-    with patch.object(update_service, "_is_frozen", return_value=True):
+    with patch.object(update_service, "_is_velopack_install", return_value=True):
         with patch.object(update_service, "_manager", return_value=mock_mgr):
             with patch("app.update_service.threading.Thread", DeferredThread):
                 st = update_service.download_updates()
@@ -416,3 +425,27 @@ def test_update_routes_accept_valid_token(method, path):
         headers={"Authorization": _TEST_TOKEN},
     )
     assert res.status_code == 200
+
+
+def test_update_channels_malformed_latest_returns_200_not_500():
+    """BUG-008: 畸形 latest_version（如 '0.3.x'）不得导致 500。"""
+    from app.supabase_app_updates import AppUpdateFetchResult, AppUpdateRemote
+    from app.web_api import update as update_api
+
+    malformed_remote = AppUpdateFetchResult(
+        update=AppUpdateRemote(
+            latest_version="0.3.x",
+            release_url="https://updates.qiaoqiao.buzz/downloads/DanmuAI-Setup.exe",
+            message="bad",
+        ),
+        cache_state="fresh",
+        cache_age_sec=0.0,
+    )
+    with patch.object(update_api, "fetch_app_update_result", return_value=malformed_remote):
+        client = _make_client()
+        res = client.get("/api/update/channels")
+
+    assert res.status_code == 200
+    body = res.json()
+    assert body["latest_version"] == "0.3.x"
+    assert body["update_available"] is False

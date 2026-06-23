@@ -100,6 +100,18 @@ $deltaNupkgs = @(Get-ChildItem -Path $OutputDir -Filter "$PackId-$appVersion-del
 $versionedSetup = Join-Path $OutputDir "PEPETII.DanmuAI-$appVersion-Setup.exe"
 Copy-Item -LiteralPath $setup.FullName -Destination $versionedSetup -Force
 
+# Replace Velopack portable stub with a plain PyInstaller onedir archive.
+# Users should launch the real DanmuAI.exe, not the portable stub at zip root.
+$portableZip = Join-Path $OutputDir "$PackId-win-Portable.zip"
+if (Test-Path -LiteralPath $portableZip) {
+    Remove-Item -LiteralPath $portableZip -Force
+}
+$portableItems = Get-ChildItem -LiteralPath $PackDir -Force | Select-Object -ExpandProperty FullName
+if (-not $portableItems -or $portableItems.Count -eq 0) {
+    Write-Error "Portable package source is empty: $PackDir"
+}
+Compress-Archive -LiteralPath $portableItems -DestinationPath $portableZip -CompressionLevel Optimal
+
 return @{
     Version        = $appVersion
     OutputDir      = $OutputDir
@@ -108,5 +120,5 @@ return @{
     FullNupkg      = $nupkg.FullName
     DeltaNupkgs    = $deltaNupkgs
     FeedJson       = Join-Path $OutputDir "releases.win.json"
-    PortableZip    = (Get-ChildItem -Path $OutputDir -Filter "$PackId-win-Portable.zip" -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
+    PortableZip    = $portableZip
 }

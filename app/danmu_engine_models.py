@@ -8,6 +8,10 @@ if TYPE_CHECKING:
 
 _ENTRY_ZONE_PX_FALLBACK = 300.0
 
+# 防御性 fallback 常量：当 item.width <= 0 时使用。
+# DanmuEngine.add_text() 会用 _estimate_content_width() 覆盖为更精确的动态估算值。
+_DANMU_FALLBACK_CHAR_WIDTH = 25.0
+
 
 @dataclass
 class DanmuItem:
@@ -48,14 +52,14 @@ class Track:
 
     @staticmethod
     def item_right_edge(item: DanmuItem) -> float:
-        w = item.width if item.width > 0 else len(item.content) * 25.0
+        w = item.width if item.width > 0 else len(item.content) * _DANMU_FALLBACK_CHAR_WIDTH
         return item.x + w
 
     def can_accept(self, item: DanmuItem, screen_width: float, min_gap: float = 150.0) -> bool:
         if not self.items:
             return True
         last = self.items[-1]
-        w = last.width if last.width > 0 else (len(last.content) * 25.0)
+        w = last.width if last.width > 0 else (len(last.content) * _DANMU_FALLBACK_CHAR_WIDTH)
         return last.x + w + min_gap < screen_width
 
     def entry_zone_count(

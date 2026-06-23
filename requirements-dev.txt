@@ -3,4 +3,4 @@ pytest-qt>=4.4,<5
 Pillow>=10.0,<12
 ruff>=0.8.0,<1
 pyinstaller>=6.10,<7
-pyinstaller-hooks-contrib>=2024.10,<2025
+pyinstaller-hooks-contrib>=2025.9,<2026

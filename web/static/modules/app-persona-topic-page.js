@@ -172,15 +172,23 @@ export async function loadPersonaEditor() {
   const select = document.getElementById('personaSelect');
   if (!select) return;
   select.innerHTML = '';
+  const validIds = new Set(data.items.map((item) => item.id));
   data.items.forEach((item) => {
     const option = document.createElement('option');
     option.value = item.id;
     option.textContent = item.label;
     select.appendChild(option);
   });
-  if (!currentPersonaId && data.items.length) currentPersonaId = data.items[0].id;
+  // 如果当前选中的人格已被移除（如测试2），回退到第一个可用人格
+  if (!currentPersonaId || !validIds.has(currentPersonaId)) {
+    currentPersonaId = data.items.length ? data.items[0].id : '';
+  }
   if (currentPersonaId) select.value = currentPersonaId;
-  await loadPersonaTemplate();
+  try {
+    await loadPersonaTemplate();
+  } catch (e) {
+    console.warn('loadPersonaTemplate failed:', e);
+  }
   await loadPersonaeCheckboxes('personaActiveList');
   await loadPersonaNamePrefix();
 }

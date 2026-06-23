@@ -70,3 +70,26 @@ def test_build_metadata_prerelease_with_build():
     """BUG-A07: +build is stripped before prerelease comparison."""
     assert compare_versions("0.3.4-alpha+build.1", "0.3.4-alpha") == 0
     assert compare_versions("0.3.4-alpha", "0.3.4-alpha+build.2") == 0
+
+
+# ── BUG-008: malformed version segments raise catchable ValueError ──
+
+
+def test_malformed_segment_raises_value_error():
+    """BUG-008: 非数字段（如 'x'）必须抛 ValueError，调用方负责 try/except。"""
+    with pytest.raises(ValueError):
+        parse_version("0.3.x")
+    with pytest.raises(ValueError):
+        is_version_newer("0.3.x", "0.3.4")
+    with pytest.raises(ValueError):
+        is_version_newer("0.3.4", "0.3.x")
+
+
+def test_malformed_latest_is_catchable_for_update_api():
+    """BUG-008: 调用方可捕获 ValueError，不会冒泡为 500。"""
+    raised = False
+    try:
+        is_version_newer("0.3.x", "0.3.4")
+    except ValueError:
+        raised = True
+    assert raised

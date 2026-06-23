@@ -1,0 +1,12 @@
+E:\test\danmu\tools\bililive_dm_plugin_mock\src\obj\Release\net461\BililiveDmMockPlugin.csproj.AssemblyReference.cache
+E:\test\danmu\tools\bililive_dm_plugin_mock\src\obj\Release\net461\BililiveDmMockPlugin.GeneratedMSBuildEditorConfig.editorconfig
+E:\test\danmu\tools\bililive_dm_plugin_mock\src\obj\Release\net461\BililiveDmMockPlugin.csproj.CoreCompileInputs.cache
+E:\test\danmu\tools\bililive_dm_plugin_mock\src\obj\Release\net461\BililiveDmMockPlugin.sourcelink.json
+E:\test\danmu\tools\bililive_dm_plugin_mock\src\bin\Release\net461\BililiveDmMockPlugin.dll
+E:\test\danmu\tools\bililive_dm_plugin_mock\src\bin\Release\net461\BililiveDmMockPlugin.pdb
+E:\test\danmu\tools\bililive_dm_plugin_mock\src\bin\Release\net461\BilibiliDM_PluginFramework.dll
+E:\test\danmu\tools\bililive_dm_plugin_mock\src\bin\Release\net461\Newtonsoft.Json.dll
+E:\test\danmu\tools\bililive_dm_plugin_mock\src\bin\Release\net461\BilibiliDM_PluginFramework.pdb
+E:\test\danmu\tools\bililive_dm_plugin_mock\src\obj\Release\net461\Bililive.691DDD99.Up2Date
+E:\test\danmu\tools\bililive_dm_plugin_mock\src\obj\Release\net461\BililiveDmMockPlugin.dll
+E:\test\danmu\tools\bililive_dm_plugin_mock\src\obj\Release\net461\BililiveDmMockPlugin.pdb

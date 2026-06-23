@@ -1,6 +1,6 @@
     <!-- ========== 区域：助手设置 ========== -->
     <!-- section: 助手设置（PUT /api/config → ConfigService，主线程落库） -->
-    <!-- 7 个设置 tab（顺序固定，由 modules/settings.js initSettingsTabs 渲染） -->
+    <!-- 8 个设置 tab（顺序固定，由 modules/settings.js initSettingsTabs 渲染） -->
     <section id="page-settings" class="page-panel">
       <header class="flex flex-wrap justify-between items-start gap-4 mb-8">
         <div>
@@ -16,7 +16,7 @@
         </div>
       </header>
 
-      <!-- 设置 tab 列表：api / mic / danmu-read / danmu / capture / rhythm / font -->
+      <!-- 设置 tab 列表：api / mic / danmu-read / danmu / bililive-dm / capture / rhythm / font -->
       <form id="settingsForm" class="card p-8 space-y-0">
         <div class="settings-tabs-bar">
           <div class="settings-tabs" role="tablist" aria-label="助手设置分类">
@@ -27,6 +27,7 @@
             <!-- tab: AI读弹幕 — MiMo TTS 启用/声音/语速/抽屏间隔 -->
             <button type="button" role="tab" class="settings-tab" data-settings-tab="danmu-read" aria-selected="false">AI读弹幕</button>
             <button type="button" role="tab" class="settings-tab" data-settings-tab="danmu" aria-selected="false">弹幕显示</button>
+            <button type="button" role="tab" class="settings-tab" data-settings-tab="bililive-dm" aria-selected="false">弹幕姬模式</button>
             <!-- tab: 识图区域 — screen_index + 鼠标框选子区域（POST /api/capture-region） -->
             <button type="button" role="tab" class="settings-tab" data-settings-tab="capture" aria-selected="false">识图区域</button>
             <!-- tab: 识图清晰度 — 压缩质量、最大宽度、压缩预览等 -->
@@ -369,6 +370,19 @@
             <div class="settings-toggle-row">
               <label class="flex items-center gap-2"><input type="checkbox" id="empty_accel" class="accent-warmPink"> 空轨道时加速补位</label>
             </div>
+          </div>
+        </div>
+        <!-- 弹幕姬模式 -->
+        <div id="settingsTab-bililive-dm" class="settings-tab-panel space-y-6" data-settings-panel="bililive-dm" role="tabpanel" hidden>
+          <h3 class="text-lg font-bold text-warmText flex items-center gap-2">
+            <svg class="ui-icon text-warmPink" aria-hidden="true"><use href="#i-message"></use></svg> 弹幕姬模式
+          </h3>
+          <p class="settings-section-hint text-sm text-gray-500">开启后关闭本机屏幕弹幕（横向 Overlay / 从下到上悬浮窗），主链路「生成弹幕」结果仅在 bililive_dm 窗口显示。关闭后恢复屏幕弹幕显示，且主链路结果不再推送到 bililive_dm；直播评论桥接不受影响。</p>
+          <div class="settings-toggle-row">
+            <label class="flex items-center gap-2">
+              <input type="checkbox" id="bililive_dm_mode_enabled" class="accent-warmPink">
+              开启弹幕姬模式
+            </label>
           </div>
         </div>
         <!-- 识图区域 -->

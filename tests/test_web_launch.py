@@ -106,14 +106,25 @@ def test_tray_uninstall_delete_user_data_requires_second_confirm(qapp, monkeypat
         or type("S", (), {"ok": True, "message": "started", "error": None})(),
     )
 
-    answers = iter(
-        [
-            QMessageBox.StandardButton.Yes,
-            QMessageBox.StandardButton.Yes,
-            QMessageBox.StandardButton.Yes,
-        ]
-    )
-    monkeypatch.setattr(QMessageBox, "question", lambda *args, **kwargs: next(answers))
+    # _on_uninstall 用 box.exec() + clickedButton() 单对话框模式(3 按钮)。
+    # 测试环境无 GUI 交互,clickedButton() 默认返回 AcceptRole 按钮(btn_keep),
+    # 无法触发 DestructiveRole(btn_delete)路径。跟踪 addButton 创建的按钮,
+    # 让 clickedButton() 返回 DestructiveRole 按钮以走"删除数据"分支。
+    _destructive_btn = [None]
+    _orig_addButton = QMessageBox.addButton
+
+    def _addButton(self, *args, **kwargs):
+        btn = _orig_addButton(self, *args, **kwargs)
+        role = kwargs.get("role") or (args[1] if len(args) > 1 else None)
+        if role == QMessageBox.ButtonRole.DestructiveRole:
+            _destructive_btn[0] = btn
+        return btn
+
+    monkeypatch.setattr(QMessageBox, "addButton", _addButton)
+    monkeypatch.setattr(QMessageBox, "exec", lambda self: 0)
+    monkeypatch.setattr(QMessageBox, "clickedButton", lambda self: _destructive_btn[0])
+
+    monkeypatch.setattr(QMessageBox, "question", lambda *args, **kwargs: QMessageBox.StandardButton.Yes)
     monkeypatch.setattr(QMessageBox, "information", lambda *args, **kwargs: None)
 
     tray._on_uninstall()

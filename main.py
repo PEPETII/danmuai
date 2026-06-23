@@ -86,9 +86,6 @@ from PyQt6.QtCore import QObject, pyqtSignal
 from PyQt6.QtCore import QTimer as QTimer  # noqa: F401 — re-exported for tests
 from PyQt6.QtWidgets import QApplication
 
-# Re-export for scripts/tests that import from main.
-_DEPRECATED_LAUNCH_MSG = DEPRECATED_LAUNCH_MSG
-
 _MIC_PROBE_WAIT_TIMEOUT_SEC = 120.0
 _WEBVIEW_ATTACH_MAX_ATTEMPTS = 2
 _WEBVIEW_ATTACH_RETRY_MS = 1200
@@ -119,10 +116,6 @@ class DanmuApp(
     state_changed = pyqtSignal(bool)  # running / paused
     config_changed = pyqtSignal()
 
-    def _normalize_legacy_display_mode_config(self) -> None:
-        """Deprecated: normalization runs in ConfigStore.__init__."""
-        self.config._normalize_legacy_display_mode()
-
     def build_status_snapshot(self) -> dict[str, object]:
         return StatusSnapshotBuilder(self).build()
 
@@ -147,8 +140,6 @@ class DanmuApp(
         self._init_request_pipeline_state()
         self._init_runtime_tracking_state()
         self._init_startup_services(log_startup)
-        # attach_web_console(self)
-        # self.config_changed.connect(self._on_config_changed)
         self._start_web_console_stack(log_startup)
         self._sync_reply_batch_config()
         log_startup(
@@ -279,7 +270,7 @@ class DanmuApp(
             region_h = self.config.get_int("region_h", 0)
             self.logger.warning(
                 "截图无效: is_null=%s width=%s height=%s screen_index=%s "
-                "region_x=%s region_y=%s region_w=%s region_h=%s reason=invalid_pixmap",
+                "region_x=%s region_y=%s region_w=%s region_h=%s reason=null_pixmap",
                 pixmap.isNull(),
                 pixmap.width(),
                 pixmap.height(),
@@ -380,7 +371,7 @@ class DanmuApp(
             elif elapsed_ms >= warn_ms:
                 self.logger.warning(
                     "视觉请求 in-flight 超时: screenshot_id=%s elapsed_ms=%s ai_in_flight=%s "
-                    "reason=inflight_watchdog",
+                    "reason=inflight_watchdog_warn",
                     self._inflight_screenshot_id,
                     elapsed_ms,
                     self.ai_in_flight,
@@ -636,8 +627,9 @@ class DanmuApp(
         self.lifetime_stats.add_tokens(input_tokens, output_tokens)
         if input_tokens > 0 or output_tokens > 0:
             self.logger.debug(
-                f"[DEBUG] Tokens: input={input_tokens}, output={output_tokens}, "
-                f"total_input={stats_state.total_input_tokens}, total_output={stats_state.total_output_tokens}"
+                "tokens: input=%s, output=%s, total_input=%s, total_output=%s",
+                input_tokens, output_tokens,
+                stats_state.total_input_tokens, stats_state.total_output_tokens,
             )
 
         request_started_at = self._peek_request_started_at(

@@ -6,9 +6,12 @@ from app.application.config_service import (
 from app.config_defaults import (
     CONFIG_DEFAULTS,
     DEFAULT_FLOATING_PANEL_SPEED,
+    DEFAULT_IMAGE_MAX_WIDTH,
     DEFAULT_LANGUAGE,
     FLOATING_PANEL_NORMAL_REPLY_COUNT,
+    LEGACY_IMAGE_MAX_WIDTH,
     default_normal_reply_count_for_mode,
+    migrate_legacy_image_max_width,
     seed_config_defaults,
 )
 from app.config_store import ConfigStore
@@ -55,6 +58,11 @@ def test_fp_keys_present_in_web_config_keys():
 def test_danmu_recent_ttl_default_and_web_key_present():
     assert CONFIG_DEFAULTS["danmu_recent_ttl_sec"] == "30"
     assert "danmu_recent_ttl_sec" in WEB_CONFIG_KEYS
+
+
+def test_bililive_dm_mode_default_is_off():
+    assert CONFIG_DEFAULTS["bililive_dm_mode_enabled"] == "0"
+    assert "bililive_dm_mode_enabled" in WEB_CONFIG_KEYS
 
 
 def test_mic_insert_keys_absent_from_defaults():
@@ -169,4 +177,46 @@ def test_normal_reply_count_from_config_uses_floating_panel_default(tmp_path):
     assert normal_reply_count_from_config(store) == 10
     store.set("normal_reply_count", "7")
     assert normal_reply_count_from_config(store) == 7
+    store.close()
+
+
+def test_migrate_legacy_image_max_width_upgrades_old_default(tmp_path):
+    import sqlite3
+
+    db = tmp_path / "legacy_width.db"
+    conn = sqlite3.connect(db)
+    conn.execute("CREATE TABLE config (key TEXT PRIMARY KEY, value TEXT)")
+    conn.execute(
+        "INSERT INTO config (key, value) VALUES ('image_max_width', ?)",
+        (str(LEGACY_IMAGE_MAX_WIDTH),),
+    )
+    conn.commit()
+    conn.close()
+
+    store = ConfigStore(db_path=db)
+    assert store.get("image_max_width") == str(DEFAULT_IMAGE_MAX_WIDTH)
+    store.close()
+
+
+def test_migrate_legacy_image_max_width_keeps_custom_value(tmp_path):
+    import sqlite3
+
+    db = tmp_path / "custom_width.db"
+    conn = sqlite3.connect(db)
+    conn.execute("CREATE TABLE config (key TEXT PRIMARY KEY, value TEXT)")
+    conn.execute("INSERT INTO config (key, value) VALUES ('image_max_width', '640')")
+    conn.commit()
+    conn.close()
+
+    store = ConfigStore(db_path=db)
+    assert store.get("image_max_width") == "640"
+    store.close()
+
+
+def test_migrate_legacy_image_max_width_function(tmp_path):
+    store = ConfigStore(db_path=tmp_path / "fn_width.db")
+    store.set("image_max_width", str(LEGACY_IMAGE_MAX_WIDTH))
+    assert migrate_legacy_image_max_width(store) is True
+    assert store.get("image_max_width") == str(DEFAULT_IMAGE_MAX_WIDTH)
+    assert migrate_legacy_image_max_width(store) is False
     store.close()

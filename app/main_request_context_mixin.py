@@ -297,35 +297,11 @@ class DanmuAppRequestContextMixin:
             stats[key] += 1
         return stats
 
-    def _maybe_duplicate_loss_topup(
-        self,
-        queued: QueuedReply,
-        stats: dict[str, int | str],
-    ) -> int:
-        if int(stats.get("duplicate_topup_triggered", 0)) > 0:
-            return 0
-        from app.danmu_pool import maybe_duplicate_loss_topup
-
-        added = maybe_duplicate_loss_topup(
-            self.engine,
-            self.config,
-            queued.scene_generation,
-            duplicate_loss_total=int(stats.get("duplicate_loss_total", 0)),
-        )
-        if added > 0:
-            stats["duplicate_topup_triggered"] = 1
-        return added
-
     def _min_density_target(self) -> int:
         return self.engine.min_on_screen()
 
     def _density_right_target(self, min_n: int) -> int:
         return density_right_target(min_n)
-
-    def _maybe_pool_topup(self) -> int:
-        from app.danmu_pool import maybe_pool_topup
-
-        return maybe_pool_topup(self.engine, self.config, self._scene_generation)
 
     def _estimated_reply_gap_ms(self) -> int:
         if self.reply_timer.isActive():

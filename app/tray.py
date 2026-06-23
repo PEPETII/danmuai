@@ -1,10 +1,12 @@
 """System tray icon and menu for the DanmuApp desktop shell.
 
-QSystemTrayIcon 持有“显示控制台 / 检查更新 / 卸载应用 / 退出”等菜单；
+QSystemTrayIcon 持有"显示控制台 / 检查更新 / 卸载应用 / 退出"等菜单；
 所有 handler 都运行在主线程，不需要额外的 invoke_on_main 桥接。
 """
 
-from PyQt6.QtCore import QRect, Qt, QTimer
+import threading
+
+from PyQt6.QtCore import QObject, QRect, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QAction, QColor, QFont, QIcon, QPainter, QPixmap
 from PyQt6.QtWidgets import QMenu, QMessageBox, QProgressDialog, QSystemTrayIcon
 
@@ -12,11 +14,22 @@ from app.bundle_paths import resource_path
 from app.translations import Translator, tr
 
 
+class _UpdateCheckBridge(QObject):
+    """跨线程信号桥：后台线程 emit → 主线程 slot（QueuedConnection）。"""
+
+    done = pyqtSignal(object, str)
+
+
 class TrayManager:
     def __init__(self, app):
         self.app = app
         self.tray = QSystemTrayIcon()
         self.menu = QMenu()
+        self._update_progress = None
+        self._update_poll_timer = None
+        self._update_check_in_flight = False
+        self._update_check_bridge = _UpdateCheckBridge()
+        self._update_check_bridge.done.connect(self._on_check_update_done)
         self._setup()
         Translator.instance().language_changed.connect(self._retranslate_ui)
 
@@ -78,10 +91,39 @@ class TrayManager:
         self.update_state(getattr(self.app.engine, "running", False))
 
     def _on_check_update(self):
+        if self._update_check_in_flight:
+            return
+        self._update_check_in_flight = True
+        title = tr("tray.check_update", "检查更新")
+        # 即时反馈：气泡提示正在检查（非阻塞）
+        if QSystemTrayIcon.isSystemTrayAvailable():
+            self.tray.showMessage(
+                "DanmuAI",
+                tr("tray.update_checking", "正在检查更新…"),
+                QSystemTrayIcon.MessageIcon.Information,
+                2000,
+            )
+
+        def _worker():
+            from app import update_service
+            try:
+                result = update_service.check_for_updates()
+            except Exception as exc:
+                # 兜底：update_service 内部已有 try/except，此处防止未预期异常静默丢失
+                result = update_service.UpdateStatus(
+                    ok=False,
+                    error=str(exc),
+                    message=tr("tray.update_check_failed", "检查失败"),
+                )
+            # 经 Qt 信号投递到主线程（QueuedConnection），不阻塞后台线程
+            self._update_check_bridge.done.emit(result, title)
+
+        threading.Thread(target=_worker, daemon=True, name="tray-update-check").start()
+
+    def _on_check_update_done(self, result, title):
         from app import update_service
 
-        result = update_service.check_for_updates()
-        title = tr("tray.check_update", "检查更新")
+        self._update_check_in_flight = False
         if not result.ok:
             detail = result.message or result.error or tr("tray.update_check_failed", "检查失败")
             QMessageBox.warning(None, title, detail)
@@ -114,29 +156,38 @@ class TrayManager:
                         )
                     return
 
+                # 清理上一次更新进度对话框（防止用户重复触发"检查更新"残留旧对话框）
+                if self._update_progress is not None or self._update_poll_timer is not None:
+                    if self._update_poll_timer is not None:
+                        self._update_poll_timer.stop()
+                    self._update_progress = None
+                    self._update_poll_timer = None
+
                 # 下载已启动，显示进度对话框
-                progress = QProgressDialog(
+                self._update_progress = QProgressDialog(
                     tr("tray.update_downloading", "正在下载更新…"),
                     tr("common.cancel", "取消"),
                     0, 100, None,
                 )
-                progress.setWindowTitle(title)
-                progress.setModal(True)
-                progress.setAutoClose(False)
-                progress.setAutoReset(False)
-                progress.show()
+                self._update_progress.setWindowTitle(title)
+                self._update_progress.setModal(True)
+                self._update_progress.setAutoClose(False)
+                self._update_progress.setAutoReset(False)
+                self._update_progress.show()
 
-                _poll_timer = QTimer()
-                _poll_timer.setInterval(200)
+                self._update_poll_timer = QTimer()
+                self._update_poll_timer.setInterval(200)
 
                 def _poll_progress():
                     try:
                         st = update_service.get_status()
                         pct = getattr(st, "download_progress", 0) or 0
-                        progress.setValue(int(pct))
+                        self._update_progress.setValue(int(pct))
                         if st.download_ready:
-                            _poll_timer.stop()
-                            progress.close()
+                            self._update_poll_timer.stop()
+                            self._update_progress.close()
+                            self._update_progress = None
+                            self._update_poll_timer = None
                             restart = QMessageBox.question(
                                 None,
                                 title,
@@ -146,8 +197,10 @@ class TrayManager:
                             if restart == QMessageBox.StandardButton.Yes:
                                 update_service.apply_updates_and_restart()
                         elif not st.downloading and not st.download_ready:
-                            _poll_timer.stop()
-                            progress.close()
+                            self._update_poll_timer.stop()
+                            self._update_progress.close()
+                            self._update_progress = None
+                            self._update_poll_timer = None
                             if not st.ok:
                                 QMessageBox.warning(
                                     None,
@@ -155,13 +208,21 @@ class TrayManager:
                                     st.message or st.error or tr("tray.update_download_failed", "下载失败"),
                                 )
                     except Exception:
-                        _poll_timer.stop()
-                        progress.close()
+                        self._update_poll_timer.stop()
+                        self._update_progress.close()
+                        self._update_progress = None
+                        self._update_poll_timer = None
 
-                _poll_timer.timeout.connect(_poll_progress)
-                _poll_timer.start()
+                self._update_poll_timer.timeout.connect(_poll_progress)
+                self._update_poll_timer.start()
 
-                progress.canceled.connect(_poll_timer.stop)
+                def _on_canceled():
+                    if self._update_poll_timer is not None:
+                        self._update_poll_timer.stop()
+                    self._update_progress = None
+                    self._update_poll_timer = None
+
+                self._update_progress.canceled.connect(_on_canceled)
             else:
                 pass  # 用户选择不下载
         else:

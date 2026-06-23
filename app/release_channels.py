@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import logging
+
 from app.supabase_app_updates import fetch_app_update
 from app.velopack_config import UPDATE_FEED_URL
 from app.version_compare import is_version_newer, normalize_version
+
+_logger = logging.getLogger(__name__)
 
 GITHUB_RELEASES_URL = "https://github.com/PEPETII/danmuai/releases"
 QUARK_URL = "https://pan.quark.cn/s/33bc4f23d1df"
@@ -44,7 +48,16 @@ def resolve_published_update() -> tuple[str, str, str]:
 def build_update_metadata(*, current_version: str) -> dict[str, str | bool]:
     current = normalize_version(current_version)
     latest, release_url, message = resolve_published_update()
-    update_available = is_version_newer(latest, current)
+    try:
+        update_available = is_version_newer(latest, current)
+    except ValueError:
+        _logger.warning(
+            "build_update_metadata: malformed latest_version %r vs current %r; "
+            "update_available forced to False",
+            latest,
+            current,
+        )
+        update_available = False
 
     payload: dict[str, str | bool] = {
         "current_version": current,

@@ -11,12 +11,13 @@ from typing import Any
 
 from PIL import Image
 
+from app.config_defaults import DEFAULT_IMAGE_MAX_WIDTH
 from app.jpeg_resize import resize_rgb_to_jpeg_bytes
 
 
 def compress_image_bytes(
     data: bytes,
-    max_width: int = 768,
+    max_width: int = DEFAULT_IMAGE_MAX_WIDTH,
     quality: int = 85,
 ) -> dict[str, Any]:
     pil_image = Image.open(io.BytesIO(data))

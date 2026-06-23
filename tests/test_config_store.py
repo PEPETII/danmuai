@@ -1,4 +1,5 @@
 import sqlite3
+import logging
 import threading
 from base64 import b64encode
 
@@ -758,6 +759,20 @@ def test_get_after_close_returns_cached_value(tmp_path):
     assert store.get("nonexistent", "default") == "default"
 
 
+def test_get_after_close_logs_warning(tmp_path, caplog):
+    """BUG-06: close() 后 get() 应发出 warning 级别日志（与 set/set_batch 一致）。"""
+    store = ConfigStore(db_path=tmp_path / "close_warn.db")
+    store.set("k", "v")
+    store.close()
+    with caplog.at_level(logging.WARNING):
+        result = store.get("k")
+    assert result == "v"
+    assert any(
+        "called after close()" in rec.message and rec.levelno == logging.WARNING
+        for rec in caplog.records
+    )
+
+
 def test_set_after_close_does_not_raise(tmp_path):
     """F05: close() 后 set() 不抛 ProgrammingError，静默跳过。"""
     store = ConfigStore(db_path=tmp_path / "close_set.db")
@@ -852,4 +867,111 @@ def test_get_json_valid_json_returns_parsed(tmp_path):
     result = store.get_json("good_key")
     assert result == ["item1", "item2"]
     store.close()
+
+
+# --- BUG-009/010: meme_barrage_library read operations must not hold _write_lock ---
+
+
+def test_meme_barrage_library_contains_text_no_write_lock(tmp_path):
+    """BUG-009: contains_text 是读操作，不得持 _write_lock 阻塞写路径。
+
+    主线程持 _write_lock 期间，另一线程调用 contains_text 应能立即完成
+    （WAL 模式下读不阻塞）。
+    """
+    store = ConfigStore(db_path=tmp_path / "meme_nolock.db")
+    store.meme_barrage_library_insert_many(
+        [("烂梗A", None, None), ("烂梗B", None, None)],
+        collected_at=0.0,
+        max_rows=10_000,
+    )
+
+    # 主线程持 _write_lock（模拟写操作进行中）
+    assert store._write_lock.acquire(timeout=2.0)
+    result_holder: dict = {}
+
+    def _reader():
+        try:
+            result_holder["found"] = store.meme_barrage_library_contains_text("烂梗A")
+            result_holder["not_found"] = store.meme_barrage_library_contains_text("不存在")
+            result_holder["ok"] = True
+        except Exception as exc:
+            result_holder["error"] = repr(exc)
+
+    t = threading.Thread(target=_reader, name="test-meme-reader")
+    t.start()
+    t.join(timeout=2.0)
+
+    # 释放锁
+    store._write_lock.release()
+
+    assert not t.is_alive(), "contains_text 不应在 _write_lock 上阻塞"
+    assert result_holder.get("ok") is True, f"读线程异常: {result_holder}"
+    assert result_holder.get("found") is True
+    assert result_holder.get("not_found") is False
+    store.close()
+
+
+def test_meme_barrage_library_fetch_batch_no_write_lock(tmp_path):
+    """BUG-010: fetch_batch 是读操作，不得持 _write_lock 阻塞写路径。"""
+    store = ConfigStore(db_path=tmp_path / "meme_fetch_nolock.db")
+    store.meme_barrage_library_insert_many(
+        [(f"烂梗{i}", None, None) for i in range(5)],
+        collected_at=0.0,
+        max_rows=10_000,
+    )
+
+    # 主线程持 _write_lock
+    assert store._write_lock.acquire(timeout=2.0)
+    result_holder: dict = {}
+
+    def _reader():
+        try:
+            texts, next_off = store.meme_barrage_library_fetch_batch(offset=0, limit=3)
+            result_holder["texts"] = texts
+            result_holder["next_off"] = next_off
+            result_holder["ok"] = True
+        except Exception as exc:
+            result_holder["error"] = repr(exc)
+
+    t = threading.Thread(target=_reader, name="test-meme-fetch")
+    t.start()
+    t.join(timeout=2.0)
+
+    store._write_lock.release()
+
+    assert not t.is_alive(), "fetch_batch 不应在 _write_lock 上阻塞"
+    assert result_holder.get("ok") is True, f"读线程异常: {result_holder}"
+    assert len(result_holder.get("texts", [])) == 3
+    store.close()
+
+
+def test_meme_barrage_library_contains_text_after_close(tmp_path):
+    """BUG-009: close() 后 contains_text 返回 False，不抛 ProgrammingError。"""
+    store = ConfigStore(db_path=tmp_path / "meme_close.db")
+    store.meme_barrage_library_insert_many(
+        [("烂梗句", None, None)],
+        collected_at=0.0,
+        max_rows=10_000,
+    )
+    store.close()
+    assert store._closed is True
+    # close 后返回 False，不抛异常
+    assert store.meme_barrage_library_contains_text("烂梗句") is False
+    assert store.meme_barrage_library_contains_text("不存在") is False
+
+
+def test_meme_barrage_library_fetch_batch_after_close(tmp_path):
+    """BUG-010: close() 后 fetch_batch 返回空列表，不抛 ProgrammingError。"""
+    store = ConfigStore(db_path=tmp_path / "meme_fetch_close.db")
+    store.meme_barrage_library_insert_many(
+        [("烂梗句", None, None)],
+        collected_at=0.0,
+        max_rows=10_000,
+    )
+    store.close()
+    assert store._closed is True
+    # close 后返回空，不抛异常
+    texts, next_off = store.meme_barrage_library_fetch_batch(offset=0, limit=10)
+    assert texts == []
+    assert next_off == 0
 

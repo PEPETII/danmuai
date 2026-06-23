@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from PyQt6.QtCore import QObject, QTimer, pyqtSignal
 
@@ -11,10 +11,7 @@ from app.meme_barrage.config import meme_barrage_enabled, read_meme_barrage_sett
 from app.meme_barrage.runnable import MemeAiSelectRunnable, MemeFetchRunnable, meme_fetch_pool
 from app.meme_barrage.service import MemeBarrageService
 from app.screenshot_compress import IMAGE_JPEG_QUALITY, IMAGE_MAX_WIDTH, compress_screenshot
-from app.worker_pools import ai_worker_pool, meme_ai_pool
-
-if TYPE_CHECKING:
-    pass
+from app.worker_pools import meme_ai_pool
 
 _MEME_DISPLAY_MAX_PER_TICK = 2
 _MEME_DISPLAY_MAX_RECURSION = 10  # BUG-G06: limit recursive singleShot rounds

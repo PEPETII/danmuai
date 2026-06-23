@@ -110,11 +110,6 @@ def test_duplicate_loss_topup_only_triggers_once_per_request(monkeypatch):
         )
 
     calls: list[int] = []
-    monkeypatch.setattr(
-        "app.main_request_context_mixin.maybe_duplicate_loss_topup",
-        lambda *args, **kwargs: 1,
-        raising=False,
-    )
     original = app._maybe_duplicate_loss_topup
 
     def counting_topup(queued, stats):

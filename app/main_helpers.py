@@ -3,7 +3,7 @@
 职责边界：
 - 主链路常量定义（VISUAL_INFLIGHT_WARN_SEC=45s、MAX_IN_FLIGHT=1、MAX_MIC_IN_FLIGHT=1）
 - BatchTracker 数据类（视觉批次锚点元数据）
-- 纯函数辅助（reply_request_id、density_right_target、memory_tone_hint 等）
+- 纯函数辅助（reply_request_id、density_right_target 等）
 
 与 DanmuApp 关系：本模块不依赖 DanmuApp，可安全用于单元测试。
 DanmuApp 通过 from app.main_helpers import ... 使用这些常量和函数。

@@ -1,7 +1,7 @@
 """图像压缩预览路由：POST /api/preview/compress。
 
 Web「设置→图像」页上传一张图片预览压缩后的 Base64 data URI；
-max_width 768 / quality 85 是运行时主链路截图压缩的默认值，本路由复用
+max_width 1024 / quality 85 是运行时主链路截图压缩的默认值，本路由复用
 ``app.image_compress.compress_image_bytes`` 让用户看到压缩后效果再保存设置。
 
 注册方式：``app.web_api.routes`` 调用 ``register_preview_compress_route(app, check_token)``。
@@ -13,6 +13,7 @@ from typing import Callable
 
 from fastapi import File, Form, Header, HTTPException, UploadFile
 
+from app.config_defaults import DEFAULT_IMAGE_MAX_WIDTH
 from app.image_compress import compress_image_bytes
 
 
@@ -22,7 +23,7 @@ def register_preview_compress_route(app, check_token: Callable) -> None:
     @app.post("/api/preview/compress")
     async def preview_compress(
         file: UploadFile = File(...),
-        max_width: int = Form(768),
+        max_width: int = Form(DEFAULT_IMAGE_MAX_WIDTH),
         quality: int = Form(85),
         authorization: str | None = Header(default=None),
     ):

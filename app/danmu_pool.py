@@ -541,7 +541,7 @@ def set_custom_danmu_pool_for_store(store, items: list[str]) -> None:
     if store._conn_usable():
         try:
             rows = store.conn.execute(
-                "SELECT text FROM custom_danmu_pool_entries"
+                f"SELECT text FROM custom_danmu_pool_entries ORDER BY id ASC LIMIT {CUSTOM_DANMU_POOL_MAX}"
             ).fetchall()
             existing = {str(row[0]).strip() for row in rows if row and row[0]}
         except sqlite3.ProgrammingError:

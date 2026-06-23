@@ -31,9 +31,6 @@ ph/
 web/static/supabase-config.js
 web/static/supabase-config.js.codex-release-backup
 
-# Supabase data / migrations (local only — code stays tracked)
-supabase/
-
 # Build and caches
 .npmcache/
 dist/

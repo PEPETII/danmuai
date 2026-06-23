@@ -13,7 +13,7 @@ PyInstaller spec for DanmuAI（Web 控制台 + pywebview + Qt overlay）。
     - ``hiddenimports`` 中：uvicorn 必须 ``collect_submodules`` + 显式列
       ``uvicorn.protocols.http.auto`` / ``uvicorn.protocols.websockets.auto``
       / ``uvicorn.lifespan.on``（PyInstaller 静态分析不到协议自动选择）
-    - ``hiddenimports`` 按分区组织：第三方包 → app 顶层 → app.application / memory /
+    - ``hiddenimports`` 按分区组织：第三方包 → app 顶层 → app.application /
       meme_barrage / pet / providers / web_api 子包；新增模块须同步此列表
     - 可选第三方懒加载（``keyboard``、``dashscope`` TTS）亦列入 hiddenimports
     - ``console=False``：发布为 GUI 应用（无控制台窗口）；debug 关闭
@@ -81,7 +81,6 @@ binaries: list = []
 hiddenimports: list[str] = [
     # ── 第三方包 ──────────────────────────────────────────────────
     "webview",
-    "pywebview",
     "clr",
     *collect_submodules("uvicorn"),
     *collect_submodules("uvicorn.protocols"),

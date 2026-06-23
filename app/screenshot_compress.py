@@ -1,6 +1,6 @@
 """QPixmap → JPEG Base64 data URI：视觉 AI 请求的截图压缩。
 
-隐私设计：内存压缩、不落盘。默认 max_width=768 / quality=85，返回 data:image/jpeg;base64,...。
+隐私设计：内存压缩、不落盘。默认 max_width=1024 / quality=85，返回 data:image/jpeg;base64,...。
 """
 
 from __future__ import annotations
@@ -10,7 +10,9 @@ import base64
 from PyQt6.QtCore import QBuffer, QIODevice, Qt
 from PyQt6.QtGui import QImage, QImageWriter, QPixmap
 
-IMAGE_MAX_WIDTH = 768
+from app.config_defaults import DEFAULT_IMAGE_MAX_WIDTH
+
+IMAGE_MAX_WIDTH = DEFAULT_IMAGE_MAX_WIDTH
 IMAGE_JPEG_QUALITY = 85
 
 

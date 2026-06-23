@@ -42,9 +42,8 @@ class QueuedReply:
     batch_id: int = 0  # drop_replaceable_fallbacks / 批次锚点加速
     request_id: str = ""  # 视觉 vs 麦克风来源；drop_replaceable_fallbacks 匹配
     is_fallback: bool = False  # True=本地轻量兜底批次，非模型输出
-    source: str = "ai"  # ai | fallback | mic；mic 跳过去重、fallback 不写 scene_memory
+    source: str = "ai"  # ai | fallback | mic；mic 跳过去重
     replaceable: bool = False  # True 且 source=fallback 时，可被同 request_id/batch_id 的 AI 批次替换
-    memory_eligible: bool = True  # False 时不上报 scene_memory（兜底通常 False）
 
 
 class AIReplyFIFOBuffer:

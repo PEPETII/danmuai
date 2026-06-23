@@ -35,7 +35,7 @@ def _decoded_size(data_uri: str) -> tuple[int, int]:
 
 
 def test_compress_screenshot_constants():
-    assert IMAGE_MAX_WIDTH == 768
+    assert IMAGE_MAX_WIDTH == 1024
     assert IMAGE_JPEG_QUALITY == 85
 
 

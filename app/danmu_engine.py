@@ -39,7 +39,8 @@ from app.danmu_engine_dedup import (  # noqa: F401 — re-exported for app.danmu
     reset_dedup_profile_for_tests,
     snapshot_dedup_profile,
 )
-from app.danmu_engine_models import DanmuItem, Track
+from app.danmu_engine_models import DanmuItem, Track  # noqa: F401
+from app.danmu_engine_models import _DANMU_FALLBACK_CHAR_WIDTH
 from app.translations import Translator
 
 _log = logging.getLogger(__name__)
@@ -158,14 +159,6 @@ def resolve_danmu_display_text(
     return f"{name}：{body}" if name else body
 
 
-def is_normalized_danmu_overlay_safe(content: str, config, *, lang: str | None = None) -> bool:
-    """对已 normalize 的弹幕做 overlay 校验（含 ... 后缀时的长度上限）。"""
-    from app.danmu_pool_overlay import is_overlay_safe
-
-    max_len = resolve_danmu_max_chars(config, lang=lang)
-    if content.endswith("..."):
-        max_len += 3
-    return is_overlay_safe(content, max_chars=max_len)
 _LEVENSHTEIN_UNAVAILABLE = dedup_profile._LEVENSHTEIN_UNAVAILABLE
 _LEVENSHTEIN_RATIO = dedup_profile._LEVENSHTEIN_RATIO
 def _get_levenshtein_ratio():
@@ -439,7 +432,7 @@ class DanmuEngine(QObject):
                 track.entry_zone_count_cached += 1
             else:
                 track.entry_zone_count_cached = max(0, track.entry_zone_count_cached - 1)
-        old_edge = old_x + (item.width if item.width > 0 else len(item.content) * 25.0)
+        old_edge = old_x + (item.width if item.width > 0 else len(item.content) * _DANMU_FALLBACK_CHAR_WIDTH)
         new_edge = Track.item_right_edge(item)
         if new_edge > track.tail_right_edge:
             track.tail_right_edge = new_edge
@@ -513,7 +506,7 @@ class DanmuEngine(QObject):
         return self.screen_width * 2 / 3
 
     def _item_right_edge(self, item: DanmuItem) -> float:
-        w = item.width if item.width > 0 else len(item.content) * 25.0
+        w = item.width if item.width > 0 else len(item.content) * _DANMU_FALLBACK_CHAR_WIDTH
         return item.x + w
 
     def _in_entry_zone(self, item: DanmuItem) -> bool:
@@ -794,7 +787,7 @@ class DanmuEngine(QObject):
 
         item.x = float(self.screen_width) + random.uniform(20.0, 90.0)
         item.speed = self.config.get_float("danmu_speed", _DANMU_SPEED_FALLBACK)
-        item.width = float(len(content) * 25.0)
+        item.width = self._estimate_content_width(content)
 
         track = self._pick_track(item)
         if track is None:
@@ -811,6 +804,37 @@ class DanmuEngine(QObject):
             self._update_item_motion_tick_state(item)
         self._refresh_item_visibility(item)
         return item
+
+    def _estimate_char_width(self) -> float:
+        """根据字体配置估算单个全角字符的平均像素宽度。
+
+        全角字符宽度 ≈ font_size（非粗体）~ font_size × 1.08（粗体）。
+        粗体字横向膨胀约 5-10%，取 1.08 中值。
+        """
+        font_size = self.config.get_int("font_size", 24)
+        bold = (
+            str(self.config.get("danmu_font_bold", "1") or "1")
+            .strip()
+            .lower()
+            not in ("0", "false", "no")
+        )
+        return float(font_size) * (1.08 if bold else 1.0)
+
+    def _estimate_content_width(self, content: str) -> float:
+        """估算文本渲染像素宽度。
+
+        统计全角与半角字符数量，分别乘以对应估算宽度后求和。
+        比纯 len()*常数 更准确，尤其对中英混合文本。
+        """
+        char_width = self._estimate_char_width()
+        fullwidth_count = sum(
+            1
+            for ch in content
+            if ord(ch) > 0x2000 or ch in "　，。！？、：；""''（）【】《》"
+        )
+        halfwidth_count = len(content) - fullwidth_count
+        # 半角字符（ASCII等）宽度约为全角的 0.55
+        return float(fullwidth_count) * char_width + float(halfwidth_count) * char_width * 0.55
 
     def _calc_min_gap(self, item: DanmuItem) -> float:
         return max(80.0, item.width * 0.5)

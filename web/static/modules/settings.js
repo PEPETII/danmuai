@@ -1,5 +1,5 @@
 /**
- * 模块：settings — 助手设置页（7 个 tab）+ 视觉模型选择 + 识图框选 + 压缩预览。
+ * 模块：settings — 助手设置页（8 个 tab）+ 视觉模型选择 + 识图框选 + 压缩预览。
  *
  * 关键数据：
  *   - CONFIG_FIELDS：白名单字段表，决定 GET /api/config 与 PUT /api/config

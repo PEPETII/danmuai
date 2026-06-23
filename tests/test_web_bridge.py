@@ -501,7 +501,7 @@ def test_quit_warns_when_web_console_shutdown_does_not_finish(monkeypatch):
 
     DanmuApp.quit(app)
 
-    fake_thread.join.assert_called_once_with(timeout=0.2)
+    fake_thread.join.assert_called_once_with(timeout=0.5)
     warning_calls = app.logger.warning.call_args_list
     assert any(
         call.args[0].startswith("quit timed out waiting for Web console shutdown")

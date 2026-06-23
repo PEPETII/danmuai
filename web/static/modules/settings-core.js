@@ -209,6 +209,7 @@ export function collectFormData() {
   data.mic_use_visual_model = document.getElementById('mic_use_visual_model')?.checked ? '1' : '0';
   data.danmu_font_bold = document.getElementById('danmu_font_bold')?.checked ? '1' : '0';
   data.floating_panel_font_bold = document.getElementById('floating_panel_font_bold')?.checked ? '1' : '0';
+  data.bililive_dm_mode_enabled = document.getElementById('bililive_dm_mode_enabled')?.checked ? '1' : '0';
   const key = (document.getElementById('api_key')?.value || '').trim();
   if (key && key !== MASKED_API_KEY) data.api_key = key;
   const micKey = (document.getElementById('mic_api_key')?.value || '').trim();
@@ -264,6 +265,8 @@ export async function fillForm(cfg) {
   coreDeps.setMicAudioLikelySupported(cfg.mic_audio_likely_supported !== false);
   const micMode = document.getElementById('mic_mode_enabled');
   if (micMode) micMode.checked = cfg.mic_mode_enabled === '1';
+  const bililiveDmMode = document.getElementById('bililive_dm_mode_enabled');
+  if (bililiveDmMode) bililiveDmMode.checked = cfg.bililive_dm_mode_enabled === '1';
   const micUseVisual = document.getElementById('mic_use_visual_model');
   if (micUseVisual) micUseVisual.checked = cfg.mic_use_visual_model !== '0';
   const micWindow = document.getElementById('mic_window_sec');

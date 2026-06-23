@@ -716,7 +716,7 @@ class DanmuAppLifecycleMixin:
             if callable(wait_shutdown_complete):
                 shutdown_done = bool(wait_shutdown_complete())
             if not shutdown_done and web_thread is not None and web_thread.is_alive():
-                web_thread.join(timeout=0.2)
+                web_thread.join(timeout=0.5)
                 shutdown_done = not web_thread.is_alive()
             if not shutdown_done:
                 self.logger.warning(
@@ -739,6 +739,21 @@ class DanmuAppLifecycleMixin:
         self.history_writer.stop()
         self.ai_worker.close()
         self.config.close()
+
+        # 显式清理 pet 组件:停止 QTimer、释放 QPixmap,与 overlay 对称。
+        pet_window = self.__dict__.get("pet_window")
+        if pet_window is not None:
+            try:
+                pet_window.hide_pet()
+            except Exception as exc:
+                self.logger.warning(f"pet window hide on quit failed: {exc!r}")
+        pet_barrage_ctrl = self.__dict__.get("pet_barrage_controller")
+        if pet_barrage_ctrl is not None:
+            try:
+                pet_barrage_ctrl.close()
+            except Exception as exc:
+                self.logger.warning(f"pet barrage close on quit failed: {exc!r}")
+
         self.overlay.hide()
 
         self.logger.info(tr("app.quit_done"))

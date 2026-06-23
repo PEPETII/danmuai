@@ -11,7 +11,7 @@
   - ``floating_panel``：侧边悬浮窗 V2
   - 遗留 ``display_mode`` 在 ConfigStore 启动时由 ``migrate_legacy_display_mode_to_render_mode`` 写回 ``danmu_render_mode``
 - 字体（``danmu_font_*`` + ``floating_panel_font_*`` + ``imported_fonts``；W-FONT-001/002/003）
-- API（``api_mode`` + ``api_endpoint`` + ``api_key`` + ``model`` + ``temperature`` + ``max_tokens`` + ``use_thinking``）
+- API（``api_mode`` + ``api_endpoint`` + ``api_key`` + ``model`` + ``temperature`` + ``max_tokens``）
 - TTS / 读弹幕（``tts_*`` + ``danmu_read_*``）
 - 公告 / 主题 / 更新 / 用户（``user_nickname`` / ``live_topic`` + ``console_theme`` + ``app_update_state``）
 
@@ -36,7 +36,8 @@ DEFAULT_FONT_SIZE = 24
 DEFAULT_DANMU_FONT_FAMILY = "Microsoft YaHei"
 DEFAULT_DEDUP_THRESHOLD = 0.5
 DEFAULT_DANMU_RECENT_TTL_SEC = 30
-DEFAULT_IMAGE_MAX_WIDTH = 768
+DEFAULT_IMAGE_MAX_WIDTH = 1024
+LEGACY_IMAGE_MAX_WIDTH = 768
 DEFAULT_LANGUAGE = "zh"
 # 横屏 scrolling 与从下到上 floating_panel 的节奏默认值（仅键缺失时按 render mode 回落）
 SCROLLING_NORMAL_RECOGNITION_INTERVAL_SEC = 5
@@ -52,7 +53,6 @@ CONFIG_DEFAULTS: dict[str, str] = {
     "api_mode": "openai",
     "temperature": "0.8",
     "max_tokens": "512",
-    "use_thinking": "0",
     "danmu_speed": "2",
     "danmu_lines": "20",
     "danmu_max_chars": "15",
@@ -83,7 +83,7 @@ CONFIG_DEFAULTS: dict[str, str] = {
     "danmu_pending_entry_cap": str(DEFAULT_DANMU_PENDING_ENTRY_CAP),
     "danmu_track_retention_cap": str(DEFAULT_DANMU_TRACK_RETENTION_CAP),
     "reply_queue_max_items": "0",
-    "image_max_width": "768",
+    "image_max_width": "1024",
     "image_quality": "85",
     "hotkey": "Ctrl+Shift+B",
     "language": DEFAULT_LANGUAGE,
@@ -111,6 +111,8 @@ CONFIG_DEFAULTS: dict[str, str] = {
     "console_theme": "light",
     # W-FP-V2-001：弹幕渲染模式（互斥）
     "danmu_render_mode": "scrolling",
+    # W-BILILIVE-DM-PLUGIN-MODE-005：弹幕姬模式（关闭屏幕层，仅 bililive_dm 显示）
+    "bililive_dm_mode_enabled": "0",
     "floating_panel_width": "360",
     "floating_panel_max_items": "12",
     "floating_panel_x_offset": "20",
@@ -211,6 +213,19 @@ def config_value_with_default(config, key: str) -> str:
         mode = resolve_danmu_render_mode(config)
         return default_config_value_for_mode(key, mode)
     return CONFIG_DEFAULTS.get(key, "")
+
+
+def migrate_legacy_image_max_width(config) -> bool:
+    """Upgrade stored default 768 → current DEFAULT_IMAGE_MAX_WIDTH (1024).
+
+    Only rewrites the previous factory default; user-customized widths are left unchanged.
+    Returns True if image_max_width was written.
+    """
+    raw = str(config.get("image_max_width", "") or "").strip()
+    if raw != str(LEGACY_IMAGE_MAX_WIDTH):
+        return False
+    config.set("image_max_width", str(DEFAULT_IMAGE_MAX_WIDTH))
+    return True
 
 
 def migrate_legacy_display_mode_to_render_mode(config) -> bool:

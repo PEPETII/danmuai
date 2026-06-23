@@ -1,5 +1,7 @@
 """update_service — thread-safety and source-mode contracts."""
 
+import sys
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -29,10 +31,26 @@ def reset_state():
 
 def test_get_status_source_mode(reset_state):
     """In source (non-frozen) mode, get_status() returns ok=True, frozen=False."""
-    with patch.object(update_service, "_is_frozen", return_value=False):
+    with patch.object(update_service, "_is_velopack_install", return_value=False):
         st = update_service.get_status()
     assert st.ok is True
     assert st.frozen is False
+
+
+def test_is_velopack_install_requires_current_dir_and_update_exe():
+    with patch.object(sys, "frozen", True, create=True):
+        with patch.object(
+            sys,
+            "executable",
+            str(Path("C:/Users/test/AppData/Local/PEPETII.DanmuAI/current/DanmuAI.exe")),
+            create=True,
+        ):
+            with patch.object(Path, "is_file", return_value=True):
+                assert update_service._is_velopack_install() is True
+
+    with patch.object(sys, "frozen", True, create=True):
+        with patch.object(sys, "executable", str(Path("E:/portable/DanmuAI.exe")), create=True):
+            assert update_service._is_velopack_install() is False
 
 
 # ── get_status() snapshot consistency ─────────────────────────────
@@ -53,7 +71,7 @@ def test_get_status_snapshot_consistency(reset_state):
     mock_mgr.get_update_pending_restart.return_value = False
     mock_mgr.get_current_version.return_value = "0.3.3"
 
-    with patch.object(update_service, "_is_frozen", return_value=True):
+    with patch.object(update_service, "_is_velopack_install", return_value=True):
         with patch.object(update_service, "_manager", return_value=mock_mgr):
             st = update_service.get_status()
 
@@ -76,7 +94,7 @@ def test_get_status_download_ready_not_also_available(reset_state):
     mock_mgr.get_update_pending_restart.return_value = False
     mock_mgr.get_current_version.return_value = "0.3.3"
 
-    with patch.object(update_service, "_is_frozen", return_value=True):
+    with patch.object(update_service, "_is_velopack_install", return_value=True):
         with patch.object(update_service, "_manager", return_value=mock_mgr):
             st = update_service.get_status()
 

@@ -93,7 +93,8 @@ class DanmuTtsPlayback(QObject):
             logger.warning("danmu tts playback failed: %s", exc)
         finally:
             self._set_busy(False)
-            # 跨线程安全 emit：通过主线程事件循环投递，避免在播放线程直接调用
+            # 跨线程安全投递：通过 QMetaObject.invokeMethod + QueuedConnection 将信号
+            # 投递到主线程事件循环，等价于 QTimer.singleShot(0, ...)。
             QMetaObject.invokeMethod(
                 self, "playback_finished", Qt.ConnectionType.QueuedConnection
             )

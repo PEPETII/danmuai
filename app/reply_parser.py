@@ -13,16 +13,12 @@ import json
 import random
 import re
 from difflib import SequenceMatcher
-from typing import TYPE_CHECKING
 
 from app.danmu_pool import load_danmu_pool_for_config, sample_danmu_for_config
 
-if TYPE_CHECKING:
-    pass
-
 _COMMENT_KEYS = ("comments", "replies", "items", "data")
 _COMMENTS_ARRAY_RE = re.compile(r'"comments"\s*:\s*\[([^\]]*)\]', re.DOTALL)
-_HEURISTIC_SKIP = frozenset({"comments", "scene_brief", ":", ""})
+_HEURISTIC_SKIP = frozenset({"comments", ":", ""})
 _MAX_HEURISTIC_DEPTH = 16
 _PLACEHOLDER_COMMENT_RE = re.compile(
     r"^(?:comment|comments|评论|弹幕)\s*[-_#:]?\s*\d{1,3}$",

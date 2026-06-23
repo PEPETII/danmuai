@@ -6,11 +6,13 @@ import io
 
 from PIL import Image
 
+from app.config_defaults import DEFAULT_IMAGE_MAX_WIDTH
+
 
 def resize_rgb_to_jpeg_bytes(
     pil_image: Image.Image,
     *,
-    max_width: int = 768,
+    max_width: int = DEFAULT_IMAGE_MAX_WIDTH,
     quality: int = 85,
 ) -> tuple[Image.Image, bytes, int, int]:
     """Resize RGB image if wider than max_width; return (final PIL, jpeg bytes, out_w, out_h)."""

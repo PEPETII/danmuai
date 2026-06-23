@@ -64,7 +64,7 @@ P0_CAPTURE = {
     "test_normal_tick_skips",
     "test_compress_screenshot",
     "test_capture_failure",
-    "test_invalid_pixmap",
+    "test_null_pixmap",
     "test_capture_does_not",
     "test_capture_while_in_flight",
     "test_repeated_capture",

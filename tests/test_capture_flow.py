@@ -256,7 +256,7 @@ def test_repeated_capture_keeps_scene_generation(monkeypatch):
     assert app._latest_screenshot is not None
 
 
-def test_invalid_pixmap_does_not_increment_screenshot_id():
+def test_null_pixmap_does_not_increment_screenshot_id():
     """无效 pixmap 不应递增 screenshot_id 或缓存帧"""
     app = make_minimal_danmu_app()
     app.engine.running = True
@@ -267,7 +267,7 @@ def test_invalid_pixmap_does_not_increment_screenshot_id():
 
     assert app._latest_screenshot_id == 5
     assert app._latest_screenshot is None
-    assert any("invalid_pixmap" in msg for msg in app.logger.warning_messages)
+    assert any("null_pixmap" in msg for msg in app.logger.warning_messages)
 
 
 def test_repeated_capture_failure_sets_web_error_status():

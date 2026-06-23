@@ -337,7 +337,8 @@ def test_apply_config_patch_clamps_normal_batch_settings():
     assert config.get("normal_reply_count") == "50"
 
 
-def test_apply_config_patch_normalizes_legacy_realtime_display_mode():
+def test_apply_config_patch_ignores_legacy_danmu_display_mode():
+    """danmu_display_mode 不在 WEB_CONFIG_KEYS 白名单中，Web API 应忽略该键。"""
     config = FakeConfig({"danmu_display_mode": "realtime"})
     app = MagicMock()
     app.config = config
@@ -345,7 +346,8 @@ def test_apply_config_patch_normalizes_legacy_realtime_display_mode():
 
     apply_config_patch(app, {"danmu_display_mode": "realtime", "normal_reply_count": "6"})
 
-    assert config.get("danmu_display_mode") == "normal"
+    # danmu_display_mode 不在白名单中，Web API 不应写入该键
+    assert config.get("danmu_display_mode") == "realtime"
     assert config.get("normal_reply_count") == "6"
 
 

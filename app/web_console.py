@@ -92,7 +92,7 @@ STATIC_DIR = resource_path("web", "static")
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 18765
 INVOKE_ON_MAIN_TIMEOUT_SEC = 10.0
-WEB_CONSOLE_SHUTDOWN_TIMEOUT_SEC = 2.0
+WEB_CONSOLE_SHUTDOWN_TIMEOUT_SEC = 3.0
 WEB_CONSOLE_THREAD_JOIN_GRACE_SEC = 0.2
 
 
@@ -429,11 +429,12 @@ class WebConsoleServer:
         self.startup_ok = False
         self._startup_error_from_attach = False
         self._startup_failure_user_notified = False
-        # frozen 安装版保留 non-daemon，源码运行则允许 daemon。
+        # daemon=True 即使 frozen:quit() 已显式 wait_shutdown_complete(),
+        # non-daemon 在 uvicorn 卡住时会阻止进程退出(S-QUIT-WEB-DAEMON)。
         self._thread = threading.Thread(
             target=self._run,
             name="DanmuWebConsole",
-            daemon=not is_frozen(),
+            daemon=True,
         )
         self._thread.start()
 
@@ -606,19 +607,24 @@ def attach_web_console(danmu_app: "DanmuApp", port: int = DEFAULT_PORT) -> WebCo
     log_startup("web_server.start")
     server.start()
 
+    # BUG-007: 不在 __init__ 同步阻塞 wait_ready（frozen 最多 1.5s，tray 已可见但
+    # 事件循环未启动 → 无响应）。改为依靠 _tick_status 500ms 轮询检测就绪，并挂
+    # 一个 one-shot deadline 定时器在 ready_timeout 到期时记录超时诊断。
+    # QTimer.singleShot 在 app.exec() 启动后触发，不阻塞主线程。
     ready_timeout = web_console_ready_timeout()
-    wait_started = time.perf_counter()
-    ready = server.wait_ready(timeout=ready_timeout)
-    wait_ms = (time.perf_counter() - wait_started) * 1000.0
-    log_startup(
-        "web_server.wait_ready",
-        ok=ready,
-        wait_ms=wait_ms,
-        timeout_s=ready_timeout,
-        startup_ok=server.startup_ok,
-    )
-    if not ready:
-        _notify_wait_ready_timeout(server, danmu_app)
+
+    def _check_ready_deadline():
+        ready = server.startup_ok
+        log_startup(
+            "web_server.wait_ready_deadline",
+            ok=ready,
+            timeout_s=ready_timeout,
+            startup_ok=server.startup_ok,
+        )
+        if not ready:
+            _notify_wait_ready_timeout(server, danmu_app)
+
+    QTimer.singleShot(int(ready_timeout * 1000), _check_ready_deadline)
 
     _diagnostic_tick = 0
 

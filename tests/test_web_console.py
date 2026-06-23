@@ -107,6 +107,25 @@ def test_config_defaults_include_v2_keys():
     for key in (
         "danmu_render_mode",
         "floating_panel_width",
+        "bililive_dm_mode_enabled",
     ):
         assert key in CONFIG_DEFAULTS
     assert "display_mode" not in CONFIG_DEFAULTS
+
+
+def test_bililive_dm_mode_in_web_config_keys():
+    assert "bililive_dm_mode_enabled" in WEB_CONFIG_KEYS
+
+
+def test_bililive_dm_mode_defaults_exported():
+    defaults = export_web_config_defaults()
+    assert defaults["bililive_dm_mode_enabled"] == "0"
+
+
+def test_bililive_dm_mode_persists_and_normalizes(tmp_path):
+    store = ConfigStore(db_path=tmp_path / "bililive_dm_mode.db")
+    app = _stub_app(store)
+    apply_web_config_patch(app, {"bililive_dm_mode_enabled": "true"})
+    assert store.get("bililive_dm_mode_enabled") == "1"
+    apply_web_config_patch(app, {"bililive_dm_mode_enabled": "0"})
+    assert store.get("bililive_dm_mode_enabled") == "0"

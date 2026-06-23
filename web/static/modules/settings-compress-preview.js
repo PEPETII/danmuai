@@ -82,7 +82,7 @@ export function bindCompressPreviewControls() {
 
     const fd = new FormData();
     fd.append('file', file);
-    fd.append('max_width', document.getElementById('image_max_width')?.value || '768');
+    fd.append('max_width', document.getElementById('image_max_width')?.value || '1024');
     fd.append('quality', document.getElementById('image_quality')?.value || '85');
     try {
       if (!API.token) {

@@ -1,10 +1,11 @@
-"""Velopack update operations for tray / Web API (frozen installs only)."""
+"""Velopack update operations for tray / Web API (Velopack installs only)."""
 
 from __future__ import annotations
 
 import sys
 import threading
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from app.velopack_config import UPDATE_FEED_URL
@@ -63,17 +64,28 @@ def _is_frozen() -> bool:
     return bool(getattr(sys, "frozen", False))
 
 
+def _is_velopack_install() -> bool:
+    if not _is_frozen():
+        return False
+    exe_path = getattr(sys, "executable", "") or ""
+    if not exe_path:
+        return False
+    resolved = Path(exe_path).resolve()
+    return resolved.parent.name.lower() == "current" and (resolved.parent.parent / "Update.exe").is_file()
+
+
 _cached_manager = None
 
 
 def _manager():
     global _cached_manager
-    if _cached_manager is not None:
-        return _cached_manager
-    import velopack
+    with _lock:
+        if _cached_manager is not None:
+            return _cached_manager
+        import velopack
 
-    _cached_manager = velopack.UpdateManager(UPDATE_FEED_URL)
-    return _cached_manager
+        _cached_manager = velopack.UpdateManager(UPDATE_FEED_URL)
+        return _cached_manager
 
 
 def _current_version(manager) -> str:
@@ -159,7 +171,7 @@ def _enrich_status(status: UpdateStatus, snapshot: dict[str, Any] | None = None)
 
 
 def get_status() -> UpdateStatus:
-    frozen = _is_frozen()
+    frozen = _is_velopack_install()
     from app.version import __version__
 
     if not frozen:
@@ -167,7 +179,7 @@ def get_status() -> UpdateStatus:
             ok=True,
             frozen=False,
             current_version=__version__,
-            message="源码运行模式；Velopack 更新已跳过",
+            message="当前运行不是 Velopack 安装版；应用内更新已跳过",
         )
 
     try:
@@ -218,7 +230,7 @@ def get_status() -> UpdateStatus:
 
 
 def check_for_updates() -> UpdateStatus:
-    if not _is_frozen():
+    if not _is_velopack_install():
         return UpdateStatus(
             ok=False,
             frozen=False,
@@ -290,15 +302,20 @@ def _run_download_thread(info: Any) -> None:
             _state["last_error"] = str(exc)
 
 
-def download_updates(*, wait: bool = False) -> UpdateStatus:
-    if not _is_frozen():
-        return UpdateStatus(ok=False, frozen=False, error="not_frozen")
+def _read_phase_and_guard(
+    update_info: Any,
+) -> tuple[UpdateStatus | None, dict[str, Any] | None]:
+    """Acquire _lock, read phase+snapshot, check downloading/ready guards.
 
-    # Single lock acquisition for all state reads + decisions
+    Returns (early_return_status, snapshot):
+    - ``early_return_status`` is not None → caller must return it immediately.
+    - ``snapshot`` is populated only when no early return (caller continues).
+    - ``update_info`` is used for ``_latest_version_from_info()`` in the 'ready' guard;
+      pass ``None`` if version string is not yet available (first guard call).
+    """
     with _lock:
         phase = str(_state.get("download_phase") or "idle")
-        pending_info = _state.get("pending_update")
-        snapshot = {
+        snapshot: dict[str, Any] = {
             "download_phase": phase,
             "download_progress": int(_state.get("download_progress") or 0),
             "package_size_bytes": int(_state.get("package_size_bytes") or 0),
@@ -308,31 +325,50 @@ def download_updates(*, wait: bool = False) -> UpdateStatus:
         if phase == "downloading":
             active_thread = _state.get("download_thread")
             if active_thread is not None and active_thread.is_alive():
-                return _enrich_status(
+                return (
+                    _enrich_status(
+                        UpdateStatus(
+                            ok=True,
+                            frozen=True,
+                            downloading=True,
+                            message="正在下载更新…",
+                        ),
+                        snapshot,
+                    ),
+                    None,
+                )
+
+        if phase == "ready":
+            return (
+                _enrich_status(
                     UpdateStatus(
                         ok=True,
                         frozen=True,
-                        downloading=True,
-                        message="正在下载更新…",
+                        latest_version=_latest_version_from_info(update_info),
+                        update_available=True,
+                        download_ready=True,
+                        message="更新已下载，请重启应用以完成安装",
                     ),
                     snapshot,
-                )
-            # Thread died without updating phase; fall through to restart
-
-        if phase == "ready":
-            return _enrich_status(
-                UpdateStatus(
-                    ok=True,
-                    frozen=True,
-                    latest_version=_latest_version_from_info(pending_info),
-                    update_available=True,
-                    download_ready=True,
-                    message="更新已下载，请重启应用以完成安装",
                 ),
-                snapshot,
+                None,
             )
 
-        info = pending_info
+        return None, snapshot
+
+
+def download_updates(*, wait: bool = False) -> UpdateStatus:
+    if not _is_velopack_install():
+        return UpdateStatus(ok=False, frozen=False, error="not_frozen")
+
+    # First guard: check current phase before any I/O
+    early, _snapshot = _read_phase_and_guard(None)
+    if early is not None:
+        return early
+
+    # Extract pending_update info (only needed on first pass)
+    with _lock:
+        info = _state.get("pending_update")
 
     # check_for_updates() acquires its own lock; call outside ours
     if info is None:
@@ -347,42 +383,13 @@ def download_updates(*, wait: bool = False) -> UpdateStatus:
 
     package_size = _estimate_package_size(info)
 
-    # Atomic check-and-set: decide whether to start download under one lock
+    # Second guard: re-check phase before starting download thread
+    early, snapshot = _read_phase_and_guard(info)
+    if early is not None:
+        return early
+
+    # Atomic state transition + thread creation under lock
     with _lock:
-        phase = str(_state.get("download_phase") or "idle")
-        snapshot = {
-            "download_phase": phase,
-            "download_progress": int(_state.get("download_progress") or 0),
-            "package_size_bytes": int(_state.get("package_size_bytes") or 0),
-            "last_error": _state.get("last_error"),
-        }
-        if phase == "downloading":
-            active_thread = _state.get("download_thread")
-            if active_thread is not None and active_thread.is_alive():
-                return _enrich_status(
-                    UpdateStatus(
-                        ok=True,
-                        frozen=True,
-                        downloading=True,
-                        message="正在下载更新…",
-                    ),
-                    snapshot,
-                )
-            # Thread died without updating phase; fall through to restart
-
-        if phase == "ready":
-            return _enrich_status(
-                UpdateStatus(
-                    ok=True,
-                    frozen=True,
-                    latest_version=_latest_version_from_info(info),
-                    update_available=True,
-                    download_ready=True,
-                    message="更新已下载，请重启应用以完成安装",
-                ),
-                snapshot,
-            )
-
         _state["download_phase"] = "downloading"
         _state["download_progress"] = 0
         _state["package_size_bytes"] = package_size
@@ -435,7 +442,7 @@ def download_updates(*, wait: bool = False) -> UpdateStatus:
 
 
 def apply_updates_and_restart() -> UpdateStatus:
-    if not _is_frozen():
+    if not _is_velopack_install():
         return UpdateStatus(ok=False, frozen=False, error="not_frozen")
     with _lock:
         info = _state.get("pending_update")

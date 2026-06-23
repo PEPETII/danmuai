@@ -1,0 +1,51 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net461</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>DanmuAiMockPlugin</RootNamespace>
+    <AssemblyName>BililiveDmMockPlugin</AssemblyName>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net461" Version="1.0.3" PrivateAssets="all" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
+  </ItemGroup>
+
+  <!--
+    net461 SDK-style projects do not auto-import System.Net.Http — the
+    HttpClient / HttpRequestException / TaskCanceledException types live
+    in System.Net.Http.dll, which must be referenced explicitly. MOCK-001
+    did not need it; BRIDGE-002 introduces local HTTP calls so we add it
+    here alongside Newtonsoft.Json (required by both DTOs and the SDK).
+  -->
+  <ItemGroup>
+    <Reference Include="System.Net.Http" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="**\*.cs" />
+    <Compile Include="DanmuAiMockPlugin.cs" />
+    <Compile Include="DanmuAiPushListener.cs" />
+  </ItemGroup>
+
+  <!--
+    The vendored SDK is a sibling project; reference the compiled DLL from
+    its build output so we don't have to manage a Solution-level ProjectReference
+    just for one PoC.  Users should `dotnet build sdk\...` first.
+  -->
+  <ItemGroup>
+    <Reference Include="BilibiliDM_PluginFramework">
+      <HintPath>..\sdk\bin\Release\net461\BilibiliDM_PluginFramework.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
+
+  <Target Name="EnsureSdkBuilt" BeforeTargets="ResolveAssemblyReferences"
+          Condition="!Exists('..\sdk\bin\Release\net461\BilibiliDM_PluginFramework.dll')">
+    <Error Text="BilibiliDM_PluginFramework.dll not found. Run 'dotnet build sdk\BilibiliDM_PluginFramework.csproj -c Release' first." />
+  </Target>
+
+</Project>

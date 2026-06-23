@@ -140,6 +140,7 @@ class DanmuReadService(QObject):
         self._tts_ready.connect(self._on_tts_ready)
         self._tts_failed.connect(self._on_tts_failed)
         self._tts_in_flight = False
+        self._probe_pending = False
         self._last_text = ""
         self._skip_log_flags: set[str] = set()
 
@@ -148,6 +149,7 @@ class DanmuReadService(QObject):
         self._shutdown = True
         self._timer.stop()
         self._tts_in_flight = False
+        self._probe_pending = False
 
     def on_engine_started(self) -> None:
         config = self._app.config
@@ -300,25 +302,21 @@ class DanmuReadService(QObject):
         )
         style = config.get("tts_style_prompt", "")
         self._tts_in_flight = True
-        try:
-            wav = synthesize_tts(
-                api_key,
-                TTS_PROBE_TEXT,
-                style_prompt=style,
-                voice=voice,
-                resolved=resolved,
-            )
-        except DanmuTtsError as exc:
-            self._tts_in_flight = False
-            return {"ok": False, "message": str(exc)}
-        except Exception as exc:
-            self._tts_in_flight = False
-            return {"ok": False, "message": str(exc)}
-        if not self._playback.play_wav_bytes(wav):
-            self._tts_in_flight = False
-            return {"ok": False, "message": "无法开始播放"}
-        self._app.logger.info("danmu read: probe playback started")
-        return {"ok": True, "message": "试听播放中（播放结束后才可发起下一条）"}
+        self._probe_pending = True
+        runnable = _DanmuTtsRunnable(
+            self,
+            text=TTS_PROBE_TEXT,
+            api_key=api_key,
+            voice=voice,
+            style_prompt=style,
+            resolved=resolved,
+        )
+        QThreadPool.globalInstance().start(runnable)
+        self._app.logger.info("danmu read: probe synthesis submitted")
+        message = "试听已提交，正在合成…播放将在合成完成后开始"
+        if not danmu_read_enabled(config):
+            message += "。提示：未勾选「启用读弹幕」，定时朗读不会启动，请勾选后保存"
+        return {"ok": True, "message": message}
 
     def _on_tick(self) -> None:
         app = self._app
@@ -370,8 +368,11 @@ class DanmuReadService(QObject):
     def _on_tts_ready(self, wav_bytes: bytes) -> None:
         if self._shutdown:
             return
-        if not self._app.engine.running:
+        is_probe = self._probe_pending
+        self._probe_pending = False
+        if not is_probe and not self._app.engine.running:
             self._tts_in_flight = False
+            self._app.logger.warning("danmu read: tts_ready dropped (engine stopped)")
             return
         if not wav_bytes:
             self._tts_in_flight = False
@@ -390,6 +391,7 @@ class DanmuReadService(QObject):
 
     def _on_tts_failed(self, message: str) -> None:
         self._tts_in_flight = False
+        self._probe_pending = False
         self._app.logger.warning("danmu read tts failed: %s", message)
 
 

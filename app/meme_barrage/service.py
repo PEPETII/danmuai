@@ -89,6 +89,13 @@ class MemeBarrageService:
             if t:
                 self._display_queue.append(t)
                 added += 1
+        # Backpressure: drop oldest items when queue exceeds limit
+        from app.meme_barrage.config import DISPLAY_QUEUE_MAX
+
+        dropped = len(self._display_queue) - DISPLAY_QUEUE_MAX
+        if dropped > 0:
+            for _ in range(dropped):
+                self._display_queue.popleft()
         return added
 
     def pop_display_batch(self, count: int) -> list[str]:

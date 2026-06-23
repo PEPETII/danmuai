@@ -50,6 +50,8 @@ WEB_CONFIG_KEYS = (
     "persona_name_prefix_enabled",  # W-PERSONA-NAME-DISPLAY-001
     # W-FP-V2-001：弹幕渲染模式与侧边悬浮窗配置
     "danmu_render_mode",
+    # W-BILILIVE-DM-PLUGIN-MODE-005：弹幕姬模式
+    "bililive_dm_mode_enabled",
     "floating_panel_width",
     "floating_panel_max_items",
     "floating_panel_speed",
@@ -196,14 +198,6 @@ class ConfigService:
         for key in WEB_CONFIG_KEYS:
             if key in payload and payload[key] is not None:
                 items[key] = str(payload[key])
-
-        legacy_mode = payload.get("danmu_display_mode")
-        if legacy_mode is not None:
-            legacy_items = {"danmu_display_mode": str(legacy_mode)}
-            normalize_legacy_display_mode(legacy_items)
-            normalized_mode = str(legacy_items.get("danmu_display_mode", "")).strip()
-            if normalized_mode:
-                items["danmu_display_mode"] = normalized_mode
 
         if items:
             self._normalize_items(items)
@@ -394,6 +388,7 @@ class ConfigService:
             "pet_click_through",
             "pet_command_box_enabled",
             "pet_barrage_mode_enabled",
+            "bililive_dm_mode_enabled",
         ):
             if _key in items:
                 _v = str(items[_key]).strip().lower()

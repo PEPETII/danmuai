@@ -28,8 +28,8 @@ _FROZEN_SERVER_POLL_SEC = 1.5
 _NAV_POLL_SEC = 0.25
 _BROWSER_PROBE_SEC = 3.0
 _HANDSHAKE_POLL_MS = 50
-_SLOW_START_PROMPT_SEC = 5.0
-_DISABLE_SLOW_START_PROMPT = True
+_SLOW_START_PROMPT_SEC = 3.0
+_DISABLE_SLOW_START_PROMPT = False
 _SPAWN_MAX_ATTEMPTS = 3
 _WEBVIEW_ATTACH_MAX_ATTEMPTS = 2
 _WEBVIEW_ATTACH_RETRY_MS = 1200
@@ -155,8 +155,8 @@ def _fallback_to_system_browser(server: WebConsoleServer, path: str, reason: str
 def _maybe_prompt_slow_webview_start(shell: "WebViewShell", initial_path: str) -> None:
     """Offer system browser while pywebview loaded handshake is still pending.
 
-    UX guard only — unlike ``_fallback_to_system_browser`` we do not terminate the
-    child process so the desktop shell may still appear later. Called from ``poll_handshake`` on the Qt main thread (modal dialog blocks the 50 ms poll).
+    非阻塞 tray.showMessage 气泡；不阻塞 poll_handshake 的 50ms 轮询。
+    用户可点击托盘菜单「显示控制台」主动打开浏览器，或继续等待桌面壳。
     """
     if _DISABLE_SLOW_START_PROMPT:
         return
@@ -178,36 +178,32 @@ def _maybe_prompt_slow_webview_start(shell: "WebViewShell", initial_path: str) -
         if not wait_for_http_server(server.base_url, timeout=0.25):
             return
 
-    from PyQt6.QtWidgets import QMessageBox
+    from PyQt6.QtWidgets import QSystemTrayIcon
 
     from app.translations import tr
-    from app.web_console import open_web_console_browser
 
     server._slow_webview_prompt_shown = True
     base_url = server.base_url
     title = tr("webview.slow_start_title", "DanmuAI 启动较慢")
     message = tr(
-        "webview.slow_start_message",
-        "桌面窗口启动较慢，是否改用系统浏览器打开本地网页端？\n地址：{base_url}",
+        "webview.slow_start_message_balloon",
+        "桌面窗口启动较慢，可点击托盘菜单「显示控制台」改用浏览器打开：{base_url}",
     ).format(base_url=base_url)
 
-    box = QMessageBox()
-    box.setIcon(QMessageBox.Icon.Question)
-    box.setWindowTitle(title)
-    box.setText(message)
-    yes_btn = box.addButton(tr("common.yes"), QMessageBox.ButtonRole.YesRole)
-    no_btn = box.addButton(tr("common.no"), QMessageBox.ButtonRole.NoRole)
-    box.setDefaultButton(no_btn)
-    box.exec()
-
-    if box.clickedButton() == yes_btn:
-        path = shell._resolve_path(initial_path)
-        if not getattr(server, "_browser_launch_opened", False):
-            server._browser_launch_opened = True
-            open_web_console_browser(server, path)
-            log_startup("webview.slow_start.browser_opened", path=path)
-    else:
-        log_startup("webview.slow_start.continue_waiting")
+    # 非阻塞气泡：通过 tray icon 显示，不阻塞 poll_handshake
+    danmu_app = getattr(getattr(server, "bridge", None), "danmu_app", None)
+    tray = _tray_icon_for_notify(danmu_app) if danmu_app is not None else None
+    if tray is not None and QSystemTrayIcon.isSystemTrayAvailable():
+        try:
+            tray.showMessage(
+                title,
+                message,
+                QSystemTrayIcon.MessageIcon.Warning,
+                8000,
+            )
+        except Exception:
+            pass
+    log_startup("webview.slow_start.balloon_shown", base_url=base_url)
 
 
 def _nav_poll_loop(window: Any, nav_queue: Any, stop_event: threading.Event) -> None:
@@ -429,6 +425,12 @@ class WebViewShell:
             except OSError as exc:
                 if self._spawn_attempt >= _SPAWN_MAX_ATTEMPTS:
                     self._fail_start(f"pywebview spawn failed: {exc}", initial_path)
+                    danmu_app = self.server.bridge.danmu_app
+                    if not getattr(self.server, "_startup_failure_user_notified", False):
+                        notify_web_console_failure(
+                            danmu_app, "web_console.pywebview_failed", detail=str(exc)
+                        )
+                        self.server._startup_failure_user_notified = True
                     return False
                 log_startup(
                     "webview.process.retry",
@@ -656,6 +658,11 @@ def attach_webview_shell(
             return
         log_startup("attach_webview_shell.end", ok=False)
         server._webview_open_retry_active = False
+        if not getattr(server, "_startup_failure_user_notified", False):
+            notify_web_console_failure(
+                server.bridge.danmu_app, "web_console.startup_failed"
+            )
+            server._startup_failure_user_notified = True
     QTimer.singleShot(0, _begin)
     return shell
 

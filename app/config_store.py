@@ -96,6 +96,7 @@ class ConfigStore:
         self._closed = False
         # W-FP-V2-002：须在 seed 之前写回，避免 seed 先落 danmu_render_mode=scrolling 盖掉遗留 display_mode
         self._migrate_legacy_display_mode_to_render_mode()
+        self._migrate_legacy_image_max_width()
         if self.is_first_run or not self.get("danmu_speed"):
             from app.config_defaults import seed_config_defaults
 
@@ -110,6 +111,11 @@ class ConfigStore:
         self._custom_models_fp: str | None = None
         # W-PERF-STARTUP-001：非关键迁移延迟到主线程空闲时执行，减少启动阻塞
         self._pending_deferred_migrations = True
+
+    def _migrate_legacy_image_max_width(self) -> None:
+        from app.config_defaults import migrate_legacy_image_max_width
+
+        migrate_legacy_image_max_width(self)
 
     def _migrate_legacy_display_mode_to_render_mode(self) -> None:
         # W-FP-V2-002：遗留 display_mode（overlay/floating_panel/both）→ danmu_render_mode 写回
@@ -231,7 +237,7 @@ class ConfigStore:
 
     def get(self, key: str, default: str = "") -> str:
         if self._closed:
-            logger.debug("ConfigStore.get(%s) called after close(), returning cached value", key)
+            logger.warning("ConfigStore.get(%s) called after close(), returning cached value", key)
         return self._cache.get(key, default)
 
     def set(self, key: str, value: str):
@@ -815,11 +821,15 @@ class ConfigStore:
         value = str(text).strip()
         if not value:
             return False
-        with self._write_lock:
+        if not self._conn_usable():
+            return False
+        try:
             row = self.conn.execute(
                 "SELECT 1 FROM meme_barrage_library WHERE text = ? LIMIT 1",
                 (value,),
             ).fetchone()
+        except sqlite3.ProgrammingError:
+            return False
         return row is not None
 
     def meme_barrage_library_fetch_batch(
@@ -831,11 +841,15 @@ class ConfigStore:
         if total <= 0:
             return [], 0
         offset = int(offset) % total
-        with self._write_lock:
+        if not self._conn_usable():
+            return [], offset
+        try:
             rows = self.conn.execute(
                 "SELECT text FROM meme_barrage_library ORDER BY id ASC LIMIT ? OFFSET ?",
                 (limit, offset),
             ).fetchall()
+        except sqlite3.ProgrammingError:
+            return [], offset
         texts = [str(row[0]) for row in rows if row and row[0]]
         next_offset = (offset + len(texts)) % total if total else 0
         return texts, next_offset

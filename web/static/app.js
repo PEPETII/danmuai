@@ -390,6 +390,9 @@ async function probeDanmuRead() {
   });
   if (status) status.textContent = result.message || '';
   showToast(result.message || (result.ok ? '试听已开始' : '试听失败'), !result.ok);
+  if (result.ok && !document.getElementById('danmuReadEnabled')?.checked) {
+    showToast('未勾选「启用读弹幕」，定时朗读不会启动，请勾选后保存', true);
+  }
 }
 
 function initDanmuReadPage() {

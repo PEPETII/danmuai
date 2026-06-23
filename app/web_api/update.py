@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import logging
+
 from app import release_channels, update_service
 from app.supabase_app_updates import fetch_app_update_result
 from app.velopack_config import UPDATE_FEED_URL
 from app.version import __version__
 from app.version_compare import is_version_newer, normalize_version
+
+_logger = logging.getLogger(__name__)
 
 
 def get_update_status() -> dict:
@@ -40,10 +44,21 @@ def get_update_channels() -> dict:
         release_url = release_channels.R2_LATEST_INSTALLER_URL
         message = ""
 
+    try:
+        update_available = is_version_newer(latest, current)
+    except ValueError:
+        _logger.warning(
+            "update_channels: malformed latest_version %r vs current %r; "
+            "update_available forced to False",
+            latest,
+            current,
+        )
+        update_available = False
+
     metadata: dict[str, str | bool | float | None] = {
         "current_version": current,
         "latest_version": latest,
-        "update_available": is_version_newer(latest, current),
+        "update_available": update_available,
         "release_url": release_url,
         "feed_url": UPDATE_FEED_URL,
         "message": message,
