@@ -1,0 +1,160 @@
+/*
+ * DanmuAI 温馨设计系统
+ *
+ * 设计主题：温馨、柔和、Token 风格；视觉原型见
+ *   prototype/Qwen_markdown_20260525_4vyxmv819.md
+ *   prototype/Qwen_html_20260524_481u8vlmv.html
+ *
+ * 结构（自上而下）：
+ *   1) :root 主题 token（色 / 圆角 / 阴影）
+ *   2) [data-theme="dark"] 黑夜模式覆盖
+ *   3) 通用工具类（图标、卡片、按钮、字段标签、徽标、tooltip）
+ *   4) 侧栏（左 logo、导航项、底部赞赏 + 版本、nav-hint 提示）
+ *   5) 设置页（tab、字段网格、视觉模型选择器、tooltip 浮层、UI 模式切换）
+ *   6) 公告 / 模态 / 错误反馈
+ *   7) 直播伴侣 live-overlay 主题
+ *
+ * 不变量：
+ *   - 仅修改 token + 工具类与本仓库特有控件；不得影响 Tailwind 通用类
+ *   - 所有颜色引用 token，不写死 hex
+ *   - tooltip 背景/前景使用 --tooltip-bg / --tooltip-fg，不得复用 --color-text-primary
+ *   - 黑夜模式通过 [data-theme="dark"] 选择器覆盖；index.html 早期 script
+ *     在 <link> 之前先读 localStorage 防止 FOUC
+ */
+
+:root {
+  --color-primary: #ffa5a5;
+  --color-primary-hover: #ff8585;
+  --color-primary-light: #ffc8c8;
+  --color-primary-rgb: 255, 165, 165;
+  --color-secondary: #ffe5d9;
+  --color-accent: #fff2cc;
+  --color-bg: #fdfbf7;
+  --color-bg-subtle: #faf6f0;
+  --color-surface: #ffffff;
+  --color-text: #5d5757;
+  --color-text-dim: #9ca3af;
+  --color-text-primary: #5d5757;
+  --color-text-muted: #6b7280;
+  --tooltip-bg: #5d5757;
+  --tooltip-fg: #ffffff;
+  --color-bg-cream: #fdfbf7;
+  --border: #e5e7eb;
+  --bg: var(--color-bg);
+  --text: var(--color-text);
+  --card-bg: var(--color-surface);
+  --input-bg: var(--color-surface);
+  --button-bg: var(--color-primary);
+  --radius-lg: 1.5rem;
+  --radius-md: 0.75rem;
+  --shadow-warm: 0 4px 20px rgba(var(--color-primary-rgb), 0.1);
+  --shadow-warm-hover: 0 10px 25px rgba(var(--color-primary-rgb), 0.2);
+  --shadow-btn: 0 4px 15px rgba(var(--color-primary-rgb), 0.4);
+}
+
+[data-theme="dark"] {
+  --color-bg: #1c1917;
+  --color-bg-subtle: #231f1c;
+  --color-surface: #292524;
+  --color-text: #f5f0eb;
+  --color-text-dim: #a8a29e;
+  --color-text-primary: #f5f0eb;
+  --color-text-muted: #a8a29e;
+  --tooltip-bg: #3f3a36;
+  --tooltip-fg: #f5f0eb;
+  --color-bg-cream: #1c1917;
+  --color-secondary: #3f3a36;
+  --color-accent: #44403c;
+  --border: #57534e;
+  --shadow-warm: 0 4px 20px rgba(0, 0, 0, 0.25);
+  --shadow-warm-hover: 0 10px 25px rgba(0, 0, 0, 0.35);
+  --shadow-btn: 0 4px 15px rgba(var(--color-primary-rgb), 0.35);
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+}
+
+.ui-icon {
+  display: inline-block;
+  width: 1.15em;
+  height: 1.15em;
+  flex: 0 0 auto;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+  vertical-align: -0.18em;
+}
+
+.ui-icon-fill {
+  fill: currentColor;
+  stroke: none;
+}
+
+.ui-icon-lg {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.icon-badge {
+  color: var(--color-primary-hover);
+}
+
+.field-label-icon {
+  color: var(--color-primary);
+  margin-right: 0.35rem;
+}
+
+#realtimeConnStatus.conn-connected {
+  color: #16a34a;
+}
+
+#realtimeConnStatus.conn-reconnecting {
+  color: #d97706;
+}
+
+#realtimeConnStatus.conn-polling {
+  color: #2563eb;
+}
+
+#realtimeConnStatus.conn-failed {
+  color: #dc2626;
+}
+
+#realtimeConnStatus.conn-connecting {
+  color: var(--color-text-dim);
+}
+
+.card {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-warm);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-warm-hover);
+}
+
+.btn-primary {
+  background: var(--color-primary);
+  transition: all 0.3s ease;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+  box-shadow: var(--shadow-btn);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

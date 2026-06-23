@@ -1,0 +1,179 @@
+  <!-- 模型配置档案模态框 -->
+  <div id="modelModal" class="fixed inset-0 bg-black/20 backdrop-blur-sm hidden items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="modelModalTitle">
+    <div class="bg-white rounded-3xl shadow-warm max-w-lg w-full p-8 max-h-[90vh] overflow-y-auto">
+      <h3 id="modelModalTitle" class="text-lg font-bold text-warmText mb-4">模型配置档案</h3>
+      <form id="modelModalForm" class="space-y-3">
+        <input type="hidden" id="modelEditIndex" value="-1">
+        <div>
+          <label class="text-sm font-semibold text-warmText">供应商</label>
+          <select id="modelProvider" class="w-full px-4 py-2 bg-cream rounded-xl mt-1"></select>
+        </div>
+        <div>
+          <label class="text-sm font-semibold text-warmText">显示名称 <span class="text-xs font-normal text-gray-400">（仅界面展示，不参与 API）</span></label>
+          <input id="modelName" class="w-full px-4 py-2 bg-cream rounded-xl mt-1">
+        </div>
+        <div>
+          <label class="text-sm font-semibold text-warmText">模型 ID <span class="text-xs font-normal text-gray-400">（API 请求使用的 model 字段）</span></label>
+          <input id="modelId" class="w-full px-4 py-2 bg-cream rounded-xl mt-1">
+        </div>
+        <div>
+          <label class="text-sm font-semibold text-warmText">API 模式</label>
+          <select id="modelMode" class="w-full px-4 py-2 bg-cream rounded-xl mt-1">
+            <option value="doubao">doubao</option>
+            <option value="openai">openai</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-sm font-semibold text-warmText">Endpoint</label>
+          <input id="modelEndpoint" type="url" autocomplete="url" class="w-full px-4 py-2 bg-cream rounded-xl mt-1">
+        </div>
+        <div>
+          <label class="text-sm font-semibold text-warmText">API Key</label>
+          <input id="modelApiKey" type="password" autocomplete="current-password" class="w-full px-4 py-2 bg-cream rounded-xl mt-1">
+        </div>
+        <div>
+          <label class="text-sm font-semibold text-warmText">备注</label>
+          <input id="modelDescription" class="w-full px-4 py-2 bg-cream rounded-xl mt-1">
+        </div>
+        <div>
+          <label class="flex items-center gap-2 text-sm font-semibold text-warmText">
+            <input type="checkbox" id="modelSupportsMic" class="accent-warmPink">
+            支持麦克风（input_audio）
+          </label>
+          <p class="text-xs text-gray-400 mt-1">OpenRouter 等自定义 OpenAI 兼容网关：若模型文档声明支持音频理解，请勾选此项以允许开麦附加音频。</p>
+        </div>
+        <div class="flex flex-wrap gap-3 pt-2 justify-end">
+          <button type="button" id="btnModelCancel" class="px-4 py-2 border border-gray-200 rounded-xl">取消</button>
+          <button type="button" id="btnModelProbe" class="px-4 py-2 border border-gray-200 rounded-xl">测试连接</button>
+          <button type="submit" class="btn-primary px-6 py-2 text-white rounded-xl font-bold">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 助手设置：恢复默认确认 -->
+  <div id="restoreDefaultsModal" class="fixed inset-0 bg-black/20 backdrop-blur-sm hidden items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="restoreDefaultsModalTitle">
+    <div class="bg-white rounded-3xl shadow-warm max-w-md w-full p-8">
+      <h3 id="restoreDefaultsModalTitle" class="text-lg font-bold text-warmText mb-2">恢复默认设置</h3>
+      <p class="text-sm text-gray-600 mb-6">恢复后仅更新表单，不会自动保存。请点击「保存配置」后才会写入本机配置。API 密钥不会被清空或修改。</p>
+      <div class="flex flex-col gap-3">
+        <button type="button" id="btnRestoreDefaultsCurrent" class="px-5 py-2.5 border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50 text-left">仅恢复当前界面设置</button>
+        <button type="button" id="btnRestoreDefaultsAll" class="px-5 py-2.5 border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50 text-left">恢复所有设置</button>
+        <button type="button" id="btnRestoreDefaultsCancel" class="px-5 py-2.5 border border-gray-200 rounded-xl text-sm font-semibold text-gray-500 hover:bg-gray-50">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 错误自动反馈确认 -->
+  <div id="errorReportModal" class="fixed inset-0 bg-black/20 backdrop-blur-sm hidden items-center justify-center z-[60] p-4" role="dialog" aria-modal="true" aria-labelledby="errorReportModalTitle">
+    <div class="bg-white rounded-3xl shadow-warm max-w-lg w-full p-8 max-h-[90vh] overflow-y-auto">
+      <h3 id="errorReportModalTitle" class="text-lg font-bold text-warmText mb-2">发现问题</h3>
+      <p class="text-sm text-gray-600 mb-3">是否要将该问题反馈？我们将附带相关日志（已脱敏）。</p>
+      <label class="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none mb-3">
+        <input type="checkbox" id="errorReportIncludeRuntimeInfo" checked class="rounded border-gray-300 text-warmPink focus:ring-warmPink">
+        <span>附带当前运行信息（推荐）</span>
+        <span class="text-xs text-gray-400">模型名、API 地址、服务商、API 模式（已脱敏）</span>
+      </label>
+      <p id="errorReportModalMessage" class="text-sm text-red-700 bg-red-50 border border-red-100 rounded-xl p-3 mb-4 max-h-32 overflow-y-auto whitespace-pre-wrap break-words"></p>
+      <div class="space-y-3 mb-4">
+        <div>
+          <label for="errorReportUserNote" class="block text-sm font-semibold text-warmText mb-1">补充说明 <span class="text-xs font-normal text-gray-400">（可选，如复现步骤、期望行为）</span></label>
+          <textarea id="errorReportUserNote" rows="3" maxlength="1000" class="w-full px-4 py-2 bg-cream rounded-xl text-sm resize-y" placeholder="例如：刚切换自定义豆包后出现，期望提示填写 API 地址"></textarea>
+        </div>
+        <div>
+          <label for="errorReportContact" class="block text-sm font-semibold text-warmText mb-1">联系方式 <span class="text-xs font-normal text-gray-400">（可选）</span></label>
+          <input id="errorReportContact" type="text" maxlength="200" class="w-full px-4 py-2 bg-cream rounded-xl text-sm" placeholder="邮箱 / QQ / 微信，便于跟进">
+        </div>
+        <p id="errorReportQuotaHint" class="text-xs text-gray-500"></p>
+      </div>
+      <div class="flex flex-wrap gap-3 justify-end">
+        <button type="button" id="btnErrorReportDismiss" class="px-5 py-2 border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50">暂不</button>
+        <button type="button" id="btnErrorReportSubmit" class="btn-primary px-5 py-2 text-white rounded-xl text-sm font-bold">发送反馈</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 新版本更新提醒 -->
+  <div id="appUpdateModal" class="fixed inset-0 bg-black/20 backdrop-blur-sm hidden items-center justify-center z-[55] p-4" role="dialog" aria-modal="true" aria-labelledby="appUpdateModalTitle">
+    <div class="bg-white rounded-3xl shadow-warm max-w-lg w-full p-8 max-h-[90vh] overflow-y-auto">
+      <h3 id="appUpdateModalTitle" class="text-lg font-bold text-warmText mb-2">发现新版本</h3>
+      <p id="appUpdateModalMessage" class="text-sm text-gray-600 mb-4 whitespace-pre-wrap break-words"></p>
+
+      <div class="mb-5">
+        <p class="text-xs font-semibold text-warmText mb-1">立即应用内更新</p>
+        <p class="text-xs text-gray-400 mb-2">推荐：通过 Velopack 直接下载并安装（主更新源 R2）</p>
+        <button type="button" id="btnAppUpdateInApp" class="btn-primary w-full px-5 py-2.5 text-white rounded-xl text-sm font-bold">应用内更新</button>
+        <div class="update-progress-panel hidden mt-3" data-update-progress-root>
+          <p class="update-progress-status text-xs text-warmText mb-2" aria-live="polite"></p>
+          <div class="update-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <div class="update-progress-fill"></div>
+          </div>
+          <p class="update-progress-meta text-xs text-gray-400 mt-1"></p>
+          <p class="update-progress-error hidden text-xs mt-1"></p>
+        </div>
+      </div>
+
+      <div id="appUpdateModalAlternateChannels" class="mb-5 border-t border-gray-100 pt-4">
+        <p class="text-xs font-semibold text-warmText mb-1">其它下载渠道</p>
+        <p class="text-xs text-gray-400 mb-3">若应用内更新较慢，可使用镜像或网盘（非主更新源）</p>
+        <div class="flex flex-col gap-2">
+          <button type="button" id="btnAppUpdateGitHub" class="px-4 py-2 border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50 text-left">GitHub 更新 <span class="text-xs font-normal text-gray-400">（镜像备用）</span></button>
+          <button type="button" id="btnAppUpdateQuark" class="px-4 py-2 border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50 text-left">夸克网盘</button>
+          <button type="button" id="btnAppUpdateBaidu" class="px-4 py-2 border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50 text-left">百度网盘</button>
+        </div>
+      </div>
+
+      <div id="appUpdateChannelDetail" class="hidden mb-5 p-4 bg-cream rounded-xl">
+        <p id="appUpdateChannelDetailTitle" class="text-sm font-semibold text-warmText mb-2"></p>
+        <p id="appUpdateChannelDetailBody" class="text-xs text-gray-600 whitespace-pre-wrap break-words mb-3"></p>
+        <div class="flex flex-wrap gap-2">
+          <button type="button" id="btnAppUpdateChannelCopy" class="px-4 py-2 border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50">复制信息</button>
+          <button type="button" id="btnAppUpdateChannelOpen" class="px-4 py-2 border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50">打开链接</button>
+        </div>
+      </div>
+
+      <div id="appUpdateModalDismissRow" class="flex justify-end border-t border-gray-100 pt-4">
+        <button type="button" id="btnAppUpdateDismiss" class="px-5 py-2 border border-gray-200 rounded-xl text-sm font-semibold text-gray-500 hover:bg-gray-50">暂不更新</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 赞赏码模态框 -->
+  <div id="rewardModal" class="fixed inset-0 bg-black/20 backdrop-blur-sm hidden items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="rewardModalTitle">
+    <div class="reward-modal-panel bg-white rounded-3xl shadow-warm max-w-md w-full p-8">
+      <h3 id="rewardModalTitle" class="reward-modal-title text-lg font-bold text-warmText text-center mb-4">赞赏</h3>
+      <p class="reward-modal-intro text-sm text-warmText leading-relaxed">
+        如果您正在使用 DanmuAI 并感觉到给您带来了帮助，或者是想支持我继续开发，您可以通过如下任意方式支持我：
+      </p>
+      <ul class="reward-modal-ways text-sm text-warmText mt-3 space-y-1">
+        <li>Star 并分享 🚀</li>
+        <li>通过以下二维码进行赞助，打赏作者一杯茶 🍵</li>
+      </ul>
+      <p class="reward-modal-thanks text-sm font-semibold text-warmText text-center mt-4">谢谢！❤️</p>
+      <img
+        src="/static/image/mm_reward_qrcode_1779738306814.png"
+        alt="微信赞赏码"
+        class="reward-qr-img mx-auto rounded-2xl mt-4"
+        width="280"
+        height="280"
+      >
+      <section class="reward-modal-benefits mt-6 text-left">
+        <h4 class="text-sm font-bold text-warmText mb-2">您的赞助将帮助：</h4>
+        <ul class="reward-modal-benefits-list text-sm text-gray-600 space-y-1 pl-5 list-disc">
+          <li>维护网站的基础更新</li>
+          <li>投入更多时间进行开发</li>
+          <li>提供更好的技术支持</li>
+          <li>开发网站更多实用功能</li>
+        </ul>
+      </section>
+      <section class="reward-modal-acks mt-6 pt-4 border-t border-pastelYellow text-left">
+        <h4 class="text-sm font-bold text-warmText mb-2">致谢</h4>
+        <p class="text-sm text-gray-600 leading-relaxed">
+          ❤️ 感谢支持的朋友，您的每一份帮助都让 DanmuAI 变得更好！
+        </p>
+      </section>
+      <div class="text-center mt-6">
+        <button type="button" id="btnRewardClose" class="px-6 py-2 border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50">关闭</button>
+      </div>
+    </div>
+  </div>

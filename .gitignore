@@ -29,6 +29,10 @@ ph/
 
 # Supabase credentials (copy from supabase-config.example.js)
 web/static/supabase-config.js
+web/static/supabase-config.js.codex-release-backup
+
+# Supabase data / migrations (local only — code stays tracked)
+supabase/
 
 # Build and caches
 .npmcache/
@@ -87,24 +91,8 @@ docs/archive/qt6_ui_redesign_plan.md
 # Local community subproject (not published on GitHub)
 community/
 
-# Maintainer docs (local only — not published on GitHub)
-docs/agent/ai-project-context.md
-docs/workflow/工单列表.md
-docs/workflow/当前仓库状态.md
-docs/workflow/已知问题与后续事项.md
-docs/agent/手动验收指南.md
-docs/agent/提示词上下文包.md
-docs/workflow/设计更新说明.md
-docs/agent/Codex工单交接模板.md
-docs/agent/Codex提示词手册.md
-docs/workflow/
-docs/templates/
-docs/bug-audit/
-docs/refactor/
-docs/architecture-governance/
-docs/guides/
-docs/audits/
-docs/test/
+# Entire docs/ directory removed from repo (local only)
+docs/
 
 # ── Local AI / IDE working documents (never publish) ──
 .local-ai/
@@ -119,7 +107,6 @@ docs/工单列表/
 docs/reports/
 
 # AI-generated completion / review artifacts (Chinese + English names)
-docs/archive/completion-reports/
 **/*-完成报告.md
 **/*-completion-report.md
 **/*-手动验收.md
@@ -129,3 +116,15 @@ docs/archive/completion-reports/
 *.agent.md
 *.prompt.md
 *.workorder.md
+
+# ── Coding agent / audit / workorder documents (never publish) ──
+AGENTS.md
+claude.md
+Fable5.md
+
+# ── Irrelevant directories (local clones, prototypes, AI prompts, internal reports) ──
+output/
+prototype/
+project-prompts/
+reports/
+website/

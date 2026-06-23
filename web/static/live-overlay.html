@@ -1,0 +1,58 @@
+<!--
+  DanmuAI Live Overlay — OBS / 抖音直播伴侣 / B站直播姬的「浏览器源 / 网页源」透明页。
+
+  用法：在直播伴侣中添加浏览器源，URL 填 http://127.0.0.1:18765/live-overlay，
+  高度建议 1080，背景设为透明（或 OBS 选「允许透明」）。运行时本页面与
+  Qt Overlay 完全独立，不影响主链路入队/上屏。
+
+  数据源：/api/live-overlay/events （Server-Sent Events），服务端在视觉 AI /
+  开麦 AI 弹幕出队时旁路广播（详见 W-LIVE-OVERLAY-001 + main.py 旁路 broadcast）。
+
+  协议：每条事件形如 {text, y, screen_height, ts}；客户端按 (ts, text) 去重，
+  并按 y / screen_height 比例映射到当前 viewport 像素。
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DanmuAI Live Overlay</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: transparent;
+    }
+    #stage {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+    .danmu-item {
+      position: absolute;
+      left: 0;
+      white-space: nowrap;
+      pointer-events: none;
+      font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+      font-size: 28px;
+      font-weight: 700;
+      color: #fff;
+      text-shadow:
+        -1px -1px 0 #000,
+        1px -1px 0 #000,
+        -1px 1px 0 #000,
+        1px 1px 0 #000,
+        0 0 4px rgba(0, 0, 0, 0.85);
+      will-change: transform;
+    }
+  </style>
+</head>
+<body>
+  <div id="stage"></div>
+  <script src="/static/live-overlay.js?v=4"></script>
+</body>
+</html>
