@@ -52,6 +52,10 @@ export const CONFIG_FIELDS = [
   'floating_panel_font_size',
   'danmu_font_family',
   'floating_panel_font_family',
+  'use_thinking',
+  'danmu_font_color_selected',
+  'danmu_font_color_mode',
+  'danmu_font_color_weights',
 ];
 
 export const SETTINGS_RESTORE_GROUPS = {
@@ -74,13 +78,14 @@ export const SETTINGS_RESTORE_GROUPS = {
   font: [
     'danmu_font_family', 'floating_panel_font_family',
     'font_size', 'floating_panel_font_size',
+    'danmu_font_color_selected', 'danmu_font_color_mode', 'danmu_font_color_weights',
   ],
   rhythm: ['image_max_width', 'image_quality'],
   'danmu-read': [],
 };
 
 export const SETTINGS_RESTORE_CHECKBOXES = {
-  api: [],
+  api: ['use_thinking'],
   mic: ['mic_mode_enabled', 'mic_use_visual_model'],
   capture: [],
   danmu: ['empty_accel'],

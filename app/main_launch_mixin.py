@@ -104,6 +104,12 @@ class DanmuAppLaunchMixin:
             f"tray fallback to system browser after webview handshake failed: {path}"
         )
 
+    def restore_main_window(self) -> None:
+        shell = getattr(self, "webview_shell", None)
+        if shell is not None:
+            shell.restore_window()
+
     def show_settings(self) -> None:
+        self.restore_main_window()
         if self.web_server:
             self._open_web_console("/#settings")

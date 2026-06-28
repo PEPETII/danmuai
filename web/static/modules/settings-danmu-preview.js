@@ -48,6 +48,7 @@ function buildScrollingStyle() {
   const maxChars = getNumber('danmu_max_chars', 15);
   const fontFamily = getSelect('danmu_font_family', '');
   const bold = getChecked('danmu_font_bold');
+  const color = resolvePreviewColor();
 
   return {
     speed,
@@ -56,7 +57,51 @@ function buildScrollingStyle() {
     maxChars,
     fontFamily,
     bold,
+    color,
   };
+}
+
+function resolvePreviewColor() {
+  const rawSelected = getField('danmu_font_color_selected')?.value ?? '["#FFFFFF"]';
+  let selected = [];
+  try {
+    selected = JSON.parse(rawSelected);
+  } catch {
+    selected = [];
+  }
+  if (!Array.isArray(selected) || selected.length === 0) {
+    return '#FFFFFF';
+  }
+  selected = selected.filter((c) => typeof c === 'string' && c.trim());
+  if (selected.length === 0) return '#FFFFFF';
+  if (selected.length === 1) return selected[0];
+
+  const mode = getField('danmu_font_color_mode')?.value ?? 'equal';
+  if (mode === 'weighted') {
+    const rawWeights = getField('danmu_font_color_weights')?.value ?? '{}';
+    let weightsMap = {};
+    try {
+      weightsMap = JSON.parse(rawWeights);
+    } catch {
+      weightsMap = {};
+    }
+    const weights = selected.map((color) => {
+      const w = weightsMap[color];
+      const v = parseFloat(w);
+      return Number.isNaN(v) ? 0 : v;
+    });
+    const total = weights.reduce((a, b) => a + b, 0);
+    if (total > 0) {
+      const r = Math.random() * total;
+      let acc = 0;
+      for (let i = 0; i < selected.length; i++) {
+        acc += weights[i];
+        if (r <= acc) return selected[i];
+      }
+      return selected[selected.length - 1];
+    }
+  }
+  return selected[Math.floor(Math.random() * selected.length)];
 }
 
 function buildFloatingStyle() {
@@ -107,7 +152,7 @@ function renderScrollingPreview() {
   item.style.position = 'absolute';
   item.style.right = '-100%';
   item.style.transition = `right ${10 / style.speed}s linear`;
-  item.style.color = '#fff';
+  item.style.color = style.color;
   item.style.textShadow = '0 0 4px rgba(0,0,0,0.8)';
 
   track.appendChild(item);
@@ -195,6 +240,9 @@ export function initDanmuPreview() {
     'danmu_max_chars',
     'danmu_font_family',
     'danmu_font_bold',
+    'danmu_font_color_selected',
+    'danmu_font_color_weights',
+    'danmu_font_color_mode',
     'floating_panel_width',
     'floating_panel_max_items',
     'floating_panel_speed',
@@ -211,6 +259,18 @@ export function initDanmuPreview() {
       el.addEventListener('change', refreshDanmuPreview);
     }
   });
+
+  const swatchContainer = document.getElementById('danmuFontColorSwatches');
+  if (swatchContainer) {
+    swatchContainer.addEventListener('click', refreshDanmuPreview);
+  }
+  document.querySelectorAll('input[name="danmu_font_color_mode_radio"]').forEach((r) => {
+    r.addEventListener('change', refreshDanmuPreview);
+  });
+  const weightContainer = document.getElementById('danmuFontColorWeights');
+  if (weightContainer) {
+    weightContainer.addEventListener('input', refreshDanmuPreview);
+  }
 
   if (previewTimer) clearInterval(previewTimer);
   previewTimer = setInterval(() => {

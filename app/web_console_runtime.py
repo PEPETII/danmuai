@@ -120,7 +120,7 @@ def run_uvicorn_locked(server) -> None:
 
     @app.get("/api/personae")
     def list_personae():
-        from app.personae import BUILTIN_PERSONAE, persona_display_name
+        from app.personae import BUILTIN_PERSONAE
 
         names = bridge.danmu_app.personae.list()
         active = set(bridge.danmu_app.personae.get_active())
@@ -128,7 +128,7 @@ def run_uvicorn_locked(server) -> None:
             "items": [
                 {
                     "id": name,
-                    "label": persona_display_name(name),
+                    "label": bridge.danmu_app.personae.get_display_name(name),
                     "active": name in active,
                     "builtin": name in BUILTIN_PERSONAE,
                 }

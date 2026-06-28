@@ -666,3 +666,65 @@ def test_poll_handshake_slow_prompt_disabled_stays_pending(monkeypatch):
     assert shell._started is False
     assert terminate_calls == []
     assert server._browser_launch_opened is False
+
+
+def test_webview_shell_restore_window_when_running():
+    from app.webview_shell import _RESTORE_WINDOW_MARKER
+
+    server = MagicMock()
+    server.base_url = "http://127.0.0.1:18765"
+    shell = WebViewShell(server)
+    shell._started = True
+    shell._process = MagicMock()
+    shell._process.is_alive.return_value = True
+    shell._nav_queue = MagicMock()
+
+    shell.restore_window()
+
+    shell._nav_queue.put.assert_called_once_with(_RESTORE_WINDOW_MARKER)
+
+
+def test_webview_shell_restore_window_when_not_running():
+    server = MagicMock()
+    server.base_url = "http://127.0.0.1:18765"
+    shell = WebViewShell(server)
+    shell._started = False
+    shell._process = None
+    shell._nav_queue = MagicMock()
+
+    shell.restore_window()
+
+    shell._nav_queue.put.assert_not_called()
+
+
+def test_nav_poll_loop_restore_marker(monkeypatch):
+    import threading
+    from app.webview_shell import _nav_poll_loop, _RESTORE_WINDOW_MARKER
+
+    window = MagicMock()
+    nav_queue = MagicMock()
+
+    responses = [_RESTORE_WINDOW_MARKER, Exception("stop")]
+
+    def fake_get(timeout):
+        resp = responses.pop(0)
+        if isinstance(resp, Exception):
+            raise resp
+        return resp
+
+    nav_queue.get.side_effect = fake_get
+
+    stop_event = threading.Event()
+
+    def fake_is_set():
+        return len(responses) == 0
+
+    monkeypatch.setattr(stop_event, "is_set", fake_is_set)
+    monkeypatch.setattr("app.webview_shell.append_frozen_log", lambda _msg: None)
+
+    _nav_poll_loop(window, nav_queue, stop_event)
+
+    window.show.assert_called_once()
+    window.restore.assert_called_once()
+    window.activate.assert_called_once()
+    window.load_url.assert_not_called()

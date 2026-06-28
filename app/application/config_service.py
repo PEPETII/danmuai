@@ -84,9 +84,13 @@ WEB_CONFIG_KEYS = (
     "pet_barrage_slot_positions",
     "pet_barrage_previous_render_mode",
     "pet_barrage_previous_reply_count",
+    "use_thinking",
+    "danmu_font_color_selected",
+    "danmu_font_color_mode",
+    "danmu_font_color_weights",
 )
 
-# 助手设置「恢复默认」可恢复的键（= WEB_CONFIG_KEYS；不含 api_key / custom_models / region_*）
+# 弹幕设置「恢复默认」可恢复的键（= WEB_CONFIG_KEYS；不含 api_key / custom_models / region_*）
 RESTORABLE_CONFIG_KEYS = WEB_CONFIG_KEYS
 
 # W-THEME-LAG-SCENE-VERSION-001：变更时递增 _scene_generation 的配置键
@@ -446,6 +450,9 @@ class ConfigService:
                 items[_key] = "[]"
                 continue
             items[_key] = raw
+        if "use_thinking" in items:
+            _v = str(items["use_thinking"]).strip().lower()
+            items["use_thinking"] = "1" if _v in ("1", "true", "yes", "on") else "0"
 
     def _merge_custom_models(self, payload_models: list[Any]) -> list[dict[str, Any]]:
         from app.web_api.custom_models import MASKED_KEY

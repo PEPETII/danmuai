@@ -20,6 +20,10 @@ _COMMENT_KEYS = ("comments", "replies", "items", "data")
 _COMMENTS_ARRAY_RE = re.compile(r'"comments"\s*:\s*\[([^\]]*)\]', re.DOTALL)
 _HEURISTIC_SKIP = frozenset({"comments", ":", ""})
 _MAX_HEURISTIC_DEPTH = 16
+# Defense-in-depth: even though the iterative stack replaces the call stack,
+# a pathological input could still grow the worklist. Cap the total number of
+# segments we'll process so an adversarial }{ flood can't pin a worker.
+_MAX_HEURISTIC_NODES = 4096
 _PLACEHOLDER_COMMENT_RE = re.compile(
     r"^(?:comment|comments|评论|弹幕)\s*[-_#:]?\s*\d{1,3}$",
     re.IGNORECASE,
@@ -124,18 +128,50 @@ def _try_parse_json_object(raw: str):
 
 
 def _heuristic_comments_from_malformed_json(raw: str, *, depth: int = 0) -> list[str]:
-    """模型偶发畸形 JSON（comments 非数组、重复对象拼接）时的兜底抽取。"""
-    if "}{" in raw and depth < _MAX_HEURISTIC_DEPTH:
-        merged: list[str] = []
-        segments = raw.split("}{")
-        for i, seg in enumerate(segments):
-            if i > 0:
-                seg = "{" + seg
-            if i < len(segments) - 1:
-                seg = seg + "}"
-            merged.extend(_heuristic_comments_from_malformed_json(seg, depth=depth + 1))
-        return _normalize_comment_list(merged)
+    """模型偶发畸形 JSON（comments 非数组、重复对象拼接）时的兜底抽取。
 
+    Iterative stack walk (BUG-011 修复)：原递归实现对 ``}{`` 反复分裂会
+    产生 ``O(2^N)`` 次调用，17+ 个 ``}{`` 即可能触达 Python 1000 帧递归
+    限制。改为显式栈后每个 unique segment 仅处理一次，复杂度退化为
+    ``O(N · L)``（L = 单段正则抽取成本）。
+
+    ``_MAX_HEURISTIC_DEPTH`` 仍限定单条分裂链的最大深度；``_MAX_HEURISTIC_NODES``
+    作为全局节点预算（防御性，对抗性输入不让 worklist 无界增长）。
+    """
+    merged: list[str] = []
+    # (segment_text, segment_depth) — pop from the back so we process in DFS order.
+    stack: list[tuple[str, int]] = [(raw, depth)]
+    nodes_processed = 0
+
+    while stack:
+        seg, seg_depth = stack.pop()
+        nodes_processed += 1
+        if nodes_processed > _MAX_HEURISTIC_NODES:
+            # Budget exhausted: stop splitting and treat remaining work as leaves
+            # so we still attempt regex extraction on the segments already in hand.
+            for remaining, _ in stack:
+                merged.extend(_extract_comments_from_leaf(remaining))
+            break
+
+        if "}{" in seg and seg_depth < _MAX_HEURISTIC_DEPTH:
+            parts = seg.split("}{")
+            # Push in reverse so iteration order matches the recursive original.
+            for i in range(len(parts) - 1, -1, -1):
+                piece = parts[i]
+                if i > 0:
+                    piece = "{" + piece
+                if i < len(parts) - 1:
+                    piece = piece + "}"
+                stack.append((piece, seg_depth + 1))
+            continue
+
+        merged.extend(_extract_comments_from_leaf(seg))
+
+    return _normalize_comment_list(merged)
+
+
+def _extract_comments_from_leaf(raw: str) -> list[str]:
+    """单段（无 ``}{``）的兜底弹幕抽取；与原递归实现的 leaf 分支等价。"""
     arr_match = _COMMENTS_ARRAY_RE.search(raw)
     if arr_match:
         items = re.findall(r'"((?:[^"\\]|\\.)*)"', arr_match.group(1))

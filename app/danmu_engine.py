@@ -21,12 +21,14 @@
 调用方：DanmuOverlay._tick() → engine.update()；DanmuApp.add_text() → engine.add_text()
 """
 
+import json
 import logging
 import random
 import time
 from collections import deque
 
 from PyQt6.QtCore import QObject
+from PyQt6.QtGui import QColor
 
 from app import danmu_engine_dedup as dedup_profile
 from app.api_schedule import ENGINE_BASE_FPS
@@ -107,6 +109,55 @@ def resolve_danmu_track_retention_cap(config) -> int:
     return max(0, min(raw, DANMU_TRACK_RETENTION_CAP_MAX))
 
 
+def resolve_danmu_color(config) -> QColor:
+    """根据颜色配置返回一个 QColor。
+
+    读取 danmu_font_color_selected（JSON 列表）和 danmu_font_color_mode / weights，
+    按平均或加权随机抽样。解析失败或列表为空时 fallback 白色。
+    """
+    raw_selected = config.get("danmu_font_color_selected", "")
+    try:
+        selected = json.loads(raw_selected)
+    except (json.JSONDecodeError, TypeError):
+        selected = []
+    if not isinstance(selected, list) or not selected:
+        return QColor(255, 255, 255)
+
+    # 去重并过滤非字符串项
+    selected = [str(c).strip().upper() for c in selected if isinstance(c, str) and c.strip()]
+    if not selected:
+        return QColor(255, 255, 255)
+    if len(selected) == 1:
+        return QColor(selected[0])
+
+    mode = str(config.get("danmu_font_color_mode", "equal")).strip().lower()
+    if mode == "weighted":
+        raw_weights = config.get("danmu_font_color_weights", "{}")
+        try:
+            weights_map = json.loads(raw_weights)
+        except (json.JSONDecodeError, TypeError):
+            weights_map = {}
+        if not isinstance(weights_map, dict):
+            weights_map = {}
+        weights = []
+        for color in selected:
+            w = weights_map.get(color)
+            if w is None:
+                w = weights_map.get(color.lower(), 0)
+            try:
+                weights.append(float(w))
+            except (TypeError, ValueError):
+                weights.append(0.0)
+        total = sum(weights)
+        if total > 0:
+            return QColor(random.choices(selected, weights=weights, k=1)[0])
+        # 权重全 0 fallback 等概率
+        return QColor(random.choice(selected))
+
+    # 默认等概率
+    return QColor(random.choice(selected))
+
+
 def resolve_danmu_max_chars(config, *, lang: str | None = None) -> int:
     """上屏弹幕最大字数；未配置时中文 15、英文 40。"""
     if lang is None:
@@ -153,9 +204,9 @@ def resolve_danmu_display_text(
     body = normalize_danmu_display_text(content, config, lang=lang)
     if not body or not persona_id or not is_persona_name_prefix_enabled(config):
         return body
-    from app.personae import persona_display_name
+    from app.personae import persona_display_name_with_config
 
-    name = persona_display_name(persona_id).strip()
+    name = persona_display_name_with_config(persona_id, config).strip()
     return f"{name}：{body}" if name else body
 
 
@@ -301,7 +352,10 @@ class DanmuEngine(QObject):
             self._mark_motion_tick_stale()
 
     def set_screen_height(self, h: float):
-        self.screen_height = h
+        if h != self.screen_height:
+            self.screen_height = h
+            self._mark_capacity_stale()
+            self._mark_motion_tick_stale()
 
     def _mark_capacity_stale(self) -> None:
         self._capacity_counts_stale = True
@@ -726,6 +780,8 @@ class DanmuEngine(QObject):
         return self._visible_count, self._right_visible_count
 
     def add_item(self, item: DanmuItem) -> bool:
+        if not item.content or not item.content.strip():
+            return False
         self._sync_dedup_window_generation(item.scene_generation)
         if self._is_duplicate(item.content):
             return False
@@ -756,6 +812,8 @@ class DanmuEngine(QObject):
         pre_resolved=True 时 content 已是最终上屏文本（含人格前缀），不再二次截断。
         公式化弹幕经 normalize_danmu_display_text 完整展示；AI 弹幕受 danmu_max_chars 限制。
         """
+        if not content or not content.strip():
+            return None
         if pre_resolved:
             content = str(content).strip()
         else:
@@ -784,6 +842,7 @@ class DanmuEngine(QObject):
             batch_id=batch_id,
             scene_generation=scene_generation,
         )
+        item.color = resolve_danmu_color(self.config)
 
         item.x = float(self.screen_width) + random.uniform(20.0, 90.0)
         item.speed = self.config.get_float("danmu_speed", _DANMU_SPEED_FALLBACK)
@@ -875,6 +934,11 @@ class DanmuEngine(QObject):
         item.x = max(item.x, tail_edge + random.uniform(50.0, 250.0))
         if item.x < tail_edge + min_gap:
             item.x = tail_edge + min_gap
+        # 屏幕边界校验：确保弹幕不越界
+        item_width = item.width if item.width > 0 else len(item.content) * _DANMU_FALLBACK_CHAR_WIDTH
+        max_allowed_x = self.screen_width - item_width - min_gap
+        if item.x > max_allowed_x:
+            item.x = max_allowed_x
         return best_track
 
     def danmu_pool_enabled(self) -> bool:

@@ -336,14 +336,26 @@ def test_request_doubao_includes_temperature_zero():
     worker.close()
 
 
-def test_request_doubao_always_disables_thinking():
-    worker = AiWorker(ai_client_fake_config(data={"max_tokens": "200", "use_thinking": "1"}))
+def test_request_doubao_thinking_disabled_by_default():
+    worker = AiWorker(ai_client_fake_config(data={"max_tokens": "200", "use_thinking": "0"}))
     with patch.object(worker, "_stream_doubao", return_value=("test", 100, 50, "")) as mock_stream:
         with patch.object(worker, "_emit_safe"):
             worker._request_doubao("data:image/jpeg;base64,abc", "sys", "user", "p1", 1, 1, 1.0, 0)
     payload = mock_stream.call_args[0][3]
     assert payload["thinking"] == {"type": "disabled"}
     assert payload["max_output_tokens"] == DANMU_MIN_OUTPUT_TOKENS
+    worker.close()
+
+
+def test_request_doubao_thinking_enabled_when_configured():
+    from app.ai_client_support import DANMU_MIN_OUTPUT_TOKENS_THINKING
+    worker = AiWorker(ai_client_fake_config(data={"max_tokens": "200", "use_thinking": "1"}))
+    with patch.object(worker, "_stream_doubao", return_value=("test", 100, 50, "")) as mock_stream:
+        with patch.object(worker, "_emit_safe"):
+            worker._request_doubao("data:image/jpeg;base64,abc", "sys", "user", "p1", 1, 1, 1.0, 0)
+    payload = mock_stream.call_args[0][3]
+    assert payload["thinking"] == {"type": "enabled"}
+    assert payload["max_output_tokens"] == DANMU_MIN_OUTPUT_TOKENS_THINKING
     worker.close()
 
 

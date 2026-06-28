@@ -9,6 +9,7 @@ import {
   setConfigDefaultsCache,
   updateNormalBatchPreview,
 } from './settings-defaults.js';
+import { syncColorUIFromConfig } from './settings-fonts.js';
 import { getActiveSettingsTabId } from './settings-tabs.js';
 
 let coreDeps = {
@@ -28,6 +29,7 @@ let coreDeps = {
   updateMicModeHint: () => {},
   updateModelActiveSourceBanner: () => {},
   updateMicActiveSourceBanner: () => {},
+  updateThinkingModeAvailability: () => {},
   setMicAudioLikelySupported: () => {},
   refreshDanmuPreview: () => {},
 };
@@ -108,6 +110,10 @@ function applyDefaultToField(key, rawValue) {
   }
   if (key === 'eviction_mode') {
     el.value = value === 'accelerate' ? 'accelerate' : 'natural';
+    return;
+  }
+  if (key === 'danmu_font_color_mode') {
+    el.value = value === 'weighted' ? 'weighted' : 'equal';
     return;
   }
   el.value = value;
@@ -210,6 +216,7 @@ export function collectFormData() {
   data.danmu_font_bold = document.getElementById('danmu_font_bold')?.checked ? '1' : '0';
   data.floating_panel_font_bold = document.getElementById('floating_panel_font_bold')?.checked ? '1' : '0';
   data.bililive_dm_mode_enabled = document.getElementById('bililive_dm_mode_enabled')?.checked ? '1' : '0';
+  data.use_thinking = document.getElementById('use_thinking')?.checked ? '1' : '0';
   const key = (document.getElementById('api_key')?.value || '').trim();
   if (key && key !== MASKED_API_KEY) data.api_key = key;
   const micKey = (document.getElementById('mic_api_key')?.value || '').trim();
@@ -308,6 +315,15 @@ export async function fillForm(cfg) {
   coreDeps.updateModelActiveSourceBanner(cfg);
   coreDeps.updateMicActiveSourceBanner(cfg);
   document.getElementById('api_key').value = cfg.has_api_key ? MASKED_API_KEY : '';
+  const useThinking = document.getElementById('use_thinking');
+  if (useThinking) {
+    const v = cfg.use_thinking;
+    if (v === '0' || v === 'false') useThinking.checked = false;
+    else if (v === '1' || v === 'true') useThinking.checked = true;
+    else useThinking.checked = configDefaultValue('use_thinking') !== '0';
+  }
+  syncColorUIFromConfig(cfg);
+  coreDeps.updateThinkingModeAvailability(cfg);
 }
 
 export async function reloadConfigFromServer() {

@@ -206,21 +206,30 @@ def _maybe_prompt_slow_webview_start(shell: "WebViewShell", initial_path: str) -
     log_startup("webview.slow_start.balloon_shown", base_url=base_url)
 
 
+_RESTORE_WINDOW_MARKER = "__PYWEBVIEW_RESTORE_WINDOW__"
+
+
 def _nav_poll_loop(window: Any, nav_queue: Any, stop_event: threading.Event) -> None:
     while not stop_event.is_set():
         try:
-            url = nav_queue.get(timeout=_NAV_POLL_SEC)
+            item = nav_queue.get(timeout=_NAV_POLL_SEC)
         except Exception:
             continue
-        if url is None:
+        if item is None:
             break
         try:
-            window.load_url(url)
-            window.show()
-            window.restore()
-            append_frozen_log(f"pywebview navigate: {url}")
+            if item == _RESTORE_WINDOW_MARKER:
+                window.show()
+                window.restore()
+                window.activate()
+                append_frozen_log("pywebview window restored")
+            else:
+                window.load_url(item)
+                window.show()
+                window.restore()
+                append_frozen_log(f"pywebview navigate: {item}")
         except Exception as exc:
-            append_frozen_log(f"pywebview navigate failed: {exc!r}")
+            append_frozen_log(f"pywebview action failed: {exc!r}")
 def _webview_worker(
     url: str,
     title: str,
@@ -569,6 +578,17 @@ class WebViewShell:
                 _fallback_to_system_browser(self.server, path, str(exc))
                 return
         _fallback_to_system_browser(self.server, path, "nav queue unavailable")
+
+    def restore_window(self) -> None:
+        if not self.is_running():
+            return
+        nav_queue = self._nav_queue
+        if nav_queue is not None:
+            try:
+                nav_queue.put(_RESTORE_WINDOW_MARKER)
+            except Exception:
+                pass
+
     def _terminate(self) -> None:
         proc = self._process
         nav_queue = self._nav_queue

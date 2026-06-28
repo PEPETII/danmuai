@@ -1,10 +1,10 @@
 /**
- * 模块：settings — 助手设置页（8 个 tab）+ 视觉模型选择 + 识图框选 + 压缩预览。
+ * 模块：settings — 弹幕设置页（8 个 tab）+ 视觉模型选择 + 识图框选 + 压缩预览。
  *
  * 关键数据：
  *   - CONFIG_FIELDS：白名单字段表，决定 GET /api/config 与 PUT /api/config
  *     序列化时哪些 key 会被读写；新增字段必须先在此登记。
- *   - SETTINGS_RESTORE_GROUPS / SETTINGS_RESTORE_CHECKBOXES：助手设置
+ *   - SETTINGS_RESTORE_GROUPS / SETTINGS_RESTORE_CHECKBOXES：弹幕设置
  *     「恢复默认」按 tab 分组；默认值唯一来源是 GET /api/config/defaults，
  *     勿在此硬编码。api_key 不参与恢复；识图区域走独立 API 不在此恢复。
  *
@@ -202,6 +202,7 @@ export function configureSettingsBindings(deps) {
     updateMicModeHint,
     updateModelActiveSourceBanner,
     updateMicActiveSourceBanner,
+    updateThinkingModeAvailability,
     setMicAudioLikelySupported: (value) => {
       micAudioLikelySupported = value;
     },
@@ -482,7 +483,7 @@ function updateModelActiveSourceBanner(cfg) {
   const name = cfg.model_display_name || cfg.active_model_id || '';
   const id = cfg.active_model_id || '';
   banner.textContent =
-    `当前默认模型来自模型配置档案「${name}」（${id}）。助手设置中的 API 地址与密钥不用于生成弹幕，请在模型配置档案列表中维护。`;
+    `当前默认模型来自模型配置档案「${name}」（${id}）。弹幕设置中的 API 地址与密钥不用于生成弹幕，请在模型配置档案列表中维护。`;
   banner.classList.remove('hidden');
   if (cfg.provider_model_mismatch) {
     banner.textContent +=
@@ -506,6 +507,31 @@ export async function loadScreens() {
   sel.disabled = screens.length <= 1;
 }
 
+
+export function updateThinkingModeAvailability(cfg) {
+  const checkbox = document.getElementById('use_thinking');
+  const hint = document.getElementById('thinkingModeHint');
+  const supported = !!cfg.thinking_supported;
+  if (checkbox) {
+    checkbox.disabled = !supported;
+    checkbox.classList.toggle('opacity-60', !supported);
+    checkbox.classList.toggle('cursor-not-allowed', !supported);
+  }
+  if (hint) hint.classList.toggle('hidden', supported);
+}
+
+function updateThinkingModeFromForm() {
+  const apiMode = document.getElementById('api_mode')?.value || '';
+  const supported = apiMode === 'doubao';
+  const checkbox = document.getElementById('use_thinking');
+  const hint = document.getElementById('thinkingModeHint');
+  if (checkbox) {
+    checkbox.disabled = !supported;
+    checkbox.classList.toggle('opacity-60', !supported);
+    checkbox.classList.toggle('cursor-not-allowed', !supported);
+  }
+  if (hint) hint.classList.toggle('hidden', supported);
+}
 
 export function bindSettingsControls(deps = {}) {
   configureSettingsBindings(deps);
@@ -623,6 +649,7 @@ export function bindSettingsControls(deps = {}) {
   document.getElementById('providerPreset')?.addEventListener('change', (e) => {
     if (e.target.value) applyProviderPreset(e.target.value);
     else syncProviderPresetAfterEndpointEdit();
+    updateThinkingModeFromForm();
   });
 
   document.getElementById('api_endpoint')?.addEventListener('change', () => {
@@ -631,6 +658,7 @@ export function bindSettingsControls(deps = {}) {
   document.getElementById('api_mode')?.addEventListener('change', () => {
     syncProviderPresetAfterEndpointEdit();
     updateMicModeHint();
+    updateThinkingModeFromForm();
   });
 
   document.getElementById('modelModalForm')?.addEventListener('submit', async (e) => {

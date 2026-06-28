@@ -8,6 +8,26 @@ function showToast(message, isError = false) {
   toast(message, isError);
 }
 
+function showPersonaPageStatus(message, isError = false) {
+  const banner = document.getElementById('personaSaveStatusBanner');
+  if (!banner) return;
+  banner.textContent = message;
+  banner.className = `mb-4 px-4 py-2 rounded-xl text-sm font-semibold ${
+    isError
+      ? 'bg-red-50 border border-red-200 text-red-700'
+      : 'bg-green-50 border border-green-200 text-green-700'
+  }`;
+  banner.classList.remove('hidden');
+  if (banner._hideTimer) {
+    clearTimeout(banner._hideTimer);
+    banner._hideTimer = null;
+  }
+  banner._hideTimer = setTimeout(() => {
+    banner.classList.add('hidden');
+    banner._hideTimer = null;
+  }, 4000);
+}
+
 function enc(name) {
   return encodeURIComponent(name);
 }
@@ -88,16 +108,11 @@ async function saveLiveTopic() {
   const input = document.getElementById('liveTopicInput');
   if (!input) return;
   const value = (input.value || '').trim().slice(0, 200);
-  try {
-    await apiFetch('/api/config', {
-      method: 'PUT',
-      body: JSON.stringify({ live_topic: value }),
-    });
-    input.value = value;
-    showToast(value ? '主题已保存' : '主题已清空');
-  } catch (error) {
-    showToast(error.message || '主题保存失败', true);
-  }
+  await apiFetch('/api/config', {
+    method: 'PUT',
+    body: JSON.stringify({ live_topic: value }),
+  });
+  input.value = value;
 }
 
 async function loadPersonaNamePrefix() {
@@ -115,15 +130,10 @@ async function savePersonaNamePrefix() {
   const input = document.getElementById('personaNamePrefixEnabled');
   if (!input) return;
   const value = input.checked ? '1' : '0';
-  try {
-    await apiFetch('/api/config', {
-      method: 'PUT',
-      body: JSON.stringify({ persona_name_prefix_enabled: value }),
-    });
-    showToast(value === '1' ? '名称显示已开启' : '名称显示已关闭');
-  } catch (error) {
-    showToast(error.message || '名称显示保存失败', true);
-  }
+  await apiFetch('/api/config', {
+    method: 'PUT',
+    body: JSON.stringify({ persona_name_prefix_enabled: value }),
+  });
 }
 
 async function loadUserNickname() {
@@ -141,16 +151,11 @@ async function saveUserNickname() {
   const input = document.getElementById('userNicknameInput');
   if (!input) return;
   const value = (input.value || '').trim().slice(0, 20);
-  try {
-    await apiFetch('/api/config', {
-      method: 'PUT',
-      body: JSON.stringify({ user_nickname: value }),
-    });
-    input.value = value;
-    showToast(value ? '昵称已保存' : '昵称已清空');
-  } catch (error) {
-    showToast(error.message || '昵称保存失败', true);
-  }
+  await apiFetch('/api/config', {
+    method: 'PUT',
+    body: JSON.stringify({ user_nickname: value }),
+  });
+  input.value = value;
 }
 
 export async function loadPersonaTemplate() {
@@ -158,13 +163,20 @@ export async function loadPersonaTemplate() {
   if (!name) return;
   currentPersonaId = name;
   const tpl = await personaFetch(`/api/personae/${enc(name)}/template`);
-  document.getElementById('personaContract').value = tpl.reply_contract || '';
-  document.getElementById('personaSystemCustom').value = tpl.system_custom || '';
-  document.getElementById('personaSystemPtFull').value = tpl.system_pt_full || '';
+  const personaContract = document.getElementById('personaContract');
+  if (personaContract) personaContract.value = tpl.reply_contract || '';
+  const personaSystemCustom = document.getElementById('personaSystemCustom');
+  if (personaSystemCustom) personaSystemCustom.value = tpl.system_custom || '';
+  const personaSystemPtFull = document.getElementById('personaSystemPtFull');
+  if (personaSystemPtFull) personaSystemPtFull.value = tpl.system_pt_full || '';
+  const displayNameInput = document.getElementById('personaDisplayName');
+  if (displayNameInput) displayNameInput.value = tpl.label || '';
   const systemEditable = tpl.system_editable ?? tpl.editable;
-  document.getElementById('personaSystemCustom').readOnly = !systemEditable;
-  document.getElementById('btnSavePersona').disabled = tpl.can_save === false;
-  document.getElementById('btnDeletePersona').style.display = tpl.builtin ? 'none' : '';
+  if (personaSystemCustom) personaSystemCustom.readOnly = !systemEditable;
+  const btnSavePersona = document.getElementById('btnSavePersona');
+  if (btnSavePersona) btnSavePersona.disabled = tpl.can_save === false;
+  const btnDeletePersona = document.getElementById('btnDeletePersona');
+  if (btnDeletePersona) btnDeletePersona.style.display = tpl.builtin ? 'none' : '';
 }
 
 export async function loadPersonaEditor() {
@@ -206,38 +218,59 @@ export function initPersonaTopicPage(deps = {}) {
   document.getElementById('personaSelect')?.addEventListener('change', () => {
     loadPersonaTemplate().catch((error) => showToast(error.message, true));
   });
-  document.getElementById('btnSaveLiveTopic')?.addEventListener('click', (e) => {
+  document.getElementById('btnSaveLiveTopic')?.addEventListener('click', async (e) => {
     const btn = e.currentTarget;
-    window.withLoadingState(btn, btn.textContent, () =>
-      saveLiveTopic()
-    ).catch((error) => showToast(error.message || '主题保存失败', true));
+    try {
+      await window.withLoadingState(btn, btn.textContent, () => saveLiveTopic(), '已保存');
+      showToast('主题已保存');
+      showPersonaPageStatus('主题已更新，下一次生成会使用新内容');
+    } catch (error) {
+      showToast(error.message || '主题保存失败', true);
+      showPersonaPageStatus(error.message || '主题保存失败', true);
+    }
   });
-  document.getElementById('btnSaveUserNickname')?.addEventListener('click', (e) => {
+  document.getElementById('btnSaveUserNickname')?.addEventListener('click', async (e) => {
     const btn = e.currentTarget;
-    window.withLoadingState(btn, btn.textContent, () =>
-      saveUserNickname()
-    ).catch((error) => showToast(error.message || '昵称保存失败', true));
+    try {
+      await window.withLoadingState(btn, btn.textContent, () => saveUserNickname(), '已保存');
+      showToast('昵称已保存');
+      showPersonaPageStatus('昵称已更新，下一次生成会使用新内容');
+    } catch (error) {
+      showToast(error.message || '昵称保存失败', true);
+      showPersonaPageStatus(error.message || '昵称保存失败', true);
+    }
   });
-  document.getElementById('personaNamePrefixEnabled')?.addEventListener('change', () => {
-    savePersonaNamePrefix().catch((error) => showToast(error.message || '名称显示保存失败', true));
+  document.getElementById('personaNamePrefixEnabled')?.addEventListener('change', async () => {
+    try {
+      await savePersonaNamePrefix();
+      const checked = document.getElementById('personaNamePrefixEnabled').checked;
+      showToast(checked ? '名称显示已开启' : '名称显示已关闭');
+      showPersonaPageStatus('名称显示已更新，下一次生成会使用新内容');
+    } catch (error) {
+      showToast(error.message || '名称显示保存失败', true);
+      showPersonaPageStatus(error.message || '名称显示保存失败', true);
+    }
   });
   document.getElementById('btnSavePersona')?.addEventListener('click', async (e) => {
     const btn = e.currentTarget;
-    await window.withLoadingState(btn, btn.textContent, async () => {
-      const name = document.getElementById('personaSelect')?.value;
-      try {
+    try {
+      await window.withLoadingState(btn, btn.textContent, async () => {
+        const name = document.getElementById('personaSelect')?.value;
         await apiFetch(`/api/personae/${enc(name)}/template`, {
           method: 'PUT',
           body: JSON.stringify({
             system_custom: document.getElementById('personaSystemCustom').value,
+            label: document.getElementById('personaDisplayName')?.value?.trim() || '',
           }),
         });
-        showToast('人格已保存');
         loadPersonaTemplate().catch(console.error);
-      } catch (error) {
-        showToast(error.message, true);
-      }
-    });
+      }, '已保存');
+      showToast('人格已保存');
+      showPersonaPageStatus('人格已更新，下一次生成会使用新内容');
+    } catch (error) {
+      showToast(error.message, true);
+      showPersonaPageStatus(error.message, true);
+    }
   });
   document.getElementById('btnRestorePersona')?.addEventListener('click', async (e) => {
     const btn = e.currentTarget;
@@ -281,20 +314,22 @@ export function initPersonaTopicPage(deps = {}) {
   });
   document.getElementById('btnSavePersonaActive')?.addEventListener('click', async (e) => {
     const btn = e.currentTarget;
-    await window.withLoadingState(btn, btn.textContent, async () => {
-      const active = [];
-      document.querySelectorAll('#personaActiveList input:checked').forEach((cb) => {
-        active.push(cb.value);
-      });
-      try {
+    try {
+      await window.withLoadingState(btn, btn.textContent, async () => {
+        const active = [];
+        document.querySelectorAll('#personaActiveList input:checked').forEach((cb) => {
+          active.push(cb.value);
+        });
         await apiFetch('/api/personae/active', {
           method: 'PUT',
           body: JSON.stringify({ active }),
         });
-        showToast('激活人格已更新');
-      } catch (error) {
-        showToast(error.message, true);
-      }
-    });
+      }, '已保存');
+      showToast('激活人格已更新');
+      showPersonaPageStatus('激活人格已更新，下一次生成会使用新内容');
+    } catch (error) {
+      showToast(error.message, true);
+      showPersonaPageStatus(error.message, true);
+    }
   });
 }

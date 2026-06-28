@@ -70,6 +70,7 @@ from app.personae import (
     append_live_topic_to_system_pt,
     append_nickname_to_system_pt,
     persona_display_name,
+    persona_display_name_with_config,
 )
 from app.reply_parser import (
     normalize_reply_batch,
@@ -459,7 +460,7 @@ class DanmuApp(
                 batch_id=batch_id,
                 screenshot_id=screenshot_id,
                 scene_generation=self._scene_generation,
-                persona=persona_display_name(persona),
+                persona=persona_display_name_with_config(persona, self.config),
             )
             + f" request_round={request_round} request_id={request_id}"
         )
@@ -897,7 +898,7 @@ class DanmuApp(
         if queued is None:
             return
 
-        self.logger.info(f"[{persona_display_name(queued.persona_id)}] {queued.content}")
+        self.logger.info(f"[{persona_display_name_with_config(queued.persona_id, self.config)}] {queued.content}")
         display_content = resolve_danmu_display_text(
             queued.content,
             self.config,

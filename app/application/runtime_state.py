@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any
 from app.application.generation_pipeline_state import GenerationPipelineState
 from app.config_defaults import resolve_danmu_render_mode
 from app.danmu_engine import dedup_profile_enabled
-from app.personae import persona_display_name
+from app.personae import persona_display_name_with_config
 
 if TYPE_CHECKING:
     from main import DanmuApp
@@ -158,7 +158,7 @@ class RuntimeState:
                 or "fullscreen"
             ),
             live_snapshot=live_snapshot,
-            persona_names=[persona_display_name(name) for name in app.personae.get_active()],
+            persona_names=[persona_display_name_with_config(name, app.config) for name in app.personae.get_active()],
             screen_index=app.config.get_int("screen_index", 0),
             has_api_key=bool(app.config.get_api_key()),
             dedup_profile=dedup_profile,

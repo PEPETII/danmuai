@@ -38,6 +38,7 @@ from app.web_api import pet as pet_api
 from app.web_api import providers as providers_api
 from app.web_api import update as update_api
 from app.web_api.preview_compress import register_preview_compress_route
+from app.web_api.bililive_dm_bridge import register_bililive_dm_bridge_route
 from app.web_console import MainThreadInvokeTimeout
 
 logger = logging.getLogger(__name__)
@@ -51,6 +52,7 @@ if TYPE_CHECKING:
 
 def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) -> None:
     register_preview_compress_route(app, check_token)
+    register_bililive_dm_bridge_route(app, bridge.danmu_app.config, check_token)
     providers_api.register_provider_routes(app)
 
     class PersonaCreatePayload(BaseModel):
@@ -59,6 +61,7 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
     class PersonaSavePayload(BaseModel):
         system_custom: str = ""
         user_pt: str = ""
+        label: str = ""
 
     class PersonaRollbackPayload(BaseModel):
         version: int
@@ -274,6 +277,7 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
             unquote(name),
             body.system_custom,
             body.user_pt,
+            body.label,
         )
         return {"ok": True}
 

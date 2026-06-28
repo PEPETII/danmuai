@@ -185,6 +185,7 @@ def test_schedule_push_batch_starts_daemon_thread(monkeypatch):
 
 def test_enqueue_ai_batch_schedules_bililive_push():
     app = make_minimal_danmu_app()
+    app.config.set("bililive_dm_mode_enabled", "1")
     with patch(
         "app.application.bililive_dm_push_service.schedule_push_batch"
     ) as mock_push:

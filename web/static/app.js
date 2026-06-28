@@ -43,6 +43,12 @@ import {
   switchSettingsTab,
   getActiveSettingsTabId,
 } from './modules/settings.js';
+import {
+  configureGuideTabs,
+  getActiveGuideTabId,
+  initGuideTabs,
+  switchGuideTab,
+} from './modules/guide-tabs.js';
 import { isMaskedApiKey } from './modules/settings-defaults.js';
 import { initTheme } from './modules/theme.js';
 import { initSetupGuide, refreshSetupGuide, markProbeSuccess, markTestDanmuSent } from './modules/app-setup-guide.js';
@@ -151,20 +157,31 @@ function showToast(message, isError = false) {
   }, 3200);
 }
 
-async function withLoadingState(btn, originalText, asyncFn) {
+async function withLoadingState(btn, originalText, asyncFn, successText = null, successDurationMs = 2000) {
   if (!btn) return asyncFn();
   const loadingText = originalText ? `${originalText}中...` : '处理中...';
+  const savedOriginal = originalText || btn.textContent;
   btn.disabled = true;
-  btn.dataset.originalText = btn.textContent;
   btn.textContent = loadingText;
   btn.style.opacity = '0.7';
+  let succeeded = false;
   try {
-    return await asyncFn();
+    const result = await asyncFn();
+    succeeded = true;
+    if (successText) {
+      btn.textContent = successText;
+      btn.style.opacity = '';
+      setTimeout(() => {
+        if (btn.textContent === successText) btn.textContent = savedOriginal;
+      }, successDurationMs);
+    }
+    return result;
   } finally {
-    btn.textContent = btn.dataset.originalText || originalText;
+    if (!successText || !succeeded) {
+      btn.textContent = savedOriginal;
+      btn.style.opacity = '';
+    }
     btn.disabled = false;
-    btn.style.opacity = '';
-    delete btn.dataset.originalText;
   }
 }
 window.withLoadingState = withLoadingState;
@@ -421,6 +438,10 @@ function navigate(page) {
     page = 'settings';
     switchSettingsTab('danmu-read');
   }
+  if (page === 'tutorial' || page === 'logs') {
+    page = 'guide';
+    switchGuideTab(page === 'tutorial' ? 'tutorial' : 'logs');
+  }
   document.querySelectorAll('.page-panel').forEach((panel) => panel.classList.remove('active'));
   document.querySelectorAll('#nav .sidebar-item').forEach((item) => item.classList.remove('active'));
   const panel = document.getElementById(`page-${page}`);
@@ -473,16 +494,18 @@ function navigate(page) {
       .then((mod) => mod.initFeedbackPage())
       .catch(console.error);
   }
-  if (page === 'tutorial') {
-    import('./modules/content-tutorial.js')
-      .then((mod) => mod.loadTutorialPage())
-      .catch(console.error);
-  }
-  if (page === 'logs') {
-    updateLogPanelState();
-    bootstrapLogsFromServer(REALTIME.lastLogsPollTs).catch((error) => {
-      console.warn('[realtime] logs bootstrap on navigate failed', error);
-    });
+  if (page === 'guide') {
+    if (getActiveGuideTabId() === 'logs') {
+      updateLogPanelState();
+      renderLogView({ force: true });
+      bootstrapLogsFromServer(REALTIME.lastLogsPollTs).catch((error) => {
+        console.warn('[realtime] logs bootstrap on navigate failed', error);
+      });
+    } else if (getActiveGuideTabId() === 'tutorial') {
+      import('./modules/content-tutorial.js')
+        .then((mod) => mod.loadTutorialPage())
+        .catch(console.error);
+    }
   }
 }
 
@@ -543,6 +566,7 @@ async function init() {
 
   initSettingsTabs();
   initSettingsUiMode();
+  initGuideTabs();
   initSettingsFieldHints();
   initContentPageFieldHints();
   initSidebarNavFloatingHints();
@@ -565,6 +589,21 @@ async function init() {
     onSettingsTabSwitch: (tabId) => {
       if (tabId === 'danmu-read') {
         loadDanmuReadPage().catch(() => {});
+      }
+    },
+  });
+  configureGuideTabs({
+    onGuideTabSwitch: (tabId) => {
+      if (tabId === 'logs') {
+        updateLogPanelState();
+        renderLogView({ force: true });
+        bootstrapLogsFromServer(REALTIME.lastLogsPollTs).catch((error) => {
+          console.warn('[realtime] logs bootstrap on tab switch failed', error);
+        });
+      } else if (tabId === 'tutorial') {
+        import('./modules/content-tutorial.js')
+          .then((mod) => mod.loadTutorialPage())
+          .catch(console.error);
       }
     },
   });

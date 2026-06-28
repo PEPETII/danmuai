@@ -202,7 +202,8 @@ def request_doubao(
     endpoint, api_key, model, _ = resolved
     temperature = worker.config.get_float("temperature", 0.8)
     configured_max = worker.config.get_int("max_tokens", DEFAULT_MAX_TOKENS)
-    max_output_tokens = resolve_danmu_max_output_tokens(configured_max, use_thinking=False)
+    use_thinking = worker.config.get("use_thinking", "0") == "1"
+    max_output_tokens = resolve_danmu_max_output_tokens(configured_max, use_thinking=use_thinking)
 
     if not api_key:
         return worker._deliver_outcome(
@@ -240,7 +241,7 @@ def request_doubao(
         data["instructions"] = system_pt
     if temperature is not None and temperature >= 0:
         data["temperature"] = temperature
-    data["thinking"] = dict(THINKING_DISABLED)  # 固定关闭思考模式：降低延迟，避免 MiMo 返回空内容
+    data["thinking"] = {"type": "enabled"} if use_thinking else dict(THINKING_DISABLED)
     data["max_output_tokens"] = max_output_tokens
 
     url = f"{endpoint}/responses"

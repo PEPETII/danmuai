@@ -299,7 +299,7 @@
   transform: translateX(-50%) translateY(-20px);
 }
 
-/* 助手设置 — 顶部分类 Tab + 简化/全面模式 */
+/* 弹幕设置 — 顶部分类 Tab + 简化/全面模式 */
 .settings-tabs-bar {
   display: flex;
   align-items: center;

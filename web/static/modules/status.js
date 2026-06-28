@@ -307,7 +307,7 @@ export function applyStatus(st) {
     const mismatchNote = document.getElementById('modelActiveSourceBanner');
     if (mismatchNote && mismatchNote.classList.contains('hidden')) {
       mismatchNote.textContent =
-        `当前 API 地址与模型「${st.active_model_id}」不匹配，请在助手设置中重新选择视觉模型并保存。`;
+        `当前 API 地址与模型「${st.active_model_id}」不匹配，请在弹幕设置中重新选择视觉模型并保存。`;
       mismatchNote.classList.remove('hidden');
     }
   }

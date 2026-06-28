@@ -60,6 +60,29 @@ def persona_display_name(name: str) -> str:
     return tr(key) if key else normalized
 
 
+def get_persona_custom_label(name: str, config) -> str | None:
+    """从 config 的 persona_labels JSON 映射中读取自定义显示名称。"""
+    import json
+
+    normalized = normalize_persona_name(name)
+    raw = config.get("persona_labels", "{}")
+    try:
+        labels = json.loads(raw)
+        if isinstance(labels, dict):
+            return labels.get(normalized)
+    except (json.JSONDecodeError, TypeError):
+        pass
+    return None
+
+
+def persona_display_name_with_config(name: str, config) -> str:
+    """优先返回用户自定义的显示名称，否则 fallback 到翻译或原始名。"""
+    custom = get_persona_custom_label(name, config)
+    if custom:
+        return custom
+    return persona_display_name(name)
+
+
 def default_user_prompt() -> str:
     return tr("template.default_user_prompt")
 
@@ -96,6 +119,8 @@ __all__ = [
     "normalize_persona_name",
     "validate_persona_name",
     "persona_display_name",
+    "persona_display_name_with_config",
+    "get_persona_custom_label",
     "reply_counts_from_config",
     "strip_reply_contract",
     "strip_system_style",

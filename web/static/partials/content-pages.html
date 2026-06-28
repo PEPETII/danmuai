@@ -267,6 +267,7 @@
         <p class="text-gray-500 mt-1">编辑系统提示；内置人格可覆盖保存，恢复默认可还原</p>
       </header>
       <div class="card p-8 space-y-4">
+        <div id="personaSaveStatusBanner" class="hidden mb-4 px-4 py-2 rounded-xl bg-green-50 border border-green-200 text-sm text-green-700 font-semibold" role="status" aria-live="polite"></div>
         <div class="flex flex-wrap gap-3 items-end">
           <div class="flex-1 min-w-[200px]">
             <label for="personaSelect" class="block text-sm font-semibold mb-2 text-warmText">选择人格</label>
@@ -281,7 +282,7 @@
         </div>
         <div>
           <label for="personaSystemCustom" class="block text-sm font-semibold mb-2 text-warmText">系统提示补充</label>
-          <textarea id="personaSystemCustom" rows="4" class="w-full px-4 py-3 bg-cream rounded-xl text-warmText" placeholder="风格要求等…"></textarea>
+          <textarea id="personaSystemCustom" rows="4" class="w-full px-4 py-3 bg-cream rounded-xl text-warmText" placeholder="例如：语气温柔治愈，像闺蜜一样吐槽主播操作，偶尔玩梗"></textarea>
         </div>
         <div class="flex flex-wrap gap-3">
           <button type="button" id="btnSavePersona" class="btn-primary px-6 py-2 text-white rounded-xl font-bold">保存人格</button>
@@ -302,14 +303,31 @@
       </div>
     </section>
 
-    <!-- ========== 区域：教程 ========== -->
-    <!-- section: 使用教程（图文飞书链接 + Supabase 视频链接） -->
-    <section id="page-tutorial" class="page-panel" aria-label="使用教程">
+    <!-- ========== 区域：教程与弹幕日志（合并） ========== -->
+    <!-- section: 教程 Tab + 弹幕日志 Tab，复用 settings-tabs 模式 -->
+    <section id="page-guide" class="page-panel" aria-label="教程与弹幕日志">
       <header class="mb-8">
+        <h2 class="text-2xl font-bold text-warmText">教程与弹幕日志</h2>
+        <p class="text-gray-500 mt-1">在这里查看使用教程，或切换到弹幕日志排查运行问题</p>
+      </header>
+      <div class="settings-tabs-bar">
+        <div class="settings-tabs" role="tablist" aria-label="教程与弹幕日志">
+          <button type="button" role="tab" class="settings-tab active" data-guide-tab="tutorial" aria-selected="true">教程</button>
+          <button type="button" role="tab" class="settings-tab" data-guide-tab="logs" aria-selected="false">弹幕日志</button>
+        </div>
+      </div>
+      <div id="guideTab-tutorial" class="settings-tab-panel active space-y-6" data-guide-panel="tutorial" role="tabpanel"></div>
+      <div id="guideTab-logs" class="settings-tab-panel space-y-6" data-guide-panel="logs" role="tabpanel" hidden></div>
+    </section>
+
+    <!-- ========== 区域：教程（DOM 源，header 与 card 内容由 guide-tabs.js 搬入 #page-guide） ========== -->
+    <!-- section: 使用教程（图文飞书链接 + Supabase 视频链接） -->
+    <section id="page-tutorial" class="page-panel" data-guide-panel="tutorial-source" hidden aria-label="使用教程">
+      <header class="mb-8" data-guide-move="tutorial">
         <h2 class="text-2xl font-bold text-warmText">教程</h2>
         <p class="text-gray-500 mt-1">选择下方教程查看使用说明</p>
       </header>
-      <div class="card p-8 space-y-6">
+      <div class="card p-8 space-y-6" data-guide-move="tutorial">
         <div class="tutorial-item">
           <h3 class="tutorial-item-title">图文教程（暂时不完整）</h3>
           <a
@@ -402,10 +420,10 @@
       </div>
     </section>
 
-    <!-- ========== 区域：弹幕日志 ========== -->
+    <!-- ========== 区域：弹幕日志（DOM 源，header 与 card 内容由 guide-tabs.js 搬入 #page-guide） ========== -->
     <!-- section: 实时日志（/api/logs/recent + WebSocket logs 通道，等级过滤/自动滚动） -->
-    <section id="page-logs" class="page-panel">
-      <header class="mb-8 flex flex-wrap justify-between items-start gap-4">
+    <section id="page-logs" class="page-panel" data-guide-panel="logs-source" hidden>
+      <header class="mb-8 flex flex-wrap justify-between items-start gap-4" data-guide-move="logs">
         <div>
           <h2 class="text-2xl font-bold text-warmText">弹幕日志</h2>
           <p class="text-gray-500 mt-1">运行日志实时同步（WebSocket 优先，失败时自动 HTTP 轮询），已脱敏，不会展示 API Key</p>
@@ -415,7 +433,7 @@
           <span data-realtime-conn class="text-xs font-normal border-l border-gray-200 pl-2 conn-connecting" aria-live="polite">连接中</span>
         </div>
       </header>
-      <div class="card p-4 space-y-3">
+      <div class="card p-4 space-y-3" data-guide-move="logs">
         <div class="flex flex-wrap gap-3 items-center">
           <span class="text-sm font-semibold text-warmText">级别</span>
           <label class="text-xs"><input type="checkbox" class="log-level-cb accent-warmPink" value="DEBUG"> DEBUG</label>

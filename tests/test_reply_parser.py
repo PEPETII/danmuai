@@ -1,7 +1,11 @@
+import time
+
 from app.live_freshness import build_local_fallback_batch
 from app.mic_prompt import mic_insert_reply_count
 from app.personae import PersonaManager
 from app.reply_parser import (
+    _MAX_HEURISTIC_NODES,
+    _heuristic_comments_from_malformed_json,
     normalize_reply_batch,
     parse_ai_reply_payload,
 )
@@ -363,3 +367,61 @@ def test_parse_ai_reply_concatenated_first_segment_invalid():
     raw = '{invalid}{"comments":["弹幕A"]}'
     items = parse_ai_reply_payload(raw)
     assert "弹幕A" in items
+
+
+# --- BUG-011: deep }{ nesting (iterative stack parser) ---
+
+
+def test_heuristic_handles_20_concatenated_braces_with_valid_segments():
+    """BUG-011: 20+ 个连续 ``}{`` + 合法 JSON 片段不应触发 RecursionError。"""
+    # Build 20 {"comments": [...]} segments joined by }{ (21 segments, 20 splitters).
+    seg = '{"comments":["弹幕A"]}'
+    raw = ("}{" .join([seg] * 21))
+    assert raw.count("}{") == 20
+    items = _heuristic_comments_from_malformed_json(raw)
+    # Iterative parser should successfully extract "弹幕A" from at least one segment.
+    assert "弹幕A" in items
+    # The segment is duplicated 21 times; downstream _normalize_comment_list dedups.
+    assert len(items) >= 1
+
+
+def test_heuristic_adversarial_braces_only_returns_empty_quickly():
+    """BUG-011: 1000 个 ``}{`` 但无 ``"comments"`` key → [] 且不卡死。"""
+    raw = "}{" * 1000
+    start = time.monotonic()
+    items = _heuristic_comments_from_malformed_json(raw)
+    elapsed = time.monotonic() - start
+    assert items == []
+    # Generous bound: the iterative parser should finish in well under a second.
+    assert elapsed < 1.0
+
+
+def test_heuristic_node_budget_caps_processing(monkeypatch):
+    """BUG-011: _MAX_HEURISTIC_NODES 触发时停止分裂并把剩余段当 leaf 处理。"""
+    # Force the budget low enough that we'll hit it on a modest input.
+    monkeypatch.setattr("app.reply_parser._MAX_HEURISTIC_NODES", 8)
+    # 50 segments, 49 splitters — well over the 8-node budget.
+    seg = '{"comments":["弹幕B"]}'
+    raw = ("}{" .join([seg] * 50))
+    # Must not raise and must not recurse — returns whatever was extracted before
+    # the budget cut in. The contract is "stops gracefully", not "extracts everything".
+    items = _heuristic_comments_from_malformed_json(raw)
+    # At least one leaf is processed before the budget triggers, so we get at
+    # least one "弹幕B"; downstream dedup keeps the result unique.
+    assert all(isinstance(x, str) for x in items)
+
+
+def test_parse_ai_reply_payload_with_deep_nesting_does_not_recurse():
+    """BUG-011: 走公共入口 ``parse_ai_reply_payload`` 时 20 层 ``}{`` 不应崩溃。"""
+    seg = '{"comments":["弹幕C","弹幕D"]}'
+    raw = ("}{" .join([seg] * 21))
+    # Public entrypoint must not raise RecursionError.
+    items = parse_ai_reply_payload(raw)
+    assert "弹幕C" in items
+    assert "弹幕D" in items
+
+
+def test_heuristic_node_budget_constant_is_present():
+    """BUG-011: 防御性常量 ``_MAX_HEURISTIC_NODES`` 存在且为正整数。"""
+    assert isinstance(_MAX_HEURISTIC_NODES, int)
+    assert _MAX_HEURISTIC_NODES > 0

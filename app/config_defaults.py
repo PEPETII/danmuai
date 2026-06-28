@@ -141,6 +141,10 @@ CONFIG_DEFAULTS: dict[str, str] = {
     "pet_barrage_slot_positions": "[]",
     "pet_barrage_previous_render_mode": "scrolling",
     "pet_barrage_previous_reply_count": str(DEFAULT_NORMAL_REPLY_COUNT),
+    "use_thinking": "0",
+    "danmu_font_color_selected": "[\"#FFFFFF\"]",
+    "danmu_font_color_mode": "equal",
+    "danmu_font_color_weights": "{}",
 }
 
 # 首装视觉 API 默认服务商（与 model_providers.DEFAULT_PROVIDER_ID 一致）

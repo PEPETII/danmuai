@@ -19,6 +19,7 @@ scene_generation 随请求携带，场景配置变更时由 DanmuApp 递增；pu
 在 bump 后清理队列内落后的 ai/fallback（mic 保留）。本队列不做 TTL 判定。
 """
 import logging
+import threading
 from collections import deque
 from dataclasses import dataclass
 
@@ -52,11 +53,13 @@ class AIReplyFIFOBuffer:
     def __init__(self, max_items: int = 8):
         self._items = deque()
         self._max_items = max(0, max_items)
+        self._lock = threading.Lock()
 
     def _drop_one_tail_replaceable_fallback(self) -> bool:
         # Single-element delete: deque supports indexed del (Py 3.5+), avoiding
         # list copy + deque rebuild. Bulk filters (prepend_batch, drop_*,
         # purge_*) keep deque(...) rebuild — small max_items, O(n) scan anyway.
+        # Caller must hold _lock.
         for index in range(len(self._items) - 1, -1, -1):
             item = self._items[index]
             if item.is_fallback and item.replaceable and item.source == "fallback":
@@ -70,6 +73,7 @@ class AIReplyFIFOBuffer:
         drop_from_left: bool,
         prefer_replaceable_fallback: bool = False,
     ) -> None:
+        # Caller must hold _lock.
         if self._max_items <= 0:
             return
         size_before = len(self._items)
@@ -107,37 +111,46 @@ class AIReplyFIFOBuffer:
 
     def push(self, item: QueuedReply):
         """追加一条到队尾。"""
-        self._items.append(item)
-        self._trim_overflow(drop_from_left=True)
+        with self._lock:
+            self._items.append(item)
+            self._trim_overflow(drop_from_left=True)
 
     def pop(self) -> QueuedReply | None:
         """FIFO 队首取出一条，供 _consume_reply_queue 上屏。"""
-        if not self._items:
-            return None
-        return self._items.popleft()
+        with self._lock:
+            if not self._items:
+                return None
+            return self._items.popleft()
 
     def peek(self) -> QueuedReply | None:
-        if not self._items:
-            return None
-        return self._items[0]
+        with self._lock:
+            if not self._items:
+                return None
+            return self._items[0]
 
     def clear(self):
-        self._items.clear()
+        with self._lock:
+            self._items.clear()
 
     def is_empty(self) -> bool:
-        return not self._items
+        with self._lock:
+            return not self._items
 
     def size(self) -> int:
-        return len(self._items)
+        with self._lock:
+            return len(self._items)
 
     def set_max_items(self, max_items: int):
-        self._max_items = max(0, max_items)
-        self._trim_overflow(drop_from_left=False)
+        with self._lock:
+            self._max_items = max(0, max_items)
+            self._trim_overflow(drop_from_left=False)
 
     def extend(self, items: list[QueuedReply]):
         """批量 push，每条仍走代际淘汰（若 generation>0）与容量裁剪。"""
-        for item in items:
-            self.push(item)
+        with self._lock:
+            for item in items:
+                self._items.append(item)
+            self._trim_overflow(drop_from_left=True)
 
     def prepend_batch(
         self,
@@ -152,20 +165,21 @@ class AIReplyFIFOBuffer:
         超长时 push 从队首丢、prepend 从队尾丢。
         preserve_scene_generation: 非 None 时只保留该代际（历史兼容，运行期常为 0）。
         """
-        preserved: list[QueuedReply] = []
-        if preserve_existing > 0:
-            for item in self._items:
-                if preserve_scene_generation is not None and item.scene_generation != preserve_scene_generation:
-                    continue
-                if not preserve_replaceable and item.replaceable:
-                    continue
-                preserved.append(item)
-                if len(preserved) >= preserve_existing:
-                    break
+        with self._lock:
+            preserved: list[QueuedReply] = []
+            if preserve_existing > 0:
+                for item in self._items:
+                    if preserve_scene_generation is not None and item.scene_generation != preserve_scene_generation:
+                        continue
+                    if not preserve_replaceable and item.replaceable:
+                        continue
+                    preserved.append(item)
+                    if len(preserved) >= preserve_existing:
+                        break
 
-        self._items = deque([*items, *preserved])
-        # S-017: prepend overflow drops replaceable fallback tail before AI batches.
-        self._trim_overflow(drop_from_left=False, prefer_replaceable_fallback=True)
+            self._items = deque([*items, *preserved])
+            # S-017: prepend overflow drops replaceable fallback tail before AI batches.
+            self._trim_overflow(drop_from_left=False, prefer_replaceable_fallback=True)
 
     def drop_replaceable_fallbacks(
         self,
@@ -175,28 +189,30 @@ class AIReplyFIFOBuffer:
         scene_generation: int | None = None,
     ) -> int:
         """移除可被 AI 顶掉的本地 fallback，返回删除条数。"""
-        before = len(self._items)
-        self._items = deque(
-            item
-            for item in self._items
-            if not (
-                item.is_fallback
-                and item.replaceable
-                and item.source == "fallback"
-                and (scene_generation is None or item.scene_generation == scene_generation)
-                and (
-                    (request_id and item.request_id == request_id)
-                    or (batch_id is not None and item.batch_id == batch_id)
+        with self._lock:
+            before = len(self._items)
+            self._items = deque(
+                item
+                for item in self._items
+                if not (
+                    item.is_fallback
+                    and item.replaceable
+                    and item.source == "fallback"
+                    and (scene_generation is None or item.scene_generation == scene_generation)
+                    and (
+                        (request_id and item.request_id == request_id)
+                        or (batch_id is not None and item.batch_id == batch_id)
+                    )
                 )
             )
-        )
-        return before - len(self._items)
+            return before - len(self._items)
 
     def purge_before_round(self, min_round: int):
         """丢弃 screenshot_round 早于 min_round 的条目（调度轮次回退或重置时用）。"""
-        self._items = deque(
-            item for item in self._items if item.screenshot_round >= min_round
-        )
+        with self._lock:
+            self._items = deque(
+                item for item in self._items if item.screenshot_round >= min_round
+            )
 
     def purge_stale_by_generation(
         self,
@@ -209,17 +225,18 @@ class AIReplyFIFOBuffer:
         默认仅清理 source 为 ai/fallback 的项，mic 保留。
         sources=None 时与 drop_older_generations 一致（全部来源）。
         """
-        before = len(self._items)
+        with self._lock:
+            before = len(self._items)
 
-        def _keep(item: QueuedReply) -> bool:
-            if item.scene_generation >= min_generation:
-                return True
-            if sources is None:
-                return False
-            return item.source not in sources
+            def _keep(item: QueuedReply) -> bool:
+                if item.scene_generation >= min_generation:
+                    return True
+                if sources is None:
+                    return False
+                return item.source not in sources
 
-        self._items = deque(item for item in self._items if _keep(item))
-        return before - len(self._items)
+            self._items = deque(item for item in self._items if _keep(item))
+            return before - len(self._items)
 
     def drop_older_generations(self, min_generation: int) -> int:
         """丢弃 scene_generation < min_generation 的条目（全部来源，含 mic）。"""

@@ -1,10 +1,10 @@
-    <!-- ========== 区域：助手设置 ========== -->
-    <!-- section: 助手设置（PUT /api/config → ConfigService，主线程落库） -->
+    <!-- ========== 区域：弹幕设置 ========== -->
+    <!-- section: 弹幕设置（PUT /api/config → ConfigService，主线程落库） -->
     <!-- 8 个设置 tab（顺序固定，由 modules/settings.js initSettingsTabs 渲染） -->
     <section id="page-settings" class="page-panel">
       <header class="flex flex-wrap justify-between items-start gap-4 mb-8">
         <div>
-          <h2 class="text-2xl font-bold text-warmText">助手设置</h2>
+          <h2 class="text-2xl font-bold text-warmText">弹幕设置</h2>
           <p class="text-gray-500 mt-1">设置 AI 接口、识图屏幕和弹幕效果，保存后立即生效</p>
         </div>
         <div class="theme-toggle-wrap shrink-0">
@@ -19,7 +19,7 @@
       <!-- 设置 tab 列表：api / mic / danmu-read / danmu / bililive-dm / capture / rhythm / font -->
       <form id="settingsForm" class="card p-8 space-y-0">
         <div class="settings-tabs-bar">
-          <div class="settings-tabs" role="tablist" aria-label="助手设置分类">
+          <div class="settings-tabs" role="tablist" aria-label="弹幕设置分类">
             <!-- tab: API 与模型 — 服务商/Key/视觉模型/温度/Token/记忆模式/模型配置档案 -->
             <button type="button" role="tab" class="settings-tab active" data-settings-tab="api" aria-selected="true">API 与模型</button>
             <!-- tab: 麦克风模式 — 开麦/与视觉同模型/独立 mic 服务商 -->
@@ -55,7 +55,7 @@
             </div>
             <div>
               <label class="block text-sm font-semibold mb-2 text-warmText"><svg class="ui-icon field-label-icon" aria-hidden="true"><use href="#i-cloud"></use></svg>API 地址</label>
-              <input type="text" name="api_endpoint" id="api_endpoint" class="w-full px-4 py-3 bg-cream border border-transparent rounded-xl text-warmText">
+              <input type="text" name="api_endpoint" id="api_endpoint" class="w-full px-4 py-3 bg-cream border border-transparent rounded-xl text-warmText" placeholder="https://ark.cn-beijing.volces.com/api/v3">
             </div>
             <div>
               <label class="block text-sm font-semibold mb-2 text-warmText"><svg class="ui-icon field-label-icon" aria-hidden="true"><use href="#i-plug"></use></svg>API 模式</label>
@@ -97,6 +97,14 @@
               <input type="number" name="max_tokens" id="max_tokens" min="10" max="2000" class="w-full px-4 py-3 bg-cream border border-transparent rounded-xl text-warmText">
             </div>
           </div>
+          <div class="mt-2">
+            <label class="flex items-center gap-2 text-sm font-semibold text-warmText">
+              <input type="checkbox" id="use_thinking" class="accent-warmPink">
+              思考模式
+            </label>
+            <p class="text-xs text-gray-400 mt-1">开启后模型会先进行内部思考再生成弹幕，响应延迟增加且 Token 消耗上升。思考过程不会显示在弹幕中。</p>
+            <p id="thinkingModeHint" class="hidden text-xs text-amber-700 mt-1">当前 API 模式不支持思考模式</p>
+          </div>
           <div id="customModelsSection" class="settings-full-only space-y-3">
             <h4 class="text-md font-bold text-warmText">模型配置档案</h4>
             <div id="customModelsList" class="space-y-2"></div>
@@ -134,7 +142,7 @@
               </div>
               <div>
                 <label class="block text-sm font-semibold mb-2 text-warmText"><svg class="ui-icon field-label-icon" aria-hidden="true"><use href="#i-cloud"></use></svg>麦克风 API 地址</label>
-                <input type="text" name="mic_api_endpoint" id="mic_api_endpoint" class="w-full px-4 py-3 bg-cream border border-transparent rounded-xl text-warmText">
+                <input type="text" name="mic_api_endpoint" id="mic_api_endpoint" class="w-full px-4 py-3 bg-cream border border-transparent rounded-xl text-warmText" placeholder="https://ark.cn-beijing.volces.com/api/v3">
               </div>
               <div>
                 <label class="block text-sm font-semibold mb-2 text-warmText"><svg class="ui-icon field-label-icon" aria-hidden="true"><use href="#i-plug"></use></svg>麦克风 API 模式</label>
@@ -194,7 +202,7 @@
           </h3>
           <p class="text-sm text-gray-500 -mt-2">使用语音合成定时随机朗读当前屏幕上的一条弹幕</p>
           <div class="bg-softPeach/30 p-4 rounded-xl text-sm text-warmText border border-softPeach">
-            <p>默认使用<strong class="text-warmPink">小米 MiMo</strong>（<code class="text-xs">mimo-v2.5-tts</code>）；也可选用<strong class="text-warmPink">阿里百炼 Qwen3</strong>。TTS API Key 与助手设置中的视觉 API Key <strong>相互独立</strong>，请在本页单独填写。</p>
+            <p>默认使用<strong class="text-warmPink">小米 MiMo</strong>（<code class="text-xs">mimo-v2.5-tts</code>）；也可选用<strong class="text-warmPink">阿里百炼 Qwen3</strong>。TTS API Key 与弹幕设置中的视觉 API Key <strong>相互独立</strong>，请在本页单独填写。</p>
             <p class="mt-2">仅在<strong>已开始生成</strong>且屏幕上有可见弹幕时才会朗读；停止生成后不再请求。</p>
             <p class="mt-2 text-xs text-gray-500">MiMo 参数说明见 <a href="https://platform.xiaomimimo.com/docs/zh-CN/usage-guide/speech-synthesis-v2.5" target="_blank" rel="noopener noreferrer" class="text-warmPink underline">语音合成文档</a>。</p>
           </div>
@@ -210,7 +218,7 @@
             </div>
             <div class="p-4 bg-cream/60 rounded-xl border border-softPeach space-y-3">
               <h4 class="text-sm font-bold text-warmText">TTS 平台与模型</h4>
-              <p class="settings-section-hint -mt-1">读弹幕是<strong>语音合成（TTS）</strong>链路，与助手设置中的<strong>聊天/视觉模型</strong>不同。OpenRouter、One API 等普通聊天模型通常<strong>无法</strong>返回音频，请勿直接复用弹幕生成模型。</p>
+              <p class="settings-section-hint -mt-1">读弹幕是<strong>语音合成（TTS）</strong>链路，与弹幕设置中的<strong>聊天/视觉模型</strong>不同。OpenRouter、One API 等普通聊天模型通常<strong>无法</strong>返回音频，请勿直接复用弹幕生成模型。</p>
               <div>
                 <label for="danmuReadProvider" class="block text-sm font-semibold mb-2 text-warmText">AI 平台</label>
                 <select id="danmuReadProvider" class="w-full px-4 py-3 bg-cream border border-transparent rounded-xl text-warmText">
@@ -459,6 +467,24 @@
           </div>
           <div class="settings-toggle-row">
             <label class="flex items-center gap-2"><input type="checkbox" id="danmu_font_bold" name="danmu_font_bold" class="settings-field-control accent-warmPink"> 横向弹幕加粗</label>
+          </div>
+          <div class="settings-section space-y-3">
+            <p class="settings-section-title">弹幕颜色</p>
+            <div id="danmuFontColorSwatches" class="flex flex-wrap gap-3"></div>
+            <div class="flex items-center gap-4 mt-2">
+              <label class="flex items-center gap-2 text-sm font-semibold text-warmText cursor-pointer">
+                <input type="radio" name="danmu_font_color_mode_radio" value="equal" id="danmuFontColorModeEqual" checked>
+                平均概率
+              </label>
+              <label class="flex items-center gap-2 text-sm font-semibold text-warmText cursor-pointer">
+                <input type="radio" name="danmu_font_color_mode_radio" value="weighted" id="danmuFontColorModeWeighted">
+                自定义概率
+              </label>
+            </div>
+            <div id="danmuFontColorWeights" class="hidden space-y-2 mt-2"></div>
+            <input type="hidden" name="danmu_font_color_selected" id="danmu_font_color_selected">
+            <input type="hidden" name="danmu_font_color_weights" id="danmu_font_color_weights">
+            <input type="hidden" name="danmu_font_color_mode" id="danmu_font_color_mode">
           </div>
           <p class="settings-section-title">悬浮窗字体</p>
           <div class="settings-params-grid cols-3">

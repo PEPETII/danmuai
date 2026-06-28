@@ -657,7 +657,14 @@ class ConfigStore:
         if self._custom_models_cache is not None and raw == self._custom_models_fp:
             return [dict(m) for m in self._custom_models_cache]
 
-        parsed = json.loads(raw) if raw else []
+        if not raw:
+            parsed = []
+        else:
+            try:
+                parsed = json.loads(raw)
+            except Exception:
+                logger.warning(tr("config.custom_models_parse_failed"))
+                parsed = []
         if not isinstance(parsed, list):
             return []
         result: list[dict] = []

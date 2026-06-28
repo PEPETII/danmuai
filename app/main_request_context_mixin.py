@@ -442,6 +442,9 @@ class DanmuAppRequestContextMixin:
                 )
             )
 
+        if not from_mic_insert and not from_local_fallback:
+            self._schedule_bililive_dm_push(persona_id, batch_id, normalized_items)
+
     def _rtt_avg(self) -> float:
         return self._get_request_timing_service().avg_rtt()
 

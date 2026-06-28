@@ -216,7 +216,9 @@ function setLogsConnUI(mode) {
     polling: 'HTTP 同步',
     failed: '连接失败',
   };
-  const el = document.querySelector('#page-logs [data-realtime-conn]');
+  const el = document.querySelector(
+    '#guideTab-logs [data-realtime-conn], #page-logs [data-realtime-conn]',
+  );
   if (!el) return;
   const text = labels[mode] || labels.connecting;
   el.textContent = text;

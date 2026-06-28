@@ -338,7 +338,9 @@ class DanmuReadService(QObject):
                     f"屏上暂无可见弹幕正文（轨道内 {on_tracks} 条，可见计数 {visible_n}），稍后重试",
                 )
             return
-        candidates = [t for t in texts if t != self._last_text] or texts
+        candidates = [t for t in texts if t != self._last_text]
+        if not candidates:
+            return
         text = random.choice(candidates)
         self._last_text = text
         style = app.config.get("tts_style_prompt", "")

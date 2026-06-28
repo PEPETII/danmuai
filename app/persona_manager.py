@@ -198,6 +198,26 @@ class PersonaManager:
             if len(pruned) != len(raw):
                 self.set_active(pruned)
 
+    def get_display_name(self, name: str) -> str:
+        from app.personae import persona_display_name_with_config
+
+        return persona_display_name_with_config(name, self.config)
+
+    def save_display_name(self, name: str, label: str) -> None:
+        norm = normalize_persona_name(name)
+        raw = self.config.get("persona_labels", "{}")
+        try:
+            labels = json.loads(raw)
+            if not isinstance(labels, dict):
+                labels = {}
+        except (json.JSONDecodeError, TypeError):
+            labels = {}
+        if label and label.strip():
+            labels[norm] = label.strip()
+        else:
+            labels.pop(norm, None)
+        self.config.set("persona_labels", json.dumps(labels, ensure_ascii=False))
+
     def pick_random(self) -> str:
         active = self.get_active()
         return random.choice(active) if active else self.DEFAULT_ACTIVE[0]

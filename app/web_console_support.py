@@ -232,7 +232,16 @@ def export_config(config) -> dict[str, Any]:
     data["region_w"] = rw
     data["region_h"] = rh
     data["capture_region_mode"] = capture_region_mode(config)
+    data["thinking_supported"] = _thinking_supported(config, active_model_id)
     return data
+
+
+def _thinking_supported(config, active_model_id: str) -> bool:
+    custom_models = config.get_custom_models()
+    for model in custom_models:
+        if isinstance(model, dict) and model.get("modelId") == active_model_id:
+            return str(model.get("mode") or "").strip().lower() == "doubao"
+    return config.get("api_mode", "doubao").strip().lower() == "doubao"
 
 
 def extract_config_payload(body: Any) -> dict[str, Any]:

@@ -56,7 +56,7 @@ def get_template_detail(app: "DanmuApp", name: str) -> dict[str, Any]:
     personae: PersonaManager = app.personae
     templates: TemplateManager = app.templates
 
-    from app.personae import normalize_persona_name, persona_display_name
+    from app.personae import normalize_persona_name
 
     name = normalize_persona_name(name)
     if name not in personae.list():
@@ -74,7 +74,7 @@ def get_template_detail(app: "DanmuApp", name: str) -> dict[str, Any]:
 
     return {
         "id": name,
-        "label": persona_display_name(name),
+        "label": personae.get_display_name(name),
         "builtin": is_builtin,
         "editable": not is_builtin,
         "system_editable": True,
@@ -94,7 +94,7 @@ def list_versions(app: "DanmuApp", name: str) -> list[dict[str, Any]]:
     return list_persona_versions(app.templates, name)
 
 
-def save_template(app: "DanmuApp", name: str, system_custom: str, user_pt: str) -> None:
+def save_template(app: "DanmuApp", name: str, system_custom: str, user_pt: str, label: str = "") -> None:
     from app.personae import normalize_persona_name
 
     name = normalize_persona_name(name)
@@ -116,6 +116,7 @@ def save_template(app: "DanmuApp", name: str, system_custom: str, user_pt: str) 
         full_system = ensure_reply_contract("", app.config)
 
     app.personae.save_custom(name, full_system, user_pt)
+    app.personae.save_display_name(name, label)
     app.templates.save(name, full_system, user_pt)
     app.config_changed.emit()
 
@@ -133,7 +134,7 @@ def rollback_preview(app: "DanmuApp", name: str, version: int) -> dict[str, Any]
 
 
 def create_persona(app: "DanmuApp", name: str) -> dict[str, Any]:
-    from app.personae import normalize_persona_name, persona_display_name, validate_persona_name
+    from app.personae import normalize_persona_name, validate_persona_name
 
     name = normalize_persona_name(validate_persona_name(name))
     if name in app.personae.list():
@@ -144,7 +145,7 @@ def create_persona(app: "DanmuApp", name: str) -> dict[str, Any]:
     app.personae.save_custom(name, full_system, user_pt)
     app.templates.save(name, full_system, user_pt)
     app.config_changed.emit()
-    return {"id": name, "label": persona_display_name(name)}
+    return {"id": name, "label": app.personae.get_display_name(name)}
 
 
 def delete_persona(app: "DanmuApp", name: str) -> None:

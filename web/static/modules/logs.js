@@ -6,7 +6,7 @@
  *     - WebSocket：onLog（单条）/ onLogBatch（批量）
  *     - HTTP bootstrap：bootstrapLogsFromServer(lastLogsPollTs) 拉
  *       GET /api/logs/recent?since_ts=... 用于首屏补齐 + 降级轮询
- *   渲染 → 弹幕日志页（page-logs）
+ *   渲染 → 弹幕日志 Tab（#page-guide + #guideTab-logs；兼容旧 #page-logs）
  *     - renderLogView() 按 logLevelFilters 过滤后写到 DOM
  *     - mergeLogItemsUnique() 按 (ts|level|message) 去重
  *
@@ -74,6 +74,16 @@ function trimLogBuffer() {
     const evicted = logBuffer.shift();
     if (evicted) logKeySet.delete(logEntryKey(evicted));
   }
+}
+
+/** 弹幕日志 Tab 是否当前可见（guide-tabs 合并后激活的是 #page-guide，非 #page-logs）。 */
+export function isLogsTabVisible() {
+  const guidePage = document.getElementById('page-guide');
+  const logsPanel = document.getElementById('guideTab-logs');
+  if (guidePage?.classList.contains('active') && logsPanel && !logsPanel.hidden) {
+    return true;
+  }
+  return document.getElementById('page-logs')?.classList.contains('active') ?? false;
 }
 
 export function updateLogPanelState() {
@@ -151,8 +161,7 @@ export function mergeLogItems(items) {
     addedAny = true;
   });
   if (!addedAny) return;
-  const onLogsPage = document.getElementById('page-logs')?.classList.contains('active');
-  if (onLogsPage) renderLogView();
+  if (isLogsTabVisible()) renderLogView();
   else updateLogPanelState();
 }
 
@@ -166,7 +175,6 @@ export async function bootstrapLogsFromServer(sinceTs = 0) {
   if (!res.ok) throw new Error(res.statusText);
   const data = await res.json();
   mergeLogItems(data.items || []);
-  const onLogsPage = document.getElementById('page-logs')?.classList.contains('active');
-  if (onLogsPage) renderLogView();
+  if (isLogsTabVisible()) renderLogView();
   else updateLogPanelState();
 }
