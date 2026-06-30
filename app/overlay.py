@@ -40,7 +40,6 @@ _INTERVAL_IDLE_MS = _INTERVAL_MS
 _INTERVAL_MED_MS = _INTERVAL_MS
 _DT_CAP_SEC = 0.1
 _OPACITY_CACHE_BUCKET = 4.0
-_Y_OFFSET = 30
 _DIRTY_MARGIN_PX = 12
 _PRERENDER_AHEAD_PX = FADE_IN_PX + 80.0
 _FAST_DANMU_RENDER_MIN_LEN = 8
@@ -312,7 +311,7 @@ class DanmuOverlay(QWidget):
 
     def _item_paint_rect(self, item: DanmuItem) -> QRectF:
         w, h = self._item_paint_size(item)
-        return QRectF(item.x, item.y + _Y_OFFSET, w, h)
+        return QRectF(item.x, item.y, w, h)
 
     def _item_intersects_dirty(self, item: DanmuItem, margin: float) -> bool:
         sw = self._screen_width or float(self.width())
@@ -647,7 +646,7 @@ class DanmuOverlay(QWidget):
                     continue
 
                 painter.setOpacity(opacity)
-                painter.drawPixmap(QPointF(item.x, item.y + _Y_OFFSET), item._pixmap)
+                painter.drawPixmap(QPointF(item.x, item.y), item._pixmap)
         painter.setOpacity(1.0)
 
     def _drawable_height_px(self) -> int:

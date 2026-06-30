@@ -366,6 +366,27 @@ def test_item_paint_opacity_includes_global(overlay_stack):
     assert half == pytest.approx(0.5)
 
 
+def test_top_track_paints_at_track_y(overlay_stack):
+    """W-OVERLAY-TOPFIX-001: 顶格弹幕 paint rect 的 y 应等于 track.y，无渲染层额外偏移。
+
+    旧实现 overlay._Y_OFFSET = 30 使实际绘制 y = track.y + 30（顶格 = 50 + 30 = 80px），
+    与 engine 几何不一致。移除 _Y_OFFSET 后应严格等于 track.y。
+    """
+    _, engine, overlay = overlay_stack
+    overlay.setGeometry(0, 0, 1920, 1080)
+    overlay._screen_width = 1920.0
+    top_track = engine.tracks[0]
+    item = DanmuItem(content="top", x=500.0, width=100.0, y=top_track.y)
+    top_track.add(item)
+
+    paint_rect = overlay._item_paint_rect(item)
+    assert paint_rect.y() == pytest.approx(top_track.y)
+    assert paint_rect.y() == pytest.approx(item.y)
+    # 顶格轨道 y 应为 engine 的 top_margin=50，不应有 +30 偏移
+    assert top_track.y == pytest.approx(50.0)
+    assert paint_rect.y() != pytest.approx(80.0)
+
+
 def test_add_text_far_offscreen_defers_pixmap(overlay_stack, monkeypatch):
     monkeypatch.setattr("app.danmu_engine.random.uniform", lambda a, b: (a + b) / 2)
     _, engine, overlay = overlay_stack
