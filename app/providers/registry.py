@@ -102,6 +102,8 @@ def normalize_api_mode_for_select(mode: str, endpoint: str = "") -> str:
 
 def provider_rules_for_api() -> dict:
     """Structured host rules for web settings UI (single source of truth)."""
+    from app.providers.capabilities import get_capabilities
+
     return {
         "host_entries": [
             {
@@ -114,6 +116,9 @@ def provider_rules_for_api() -> dict:
         "default_provider_id": DEFAULT_PROVIDER_ID,
         "editable_api_mode_provider_ids": [
             spec.id for spec in PROVIDERS if not spec.lock_mode
+        ],
+        "thinking_supported_provider_ids": [
+            spec.id for spec in PROVIDERS if get_capabilities(spec.id).supports_thinking
         ],
     }
 

@@ -131,6 +131,8 @@ def run_uvicorn_locked(server) -> None:
                     "label": bridge.danmu_app.personae.get_display_name(name),
                     "active": name in active,
                     "builtin": name in BUILTIN_PERSONAE,
+                    # W-PERSONA-MODEL-BIND-001：人格绑定的模型档案 model_id（未绑定为 ""）
+                    "model_id": bridge.danmu_app.personae.get_model_binding(name),
                 }
                 for name in names
             ],

@@ -60,7 +60,7 @@ def _platform_by_id(platforms, platform_id):
 
 def test_list_platform_catalogs_has_vision_platforms():
     platforms = list_platform_catalogs()
-    assert len(platforms) == 5
+    assert len(platforms) == 11
     doubao = _platform_by_id(platforms, "doubao")
     assert doubao["provider_id"] == "doubao"
     assert len(doubao["models"]) == 7

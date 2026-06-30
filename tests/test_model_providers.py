@@ -390,16 +390,16 @@ def test_get_openai_adapter_for_model_mimo_v25_requires_official_host():
 
 
 def test_providers_website_field_present_on_all_built_in_presets():
-    # 9 个内置预设均含 website 字段（dataclass asdict 序列化键存在）
+    # 14 个内置预设均含 website 字段（dataclass asdict 序列化键存在）
     from dataclasses import asdict
 
-    assert len(PROVIDERS) == 9
+    assert len(PROVIDERS) == 14
     for spec in PROVIDERS:
         assert "website" in asdict(spec)
         assert hasattr(spec, "website")
 
 
-def test_providers_website_non_null_for_seven_built_in():
+def test_providers_website_non_null_for_built_in_presets():
     expected = {
         "doubao": "https://www.volcengine.com/product/ark",
         "dashscope": "https://help.aliyun.com/zh/dashscope/",
@@ -408,6 +408,11 @@ def test_providers_website_non_null_for_seven_built_in():
         "moonshot": "https://platform.moonshot.cn/",
         "siliconflow": "https://siliconflow.cn/",
         "mimo": "https://api.xiaomimimo.com/",
+        "hunyuan": "https://cloud.tencent.com/product/hunyuan",
+        "stepfun": "https://platform.stepfun.com/",
+        "baidu_cloud": "https://qianfan.cloud.baidu.com/",
+        "openrouter": "https://openrouter.ai/",
+        "modelscope": "https://modelscope.cn/",
     }
     by_id = {p.id: p for p in PROVIDERS}
     for provider_id, expected_url in expected.items():

@@ -238,7 +238,7 @@
       "requiresRegion": false,
       "requiresProject": false,
       "specialHeaders": {
-        "HTTP-Referer": "https://github.com/CherryHQ/cherry-studio",
+        "HTTP-Referer": "https://github.com/PEPETII/danmuai",
         "X-Title": "DanmuAI"
       },
       "notes": "OpenRouter聚合平台；需要HTTP-Referer和X-Title特殊header；同时提供anthropic-messages端点",

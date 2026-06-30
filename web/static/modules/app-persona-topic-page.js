@@ -59,6 +59,18 @@ async function loadPersonaeCheckboxes(containerId) {
   const box = document.getElementById(containerId);
   if (!box) return data;
   box.innerHTML = '';
+
+  // W-PERSONA-MODEL-BIND-001：取自定义模型档案列表 + 全局"使用"模型，渲染每行模型下拉
+  let modelItems = [];
+  let globalDefaultModelId = '';
+  try {
+    const models = await apiFetch('/api/custom-models');
+    modelItems = Array.isArray(models?.items) ? models.items : [];
+    globalDefaultModelId = (models?.default_model_id || '').trim();
+  } catch (e) {
+    console.warn('loadPersonaeCheckboxes: fetch custom-models failed:', e);
+  }
+
   data.items.forEach((item) => {
     const row = document.createElement('div');
     row.className =
@@ -75,6 +87,49 @@ async function loadPersonaeCheckboxes(containerId) {
     span.textContent = item.label;
     label.append(cb, span);
     row.appendChild(label);
+
+    // 模型下拉：未绑定则跟随全局 default_model_id；绑定即独立
+    const select = document.createElement('select');
+    select.className =
+      'shrink-0 max-w-[9rem] px-2 py-1 bg-white border border-gray-200 rounded-lg text-xs font-normal';
+    select.title = '为该人格选择模型（默认跟随全局"使用"模型）';
+    const defaultOpt = document.createElement('option');
+    defaultOpt.value = '';
+    defaultOpt.textContent = '默认（跟随全局）';
+    select.appendChild(defaultOpt);
+    modelItems.forEach((m) => {
+      const opt = document.createElement('option');
+      const mid = (m.default_model_id || m.modelId || '').trim();
+      opt.value = mid;
+      const incomplete = m.complete === false;
+      opt.textContent = incomplete ? `${m.name || mid}（未完成）` : (m.name || mid);
+      select.appendChild(opt);
+    });
+    const boundModelId = (item.model_id || '').trim();
+    const targetValue = boundModelId || globalDefaultModelId;
+    if (targetValue) select.value = targetValue;
+    // 若绑定值不在选项中（模型已删但绑定未清），回退"默认"
+    if (targetValue && !Array.from(select.options).some((o) => o.value === targetValue)) {
+      select.value = '';
+    }
+    const applyBinding = async (newModelId, rollbackTo) => {
+      try {
+        await apiFetch(`/api/personae/${enc(item.id)}/model`, {
+          method: 'PUT',
+          body: JSON.stringify({ model_id: newModelId }),
+        });
+        showToast(newModelId ? '模型已绑定' : '已恢复跟随全局');
+      } catch (error) {
+        if (rollbackTo !== undefined) select.value = rollbackTo;
+        showToast(error.message, true);
+      }
+    };
+    const previousValue = select.value;
+    select.addEventListener('change', () => {
+      applyBinding(select.value, previousValue);
+    });
+    row.appendChild(select);
+
     if (!item.builtin) {
       const delBtn = document.createElement('button');
       delBtn.type = 'button';

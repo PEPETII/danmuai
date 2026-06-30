@@ -1,6 +1,6 @@
 """Provider presets and validation for custom model configurations.
 
-9 个服务商预设（``PROVIDERS`` 列表，按 preset id 排序）：
+14 个服务商预设（``PROVIDERS`` 列表，按 preset id 排序）：
 - doubao（火山方舟） — mode=doubao，lock_mode=True（不可切换 Chat Completions）
 - dashscope（阿里云百炼） — OpenAI 兼容
 - zai（Z.AI / 智谱） — OpenAI 兼容
@@ -8,6 +8,11 @@
 - moonshot（Moonshot Kimi） — OpenAI 兼容
 - siliconflow（硅基流动） — OpenAI 兼容
 - mimo（小米 MiMo） — OpenAI 兼容；视觉 + 音频需 mimo-v2.5
+- hunyuan（腾讯混元） — OpenAI 兼容
+- stepfun（阶跃星辰） — OpenAI 兼容
+- baidu_cloud（百度千帆 v2） — OpenAI 兼容
+- openrouter（OpenRouter 聚合） — OpenAI 兼容；特殊 headers 由 registry 注入
+- modelscope（魔搭社区） — OpenAI 兼容；免费额度
 - custom_openai（自定义 OpenAI 兼容） — lock_mode=False，可改 endpoint
 - custom_doubao（自定义豆包 Responses） — mode=doubao，可改 endpoint
 
@@ -107,6 +112,56 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         model_id_hint_zh="截图弹幕与开麦：mimo-v2.5",
         model_id_hint_en="Vision danmu and mic: mimo-v2.5",
         website="https://api.xiaomimimo.com/",
+    ),
+    ProviderSpec(
+        id="hunyuan",
+        label_zh="腾讯混元",
+        label_en="Tencent Hunyuan",
+        default_endpoint="https://api.hunyuan.cloud.tencent.com",
+        mode="openai-compatible",
+        model_id_hint_zh="截图弹幕：hunyuan-turbos-vision / hunyuan-t1-vision",
+        model_id_hint_en="Vision danmu: hunyuan-turbos-vision / hunyuan-t1-vision",
+        website="https://cloud.tencent.com/product/hunyuan",
+    ),
+    ProviderSpec(
+        id="stepfun",
+        label_zh="阶跃星辰",
+        label_en="StepFun",
+        default_endpoint="https://api.stepfun.com",
+        mode="openai-compatible",
+        model_id_hint_zh="截图弹幕：step-3 / step-3-7-flash",
+        model_id_hint_en="Vision danmu: step-3 / step-3-7-flash",
+        website="https://platform.stepfun.com/",
+    ),
+    ProviderSpec(
+        id="baidu_cloud",
+        label_zh="百度千帆",
+        label_en="Baidu Qianfan",
+        default_endpoint="https://qianfan.baidubce.com/v2",
+        mode="openai-compatible",
+        model_id_hint_zh="截图弹幕：ernie-4-5-turbo-vl / ernie-5-0-thinking-latest",
+        model_id_hint_en="Vision danmu: ernie-4-5-turbo-vl / ernie-5-0-thinking-latest",
+        website="https://qianfan.cloud.baidu.com/",
+    ),
+    ProviderSpec(
+        id="openrouter",
+        label_zh="OpenRouter",
+        label_en="OpenRouter",
+        default_endpoint="https://openrouter.ai/api/v1",
+        mode="openai-compatible",
+        model_id_hint_zh="例如：anthropic/claude-sonnet-4.5（带厂商前缀）",
+        model_id_hint_en="e.g. anthropic/claude-sonnet-4.5 (with vendor prefix)",
+        website="https://openrouter.ai/",
+    ),
+    ProviderSpec(
+        id="modelscope",
+        label_zh="魔搭社区",
+        label_en="ModelScope",
+        default_endpoint="https://api-inference.modelscope.cn/v1",
+        mode="openai-compatible",
+        model_id_hint_zh="例如：Qwen/Qwen3-VL-8B-Instruct（与 SiliconFlow 同名）",
+        model_id_hint_en="e.g. Qwen/Qwen3-VL-8B-Instruct (same as SiliconFlow)",
+        website="https://modelscope.cn/",
     ),
     ProviderSpec(
         id="custom_openai",

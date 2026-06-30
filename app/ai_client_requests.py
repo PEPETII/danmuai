@@ -35,7 +35,7 @@ from app.providers import (
     is_minimax_endpoint,
     provider_extra_headers,
 )
-from app.providers.constants import THINKING_DISABLED
+from app.providers.constants import THINKING_DISABLED, THINKING_ENABLED
 from app.translations import tr
 
 logger = logging.getLogger(__name__)
@@ -87,6 +87,42 @@ def resolve_request_credentials(config) -> tuple[str, str, str, str] | None:
     if not api_key or not (model_id or "").strip():
         return None
     return endpoint, api_key, model_id, api_mode
+
+
+def _read_persona_model_bindings(config) -> dict:
+    """轻量内联 helper：直接 JSON 解析 persona_model_bindings，避免导入 PersonaManager（防循环依赖）。"""
+    raw = config.get("persona_model_bindings", "{}")
+    try:
+        loaded = json.loads(raw)
+        return loaded if isinstance(loaded, dict) else {}
+    except (json.JSONDecodeError, TypeError):
+        return {}
+
+
+def resolve_request_credentials_for_persona(
+    config, persona_id: str = ""
+) -> tuple[str, str, str, str] | None:
+    """W-PERSONA-MODEL-BIND-001：按人格绑定模型解析凭证。
+
+    persona_id 非空 → 读 persona_model_bindings[persona_id]：
+      - 绑定存在且对应 custom_model 档案完整（is_model_config_complete）→ 返回该档案 (endpoint, apiKey, default_model_id, mode)
+      - 否则（未绑定/档案被删/档案不完整）→ 委托 resolve_request_credentials(config) 回退全局"使用"模型
+    persona_id 为空 → 直接回退 resolve_request_credentials(config)
+    """
+    if persona_id:
+        from app.model_providers import is_model_config_complete
+        bound_id = (_read_persona_model_bindings(config).get(persona_id) or "").strip()
+        if bound_id:
+            for entry in config.get_custom_models():
+                entry_id = (entry.get("default_model_id") or entry.get("modelId") or "").strip()
+                if entry_id == bound_id and is_model_config_complete(entry):
+                    endpoint = normalize_endpoint(entry.get("endpoint", ""))
+                    api_key = (entry.get("apiKey") or "").strip()
+                    model_id = (entry.get("default_model_id") or entry.get("modelId") or "").strip()
+                    api_mode = normalize_mode(entry.get("mode", ""))
+                    if endpoint and api_key and model_id:
+                        return endpoint, api_key, model_id, api_mode
+    return resolve_request_credentials(config)
 
 
 def resolve_mic_request_credentials(config) -> tuple[str, str, str, str] | None:
@@ -241,7 +277,7 @@ def request_doubao(
         data["instructions"] = system_pt
     if temperature is not None and temperature >= 0:
         data["temperature"] = temperature
-    data["thinking"] = {"type": "enabled"} if use_thinking else dict(THINKING_DISABLED)
+    data["thinking"] = dict(THINKING_ENABLED) if use_thinking else dict(THINKING_DISABLED)
     data["max_output_tokens"] = max_output_tokens
 
     url = f"{endpoint}/responses"
@@ -406,9 +442,11 @@ def request_openai(
     temperature = worker.config.get_float("temperature", 0.8)
     configured_max = worker.config.get_int("max_tokens", DEFAULT_MAX_TOKENS)
     caps = get_capabilities_for_model(model, endpoint, api_mode)
+    config_use_thinking = worker.config.get("use_thinking", "0") == "1"
+    effective_use_thinking = caps.thinking_param or (caps.supports_thinking and config_use_thinking)
     max_tokens = resolve_danmu_max_output_tokens(
         configured_max,
-        use_thinking=caps.thinking_param,
+        use_thinking=effective_use_thinking,
     )
 
     if not api_key:
@@ -454,6 +492,9 @@ def request_openai(
         "stream": True,
     }
     adapter.patch_openai_chat_body(data, max_tokens=max_tokens, caps=caps)
+    # 思考模式扩展：supports_thinking 的 provider 响应 use_thinking 开关
+    if caps.supports_thinking and config_use_thinking:
+        data["thinking"] = dict(THINKING_ENABLED)
     if is_minimax_endpoint(endpoint):
         data["reasoning_split"] = True
     url = f"{endpoint}/chat/completions"

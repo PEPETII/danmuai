@@ -975,3 +975,52 @@ def test_meme_barrage_library_fetch_batch_after_close(tmp_path):
     assert texts == []
     assert next_off == 0
 
+
+def test_config_store_concurrent_close(tmp_path):
+    """BUG-001: close() 与 set() 并发不崩溃、不损坏 DB。
+
+    线程 A 反复 set()，线程 B 调用 close()；验证无未处理异常且 DB 可重新打开。
+    """
+    db_path = tmp_path / "race_close.db"
+    store = ConfigStore(db_path=db_path)
+    store.set("race_key", "initial")
+
+    errors: list[Exception] = []
+    stop_event = threading.Event()
+
+    def writer():
+        i = 0
+        while not stop_event.is_set():
+            try:
+                store.set("race_key", f"value_{i}")
+                i += 1
+            except Exception as exc:
+                errors.append(exc)
+                break
+
+    def closer():
+        try:
+            store.close()
+        except Exception as exc:
+            errors.append(exc)
+        finally:
+            stop_event.set()
+
+    t_writer = threading.Thread(target=writer)
+    t_closer = threading.Thread(target=closer)
+
+    t_writer.start()
+    t_closer.start()
+
+    t_writer.join(timeout=5)
+    t_closer.join(timeout=5)
+
+    # 无未处理异常
+    assert not errors, f"并发 close+set 产生异常: {errors}"
+
+    # DB 可重新打开读取（未损坏）
+    store2 = ConfigStore(db_path=db_path)
+    val = store2.get("race_key", "")
+    assert val  # 至少有初始值
+    store2.close()
+

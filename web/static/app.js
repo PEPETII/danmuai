@@ -35,7 +35,6 @@ import {
   initContentPageFieldHints,
   initSettingsFieldHints,
   initSettingsTabs,
-  initSettingsUiMode,
   initSidebarNavFloatingHints,
   loadConfigDefaults,
   loadCustomModels,
@@ -589,7 +588,6 @@ async function init() {
   await statusPromise;
 
   initSettingsTabs();
-  initSettingsUiMode();
   initGuideTabs();
   initSettingsFieldHints();
   initContentPageFieldHints();

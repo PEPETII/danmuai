@@ -247,7 +247,36 @@ def delete_custom_model(app: "DanmuApp", index: int) -> None:
             fallback = app.config.get("model", "")
         if fallback:
             set_default_model_selection(app.config, fallback)
+    # W-PERSONA-MODEL-BIND-001：清除引用了被删模型的人格绑定，使其回退全局"使用"模型
+    if removed_id:
+        _purge_persona_model_bindings_for_model(app.config, removed_id)
     app.config_changed.emit()
+
+
+def _purge_persona_model_bindings_for_model(config, model_id: str) -> None:
+    """删除 model_id 对应档案后，清理 persona_model_bindings 中所有引用它的绑定。
+
+    幂等；解析失败不抛错（不阻断模型删除）；运行时 resolve_request_credentials_for_persona
+    仍会再校验一次，作为双保险。
+    """
+    import json as _json
+
+    raw = config.get("persona_model_bindings", "{}")
+    try:
+        bindings = _json.loads(raw) if isinstance(raw, str) else {}
+    except (ValueError, TypeError):
+        bindings = {}
+    if not isinstance(bindings, dict) or not bindings:
+        return
+    changed = False
+    for pname, mid in list(bindings.items()):
+        if (mid or "").strip() == model_id:
+            bindings.pop(pname, None)
+            changed = True
+    if changed:
+        config.set(
+            "persona_model_bindings", _json.dumps(bindings, ensure_ascii=False)
+        )
 
 
 def set_default_custom_model(app: "DanmuApp", index: int) -> dict:

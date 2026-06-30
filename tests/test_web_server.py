@@ -20,7 +20,7 @@ def test_model_catalog_api_payload():
     from app.model_catalog import list_platform_catalogs
 
     platforms = list_platform_catalogs()
-    assert len(platforms) == 5
+    assert len(platforms) == 11
     by_id = {p["platform_id"]: p for p in platforms}
 
     doubao = by_id["doubao"]

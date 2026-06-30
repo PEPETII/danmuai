@@ -87,6 +87,10 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
     class ActivePersonaePayload(BaseModel):
         active: list[str]
 
+    class PersonaModelBindingPayload(BaseModel):
+        # W-PERSONA-MODEL-BIND-001：人格 → 模型档案绑定（空串 = 清除，回退全局）
+        model_id: str = ""
+
     class MicTestPayload(BaseModel):
         duration_sec: float = 3.0
         send_to_ai: bool = False
@@ -322,6 +326,21 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
         if not body.active:
             raise HTTPException(status_code=400, detail="请至少选择一个人格")
         _invoke_main(bridge.danmu_app.set_active_personae, body.active)
+        return {"ok": True}
+
+    # W-PERSONA-MODEL-BIND-001：人格 → 模型档案绑定（空串清除，回退全局"使用"模型）
+    @app.put("/api/personae/{name}/model")
+    def put_persona_model(
+        name: str,
+        body: PersonaModelBindingPayload,
+        authorization: str | None = Header(default=None),
+    ):
+        check_token(authorization)
+        _invoke_main(
+            bridge.danmu_app.set_persona_model_binding,
+            unquote(name),
+            body.model_id or "",
+        )
         return {"ok": True}
 
     @app.get("/api/danmu-pool/meta")

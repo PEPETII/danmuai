@@ -30,6 +30,7 @@ let providersCache = [];
 let hostEntriesCache = [];
 let defaultProviderIdCache = FALLBACK_DEFAULT_PROVIDER_ID;
 let editableApiModeProviderIds = new Set(FALLBACK_EDITABLE_API_MODE_PROVIDER_IDS);
+let thinkingSupportedProviderIds = new Set(['doubao', 'custom_doubao']);
 
 function normalizeEndpointForMatch(endpoint) {
   return String(endpoint || '').trim().toLowerCase().replace(/\/+$/, '');
@@ -139,6 +140,14 @@ function applyProviderRulesCache(rules) {
     ? rules.editable_api_mode_provider_ids
     : [...FALLBACK_EDITABLE_API_MODE_PROVIDER_IDS];
   editableApiModeProviderIds = new Set(editableIds);
+  const thinkingIds = Array.isArray(rules?.thinking_supported_provider_ids)
+    ? rules.thinking_supported_provider_ids
+    : ['doubao', 'custom_doubao'];
+  thinkingSupportedProviderIds = new Set(thinkingIds);
+}
+
+export function isThinkingSupportedForProvider(providerId) {
+  return thinkingSupportedProviderIds.has((providerId || '').trim());
 }
 
 export async function loadProviders() {
@@ -255,4 +264,13 @@ export function applyMicProviderPreset(providerId) {
   providersDeps.renderMicModelPicker(providerId, defaultModelId, { providerSwitch: true });
   providersDeps.updateMicModeHint();
   providersDeps.showToast(`已填入 ${provider.label} 的默认麦克风地址，请填写对应 API 密钥~`);
+}
+
+export function isCustomProvider(providerId) {
+  return providerId === 'custom_openai' || providerId === 'custom_doubao';
+}
+
+export function getDefaultEndpoint(providerId) {
+  const provider = findProvider(providerId);
+  return provider?.default_endpoint ?? '';
 }

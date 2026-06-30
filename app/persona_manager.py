@@ -198,6 +198,14 @@ class PersonaManager:
             if len(pruned) != len(raw):
                 self.set_active(pruned)
 
+        # W-PERSONA-MODEL-BIND-001：删除自定义人格时同步清除其模型绑定，避免悬挂引用
+        bindings = self.get_model_bindings()
+        if norm in bindings:
+            bindings.pop(norm, None)
+            self.config.set(
+                "persona_model_bindings", json.dumps(bindings, ensure_ascii=False)
+            )
+
     def get_display_name(self, name: str) -> str:
         from app.personae import persona_display_name_with_config
 
@@ -217,6 +225,34 @@ class PersonaManager:
         else:
             labels.pop(norm, None)
         self.config.set("persona_labels", json.dumps(labels, ensure_ascii=False))
+
+    # W-PERSONA-MODEL-BIND-001：人格 → 自定义模型档案 model_id 绑定
+    # 独立键 persona_model_bindings，不进 custom_personae schema，零迁移；
+    # 内置人格也能绑定。运行时 resolve_request_credentials_for_persona 读取。
+    def get_model_bindings(self) -> dict:
+        raw = self.config.get("persona_model_bindings", "{}")
+        try:
+            loaded = json.loads(raw)
+            return loaded if isinstance(loaded, dict) else {}
+        except (json.JSONDecodeError, TypeError):
+            return {}
+
+    def get_model_binding(self, name: str) -> str:
+        return (
+            self.get_model_bindings().get(normalize_persona_name(name)) or ""
+        ).strip()
+
+    def set_model_binding(self, name: str, model_id: str) -> None:
+        norm = normalize_persona_name(name)
+        bindings = self.get_model_bindings()
+        mid = (model_id or "").strip()
+        if mid:
+            bindings[norm] = mid
+        else:
+            bindings.pop(norm, None)
+        self.config.set(
+            "persona_model_bindings", json.dumps(bindings, ensure_ascii=False)
+        )
 
     def pick_random(self) -> str:
         active = self.get_active()

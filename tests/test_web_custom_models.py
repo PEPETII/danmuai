@@ -647,3 +647,65 @@ def test_delete_button_still_calls_open_delete_model_confirm():
     src = SETTINGS_CUSTOM_MODELS_JS.read_text(encoding="utf-8")
     assert "delBtn.onclick = () => openDeleteModelConfirm(model, index)" in src
 
+
+# ---------------------------------------------------------------------------
+# W-PERSONA-MODEL-BIND-001：删除自定义模型时清理 persona_model_bindings
+# ---------------------------------------------------------------------------
+
+
+def test_delete_custom_model_clears_persona_bindings(model_app):
+    """删除模型档案后，引用该 model_id 的人格绑定应被清空。"""
+    cm_api.create_custom_model(
+        model_app,
+        {
+            "name": "Bound",
+            "modelId": "bound-1",
+            "mode": "openai",
+            "endpoint": "https://api.example.com/v1",
+            "apiKey": "sk-bound-key-1234567890",
+            "provider": "custom_openai",
+        },
+    )
+    cm_api.create_custom_model(
+        model_app,
+        {
+            "name": "Other",
+            "modelId": "other-2",
+            "mode": "openai",
+            "endpoint": "https://api.example.com/v1",
+            "apiKey": "sk-other-key-1234567890",
+            "provider": "custom_openai",
+        },
+    )
+    # 绑定：高压吐槽型 → bound-1，熬夜陪看型 → other-2
+    model_app.config.set(
+        "persona_model_bindings", '{"高压吐槽型": "bound-1", "熬夜陪看型": "other-2"}'
+    )
+    # 删除 index 0（Bound / bound-1）
+    cm_api.delete_custom_model(model_app, 0)
+    # bound-1 的绑定应被清除；other-2 的绑定应保留
+    import json as _json
+
+    raw = model_app.config.get("persona_model_bindings", "{}")
+    bindings = _json.loads(raw)
+    assert "高压吐槽型" not in bindings
+    assert bindings.get("熬夜陪看型") == "other-2"
+
+
+def test_delete_custom_model_no_bindings_is_noop(model_app):
+    """删除模型时若无人格绑定引用它，清理逻辑应幂等无副作用。"""
+    cm_api.create_custom_model(
+        model_app,
+        {
+            "name": "Solo",
+            "modelId": "solo-1",
+            "mode": "openai",
+            "endpoint": "https://api.example.com/v1",
+            "apiKey": "sk-solo-key-1234567890",
+            "provider": "custom_openai",
+        },
+    )
+    # 无人格绑定
+    cm_api.delete_custom_model(model_app, 0)
+    assert model_app.config.get("persona_model_bindings", "{}") in ("{}", "")
+

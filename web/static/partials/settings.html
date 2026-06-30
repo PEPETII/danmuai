@@ -36,11 +36,7 @@
             <button type="button" role="tab" class="settings-tab" data-settings-tab="rhythm" aria-selected="false">识图清晰度</button>
             <button type="button" role="tab" class="settings-tab" data-settings-tab="font" aria-selected="false">字体设置</button>
           </div>
-          <!-- 简化 / 全面模式切换：.settings-full-only 类元素仅在全面模式可见 -->
-          <div id="settingsUiModeSwitch" class="settings-ui-mode-switch" role="group" aria-label="设置显示模式">
-            <button type="button" class="settings-ui-mode-btn active" data-settings-ui-mode="simplified" aria-pressed="true">简化模式</button>
-            <button type="button" class="settings-ui-mode-btn" data-settings-ui-mode="full" aria-pressed="false">全面模式</button>
-          </div>
+
         </div>
 
         <!-- API 与模型 -->
@@ -49,12 +45,7 @@
             <svg class="ui-icon text-warmPink" aria-hidden="true"><use href="#i-cog"></use></svg> 助手配置
           </h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div class="md:col-span-2">
-              <label class="block text-sm font-semibold mb-2 text-warmText"><svg class="ui-icon field-label-icon" aria-hidden="true"><use href="#i-tag"></use></svg>服务商预设</label>
-              <select id="providerPreset" class="w-full px-4 py-3 bg-cream border border-transparent rounded-xl text-warmText">
-                <option value="">手动填写</option>
-              </select>
-            </div>
+
             <div class="legacy-api-fields">
               <label class="block text-sm font-semibold mb-2 text-warmText"><svg class="ui-icon field-label-icon" aria-hidden="true"><use href="#i-cloud"></use></svg>API 地址</label>
               <input type="text" name="api_endpoint" id="api_endpoint" class="w-full px-4 py-3 bg-cream border border-transparent rounded-xl text-warmText" placeholder="https://ark.cn-beijing.volces.com/api/v3">
@@ -94,7 +85,7 @@
               <label class="block text-sm font-semibold mb-2 text-warmText"><svg class="ui-icon field-label-icon" aria-hidden="true"><use href="#i-thermo"></use></svg>温度</label>
               <input type="number" name="temperature" id="temperature" min="0" max="2" step="0.1" class="w-full px-4 py-3 bg-cream border border-transparent rounded-xl text-warmText">
             </div>
-            <div class="settings-full-only legacy-api-fields">
+            <div class="legacy-api-fields">
               <label class="block text-sm font-semibold mb-2 text-warmText"><svg class="ui-icon field-label-icon" aria-hidden="true"><use href="#i-ruler"></use></svg>最大输出 Token</label>
               <input type="number" name="max_tokens" id="max_tokens" min="10" max="2000" class="w-full px-4 py-3 bg-cream border border-transparent rounded-xl text-warmText">
             </div>
@@ -107,7 +98,7 @@
             <p class="text-xs text-gray-400 mt-1">开启后模型会先进行内部思考再生成弹幕，响应延迟增加且 Token 消耗上升。思考过程不会显示在弹幕中。</p>
             <p id="thinkingModeHint" class="hidden text-xs text-amber-700 mt-1">当前 API 模式不支持思考模式</p>
           </div>
-          <div id="customModelsSection" class="settings-full-only space-y-3">
+          <div id="customModelsSection" class="space-y-3">
             <div class="flex flex-wrap items-center justify-between gap-3">
               <h4 class="text-md font-bold text-warmText">AI 模型</h4>
               <button type="button" id="btnAddCustomModel" class="px-4 py-2 rounded-xl text-sm font-bold border border-warmPink/40 text-warmPink hover:bg-warmPink/10 transition">+ 添加模型</button>
@@ -325,7 +316,7 @@
               <label for="danmu_max_chars" class="settings-field-label">最大弹幕字数</label>
               <input type="number" name="danmu_max_chars" id="danmu_max_chars" min="5" max="80" step="1" class="settings-field-control" placeholder="15">
             </div>
-            <div class="settings-field settings-full-only">
+            <div class="settings-field">
               <label for="dedup_threshold" class="settings-field-label">去重阈值</label>
               <input type="number" name="dedup_threshold" id="dedup_threshold" min="0" max="1" step="0.05" class="settings-field-control">
             </div>
@@ -341,7 +332,7 @@
                 <label for="danmu_speed" class="settings-field-label">弹幕速度</label>
                 <input type="number" name="danmu_speed" id="danmu_speed" min="0.5" max="5" step="0.1" class="settings-field-control">
               </div>
-              <div class="settings-field settings-full-only">
+              <div class="settings-field">
                 <label for="danmu_lines" class="settings-field-label">轨道行数</label>
                 <input type="number" name="danmu_lines" id="danmu_lines" min="12" max="20" value="20" class="settings-field-control">
               </div>
@@ -359,11 +350,11 @@
                   <option value="1/4">1/4</option>
                 </select>
               </div>
-              <div class="settings-field settings-full-only">
+              <div class="settings-field">
                 <label for="hotkey" class="settings-field-label">全局快捷键</label>
                 <input type="text" name="hotkey" id="hotkey" class="settings-field-control" placeholder="Ctrl+Shift+B">
               </div>
-              <div class="settings-field settings-full-only">
+              <div class="settings-field">
                 <label for="eviction_mode" class="settings-field-label">退场模式</label>
                 <select name="eviction_mode" id="eviction_mode" class="settings-field-control text-left">
                   <option value="natural">自然</option>

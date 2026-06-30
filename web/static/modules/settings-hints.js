@@ -1,8 +1,6 @@
 import { showFloatingTooltip, wireFloatingTooltipButton } from './settings-model-catalog.js';
 
 const SETTINGS_FIELD_TIPS = {
-  providerPreset:
-    '选一个常见 AI 平台，会自动填好接口地址和模式；选「手动填写」则不套用预设，需自己逐项设置。',
   api_endpoint:
     '视觉模型服务的网址。火山方舟豆包一般填到 /api/v3；多数 OpenAI 兼容服务填到 /v1。',
   api_mode:

@@ -1,6 +1,7 @@
 import { apiFetch } from './transport.js';
 import { isMaskedApiKey } from './settings-defaults.js';
-import { findProvider, getProviderWebsite } from './settings-providers.js';
+import { findProvider, getProviderWebsite, isCustomProvider, getDefaultEndpoint } from './settings-providers.js';
+import { getModelCatalogModels, getModelNameFromCatalog, pickDefaultCatalogModelId } from './settings-model-catalog.js';
 
 let customModelDeps = {
   showToast: () => {},
@@ -96,27 +97,27 @@ export async function loadCustomModels() {
       colModelId.appendChild(extraSpan);
     }
 
-    // 列 3：系统默认下拉（select：当前 default 选中；切换 → POST /api/custom-models/{index}/default）
+    // 列 3：使用下拉（select：当前 default 选中；切换 → POST /api/custom-models/{index}/default）
     const colDefault = document.createElement('div');
     colDefault.className = 'custom-model-default-col';
     const defaultSelect = document.createElement('select');
     defaultSelect.className = 'px-2 py-1 bg-white border border-gray-200 rounded-lg text-xs';
-    defaultSelect.setAttribute('aria-label', '系统默认');
+    defaultSelect.setAttribute('aria-label', '使用');
     if (isDefault) {
       const opt = document.createElement('option');
       opt.value = '1';
       opt.selected = true;
-      opt.textContent = '✓ 系统默认';
+      opt.textContent = '✓ 使用';
       defaultSelect.appendChild(opt);
       defaultSelect.disabled = true;
     } else {
       const placeholder = document.createElement('option');
       placeholder.value = '';
-      placeholder.textContent = '—';
+      placeholder.textContent = '不使用';
       defaultSelect.appendChild(placeholder);
       const setOpt = document.createElement('option');
       setOpt.value = 'set';
-      setOpt.textContent = '设为系统默认';
+      setOpt.textContent = '设为使用';
       defaultSelect.appendChild(setOpt);
       defaultSelect.addEventListener('change', async () => {
         if (defaultSelect.value === 'set') {
@@ -338,19 +339,213 @@ function updateProviderWebsiteDisplay(providerId) {
   }
 }
 
+const MODEL_ID_CUSTOM_VALUE = '__custom__';
+
+/** 根据 provider 构建 #modelIdPreset 下拉选项 */
+function buildModelIdPresetOptions(providerId) {
+  const select = document.getElementById('modelIdPreset');
+  if (!select) return;
+  select.innerHTML = '';
+  const models = getModelCatalogModels(providerId);
+  models.forEach((m) => {
+    const opt = document.createElement('option');
+    opt.value = m.id;
+    opt.textContent = `${m.name || m.id}`;
+    select.appendChild(opt);
+  });
+  const customOpt = document.createElement('option');
+  customOpt.value = MODEL_ID_CUSTOM_VALUE;
+  customOpt.textContent = '自定义配置';
+  select.appendChild(customOpt);
+  return models;
+}
+
+/** 编辑模式下按已有模型回填下拉选中状态 */
+function syncModelIdPresetFromForm(modelIds, defaultModelId, providerId) {
+  const select = document.getElementById('modelIdPreset');
+  if (!select) return;
+  const primaryId = (defaultModelId || '').trim() || (modelIds && modelIds[0]) || '';
+  const models = getModelCatalogModels(providerId);
+  const knownIds = new Set(models.map((m) => m.id));
+  if (primaryId && knownIds.has(primaryId)) {
+    select.value = primaryId;
+  } else {
+    select.value = MODEL_ID_CUSTOM_VALUE;
+  }
+}
+
+/** 设置 chip 输入区的可见性和可用性 */
+function setChipInputState(visible, disabled) {
+  const wrap = document.getElementById('modelIdsTagsWrap');
+  const input = document.getElementById('modelIdsInput');
+  if (wrap) {
+    if (visible) {
+      wrap.classList.remove('hidden');
+    } else {
+      wrap.classList.add('hidden');
+    }
+  }
+  if (input) {
+    input.disabled = disabled;
+    if (disabled) {
+      input.placeholder = '';
+    } else {
+      input.placeholder = '例如：doubao-1-5-pro-32k-250115';
+    }
+  }
+}
+
+/** 设置 API 地址字段只读/可编辑状态 */
+function setEndpointReadonly(readonly) {
+  const el = document.getElementById('modelEndpoint');
+  if (!el) return;
+  if (readonly) {
+    el.setAttribute('readonly', '');
+    el.classList.add('bg-gray-100', 'cursor-not-allowed');
+  } else {
+    el.removeAttribute('readonly');
+    el.classList.remove('bg-gray-100', 'cursor-not-allowed');
+  }
+}
+
+/** 处理模型 ID 下拉变化 */
+function onModelIdPresetChange() {
+  const select = document.getElementById('modelIdPreset');
+  if (!select) return;
+  const value = select.value;
+  const providerId = document.getElementById('modelProvider')?.value || '';
+
+  if (value === MODEL_ID_CUSTOM_VALUE) {
+    // 自定义配置：启用 chip 输入
+    setChipInputState(true, false);
+  } else {
+    // 普通模型：替换 chip 为选中模型，禁用 chip 输入
+    clearTagChips();
+    addTagChip(value);
+    setChipInputState(true, true);
+
+    // 新增模式下同步显示名称
+    const editIndex = parseInt(document.getElementById('modelEditIndex')?.value || '-1', 10);
+    if (editIndex < 0) {
+      const modelName = getModelNameFromCatalog(providerId, value);
+      const nameEl = document.getElementById('modelName');
+      if (nameEl && modelName) {
+        nameEl.value = modelName;
+      }
+    }
+  }
+}
+
+/** 处理服务商切换联动 */
+function onProviderChangeInModal(providerId, options = {}) {
+  const { isEdit = false } = options;
+  updateProviderWebsiteDisplay(providerId);
+
+  // 联动 API 地址
+  const endpointEl = document.getElementById('modelEndpoint');
+  if (isCustomProvider(providerId)) {
+    // 自定义服务商：API 地址可编辑
+    if (!isEdit) {
+      if (endpointEl) endpointEl.value = '';
+    }
+    setEndpointReadonly(false);
+  } else {
+    // 非自定义服务商：API 地址自动填入 + 只读
+    const defaultEp = getDefaultEndpoint(providerId);
+    if (endpointEl) endpointEl.value = defaultEp;
+    setEndpointReadonly(true);
+  }
+
+  // 联动模型 ID 下拉
+  buildModelIdPresetOptions(providerId);
+  const models = getModelCatalogModels(providerId);
+
+  if (isCustomProvider(providerId)) {
+    // 自定义服务商：默认选中"自定义配置"
+    const select = document.getElementById('modelIdPreset');
+    if (select) select.value = MODEL_ID_CUSTOM_VALUE;
+    setChipInputState(true, false);
+  } else if (!isEdit) {
+    // 新增模式：选中默认模型
+    const defaultId = pickDefaultCatalogModelId(providerId) || (models[0]?.id) || '';
+    const select = document.getElementById('modelIdPreset');
+    if (select && defaultId) select.value = defaultId;
+
+    // 替换 chip 为默认模型
+    clearTagChips();
+    if (defaultId) addTagChip(defaultId);
+    setChipInputState(true, true);
+
+    // 同步显示名称
+    const modelName = getModelNameFromCatalog(providerId, defaultId);
+    const nameEl = document.getElementById('modelName');
+    if (nameEl && modelName) {
+      nameEl.value = modelName;
+    }
+  }
+
+  // 联动 API 模式
+  const provider = findProvider(providerId);
+  const modeEl = document.getElementById('modelMode');
+  if (provider && modeEl) {
+    modeEl.value = provider.mode === 'openai-compatible' ? 'openai' : provider.mode;
+  }
+}
+
 export function openModelModal(index, model = {}) {
+  const isEdit = index >= 0;
   document.getElementById('modelEditIndex').value = String(index);
-  document.getElementById('modelModalTitle').textContent = index >= 0 ? '编辑模型' : '新增模型';
-  document.getElementById('modelName').value = model.name || '';
+  document.getElementById('modelModalTitle').textContent = isEdit ? '编辑模型' : '新增模型';
+
+  const providerId = isEdit ? (model.provider || '') : 'doubao';
   const providerEl = document.getElementById('modelProvider');
-  if (providerEl) providerEl.value = model.provider || '';
-  updateProviderWebsiteDisplay(model.provider || '');
-  const modelIds = Array.isArray(model.model_ids) && model.model_ids.length
-    ? model.model_ids
-    : (model.modelId ? [model.modelId] : []);
-  fillTagChips(modelIds, model.default_model_id || model.modelId || '');
-  document.getElementById('modelMode').value = model.mode || 'doubao';
-  document.getElementById('modelEndpoint').value = model.endpoint || '';
+  if (providerEl) providerEl.value = providerId;
+
+  // 构建 provider 联动
+  buildModelIdPresetOptions(providerId);
+
+  if (isEdit) {
+    // 编辑模式：回填已有数据
+    updateProviderWebsiteDisplay(providerId);
+
+    // API 地址回填
+    const endpointEl = document.getElementById('modelEndpoint');
+    if (endpointEl) endpointEl.value = model.endpoint || '';
+    if (isCustomProvider(providerId)) {
+      setEndpointReadonly(false);
+    } else {
+      setEndpointReadonly(true);
+    }
+
+    // 模型 ID 下拉回填
+    const modelIds = Array.isArray(model.model_ids) && model.model_ids.length
+      ? model.model_ids
+      : (model.modelId ? [model.modelId] : []);
+    const defaultModelId = model.default_model_id || model.modelId || '';
+    syncModelIdPresetFromForm(modelIds, defaultModelId, providerId);
+
+    // chip 回填
+    fillTagChips(modelIds, defaultModelId);
+
+    // 根据下拉选中状态决定 chip 输入区
+    const presetEl = document.getElementById('modelIdPreset');
+    const isCustomModel = !presetEl || presetEl.value === MODEL_ID_CUSTOM_VALUE;
+    if (isCustomModel) {
+      setChipInputState(true, false);
+    } else {
+      setChipInputState(true, true);
+    }
+
+    // 显示名称：优先保留原名称
+    document.getElementById('modelName').value = model.name || '';
+
+    // API 模式回填
+    document.getElementById('modelMode').value = model.mode || 'doubao';
+  } else {
+    // 新增模式：默认 doubao + 联动
+    onProviderChangeInModal(providerId, { isEdit: false });
+  }
+
   document.getElementById('modelApiKey').value = isMaskedApiKey(model.apiKey)
     ? model.apiKey
     : (model.apiKey || '');
@@ -523,7 +718,14 @@ export function initModelModalBindings() {
   const providerEl = document.getElementById('modelProvider');
   if (providerEl) {
     providerEl.addEventListener('change', (e) => {
-      updateProviderWebsiteDisplay(e.target.value);
+      const isEdit = parseInt(document.getElementById('modelEditIndex')?.value || '-1', 10) >= 0;
+      onProviderChangeInModal(e.target.value, { isEdit });
+    });
+  }
+  const presetEl = document.getElementById('modelIdPreset');
+  if (presetEl) {
+    presetEl.addEventListener('change', () => {
+      onModelIdPresetChange();
     });
   }
   // W-SETTINGS-RESTRUCT-A-006：「+ 添加模型」按钮 → openModelModal(-1)（新增模型；index < 0）
@@ -548,6 +750,7 @@ export function initModelModalBindings() {
   const { input } = getTagInputState();
   if (input) {
     input.addEventListener('keydown', (e) => {
+      if (input.disabled) return;
       if (e.key === 'Enter' || e.key === ',') {
         e.preventDefault();
         addTagChip(input.value);
@@ -562,6 +765,7 @@ export function initModelModalBindings() {
       }
     });
     input.addEventListener('blur', () => {
+      if (input.disabled) return;
       if (input.value) addTagChip(input.value);
     });
   }

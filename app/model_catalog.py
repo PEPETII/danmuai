@@ -1,10 +1,17 @@
 """Platform model catalogs with pricing metadata for the Web console vision model picker.
 
-四平台目录（按 ``_CATALOG_BY_PROVIDER`` key）：
+十一平台目录（按 ``_CATALOG_BY_PROVIDER`` key）：
 - ``doubao``：火山方舟（豆包 Responses 模型）
 - ``dashscope``：阿里云百炼（qwen-vl-* 等）
 - ``siliconflow``：硅基流动（deepseek-ai/* 等）
 - ``mimo``：小米 MiMo（仅 ``mimo-v2.5``）
+- ``zai``：Z.AI / 智谱（GLM-4.6V / GLM-4.5V）
+- ``moonshot``：Moonshot Kimi（kimi-latest / kimi-thinking-preview 等）
+- ``hunyuan``：腾讯混元（hunyuan-turbos-vision 等）
+- ``stepfun``：阶跃星辰（step-3 / step-3-7-flash）
+- ``baidu_cloud``：百度千帆 v2（ernie-*-vl / qianfan-*-vl）
+- ``openrouter``：OpenRouter 聚合（anthropic/claude-* / google/gemini-* 等）
+- ``modelscope``：魔搭社区（Qwen3-VL-* 开源镜像，免费额度）
 
 每个 ``CatalogModel`` 含：name、id、price、modality、supports_vision、
 main_flow_recommended。
@@ -238,6 +245,135 @@ ZAI_MODELS: tuple[CatalogModel, ...] = (
     ),
 )
 
+# Moonshot (Kimi) — 视觉模型，无音频；定价来自 Moonshot 官网（CNY/百万 token）。
+MOONSHOT_MODELS: tuple[CatalogModel, ...] = (
+    CatalogModel("Kimi-Latest", "kimi-latest", ModelPrice(input=4.0, output=12.0)),
+    CatalogModel("Kimi-Latest-128K", "kimi-latest-128k", ModelPrice(input=4.0, output=12.0)),
+    CatalogModel(
+        "Moonshot-v1-8K-Vision",
+        "moonshot-v1-8k-vision-preview",
+        ModelPrice(input=8.0, output=24.0),
+    ),
+    CatalogModel(
+        "Moonshot-v1-32K-Vision",
+        "moonshot-v1-32k-vision-preview",
+        ModelPrice(input=8.0, output=24.0),
+    ),
+    CatalogModel(
+        "Kimi-Thinking-Preview",
+        "kimi-thinking-preview",
+        ModelPrice(input=8.0, output=24.0),
+    ),
+)
+
+# 腾讯混元 — 视觉模型，无音频；定价来自腾讯云官网（CNY/百万 token）。T1 为思考模型。
+HUNYUAN_MODELS: tuple[CatalogModel, ...] = (
+    CatalogModel(
+        "Hunyuan-Turbos-Vision",
+        "hunyuan-turbos-vision",
+        ModelPrice(input=3.0, output=9.0),
+    ),
+    CatalogModel("Hunyuan-Vision", "hunyuan-vision", ModelPrice(input=3.0, output=9.0)),
+    CatalogModel(
+        "Hunyuan-T1-Vision",
+        "hunyuan-t1-vision",
+        ModelPrice(input=6.0, output=18.0),
+    ),
+    CatalogModel(
+        "Hunyuan-Large-Vision",
+        "hunyuan-large-vision",
+        ModelPrice(input=4.0, output=12.0),
+    ),
+)
+
+# 阶跃星辰 StepFun — 视觉模型，无音频；定价来自阶跃星辰官网（CNY/百万 token，近似值）。
+STEPFUN_MODELS: tuple[CatalogModel, ...] = (
+    CatalogModel(
+        "Step-1o-Turbo-Vision",
+        "step-1o-turbo-vision",
+        ModelPrice(input=0.5, output=2.0),
+    ),
+    CatalogModel(
+        "Step-1o-Vision-32K",
+        "step-1o-vision-32k",
+        ModelPrice(input=3.0, output=5.0),
+    ),
+)
+
+# 百度千帆 v2 — 视觉模型，无音频；定价为 USD/百万 token。ernie-5-0-thinking-latest 为思考模型。
+BAIDU_CLOUD_MODELS: tuple[CatalogModel, ...] = (
+    CatalogModel(
+        "ERNIE-4.5-Turbo-VL",
+        "ernie-4-5-turbo-vl",
+        ModelPrice(input=2.8, output=8.4, currency="USD"),
+    ),
+    CatalogModel(
+        "ERNIE-4.5-VL-A3B",
+        "ernie-4-5-vl-a3b",
+        ModelPrice(input=2.7, output=2.7, currency="USD"),
+    ),
+    CatalogModel(
+        "ERNIE-4.5-VL-A47B",
+        "ernie-4-5-vl-a47b",
+        ModelPrice(input=4.0, output=12.0, currency="USD"),
+    ),
+    CatalogModel("ERNIE-5.0", "ernie-5-0", ModelPrice(input=4.0, output=12.0, currency="USD")),
+    CatalogModel(
+        "ERNIE-5.0-Thinking-Latest",
+        "ernie-5-0-thinking-latest",
+        ModelPrice(input=6.0, output=18.0, currency="USD"),
+    ),
+)
+
+# OpenRouter 聚合 — 视觉 + 音频模型；定价来自 data/ai-platforms/models.json（USD/百万 token）。
+# 前 3 个支持音频输入（audio 价格 = input 价格）；Claude 系列不支持音频。
+OPENROUTER_MODELS: tuple[CatalogModel, ...] = (
+    CatalogModel(
+        "Gemini-3.1-Flash-Lite",
+        "openrouter/google/gemini-3.1-flash-lite",
+        ModelPrice(input=0.25, audio=0.25, output=1.5, currency="USD"),
+    ),
+    CatalogModel(
+        "MiMo-V2.5",
+        "openrouter/xiaomi/mimo-v2.5",
+        ModelPrice(input=0.4, audio=0.4, output=2.0, currency="USD"),
+    ),
+    CatalogModel(
+        "Gemini-3.1-Pro-Preview",
+        "openrouter/google/gemini-3.1-pro-preview",
+        ModelPrice(input=2.0, audio=2.0, output=12.0, currency="USD"),
+    ),
+    CatalogModel(
+        "Claude-Sonnet-4.5",
+        "openrouter/anthropic/claude-sonnet-4.5",
+        ModelPrice(input=3.0, output=15.0, currency="USD"),
+    ),
+    CatalogModel(
+        "Claude-Sonnet-4.6",
+        "openrouter/anthropic/claude-sonnet-4.6",
+        ModelPrice(input=3.0, output=15.0, currency="USD"),
+    ),
+)
+
+# 魔搭社区 ModelScope — 复用 SiliconFlow 的 Qwen3-VL 模型 ID（魔搭镜像同名），免费额度 price=0.0。
+MODELSCOPE_MODELS: tuple[CatalogModel, ...] = (
+    CatalogModel(
+        "Qwen3-VL-8B-Instruct",
+        "Qwen/Qwen3-VL-8B-Instruct",
+        ModelPrice(input=0.0, output=0.0),
+    ),
+    CatalogModel(
+        "Qwen3-VL-30B-A3B-Instruct",
+        "Qwen/Qwen3-VL-30B-A3B-Instruct",
+        ModelPrice(input=0.0, output=0.0),
+    ),
+    CatalogModel(
+        "Qwen3-VL-32B-Instruct",
+        "Qwen/Qwen3-VL-32B-Instruct",
+        ModelPrice(input=0.0, output=0.0),
+    ),
+)
+
 PLATFORM_CATALOGS: tuple[PlatformCatalog, ...] = (
     PlatformCatalog(
         platform_id="doubao",
@@ -268,6 +404,42 @@ PLATFORM_CATALOGS: tuple[PlatformCatalog, ...] = (
         platform_label="Z.AI / 智谱",
         provider_id="zai",
         models=ZAI_MODELS,
+    ),
+    PlatformCatalog(
+        platform_id="moonshot",
+        platform_label="Moonshot (Kimi)",
+        provider_id="moonshot",
+        models=MOONSHOT_MODELS,
+    ),
+    PlatformCatalog(
+        platform_id="hunyuan",
+        platform_label="腾讯混元",
+        provider_id="hunyuan",
+        models=HUNYUAN_MODELS,
+    ),
+    PlatformCatalog(
+        platform_id="stepfun",
+        platform_label="阶跃星辰",
+        provider_id="stepfun",
+        models=STEPFUN_MODELS,
+    ),
+    PlatformCatalog(
+        platform_id="baidu-cloud",
+        platform_label="百度千帆",
+        provider_id="baidu_cloud",
+        models=BAIDU_CLOUD_MODELS,
+    ),
+    PlatformCatalog(
+        platform_id="openrouter",
+        platform_label="OpenRouter",
+        provider_id="openrouter",
+        models=OPENROUTER_MODELS,
+    ),
+    PlatformCatalog(
+        platform_id="modelscope",
+        platform_label="魔搭社区",
+        provider_id="modelscope",
+        models=MODELSCOPE_MODELS,
     ),
 )
 

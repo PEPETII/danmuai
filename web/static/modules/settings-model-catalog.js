@@ -496,3 +496,19 @@ export function getMicConfigProviderId(apiMode, modelId, endpoint, options = {})
   });
   return { providerId, micSupported };
 }
+
+export function getModelCatalogPlatform(providerId) {
+  return resolveCatalogPlatform(providerId);
+}
+
+export function getModelCatalogModels(providerId) {
+  const platform = resolveCatalogPlatform(providerId);
+  return platform?.models || [];
+}
+
+export function getModelNameFromCatalog(providerId, modelId) {
+  const platform = resolveCatalogPlatform(providerId);
+  if (!platform?.models) return '';
+  const model = platform.models.find((m) => m.id === modelId);
+  return model ? model.name : '';
+}

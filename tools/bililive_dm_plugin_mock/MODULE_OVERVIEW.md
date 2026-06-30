@@ -63,65 +63,65 @@ DanmuAI Web「生成弹幕」
 
 ### 3.1 插件侧
 
-- [DanmuAiMockPlugin.cs](/E:/test/danmu/tools/bililive_dm_plugin_mock/src/DanmuAiMockPlugin.cs)
+- [DanmuAiMockPlugin.cs](src/DanmuAiMockPlugin.cs)
   - 主插件类
   - `Start()`：启动日志、本地测试弹幕、启动 push listener
   - `Admin()`：打 5 条 mock 弹幕
   - `OnReceivedDanmaku()`：评论事件 -> `CallDanmuAiAsync()`
 
-- [DanmuAiPushListener.cs](/E:/test/danmu/tools/bililive_dm_plugin_mock/src/DanmuAiPushListener.cs)
+- [DanmuAiPushListener.cs](src/DanmuAiPushListener.cs)
   - `HttpListener` 本地接收端
   - 监听 `http://127.0.0.1:18766/api/plugin/danmuai/push/`
   - 校验并清洗 `items`
   - 对每条文本执行 `AddDM()`
 
-- [BililiveDmMockPlugin.csproj](/E:/test/danmu/tools/bililive_dm_plugin_mock/src/BililiveDmMockPlugin.csproj)
+- [BililiveDmMockPlugin.csproj](src/BililiveDmMockPlugin.csproj)
   - 插件工程
   - 目标框架 `net461`
 
-- [README.md](/E:/test/danmu/tools/bililive_dm_plugin_mock/README.md)
+- [README.md](README.md)
   - 构建、部署、联调说明
 
 ### 3.2 DanmuAI 侧：评论桥接
 
-- [bililive_dm_bridge.py](/E:/test/danmu/app/web_api/bililive_dm_bridge.py)
+- [bililive_dm_bridge.py](../../app/web_api/bililive_dm_bridge.py)
   - `POST /api/plugin/bililive-dm/reply`
   - 评论事件桥接路由
 
-- [bililive_dm_bridge_service.py](/E:/test/danmu/app/application/bililive_dm_bridge_service.py)
+- [bililive_dm_bridge_service.py](../../app/application/bililive_dm_bridge_service.py)
   - 旁路真实 AI 生成
   - 不读截图、不走 `reply_queue`、不触达 Qt 主链路对象
 
-- [routes.py](/E:/test/danmu/app/web_api/routes.py)
+- [routes.py](../../app/web_api/routes.py)
   - 注册 `register_bililive_dm_bridge_route(...)`
   - 另有现成测试入口 `POST /api/test/danmu`
 
 ### 3.3 DanmuAI 侧：主动推送
 
-- [bililive_dm_push.py](/E:/test/danmu/app/web_api/bililive_dm_push.py)
+- [bililive_dm_push.py](../../app/web_api/bililive_dm_push.py)
   - 定义主动推送 schema 与常量
   - `DEFAULT_PUSH_URL = http://127.0.0.1:18766/api/plugin/danmuai/push/`
 
-- [bililive_dm_push_service.py](/E:/test/danmu/app/application/bililive_dm_push_service.py)
+- [bililive_dm_push_service.py](../../app/application/bililive_dm_push_service.py)
   - `schedule_push_batch(...)`
   - 后台线程 fire-and-forget 发 HTTP
   - 失败只记日志，不影响主链路
 
-- [main_display_mixin.py](/E:/test/danmu/app/main_display_mixin.py)
+- [main_display_mixin.py](../../app/main_display_mixin.py)
   - `_schedule_bililive_dm_push(...)`
   - 负责把主链路文本规范化后交给 push service
 
-- [main_request_context_mixin.py](/E:/test/danmu/app/main_request_context_mixin.py)
+- [main_request_context_mixin.py](../../app/main_request_context_mixin.py)
   - `_enqueue_reply_batch(...)`
   - 当前在 AI 批次入队完成后调用 `_schedule_bililive_dm_push(...)`
 
 ### 3.4 DanmuAI Web 按钮入口
 
-- [app.js](/E:/test/danmu/web/static/app.js:621)
+- [app.js](../../web/static/app.js:621)
   - `btnToggle`
   - 只调用 `/api/start` 或 `/api/stop`
 
-- [web_console_runtime.py](/E:/test/danmu/app/web_console_runtime.py:197)
+- [web_console_runtime.py](../../app/web_console_runtime.py:197)
   - `/api/start`
   - 只是发 `start_requested.emit()`
 
@@ -180,18 +180,18 @@ DanmuAI Web「生成弹幕」
 1. 插件侧显示增强
    - 例如加来源前缀
    - 区分 `mock` / `comment bridge` / `push main`
-   - 在 [DanmuAiMockPlugin.cs](/E:/test/danmu/tools/bililive_dm_plugin_mock/src/DanmuAiMockPlugin.cs) 和 [DanmuAiPushListener.cs](/E:/test/danmu/tools/bililive_dm_plugin_mock/src/DanmuAiPushListener.cs) 做
+   - 在 [DanmuAiMockPlugin.cs](src/DanmuAiMockPlugin.cs) 和 [DanmuAiPushListener.cs](src/DanmuAiPushListener.cs) 做
 
 2. 推送协议增强
    - 例如加 `topic`、`session_id`、`source_kind`
-   - 优先在 [bililive_dm_push.py](/E:/test/danmu/app/web_api/bililive_dm_push.py) 统一 schema，再同步插件 DTO
+   - 优先在 [bililive_dm_push.py](../../app/web_api/bililive_dm_push.py) 统一 schema，再同步插件 DTO
 
 3. DanmuAI 侧推送策略调整
    - 例如只推首条、按人格过滤、限制节流
-   - 优先改 [bililive_dm_push_service.py](/E:/test/danmu/app/application/bililive_dm_push_service.py) 或 [main_display_mixin.py](/E:/test/danmu/app/main_display_mixin.py)
+   - 优先改 [bililive_dm_push_service.py](../../app/application/bililive_dm_push_service.py) 或 [main_display_mixin.py](../../app/main_display_mixin.py)
 
 4. 评论桥接 prompt / 输出风格
-   - 改 [bililive_dm_bridge_service.py](/E:/test/danmu/app/application/bililive_dm_bridge_service.py)
+   - 改 [bililive_dm_bridge_service.py](../../app/application/bililive_dm_bridge_service.py)
    - 不要把它和主链路 persona / screenshot 逻辑混起来，除非明确要扩大范围
 
 5. 插件侧配置化
@@ -202,10 +202,10 @@ DanmuAI Web「生成弹幕」
 
 这些地方容易把“弹幕姬模块扩展”变成“主链路重构”，非必要不要动：
 
-- [main.py](/E:/test/danmu/main.py)
-- [reply_queue.py](/E:/test/danmu/app/reply_queue.py)
-- [overlay.py](/E:/test/danmu/app/overlay.py)
-- [danmu_engine.py](/E:/test/danmu/app/danmu_engine.py)
+- [main.py](../../main.py)
+- [reply_queue.py](../../app/reply_queue.py)
+- [overlay.py](../../app/overlay.py)
+- [danmu_engine.py](../../app/danmu_engine.py)
 - `web/static/**`
 
 原因：
@@ -244,16 +244,16 @@ DanmuAI Web「生成弹幕」
 
 后续继续扩展时，建议按这个顺序读：
 
-1. [MODULE_OVERVIEW.md](/E:/test/danmu/tools/bililive_dm_plugin_mock/MODULE_OVERVIEW.md)
-2. [README.md](/E:/test/danmu/tools/bililive_dm_plugin_mock/README.md)
-3. [DanmuAiMockPlugin.cs](/E:/test/danmu/tools/bililive_dm_plugin_mock/src/DanmuAiMockPlugin.cs)
-4. [DanmuAiPushListener.cs](/E:/test/danmu/tools/bililive_dm_plugin_mock/src/DanmuAiPushListener.cs)
-5. [bililive_dm_bridge.py](/E:/test/danmu/app/web_api/bililive_dm_bridge.py)
-6. [bililive_dm_bridge_service.py](/E:/test/danmu/app/application/bililive_dm_bridge_service.py)
-7. [bililive_dm_push.py](/E:/test/danmu/app/web_api/bililive_dm_push.py)
-8. [bililive_dm_push_service.py](/E:/test/danmu/app/application/bililive_dm_push_service.py)
-9. [main_display_mixin.py](/E:/test/danmu/app/main_display_mixin.py)
-10. [main_request_context_mixin.py](/E:/test/danmu/app/main_request_context_mixin.py)
+1. [MODULE_OVERVIEW.md](MODULE_OVERVIEW.md)
+2. [README.md](README.md)
+3. [DanmuAiMockPlugin.cs](src/DanmuAiMockPlugin.cs)
+4. [DanmuAiPushListener.cs](src/DanmuAiPushListener.cs)
+5. [bililive_dm_bridge.py](../../app/web_api/bililive_dm_bridge.py)
+6. [bililive_dm_bridge_service.py](../../app/application/bililive_dm_bridge_service.py)
+7. [bililive_dm_push.py](../../app/web_api/bililive_dm_push.py)
+8. [bililive_dm_push_service.py](../../app/application/bililive_dm_push_service.py)
+9. [main_display_mixin.py](../../app/main_display_mixin.py)
+10. [main_request_context_mixin.py](../../app/main_request_context_mixin.py)
 
 ## 10. 当前工单对应关系
 

@@ -27,6 +27,7 @@ from app.ai_client_requests import (
     request_openai,
     resolve_mic_request_credentials,
     resolve_request_credentials,
+    resolve_request_credentials_for_persona,
     stream_doubao,
     stream_openai,
 )
@@ -193,7 +194,8 @@ class AiWorker(QObject):
         if audio_data_uri:
             resolved = self.resolve_mic_request_credentials()
         else:
-            resolved = self._resolve_request_credentials()
+            # W-PERSONA-MODEL-BIND-001：视觉路径按人格绑定解析凭证（未绑定/失效则回退全局）
+            resolved = self._resolve_request_credentials(persona_id)
         if resolved is None:
             err_msg = (
                 format_mic_credential_error(self.config)
@@ -307,7 +309,13 @@ class AiWorker(QObject):
             output_tokens=output_tokens,
         )
 
-    def _resolve_request_credentials(self) -> tuple[str, str, str, str] | None:
+    def _resolve_request_credentials(
+        self, persona_id: str = ""
+    ) -> tuple[str, str, str, str] | None:
+        # W-PERSONA-MODEL-BIND-001：persona_id 非空时优先按人格绑定解析；
+        # 未绑定/档案失效自动回退 resolve_request_credentials（全局"使用"模型）
+        if persona_id:
+            return resolve_request_credentials_for_persona(self.config, persona_id)
         return resolve_request_credentials(self.config)
 
     def _request_doubao(

@@ -14,7 +14,7 @@
  *   applyDefaultToField(field, value)  「恢复默认」逐字段归位
  *
  * 子模块挂载点（由 app.js init 顺序调用）：
- *   - initSettingsTabs / initSettingsUiMode：tab 切换 + 简化/全面模式
+ *   - initSettingsTabs：tab 切换
  *   - initSettingsFieldHints：每个字段的悬浮提示
  *   - initCaptureRegionControls：鼠标框选子区域（POST /api/capture-region）
  *   - initNormalBatchControls / initRestoreDefaultsControls：「正常批」与「恢复默认」
@@ -91,6 +91,7 @@ import {
   applyProviderPreset as applyProviderPresetImpl,
   configureSettingsProviders,
   guessProviderIdFromEndpoint,
+  isThinkingSupportedForProvider,
   loadProviders,
   resolveProviderIdForPicker as resolveProviderIdForPickerImpl,
   syncApiModeLockState as syncApiModeLockStateImpl,
@@ -104,7 +105,6 @@ import {
 import {
   configureSettingsTabs,
   initSettingsTabs,
-  initSettingsUiMode,
   switchSettingsTab,
 } from './settings-tabs.js';
 import { markProbeSuccess } from './app-setup-guide.js';
@@ -138,7 +138,6 @@ export { loadProviders } from './settings-providers.js';
 export {
   getActiveSettingsTabId,
   initSettingsTabs,
-  initSettingsUiMode,
   switchSettingsTab,
 } from './settings-tabs.js';
 let bindDeps = {
@@ -521,8 +520,9 @@ export function updateThinkingModeAvailability(cfg) {
 }
 
 function updateThinkingModeFromForm() {
-  const apiMode = document.getElementById('api_mode')?.value || '';
-  const supported = apiMode === 'doubao';
+  const presetSel = document.getElementById('providerPreset');
+  const providerId = (presetSel?.value || '').trim() || resolveProviderIdForPicker();
+  const supported = isThinkingSupportedForProvider(providerId);
   const checkbox = document.getElementById('use_thinking');
   const hint = document.getElementById('thinkingModeHint');
   if (checkbox) {

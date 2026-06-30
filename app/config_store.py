@@ -281,6 +281,9 @@ class ConfigStore:
             logger.warning("ConfigStore.set(%s) called after close(), write skipped", key)
             return
         with self._write_lock:
+            if self._closed:
+                logger.warning("ConfigStore.set(%s) called after close(), write skipped", key)
+                return
             try:
                 self.conn.execute("REPLACE INTO config (key, value) VALUES (?, ?)", (key, value))
                 self.conn.commit()
@@ -313,6 +316,9 @@ class ConfigStore:
         if not changed:
             return
         with self._write_lock:
+            if self._closed:
+                logger.warning("ConfigStore.set_batch() called after close(), write skipped")
+                return
             try:
                 pairs = list(changed.items())
                 self.conn.executemany(
@@ -961,6 +967,11 @@ class ConfigStore:
             )
             return
         with self._write_lock:
+            if self._closed:
+                logger.warning(
+                    "ConfigStore.set_flag(%s) called after close(), write skipped", key
+                )
+                return
             try:
                 self.conn.execute(
                     "REPLACE INTO system_flags (key, value) VALUES (?, ?)",
@@ -1093,7 +1104,8 @@ class ConfigStore:
             return False
 
     def close(self):
-        self._closed = True
+        with self._write_lock:
+            self._closed = True
         try:
             self.conn.close()
         except sqlite3.ProgrammingError:

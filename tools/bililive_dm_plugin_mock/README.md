@@ -15,7 +15,7 @@
 
 ## 1. 目录结构
 
-```
+```text
 tools/bililive_dm_plugin_mock/
 ├── README.md                            # 本文件
 ├── src/
@@ -55,7 +55,7 @@ dotnet build src/BililiveDmMockPlugin.csproj -c Release
 
 构建产物（均在 `bin\Release\net461\` 下）：
 
-```
+```text
 sdk/bin/Release/net461/
 ├── BilibiliDM_PluginFramework.dll      # SDK 自身
 ├── BilibiliDM_PluginFramework.pdb
@@ -76,7 +76,7 @@ src/bin/Release/net461/
 
 `bililive_dm` 默认从「我的文档\弹幕姬\Plugins」加载插件。Windows 上路径示例：
 
-```
+```text
 %USERPROFILE%\Documents\弹幕姬\Plugins\
 ```
 

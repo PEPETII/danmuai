@@ -30,6 +30,7 @@ class ProviderCapabilities:
   vision: bool = True
   mic_audio: bool = False
   thinking_param: bool = False
+  supports_thinking: bool = False
   image_before_text: bool = False
   stream_usage_in_final_chunk: bool = True
   max_tokens_field: str = "max_tokens"
@@ -41,6 +42,7 @@ def _register(
     *,
     transport: str = "openai",
     thinking_param: bool = False,
+    supports_thinking: bool = False,
     image_before_text: bool = False,
     stream_usage_in_final_chunk: bool = True,
     max_tokens_field: str = "max_tokens",
@@ -50,6 +52,7 @@ def _register(
     _CAPABILITIES_BY_ID[provider_id] = ProviderCapabilities(
         transport=transport,
         thinking_param=thinking_param,
+        supports_thinking=supports_thinking,
         image_before_text=image_before_text,
         stream_usage_in_final_chunk=stream_usage_in_final_chunk,
         max_tokens_field=max_tokens_field,
@@ -63,11 +66,12 @@ _register(
     transport="doubao",
     stream_usage_in_final_chunk=False,
     max_tokens_field="max_output_tokens",
+    supports_thinking=True,
 )
-_register("dashscope", usage_token_style="dashscope")
-_register("zai")
+_register("dashscope", usage_token_style="dashscope", supports_thinking=True)
+_register("zai", supports_thinking=True)
 _register("zhipu")
-_register("moonshot")
+_register("moonshot", supports_thinking=True)
 _register("siliconflow")
 _register(
     "mimo",
@@ -76,13 +80,20 @@ _register(
     stream_usage_in_final_chunk=False,
     max_tokens_field="max_completion_tokens",
     mic_audio=True,
+    supports_thinking=True,
 )
+_register("hunyuan", supports_thinking=True)
+_register("stepfun", supports_thinking=True)
+_register("baidu_cloud", supports_thinking=True, usage_token_style="dashscope")
+_register("openrouter", supports_thinking=True)
+_register("modelscope")
 _register("custom_openai")
 _register(
     "custom_doubao",
     transport="doubao",
     stream_usage_in_final_chunk=False,
     max_tokens_field="max_output_tokens",
+    supports_thinking=True,
 )
 
 _DEFAULT_OPENAI = ProviderCapabilities()

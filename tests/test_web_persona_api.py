@@ -17,11 +17,19 @@ def persona_app(tmp_path):
     config.set("danmu_display_mode", "realtime")
     personae = PersonaManager(config)
     templates = TemplateManager(config)
+    config_changed = MagicMock()
+
+    # W-PERSONA-MODEL-BIND-001：façade 闭包，委托到 personae.set_model_binding
+    def set_persona_model_binding(name, model_id):
+        personae.set_model_binding(name, model_id)
+        config_changed.emit()
+
     app = SimpleNamespace(
         config=config,
         personae=personae,
         templates=templates,
-        config_changed=MagicMock(),
+        config_changed=config_changed,
+        set_persona_model_binding=set_persona_model_binding,
     )
     return app
 
@@ -427,3 +435,53 @@ def test_live_topic_in_web_config_keys():
 
     assert "live_topic" in WEB_CONFIG_KEYS
     assert "live_topic" in tuple(WEB_CONFIG_KEYS)
+
+
+# ---------------------------------------------------------------------------
+# W-PERSONA-MODEL-BIND-001：人格 → 模型档案绑定 Web 端点
+# ---------------------------------------------------------------------------
+
+
+def _persona_routes_client(persona_app):
+    from app.web_api.routes import register_web_routes
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    app = FastAPI()
+    bridge = MagicMock()
+    bridge.danmu_app = persona_app
+    bridge.invoke_on_main.side_effect = lambda fn, *args, **kwargs: fn(*args, **kwargs)
+    register_web_routes(app, bridge, lambda _authorization=None: None)
+    return TestClient(app)
+
+
+def test_put_persona_model_binding_persists(persona_app):
+    client = _persona_routes_client(persona_app)
+    # 绑定
+    res = client.put("/api/personae/高压吐槽型/model", json={"model_id": "bound-model-1"})
+    assert res.status_code == 200
+    assert res.json() == {"ok": True}
+    # 数据层应已写入
+    assert persona_app.personae.get_model_binding("高压吐槽型") == "bound-model-1"
+    # façade 应触发 config_changed
+    assert persona_app.config_changed.emit.called
+
+
+def test_put_persona_model_binding_empty_clears(persona_app):
+    client = _persona_routes_client(persona_app)
+    persona_app.personae.set_model_binding("高压吐槽型", "bound-model-1")
+    assert persona_app.personae.get_model_binding("高压吐槽型") == "bound-model-1"
+    # 空串清除
+    res = client.put("/api/personae/高压吐槽型/model", json={"model_id": ""})
+    assert res.status_code == 200
+    assert persona_app.personae.get_model_binding("高压吐槽型") == ""
+
+
+def test_put_persona_model_binding_url_encoded_name(persona_app):
+    """中文人格名经 URL 编码后路由仍能正确解析。"""
+    from urllib.parse import quote
+
+    client = _persona_routes_client(persona_app)
+    res = client.put(f"/api/personae/{quote('熬夜陪看型')}/model", json={"model_id": "m2"})
+    assert res.status_code == 200
+    assert persona_app.personae.get_model_binding("熬夜陪看型") == "m2"

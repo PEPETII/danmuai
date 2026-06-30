@@ -299,7 +299,7 @@
   transform: translateX(-50%) translateY(-20px);
 }
 
-/* 弹幕设置 — 顶部分类 Tab + 简化/全面模式 */
+/* 弹幕设置 — 顶部分类 Tab */
 .settings-tabs-bar {
   display: flex;
   align-items: center;
@@ -314,44 +314,6 @@
   margin-bottom: 0;
   padding-bottom: 0;
   border-bottom: none;
-}
-
-.settings-ui-mode-switch {
-  display: flex;
-  flex: 0 0 auto;
-  gap: 0.25rem;
-  padding: 0.2rem;
-  border-radius: var(--radius-md);
-  background: var(--color-secondary);
-  margin-left: auto;
-}
-
-.settings-ui-mode-btn {
-  flex: 0 0 auto;
-  padding: 0.4rem 0.75rem;
-  border-radius: calc(var(--radius-md) - 2px);
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--color-text-dim);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  transition: background 0.2s, color 0.2s;
-  white-space: nowrap;
-}
-
-.settings-ui-mode-btn:hover {
-  color: var(--color-text);
-}
-
-.settings-ui-mode-btn.active {
-  background: var(--color-surface);
-  color: var(--color-primary-hover);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
-}
-
-#settingsForm.settings-ui-simplified .settings-full-only {
-  display: none !important;
 }
 
 .settings-tabs {

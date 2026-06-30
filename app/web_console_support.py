@@ -237,11 +237,26 @@ def export_config(config) -> dict[str, Any]:
 
 
 def _thinking_supported(config, active_model_id: str) -> bool:
+    from app.model_providers import get_capabilities_for_model
+
+    # 优先检查自定义模型档案（W-CUSTOMMODEL-SCHEMA-002：default_model_id 优先于 modelId）
     custom_models = config.get_custom_models()
     for model in custom_models:
-        if isinstance(model, dict) and model.get("modelId") == active_model_id:
-            return str(model.get("mode") or "").strip().lower() == "doubao"
-    return config.get("api_mode", "doubao").strip().lower() == "doubao"
+        if isinstance(model, dict):
+            entry_id = (
+                model.get("default_model_id") or model.get("modelId") or ""
+            ).strip()
+            if entry_id == active_model_id:
+                endpoint = model.get("endpoint") or ""
+                api_mode = model.get("mode") or ""
+                caps = get_capabilities_for_model(active_model_id, endpoint, api_mode)
+                return caps.supports_thinking
+
+    # 全局 api_endpoint + api_mode
+    endpoint = config.get("api_endpoint") or ""
+    api_mode = config.get("api_mode") or "doubao"
+    caps = get_capabilities_for_model(active_model_id, endpoint, api_mode)
+    return caps.supports_thinking
 
 
 def extract_config_payload(body: Any) -> dict[str, Any]:
