@@ -807,6 +807,40 @@
   width: 100%;
   height: 100%;
 }
+/* W-TRACK-VIS-002: 轨道几何可视化(顶/底安全边距带 + 轨道分隔线) */
+.danmu-track-bands {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+.danmu-track-band {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: rgba(217, 119, 87, 0.12);
+  border: 1px dashed rgba(217, 119, 87, 0.4);
+}
+.danmu-track-band-top {
+  border-top: none;
+}
+.danmu-track-band-bottom {
+  border-bottom: none;
+}
+.danmu-track-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 1px dashed rgba(255, 255, 255, 0.18);
+}
+.danmu-track-drawable-marker {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.35);
+}
 .danmu-preview-floating {
   position: relative;
   width: 100%;

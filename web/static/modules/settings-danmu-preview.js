@@ -212,9 +212,86 @@ function switchPreviewMode() {
   if (floating) floating.classList.toggle('hidden', mode !== 'floating_panel');
 }
 
+// W-TRACK-VIS-002: 轨道几何可视化。基于表单值与 engine 常量(top_margin=50,
+// bottom_margin=80, line_height=40)在预览容器内按比例绘制轨道分隔线与
+// 顶/底安全边距带。预览容器高度固定(CSS 7.5rem),按屏幕高度比例缩放。
+const TRACK_TOP_MARGIN = 50;
+const TRACK_BOTTOM_MARGIN = 80;
+const TRACK_LINE_HEIGHT = 40;
+const LAYOUT_MODE_RATIOS = {
+  fullscreen: 1.0,
+  '3/4': 0.75,
+  '1/2': 0.5,
+  '1/4': 0.25,
+};
+
+function renderTrackBands() {
+  const bandsEl = document.getElementById('danmuTrackBands');
+  if (!bandsEl) return;
+  const mode = getRenderMode();
+  if (mode !== 'scrolling') {
+    bandsEl.classList.add('hidden');
+    bandsEl.innerHTML = '';
+    return;
+  }
+  bandsEl.classList.remove('hidden');
+  bandsEl.innerHTML = '';
+
+  const layoutMode = getSelect('layout_mode', 'fullscreen');
+  const ratio = LAYOUT_MODE_RATIOS[layoutMode] ?? 1.0;
+  // 预览容器高度(与 CSS .danmu-preview-scrolling height: 7.5rem 对齐)
+  const previewH = 120;
+  // 用一个虚拟屏幕高度作为比例参考(与 engine 默认 1080 一致)
+  const refScreenH = 1080;
+  const drawableH = refScreenH * ratio;
+  const scale = previewH / refScreenH;
+
+  // 顶部安全边距带
+  const topBand = document.createElement('div');
+  topBand.className = 'danmu-track-band danmu-track-band-top';
+  topBand.style.top = '0px';
+  topBand.style.height = `${Math.max(1, TRACK_TOP_MARGIN * scale)}px`;
+  topBand.title = `顶部安全边距 ${TRACK_TOP_MARGIN}px`;
+  bandsEl.appendChild(topBand);
+
+  // 底部安全边距带(在 drawable 底部)
+  const bottomBandTop = drawableH - TRACK_BOTTOM_MARGIN;
+  if (bottomBandTop > TRACK_TOP_MARGIN) {
+    const bottomBand = document.createElement('div');
+    bottomBand.className = 'danmu-track-band danmu-track-band-bottom';
+    bottomBand.style.top = `${bottomBandTop * scale}px`;
+    bottomBand.style.height = `${Math.max(1, TRACK_BOTTOM_MARGIN * scale)}px`;
+    bottomBand.title = `底部安全边距 ${TRACK_BOTTOM_MARGIN}px`;
+    bandsEl.appendChild(bottomBand);
+  }
+
+  // 轨道分隔线
+  const linesRequested = getNumber('danmu_lines', 20);
+  let y = TRACK_TOP_MARGIN;
+  let drawn = 0;
+  const maxY = drawableH - TRACK_BOTTOM_MARGIN - TRACK_LINE_HEIGHT;
+  while (y <= maxY && drawn < linesRequested) {
+    const line = document.createElement('div');
+    line.className = 'danmu-track-line';
+    line.style.top = `${y * scale}px`;
+    line.title = `轨道 ${drawn + 1} @ y=${y}px`;
+    bandsEl.appendChild(line);
+    y += TRACK_LINE_HEIGHT;
+    drawn += 1;
+  }
+
+  // 可绘制区边界标记
+  const drawableMarker = document.createElement('div');
+  drawableMarker.className = 'danmu-track-drawable-marker';
+  drawableMarker.style.top = `${drawableH * scale}px`;
+  drawableMarker.title = `可绘制区底部 ${drawableH}px (layout_mode=${layoutMode})`;
+  bandsEl.appendChild(drawableMarker);
+}
+
 function tick() {
   const mode = getRenderMode();
   if (mode === 'scrolling') {
+    renderTrackBands();
     renderScrollingPreview();
   } else {
     renderFloatingPreview();
@@ -243,6 +320,8 @@ export function initDanmuPreview() {
     'danmu_font_color_selected',
     'danmu_font_color_weights',
     'danmu_font_color_mode',
+    'danmu_lines',
+    'layout_mode',
     'floating_panel_width',
     'floating_panel_max_items',
     'floating_panel_speed',

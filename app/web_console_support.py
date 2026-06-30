@@ -77,6 +77,7 @@ class WebStatusSnapshot:
     region_h: int = 0
     region_selection_state: str = "idle"
     meme_barrage: dict[str, Any] = field(default_factory=dict)
+    danmu_track_layout: dict[str, Any] = field(default_factory=dict)
 
 
 def summarize_config_save_error(detail: object, *, max_len: int = SAVE_CONFIG_ERROR_DETAIL_MAX) -> str:
