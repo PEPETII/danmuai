@@ -34,6 +34,7 @@ class ProviderSpec:
     model_id_hint_en: str
     lock_mode: bool = True
     lock_endpoint: bool = False
+    website: str | None = None
 
 
 PROVIDERS: tuple[ProviderSpec, ...] = (
@@ -45,6 +46,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         mode="doubao",
         model_id_hint_zh="截图弹幕可用 flash；开麦请用 doubao-seed-2-0-mini-260428 等全模态/vision 模型",
         model_id_hint_en="flash for vision-only danmu; enable mic with doubao-seed-2-0-mini-260428 or vision models",
+        website="https://www.volcengine.com/product/ark",
     ),
     ProviderSpec(
         id="dashscope",
@@ -54,6 +56,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         mode="openai-compatible",
         model_id_hint_zh="例如：qwen-vl-max",
         model_id_hint_en="e.g. qwen-vl-max",
+        website="https://help.aliyun.com/zh/dashscope/",
     ),
     ProviderSpec(
         id="zai",
@@ -63,6 +66,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         mode="openai-compatible",
         model_id_hint_zh="截图弹幕：glm-4.6v / glm-4.5v（图片输入 + 文本输入 → 文本输出）",
         model_id_hint_en="Vision danmu: glm-4.6v / glm-4.5v (image + text input to text output)",
+        website="https://z.ai/",
     ),
     ProviderSpec(
         id="zhipu",
@@ -72,6 +76,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         mode="openai-compatible",
         model_id_hint_zh="例如：glm-4v-flash",
         model_id_hint_en="e.g. glm-4v-flash",
+        website="https://open.bigmodel.cn/",
     ),
     ProviderSpec(
         id="moonshot",
@@ -81,6 +86,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         mode="openai-compatible",
         model_id_hint_zh="例如：moonshot-v1-8k-vision-preview",
         model_id_hint_en="e.g. moonshot-v1-8k-vision-preview",
+        website="https://platform.moonshot.cn/",
     ),
     ProviderSpec(
         id="siliconflow",
@@ -90,6 +96,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         mode="openai-compatible",
         model_id_hint_zh="例如：deepseek-ai/DeepSeek-V3",
         model_id_hint_en="e.g. deepseek-ai/DeepSeek-V3",
+        website="https://siliconflow.cn/",
     ),
     ProviderSpec(
         id="mimo",
@@ -99,6 +106,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         mode="openai-compatible",
         model_id_hint_zh="截图弹幕与开麦：mimo-v2.5",
         model_id_hint_en="Vision danmu and mic: mimo-v2.5",
+        website="https://api.xiaomimimo.com/",
     ),
     ProviderSpec(
         id="custom_openai",
@@ -243,11 +251,17 @@ def validate_endpoint_mode_consistency(endpoint: str, api_mode: str) -> str | No
 
 
 def resolve_active_model_id(config) -> str:
-    """Model id used for API requests (matches ``AiWorker._resolve_request_credentials``)."""
+    """Model id used for API requests (matches ``AiWorker._resolve_request_credentials``).
+
+    W-CUSTOMMODEL-SCHEMA-002：优先读 ``default_model_id``，保留 ``modelId`` 兜底。
+    """
     default_id = (config.get_default_model_id() or "").strip()
     if default_id:
         for entry in config.get_custom_models():
-            if (entry.get("modelId") or "").strip() == default_id:
+            entry_id = (
+                entry.get("default_model_id") or entry.get("modelId") or ""
+            )
+            if (entry_id or "").strip() == default_id:
                 return default_id
         return default_id
     return (config.get("model") or "").strip()
@@ -359,11 +373,17 @@ def mic_audio_unsupported_message(model_id: str) -> str:
 
 
 def mic_audio_supported_for_config(config) -> bool:
-    """Match runtime mic gating: active model + global or custom endpoint/mode."""
+    """Match runtime mic gating: active model + global or custom endpoint/mode.
+
+    W-CUSTOMMODEL-SCHEMA-002：优先读 ``default_model_id``，保留 ``modelId`` 兜底。
+    """
     default_model_id = (config.get_default_model_id() or "").strip()
     if default_model_id:
         for model in config.get_custom_models():
-            if (model.get("modelId") or "").strip() == default_model_id:
+            entry_id = (
+                model.get("default_model_id") or model.get("modelId") or ""
+            )
+            if (entry_id or "").strip() == default_model_id:
                 return model_supports_mic_audio(
                     default_model_id,
                     endpoint=(model.get("endpoint") or ""),
@@ -399,18 +419,48 @@ def resolve_mic_model_id(config) -> str:
 
 
 def validate_model_config(data: dict) -> list[str]:
-    """Return translation keys for validation errors (in order)."""
+    """Return translation keys for validation errors (in order).
+
+    W-CUSTOMMODEL-SCHEMA-002：优先校验新 shape（``model_ids`` 数组 +
+    ``default_model_id``）；旧 ``modelId`` 单值字段降级为兼容性兜底。
+    """
     errors: list[str] = []
     name = (data.get("name") or "").strip()
-    model_id = (data.get("modelId") or data.get("model_id") or "").strip()
     endpoint = normalize_endpoint(data.get("endpoint") or "")
     api_key = (data.get("apiKey") or data.get("api_key") or "").strip()
+
+    # W-CUSTOMMODEL-SCHEMA-002：model_ids 数组校验
+    model_ids = data.get("model_ids")
+    if isinstance(model_ids, list):
+        # 新 shape：校验数组非空 + 每个 model_id 格式 + default_model_id 属于数组
+        if not model_ids:
+            errors.append("custom_model.error_model_id")
+        else:
+            for mid in model_ids:
+                mid_str = str(mid or "").strip()
+                if not mid_str:
+                    errors.append("custom_model.error_model_id")
+                    break
+                if not re.match(r'^[a-zA-Z0-9_./-]+$', mid_str):
+                    errors.append("custom_model.error_model_id_invalid")
+                    break
+            default_model_id = (data.get("default_model_id") or "").strip()
+            if default_model_id and default_model_id not in [
+                str(mid).strip() for mid in model_ids if str(mid or "").strip()
+            ]:
+                errors.append("custom_model.error_model_id_invalid")
+            elif not default_model_id:
+                errors.append("custom_model.error_model_id")
+    else:
+        # 旧 shape 兼容：校验 legacy modelId 单值
+        legacy_model_id = (data.get("modelId") or data.get("model_id") or "").strip()
+        if not legacy_model_id:
+            errors.append("custom_model.error_model_id")
+        elif not re.match(r'^[a-zA-Z0-9_./-]+$', legacy_model_id):
+            errors.append("custom_model.error_model_id_invalid")
+
     if not name:
         errors.append("custom_model.error_name")
-    if not model_id:
-        errors.append("custom_model.error_model_id")
-    elif not re.match(r'^[a-zA-Z0-9_./-]+$', model_id):  # 防止注入：仅允许字母数字、下划线、点、斜杠、连字符
-        errors.append("custom_model.error_model_id_invalid")
     if not endpoint:
         errors.append("custom_model.error_endpoint")
     elif not is_valid_endpoint(endpoint):

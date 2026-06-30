@@ -1,0 +1,106 @@
+{
+  "description": "数据溯源映射",
+  "generatedAt": "2026-06-29",
+  "sourceProjects": {
+    "cherry-studio": {
+      "repository": "https://github.com/CherryHQ/cherry-studio",
+      "license": "GPL-3.0",
+      "clonedAt": "2026-06-29",
+      "localPath": "references/ai-platforms/cherry-studio",
+      "keyFiles": [
+        {
+          "path": "packages/provider-registry/data/providers.json",
+          "description": "所有provider的配置信息（id、name、baseUrl、endpointConfigs、adapterFamily等）"
+        },
+        {
+          "path": "packages/provider-registry/data/models.json",
+          "description": "模型目录定义（模型id、capabilities、pricing、contextWindow等）"
+        },
+        {
+          "path": "packages/provider-registry/data/provider-models.json",
+          "description": "provider级别的模型覆盖配置"
+        },
+        {
+          "path": "packages/provider-registry/src/schemas/enums.ts",
+          "description": "枚举定义（EndpointType、ModelCapability、Modality、Currency等）"
+        },
+        {
+          "path": "packages/provider-registry/src/schemas/provider.ts",
+          "description": "Provider配置Schema定义"
+        },
+        {
+          "path": "src/shared/data/types/provider.ts",
+          "description": "运行时Provider类型定义（AuthType、ProviderSettings等）"
+        },
+        {
+          "path": "src/shared/data/types/model.ts",
+          "description": "运行时Model类型定义（capabilities、pricing、contextWindow等）"
+        },
+        {
+          "path": "src/main/ai/provider/config.ts",
+          "description": "Provider配置构建逻辑（区分不同provider类型的请求构建）"
+        }
+      ]
+    },
+    "litellm": {
+      "repository": "https://github.com/BerriAI/litellm",
+      "license": "MIT",
+      "clonedAt": "2026-06-29",
+      "localPath": "references/ai-platforms/litellm",
+      "keyFiles": [
+        {
+          "path": "model_prices_and_context_window.json",
+          "description": "模型定价和上下文窗口数据（litellm_provider、max_tokens、pricing、supports_vision等）"
+        },
+        {
+          "path": "litellm/llms/",
+          "description": "按provider组织的适配器代码目录"
+        }
+      ]
+    }
+  },
+  "dataFlow": {
+    "providers.json": {
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/providers.json",
+      "transformType": "direct-extraction",
+      "notes": "直接从Cherry Studio的providers.json提取，增加authStyle/protocol/extraHeaders推断字段"
+    },
+    "models.json": {
+      "sourceProject": "litellm + cherry-studio",
+      "sourceFiles": [
+        "model_prices_and_context_window.json",
+        "packages/provider-registry/data/models.json"
+      ],
+      "transformType": "merge-and-filter",
+      "notes": "从LiteLLM提取定价和上下文窗口，从Cherry Studio补充模型能力信息"
+    },
+    "access-modes.json": {
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/providers.json",
+      "transformType": "inference",
+      "notes": "基于Cherry Studio的endpointConfigs和adapterFamily推断访问模式"
+    }
+  },
+  "dataUsability": {
+    "directlyUsable": [
+      "Cherry Studio providers.json 中的 id/name/baseUrl/endpointConfigs/adapterFamily → 可直接迁移为 providers.json",
+      "LiteLLM model_prices_and_context_window.json 中的 litellm_provider/max_tokens/pricing/supports_* → 可直接迁移为 models.json 的定价和能力字段",
+      "Cherry Studio models.json 中的 capabilities/pricing/contextWindow → 可直接迁移补充模型能力信息"
+    ],
+    "referenceOnly": [
+      "Cherry Studio 的 AuthType 枚举 (api-key/oauth/iam-aws/iam-gcp/iam-azure) → 仅参考，DanmuAI目前只支持bearer和api-key",
+      "Cherry Studio 的 ProviderSettings (apiVersion/cacheControl/extraHeaders) → 仅参考，需按需集成",
+      "Cherry Studio 的 ReasoningFormatType → 仅参考，DanmuAI固定禁用thinking",
+      "LiteLLM 的 provider adapter 代码 → 仅参考，不能复制代码",
+      "Cherry Studio 的自定义provider实现代码 → 仅参考，不能复制代码"
+    ],
+    "cannotCopy": [
+      "Cherry Studio 的 UI 组件代码（ProviderEditorDrawer等）→ 业务代码，不能复制",
+      "Cherry Studio 的品牌资源/图标 → 不能复制",
+      "LiteLLM 的 adapter 实现代码 → 业务代码，不能复制",
+      "两个项目的测试代码 → 不能复制",
+      "Cherry Studio 的 CherryIn/CherryAI 签名逻辑 → 业务代码，不能复制"
+    ]
+  }
+}

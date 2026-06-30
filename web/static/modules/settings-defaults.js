@@ -74,7 +74,6 @@ export const SETTINGS_RESTORE_GROUPS = {
     'floating_panel_speed', 'floating_panel_x_offset', 'floating_panel_y_offset',
     'floating_panel_opacity', 'floating_panel_font_size',
   ],
-  'bililive-dm': ['bililive_dm_mode_enabled'],
   font: [
     'danmu_font_family', 'floating_panel_font_family',
     'font_size', 'floating_panel_font_size',
@@ -89,7 +88,6 @@ export const SETTINGS_RESTORE_CHECKBOXES = {
   mic: ['mic_mode_enabled', 'mic_use_visual_model'],
   capture: [],
   danmu: ['empty_accel'],
-  'bililive-dm': ['bililive_dm_mode_enabled'],
   font: ['danmu_font_bold', 'floating_panel_font_bold'],
   rhythm: [],
 };

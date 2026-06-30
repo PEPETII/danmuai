@@ -537,6 +537,15 @@ export function bindSettingsControls(deps = {}) {
   configureSettingsBindings(deps);
   const { onConfigSaved } = bindDeps;
 
+  // W-SETTINGS-RESTRUCT-A-006：旧顶栏 API 字段软隐藏（DOM 属性 hidden 双保险，配合 CSS .legacy-api-fields）
+  // DOM 节点保留不删除；仅隐藏。回滚：删除 partials/settings.html 中的 .legacy-api-fields CSS 规则 + 此段。
+  ['api_endpoint', 'api_mode', 'api_key', 'model', 'max_tokens'].forEach((fieldId) => {
+    const el = document.getElementById(fieldId);
+    if (el && el.parentElement && el.parentElement.classList.contains('legacy-api-fields')) {
+      el.parentElement.hidden = true;
+    }
+  });
+
   document.getElementById('mic_mode_enabled')?.addEventListener('change', () => {
     updateMicModeHint();
     updateMicActiveSourceBanner({});

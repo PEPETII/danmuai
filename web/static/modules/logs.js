@@ -24,6 +24,7 @@ export const logBuffer = [];
 const logKeySet = new Set();
 export let logLevelFilters = new Set(['INFO', 'WARNING', 'ERROR']);
 export let logAutoScroll = true;
+export let logClosed = false;
 
 export function replaceLogLevelFilters(next) {
   logLevelFilters = next;
@@ -31,6 +32,36 @@ export function replaceLogLevelFilters(next) {
 
 export function setLogAutoScroll(value) {
   logAutoScroll = value;
+}
+
+export function setLogClosed(value) {
+  logClosed = value;
+}
+
+export function closeLogView() {
+  logClosed = true;
+  const view = document.getElementById('logView');
+  if (view) view.innerHTML = '';
+  const empty = document.getElementById('logViewEmpty');
+  if (empty) empty.textContent = '日志已关闭。点击「重新打开日志」按钮恢复显示。';
+  const panel = document.querySelector('.log-panel');
+  if (panel) panel.classList.remove('has-logs');
+  const btn = document.getElementById('btnCloseLogs');
+  if (btn) {
+    btn.textContent = '重新打开日志';
+    btn.dataset.logClosed = '1';
+  }
+}
+
+export function reopenLogView() {
+  logClosed = false;
+  const btn = document.getElementById('btnCloseLogs');
+  if (btn) {
+    btn.textContent = '关闭日志';
+    delete btn.dataset.logClosed;
+  }
+  renderLogView({ force: true });
+  updateLogPanelState();
 }
 
 export function logEntryKey(item) {
@@ -87,6 +118,7 @@ export function isLogsTabVisible() {
 }
 
 export function updateLogPanelState() {
+  if (logClosed) return;
   const panel = document.querySelector('.log-panel');
   const empty = document.getElementById('logViewEmpty');
   const view = document.getElementById('logView');
@@ -108,6 +140,7 @@ export function updateLogPanelState() {
 }
 
 export function renderLogView({ force = false } = {}) {
+  if (logClosed) return;
   const view = document.getElementById('logView');
   if (!view) return;
   const filtered = filteredLogBuffer();
@@ -132,6 +165,7 @@ export function renderLogView({ force = false } = {}) {
 }
 
 export function appendLog(item) {
+  if (logClosed) return;
   const key = logEntryKey(item);
   if (logKeySet.has(key)) return;
   logKeySet.add(key);
@@ -161,7 +195,7 @@ export function mergeLogItems(items) {
     addedAny = true;
   });
   if (!addedAny) return;
-  if (isLogsTabVisible()) renderLogView();
+  if (isLogsTabVisible() && !logClosed) renderLogView();
   else updateLogPanelState();
 }
 

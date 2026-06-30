@@ -1,3 +1,6 @@
+    <!-- W-SETTINGS-RESTRUCT-A-006：旧顶栏 API 字段软隐藏（DOM 保留，仅 display:none；删除下方 CSS 规则即可一行回滚） -->
+    <style>.legacy-api-fields{display:none !important;}</style>
+
     <!-- ========== 区域：弹幕设置 ========== -->
     <!-- section: 弹幕设置（PUT /api/config → ConfigService，主线程落库） -->
     <!-- 8 个设置 tab（顺序固定，由 modules/settings.js initSettingsTabs 渲染） -->
@@ -27,7 +30,6 @@
             <!-- tab: AI读弹幕 — MiMo TTS 启用/声音/语速/抽屏间隔 -->
             <button type="button" role="tab" class="settings-tab" data-settings-tab="danmu-read" aria-selected="false">AI读弹幕</button>
             <button type="button" role="tab" class="settings-tab" data-settings-tab="danmu" aria-selected="false">弹幕显示</button>
-            <button type="button" role="tab" class="settings-tab" data-settings-tab="bililive-dm" aria-selected="false">弹幕姬模式</button>
             <!-- tab: 识图区域 — screen_index + 鼠标框选子区域（POST /api/capture-region） -->
             <button type="button" role="tab" class="settings-tab" data-settings-tab="capture" aria-selected="false">识图区域</button>
             <!-- tab: 识图清晰度 — 压缩质量、最大宽度、压缩预览等 -->
@@ -53,11 +55,11 @@
                 <option value="">手动填写</option>
               </select>
             </div>
-            <div>
+            <div class="legacy-api-fields">
               <label class="block text-sm font-semibold mb-2 text-warmText"><svg class="ui-icon field-label-icon" aria-hidden="true"><use href="#i-cloud"></use></svg>API 地址</label>
               <input type="text" name="api_endpoint" id="api_endpoint" class="w-full px-4 py-3 bg-cream border border-transparent rounded-xl text-warmText" placeholder="https://ark.cn-beijing.volces.com/api/v3">
             </div>
-            <div>
+            <div class="legacy-api-fields">
               <label class="block text-sm font-semibold mb-2 text-warmText"><svg class="ui-icon field-label-icon" aria-hidden="true"><use href="#i-plug"></use></svg>API 模式</label>
               <select name="api_mode" id="api_mode" class="w-full px-4 py-3 bg-cream border border-transparent rounded-xl text-warmText">
                 <option value="doubao">豆包（火山方舟）</option>
@@ -68,7 +70,7 @@
               <label class="block text-sm font-semibold mb-2 text-warmText"><svg class="ui-icon field-label-icon" aria-hidden="true"><use href="#i-monitor"></use></svg>识图显示器</label>
               <select name="screen_index" id="screen_index" class="w-full px-4 py-3 bg-cream border border-transparent rounded-xl text-warmText"></select>
             </div>
-            <div>
+            <div class="legacy-api-fields">
               <label class="block text-sm font-semibold mb-2 text-warmText"><svg class="ui-icon field-label-icon" aria-hidden="true"><use href="#i-key"></use></svg>API 密钥 <span class="text-xs text-gray-400 font-normal">（保存在本机并加密）</span></label>
               <div class="relative">
                 <input type="password" name="api_key" id="api_key" autocomplete="current-password" placeholder="sk-..." class="w-full px-4 py-3 bg-cream border border-transparent rounded-xl pr-12 text-warmText">
@@ -77,7 +79,7 @@
                 </button>
               </div>
             </div>
-            <div class="md:col-span-2">
+            <div class="md:col-span-2 legacy-api-fields">
               <label class="block text-sm font-semibold mb-2 text-warmText"><svg class="ui-icon field-label-icon" aria-hidden="true"><use href="#i-brain"></use></svg>视觉模型</label>
               <div id="visionModelField">
                 <input type="hidden" name="model" id="model" value="">
@@ -92,7 +94,7 @@
               <label class="block text-sm font-semibold mb-2 text-warmText"><svg class="ui-icon field-label-icon" aria-hidden="true"><use href="#i-thermo"></use></svg>温度</label>
               <input type="number" name="temperature" id="temperature" min="0" max="2" step="0.1" class="w-full px-4 py-3 bg-cream border border-transparent rounded-xl text-warmText">
             </div>
-            <div class="settings-full-only">
+            <div class="settings-full-only legacy-api-fields">
               <label class="block text-sm font-semibold mb-2 text-warmText"><svg class="ui-icon field-label-icon" aria-hidden="true"><use href="#i-ruler"></use></svg>最大输出 Token</label>
               <input type="number" name="max_tokens" id="max_tokens" min="10" max="2000" class="w-full px-4 py-3 bg-cream border border-transparent rounded-xl text-warmText">
             </div>
@@ -106,7 +108,10 @@
             <p id="thinkingModeHint" class="hidden text-xs text-amber-700 mt-1">当前 API 模式不支持思考模式</p>
           </div>
           <div id="customModelsSection" class="settings-full-only space-y-3">
-            <h4 class="text-md font-bold text-warmText">模型配置档案</h4>
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <h4 class="text-md font-bold text-warmText">AI 模型</h4>
+              <button type="button" id="btnAddCustomModel" class="px-4 py-2 rounded-xl text-sm font-bold border border-warmPink/40 text-warmPink hover:bg-warmPink/10 transition">+ 添加模型</button>
+            </div>
             <div id="customModelsList" class="space-y-2"></div>
           </div>
         </div>
@@ -378,19 +383,6 @@
             <div class="settings-toggle-row">
               <label class="flex items-center gap-2"><input type="checkbox" id="empty_accel" class="accent-warmPink"> 空轨道时加速补位</label>
             </div>
-          </div>
-        </div>
-        <!-- 弹幕姬模式 -->
-        <div id="settingsTab-bililive-dm" class="settings-tab-panel space-y-6" data-settings-panel="bililive-dm" role="tabpanel" hidden>
-          <h3 class="text-lg font-bold text-warmText flex items-center gap-2">
-            <svg class="ui-icon text-warmPink" aria-hidden="true"><use href="#i-message"></use></svg> 弹幕姬模式
-          </h3>
-          <p class="settings-section-hint text-sm text-gray-500">开启后关闭本机屏幕弹幕（横向 Overlay / 从下到上悬浮窗），主链路「生成弹幕」结果仅在 bililive_dm 窗口显示。关闭后恢复屏幕弹幕显示，且主链路结果不再推送到 bililive_dm；直播评论桥接不受影响。</p>
-          <div class="settings-toggle-row">
-            <label class="flex items-center gap-2">
-              <input type="checkbox" id="bililive_dm_mode_enabled" class="accent-warmPink">
-              开启弹幕姬模式
-            </label>
           </div>
         </div>
         <!-- 识图区域 -->

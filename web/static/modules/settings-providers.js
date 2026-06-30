@@ -230,6 +230,18 @@ export function resolveMicProviderIdForPicker() {
   return guessProviderIdFromEndpoint(endpoint, apiMode);
 }
 
+export function findProvider(id) {
+  const target = (id || '').trim();
+  if (!target) return undefined;
+  return providersCache.find((item) => item.id === target);
+}
+
+export function getProviderWebsite(id) {
+  const provider = findProvider(id);
+  const website = provider?.website;
+  return typeof website === 'string' && website.trim() ? website.trim() : null;
+}
+
 export function applyMicProviderPreset(providerId) {
   const provider = providersCache.find((item) => item.id === providerId);
   if (!provider) return;

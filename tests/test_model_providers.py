@@ -1,5 +1,6 @@
 from app.model_providers import (
     DEFAULT_PROVIDER_ID,
+    PROVIDERS,
     apply_provider_to_form,
     get_openai_adapter_for_model,
     guess_provider_from_endpoint,
@@ -386,3 +387,37 @@ def test_get_openai_adapter_for_model_mimo_v25_requires_official_host():
         "openai-compatible",
     )
     assert isinstance(official_adapter, MimoOpenAIAdapter)
+
+
+def test_providers_website_field_present_on_all_built_in_presets():
+    # 9 个内置预设均含 website 字段（dataclass asdict 序列化键存在）
+    from dataclasses import asdict
+
+    assert len(PROVIDERS) == 9
+    for spec in PROVIDERS:
+        assert "website" in asdict(spec)
+        assert hasattr(spec, "website")
+
+
+def test_providers_website_non_null_for_seven_built_in():
+    expected = {
+        "doubao": "https://www.volcengine.com/product/ark",
+        "dashscope": "https://help.aliyun.com/zh/dashscope/",
+        "zai": "https://z.ai/",
+        "zhipu": "https://open.bigmodel.cn/",
+        "moonshot": "https://platform.moonshot.cn/",
+        "siliconflow": "https://siliconflow.cn/",
+        "mimo": "https://api.xiaomimimo.com/",
+    }
+    by_id = {p.id: p for p in PROVIDERS}
+    for provider_id, expected_url in expected.items():
+        spec = by_id[provider_id]
+        assert spec.website is not None, f"{provider_id} website should be non-null"
+        assert spec.website == expected_url, f"{provider_id} website mismatch"
+
+
+def test_providers_website_none_for_custom_presets():
+    by_id = {p.id: p for p in PROVIDERS}
+    assert by_id["custom_openai"].website is None
+    assert by_id["custom_doubao"].website is None
+

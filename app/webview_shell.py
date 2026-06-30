@@ -242,23 +242,8 @@ def _webview_worker(
     stop_nav = threading.Event()
     try:
         import webview
-        def on_closing(window, *_args, **_kwargs):
-            try:
-                window.hide()
-            except Exception:
-                pass
-            try:
-                window.evaluate_js(
-                    "try{"
-                    "  var t=document.getElementById('toast');"
-                    "  if(t){t.textContent='窗口已最小化到系统托盘，右键托盘图标可退出';"
-                    "  t.className='toast show text-warmText';"
-                    "  setTimeout(function(){t.classList.remove('show')},4000);}"
-                    "}catch(e){}"
-                )
-            except Exception:
-                pass
-            return False
+        def on_closing(*_args, **_kwargs):
+            return True
         def on_loaded(window):
             window.show()
             append_frozen_log("pywebview window loaded")

@@ -125,3 +125,6 @@ prototype/
 project-prompts/
 reports/
 website/
+
+# ── Local reference clones for AI platform data (do not commit) ──
+references/

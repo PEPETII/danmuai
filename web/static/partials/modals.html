@@ -1,3 +1,13 @@
+  <style>
+    .tag-input-container{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px;min-height:42px;background:#FDFBF7;border-radius:12px;}
+    .tag-chip{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:#FFE5D9;color:#5D5757;border-radius:8px;font-size:12px;line-height:1.4;cursor:pointer;user-select:none;}
+    .tag-default-mark{font-size:10px;color:#16a34a;font-weight:700;}
+    .tag-remove{border:none;background:transparent;color:#9ca3af;cursor:pointer;font-size:14px;line-height:1;padding:0 2px;}
+    .tag-remove:hover{color:#ef4444;}
+    .tag-input{flex:1;min-width:120px;border:none;outline:none;background:transparent;font-size:13px;color:#5D5757;}
+    .tag-chip.error{animation:tag-shake 0.3s ease;}
+    @keyframes tag-shake{0%,100%{transform:translateX(0);}25%{transform:translateX(-3px);}75%{transform:translateX(3px);}}
+  </style>
   <!-- 模型配置档案模态框 -->
   <div id="modelModal" class="fixed inset-0 bg-black/20 backdrop-blur-sm hidden items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="modelModalTitle">
     <div class="bg-white rounded-3xl shadow-warm max-w-lg w-full p-8 max-h-[90vh] overflow-y-auto">
@@ -5,16 +15,25 @@
       <form id="modelModalForm" class="space-y-3">
         <input type="hidden" id="modelEditIndex" value="-1">
         <div>
-          <label class="text-sm font-semibold text-warmText">供应商</label>
+          <label class="text-sm font-semibold text-warmText">预设服务商</label>
           <select id="modelProvider" class="w-full px-4 py-2 bg-cream rounded-xl mt-1"></select>
+          <div id="modelProviderName" class="text-xs text-gray-500 mt-1 hidden"></div>
+          <div id="modelProviderWebsite" class="flex items-center gap-2 mt-1 hidden">
+            <span class="text-xs text-gray-400">官网：</span>
+            <a id="modelProviderWebsiteLink" class="text-xs text-sky-600 underline break-all" target="_blank" rel="noopener noreferrer"></a>
+            <button type="button" id="modelOpenWebsite" class="text-xs px-2 py-0.5 border border-sky-200 rounded-md text-sky-600 hover:bg-sky-50">打开官网</button>
+          </div>
         </div>
         <div>
           <label class="text-sm font-semibold text-warmText">显示名称 <span class="text-xs font-normal text-gray-400">（仅界面展示，不参与 API）</span></label>
           <input id="modelName" class="w-full px-4 py-2 bg-cream rounded-xl mt-1" placeholder="例如：豆包 Pro 32K">
         </div>
         <div>
-          <label class="text-sm font-semibold text-warmText">模型 ID <span class="text-xs font-normal text-gray-400">（API 请求使用的 model 字段）</span></label>
-          <input id="modelId" class="w-full px-4 py-2 bg-cream rounded-xl mt-1" placeholder="例如：doubao-1-5-pro-32k-250115">
+          <label class="text-sm font-semibold text-warmText">模型 ID 列表 <span class="text-xs font-normal text-gray-400">（API 请求使用的 model 字段；回车或逗号添加，点击 chip 切换默认）</span></label>
+          <div id="modelIdsTags" class="tag-input-container mt-1">
+            <input id="modelIdsInput" class="tag-input" placeholder="例如：doubao-1-5-pro-32k-250115">
+          </div>
+          <p class="text-xs text-gray-400 mt-1">第一个 chip 自动设为默认；删除默认 chip 后剩余第一个自动成为默认。</p>
         </div>
         <div>
           <label class="text-sm font-semibold text-warmText">API 模式</label>
@@ -28,8 +47,18 @@
           <input id="modelEndpoint" type="url" autocomplete="url" class="w-full px-4 py-2 bg-cream rounded-xl mt-1" placeholder="https://api.openai.com/v1">
         </div>
         <div>
-          <label class="text-sm font-semibold text-warmText">API Key</label>
+          <div class="flex items-center justify-between">
+            <label class="text-sm font-semibold text-warmText">API Key</label>
+            <label class="flex items-center gap-1 text-xs text-gray-400 cursor-pointer select-none">
+              <input type="checkbox" id="toggleModelKey" class="accent-warmPink">
+              显示
+            </label>
+          </div>
           <input id="modelApiKey" type="password" autocomplete="current-password" class="w-full px-4 py-2 bg-cream rounded-xl mt-1" placeholder="sk-...">
+        </div>
+        <div>
+          <label class="text-sm font-semibold text-warmText">max_tokens <span class="text-xs font-normal text-gray-400">（输出 token 上限，下限 512）</span></label>
+          <input id="modelMaxTokens" type="number" min="512" value="512" class="w-full px-4 py-2 bg-cream rounded-xl mt-1">
         </div>
         <div>
           <label class="text-sm font-semibold text-warmText">备注</label>
@@ -60,6 +89,18 @@
         <button type="button" id="btnRestoreDefaultsCurrent" class="px-5 py-2.5 border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50 text-left">仅恢复当前界面设置</button>
         <button type="button" id="btnRestoreDefaultsAll" class="px-5 py-2.5 border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50 text-left">恢复所有设置</button>
         <button type="button" id="btnRestoreDefaultsCancel" class="px-5 py-2.5 border border-gray-200 rounded-xl text-sm font-semibold text-gray-500 hover:bg-gray-50">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 删除模型档案二次确认 -->
+  <div id="deleteModelConfirmModal" class="fixed inset-0 bg-black/20 backdrop-blur-sm hidden items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="deleteModelConfirmModalTitle">
+    <div class="bg-white rounded-3xl shadow-warm max-w-md w-full p-8">
+      <h3 id="deleteModelConfirmModalTitle" class="text-lg font-bold text-warmText mb-2">删除模型档案</h3>
+      <p id="deleteModelConfirmMessage" class="text-sm text-gray-600 mb-6 whitespace-pre-wrap break-words"></p>
+      <div class="flex flex-wrap gap-3 justify-end">
+        <button type="button" id="btnDeleteModelConfirmCancel" class="px-5 py-2 border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50">取消</button>
+        <button type="button" id="btnDeleteModelConfirmOk" class="px-5 py-2 bg-red-500 text-white rounded-xl text-sm font-bold hover:bg-red-600">确认删除</button>
       </div>
     </div>
   </div>

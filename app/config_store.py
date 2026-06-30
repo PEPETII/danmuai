@@ -67,6 +67,32 @@ def _restrict_key_file_permissions(path: Path):
         pass
 
 
+def _migrate_custom_model_shape(entry: dict) -> dict:
+    """W-CUSTOMMODEL-SCHEMA-002: 将旧 shape（modelId 单值）迁移为新 shape（model_ids 数组 + default_model_id + max_tokens）。
+
+    迁移规则：
+    - 幂等：检测到 ``model_ids`` 已存在（list 类型）则跳过迁移，仅补齐 ``max_tokens``。
+    - 旧 ``modelId`` 字段保留不删（兼容回滚）。
+    - ``model_ids = [modelId]``（过滤空值；旧 modelId 也为空则 ``[]``）。
+    - ``default_model_id = modelId``。
+    - ``max_tokens`` 默认 512（与 ``app.main_helpers.resolve_danmu_max_output_tokens`` 下限一致）。
+
+    不写回 DB；新 shape 在下次 ``set_custom_models`` 调用时自然持久化。
+    """
+    existing = entry.get("model_ids")
+    if isinstance(existing, list):
+        # 已迁移；补齐 max_tokens（防御性）
+        if not isinstance(entry.get("max_tokens"), int):
+            entry["max_tokens"] = 512
+        return entry
+    legacy_model_id = (entry.get("modelId") or "").strip()
+    entry["model_ids"] = [legacy_model_id] if legacy_model_id else []
+    entry["default_model_id"] = legacy_model_id
+    if not isinstance(entry.get("max_tokens"), int):
+        entry["max_tokens"] = 512
+    return entry
+
+
 class ConfigStore:
     """应用配置与 API Key 的 SQLite 门面；读走内存 _cache，写持 _write_lock。"""
 
@@ -111,6 +137,10 @@ class ConfigStore:
         self._custom_models_fp: str | None = None
         # W-PERF-STARTUP-001：非关键迁移延迟到主线程空闲时执行，减少启动阻塞
         self._pending_deferred_migrations = True
+        # W-LEGACY-MIGRATE-003：启动期自动迁移 legacy API 配置到默认 custom_models 档案
+        # 必须在 _fernet / _cache / _custom_models_cache 初始化之后调用；
+        # 迁移函数自身有异常容错，不会再抛异常。
+        self._maybe_migrate_legacy_api_to_custom_models()
 
     def _migrate_legacy_image_max_width(self) -> None:
         from app.config_defaults import migrate_legacy_image_max_width
@@ -226,6 +256,11 @@ class ConfigStore:
         self.conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_custom_danmu_pool_text "
             "ON custom_danmu_pool_entries(text)"
+        )
+        # W-LEGACY-MIGRATE-003：独立 system_flags 表存一次性迁移标志位，
+        # 避免与 custom_models JSON shape 校验冲突（方案 B）。
+        self.conn.execute(
+            "CREATE TABLE IF NOT EXISTS system_flags (key TEXT PRIMARY KEY, value TEXT)"
         )
         self.conn.commit()
 
@@ -652,10 +687,15 @@ class ConfigStore:
         return stored, bool(stored) and not self._looks_like_fernet_token(stored)
 
     def get_custom_models(self) -> list:
-        """Return custom models with decrypted apiKey; upgrade legacy plaintext on read."""
+        """Return custom models with decrypted apiKey; upgrade legacy plaintext on read.
+
+        W-CUSTOMMODEL-SCHEMA-002: 同时在返回前对每条档案做 shape 迁移
+       （旧 ``modelId`` 单值 → 新 ``model_ids`` 数组 + ``default_model_id`` + ``max_tokens``）。
+        迁移幂等、不写回 DB；新 shape 在下次 ``set_custom_models`` 调用时持久化。
+        """
         raw = self.get("custom_models", "")
         if self._custom_models_cache is not None and raw == self._custom_models_fp:
-            return [dict(m) for m in self._custom_models_cache]
+            return [_migrate_custom_model_shape(dict(m)) for m in self._custom_models_cache]
 
         if not raw:
             parsed = []
@@ -685,7 +725,7 @@ class ConfigStore:
             raw = self.get("custom_models", "")
         self._custom_models_cache = result
         self._custom_models_fp = raw
-        return [dict(m) for m in self._custom_models_cache]
+        return [_migrate_custom_model_shape(dict(m)) for m in self._custom_models_cache]
 
     def set_custom_models(self, models: list):
         """Persist custom models; each apiKey is Fernet-encrypted before JSON serialization."""
@@ -888,6 +928,169 @@ class ConfigStore:
 
     def set_default_model_id(self, model_id: str):
         self.set("default_model_id", model_id)
+
+    # --- System flags (one-shot migration markers, W-LEGACY-MIGRATE-003) ---
+
+    def get_flag(self, key: str) -> str | None:
+        """Read a system flag from ``system_flags`` table; returns None if missing.
+
+        读操作不持 ``_write_lock``（WAL 模式下读不阻塞写）。close 后返回 None。
+        """
+        if not self._conn_usable():
+            return None
+        try:
+            row = self.conn.execute(
+                "SELECT value FROM system_flags WHERE key = ?", (key,)
+            ).fetchone()
+        except sqlite3.ProgrammingError:
+            return None
+        if not row:
+            return None
+        return row[0]
+
+    def set_flag(self, key: str, value: str) -> None:
+        """Write a system flag (REPLACE INTO);持 ``_write_lock`` 保证事务一致。
+
+        注意：``_write_lock`` 是非可重入 ``threading.Lock``；本方法**不能**在
+        已持 ``_write_lock`` 的临界区内调用（如 ``with_write_lock`` 内），
+        否则会自死锁。
+        """
+        if self._closed:
+            logger.warning(
+                "ConfigStore.set_flag(%s) called after close(), write skipped", key
+            )
+            return
+        with self._write_lock:
+            try:
+                self.conn.execute(
+                    "REPLACE INTO system_flags (key, value) VALUES (?, ?)",
+                    (key, value),
+                )
+                self.conn.commit()
+            except sqlite3.OperationalError as e:
+                self.conn.rollback()
+                logger.error(
+                    "set_flag failed key=%s error=%s", key, type(e).__name__
+                )
+                raise
+
+    def _maybe_migrate_legacy_api_to_custom_models(self) -> bool:
+        """W-LEGACY-MIGRATE-003: 启动期把 legacy 顶栏 API 字段迁移到默认 custom_models 档案。
+
+        触发条件（全部 AND）：
+            1. ``system_flags.legacy_api_migrated_v1`` 不为 ``"true"``
+            2. ``cfg.api_key`` 非空且非 ``MASKED_API_KEY``
+            3. ``get_custom_models()`` 返回空（无任何档案）
+
+        迁移动作：
+            - 推断 provider（``guess_provider_from_endpoint`` 失败兜底 ``custom_openai``）
+            - 推断 mode（doubao provider → ``doubao``；其他 → ``openai-compatible``）
+            - 写入一条默认档案 dict（含 model_ids / default_model_id / max_tokens）
+            - 调 ``set_default_model_selection(config, default_model_id)``
+            - 写标志位 ``legacy_api_migrated_v1 = "true"``
+
+        兜底（仅置标志位 true，不插档案、不改默认）：
+            - api_key 为空 / MASKED / 解密异常
+            - 已有 custom_models 档案（保护用户数据）
+
+        异常容错：迁移过程中任一步失败 → 不置标志位 → 下次启动重试；
+        记录 ``reason=legacy_migrate_failed`` 日志。
+
+        Returns:
+            True 表示执行了迁移或标志位已 true（无需再迁移）；
+            False 表示异常失败（下次启动重试）。
+        """
+        try:
+            # 1. 标志位已 true → 直接 return（幂等保证）
+            if self.get_flag("legacy_api_migrated_v1") == "true":
+                return True
+
+            # 2. 读取 cfg.api_key（解密可能抛异常）
+            try:
+                api_key = self.get_api_key()
+            except Exception as exc:  # noqa: BLE001 — 解密异常需兜底
+                logger.warning(
+                    "legacy api migrate skipped: api_key decrypt failed",
+                    extra={"reason": "legacy_migrate_failed", "error": str(exc)},
+                )
+                self.set_flag("legacy_api_migrated_v1", "true")
+                return True
+
+            # 3. 空 key / MASKED 兜底：仅置标志位 true
+            from app.application.config_service import MASKED_API_KEY
+
+            if not api_key or api_key == MASKED_API_KEY:
+                self.set_flag("legacy_api_migrated_v1", "true")
+                return True
+
+            # 4. 已有档案兜底：保护用户数据，仅置标志位 true
+            existing_models = self.get_custom_models()
+            if existing_models:
+                self.set_flag("legacy_api_migrated_v1", "true")
+                return True
+
+            # 5. 推断 provider（失败兜底 custom_openai）
+            from app.model_providers import guess_provider_from_endpoint
+
+            endpoint = self.get("api_endpoint", "")
+            api_mode = self.get("api_mode", "")
+            provider = (
+                guess_provider_from_endpoint(endpoint, api_mode) or "custom_openai"
+            )
+
+            # 6. 推断 mode（按 provider 简化判断）
+            mode = "doubao" if provider == "doubao" else "openai-compatible"
+
+            # 7. 构造默认档案 dict
+            cfg_model = self.get("model", "")
+            model_ids = [cfg_model] if cfg_model else []
+            default_model_id = cfg_model or ""
+            max_tokens_raw = self.get("max_tokens", "512")
+            try:
+                max_tokens_int = int(max_tokens_raw) if max_tokens_raw else 512
+            except (TypeError, ValueError):
+                max_tokens_int = 512
+
+            profile = {
+                "name": "Default (imported)",
+                "provider": provider,
+                "mode": mode,
+                "endpoint": endpoint,
+                "apiKey": api_key,
+                "model_ids": model_ids,
+                "default_model_id": default_model_id,
+                "max_tokens": max_tokens_int,
+                "supportsMic": False,
+                "description": "",
+            }
+
+            # 8. 写入档案（set_custom_models 会触发缓存失效）
+            self.set_custom_models([profile])
+
+            # 9. 调 set_default_model_selection 维护 default_model_id + legacy model 双写
+            if default_model_id:
+                from app.application.config_service import set_default_model_selection
+
+                set_default_model_selection(self, default_model_id)
+
+            # 10. 写标志位 true（幂等保证：下次启动不再迁移）
+            self.set_flag("legacy_api_migrated_v1", "true")
+
+            logger.info(
+                "legacy api migrated to default custom model profile",
+                extra={
+                    "reason": "legacy_migrate_done",
+                    "provider": provider,
+                    "model_id": default_model_id,
+                },
+            )
+            return True
+        except Exception as exc:  # noqa: BLE001 — 顶层容错，下次重试
+            logger.warning(
+                "legacy api migrate failed",
+                extra={"reason": "legacy_migrate_failed", "error": str(exc)},
+            )
+            return False
 
     def close(self):
         self._closed = True

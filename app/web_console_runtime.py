@@ -162,6 +162,7 @@ def run_uvicorn_locked(server) -> None:
                 "default_endpoint": provider.default_endpoint,
                 "mode": provider.mode,
                 "hint": provider.model_id_hint_zh,
+                "website": provider.website,
             }
             for provider in PROVIDERS
         ]

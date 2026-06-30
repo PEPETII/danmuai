@@ -163,8 +163,14 @@ def _submitted_api_key(value: Any) -> str:
 
 
 def _custom_model_identity(model: dict[str, Any]) -> tuple[str, str]:
+    # W-CUSTOMMODEL-SCHEMA-002：优先按 default_model_id 去重，保留 modelId 兜底
     return (
-        str(model.get("modelId") or model.get("model") or "").strip(),
+        str(
+            model.get("default_model_id")
+            or model.get("modelId")
+            or model.get("model")
+            or ""
+        ).strip(),
         str(model.get("name") or "").strip(),
     )
 

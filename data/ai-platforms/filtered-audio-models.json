@@ -1,0 +1,5094 @@
+{
+  "description": "语音模型筛选结果 — 包含语音转写和直接音频理解模型",
+  "generatedAt": "2026-06-29",
+  "transcriptionModels": [
+    {
+      "id": "kb-whisper-large",
+      "provider": "",
+      "modelId": "kb-whisper-large",
+      "displayName": "KB Whisper",
+      "category": "transcription",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": true,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0.00236
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 0.00236
+        }
+      },
+      "capabilities": [
+        "audio-recognition",
+        "audio-transcript"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition, audio-transcript",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "whisper-large-v3",
+      "provider": "",
+      "modelId": "whisper-large-v3",
+      "displayName": "Whisper 3 Large",
+      "category": "transcription",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": true,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0.00236
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 0.00236
+        }
+      },
+      "capabilities": [
+        "audio-recognition",
+        "audio-transcript"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition, audio-transcript",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "whisper-1",
+      "provider": "",
+      "modelId": "whisper-1",
+      "displayName": "Whisper 1",
+      "category": "transcription",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": true,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 100
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 100
+        }
+      },
+      "capabilities": [
+        "audio-transcript"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-transcript",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "whisper-large-v3-turbo",
+      "provider": "",
+      "modelId": "whisper-large-v3-turbo",
+      "displayName": "Whisper Large V3 Turbo",
+      "category": "transcription",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": true,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 5.556
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 5.556
+        }
+      },
+      "capabilities": [
+        "audio-transcript"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-transcript",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "distil-whisper-large-v3-en",
+      "provider": "",
+      "modelId": "distil-whisper-large-v3-en",
+      "displayName": "Distil Whisper Large V3 En",
+      "category": "transcription",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": true,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 5.556
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 5.556
+        }
+      },
+      "capabilities": [
+        "audio-transcript"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-transcript",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "whisper-large",
+      "provider": "",
+      "modelId": "whisper-large",
+      "displayName": "whisper-large",
+      "category": "transcription",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": true,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0.01
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 0
+        }
+      },
+      "capabilities": [
+        "audio-recognition",
+        "audio-transcript"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition, audio-transcript",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "whisper-base",
+      "provider": "",
+      "modelId": "whisper-base",
+      "displayName": "whisper-base",
+      "category": "transcription",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": false,
+      "supportsTranscription": true,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": null,
+      "capabilities": [
+        "audio-transcript"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-transcript",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gpt-4o-transcribe-diarize",
+      "provider": "openai",
+      "modelId": "gpt-4o-transcribe-diarize",
+      "displayName": "gpt-4o-transcribe-diarize",
+      "category": "transcription",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": "/audio/transcriptions",
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": true,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "inputPerMTok": 2.5,
+        "outputPerMTok": null,
+        "currency": "USD"
+      },
+      "sourceProject": "litellm",
+      "sourceFile": "model_prices_and_context_window.json",
+      "evidenceField": "mode=audio_transcription",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gpt-4o-mini-transcribe",
+      "provider": "openai",
+      "modelId": "gpt-4o-mini-transcribe",
+      "displayName": "gpt-4o-mini-transcribe",
+      "category": "transcription",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": "/audio/transcriptions",
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": true,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "inputPerMTok": 1.25,
+        "outputPerMTok": null,
+        "currency": "USD"
+      },
+      "sourceProject": "litellm",
+      "sourceFile": "model_prices_and_context_window.json",
+      "evidenceField": "mode=audio_transcription",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gpt-4o-transcribe",
+      "provider": "openai",
+      "modelId": "gpt-4o-transcribe",
+      "displayName": "gpt-4o-transcribe",
+      "category": "transcription",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": "/audio/transcriptions",
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": true,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "inputPerMTok": 2.5,
+        "outputPerMTok": null,
+        "currency": "USD"
+      },
+      "sourceProject": "litellm",
+      "sourceFile": "model_prices_and_context_window.json",
+      "evidenceField": "mode=audio_transcription",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "groq/whisper-large-v3",
+      "provider": "groq",
+      "modelId": "groq/whisper-large-v3",
+      "displayName": "groq/whisper-large-v3",
+      "category": "transcription",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": "/audio/transcriptions",
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": true,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "inputPerMTok": null,
+        "outputPerMTok": null,
+        "currency": "USD"
+      },
+      "sourceProject": "litellm",
+      "sourceFile": "model_prices_and_context_window.json",
+      "evidenceField": "mode=audio_transcription",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "groq/whisper-large-v3-turbo",
+      "provider": "groq",
+      "modelId": "groq/whisper-large-v3-turbo",
+      "displayName": "groq/whisper-large-v3-turbo",
+      "category": "transcription",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": "/audio/transcriptions",
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": true,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "inputPerMTok": null,
+        "outputPerMTok": null,
+        "currency": "USD"
+      },
+      "sourceProject": "litellm",
+      "sourceFile": "model_prices_and_context_window.json",
+      "evidenceField": "mode=audio_transcription",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "fireworks_ai/accounts/fireworks/models/fireworks-asr-large",
+      "provider": "fireworks_ai",
+      "modelId": "fireworks_ai/accounts/fireworks/models/fireworks-asr-large",
+      "displayName": "fireworks_ai/accounts/fireworks/models/fireworks-asr-large",
+      "category": "transcription",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": "/audio/transcriptions",
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": true,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "inputPerMTok": null,
+        "outputPerMTok": null,
+        "currency": "USD"
+      },
+      "sourceProject": "litellm",
+      "sourceFile": "model_prices_and_context_window.json",
+      "evidenceField": "mode=audio_transcription",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "fireworks_ai/accounts/fireworks/models/fireworks-asr-v2",
+      "provider": "fireworks_ai",
+      "modelId": "fireworks_ai/accounts/fireworks/models/fireworks-asr-v2",
+      "displayName": "fireworks_ai/accounts/fireworks/models/fireworks-asr-v2",
+      "category": "transcription",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": "/audio/transcriptions",
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": true,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "inputPerMTok": null,
+        "outputPerMTok": null,
+        "currency": "USD"
+      },
+      "sourceProject": "litellm",
+      "sourceFile": "model_prices_and_context_window.json",
+      "evidenceField": "mode=audio_transcription",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gpt-4o-mini-transcribe-2025-03-20",
+      "provider": "openai",
+      "modelId": "gpt-4o-mini-transcribe-2025-03-20",
+      "displayName": "gpt-4o-mini-transcribe-2025-03-20",
+      "category": "transcription",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": "/audio/transcriptions",
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": true,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "inputPerMTok": 1.25,
+        "outputPerMTok": null,
+        "currency": "USD"
+      },
+      "sourceProject": "litellm",
+      "sourceFile": "model_prices_and_context_window.json",
+      "evidenceField": "mode=audio_transcription",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gpt-4o-mini-transcribe-2025-12-15",
+      "provider": "openai",
+      "modelId": "gpt-4o-mini-transcribe-2025-12-15",
+      "displayName": "gpt-4o-mini-transcribe-2025-12-15",
+      "category": "transcription",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": "/audio/transcriptions",
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": true,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "inputPerMTok": 1.25,
+        "outputPerMTok": null,
+        "currency": "USD"
+      },
+      "sourceProject": "litellm",
+      "sourceFile": "model_prices_and_context_window.json",
+      "evidenceField": "mode=audio_transcription",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gpt-realtime-whisper",
+      "provider": "openai",
+      "modelId": "gpt-realtime-whisper",
+      "displayName": "gpt-realtime-whisper",
+      "category": "transcription",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": "/audio/transcriptions",
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": true,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "inputPerMTok": null,
+        "outputPerMTok": null,
+        "currency": "USD"
+      },
+      "sourceProject": "litellm",
+      "sourceFile": "model_prices_and_context_window.json",
+      "evidenceField": "mode=audio_transcription",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    }
+  ],
+  "directAudioUnderstandingModels": [
+    {
+      "id": "phi-4-multimodal-instruct",
+      "provider": "",
+      "modelId": "phi-4-multimodal-instruct",
+      "displayName": "Phi-4 15B",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0.24
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 0.47
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "reasoning",
+        "image-recognition",
+        "audio-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "voxtral-small-2507",
+      "provider": "",
+      "modelId": "voxtral-small-2507",
+      "displayName": "Voxtral Small 24B",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0.00236
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 0.00236
+        }
+      },
+      "capabilities": [
+        "audio-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gemini-3-flash-preview",
+      "provider": "",
+      "modelId": "gemini-3-flash-preview",
+      "displayName": "Gemini 3 Flash Preview",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "cacheRead": {
+          "currency": "USD",
+          "perMillionTokens": 0.05
+        },
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0.5
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 3
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "structured-output",
+        "reasoning",
+        "image-recognition",
+        "file-input",
+        "web-search",
+        "audio-recognition",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gemini-3-pro-preview",
+      "provider": "",
+      "modelId": "gemini-3-pro-preview",
+      "displayName": "Gemini 3 Pro Preview",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "cacheRead": {
+          "currency": "USD",
+          "perMillionTokens": 0.2
+        },
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 2
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 12
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "structured-output",
+        "reasoning",
+        "image-recognition",
+        "file-input",
+        "web-search",
+        "audio-recognition",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gemini-2-5-flash",
+      "provider": "",
+      "modelId": "gemini-2-5-flash",
+      "displayName": "Gemini 2.5 Flash",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "cacheRead": {
+          "currency": "USD",
+          "perMillionTokens": 0.075
+        },
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0.3
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 2.5
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "reasoning",
+        "image-recognition",
+        "file-input",
+        "web-search",
+        "audio-recognition",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gemini-2-5-pro",
+      "provider": "",
+      "modelId": "gemini-2-5-pro",
+      "displayName": "Gemini 2.5 Pro",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "cacheRead": {
+          "currency": "USD",
+          "perMillionTokens": 0.31
+        },
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 1.25
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 10
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "reasoning",
+        "image-recognition",
+        "file-input",
+        "web-search",
+        "audio-recognition",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gemini-2-0-flash-lite",
+      "provider": "",
+      "modelId": "gemini-2-0-flash-lite",
+      "displayName": "gemini-2.0-flash-lite",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "cacheRead": {
+          "currency": "USD",
+          "perMillionTokens": 0.076
+        },
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0.075
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 0.3
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "image-recognition",
+        "file-input",
+        "web-search",
+        "audio-recognition",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "qwen3-livetranslate-flash-realtime",
+      "provider": "",
+      "modelId": "qwen3-livetranslate-flash-realtime",
+      "displayName": "Qwen3-LiveTranslate Flash Realtime",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": true,
+      "pricing": {
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 10
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 10
+        }
+      },
+      "capabilities": [
+        "image-recognition",
+        "audio-recognition",
+        "audio-generation",
+        "video-recognition",
+        "function-call",
+        "reasoning"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition, audio-generation",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "qwen3-asr-flash",
+      "provider": "",
+      "modelId": "qwen3-asr-flash",
+      "displayName": "Qwen3-ASR Flash",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0.035
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 0.035
+        }
+      },
+      "capabilities": [
+        "audio-recognition",
+        "function-call",
+        "reasoning"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "qwen-omni-turbo",
+      "provider": "",
+      "modelId": "qwen-omni-turbo",
+      "displayName": "Qwen-Omni Turbo",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": true,
+      "pricing": {
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0.07
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 0.27
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "image-recognition",
+        "audio-recognition",
+        "audio-generation",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition, audio-generation",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "qwen3-omni-flash",
+      "provider": "",
+      "modelId": "qwen3-omni-flash",
+      "displayName": "Qwen3-Omni Flash",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": true,
+      "pricing": {
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0.43
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 1.66
+        }
+      },
+      "capabilities": [
+        "reasoning",
+        "function-call",
+        "image-recognition",
+        "audio-recognition",
+        "audio-generation",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition, audio-generation",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "qwen3-omni-flash-realtime",
+      "provider": "",
+      "modelId": "qwen3-omni-flash-realtime",
+      "displayName": "Qwen3-Omni Flash Realtime",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": true,
+      "pricing": {
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0.52
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 1.99
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "image-recognition",
+        "audio-recognition",
+        "audio-generation",
+        "video-recognition",
+        "reasoning"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition, audio-generation",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "qwen2-5-omni",
+      "provider": "",
+      "modelId": "qwen2-5-omni",
+      "displayName": "Qwen2.5-Omni 7B",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": true,
+      "pricing": {
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0.1
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 0.4
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "image-recognition",
+        "audio-recognition",
+        "audio-generation",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition, audio-generation",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "qwen-omni-turbo-realtime",
+      "provider": "",
+      "modelId": "qwen-omni-turbo-realtime",
+      "displayName": "Qwen-Omni Turbo Realtime",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": true,
+      "pricing": {
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0.27
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 1.07
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "image-recognition",
+        "audio-recognition",
+        "audio-generation"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition, audio-generation",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "parakeet-tdt-v2",
+      "provider": "",
+      "modelId": "parakeet-tdt-v2",
+      "displayName": "Parakeet TDT 0.6B v2",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": null,
+      "capabilities": [
+        "audio-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "phi-4-mini-instruct",
+      "provider": "",
+      "modelId": "phi-4-mini-instruct",
+      "displayName": "Phi-4-Mini",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0.08
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 0.35
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "reasoning",
+        "image-recognition",
+        "file-input",
+        "audio-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gemini-2-5-flash-preview-05-20",
+      "provider": "",
+      "modelId": "gemini-2-5-flash-preview-05-20",
+      "displayName": "gemini-2.5-flash-preview-05-20",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "cacheRead": {
+          "currency": "USD",
+          "perMillionTokens": 0.0375
+        },
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0.135
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 3.15
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "structured-output",
+        "file-input",
+        "image-recognition",
+        "audio-recognition",
+        "video-recognition",
+        "web-search",
+        "reasoning"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gemini-2-5-flash-lite",
+      "provider": "",
+      "modelId": "gemini-2-5-flash-lite",
+      "displayName": "gemini-2.5-flash-lite",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "cacheRead": {
+          "currency": "USD",
+          "perMillionTokens": 0.01
+        },
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0.09
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 0.36
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "structured-output",
+        "reasoning",
+        "image-recognition",
+        "file-input",
+        "web-search",
+        "audio-recognition",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gemini-2-5-pro-preview-06-05",
+      "provider": "",
+      "modelId": "gemini-2-5-pro-preview-06-05",
+      "displayName": "gemini-2.5-pro-preview-06-05",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "cacheRead": {
+          "currency": "USD",
+          "perMillionTokens": 0.31
+        },
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 1.125
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 9
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "structured-output",
+        "file-input",
+        "image-recognition",
+        "audio-recognition",
+        "video-recognition",
+        "web-search",
+        "reasoning"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gemini-2-5-flash-lite-preview-06-17",
+      "provider": "",
+      "modelId": "gemini-2-5-flash-lite-preview-06-17",
+      "displayName": "gemini-2.5-flash-lite-preview-06-17",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "cacheRead": {
+          "currency": "USD",
+          "perMillionTokens": 0.025
+        },
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0.09
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 0.36
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "structured-output",
+        "file-input",
+        "image-recognition",
+        "audio-recognition",
+        "video-recognition",
+        "web-search",
+        "reasoning"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gemini-2-0-flash-001",
+      "provider": "",
+      "modelId": "gemini-2-0-flash-001",
+      "displayName": "Gemini 2.0 Flash",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "cacheRead": {
+          "currency": "USD",
+          "perMillionTokens": 0.025
+        },
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0.1
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 0.4
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "image-recognition",
+        "file-input",
+        "web-search",
+        "audio-recognition",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gemini-2-0-pro-exp-02-05",
+      "provider": "",
+      "modelId": "gemini-2-0-pro-exp-02-05",
+      "displayName": "Gemini 2.0 Pro Exp",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 1.25
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 5
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "file-input",
+        "image-recognition",
+        "audio-recognition",
+        "video-recognition",
+        "web-search"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gemini-2-0-flash",
+      "provider": "",
+      "modelId": "gemini-2-0-flash",
+      "displayName": "Gemini 2.0 Flash",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "cacheRead": {
+          "currency": "USD",
+          "perMillionTokens": 0.025
+        },
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0.1
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 0.4
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "structured-output",
+        "image-recognition",
+        "file-input",
+        "web-search",
+        "audio-recognition",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "qwen3-omni-a3b",
+      "provider": "",
+      "modelId": "qwen3-omni-a3b",
+      "displayName": "Qwen3 Omni 30B A3B Thinking",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0.25
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 0.97
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "structured-output",
+        "reasoning",
+        "image-recognition",
+        "file-input",
+        "audio-recognition",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "qwen3-omni-a3b-instruct",
+      "provider": "",
+      "modelId": "qwen3-omni-a3b-instruct",
+      "displayName": "Qwen3 Omni 30B A3B Instruct",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": true,
+      "pricing": {
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0.25
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 0.97
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "structured-output",
+        "reasoning",
+        "image-recognition",
+        "file-input",
+        "audio-generation",
+        "audio-recognition",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-generation, audio-recognition",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "qwen3-omni-a3b-captioner",
+      "provider": "",
+      "modelId": "qwen3-omni-a3b-captioner",
+      "displayName": "Qwen/Qwen3-Omni-30B-A3B-Captioner",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0.1
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 0.4
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "structured-output",
+        "reasoning",
+        "image-recognition",
+        "file-input",
+        "audio-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "phi-4-multimodal",
+      "provider": "",
+      "modelId": "phi-4-multimodal",
+      "displayName": "Phi-4-multimodal",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0.08
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 0.32
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "reasoning",
+        "image-recognition",
+        "file-input",
+        "audio-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gpt-5-1-chat",
+      "provider": "",
+      "modelId": "gpt-5-1-chat",
+      "displayName": "GPT-5.1 Chat",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": true,
+      "pricing": {
+        "cacheRead": {
+          "currency": "USD",
+          "perMillionTokens": 0.125
+        },
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 1.25
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 10
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "structured-output",
+        "reasoning",
+        "image-recognition",
+        "file-input",
+        "web-search",
+        "audio-generation",
+        "audio-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-generation, audio-recognition",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gemini-3-pro",
+      "provider": "",
+      "modelId": "gemini-3-pro",
+      "displayName": "Gemini 3 Pro",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "cacheRead": {
+          "currency": "USD",
+          "perMillionTokens": 0.2
+        },
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 2
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 12
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "structured-output",
+        "reasoning",
+        "image-recognition",
+        "file-input",
+        "web-search",
+        "audio-recognition",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gemini-3-1-pro",
+      "provider": "",
+      "modelId": "gemini-3-1-pro",
+      "displayName": "Gemini 3.1 Pro Preview",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "cacheRead": {
+          "currency": "USD",
+          "perMillionTokens": 0.2
+        },
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 2
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 12
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "structured-output",
+        "reasoning",
+        "image-recognition",
+        "file-input",
+        "audio-recognition",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gemini-flash-lite-latest",
+      "provider": "",
+      "modelId": "gemini-flash-lite-latest",
+      "displayName": "Gemini Flash-Lite Latest",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "cacheRead": {
+          "currency": "USD",
+          "perMillionTokens": 0.025
+        },
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0.1
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 0.4
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "structured-output",
+        "reasoning",
+        "image-recognition",
+        "file-input",
+        "audio-recognition",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gemini-flash-latest",
+      "provider": "",
+      "modelId": "gemini-flash-latest",
+      "displayName": "Gemini Flash Latest",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "cacheRead": {
+          "currency": "USD",
+          "perMillionTokens": 0.075
+        },
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0.3
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 2.5
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "structured-output",
+        "reasoning",
+        "image-recognition",
+        "file-input",
+        "audio-recognition",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gemini-2-5-pro-preview-05-06",
+      "provider": "",
+      "modelId": "gemini-2-5-pro-preview-05-06",
+      "displayName": "Gemini 2.5 Pro Preview 05-06",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "cacheRead": {
+          "currency": "USD",
+          "perMillionTokens": 0.31
+        },
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 1.25
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 10
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "structured-output",
+        "reasoning",
+        "image-recognition",
+        "file-input",
+        "web-search",
+        "audio-recognition",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gemini-live-2-5-flash-preview-native-audio",
+      "provider": "",
+      "modelId": "gemini-live-2-5-flash-preview-native-audio",
+      "displayName": "Gemini Live 2.5 Flash Preview Native Audio",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": true,
+      "pricing": {
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0.5
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 2
+        }
+      },
+      "capabilities": [
+        "reasoning",
+        "function-call",
+        "audio-recognition",
+        "audio-generation",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition, audio-generation",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gemini-3-1-pro-preview-customtools",
+      "provider": "",
+      "modelId": "gemini-3-1-pro-preview-customtools",
+      "displayName": "Gemini 3.1 Pro Preview Custom Tools",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "cacheRead": {
+          "currency": "USD",
+          "perMillionTokens": 0.2
+        },
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 2
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 12
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "structured-output",
+        "reasoning",
+        "image-recognition",
+        "file-input",
+        "audio-recognition",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gemini-live-2-5-flash",
+      "provider": "",
+      "modelId": "gemini-live-2-5-flash",
+      "displayName": "Gemini Live 2.5 Flash",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": true,
+      "pricing": {
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0.5
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 2
+        }
+      },
+      "capabilities": [
+        "reasoning",
+        "function-call",
+        "file-input",
+        "image-recognition",
+        "audio-recognition",
+        "audio-generation",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition, audio-generation",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gemini-2-5-flash-preview-04-17",
+      "provider": "",
+      "modelId": "gemini-2-5-flash-preview-04-17",
+      "displayName": "Gemini 2.5 Flash Preview 04-17",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "cacheRead": {
+          "currency": "USD",
+          "perMillionTokens": 0.0375
+        },
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0.15
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 0.6
+        }
+      },
+      "capabilities": [
+        "reasoning",
+        "function-call",
+        "file-input",
+        "image-recognition",
+        "audio-recognition",
+        "video-recognition",
+        "web-search"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gemini-1-5-flash",
+      "provider": "",
+      "modelId": "gemini-1-5-flash",
+      "displayName": "Gemini 1.5 Flash",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "cacheRead": {
+          "currency": "USD",
+          "perMillionTokens": 0.01875
+        },
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0.075
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 0.3
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "file-input",
+        "image-recognition",
+        "audio-recognition",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gemini-1-5-pro",
+      "provider": "",
+      "modelId": "gemini-1-5-pro",
+      "displayName": "Gemini 1.5 Pro",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "cacheRead": {
+          "currency": "USD",
+          "perMillionTokens": 0.3125
+        },
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 1.25
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 5
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "file-input",
+        "image-recognition",
+        "audio-recognition",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gemini-2-5-pro-preview",
+      "provider": "",
+      "modelId": "gemini-2-5-pro-preview",
+      "displayName": "Google: Gemini 2.5 Pro Preview 06-05",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "cacheRead": {
+          "currency": "USD",
+          "perMillionTokens": 0.125
+        },
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 1.25
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 10
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "reasoning",
+        "image-recognition",
+        "file-input",
+        "web-search",
+        "audio-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gemini-2-0-flash-lite-001",
+      "provider": "",
+      "modelId": "gemini-2-0-flash-lite-001",
+      "displayName": "Google: Gemini 2.0 Flash Lite",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "cacheRead": {
+          "currency": "USD",
+          "perMillionTokens": 0.076
+        },
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0.075
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 0.3
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "image-recognition",
+        "file-input",
+        "web-search",
+        "audio-recognition",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gemini-3-0-flash-preview",
+      "provider": "",
+      "modelId": "gemini-3-0-flash-preview",
+      "displayName": "Gemini 3.0 Flash Preview",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": null,
+      "capabilities": [
+        "reasoning",
+        "function-call",
+        "file-input",
+        "image-recognition",
+        "audio-recognition",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gemini-3-0-pro-preview",
+      "provider": "",
+      "modelId": "gemini-3-0-pro-preview",
+      "displayName": "Gemini 3.0 Pro Preview",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": null,
+      "capabilities": [
+        "reasoning",
+        "function-call",
+        "file-input",
+        "image-recognition",
+        "audio-recognition",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "qwen-vl-max-2025-01-25",
+      "provider": "",
+      "modelId": "qwen-vl-max-2025-01-25",
+      "displayName": "Qwen VL-MAX-2025-01-25",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": null,
+      "capabilities": [
+        "function-call",
+        "file-input",
+        "image-recognition",
+        "audio-recognition",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "mistral.voxtral-small-2507",
+      "provider": "",
+      "modelId": "mistral.voxtral-small-2507",
+      "displayName": "Voxtral Small 24B 2507",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0.15
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 0.35
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "file-input",
+        "audio-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "mistral.voxtral-mini-2507",
+      "provider": "",
+      "modelId": "mistral.voxtral-mini-2507",
+      "displayName": "Voxtral Mini 3B 2507",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0.04
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 0.04
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "audio-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gpt-4o-audio-preview",
+      "provider": "",
+      "modelId": "gpt-4o-audio-preview",
+      "displayName": "OpenAI: GPT-4o Audio",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": true,
+      "pricing": {
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 2.5
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 10
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "structured-output",
+        "image-recognition",
+        "web-search",
+        "audio-generation",
+        "audio-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-generation, audio-recognition",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gpt-audio",
+      "provider": "",
+      "modelId": "gpt-audio",
+      "displayName": "OpenAI: GPT Audio",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": true,
+      "pricing": {
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 2.5
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 10
+        }
+      },
+      "capabilities": [
+        "structured-output",
+        "audio-generation",
+        "audio-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-generation, audio-recognition",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gpt-audio-mini",
+      "provider": "",
+      "modelId": "gpt-audio-mini",
+      "displayName": "OpenAI: GPT Audio Mini",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": true,
+      "pricing": {
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0.6
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 2.4
+        }
+      },
+      "capabilities": [
+        "structured-output",
+        "audio-generation",
+        "audio-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-generation, audio-recognition",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gemini-2-0-flash-lite-preview",
+      "provider": "",
+      "modelId": "gemini-2-0-flash-lite-preview",
+      "displayName": "gemini-2-0-flash-lite-preview",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0.052
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 0.21
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "image-recognition",
+        "file-input",
+        "web-search",
+        "audio-recognition",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gemini-3-1-flash-lite",
+      "provider": "",
+      "modelId": "gemini-3-1-flash-lite",
+      "displayName": "Gemini 3.1 Flash Lite",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "cacheRead": {
+          "currency": "USD",
+          "perMillionTokens": 0.025
+        },
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0.25
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 1.5
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "structured-output",
+        "reasoning",
+        "image-recognition",
+        "audio-recognition",
+        "file-input",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "nemotron-3-nano-omni-30b-a3b-reasoning",
+      "provider": "",
+      "modelId": "nemotron-3-nano-omni-30b-a3b-reasoning",
+      "displayName": "Nemotron 3 Nano Omni",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 0
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "structured-output",
+        "reasoning",
+        "image-recognition",
+        "file-input",
+        "audio-recognition",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "nemotron-voicechat",
+      "provider": "",
+      "modelId": "nemotron-voicechat",
+      "displayName": "nemotron-voicechat",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 0
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "file-input",
+        "audio-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "mimo-v2-omni",
+      "provider": "",
+      "modelId": "mimo-v2-omni",
+      "displayName": "MiMo V2 Omni",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0.4
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 2
+        },
+        "cacheRead": {
+          "currency": "USD",
+          "perMillionTokens": 0.08
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "reasoning",
+        "image-recognition",
+        "file-input",
+        "audio-recognition",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gpt-4o-audio-preview-2024-12-17",
+      "provider": "openai",
+      "modelId": "gpt-4o-audio-preview-2024-12-17",
+      "displayName": "gpt-4o-audio-preview-2024-12-17",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "inputPerMTok": 2.5,
+        "outputPerMTok": 10.0,
+        "currency": "USD"
+      },
+      "contextWindow": 144384,
+      "sourceProject": "litellm",
+      "sourceFile": "model_prices_and_context_window.json",
+      "evidenceField": "supports_audio_input=true, mode=chat",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gpt-4o-audio-preview-2025-06-03",
+      "provider": "openai",
+      "modelId": "gpt-4o-audio-preview-2025-06-03",
+      "displayName": "gpt-4o-audio-preview-2025-06-03",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "inputPerMTok": 2.5,
+        "outputPerMTok": 10.0,
+        "currency": "USD"
+      },
+      "contextWindow": 144384,
+      "sourceProject": "litellm",
+      "sourceFile": "model_prices_and_context_window.json",
+      "evidenceField": "supports_audio_input=true, mode=chat",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gpt-audio-1.5",
+      "provider": "openai",
+      "modelId": "gpt-audio-1.5",
+      "displayName": "gpt-audio-1.5",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "inputPerMTok": 2.5,
+        "outputPerMTok": 10.0,
+        "currency": "USD"
+      },
+      "contextWindow": 144384,
+      "sourceProject": "litellm",
+      "sourceFile": "model_prices_and_context_window.json",
+      "evidenceField": "supports_audio_input=true, mode=chat",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gpt-audio-2025-08-28",
+      "provider": "openai",
+      "modelId": "gpt-audio-2025-08-28",
+      "displayName": "gpt-audio-2025-08-28",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "inputPerMTok": 2.5,
+        "outputPerMTok": 10.0,
+        "currency": "USD"
+      },
+      "contextWindow": 144384,
+      "sourceProject": "litellm",
+      "sourceFile": "model_prices_and_context_window.json",
+      "evidenceField": "supports_audio_input=true, mode=chat",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gpt-audio-mini-2025-10-06",
+      "provider": "openai",
+      "modelId": "gpt-audio-mini-2025-10-06",
+      "displayName": "gpt-audio-mini-2025-10-06",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "inputPerMTok": 0.6,
+        "outputPerMTok": 2.4,
+        "currency": "USD"
+      },
+      "contextWindow": 144384,
+      "sourceProject": "litellm",
+      "sourceFile": "model_prices_and_context_window.json",
+      "evidenceField": "supports_audio_input=true, mode=chat",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gpt-audio-mini-2025-12-15",
+      "provider": "openai",
+      "modelId": "gpt-audio-mini-2025-12-15",
+      "displayName": "gpt-audio-mini-2025-12-15",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "inputPerMTok": 0.6,
+        "outputPerMTok": 2.4,
+        "currency": "USD"
+      },
+      "contextWindow": 144384,
+      "sourceProject": "litellm",
+      "sourceFile": "model_prices_and_context_window.json",
+      "evidenceField": "supports_audio_input=true, mode=chat",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gpt-4o-mini-audio-preview",
+      "provider": "openai",
+      "modelId": "gpt-4o-mini-audio-preview",
+      "displayName": "gpt-4o-mini-audio-preview",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "inputPerMTok": 0.15,
+        "outputPerMTok": 0.6,
+        "currency": "USD"
+      },
+      "contextWindow": 144384,
+      "sourceProject": "litellm",
+      "sourceFile": "model_prices_and_context_window.json",
+      "evidenceField": "supports_audio_input=true, mode=chat",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gpt-4o-mini-audio-preview-2024-12-17",
+      "provider": "openai",
+      "modelId": "gpt-4o-mini-audio-preview-2024-12-17",
+      "displayName": "gpt-4o-mini-audio-preview-2024-12-17",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "inputPerMTok": 0.15,
+        "outputPerMTok": 0.6,
+        "currency": "USD"
+      },
+      "contextWindow": 144384,
+      "sourceProject": "litellm",
+      "sourceFile": "model_prices_and_context_window.json",
+      "evidenceField": "supports_audio_input=true, mode=chat",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gpt-4o-mini-realtime-preview",
+      "provider": "openai",
+      "modelId": "gpt-4o-mini-realtime-preview",
+      "displayName": "gpt-4o-mini-realtime-preview",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "inputPerMTok": 0.6,
+        "outputPerMTok": 2.4,
+        "currency": "USD"
+      },
+      "contextWindow": 132096,
+      "sourceProject": "litellm",
+      "sourceFile": "model_prices_and_context_window.json",
+      "evidenceField": "supports_audio_input=true, mode=chat",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gpt-4o-mini-realtime-preview-2024-12-17",
+      "provider": "openai",
+      "modelId": "gpt-4o-mini-realtime-preview-2024-12-17",
+      "displayName": "gpt-4o-mini-realtime-preview-2024-12-17",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "inputPerMTok": 0.6,
+        "outputPerMTok": 2.4,
+        "currency": "USD"
+      },
+      "contextWindow": 132096,
+      "sourceProject": "litellm",
+      "sourceFile": "model_prices_and_context_window.json",
+      "evidenceField": "supports_audio_input=true, mode=chat",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gpt-4o-realtime-preview",
+      "provider": "openai",
+      "modelId": "gpt-4o-realtime-preview",
+      "displayName": "gpt-4o-realtime-preview",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "inputPerMTok": 5.0,
+        "outputPerMTok": 20.0,
+        "currency": "USD"
+      },
+      "contextWindow": 132096,
+      "sourceProject": "litellm",
+      "sourceFile": "model_prices_and_context_window.json",
+      "evidenceField": "supports_audio_input=true, mode=chat",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gpt-4o-realtime-preview-2024-12-17",
+      "provider": "openai",
+      "modelId": "gpt-4o-realtime-preview-2024-12-17",
+      "displayName": "gpt-4o-realtime-preview-2024-12-17",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "inputPerMTok": 5.0,
+        "outputPerMTok": 20.0,
+        "currency": "USD"
+      },
+      "contextWindow": 132096,
+      "sourceProject": "litellm",
+      "sourceFile": "model_prices_and_context_window.json",
+      "evidenceField": "supports_audio_input=true, mode=chat",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gpt-4o-realtime-preview-2025-06-03",
+      "provider": "openai",
+      "modelId": "gpt-4o-realtime-preview-2025-06-03",
+      "displayName": "gpt-4o-realtime-preview-2025-06-03",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "inputPerMTok": 5.0,
+        "outputPerMTok": 20.0,
+        "currency": "USD"
+      },
+      "contextWindow": 132096,
+      "sourceProject": "litellm",
+      "sourceFile": "model_prices_and_context_window.json",
+      "evidenceField": "supports_audio_input=true, mode=chat",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gpt-realtime",
+      "provider": "openai",
+      "modelId": "gpt-realtime",
+      "displayName": "gpt-realtime",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "inputPerMTok": 4.0,
+        "outputPerMTok": 16.0,
+        "currency": "USD"
+      },
+      "contextWindow": 36096,
+      "sourceProject": "litellm",
+      "sourceFile": "model_prices_and_context_window.json",
+      "evidenceField": "supports_audio_input=true, mode=chat",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gpt-realtime-1.5",
+      "provider": "openai",
+      "modelId": "gpt-realtime-1.5",
+      "displayName": "gpt-realtime-1.5",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "inputPerMTok": 4.0,
+        "outputPerMTok": 16.0,
+        "currency": "USD"
+      },
+      "contextWindow": 36096,
+      "sourceProject": "litellm",
+      "sourceFile": "model_prices_and_context_window.json",
+      "evidenceField": "supports_audio_input=true, mode=chat",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gpt-realtime-2",
+      "provider": "openai",
+      "modelId": "gpt-realtime-2",
+      "displayName": "gpt-realtime-2",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "inputPerMTok": 4.0,
+        "outputPerMTok": 16.0,
+        "currency": "USD"
+      },
+      "contextWindow": 36096,
+      "sourceProject": "litellm",
+      "sourceFile": "model_prices_and_context_window.json",
+      "evidenceField": "supports_audio_input=true, mode=chat",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gpt-realtime-mini",
+      "provider": "openai",
+      "modelId": "gpt-realtime-mini",
+      "displayName": "gpt-realtime-mini",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "inputPerMTok": 0.6,
+        "outputPerMTok": 2.4,
+        "currency": "USD"
+      },
+      "contextWindow": 132096,
+      "sourceProject": "litellm",
+      "sourceFile": "model_prices_and_context_window.json",
+      "evidenceField": "supports_audio_input=true, mode=chat",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gpt-realtime-2025-08-28",
+      "provider": "openai",
+      "modelId": "gpt-realtime-2025-08-28",
+      "displayName": "gpt-realtime-2025-08-28",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "inputPerMTok": 4.0,
+        "outputPerMTok": 16.0,
+        "currency": "USD"
+      },
+      "contextWindow": 36096,
+      "sourceProject": "litellm",
+      "sourceFile": "model_prices_and_context_window.json",
+      "evidenceField": "supports_audio_input=true, mode=chat",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "openrouter/google/gemini-3-pro-preview",
+      "provider": "openrouter",
+      "modelId": "openrouter/google/gemini-3-pro-preview",
+      "displayName": "openrouter/google/gemini-3-pro-preview",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openrouter",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openrouter",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "inputPerMTok": 2.0,
+        "outputPerMTok": 12.0,
+        "currency": "USD"
+      },
+      "contextWindow": 1114111,
+      "sourceProject": "litellm",
+      "sourceFile": "model_prices_and_context_window.json",
+      "evidenceField": "supports_audio_input=true, mode=chat",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "openrouter/google/gemini-3.1-flash-lite-preview",
+      "provider": "openrouter",
+      "modelId": "openrouter/google/gemini-3.1-flash-lite-preview",
+      "displayName": "openrouter/google/gemini-3.1-flash-lite-preview",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openrouter",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openrouter",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "inputPerMTok": 0.25,
+        "outputPerMTok": 1.5,
+        "currency": "USD"
+      },
+      "contextWindow": 1114112,
+      "sourceProject": "litellm",
+      "sourceFile": "model_prices_and_context_window.json",
+      "evidenceField": "supports_audio_input=true, mode=chat",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "openrouter/google/gemini-3.1-flash-lite",
+      "provider": "openrouter",
+      "modelId": "openrouter/google/gemini-3.1-flash-lite",
+      "displayName": "openrouter/google/gemini-3.1-flash-lite",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openrouter",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openrouter",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "inputPerMTok": 0.25,
+        "outputPerMTok": 1.5,
+        "currency": "USD"
+      },
+      "contextWindow": 1114112,
+      "sourceProject": "litellm",
+      "sourceFile": "model_prices_and_context_window.json",
+      "evidenceField": "supports_audio_input=true, mode=chat",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "openrouter/google/gemini-3.1-pro-preview",
+      "provider": "openrouter",
+      "modelId": "openrouter/google/gemini-3.1-pro-preview",
+      "displayName": "openrouter/google/gemini-3.1-pro-preview",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openrouter",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openrouter",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "inputPerMTok": 2.0,
+        "outputPerMTok": 12.0,
+        "currency": "USD"
+      },
+      "contextWindow": 1114112,
+      "sourceProject": "litellm",
+      "sourceFile": "model_prices_and_context_window.json",
+      "evidenceField": "supports_audio_input=true, mode=chat",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "openrouter/xiaomi/mimo-v2.5",
+      "provider": "openrouter",
+      "modelId": "openrouter/xiaomi/mimo-v2.5",
+      "displayName": "openrouter/xiaomi/mimo-v2.5",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openrouter",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openrouter",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "inputPerMTok": 0.4,
+        "outputPerMTok": 2.0,
+        "currency": "USD"
+      },
+      "contextWindow": 1179648,
+      "sourceProject": "litellm",
+      "sourceFile": "model_prices_and_context_window.json",
+      "evidenceField": "supports_audio_input=true, mode=chat",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "openrouter/openrouter/auto",
+      "provider": "openrouter",
+      "modelId": "openrouter/openrouter/auto",
+      "displayName": "openrouter/openrouter/auto",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openrouter",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openrouter",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "inputPerMTok": null,
+        "outputPerMTok": null,
+        "currency": "USD"
+      },
+      "contextWindow": 2000000,
+      "sourceProject": "litellm",
+      "sourceFile": "model_prices_and_context_window.json",
+      "evidenceField": "supports_audio_input=true, mode=chat",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "xai/grok-4-1-fast",
+      "provider": "xai",
+      "modelId": "xai/grok-4-1-fast",
+      "displayName": "xai/grok-4-1-fast",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "inputPerMTok": 0.2,
+        "outputPerMTok": 0.5,
+        "currency": "USD"
+      },
+      "contextWindow": 4000000.0,
+      "sourceProject": "litellm",
+      "sourceFile": "model_prices_and_context_window.json",
+      "evidenceField": "supports_audio_input=true, mode=chat",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "xai/grok-4-1-fast-reasoning",
+      "provider": "xai",
+      "modelId": "xai/grok-4-1-fast-reasoning",
+      "displayName": "xai/grok-4-1-fast-reasoning",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "inputPerMTok": 0.2,
+        "outputPerMTok": 0.5,
+        "currency": "USD"
+      },
+      "contextWindow": 4000000.0,
+      "sourceProject": "litellm",
+      "sourceFile": "model_prices_and_context_window.json",
+      "evidenceField": "supports_audio_input=true, mode=chat",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "xai/grok-4-1-fast-reasoning-latest",
+      "provider": "xai",
+      "modelId": "xai/grok-4-1-fast-reasoning-latest",
+      "displayName": "xai/grok-4-1-fast-reasoning-latest",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "inputPerMTok": 0.2,
+        "outputPerMTok": 0.5,
+        "currency": "USD"
+      },
+      "contextWindow": 4000000.0,
+      "sourceProject": "litellm",
+      "sourceFile": "model_prices_and_context_window.json",
+      "evidenceField": "supports_audio_input=true, mode=chat",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "xai/grok-4-1-fast-non-reasoning",
+      "provider": "xai",
+      "modelId": "xai/grok-4-1-fast-non-reasoning",
+      "displayName": "xai/grok-4-1-fast-non-reasoning",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "inputPerMTok": 0.2,
+        "outputPerMTok": 0.5,
+        "currency": "USD"
+      },
+      "contextWindow": 4000000.0,
+      "sourceProject": "litellm",
+      "sourceFile": "model_prices_and_context_window.json",
+      "evidenceField": "supports_audio_input=true, mode=chat",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "xai/grok-4-1-fast-non-reasoning-latest",
+      "provider": "xai",
+      "modelId": "xai/grok-4-1-fast-non-reasoning-latest",
+      "displayName": "xai/grok-4-1-fast-non-reasoning-latest",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "inputPerMTok": 0.2,
+        "outputPerMTok": 0.5,
+        "currency": "USD"
+      },
+      "contextWindow": 4000000.0,
+      "sourceProject": "litellm",
+      "sourceFile": "model_prices_and_context_window.json",
+      "evidenceField": "supports_audio_input=true, mode=chat",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gpt-realtime-mini-2025-10-06",
+      "provider": "openai",
+      "modelId": "gpt-realtime-mini-2025-10-06",
+      "displayName": "gpt-realtime-mini-2025-10-06",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "inputPerMTok": 0.6,
+        "outputPerMTok": 2.4,
+        "currency": "USD"
+      },
+      "contextWindow": 132096,
+      "sourceProject": "litellm",
+      "sourceFile": "model_prices_and_context_window.json",
+      "evidenceField": "supports_audio_input=true, mode=chat",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gpt-realtime-mini-2025-12-15",
+      "provider": "openai",
+      "modelId": "gpt-realtime-mini-2025-12-15",
+      "displayName": "gpt-realtime-mini-2025-12-15",
+      "category": "directAudioUnderstanding",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "inputPerMTok": 0.6,
+        "outputPerMTok": 2.4,
+        "currency": "USD"
+      },
+      "contextWindow": 132096,
+      "sourceProject": "litellm",
+      "sourceFile": "model_prices_and_context_window.json",
+      "evidenceField": "supports_audio_input=true, mode=chat",
+      "confidence": "high",
+      "status": "candidate",
+      "notes": ""
+    }
+  ],
+  "needsReviewAudioModels": [
+    {
+      "id": "gpt-5",
+      "provider": "",
+      "modelId": "gpt-5",
+      "displayName": "GPT-5",
+      "category": "needsReview",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": true,
+      "pricing": {
+        "cacheRead": {
+          "currency": "USD",
+          "perMillionTokens": 0.13
+        },
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 1.25
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 10
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "structured-output",
+        "reasoning",
+        "image-recognition",
+        "file-input",
+        "web-search",
+        "image-generation",
+        "audio-generation",
+        "audio-recognition",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-generation, audio-recognition",
+      "confidence": "medium",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gemini-2-5-flash-lite-preview-09-2025",
+      "provider": "",
+      "modelId": "gemini-2-5-flash-lite-preview-09-2025",
+      "displayName": "gemini-2.5-flash-lite-preview-09-2025",
+      "category": "needsReview",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "cacheRead": {
+          "currency": "USD",
+          "perMillionTokens": 0.01
+        },
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0.1
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 0.4
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "reasoning",
+        "image-recognition",
+        "file-input",
+        "web-search",
+        "audio-recognition",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition",
+      "confidence": "medium",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "qwen3-5-a17b",
+      "provider": "",
+      "modelId": "qwen3-5-a17b",
+      "displayName": "Qwen3.5 397B-A17B",
+      "category": "needsReview",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "cacheRead": {
+          "currency": "USD",
+          "perMillionTokens": 0.15
+        },
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0.6
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 3.6
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "reasoning",
+        "image-recognition",
+        "file-input",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: ",
+      "confidence": "medium",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "llama-3-2-vision-instruct",
+      "provider": "",
+      "modelId": "llama-3-2-vision-instruct",
+      "displayName": "Llama 3.2 11b Vision Instruct",
+      "category": "needsReview",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "cacheRead": {
+          "currency": "USD",
+          "perMillionTokens": 0.175
+        },
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0.37
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 0.37
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "structured-output",
+        "reasoning",
+        "image-recognition",
+        "file-input",
+        "audio-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition",
+      "confidence": "medium",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gemini-3-1-pro-preview",
+      "provider": "",
+      "modelId": "gemini-3-1-pro-preview",
+      "displayName": "Gemini 3.1 Pro Preview",
+      "category": "needsReview",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "cacheRead": {
+          "currency": "USD",
+          "perMillionTokens": 0.5
+        },
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 2.5
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 15
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "structured-output",
+        "reasoning",
+        "image-recognition",
+        "file-input"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: ",
+      "confidence": "medium",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gpt-4o-2024-11-20",
+      "provider": "",
+      "modelId": "gpt-4o-2024-11-20",
+      "displayName": "GPT-4o (2024-11-20)",
+      "category": "needsReview",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "cacheRead": {
+          "currency": "USD",
+          "perMillionTokens": 1.25
+        },
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 2.5
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 10
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "structured-output",
+        "image-recognition",
+        "file-input",
+        "web-search",
+        "audio-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition",
+      "confidence": "medium",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gemini-2-5-flash-preview-tts",
+      "provider": "",
+      "modelId": "gemini-2-5-flash-preview-tts",
+      "displayName": "Gemini 2.5 Flash Preview TTS",
+      "category": "needsReview",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": true,
+      "pricing": {
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0.5
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 10
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "reasoning",
+        "image-recognition",
+        "file-input",
+        "web-search",
+        "audio-generation",
+        "audio-recognition",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-generation, audio-recognition",
+      "confidence": "medium",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gemini-2-5-pro-preview-tts",
+      "provider": "",
+      "modelId": "gemini-2-5-pro-preview-tts",
+      "displayName": "Gemini 2.5 Pro Preview TTS",
+      "category": "needsReview",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": true,
+      "pricing": {
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 1
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 20
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "reasoning",
+        "image-recognition",
+        "file-input",
+        "web-search",
+        "audio-generation",
+        "audio-recognition",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-generation, audio-recognition",
+      "confidence": "medium",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "auto",
+      "provider": "",
+      "modelId": "auto",
+      "displayName": "Kilo: Auto",
+      "category": "needsReview",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 1
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 1
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "reasoning",
+        "image-recognition",
+        "file-input",
+        "image-generation",
+        "audio-recognition",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition",
+      "confidence": "medium",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gpt-4o-mini-audio-preview",
+      "provider": "",
+      "modelId": "gpt-4o-mini-audio-preview",
+      "displayName": "GPT 4o Mini Audio Preview",
+      "category": "needsReview",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0.15
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 0.6
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "image-recognition",
+        "web-search"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: ",
+      "confidence": "medium",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gpt-4o-mini-tts",
+      "provider": "",
+      "modelId": "gpt-4o-mini-tts",
+      "displayName": "GPT 4o Mini TTS",
+      "category": "needsReview",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "cacheRead": {
+          "currency": "USD",
+          "perMillionTokens": 0.6
+        },
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0.6
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 12
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "image-recognition",
+        "file-input",
+        "web-search"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: ",
+      "confidence": "medium",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gemini-2-0-flash-thinking-exp-01-21",
+      "provider": "",
+      "modelId": "gemini-2-0-flash-thinking-exp-01-21",
+      "displayName": "Gemini 2 0 Flash Thinking Exp 01 21",
+      "category": "needsReview",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0.076
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 0.304
+        }
+      },
+      "capabilities": [
+        "reasoning",
+        "function-call",
+        "image-recognition",
+        "web-search"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: ",
+      "confidence": "medium",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "veo3",
+      "provider": "",
+      "modelId": "veo3",
+      "displayName": "Veo3",
+      "category": "needsReview",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 2
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 2
+        }
+      },
+      "capabilities": [
+        "video-generation"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: ",
+      "confidence": "medium",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gemini-2-5-pro-exp-03-25",
+      "provider": "",
+      "modelId": "gemini-2-5-pro-exp-03-25",
+      "displayName": "Gemini 2 5 Pro Exp 03 25",
+      "category": "needsReview",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "cacheRead": {
+          "currency": "USD",
+          "perMillionTokens": 0.125
+        },
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 1.25
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 5
+        }
+      },
+      "capabilities": [
+        "structured-output",
+        "function-call",
+        "reasoning",
+        "image-recognition",
+        "web-search"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: ",
+      "confidence": "medium",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "llama-3-2-vision-preview",
+      "provider": "",
+      "modelId": "llama-3-2-vision-preview",
+      "displayName": "Llama 3 2 Vision Preview",
+      "category": "needsReview",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0.2
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 0.2
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "reasoning",
+        "image-recognition",
+        "audio-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition",
+      "confidence": "medium",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "llama-3-2-vision",
+      "provider": "",
+      "modelId": "llama-3-2-vision",
+      "displayName": "Llama 3 2 Vision",
+      "category": "needsReview",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0.4
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 0.4
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "reasoning",
+        "image-recognition",
+        "audio-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: audio-recognition",
+      "confidence": "medium",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "qwen3-5",
+      "provider": "",
+      "modelId": "qwen3-5",
+      "displayName": "Qwen3.5-27B",
+      "category": "needsReview",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "input": {
+          "currency": "CNY",
+          "perMillionTokens": 1.8
+        },
+        "output": {
+          "currency": "CNY",
+          "perMillionTokens": 14.4
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "structured-output",
+        "reasoning",
+        "image-recognition",
+        "file-input",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: ",
+      "confidence": "medium",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "qwen3-5-a10b",
+      "provider": "",
+      "modelId": "qwen3-5-a10b",
+      "displayName": "Qwen3.5-122B-A10B",
+      "category": "needsReview",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "input": {
+          "currency": "CNY",
+          "perMillionTokens": 2
+        },
+        "output": {
+          "currency": "CNY",
+          "perMillionTokens": 16
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "structured-output",
+        "reasoning",
+        "image-recognition",
+        "file-input",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: ",
+      "confidence": "medium",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "qwen3-5-a3b",
+      "provider": "",
+      "modelId": "qwen3-5-a3b",
+      "displayName": "Qwen3.5-35B-A3B",
+      "category": "needsReview",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "input": {
+          "currency": "CNY",
+          "perMillionTokens": 1.6
+        },
+        "output": {
+          "currency": "CNY",
+          "perMillionTokens": 12.8
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "structured-output",
+        "reasoning",
+        "image-recognition",
+        "file-input",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: ",
+      "confidence": "medium",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gemini-3-1-flash-lite-preview",
+      "provider": "",
+      "modelId": "gemini-3-1-flash-lite-preview",
+      "displayName": "Google: Gemini 3.1 Flash Lite Preview",
+      "category": "needsReview",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "cacheRead": {
+          "currency": "USD",
+          "perMillionTokens": 0.024999999999999998
+        },
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0.25
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 1.5
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "structured-output",
+        "reasoning",
+        "image-recognition",
+        "file-input"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: ",
+      "confidence": "medium",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "gemini-3-5-flash",
+      "provider": "",
+      "modelId": "gemini-3-5-flash",
+      "displayName": "Gemini 3.5 Flash",
+      "category": "needsReview",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 1.5
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 9
+        },
+        "cacheRead": {
+          "currency": "USD",
+          "perMillionTokens": 0.15
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "structured-output",
+        "reasoning",
+        "image-recognition",
+        "file-input"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: ",
+      "confidence": "medium",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "mimo-v2-5",
+      "provider": "",
+      "modelId": "mimo-v2-5",
+      "displayName": "MiMo M2.5",
+      "category": "needsReview",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0.14
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 0.28
+        },
+        "cacheRead": {
+          "currency": "USD",
+          "perMillionTokens": 0.0028
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "reasoning",
+        "image-recognition",
+        "file-input"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: ",
+      "confidence": "medium",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "qwen3-6-35b-a3b",
+      "provider": "",
+      "modelId": "qwen3-6-35b-a3b",
+      "displayName": "Qwen3.6 35B A3B",
+      "category": "needsReview",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0.29
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 1.15
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "reasoning",
+        "image-recognition",
+        "file-input"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: ",
+      "confidence": "medium",
+      "status": "candidate",
+      "notes": ""
+    },
+    {
+      "id": "qwen3-6-27b",
+      "provider": "",
+      "modelId": "qwen3-6-27b",
+      "displayName": "Qwen 3.6 27B",
+      "category": "needsReview",
+      "accessModes": {
+        "protocol": "openai-compatible",
+        "authStyle": "bearer",
+        "baseUrl": null
+      },
+      "protocol": "openai-compatible",
+      "endpointPath": null,
+      "baseUrl": null,
+      "supportsAudioInput": true,
+      "supportsTranscription": false,
+      "supportsStreaming": null,
+      "isTTS": false,
+      "isAudioGeneration": false,
+      "pricing": {
+        "input": {
+          "currency": "USD",
+          "perMillionTokens": 0.6
+        },
+        "output": {
+          "currency": "USD",
+          "perMillionTokens": 3.6
+        }
+      },
+      "capabilities": [
+        "function-call",
+        "structured-output",
+        "reasoning",
+        "image-recognition",
+        "file-input"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "packages/provider-registry/data/models.json",
+      "evidenceField": "capabilities: ",
+      "confidence": "medium",
+      "status": "candidate",
+      "notes": ""
+    }
+  ]
+}

@@ -69,6 +69,10 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
     class CustomModelPayload(BaseModel):
         name: str = ""
         modelId: str = ""
+        # W-CUSTOMMODEL-SCHEMA-002：1:N shape 新字段
+        model_ids: list[str] | None = None
+        default_model_id: str = ""
+        max_tokens: int | None = None
         mode: str = "doubao"
         endpoint: str = ""
         apiKey: str = ""
@@ -77,6 +81,8 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
 
     class CustomModelProbePayload(CustomModelPayload):
         index: int = -1
+        # W-CUSTOMMODEL-SCHEMA-002：probe 可指定具体 model_id；缺省取 default_model_id
+        model_id: str = ""
 
     class ActivePersonaePayload(BaseModel):
         active: list[str]

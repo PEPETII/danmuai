@@ -1,0 +1,4509 @@
+{
+  "description": "AI模型元数据，数据来源: LiteLLM + Cherry Studio",
+  "generatedAt": "2026-06-29",
+  "models": [
+    {
+      "id": "azure_ai/Llama-4-Scout-17B-16E-Instruct",
+      "providerId": "azure_ai",
+      "name": "azure_ai/Llama-4-Scout-17B-16E-Instruct",
+      "contextWindow": 10016384,
+      "maxInputTokens": 10000000,
+      "maxOutputTokens": 16384,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": null,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.2,
+        "outputPerMTok": 0.78,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "vertex_ai/xai/grok-4.1-fast-non-reasoning",
+      "providerId": "vertex_ai",
+      "name": "vertex_ai/xai/grok-4.1-fast-non-reasoning",
+      "contextWindow": 4000000,
+      "maxInputTokens": 2000000,
+      "maxOutputTokens": 2000000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": null,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.2,
+        "outputPerMTok": 0.5,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "vertex_ai/xai/grok-4.1-fast-reasoning",
+      "providerId": "vertex_ai",
+      "name": "vertex_ai/xai/grok-4.1-fast-reasoning",
+      "contextWindow": 4000000,
+      "maxInputTokens": 2000000,
+      "maxOutputTokens": 2000000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.2,
+        "outputPerMTok": 0.5,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "vertex_ai/xai/grok-4.20-non-reasoning",
+      "providerId": "vertex_ai",
+      "name": "vertex_ai/xai/grok-4.20-non-reasoning",
+      "contextWindow": 4000000,
+      "maxInputTokens": 2000000,
+      "maxOutputTokens": 2000000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": null,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 2.0,
+        "outputPerMTok": 6.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "vertex_ai/xai/grok-4.20-reasoning",
+      "providerId": "vertex_ai",
+      "name": "vertex_ai/xai/grok-4.20-reasoning",
+      "contextWindow": 4000000,
+      "maxInputTokens": 2000000,
+      "maxOutputTokens": 2000000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 2.0,
+        "outputPerMTok": 6.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "xai/grok-4-1-fast",
+      "providerId": "xai",
+      "name": "xai/grok-4-1-fast",
+      "contextWindow": 4000000.0,
+      "maxInputTokens": 2000000.0,
+      "maxOutputTokens": 2000000.0,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": true,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.2,
+        "outputPerMTok": 0.5,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "xai/grok-4-1-fast-reasoning",
+      "providerId": "xai",
+      "name": "xai/grok-4-1-fast-reasoning",
+      "contextWindow": 4000000.0,
+      "maxInputTokens": 2000000.0,
+      "maxOutputTokens": 2000000.0,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": true,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.2,
+        "outputPerMTok": 0.5,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "xai/grok-4-1-fast-reasoning-latest",
+      "providerId": "xai",
+      "name": "xai/grok-4-1-fast-reasoning-latest",
+      "contextWindow": 4000000.0,
+      "maxInputTokens": 2000000.0,
+      "maxOutputTokens": 2000000.0,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": true,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.2,
+        "outputPerMTok": 0.5,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "xai/grok-4-1-fast-non-reasoning",
+      "providerId": "xai",
+      "name": "xai/grok-4-1-fast-non-reasoning",
+      "contextWindow": 4000000.0,
+      "maxInputTokens": 2000000.0,
+      "maxOutputTokens": 2000000.0,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": true,
+      "supportsReasoning": null,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.2,
+        "outputPerMTok": 0.5,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "xai/grok-4-1-fast-non-reasoning-latest",
+      "providerId": "xai",
+      "name": "xai/grok-4-1-fast-non-reasoning-latest",
+      "contextWindow": 4000000.0,
+      "maxInputTokens": 2000000.0,
+      "maxOutputTokens": 2000000.0,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": true,
+      "supportsReasoning": null,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.2,
+        "outputPerMTok": 0.5,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "xai/grok-4.20-multi-agent-beta-0309",
+      "providerId": "xai",
+      "name": "xai/grok-4.20-multi-agent-beta-0309",
+      "contextWindow": 4000000,
+      "maxInputTokens": 2000000,
+      "maxOutputTokens": 2000000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 2.0,
+        "outputPerMTok": 6.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "xai/grok-4.20-beta-0309-reasoning",
+      "providerId": "xai",
+      "name": "xai/grok-4.20-beta-0309-reasoning",
+      "contextWindow": 4000000,
+      "maxInputTokens": 2000000,
+      "maxOutputTokens": 2000000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 2.0,
+        "outputPerMTok": 6.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "xai/grok-4.20-0309-reasoning",
+      "providerId": "xai",
+      "name": "xai/grok-4.20-0309-reasoning",
+      "contextWindow": 4000000,
+      "maxInputTokens": 2000000,
+      "maxOutputTokens": 2000000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 2.0,
+        "outputPerMTok": 6.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "xai/grok-4.20-beta-0309-non-reasoning",
+      "providerId": "xai",
+      "name": "xai/grok-4.20-beta-0309-non-reasoning",
+      "contextWindow": 4000000,
+      "maxInputTokens": 2000000,
+      "maxOutputTokens": 2000000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": null,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 2.0,
+        "outputPerMTok": 6.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "gemini/gemini-exp-1206",
+      "providerId": "gemini",
+      "name": "gemini/gemini-exp-1206",
+      "contextWindow": 2105344,
+      "maxInputTokens": 2097152,
+      "maxOutputTokens": 8192,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": null,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": null,
+        "outputPerMTok": null,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "openrouter/anthropic/claude-sonnet-4.5",
+      "providerId": "openrouter",
+      "name": "openrouter/anthropic/claude-sonnet-4.5",
+      "contextWindow": 2000000,
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 1000000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 3.0,
+        "outputPerMTok": 15.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "openrouter/openrouter/auto",
+      "providerId": "openrouter",
+      "name": "openrouter/openrouter/auto",
+      "contextWindow": 2000000,
+      "maxInputTokens": 2000000,
+      "maxOutputTokens": null,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": true,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": null,
+        "outputPerMTok": null,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "xai/grok-4.3",
+      "providerId": "xai",
+      "name": "xai/grok-4.3",
+      "contextWindow": 2000000,
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 1000000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 1.25,
+        "outputPerMTok": 2.5,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "xai/grok-4.3-latest",
+      "providerId": "xai",
+      "name": "xai/grok-4.3-latest",
+      "contextWindow": 2000000,
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 1000000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 1.25,
+        "outputPerMTok": 2.5,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "openrouter/xiaomi/mimo-v2.5",
+      "providerId": "openrouter",
+      "name": "openrouter/xiaomi/mimo-v2.5",
+      "contextWindow": 1179648,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 131072,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": true,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.4,
+        "outputPerMTok": 2.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "azure_ai/gpt-5.5",
+      "providerId": "azure_ai",
+      "name": "azure_ai/gpt-5.5",
+      "contextWindow": 1178000,
+      "maxInputTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 5.0,
+        "outputPerMTok": 30.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "azure_ai/gpt-5.5-2026-04-23",
+      "providerId": "azure_ai",
+      "name": "azure_ai/gpt-5.5-2026-04-23",
+      "contextWindow": 1178000,
+      "maxInputTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 5.0,
+        "outputPerMTok": 30.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "azure_ai/gpt-5.4",
+      "providerId": "azure_ai",
+      "name": "azure_ai/gpt-5.4",
+      "contextWindow": 1178000,
+      "maxInputTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 2.5,
+        "outputPerMTok": 15.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "azure_ai/gpt-5.4-2026-03-05",
+      "providerId": "azure_ai",
+      "name": "azure_ai/gpt-5.4-2026-03-05",
+      "contextWindow": 1178000,
+      "maxInputTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 2.5,
+        "outputPerMTok": 15.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "azure/gpt-5.4",
+      "providerId": "azure",
+      "name": "azure/gpt-5.4",
+      "contextWindow": 1178000,
+      "maxInputTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 2.5,
+        "outputPerMTok": 15.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "azure/gpt-5.4-2026-03-05",
+      "providerId": "azure",
+      "name": "azure/gpt-5.4-2026-03-05",
+      "contextWindow": 1178000,
+      "maxInputTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 2.5,
+        "outputPerMTok": 15.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "azure/gpt-5.5",
+      "providerId": "azure",
+      "name": "azure/gpt-5.5",
+      "contextWindow": 1178000,
+      "maxInputTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 5.0,
+        "outputPerMTok": 30.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "azure/gpt-5.5-2026-04-23",
+      "providerId": "azure",
+      "name": "azure/gpt-5.5-2026-04-23",
+      "contextWindow": 1178000,
+      "maxInputTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 5.0,
+        "outputPerMTok": 30.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "azure/gpt-5.4-mini",
+      "providerId": "azure",
+      "name": "azure/gpt-5.4-mini",
+      "contextWindow": 1178000,
+      "maxInputTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.75,
+        "outputPerMTok": 4.5,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "azure/gpt-5.4-mini-2026-03-17",
+      "providerId": "azure",
+      "name": "azure/gpt-5.4-mini-2026-03-17",
+      "contextWindow": 1178000,
+      "maxInputTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.75,
+        "outputPerMTok": 4.5,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "azure/gpt-5.4-nano",
+      "providerId": "azure",
+      "name": "azure/gpt-5.4-nano",
+      "contextWindow": 1178000,
+      "maxInputTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.2,
+        "outputPerMTok": 1.25,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "azure/gpt-5.4-nano-2026-03-17",
+      "providerId": "azure",
+      "name": "azure/gpt-5.4-nano-2026-03-17",
+      "contextWindow": 1178000,
+      "maxInputTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.2,
+        "outputPerMTok": 1.25,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "gpt-5.5",
+      "providerId": "openai",
+      "name": "gpt-5.5",
+      "contextWindow": 1178000,
+      "maxInputTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 5.0,
+        "outputPerMTok": 30.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "gpt-5.5-2026-04-23",
+      "providerId": "openai",
+      "name": "gpt-5.5-2026-04-23",
+      "contextWindow": 1178000,
+      "maxInputTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 5.0,
+        "outputPerMTok": 30.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "gpt-5.4",
+      "providerId": "openai",
+      "name": "gpt-5.4",
+      "contextWindow": 1178000,
+      "maxInputTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 2.5,
+        "outputPerMTok": 15.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "gpt-5.4-2026-03-05",
+      "providerId": "openai",
+      "name": "gpt-5.4-2026-03-05",
+      "contextWindow": 1178000,
+      "maxInputTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 2.5,
+        "outputPerMTok": 15.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "gpt-5.4-mini",
+      "providerId": "openai",
+      "name": "gpt-5.4-mini",
+      "contextWindow": 1178000,
+      "maxInputTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.75,
+        "outputPerMTok": 4.5,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "gpt-5.4-mini-2026-03-17",
+      "providerId": "openai",
+      "name": "gpt-5.4-mini-2026-03-17",
+      "contextWindow": 1178000,
+      "maxInputTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.75,
+        "outputPerMTok": 4.5,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "gpt-5.4-nano",
+      "providerId": "openai",
+      "name": "gpt-5.4-nano",
+      "contextWindow": 1178000,
+      "maxInputTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.2,
+        "outputPerMTok": 1.25,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "gpt-5.4-nano-2026-03-17",
+      "providerId": "openai",
+      "name": "gpt-5.4-nano-2026-03-17",
+      "contextWindow": 1178000,
+      "maxInputTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.2,
+        "outputPerMTok": 1.25,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "anthropic.claude-opus-4-6-v1",
+      "providerId": "bedrock_converse",
+      "name": "anthropic.claude-opus-4-6-v1",
+      "contextWindow": 1128000,
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 5.0,
+        "outputPerMTok": 25.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "global.anthropic.claude-opus-4-6-v1",
+      "providerId": "bedrock_converse",
+      "name": "global.anthropic.claude-opus-4-6-v1",
+      "contextWindow": 1128000,
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 5.0,
+        "outputPerMTok": 25.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "us.anthropic.claude-opus-4-6-v1",
+      "providerId": "bedrock_converse",
+      "name": "us.anthropic.claude-opus-4-6-v1",
+      "contextWindow": 1128000,
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 5.5,
+        "outputPerMTok": 27.5,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "eu.anthropic.claude-opus-4-6-v1",
+      "providerId": "bedrock_converse",
+      "name": "eu.anthropic.claude-opus-4-6-v1",
+      "contextWindow": 1128000,
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 5.5,
+        "outputPerMTok": 27.5,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "au.anthropic.claude-opus-4-6-v1",
+      "providerId": "bedrock_converse",
+      "name": "au.anthropic.claude-opus-4-6-v1",
+      "contextWindow": 1128000,
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 5.5,
+        "outputPerMTok": 27.5,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "anthropic.claude-opus-4-7",
+      "providerId": "bedrock_converse",
+      "name": "anthropic.claude-opus-4-7",
+      "contextWindow": 1128000,
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 5.0,
+        "outputPerMTok": 25.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "anthropic.claude-mythos-preview",
+      "providerId": "bedrock",
+      "name": "anthropic.claude-mythos-preview",
+      "contextWindow": 1128000,
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": null,
+        "outputPerMTok": null,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "global.anthropic.claude-opus-4-7",
+      "providerId": "bedrock_converse",
+      "name": "global.anthropic.claude-opus-4-7",
+      "contextWindow": 1128000,
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 5.0,
+        "outputPerMTok": 25.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "us.anthropic.claude-opus-4-7",
+      "providerId": "bedrock_converse",
+      "name": "us.anthropic.claude-opus-4-7",
+      "contextWindow": 1128000,
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 5.5,
+        "outputPerMTok": 27.5,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "eu.anthropic.claude-opus-4-7",
+      "providerId": "bedrock_converse",
+      "name": "eu.anthropic.claude-opus-4-7",
+      "contextWindow": 1128000,
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 5.5,
+        "outputPerMTok": 27.5,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "au.anthropic.claude-opus-4-7",
+      "providerId": "bedrock_converse",
+      "name": "au.anthropic.claude-opus-4-7",
+      "contextWindow": 1128000,
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 5.5,
+        "outputPerMTok": 27.5,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "anthropic.claude-fable-5",
+      "providerId": "bedrock_converse",
+      "name": "anthropic.claude-fable-5",
+      "contextWindow": 1128000,
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 10.0,
+        "outputPerMTok": 50.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "global.anthropic.claude-fable-5",
+      "providerId": "bedrock_converse",
+      "name": "global.anthropic.claude-fable-5",
+      "contextWindow": 1128000,
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 10.0,
+        "outputPerMTok": 50.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "us.anthropic.claude-fable-5",
+      "providerId": "bedrock_converse",
+      "name": "us.anthropic.claude-fable-5",
+      "contextWindow": 1128000,
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 11.0,
+        "outputPerMTok": 55.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "eu.anthropic.claude-fable-5",
+      "providerId": "bedrock_converse",
+      "name": "eu.anthropic.claude-fable-5",
+      "contextWindow": 1128000,
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 11.0,
+        "outputPerMTok": 55.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "anthropic.claude-opus-4-8",
+      "providerId": "bedrock_converse",
+      "name": "anthropic.claude-opus-4-8",
+      "contextWindow": 1128000,
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 5.0,
+        "outputPerMTok": 25.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "global.anthropic.claude-opus-4-8",
+      "providerId": "bedrock_converse",
+      "name": "global.anthropic.claude-opus-4-8",
+      "contextWindow": 1128000,
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 5.0,
+        "outputPerMTok": 25.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "us.anthropic.claude-opus-4-8",
+      "providerId": "bedrock_converse",
+      "name": "us.anthropic.claude-opus-4-8",
+      "contextWindow": 1128000,
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 5.5,
+        "outputPerMTok": 27.5,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "eu.anthropic.claude-opus-4-8",
+      "providerId": "bedrock_converse",
+      "name": "eu.anthropic.claude-opus-4-8",
+      "contextWindow": 1128000,
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 5.5,
+        "outputPerMTok": 27.5,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "au.anthropic.claude-opus-4-8",
+      "providerId": "bedrock_converse",
+      "name": "au.anthropic.claude-opus-4-8",
+      "contextWindow": 1128000,
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 5.5,
+        "outputPerMTok": 27.5,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "jp.anthropic.claude-opus-4-7",
+      "providerId": "bedrock_converse",
+      "name": "jp.anthropic.claude-opus-4-7",
+      "contextWindow": 1128000,
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 5.5,
+        "outputPerMTok": 27.5,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "azure_ai/claude-fable-5",
+      "providerId": "azure_ai",
+      "name": "azure_ai/claude-fable-5",
+      "contextWindow": 1128000,
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 10.0,
+        "outputPerMTok": 50.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "claude-opus-4-6",
+      "providerId": "anthropic",
+      "name": "claude-opus-4-6",
+      "contextWindow": 1128000,
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 5.0,
+        "outputPerMTok": 25.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "claude-opus-4-6-20260205",
+      "providerId": "anthropic",
+      "name": "claude-opus-4-6-20260205",
+      "contextWindow": 1128000,
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 5.0,
+        "outputPerMTok": 25.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "claude-opus-4-7",
+      "providerId": "anthropic",
+      "name": "claude-opus-4-7",
+      "contextWindow": 1128000,
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 5.0,
+        "outputPerMTok": 25.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "claude-opus-4-7-20260416",
+      "providerId": "anthropic",
+      "name": "claude-opus-4-7-20260416",
+      "contextWindow": 1128000,
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 5.0,
+        "outputPerMTok": 25.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "claude-fable-5",
+      "providerId": "anthropic",
+      "name": "claude-fable-5",
+      "contextWindow": 1128000,
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 10.0,
+        "outputPerMTok": 50.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "claude-opus-4-8",
+      "providerId": "anthropic",
+      "name": "claude-opus-4-8",
+      "contextWindow": 1128000,
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 5.0,
+        "outputPerMTok": 25.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "minimax/MiniMax-M3",
+      "providerId": "minimax",
+      "name": "minimax/MiniMax-M3",
+      "contextWindow": 1128000,
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.3,
+        "outputPerMTok": 1.2,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "openrouter/anthropic/claude-sonnet-4.6",
+      "providerId": "openrouter",
+      "name": "openrouter/anthropic/claude-sonnet-4.6",
+      "contextWindow": 1128000,
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 3.0,
+        "outputPerMTok": 15.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "openrouter/anthropic/claude-opus-4.6",
+      "providerId": "openrouter",
+      "name": "openrouter/anthropic/claude-opus-4.6",
+      "contextWindow": 1128000,
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 5.0,
+        "outputPerMTok": 25.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "openrouter/anthropic/claude-opus-4.7",
+      "providerId": "openrouter",
+      "name": "openrouter/anthropic/claude-opus-4.7",
+      "contextWindow": 1128000,
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 5.0,
+        "outputPerMTok": 25.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "vertex_ai/claude-opus-4-6",
+      "providerId": "vertex_ai-anthropic_models",
+      "name": "vertex_ai/claude-opus-4-6",
+      "contextWindow": 1128000,
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 5.0,
+        "outputPerMTok": 25.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "vertex_ai/claude-opus-4-6@default",
+      "providerId": "vertex_ai-anthropic_models",
+      "name": "vertex_ai/claude-opus-4-6@default",
+      "contextWindow": 1128000,
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 5.0,
+        "outputPerMTok": 25.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "vertex_ai/claude-opus-4-7",
+      "providerId": "vertex_ai-anthropic_models",
+      "name": "vertex_ai/claude-opus-4-7",
+      "contextWindow": 1128000,
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 5.0,
+        "outputPerMTok": 25.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "vertex_ai/claude-opus-4-7@default",
+      "providerId": "vertex_ai-anthropic_models",
+      "name": "vertex_ai/claude-opus-4-7@default",
+      "contextWindow": 1128000,
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 5.0,
+        "outputPerMTok": 25.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "vertex_ai/claude-fable-5",
+      "providerId": "vertex_ai-anthropic_models",
+      "name": "vertex_ai/claude-fable-5",
+      "contextWindow": 1128000,
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 10.0,
+        "outputPerMTok": 50.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "vertex_ai/claude-fable-5@default",
+      "providerId": "vertex_ai-anthropic_models",
+      "name": "vertex_ai/claude-fable-5@default",
+      "contextWindow": 1128000,
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 10.0,
+        "outputPerMTok": 50.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "vertex_ai/claude-opus-4-8",
+      "providerId": "vertex_ai-anthropic_models",
+      "name": "vertex_ai/claude-opus-4-8",
+      "contextWindow": 1128000,
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 5.0,
+        "outputPerMTok": 25.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "vertex_ai/claude-opus-4-8@default",
+      "providerId": "vertex_ai-anthropic_models",
+      "name": "vertex_ai/claude-opus-4-8@default",
+      "contextWindow": 1128000,
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 5.0,
+        "outputPerMTok": 25.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "gemini-3.1-flash-lite-preview",
+      "providerId": "vertex_ai-language-models",
+      "name": "gemini-3.1-flash-lite-preview",
+      "contextWindow": 1114112,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65536,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": true,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.25,
+        "outputPerMTok": 1.5,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "gemini-3.1-flash-lite",
+      "providerId": "vertex_ai-language-models",
+      "name": "gemini-3.1-flash-lite",
+      "contextWindow": 1114112,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65536,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": true,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.25,
+        "outputPerMTok": 1.5,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "gemini-3.1-pro-preview",
+      "providerId": "vertex_ai-language-models",
+      "name": "gemini-3.1-pro-preview",
+      "contextWindow": 1114112,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65536,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": true,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 2.0,
+        "outputPerMTok": 12.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "gemini-3.1-pro-preview-customtools",
+      "providerId": "vertex_ai-language-models",
+      "name": "gemini-3.1-pro-preview-customtools",
+      "contextWindow": 1114112,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65536,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": true,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 2.0,
+        "outputPerMTok": 12.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "vertex_ai/gemini-3.1-pro-preview",
+      "providerId": "vertex_ai",
+      "name": "vertex_ai/gemini-3.1-pro-preview",
+      "contextWindow": 1114112,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65536,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": true,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 2.0,
+        "outputPerMTok": 12.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "vertex_ai/gemini-3.1-pro-preview-customtools",
+      "providerId": "vertex_ai",
+      "name": "vertex_ai/gemini-3.1-pro-preview-customtools",
+      "contextWindow": 1114112,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65536,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": true,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 2.0,
+        "outputPerMTok": 12.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "gemini/gemini-3.1-flash-lite-preview",
+      "providerId": "gemini",
+      "name": "gemini/gemini-3.1-flash-lite-preview",
+      "contextWindow": 1114112,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65536,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": true,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.25,
+        "outputPerMTok": 1.5,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "gemini/gemini-3.1-flash-lite",
+      "providerId": "gemini",
+      "name": "gemini/gemini-3.1-flash-lite",
+      "contextWindow": 1114112,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65536,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": true,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.25,
+        "outputPerMTok": 1.5,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "gemini/gemini-3.1-pro-preview",
+      "providerId": "gemini",
+      "name": "gemini/gemini-3.1-pro-preview",
+      "contextWindow": 1114112,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65536,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": true,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 2.0,
+        "outputPerMTok": 12.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "gemini/gemini-3.1-pro-preview-customtools",
+      "providerId": "gemini",
+      "name": "gemini/gemini-3.1-pro-preview-customtools",
+      "contextWindow": 1114112,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65536,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": true,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 2.0,
+        "outputPerMTok": 12.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "gmi/google/gemini-3-pro-preview",
+      "providerId": "gmi",
+      "name": "gmi/google/gemini-3-pro-preview",
+      "contextWindow": 1114112,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65536,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": null,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 2.0,
+        "outputPerMTok": 12.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "gmi/google/gemini-3-flash-preview",
+      "providerId": "gmi",
+      "name": "gmi/google/gemini-3-flash-preview",
+      "contextWindow": 1114112,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65536,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": null,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.5,
+        "outputPerMTok": 3.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "oci/google.gemini-2.5-flash",
+      "providerId": "oci",
+      "name": "oci/google.gemini-2.5-flash",
+      "contextWindow": 1114112,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65536,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": null,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.15,
+        "outputPerMTok": 0.6,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "oci/google.gemini-2.5-pro",
+      "providerId": "oci",
+      "name": "oci/google.gemini-2.5-pro",
+      "contextWindow": 1114112,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65536,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": null,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 1.25,
+        "outputPerMTok": 10.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "oci/google.gemini-2.5-flash-lite",
+      "providerId": "oci",
+      "name": "oci/google.gemini-2.5-flash-lite",
+      "contextWindow": 1114112,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65536,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": null,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.075,
+        "outputPerMTok": 0.3,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "openrouter/google/gemini-3.1-flash-lite-preview",
+      "providerId": "openrouter",
+      "name": "openrouter/google/gemini-3.1-flash-lite-preview",
+      "contextWindow": 1114112,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65536,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": true,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.25,
+        "outputPerMTok": 1.5,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "openrouter/google/gemini-3.1-flash-lite",
+      "providerId": "openrouter",
+      "name": "openrouter/google/gemini-3.1-flash-lite",
+      "contextWindow": 1114112,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65536,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": true,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.25,
+        "outputPerMTok": 1.5,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "openrouter/google/gemini-3.1-pro-preview",
+      "providerId": "openrouter",
+      "name": "openrouter/google/gemini-3.1-pro-preview",
+      "contextWindow": 1114112,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65536,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": true,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 2.0,
+        "outputPerMTok": 12.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "vercel_ai_gateway/google/gemini-2.5-pro",
+      "providerId": "vercel_ai_gateway",
+      "name": "vercel_ai_gateway/google/gemini-2.5-pro",
+      "contextWindow": 1114112,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65536,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": null,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 2.5,
+        "outputPerMTok": 10.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "vertex_ai/gemini-3.1-flash-lite-preview",
+      "providerId": "vertex_ai-language-models",
+      "name": "vertex_ai/gemini-3.1-flash-lite-preview",
+      "contextWindow": 1114112,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65536,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": true,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.25,
+        "outputPerMTok": 1.5,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "vertex_ai/gemini-3.1-flash-lite",
+      "providerId": "vertex_ai-language-models",
+      "name": "vertex_ai/gemini-3.1-flash-lite",
+      "contextWindow": 1114112,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65536,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": true,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.25,
+        "outputPerMTok": 1.5,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "gemini-2.5-flash",
+      "providerId": "vertex_ai-language-models",
+      "name": "gemini-2.5-flash",
+      "contextWindow": 1114111,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65535,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.3,
+        "outputPerMTok": 2.5,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "gemini-2.5-flash-lite",
+      "providerId": "vertex_ai-language-models",
+      "name": "gemini-2.5-flash-lite",
+      "contextWindow": 1114111,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65535,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.1,
+        "outputPerMTok": 0.4,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "gemini-2.5-flash-lite-preview-09-2025",
+      "providerId": "vertex_ai-language-models",
+      "name": "gemini-2.5-flash-lite-preview-09-2025",
+      "contextWindow": 1114111,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65535,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.1,
+        "outputPerMTok": 0.4,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "gemini-2.5-flash-preview-09-2025",
+      "providerId": "vertex_ai-language-models",
+      "name": "gemini-2.5-flash-preview-09-2025",
+      "contextWindow": 1114111,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65535,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.3,
+        "outputPerMTok": 2.5,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "gemini-2.5-flash-lite-preview-06-17",
+      "providerId": "vertex_ai-language-models",
+      "name": "gemini-2.5-flash-lite-preview-06-17",
+      "contextWindow": 1114111,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65535,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.1,
+        "outputPerMTok": 0.4,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "gemini-2.5-pro",
+      "providerId": "vertex_ai-language-models",
+      "name": "gemini-2.5-pro",
+      "contextWindow": 1114111,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65535,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": true,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 1.25,
+        "outputPerMTok": 10.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "gemini-3-pro-preview",
+      "providerId": "vertex_ai-language-models",
+      "name": "gemini-3-pro-preview",
+      "contextWindow": 1114111,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65535,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": true,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 2.0,
+        "outputPerMTok": 12.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "vertex_ai/gemini-3-pro-preview",
+      "providerId": "vertex_ai",
+      "name": "vertex_ai/gemini-3-pro-preview",
+      "contextWindow": 1114111,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65535,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": true,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 2.0,
+        "outputPerMTok": 12.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "vertex_ai/gemini-3-flash-preview",
+      "providerId": "vertex_ai",
+      "name": "vertex_ai/gemini-3-flash-preview",
+      "contextWindow": 1114111,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65535,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": true,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.5,
+        "outputPerMTok": 3.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "vertex_ai/gemini-3.5-flash",
+      "providerId": "vertex_ai",
+      "name": "vertex_ai/gemini-3.5-flash",
+      "contextWindow": 1114111,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65535,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": true,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 1.5,
+        "outputPerMTok": 9.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "gemini-2.5-pro-preview-tts",
+      "providerId": "vertex_ai-language-models",
+      "name": "gemini-2.5-pro-preview-tts",
+      "contextWindow": 1114111,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65535,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": null,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 1.25,
+        "outputPerMTok": 10.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "gemini-robotics-er-1.5-preview",
+      "providerId": "vertex_ai-language-models",
+      "name": "gemini-robotics-er-1.5-preview",
+      "contextWindow": 1114111,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65535,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.3,
+        "outputPerMTok": 2.5,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "gemini/gemini-robotics-er-1.5-preview",
+      "providerId": "gemini",
+      "name": "gemini/gemini-robotics-er-1.5-preview",
+      "contextWindow": 1114111,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65535,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.3,
+        "outputPerMTok": 2.5,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "gemini/gemini-2.5-flash",
+      "providerId": "gemini",
+      "name": "gemini/gemini-2.5-flash",
+      "contextWindow": 1114111,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65535,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.3,
+        "outputPerMTok": 2.5,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "gemini/gemini-2.5-flash-lite",
+      "providerId": "gemini",
+      "name": "gemini/gemini-2.5-flash-lite",
+      "contextWindow": 1114111,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65535,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.1,
+        "outputPerMTok": 0.4,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "gemini/gemini-2.5-flash-lite-preview-09-2025",
+      "providerId": "gemini",
+      "name": "gemini/gemini-2.5-flash-lite-preview-09-2025",
+      "contextWindow": 1114111,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65535,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.1,
+        "outputPerMTok": 0.4,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "gemini/gemini-2.5-flash-preview-09-2025",
+      "providerId": "gemini",
+      "name": "gemini/gemini-2.5-flash-preview-09-2025",
+      "contextWindow": 1114111,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65535,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.3,
+        "outputPerMTok": 2.5,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "gemini/gemini-flash-latest",
+      "providerId": "gemini",
+      "name": "gemini/gemini-flash-latest",
+      "contextWindow": 1114111,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65535,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.3,
+        "outputPerMTok": 2.5,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "gemini/gemini-flash-lite-latest",
+      "providerId": "gemini",
+      "name": "gemini/gemini-flash-lite-latest",
+      "contextWindow": 1114111,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65535,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.1,
+        "outputPerMTok": 0.4,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "kling::kling-v2-6",
+      "providerId": "kling",
+      "name": "Kling-V2 6",
+      "contextWindow": 99999999,
+      "maxInputTokens": null,
+      "maxOutputTokens": 99999999,
+      "supportsVision": true,
+      "supportsFunctionCalling": null,
+      "supportsAudioInput": null,
+      "supportsReasoning": null,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": null,
+        "outputPerMTok": null,
+        "currency": "USD"
+      },
+      "capabilities": [
+        "file-input",
+        "image-recognition",
+        "video-recognition",
+        "video-generation"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "references/ai-platforms/cherry-studio/packages/provider-registry/data/models.json"
+    },
+    {
+      "id": "amazon-bedrock::meta.llama4-scout-instruct-v1:0",
+      "providerId": "amazon-bedrock",
+      "name": "Llama 4 Scout 17B Instruct",
+      "contextWindow": 3500000,
+      "maxInputTokens": null,
+      "maxOutputTokens": 16384,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": null,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.17,
+        "outputPerMTok": 0.66,
+        "currency": "USD"
+      },
+      "capabilities": [
+        "function-call",
+        "file-input",
+        "image-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "references/ai-platforms/cherry-studio/packages/provider-registry/data/models.json"
+    },
+    {
+      "id": "xai::grok-4-fast-non-reasoning",
+      "providerId": "xai",
+      "name": "grok-4-fast-non-reasoning",
+      "contextWindow": 2000000,
+      "maxInputTokens": null,
+      "maxOutputTokens": 30000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": false,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.2,
+        "outputPerMTok": 0.5,
+        "currency": "USD"
+      },
+      "capabilities": [
+        "function-call",
+        "image-recognition",
+        "file-input",
+        "web-search"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "references/ai-platforms/cherry-studio/packages/provider-registry/data/models.json"
+    },
+    {
+      "id": "xai::grok-4-fast-reasoning",
+      "providerId": "xai",
+      "name": "grok-4-fast-reasoning",
+      "contextWindow": 2000000,
+      "maxInputTokens": null,
+      "maxOutputTokens": 30000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": null,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.2,
+        "outputPerMTok": 0.5,
+        "currency": "USD"
+      },
+      "capabilities": [
+        "function-call",
+        "reasoning",
+        "image-recognition",
+        "file-input",
+        "web-search"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "references/ai-platforms/cherry-studio/packages/provider-registry/data/models.json"
+    },
+    {
+      "id": "xai::grok-4-1-fast-reasoning",
+      "providerId": "xai",
+      "name": "grok-4-1-fast-reasoning",
+      "contextWindow": 2000000,
+      "maxInputTokens": null,
+      "maxOutputTokens": 30000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": null,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.2,
+        "outputPerMTok": 0.5,
+        "currency": "USD"
+      },
+      "capabilities": [
+        "function-call",
+        "reasoning",
+        "image-recognition",
+        "file-input",
+        "web-search"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "references/ai-platforms/cherry-studio/packages/provider-registry/data/models.json"
+    },
+    {
+      "id": "xai::grok-4-1-fast-non-reasoning",
+      "providerId": "xai",
+      "name": "grok-4-1-fast-non-reasoning",
+      "contextWindow": 2000000,
+      "maxInputTokens": null,
+      "maxOutputTokens": 30000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": false,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.2,
+        "outputPerMTok": 0.5,
+        "currency": "USD"
+      },
+      "capabilities": [
+        "function-call",
+        "image-recognition",
+        "file-input",
+        "web-search"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "references/ai-platforms/cherry-studio/packages/provider-registry/data/models.json"
+    },
+    {
+      "id": "xai::grok-4-fast",
+      "providerId": "xai",
+      "name": "Grok 4 Fast",
+      "contextWindow": 2000000,
+      "maxInputTokens": null,
+      "maxOutputTokens": 30000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": null,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.2,
+        "outputPerMTok": 0.5,
+        "currency": "USD"
+      },
+      "capabilities": [
+        "function-call",
+        "reasoning",
+        "image-recognition",
+        "file-input",
+        "web-search"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "references/ai-platforms/cherry-studio/packages/provider-registry/data/models.json"
+    },
+    {
+      "id": "xai::grok-4-1-fast",
+      "providerId": "xai",
+      "name": "Grok 4.1 Fast",
+      "contextWindow": 2000000,
+      "maxInputTokens": null,
+      "maxOutputTokens": 30000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": null,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.2,
+        "outputPerMTok": 0.5,
+        "currency": "USD"
+      },
+      "capabilities": [
+        "function-call",
+        "reasoning",
+        "image-recognition",
+        "file-input",
+        "web-search"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "references/ai-platforms/cherry-studio/packages/provider-registry/data/models.json"
+    },
+    {
+      "id": "google::gemini-2-0-pro-exp-02-05",
+      "providerId": "google",
+      "name": "Gemini 2.0 Pro Exp",
+      "contextWindow": 2000000,
+      "maxInputTokens": null,
+      "maxOutputTokens": 8192,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": true,
+      "supportsReasoning": null,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 1.25,
+        "outputPerMTok": 5,
+        "currency": "USD"
+      },
+      "capabilities": [
+        "function-call",
+        "file-input",
+        "image-recognition",
+        "audio-recognition",
+        "video-recognition",
+        "web-search"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "references/ai-platforms/cherry-studio/packages/provider-registry/data/models.json"
+    },
+    {
+      "id": "openrouter::sherlock-think-alpha",
+      "providerId": "openrouter",
+      "name": "Sherlock Think Alpha",
+      "contextWindow": 1840000,
+      "maxInputTokens": null,
+      "maxOutputTokens": null,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": null,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": null,
+        "outputPerMTok": null,
+        "currency": "USD"
+      },
+      "capabilities": [
+        "reasoning",
+        "function-call",
+        "file-input",
+        "image-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "references/ai-platforms/cherry-studio/packages/provider-registry/data/models.json"
+    },
+    {
+      "id": "openrouter::sherlock-dash-alpha",
+      "providerId": "openrouter",
+      "name": "Sherlock Dash Alpha",
+      "contextWindow": 1840000,
+      "maxInputTokens": null,
+      "maxOutputTokens": null,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": null,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": null,
+        "outputPerMTok": null,
+        "currency": "USD"
+      },
+      "capabilities": [
+        "function-call",
+        "file-input",
+        "image-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "references/ai-platforms/cherry-studio/packages/provider-registry/data/models.json"
+    },
+    {
+      "id": "openai::gpt-5-4",
+      "providerId": "openai",
+      "name": "gpt-5-4",
+      "contextWindow": 1050000,
+      "maxInputTokens": null,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 2.5,
+        "outputPerMTok": 15,
+        "currency": "USD"
+      },
+      "capabilities": [
+        "function-call",
+        "structured-output",
+        "reasoning",
+        "image-recognition",
+        "file-input"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "references/ai-platforms/cherry-studio/packages/provider-registry/data/models.json"
+    },
+    {
+      "id": "openai::gpt-5-4-pro",
+      "providerId": "openai",
+      "name": "OpenAI: GPT-5.4 Pro",
+      "contextWindow": 1050000,
+      "maxInputTokens": null,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 30,
+        "outputPerMTok": 180,
+        "currency": "USD"
+      },
+      "capabilities": [
+        "function-call",
+        "reasoning",
+        "image-recognition",
+        "file-input"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "references/ai-platforms/cherry-studio/packages/provider-registry/data/models.json"
+    },
+    {
+      "id": "openai::gpt-5-5-pro",
+      "providerId": "openai",
+      "name": "GPT 5.5 Pro",
+      "contextWindow": 1050000,
+      "maxInputTokens": null,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 30,
+        "outputPerMTok": 180,
+        "currency": "USD"
+      },
+      "capabilities": [
+        "function-call",
+        "structured-output",
+        "reasoning",
+        "image-recognition",
+        "file-input"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "references/ai-platforms/cherry-studio/packages/provider-registry/data/models.json"
+    },
+    {
+      "id": "openai::gpt-5-5",
+      "providerId": "openai",
+      "name": "GPT 5.5",
+      "contextWindow": 1050000,
+      "maxInputTokens": null,
+      "maxOutputTokens": 128000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 5,
+        "outputPerMTok": 30,
+        "currency": "USD"
+      },
+      "capabilities": [
+        "function-call",
+        "structured-output",
+        "reasoning",
+        "image-recognition",
+        "file-input"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "references/ai-platforms/cherry-studio/packages/provider-registry/data/models.json"
+    },
+    {
+      "id": "google::gemini-pro",
+      "providerId": "google",
+      "name": "Gemini Pro",
+      "contextWindow": 1048756,
+      "maxInputTokens": null,
+      "maxOutputTokens": 65536,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.2,
+        "outputPerMTok": 0.6,
+        "currency": "USD"
+      },
+      "capabilities": [
+        "function-call",
+        "structured-output",
+        "reasoning",
+        "image-recognition",
+        "file-input"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "references/ai-platforms/cherry-studio/packages/provider-registry/data/models.json"
+    },
+    {
+      "id": "google::gemini-3-flash-preview",
+      "providerId": "google",
+      "name": "Gemini 3 Flash Preview",
+      "contextWindow": 1048576,
+      "maxInputTokens": null,
+      "maxOutputTokens": 65536,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": true,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.5,
+        "outputPerMTok": 3,
+        "currency": "USD"
+      },
+      "capabilities": [
+        "function-call",
+        "structured-output",
+        "reasoning",
+        "image-recognition",
+        "file-input",
+        "web-search",
+        "audio-recognition",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "references/ai-platforms/cherry-studio/packages/provider-registry/data/models.json"
+    },
+    {
+      "id": "google::gemini-3-pro-preview",
+      "providerId": "google",
+      "name": "Gemini 3 Pro Preview",
+      "contextWindow": 1048576,
+      "maxInputTokens": null,
+      "maxOutputTokens": 65536,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": true,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 2,
+        "outputPerMTok": 12,
+        "currency": "USD"
+      },
+      "capabilities": [
+        "function-call",
+        "structured-output",
+        "reasoning",
+        "image-recognition",
+        "file-input",
+        "web-search",
+        "audio-recognition",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "references/ai-platforms/cherry-studio/packages/provider-registry/data/models.json"
+    },
+    {
+      "id": "google::gemini-2-5-flash",
+      "providerId": "google",
+      "name": "Gemini 2.5 Flash",
+      "contextWindow": 1048576,
+      "maxInputTokens": null,
+      "maxOutputTokens": 65536,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": true,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.3,
+        "outputPerMTok": 2.5,
+        "currency": "USD"
+      },
+      "capabilities": [
+        "function-call",
+        "reasoning",
+        "image-recognition",
+        "file-input",
+        "web-search",
+        "audio-recognition",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "references/ai-platforms/cherry-studio/packages/provider-registry/data/models.json"
+    },
+    {
+      "id": "google::gemini-2-5-pro",
+      "providerId": "google",
+      "name": "Gemini 2.5 Pro",
+      "contextWindow": 1048576,
+      "maxInputTokens": null,
+      "maxOutputTokens": 65536,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": true,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 1.25,
+        "outputPerMTok": 10,
+        "currency": "USD"
+      },
+      "capabilities": [
+        "function-call",
+        "reasoning",
+        "image-recognition",
+        "file-input",
+        "web-search",
+        "audio-recognition",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "references/ai-platforms/cherry-studio/packages/provider-registry/data/models.json"
+    },
+    {
+      "id": "google::gemini-2-0-flash-lite",
+      "providerId": "google",
+      "name": "gemini-2.0-flash-lite",
+      "contextWindow": 1048576,
+      "maxInputTokens": null,
+      "maxOutputTokens": 8192,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": true,
+      "supportsReasoning": false,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.075,
+        "outputPerMTok": 0.3,
+        "currency": "USD"
+      },
+      "capabilities": [
+        "function-call",
+        "image-recognition",
+        "file-input",
+        "web-search",
+        "audio-recognition",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "references/ai-platforms/cherry-studio/packages/provider-registry/data/models.json"
+    },
+    {
+      "id": "google::gemini-3-1-pro-preview",
+      "providerId": "google",
+      "name": "Gemini 3.1 Pro Preview",
+      "contextWindow": 1048576,
+      "maxInputTokens": null,
+      "maxOutputTokens": 65536,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": true,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 2.5,
+        "outputPerMTok": 15,
+        "currency": "USD"
+      },
+      "capabilities": [
+        "function-call",
+        "structured-output",
+        "reasoning",
+        "image-recognition",
+        "file-input"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "references/ai-platforms/cherry-studio/packages/provider-registry/data/models.json"
+    },
+    {
+      "id": "google::gemini-2-5-flash-preview-05-20",
+      "providerId": "google",
+      "name": "gemini-2.5-flash-preview-05-20",
+      "contextWindow": 1048576,
+      "maxInputTokens": null,
+      "maxOutputTokens": 200000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": true,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.135,
+        "outputPerMTok": 3.15,
+        "currency": "USD"
+      },
+      "capabilities": [
+        "function-call",
+        "structured-output",
+        "file-input",
+        "image-recognition",
+        "audio-recognition",
+        "video-recognition",
+        "web-search",
+        "reasoning"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "references/ai-platforms/cherry-studio/packages/provider-registry/data/models.json"
+    },
+    {
+      "id": "google::gemini-2-5-flash-lite",
+      "providerId": "google",
+      "name": "gemini-2.5-flash-lite",
+      "contextWindow": 1048576,
+      "maxInputTokens": null,
+      "maxOutputTokens": 65536,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": true,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.09,
+        "outputPerMTok": 0.36,
+        "currency": "USD"
+      },
+      "capabilities": [
+        "function-call",
+        "structured-output",
+        "reasoning",
+        "image-recognition",
+        "file-input",
+        "web-search",
+        "audio-recognition",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "references/ai-platforms/cherry-studio/packages/provider-registry/data/models.json"
+    },
+    {
+      "id": "google::gemini-2-5-pro-preview-06-05",
+      "providerId": "google",
+      "name": "gemini-2.5-pro-preview-06-05",
+      "contextWindow": 1048576,
+      "maxInputTokens": null,
+      "maxOutputTokens": 200000,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": true,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 1.125,
+        "outputPerMTok": 9,
+        "currency": "USD"
+      },
+      "capabilities": [
+        "function-call",
+        "structured-output",
+        "file-input",
+        "image-recognition",
+        "audio-recognition",
+        "video-recognition",
+        "web-search",
+        "reasoning"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "references/ai-platforms/cherry-studio/packages/provider-registry/data/models.json"
+    },
+    {
+      "id": "google::gemini-2-5-flash-lite-preview-06-17",
+      "providerId": "google",
+      "name": "gemini-2.5-flash-lite-preview-06-17",
+      "contextWindow": 1048576,
+      "maxInputTokens": null,
+      "maxOutputTokens": 65535,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": true,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.09,
+        "outputPerMTok": 0.36,
+        "currency": "USD"
+      },
+      "capabilities": [
+        "function-call",
+        "structured-output",
+        "file-input",
+        "image-recognition",
+        "audio-recognition",
+        "video-recognition",
+        "web-search",
+        "reasoning"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "references/ai-platforms/cherry-studio/packages/provider-registry/data/models.json"
+    },
+    {
+      "id": "google::gemini-2-0-flash",
+      "providerId": "google",
+      "name": "Gemini 2.0 Flash",
+      "contextWindow": 1048576,
+      "maxInputTokens": null,
+      "maxOutputTokens": 8192,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": true,
+      "supportsReasoning": false,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.1,
+        "outputPerMTok": 0.4,
+        "currency": "USD"
+      },
+      "capabilities": [
+        "function-call",
+        "structured-output",
+        "image-recognition",
+        "file-input",
+        "web-search",
+        "audio-recognition",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "references/ai-platforms/cherry-studio/packages/provider-registry/data/models.json"
+    },
+    {
+      "id": "google::gemini-3-pro",
+      "providerId": "google",
+      "name": "Gemini 3 Pro",
+      "contextWindow": 1048576,
+      "maxInputTokens": null,
+      "maxOutputTokens": 65536,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": true,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 2,
+        "outputPerMTok": 12,
+        "currency": "USD"
+      },
+      "capabilities": [
+        "function-call",
+        "structured-output",
+        "reasoning",
+        "image-recognition",
+        "file-input",
+        "web-search",
+        "audio-recognition",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "references/ai-platforms/cherry-studio/packages/provider-registry/data/models.json"
+    },
+    {
+      "id": "google::gemini-3-1-pro",
+      "providerId": "google",
+      "name": "Gemini 3.1 Pro Preview",
+      "contextWindow": 1048576,
+      "maxInputTokens": null,
+      "maxOutputTokens": 65536,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": true,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 2,
+        "outputPerMTok": 12,
+        "currency": "USD"
+      },
+      "capabilities": [
+        "function-call",
+        "structured-output",
+        "reasoning",
+        "image-recognition",
+        "file-input",
+        "audio-recognition",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "references/ai-platforms/cherry-studio/packages/provider-registry/data/models.json"
+    },
+    {
+      "id": "google::gemini-flash-lite-latest",
+      "providerId": "google",
+      "name": "Gemini Flash-Lite Latest",
+      "contextWindow": 1048576,
+      "maxInputTokens": null,
+      "maxOutputTokens": 65536,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": true,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.1,
+        "outputPerMTok": 0.4,
+        "currency": "USD"
+      },
+      "capabilities": [
+        "function-call",
+        "structured-output",
+        "reasoning",
+        "image-recognition",
+        "file-input",
+        "audio-recognition",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "references/ai-platforms/cherry-studio/packages/provider-registry/data/models.json"
+    },
+    {
+      "id": "google::gemini-flash-latest",
+      "providerId": "google",
+      "name": "Gemini Flash Latest",
+      "contextWindow": 1048576,
+      "maxInputTokens": null,
+      "maxOutputTokens": 65536,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": true,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.3,
+        "outputPerMTok": 2.5,
+        "currency": "USD"
+      },
+      "capabilities": [
+        "function-call",
+        "structured-output",
+        "reasoning",
+        "image-recognition",
+        "file-input",
+        "audio-recognition",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "references/ai-platforms/cherry-studio/packages/provider-registry/data/models.json"
+    },
+    {
+      "id": "google::gemini-2-5-pro-preview-05-06",
+      "providerId": "google",
+      "name": "Gemini 2.5 Pro Preview 05-06",
+      "contextWindow": 1048576,
+      "maxInputTokens": null,
+      "maxOutputTokens": 65536,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": true,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 1.25,
+        "outputPerMTok": 10,
+        "currency": "USD"
+      },
+      "capabilities": [
+        "function-call",
+        "structured-output",
+        "reasoning",
+        "image-recognition",
+        "file-input",
+        "web-search",
+        "audio-recognition",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "references/ai-platforms/cherry-studio/packages/provider-registry/data/models.json"
+    },
+    {
+      "id": "google::gemini-3-1-pro-preview-customtools",
+      "providerId": "google",
+      "name": "Gemini 3.1 Pro Preview Custom Tools",
+      "contextWindow": 1048576,
+      "maxInputTokens": null,
+      "maxOutputTokens": 65536,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": true,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 2,
+        "outputPerMTok": 12,
+        "currency": "USD"
+      },
+      "capabilities": [
+        "function-call",
+        "structured-output",
+        "reasoning",
+        "image-recognition",
+        "file-input",
+        "audio-recognition",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "references/ai-platforms/cherry-studio/packages/provider-registry/data/models.json"
+    },
+    {
+      "id": "google::gemini-2-5-flash-preview-04-17",
+      "providerId": "google",
+      "name": "Gemini 2.5 Flash Preview 04-17",
+      "contextWindow": 1048576,
+      "maxInputTokens": null,
+      "maxOutputTokens": 65536,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": true,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.15,
+        "outputPerMTok": 0.6,
+        "currency": "USD"
+      },
+      "capabilities": [
+        "reasoning",
+        "function-call",
+        "file-input",
+        "image-recognition",
+        "audio-recognition",
+        "video-recognition",
+        "web-search"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "references/ai-platforms/cherry-studio/packages/provider-registry/data/models.json"
+    },
+    {
+      "id": "google::gemini-2-0-flash-exp",
+      "providerId": "google",
+      "name": "Gemini 2.0 Flash Experimental (free)",
+      "contextWindow": 1048576,
+      "maxInputTokens": null,
+      "maxOutputTokens": 1048576,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": null,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.02,
+        "outputPerMTok": 0.08,
+        "currency": "USD"
+      },
+      "capabilities": [
+        "function-call",
+        "file-input",
+        "image-recognition",
+        "web-search"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "references/ai-platforms/cherry-studio/packages/provider-registry/data/models.json"
+    },
+    {
+      "id": "google::gemini-2-5-pro-preview",
+      "providerId": "google",
+      "name": "Google: Gemini 2.5 Pro Preview 06-05",
+      "contextWindow": 1048576,
+      "maxInputTokens": null,
+      "maxOutputTokens": 65536,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": true,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 1.25,
+        "outputPerMTok": 10,
+        "currency": "USD"
+      },
+      "capabilities": [
+        "function-call",
+        "reasoning",
+        "image-recognition",
+        "file-input",
+        "web-search",
+        "audio-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "references/ai-platforms/cherry-studio/packages/provider-registry/data/models.json"
+    },
+    {
+      "id": "google::gemini-2-0-flash-lite-001",
+      "providerId": "google",
+      "name": "Google: Gemini 2.0 Flash Lite",
+      "contextWindow": 1048576,
+      "maxInputTokens": null,
+      "maxOutputTokens": 8192,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": true,
+      "supportsReasoning": false,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.075,
+        "outputPerMTok": 0.3,
+        "currency": "USD"
+      },
+      "capabilities": [
+        "function-call",
+        "image-recognition",
+        "file-input",
+        "web-search",
+        "audio-recognition",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "references/ai-platforms/cherry-studio/packages/provider-registry/data/models.json"
+    },
+    {
+      "id": "google::gemini-deep-research",
+      "providerId": "google",
+      "name": "gemini-deep-research",
+      "contextWindow": 1048576,
+      "maxInputTokens": null,
+      "maxOutputTokens": 0,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 1.6,
+        "outputPerMTok": 9.6,
+        "currency": "USD"
+      },
+      "capabilities": [
+        "function-call",
+        "reasoning",
+        "image-recognition",
+        "file-input",
+        "video-recognition"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "references/ai-platforms/cherry-studio/packages/provider-registry/data/models.json"
+    },
+    {
+      "id": "google::gemini-pro-latest",
+      "providerId": "google",
+      "name": "Gemini Pro Latest",
+      "contextWindow": 1048576,
+      "maxInputTokens": null,
+      "maxOutputTokens": 65536,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 2,
+        "outputPerMTok": 12,
+        "currency": "USD"
+      },
+      "capabilities": [
+        "function-call",
+        "structured-output",
+        "reasoning",
+        "image-recognition",
+        "file-input"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "references/ai-platforms/cherry-studio/packages/provider-registry/data/models.json"
+    },
+    {
+      "id": "google::gemini-3-1-flash-lite-preview",
+      "providerId": "google",
+      "name": "Google: Gemini 3.1 Flash Lite Preview",
+      "contextWindow": 1048576,
+      "maxInputTokens": null,
+      "maxOutputTokens": 65536,
+      "supportsVision": true,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": true,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.25,
+        "outputPerMTok": 1.5,
+        "currency": "USD"
+      },
+      "capabilities": [
+        "function-call",
+        "structured-output",
+        "reasoning",
+        "image-recognition",
+        "file-input"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "references/ai-platforms/cherry-studio/packages/provider-registry/data/models.json"
+    },
+    {
+      "id": "vertex_ai/meta/llama-4-scout-17b-128e-instruct-maas",
+      "providerId": "vertex_ai-llama_models",
+      "name": "vertex_ai/meta/llama-4-scout-17b-128e-instruct-maas",
+      "contextWindow": 20000000,
+      "maxInputTokens": 10000000,
+      "maxOutputTokens": 10000000,
+      "supportsVision": null,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": null,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.25,
+        "outputPerMTok": 0.7,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "vertex_ai/meta/llama-4-scout-17b-16e-instruct-maas",
+      "providerId": "vertex_ai-llama_models",
+      "name": "vertex_ai/meta/llama-4-scout-17b-16e-instruct-maas",
+      "contextWindow": 20000000,
+      "maxInputTokens": 10000000,
+      "maxOutputTokens": 10000000,
+      "supportsVision": null,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": null,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.25,
+        "outputPerMTok": 0.7,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "oci/meta.llama-4-scout-17b-16e-instruct",
+      "providerId": "oci",
+      "name": "oci/meta.llama-4-scout-17b-16e-instruct",
+      "contextWindow": 10493952,
+      "maxInputTokens": 10485760,
+      "maxOutputTokens": 8192,
+      "supportsVision": null,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": null,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.72,
+        "outputPerMTok": 0.72,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "meta_llama/Llama-4-Scout-17B-16E-Instruct-FP8",
+      "providerId": "meta_llama",
+      "name": "meta_llama/Llama-4-Scout-17B-16E-Instruct-FP8",
+      "contextWindow": 10004028,
+      "maxInputTokens": 10000000,
+      "maxOutputTokens": 4028,
+      "supportsVision": null,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": null,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": null,
+        "outputPerMTok": null,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "snowflake/openai-gpt-5-nano",
+      "providerId": "snowflake",
+      "name": "snowflake/openai-gpt-5-nano",
+      "contextWindow": 5016384,
+      "maxInputTokens": 5000000,
+      "maxOutputTokens": 16384,
+      "supportsVision": null,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": null,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.15,
+        "outputPerMTok": 0.6,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "xai/grok-4-fast-reasoning",
+      "providerId": "xai",
+      "name": "xai/grok-4-fast-reasoning",
+      "contextWindow": 4000000.0,
+      "maxInputTokens": 2000000.0,
+      "maxOutputTokens": 2000000.0,
+      "supportsVision": null,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": null,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.2,
+        "outputPerMTok": 0.5,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "xai/grok-4-fast-non-reasoning",
+      "providerId": "xai",
+      "name": "xai/grok-4-fast-non-reasoning",
+      "contextWindow": 4000000.0,
+      "maxInputTokens": 2000000.0,
+      "maxOutputTokens": 2000000.0,
+      "supportsVision": null,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": null,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.2,
+        "outputPerMTok": 0.5,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "deepinfra/meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8",
+      "providerId": "deepinfra",
+      "name": "deepinfra/meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8",
+      "contextWindow": 2097152,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 1048576,
+      "supportsVision": null,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": null,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.15,
+        "outputPerMTok": 0.6,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "pinstripes/ps/minimax-m2.7",
+      "providerId": "pinstripes",
+      "name": "pinstripes/ps/minimax-m2.7",
+      "contextWindow": 2000384,
+      "maxInputTokens": 1000192,
+      "maxOutputTokens": 1000192,
+      "supportsVision": null,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": null,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.255,
+        "outputPerMTok": 0.55,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "deepinfra/google/gemini-2.0-flash-001",
+      "providerId": "deepinfra",
+      "name": "deepinfra/google/gemini-2.0-flash-001",
+      "contextWindow": 2000000,
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 1000000,
+      "supportsVision": null,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": null,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.1,
+        "outputPerMTok": 0.4,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "deepinfra/google/gemini-2.5-flash",
+      "providerId": "deepinfra",
+      "name": "deepinfra/google/gemini-2.5-flash",
+      "contextWindow": 2000000,
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 1000000,
+      "supportsVision": null,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": null,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.3,
+        "outputPerMTok": 2.5,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "deepinfra/google/gemini-2.5-pro",
+      "providerId": "deepinfra",
+      "name": "deepinfra/google/gemini-2.5-pro",
+      "contextWindow": 2000000,
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 1000000,
+      "supportsVision": null,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": null,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 1.25,
+        "outputPerMTok": 10.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "vertex_ai/meta/llama-4-maverick-17b-128e-instruct-maas",
+      "providerId": "vertex_ai-llama_models",
+      "name": "vertex_ai/meta/llama-4-maverick-17b-128e-instruct-maas",
+      "contextWindow": 2000000,
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 1000000,
+      "supportsVision": null,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": null,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.35,
+        "outputPerMTok": 1.15,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "vertex_ai/meta/llama-4-maverick-17b-16e-instruct-maas",
+      "providerId": "vertex_ai-llama_models",
+      "name": "vertex_ai/meta/llama-4-maverick-17b-16e-instruct-maas",
+      "contextWindow": 2000000,
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 1000000,
+      "supportsVision": null,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": null,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.35,
+        "outputPerMTok": 1.15,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "fireworks_ai/accounts/fireworks/models/deepseek-v4-flash",
+      "providerId": "fireworks_ai",
+      "name": "fireworks_ai/accounts/fireworks/models/deepseek-v4-flash",
+      "contextWindow": 1432576,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 384000,
+      "supportsVision": null,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.14,
+        "outputPerMTok": 0.28,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "fireworks_ai/accounts/fireworks/models/deepseek-v4-pro",
+      "providerId": "fireworks_ai",
+      "name": "fireworks_ai/accounts/fireworks/models/deepseek-v4-pro",
+      "contextWindow": 1432576,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 384000,
+      "supportsVision": null,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 1.74,
+        "outputPerMTok": 3.48,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "fireworks_ai/deepseek-v4-flash",
+      "providerId": "fireworks_ai",
+      "name": "fireworks_ai/deepseek-v4-flash",
+      "contextWindow": 1432576,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 384000,
+      "supportsVision": null,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.14,
+        "outputPerMTok": 0.28,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "fireworks_ai/deepseek-v4-pro",
+      "providerId": "fireworks_ai",
+      "name": "fireworks_ai/deepseek-v4-pro",
+      "contextWindow": 1432576,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 384000,
+      "supportsVision": null,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 1.74,
+        "outputPerMTok": 3.48,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "azure_ai/deepseek-v4-pro",
+      "providerId": "azure_ai",
+      "name": "azure_ai/deepseek-v4-pro",
+      "contextWindow": 1384000,
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 384000,
+      "supportsVision": null,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 1.74,
+        "outputPerMTok": 3.48,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "azure_ai/deepseek-v4-flash",
+      "providerId": "azure_ai",
+      "name": "azure_ai/deepseek-v4-flash",
+      "contextWindow": 1384000,
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 384000,
+      "supportsVision": null,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.19,
+        "outputPerMTok": 0.51,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "fireworks_ai/accounts/fireworks/models/glm-5p2",
+      "providerId": "fireworks_ai",
+      "name": "fireworks_ai/accounts/fireworks/models/glm-5p2",
+      "contextWindow": 1179648,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 131072,
+      "supportsVision": null,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 1.4,
+        "outputPerMTok": 4.4,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "fireworks_ai/glm-5p2",
+      "providerId": "fireworks_ai",
+      "name": "fireworks_ai/glm-5p2",
+      "contextWindow": 1179648,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 131072,
+      "supportsVision": null,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 1.4,
+        "outputPerMTok": 4.4,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "databricks/databricks-gemini-2-5-pro",
+      "providerId": "databricks",
+      "name": "databricks/databricks-gemini-2-5-pro",
+      "contextWindow": 1114112,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65536,
+      "supportsVision": null,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": null,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 1.24999,
+        "outputPerMTok": 9.99999,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "databricks/databricks-gemini-2-5-flash",
+      "providerId": "databricks",
+      "name": "databricks/databricks-gemini-2-5-flash",
+      "contextWindow": 1114111,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65535,
+      "supportsVision": null,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": null,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.30002,
+        "outputPerMTok": 2.49998,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "ft:gpt-4.1-2025-04-14",
+      "providerId": "openai",
+      "name": "ft:gpt-4.1-2025-04-14",
+      "contextWindow": 1080344,
+      "maxInputTokens": 1047576,
+      "maxOutputTokens": 32768,
+      "supportsVision": null,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": null,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 3.0,
+        "outputPerMTok": 12.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "ft:gpt-4.1-mini-2025-04-14",
+      "providerId": "openai",
+      "name": "ft:gpt-4.1-mini-2025-04-14",
+      "contextWindow": 1080344,
+      "maxInputTokens": 1047576,
+      "maxOutputTokens": 32768,
+      "supportsVision": null,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": null,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.8,
+        "outputPerMTok": 3.2,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "ft:gpt-4.1-nano-2025-04-14",
+      "providerId": "openai",
+      "name": "ft:gpt-4.1-nano-2025-04-14",
+      "contextWindow": 1080344,
+      "maxInputTokens": 1047576,
+      "maxOutputTokens": 32768,
+      "supportsVision": null,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": null,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.2,
+        "outputPerMTok": 0.8,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "openrouter/xiaomi/mimo-v2.5-pro",
+      "providerId": "openrouter",
+      "name": "openrouter/xiaomi/mimo-v2.5-pro",
+      "contextWindow": 1064960,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 16384,
+      "supportsVision": null,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 1.0,
+        "outputPerMTok": 3.0,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "dashscope/qwen3-coder-flash",
+      "providerId": "dashscope",
+      "name": "dashscope/qwen3-coder-flash",
+      "contextWindow": 1063488,
+      "maxInputTokens": 997952,
+      "maxOutputTokens": 65536,
+      "supportsVision": null,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": null,
+        "outputPerMTok": null,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "dashscope/qwen3-coder-flash-2025-07-28",
+      "providerId": "dashscope",
+      "name": "dashscope/qwen3-coder-flash-2025-07-28",
+      "contextWindow": 1063488,
+      "maxInputTokens": 997952,
+      "maxOutputTokens": 65536,
+      "supportsVision": null,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": null,
+        "outputPerMTok": null,
+        "currency": "USD"
+      },
+      "capabilities": [],
+      "sourceProject": "litellm",
+      "sourceFile": "references/ai-platforms/litellm/model_prices_and_context_window.json"
+    },
+    {
+      "id": "alibaba::qwen-long",
+      "providerId": "alibaba",
+      "name": "Qwen Long",
+      "contextWindow": 10000000,
+      "maxInputTokens": null,
+      "maxOutputTokens": 8192,
+      "supportsVision": null,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": null,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.072,
+        "outputPerMTok": 0.287,
+        "currency": "USD"
+      },
+      "capabilities": [
+        "function-call",
+        "file-input"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "references/ai-platforms/cherry-studio/packages/provider-registry/data/models.json"
+    },
+    {
+      "id": "nvidia::nemotron-3-nano:30b",
+      "providerId": "nvidia",
+      "name": "nemotron-3-nano:30b",
+      "contextWindow": 1048576,
+      "maxInputTokens": null,
+      "maxOutputTokens": 131072,
+      "supportsVision": null,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": null,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": null,
+        "outputPerMTok": null,
+        "currency": "USD"
+      },
+      "capabilities": [
+        "reasoning",
+        "function-call"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "references/ai-platforms/cherry-studio/packages/provider-registry/data/models.json"
+    },
+    {
+      "id": "alibaba::qwen3-coder-plus",
+      "providerId": "alibaba",
+      "name": "Qwen3 Coder Plus",
+      "contextWindow": 1048576,
+      "maxInputTokens": null,
+      "maxOutputTokens": 65536,
+      "supportsVision": null,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": false,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 1,
+        "outputPerMTok": 5,
+        "currency": "USD"
+      },
+      "capabilities": [
+        "function-call"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "references/ai-platforms/cherry-studio/packages/provider-registry/data/models.json"
+    },
+    {
+      "id": "alibaba::qwen3-coder-plus-2025-09-23",
+      "providerId": "alibaba",
+      "name": "qwen3-coder-plus-2025-09-23",
+      "contextWindow": 1048576,
+      "maxInputTokens": null,
+      "maxOutputTokens": 65536,
+      "supportsVision": null,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": null,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.572,
+        "outputPerMTok": 2.29,
+        "currency": "USD"
+      },
+      "capabilities": [
+        "function-call"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "references/ai-platforms/cherry-studio/packages/provider-registry/data/models.json"
+    },
+    {
+      "id": "xiaomi::mimo-v2-5-pro-ultraspeed",
+      "providerId": "xiaomi",
+      "name": "MiMo-V2.5-Pro-UltraSpeed",
+      "contextWindow": 1048576,
+      "maxInputTokens": null,
+      "maxOutputTokens": 131072,
+      "supportsVision": null,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 1.305,
+        "outputPerMTok": 2.61,
+        "currency": "USD"
+      },
+      "capabilities": [
+        "function-call",
+        "reasoning"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "references/ai-platforms/cherry-studio/packages/provider-registry/data/models.json"
+    },
+    {
+      "id": "xiaomi::mimo-v2-pro",
+      "providerId": "xiaomi",
+      "name": "MiMo V2 Pro",
+      "contextWindow": 1048576,
+      "maxInputTokens": null,
+      "maxOutputTokens": 131072,
+      "supportsVision": null,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 1,
+        "outputPerMTok": 3,
+        "currency": "USD"
+      },
+      "capabilities": [
+        "function-call",
+        "reasoning"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "references/ai-platforms/cherry-studio/packages/provider-registry/data/models.json"
+    },
+    {
+      "id": "xiaomi::mimo-v2-5-pro",
+      "providerId": "xiaomi",
+      "name": "MiMo V2.5 Pro",
+      "contextWindow": 1048576,
+      "maxInputTokens": null,
+      "maxOutputTokens": 131072,
+      "supportsVision": null,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.435,
+        "outputPerMTok": 0.87,
+        "currency": "USD"
+      },
+      "capabilities": [
+        "function-call",
+        "reasoning",
+        "file-input"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "references/ai-platforms/cherry-studio/packages/provider-registry/data/models.json"
+    },
+    {
+      "id": "amazon-bedrock::writer.palmyra-x5-v1:0",
+      "providerId": "amazon-bedrock",
+      "name": "Palmyra X5",
+      "contextWindow": 1040000,
+      "maxInputTokens": null,
+      "maxOutputTokens": 8192,
+      "supportsVision": null,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": null,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.6,
+        "outputPerMTok": 6,
+        "currency": "USD"
+      },
+      "capabilities": [
+        "reasoning",
+        "function-call"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "references/ai-platforms/cherry-studio/packages/provider-registry/data/models.json"
+    },
+    {
+      "id": "deepseek::deepseek-chat",
+      "providerId": "deepseek",
+      "name": "Deepseek-Chat",
+      "contextWindow": 1000000,
+      "maxInputTokens": null,
+      "maxOutputTokens": 384000,
+      "supportsVision": null,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": false,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.29,
+        "outputPerMTok": 0.43,
+        "currency": "USD"
+      },
+      "capabilities": [
+        "function-call",
+        "file-input"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "references/ai-platforms/cherry-studio/packages/provider-registry/data/models.json"
+    },
+    {
+      "id": "alibaba::qwen-flash",
+      "providerId": "alibaba",
+      "name": "Qwen-Flash",
+      "contextWindow": 1000000,
+      "maxInputTokens": null,
+      "maxOutputTokens": 32768,
+      "supportsVision": null,
+      "supportsFunctionCalling": true,
+      "supportsAudioInput": null,
+      "supportsReasoning": true,
+      "mode": "chat",
+      "pricing": {
+        "inputPerMTok": 0.022,
+        "outputPerMTok": 0.22,
+        "currency": "USD"
+      },
+      "capabilities": [
+        "function-call",
+        "reasoning"
+      ],
+      "sourceProject": "cherry-studio",
+      "sourceFile": "references/ai-platforms/cherry-studio/packages/provider-registry/data/models.json"
+    }
+  ]
+}

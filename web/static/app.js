@@ -12,12 +12,16 @@ import {
   appendLog,
   bootstrapLogsFromServer,
   clearLogBuffer,
+  closeLogView,
   logBuffer,
+  logClosed,
   logLevelFilters,
   mergeLogItems,
+  reopenLogView,
   renderLogView,
   replaceLogLevelFilters,
   setLogAutoScroll,
+  setLogClosed,
   updateLogPanelState,
 } from './modules/logs.js';
 import {
@@ -68,7 +72,14 @@ import {
 } from './modules/app-error-reporting.js';
 import {
   initLiveOverlayPanel,
+  refreshLiveOverlayStatus,
 } from './modules/app-live-overlay-panel.js';
+import {
+  configureLiveSettingsTabs,
+  getActiveLiveSettingsTabId,
+  initLiveSettingsTabs,
+  switchLiveSettingsTab,
+} from './modules/live-settings-tabs.js';
 import {
   initPersonaTopicPage,
   loadOverviewGlobalFields,
@@ -438,9 +449,13 @@ function navigate(page) {
     page = 'settings';
     switchSettingsTab('danmu-read');
   }
-  if (page === 'tutorial' || page === 'logs') {
+  if (page === 'tutorial' || page === 'logs' || page === 'announcements' || page === 'feedback') {
+    switchGuideTab(page);
     page = 'guide';
-    switchGuideTab(page === 'tutorial' ? 'tutorial' : 'logs');
+  }
+  if (page === 'live-output' || page === 'bililive-dm') {
+    switchLiveSettingsTab(page);
+    page = 'live-settings';
   }
   document.querySelectorAll('.page-panel').forEach((panel) => panel.classList.remove('active'));
   document.querySelectorAll('#nav .sidebar-item').forEach((item) => item.classList.remove('active'));
@@ -482,30 +497,37 @@ function navigate(page) {
       .then((mod) => mod.loadPetPage())
       .catch((error) => showToast(error.message, true));
   }
-  if (page === 'announcements') {
-    stopAnnouncementsBadgePolling();
-    updateAnnouncementsNavBadge(false);
-    loadAnnouncementsPage().catch((error) => showToast(error.message, true));
-  } else {
-    startAnnouncementsBadgePolling();
-  }
-  if (page === 'feedback') {
-    import('./modules/content-feedback.js')
-      .then((mod) => mod.initFeedbackPage())
-      .catch(console.error);
+  if (page === 'live-settings') {
+    const activeTab = getActiveLiveSettingsTabId();
+    if (activeTab === 'live-output') {
+      refreshLiveOverlayStatus();
+    }
   }
   if (page === 'guide') {
-    if (getActiveGuideTabId() === 'logs') {
+    const activeTab = getActiveGuideTabId();
+    if (activeTab === 'logs') {
       updateLogPanelState();
-      renderLogView({ force: true });
-      bootstrapLogsFromServer(REALTIME.lastLogsPollTs).catch((error) => {
-        console.warn('[realtime] logs bootstrap on navigate failed', error);
-      });
-    } else if (getActiveGuideTabId() === 'tutorial') {
+      if (!logClosed) {
+        renderLogView({ force: true });
+        bootstrapLogsFromServer(REALTIME.lastLogsPollTs).catch((error) => {
+          console.warn('[realtime] logs bootstrap on navigate failed', error);
+        });
+      }
+    } else if (activeTab === 'tutorial') {
       import('./modules/content-tutorial.js')
         .then((mod) => mod.loadTutorialPage())
         .catch(console.error);
+    } else if (activeTab === 'announcements') {
+      stopAnnouncementsBadgePolling();
+      updateAnnouncementsNavBadge(false);
+      loadAnnouncementsPage().catch((error) => showToast(error.message, true));
+    } else if (activeTab === 'feedback') {
+      import('./modules/content-feedback.js')
+        .then((mod) => mod.initFeedbackPage())
+        .catch(console.error);
     }
+  } else {
+    startAnnouncementsBadgePolling();
   }
 }
 
@@ -531,6 +553,8 @@ async function init() {
 
   initErrorReporting({ showToast, getLastStatus: getLastAppliedStatus });
   initLiveOverlayPanel({ showToast });
+  configureLiveSettingsTabs({ showToast });
+  initLiveSettingsTabs();
   initPersonaTopicPage({ showToast });
   loadOverviewGlobalFields().catch(console.error);
   initAppUpdateModal({ showToast });
@@ -596,10 +620,12 @@ async function init() {
     onGuideTabSwitch: (tabId) => {
       if (tabId === 'logs') {
         updateLogPanelState();
-        renderLogView({ force: true });
-        bootstrapLogsFromServer(REALTIME.lastLogsPollTs).catch((error) => {
-          console.warn('[realtime] logs bootstrap on tab switch failed', error);
-        });
+        if (!logClosed) {
+          renderLogView({ force: true });
+          bootstrapLogsFromServer(REALTIME.lastLogsPollTs).catch((error) => {
+            console.warn('[realtime] logs bootstrap on tab switch failed', error);
+          });
+        }
       } else if (tabId === 'tutorial') {
         import('./modules/content-tutorial.js')
           .then((mod) => mod.loadTutorialPage())
@@ -649,6 +675,15 @@ async function init() {
     document.getElementById('logView').innerHTML = '';
     updateLogPanelState();
     showToast('日志视图已清空');
+  });
+  document.getElementById('btnCloseLogs')?.addEventListener('click', () => {
+    if (logClosed) {
+      reopenLogView();
+      showToast('日志已重新打开');
+    } else {
+      closeLogView();
+      showToast('日志已关闭');
+    }
   });
 
   updateLogPanelState();
