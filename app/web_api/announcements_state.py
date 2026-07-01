@@ -1,13 +1,12 @@
 """公告已读状态：config.db JSON 归一化、校验与读写（不经 PUT /api/config）。
 
 路由（由 ``app.web_api.routes`` 注册）：
-- ``GET /api/announcements/read-state``：返回 ``{readIds, lastSeenMs, overviewBannerDismissedId}``。
-- ``POST /api/announcements/read-state``：批量追加已读 id（去重 + 截断到 200 条）。
-- ``POST /api/announcements/overview-dismissed``：写入「已关闭顶部公告条」的版本号。
+- ``GET /api/announcements-read-state``：返回 ``{readIds, lastSeenMs, overviewBannerDismissedId}``。
+- ``PUT /api/announcements-read-state``：批量追加已读 id（去重 + 截断到 200 条）。
 
 数据存于 ``ConfigStore`` 的 ``announcements_read_state`` 键（JSON 字符串）；归一化逻辑见
 ``empty_state`` / ``_normalize_*`` 助手。**不**进 ``PUT /api/config`` 全量表单；本模块
-``register_announcements_state_routes`` 在 ``app.web_api.routes`` 中单独挂载。
+``validate_payload`` / ``get_from_config`` / ``save_to_config`` 在 ``app.web_api.routes`` 中调用。
 """
 
 from __future__ import annotations

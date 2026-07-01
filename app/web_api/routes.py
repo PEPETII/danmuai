@@ -171,7 +171,7 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
             )
             raise HTTPException(
                 status_code=504,
-                detail="主线程操作超时，请稍后重试。",
+                detail={"ok": False, "error": "main_thread_timeout", "detail": "主线程操作超时，请稍后重试。"},
             ) from exc
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc

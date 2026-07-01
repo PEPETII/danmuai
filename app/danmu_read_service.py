@@ -262,7 +262,11 @@ class DanmuReadService(QObject):
         try:
             is_custom = resolve_tts_config(config).is_custom
         except ValueError:
-            is_custom = True
+            is_custom = _export_use_custom_model(
+                config.get("tts_provider") or "",
+                config.get("tts_endpoint") or "",
+                config.get("tts_model_id") or "",
+            )
         self._app.logger.info(
             "danmu read: config saved enabled=%s interval=%ss has_key=%s custom=%s",
             danmu_read_enabled(config),
@@ -397,6 +401,15 @@ class DanmuReadService(QObject):
         self._app.logger.warning("danmu read tts failed: %s", message)
 
 
+def _export_use_custom_model(provider: str, endpoint: str, model_id: str) -> bool:
+    from app.tts_providers import is_custom_tts_config
+
+    try:
+        return is_custom_tts_config(provider, endpoint, model_id)
+    except ValueError:
+        return False
+
+
 def export_danmu_read_config(config) -> dict[str, object]:
     key = config.get_tts_api_key()
     stored_provider = (config.get("tts_provider") or "").strip()
@@ -424,7 +437,9 @@ def export_danmu_read_config(config) -> dict[str, object]:
             "model_id": stored_model_id,
             "model": stored_model_id or MIMO_TTS_MODEL,
             "endpoint": stored_endpoint,
-            "use_custom_model": True,
+            "use_custom_model": _export_use_custom_model(
+                stored_provider, stored_endpoint, stored_model_id
+            ),
         }
     return {
         "enabled": danmu_read_enabled(config),

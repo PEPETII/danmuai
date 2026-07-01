@@ -1,8 +1,10 @@
 import logging
-import os
+import threading
 import time  # noqa: F401 — used as danmu_engine_dedup.time from app.danmu_engine
 from collections import deque
 from dataclasses import dataclass
+
+from app.env_config import get as get_env
 
 logger = logging.getLogger(__name__)
 
@@ -11,6 +13,9 @@ _LEVENSHTEIN_UNAVAILABLE = object()
 _LEVENSHTEIN_FALLBACK_WARNED = False
 _DEDUP_PROFILE_FLAG: bool | None = None
 _DEDUP_THRESHOLD_FALLBACK = 0.5
+# 仅保护 _LEVENSHTEIN_RATIO 懒加载；_dedup_profile_stats / _last_duplicate_observation
+# 是 best-effort profile/观察数据，刻意不加锁（AGENTS.md §11 避免过度工程）。
+_lazy_lock = threading.Lock()
 _last_duplicate_observation = {
     "content": "",
     "match_type": "",
@@ -38,7 +43,7 @@ _dedup_profile_stats = DedupProfileStats()
 def dedup_profile_enabled() -> bool:
     global _DEDUP_PROFILE_FLAG
     if _DEDUP_PROFILE_FLAG is None:
-        value = os.environ.get("DANMU_DEDUP_PROFILE", "").strip().lower()
+        value = get_env("DANMU_DEDUP_PROFILE").strip().lower()
         _DEDUP_PROFILE_FLAG = value in ("1", "true", "yes", "on")
     return _DEDUP_PROFILE_FLAG
 
@@ -91,23 +96,25 @@ def get_last_duplicate_observation() -> dict[str, object]:
 def _get_levenshtein_ratio():
     global _LEVENSHTEIN_RATIO, _LEVENSHTEIN_FALLBACK_WARNED
     if _LEVENSHTEIN_RATIO is None:
-        try:
-            from Levenshtein import ratio as _ratio
+        with _lazy_lock:
+            if _LEVENSHTEIN_RATIO is None:
+                try:
+                    from Levenshtein import ratio as _ratio
 
-            _LEVENSHTEIN_RATIO = _ratio
-        except ImportError:
-            try:
-                from rapidfuzz.distance import Levenshtein as _rf_lev
+                    _LEVENSHTEIN_RATIO = _ratio
+                except ImportError:
+                    try:
+                        from rapidfuzz.distance import Levenshtein as _rf_lev
 
-                _LEVENSHTEIN_RATIO = _rf_lev.normalized_similarity
-            except ImportError:
-                _LEVENSHTEIN_RATIO = _LEVENSHTEIN_UNAVAILABLE
-                if not _LEVENSHTEIN_FALLBACK_WARNED:
-                    _LEVENSHTEIN_FALLBACK_WARNED = True
-                    logger.warning(
-                        "Levenshtein C extension unavailable; "
-                        "danmu dedup will use slow pure-Python fallback"
-                    )
+                        _LEVENSHTEIN_RATIO = _rf_lev.normalized_similarity
+                    except ImportError:
+                        _LEVENSHTEIN_RATIO = _LEVENSHTEIN_UNAVAILABLE
+                        if not _LEVENSHTEIN_FALLBACK_WARNED:
+                            _LEVENSHTEIN_FALLBACK_WARNED = True
+                            logger.warning(
+                                "Levenshtein C extension unavailable; "
+                                "danmu dedup will use slow pure-Python fallback"
+                            )
     if _LEVENSHTEIN_RATIO is _LEVENSHTEIN_UNAVAILABLE:
         return None
     return _LEVENSHTEIN_RATIO

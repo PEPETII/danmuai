@@ -158,3 +158,35 @@ def test_manager_returns_same_instance(reset_state):
 
     # Cleanup
     update_service._cached_manager = None
+
+
+# ── _current_version() fallbacks (BUG-007) ─────────────────────────
+
+
+@pytest.mark.parametrize(
+    "raw_version",
+    [None, "", "None", "none"],
+)
+def test_current_version_invalid_falls_back_to_package_version(raw_version):
+    """BUG-007: Velopack None/empty/'None' must not leak into version compare."""
+    from app.version import __version__
+
+    mock_mgr = MagicMock()
+    mock_mgr.get_current_version.return_value = raw_version
+    assert update_service._current_version(mock_mgr) == __version__
+
+
+def test_check_for_updates_uses_fallback_current_version(reset_state):
+    """BUG-007: check_for_updates must not expose empty current_version."""
+    from app.version import __version__
+
+    mock_mgr = MagicMock()
+    mock_mgr.check_for_updates.return_value = None
+    mock_mgr.get_current_version.return_value = None
+
+    with patch.object(update_service, "_is_velopack_install", return_value=True):
+        with patch.object(update_service, "_manager", return_value=mock_mgr):
+            st = update_service.check_for_updates()
+
+    assert st.current_version == __version__
+    assert st.current_version != ""

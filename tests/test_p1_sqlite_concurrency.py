@@ -258,11 +258,17 @@ class TestP1005TransactionProtection:
 
     def test_set_api_key_transaction(self, temp_db):
         """set_api_key 中加密写入和旧 key 删除应该在同一事务中。"""
+        from base64 import b64encode
+
         store = ConfigStore(db_path=temp_db)
 
-        # 先设置一个 base64 key
-        with patch('app.config_store._HAS_CRYPTO', False):
-            store.set_api_key("test_api_key_123")
+        encoded = b64encode(b"test_api_key_123").decode()
+        store.conn.execute(
+            "REPLACE INTO config (key, value) VALUES (?, ?)",
+            ("api_key_encoded", encoded),
+        )
+        store.conn.commit()
+        store._cache["api_key_encoded"] = encoded
 
         assert store.get("api_key_encoded") != ""
 

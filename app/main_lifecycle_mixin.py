@@ -673,6 +673,11 @@ class DanmuAppLifecycleMixin:
         if callable(stop_meme_timers):
             stop_meme_timers()
 
+        # W-TEARDOWN-RES-001：关闭烂梗 API httpx 客户端，释放连接池
+        close_meme_client = self.__dict__.get("close_meme_barrage_client")
+        if callable(close_meme_client):
+            close_meme_client()
+
         read_svc = self.__dict__.get("_danmu_read_service")
         if read_svc is not None:
             read_svc.shutdown()
@@ -682,7 +687,7 @@ class DanmuAppLifecycleMixin:
 
         from PyQt6 import QtCore
 
-        from app.worker_pools import capture_worker_pool
+        from app.worker_pools import ai_worker_pool, capture_worker_pool, meme_ai_pool, meme_fetch_pool
 
         capture_done = capture_worker_pool().waitForDone(2000)
         if not capture_done:
@@ -692,6 +697,40 @@ class DanmuAppLifecycleMixin:
                 "active_threads=%s max_threads=%s",
                 cap_pool.activeThreadCount(),
                 cap_pool.maxThreadCount(),
+            )
+
+        # W-TEARDOWN-RES-001：ai_worker_pool / meme_ai_pool 是独立 QThreadPool
+        # （非 globalInstance），需单独 waitForDone
+        ai_done = ai_worker_pool().waitForDone(2000)
+        if not ai_done:
+            ai_pool_inst = ai_worker_pool()
+            self.logger.warning(
+                "quit timed out waiting for ai worker thread pool "
+                "active_threads=%s max_threads=%s",
+                ai_pool_inst.activeThreadCount(),
+                ai_pool_inst.maxThreadCount(),
+            )
+
+        meme_done = meme_ai_pool().waitForDone(2000)
+        if not meme_done:
+            m_pool = meme_ai_pool()
+            self.logger.warning(
+                "quit timed out waiting for meme ai worker thread pool "
+                "active_threads=%s max_threads=%s",
+                m_pool.activeThreadCount(),
+                m_pool.maxThreadCount(),
+            )
+
+        # ISSUE-072: meme_fetch_pool 也需等待，否则在途 MemeFetchRunnable
+        # 可能在 config.close() 后通过 Qt 信号回调访问已关闭 SQLite
+        fetch_done = meme_fetch_pool().waitForDone(2000)
+        if not fetch_done:
+            f_pool = meme_fetch_pool()
+            self.logger.warning(
+                "quit timed out waiting for meme fetch thread pool "
+                "active_threads=%s max_threads=%s",
+                f_pool.activeThreadCount(),
+                f_pool.maxThreadCount(),
             )
 
         pool = QtCore.QThreadPool.globalInstance()

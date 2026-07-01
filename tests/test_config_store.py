@@ -411,6 +411,32 @@ def test_legacy_base64_api_key_auto_upgrades_on_read(tmp_path):
     store2.close()
 
 
+@pytest.mark.skipif(not _HAS_CRYPTO, reason="cryptography not installed")
+def test_custom_model_api_key_decrypt_failure_logs_debug(tmp_path, caplog):
+    """Fernet 解密失败时应记录 debug 日志而非静默吞咽（W-CONFIGSTORE-LOG-001）。"""
+    db_path = tmp_path / "fernet_log.db"
+    store = ConfigStore(db_path=db_path)
+    store.set_custom_models([{"modelId": "m1", "apiKey": "sk-test-secret"}])
+    assert store.get_custom_models()[0]["apiKey"] == "sk-test-secret"
+    store.close()
+
+    # 损坏密钥文件 → 重新生成新密钥 → 旧 token 无法解密
+    key_file = db_path.parent / ".key"
+    assert key_file.exists()
+    key_file.write_bytes(b"corrupted_invalid_key_data")
+
+    store2 = ConfigStore(db_path=db_path)
+    with caplog.at_level(logging.DEBUG, logger="app.config_store"):
+        models = store2.get_custom_models()
+    # 不抛异常；解密失败回退
+    assert len(models) == 1
+    # debug 日志应含 fernet_decrypt_failed
+    assert any(
+        "fernet_decrypt_failed" in rec.message for rec in caplog.records
+    ), f"expected fernet_decrypt_failed log, got: {[r.message for r in caplog.records]}"
+    store2.close()
+
+
 def test_api_key_cache_avoids_repeat_decrypt(tmp_path):
     if not _HAS_CRYPTO:
         pytest.skip("cryptography not available")
@@ -688,7 +714,46 @@ def test_corrupted_key_shows_key_lost_notice(tmp_path):
     assert store2._key_regenerated is True
     notice = store2.get_startup_notice()
     assert "密钥" in notice or "key" in notice.lower()
+    backups = list(db_path.parent.glob(".key.bak.*"))
+    assert len(backups) == 1
+    assert backups[0].read_bytes() == b"corrupted_invalid_key_data"
+    assert store2._key_backup_path == backups[0]
     # 旧 API Key 不可恢复
+    assert store2.get_api_key() == ""
+    store2.close()
+
+
+@pytest.mark.skipif(not _HAS_CRYPTO, reason="cryptography not installed")
+def test_corrupted_key_backed_up_before_regeneration(tmp_path):
+    """损坏 .key 末字节后应备份旧密钥再生成新 key（BUG-002）。"""
+    from cryptography.fernet import Fernet
+
+    db_path = tmp_path / "corrupt_last_byte.db"
+    store = ConfigStore(db_path=db_path)
+    store.set_api_key("sk-secret")
+    assert store.get_api_key() == "sk-secret"
+    store.close()
+
+    key_file = db_path.parent / ".key"
+    assert key_file.exists()
+    corrupted = bytearray(key_file.read_bytes())
+    corrupted[-1] ^= 0xFF
+    key_file.write_bytes(bytes(corrupted))
+
+    store2 = ConfigStore(db_path=db_path)
+    assert store2._key_regenerated is True
+
+    backups = list(db_path.parent.glob(".key.bak.*"))
+    assert len(backups) == 1
+    assert backups[0].read_bytes() == bytes(corrupted)
+    assert store2._key_backup_path == backups[0]
+
+    new_key = key_file.read_bytes()
+    f = Fernet(new_key)
+    f.decrypt(f.encrypt(b"test"))
+
+    notice = store2.get_startup_notice()
+    assert str(backups[0]) in notice or "备份" in notice or "backed up" in notice.lower()
     assert store2.get_api_key() == ""
     store2.close()
 
@@ -711,6 +776,8 @@ def test_deleted_key_with_encrypted_data_shows_notice(tmp_path):
     assert store2._key_regenerated is True
     notice = store2.get_startup_notice()
     assert "密钥" in notice or "key" in notice.lower()
+    assert list(db_path.parent.glob(".key.bak.*")) == []
+    assert store2._key_backup_path is None
     assert store2.get_api_key() == ""
     store2.close()
 
@@ -1023,4 +1090,69 @@ def test_config_store_concurrent_close(tmp_path):
     val = store2.get("race_key", "")
     assert val  # 至少有初始值
     store2.close()
+
+
+def test_schema_meta_table_created_on_init(tmp_path):
+    """ConfigStore 初始化后 schema_meta 表存在且 schema_version=0（W-SCHEMA-MIGRATION-FOUNDATION-001）。"""
+    db_path = tmp_path / "schema.db"
+    store = ConfigStore(db_path=db_path)
+    assert store.schema_version == 0
+    # 直接查表确认
+    row = store.conn.execute(
+        "SELECT value FROM schema_meta WHERE key='schema_version'"
+    ).fetchone()
+    assert row is not None
+    assert int(row[0]) == 0
+    store.close()
+
+
+def test_schema_migration_runs_registered_migration(tmp_path):
+    """注册一个假迁移(版本1)后，新 db 应推进 schema_version 到 1；重开仍幂等。"""
+    from app.config_migrations import MIGRATIONS, register
+
+    @register(1, "test_dummy_migration")
+    def _m(conn):
+        conn.execute("CREATE TABLE IF NOT EXISTS _test_marker (id INTEGER)")
+
+    try:
+        db_path = tmp_path / "schema_migrate.db"
+        store = ConfigStore(db_path=db_path)
+        assert store.schema_version == 1
+        # 表已被迁移创建
+        tables = [
+            row[0]
+            for row in store.conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+        ]
+        assert "_test_marker" in tables
+        store.close()
+        # 重开仍幂等：schema_version 保持 1，迁移不再运行
+        store2 = ConfigStore(db_path=db_path)
+        assert store2.schema_version == 1
+        store2.close()
+    finally:
+        # 清理注册项，避免污染其他测试
+        MIGRATIONS.clear()
+
+
+def test_secrets_storage_available_when_crypto_present(tmp_path):
+    if not _HAS_CRYPTO:
+        pytest.skip("cryptography not available")
+    store = ConfigStore(db_path=tmp_path / "crypto_ok.db")
+    assert store.secrets_storage_available is True
+    store.close()
+
+
+def test_set_api_key_raises_when_crypto_unavailable(tmp_path):
+    from unittest.mock import patch
+
+    from app.config_store import ConfigStoreCryptoUnavailableError
+
+    with patch("app.config_store._HAS_CRYPTO", False):
+        store = ConfigStore(db_path=tmp_path / "no_crypto.db")
+        assert store.secrets_storage_available is False
+        with pytest.raises(ConfigStoreCryptoUnavailableError):
+            store.set_api_key("sk-test")
+        store.close()
 

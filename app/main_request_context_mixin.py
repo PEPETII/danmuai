@@ -8,11 +8,11 @@
 
 from __future__ import annotations
 
-import os
 import time
 
 from app.api_schedule import min_api_interval_elapsed
 from app.danmu_engine import dedup_profile_enabled, log_dedup_profile_summary
+from app.env_config import get as get_env
 from app.main_helpers import (
     VISUAL_INFLIGHT_RECOVER_SEC,
     density_right_target,
@@ -24,7 +24,7 @@ from app.translations import tr
 
 
 def reply_pipeline_log_enabled() -> bool:
-    return os.environ.get("DANMU_REPLY_PIPELINE_LOG", "").strip() == "1"
+    return get_env("DANMU_REPLY_PIPELINE_LOG").strip() == "1"
 
 
 def format_reply_request_id(

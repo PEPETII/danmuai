@@ -44,6 +44,13 @@ class DanmuAppMemeMixin:
             self._meme_barrage_api_client = client
         return client
 
+    def close_meme_barrage_client(self) -> None:
+        """关闭烂梗 API httpx 客户端；quit() 时调用以释放连接池（W-TEARDOWN-RES-001）。"""
+        client = self.__dict__.get("_meme_barrage_api_client")
+        if client is not None:
+            client.close()
+            self._meme_barrage_api_client = None
+
     def _init_meme_barrage_timers(self) -> None:
         self._meme_barrage_service = MemeBarrageService(self.config)
         parent = self if isinstance(self, QObject) else None

@@ -156,6 +156,8 @@ class WebConsoleBridge(QObject):
         self._diagnostics_hub: DiagnosticsHub | None = None
         self._pending_log_items: list[dict[str, Any]] = []
         self._log_flush_scheduled: bool = False
+        # W-INVOKE-OBSERV-001：invoke_on_main 超时累计计数（供 /api/diagnostics 读取）
+        self._invoke_timeout_count: int = 0
 
         self.status_refresh_requested.connect(self.publish_status)
         self.sync_invoke_requested.connect(
@@ -218,6 +220,8 @@ class WebConsoleBridge(QObject):
 
         self.sync_invoke_requested.emit(runner)
         if not done.wait(timeout=timeout):
+            # W-INVOKE-OBSERV-001：先计数再告警，便于 /api/diagnostics 读取累计超时次数
+            self._invoke_timeout_count += 1
             self.danmu_app.logger.error(
                 "invoke_on_main timeout: fn=%r timeout_sec=%.1f",
                 fn,
@@ -229,6 +233,10 @@ class WebConsoleBridge(QObject):
         if "result" in result_holder:
             return result_holder["result"]
         return None
+
+    def invoke_timeout_count(self) -> int:
+        """返回 invoke_on_main 累计超时次数（供 /api/diagnostics 读取，W-INVOKE-OBSERV-001）。"""
+        return self._invoke_timeout_count
 
     @pyqtSlot(object)
     def _on_sync_invoke(self, runner: object) -> None:

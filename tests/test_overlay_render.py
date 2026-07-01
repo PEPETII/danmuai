@@ -66,6 +66,22 @@ def test_show_for_screen_invalid_index_starts_render_with_content(
     assert overlay.timer.isActive()
 
 
+def test_show_for_screen_zero_geometry_returns_early(overlay_stack, qapp, monkeypatch):
+    """BUG-016: 屏幕 geometry 为 0 时 show_for_screen 安全返回，不修改 engine 宽度。"""
+    _, engine, overlay = overlay_stack
+    mock_screen = MagicMock()
+    mock_screen.geometry.return_value = QRect(0, 0, 0, 0)
+    monkeypatch.setattr("app.overlay.QApplication.screens", lambda: [mock_screen])
+    engine.set_screen_width(1920.0)
+    overlay._screen_width = 1920.0
+
+    overlay.show_for_screen(0)
+    qapp.processEvents()
+
+    assert overlay._screen_width == 1920.0
+    assert engine.screen_width == 1920.0
+
+
 def test_show_event_starts_loop_when_content_queued_while_hidden(overlay_stack, qapp):
     _, engine, overlay = overlay_stack
     overlay.setGeometry(0, 0, 800, 600)

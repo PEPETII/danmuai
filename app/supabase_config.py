@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import os
 import re
 from dataclasses import dataclass
 
 from app.bundle_paths import resource_path
+from app.env_config import get as get_env
 
 _URL_RE = re.compile(r"""url:\s*['"]([^'"]+)['"]""")
 _ANON_KEY_RE = re.compile(r"""anonKey:\s*['"]([^'"]+)['"]""")
@@ -34,8 +34,8 @@ def _parse_supabase_config_js(text: str) -> SupabaseCredentials | None:
 
 def get_supabase_credentials() -> SupabaseCredentials | None:
     """Env vars override bundled ``web/static/supabase-config.js`` when present."""
-    env_url = os.environ.get("DANMU_SUPABASE_URL", "").strip().rstrip("/")
-    env_key = os.environ.get("DANMU_SUPABASE_ANON_KEY", "").strip()
+    env_url = get_env("DANMU_SUPABASE_URL").strip().rstrip("/")
+    env_key = get_env("DANMU_SUPABASE_ANON_KEY").strip()
     if env_url and env_key and "YOUR_PROJECT" not in env_url:
         return SupabaseCredentials(url=env_url, anon_key=env_key)
 

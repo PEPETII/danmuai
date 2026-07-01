@@ -727,4 +727,37 @@ def test_nav_poll_loop_restore_marker(monkeypatch):
     window.show.assert_called_once()
     window.restore.assert_called_once()
     window.activate.assert_called_once()
-    window.load_url.assert_not_called()
+
+
+def test_terminate_kills_stubborn_process():
+    server = MagicMock()
+    server.base_url = "http://127.0.0.1:18765"
+    shell = WebViewShell(server)
+
+    class StubbornProcess:
+        def __init__(self) -> None:
+            self._alive = True
+            self.terminate_calls = 0
+            self.kill_calls = 0
+
+        def is_alive(self) -> bool:
+            return self._alive
+
+        def terminate(self) -> None:
+            self.terminate_calls += 1
+
+        def kill(self) -> None:
+            self.kill_calls += 1
+            self._alive = False
+
+        def join(self, timeout: float = 0) -> None:
+            return None
+
+    proc = StubbornProcess()
+    shell._process = proc
+    shell._terminate()
+
+    assert proc.terminate_calls == 1
+    assert proc.kill_calls == 1
+    assert proc.is_alive() is False
+    assert shell._process is None

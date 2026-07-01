@@ -89,11 +89,17 @@ def _manager():
 
 
 def _current_version(manager) -> str:
-    try:
-        return str(manager.get_current_version() or "")
-    except Exception:
-        from app.version import __version__
+    from app.version import __version__
 
+    try:
+        raw = manager.get_current_version()
+        if raw is None:
+            return __version__
+        text = str(raw).strip()
+        if not text or text.lower() == "none":
+            return __version__
+        return text
+    except Exception:
         return __version__
 
 

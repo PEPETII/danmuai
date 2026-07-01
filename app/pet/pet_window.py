@@ -468,6 +468,7 @@ class PetWindow(QWidget):
         self.stop_render_loop()
         self._hide_command_box()
         self.hide()
+        self._spritesheet = None
 
     def _pet_size(self) -> tuple[int, int]:
         scale = self._settings.scale

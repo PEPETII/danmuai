@@ -10,7 +10,6 @@
 接近可视区时由 overlay._prepare_pixmaps_near_visible / paintEvent 延迟预渲染 QPixmap。
 """
 import logging
-import os
 import sys
 import time
 
@@ -30,6 +29,7 @@ from app.danmu_engine import (
     normalize_layout_mode,
     resolve_danmu_max_chars,
 )
+from app.env_config import get as get_env
 from app.win32_overlay_zorder import apply_overlay_exstyles, reassert_hwnd_topmost
 
 _FRAME_DT = 1.0 / 60.0
@@ -60,7 +60,7 @@ _overlay_profile_flag: bool | None = None
 def overlay_profile_enabled() -> bool:
     global _overlay_profile_flag
     if _overlay_profile_flag is None:
-        value = os.environ.get("DANMU_OVERLAY_PROFILE", "").strip().lower()
+        value = get_env("DANMU_OVERLAY_PROFILE").strip().lower()
         _overlay_profile_flag = value in ("1", "true", "yes", "on")
     return _overlay_profile_flag
 
@@ -665,6 +665,8 @@ class DanmuOverlay(QWidget):
         screen_index = max(0, min(int(screen_index), len(screens) - 1))
         if screen_index < len(screens):
             geo = screens[screen_index].geometry()
+            if geo.width() <= 0 or geo.height() <= 0:
+                return
             layout_mode = normalize_layout_mode(self.config.get("layout_mode", "fullscreen"))
             geo_key = (
                 screen_index,

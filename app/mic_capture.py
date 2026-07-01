@@ -215,7 +215,7 @@ class MicCaptureService:
                 self._log("mic capture restarted: selected input device changed")
         with self._lock:
             if not _HAS_SOUNDDEVICE:
-                self._last_error = "sounddevice_unavailable"
+                self._last_error = "sounddevice not installed"
                 self._log("mic capture unavailable: sounddevice not installed")
                 return False
             try:

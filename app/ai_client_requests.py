@@ -204,7 +204,14 @@ def reset_worker_http_client(worker) -> httpx.Client:
         with worker._client_lock:
             worker._clients.discard(worker._thread_local.client)
         worker._thread_local.client = None
-    return worker._get_http_client()
+    try:
+        client = worker._get_http_client()
+    except Exception as exc:
+        logger.error("reset_worker_http_client: failed to create httpx client: %s", exc)
+        raise RuntimeError("AI HTTP client reset failed") from exc
+    if client is None:
+        raise RuntimeError("AI HTTP client reset returned None")
+    return client
 
 
 def request_doubao(
@@ -359,7 +366,19 @@ def request_doubao(
             )
         except Exception as exc:
             if attempt < 1:
-                http_client = reset_worker_http_client(worker)
+                try:
+                    http_client = reset_worker_http_client(worker)
+                except RuntimeError as reset_exc:
+                    return worker._deliver_outcome(
+                        emit=emit,
+                        signal_name="error",
+                        message=tr("ai.error_request_failed").format(error=reset_exc),
+                        persona_id=persona_id,
+                        request_round=request_round,
+                        screenshot_id=screenshot_id,
+                        captured_at=captured_at,
+                        scene_generation=scene_generation,
+                    )
                 continue
             return worker._deliver_outcome(
                 emit=emit,
@@ -577,7 +596,19 @@ def request_openai(
             )
         except Exception as exc:
             if attempt < 1:
-                http_client = reset_worker_http_client(worker)
+                try:
+                    http_client = reset_worker_http_client(worker)
+                except RuntimeError as reset_exc:
+                    return worker._deliver_outcome(
+                        emit=emit,
+                        signal_name="error",
+                        message=tr("ai.error_request_failed").format(error=reset_exc),
+                        persona_id=persona_id,
+                        request_round=request_round,
+                        screenshot_id=screenshot_id,
+                        captured_at=captured_at,
+                        scene_generation=scene_generation,
+                    )
                 continue
             return worker._deliver_outcome(
                 emit=emit,

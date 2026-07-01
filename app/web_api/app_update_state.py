@@ -1,8 +1,8 @@
 """应用更新弹窗忽略状态：config.db JSON 校验与读写。
 
 路由（由 ``app.web_api.routes`` 注册）：
-- ``GET /api/app-update/state``：返回 ``{dismissedLatestVersion: str}``。
-- ``POST /api/app-update/state``：写入用户已忽略的版本号（点过「暂不更新」后不再提示）。
+- ``GET /api/app-update-state``：返回 ``{dismissedLatestVersion: str}``。
+- ``PUT /api/app-update-state``：写入用户已忽略的版本号（点过「暂不更新」后不再提示）。
 
 数据存于 ``ConfigStore`` 的 ``app_update_state`` 键（JSON 字符串）；字段名是
 ``dismissedLatestVersion``，对齐 Supabase ``app_updates.latest_version``。

@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import logging
-import os
 import threading
 from dataclasses import dataclass
 
 import httpx
 
+from app.env_config import get as get_env
 from app.web_api.bililive_dm_push import (
     DEFAULT_PUSH_URL,
     PUSH_SOURCE_MAIN,
@@ -62,7 +62,7 @@ def push_batch_to_bililive_dm(
         "items": items,
         "persona": request.persona or "",
     }
-    target = (url or os.environ.get("DANMU_BILILIVE_DM_PUSH_URL") or DEFAULT_PUSH_URL).strip()
+    target = (url or get_env("DANMU_BILILIVE_DM_PUSH_URL") or DEFAULT_PUSH_URL).strip()
     timeout = httpx.Timeout(_PUSH_TIMEOUT_SEC, connect=_PUSH_TIMEOUT_SEC)
 
     try:
@@ -121,7 +121,7 @@ def schedule_push_batch(
     items: list[str],
     persona: str | None = None,
 ) -> None:
-    if os.environ.get("DANMU_BILILIVE_DM_PUSH", "1").strip() == "0":
+    if get_env("DANMU_BILILIVE_DM_PUSH", "1").strip() == "0":
         return
     display_items = sanitize_push_items(items)
     if not display_items:

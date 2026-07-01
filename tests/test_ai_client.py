@@ -4,6 +4,7 @@ from contextlib import contextmanager
 from unittest.mock import MagicMock, patch
 
 import httpx
+import pytest
 from app.ai_client import (
     DANMU_MIN_OUTPUT_TOKENS,
     DANMU_MIN_OUTPUT_TOKENS_THINKING,
@@ -17,6 +18,7 @@ from app.ai_client import (
     resolve_danmu_max_output_tokens,
     sanitize_provider_error_snippet,
 )
+from app.ai_client_requests import reset_worker_http_client
 from app.translations import tr
 
 from tests.fakes import ai_client_fake_config
@@ -423,6 +425,43 @@ def test_request_doubao_rebuilds_client_on_exception():
     new_client = worker._get_http_client()
     assert new_client is not first_client
     assert call_count == 2
+    worker.close()
+
+
+def test_reset_worker_http_client_raises_when_client_creation_fails():
+    worker = AiWorker(ai_client_fake_config())
+    worker._get_http_client()
+    with patch("httpx.Client", side_effect=OSError("oom")):
+        with pytest.raises(RuntimeError, match="AI HTTP client reset failed"):
+            reset_worker_http_client(worker)
+    assert worker._thread_local.client is None
+    worker.close()
+
+
+def test_request_doubao_delivers_error_when_reset_fails():
+    worker = AiWorker(ai_client_fake_config())
+    worker._get_http_client()
+
+    def stream_side_effect(*args, **kwargs):
+        raise RuntimeError("connection broken")
+
+    with patch.object(worker, "_stream_doubao", side_effect=stream_side_effect):
+        with patch("httpx.Client", side_effect=OSError("oom")):
+            result = worker._request_doubao(
+                "data:image/jpeg;base64,abc",
+                "sys",
+                "user",
+                "p1",
+                1,
+                1,
+                1.0,
+                0,
+                emit=False,
+            )
+
+    assert result is not None
+    assert result.signal == "error"
+    assert "AI HTTP client reset failed" in result.message
     worker.close()
 
 

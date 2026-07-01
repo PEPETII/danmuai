@@ -12,21 +12,11 @@ from app.meme_barrage.ai_select import (
     parse_meme_ai_selection,
 )
 from app.meme_barrage.client import MemeBarrageApiClient
+from app.worker_pools import meme_fetch_pool
 
 if TYPE_CHECKING:
     from app.ai_client import AiWorker
     from app.config_store import ConfigStore
-
-_fetch_pool: QThreadPool | None = None
-
-
-def meme_fetch_pool() -> QThreadPool:
-    global _fetch_pool
-    if _fetch_pool is None:
-        pool = QThreadPool()
-        pool.setMaxThreadCount(1)
-        _fetch_pool = pool
-    return _fetch_pool
 
 
 def _safe_emit(callback: Callable[..., None] | None, *args: Any) -> None:

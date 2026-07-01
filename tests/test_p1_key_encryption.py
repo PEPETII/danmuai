@@ -1,18 +1,24 @@
 """
-P1-002 / P1-003 测试：API Key 加密降级警告和密钥损坏恢复
+P1-002 / P1-003 测试：API Key 加密 fail-closed 与密钥损坏恢复
 
 覆盖：
-1. Fernet 不可用时 base64 降级警告
-2. Key 文件损坏时生成新密钥并警告
-3. Key 文件丢失时生成新密钥
-4. 解密失败时警告
+1. Fernet 不可用时拒绝写入敏感字段
+2. legacy base64 只读回退与告警
+3. Key 文件损坏时生成新密钥并警告
+4. Key 文件丢失时生成新密钥
+5. 解密失败时警告
 """
 
 import logging
+from base64 import b64encode
 from unittest.mock import patch
 
 import pytest
-from app.config_store import _HAS_CRYPTO, ConfigStore
+from app.config_store import (
+    ConfigStore,
+    ConfigStoreCryptoUnavailableError,
+    _HAS_CRYPTO,
+)
 
 
 @pytest.fixture
@@ -30,51 +36,52 @@ def mock_no_crypto():
         yield
 
 
-class TestP1002_Base64FallbackWarning:
-    """P1-002: base64 降级时应有明确警告"""
+class TestP1002_CryptoFailClosed:
+    """P1-002: cryptography 不可用时拒绝写入，legacy base64 仍可只读。"""
 
     def test_warning_when_cryptography_not_available_on_init(self, temp_config_dir, mock_no_crypto):
         """测试 cryptography 不可用时初始化发出警告"""
         with self._capture_logs() as log_messages:
             store = ConfigStore(db_path=temp_config_dir / "config.db")
 
-        assert any("cryptography" in msg and "base64" in msg for msg in log_messages)
+        assert any("cryptography" in msg.lower() for msg in log_messages)
+        assert not store.secrets_storage_available
 
-    def test_warning_when_setting_api_key_without_crypto(self, temp_config_dir, mock_no_crypto):
-        """测试设置 API Key 时无 cryptography 发出警告"""
+    def test_set_api_key_raises_without_crypto(self, temp_config_dir, mock_no_crypto):
+        """测试设置 API Key 时无 cryptography 应拒绝写入"""
         store = ConfigStore(db_path=temp_config_dir / "config.db")
 
-        with self._capture_logs() as log_messages:
+        with pytest.raises(ConfigStoreCryptoUnavailableError):
             store.set_api_key("test-api-key-123")
 
-        assert any("base64" in msg and "不安全" in msg for msg in log_messages)
-
     def test_warning_when_reading_base64_encoded_key(self, temp_config_dir, mock_no_crypto):
-        """测试读取 base64 编码的 API Key 时发出警告"""
+        """测试读取 legacy base64 编码的 API Key 时仍可解码并发出告警"""
         store = ConfigStore(db_path=temp_config_dir / "config.db")
-        # 先设置一个 base64 编码的 key
-        store.set_api_key("test-api-key")
+        encoded = b64encode(b"test-api-key").decode()
+        store.conn.execute(
+            "REPLACE INTO config (key, value) VALUES (?, ?)",
+            ("api_key_encoded", encoded),
+        )
+        store.conn.commit()
+        store._cache["api_key_encoded"] = encoded
+        store.close()
 
-        # 重新加载 store 并读取
         with self._capture_logs() as log_messages:
             store2 = ConfigStore(db_path=temp_config_dir / "config.db")
             key = store2.get_api_key()
 
         assert key == "test-api-key"
-        # 应该有 base64 不安全警告
         assert any("base64" in msg.lower() or "不安全" in msg for msg in log_messages)
 
-    def test_base64_is_not_described_as_encryption(self, temp_config_dir, mock_no_crypto):
-        """测试日志中不把 base64 描述为加密"""
+    def test_startup_notice_when_crypto_unavailable(self, temp_config_dir, mock_no_crypto):
         store = ConfigStore(db_path=temp_config_dir / "config.db")
+        notice = store.get_startup_notice()
+        assert "cryptography" in notice.lower() or "加密" in notice
 
-        with self._capture_logs() as log_messages:
-            store.set_api_key("my-secret-key")
-
-        # 日志中不应出现"加密"字样来描述 base64
-        for msg in log_messages:
-            if "base64" in msg:
-                assert "加密" not in msg or "非加密" in msg
+    def test_set_encoded_key_raises_without_crypto(self, temp_config_dir, mock_no_crypto):
+        store = ConfigStore(db_path=temp_config_dir / "config.db")
+        with pytest.raises(ConfigStoreCryptoUnavailableError):
+            store.set("api_key_encoded", b64encode(b"secret").decode())
 
     @staticmethod
     def _capture_logs():

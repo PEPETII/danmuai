@@ -425,3 +425,30 @@ def test_heuristic_node_budget_constant_is_present():
     """BUG-011: 防御性常量 ``_MAX_HEURISTIC_NODES`` 存在且为正整数。"""
     assert isinstance(_MAX_HEURISTIC_NODES, int)
     assert _MAX_HEURISTIC_NODES > 0
+
+
+def test_parse_truncated_json_comments_falls_back_to_heuristic():
+    """BUG-011: 截断 comments 信封应经 heuristic 抽取非空弹幕。"""
+    raw = '{"comments":["弹幕A","弹幕B'
+    items = parse_ai_reply_payload(raw)
+    assert items
+    assert "弹幕A" in items
+
+
+def test_parse_truncated_json_replies_envelope_uses_heuristic():
+    """BUG-011: replies 信封截断也应走 heuristic，而非纯文本分支。"""
+    raw = '{"replies":["弹幕一","弹幕二'
+    items = parse_ai_reply_payload(raw)
+    assert items
+    assert "弹幕一" in items
+
+
+def test_parse_truncated_json_logs_heuristic_warning(caplog):
+    """BUG-011: JSON 解析失败回退 heuristic 时记录 warning。"""
+    import logging
+
+    # 无法通过后缀修补的截断对象，确保走 parse=None → heuristic 分支。
+    raw = '{"comments":'
+    with caplog.at_level(logging.WARNING, logger="app.reply_parser"):
+        parse_ai_reply_payload(raw)
+    assert any("falling back to heuristic" in rec.message for rec in caplog.records)

@@ -4,15 +4,16 @@ from __future__ import annotations
 
 import base64
 import io
-import os
 
 from PIL import Image
+
+from app.env_config import get as get_env
 
 _DATA_URI_PREFIX = "data:image/jpeg;base64,"
 
 
 def image_metrics_enabled() -> bool:
-    value = os.environ.get("DANMU_IMAGE_METRICS", "").strip().lower()
+    value = get_env("DANMU_IMAGE_METRICS").strip().lower()
     return value in ("1", "true", "yes", "on")
 
 

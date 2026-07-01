@@ -12,7 +12,9 @@ from app.pet.pet_assets import (
     PET_FRAME_W,
     PET_STATE_FRAME_COUNTS,
     PET_STATE_ROWS,
+    is_path_within_sandbox,
     load_pet_assets,
+    resolve_and_sandbox_pack_dir,
     validate_pet_pack_dir,
 )
 
@@ -93,7 +95,10 @@ def test_builtin_pack_uses_yuexin_miao_running_rows(qapp):
     assert sy_left == 1 * PET_FRAME_H
 
 
-def test_petdex_layout_running_rows(qapp, tmp_path):
+def test_petdex_layout_running_rows(qapp, tmp_path, monkeypatch):
+    from app.pet import pet_assets
+
+    monkeypatch.setattr(pet_assets, "ALLOWED_PET_PACK_ROOT", tmp_path)
     meta = json.loads((BUILTIN_PET_DIR / "pet.json").read_text(encoding="utf-8"))
     meta.pop("spritesheetLayout", None)
     pack_dir = tmp_path / "petdex-pack"
@@ -126,7 +131,10 @@ def test_invalid_spritesheet_layout_raises(qapp, tmp_path):
         validate_pet_pack_dir(pack_dir)
 
 
-def test_local_pack_path_from_config(qapp):
+def test_local_pack_path_from_config(qapp, monkeypatch):
+    from app.pet import pet_assets
+
+    monkeypatch.setattr(pet_assets, "ALLOWED_PET_PACK_ROOT", BUILTIN_PET_DIR)
     pack = load_pet_assets(
         FakeConfig(
             {
@@ -163,6 +171,24 @@ def test_pet_window_defers_sprite_load_until_show_pet(qapp, monkeypatch):
     assert load_count["n"] == 0
     window.show_pet()
     assert load_count["n"] == 1
+
+
+def test_pet_window_releases_spritesheet_on_hide(qapp, monkeypatch):
+    """BUG-009: hide_pet must drop decoded spritesheet to avoid retaining QPixmap."""
+    from app.pet.pet_window import PetWindow
+    from main import DanmuApp
+
+    from tests.conftest import bind_minimal_danmu_app
+
+    app = DanmuApp.__new__(DanmuApp)
+    bind_minimal_danmu_app(app, config=FakeConfig({"pet_asset_source": "builtin"}))
+    window = PetWindow(app)
+
+    for _ in range(2):
+        window.show_pet()
+        assert window._spritesheet is not None
+        window.hide_pet()
+        assert window._spritesheet is None
 
 
 def test_sync_pet_window_visibility_shows_pet_when_enabled_and_visible():
@@ -311,7 +337,7 @@ def test_apply_pet_settings_patch_invalid_local_path_keeps_existing_config(qapp)
         }
     )
 
-    with pytest.raises(ValueError, match="pet.json"):
+    with pytest.raises(ValueError, match="不在允许范围内"):
         apply_pet_settings_patch(
             app,
             {
@@ -343,3 +369,97 @@ def test_validate_pet_pack_dir_repeated_calls_no_accumulation(qapp):
         assert meta["id"] == "yuexin-miao-animated"
         assert cols == 8
         assert rows == 9
+
+
+def test_is_path_within_sandbox_allows_subpath(tmp_path):
+    root = tmp_path / "sandbox"
+    root.mkdir()
+    sub = root / "pack"
+    sub.mkdir()
+    assert is_path_within_sandbox(sub, root) is True
+
+
+def test_is_path_within_sandbox_rejects_parent_traversal(tmp_path):
+    root = tmp_path / "sandbox"
+    root.mkdir()
+    evil = root / ".." / "secret"
+    assert is_path_within_sandbox(evil, root) is False
+
+
+def test_is_path_within_sandbox_rejects_absolute_outside(tmp_path):
+    root = tmp_path / "sandbox"
+    root.mkdir()
+    outside = tmp_path / "secret"
+    outside.mkdir()
+    assert is_path_within_sandbox(outside, root) is False
+
+
+def test_resolve_and_sandbox_pack_dir_builtin(qapp):
+    pack_dir = resolve_and_sandbox_pack_dir(FakeConfig({"pet_asset_source": "builtin"}))
+    assert pack_dir == BUILTIN_PET_DIR
+
+
+def test_resolve_and_sandbox_pack_dir_allows_whitelisted_path(qapp, monkeypatch, tmp_path):
+    from app.pet import pet_assets
+
+    monkeypatch.setattr(pet_assets, "ALLOWED_PET_PACK_ROOT", tmp_path)
+    pack_dir = tmp_path / "mypack"
+    pack_dir.mkdir()
+    result = resolve_and_sandbox_pack_dir(
+        FakeConfig({"pet_asset_source": "local", "pet_asset_path": str(pack_dir)})
+    )
+    assert result == pack_dir
+
+
+def test_resolve_and_sandbox_pack_dir_rejects_traversal(qapp, monkeypatch, tmp_path):
+    from app.pet import pet_assets
+
+    monkeypatch.setattr(pet_assets, "ALLOWED_PET_PACK_ROOT", tmp_path)
+    outside = tmp_path.parent / "secret"
+    with pytest.raises(ValueError, match="不在允许范围内"):
+        resolve_and_sandbox_pack_dir(
+            FakeConfig({"pet_asset_source": "local", "pet_asset_path": str(outside)})
+        )
+
+
+def test_apply_pet_settings_patch_rejects_path_traversal(qapp, monkeypatch, tmp_path):
+    from app.pet.pet_facade import apply_pet_settings_patch
+    from app.pet import pet_assets
+
+    monkeypatch.setattr(pet_assets, "ALLOWED_PET_PACK_ROOT", tmp_path)
+    app = _make_patch_app({"pet_asset_source": "builtin", "pet_asset_path": ""})
+
+    outside = tmp_path.parent / "secret"
+    with pytest.raises(ValueError, match="不在允许范围内"):
+        apply_pet_settings_patch(
+            app,
+            {
+                "pet_asset_source": "local",
+                "pet_asset_path": str(outside),
+            },
+        )
+    assert app.config.get("pet_asset_source") == "builtin"
+    assert app.config.get("pet_asset_path") == ""
+
+
+def test_apply_pet_settings_patch_rejects_slot_path_traversal(qapp, monkeypatch, tmp_path):
+    from app.pet.pet_facade import apply_pet_settings_patch
+    from app.pet import pet_assets
+
+    monkeypatch.setattr(pet_assets, "ALLOWED_PET_PACK_ROOT", tmp_path)
+    app = _make_patch_app({"pet_asset_source": "builtin"})
+
+    outside = tmp_path.parent / "secret"
+    with pytest.raises(ValueError, match="不在允许范围内"):
+        apply_pet_settings_patch(
+            app,
+            {
+                "pet_barrage_slots": [
+                    {
+                        "slot_id": 0,
+                        "asset_source": "local",
+                        "asset_path": str(outside),
+                    }
+                ]
+            },
+        )

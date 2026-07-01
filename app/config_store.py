@@ -3,7 +3,9 @@
 设计要点：
 - **%APPDATA%/DanmuAI/config.db** 持久化；**%APPDATA%/DanmuAI/.key** 为 Fernet 对称密钥。
 - **密钥丢失或 .key 被删/损坏后重新生成**：旧 api_key_encrypted 无法解密，等同不可恢复（须重新填写 Key）。
-- **向后兼容**：无 cryptography 时退化为 base64 存 api_key_encoded（仅编码非加密）；有 Fernet 后写入 encrypted 并删除 encoded。
+- **密钥损坏时 best-effort 备份**：校验失败生成新 key 前，将旧 `.key` 写入 `.key.bak.<timestamp>`（不保证可恢复密文）。
+- **敏感写入 fail-closed**：无 cryptography / Fernet 时拒绝新写入 API Key（抛 ``ConfigStoreCryptoUnavailableError``）。
+- **读取向后兼容**：仍可只读解码 legacy ``api_key_encoded``（base64，非加密）；有 Fernet 后写入 encrypted 并删除 encoded。
 - **WAL + busy_timeout**：允许多读者与单写者共存，写路径用 _write_lock 串行化避免 cache/DB 不一致。
 - **set_batch**：显式事务，commit 成功后才更新 _cache，失败 rollback。
 
@@ -16,8 +18,10 @@ import logging
 import math
 import os
 import sqlite3
+import subprocess
 import threading
 from contextlib import contextmanager
+from datetime import datetime
 from pathlib import Path
 
 try:
@@ -28,6 +32,7 @@ except ImportError:
 
 from base64 import b64decode, b64encode
 
+from app.config_migrations import run_pending
 from app.translations import tr
 
 logger = logging.getLogger(__name__)
@@ -59,12 +64,41 @@ _SQLITE_CACHED_STATEMENTS = 256
 
 
 
-def _restrict_key_file_permissions(path: Path):
+def _restrict_key_file_permissions(path: Path) -> None:
     """Set file permissions so only the owner can read/write (best-effort)."""
+    if os.name == "nt":
+        username = os.environ.get("USERNAME", "")
+        if not username:
+            logger.warning(tr("config.key_acl_failed").format(path=path))
+            return
+        result = subprocess.run(
+            ["icacls", str(path), "/inheritance:r", "/grant:r", f"{username}:F"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            logger.warning(tr("config.key_acl_failed").format(path=path))
+        return
     try:
         os.chmod(path, 0o600)
-    except Exception:
-        pass
+    except OSError:
+        logger.warning(tr("config.key_acl_failed").format(path=path))
+
+
+def _backup_corrupted_key_file(key_dir: Path, raw_bytes: bytes) -> Path | None:
+    """Best-effort backup of a corrupted .key before regeneration."""
+    timestamp = datetime.now().strftime("%Y%m%dT%H%M%S")
+    backup_path = key_dir / f".key.bak.{timestamp}"
+    try:
+        backup_path.write_bytes(raw_bytes)
+        _restrict_key_file_permissions(backup_path)
+        return backup_path
+    except OSError as exc:
+        logger.warning(
+            tr("config.key_backup_failed").format(path=backup_path, error=exc)
+        )
+        return None
 
 
 def _migrate_custom_model_shape(entry: dict) -> dict:
@@ -93,6 +127,10 @@ def _migrate_custom_model_shape(entry: dict) -> dict:
     return entry
 
 
+class ConfigStoreCryptoUnavailableError(RuntimeError):
+    """Sensitive config cannot be stored without Fernet."""
+
+
 class ConfigStore:
     """应用配置与 API Key 的 SQLite 门面；读走内存 _cache，写持 _write_lock。"""
 
@@ -113,6 +151,8 @@ class ConfigStore:
         # 写冲突时等待最多 5s 而非立即失败（与 _write_lock 双保险）
         self.conn.execute("PRAGMA busy_timeout=5000")
         self._init_db()
+        # W-SCHEMA-MIGRATION-FOUNDATION-001：启动期 schema 版本追踪（当前 MIGRATIONS 为空 = no-op）
+        self._schema_version = run_pending(self.conn)
         self._cache: dict[str, str] = {}
         self._load_cache()
         # 所有 REPLACE/commit 串行化，保证 _cache 与 DB 同事务一致
@@ -129,6 +169,7 @@ class ConfigStore:
             seed_config_defaults(self)
             self._load_cache()
         self._key_regenerated = False
+        self._key_backup_path: Path | None = None
         self._fernet = self._init_fernet()
         # W-PERF-MED-001：解密明文与 custom_models 解析结果指纹缓存（进程内驻留至配置变更）
         self._decrypted_secret_cache: dict[str, str] = {}
@@ -141,6 +182,11 @@ class ConfigStore:
         # 必须在 _fernet / _cache / _custom_models_cache 初始化之后调用；
         # 迁移函数自身有异常容错，不会再抛异常。
         self._maybe_migrate_legacy_api_to_custom_models()
+
+    @property
+    def schema_version(self) -> int:
+        """当前 DB schema 版本（W-SCHEMA-MIGRATION-FOUNDATION-001）。"""
+        return self._schema_version
 
     def _migrate_legacy_image_max_width(self) -> None:
         from app.config_defaults import migrate_legacy_image_max_width
@@ -174,13 +220,32 @@ class ConfigStore:
 
         migrate_custom_danmu_pool_json(self)
 
+    @property
+    def secrets_storage_available(self) -> bool:
+        return bool(_HAS_CRYPTO and self._fernet)
+
     def get_startup_notice(self) -> str:
-        """首装会话返回本地化引导文案；密钥丢失时返回告警文案；否则为空。"""
+        """首装会话返回本地化引导文案；crypto 不可用或密钥丢失时返回告警文案；否则为空。"""
         if self.is_first_run:
-            return tr("config.startup_notice")
+            notice = tr("config.startup_notice")
+            if not self.secrets_storage_available:
+                notice = f"{notice}\n\n{tr('config.crypto_startup_notice')}"
+            return notice
+        if not self.secrets_storage_available:
+            return tr("config.crypto_startup_notice")
         if self._key_regenerated:
+            if self._key_backup_path is not None:
+                return tr("config.key_lost_notice_with_backup").format(
+                    backup_path=self._key_backup_path
+                )
             return tr("config.key_lost_notice")
         return ""
+
+    def _reject_insecure_encoded_write(self, key: str, value: str) -> None:
+        if key.endswith("_encoded") and value and not self.secrets_storage_available:
+            message = tr("config.crypto_write_blocked")
+            logger.error(message)
+            raise ConfigStoreCryptoUnavailableError(message)
 
     def _init_fernet(self):
         """加载或生成 %APPDATA%/DanmuAI/.key；校验失败则换新 key（旧密文永久不可读）。"""
@@ -195,9 +260,17 @@ class ConfigStore:
                 f.decrypt(f.encrypt(b"test"))
                 return f
             except Exception:
-                logger.warning(
-                    tr("config.crypto_key_regenerated")
+                self._key_backup_path = _backup_corrupted_key_file(
+                    self._key_file.parent, key
                 )
+                if self._key_backup_path is not None:
+                    logger.warning(
+                        tr("config.crypto_key_regenerated").format(
+                            backup_path=self._key_backup_path
+                        )
+                    )
+                else:
+                    logger.warning(tr("config.crypto_key_regenerated_no_backup"))
                 # Key corrupted, generate a new one (old encrypted data becomes unreadable)
                 self._key_regenerated = True
                 pass
@@ -280,6 +353,7 @@ class ConfigStore:
         if self._closed:
             logger.warning("ConfigStore.set(%s) called after close(), write skipped", key)
             return
+        self._reject_insecure_encoded_write(key, value)
         with self._write_lock:
             if self._closed:
                 logger.warning("ConfigStore.set(%s) called after close(), write skipped", key)
@@ -308,6 +382,11 @@ class ConfigStore:
 
         Web PUT /api/config 一次提交多键，避免半写入导致 UI 与运行时状态不一致。
         与缓存相同的键会被跳过，减少无意义 WAL 提交。
+
+        锁作用域 = 单次 ``executemany + commit``。典型 Web 保存（≤20 键）持锁
+        <5ms；万键批（如自定义弹幕池走 ``set_custom_danmu_pool_for_store``，已走
+        diff-based 增量路径）不经过本方法。读路径走 ``_cache`` 不持 ``_write_lock``，
+        故 Web GET 不被阻塞。现状可接受，非缺陷（W-INVOKE-OBSERV-001 评估）。
         """
         if self._closed:
             logger.warning("ConfigStore.set_batch() called after close(), write skipped")
@@ -359,14 +438,14 @@ class ConfigStore:
         keys_to_delete: list[str],
     ) -> None:
         """Queue API key REPLACE/DELETE within an open transaction (caller holds _write_lock)."""
-        if _HAS_CRYPTO and self._fernet:
-            encrypted = self._fernet.encrypt(key.encode("utf-8")).decode("utf-8")
-            pairs.append((encrypted_key, encrypted))
-            if encoded_key in self._cache:
-                keys_to_delete.append(encoded_key)
-            return
-        logger.warning(tr("config.insecure_store"))
-        pairs.append((encoded_key, b64encode(key.encode("utf-8")).decode("utf-8")))
+        if not self.secrets_storage_available:
+            message = tr("config.crypto_write_blocked")
+            logger.error(message)
+            raise ConfigStoreCryptoUnavailableError(message)
+        encrypted = self._fernet.encrypt(key.encode("utf-8")).decode("utf-8")
+        pairs.append((encrypted_key, encrypted))
+        if encoded_key in self._cache:
+            keys_to_delete.append(encoded_key)
 
     def apply_web_save(
         self,
@@ -564,7 +643,7 @@ class ConfigStore:
                     encrypted_key,
                     type(exc).__name__,
                 )
-        elif encrypted_key == "api_key_encrypted" and _HAS_CRYPTO and self._fernet is None:
+        elif encoded and not encrypted and not self.secrets_storage_available:
             logger.warning(tr("config.insecure_read"))
         return self._cache_decrypted_secret(encrypted_key, encoded_key, plaintext)
 
@@ -668,10 +747,11 @@ class ConfigStore:
         """Encrypt custom-model apiKey with the same Fernet key as api_key_encrypted."""
         if not key:
             return ""
-        if _HAS_CRYPTO and self._fernet:
-            return self._fernet.encrypt(key.encode("utf-8")).decode("utf-8")
-        logger.warning(tr("config.insecure_store"))
-        return b64encode(key.encode("utf-8")).decode("utf-8")
+        if not self.secrets_storage_available:
+            message = tr("config.crypto_write_blocked")
+            logger.error(message)
+            raise ConfigStoreCryptoUnavailableError(message)
+        return self._fernet.encrypt(key.encode("utf-8")).decode("utf-8")
 
     def _resolve_custom_model_api_key(self, stored: str) -> tuple[str, bool]:
         """Return (plaintext apiKey, needs_encryption_upgrade)."""
@@ -680,11 +760,18 @@ class ConfigStore:
         if self._looks_like_fernet_token(stored):
             try:
                 return self._fernet.decrypt(stored.encode("utf-8")).decode("utf-8"), False
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug(
+                    "config.fernet_decrypt_failed key=custom_model_api_key error=%r",
+                    exc,
+                )
         try:
             decoded = b64decode(stored).decode("utf-8")
-        except Exception:
+        except Exception as exc:
+            logger.debug(
+                "config.b64decode_failed key=custom_model_api_key error=%r",
+                exc,
+            )
             decoded = stored
         if decoded.startswith("sk-") or decoded.startswith("Bearer "):
             return decoded, True
@@ -1106,6 +1193,7 @@ class ConfigStore:
     def close(self):
         with self._write_lock:
             self._closed = True
+        self._invalidate_formula_text_cache()
         try:
             self.conn.close()
         except sqlite3.ProgrammingError:

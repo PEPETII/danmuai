@@ -595,6 +595,9 @@ class WebViewShell:
         if proc.is_alive():
             proc.terminate()
             proc.join(timeout=2.0)
+            if proc.is_alive():
+                proc.kill()
+                proc.join(timeout=1.0)
 
     def destroy(self) -> None:
         self._terminate()

@@ -42,8 +42,12 @@ def test_parse_version_segments():
 def test_invalid_version_raises():
     with pytest.raises(ValueError):
         parse_version("")
-    with pytest.raises(ValueError):
-        parse_version("not-a-version")
+
+
+def test_invalid_version_returns_default():
+    """BUG-014: 完全非版本字符串返回 (0,)。"""
+    assert parse_version("not-a-version") == ((0,), "a-version")
+    assert parse_version("not_a_version") == ((0,), None)
 
 
 # ── BUG-A07: +build metadata handling ──────────────────────────────
@@ -75,21 +79,19 @@ def test_build_metadata_prerelease_with_build():
 # ── BUG-008: malformed version segments raise catchable ValueError ──
 
 
-def test_malformed_segment_raises_value_error():
-    """BUG-008: 非数字段（如 'x'）必须抛 ValueError，调用方负责 try/except。"""
-    with pytest.raises(ValueError):
-        parse_version("0.3.x")
-    with pytest.raises(ValueError):
-        is_version_newer("0.3.x", "0.3.4")
-    with pytest.raises(ValueError):
-        is_version_newer("0.3.4", "0.3.x")
+def test_malformed_segment_returns_default():
+    """BUG-014: 非数字段不再抛异常，parse_version 返回 (0,) 作为默认。"""
+    assert parse_version("0.3.x") == ((0,), None)
+    assert is_version_newer("0.3.x", "0.3.4") is False
+    assert is_version_newer("0.3.4", "0.3.x") is True
 
 
-def test_malformed_latest_is_catchable_for_update_api():
-    """BUG-008: 调用方可捕获 ValueError，不会冒泡为 500。"""
-    raised = False
-    try:
-        is_version_newer("0.3.x", "0.3.4")
-    except ValueError:
-        raised = True
-    assert raised
+def test_parse_version_prerelease_with_numeric_core():
+    """BUG-014: 带 prerelease 的标准版本正常解析。"""
+    assert parse_version("1.2.3-beta") == ((1, 2, 3), "beta")
+    assert parse_version("v0.3.6-gha") == ((0, 3, 6), "gha")
+
+
+def test_parse_version_completely_invalid_segment():
+    """BUG-014: 完全非数字的 core 返回 (0,) 与 prerelease。"""
+    assert parse_version("abc.def-gha") == ((0,), "gha")

@@ -9,28 +9,36 @@ BUG-G05: meme_ai_pool isolates meme AI select from main visual AI requests.
 
 from __future__ import annotations
 
+import threading
+
 from PyQt6.QtCore import QThreadPool
 
 _ai_pool: QThreadPool | None = None
 _capture_pool: QThreadPool | None = None
 _meme_ai_pool: QThreadPool | None = None
+_meme_fetch_pool: QThreadPool | None = None
+_pool_lock = threading.Lock()
 
 
 def ai_worker_pool() -> QThreadPool:
     global _ai_pool
     if _ai_pool is None:
-        pool = QThreadPool()
-        pool.setMaxThreadCount(2)
-        _ai_pool = pool
+        with _pool_lock:
+            if _ai_pool is None:
+                pool = QThreadPool()
+                pool.setMaxThreadCount(2)
+                _ai_pool = pool
     return _ai_pool
 
 
 def capture_worker_pool() -> QThreadPool:
     global _capture_pool
     if _capture_pool is None:
-        pool = QThreadPool()
-        pool.setMaxThreadCount(1)
-        _capture_pool = pool
+        with _pool_lock:
+            if _capture_pool is None:
+                pool = QThreadPool()
+                pool.setMaxThreadCount(1)
+                _capture_pool = pool
     return _capture_pool
 
 
@@ -38,7 +46,21 @@ def meme_ai_pool() -> QThreadPool:
     """Isolated pool for meme AI select; does not compete with main visual AI."""
     global _meme_ai_pool
     if _meme_ai_pool is None:
-        pool = QThreadPool()
-        pool.setMaxThreadCount(1)
-        _meme_ai_pool = pool
+        with _pool_lock:
+            if _meme_ai_pool is None:
+                pool = QThreadPool()
+                pool.setMaxThreadCount(1)
+                _meme_ai_pool = pool
     return _meme_ai_pool
+
+
+def meme_fetch_pool() -> QThreadPool:
+    """Isolated pool for meme remote fetch; quit() must waitForDone before config.close()."""
+    global _meme_fetch_pool
+    if _meme_fetch_pool is None:
+        with _pool_lock:
+            if _meme_fetch_pool is None:
+                pool = QThreadPool()
+                pool.setMaxThreadCount(1)
+                _meme_fetch_pool = pool
+    return _meme_fetch_pool

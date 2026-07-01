@@ -10,6 +10,7 @@ import logging
 import random
 import sqlite3
 import time
+import weakref
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -17,9 +18,9 @@ logger = logging.getLogger(__name__)
 CUSTOM_DANMU_POOL_MAX = 20000
 
 # 按 config 实例缓存烂梗库句集合；池/烂梗库写入后须 invalidate_formula_text_cache。
-_formula_meme_sets: dict[int, set[str]] = {}
+_formula_meme_sets: weakref.WeakKeyDictionary = weakref.WeakKeyDictionary()
 # 按 config 实例缓存自定义弹幕库句集合；池/烂梗库写入后须 invalidate_formula_text_cache。
-_formula_custom_sets: dict[int, set[str]] = {}
+_formula_custom_sets: weakref.WeakKeyDictionary = weakref.WeakKeyDictionary()
 
 
 def danmu_pool_use_custom_from_config(config) -> bool:
@@ -120,14 +121,12 @@ def invalidate_formula_text_cache(config: Any | None = None) -> None:
         _formula_meme_sets.clear()
         _formula_custom_sets.clear()
         return
-    key = id(config)
-    _formula_meme_sets.pop(key, None)
-    _formula_custom_sets.pop(key, None)
+    _formula_meme_sets.pop(config, None)
+    _formula_custom_sets.pop(config, None)
 
 
 def _meme_barrage_text_set(config) -> set[str]:
-    key = id(config)
-    cached = _formula_meme_sets.get(key)
+    cached = _formula_meme_sets.get(config)
     if cached is not None:
         return cached
     bulk = getattr(config, "meme_barrage_library_all_texts", None)
@@ -135,14 +134,13 @@ def _meme_barrage_text_set(config) -> set[str]:
         cached = {str(t).strip() for t in bulk() if str(t).strip()}
     else:
         cached = set()
-    _formula_meme_sets[key] = cached
+    _formula_meme_sets[config] = cached
     return cached
 
 
 def _custom_pool_text_set(config) -> set[str]:
     """Cached set of all enabled custom pool texts for *config*."""
-    key = id(config)
-    cached = _formula_custom_sets.get(key)
+    cached = _formula_custom_sets.get(config)
     if cached is not None:
         return cached
     # Prefer the store-level bulk loader if available.
@@ -151,7 +149,7 @@ def _custom_pool_text_set(config) -> set[str]:
         cached = {str(t).strip() for t in getter() if str(t).strip()}
     else:
         cached = set()
-    _formula_custom_sets[key] = cached
+    _formula_custom_sets[config] = cached
     return cached
 
 

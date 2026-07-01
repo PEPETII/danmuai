@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-import os
 import time
+
+from app.env_config import get as get_env
 
 # Matches DanmuEngine: x -= speed * factor * (dt / (1/60)) → ~speed*60 px/s at factor=1.
 ENGINE_BASE_FPS = 60.0
@@ -11,12 +12,12 @@ DEFAULT_MIN_API_INTERVAL_MS = 800
 
 
 def api_schedule_debug_enabled() -> bool:
-    value = os.environ.get("DANMU_API_SCHEDULE_DEBUG", "").strip().lower()
+    value = get_env("DANMU_API_SCHEDULE_DEBUG").strip().lower()
     return value in ("1", "true", "yes", "on")
 
 
 def min_api_interval_ms() -> int:
-    raw = os.environ.get("DANMU_MIN_API_INTERVAL_MS", "").strip()
+    raw = get_env("DANMU_MIN_API_INTERVAL_MS").strip()
     if not raw:
         return DEFAULT_MIN_API_INTERVAL_MS
     try:

@@ -169,7 +169,7 @@ if ($env:DANMU_CODE_SIGN -eq "1") {
     Write-Host "Verifying release signatures..."
     & (Join-Path $Root "scripts\sign_windows_release.ps1") -VerifyOnly -ReleaseDir $VelopackDir
     if ($LASTEXITCODE -ne 0) {
-        Write-Error "Signature verification failed — see above for details"
+        throw "Signature verification failed — see above for details"
     }
     Write-Host "Signature verification passed."
 }

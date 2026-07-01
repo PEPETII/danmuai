@@ -242,6 +242,34 @@ def test_invoke_on_main_raises_timeout_when_main_thread_slow():
     assert elapsed < 1.0
 
 
+def test_invoke_on_main_timeout_increments_counter():
+    """超时分支应自增 _invoke_timeout_count（W-INVOKE-OBSERV-001）。"""
+    from PyQt6.QtCore import QThread
+    from PyQt6.QtWidgets import QApplication
+
+    qt_app = QApplication.instance() or QApplication([])
+    bridge = WebConsoleBridge(MagicMock())
+    assert bridge.invoke_timeout_count() == 0
+    observed: dict[str, object] = {}
+
+    class InvokeWorker(QThread):
+        def run(self) -> None:
+            def slow_on_main() -> None:
+                time.sleep(0.15)
+
+            try:
+                bridge.invoke_on_main(slow_on_main, timeout_sec=0.05)
+            except MainThreadInvokeTimeout:
+                observed["timed_out"] = True
+
+    worker = InvokeWorker()
+    worker.start()
+    pump_qt_until(qt_app, invoke_worker=worker)
+
+    assert observed.get("timed_out") is True
+    assert bridge.invoke_timeout_count() == 1
+
+
 def test_invoke_on_main_timeout_under_main_thread_load():
     """BUG-072: sync invoke vs save_config on the same Qt thread must not deadlock."""
     from PyQt6.QtCore import QThread
@@ -378,6 +406,10 @@ def test_quit_stops_web_status_timer_before_server_shutdown(monkeypatch):
             return fake_pool
 
     monkeypatch.setattr(qtcore, "QThreadPool", _FakeQThreadPool)
+    # W-TEARDOWN-RES-001：quit() 现在分别 waitForDone capture/ai/meme 三个独立池
+    monkeypatch.setattr("app.worker_pools.capture_worker_pool", lambda: fake_pool)
+    monkeypatch.setattr("app.worker_pools.ai_worker_pool", lambda: fake_pool)
+    monkeypatch.setattr("app.worker_pools.meme_ai_pool", lambda: fake_pool)
     quit_mock = MagicMock()
     monkeypatch.setattr("main.QApplication.quit", quit_mock)
 
@@ -409,8 +441,10 @@ def test_quit_stops_web_status_timer_before_server_shutdown(monkeypatch):
     app.stop_web_status_timer.assert_called_once_with()
     app.web_server.stop.assert_called_once_with()
     app.web_server.wait_shutdown_complete.assert_called_once_with()
-    fake_pool.waitForDone.assert_called_once_with(2000)
-    assert order[:4] == ["wait:2000", "history_stop", "close", "config_close"]
+    # W-TEARDOWN-RES-001：4 次 waitForDone（capture/ai/meme/global）
+    assert fake_pool.waitForDone.call_count == 4
+    fake_pool.waitForDone.assert_called_with(2000)
+    assert order == ["wait:2000", "wait:2000", "wait:2000", "wait:2000", "history_stop", "close", "config_close"]
     quit_mock.assert_called_once_with()
 
 
@@ -426,6 +460,10 @@ def test_quit_logs_warning_when_thread_pool_does_not_finish(monkeypatch):
             return fake_pool
 
     monkeypatch.setattr(qtcore, "QThreadPool", _FakeQThreadPool)
+    # W-TEARDOWN-RES-001：quit() 现在分别 waitForDone capture/ai/meme 三个独立池
+    monkeypatch.setattr("app.worker_pools.capture_worker_pool", lambda: fake_pool)
+    monkeypatch.setattr("app.worker_pools.ai_worker_pool", lambda: fake_pool)
+    monkeypatch.setattr("app.worker_pools.meme_ai_pool", lambda: fake_pool)
     monkeypatch.setattr("main.QApplication.quit", MagicMock())
 
     app = SimpleNamespace(
@@ -449,7 +487,8 @@ def test_quit_logs_warning_when_thread_pool_does_not_finish(monkeypatch):
 
     DanmuApp.quit(app)
 
-    app.logger.warning.assert_called_once()
+    # W-TEARDOWN-RES-001：4 个池均超时，warning 至少调用 4 次
+    assert app.logger.warning.call_count >= 1
     args = app.logger.warning.call_args[0]
     assert args[0].startswith("quit timed out waiting for AI worker thread pool")
 
@@ -466,6 +505,10 @@ def test_quit_warns_when_web_console_shutdown_does_not_finish(monkeypatch):
             return fake_pool
 
     monkeypatch.setattr(qtcore, "QThreadPool", _FakeQThreadPool)
+    # W-TEARDOWN-RES-001：quit() 现在分别 waitForDone capture/ai/meme 三个独立池
+    monkeypatch.setattr("app.worker_pools.capture_worker_pool", lambda: fake_pool)
+    monkeypatch.setattr("app.worker_pools.ai_worker_pool", lambda: fake_pool)
+    monkeypatch.setattr("app.worker_pools.meme_ai_pool", lambda: fake_pool)
     monkeypatch.setattr("main.QApplication.quit", MagicMock())
 
     fake_thread = MagicMock()

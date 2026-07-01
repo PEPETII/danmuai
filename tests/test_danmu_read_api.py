@@ -199,10 +199,38 @@ def test_export_danmu_read_config_legacy_doubao(workspace_tmp):
         }
     )
     data = export_danmu_read_config(store)
-    assert data["provider"] == "doubao"
+    assert data["provider"] == ""
     assert data["custom_model_id"] == "seed-tts-2.0"
-    assert data["use_custom_model"] is True
+    assert data["use_custom_model"] is False
+    assert data["model"] == "mimo-v2.5-tts"
     assert "app_id" not in data
+
+
+def test_export_danmu_read_config_orphan_endpoint_use_custom_false(workspace_tmp):
+    store = ConfigStore(db_path=workspace_tmp / "orphan_endpoint.db")
+    store.set_batch(
+        {
+            "tts_endpoint": "https://tts.example.com/v1",
+            "tts_model_id": "my-tts",
+        }
+    )
+    data = export_danmu_read_config(store)
+    assert data["use_custom_model"] is False
+    assert data["custom_endpoint"] == "https://tts.example.com/v1"
+    assert data["custom_model_id"] == "my-tts"
+
+
+def test_export_danmu_read_config_dashscope_missing_model_use_custom_true(workspace_tmp):
+    store = ConfigStore(db_path=workspace_tmp / "dashscope_no_model.db")
+    store.set_batch(
+        {
+            "tts_provider": TTS_PROVIDER_DASHSCOPE_QWEN,
+            "tts_model_id": "",
+        }
+    )
+    data = export_danmu_read_config(store)
+    assert data["use_custom_model"] is True
+    assert data["provider"] == TTS_PROVIDER_DASHSCOPE_QWEN
 
 
 def test_danmu_read_probe_route_rejects_custom_openai():
@@ -244,10 +272,11 @@ def test_export_danmu_read_config_legacy_custom_openai(workspace_tmp):
         }
     )
     data = export_danmu_read_config(store)
-    assert data["provider"] == "custom_openai"
-    assert data["custom_endpoint"] == "https://tts.example.com/v1"
+    assert data["provider"] == ""
+    assert data["custom_endpoint"] == ""
     assert data["custom_model_id"] == "my-tts"
-    assert data["use_custom_model"] is True
+    assert data["use_custom_model"] is False
+    assert data["model"] == "mimo-v2.5-tts"
 
 
 def test_normalize_put_payload_rejects_custom_openai():

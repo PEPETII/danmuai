@@ -386,16 +386,34 @@ def test_invalidate_formula_text_cache_none_clears_all(tmp_path):
     store.set_custom_danmu_pool(["句A"])
     # Populate caches
     assert is_stored_custom_pool_text(store, "句A") is True
-    assert id(store) in _formula_custom_sets
+    assert store in _formula_custom_sets
     # Clear all
     invalidate_formula_text_cache(None)
-    assert id(store) not in _formula_custom_sets
+    assert store not in _formula_custom_sets
     assert len(_formula_custom_sets) == 0
     assert len(_formula_meme_sets) == 0
     # Cache is rebuilt on next access
     assert is_stored_custom_pool_text(store, "句A") is True
-    assert id(store) in _formula_custom_sets
+    assert store in _formula_custom_sets
     store.close()
+
+
+def test_formula_cache_does_not_grow_after_store_close(tmp_path):
+    """BUG-010: closed ConfigStore instances must not leave stale formula cache entries."""
+    import gc
+
+    from app.config_store import ConfigStore
+    from app.danmu_pool import _formula_custom_sets, is_stored_custom_pool_text
+
+    baseline = len(_formula_custom_sets)
+    for i in range(5):
+        store = ConfigStore(db_path=tmp_path / f"cache_leak_{i}.db")
+        store.set_custom_danmu_pool([f"句{i}"])
+        assert is_stored_custom_pool_text(store, f"句{i}") is True
+        store.close()
+        del store
+    gc.collect()
+    assert len(_formula_custom_sets) == baseline
 
 
 # --- 增量 diff 测试 ---

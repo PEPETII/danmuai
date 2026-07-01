@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -83,6 +84,8 @@ PET_STATE_FRAME_COUNTS = {
 
 BUILTIN_PET_DIR = resource_path("data", "pet", "default")
 
+ALLOWED_PET_PACK_ROOT = Path(os.environ.get("APPDATA", ".")) / "DanmuAI" / "pet-packs"
+
 
 def resolve_petdex_state(danmu_state: str) -> PetDexStateSpec:
     """Map DanmuAI animation hint to PetDex row spec; unknown states fall back to idle."""
@@ -149,13 +152,35 @@ class PetAssetPack:
         return (col * PET_FRAME_W, row * PET_FRAME_H, PET_FRAME_W, PET_FRAME_H)
 
 
-def _resolve_pack_dir(config: "ConfigStore") -> Path:
+def is_path_within_sandbox(path: Path, root: Path) -> bool:
+    """Return True if *path* resolves to a location inside *root*."""
+    try:
+        resolved = path.resolve()
+        resolved_root = root.resolve()
+        resolved.relative_to(resolved_root)
+        return True
+    except (OSError, ValueError):
+        return False
+
+
+def resolve_and_sandbox_pack_dir(config: "ConfigStore") -> Path:
+    """Resolve pack directory with path-traversal sandboxing."""
     source = str(config.get("pet_asset_source", "builtin") or "builtin").strip().lower()
     if source == "local":
         custom = str(config.get("pet_asset_path", "") or "").strip()
         if custom:
-            return Path(custom)
+            path = Path(custom)
+            if not is_path_within_sandbox(path, ALLOWED_PET_PACK_ROOT):
+                raise ValueError(
+                    f"桌宠资源路径不在允许范围内：{custom}。"
+                    f"自定义资源必须放在 {ALLOWED_PET_PACK_ROOT} 目录下。"
+                )
+            return path
     return BUILTIN_PET_DIR
+
+
+def _resolve_pack_dir(config: "ConfigStore") -> Path:
+    return resolve_and_sandbox_pack_dir(config)
 
 
 def validate_pet_pack_dir(pack_dir: Path) -> tuple[dict, Path, int, int]:

@@ -24,6 +24,7 @@ Phase 4 冻结（勿迁移出本模块）：ai_in_flight、reply_buffer、QTimer
 """
 import multiprocessing
 import sys
+import threading
 import time
 from datetime import datetime
 
@@ -49,7 +50,9 @@ from app.main_launch import (
     DEPRECATED_LAUNCH_MSG,
     check_deprecated_launch_args,
     global_exception_hook,
+    register_unhandled_exception_notifier,
     show_startup_notice_if_needed,  # noqa: F401 — re-exported for tests
+    threading_exception_hook,
     web_launch_mode_from_argv,
 )
 from app.main_launch_mixin import DanmuAppLaunchMixin
@@ -1042,6 +1045,7 @@ def main():
     check_deprecated_launch_args()
     run_startup_apply_if_needed()
     sys.excepthook = global_exception_hook
+    threading.excepthook = threading_exception_hook
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
     log_startup("qapplication.created")
@@ -1088,6 +1092,12 @@ def main():
     )
     launch_mode = web_launch_mode_from_argv()
     _danmu = DanmuApp(web_launch_mode=launch_mode)
+    register_unhandled_exception_notifier(
+        lambda: _danmu.set_web_error_status(
+            tr("app.error_friendly_message"),
+            is_error=True,
+        )
+    )
     instance_guard.bind_activate(_danmu.show_settings)
     return sys.exit(app.exec())
 if __name__ == "__main__":

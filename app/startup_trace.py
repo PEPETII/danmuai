@@ -10,11 +10,11 @@
 from __future__ import annotations
 
 import logging
-import os
 import time
 from typing import Any
 
 from app.bundle_paths import append_frozen_log, frozen_log_path, is_frozen
+from app.env_config import get as get_env
 
 _logger = logging.getLogger(__name__)
 
@@ -36,7 +36,7 @@ def _elapsed_ms() -> float:
 def _should_write_file() -> bool:
     if is_frozen():
         return True
-    env = os.environ.get("DANMU_STARTUP_TRACE", "").strip().lower()
+    env = get_env("DANMU_STARTUP_TRACE").strip().lower()
     return env in ("1", "true", "yes", "on")
 
 

@@ -10,14 +10,16 @@
 from __future__ import annotations
 
 import json
+import logging
 import random
 import re
 from difflib import SequenceMatcher
 
+logger = logging.getLogger(__name__)
+
 from app.danmu_pool import load_danmu_pool_for_config, sample_danmu_for_config
 
 _COMMENT_KEYS = ("comments", "replies", "items", "data")
-_COMMENTS_ARRAY_RE = re.compile(r'"comments"\s*:\s*\[([^\]]*)\]', re.DOTALL)
 _HEURISTIC_SKIP = frozenset({"comments", ":", ""})
 _MAX_HEURISTIC_DEPTH = 16
 # Defense-in-depth: even though the iterative stack replaces the call stack,
@@ -88,6 +90,14 @@ def _scene_fillers(config=None) -> list[str]:
     if not pool:
         return []
     return sample_danmu_for_config(config, min(32, len(pool)), rng=random)
+
+
+def _raw_has_envelope_key(raw: str) -> bool:
+    return any(f'"{key}"' in raw for key in _COMMENT_KEYS)
+
+
+def _envelope_array_re(key: str) -> re.Pattern[str]:
+    return re.compile(rf'"{re.escape(key)}"\s*:\s*\[([^\]]*)\]', re.DOTALL)
 
 
 def _generic_fillers(config=None) -> list[str]:
@@ -172,22 +182,23 @@ def _heuristic_comments_from_malformed_json(raw: str, *, depth: int = 0) -> list
 
 def _extract_comments_from_leaf(raw: str) -> list[str]:
     """单段（无 ``}{``）的兜底弹幕抽取；与原递归实现的 leaf 分支等价。"""
-    arr_match = _COMMENTS_ARRAY_RE.search(raw)
-    if arr_match:
-        items = re.findall(r'"((?:[^"\\]|\\.)*)"', arr_match.group(1))
-        normalized = _normalize_comment_list(items)
-        if normalized:
-            return normalized
+    for key in _COMMENT_KEYS:
+        arr_match = _envelope_array_re(key).search(raw)
+        if arr_match:
+            items = re.findall(r'"((?:[^"\\]|\\.)*)"', arr_match.group(1))
+            normalized = _normalize_comment_list(items)
+            if normalized:
+                return normalized
 
-    open_arr = re.search(r'"comments"\s*:\s*\[(.*)$', raw, re.DOTALL)
-    if open_arr:
-        inner = open_arr.group(1)
-        items = re.findall(r'"((?:[^"\\]|\\.)*)"', inner)
-        normalized = _normalize_comment_list(items)
-        if normalized:
-            return normalized
+        open_arr = re.search(rf'"{re.escape(key)}"\s*:\s*\[(.*)$', raw, re.DOTALL)
+        if open_arr:
+            inner = open_arr.group(1)
+            items = re.findall(r'"((?:[^"\\]|\\.)*)"', inner)
+            normalized = _normalize_comment_list(items)
+            if normalized:
+                return normalized
 
-    if '"comments"' not in raw:
+    if not _raw_has_envelope_key(raw):
         return []
 
     filtered: list[str] = []
@@ -262,7 +273,10 @@ def parse_ai_reply_payload(text: str) -> list[str]:
         return []
 
     parsed = None
+    tried_json = False
+    used_heuristic = False
     if raw.startswith("[") or raw.startswith("{"):
+        tried_json = True
         if raw.startswith("["):
             parsed = _try_parse_json_array(raw)
         elif "}{" in raw:
@@ -284,10 +298,19 @@ def parse_ai_reply_payload(text: str) -> list[str]:
     if isinstance(parsed, dict):
         candidates = _extract_comments_from_dict(parsed)
         if not candidates and raw.startswith("{"):
+            used_heuristic = True
             candidates = _heuristic_comments_from_malformed_json(raw)
     elif isinstance(parsed, list):
         candidates = parsed
-    elif raw.startswith("{") and '"comments"' in raw:
+    elif raw.startswith("{") and _raw_has_envelope_key(raw):
+        used_heuristic = True
+        if tried_json:
+            logger.warning(
+                "AI reply JSON parse yielded no comments; falling back to heuristic: "
+                "raw_len=%s prefix=%.80s",
+                len(raw),
+                raw,
+            )
         candidates = _heuristic_comments_from_malformed_json(raw)
     else:
         candidates = [
@@ -295,6 +318,21 @@ def parse_ai_reply_payload(text: str) -> list[str]:
             for part in raw.replace("\r", "\n").split("\n")
             if part.strip() and not _is_reasoning_preamble_line(part)
         ]
+
+    if (
+        tried_json
+        and not candidates
+        and raw.startswith("{")
+        and _raw_has_envelope_key(raw)
+        and not used_heuristic
+    ):
+        logger.warning(
+            "AI reply JSON parse yielded no comments; falling back to heuristic: "
+            "raw_len=%s prefix=%.80s",
+            len(raw),
+            raw,
+        )
+        candidates = _heuristic_comments_from_malformed_json(raw)
 
     return _normalize_comment_list(candidates)
 
