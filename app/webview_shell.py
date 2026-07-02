@@ -77,7 +77,13 @@ def _tray_icon_for_notify(danmu_app) -> object | None:
         return None
 
 
-def notify_web_console_failure(danmu_app, reason_key: str, *, detail: str = "") -> None:
+def notify_web_console_failure(
+    danmu_app,
+    reason_key: str,
+    *,
+    detail: str = "",
+    install_url: str = "",
+) -> None:
     """主线程弹窗 + 托盘气泡；HTTP 线程请经 QTimer.singleShot 调用本函数。"""
     from PyQt6.QtCore import QTimer
     from PyQt6.QtWidgets import QMessageBox, QSystemTrayIcon
@@ -90,6 +96,7 @@ def notify_web_console_failure(danmu_app, reason_key: str, *, detail: str = "") 
         log_path=log_path,
         base_url=base_url,
         detail=detail,
+        install_url=install_url,
     )
     def _show() -> None:
         from PyQt6.QtWidgets import QApplication
@@ -412,6 +419,20 @@ class WebViewShell:
         self._load_deadline = 0.0
         self._handshake_failed = False
         self._handshake_deadline = time.monotonic() + _START_TIMEOUT_SEC
+        if sys.platform == "win32":
+            from app.webview2_runtime import WEBVIEW2_INSTALL_URL, is_webview2_runtime_available
+
+            if not is_webview2_runtime_available():
+                self._fail_start("WebView2 runtime not found", initial_path)
+                danmu_app = self.server.bridge.danmu_app
+                if not getattr(self.server, "_startup_failure_user_notified", False):
+                    notify_web_console_failure(
+                        danmu_app,
+                        "web_console.webview2_missing",
+                        install_url=WEBVIEW2_INSTALL_URL,
+                    )
+                    self.server._startup_failure_user_notified = True
+                return False
         while self._spawn_attempt <= _SPAWN_MAX_ATTEMPTS:
             try:
                 self._launch_child_process(url, gui)

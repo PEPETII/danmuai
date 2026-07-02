@@ -267,6 +267,54 @@ def test_attach_begin_retry_still_pending_no_notify(monkeypatch):
 # ── Test 6: notify receives correct danmu_app reference ──────────────────
 
 
+def test_begin_start_webview2_missing_notifies_without_spawn(monkeypatch):
+    """When WebView2 runtime is missing, notify before spawning child process."""
+    server, shell = _make_server_and_shell()
+
+    spawn_started = []
+
+    class FakeProcess:
+        def start(self):
+            spawn_started.append(True)
+
+    class FakeContext:
+        def Queue(self):
+            return queue.Queue()
+
+        def Process(self, *args, **kwargs):
+            return FakeProcess()
+
+    monkeypatch.setattr(
+        "app.webview2_runtime.is_webview2_runtime_available",
+        lambda: False,
+    )
+    monkeypatch.setattr("app.webview_shell.sys.platform", "win32")
+    monkeypatch.setattr(
+        "app.webview_shell.multiprocessing.get_context",
+        lambda _name: FakeContext(),
+    )
+    monkeypatch.setattr(
+        "app.webview_shell._ensure_server_ready",
+        lambda _server: True,
+    )
+    monkeypatch.setattr("app.webview_shell.append_frozen_log", lambda _msg: None)
+
+    notified = []
+
+    def _fake_notify(app, key, *, detail="", install_url=""):
+        notified.append((key, install_url))
+
+    monkeypatch.setattr(
+        "app.webview_shell.notify_web_console_failure", _fake_notify
+    )
+
+    result = shell.begin_start("/")
+
+    assert result is False
+    assert spawn_started == []
+    assert notified == [("web_console.webview2_missing", "https://go.microsoft.com/fwlink/p/?LinkId=2124703")]
+
+
 def test_notify_called_with_correct_danmu_app_on_spawn_fail(monkeypatch):
     """The danmu_app passed to notify is server.bridge.danmu_app, not some other object."""
     server, shell = _make_server_and_shell()
