@@ -3,6 +3,7 @@
 # Output: dist/DanmuAI/DanmuAI.exe
 
 $ErrorActionPreference = "Stop"
+$OutputEncoding = [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
@@ -134,13 +135,22 @@ if (-not (Test-Path $exe)) {
     Write-Error "Build failed: $exe not found"
 }
 
-# Credential leak check: supabase-config.js must not be in the dist output.
-$leakedConfig = Join-Path $distDir "web\static\supabase-config.js"
+# Credential leak check: supabase-config.js and backup variants must not be in dist output.
+$supabaseStaticDist = Join-Path $distDir "web\static"
+$leakedConfigs = @()
+$leakedConfig = Join-Path $supabaseStaticDist "supabase-config.js"
 if (Test-Path $leakedConfig) {
+    $leakedConfigs += $leakedConfig
+}
+Get-ChildItem -Path $supabaseStaticDist -Filter "supabase-config.js.*" -File -ErrorAction SilentlyContinue | ForEach-Object {
+    $leakedConfigs += $_.FullName
+}
+if ($leakedConfigs.Count -gt 0) {
+    $listed = ($leakedConfigs | ForEach-Object { "  $_" }) -join [Environment]::NewLine
     Write-Error @"
-Credential leak detected: $leakedConfig exists in dist output.
-supabase-config.js contains Supabase credentials and must NOT be packaged.
-Remove it from dist and verify DanmuAI.spec excludes it.
+Credential leak detected in dist output:
+$listed
+Supabase credential files must NOT be packaged. Remove them from dist and verify DanmuAI.spec excludes them.
 "@
 }
 

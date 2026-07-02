@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import random
 
 from app.config_store import ConfigStore
@@ -23,6 +24,8 @@ from app.persona_builtin import (
 )
 from app.persona_contract import ensure_reply_contract
 from app.translations import tr
+
+logger = logging.getLogger(__name__)
 
 _REMOVED_PERSONAE = frozenset({
     "阿静",
@@ -172,11 +175,18 @@ class PersonaManager:
     def _load_custom(self) -> dict:
         if not self._custom:
             raw = self.config.get("custom_personae", "{}")
-            loaded = json.loads(raw)
-            if isinstance(loaded, dict):
-                self._custom = {normalize_persona_name(name): value for name, value in loaded.items()}
-            else:
+            try:
+                loaded = json.loads(raw)
+            except (json.JSONDecodeError, TypeError):
+                logger.exception("custom_personae JSON 损坏，重置为空")
                 self._custom = {}
+            else:
+                if isinstance(loaded, dict):
+                    self._custom = {
+                        normalize_persona_name(name): value for name, value in loaded.items()
+                    }
+                else:
+                    self._custom = {}
         return self._custom
 
     def save_custom(self, name: str, system_pt: str, user_pt: str):

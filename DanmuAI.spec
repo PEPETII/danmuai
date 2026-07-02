@@ -9,7 +9,8 @@ PyInstaller spec for DanmuAI（Web 控制台 + pywebview + Qt overlay）。
       （matplotlib / jupyter / pytest / pygments / jedi / parso），避免
       PyQt5 通过传递依赖被错误地拖入
     - ``datas`` 显式列出 ``web/static``（含控制台 UI 与 supabase 客户端），
-      排除 ``supabase-config.js``（含凭据，不应打入发布包）
+      排除 ``supabase-config.js`` 及其变体（如 ``.codex-release-backup``；
+      含凭据，不应打入发布包；保留 ``supabase-config.example.js``）
     - ``hiddenimports`` 中：uvicorn 必须 ``collect_submodules`` + 显式列
       ``uvicorn.protocols.http.auto`` / ``uvicorn.protocols.websockets.auto``
       / ``uvicorn.lifespan.on``（PyInstaller 静态分析不到协议自动选择）
@@ -28,11 +29,26 @@ from PyInstaller.utils.hooks import collect_submodules
 root = Path(SPECPATH)
 
 
-def _collect_dir_datas(src_dir: Path, dest_prefix: str, *, exclude_names: frozenset[str] = frozenset()) -> list:
+def _should_exclude_supabase_config(name: str) -> bool:
+    """Exclude credential-bearing supabase-config variants; keep supabase-config.example.js."""
+    if name == "supabase-config.example.js":
+        return False
+    return name == "supabase-config.js" or name.startswith("supabase-config.js.")
+
+
+def _collect_dir_datas(
+    src_dir: Path,
+    dest_prefix: str,
+    *,
+    exclude_names: frozenset[str] = frozenset(),
+    exclude_name_predicates: tuple = (),
+) -> list:
     """Collect (src, dest_dir) pairs for PyInstaller datas (replaces Tree)."""
     entries: list = []
     for path in sorted(src_dir.rglob("*")):
-        if not path.is_file() or path.name in exclude_names:
+        if not path.is_file():
+            continue
+        if path.name in exclude_names or any(fn(path.name) for fn in exclude_name_predicates):
             continue
         rel_parent = path.parent.relative_to(src_dir)
         dest_dir = dest_prefix if rel_parent == Path(".") else f"{dest_prefix}/{rel_parent.as_posix()}"
@@ -62,11 +78,11 @@ EXCLUDES = [
 ]
 
 datas = []
-# web/static — 排除 supabase-config.js（含凭据，不应打入发布包）
+# web/static — 排除 supabase-config.js 及 .codex-release-backup 等变体（含凭据）
 datas += _collect_dir_datas(
     root / "web" / "static",
     "web/static",
-    exclude_names=frozenset({"supabase-config.js"}),
+    exclude_name_predicates=(_should_exclude_supabase_config,),
 )
 # 内置人格 JSON（app.persona_builtin 在 import 时读取，须在 Analysis 前可解析）
 datas.append((str(root / "data" / "personae_builtin.json"), "data"))
@@ -222,6 +238,9 @@ hiddenimports: list[str] = [
     "app.worker_pools",
     # ── app.application.* ────────────────────────────────────────
     "app.application",
+    "app.application.ai_butler_service",
+    "app.application.bililive_dm_bridge_service",
+    "app.application.bililive_dm_push_service",
     "app.application.config_service",
     "app.application.danmu_diagnostics",
     "app.application.diagnostics_hub",
@@ -263,6 +282,7 @@ hiddenimports: list[str] = [
     "app.providers.registry",
     # ── app.web_api.* ────────────────────────────────────────────
     "app.web_api",
+    "app.web_api.ai_butler",
     "app.web_api.announcements_state",
     "app.web_api.app_update_state",
     "app.web_api.capture_region",

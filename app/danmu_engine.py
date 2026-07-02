@@ -21,6 +21,7 @@
 调用方：DanmuOverlay._tick() → engine.update()；DanmuApp.add_text() → engine.add_text()
 """
 
+import heapq
 import json
 import logging
 import random
@@ -928,17 +929,12 @@ class DanmuEngine(QObject):
             return random.choices(acceptable, weights=weights, k=1)[0]
 
         # 3. 全满 fallback：允许在任意右侧 x 排队（仅 min_gap 防重叠，无固定数量上限）
-        candidates = sorted(self.tracks, key=lambda t: t.rightmost_edge())[:3]
+        candidates = heapq.nsmallest(3, self.tracks, key=lambda t: t.rightmost_edge())
         best_track = random.choice(candidates)
         tail_edge = best_track.rightmost_edge()
         item.x = max(item.x, tail_edge + random.uniform(50.0, 250.0))
         if item.x < tail_edge + min_gap:
             item.x = tail_edge + min_gap
-        # 屏幕边界校验：确保弹幕不越界
-        item_width = item.width if item.width > 0 else len(item.content) * _DANMU_FALLBACK_CHAR_WIDTH
-        max_allowed_x = self.screen_width - item_width - min_gap
-        if item.x > max_allowed_x:
-            item.x = max_allowed_x
         return best_track
 
     def danmu_pool_enabled(self) -> bool:
@@ -1018,30 +1014,6 @@ class DanmuEngine(QObject):
                 self._detach_item_visibility(item)
                 item._pixmap = None
                 track.items.remove(item)
-                self._unregister_item(track, item)
-                dropped += 1
-        if dropped:
-            self._visibility_stale = True
-        return dropped
-
-    def drop_items_with_batch_id(self, batch_id: int) -> int:
-        """Remove on-screen (and pending) danmu for a batch after scene change (strict)."""
-        if batch_id <= 0:
-            return 0
-        dropped = 0
-        for track in self.tracks:
-            to_drop: list[DanmuItem] = []
-            kept: list[DanmuItem] = []
-            for item in track.items:
-                if item.batch_id == batch_id:
-                    to_drop.append(item)
-                else:
-                    kept.append(item)
-            track.items = kept
-            for item in to_drop:
-                self._detach_item_visibility(item)
-                item._pixmap = None
-                self._forget_content(item.content)
                 self._unregister_item(track, item)
                 dropped += 1
         if dropped:

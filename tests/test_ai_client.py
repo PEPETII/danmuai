@@ -361,6 +361,26 @@ def test_request_doubao_thinking_enabled_when_configured():
     worker.close()
 
 
+def test_request_doubao_thinking_disabled_when_model_unsupported():
+    from app.providers.capabilities import ProviderCapabilities
+
+    worker = AiWorker(ai_client_fake_config(data={"max_tokens": "200", "use_thinking": "1"}))
+    unsupported_caps = ProviderCapabilities(supports_thinking=False)
+    with patch(
+        "app.ai_client_requests.get_capabilities_for_model",
+        return_value=unsupported_caps,
+    ):
+        with patch.object(worker, "_stream_doubao", return_value=("test", 100, 50, "")) as mock_stream:
+            with patch.object(worker, "_emit_safe"):
+                worker._request_doubao(
+                    "data:image/jpeg;base64,abc", "sys", "user", "p1", 1, 1, 1.0, 0
+                )
+    payload = mock_stream.call_args[0][3]
+    assert payload["thinking"] == {"type": "disabled"}
+    assert payload["max_output_tokens"] == DANMU_MIN_OUTPUT_TOKENS
+    worker.close()
+
+
 def test_get_http_client_returns_same_instance_per_thread():
     worker = AiWorker(ai_client_fake_config())
     client1 = worker._get_http_client()

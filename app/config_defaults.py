@@ -108,7 +108,7 @@ CONFIG_DEFAULTS: dict[str, str] = {
     "tts_provider": "",
     "tts_endpoint": "",
     "tts_model_id": "",
-    "console_theme": "light",
+    "console_theme": "dark",
     # W-FP-V2-001：弹幕渲染模式（互斥）
     "danmu_render_mode": "scrolling",
     # W-BILILIVE-DM-PLUGIN-MODE-005：弹幕姬模式（关闭屏幕层，仅 bililive_dm 显示）

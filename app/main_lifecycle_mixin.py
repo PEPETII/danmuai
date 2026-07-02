@@ -1,10 +1,4 @@
-"""DanmuApp 生命周期 / 启动编排 mixin。
-
-职责边界：
-- 保留 DanmuApp 作为启动顺序、运行态字段与公共 start/stop/quit façade 的持有者
-- 迁出 __init__ 的启动编排辅助，以及 config_changed / ai_error / 生命周期方法
-- 不迁出 _trigger_api_call / _on_ai_reply / _consume_reply_queue 三个主链路入口
-"""
+"""DanmuApp 生命周期 mixin：启动编排、config_changed、start/stop/quit façade。"""
 
 from __future__ import annotations
 
@@ -237,13 +231,13 @@ class DanmuAppLifecycleMixin:
 
     def _on_scene_generation_bumped(self) -> None:
         """W-THEME-LAG-QUEUE-PURGE-001 / REFRESH: purge stale ai/fallback queue, keep mic."""
-        dropped = self.reply_buffer.purge_stale_by_generation(self._scene_generation)
-        if dropped > 0:
-            self.logger.info(
-                "scene_queue_purged scene_generation=%s dropped=%s",
-                self._scene_generation,
-                dropped,
-            )
+        gen = self._scene_generation
+        for event, count in (
+            ("scene_queue_purged", self.reply_buffer.purge_stale_by_generation(gen)),
+            ("scene_engine_purged", self.engine.drop_pending_below_generation(gen)),
+        ):
+            if count > 0:
+                self.logger.info("%s scene_generation=%s dropped=%s", event, gen, count)
         self._scene_refresh_wanted = True
         QTimer.singleShot(0, self._try_scene_refresh)
 
@@ -677,11 +671,6 @@ class DanmuAppLifecycleMixin:
         if callable(stop_meme_timers):
             stop_meme_timers()
 
-        # W-TEARDOWN-RES-001：关闭烂梗 API httpx 客户端，释放连接池
-        close_meme_client = self.__dict__.get("close_meme_barrage_client")
-        if callable(close_meme_client):
-            close_meme_client()
-
         read_svc = self.__dict__.get("_danmu_read_service")
         if read_svc is not None:
             read_svc.shutdown()
@@ -746,6 +735,12 @@ class DanmuAppLifecycleMixin:
                 pool.activeThreadCount(),
                 pool.maxThreadCount(),
             )
+
+        # W-TEARDOWN-RES-001 / BUG-G-008：等所有 worker pool 结束后再关闭 httpx 客户端，
+        # 避免在途 MemeFetchRunnable 使用已关闭 client。
+        close_meme_client = self.__dict__.get("close_meme_barrage_client")
+        if callable(close_meme_client):
+            close_meme_client()
 
         # W-QUIT-TEARDOWN-001：先停 Web 控制台（含 meta 轮询），再关 config.db，
         # 避免 HTTP 线程在 conn.close() 后仍读 meme_barrage_library。

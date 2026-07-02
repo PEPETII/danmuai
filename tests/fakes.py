@@ -283,9 +283,6 @@ class FakeEngine:
     def drop_pending_below_generation(self, min_generation):
         return 0
 
-    def drop_items_with_batch_id(self, batch_id):
-        return 0
-
     def visible_display_count(self):
         return 0
 

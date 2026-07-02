@@ -194,26 +194,6 @@ def test_drop_pending_below_generation_removes_offscreen_old_items(engine):
     assert track.items[0].content == "visible"
 
 
-def test_drop_items_with_batch_id_removes_matching_track_items():
-    from app.danmu_engine import DanmuEngine, DanmuItem
-
-    from tests.fakes import FakeConfig
-
-    engine = DanmuEngine(FakeConfig())
-    engine.screen_width = 1000.0
-    track = engine.tracks[0]
-    keep = DanmuItem("keep", batch_id=1, x=400.0, width=80.0)
-    drop = DanmuItem("drop", batch_id=9, x=500.0, width=80.0)
-    track.items = [keep, drop]
-    engine._rebuild_visibility_counts()
-
-    removed = engine.drop_items_with_batch_id(9)
-
-    assert removed == 1
-    assert len(track.items) == 1
-    assert track.items[0].content == "keep"
-
-
 def test_ai_reply_queue_uses_request_context_and_fifos_results():
     app = DanmuApp.__new__(DanmuApp)
     bind_minimal_danmu_app(

@@ -7,13 +7,27 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$OutputEncoding = [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
-# Guard: supabase-config.js contains credentials and must not be packaged.
-$supabaseConfigPath = Join-Path $Root "web\static\supabase-config.js"
+# Guard: supabase-config.js and backup variants contain credentials and must not be packaged.
+$supabaseStaticDir = Join-Path $Root "web\static"
+$forbiddenSupabaseConfigs = @()
+$supabaseConfigPath = Join-Path $supabaseStaticDir "supabase-config.js"
 if (Test-Path $supabaseConfigPath) {
-    Write-Error "ABORT: web/static/supabase-config.js exists — it contains credentials and must not be packaged. Remove it before publishing (only supabase-config.example.js should be present)."
+    $forbiddenSupabaseConfigs += $supabaseConfigPath
+}
+Get-ChildItem -Path $supabaseStaticDir -Filter "supabase-config.js.*" -File -ErrorAction SilentlyContinue | ForEach-Object {
+    $forbiddenSupabaseConfigs += $_.FullName
+}
+if ($forbiddenSupabaseConfigs.Count -gt 0) {
+    $listed = ($forbiddenSupabaseConfigs | ForEach-Object { "  $_" }) -join [Environment]::NewLine
+    Write-Error @"
+ABORT: credential-bearing Supabase config files must not be present before publishing:
+$listed
+Remove them before publishing (only supabase-config.example.js should be present).
+"@
 }
 
 $ReleaseRoot = Join-Path $Root "release"
@@ -129,7 +143,7 @@ $deltaCount = $deltaNupkgs.Count
 $feedAssets = @()
 if (Test-Path -LiteralPath $packResult.FeedJson) {
     try {
-        $feedJson = Get-Content -Raw -LiteralPath $packResult.FeedJson | ConvertFrom-Json
+        $feedJson = Get-Content -Raw -Encoding UTF8 -LiteralPath $packResult.FeedJson | ConvertFrom-Json
         if ($feedJson.PSObject.Properties.Name -contains "Assets") {
             $feedAssets = @($feedJson.Assets)
         }

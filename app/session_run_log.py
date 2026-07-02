@@ -9,8 +9,12 @@ persona_set 等字段），存于 config.db 的 ``session_runs`` 表（最近 10
 
 from __future__ import annotations
 
+import logging
+import sqlite3
 from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from app.config_store import ConfigStore
@@ -107,28 +111,39 @@ class SessionRunLog:
         config = self._config
         if config is None:
             return
-        with config._write_lock:
-            config.conn.execute(
-                "INSERT INTO session_runs "
-                "(started_at, ended_at, model, input_tokens, output_tokens, danmu_count) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
-                (
-                    rec.started_at,
-                    rec.ended_at,
-                    rec.model,
-                    rec.input_tokens,
-                    rec.output_tokens,
-                    rec.danmu_count,
-                ),
-            )
-            excess = config.conn.execute("SELECT COUNT(*) FROM session_runs").fetchone()
-            count = int(excess[0]) if excess else 0
-            if count > self._max:
-                trim = count - self._max
+        try:
+            with config._write_lock:
                 config.conn.execute(
-                    "DELETE FROM session_runs WHERE id IN ("
-                    "SELECT id FROM session_runs ORDER BY ended_at ASC LIMIT ?"
-                    ")",
-                    (trim,),
+                    "INSERT INTO session_runs "
+                    "(started_at, ended_at, model, input_tokens, output_tokens, danmu_count) "
+                    "VALUES (?, ?, ?, ?, ?, ?)",
+                    (
+                        rec.started_at,
+                        rec.ended_at,
+                        rec.model,
+                        rec.input_tokens,
+                        rec.output_tokens,
+                        rec.danmu_count,
+                    ),
                 )
-            config.conn.commit()
+                excess = config.conn.execute("SELECT COUNT(*) FROM session_runs").fetchone()
+                count = int(excess[0]) if excess else 0
+                if count > self._max:
+                    trim = count - self._max
+                    config.conn.execute(
+                        "DELETE FROM session_runs WHERE id IN ("
+                        "SELECT id FROM session_runs ORDER BY ended_at ASC LIMIT ?"
+                        ")",
+                        (trim,),
+                    )
+                config.conn.commit()
+        except sqlite3.DatabaseError as exc:
+            try:
+                config.conn.rollback()
+            except sqlite3.Error:
+                pass
+            logger.error(
+                "session_run persist failed model=%s error=%s",
+                rec.model,
+                exc,
+            )

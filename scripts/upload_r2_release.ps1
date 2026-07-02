@@ -22,6 +22,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$OutputEncoding = [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
@@ -41,7 +42,7 @@ function Get-VersionFromVersionFile {
     param([string]$Dir)
     $versionFile = Join-Path $Dir "VERSION.txt"
     if (-not (Test-Path -LiteralPath $versionFile)) { return $null }
-    foreach ($line in Get-Content -LiteralPath $versionFile) {
+    foreach ($line in Get-Content -Encoding UTF8 -LiteralPath $versionFile) {
         if ($line -match '^\s*Version:\s*(\S+)\s*$') {
             return $Matches[1]
         }
@@ -59,7 +60,7 @@ function Resolve-UploadVersion {
 
 function Get-FeedLatestFullVersion {
     param([string]$FeedPath)
-    $json = Get-Content -Raw -LiteralPath $FeedPath | ConvertFrom-Json
+    $json = Get-Content -Raw -Encoding UTF8 -LiteralPath $FeedPath | ConvertFrom-Json
     $fullVersions = @(
         $json.Assets |
             Where-Object { $_.Type -eq "Full" } |

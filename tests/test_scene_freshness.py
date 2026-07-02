@@ -127,6 +127,36 @@ def test_bump_purges_queued_older_scene_generation(monkeypatch):
     assert any("scene_queue_purged" in msg for msg in app.logger.info_messages)
 
 
+def test_bump_purges_offscreen_engine_items(monkeypatch):
+    from app.danmu_engine import DanmuEngine, DanmuItem
+    from main import DanmuApp
+
+    from tests.fakes import FakeConfig
+    from tests.test_scene_generation_version import _scene_version_app
+
+    app = _scene_version_app()
+    app.logger = FakeLogger()
+    app.engine = DanmuEngine(FakeConfig())
+    app._on_scene_generation_bumped = DanmuApp._on_scene_generation_bumped.__get__(app, DanmuApp)
+    monkeypatch.setattr("app.main_lifecycle_mixin.QTimer.singleShot", lambda _ms, cb: None)
+    app._try_scene_refresh = lambda: None
+
+    app.engine.screen_width = 1000.0
+    track = app.engine.tracks[0]
+    pending = DanmuItem("pending-old", scene_generation=0, x=1100.0, width=80.0)
+    visible = DanmuItem("visible-old", scene_generation=0, x=400.0, width=80.0)
+    track.items = [pending, visible]
+    app.engine._rebuild_visibility_counts()
+
+    app.config.set("live_topic", "新主题")
+    app._on_config_changed()
+
+    assert app._scene_generation == 1
+    assert len(track.items) == 1
+    assert track.items[0].content == "visible-old"
+    assert any("scene_engine_purged" in msg for msg in app.logger.info_messages)
+
+
 def test_bump_purges_ai_and_fallback_keeps_mic(monkeypatch):
     from main import DanmuApp
 

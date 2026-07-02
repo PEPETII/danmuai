@@ -34,6 +34,11 @@ REGISTRY: dict[str, EnvVar] = {
     "DANMU_WEB_LAUNCH": EnvVar("DANMU_WEB_LAUNCH", "", "等同 --web-browser"),
     "DANMU_BILILIVE_DM_PUSH_URL": EnvVar("DANMU_BILILIVE_DM_PUSH_URL", "", "B站直播弹幕推送 URL"),
     "DANMU_BILILIVE_DM_PUSH": EnvVar("DANMU_BILILIVE_DM_PUSH", "", "B站直播弹幕推送开关（=0 关闭）"),
+    "DANMU_BILILIVE_DM_PLUGIN_SECRET": EnvVar(
+        "DANMU_BILILIVE_DM_PLUGIN_SECRET",
+        "",
+        "bililive_dm 插件桥接共享密钥（覆盖 secret 文件）",
+    ),
 }
 
 __all__ = ["EnvVar", "REGISTRY", "get"]

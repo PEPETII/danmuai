@@ -148,6 +148,41 @@ def test_normalize_reply_batch_custom_partition(monkeypatch):
     assert items[0] == "a"
 
 
+def test_normalize_reply_batch_loads_custom_pool_once(tmp_path, monkeypatch):
+    """G-005/F-P002: normalize_reply_batch uses id sampling, not get_custom_danmu_pool."""
+    from app.config_store import ConfigStore
+    from app.reply_parser import normalize_reply_batch
+
+    store = ConfigStore(db_path=tmp_path / "normalize_pool_once.db")
+    store.set("danmu_pool_use_custom", "1")
+    store.set_custom_danmu_pool([f"句{i}" for i in range(20)])
+
+    getter_calls: list[int] = []
+    original_get = store.get_custom_danmu_pool
+
+    def _count_get():
+        getter_calls.append(1)
+        return original_get()
+
+    monkeypatch.setattr(store, "get_custom_danmu_pool", _count_get)
+
+    by_ids_calls: list[int] = []
+    original_by_ids = store.custom_danmu_texts_by_ids
+
+    def _count_by_ids(ids):
+        by_ids_calls.append(len(ids))
+        return original_by_ids(ids)
+
+    monkeypatch.setattr(store, "custom_danmu_texts_by_ids", _count_by_ids)
+
+    items = normalize_reply_batch(["ai1"], config=store)
+    assert len(items) == 5
+    assert getter_calls == []
+    assert len(by_ids_calls) == 1
+    assert by_ids_calls[0] == 20
+    store.close()
+
+
 def test_normalize_reply_batch_shortfall_when_pool_disabled():
     cfg = FakeConfig({"danmu_pool_use_custom": "0"})
     items = normalize_reply_batch(["only"], config=cfg)

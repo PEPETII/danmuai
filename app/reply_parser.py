@@ -17,7 +17,11 @@ from difflib import SequenceMatcher
 
 logger = logging.getLogger(__name__)
 
-from app.danmu_pool import load_danmu_pool_for_config, sample_danmu_for_config
+from app.danmu_pool import (
+    _sample_custom_pool_texts,
+    custom_pool_size,
+    pool_enabled,
+)
 
 _COMMENT_KEYS = ("comments", "replies", "items", "data")
 _HEURISTIC_SKIP = frozenset({"comments", ":", ""})
@@ -85,11 +89,21 @@ def _is_usable_comment(value: str) -> bool:
     return any(ch.isalnum() for ch in text)
 
 
-def _scene_fillers(config=None) -> list[str]:
-    pool = load_danmu_pool_for_config(config)
-    if not pool:
+def _fillers_from_pool_snapshot(pool: list[str], count: int, *, rng=None) -> list[str]:
+    if not pool or count <= 0:
         return []
-    return sample_danmu_for_config(config, min(32, len(pool)), rng=random)
+    rng = rng or random
+    n = min(count, len(pool))
+    if n >= len(pool):
+        return list(rng.sample(pool, len(pool)))
+    return rng.sample(pool, n)
+
+
+def _scene_fillers(config=None) -> list[str]:
+    if not pool_enabled(config):
+        return []
+    pool_size = custom_pool_size(config)
+    return _sample_custom_pool_texts(config, min(32, pool_size), rng=random)
 
 
 def _raw_has_envelope_key(raw: str) -> bool:
@@ -101,10 +115,10 @@ def _envelope_array_re(key: str) -> re.Pattern[str]:
 
 
 def _generic_fillers(config=None) -> list[str]:
-    pool = load_danmu_pool_for_config(config)
-    if not pool:
+    if not pool_enabled(config):
         return []
-    return sample_danmu_for_config(config, min(48, len(pool)), rng=random)
+    pool_size = custom_pool_size(config)
+    return _sample_custom_pool_texts(config, min(48, pool_size), rng=random)
 
 
 def _try_parse_json_object(raw: str):
@@ -389,8 +403,18 @@ def normalize_reply_batch(
         cleaned.append(value)
 
     result = cleaned[:desired_count]
-    scene_fillers = _scene_fillers(config)
-    generic_fillers = _generic_fillers(config)
+    scene_fillers: list[str] = []
+    generic_fillers: list[str] = []
+    if config is not None and pool_enabled(config):
+        count_fn = getattr(config, "custom_danmu_count", None)
+        if not (callable(count_fn) and count_fn() <= 0):
+            pool_size = custom_pool_size(config)
+            combined = _sample_custom_pool_texts(config, min(80, pool_size), rng=random)
+            scene_fillers = combined[: min(32, len(combined))]
+            generic_fillers = combined[: min(48, len(combined))]
+    if not scene_fillers and not generic_fillers:
+        scene_fillers = _scene_fillers(config)
+        generic_fillers = _generic_fillers(config)
 
     seen = set(result)
     scene_cursor = [0]
