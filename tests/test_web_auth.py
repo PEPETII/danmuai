@@ -21,6 +21,31 @@ def test_export_config_masks_api_key():
     assert data["has_api_key"] is True
 
 
+def test_export_config_has_api_key_with_custom_model_only():
+    model_id = "mimo-v2.5"
+    cfg = FakeConfig(
+        {
+            "api_endpoint": "",
+            "default_model_id": model_id,
+        },
+    )
+    cfg.set_custom_models(
+        [
+            {
+                "name": "MiMo",
+                "default_model_id": model_id,
+                "modelId": model_id,
+                "endpoint": "https://api.xiaomimimo.com/v1",
+                "apiKey": "sk-mimo",
+                "mode": "openai",
+            }
+        ]
+    )
+    data = export_config(cfg)
+    assert data["has_api_key"] is True
+    assert data["api_key"] == "********"
+
+
 def test_export_config_fills_defaults_for_empty_store(tmp_path):
     from app.config_store import ConfigStore
 

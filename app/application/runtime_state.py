@@ -9,6 +9,7 @@ import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+from app.ai_client_requests import visual_credentials_ready
 from app.application.generation_pipeline_state import GenerationPipelineState
 from app.config_defaults import resolve_danmu_render_mode
 from app.danmu_engine import dedup_profile_enabled
@@ -160,7 +161,7 @@ class RuntimeState:
             live_snapshot=live_snapshot,
             persona_names=[persona_display_name_with_config(name, app.config) for name in app.personae.get_active()],
             screen_index=app.config.get_int("screen_index", 0),
-            has_api_key=bool(app.config.get_api_key()),
+            has_api_key=visual_credentials_ready(app.config),
             dedup_profile=dedup_profile,
             lifetime=lifetime,
             session_runs=session_runs,

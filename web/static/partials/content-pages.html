@@ -531,3 +531,71 @@
         </div>
       </div>
     </section>
+
+    <!-- ========== 区域：AI管家（自然语言设置代理，W-AIBUTLER-002） ========== -->
+    <section id="page-ai-butler" class="page-panel" aria-label="AI管家">
+      <header class="mb-8">
+        <h2 class="text-2xl font-bold text-warmText">AI管家</h2>
+        <p class="text-gray-500 mt-1">用自然语言告诉我你想调整什么，我来帮你改设置</p>
+      </header>
+
+      <!-- 能力说明卡片（静态，spec §2.2） -->
+      <div class="card p-6 mb-6 ai-butler-capability-card">
+        <p class="settings-section-title mb-3">我可以帮你做</p>
+        <ul class="text-sm text-warmText space-y-1.5 list-disc list-inside">
+          <li>把弹幕速度调快一点</li>
+          <li>把 API 改成 OpenAI 模式</li>
+          <li>开启麦克风模式</li>
+          <li>识图区域选第二个显示器</li>
+        </ul>
+        <p class="text-xs text-gray-400 mt-3">说明：涉及 API Key、删除模型等敏感操作，我会指引你到设置页手动修改。</p>
+      </div>
+
+      <!-- 当前使用模型 + 下拉（spec §2.3） -->
+      <div class="card p-5 mb-6">
+        <div class="flex flex-wrap items-center gap-3">
+          <label for="aiButlerModelSelect" class="text-sm font-semibold text-warmText whitespace-nowrap">当前使用模型</label>
+          <select
+            id="aiButlerModelSelect"
+            class="settings-field-control flex-1 min-w-[200px]"
+            aria-label="切换当前使用模型"
+            aria-describedby="aiButlerModelHint"
+          >
+            <option value="">加载中…</option>
+          </select>
+        </div>
+        <p id="aiButlerModelHint" class="text-xs text-gray-400 mt-2">切换后，后续对话自动使用新模型；当前对话历史保留。</p>
+      </div>
+
+      <!-- 对话消息区（spec §2.1） — W-003 切换为 warm-tokens 专属类（W-002 Tailwind 内联已废弃） -->
+      <div
+        id="aiButlerMessages"
+        class="card p-5 mb-6 ai-butler-messages"
+        role="log"
+        aria-label="AI管家对话"
+        aria-live="polite"
+      >
+        <p class="ai-butler-empty-hint">告诉我你想调整什么设置，例如「把弹幕速度调快」</p>
+      </div>
+
+      <!-- 输入区 -->
+      <div class="card p-4">
+        <div class="flex flex-wrap items-end gap-3">
+          <label for="aiButlerInput" class="sr-only">告诉 AI 管家想调整什么</label>
+          <textarea
+            id="aiButlerInput"
+            class="settings-field-control flex-1 min-w-[280px] resize-none"
+            rows="2"
+            placeholder="告诉我想调整什么设置... (Enter 发送，Shift+Enter 换行)"
+            aria-label="AI管家输入框"
+          ></textarea>
+          <button
+            type="button"
+            id="btnAiButlerSend"
+            class="btn-primary text-white font-semibold px-6 py-2.5 rounded-xl whitespace-nowrap"
+          >
+            发送
+          </button>
+        </div>
+      </div>
+    </section>

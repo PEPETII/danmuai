@@ -44,9 +44,9 @@ def _service_alive(service: "DanmuReadService | None") -> bool:
     if service is None or getattr(service, "_shutdown", False):
         return False
     try:
-        import shiboken6
+        from PyQt6 import sip
 
-        return shiboken6.isValid(service)
+        return not sip.isdeleted(service)
     except Exception:
         return False
 

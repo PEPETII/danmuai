@@ -94,15 +94,35 @@ class DanmuAppWebFacadeMixin:
         model: str = "",
         api_mode: str = "",
     ) -> dict[str, object]:
-        resolved_key = api_key or ""
-        if resolved_key == MASKED_KEY:
-            resolved_key = self.config.get_api_key()
+        from app.ai_client_requests import resolve_request_credentials
+
         default_mode = CONFIG_DEFAULTS.get("api_mode", "openai")
+        cred_endpoint = ""
+        cred_key = ""
+        cred_model = ""
+        cred_mode = default_mode
+        resolved = resolve_request_credentials(self.config)
+        if resolved:
+            cred_endpoint, cred_key, cred_model, cred_mode = resolved
+        else:
+            cred_endpoint = self.config.get("api_endpoint", "")
+            cred_key = self.config.get_api_key() or ""
+            cred_model = self.config.get("model", "")
+            cred_mode = self.config.get("api_mode", default_mode)
+
+        resolved_key = (api_key or "").strip()
+        if not resolved_key or resolved_key == MASKED_KEY:
+            if api_endpoint or model or api_mode:
+                # 调用方显式传入了配置参数（如【API 与模型】界面），回退到全局 api_key
+                resolved_key = self.config.get_api_key() or ""
+            else:
+                resolved_key = cred_key
+
         result = probe_connection(
-            api_endpoint or self.config.get("api_endpoint", ""),
+            (api_endpoint or cred_endpoint).strip(),
             resolved_key,
-            model or self.config.get("model", ""),
-            api_mode or self.config.get("api_mode", default_mode),
+            (model or cred_model).strip(),
+            (api_mode or cred_mode).strip() or default_mode,
         )
         return {
             "ok": result.ok,

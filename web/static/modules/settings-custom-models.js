@@ -540,7 +540,7 @@ export function openModelModal(index, model = {}) {
     document.getElementById('modelName').value = model.name || '';
 
     // API 模式回填
-    document.getElementById('modelMode').value = model.mode || 'doubao';
+    document.getElementById('modelMode').value = model.mode || (document.getElementById('api_mode')?.value || 'doubao');
   } else {
     // 新增模式：默认 doubao + 联动
     onProviderChangeInModal(providerId, { isEdit: false });

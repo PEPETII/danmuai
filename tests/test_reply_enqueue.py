@@ -21,7 +21,7 @@ from tests.conftest import (
     make_app_for_start_without_api_key,
     make_minimal_danmu_app,
 )
-from tests.fakes import DedupFakeEngine, FakeConfig, FakeLogger, FakeTimer
+from tests.fakes import DedupFakeEngine, FakeConfig, FakeLogger, FakeSessionRunLog, FakeTimer
 
 
 def test_normal_mode_enqueues_full_batch_without_prepend_replacement():
@@ -335,16 +335,119 @@ def test_start_without_api_key_does_not_start(monkeypatch):
 
 def test_start_without_api_key_surfaces_ui_feedback(monkeypatch):
     """BUG-009: missing API key must set web error state and show tray hint."""
-    from app.translations import tr
+    from app.ai_client_requests import format_credential_error
 
     app, _engine_start_called, _screenshot_timer, tray = make_app_for_start_without_api_key(
         monkeypatch
     )
     DanmuApp.start(app)
-    msg = tr("app.api_key_missing_warning")
+    msg = format_credential_error(app.config)
     assert app.web_runtime_state.error_message == msg
     assert app.web_runtime_state.is_error is True
     tray.show_api_key_missing_hint.assert_called_once()
+
+
+def _custom_model_only_config() -> FakeConfig:
+    cfg = FakeConfig(
+        {
+            "api_endpoint": "",
+            "default_model_id": "mimo-v2.5",
+        },
+    )
+    cfg.set_custom_models(
+        [
+            {
+                "name": "MiMo",
+                "default_model_id": "mimo-v2.5",
+                "modelId": "mimo-v2.5",
+                "endpoint": "https://api.xiaomimimo.com/v1",
+                "apiKey": "sk-mimo",
+                "mode": "openai",
+            }
+        ]
+    )
+    return cfg
+
+
+def _bind_start_success_stubs(app, monkeypatch) -> None:
+    bind_minimal_danmu_app(
+        app,
+        config=app.config,
+        engine=app.engine,
+        screenshot_timer=app.screenshot_timer,
+        reply_timer=FakeTimer(),
+        _live_status_timer=FakeTimer(),
+        _pool_topup_timer=FakeTimer(),
+        _lifetime_flush_timer=FakeTimer(),
+        _topmost_health_timer=FakeTimer(),
+        session_run_log=FakeSessionRunLog(),
+        ai_worker=MagicMock(),
+        tray=app.tray,
+    )
+    object.__setattr__(
+        app,
+        "_ensure_stats_state",
+        DanmuApp._ensure_stats_state.__get__(app, DanmuApp),
+    )
+    object.__setattr__(
+        app,
+        "_get_request_timing_service",
+        DanmuApp._get_request_timing_service.__get__(app, DanmuApp),
+    )
+    object.__setattr__(
+        app,
+        "_get_request_scheduler",
+        DanmuApp._get_request_scheduler.__get__(app, DanmuApp),
+    )
+    object.__setattr__(app, "_reset_scene_generation_baseline", lambda: None)
+    object.__setattr__(app, "_normal_recognition_interval_ms", lambda: 5000)
+    object.__setattr__(app, "_queue_capacity", lambda: 8)
+    monkeypatch.setattr(DanmuApp, "_on_normal_capture_tick", lambda self: None)
+    monkeypatch.setattr(DanmuApp, "_sync_overlay_visibility", lambda self: None)
+    monkeypatch.setattr(DanmuApp, "_sync_floating_panel_visibility", lambda self: None)
+    monkeypatch.setattr(DanmuApp, "_sync_pet_window_visibility", lambda self: None)
+    monkeypatch.setattr(DanmuApp, "_reassert_active_overlay_topmost", lambda self: None)
+    monkeypatch.setattr(DanmuApp, "_start_meme_barrage_timers", lambda self: None)
+    monkeypatch.setattr(DanmuApp, "_sync_mic_service", lambda self: None)
+    object.__setattr__(app, "state_changed", MagicMock())
+
+
+def test_start_with_custom_model_key_only_no_global_key(monkeypatch):
+    """Profile-only credentials must pass start() guard and start the engine."""
+    app, engine_start_called, screenshot_timer, _tray = make_app_for_start_without_api_key(
+        monkeypatch
+    )
+    object.__setattr__(app, "config", _custom_model_only_config())
+    _bind_start_success_stubs(app, monkeypatch)
+    DanmuApp.start(app)
+    assert engine_start_called == [True]
+    assert app.engine.running is True
+    assert screenshot_timer.started == 1
+
+
+def test_start_with_global_key_only_still_works(monkeypatch):
+    """BUG-009 regression: legacy global API key without custom profile still starts."""
+    app, engine_start_called, screenshot_timer, _tray = make_app_for_start_without_api_key(
+        monkeypatch
+    )
+    object.__setattr__(
+        app,
+        "config",
+        FakeConfig(
+            {
+                "api_endpoint": "https://api.example.com/v1",
+                "api_mode": "openai",
+                "model": "gpt-4o",
+                "default_model_id": "gpt-4o",
+                "_api_key": "sk-global",
+            },
+        ),
+    )
+    _bind_start_success_stubs(app, monkeypatch)
+    DanmuApp.start(app)
+    assert engine_start_called == [True]
+    assert app.engine.running is True
+    assert screenshot_timer.started == 1
 
 
 def test_toggle_without_api_key_delegates_to_start_guard(monkeypatch):

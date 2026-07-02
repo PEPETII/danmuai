@@ -54,12 +54,13 @@ def _raise_if_wall_clock_exceeded(worker) -> None:
 
 
 def get_model_config(config) -> dict:
-    default_model_id = config.get_default_model_id()
+    default_model_id = (config.get_default_model_id() or "").strip()
     if not default_model_id:
         return {}
     custom_models = config.get_custom_models()
     for model in custom_models:
-        if model.get("modelId") == default_model_id:
+        entry_id = (model.get("default_model_id") or model.get("modelId") or "").strip()
+        if entry_id == default_model_id:
             return model
     return {}
 
@@ -69,7 +70,9 @@ def resolve_request_credentials(config) -> tuple[str, str, str, str] | None:
     if model_config:
         endpoint = normalize_endpoint(model_config.get("endpoint", ""))
         api_key = (model_config.get("apiKey") or "").strip()
-        model_id = (model_config.get("modelId") or "").strip()
+        model_id = (
+            model_config.get("default_model_id") or model_config.get("modelId") or ""
+        ).strip()
         api_mode = normalize_mode(model_config.get("mode", ""))
         if not endpoint or not api_key or not model_id:
             return None
@@ -87,6 +90,11 @@ def resolve_request_credentials(config) -> tuple[str, str, str, str] | None:
     if not api_key or not (model_id or "").strip():
         return None
     return endpoint, api_key, model_id, api_mode
+
+
+def visual_credentials_ready(config) -> bool:
+    """True when visual AI requests can resolve endpoint, key, and model."""
+    return resolve_request_credentials(config) is not None
 
 
 def _read_persona_model_bindings(config) -> dict:

@@ -323,7 +323,9 @@ class DanmuAppLifecycleMixin:
         )
 
         self.config_changed.connect(self._on_config_changed)
-        initial = "/#settings" if not self.config.get_api_key() else "/"
+        from app.ai_client_requests import visual_credentials_ready
+
+        initial = "/" if visual_credentials_ready(self.config) else "/#settings"
         if self.web_server.startup_ok:
             self.logger.info(f"Web 控制台: {self.web_server.base_url} （托盘可再次打开）")
         elif self.web_launch_mode == "browser":
@@ -503,8 +505,10 @@ class DanmuAppLifecycleMixin:
         self._maybe_log_dedup_profile()
 
     def start(self) -> None:
-        if not self.config.get_api_key():
-            msg = tr("app.api_key_missing_warning")
+        from app.ai_client_requests import format_credential_error, visual_credentials_ready
+
+        if not visual_credentials_ready(self.config):
+            msg = format_credential_error(self.config)
             self.logger.warning(msg)
             self._set_error_status_safe(msg, is_error=True)
             self.tray.show_api_key_missing_hint()

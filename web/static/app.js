@@ -95,6 +95,7 @@ let danmuReadCatalog = null;
 let danmuPoolPagesReady = false;
 let petPageReady = false;
 let diagnosticsReady = false;
+let aiButlerPageReady = false;
 
 async function ensureDanmuPoolPages() {
   const [poolMod, memeMod] = await Promise.all([
@@ -114,6 +115,15 @@ async function ensurePetPage() {
   if (!petPageReady) {
     mod.initPetPage({ showToast });
     petPageReady = true;
+  }
+  return mod;
+}
+
+async function ensureAiButlerPage() {
+  const mod = await import('./modules/app-ai-butler-page.js');
+  if (!aiButlerPageReady) {
+    mod.initAiButlerPage({ showToast });
+    aiButlerPageReady = true;
   }
   return mod;
 }
@@ -452,9 +462,15 @@ function navigate(page) {
     switchGuideTab(page);
     page = 'guide';
   }
+  if (page === 'guide') {
+    switchGuideTab(getActiveGuideTabId());
+  }
   if (page === 'live-output' || page === 'bililive-dm') {
     switchLiveSettingsTab(page);
     page = 'live-settings';
+  }
+  if (page === 'live-settings') {
+    switchLiveSettingsTab(getActiveLiveSettingsTabId());
   }
   document.querySelectorAll('.page-panel').forEach((panel) => panel.classList.remove('active'));
   document.querySelectorAll('#nav .sidebar-item').forEach((item) => item.classList.remove('active'));
@@ -494,6 +510,11 @@ function navigate(page) {
   if (page === 'pet') {
     ensurePetPage()
       .then((mod) => mod.loadPetPage())
+      .catch((error) => showToast(error.message, true));
+  }
+  if (page === 'ai-butler') {
+    ensureAiButlerPage()
+      .then((mod) => mod.loadAiButlerPage())
       .catch((error) => showToast(error.message, true));
   }
   if (page === 'live-settings') {

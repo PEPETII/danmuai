@@ -24,6 +24,7 @@ from urllib.parse import unquote
 from fastapi import Header, HTTPException
 from pydantic import BaseModel
 
+from app.web_api import ai_butler as ai_butler_api  # W-AIBUTLER-001
 from app.web_api import announcements_state
 from app.web_api import app_update_state as app_update_state_api
 from app.web_api import console_theme as console_theme_api
@@ -54,6 +55,7 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
     register_preview_compress_route(app, check_token)
     register_bililive_dm_bridge_route(app, bridge.danmu_app.config, check_token)
     providers_api.register_provider_routes(app)
+    ai_butler_api.register_ai_butler_route(app, bridge, check_token)  # W-AIBUTLER-001
 
     class PersonaCreatePayload(BaseModel):
         name: str

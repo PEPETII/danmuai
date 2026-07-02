@@ -186,7 +186,9 @@ def schedule_screen_cache(bridge: object) -> None:
 
 
 def _mask_api_key(config) -> str:
-    return MASKED_API_KEY if config.get_api_key() else ""
+    from app.ai_client_requests import visual_credentials_ready
+
+    return MASKED_API_KEY if visual_credentials_ready(config) else ""
 
 
 def _mask_mic_api_key(config) -> str:
@@ -209,7 +211,9 @@ def export_config(config) -> dict[str, Any]:
 
     data = {key: config_value_with_default(config, key) for key in WEB_CONFIG_KEYS}
     data["api_key"] = _mask_api_key(config)
-    data["has_api_key"] = bool(config.get_api_key())
+    from app.ai_client_requests import visual_credentials_ready
+
+    data["has_api_key"] = visual_credentials_ready(config)
     active_model_id = resolve_active_model_id(config)
     model_status = resolve_model_status(config)
     data["default_model_id"] = config.get_default_model_id()
