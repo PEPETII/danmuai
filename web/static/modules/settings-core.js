@@ -202,11 +202,14 @@ export function initRestoreDefaultsControls() {
   });
 }
 
-export function collectFormData() {
+const LEGACY_CREDENTIAL_FIELDS = new Set(['api_endpoint', 'api_key', 'model', 'max_tokens', 'api_mode']);
+
+export function collectFormData({ usesCustomCredentials = false } = {}) {
   coreDeps.syncVisionModelToHidden();
   coreDeps.syncMicModelToHidden();
   const data = {};
   CONFIG_FIELDS.forEach((name) => {
+    if (usesCustomCredentials && LEGACY_CREDENTIAL_FIELDS.has(name)) return;
     const el = document.getElementById(name);
     if (el) data[name] = el.value;
   });
@@ -217,8 +220,10 @@ export function collectFormData() {
   data.floating_panel_font_bold = document.getElementById('floating_panel_font_bold')?.checked ? '1' : '0';
   data.bililive_dm_mode_enabled = document.getElementById('bililive_dm_mode_enabled')?.checked ? '1' : '0';
   data.use_thinking = document.getElementById('use_thinking')?.checked ? '1' : '0';
-  const key = (document.getElementById('api_key')?.value || '').trim();
-  if (key && key !== MASKED_API_KEY) data.api_key = key;
+  if (!usesCustomCredentials) {
+    const key = (document.getElementById('api_key')?.value || '').trim();
+    if (key && key !== MASKED_API_KEY) data.api_key = key;
+  }
   const micKey = (document.getElementById('mic_api_key')?.value || '').trim();
   if (micKey && micKey !== MASKED_API_KEY) data.mic_api_key = micKey;
   return data;

@@ -28,7 +28,10 @@
  * app/web_console.py 的 WebConsoleBridge 经主线程落库（详见 W-016）。
  */
 
-import { API, apiFetch } from './transport.js';
+import { getLastAppliedStatus } from './status.js';
+import {
+  API, apiFetch
+} from './transport.js';
 import {
   applyCaptureRegionFromPayload,
   configureSettingsCaptureRegion,
@@ -584,7 +587,8 @@ export function bindSettingsControls(deps = {}) {
     const btn = e.submitter || document.activeElement;
     await window.withLoadingState(btn, btn?.textContent, async () => {
       try {
-        await apiFetch('/api/config', { method: 'POST', body: JSON.stringify({ data: collectFormData() }) });
+        const _status = getLastAppliedStatus();
+        await apiFetch('/api/config', { method: 'POST', body: JSON.stringify({ data: collectFormData({ usesCustomCredentials: _status?.uses_custom_credentials === true }) }) });
         const cfg = await reloadConfigFromServer();
         refreshDanmuPreview();
         // 同时保存 danmu-read 专用配置
@@ -619,17 +623,20 @@ export function bindSettingsControls(deps = {}) {
   document.getElementById('btnProbe')?.addEventListener('click', async (e) => {
     const btn = e.currentTarget;
     await window.withLoadingState(btn, btn.textContent, async () => {
-      const data = collectFormData();
+      const usesCustom = getLastAppliedStatus()?.uses_custom_credentials === true;
+      const data = collectFormData({ usesCustomCredentials: usesCustom });
       const keyField = (document.getElementById('api_key')?.value || '').trim();
       try {
+        const payload = {};
+        if (!usesCustom) {
+          payload.api_endpoint = data.api_endpoint;
+          payload.api_key = keyField === MASKED_API_KEY ? MASKED_API_KEY : (data.api_key || '');
+          payload.model = data.model;
+          payload.api_mode = data.api_mode;
+        }
         const res = await apiFetch('/api/probe', {
           method: 'POST',
-          body: JSON.stringify({
-            api_endpoint: data.api_endpoint,
-            api_key: keyField === MASKED_API_KEY ? MASKED_API_KEY : (data.api_key || ''),
-            model: data.model,
-            api_mode: data.api_mode,
-          }),
+          body: JSON.stringify(payload),
         });
         showToast(res.message || (res.ok ? '连接成功' : '连接失败'), !res.ok);
         if (res.ok) markProbeSuccess();

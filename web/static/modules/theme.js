@@ -18,7 +18,7 @@ import { API, apiFetch, authHeaders } from './transport.js';
 export const THEME_STORAGE_KEY = 'danmu_console_theme';
 
 export function normalizeTheme(value) {
-  return value === 'dark' ? 'dark' : 'light';
+  return value === 'light' ? 'light' : 'dark';
 }
 
 export function getStoredTheme() {
@@ -26,7 +26,7 @@ export function getStoredTheme() {
     const value = localStorage.getItem(THEME_STORAGE_KEY);
     return normalizeTheme(value);
   } catch {
-    return 'light';
+    return 'dark';
   }
 }
 

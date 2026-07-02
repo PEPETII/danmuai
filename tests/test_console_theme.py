@@ -11,12 +11,12 @@ from tests.fakes import FakeConfig
 from tests.test_bundle_paths import project_root
 
 
-def test_normalize_theme_defaults_to_light():
+def test_normalize_theme_defaults_invalid_to_dark():
     assert normalize_theme("dark") == "dark"
     assert normalize_theme("DARK") == "dark"
     assert normalize_theme("light") == "light"
-    assert normalize_theme(None) == "light"
-    assert normalize_theme("invalid") == "light"
+    assert normalize_theme(None) == "dark"
+    assert normalize_theme("invalid") == "dark"
 
 
 def test_console_theme_get_default():
@@ -32,7 +32,7 @@ def test_console_theme_get_default():
 
     res = client.get("/api/console-theme")
     assert res.status_code == 200
-    assert res.json() == {"theme": "light"}
+    assert res.json() == {"theme": "dark"}
 
 
 def test_console_theme_put_roundtrip():
