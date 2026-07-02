@@ -3,16 +3,16 @@
 from __future__ import annotations
 
 import logging
-from typing import Callable
+from typing import Annotated, Callable
 
-from fastapi import Body
-from pydantic import BaseModel, Field
+from fastapi import Body, Header
 
 from app.application.bililive_dm_bridge_service import (
     BililiveDmBridgeRequest,
     BililiveDmBridgeResponse,
     generate_ai_replies,
 )
+from app.bililive_dm_plugin_auth import PLUGIN_SECRET_HEADER, validate_plugin_secret
 
 logger = logging.getLogger(__name__)
 
@@ -31,12 +31,16 @@ def _generate_ai_reply(config, payload: BililiveDmBridgeRequest) -> BililiveDmBr
 
 
 def register_bililive_dm_bridge_route(app, config, check_token: Callable) -> None:
-    """注册插件评论桥接路由（无需 Bearer，仅本机 127.0.0.1）。"""
+    """注册插件评论桥接路由（本机 127.0.0.1 + 插件共享密钥，无 Web Bearer）。"""
 
     @app.post(BRIDGE_PATH, response_model=BililiveDmBridgeResponse)
-    def bililive_dm_reply(body: BililiveDmBridgeRequest = Body(...)):
+    def bililive_dm_reply(
+        body: BililiveDmBridgeRequest = Body(...),
+        plugin_secret: Annotated[str | None, Header(alias=PLUGIN_SECRET_HEADER)] = None,
+    ):
         # 插件侧无 Bearer token；check_token 仅用于注册签名一致性。
         _ = check_token
+        validate_plugin_secret(plugin_secret)
         try:
             return _generate_ai_reply(config, body)
         except Exception as exc:

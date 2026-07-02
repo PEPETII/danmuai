@@ -50,6 +50,7 @@ namespace DanmuAiMockPlugin
         // Path must match app/web_api/bililive_dm_bridge.py:BRIDGE_PATH.
         private const string BridgeEndpoint = "http://127.0.0.1:18765/api/plugin/bililive-dm/reply";
         private const int BridgeTimeoutSec = 3;
+        private const string PluginSecretHeader = "X-DanmuAI-Plugin-Secret";
 
         // Shared HttpClient — single instance avoids socket exhaustion per
         // comment event. Disposed in DeInit().
@@ -65,6 +66,25 @@ namespace DanmuAiMockPlugin
                 Timeout = TimeSpan.FromSeconds(BridgeTimeoutSec),
             };
             return client;
+        }
+
+        private static string TryReadPluginSecret()
+        {
+            try
+            {
+                var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                var path = Path.Combine(appData, "DanmuAI", "bililive_dm_plugin.secret");
+                if (!File.Exists(path))
+                {
+                    return null;
+                }
+                var text = File.ReadAllText(path).Trim();
+                return string.IsNullOrEmpty(text) ? null : text;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         // DTOs — mirror app/web_api/bililive_dm_bridge.py schema.
@@ -235,8 +255,16 @@ namespace DanmuAiMockPlugin
                     json,
                     Encoding.UTF8,
                     "application/json"))
+                using (var request = new HttpRequestMessage(HttpMethod.Post, BridgeEndpoint))
                 {
-                    using (var resp = await SharedHttpClient.PostAsync(BridgeEndpoint, content))
+                    request.Content = content;
+                    var secret = TryReadPluginSecret();
+                    if (!string.IsNullOrEmpty(secret))
+                    {
+                        request.Headers.TryAddWithoutValidation(PluginSecretHeader, secret);
+                    }
+
+                    using (var resp = await SharedHttpClient.SendAsync(request))
                     {
                         // HttpClient throws on 4xx/5xx if we don't read the body
                         // and the request was non-success; we read either way

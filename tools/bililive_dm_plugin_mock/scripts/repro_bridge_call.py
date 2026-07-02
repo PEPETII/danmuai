@@ -18,13 +18,27 @@ What we want to see:
 from __future__ import annotations
 
 import json
+import os
 import sys
 import time
 import urllib.error
 import urllib.request
+from pathlib import Path
 
 ENDPOINT = "http://127.0.0.1:18765/api/plugin/bililive-dm/reply"
 TIMEOUT = 3.0  # mirrors BridgeTimeoutSec = 3 in C# plugin
+PLUGIN_SECRET_HEADER = "X-DanmuAI-Plugin-Secret"
+
+
+def _read_plugin_secret() -> str | None:
+    appdata = os.environ.get("APPDATA")
+    if not appdata:
+        return None
+    path = Path(appdata) / "DanmuAI" / "bililive_dm_plugin.secret"
+    if not path.is_file():
+        return None
+    text = path.read_text(encoding="utf-8").strip()
+    return text or None
 
 # Mirror the C# BridgeRequest DTO verbatim: snake_case field names.
 payload = {
@@ -35,10 +49,14 @@ payload = {
 }
 
 body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+headers = {"Content-Type": "application/json; charset=utf-8"}
+secret = _read_plugin_secret()
+if secret:
+    headers[PLUGIN_SECRET_HEADER] = secret
 req = urllib.request.Request(
     ENDPOINT,
     data=body,
-    headers={"Content-Type": "application/json; charset=utf-8"},
+    headers=headers,
     method="POST",
 )
 

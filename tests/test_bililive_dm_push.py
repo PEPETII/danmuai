@@ -6,6 +6,10 @@ import time
 from unittest.mock import MagicMock, patch
 
 import httpx
+import pytest
+
+import app.bililive_dm_plugin_auth as plugin_auth
+from app.bililive_dm_plugin_auth import PLUGIN_SECRET_HEADER
 from app.application import bililive_dm_push_service as push_service
 from app.web_api.bililive_dm_push import (
     DEFAULT_PUSH_URL,
@@ -14,6 +18,14 @@ from app.web_api.bililive_dm_push import (
 )
 
 from tests.conftest import make_minimal_danmu_app
+
+_TEST_SECRET = "test-secret"
+
+
+@pytest.fixture(autouse=True)
+def _plugin_secret_env(monkeypatch):
+    monkeypatch.setenv("DANMU_BILILIVE_DM_PLUGIN_SECRET", _TEST_SECRET)
+    monkeypatch.setattr(plugin_auth, "_cached_secret", None)
 
 
 def test_sanitize_push_items_drops_blank_and_whitespace():
@@ -78,6 +90,8 @@ def test_push_batch_success(monkeypatch):
             assert json["source"] == PUSH_SOURCE_MAIN
             assert json["batch_id"] == 3
             assert json["items"] == ["a", "b"]
+            assert headers is not None
+            assert headers.get(PLUGIN_SECRET_HEADER) == _TEST_SECRET
             return FakeResponse()
 
         def close(self):

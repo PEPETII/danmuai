@@ -8,6 +8,7 @@ from dataclasses import dataclass
 
 import httpx
 
+from app.bililive_dm_plugin_auth import plugin_secret_headers
 from app.env_config import get as get_env
 from app.web_api.bililive_dm_push import (
     DEFAULT_PUSH_URL,
@@ -65,13 +66,18 @@ def push_batch_to_bililive_dm(
     target = (url or get_env("DANMU_BILILIVE_DM_PUSH_URL") or DEFAULT_PUSH_URL).strip()
     timeout = httpx.Timeout(_PUSH_TIMEOUT_SEC, connect=_PUSH_TIMEOUT_SEC)
 
+    headers = {
+        "Content-Type": "application/json; charset=utf-8",
+        **plugin_secret_headers(),
+    }
+
     try:
         client = httpx.Client(timeout=timeout)
         try:
             resp = client.post(
                 target,
                 json=payload,
-                headers={"Content-Type": "application/json; charset=utf-8"},
+                headers=headers,
             )
         finally:
             client.close()

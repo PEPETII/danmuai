@@ -8,12 +8,26 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+import app.bililive_dm_plugin_auth as plugin_auth
+from app.bililive_dm_plugin_auth import PLUGIN_SECRET_HEADER
 from app.web_api.bililive_dm_bridge import (
     BRIDGE_PATH,
     BililiveDmBridgeRequest,
     BililiveDmBridgeResponse,
     register_bililive_dm_bridge_route,
 )
+
+_TEST_SECRET = "test-secret"
+
+
+@pytest.fixture(autouse=True)
+def _plugin_secret_env(monkeypatch):
+    monkeypatch.setenv("DANMU_BILILIVE_DM_PLUGIN_SECRET", _TEST_SECRET)
+    monkeypatch.setattr(plugin_auth, "_cached_secret", None)
+
+
+def _auth_headers() -> dict[str, str]:
+    return {PLUGIN_SECRET_HEADER: _TEST_SECRET}
 
 
 def _make_client(config=None):
@@ -50,6 +64,7 @@ def test_route_empty_text_returns_empty_text_error():
     res = client.post(
         BRIDGE_PATH,
         json={"room_id": 1, "user_name": "alice", "user_id": "u1", "text": "   "},
+        headers=_auth_headers(),
     )
     assert res.status_code == 200
     body = res.json()
@@ -63,6 +78,7 @@ def test_route_missing_text_field_still_hits_handler():
     res = client.post(
         BRIDGE_PATH,
         json={"room_id": 1, "user_name": "alice", "user_id": "u1"},
+        headers=_auth_headers(),
     )
     assert res.status_code == 200
     assert res.json()["error"] == "empty_text"
@@ -70,8 +86,25 @@ def test_route_missing_text_field_still_hits_handler():
 
 def test_route_invalid_json_type_returns_422():
     client = _make_client()
-    res = client.post(BRIDGE_PATH, json={"text": 123})
+    res = client.post(BRIDGE_PATH, json={"text": 123}, headers=_auth_headers())
     assert res.status_code == 422
+
+
+def test_unauthorized_request_rejected():
+    client = _make_client()
+    payload = {"user_name": "a", "user_id": "u1", "text": "x"}
+
+    missing = client.post(BRIDGE_PATH, json=payload)
+    assert missing.status_code == 401
+    assert missing.json()["detail"] == "plugin_secret_required"
+
+    invalid = client.post(
+        BRIDGE_PATH,
+        json=payload,
+        headers={PLUGIN_SECRET_HEADER: "wrong-secret"},
+    )
+    assert invalid.status_code == 403
+    assert invalid.json()["detail"] == "plugin_secret_invalid"
 
 
 @patch("app.web_api.bililive_dm_bridge.generate_ai_replies")
@@ -89,7 +122,7 @@ def test_route_delegates_to_generate_ai_replies(mock_generate):
         "user_id": "u2",
         "text": "hello",
     }
-    res = client.post(BRIDGE_PATH, json=payload)
+    res = client.post(BRIDGE_PATH, json=payload, headers=_auth_headers())
     assert res.status_code == 200
     assert res.json()["items"] == ["reply"]
     mock_generate.assert_called_once()
@@ -103,6 +136,7 @@ def test_route_internal_exception_returns_structured_error(mock_generate):
     res = client.post(
         BRIDGE_PATH,
         json={"user_name": "x", "user_id": "u", "text": "hi"},
+        headers=_auth_headers(),
     )
     assert res.status_code == 200
     body = res.json()
@@ -130,6 +164,7 @@ def test_register_via_register_web_routes_end_to_end():
         res = client.post(
             BRIDGE_PATH,
             json={"user_name": "a", "user_id": "u", "text": ""},
+            headers=_auth_headers(),
         )
     assert res.status_code == 200
     assert token_calls == []
@@ -148,6 +183,6 @@ def test_register_via_register_web_routes_end_to_end():
 def test_route_payload_matrix(mock_generate, payload):
     mock_generate.return_value = BililiveDmBridgeResponse(ok=True, items=["ok"])
     client = _make_client(MagicMock())
-    res = client.post(BRIDGE_PATH, json=payload)
+    res = client.post(BRIDGE_PATH, json=payload, headers=_auth_headers())
     assert res.status_code == 200
     mock_generate.assert_called_once()

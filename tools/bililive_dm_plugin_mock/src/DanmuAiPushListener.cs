@@ -16,6 +16,7 @@ namespace DanmuAiMockPlugin
     {
         // 与 app/web_api/bililive_dm_push.py 常量对齐
         public const string PushListenerPrefix = "http://127.0.0.1:18766/api/plugin/danmuai/push/";
+        private const string PluginSecretHeader = "X-DanmuAI-Plugin-Secret";
         private const int MaxItems = 5;
         private const int MaxItemChars = 60;
 
@@ -138,6 +139,11 @@ namespace DanmuAiMockPlugin
                     return;
                 }
 
+                if (!await ValidatePluginSecret(request, response).ConfigureAwait(false))
+                {
+                    return;
+                }
+
                 string body;
                 using (var reader = new StreamReader(request.InputStream, request.ContentEncoding ?? Encoding.UTF8))
                 {
@@ -222,6 +228,55 @@ namespace DanmuAiMockPlugin
                     // 绝不让异常冒泡到弹幕姬宿主
                 }
             }
+        }
+
+        private static string TryReadPluginSecret()
+        {
+            try
+            {
+                var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                var path = Path.Combine(appData, "DanmuAI", "bililive_dm_plugin.secret");
+                if (!File.Exists(path))
+                {
+                    return null;
+                }
+                var text = File.ReadAllText(path).Trim();
+                return string.IsNullOrEmpty(text) ? null : text;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static async Task<bool> ValidatePluginSecret(
+            HttpListenerRequest request,
+            HttpListenerResponse response)
+        {
+            var expected = TryReadPluginSecret();
+            var provided = request.Headers[PluginSecretHeader];
+            if (string.IsNullOrEmpty(provided))
+            {
+                await WriteJsonAsync(response, 401, new PushResponse
+                {
+                    ok = false,
+                    error = "plugin_secret_required",
+                    displayed = 0,
+                }).ConfigureAwait(false);
+                return false;
+            }
+            if (string.IsNullOrEmpty(expected)
+                || !string.Equals(provided.Trim(), expected, StringComparison.Ordinal))
+            {
+                await WriteJsonAsync(response, 403, new PushResponse
+                {
+                    ok = false,
+                    error = "plugin_secret_invalid",
+                    displayed = 0,
+                }).ConfigureAwait(false);
+                return false;
+            }
+            return true;
         }
 
         private static string[] SanitizeItems(string[] items)
