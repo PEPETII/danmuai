@@ -362,7 +362,7 @@ class ConfigStore:
                 self.conn.execute("REPLACE INTO config (key, value) VALUES (?, ?)", (key, value))
                 self.conn.commit()
                 self._cache[key] = value
-            except sqlite3.OperationalError as e:
+            except sqlite3.DatabaseError as e:
                 self.conn.rollback()
                 safe_value = _redact_config_value_for_log(key, value)
                 logger.error(
@@ -408,7 +408,7 @@ class ConfigStore:
                 # Only update cache after successful commit
                 for k, v in changed.items():
                     self._cache[k] = v
-            except sqlite3.OperationalError as e:
+            except sqlite3.DatabaseError as e:
                 self.conn.rollback()
                 logger.error(tr("config.batch_write_failed").format(error=type(e).__name__))
                 raise
@@ -506,7 +506,7 @@ class ConfigStore:
                     self._cache[key] = value
                 for key in keys_to_delete:
                     self._cache.pop(key, None)
-            except sqlite3.OperationalError as e:
+            except sqlite3.DatabaseError as e:
                 self.conn.rollback()
                 logger.error(tr("config.batch_write_failed").format(error=type(e).__name__))
                 raise
@@ -666,7 +666,7 @@ class ConfigStore:
                     self._cache[storage_key] = value
                 for delete_key in keys_to_delete:
                     self._cache.pop(delete_key, None)
-            except sqlite3.OperationalError as e:
+            except sqlite3.DatabaseError as e:
                 self.conn.rollback()
                 logger.error(tr("config.api_key_write_failed").format(error=type(e).__name__))
                 raise
@@ -868,6 +868,16 @@ class ConfigStore:
 
         return custom_danmu_contains_text_for_store(self, text)
 
+    def custom_danmu_enabled_ids(self) -> list[int]:
+        from app.danmu_pool import custom_danmu_enabled_ids_for_store
+
+        return custom_danmu_enabled_ids_for_store(self)
+
+    def custom_danmu_texts_by_ids(self, ids: list[int]) -> list[str]:
+        from app.danmu_pool import custom_danmu_texts_by_ids_for_store
+
+        return custom_danmu_texts_by_ids_for_store(self, ids)
+
     def get_custom_danmu_pool(self) -> list[str]:
         from app.danmu_pool import get_custom_danmu_pool_for_store
 
@@ -1065,7 +1075,7 @@ class ConfigStore:
                     (key, value),
                 )
                 self.conn.commit()
-            except sqlite3.OperationalError as e:
+            except sqlite3.DatabaseError as e:
                 self.conn.rollback()
                 logger.error(
                     "set_flag failed key=%s error=%s", key, type(e).__name__

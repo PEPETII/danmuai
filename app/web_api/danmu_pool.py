@@ -128,8 +128,6 @@ def append_custom(app: "DanmuApp", payload: dict[str, Any]) -> dict[str, Any]:
     config = app.config
     existing_set: set[str] = set()
     contains = getattr(config, "custom_danmu_contains_text", None)
-    if not callable(contains):
-        existing_set = set(config.get_custom_danmu_pool())
 
     to_insert: list[str] = []
     skipped_items: list[dict[str, str]] = []
@@ -179,9 +177,7 @@ def append_custom(app: "DanmuApp", payload: dict[str, Any]) -> dict[str, Any]:
             stats["skipped_empty"] += int(batch_stats.get("skipped_empty", 0))
             stats["skipped_limit"] += int(batch_stats.get("skipped_limit", 0))
         else:
-            merged = list(config.get_custom_danmu_pool()) + to_insert
-            config.set_custom_danmu_pool(merged)
-            stats["added"] = len(to_insert)
+            raise ValueError("追加接口不可用")
         app.config_changed.emit()
 
     skipped_total = sum(
@@ -224,12 +220,7 @@ def delete_custom(app: "DanmuApp", payload: dict[str, Any]) -> dict[str, Any]:
         if callable(delete_fn):
             removed = delete_fn(texts)
         else:
-            existing = app.config.get_custom_danmu_pool()
-            remove = {str(text).strip() for text in texts if str(text).strip()}
-            kept = [line for line in existing if line not in remove]
-            removed = len(existing) - len(kept)
-            if removed:
-                app.config.set_custom_danmu_pool(kept)
+            raise ValueError("删除接口不可用")
     else:
         raise ValueError("请提供要删除的弹幕句")
 

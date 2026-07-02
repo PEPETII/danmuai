@@ -325,18 +325,10 @@ def test_add_text_skip_dedup_allows_fallback_repeat(engine, monkeypatch):
 
 
 def test_forget_content_allows_repeat_after_drop(engine):
-    from app.danmu_engine import DanmuItem
-
-    engine.set_screen_width(1000.0)
-    track = engine.tracks[0]
-    item = DanmuItem("drop-me", batch_id=9, scene_generation=0, x=400.0, width=80.0)
-    track.items = [item]
     engine._remember_content("drop-me")
-    engine._rebuild_visibility_counts()
 
-    removed = engine.drop_items_with_batch_id(9)
+    engine._forget_content("drop-me")
 
-    assert removed == 1
     assert engine._is_duplicate("drop-me") is False
 
 

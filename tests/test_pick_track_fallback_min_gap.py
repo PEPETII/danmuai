@@ -1,14 +1,16 @@
-"""Test _pick_track fallback boundary clamping.
+"""Test _pick_track fallback offscreen queue semantics.
 
-验证 BUG-005：全满场景下 fallback 分支的 x 坐标越界保护。
+验证 B-001：全满场景下 fallback 应在 tail 后方离屏排队，不得钳回屏幕内可见区。
 """
 
+import heapq
 import random
 
 import pytest
 
 from app.danmu_engine import DanmuEngine, DanmuItem
 from app.config_store import ConfigStore
+from app.danmu_engine_models import Track
 
 
 @pytest.fixture()
@@ -26,7 +28,6 @@ def full_engine(workspace_tmp):
 
 def _fill_track_to_edge(track, screen_width: float, content: str = "示例弹幕"):
     """填满轨道到屏幕最右侧边缘。"""
-    # 填充轨道直到 can_accept 返回 False
     item_width = 150.0
     min_gap = 80.0
     x = 0.0
@@ -36,30 +37,52 @@ def _fill_track_to_edge(track, screen_width: float, content: str = "示例弹幕
         x = item.x + item_width + min_gap
 
 
-def test_fallback_clamps_x_to_screen_boundary(full_engine):
-    """全满轨道 + 大宽度弹幕：fallback 后 x 必须不越界。"""
-    # 所有轨道填满到边缘
+def _tail_edge(engine: DanmuEngine) -> float:
+    return max(track.rightmost_edge() for track in engine.tracks)
+
+
+def test_fallback_queues_offscreen_behind_tail(full_engine, monkeypatch):
+    """全满轨道 + 大宽度弹幕：fallback 后 x 应在 tail 后方，不得钳回屏内。"""
     for track in full_engine.tracks:
         _fill_track_to_edge(track, full_engine.screen_width)
 
-    # 创建宽度接近屏幕宽度的大弹幕（宽度 700px，在 800px 屏幕上容易越界）
-    large_item = DanmuItem("超长弹幕内容", scene_generation=0, x=0.0, width=700.0)
-    min_gap = 80.0
+    monkeypatch.setattr("app.danmu_engine.random.uniform", lambda a, b: 100.0)
+    large_item = DanmuItem("超长弹幕内容", scene_generation=0, x=900.0, width=700.0)
+    min_gap = full_engine._calc_min_gap(large_item)
+    tail_edge = _tail_edge(full_engine)
+    old_max_allowed_x = full_engine.screen_width - large_item.width - min_gap
 
-    # 多次测试，确保随机种子覆盖各种情况
-    for seed in range(10):
-        random.seed(seed)
-        selected_track = full_engine._pick_track(large_item)
+    selected_track = full_engine._pick_track(large_item)
 
-        # 验证返回了有效轨道
-        assert selected_track is not None
+    assert selected_track is not None
+    assert large_item.x >= tail_edge + min_gap
+    assert large_item.x > old_max_allowed_x
 
-        # 验证 item.x 不越界：item.x + item.width + min_gap < screen_width
-        item_end = large_item.x + large_item.width + min_gap
-        assert item_end <= full_engine.screen_width, (
-            f"[seed={seed}] item.x={large_item.x} + width={large_item.width} "
-            f"+ min_gap={min_gap} = {item_end} > screen_width={full_engine.screen_width}"
+
+def test_fallback_picks_from_smallest_rightmost_edges(full_engine, monkeypatch):
+    """满载 fallback 应从 rightmost_edge 最小的 3 条轨道中选取。"""
+    track_count = len(full_engine.tracks)
+    assert track_count >= 3
+
+    for index, track in enumerate(full_engine.tracks):
+        edge = float((index + 1) * 100)
+        track.items.append(
+            DanmuItem("fill", scene_generation=0, x=edge - 50.0, width=50.0)
         )
+
+    monkeypatch.setattr(Track, "can_accept", lambda self, item, sw, gap: False)
+
+    allowed = {
+        track
+        for track in heapq.nsmallest(3, full_engine.tracks, key=lambda t: t.rightmost_edge())
+    }
+    item = DanmuItem("incoming", scene_generation=0, x=0.0, width=120.0)
+    monkeypatch.setattr("app.danmu_engine.random.uniform", lambda a, b: 100.0)
+
+    for seed in range(30):
+        random.seed(seed)
+        selected = full_engine._pick_track(item)
+        assert selected in allowed
 
 
 def test_fallback_returns_valid_track(full_engine):
@@ -76,21 +99,24 @@ def test_fallback_returns_valid_track(full_engine):
         assert selected in full_engine.tracks
 
 
-def test_fallback_with_various_widths(full_engine):
-    """测试不同宽度弹幕的边界保护。"""
+def test_fallback_with_various_widths_stays_behind_tail(full_engine, monkeypatch):
+    """不同宽度弹幕均应排在 tail 后方，不得回夹至屏内 max_allowed_x。"""
     for track in full_engine.tracks:
         _fill_track_to_edge(track, full_engine.screen_width)
 
+    monkeypatch.setattr("app.danmu_engine.random.uniform", lambda a, b: 100.0)
     widths = [100.0, 300.0, 500.0, 650.0, 750.0]
-    min_gap = 80.0
+    tail_edge = _tail_edge(full_engine)
 
     for width in widths:
-        item = DanmuItem("弹幕", scene_generation=0, x=0.0, width=width)
-        random.seed(42)
+        item = DanmuItem("弹幕", scene_generation=0, x=900.0, width=width)
+        min_gap = full_engine._calc_min_gap(item)
+        old_max_allowed_x = full_engine.screen_width - item.width - min_gap
         full_engine._pick_track(item)
 
-        # 验证越界保护
-        item_end = item.x + item.width + min_gap
-        assert item_end <= full_engine.screen_width, (
-            f"width={width}: item_end={item_end} > screen_width={full_engine.screen_width}"
-        )
+        assert item.x >= tail_edge + min_gap
+        if old_max_allowed_x < tail_edge + min_gap:
+            assert item.x > old_max_allowed_x, (
+                f"width={width}: item.x={item.x} clamped to visible zone "
+                f"(max_allowed_x={old_max_allowed_x})"
+            )

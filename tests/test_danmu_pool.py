@@ -120,22 +120,23 @@ def test_pool_topup_skips_recent_dedup_window(qapp, workspace_tmp):
 
 
 def test_formula_text_cache_reuses_custom_pool_contains(tmp_path, monkeypatch):
+    """F-P002: membership uses SQL point lookup, not full-table get_custom_danmu_pool."""
     from app.config_store import ConfigStore
     from app.danmu_pool import is_stored_custom_pool_text
 
     store = ConfigStore(db_path=tmp_path / "formula_cache_custom.db")
     store.set_custom_danmu_pool(["公式句A"])
-    calls: list[int] = []
+    get_calls: list[int] = []
     original = store.get_custom_danmu_pool
 
     def _counting_get():
-        calls.append(1)
+        get_calls.append(1)
         return original()
 
     monkeypatch.setattr(store, "get_custom_danmu_pool", _counting_get)
     assert is_stored_custom_pool_text(store, "公式句A") is True
     assert is_stored_custom_pool_text(store, "公式句A") is True
-    assert len(calls) == 1
+    assert get_calls == []
 
 
 def test_formula_text_cache_invalidates_on_pool_write(tmp_path):
@@ -337,23 +338,56 @@ def test_pool_write_lock_independent_from_config_lock(tmp_path):
     store.close()
 
 
-def test_load_danmu_pool_for_config_uses_sampling(tmp_path):
-    """BUG-A01: load_danmu_pool_for_config should use SQL sampling, not full load."""
+def test_load_danmu_pool_for_config_uses_cached_sampling(tmp_path, monkeypatch):
+    """G-005/F-P002: sample via id cache + texts_by_ids; no full text load or SQL RANDOM()."""
     from app.config_store import ConfigStore
-    from app.danmu_pool import load_danmu_pool_for_config
+    from app.danmu_pool import load_danmu_pool_for_config, sample_danmu_for_config
 
     store = ConfigStore(tmp_path / "test_sampling.db")
-    # Insert 500 entries
     texts = [f"弹幕{i:04d}" for i in range(500)]
     store.custom_danmu_insert_many(texts)
     store.set("danmu_pool_use_custom", "1")
 
+    random_sample_calls: list[int] = []
+    original_random = store.custom_danmu_random_sample
+
+    def _count_random(count: int) -> list[str]:
+        random_sample_calls.append(count)
+        return original_random(count)
+
+    monkeypatch.setattr(store, "custom_danmu_random_sample", _count_random)
+
+    getter_calls: list[int] = []
+    original_get = store.get_custom_danmu_pool
+
+    def _count_get():
+        getter_calls.append(1)
+        return original_get()
+
+    monkeypatch.setattr(store, "get_custom_danmu_pool", _count_get)
+
+    ids_calls: list[int] = []
+    original_ids = store.custom_danmu_enabled_ids
+
+    def _count_ids():
+        ids_calls.append(1)
+        return original_ids()
+
+    monkeypatch.setattr(store, "custom_danmu_enabled_ids", _count_ids)
+
     result = load_danmu_pool_for_config(store)
-    # Should return at most 200 (sample size), not 500 (full load)
     assert len(result) <= 200
     assert len(result) > 0
-    # All results should be from the pool
     assert all(t.startswith("弹幕") for t in result)
+    assert getter_calls == []
+    assert random_sample_calls == []
+    assert len(ids_calls) == 1
+
+    picked = sample_danmu_for_config(store, 3)
+    assert len(picked) == 3
+    assert len(getter_calls) == 0
+    assert len(ids_calls) == 1
+    assert random_sample_calls == []
     store.close()
 
 
@@ -373,28 +407,29 @@ def test_custom_pool_cache_invalidates_on_insert(tmp_path):
 
 
 def test_invalidate_formula_text_cache_none_clears_all(tmp_path):
-    """BUG-A04: invalidate_formula_text_cache(None) clears both custom and meme caches."""
+    """BUG-A04: invalidate_formula_text_cache(None) clears custom id cache and meme cache."""
     from app.config_store import ConfigStore
     from app.danmu_pool import (
-        _formula_custom_sets,
+        _formula_custom_ids,
         _formula_meme_sets,
         invalidate_formula_text_cache,
         is_stored_custom_pool_text,
+        sample_danmu_for_config,
     )
 
     store = ConfigStore(db_path=tmp_path / "cache_clear_all.db")
+    store.set("danmu_pool_use_custom", "1")
     store.set_custom_danmu_pool(["句A"])
-    # Populate caches
     assert is_stored_custom_pool_text(store, "句A") is True
-    assert store in _formula_custom_sets
-    # Clear all
+    sample_danmu_for_config(store, 1)
+    assert store in _formula_custom_ids
     invalidate_formula_text_cache(None)
-    assert store not in _formula_custom_sets
-    assert len(_formula_custom_sets) == 0
+    assert store not in _formula_custom_ids
+    assert len(_formula_custom_ids) == 0
     assert len(_formula_meme_sets) == 0
-    # Cache is rebuilt on next access
     assert is_stored_custom_pool_text(store, "句A") is True
-    assert store in _formula_custom_sets
+    sample_danmu_for_config(store, 1)
+    assert store in _formula_custom_ids
     store.close()
 
 
@@ -403,17 +438,18 @@ def test_formula_cache_does_not_grow_after_store_close(tmp_path):
     import gc
 
     from app.config_store import ConfigStore
-    from app.danmu_pool import _formula_custom_sets, is_stored_custom_pool_text
+    from app.danmu_pool import _formula_custom_ids, sample_danmu_for_config
 
-    baseline = len(_formula_custom_sets)
+    baseline = len(_formula_custom_ids)
     for i in range(5):
         store = ConfigStore(db_path=tmp_path / f"cache_leak_{i}.db")
+        store.set("danmu_pool_use_custom", "1")
         store.set_custom_danmu_pool([f"句{i}"])
-        assert is_stored_custom_pool_text(store, f"句{i}") is True
+        sample_danmu_for_config(store, 1)
         store.close()
         del store
     gc.collect()
-    assert len(_formula_custom_sets) == baseline
+    assert len(_formula_custom_ids) == baseline
 
 
 # --- 增量 diff 测试 ---

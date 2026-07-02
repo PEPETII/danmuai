@@ -16,11 +16,16 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 CUSTOM_DANMU_POOL_MAX = 20000
+_TEXTS_BY_IDS_CHUNK = 500
 
 # 按 config 实例缓存烂梗库句集合；池/烂梗库写入后须 invalidate_formula_text_cache。
 _formula_meme_sets: weakref.WeakKeyDictionary = weakref.WeakKeyDictionary()
-# 按 config 实例缓存自定义弹幕库句集合；池/烂梗库写入后须 invalidate_formula_text_cache。
+# 按 config 实例缓存自定义弹幕库句列表（兼容层）；池写入后须 invalidate_formula_text_cache。
+_formula_custom_lists: weakref.WeakKeyDictionary = weakref.WeakKeyDictionary()
+# 按 config 实例缓存自定义弹幕库句集合（兼容层）；与 _formula_custom_lists 同步填充。
 _formula_custom_sets: weakref.WeakKeyDictionary = weakref.WeakKeyDictionary()
+# 按 config 实例缓存 enabled 行 id 列表（F-P002/G-005 热路径抽样）。
+_formula_custom_ids: weakref.WeakKeyDictionary = weakref.WeakKeyDictionary()
 
 
 def danmu_pool_use_custom_from_config(config) -> bool:
@@ -70,10 +75,7 @@ def load_danmu_pool_for_config(config) -> list[str]:
     count_fn = getattr(config, "custom_danmu_count", None)
     if callable(count_fn) and count_fn() <= 0:
         return []
-    sampler = getattr(config, "custom_danmu_random_sample", None)
-    if callable(sampler):
-        return sampler(200)
-    return load_custom_danmu_pool(config)
+    return _sample_custom_pool_texts(config, 200)
 
 
 def sample_danmu_for_config(
@@ -82,17 +84,69 @@ def sample_danmu_for_config(
     *,
     rng: random.Random | None = None,
 ) -> list[str]:
+    return _sample_custom_pool_texts(config, count, rng=rng)
+
+
+def _custom_pool_text_list(config) -> list[str]:
+    """Cached ordered list of all enabled custom pool texts (compat / export only)."""
+    cached = _formula_custom_lists.get(config)
+    if cached is not None:
+        return cached
+    getter = getattr(config, "get_custom_danmu_pool", None)
+    if callable(getter):
+        cached = [str(t).strip() for t in getter() if str(t).strip()]
+    else:
+        raw = config.get_json("custom_danmu_pool", []) if hasattr(config, "get_json") else []
+        items = raw if isinstance(raw, list) else []
+        cached = _dedupe_lines(str(item) for item in items)
+    _formula_custom_lists[config] = cached
+    _formula_custom_sets[config] = set(cached)
+    return cached
+
+
+def _custom_pool_id_list(config) -> list[int]:
+    """Cached enabled row ids for *config* (lightweight hot-path snapshot)."""
+    cached = _formula_custom_ids.get(config)
+    if cached is not None:
+        return cached
+    ids_getter = getattr(config, "custom_danmu_enabled_ids", None)
+    if callable(ids_getter):
+        cached = [int(i) for i in ids_getter() if int(i) > 0]
+    else:
+        cached = []
+    _formula_custom_ids[config] = cached
+    return cached
+
+
+def _sample_custom_pool_texts(
+    config,
+    count: int,
+    *,
+    rng: random.Random | None = None,
+) -> list[str]:
+    """Sample up to *count* texts via id cache + batch text fetch (no full-table text load)."""
     if not pool_enabled(config) or count <= 0:
         return []
-    sampler = getattr(config, "custom_danmu_random_sample", None)
-    if callable(sampler):
-        return sampler(count)
-    pool = load_danmu_pool_for_config(config)
-    if not pool:
+    count_fn = getattr(config, "custom_danmu_count", None)
+    if callable(count_fn) and count_fn() <= 0:
         return []
     rng = rng or random
+
+    ids = _custom_pool_id_list(config)
+    if ids:
+        n = min(count, len(ids))
+        picked_ids = list(rng.sample(ids, n))
+        fetcher = getattr(config, "custom_danmu_texts_by_ids", None)
+        if callable(fetcher):
+            return fetcher(picked_ids)
+        return []
+
+    # Fallback for FakeConfig / in-memory configs without SQL id facades.
+    pool = _custom_pool_text_list(config)
+    if not pool:
+        return []
     if count >= len(pool):
-        return rng.sample(pool, len(pool))
+        return list(rng.sample(pool, len(pool)))
     return rng.sample(pool, count)
 
 
@@ -119,10 +173,14 @@ def invalidate_formula_text_cache(config: Any | None = None) -> None:
     """Drop cached formula-text sets after custom pool or meme library writes."""
     if config is None:
         _formula_meme_sets.clear()
+        _formula_custom_lists.clear()
         _formula_custom_sets.clear()
+        _formula_custom_ids.clear()
         return
     _formula_meme_sets.pop(config, None)
+    _formula_custom_lists.pop(config, None)
     _formula_custom_sets.pop(config, None)
+    _formula_custom_ids.pop(config, None)
 
 
 def _meme_barrage_text_set(config) -> set[str]:
@@ -143,14 +201,7 @@ def _custom_pool_text_set(config) -> set[str]:
     cached = _formula_custom_sets.get(config)
     if cached is not None:
         return cached
-    # Prefer the store-level bulk loader if available.
-    getter = getattr(config, "get_custom_danmu_pool", None)
-    if callable(getter):
-        cached = {str(t).strip() for t in getter() if str(t).strip()}
-    else:
-        cached = set()
-    _formula_custom_sets[config] = cached
-    return cached
+    return set(_custom_pool_text_list(config))
 
 
 def is_stored_custom_pool_text(config, content: str) -> bool:
@@ -160,10 +211,6 @@ def is_stored_custom_pool_text(config, content: str) -> bool:
     text = str(content).strip()
     if not text:
         return False
-    # Fast path: cached set lookup (no SQLite hit).
-    if callable(getattr(config, "get_custom_danmu_pool", None)):
-        return text in _custom_pool_text_set(config)
-    # Fallback for non-store configs.
     contains = getattr(config, "custom_danmu_contains_text", None)
     if callable(contains):
         return bool(contains(text))
@@ -465,18 +512,53 @@ def custom_danmu_delete_texts_for_store(store, texts: list[str]) -> int:
     return removed
 
 
-def custom_danmu_random_sample_for_store(store, count: int) -> list[str]:
-    if count <= 0 or not store._conn_usable():
+def custom_danmu_enabled_ids_for_store(store) -> list[int]:
+    if not store._conn_usable():
         return []
     try:
         rows = store.conn.execute(
-            "SELECT text FROM custom_danmu_pool_entries "
-            "WHERE enabled = 1 ORDER BY RANDOM() LIMIT ?",
-            (int(count),),
+            "SELECT id FROM custom_danmu_pool_entries WHERE enabled = 1 "
+            f"ORDER BY id ASC LIMIT {CUSTOM_DANMU_POOL_MAX}"
         ).fetchall()
     except sqlite3.ProgrammingError:
         return []
-    return [str(row[0]) for row in rows if row and row[0]]
+    return [int(row[0]) for row in rows if row and row[0] is not None]
+
+
+def custom_danmu_texts_by_ids_for_store(store, ids: list[int]) -> list[str]:
+    if not ids or not store._conn_usable():
+        return []
+    clean_ids = [int(i) for i in ids if int(i) > 0]
+    if not clean_ids:
+        return []
+    texts: list[str] = []
+    try:
+        for offset in range(0, len(clean_ids), _TEXTS_BY_IDS_CHUNK):
+            chunk = clean_ids[offset : offset + _TEXTS_BY_IDS_CHUNK]
+            placeholders = ",".join("?" for _ in chunk)
+            rows = store.conn.execute(
+                f"SELECT text FROM custom_danmu_pool_entries "
+                f"WHERE enabled = 1 AND id IN ({placeholders})",
+                chunk,
+            ).fetchall()
+            texts.extend(
+                str(row[0]).strip()
+                for row in rows
+                if row and row[0] and str(row[0]).strip()
+            )
+    except sqlite3.ProgrammingError:
+        return []
+    return texts
+
+
+def custom_danmu_random_sample_for_store(store, count: int) -> list[str]:
+    if count <= 0 or not store._conn_usable():
+        return []
+    ids = custom_danmu_enabled_ids_for_store(store)
+    if not ids:
+        return []
+    picked = random.sample(ids, min(int(count), len(ids)))
+    return custom_danmu_texts_by_ids_for_store(store, picked)
 
 
 def custom_danmu_contains_text_for_store(store, text: str) -> bool:
@@ -550,19 +632,27 @@ def set_custom_danmu_pool_for_store(store, items: list[str]) -> None:
     if not to_add and not to_remove:
         return
 
-    with store._pool_write_lock:
-        if to_remove:
-            placeholders = ",".join("?" for _ in to_remove)
-            store.conn.execute(
-                f"DELETE FROM custom_danmu_pool_entries WHERE text IN ({placeholders})",
-                to_remove,
-            )
-        if to_add:
-            params = [(text, now, now) for text in to_add]
-            store.conn.executemany(
-                "INSERT INTO custom_danmu_pool_entries "
-                "(text, source, enabled, created_at, updated_at) VALUES (?, 'manual', 1, ?, ?)",
-                params,
-            )
-        store.conn.commit()
+    try:
+        with store._pool_write_lock:
+            if to_remove:
+                placeholders = ",".join("?" for _ in to_remove)
+                store.conn.execute(
+                    f"DELETE FROM custom_danmu_pool_entries WHERE text IN ({placeholders})",
+                    to_remove,
+                )
+            if to_add:
+                params = [(text, now, now) for text in to_add]
+                store.conn.executemany(
+                    "INSERT OR IGNORE INTO custom_danmu_pool_entries "
+                    "(text, source, enabled, created_at, updated_at) VALUES (?, 'manual', 1, ?, ?)",
+                    params,
+                )
+            store.conn.commit()
+    except sqlite3.DatabaseError:
+        try:
+            store.conn.rollback()
+        except sqlite3.Error:
+            pass
+        logger.exception("custom_danmu_pool diff write failed")
+        return
     store._invalidate_formula_text_cache()

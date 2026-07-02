@@ -234,6 +234,71 @@ def test_set_does_not_pollute_cache_on_write_failure(tmp_path):
     store.close()
 
 
+def test_set_propagates_db_error_to_logger(tmp_path, caplog):
+    import sqlite3
+
+    store = ConfigStore(db_path=tmp_path / "config.db")
+    store.set("stable_key", "original")
+    inner = store.conn
+
+    class _FailingConn:
+        def execute(self, sql, params=()):
+            raise sqlite3.IntegrityError("UNIQUE constraint failed")
+
+        def commit(self):
+            return inner.commit()
+
+        def rollback(self):
+            return inner.rollback()
+
+        def close(self):
+            return inner.close()
+
+    store.conn = _FailingConn()
+
+    with caplog.at_level("ERROR"):
+        with pytest.raises(sqlite3.IntegrityError):
+            store.set("stable_key", "new_value")
+
+    assert store.get("stable_key") == "original"
+    assert any("stable_key" in rec.message or "write_failed" in rec.message for rec in caplog.records)
+    store.close()
+
+
+def test_set_custom_danmu_pool_swallows_database_error(tmp_path):
+    import sqlite3
+
+    from app import danmu_pool
+
+    store = ConfigStore(db_path=tmp_path / "pool_db_err.db")
+    store.set_custom_danmu_pool(["句A"])
+    inner = store.conn
+
+    class _FailingConn:
+        def execute(self, sql, params=()):
+            return inner.execute(sql, params)
+
+        def executemany(self, sql, seq_of_parameters):
+            if "INSERT OR IGNORE INTO custom_danmu_pool_entries" in sql:
+                raise sqlite3.DatabaseError("disk I/O error")
+            return inner.executemany(sql, seq_of_parameters)
+
+        def commit(self):
+            return inner.commit()
+
+        def rollback(self):
+            return inner.rollback()
+
+        def close(self):
+            return inner.close()
+
+    store.conn = _FailingConn()
+
+    danmu_pool.set_custom_danmu_pool_for_store(store, ["句A", "句B"])
+    assert store.get_custom_danmu_pool() == ["句A"]
+    store.close()
+
+
 def test_missing_config_file_has_friendly_notice(tmp_path):
     db_path = tmp_path / "fresh" / "config.db"
     store = ConfigStore(db_path=db_path)
