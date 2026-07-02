@@ -410,6 +410,7 @@ def test_quit_stops_web_status_timer_before_server_shutdown(monkeypatch):
     monkeypatch.setattr("app.worker_pools.capture_worker_pool", lambda: fake_pool)
     monkeypatch.setattr("app.worker_pools.ai_worker_pool", lambda: fake_pool)
     monkeypatch.setattr("app.worker_pools.meme_ai_pool", lambda: fake_pool)
+    monkeypatch.setattr("app.worker_pools.meme_fetch_pool", lambda: fake_pool)
     quit_mock = MagicMock()
     monkeypatch.setattr("main.QApplication.quit", quit_mock)
 
@@ -434,6 +435,7 @@ def test_quit_stops_web_status_timer_before_server_shutdown(monkeypatch):
     app.ai_worker.close.side_effect = lambda: order.append("close")
     app.history_writer.stop.side_effect = lambda: order.append("history_stop")
     app.config.close.side_effect = lambda: order.append("config_close")
+    app.close_meme_barrage_client = lambda: order.append("close_meme_client")
 
     DanmuApp.quit(app)
 
@@ -441,10 +443,20 @@ def test_quit_stops_web_status_timer_before_server_shutdown(monkeypatch):
     app.stop_web_status_timer.assert_called_once_with()
     app.web_server.stop.assert_called_once_with()
     app.web_server.wait_shutdown_complete.assert_called_once_with()
-    # W-TEARDOWN-RES-001：4 次 waitForDone（capture/ai/meme/global）
-    assert fake_pool.waitForDone.call_count == 4
+    # capture / ai / meme_ai / meme_fetch / global
+    assert fake_pool.waitForDone.call_count == 5
     fake_pool.waitForDone.assert_called_with(2000)
-    assert order == ["wait:2000", "wait:2000", "wait:2000", "wait:2000", "history_stop", "close", "config_close"]
+    assert order == [
+        "wait:2000",
+        "wait:2000",
+        "wait:2000",
+        "wait:2000",
+        "wait:2000",
+        "close_meme_client",
+        "history_stop",
+        "close",
+        "config_close",
+    ]
     quit_mock.assert_called_once_with()
 
 
@@ -464,6 +476,7 @@ def test_quit_logs_warning_when_thread_pool_does_not_finish(monkeypatch):
     monkeypatch.setattr("app.worker_pools.capture_worker_pool", lambda: fake_pool)
     monkeypatch.setattr("app.worker_pools.ai_worker_pool", lambda: fake_pool)
     monkeypatch.setattr("app.worker_pools.meme_ai_pool", lambda: fake_pool)
+    monkeypatch.setattr("app.worker_pools.meme_fetch_pool", lambda: fake_pool)
     monkeypatch.setattr("main.QApplication.quit", MagicMock())
 
     app = SimpleNamespace(
@@ -487,7 +500,7 @@ def test_quit_logs_warning_when_thread_pool_does_not_finish(monkeypatch):
 
     DanmuApp.quit(app)
 
-    # W-TEARDOWN-RES-001：4 个池均超时，warning 至少调用 4 次
+    # capture / ai / meme_ai / meme_fetch / global — 至少 1 次超时 warning
     assert app.logger.warning.call_count >= 1
     args = app.logger.warning.call_args[0]
     assert args[0].startswith("quit timed out waiting for AI worker thread pool")
@@ -509,6 +522,7 @@ def test_quit_warns_when_web_console_shutdown_does_not_finish(monkeypatch):
     monkeypatch.setattr("app.worker_pools.capture_worker_pool", lambda: fake_pool)
     monkeypatch.setattr("app.worker_pools.ai_worker_pool", lambda: fake_pool)
     monkeypatch.setattr("app.worker_pools.meme_ai_pool", lambda: fake_pool)
+    monkeypatch.setattr("app.worker_pools.meme_fetch_pool", lambda: fake_pool)
     monkeypatch.setattr("main.QApplication.quit", MagicMock())
 
     fake_thread = MagicMock()

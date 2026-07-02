@@ -12,7 +12,7 @@
  *   2) 维护对话历史 messages（user/assistant 角色），上限 40 条（spec §8）
  *   3) 渲染消息气泡（用户靠右、AI 靠左）+ 「思考中」临时气泡
  *   4) 渲染确认卡片（spec §3.1 / §5.1），按用户选择调既有写端点
- *   5) 状态机管理（spec §7.1）
+ *   5) 状态机管理（spec §7.1）；所有 tool_calls 须经确认卡片，禁止自动应用
  *   6) LLM 失败 / 配置写入失败 toast 差异化（spec §6.3 / §6.4）
  *   7) 侧栏切换静默取消未确认卡片（MutationObserver，不改 app.js）
  *   8) DOM 节点裁剪（MAX_DOM_NODES=60，避免长对话 DOM 膨胀）
@@ -646,20 +646,10 @@ async function sendMessage() {
 
       if (hasToolCalls) {
         const toolCalls = res.tool_calls;
-        // require_confirm=false 的工具直接执行（spec §4.2.4）
-        const needConfirm = toolCalls.some((tc) => tc.require_confirm !== false);
-        if (needConfirm) {
-          // 渲染确认卡片
-          setState('awaiting_confirm');
-          currentToolCalls = toolCalls;
-          currentConfirmCard = renderConfirmCard(toolCalls);
-        } else {
-          // 全部自动级，直接执行
-          setState('applying');
-          currentToolCalls = toolCalls;
-          // 创建临时卡片承载 loading 态（不显示变更行与按钮，仅 loading 后转系统消息）
-          await applyToolCallsAuto(toolCalls);
-        }
+        // 所有变更均需用户确认（禁止自动应用）
+        setState('awaiting_confirm');
+        currentToolCalls = toolCalls;
+        currentConfirmCard = renderConfirmCard(toolCalls);
       } else {
         setState('idle');
       }
@@ -689,44 +679,6 @@ async function sendMessage() {
     sendBtn.classList.remove('opacity-60', 'cursor-progress');
     input.focus();
   }
-}
-
-/**
- * 自动执行 tool_calls（require_confirm=false 全部时）。
- * 不渲染卡片，直接顺序执行，结果以系统消息呈现。
- *
- * @param {Array} toolCalls
- */
-async function applyToolCallsAuto(toolCalls) {
-  let hasSetDefaultModel = false;
-  const successLabels = [];
-  for (let i = 0; i < toolCalls.length; i++) {
-    const tc = toolCalls[i];
-    try {
-      await executeSingleToolCall(tc);
-      const labels = collectChangeLabels(tc);
-      successLabels.push(labels.length === 1 ? labels[0] : labels.join('、'));
-      if (resolveToolName(tc) === 'set_default_model') hasSetDefaultModel = true;
-    } catch (error) {
-      setState('failed');
-      // W-004：配置写入失败 toast 差异化（spec §6.4）
-      appendSystemMessage(mapConfigWriteErrorToMessage(error));
-      setState('idle');
-      currentToolCalls = null;
-      return;
-    }
-  }
-  setState('done');
-  const labelText =
-    successLabels.length > 3
-      ? `${successLabels.slice(0, 3).join('、')} 等 ${successLabels.length} 项`
-      : successLabels.join('、');
-  appendSystemMessage(`✅ 已自动应用：${labelText}`);
-  if (hasSetDefaultModel) {
-    refreshModelSelect().catch(() => {});
-  }
-  currentToolCalls = null;
-  setState('idle');
 }
 
 // ---------------------------------------------------------------------------

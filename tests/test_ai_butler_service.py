@@ -17,6 +17,8 @@ from app.application.ai_butler_service import (
     _extract_json,
     _normalize_tool_calls,
     _parse_butler_response,
+    _stream_llm,
+    _try_local_intent,
     _validate_update_config_changes,
     chat,
 )
@@ -46,9 +48,30 @@ def test_extract_json_plain():
     assert _extract_json('{"a": 1}') == {"a": 1}
 
 
-def test_extract_json_markdown_fence():
+def test_extract_json_markdown_fence_multiline():
     raw = "```json\n{\"reply\": \"hi\", \"tool_calls\": []}\n```"
     assert _extract_json(raw) == {"reply": "hi", "tool_calls": []}
+
+
+def test_try_local_intent_danmu_speed_faster():
+    config = FakeConfig({"danmu_speed": "4"})
+    result = _try_local_intent("把弹幕速度调快", config)
+    assert result is not None
+    assert result["tool_calls"]
+    assert result["tool_calls"][0]["changes"][0]["key"] == "danmu_speed"
+    assert float(result["tool_calls"][0]["changes"][0]["value"]) > 4
+
+
+@patch("app.application.ai_butler_service._stream_llm")
+@patch("app.application.ai_butler_service.resolve_request_credentials")
+def test_chat_invalid_json_uses_local_intent(mock_cred, mock_stream):
+    mock_cred.return_value = _cred_tuple()
+    mock_stream.return_value = "not json at all"
+    config = FakeConfig({"danmu_speed": "4", "default_model_id": "mimo-v2.5"})
+    result = chat(config, [{"role": "user", "content": "把弹幕速度调快"}])
+    assert result["ok"] is True
+    assert result["tool_calls"]
+    assert result["tool_calls"][0]["changes"][0]["key"] == "danmu_speed"
 
 
 def test_extract_json_with_leading_noise():
@@ -134,7 +157,7 @@ def test_validate_changes_partial_batch():
 # ---------------------------------------------------------------------------
 
 
-def test_normalize_update_config_auto_level():
+def test_normalize_update_config_always_requires_confirm():
     calls = [{
         "name": "update_config",
         "changes": [{"key": "danmu_speed", "value": "8", "label": ""}],
@@ -143,17 +166,27 @@ def test_normalize_update_config_auto_level():
     out, rejected = _normalize_tool_calls(calls)
     assert len(out) == 1
     assert out[0]["name"] == "update_config"
-    assert out[0]["require_confirm"] is False
+    assert out[0]["require_confirm"] is True
     assert rejected == []
 
 
-def test_normalize_font_size_auto_level():
+def test_normalize_update_config_label_uses_config_current_value():
+    config = FakeConfig({"danmu_lines": "10"})
+    calls = [{
+        "name": "update_config",
+        "changes": [{"key": "danmu_lines", "value": "20", "label": "弹幕行数: 12 → 20"}],
+    }]
+    out, _ = _normalize_tool_calls(calls, config)
+    assert out[0]["changes"][0]["label"] == "弹幕行数: 10 → 20"
+
+
+def test_normalize_font_size_requires_confirm():
     calls = [{
         "name": "update_config",
         "changes": [{"key": "font_size", "value": "18", "label": "字体 24→18"}],
     }]
     out, _ = _normalize_tool_calls(calls)
-    assert out[0]["require_confirm"] is False
+    assert out[0]["require_confirm"] is True
 
 
 def test_normalize_set_console_theme():
@@ -166,12 +199,25 @@ def test_normalize_set_console_theme():
     assert len(out) == 1
     assert out[0]["name"] == "set_console_theme"
     assert out[0]["theme"] == "light"
-    assert out[0]["require_confirm"] is False
+    assert out[0]["require_confirm"] is True
     assert rejected == []
+
+
+def test_normalize_set_console_theme_label_from_config():
+    config = FakeConfig({"console_theme": "dark"})
+    calls = [{"name": "set_console_theme", "theme": "light"}]
+    out, _ = _normalize_tool_calls(calls, config)
+    assert out[0]["label"] == "控制台主题: 深色 → 浅色"
 
 
 def test_normalize_set_console_theme_normalizes_invalid():
     calls = [{"name": "set_console_theme", "theme": "sepia"}]
+    out, _ = _normalize_tool_calls(calls)
+    assert out[0]["theme"] == "dark"
+
+
+def test_normalize_set_console_theme_light_passthrough():
+    calls = [{"name": "set_console_theme", "theme": "light"}]
     out, _ = _normalize_tool_calls(calls)
     assert out[0]["theme"] == "light"
 
@@ -184,7 +230,7 @@ def test_validate_changes_rejects_theme_key():
 
 
 def test_normalize_update_config_confirm_level_inferred():
-    """api_mode 属确认级，即使 LLM 传 require_confirm=false 也应修正为 true。"""
+    """api_mode 等敏感项恒为确认级。"""
     calls = [{
         "name": "update_config",
         "changes": [{"key": "api_mode", "value": "openai", "label": ""}],
@@ -274,6 +320,12 @@ def test_parse_rejected_items_appended_to_reply():
 # ---------------------------------------------------------------------------
 
 
+def test_build_context_uses_defaults_when_value_missing():
+    config = FakeConfig({})
+    ctx = _build_context(config)
+    assert "danmu_lines: 20" in ctx
+
+
 def test_build_context_includes_config_values():
     config = FakeConfig({
         "api_mode": "openai",
@@ -326,6 +378,22 @@ def test_build_context_empty_models():
 
 def _cred_tuple():
     return ("https://api.test.com/v1", "sk-xxx", "mimo-v2.5", "openai")
+
+
+@patch("app.application.ai_butler_service.stream_openai")
+@patch("app.application.ai_butler_service.resolve_request_credentials")
+def test_stream_llm_openai_path_injects_thinking_disabled(mock_cred, mock_stream):
+    mock_cred.return_value = (
+        "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "sk-xxx",
+        "qwen-plus",
+        "openai",
+    )
+    mock_stream.return_value = ('{"reply": "ok", "tool_calls": []}', 0, 0)
+    worker = _AiButlerWorker(FakeConfig({"default_model_id": "qwen-plus"}))
+    _stream_llm(worker, "sys", [{"role": "user", "content": "hi"}])
+    data = mock_stream.call_args[0][4]
+    assert data["thinking"] == {"type": "disabled"}
 
 
 @patch("app.application.ai_butler_service._stream_llm")
