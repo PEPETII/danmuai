@@ -432,6 +432,9 @@ def test_begin_start_retries_when_spawn_fails(monkeypatch):
                 raise queue.Empty()
             return self._signals.pop(0)
 
+        def put(self, item):
+            pass
+
     queues = []
 
     class FakeContext:

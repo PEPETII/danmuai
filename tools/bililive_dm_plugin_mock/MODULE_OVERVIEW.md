@@ -98,7 +98,7 @@ DanmuAI Web「生成弹幕」
 
 ### 3.3 DanmuAI 侧：主动推送
 
-- [bililive_dm_push.py](../../app/web_api/bililive_dm_push.py)
+- [bililive_dm_contracts.py](../../app/application/bililive_dm_contracts.py)
   - 定义主动推送 schema 与常量
   - `DEFAULT_PUSH_URL = http://127.0.0.1:18766/api/plugin/danmuai/push/`
 
@@ -184,7 +184,7 @@ DanmuAI Web「生成弹幕」
 
 2. 推送协议增强
    - 例如加 `topic`、`session_id`、`source_kind`
-   - 优先在 [bililive_dm_push.py](../../app/web_api/bililive_dm_push.py) 统一 schema，再同步插件 DTO
+   - 优先在 [bililive_dm_contracts.py](../../app/application/bililive_dm_contracts.py) 统一 schema，再同步插件 DTO
 
 3. DanmuAI 侧推送策略调整
    - 例如只推首条、按人格过滤、限制节流
@@ -250,7 +250,7 @@ DanmuAI Web「生成弹幕」
 4. [DanmuAiPushListener.cs](src/DanmuAiPushListener.cs)
 5. [bililive_dm_bridge.py](../../app/web_api/bililive_dm_bridge.py)
 6. [bililive_dm_bridge_service.py](../../app/application/bililive_dm_bridge_service.py)
-7. [bililive_dm_push.py](../../app/web_api/bililive_dm_push.py)
+7. [bililive_dm_contracts.py](../../app/application/bililive_dm_contracts.py)
 8. [bililive_dm_push_service.py](../../app/application/bililive_dm_push_service.py)
 9. [main_display_mixin.py](../../app/main_display_mixin.py)
 10. [main_request_context_mixin.py](../../app/main_request_context_mixin.py)

@@ -38,45 +38,41 @@ def test_reply_counts_from_config_clamps():
 
 def test_build_reply_contract_zh_dynamic():
     text = build_reply_contract_zh(4, 5)
-    assert "固定返回 9 条弹幕" in text
-    assert "前 4 条必须强相关当前画面" in text
-    assert "后 5 条必须是适合直播间氛围的泛用弹幕" in text
+    assert "固定输出9条" in text
     assert '"示例短句4"' in text
 
 
 def test_build_reply_contract_en_dynamic():
     text = build_reply_contract_en(3, 2)
-    assert "Always return exactly 5 comments" in text
-    assert "the first 3 must be strongly tied" in text
-    assert "the last 2 must be generic danmu" in text
+    assert "Always output exactly 5 danmu" in text
 
 
 def test_build_reply_contract_zh_uses_max_chars():
     text = build_reply_contract_zh(2, 3, 25)
-    assert "每条不超过 25 个字" in text
+    assert "每条弹幕不超过25个汉字" in text
 
 
 def test_build_reply_contract_en_uses_max_chars():
     text = build_reply_contract_en(2, 3, 50)
-    assert "Each comment must stay within 50 characters" in text
+    assert "Each danmu must not exceed 50 characters" in text
 
 
 def test_get_reply_contract_uses_danmu_max_chars_from_config():
     cfg = FakeConfig({"danmu_max_chars": "30"})
     contract = get_reply_contract(cfg)
-    assert "每条≤30字" in contract
+    assert "每条弹幕不超过30个汉字" in contract
 
 
 def test_get_reply_contract_clamps_danmu_max_chars():
     cfg = FakeConfig({"danmu_max_chars": "2"})
     contract = get_reply_contract(cfg)
-    assert "每条≤5字" in contract
+    assert "每条弹幕不超过5个汉字" in contract
 
 
 def test_normal_mode_contract_uses_single_reply_count():
     cfg = FakeConfig({"danmu_display_mode": "normal", "normal_reply_count": "8"})
     contract = get_reply_contract(cfg)
-    assert "固定 8 条" in contract
+    assert "固定输出8条" in contract
     assert "优先贴当前画面" not in contract
     assert "前 " not in contract
     assert "后 " not in contract
@@ -130,9 +126,8 @@ def test_ensure_reply_contract_replaces_old_counts():
     old = build_reply_contract_zh(2, 3) + " 保留补充"
     cfg = FakeConfig({"normal_reply_count": "4"})
     merged = ensure_reply_contract(old, cfg)
-    assert "固定 4 条" in merged
+    assert "固定输出4条" in merged
     assert "保留补充" in merged
-    assert "前 2 条必须强相关当前画面" not in merged
 
 
 def test_strip_reply_contract_removes_new_normal_contract():
@@ -153,11 +148,11 @@ def test_strip_system_style_removes_default_prefix():
 def test_test1_persona_strip_roundtrip():
     system_zh = BUILTIN_PERSONAE["高压吐槽型"]["system_zh"]
     user_zh = BUILTIN_PERSONAE["高压吐槽型"]["user_zh"]
-    assert "直播间弹幕观众" in system_zh
+    assert "吐槽观众" in system_zh
     assert "【人格：高压吐槽型】" in user_zh
     cfg = FakeConfig({"normal_reply_count": "5"})
     merged = ensure_reply_contract(system_zh, cfg)
-    assert "固定 5 条" in merged
+    assert "固定输出5条" in merged
     assert strip_system_style(strip_reply_contract(merged)) == system_zh
     assert "测试" not in BUILTIN_PERSONAE
 
@@ -169,7 +164,7 @@ def test_legacy_test1_persona_strip_roundtrip():
     assert "【人格：真实直播间五人弹幕】" in user_zh
     cfg = FakeConfig({"normal_reply_count": "5"})
     merged = ensure_reply_contract(system_zh, cfg)
-    assert "固定 5 条" in merged
+    assert "固定输出5条" in merged
     assert strip_system_style(strip_reply_contract(merged)) == system_zh
 
 

@@ -73,7 +73,7 @@ def _init_qt_inline():
             _qt_app = QApplication(list(argv))
             if QGuiApplication.instance() is not None:
                 return _qt_app
-        except Exception as exc:
+        except (RuntimeError, OSError) as exc:
             last_err = exc
             _qt_app = None
 

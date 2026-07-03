@@ -73,10 +73,7 @@ def _resolve_supports_mic_declared(danmu_app, model_id: str):
         return None
     if config is None or not hasattr(config, "get_custom_models"):
         return None
-    try:
-        default_id = (config.get_default_model_id() or "").strip()
-    except Exception:
-        return None
+    default_id = (config.get_default_model_id() or "").strip()
     if default_id != (model_id or "").strip():
         return None
     for entry in config.get_custom_models():

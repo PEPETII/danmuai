@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import binascii
 import io
 import json
 import os
@@ -78,7 +79,7 @@ def validate_wav(data: bytes) -> bool:
     try:
         with wave.open(io.BytesIO(data), "rb") as wf:
             return wf.getnframes() > 0 and wf.getsampwidth() == 2
-    except Exception:
+    except (wave.Error, OSError, EOFError):
         return False
 
 
@@ -148,7 +149,7 @@ def probe_mimo_voice(
         return None, "no audio.data in response"
     try:
         wav = base64.b64decode(data_b64)
-    except Exception as exc:
+    except (ValueError, TypeError) as exc:
         return None, f"base64 decode: {exc}"
     if not validate_wav(wav):
         return None, "invalid wav"
@@ -220,7 +221,7 @@ def probe_dashscope_http(
 
     try:
         response = MultiModalConversation.call(**kwargs)
-    except Exception as exc:
+    except (ImportError, AttributeError, TypeError, ValueError, OSError) as exc:
         return None, str(exc)
 
     if getattr(response, "status_code", None) != 200:
@@ -264,7 +265,7 @@ def probe_dashscope_http(
             r = client.get(url)
             r.raise_for_status()
             data = r.content
-    except Exception as exc:
+    except httpx.HTTPError as exc:
         return None, f"download url failed: {exc}"
 
     if data[:4] == b"RIFF" and validate_wav(data):
@@ -313,7 +314,7 @@ def probe_dashscope_realtime(
                         pcm_chunks.append(base64.b64decode(delta))
                 elif typ == "error":
                     done["error"] = str(response.get("error", response))
-            except Exception as exc:
+            except (ValueError, TypeError, binascii.Error) as exc:
                 done["error"] = str(exc)
 
     callback = _Cb()
@@ -341,7 +342,7 @@ def probe_dashscope_realtime(
             return None, "realtime: no pcm received"
         wav = pcm_to_wav(b"".join(pcm_chunks))
         return (wav, "") if validate_wav(wav) else (None, "realtime: invalid wav")
-    except Exception as exc:
+    except (ImportError, AttributeError, TypeError, ValueError, OSError) as exc:
         return None, str(exc)
 
 

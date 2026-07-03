@@ -4,6 +4,7 @@ import time
 from unittest.mock import Mock
 
 from app.ai_client import AiWorker
+from app.application import generation_pipeline as gen_pipeline_mod
 from app.application.generation_pipeline_state import GenerationPipelineState
 from app.runnable import AiRunnable
 from main import DanmuApp
@@ -62,10 +63,10 @@ def test_on_ai_reply_enqueues_despite_stale_screenshot_id(monkeypatch):
     app.ai_in_flight = 1
     app._latest_screenshot_id = 100
     app._register_request_meta(10, 1, 0, "visual")
-    monkeypatch.setattr(main_mod, "parse_ai_reply_payload", lambda text: ["lagged"])
-    monkeypatch.setattr(main_mod, "normalize_reply_batch", lambda raw_items, **kwargs: raw_items)
+    monkeypatch.setattr(gen_pipeline_mod, "parse_ai_reply_payload", lambda text: ["lagged"])
+    monkeypatch.setattr(gen_pipeline_mod, "normalize_reply_batch", lambda raw_items, **kwargs: raw_items)
     app._on_ai_reply = main_mod.DanmuApp._on_ai_reply.__get__(app, main_mod.DanmuApp)
-    app._consume_reply_queue = lambda: None
+    app._generation_pipeline.consume_reply_queue = lambda: None
     app._publish_live_status = lambda: None
 
     old_captured = time.monotonic() - 120.0
@@ -320,11 +321,13 @@ def test_empty_ai_reply_logs_warning(monkeypatch):
     app.ai_in_flight = 1
     app._register_request_meta(10, 10, 0, "visual")
     monkeypatch.setattr(
-        "main.parse_ai_reply_payload",
+        gen_pipeline_mod,
+        "parse_ai_reply_payload",
         lambda _text: [],
     )
     monkeypatch.setattr(
-        "main.normalize_reply_batch",
+        gen_pipeline_mod,
+        "normalize_reply_batch",
         lambda raw_items, **_kwargs: raw_items,
     )
 
@@ -346,7 +349,8 @@ def test_ai_reply_pipeline_fuzzy_dedup_keeps_fixed_five_contract(monkeypatch):
         lambda config=None: ["泛用补位1", "泛用补位2", "泛用补位3"],
     )
     monkeypatch.setattr(
-        "main.parse_ai_reply_payload",
+        gen_pipeline_mod,
+        "parse_ai_reply_payload",
         lambda _text: [
             "这波操作太秀了",
             "这波操作太秀啦",

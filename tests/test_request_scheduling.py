@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, Mock
 import app.api_schedule as api_schedule
 import main
 import pytest
+from app.application import generation_pipeline as gen_pipeline_mod
 from app.application.request_scheduler import RequestScheduler
 from app.application.request_timing_service import RequestTimingService
 from app.main_helpers import MAX_IN_FLIGHT, density_right_target, reply_request_id
@@ -38,6 +39,10 @@ def _make_request_app(**overrides):
     }
     defaults.update(overrides)
     bind_minimal_danmu_app(app, **defaults)
+
+    from app.application.generation_pipeline import GenerationPipeline
+
+    object.__setattr__(app, "_generation_pipeline", GenerationPipeline(app))
 
     object.__setattr__(app, "screenshot_timer", FakeTimer())
     object.__setattr__(app, "_live_status_timer", FakeTimer())
@@ -352,18 +357,18 @@ def test_on_ai_reply_consumes_timing_on_success_path(monkeypatch):
     timing.request_started_at_by_id[request_id] = 10.0
     app._register_request_meta(3, 5, 0, "visual")
     app._enqueue_reply_batch = Mock()
-    app._consume_reply_queue = Mock()
+    app._generation_pipeline.consume_reply_queue = Mock()
     app.reply_timer.active = False
     monkeypatch.setattr(main.time, "monotonic", lambda: 11.2)
-    monkeypatch.setattr(main, "parse_ai_reply_payload", lambda text: ["A"])
-    monkeypatch.setattr(main, "normalize_reply_batch", lambda raw_items, **_kwargs: raw_items)
+    monkeypatch.setattr(gen_pipeline_mod, "parse_ai_reply_payload", lambda text: ["A"])
+    monkeypatch.setattr(gen_pipeline_mod, "normalize_reply_batch", lambda raw_items, **_kwargs: raw_items)
 
     app._on_ai_reply('["A"]', "p1", 3, 5, 10.0, 0)
 
     assert request_id not in timing.request_started_at_by_id
     assert timing.rtt_history == pytest.approx([1.2])
     assert app._enqueue_reply_batch.called
-    app._consume_reply_queue.assert_called_once_with()
+    app._generation_pipeline.consume_reply_queue.assert_called_once_with()
 
 
 def test_mic_probe_does_not_touch_pending_request_meta(monkeypatch):

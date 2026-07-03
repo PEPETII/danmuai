@@ -7,8 +7,11 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 _WS_BROADCAST_LOG_INTERVAL_SEC = 5.0
 _WS_MAX_STATUS_CONSUMERS = 10
@@ -102,7 +105,8 @@ async def _authenticate_websocket(websocket, expected_token: str, timeout_sec: f
             return False
         await websocket.close(code=1008, reason="认证超时")
         return False
-    except Exception:
+    except (TypeError, ValueError, KeyError, RuntimeError, OSError) as exc:
+        logger.debug("websocket auth error: %r", exc)
         await websocket.close(code=1008, reason="认证异常")
         return False
 
@@ -132,7 +136,7 @@ def register_websocket_routes(app, bridge, token: str, websocket_route, websocke
                     break
         except websocket_disconnect:
             bridge._ws_log_debug(f"WebSocket /ws/status disconnected peer={peer}")
-        except Exception as exc:
+        except Exception as exc:  # boundary: send/queue errors after auth
             bridge._ws_log_debug(
                 f"WebSocket /ws/status closed peer={peer} error={exc!r}"
             )
@@ -158,7 +162,7 @@ def register_websocket_routes(app, bridge, token: str, websocket_route, websocke
                     break
         except websocket_disconnect:
             bridge._ws_log_debug(f"WebSocket /ws/logs disconnected peer={peer}")
-        except Exception as exc:
+        except Exception as exc:  # boundary: send/queue errors after auth
             bridge._ws_log_debug(
                 f"WebSocket /ws/logs closed peer={peer} error={exc!r}"
             )

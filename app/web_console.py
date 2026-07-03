@@ -510,7 +510,7 @@ class WebConsoleServer:
         append_frozen_log("DanmuWebConsole thread starting")
         try:
             self._run_uvicorn_locked()
-        except Exception as exc:
+        except Exception as exc:  # boundary: uvicorn thread fatal exit
             import traceback
 
             self._bind_failed.set()

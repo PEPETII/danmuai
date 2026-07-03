@@ -63,7 +63,7 @@ def resolve_capture_rect(config, screen_geometry) -> tuple[int, int, int, int]:
             rel_y = config.get_int("region_y", 0)
             width = config.get_int("region_w", 0)
             height = config.get_int("region_h", 0)
-    except Exception as exc:
+    except (AttributeError, TypeError, ValueError) as exc:
         logger.info("识图区域回退全屏: reason=region_read_error error=%s", exc)
         return full
 

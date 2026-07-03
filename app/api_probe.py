@@ -8,6 +8,7 @@ import httpx
 
 from app.ai_client import THINKING_DISABLED, format_http_status_error
 from app.ai_client_support import sanitize_provider_error_snippet
+from app.errors import AppError
 from app.model_providers import normalize_endpoint, normalize_mode, resolve_api_transport
 from app.providers import (
     get_capabilities_for_endpoint,
@@ -53,7 +54,10 @@ def probe_connection(
         return ProbeResult(False, format_http_status_error(exc), exc.response.status_code)
     except (httpx.ConnectError, httpx.ConnectTimeout):
         return ProbeResult(False, tr("ai.error_connection_failed"))
-    except Exception as exc:
+    except AppError as exc:
+        detail = sanitize_provider_error_snippet(str(exc))
+        return ProbeResult(False, tr("ai.error_request_failed").format(error=detail))
+    except Exception as exc:  # boundary: unexpected probe failure
         detail = sanitize_provider_error_snippet(str(exc))
         return ProbeResult(False, tr("ai.error_request_failed").format(error=detail))
 
@@ -84,7 +88,7 @@ def _probe_doubao(endpoint: str, api_key: str, model_id: str) -> ProbeResult:
             return ProbeResult(True, tr("custom_model.test_ok"), resp.status_code)
         except httpx.HTTPStatusError:
             raise
-        except Exception:
+        except (httpx.HTTPError, httpx.TimeoutException):
             data["stream"] = True
             with client.stream("POST", url, headers=headers, json=data) as resp:
                 resp.raise_for_status()

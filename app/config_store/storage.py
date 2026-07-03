@@ -12,28 +12,44 @@
 调用方：DanmuApp、ConfigService.apply_web_payload、各模块读配置。
 
 存储边界：新业务模块禁止继续共享 ConfigStore 的 SQLite 连接；历史/模板等应经既有门面访问，见 docs/phase1-boundary-rules.md。
+
+注：本模块自原 ``app/config_store.py`` 拆分而来；加密辅助函数位于 ``app.config_store.crypto``，
+弹幕池 CRUD 重新导出于 ``app.config_store.pool``。``_HAS_CRYPTO`` 通过 ``_cs_pkg._HAS_CRYPTO``
+以属性访问形式读取，确保 ``unittest.mock.patch("app.config_store._HAS_CRYPTO", ...)``
+能影响 ConfigStore 方法行为（见测试 test_p1_key_encryption / test_p1_sqlite_concurrency / test_config_store）。
 """
 import json
 import logging
 import math
 import os
 import sqlite3
-import subprocess
 import threading
 from contextlib import contextmanager
-from datetime import datetime
 from pathlib import Path
 
 try:
-    from cryptography.fernet import Fernet
+    from cryptography.fernet import Fernet, InvalidToken
     _HAS_CRYPTO = True
 except ImportError:
+    Fernet = None  # type: ignore[misc, assignment]
+    InvalidToken = ValueError  # type: ignore[misc, assignment]
     _HAS_CRYPTO = False
 
 from base64 import b64decode, b64encode
 
 from app.config_migrations import run_pending
 from app.translations import tr
+
+# 通过包属性访问 _HAS_CRYPTO，使 patch("app.config_store._HAS_CRYPTO", ...) 生效。
+# 详见模块 docstring。
+import app.config_store as _cs_pkg
+
+from app.config_store.crypto import (
+    ConfigStoreCryptoUnavailableError,
+    _backup_corrupted_key_file,
+    _migrate_custom_model_shape,
+    _restrict_key_file_permissions,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -61,74 +77,6 @@ CONFIG_FILE = CONFIG_DIR / "config.db"
 _KEY_FILE = CONFIG_DIR / ".key"
 # Python 3.12 默认 cached_statements=128；显式放大以覆盖 meme/custom 池等高频查询变体。
 _SQLITE_CACHED_STATEMENTS = 256
-
-
-
-def _restrict_key_file_permissions(path: Path) -> None:
-    """Set file permissions so only the owner can read/write (best-effort)."""
-    if os.name == "nt":
-        username = os.environ.get("USERNAME", "")
-        if not username:
-            logger.warning(tr("config.key_acl_failed").format(path=path))
-            return
-        result = subprocess.run(
-            ["icacls", str(path), "/inheritance:r", "/grant:r", f"{username}:F"],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        if result.returncode != 0:
-            logger.warning(tr("config.key_acl_failed").format(path=path))
-        return
-    try:
-        os.chmod(path, 0o600)
-    except OSError:
-        logger.warning(tr("config.key_acl_failed").format(path=path))
-
-
-def _backup_corrupted_key_file(key_dir: Path, raw_bytes: bytes) -> Path | None:
-    """Best-effort backup of a corrupted .key before regeneration."""
-    timestamp = datetime.now().strftime("%Y%m%dT%H%M%S")
-    backup_path = key_dir / f".key.bak.{timestamp}"
-    try:
-        backup_path.write_bytes(raw_bytes)
-        _restrict_key_file_permissions(backup_path)
-        return backup_path
-    except OSError as exc:
-        logger.warning(
-            tr("config.key_backup_failed").format(path=backup_path, error=exc)
-        )
-        return None
-
-
-def _migrate_custom_model_shape(entry: dict) -> dict:
-    """W-CUSTOMMODEL-SCHEMA-002: 将旧 shape（modelId 单值）迁移为新 shape（model_ids 数组 + default_model_id + max_tokens）。
-
-    迁移规则：
-    - 幂等：检测到 ``model_ids`` 已存在（list 类型）则跳过迁移，仅补齐 ``max_tokens``。
-    - 旧 ``modelId`` 字段保留不删（兼容回滚）。
-    - ``model_ids = [modelId]``（过滤空值；旧 modelId 也为空则 ``[]``）。
-    - ``default_model_id = modelId``。
-    - ``max_tokens`` 默认 512（与 ``app.main_helpers.resolve_danmu_max_output_tokens`` 下限一致）。
-
-    不写回 DB；新 shape 在下次 ``set_custom_models`` 调用时自然持久化。
-    """
-    existing = entry.get("model_ids")
-    if isinstance(existing, list):
-        # 已迁移；补齐 max_tokens（防御性）
-        if not isinstance(entry.get("max_tokens"), int):
-            entry["max_tokens"] = 512
-        return entry
-    legacy_model_id = (entry.get("modelId") or "").strip()
-    entry["model_ids"] = [legacy_model_id] if legacy_model_id else []
-    entry["default_model_id"] = legacy_model_id
-    if not isinstance(entry.get("max_tokens"), int):
-        entry["max_tokens"] = 512
-    return entry
-
-
-class ConfigStoreCryptoUnavailableError(RuntimeError):
-    """Sensitive config cannot be stored without Fernet."""
 
 
 class ConfigStore:
@@ -222,7 +170,7 @@ class ConfigStore:
 
     @property
     def secrets_storage_available(self) -> bool:
-        return bool(_HAS_CRYPTO and self._fernet)
+        return bool(_cs_pkg._HAS_CRYPTO and self._fernet)
 
     def get_startup_notice(self) -> str:
         """首装会话返回本地化引导文案；crypto 不可用或密钥丢失时返回告警文案；否则为空。"""
@@ -249,7 +197,7 @@ class ConfigStore:
 
     def _init_fernet(self):
         """加载或生成 %APPDATA%/DanmuAI/.key；校验失败则换新 key（旧密文永久不可读）。"""
-        if not _HAS_CRYPTO:
+        if not _cs_pkg._HAS_CRYPTO:
             logger.warning(tr("config.crypto_missing"))
             return None
         if self._key_file.exists():
@@ -259,7 +207,7 @@ class ConfigStore:
                 # Verify key is valid by a dummy round-trip
                 f.decrypt(f.encrypt(b"test"))
                 return f
-            except Exception:
+            except (ValueError, InvalidToken, OSError):
                 self._key_backup_path = _backup_corrupted_key_file(
                     self._key_file.parent, key
                 )
@@ -621,23 +569,23 @@ class ConfigStore:
             return self._decrypted_secret_cache[encrypted_key]
 
         encrypted, encoded = fp
-        if encrypted and _HAS_CRYPTO and self._fernet:
+        if encrypted and _cs_pkg._HAS_CRYPTO and self._fernet:
             try:
                 plaintext = self._fernet.decrypt(encrypted.encode("utf-8")).decode("utf-8")
                 return self._cache_decrypted_secret(encrypted_key, encoded_key, plaintext)
-            except Exception:
+            except (InvalidToken, ValueError, UnicodeDecodeError):
                 logger.warning(tr("config.decrypt_failed"))
         if not encoded:
             return self._cache_decrypted_secret(encrypted_key, encoded_key, "")
         try:
             plaintext = b64decode(encoded).decode("utf-8")
-        except Exception:
+        except (ValueError, UnicodeDecodeError):
             return self._cache_decrypted_secret(encrypted_key, encoded_key, "")
         # W-MEDLOW-004：安装 cryptography 后首次读取 legacy base64 时自动升级为 Fernet。
-        if _HAS_CRYPTO and self._fernet and not encrypted:
+        if _cs_pkg._HAS_CRYPTO and self._fernet and not encrypted:
             try:
                 self._encrypted_set(encrypted_key, encoded_key, plaintext)
-            except Exception as exc:
+            except (ConfigStoreCryptoUnavailableError, ValueError, OSError, sqlite3.Error) as exc:
                 logger.warning(
                     "config key auto-upgrade failed key=%s error=%s",
                     encrypted_key,
@@ -737,7 +685,7 @@ class ConfigStore:
 
     def _looks_like_fernet_token(self, value: str) -> bool:
         """Heuristic Fernet token check — avoids trial decrypt on hot path."""
-        if not value or not _HAS_CRYPTO or not self._fernet:
+        if not value or not _cs_pkg._HAS_CRYPTO or not self._fernet:
             return False
         if len(value) < 57 or not value.startswith("gAAAAA"):
             return False
@@ -760,14 +708,14 @@ class ConfigStore:
         if self._looks_like_fernet_token(stored):
             try:
                 return self._fernet.decrypt(stored.encode("utf-8")).decode("utf-8"), False
-            except Exception as exc:
+            except (InvalidToken, ValueError, UnicodeDecodeError) as exc:
                 logger.debug(
                     "config.fernet_decrypt_failed key=custom_model_api_key error=%r",
                     exc,
                 )
         try:
             decoded = b64decode(stored).decode("utf-8")
-        except Exception as exc:
+        except (ValueError, UnicodeDecodeError) as exc:
             logger.debug(
                 "config.b64decode_failed key=custom_model_api_key error=%r",
                 exc,
@@ -795,7 +743,7 @@ class ConfigStore:
         else:
             try:
                 parsed = json.loads(raw)
-            except Exception:
+            except (json.JSONDecodeError, TypeError, ValueError):
                 logger.warning(tr("config.custom_models_parse_failed"))
                 parsed = []
         if not isinstance(parsed, list):
@@ -898,7 +846,7 @@ class ConfigStore:
                 (int(limit),),
             ).fetchall()
             return [str(row[0]) for row in reversed(rows) if row and row[0]]
-        except Exception:
+        except sqlite3.Error:
             return []
 
     # --- Meme barrage library (meme_barrage_library table) ---

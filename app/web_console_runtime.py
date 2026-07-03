@@ -44,6 +44,8 @@ def run_uvicorn_locked(server) -> None:
 
     log_startup("uvicorn.import.done")
 
+    from app.web_api.auth import require_auth
+
     ws_impl = "websockets"
     try:
         import websockets  # noqa: F401
@@ -176,11 +178,11 @@ def run_uvicorn_locked(server) -> None:
         return {"platforms": list_platform_catalogs()}
 
     @app.api_route("/api/config", methods=["PUT", "POST"])
+    @require_auth(_check_token)
     def save_config(
         body: dict[str, Any] = Body(...),
         authorization: str | None = Header(default=None),
     ):
-        _check_token(authorization)
         try:
             data = extract_config_payload(body)
             from app.model_selection import validate_web_config_patch
@@ -198,20 +200,20 @@ def run_uvicorn_locked(server) -> None:
         )
 
     @app.post("/api/start")
+    @require_auth(_check_token)
     def api_start(authorization: str | None = Header(default=None)):
-        _check_token(authorization)
         bridge.start_requested.emit()
         return {"ok": True}
 
     @app.post("/api/stop")
+    @require_auth(_check_token)
     def api_stop(authorization: str | None = Header(default=None)):
-        _check_token(authorization)
         bridge.stop_requested.emit()
         return {"ok": True}
 
     @app.post("/api/toggle")
+    @require_auth(_check_token)
     def api_toggle(authorization: str | None = Header(default=None)):
-        _check_token(authorization)
         bridge.toggle_requested.emit()
         return {"ok": True}
 
@@ -296,7 +298,7 @@ def run_uvicorn_locked(server) -> None:
         )
         bridge.danmu_app.logger.error(msg)
         append_frozen_log(msg)
-    except Exception as exc:
+    except Exception as exc:  # boundary: uvicorn startup fatal exit
         import traceback
 
         server._bind_failed.set()

@@ -343,10 +343,7 @@ _NICKNAME_LINE_EN = "[User nickname: {nick}; you may address the user naturally,
 def _read_user_nickname(config: ConfigStore | None) -> str:
     if config is None:
         return ""
-    try:
-        value = config.get("user_nickname", "")
-    except Exception:
-        return ""
+    value = config.get("user_nickname", "")
     return str(value or "")
 
 
@@ -373,10 +370,7 @@ _LIVE_TOPIC_LINE_EN = "[Live stream topic: {topic}; please set the tone around t
 def _read_live_topic(config: ConfigStore | None) -> str:
     if config is None:
         return ""
-    try:
-        value = config.get("live_topic", "")
-    except Exception:
-        return ""
+    value = config.get("live_topic", "")
     return str(value or "")
 
 

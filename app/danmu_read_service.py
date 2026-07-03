@@ -47,7 +47,7 @@ def _service_alive(service: "DanmuReadService | None") -> bool:
         from PyQt6 import sip
 
         return not sip.isdeleted(service)
-    except Exception:
+    except ImportError:
         return False
 
 
@@ -117,7 +117,7 @@ class _DanmuTtsRunnable(QRunnable):
         except DanmuTtsError as exc:
             _emit_tts_failed(self._service, str(exc))
             return
-        except Exception as exc:
+        except (OSError, RuntimeError, ValueError, TypeError) as exc:
             _emit_tts_failed(self._service, str(exc))
             return
         _emit_tts_ready(self._service, wav)

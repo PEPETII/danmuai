@@ -168,6 +168,13 @@ class DanmuAppLifecycleMixin:
         self._queue_batch_size = 5
         self._init_meme_barrage_timers()
 
+        # W-GENPIPELINE-EXTRACT：reply_timer / reply_buffer 所有权仍属 DanmuApp，
+        # 回复消费与三路分发逻辑委托 GenerationPipeline（app/application/generation_pipeline.py）。
+        # 必须在 reply_timer 创建之后实例化（服务方法内调 self._app.reply_timer.start()）。
+        from app.application.generation_pipeline import GenerationPipeline
+
+        self._generation_pipeline = GenerationPipeline(self)
+
     def _init_runtime_tracking_state(self) -> None:
         self._pending = False
         self._latest_displayed_round = 0
@@ -266,7 +273,7 @@ class DanmuAppLifecycleMixin:
         hotkey_started = time.perf_counter()
         try:
             self.hotkey.register()
-        except Exception as exc:
+        except Exception as exc:  # boundary: hotkey platform API
             self.logger.error("热键注册失败: %r", exc)
             QMessageBox.warning(None, tr("app.error_title"), f"热键注册失败: {exc}")
         log_startup(
@@ -291,7 +298,7 @@ class DanmuAppLifecycleMixin:
         ):
             try:
                 self._sync_pet_window_visibility()
-            except Exception as exc:
+            except RuntimeError as exc:
                 self.logger.debug(f"pet startup visibility sync skipped: {exc!r}")
 
     def _start_web_console_stack(self, log_startup) -> None:
@@ -300,7 +307,7 @@ class DanmuAppLifecycleMixin:
 
         try:
             self.web_server = attach_web_console(self)
-        except Exception as exc:
+        except Exception as exc:  # boundary: web console startup fatal
             self.logger.error("Web 控制台启动失败: %r", exc)
             QMessageBox.critical(None, tr("app.error_title"), f"Web 控制台启动失败: {exc}")
             raise
@@ -386,19 +393,19 @@ class DanmuAppLifecycleMixin:
         if pet_window is not None:
             try:
                 pet_window.apply_config()
-            except Exception as exc:
+            except RuntimeError as exc:
                 self.logger.warning(f"pet window apply_config failed: {exc!r}")
         pet_barrage_ctrl = self.__dict__.get("pet_barrage_controller")
         if pet_barrage_ctrl is not None:
             try:
                 pet_barrage_ctrl.apply_config()
-            except Exception as exc:
+            except RuntimeError as exc:
                 self.logger.warning(f"pet barrage controller apply_config failed: {exc!r}")
         if fp_overlay is None:
             return
         try:
             fp_overlay.apply_config()
-        except Exception as exc:
+        except RuntimeError as exc:
             self.logger.warning(f"floating panel overlay apply_config failed: {exc!r}")
 
     def _on_ai_error(
@@ -647,7 +654,7 @@ class DanmuAppLifecycleMixin:
         if fp_overlay is not None:
             try:
                 fp_overlay.reset_session_state()
-            except Exception as exc:
+            except RuntimeError as exc:
                 self.logger.debug(f"floating panel stop cleanup skipped: {exc!r}")
         if fp_engine is not None:
             fp_engine.stop()
@@ -783,13 +790,13 @@ class DanmuAppLifecycleMixin:
         if pet_window is not None:
             try:
                 pet_window.hide_pet()
-            except Exception as exc:
+            except RuntimeError as exc:
                 self.logger.warning(f"pet window hide on quit failed: {exc!r}")
         pet_barrage_ctrl = self.__dict__.get("pet_barrage_controller")
         if pet_barrage_ctrl is not None:
             try:
                 pet_barrage_ctrl.close()
-            except Exception as exc:
+            except RuntimeError as exc:
                 self.logger.warning(f"pet barrage close on quit failed: {exc!r}")
 
         self.overlay.hide()

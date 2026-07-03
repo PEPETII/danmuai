@@ -99,7 +99,7 @@ class AiWorker(QObject):
         if not hasattr(self._thread_local, "client") or self._thread_local.client is None:
             try:
                 client = httpx.Client(timeout=httpx.Timeout(30.0, connect=5.0), http2=True)
-            except Exception:
+            except (ImportError, TypeError, ValueError, OSError):
                 client = httpx.Client(timeout=httpx.Timeout(30.0, connect=5.0))
             self._thread_local.client = client
             with self._client_lock:
@@ -413,7 +413,7 @@ class AiWorker(QObject):
         for client in clients:
             try:
                 client.close()
-            except Exception:
+            except OSError:  # boundary: best-effort httpx client close
                 pass
         if hasattr(self._thread_local, "client"):
             self._thread_local.client = None

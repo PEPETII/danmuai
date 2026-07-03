@@ -73,7 +73,7 @@ def _wait_recording(seconds: float) -> None:
             QTimer.singleShot(int(max(0.0, seconds) * 1000), loop.quit)
             loop.exec()
             return
-    except Exception:
+    except (ImportError, RuntimeError):
         pass
     time.sleep(seconds)
 

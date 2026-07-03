@@ -40,6 +40,6 @@ def run_startup_apply_if_needed() -> None:
         app.on_before_uninstall_fast_callback(delete_user_data_if_requested)
         app.run()
         log_startup("velopack.done")
-    except Exception as exc:
+    except Exception as exc:  # boundary: velopack runtime must not block startup
         log_startup("velopack.error", detail=str(exc))
         return

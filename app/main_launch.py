@@ -83,7 +83,7 @@ def _log_unhandled_exception(message: str) -> None:
     try:
         logger = SanitizedLogger()
         logger.error(tr("app.unhandled_exception_log").format(message=message))
-    except Exception:
+    except Exception:  # boundary: logging must not block fatal handler
         safe_message = re.sub(r"sk-[A-Za-z0-9_-]{20,}", "sk-****", message)
         print(f"FATAL: {safe_message}", file=sys.stderr)
 

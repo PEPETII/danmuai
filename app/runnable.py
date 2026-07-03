@@ -102,7 +102,7 @@ class AiRunnable(QRunnable):
         started = time.monotonic()
         try:
             image_data_uri = self.compress_fn(self.pixmap)
-        except Exception as exc:
+        except (OSError, ValueError, RuntimeError) as exc:
             self.worker._emit_safe(
                 "error",
                 tr("runnable.compress_failed"),
@@ -135,7 +135,7 @@ class AiRunnable(QRunnable):
         try:
             orig_w = int(self.pixmap.width())
             orig_h = int(self.pixmap.height())
-        except Exception:
+        except (AttributeError, TypeError, ValueError):
             orig_w, orig_h = 0, 0
         quality = 85 if self.image_quality is None else int(self.image_quality)
         log_compress_metrics(
@@ -166,7 +166,7 @@ class AiRunnable(QRunnable):
                 self.scene_generation,
                 audio_data_uri=audio_data_uri,
             )
-        except Exception as exc:
+        except Exception as exc:  # boundary: AI request worker top-level
             if not self.worker._stopping.is_set():
                 self.worker._emit_safe(
                     "error",

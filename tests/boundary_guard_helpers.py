@@ -147,6 +147,14 @@ def _baseline_repo(tmp_path: Path) -> Path:
         # Final Architecture Baseline
         """,
     )
+    _write(
+        repo,
+        "app/application/generation_pipeline.py",
+        """
+        class GenerationPipeline:
+            pass
+        """,
+    )
 
     _git(repo, "init")
     _git(repo, "config", "user.name", "Codex")

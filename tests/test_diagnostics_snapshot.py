@@ -243,11 +243,14 @@ def test_diagnostics_api_returns_independent_read_only_payload(monkeypatch: pyte
 
 
 def test_diagnostics_api_uses_public_app_facade():
+    from tests.fakes import FakeConfig
+
     fastapi_app = FastAPI()
     danmu_app = SimpleNamespace(
+        config=FakeConfig(),
         build_diagnostic_snapshot=MagicMock(
             return_value={"scheduler": {}, "timing": {}, "runtime_state": {}, "diagnosis": {}}
-        )
+        ),
     )
     bridge = SimpleNamespace(danmu_app=danmu_app)
     register_web_routes(fastapi_app, bridge, lambda _authorization=None: None)
@@ -328,13 +331,16 @@ def test_diagnostics_requires_auth():
     """W-SECURITY-001: /api/diagnostics 无 Token 应返回 401。"""
     from fastapi import HTTPException
 
+    from tests.fakes import FakeConfig
+
     def _check_token(authorization=None):
         if not authorization:
             raise HTTPException(status_code=401, detail="Missing token")
 
     fastapi_app = FastAPI()
     danmu_app = SimpleNamespace(
-        build_diagnostic_snapshot=MagicMock(return_value={})
+        config=FakeConfig(),
+        build_diagnostic_snapshot=MagicMock(return_value={}),
     )
     bridge = SimpleNamespace(danmu_app=danmu_app)
     register_web_routes(fastapi_app, bridge, _check_token)
@@ -346,9 +352,12 @@ def test_diagnostics_requires_auth():
 
 def test_diagnostics_accepts_valid_token():
     """W-SECURITY-001: /api/diagnostics 有 Token 应返回 200。"""
+    from tests.fakes import FakeConfig
+
     fastapi_app = FastAPI()
     danmu_app = SimpleNamespace(
-        build_diagnostic_snapshot=MagicMock(return_value={"scheduler": {}})
+        config=FakeConfig(),
+        build_diagnostic_snapshot=MagicMock(return_value={"scheduler": {}}),
     )
     bridge = SimpleNamespace(danmu_app=danmu_app)
     register_web_routes(fastapi_app, bridge, lambda _authorization=None: None)

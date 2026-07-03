@@ -12,16 +12,17 @@ from __future__ import annotations
 
 from fastapi import File, Header, HTTPException, Path, UploadFile
 
+from app.web_api.auth import require_auth
 from app.web_console import MainThreadInvokeTimeout
 
 
 def register_font_registry_routes(app, bridge, check_token) -> None:
     @app.post("/api/fonts/import")
+    @require_auth(check_token)
     async def fonts_import(
         file: UploadFile = File(...),
         authorization: str | None = Header(default=None),
     ):
-        check_token(authorization)
         data = await file.read()
         try:
             record = bridge.invoke_on_main(
@@ -40,8 +41,8 @@ def register_font_registry_routes(app, bridge, check_token) -> None:
         return {"ok": True, **record, "families": registry.list_families()}
 
     @app.get("/api/fonts")
+    @require_auth(check_token)
     def fonts_list(authorization: str | None = Header(default=None)):
-        check_token(authorization)
         registry = bridge.danmu_app.font_registry
         return {
             "families": registry.list_families(),
@@ -49,11 +50,11 @@ def register_font_registry_routes(app, bridge, check_token) -> None:
         }
 
     @app.delete("/api/fonts/{sha256}")
+    @require_auth(check_token)
     def fonts_delete(
         sha256: str = Path(..., pattern=r"^[0-9a-f]{64}$"),
         authorization: str | None = Header(default=None),
     ):
-        check_token(authorization)
         try:
             ok = bridge.invoke_on_main(bridge.danmu_app.font_registry.delete, sha256)
         except MainThreadInvokeTimeout as exc:

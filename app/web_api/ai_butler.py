@@ -21,6 +21,8 @@ from fastapi import Body, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from app.application.ai_butler_service import chat as butler_chat
+from app.errors import AppError
+from app.web_api.auth import require_auth
 
 if TYPE_CHECKING:
     from app.web_console import WebConsoleBridge
@@ -44,11 +46,11 @@ def register_ai_butler_route(app, bridge: "WebConsoleBridge", check_token: Calla
     """注册 AI管家对话路由。"""
 
     @app.post("/api/ai-butler/chat")
+    @require_auth(check_token)
     async def ai_butler_chat(
         body: AiButlerChatRequest = Body(...),
         authorization: str | None = Header(default=None),
     ):
-        check_token(authorization)
         if not body.messages:
             raise HTTPException(status_code=400, detail="messages 不能为空")
         config = bridge.danmu_app.config
@@ -59,6 +61,9 @@ def register_ai_butler_route(app, bridge: "WebConsoleBridge", check_token: Calla
                 _BUTLER_EXECUTOR,
                 lambda: butler_chat(config, messages, body.model_id),
             )
+        except AppError as exc:
+            logger.warning("ai_butler: app_error %r", exc)
+            return {"ok": False, "error": str(exc)}
         except Exception as exc:
-            logger.warning("ai_butler: internal_error %r", exc)
+            logger.exception("ai_butler: internal_error %r", exc)
             return {"ok": False, "error": f"internal_error:{type(exc).__name__}"}

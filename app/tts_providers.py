@@ -11,12 +11,14 @@ MiMo TTS + 播放链路：
 from __future__ import annotations
 
 import base64
+import json
 import logging
 from dataclasses import dataclass
 from typing import Any, Protocol
 
 import httpx
 
+from app.errors import TtsError
 from app.model_providers import normalize_endpoint
 from app.tts_audio_utils import ensure_wav_bytes, pcm_to_wav
 
@@ -59,8 +61,7 @@ def _reject_removed_doubao_tts(provider: str) -> None:
         raise ValueError(_UNSUPPORTED_DOUBAO_TTS_MSG)
 
 
-class DanmuTtsError(Exception):
-    """TTS 请求或响应解析失败。"""
+DanmuTtsError = TtsError
 
 
 def tts_audio_unsupported_message(model_id: str) -> str:
@@ -76,7 +77,7 @@ def tts_audio_unsupported_message(model_id: str) -> str:
 def _extract_http_error_message(exc: httpx.HTTPStatusError) -> str:
     try:
         err_body = exc.response.json()
-    except Exception:
+    except (json.JSONDecodeError, ValueError):
         return ""
     if not isinstance(err_body, dict):
         return ""
@@ -335,7 +336,7 @@ def _post_chat_audio(
         return _decode_audio_wav_from_body(body, model_id=resolved.model)
     except DanmuTtsError:
         raise
-    except Exception as exc:
+    except (OSError, ValueError, TypeError, KeyError) as exc:
         logger.debug("tts response parse failed: %s", exc)
         raise DanmuTtsError("TTS 响应解析失败") from exc
 
@@ -416,7 +417,7 @@ class QwenTtsHttpAdapter:
                 language_type="Chinese",
                 stream=False,
             )
-        except Exception as exc:
+        except (ImportError, AttributeError, TypeError, ValueError, OSError) as exc:
             raise DanmuTtsError(f"百炼 TTS 请求失败: {exc}") from exc
 
         if getattr(response, "status_code", None) != 200:
@@ -527,7 +528,7 @@ class QwenTtsRealtimeAdapter:
             t0 = time.perf_counter()
             while not state["closed"] and (time.perf_counter() - t0) < timeout_sec:
                 time.sleep(0.05)
-        except Exception as exc:
+        except (ImportError, AttributeError, TypeError, ValueError, OSError) as exc:
             raise DanmuTtsError(f"百炼实时 TTS 失败: {exc}") from exc
 
         if state["error"]:

@@ -17,6 +17,8 @@ import threading
 from dataclasses import dataclass
 from typing import Callable
 
+_MIC_DEVICE_ERRORS = (OSError, RuntimeError, ValueError, TypeError, AttributeError)
+
 from app.mic_buffer import (
     BYTES_PER_SAMPLE,
     DEFAULT_MIC_SAMPLE_RATE,
@@ -53,7 +55,7 @@ def default_input_device_id() -> int | None:
             return None
         dev_id = int(dev_id)
         return dev_id if dev_id >= 0 else None
-    except Exception:
+    except _MIC_DEVICE_ERRORS:
         return None
 
 
@@ -65,7 +67,7 @@ def default_input_device_label(device_id: int | None = None) -> str:
         if dev_id is None:
             return ""
         return str(sd.query_devices(dev_id).get("name", ""))
-    except Exception:
+    except _MIC_DEVICE_ERRORS:
         return ""
 
 
@@ -76,13 +78,13 @@ def list_input_devices() -> list[MicInputDeviceInfo]:
     default_id = default_input_device_id()
     try:
         devices = sd.query_devices()
-    except Exception:
+    except _MIC_DEVICE_ERRORS:
         return []
     items: list[MicInputDeviceInfo] = []
     for index, device in enumerate(devices):
         try:
             max_input = int(device.get("max_input_channels", 0) or 0)
-        except Exception:
+        except _MIC_DEVICE_ERRORS:
             max_input = 0
         if max_input <= 0:
             continue
@@ -113,11 +115,11 @@ def input_device_exists(device_id: int | None) -> bool:
         return False
     try:
         info = sd.query_devices(int(device_id))
-    except Exception:
+    except _MIC_DEVICE_ERRORS:
         return False
     try:
         max_input = int(info.get("max_input_channels", 0) or 0)
-    except Exception:
+    except _MIC_DEVICE_ERRORS:
         max_input = 0
     return max_input > 0
 
@@ -207,7 +209,7 @@ class MicCaptureService:
             try:
                 stream.stop()
                 stream.close()
-            except Exception:
+            except _MIC_DEVICE_ERRORS:
                 pass
             if follow_default:
                 self._log("mic capture restarted: system default input device changed")
@@ -276,7 +278,7 @@ class MicCaptureService:
             try:
                 stream.stop()
                 stream.close()
-            except Exception:
+            except _MIC_DEVICE_ERRORS:
                 pass
         self._buffer.clear()
         self._log("mic capture stopped")

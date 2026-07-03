@@ -73,6 +73,27 @@ def test_boundary_guard_detects_runtime_state_projection_bypass(tmp_path: Path) 
     assert any("must not bypass GenerationPipelineState" in finding.message for finding in findings)
 
 
+def test_boundary_guard_detects_application_layer_private_field_read(tmp_path: Path) -> None:
+    repo = _baseline_repo(tmp_path)
+    _write(
+        repo,
+        "app/application/diagnostic_snapshot.py",
+        """
+        class DiagnosticSnapshotBuilder:
+            def build(self):
+                recorder = self._app.__dict__.get("_danmu_diagnostics")
+                return {"recorder": recorder}
+        """,
+    )
+
+    findings = run_boundary_guard(repo)
+
+    assert any(
+        "application/ must not read DanmuApp private fields" in finding.message
+        for finding in findings
+    )
+
+
 def test_boundary_guard_detects_request_metadata_state_regression(tmp_path: Path) -> None:
     repo = _baseline_repo(tmp_path)
     _write(
@@ -293,3 +314,69 @@ def test_boundary_guard_detects_request_timing_service_regression(tmp_path: Path
     assert any("Overlay" in finding.message for finding in findings)
     assert any("God Object" in finding.message for finding in findings)
     assert any("DanmuEngine" in finding.message for finding in findings)
+
+
+def test_boundary_guard_allows_generation_pipeline_reply_timer_start(tmp_path: Path) -> None:
+    """generation_pipeline.py 调用 reply_timer.start 不报错（允许的委托模式）。"""
+    repo = _baseline_repo(tmp_path)
+    _write(
+        repo,
+        "app/application/generation_pipeline.py",
+        """
+        class GenerationPipeline:
+            def __init__(self, app):
+                self._app = app
+
+            def consume_reply_queue(self):
+                self._app.reply_timer.start(100)
+        """,
+    )
+
+    findings = run_boundary_guard(repo)
+
+    assert not any("generation-pipeline-service" in finding.rule for finding in findings)
+
+
+def test_boundary_guard_detects_generation_pipeline_forbidden_qtimer_instantiation(
+    tmp_path: Path,
+) -> None:
+    """generation_pipeline.py 实例化 QTimer() 报错（所有权属 DanmuApp）。"""
+    repo = _baseline_repo(tmp_path)
+    _write(
+        repo,
+        "app/application/generation_pipeline.py",
+        """
+        from PyQt6.QtCore import QTimer
+
+        class GenerationPipeline:
+            def consume_reply_queue(self):
+                self._timer = QTimer()
+        """,
+    )
+
+    findings = run_boundary_guard(repo)
+
+    assert any("QTimer" in finding.message for finding in findings)
+    assert any("generation-pipeline-service" in finding.rule for finding in findings)
+
+
+def test_boundary_guard_detects_generation_pipeline_trigger_api_call(tmp_path: Path) -> None:
+    """generation_pipeline.py 调用 _trigger_api_call 报错（主链路触发仍属 DanmuApp）。"""
+    repo = _baseline_repo(tmp_path)
+    _write(
+        repo,
+        "app/application/generation_pipeline.py",
+        """
+        class GenerationPipeline:
+            def __init__(self, app):
+                self._app = app
+
+            def consume_reply_queue(self):
+                self._app._trigger_api_call()
+        """,
+    )
+
+    findings = run_boundary_guard(repo)
+
+    assert any("main pipeline trigger functions" in finding.message for finding in findings)
+    assert any("generation-pipeline-service" in finding.rule for finding in findings)

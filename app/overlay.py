@@ -240,7 +240,7 @@ class DanmuOverlay(QWidget):
         self.raise_()
         try:
             hwnd = int(self.winId())
-        except Exception:
+        except (RuntimeError, ValueError, TypeError):
             return
         reassert_hwnd_topmost(hwnd)
 

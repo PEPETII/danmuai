@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from app.application.config_service import MASKED_API_KEY, WEB_CONFIG_KEYS, apply_web_config_patch
+from app.errors import AppError
 from app.logger import (
     API_KEY_PATTERN,
     AUTH_HEADER_PATTERN,
@@ -326,7 +327,26 @@ def handle_save_config_request(bridge: "WebConsoleBridge", payload: object) -> N
     cap_hwnd = payload.get("capture_window_hwnd", "<missing>")
     try:
         bridge.danmu_app.apply_web_config_payload(payload)
-    except Exception as exc:
+    except (AppError, ValueError, TypeError, PermissionError) as exc:
+        detail = summarize_config_save_error(f"配置保存失败: {exc}")
+        write_config_save_result(
+            result_holder,
+            ok=False,
+            error="save_failed",
+            detail=detail,
+        )
+        bridge.danmu_app.logger.error(
+            "配置保存失败: keys=%s, error=%s",
+            keys,
+            exc,
+            exc_info=True,
+        )
+        bridge.danmu_app.set_web_error_status(detail, is_error=True)
+        bridge.publish_status()
+        if done_event is not None:
+            done_event.set()
+        return
+    except Exception as exc:  # boundary: unexpected config save failure
         detail = summarize_config_save_error(f"配置保存失败: {exc}")
         write_config_save_result(
             result_holder,

@@ -10,7 +10,7 @@ import httpx
 
 from app.bililive_dm_plugin_auth import plugin_secret_headers
 from app.env_config import get as get_env
-from app.web_api.bililive_dm_push import (
+from app.application.bililive_dm_contracts import (
     DEFAULT_PUSH_URL,
     PUSH_SOURCE_MAIN,
     BililiveDmPushRequest,

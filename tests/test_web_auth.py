@@ -452,6 +452,63 @@ def test_apply_config_patch_clamps_opacity():
     assert config.get("opacity") == "100"
 
 
+def test_require_auth_rejects_missing_token():
+    from fastapi import FastAPI, Header, HTTPException
+    from fastapi.testclient import TestClient
+
+    from app.web_api.auth import require_auth
+
+    app = FastAPI()
+
+    def _check_token(authorization: str | None = None) -> None:
+        if not authorization or not authorization.startswith("Bearer "):
+            raise HTTPException(status_code=401, detail="需要登录令牌")
+        if authorization != "Bearer secret":
+            raise HTTPException(status_code=403, detail="令牌无效")
+
+    @app.get("/api/protected")
+    @require_auth(_check_token)
+    def protected(authorization: str | None = Header(default=None)):
+        return {"ok": True}
+
+    client = TestClient(app)
+    denied = client.get("/api/protected")
+    assert denied.status_code == 401
+
+    invalid = client.get("/api/protected", headers={"Authorization": "Bearer wrong"})
+    assert invalid.status_code == 403
+
+    ok = client.get("/api/protected", headers={"Authorization": "Bearer secret"})
+    assert ok.status_code == 200
+    assert ok.json() == {"ok": True}
+
+
+def test_require_auth_query_uses_query_param():
+    from fastapi import FastAPI, HTTPException
+    from fastapi.testclient import TestClient
+
+    from app.web_api.auth import require_auth_query
+
+    app = FastAPI()
+
+    def _check_token(token: str | None = None) -> None:
+        if token != "Bearer secret":
+            raise HTTPException(status_code=401, detail="需要登录令牌")
+
+    @app.get("/api/events")
+    @require_auth_query(_check_token)
+    async def events(token: str | None = None):
+        return {"ok": True}
+
+    client = TestClient(app)
+    denied = client.get("/api/events")
+    assert denied.status_code == 401
+
+    ok = client.get("/api/events", params={"token": "Bearer secret"})
+    assert ok.status_code == 200
+    assert ok.json() == {"ok": True}
+
+
 
 
 

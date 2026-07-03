@@ -208,7 +208,7 @@ def _maybe_prompt_slow_webview_start(shell: "WebViewShell", initial_path: str) -
                 QSystemTrayIcon.MessageIcon.Warning,
                 8000,
             )
-        except Exception:
+        except RuntimeError:  # boundary: tray notification best-effort
             pass
     log_startup("webview.slow_start.balloon_shown", base_url=base_url)
 
@@ -220,7 +220,7 @@ def _nav_poll_loop(window: Any, nav_queue: Any, stop_event: threading.Event) -> 
     while not stop_event.is_set():
         try:
             item = nav_queue.get(timeout=_NAV_POLL_SEC)
-        except Exception:
+        except queue.Empty:
             continue
         if item is None:
             break
@@ -235,7 +235,7 @@ def _nav_poll_loop(window: Any, nav_queue: Any, stop_event: threading.Event) -> 
                 window.show()
                 window.restore()
                 append_frozen_log(f"pywebview navigate: {item}")
-        except Exception as exc:
+        except (OSError, RuntimeError, AttributeError) as exc:
             append_frozen_log(f"pywebview action failed: {exc!r}")
 def _webview_worker(
     url: str,
@@ -257,7 +257,7 @@ def _webview_worker(
             log_startup("pywebview.loaded")
             try:
                 ready_queue.put(_SIGNAL_LOADED)
-            except Exception:
+            except (OSError, RuntimeError):
                 pass
         window = webview.create_window(
             title,
@@ -288,13 +288,13 @@ def _webview_worker(
         stop_nav.set()
         try:
             nav_queue.put(None)
-        except Exception:
+        except (OSError, RuntimeError):
             pass
-    except Exception as exc:
+    except Exception as exc:  # boundary: pywebview worker fatal
         append_frozen_log(f"pywebview worker failed: {exc!r}")
         try:
             ready_queue.put(str(exc))
-        except Exception:
+        except (OSError, RuntimeError):
             pass
 def _webview_process_main(
     url: str,
@@ -348,7 +348,7 @@ class WebViewShell:
         if self._got_created and self._nav_queue is not None:
             try:
                 self._nav_queue.put(self._url(path))
-            except Exception:
+            except (OSError, RuntimeError):
                 pass
     def _url(self, path: str = "/") -> str:
         base = self.server.base_url.rstrip("/")
@@ -580,7 +580,7 @@ class WebViewShell:
             try:
                 nav_queue.put(url)
                 return
-            except Exception as exc:
+            except (OSError, RuntimeError) as exc:
                 _fallback_to_system_browser(self.server, path, str(exc))
                 return
         _fallback_to_system_browser(self.server, path, "nav queue unavailable")
@@ -592,7 +592,7 @@ class WebViewShell:
         if nav_queue is not None:
             try:
                 nav_queue.put(_RESTORE_WINDOW_MARKER)
-            except Exception:
+            except (OSError, RuntimeError):
                 pass
 
     def _terminate(self) -> None:
@@ -609,7 +609,7 @@ class WebViewShell:
         if nav_queue is not None:
             try:
                 nav_queue.put(None)
-            except Exception:
+            except (OSError, RuntimeError):
                 pass
         if proc is None:
             return

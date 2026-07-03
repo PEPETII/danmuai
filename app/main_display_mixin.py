@@ -94,7 +94,7 @@ class DanmuAppDisplayMixin:
                 speed=float(item.speed),
                 source=source,
             )
-        except Exception as exc:
+        except (RuntimeError, ValueError, TypeError) as exc:
             self.logger.debug(f"live overlay broadcast skipped: {exc!r}")
 
     def _overlay_display_enabled(self) -> bool:
@@ -136,16 +136,10 @@ class DanmuAppDisplayMixin:
         sync_pet_window_visibility(self)
 
     def _pet_barrage_mode_enabled(self) -> bool:
-        try:
-            return self.config.get("pet_barrage_mode_enabled", "0") == "1"
-        except Exception:
-            return False
+        return self.config.get("pet_barrage_mode_enabled", "0") == "1"
 
     def _bililive_dm_mode_enabled(self) -> bool:
-        try:
-            return self.config.get("bililive_dm_mode_enabled", "0") == "1"
-        except Exception:
-            return False
+        return self.config.get("bililive_dm_mode_enabled", "0") == "1"
 
     def get_pet_animation_hint(self) -> str:
         from app.pet.pet_facade import get_pet_animation_hint
@@ -232,12 +226,12 @@ class DanmuAppDisplayMixin:
         if barrage is not None and hasattr(barrage, "notify_success"):
             try:
                 barrage.notify_success()
-            except Exception as exc:
+            except RuntimeError as exc:
                 self.logger.debug(f"pet barrage success animation skipped: {exc!r}")
         if window is not None:
             try:
                 window.notify_reply_success()
-            except Exception as exc:
+            except RuntimeError as exc:
                 self.logger.debug(f"pet success animation skipped: {exc!r}")
 
     def _notify_pet_visual_error(self) -> None:
@@ -246,12 +240,12 @@ class DanmuAppDisplayMixin:
         if barrage is not None and hasattr(barrage, "notify_error"):
             try:
                 barrage.notify_error()
-            except Exception as exc:
+            except RuntimeError as exc:
                 self.logger.debug(f"pet barrage error animation skipped: {exc!r}")
         if window is not None:
             try:
                 window.notify_error()
-            except Exception as exc:
+            except RuntimeError as exc:
                 self.logger.debug(f"pet error animation skipped: {exc!r}")
 
     def _sync_floating_panel_visibility(self) -> None:
@@ -292,7 +286,7 @@ class DanmuAppDisplayMixin:
                 continue
             try:
                 hwnd = int(widget.winId())
-            except Exception:
+            except (RuntimeError, ValueError, TypeError):
                 hwnd = 0
             if hwnd:
                 hwnds.append(hwnd)
@@ -340,7 +334,7 @@ class DanmuAppDisplayMixin:
             return
         try:
             overlay_hwnd = int(layer.winId())
-        except Exception:
+        except (RuntimeError, ValueError, TypeError):
             runtime.set_overlay_compat_warning("")
             return
         screens = QApplication.screens()
@@ -420,7 +414,7 @@ class DanmuAppDisplayMixin:
                 skip_dedup=skip_dedup,
                 pre_resolved=pre_resolved,
             )
-        except Exception as exc:
+        except (RuntimeError, ValueError, TypeError) as exc:
             self.logger.debug(f"floating panel display skipped: {exc!r}")
             return None
 

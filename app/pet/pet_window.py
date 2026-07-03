@@ -571,7 +571,7 @@ class PetWindow(QWidget):
                 continue
             try:
                 layer_hwnd = int(layer.winId())
-            except Exception:
+            except (RuntimeError, ValueError, TypeError):
                 layer_hwnd = 0
             if layer_hwnd:
                 stack_hwnd_above(hwnd, layer_hwnd)

@@ -7,6 +7,7 @@ W-PERF-MED-004 P-17: SQLite ``history`` rows are capped at ``DEFAULT_MAX_HISTORY
 # W-CONC-001：flush 走 ConfigStore 写入临界区，避免主线程持锁时 database is locked 永久丢失
 
 import logging
+import sqlite3
 import threading
 from collections import deque
 from datetime import datetime
@@ -99,7 +100,7 @@ class HistoryWriter:
                 )
                 self._maybe_prune_rows()
                 self.config.conn.commit()
-        except Exception:
+        except sqlite3.Error:
             _logger.exception("history flush failed items=%d, will retry on next flush", len(items))
             # W-DATA-LOSS-001：回填失败批次到 buffer 队首，防止永久丢失
             with self._lock:

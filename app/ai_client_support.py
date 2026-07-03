@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 
 import httpx
@@ -67,7 +68,7 @@ def _http_error_message_and_code(exc: httpx.HTTPStatusError) -> tuple[str, objec
                     nested = err.get("message")
                     if isinstance(nested, str):
                         message = nested.strip()
-    except Exception:
+    except (json.JSONDecodeError, ValueError):
         pass
     return message, code
 

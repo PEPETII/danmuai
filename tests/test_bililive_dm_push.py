@@ -11,7 +11,7 @@ import pytest
 import app.bililive_dm_plugin_auth as plugin_auth
 from app.bililive_dm_plugin_auth import PLUGIN_SECRET_HEADER
 from app.application import bililive_dm_push_service as push_service
-from app.web_api.bililive_dm_push import (
+from app.application.bililive_dm_contracts import (
     DEFAULT_PUSH_URL,
     PUSH_SOURCE_MAIN,
     BililiveDmPushRequest,

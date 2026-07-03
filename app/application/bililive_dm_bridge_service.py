@@ -15,6 +15,7 @@ from app.ai_client_requests import stream_doubao, stream_openai
 from app.model_providers import resolve_api_transport
 from app.providers import get_capabilities_for_endpoint, get_openai_adapter, provider_extra_headers
 from app.providers.constants import THINKING_DISABLED
+from app.errors import AppError
 
 
 class BililiveDmBridgeRequest(BaseModel):
@@ -197,7 +198,10 @@ def generate_ai_replies(
             error=f"http_{exc.response.status_code}",
             items=[],
         )
-    except Exception as exc:
+    except AppError as exc:
+        logger.warning("bililive_dm_bridge_service: app_error %r", exc)
+        return BililiveDmBridgeResponse(ok=False, error=str(exc), items=[])
+    except Exception as exc:  # boundary: unexpected stream failure
         logger.warning("bililive_dm_bridge_service: stream failed %r", exc)
         return BililiveDmBridgeResponse(
             ok=False,

@@ -187,6 +187,12 @@ def bind_minimal_danmu_app(app, **overrides):
         object.__setattr__(app, "_request_scheduler", RequestScheduler())
     if "_request_timing_service" not in overrides:
         object.__setattr__(app, "_request_timing_service", RequestTimingService())
+    # W-GENPIPELINE-EXTRACT: _consume_reply_queue 委托 GenerationPipeline，
+    # 走主链路的测试需补建 _generation_pipeline 实例。
+    if "_generation_pipeline" not in overrides:
+        from app.application.generation_pipeline import GenerationPipeline
+
+        object.__setattr__(app, "_generation_pipeline", GenerationPipeline(app))
 
 
 @pytest.fixture
@@ -402,6 +408,11 @@ def make_minimal_danmu_app():
     app._estimated_reply_gap_ms = DanmuApp._estimated_reply_gap_ms.__get__(app, DanmuApp)
     app.state_changed = Mock()
     app._sync_reply_batch_config()
+    # W-GENPIPELINE-EXTRACT: _consume_reply_queue 委托 GenerationPipeline，
+    # 走主链路的测试需补建 _generation_pipeline 实例。
+    from app.application.generation_pipeline import GenerationPipeline
+
+    app._generation_pipeline = GenerationPipeline(app)
     return app
 
 

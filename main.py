@@ -17,8 +17,9 @@
 线程：DanmuApp 在 Qt 主线程；CaptureRunnable 在 capture_worker_pool 抓屏；
 AiRunnable 在 ai_worker_pool 中调 AiWorker，finished 信号队列回主线程。
 
-Phase 4 冻结（勿迁移出本模块）：ai_in_flight、reply_buffer、QTimer/QThreadPool、_latest_screenshot 等，
-见 docs/archive/architecture-phases/phase4-freeze.md。
+Phase 4 冻结：ai_in_flight、_pending_request_meta、_scene_generation 等仍冻结于本模块；
+reply_buffer/QTimer 所有权仍属本模块，回复消费逻辑已委托 app/application/generation_pipeline.py
+（W-GENPIPELINE-EXTRACT，见 .local-ai/scratch/archive-phases/phase4-freeze.md）。
 
 入口：python main.py → main()。
 """
@@ -74,10 +75,6 @@ from app.personae import (
     append_nickname_to_system_pt,
     persona_display_name,
     persona_display_name_with_config,
-)
-from app.reply_parser import (
-    normalize_reply_batch,
-    parse_ai_reply_payload,
 )
 from app.screenshot_compress import (
     IMAGE_JPEG_QUALITY,
@@ -675,360 +672,23 @@ class DanmuApp(
 
         self._consume_request_timing(request_round, screenshot_id, scene_generation)
 
-        raw_items = parse_ai_reply_payload(text)
-        normalized_items = normalize_reply_batch(
-            raw_items,
-            scene_count=self._reply_scene_count,
-            filler_count=self._reply_filler_count,
-            config=self.config,
-        )
-        if not normalized_items:
-            request_id = self._reply_request_id(request_round, screenshot_id, scene_generation)
-            self._log_reply_pipeline(
-                "reply_received",
-                request_id=format_reply_request_id(request_round, screenshot_id, scene_generation),
-                request_round=request_round,
-                screenshot_id=screenshot_id,
-                captured_at=captured_at,
-                request_started_at=request_started_at,
-                reply_received_at=reply_received_at,
-                scene_generation=scene_generation,
-                dropped_as_stale=False,
-                enqueued=False,
-                displayed=False,
-            )
-            self.logger.warning(
-                "AI 回复解析为空: request_id=%s screenshot_id=%s request_round=%s "
-                "scene_generation=%s text_len=%s raw_count=%s reason=empty_parse",
-                request_id,
-                screenshot_id,
-                request_round,
-                scene_generation,
-                len(text or ""),
-                len(raw_items),
-            )
-            self._record_undisplayed("empty_parse", persona_id=persona_id)
-            return
-
-        request_id = self._reply_request_id(request_round, screenshot_id, scene_generation)
-        self._log_reply_pipeline(
-            "reply_received",
-            request_id=format_reply_request_id(request_round, screenshot_id, scene_generation),
+        # W-GENPIPELINE-EXTRACT：解析 → 入队 → 驱动 已委托 GenerationPipeline。
+        # 前置门控（释放在途/token 统计/scene_generation 门控/mic 分流/失败计数重置
+        # /timing 消费）仍在本方法；request_started_at 已在上方经 _peek_request_started_at 解析。
+        self._generation_pipeline.handle_reply_parsed(
+            text=text,
+            persona_id=persona_id,
             request_round=request_round,
             screenshot_id=screenshot_id,
             captured_at=captured_at,
-            request_started_at=request_started_at,
-            reply_received_at=reply_received_at,
             scene_generation=scene_generation,
-            dropped_as_stale=False,
-            enqueued=True,
-            displayed=False,
-        )
-        self.reply_buffer.drop_replaceable_fallbacks(
-            request_id=request_id,
-            batch_id=self._batch_id,
-            scene_generation=scene_generation,
-        )
-        self._enqueue_reply_batch(
-            persona_id,
-            request_round,
-            screenshot_id,
-            captured_at,
-            scene_generation,
-            normalized_items,
-            from_local_fallback=False,
             request_started_at=request_started_at,
             reply_received_at=reply_received_at,
         )
-        self._notify_pet_visual_success()
-        self._publish_live_status()
-
-        if not self.reply_timer.isActive():
-            self._consume_reply_queue()
-        elif self.reply_buffer.size() > self._queue_low_watermark:
-            self.reply_timer.stop()
-            self._consume_reply_queue()
-        else:
-            self.reply_timer.setInterval(min(self.reply_timer.interval(), 200))
 
     def _consume_reply_queue(self):
-        """从 FIFO 弹出一条回复上屏；成功时更新 BatchTracker 锚点与 next_generation_time。
-
-        调用线程：主线程（reply_timer 单次触发回调；自适应间隔 100-1000ms）。
-        fallback/mic 可 skip_dedup。
-        锚点弹幕滚到 75% 屏宽处的时间写入 batch.next_generation_time（debug/批次元数据）。
-        拒因（去重/入口过载）不入历史。
-        floating_panel：间距阻塞 peek 不 pop；空文本/去重须在 pop 前判定并主动丢弃；
-        意外上屏失败时回插队首，避免静默丢失。
-        """
-        floating_panel = self._danmu_render_mode() == "floating_panel"
-        if self._pet_barrage_mode_enabled():
-            barrage = self.__dict__.get("pet_barrage_controller")
-            if barrage is None:
-                return
-            batch = []
-            while len(batch) < 5 and not self.reply_buffer.is_empty():
-                queued_item = self.reply_buffer.pop()
-                if queued_item is None:
-                    break
-                batch.append(queued_item)
-            if not batch:
-                return
-            rendered_rows: list[tuple[object, str]] = []
-            for queued_item in batch:
-                display_text = resolve_danmu_display_text(
-                    queued_item.content,
-                    self.config,
-                    queued_item.persona_id,
-                )
-                if not display_text:
-                    self.logger.info(
-                        tr("app.danmu_not_entered").format(content=f"{queued_item.content[:20]}...")
-                        + " [桌宠气泡/空文本]"
-                    )
-                    self._log_reply_pipeline_from_queued(
-                        "reply_displayed",
-                        queued_item,
-                        displayed=False,
-                    )
-                    continue
-                rendered_rows.append((queued_item, display_text))
-            if not rendered_rows:
-                if not self.reply_buffer.is_empty():
-                    self.reply_timer.start(100)
-                self._update_stats(success=False)
-                self._maybe_pool_topup()
-                return
-            barrage.deliver_batch(
-                [text for _, text in rendered_rows[:5]],
-                persona_id=rendered_rows[0][0].persona_id,
-                batch_id=rendered_rows[0][0].batch_id,
-                scene_generation=rendered_rows[0][0].scene_generation,
-                source=rendered_rows[0][0].source,
-            )
-            for queued_item, text in rendered_rows[:5]:
-                self.history_writer.enqueue(text, queued_item.persona_id, queued_item.batch_index)
-                self._log_reply_pipeline_from_queued(
-                    "reply_displayed",
-                    queued_item,
-                    displayed=True,
-                )
-            self._latest_displayed_round = max(
-                self._latest_displayed_round,
-                max(item.screenshot_round for item, _ in rendered_rows),
-            )
-            self._latest_displayed_screenshot_id = max(
-                self._latest_displayed_screenshot_id,
-                max(item.screenshot_id for item, _ in rendered_rows),
-            )
-            if not self.reply_buffer.is_empty():
-                self.reply_timer.start(self._estimated_reply_gap_ms())
-            self._update_stats(success=True, count=len(rendered_rows[:5]))
-            self._maybe_pool_topup()
-            return
-        if floating_panel:
-            queued_peek = self.reply_buffer.peek()
-            if queued_peek is None:
-                return
-            fp_engine = self.__dict__.get("floating_panel_engine")
-            fp_overlay = self.__dict__.get("floating_panel_overlay")
-            if fp_engine is not None and fp_overlay is not None:
-                est_h = fp_overlay.estimate_item_height()
-                if not fp_engine.can_accept_new_item(est_h):
-                    delay = fp_engine.estimate_entry_delay_ms(est_h)
-                    if not self.reply_buffer.is_empty():
-                        self.reply_timer.start(max(50, delay))
-                    return
-
-                display_peek = resolve_danmu_display_text(
-                    queued_peek.content,
-                    self.config,
-                    queued_peek.persona_id,
-                )
-                skip_dedup_peek = queued_peek.is_fallback or queued_peek.source == "fallback"
-                if not display_peek:
-                    queued = self.reply_buffer.pop()
-                    self.logger.info(
-                        tr("app.danmu_not_entered").format(content=f"{queued.content[:20]}...")
-                        + " [悬浮窗/空文本]"
-                    )
-                    self._log_reply_pipeline_from_queued(
-                        "reply_displayed",
-                        queued,
-                        displayed=False,
-                    )
-                    self._record_undisplayed("empty_text", persona_id=queued.persona_id)
-                    if not self.reply_buffer.is_empty():
-                        self.reply_timer.start(100)
-                    self._update_stats(success=False)
-                    self._maybe_pool_topup()
-                    return
-                if not skip_dedup_peek and fp_engine.is_duplicate(display_peek):
-                    queued = self.reply_buffer.pop()
-                    duplicate_observation = get_last_duplicate_observation()
-                    duplicate_match_type = str(duplicate_observation.get("match_type") or "")
-                    duplicate_stats = self._track_duplicate_rejection(
-                        queued,
-                        match_type=duplicate_match_type or "duplicate",
-                    )
-                    self.logger.info(
-                        tr("app.danmu_not_entered").format(content=f"{queued.content[:20]}...")
-                        + " [去重]"
-                    )
-                    self._log_reply_pipeline_from_queued(
-                        "reply_displayed",
-                        queued,
-                        displayed=False,
-                        duplicate_match_type=duplicate_match_type or "duplicate",
-                        duplicate_loss=1,
-                        duplicate_loss_total=duplicate_stats["duplicate_loss_total"],
-                        duplicate_exact_set_hit=duplicate_stats["duplicate_exact_set_hit"],
-                        duplicate_exact_window_hit=duplicate_stats["duplicate_exact_window_hit"],
-                        duplicate_similarity_hit=duplicate_stats["duplicate_similarity_hit"],
-                    )
-                    self._record_undisplayed("duplicate", persona_id=queued.persona_id)
-                    self._record_undisplayed(
-                        "duplicate_exact_set_hit",
-                        persona_id=queued.persona_id,
-                    )
-                    if not self.reply_buffer.is_empty():
-                        self.reply_timer.start(100)
-                    self._update_stats(success=False)
-                    self._maybe_pool_topup()
-                    return
-
-        queued = self.reply_buffer.pop()
-        if queued is None:
-            return
-
-        self.logger.info(f"[{persona_display_name_with_config(queued.persona_id, self.config)}] {queued.content}")
-        display_content = resolve_danmu_display_text(
-            queued.content,
-            self.config,
-            queued.persona_id,
-        )
-        skip_dedup = queued.is_fallback or queued.source == "fallback"
-        item = self._display_danmu_text(
-            display_content,
-            queued.persona_id,
-            batch_id=queued.batch_id,
-            scene_generation=queued.scene_generation,
-            skip_dedup=skip_dedup,
-            pre_resolved=True,
-        )
-        if item:
-            self._latest_displayed_round = max(self._latest_displayed_round, queued.screenshot_round)
-            self._latest_displayed_screenshot_id = max(self._latest_displayed_screenshot_id, queued.screenshot_id)
-            self._log_reply_pipeline_from_queued(
-                "reply_displayed",
-                queued,
-                displayed=True,
-            )
-            self.history_writer.enqueue(display_content, queued.persona_id, queued.batch_index)
-            from app.danmu_engine_models import DanmuItem
-
-            if isinstance(item, DanmuItem):
-                overlay_source = queued.source if queued.source in ("ai", "mic", "test") else "ai"
-                self._broadcast_live_overlay_item(item, display_content, source=overlay_source)
-
-            batch = self._current_batch
-            if (
-                batch
-                and batch.anchor_item is None
-                and isinstance(item, DanmuItem)
-                and item.batch_id == batch.batch_id
-            ):
-                batch.anchor_item = item
-                target_x = self.engine.screen_width * 0.75
-                distance = item.x - target_x
-                if distance > 0 and item.speed > 0:
-                    factor = 1.0
-                    if getattr(self.engine, "_accel_remaining", 0) > 0:
-                        factor = min(getattr(self.engine, "_accel_peak", 1.0), 2.0)
-                    time_to_boundary = time_to_anchor_boundary(
-                        distance, item.speed, factor
-                    )
-                    batch.next_generation_time = time.monotonic() + time_to_boundary
-                    self.logger.info(
-                        tr("app.batch_anchor").format(
-                            batch_id=batch.batch_id,
-                            x=item.x,
-                            target_x=target_x,
-                            time_to_boundary=time_to_boundary,
-                        )
-                    )
-                else:
-                    batch.next_generation_time = time.monotonic()
-        else:
-            duplicate_match_type = ""
-            if self._danmu_render_mode() == "floating_panel":
-                fp_engine = self.__dict__.get("floating_panel_engine")
-                if fp_engine and (not skip_dedup) and fp_engine.is_duplicate(display_content):
-                    duplicate_observation = get_last_duplicate_observation()
-                    duplicate_match_type = str(duplicate_observation.get("match_type") or "")
-                    reject = "去重"
-                    diag_reason = "duplicate"
-                else:
-                    reject = "悬浮窗"
-                    diag_reason = "floating_panel_spacing"
-            elif (not skip_dedup) and self.engine.is_duplicate(display_content):
-                duplicate_observation = get_last_duplicate_observation()
-                duplicate_match_type = str(duplicate_observation.get("match_type") or "")
-                reject = "去重"
-                diag_reason = "duplicate"
-            elif self.engine.entry_zone_overloaded():
-                reject = "入口区过载"
-                diag_reason = "entry_zone_overload"
-            else:
-                reject = "轨道/布局"
-                diag_reason = "layout_rejection"
-            self._record_undisplayed(diag_reason, persona_id=queued.persona_id)
-            extra_fields = {}
-            if diag_reason == "duplicate":
-                duplicate_stats = self._track_duplicate_rejection(
-                    queued,
-                    match_type=duplicate_match_type or "duplicate",
-                )
-                duplicate_topup_added = self._maybe_duplicate_loss_topup(
-                    queued,
-                    duplicate_stats,
-                )
-                self._record_undisplayed(
-                    f"duplicate_{duplicate_match_type or 'duplicate'}",
-                    persona_id=queued.persona_id,
-                )
-                extra_fields = {
-                    "duplicate_match_type": duplicate_match_type or "duplicate",
-                    "duplicate_loss": 1,
-                    "duplicate_loss_total": duplicate_stats["duplicate_loss_total"],
-                    "duplicate_exact_set_hit": duplicate_stats["duplicate_exact_set_hit"],
-                    "duplicate_exact_window_hit": duplicate_stats["duplicate_exact_window_hit"],
-                    "duplicate_similarity_hit": duplicate_stats["duplicate_similarity_hit"],
-                    "duplicate_topup_triggered": duplicate_stats["duplicate_topup_triggered"],
-                    "duplicate_topup_added": duplicate_topup_added,
-                }
-            self._log_reply_pipeline_from_queued(
-                "reply_displayed",
-                queued,
-                displayed=False,
-                **extra_fields,
-            )
-            self.logger.info(
-                tr("app.danmu_not_entered").format(content=f"{queued.content[:20]}...")
-                + f" [{reject}]"
-            )
-            if floating_panel and reject == "悬浮窗":
-                self.reply_buffer.prepend_batch([queued])
-                self.logger.warning(
-                    "floating_panel display failed after pop; re-queued head item"
-                )
-
-        if not self.reply_buffer.is_empty():
-            delay = 100 if item is None else self._estimated_reply_gap_ms()
-            self.reply_timer.start(delay)
-
-        self._update_stats(success=item is not None)
-        self._maybe_pool_topup()
+        """委托给 GenerationPipeline（保留签名向后兼容，reply_timer.timeout 依赖此方法）。"""
+        self._generation_pipeline.consume_reply_queue()
 
 
 _check_deprecated_launch_args = check_deprecated_launch_args

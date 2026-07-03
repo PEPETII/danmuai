@@ -49,7 +49,7 @@ class DiagnosticSnapshotBuilder:
         if stats_state is not None and hasattr(stats_state, "runtime_sec"):
             stats_runtime_sec = float(stats_state.runtime_sec(now=now))
 
-        undisplayed_recorder = self._app.__dict__.get("_danmu_diagnostics")
+        undisplayed_recorder = getattr(self._app, "danmu_diagnostics", None)
         undisplayed_summary = (
             undisplayed_recorder.snapshot().to_dict()
             if isinstance(undisplayed_recorder, DanmuDiagnosticsRecorder)

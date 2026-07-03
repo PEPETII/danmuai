@@ -13,15 +13,16 @@ def test_recover_stale_visual_inflight_clears_slot_and_meta():
     bind_minimal_danmu_app(
         app,
         ai_in_flight=1,
+        screenshot_round=3,
         _is_generating=True,
         _inflight_screenshot_id=7,
         _inflight_scene_generation=0,
         _inflight_started_at=time.monotonic() - VISUAL_INFLIGHT_RECOVER_SEC - 2.0,
-        _pending_request_meta={"3:7:0": {"source": "visual"}},
+        _pending_request_meta={(3, 7, 0): {"source": "visual"}},
         _consecutive_failures=0,
     )
     object.__setattr__(app, "_request_timing_service", RequestTimingService())
-    app._get_request_timing_service().mark_started(request_id="3:7:0", now=time.monotonic() - 50.0)
+    app._get_request_timing_service().mark_started(request_id=(3, 7, 0), now=time.monotonic() - 50.0)
 
     assert app._try_recover_stale_visual_inflight() is True
     assert app.ai_in_flight == 0
@@ -39,16 +40,17 @@ def test_recover_stale_visual_inflight_skips_when_not_expired():
     bind_minimal_danmu_app(
         app,
         ai_in_flight=1,
+        screenshot_round=3,
         _is_generating=True,
         _inflight_screenshot_id=7,
         _inflight_scene_generation=0,
         _inflight_started_at=time.monotonic() - 5.0,
-        _pending_request_meta={"3:7:0": {"source": "visual"}},
+        _pending_request_meta={(3, 7, 0): {"source": "visual"}},
     )
 
     assert app._try_recover_stale_visual_inflight() is False
     assert app.ai_in_flight == 1
-    assert "3:7:0" in app._pending_request_meta
+    assert (3, 7, 0) in app._pending_request_meta
 
 
 def test_on_normal_capture_tick_recovers_stale_inflight(monkeypatch):

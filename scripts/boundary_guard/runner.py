@@ -15,6 +15,7 @@ from pathlib import Path
 
 from .git_diff import get_changed_files
 from .models import Finding
+from .rules.application import check_application_layer_private_reads
 from .rules.baseline import check_final_architecture_baseline
 from .rules.config import (
     check_config_conn_spread,
@@ -22,7 +23,7 @@ from .rules.config import (
     check_default_model_selection_guard,
 )
 from .rules.diagnostics import check_diagnostic_snapshot_boundary
-from .rules.pipeline import check_generation_pipeline_projection
+from .rules.pipeline import check_generation_pipeline_projection, check_generation_pipeline_service
 from .rules.request import (
     check_request_metadata_boundary,
     check_request_scheduler_ownership,
@@ -61,6 +62,8 @@ def run_boundary_guard(repo_root: Path) -> list[Finding]:
     findings.extend(check_config_service_delegation(repo_root, changed))
     findings.extend(check_default_model_selection_guard(repo_root, changed))
     findings.extend(check_generation_pipeline_projection(repo_root, changed))
+    findings.extend(check_generation_pipeline_service(repo_root, changed))
+    findings.extend(check_application_layer_private_reads(repo_root, changed))
     findings.extend(check_request_metadata_boundary(repo_root, changed))
     findings.extend(check_request_service_boundaries(repo_root, changed))
     findings.extend(check_diagnostic_snapshot_boundary(repo_root, changed))

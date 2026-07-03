@@ -6,6 +6,8 @@ import json
 import time
 from typing import TYPE_CHECKING, Any
 
+import httpx
+
 from app.meme_barrage.client import FALLBACK_TAGS, MemeBarrageApiClient
 from app.meme_barrage.config import (
     COLLECT_BATCH_MAX,
@@ -160,7 +162,7 @@ def get_tags() -> dict[str, Any]:
         client = MemeBarrageApiClient()
         _tags_cache = client.dict_list()
         _tags_cache_ts = now
-    except Exception:
+    except (httpx.HTTPError, httpx.TimeoutException, RuntimeError, ValueError):
         _tags_cache = list(FALLBACK_TAGS)
         _tags_cache_ts = now
     return {"tags": _tags_cache}

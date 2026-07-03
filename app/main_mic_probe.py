@@ -52,7 +52,7 @@ class MicProbeRunnable(QRunnable):
                 self._user_pt,
                 self._audio_data_uri,
             )
-        except Exception as exc:
+        except (RuntimeError, ValueError, OSError) as exc:
             self._holder["outcome"] = AiProbeResult(
                 signal="error",
                 message=tr("ai.error_request_failed").format(error=exc),

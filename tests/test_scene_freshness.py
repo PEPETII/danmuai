@@ -3,6 +3,7 @@
 import time
 from unittest.mock import MagicMock
 
+from app.application import generation_pipeline as gen_pipeline_mod
 from app.reply_queue import QueuedReply
 
 from tests.conftest import make_minimal_danmu_app
@@ -43,11 +44,11 @@ def test_stale_reply_dropped_when_scene_generation_lagged(monkeypatch):
     app.ai_in_flight = 1
     app._scene_generation = 2
     app._register_request_meta(10, 10, 1, "visual")
-    monkeypatch.setattr(main_mod, "parse_ai_reply_payload", lambda text: ["ok"])
-    monkeypatch.setattr(main_mod, "normalize_reply_batch", lambda raw_items, **kwargs: raw_items)
+    monkeypatch.setattr(gen_pipeline_mod, "parse_ai_reply_payload", lambda text: ["ok"])
+    monkeypatch.setattr(gen_pipeline_mod, "normalize_reply_batch", lambda raw_items, **kwargs: raw_items)
     app._on_ai_reply = main_mod.DanmuApp._on_ai_reply.__get__(app, main_mod.DanmuApp)
     app._enqueue_reply_batch = MagicMock()
-    app._consume_reply_queue = lambda: None
+    app._generation_pipeline.consume_reply_queue = lambda: None
     app._publish_live_status = lambda: None
     app._scene_refresh_wanted = True
     schedule_calls = []
@@ -71,10 +72,10 @@ def test_fresh_reply_enqueues_when_scene_generation_matches(monkeypatch):
     app.ai_in_flight = 1
     app._scene_generation = 2
     app._register_request_meta(10, 10, 2, "visual")
-    monkeypatch.setattr(main_mod, "parse_ai_reply_payload", lambda text: ["ok"])
-    monkeypatch.setattr(main_mod, "normalize_reply_batch", lambda raw_items, **kwargs: raw_items)
+    monkeypatch.setattr(gen_pipeline_mod, "parse_ai_reply_payload", lambda text: ["ok"])
+    monkeypatch.setattr(gen_pipeline_mod, "normalize_reply_batch", lambda raw_items, **kwargs: raw_items)
     app._on_ai_reply = main_mod.DanmuApp._on_ai_reply.__get__(app, main_mod.DanmuApp)
-    app._consume_reply_queue = lambda: None
+    app._generation_pipeline.consume_reply_queue = lambda: None
     app._publish_live_status = lambda: None
     app._notify_pet_visual_success = lambda: None
 

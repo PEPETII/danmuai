@@ -48,7 +48,7 @@ def resolve_api_key(cli_key: str) -> str:
 
         store = ConfigStore()
         return (store.get_api_key() or "").strip()
-    except Exception as exc:
+    except (OSError, RuntimeError, ImportError) as exc:
         print(f"[warn] could not read ConfigStore: {exc}")
         return ""
 
@@ -132,13 +132,14 @@ def run_case(
         body = ""
         try:
             body = exc.response.text[:500]
-        except Exception:
+        except (OSError, RuntimeError, UnicodeDecodeError):
             pass
         print(f"HTTP {exc.response.status_code}: {body or exc}")
         return
-    except Exception as exc:
+    except httpx.HTTPError as exc:
         print(f"ERROR: {exc}")
         return
+    except Exception as exc:  # boundary: CLI probe unexpected failure
 
     ok = bool(out["text"])
     print(f"ok={ok}")

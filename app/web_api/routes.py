@@ -21,9 +21,11 @@ import logging
 from typing import TYPE_CHECKING, Callable
 from urllib.parse import unquote
 
+from app.errors import AppError
 from fastapi import Header, HTTPException
 from pydantic import BaseModel
 
+from app.web_api.auth import require_auth, require_auth_query
 from app.web_api import ai_butler as ai_butler_api  # W-AIBUTLER-001
 from app.web_api import announcements_state
 from app.web_api import app_update_state as app_update_state_api
@@ -181,6 +183,8 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
             raise HTTPException(status_code=403, detail=str(exc)) from exc
         except RuntimeError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except AppError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
         except HTTPException:
             raise
         except Exception as exc:
@@ -188,9 +192,9 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
             raise HTTPException(status_code=500, detail="internal error") from exc
 
     @app.get("/api/diagnostics")
+    @require_auth(check_token)
     def get_diagnostics(authorization: str | None = Header(default=None)):
         # 只读诊断；调度/timing 数据经 DanmuApp 公开入口，不读 _last_api_trigger_at 等私有字段
-        check_token(authorization)
         return {
             "ok": True,
             "diagnostics": bridge.danmu_app.build_diagnostic_snapshot(),
@@ -201,11 +205,11 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
         return announcements_state.get_from_config(bridge.danmu_app.config)
 
     @app.put("/api/announcements-read-state")
+    @require_auth(check_token)
     def put_announcements_read_state(
         body: AnnouncementsReadStatePayload,
         authorization: str | None = Header(default=None),
     ):
-        check_token(authorization)
         state = announcements_state.validate_payload(body.model_dump())
         _invoke_main(announcements_state.save_to_config, bridge.danmu_app.config, state)
         return {"ok": True}
@@ -221,23 +225,23 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
         return update_api.get_release_channels()
 
     @app.get("/api/update/status")
+    @require_auth(check_token)
     def get_update_status_route(authorization: str | None = Header(default=None)):
-        check_token(authorization)
         return update_api.get_update_status()
 
     @app.post("/api/update/check")
+    @require_auth(check_token)
     def post_update_check_route(authorization: str | None = Header(default=None)):
-        check_token(authorization)
         return update_api.post_update_check()
 
     @app.post("/api/update/download")
+    @require_auth(check_token)
     def post_update_download_route(authorization: str | None = Header(default=None)):
-        check_token(authorization)
         return update_api.post_update_download()
 
     @app.post("/api/update/restart")
+    @require_auth(check_token)
     def post_update_restart_route(authorization: str | None = Header(default=None)):
-        check_token(authorization)
         return update_api.post_update_restart()
 
     @app.get("/api/app-update-state")
@@ -245,11 +249,11 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
         return app_update_state_api.get_from_config(bridge.danmu_app.config)
 
     @app.put("/api/app-update-state")
+    @require_auth(check_token)
     def put_app_update_state(
         body: AppUpdateStatePayload,
         authorization: str | None = Header(default=None),
     ):
-        check_token(authorization)
         state = app_update_state_api.validate_payload(body.model_dump())
         _invoke_main(app_update_state_api.save_to_config, bridge.danmu_app.config, state)
         return {"ok": True}
@@ -259,11 +263,11 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
         return console_theme_api.get_from_config(bridge.danmu_app.config)
 
     @app.put("/api/console-theme")
+    @require_auth(check_token)
     def put_console_theme(
         body: ConsoleThemePayload,
         authorization: str | None = Header(default=None),
     ):
-        check_token(authorization)
         theme = console_theme_api.validate_payload(body.model_dump())
         _invoke_main(console_theme_api.save_to_config, bridge.danmu_app.config, theme)
         return {"ok": True, "theme": theme}
@@ -277,12 +281,12 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
         return read_api.safe_read_api(persona_api.list_versions, bridge.danmu_app, unquote(name))
 
     @app.put("/api/personae/{name}/template")
+    @require_auth(check_token)
     def put_persona_template(
         name: str,
         body: PersonaSavePayload,
         authorization: str | None = Header(default=None),
     ):
-        check_token(authorization)
         _invoke_main(
             persona_api.save_template,
             bridge.danmu_app,
@@ -294,37 +298,37 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
         return {"ok": True}
 
     @app.post("/api/personae/{name}/rollback")
+    @require_auth(check_token)
     def post_persona_rollback(
         name: str,
         body: PersonaRollbackPayload,
         authorization: str | None = Header(default=None),
     ):
-        check_token(authorization)
         return read_api.safe_read_api(persona_api.rollback_preview, bridge.danmu_app, unquote(name), body.version)
 
     @app.post("/api/personae")
+    @require_auth(check_token)
     def post_persona(body: PersonaCreatePayload, authorization: str | None = Header(default=None)):
-        check_token(authorization)
         return _invoke_main(persona_api.create_persona, bridge.danmu_app, body.name)
 
     @app.delete("/api/personae/{name}")
+    @require_auth(check_token)
     def delete_persona(name: str, authorization: str | None = Header(default=None)):
-        check_token(authorization)
         _invoke_main(persona_api.delete_persona, bridge.danmu_app, unquote(name))
         return {"ok": True}
 
     @app.post("/api/personae/{name}/restore")
+    @require_auth(check_token)
     def restore_persona(name: str, authorization: str | None = Header(default=None)):
-        check_token(authorization)
         return _invoke_main(persona_api.restore_builtin_default, bridge.danmu_app, unquote(name))
 
     # 活跃人格：经 invoke_on_main 在主线程调用 set_active_personae
     @app.put("/api/personae/active")
+    @require_auth(check_token)
     def put_active_personae(
         body: ActivePersonaePayload,
         authorization: str | None = Header(default=None),
     ):
-        check_token(authorization)
         if not body.active:
             raise HTTPException(status_code=400, detail="请至少选择一个人格")
         _invoke_main(bridge.danmu_app.set_active_personae, body.active)
@@ -332,12 +336,12 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
 
     # W-PERSONA-MODEL-BIND-001：人格 → 模型档案绑定（空串清除，回退全局"使用"模型）
     @app.put("/api/personae/{name}/model")
+    @require_auth(check_token)
     def put_persona_model(
         name: str,
         body: PersonaModelBindingPayload,
         authorization: str | None = Header(default=None),
     ):
-        check_token(authorization)
         _invoke_main(
             bridge.danmu_app.set_persona_model_binding,
             unquote(name),
@@ -350,11 +354,11 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
         return pool_api.get_meta(bridge.danmu_app)
 
     @app.put("/api/danmu-pool/settings")
+    @require_auth(check_token)
     def put_danmu_pool_settings(
         body: DanmuPoolSettingsPayload,
         authorization: str | None = Header(default=None),
     ):
-        check_token(authorization)
         return _invoke_main(pool_api.save_settings, bridge.danmu_app, body.model_dump(exclude_none=True))
 
     @app.get("/api/danmu-pool/custom")
@@ -373,27 +377,27 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
         )
 
     @app.post("/api/danmu-pool/custom")
+    @require_auth(check_token)
     def post_danmu_pool_custom(
         body: DanmuPoolCustomAppendPayload,
         authorization: str | None = Header(default=None),
     ):
-        check_token(authorization)
         return _invoke_main(pool_api.append_custom, bridge.danmu_app, body.model_dump(exclude_none=True))
 
     @app.delete("/api/danmu-pool/custom")
+    @require_auth(check_token)
     def delete_danmu_pool_custom(
         body: DanmuPoolCustomDeletePayload,
         authorization: str | None = Header(default=None),
     ):
-        check_token(authorization)
         return _invoke_main(pool_api.delete_custom, bridge.danmu_app, body.model_dump())
 
     @app.post("/api/test/danmu")
+    @require_auth(check_token)
     def post_test_danmu(
         body: TestDanmuPayload,
         authorization: str | None = Header(default=None),
     ):
-        check_token(authorization)
         return _invoke_main(bridge.danmu_app.inject_test_danmu_batch, body.items, persona_id=body.persona)
 
     @app.get("/api/meme-barrage/meta")
@@ -401,11 +405,11 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
         return meme_api.get_meta(bridge.danmu_app)
 
     @app.put("/api/meme-barrage/settings")
+    @require_auth(check_token)
     def put_meme_barrage_settings(
         body: MemeBarrageSettingsPayload,
         authorization: str | None = Header(default=None),
     ):
-        check_token(authorization)
         return _invoke_main(
             meme_api.save_settings,
             bridge.danmu_app,
@@ -417,10 +421,10 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
         return meme_api.get_tags()
 
     @app.post("/api/meme-barrage/clear")
+    @require_auth(check_token)
     def post_meme_barrage_clear(
         authorization: str | None = Header(default=None),
     ):
-        check_token(authorization)
         return _invoke_main(meme_api.clear_library, bridge.danmu_app)
 
     @app.get("/api/danmu-read/config")
@@ -432,20 +436,20 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
         return read_api.get_catalog()
 
     @app.put("/api/danmu-read/config")
+    @require_auth(check_token)
     def put_danmu_read_config(
         body: DanmuReadConfigPayload,
         authorization: str | None = Header(default=None),
     ):
-        check_token(authorization)
         payload = read_api.normalize_put_payload(body.model_dump(exclude_none=True))
         return _invoke_main(read_api.save_config, bridge.danmu_app, payload)
 
     @app.post("/api/danmu-read/probe")
+    @require_auth(check_token)
     def post_danmu_read_probe(
         body: DanmuReadProbePayload | None = None,
         authorization: str | None = Header(default=None),
     ):
-        check_token(authorization)
         payload = body.model_dump(exclude_none=True) if body else {}
         return _invoke_main(read_api.run_probe, bridge.danmu_app, payload)
 
@@ -454,45 +458,45 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
         return cm_api.list_custom_models(bridge.danmu_app)
 
     @app.post("/api/custom-models")
+    @require_auth(check_token)
     def post_custom_model(
         body: CustomModelPayload,
         authorization: str | None = Header(default=None),
     ):
-        check_token(authorization)
         return _invoke_main(cm_api.create_custom_model, bridge.danmu_app, body.model_dump())
 
     @app.put("/api/custom-models/{index}")
+    @require_auth(check_token)
     def put_custom_model(
         index: int,
         body: CustomModelPayload,
         authorization: str | None = Header(default=None),
     ):
-        check_token(authorization)
         return _invoke_main(cm_api.update_custom_model, bridge.danmu_app, index, body.model_dump())
 
     @app.delete("/api/custom-models/{index}")
+    @require_auth(check_token)
     def delete_custom_model_route(
         index: int,
         authorization: str | None = Header(default=None),
     ):
-        check_token(authorization)
         _invoke_main(cm_api.delete_custom_model, bridge.danmu_app, index)
         return {"ok": True}
 
     @app.post("/api/custom-models/{index}/default")
+    @require_auth(check_token)
     def set_default_custom_model(
         index: int,
         authorization: str | None = Header(default=None),
     ):
-        check_token(authorization)
         return _invoke_main(cm_api.set_default_custom_model, bridge.danmu_app, index)
 
     @app.post("/api/probe")
+    @require_auth(check_token)
     def probe_api_connection_route(
         body: ProbePayload,
         authorization: str | None = Header(default=None),
     ):
-        check_token(authorization)
         return bridge.danmu_app.probe_api_connection(
             api_endpoint=body.api_endpoint or "",
             api_key=body.api_key or "",
@@ -501,11 +505,11 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
         )
 
     @app.post("/api/custom-models/probe")
+    @require_auth(check_token)
     def probe_custom_model(
         body: CustomModelProbePayload,
         authorization: str | None = Header(default=None),
     ):
-        check_token(authorization)
         payload = body.model_dump(exclude={"index"})
         resolved = cm_api.resolve_probe_credentials(bridge.danmu_app, payload, body.index)
         return bridge.danmu_app.probe_api_connection(
@@ -516,11 +520,11 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
         )
 
     @app.post("/api/mic/test")
+    @require_auth(check_token)
     def mic_test(
         body: MicTestPayload,
         authorization: str | None = Header(default=None),
     ):
-        check_token(authorization)
         return _invoke_main(
             mic_test_api.run_mic_test,
             bridge.danmu_app,
@@ -533,11 +537,11 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
         return mic_test_api.list_mic_devices(bridge.danmu_app)
 
     @app.post("/api/mic/test-send")
+    @require_auth(check_token)
     def mic_test_send(
         body: MicTestPayload,
         authorization: str | None = Header(default=None),
     ):
-        check_token(authorization)
         return _invoke_main(
             mic_test_api.run_mic_test,
             bridge.danmu_app,
@@ -550,10 +554,10 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
         return bridge.danmu_app.get_capture_region_status()
 
     @app.post("/api/capture-region/select")
+    @require_auth(check_token)
     def post_capture_region_select(
         authorization: str | None = Header(default=None),
     ):
-        check_token(authorization)
         current = bridge.danmu_app.get_capture_region_status()
         if current.get("selection_state") == "selecting":
             return {"ok": True, "selection_state": "selecting"}
@@ -561,10 +565,10 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
         return {"ok": True, "selection_state": "selecting"}
 
     @app.post("/api/capture-region/reset")
+    @require_auth(check_token)
     def post_capture_region_reset(
         authorization: str | None = Header(default=None),
     ):
-        check_token(authorization)
         bridge.region_reset_requested.emit()
         return {"ok": True}
 
@@ -598,11 +602,11 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
         return pet_api.get_settings(bridge.danmu_app)
 
     @app.post("/api/pet/settings")
+    @require_auth(check_token)
     def post_pet_settings(
         body: PetSettingsPayload,
         authorization: str | None = Header(default=None),
     ):
-        check_token(authorization)
         raw = body.model_dump(exclude_none=True)
         payload = {
             "pet_enabled": raw.get("enabled"),
@@ -625,13 +629,13 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
         return _invoke_main(pet_api.save_settings, bridge.danmu_app, payload)
 
     @app.post("/api/pet/import-folder")
+    @require_auth(check_token)
     def post_pet_import_folder(authorization: str | None = Header(default=None)):
-        check_token(authorization)
         return _invoke_main(pet_api.import_asset_via_dialog, bridge.danmu_app)
 
     @app.post("/api/pet/reset-asset")
+    @require_auth(check_token)
     def post_pet_reset_asset(authorization: str | None = Header(default=None)):
-        check_token(authorization)
         return _invoke_main(pet_api.reset_asset_to_builtin, bridge.danmu_app)
 
     @app.get("/api/pet/barrage-slots/{slot_id}/preview")
@@ -639,12 +643,12 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
         return pet_api.get_barrage_slot_preview(bridge.danmu_app, slot_id)
 
     @app.post("/api/pet/barrage-slots/{slot_id}/asset")
+    @require_auth(check_token)
     def post_pet_barrage_slot_asset(
         slot_id: int,
         body: PetBarrageSlotAssetPayload,
         authorization: str | None = Header(default=None),
     ):
-        check_token(authorization)
         return _invoke_main(
             pet_api.set_barrage_slot_asset,
             bridge.danmu_app,
@@ -654,42 +658,42 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
         )
 
     @app.post("/api/pet/barrage-slots/{slot_id}/import-folder")
+    @require_auth(check_token)
     def post_pet_barrage_slot_import_folder(
         slot_id: int,
         authorization: str | None = Header(default=None),
     ):
-        check_token(authorization)
         return _invoke_main(pet_api.import_barrage_slot_asset_via_dialog, bridge.danmu_app, slot_id)
 
     @app.post("/api/pet/barrage-slots/{slot_id}/reset")
+    @require_auth(check_token)
     def post_pet_barrage_slot_reset(
         slot_id: int,
         authorization: str | None = Header(default=None),
     ):
-        check_token(authorization)
         return _invoke_main(pet_api.reset_barrage_slot_asset, bridge.danmu_app, slot_id)
 
     @app.post("/api/pet/show")
+    @require_auth(check_token)
     def post_pet_show(authorization: str | None = Header(default=None)):
-        check_token(authorization)
         return _invoke_main(pet_api.show_pet, bridge.danmu_app)
 
     @app.post("/api/pet/hide")
+    @require_auth(check_token)
     def post_pet_hide(authorization: str | None = Header(default=None)):
-        check_token(authorization)
         return _invoke_main(pet_api.hide_pet, bridge.danmu_app)
 
     @app.post("/api/pet/close")
+    @require_auth(check_token)
     def post_pet_close(authorization: str | None = Header(default=None)):
-        check_token(authorization)
         return _invoke_main(pet_api.close_pet, bridge.danmu_app)
 
     @app.post("/api/pet/command")
+    @require_auth(check_token)
     def post_pet_command(
         body: PetCommandPayload,
         authorization: str | None = Header(default=None),
     ):
-        check_token(authorization)
         return _invoke_main(pet_api.submit_command, bridge.danmu_app, body.text)
 
     @app.get("/api/pet/status")
@@ -712,9 +716,9 @@ def register_diagnostics_sse_route(app, diagnostics_hub, bridge, check_token) ->
     from fastapi.responses import StreamingResponse
 
     @app.get("/api/diagnostics/events")
+    @require_auth_query(check_token)
     async def diagnostics_events(token: str | None = None):
         # SSE 端点通过 query 参数传递 Token（EventSource 不支持自定义 headers）
-        check_token(token)
         queue: asyncio.Queue = asyncio.Queue(maxsize=64)
         diagnostics_hub.register(queue)
 

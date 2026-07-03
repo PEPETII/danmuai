@@ -43,7 +43,7 @@ class HotkeyManager(QObject):
             keyboard.add_hotkey(self._hotkey_str, self._bridge.toggle.emit)
             self._registered = True
             self._registered_hotkey_str = self._hotkey_str
-        except Exception as e:
+        except Exception as e:  # boundary: keyboard hotkey platform API
             import traceback
             logger = SanitizedLogger()
             logger.warning(f"[Hotkey] registration failed: {e}\n{traceback.format_exc()}")
@@ -52,7 +52,7 @@ class HotkeyManager(QObject):
         if self._registered and self._registered_hotkey_str:
             try:
                 keyboard.remove_hotkey(self._registered_hotkey_str)
-            except Exception:
+            except (OSError, RuntimeError):
                 pass
         self._registered = False
         self._registered_hotkey_str = ""

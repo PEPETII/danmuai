@@ -68,7 +68,7 @@ class StatusSnapshotBuilder:
         rx, ry, rw, rh = self._app.config.get_region()
         from app.web_api.capture_region import capture_region_mode
 
-        selection_state = _safe_app_attr(self._app, "_region_selection_state", "idle")
+        selection_state = getattr(self._app, "region_selection_state", "idle")
         if selection_state not in (
             "selecting",
             "saved",

@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING, Any, Callable
 
 from PyQt6.QtCore import QRunnable, QThreadPool
 
+import httpx
+
 from app.meme_barrage.ai_select import (
     build_meme_select_system_prompt,
     build_meme_select_user_prompt,
@@ -62,7 +64,7 @@ class MemeFetchRunnable(QRunnable):
             else:
                 data = client.page(page_num=self._page_num, page_size=self._page_size)
             _safe_emit(self._on_success, data)
-        except Exception as exc:
+        except (httpx.HTTPError, RuntimeError, ValueError) as exc:
             _safe_emit(self._on_error, str(exc))
 
 
@@ -104,7 +106,7 @@ class MemeAiSelectRunnable(QRunnable):
         elif self._pixmap is not None and self._compress_fn is not None:
             try:
                 image_data_uri = self._compress_fn(self._pixmap)
-            except Exception as exc:
+            except (OSError, ValueError, RuntimeError, TypeError) as exc:
                 _safe_emit(self._on_error, f"compress_error:{exc!r}")
                 return
             if not image_data_uri:
@@ -159,5 +161,5 @@ class MemeAiSelectRunnable(QRunnable):
                 _safe_emit(self._on_error, "empty_parse")
                 return
             _safe_emit(self._on_success, selected[: self._pick_count])
-        except Exception as exc:
+        except (httpx.HTTPError, RuntimeError, ValueError, KeyError, TypeError) as exc:
             _safe_emit(self._on_error, str(exc))

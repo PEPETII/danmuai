@@ -13,11 +13,16 @@ _stats_state、web_runtime_state 等字段。
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from app.application.request_scheduler import RequestScheduler
 from app.application.request_timing_service import RequestTimingService
 from app.application.stats_state import StatsState
 from app.application.web_runtime_state import WebRuntimeState
 from app.personae import normal_reply_count_from_config
+
+if TYPE_CHECKING:
+    from app.application.danmu_diagnostics import DanmuDiagnosticsRecorder
 
 
 class DanmuAppStateMixin:
@@ -154,3 +159,64 @@ class DanmuAppStateMixin:
     def _cached_layout_mode(self, value: str) -> None:
         state = self._ensure_web_runtime_state()
         state.cached_layout_mode = str(value or "fullscreen")
+
+    @property
+    def latest_displayed_round(self) -> int:
+        return int(self._optional_instance_attr("_latest_displayed_round") or 0)
+
+    @property
+    def latest_requested_screenshot_id(self) -> int:
+        return int(self._optional_instance_attr("_latest_requested_screenshot_id") or 0)
+
+    @property
+    def latest_queued_screenshot_id(self) -> int:
+        return int(self._optional_instance_attr("_latest_queued_screenshot_id") or 0)
+
+    @property
+    def latest_displayed_screenshot_id(self) -> int:
+        return int(self._optional_instance_attr("_latest_displayed_screenshot_id") or 0)
+
+    @property
+    def region_selection_state(self) -> str:
+        return str(self._optional_instance_attr("_region_selection_state") or "idle")
+
+    @property
+    def danmu_diagnostics(self) -> "DanmuDiagnosticsRecorder | None":
+        return self._optional_instance_attr("_danmu_diagnostics")
+
+    @property
+    def total_input_tokens(self) -> int:
+        return self._ensure_stats_state().total_input_tokens
+
+    @property
+    def total_output_tokens(self) -> int:
+        return self._ensure_stats_state().total_output_tokens
+
+    @property
+    def session_start_time(self) -> float:
+        return self._ensure_stats_state().start_time
+
+    @property
+    def web_error_message(self) -> str:
+        return self._ensure_web_runtime_state().error_message
+
+    @property
+    def web_is_error(self) -> bool:
+        return self._ensure_web_runtime_state().is_error
+
+    @property
+    def cached_danmu_lines(self) -> int:
+        return self._ensure_web_runtime_state().cached_danmu_lines
+
+    @property
+    def cached_layout_mode(self) -> str:
+        return self._ensure_web_runtime_state().cached_layout_mode
+
+    def optional_pet_barrage_controller(self):
+        return self._optional_instance_attr("pet_barrage_controller")
+
+    def optional_floating_panel_engine(self):
+        return self._optional_instance_attr("floating_panel_engine")
+
+    def optional_floating_panel_overlay(self):
+        return self._optional_instance_attr("floating_panel_overlay")

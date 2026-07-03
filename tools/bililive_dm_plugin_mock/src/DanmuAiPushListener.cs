@@ -14,7 +14,7 @@ namespace DanmuAiMockPlugin
 {
     public sealed class DanmuAiPushListener : IDisposable
     {
-        // 与 app/web_api/bililive_dm_push.py 常量对齐
+        // 与 app/application/bililive_dm_contracts.py 常量对齐
         public const string PushListenerPrefix = "http://127.0.0.1:18766/api/plugin/danmuai/push/";
         private const string PluginSecretHeader = "X-DanmuAI-Plugin-Secret";
         private const int MaxItems = 5;

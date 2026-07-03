@@ -3,8 +3,8 @@
 import time
 from unittest.mock import Mock
 
-import main as main_mod
 import pytest
+from app.application import generation_pipeline as gen_pipeline_mod
 from main import DanmuApp
 
 from tests.conftest import make_minimal_danmu_app
@@ -104,9 +104,9 @@ def test_enqueue_logs_queue_sizes(pipeline_log_env, monkeypatch):
     app.ai_in_flight = 1
     app._register_request_meta(3, 9, 0, "visual")
     app._get_request_timing_service().mark_started(request_id=(3, 9, 0), now=time.monotonic())
-    monkeypatch.setattr(main_mod, "parse_ai_reply_payload", lambda text: ["a", "b"])
-    monkeypatch.setattr(main_mod, "normalize_reply_batch", lambda raw_items, **kwargs: raw_items)
-    app._consume_reply_queue = Mock()
+    monkeypatch.setattr(gen_pipeline_mod, "parse_ai_reply_payload", lambda text: ["a", "b"])
+    monkeypatch.setattr(gen_pipeline_mod, "normalize_reply_batch", lambda raw_items, **kwargs: raw_items)
+    app._generation_pipeline.consume_reply_queue = Mock()
     app._publish_live_status = Mock()
     app._notify_pet_visual_success = Mock()
 
@@ -130,8 +130,8 @@ def test_consume_logs_displayed_true(pipeline_log_env, monkeypatch):
     _bind_on_ai_reply(app)
     app._register_request_meta(2, 5, 0, "visual")
     app.ai_in_flight = 1
-    monkeypatch.setattr(main_mod, "parse_ai_reply_payload", lambda text: ["弹幕一"])
-    monkeypatch.setattr(main_mod, "normalize_reply_batch", lambda raw_items, **kwargs: raw_items)
+    monkeypatch.setattr(gen_pipeline_mod, "parse_ai_reply_payload", lambda text: ["弹幕一"])
+    monkeypatch.setattr(gen_pipeline_mod, "normalize_reply_batch", lambda raw_items, **kwargs: raw_items)
     app._notify_pet_visual_success = lambda: None
 
     app._on_ai_reply('["弹幕一"]', "persona-1", 2, 5, time.monotonic(), 0)

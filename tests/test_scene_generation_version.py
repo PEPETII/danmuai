@@ -5,6 +5,7 @@ from __future__ import annotations
 from unittest.mock import Mock
 
 import main as main_mod
+from app.application import generation_pipeline as gen_pipeline_mod
 from app.application.config_service import apply_web_config_patch, scene_version_fingerprint
 from app.config_store import ConfigStore
 from main import DanmuApp
@@ -114,9 +115,9 @@ def test_on_ai_reply_carries_bumped_scene_generation(monkeypatch):
     app._on_ai_reply = main_mod.DanmuApp._on_ai_reply.__get__(app, main_mod.DanmuApp)
     app._register_request_meta(1, 5, scene_generation, "visual")
     app.ai_in_flight = 1
-    monkeypatch.setattr(main_mod, "parse_ai_reply_payload", lambda text: ["ok"])
-    monkeypatch.setattr(main_mod, "normalize_reply_batch", lambda raw_items, **kwargs: raw_items)
-    app._consume_reply_queue = lambda: None
+    monkeypatch.setattr(gen_pipeline_mod, "parse_ai_reply_payload", lambda text: ["ok"])
+    monkeypatch.setattr(gen_pipeline_mod, "normalize_reply_batch", lambda raw_items, **kwargs: raw_items)
+    app._generation_pipeline.consume_reply_queue = lambda: None
     app._publish_live_status = lambda: None
 
     app._on_ai_reply('["ok"]', "persona-1", 1, 5, 0.0, scene_generation)

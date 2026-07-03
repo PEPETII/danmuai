@@ -28,7 +28,11 @@ def _overlay_display_count(app: "DanmuApp") -> int:
 
 
 def _floating_panel_metrics(app: "DanmuApp") -> tuple[int, bool]:
-    overlay = app.__dict__.get("floating_panel_overlay")
+    optional_overlay = getattr(app, "optional_floating_panel_overlay", None)
+    if callable(optional_overlay):
+        overlay = optional_overlay()
+    else:
+        overlay = getattr(app, "floating_panel_overlay", None)
     if overlay is None:
         return 0, False
     active = int(overlay.active_count()) if hasattr(overlay, "active_count") else 0
@@ -72,7 +76,7 @@ class RuntimeState:
 
     @classmethod
     def from_app(cls, app: "DanmuApp") -> "RuntimeState":
-        """只读聚合；getattr 回退兼容 bind_minimal_danmu_app 等未完整初始化的测试实例。"""
+        """只读聚合；经 DanmuApp 公开 façade 读取运行态。"""
         stats_state = getattr(app, "stats_state", None)
         web_runtime_state = getattr(app, "web_runtime_state", None)
         generation_pipeline = GenerationPipelineState.from_app(app)
@@ -87,24 +91,24 @@ class RuntimeState:
             overlay_display_count,
             floating_panel_active_count,
         )
-        input_tokens = int(
-            getattr(stats_state, "total_input_tokens", getattr(app, "_total_input_tokens", 0)) or 0
-        )
-        output_tokens = int(
-            getattr(stats_state, "total_output_tokens", getattr(app, "_total_output_tokens", 0)) or 0
-        )
-        start_time = float(
-            getattr(stats_state, "start_time", getattr(app, "_start_time", 0.0)) or 0.0
-        )
+        if stats_state is not None:
+            input_tokens = int(stats_state.total_input_tokens or 0)
+            output_tokens = int(stats_state.total_output_tokens or 0)
+            start_time = float(stats_state.start_time or 0.0)
+            danmu_count = int(stats_state.danmu_count or 0)
+        else:
+            input_tokens = int(getattr(app, "total_input_tokens", 0) or 0)
+            output_tokens = int(getattr(app, "total_output_tokens", 0) or 0)
+            start_time = float(getattr(app, "session_start_time", 0.0) or 0.0)
+            danmu_count = int(getattr(app, "danmu_count", 0) or 0)
         runtime_sec = time.monotonic() - start_time if start_time > 0 else 0.0
 
         if running:
-            if hasattr(app, "build_live_status_snapshot"):
-                live_snapshot = app.build_live_status_snapshot()
-            elif hasattr(app, "_build_live_status_snapshot"):
-                live_snapshot = app._build_live_status_snapshot()
-            else:
-                live_snapshot = None
+            live_snapshot = (
+                app.build_live_status_snapshot()
+                if hasattr(app, "build_live_status_snapshot")
+                else None
+            )
         else:
             live_snapshot = None
 
@@ -124,9 +128,7 @@ class RuntimeState:
 
         return cls(
             running=running,
-            danmu_count=int(
-                getattr(stats_state, "danmu_count", getattr(app, "danmu_count", 0)) or 0
-            ),
+            danmu_count=danmu_count,
             queue_count=int(queue_count),
             display_count=int(display_count),
             danmu_render_mode=render_mode,
@@ -137,25 +139,26 @@ class RuntimeState:
             output_tokens=output_tokens,
             runtime_sec=runtime_sec,
             error_message=str(
-                getattr(web_runtime_state, "error_message", getattr(app, "_web_error_message", "")) or ""
+                web_runtime_state.error_message
+                if web_runtime_state is not None
+                else getattr(app, "web_error_message", "")
+                or ""
             ),
             is_error=bool(
-                getattr(web_runtime_state, "is_error", getattr(app, "_web_error_is_error", False))
+                web_runtime_state.is_error
+                if web_runtime_state is not None
+                else getattr(app, "web_is_error", False)
             ),
             cached_danmu_lines=int(
-                getattr(
-                    web_runtime_state,
-                    "cached_danmu_lines",
-                    getattr(app, "_cached_danmu_lines", 0),
-                )
+                web_runtime_state.cached_danmu_lines
+                if web_runtime_state is not None
+                else getattr(app, "cached_danmu_lines", 0)
                 or 0
             ),
             cached_layout_mode=str(
-                getattr(
-                    web_runtime_state,
-                    "cached_layout_mode",
-                    getattr(app, "_cached_layout_mode", "fullscreen"),
-                )
+                web_runtime_state.cached_layout_mode
+                if web_runtime_state is not None
+                else getattr(app, "cached_layout_mode", "fullscreen")
                 or "fullscreen"
             ),
             live_snapshot=live_snapshot,

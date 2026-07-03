@@ -31,6 +31,7 @@ from app.ai_client_requests import stream_doubao, stream_openai
 from app.model_providers import resolve_api_transport
 from app.providers import get_capabilities_for_endpoint, get_openai_adapter, provider_extra_headers
 from app.providers.constants import THINKING_DISABLED
+from app.errors import AppError
 
 logger = logging.getLogger(__name__)
 
@@ -214,7 +215,7 @@ class _AiButlerWorker:
             for client in self._clients:
                 try:
                     client.close()
-                except Exception:
+                except OSError:
                     pass
             self._clients.clear()
 
@@ -285,7 +286,7 @@ def _build_context(config) -> str:
     lines.append("## 当前模型档案列表（apiKey 已掩码，index 从 0 起）")
     try:
         models = config.get_custom_models()
-    except Exception:
+    except (RuntimeError, ValueError, OSError):
         models = []
     if not models:
         lines.append("- （无模型档案）")
@@ -812,7 +813,10 @@ def chat(config, messages: list[dict], model_id: str | None = None) -> dict:
         return {"ok": False, "error": "timeout"}
     except httpx.HTTPStatusError as exc:
         return {"ok": False, "error": f"http_{exc.response.status_code}"}
-    except Exception as exc:
+    except AppError as exc:
+        logger.warning("ai_butler_service: app_error %r", exc)
+        return {"ok": False, "error": str(exc)}
+    except Exception as exc:  # boundary: unexpected stream failure
         logger.warning("ai_butler_service: stream failed %r", exc)
         return {"ok": False, "error": f"internal_error:{type(exc).__name__}"}
     finally:

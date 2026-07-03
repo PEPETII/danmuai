@@ -218,7 +218,7 @@ class DanmuAppMemeMixin:
                 service.store.insert_many(filtered)
             settings = read_meme_barrage_settings(self.config)
             self._meme_enqueue_for_display(service, texts, settings)
-        except Exception as exc:
+        except (ValueError, TypeError, KeyError) as exc:
             self.logger.warning(f"meme_barrage_fetch_failed reason=parse_error detail={exc!r}")
 
     def _meme_enqueue_for_display(

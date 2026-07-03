@@ -99,7 +99,7 @@ def _current_version(manager) -> str:
         if not text or text.lower() == "none":
             return __version__
         return text
-    except Exception:
+    except (AttributeError, TypeError, ValueError):
         return __version__
 
 
@@ -194,7 +194,7 @@ def get_status() -> UpdateStatus:
         pending = False
         try:
             pending = bool(mgr.get_update_pending_restart())
-        except Exception:
+        except (AttributeError, RuntimeError, TypeError):
             pending = False
         with _lock:
             pending_info = _state.get("pending_update")
@@ -224,7 +224,7 @@ def get_status() -> UpdateStatus:
             ),
             snapshot,
         )
-    except Exception as exc:
+    except Exception as exc:  # boundary: velopack get_status
         return _enrich_status(
             UpdateStatus(
                 ok=False,
@@ -280,7 +280,7 @@ def check_for_updates() -> UpdateStatus:
                 message=f"发现新版本 {latest}",
             )
         )
-    except Exception as exc:
+    except Exception as exc:  # boundary: velopack check_for_updates
         with _lock:
             _state["last_error"] = str(exc)
         st = get_status()
@@ -302,7 +302,7 @@ def _run_download_thread(info: Any) -> None:
             _state["download_phase"] = "ready"
             _state["download_progress"] = 100
             _state["last_error"] = None
-    except Exception as exc:
+    except Exception as exc:  # boundary: velopack download_updates
         with _lock:
             _state["download_phase"] = "error"
             _state["last_error"] = str(exc)
@@ -472,7 +472,7 @@ def apply_updates_and_restart() -> UpdateStatus:
         mgr = _manager()
         mgr.apply_updates_and_restart(info)
         return UpdateStatus(ok=True, frozen=True, message="正在重启…", download_phase="applying")
-    except Exception as exc:
+    except Exception as exc:  # boundary: velopack apply_updates_and_restart
         with _lock:
             _state["download_phase"] = "error"
             _state["last_error"] = str(exc)

@@ -43,6 +43,7 @@ def test_maybe_pool_topup_fills_deficit(tmp_path, monkeypatch):
     app.engine = engine
     app.config = store
     app._scene_generation = 0
+    app._broadcast_live_overlay_item = lambda *a, **k: None
 
     assert engine.visible_display_count() == 0
     added = app._maybe_pool_topup()
@@ -111,6 +112,7 @@ def test_maybe_pool_topup_custom_only(tmp_path, monkeypatch):
     app.engine = engine
     app.config = store
     app._scene_generation = 0
+    app._broadcast_live_overlay_item = lambda *a, **k: None
 
     assert engine.min_on_screen() == 3
     added = app._maybe_pool_topup()
@@ -171,6 +173,7 @@ def test_maybe_pool_topup_calls_deficit_at_most_once(tmp_path, monkeypatch):
     app.engine = engine
     app.config = store
     app._scene_generation = 0
+    app._broadcast_live_overlay_item = lambda *a, **k: None
 
     added = app._maybe_pool_topup()
     assert added >= 1

@@ -89,7 +89,7 @@ class DanmuTtsPlayback(QObject):
             audio = _append_trailing_pause(audio, rate)
             sd.play(audio, samplerate=rate, blocking=True)
             sd.wait()
-        except Exception as exc:
+        except (OSError, RuntimeError, ValueError) as exc:
             logger.warning("danmu tts playback failed: %s", exc)
         finally:
             self._set_busy(False)

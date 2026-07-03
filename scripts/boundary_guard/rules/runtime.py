@@ -84,6 +84,10 @@ def _extract_added_runtime_fields(repo_root: Path, changed: dict[Path, str]) -> 
 def check_thread_trigger_docs(repo_root: Path, changed: dict[Path, str]) -> list[Finding]:
     findings: list[Finding] = []
     doc_changed = PIPELINE_DOC in changed
+    # docs/ is gitignored (local-only); when the doc is not in the changed set,
+    # fall back to checking whether the trigger label is already documented on disk.
+    doc_path = repo_root / PIPELINE_DOC
+    doc_text = doc_path.read_text(encoding='utf-8') if doc_path.exists() else ''
     for rel_path, status in changed.items():
         if rel_path.suffix != '.py':
             continue
@@ -92,7 +96,7 @@ def check_thread_trigger_docs(repo_root: Path, changed: dict[Path, str]) -> list
                 continue
             for pattern, label in THREAD_TRIGGER_PATTERNS:
                 if re.search(pattern, line):
-                    if doc_changed:
+                    if doc_changed or label in doc_text:
                         break
                     findings.append(Finding(severity='error', rule='phase1-boundary-rules.md 4.1', path=str(rel_path), line=line_no, message=f'发现新增或修改的调度点 `{label}`，但 `docs/main-pipeline-sequence.md` 未同步更新'))
                     break

@@ -1,4 +1,4 @@
-"""W-BILILIVE-DM-PLUGIN-PUSH-004 — DanmuAI → bililive_dm 主动推送契约。"""
+"""W-BILILIVE-DM-PLUGIN-PUSH-004 — DanmuAI → bililive_dm 插件主动推送 JSON 契约。"""
 
 from __future__ import annotations
 
@@ -13,3 +13,6 @@ class BililiveDmPushRequest(BaseModel):
     batch_id: int = 0
     items: list[str] = Field(default_factory=list)
     persona: str | None = None
+
+
+__all__ = ["DEFAULT_PUSH_URL", "PUSH_SOURCE_MAIN", "BililiveDmPushRequest"]

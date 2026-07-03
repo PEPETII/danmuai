@@ -6,6 +6,7 @@ import time
 from unittest.mock import MagicMock, Mock
 
 import main as main_mod
+from app.application import generation_pipeline as gen_pipeline_mod
 from app.reply_queue import QueuedReply
 from main import DanmuApp
 
@@ -63,11 +64,11 @@ def test_bump_with_inflight_defers_until_stale_drop(monkeypatch):
     app._schedule_capture.assert_not_called()
 
     app._register_request_meta(10, 10, 0, "visual")
-    monkeypatch.setattr(main_mod, "parse_ai_reply_payload", lambda text: ["ok"])
-    monkeypatch.setattr(main_mod, "normalize_reply_batch", lambda raw_items, **kwargs: raw_items)
+    monkeypatch.setattr(gen_pipeline_mod, "parse_ai_reply_payload", lambda text: ["ok"])
+    monkeypatch.setattr(gen_pipeline_mod, "normalize_reply_batch", lambda raw_items, **kwargs: raw_items)
     app._on_ai_reply = main_mod.DanmuApp._on_ai_reply.__get__(app, main_mod.DanmuApp)
     app._enqueue_reply_batch = MagicMock()
-    app._consume_reply_queue = lambda: None
+    app._generation_pipeline.consume_reply_queue = lambda: None
     app._publish_live_status = lambda: None
 
     app._on_ai_reply('["ok"]', "persona-1", 10, 10, time.monotonic(), 0)

@@ -94,7 +94,7 @@ class DanmuAppLaunchMixin:
 
         try:
             open_web_console_browser(server, path)
-        except Exception as exc:
+        except OSError as exc:
             self.logger.warning(
                 f"failed to open system browser after webview fallback: {exc!r}"
             )

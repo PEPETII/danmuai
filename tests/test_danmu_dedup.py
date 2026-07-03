@@ -369,6 +369,7 @@ def test_normalize_danmu_display_text_skips_formula_meme_barrage(engine):
 
 def test_start_clears_dedup_window(monkeypatch, workspace_tmp):
     from app.config_store import ConfigStore
+    from app.application.stats_state import StatsState
 
     from tests.fakes import FakeConfig
 
@@ -387,8 +388,14 @@ def test_start_clears_dedup_window(monkeypatch, workspace_tmp):
 
     monkeypatch.setattr(eng, "start", lambda: None)
     monkeypatch.setattr(eng, "clear_dedup_window", track_clear)
-    monkeypatch.setattr("main.resolve_screen_index", lambda _config: 0)
     monkeypatch.setattr("main.resolve_active_model_id", lambda _config: "test-model")
+    monkeypatch.setattr(DanmuApp, "_on_normal_capture_tick", lambda self: None)
+    monkeypatch.setattr(DanmuApp, "_sync_overlay_visibility", lambda self: None)
+    monkeypatch.setattr(DanmuApp, "_sync_floating_panel_visibility", lambda self: None)
+    monkeypatch.setattr(DanmuApp, "_sync_pet_window_visibility", lambda self: None)
+    monkeypatch.setattr(DanmuApp, "_reassert_active_overlay_topmost", lambda self: None)
+    monkeypatch.setattr(DanmuApp, "_start_meme_barrage_timers", lambda self: None)
+    monkeypatch.setattr(DanmuApp, "_sync_mic_service", lambda self: None)
 
     app = DanmuApp.__new__(DanmuApp)
 
@@ -400,21 +407,28 @@ def test_start_clears_dedup_window(monkeypatch, workspace_tmp):
         (),
         {"show_for_screen": _noop, "start_render_loop": _noop, "ensure_render_loop": _noop},
     )()
-    tray = type("T", (), {"update_state": _noop})()
+    tray = type("T", (), {"update_state": _noop, "show_api_key_missing_hint": _noop})()
     timer = type("TM", (), {"stop": _noop, "start": _noop, "setInterval": _noop, "isActive": lambda *a, **k: False})()
     reply_buffer = type("B", (), {"set_max_items": _noop, "is_empty": lambda *a, **k: True})()
 
+    config = FakeConfig({
+        "default_model_id": "test-model",
+    })
+    config.set_custom_models([
+        {
+            "name": "Test",
+            "default_model_id": "test-model",
+            "modelId": "test-model",
+            "endpoint": "https://ark.cn-beijing.volces.com/api/v3",
+            "apiKey": "sk-test",
+            "mode": "doubao",
+        }
+    ])
+
     stubs = {
-        "config": FakeConfig({
-            "api_key": "sk-test",
-            "api_endpoint": "https://ark.cn-beijing.volces.com/api/v3",
-            "api_mode": "doubao",
-            "model": "test-model",
-        }),
+        "config": config,
         "engine": eng,
         "logger": FakeLogger(),
-        "_capture_screenshot": lambda: None,
-        "_sync_mic_service": lambda: None,
         "overlay": overlay,
         "tray": tray,
         "ai_worker": type("W", (), {"reset_stopping": lambda *a, **k: None})(),
@@ -429,8 +443,15 @@ def test_start_clears_dedup_window(monkeypatch, workspace_tmp):
         "session_run_log": type("R", (), {"begin": _noop})(),
         "_pending_request_meta": {},
         "state_changed": type("S", (), {"emit": lambda *a: None})(),
-        "_queue_capacity": lambda: 8,
+        "stats_state": StatsState(),
         "_set_error_status_safe": lambda *a, **k: None,
+        "web_server": None,
+        "_reset_scene_generation_baseline": lambda: None,
+        "_normal_recognition_interval_ms": lambda: 5000,
+        "_queue_capacity": lambda: 8,
+        "_ensure_stats_state": DanmuApp._ensure_stats_state.__get__(app, DanmuApp),
+        "_get_request_timing_service": DanmuApp._get_request_timing_service.__get__(app, DanmuApp),
+        "_get_request_scheduler": DanmuApp._get_request_scheduler.__get__(app, DanmuApp),
     }
     for name, value in stubs.items():
         object.__setattr__(app, name, value)

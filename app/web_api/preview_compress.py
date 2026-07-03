@@ -12,22 +12,24 @@ from __future__ import annotations
 from typing import Callable
 
 from fastapi import File, Form, Header, HTTPException, UploadFile
+from PIL import UnidentifiedImageError
 
 from app.config_defaults import DEFAULT_IMAGE_MAX_WIDTH
 from app.image_compress import compress_image_bytes
+from app.web_api.auth import require_auth
 
 
 def register_preview_compress_route(app, check_token: Callable) -> None:
     """Module-level registration so UploadFile resolves under Python 3.14 + Pydantic v2."""
 
     @app.post("/api/preview/compress")
+    @require_auth(check_token)
     async def preview_compress(
         file: UploadFile = File(...),
         max_width: int = Form(DEFAULT_IMAGE_MAX_WIDTH),
         quality: int = Form(85),
         authorization: str | None = Header(default=None),
     ):
-        check_token(authorization)
         max_width = max(64, min(max_width, 4096))
         quality = max(1, min(quality, 95))
         data = await file.read()
@@ -35,5 +37,5 @@ def register_preview_compress_route(app, check_token: Callable) -> None:
             raise HTTPException(status_code=400, detail="图片太大了，请换一张小一点的~")
         try:
             return compress_image_bytes(data, max_width=max_width, quality=quality)
-        except Exception as exc:
+        except (OSError, ValueError, UnidentifiedImageError) as exc:
             raise HTTPException(status_code=400, detail=f"小助手读不懂这张图：{exc}") from exc

@@ -8,6 +8,7 @@ from unittest.mock import MagicMock
 
 import main as main_mod
 
+from app.application import generation_pipeline as gen_pipeline_mod
 from app.application.request_timing_service import RequestTimingService
 from app.main_helpers import VISUAL_INFLIGHT_RECOVER_SEC
 
@@ -138,7 +139,7 @@ def test_visual_reply_enqueue_and_consume_to_engine(monkeypatch):
     app.ai_in_flight = 1
 
     monkeypatch.setattr(
-        main_mod,
+        gen_pipeline_mod,
         "normalize_reply_batch",
         lambda raw_items, **kwargs: list(raw_items),
     )

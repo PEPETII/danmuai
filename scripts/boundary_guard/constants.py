@@ -1,4 +1,4 @@
-﻿"""rules 共享的常量与正则表。
+"""rules 共享的常量与正则表。
 
 本文件**不**做规则判定，只维护规则所需的"路径/正则/白名单"。每个规则模块
 按职责域分组（web / runtime / request / config / pipeline / diagnostics /
@@ -22,6 +22,7 @@ WEB_API_DIR = Path("app/web_api")
 WEB_STATIC_DIR = Path("web/static")
 CUSTOM_MODELS_PATH = Path("app/web_api/custom_models.py")
 MAIN_PATH = Path("main.py")
+APPLICATION_DIR = Path("app/application")
 RUNTIME_STATE_PATH = Path("app/application/runtime_state.py")
 GENERATION_PIPELINE_STATE_PATH = Path("app/application/generation_pipeline_state.py")
 REQUEST_METADATA_STATE_PATH = Path("app/application/request_metadata_state.py")
@@ -64,11 +65,17 @@ CONFIG_CONN_PATTERNS: tuple[str, ...] = (
 )
 
 CONFIG_CONN_WHITELIST = {
-    Path("app/config_store.py"),
+    Path("app/config_store/__init__.py"),
+    Path("app/config_store/storage.py"),
+    Path("app/config_store/pool.py"),
+    Path("app/config_store/crypto.py"),
     Path("app/history_writer.py"),
     Path("app/session_run_log.py"),
     Path("app/templates.py"),
-    Path("app/danmu_engine.py"),
+    Path("app/danmu_engine/__init__.py"),
+    Path("app/danmu_engine/track.py"),
+    Path("app/danmu_engine/render.py"),
+    Path("app/danmu_engine/screen.py"),
 }
 
 THREAD_TRIGGER_PATTERNS: tuple[tuple[str, str], ...] = (
@@ -163,6 +170,39 @@ GENERATION_PIPELINE_FORBIDDEN_CALLS: tuple[str, ...] = (
     "_enqueue_reply_batch(",
     "_on_ai_reply(",
     "_on_ai_error(",
+)
+
+# W-GENPIPELINE-EXTRACT: app/application/generation_pipeline.py 服务边界
+# 该文件承载回复消费与三路分发逻辑（从 DanmuApp 委托迁出）。
+GENERATION_PIPELINE_PATH = Path("app/application/generation_pipeline.py")
+
+# 禁止实例化 Qt 对象（QTimer/QThreadPool/QPixmap 所有权属 DanmuApp）
+GENERATION_PIPELINE_SERVICE_FORBIDDEN_TOKENS: tuple[tuple[str, str], ...] = (
+    (
+        r"\bQTimer\s*\(",
+        "generation_pipeline.py must not instantiate QTimer; ownership stays in DanmuApp (call app.reply_timer.start() instead)",
+    ),
+    (
+        r"\bQThreadPool\s*\(",
+        "generation_pipeline.py must not instantiate QThreadPool; ownership stays in DanmuApp",
+    ),
+    (
+        r"\bQPixmap\s*\(",
+        "generation_pipeline.py must not instantiate QPixmap; ownership stays in DanmuApp",
+    ),
+)
+
+# 禁止调用主链路触发函数（仍属 DanmuApp，W-GENPIPELINE-EXTRACT 未解冻）
+# 注意：_enqueue_reply_batch( 允许（Phase 3 handle_reply_parsed 调用）；
+# _consume_reply_queue( 禁止（服务用自身 consume_reply_queue，禁止回调 DanmuApp façade 成循环）
+GENERATION_PIPELINE_SERVICE_FORBIDDEN_CALLS: tuple[str, ...] = (
+    "_trigger_api_call(",
+    "_on_screenshot_timer(",
+    "_on_normal_capture_tick(",
+    "_on_ai_reply(",
+    "_on_ai_error(",
+    "_check_rhythm_trigger(",
+    "_consume_reply_queue(",
 )
 
 REQUEST_METADATA_FORBIDDEN_TOKENS: tuple[tuple[str, str], ...] = (
@@ -313,4 +353,23 @@ RTT_HISTORY_WRITE_PATTERN = re.compile(
 RTT_HISTORY_WRITE_MESSAGE = (
     "Phase 4-F has moved `_rtt_history` into RequestTimingService; "
     "DanmuApp may only keep a compatibility facade that delegates to RequestTimingService"
+)
+
+APPLICATION_PRIVATE_READ_PATTERNS: tuple[tuple[str, str], ...] = (
+    (
+        r'getattr\s*\(\s*app\s*,\s*"_',
+        "application/ must not read DanmuApp private fields via getattr(app, \"_...\"); use DanmuApp public façade properties",
+    ),
+    (
+        r'getattr\s*\(\s*self\._app\s*,\s*"_',
+        "application/ must not read DanmuApp private fields via getattr(self._app, \"_...\"); use DanmuApp public façade properties",
+    ),
+    (
+        r'__dict__\.get\s*\(\s*"_',
+        "application/ must not read DanmuApp private fields via app.__dict__.get(\"_...\"); use DanmuApp public façade properties",
+    ),
+    (
+        r'_safe_app_attr\s*\([^,]+,\s*"_',
+        "application/ must not read DanmuApp private fields via _safe_app_attr(..., \"_...\"); use DanmuApp public façade properties",
+    ),
 )

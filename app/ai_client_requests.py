@@ -199,14 +199,14 @@ def reset_worker_http_client(worker) -> httpx.Client:
     if hasattr(worker._thread_local, "client") and worker._thread_local.client is not None:
         try:
             worker._thread_local.client.close()
-        except Exception:
+        except OSError:
             pass
         with worker._client_lock:
             worker._clients.discard(worker._thread_local.client)
         worker._thread_local.client = None
     try:
         client = worker._get_http_client()
-    except Exception as exc:
+    except (RuntimeError, OSError, httpx.HTTPError) as exc:
         logger.error("reset_worker_http_client: failed to create httpx client: %s", exc)
         raise RuntimeError("AI HTTP client reset failed") from exc
     if client is None:
@@ -371,7 +371,7 @@ def request_doubao(
                 captured_at=captured_at,
                 scene_generation=scene_generation,
             )
-        except Exception as exc:
+        except Exception as exc:  # boundary: retry once after client reset
             if attempt < 1:
                 try:
                     http_client = reset_worker_http_client(worker)
@@ -601,7 +601,7 @@ def request_openai(
                 captured_at=captured_at,
                 scene_generation=scene_generation,
             )
-        except Exception as exc:
+        except Exception as exc:  # boundary: retry once after client reset
             if attempt < 1:
                 try:
                     http_client = reset_worker_http_client(worker)

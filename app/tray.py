@@ -108,7 +108,7 @@ class TrayManager:
             from app import update_service
             try:
                 result = update_service.check_for_updates()
-            except Exception as exc:
+            except Exception as exc:  # boundary: tray update check worker
                 # 兜底：update_service 内部已有 try/except，此处防止未预期异常静默丢失
                 result = update_service.UpdateStatus(
                     ok=False,
@@ -207,7 +207,7 @@ class TrayManager:
                                     title,
                                     st.message or st.error or tr("tray.update_download_failed", "下载失败"),
                                 )
-                    except Exception:
+                    except RuntimeError:  # boundary: Qt timer cleanup after download poll
                         self._update_poll_timer.stop()
                         self._update_progress.close()
                         self._update_progress = None

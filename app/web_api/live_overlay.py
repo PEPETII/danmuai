@@ -23,6 +23,7 @@ from pydantic import BaseModel
 
 from app.bundle_paths import resource_path
 from app.live_overlay_hub import LiveOverlayHub
+from app.web_api.auth import require_auth
 
 STATIC_DIR = resource_path("web", "static")
 LIVE_OVERLAY_HTML = STATIC_DIR / "live-overlay.html"
@@ -54,11 +55,11 @@ def register_live_overlay_routes(
         return out
 
     @app.post("/api/live-overlay/test")
+    @require_auth(check_token)
     def live_overlay_test(
         body: LiveOverlayTestPayload | None = Body(default=None),
         authorization: str | None = Header(default=None),
     ):
-        check_token(authorization)
         items = body.items if body and body.items else None
         hub.broadcast_test(items)
         return {"ok": True, "count": len(items) if items else 2}

@@ -426,7 +426,7 @@ def test_start_with_custom_model_key_only_no_global_key(monkeypatch):
 
 
 def test_start_with_global_key_only_still_works(monkeypatch):
-    """BUG-009 regression: legacy global API key without custom profile still starts."""
+    """W-GLOBAL-VISUAL-APIKEY-REMOVE-001: legacy global API key is no longer a valid credential."""
     app, engine_start_called, screenshot_timer, _tray = make_app_for_start_without_api_key(
         monkeypatch
     )
@@ -445,9 +445,9 @@ def test_start_with_global_key_only_still_works(monkeypatch):
     )
     _bind_start_success_stubs(app, monkeypatch)
     DanmuApp.start(app)
-    assert engine_start_called == [True]
-    assert app.engine.running is True
-    assert screenshot_timer.started == 1
+    assert engine_start_called == []
+    assert app.engine.running is False
+    assert screenshot_timer.started == 0
 
 
 def test_toggle_without_api_key_delegates_to_start_guard(monkeypatch):

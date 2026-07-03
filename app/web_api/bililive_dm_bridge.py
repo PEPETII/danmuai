@@ -13,6 +13,7 @@ from app.application.bililive_dm_bridge_service import (
     generate_ai_replies,
 )
 from app.bililive_dm_plugin_auth import PLUGIN_SECRET_HEADER, validate_plugin_secret
+from app.errors import AppError
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +44,7 @@ def register_bililive_dm_bridge_route(app, config, check_token: Callable) -> Non
         validate_plugin_secret(plugin_secret)
         try:
             return _generate_ai_reply(config, body)
-        except Exception as exc:
+        except (AppError, ValueError) as exc:
             logger.warning("bililive_dm_bridge: internal_error %r", exc)
             return BililiveDmBridgeResponse(
                 ok=False,

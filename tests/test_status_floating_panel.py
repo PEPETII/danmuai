@@ -27,7 +27,7 @@ def _minimal_status_app(*, config, floating_panel_overlay=None, visible_overlay:
         lifetime_stats=SimpleNamespace(snapshot=lambda **_kwargs: {}),
         session_run_log=SimpleNamespace(list_dicts_newest_first=lambda: []),
         build_live_status_snapshot=lambda: None,
-        _region_selection_state="idle",
+        region_selection_state="idle",
     )
 
 
