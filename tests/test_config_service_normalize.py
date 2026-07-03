@@ -55,10 +55,19 @@ def test_normalize_floating_panel_speed_invalid_uses_default(config_service):
     assert items["floating_panel_speed"] == DEFAULT_FLOATING_PANEL_SPEED
 
 
-def test_apply_web_payload_masks_api_key_unchanged(config_service):
+def test_apply_web_payload_ignores_visual_api_key(config_service):
+    """W-GLOBAL-VISUAL-APIKEY-REMOVE-001: apply_web_payload 不再接受视觉 api_key。"""
     config_service._config.set_api_key("real-secret-key")
-    config_service.apply_web_payload({"api_key": MASKED_API_KEY, "danmu_speed": "2.5"})
+    config_service.apply_web_payload({"api_key": "sk-attempt-write", "danmu_speed": "2.5"})
     assert config_service._config.get_api_key() == "real-secret-key"
+    assert config_service._config.get("danmu_speed") == "2.5"
+
+
+def test_apply_web_payload_masks_mic_api_key_unchanged(config_service):
+    """W-GLOBAL-VISUAL-APIKEY-REMOVE-001: mic_api_key 仍走加密路径，MASKED 时保留原值。"""
+    config_service._config.set_mic_api_key("mic-real-secret")
+    config_service.apply_web_payload({"mic_api_key": MASKED_API_KEY, "danmu_speed": "2.5"})
+    assert config_service._config.get_mic_api_key() == "mic-real-secret"
     assert config_service._config.get("danmu_speed") == "2.5"
 
 
@@ -76,13 +85,14 @@ def test_apply_web_payload_uses_single_commit_for_normal_save(config_service):
     assert config_service._config.get("font_size") == "28"
 
 
-def test_apply_web_payload_uses_single_commit_with_api_key(config_service):
+def test_apply_web_payload_uses_single_commit_with_mic_api_key(config_service):
+    """W-GLOBAL-VISUAL-APIKEY-REMOVE-001: 视觉 api_key 已下线，改用 mic_api_key 验证单次提交。"""
     counting = _wrap_commit_counter(config_service)
     config_service.apply_web_payload(
-        {"api_key": "sk-new-key-1234567890", "danmu_speed": "3"}
+        {"mic_api_key": "sk-mic-new-key-1234567890", "danmu_speed": "3"}
     )
     assert counting.commit_call_count == 1
-    assert config_service._config.get_api_key() == "sk-new-key-1234567890"
+    assert config_service._config.get_mic_api_key() == "sk-mic-new-key-1234567890"
     assert config_service._config.get("danmu_speed") == "3"
 
 
@@ -117,13 +127,27 @@ def test_apply_web_payload_uses_single_commit_with_custom_models(config_service)
 
 
 def test_apply_web_payload_syncs_default_model_id_to_legacy_model(config_service):
+    """W-GLOBAL-VISUAL-APIKEY-REMOVE-001: default_model_id 写入需对应完整 custom_models 档案。"""
+    new_model = "doubao-seed-1-6-flash-250828"
+    # 预设 default_model_id 以通过 validate_web_config_patch；model 保留旧值以验证双写同步
     config_service._config.set_batch(
         {
             "model": "old-model",
-            "api_endpoint": "https://ark.cn-beijing.volces.com/api/v3",
-            "api_mode": "doubao",
+            "default_model_id": new_model,
         }
     )
-    config_service.apply_web_payload({"default_model_id": "doubao-seed-1-6-flash-250828"})
-    assert config_service._config.get_default_model_id() == "doubao-seed-1-6-flash-250828"
-    assert config_service._config.get("model") == "doubao-seed-1-6-flash-250828"
+    config_service._config.set_custom_models(
+        [
+            {
+                "name": "Doubao",
+                "default_model_id": new_model,
+                "modelId": new_model,
+                "endpoint": "https://ark.cn-beijing.volces.com/api/v3",
+                "apiKey": "sk-profile",
+                "mode": "doubao",
+            }
+        ]
+    )
+    config_service.apply_web_payload({"default_model_id": new_model})
+    assert config_service._config.get_default_model_id() == new_model
+    assert config_service._config.get("model") == new_model

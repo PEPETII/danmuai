@@ -183,8 +183,30 @@ def ai_client_fake_config(*, data=None, api_key=None, default_model_id=None, cus
         values.update(data)
     if default_model_id is not None:
         values["default_model_id"] = default_model_id
+    if api_key is not None:
+        values["_api_key"] = api_key
     if custom_models is not None:
         values["custom_models"] = custom_models
+    else:
+        # W-GLOBAL-VISUAL-APIKEY-REMOVE-001: resolve_request_credentials 仅走 custom_models；
+        # 未显式传 custom_models 时自动从 data 构建完整档案以兼容旧测试
+        model_id = values.get("default_model_id") or values.get("model", "")
+        endpoint = values.get("api_endpoint", "")
+        mode = values.get("api_mode", "doubao")
+        key = values.get("_api_key") or values.get("api_key") or ""
+        if model_id and endpoint:
+            values["custom_models"] = [
+                {
+                    "name": "Fake",
+                    "default_model_id": model_id,
+                    "modelId": model_id,
+                    "endpoint": endpoint,
+                    "apiKey": key,
+                    "mode": mode,
+                }
+            ]
+            if "default_model_id" not in values:
+                values["default_model_id"] = model_id
     cfg = FakeConfig(values)
     if api_key is not None:
         cfg.set_api_key(api_key)

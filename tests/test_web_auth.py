@@ -13,15 +13,16 @@ from app.web_console import (
 from tests.fakes import FakeConfig
 
 
-def test_export_config_masks_api_key():
+def test_export_config_omits_visual_api_key():
+    """W-GLOBAL-VISUAL-APIKEY-REMOVE-001: export_config 不再返回 api_key / has_api_key。"""
     cfg = FakeConfig({"api_endpoint": "https://example.com", "_api_key": "sk-secret"})
     data = export_config(cfg)
-    assert data["api_endpoint"] == "https://example.com"
-    assert data["api_key"] == "********"
-    assert data["has_api_key"] is True
+    assert "api_key" not in data, "export_config 不应返回 api_key"
+    assert "has_api_key" not in data, "export_config 不应返回 has_api_key"
 
 
-def test_export_config_has_api_key_with_custom_model_only():
+def test_export_config_omits_has_api_key_with_custom_model_only():
+    """W-GLOBAL-VISUAL-APIKEY-REMOVE-001: 即使仅有 custom_models 档案，也不返回 api_key / has_api_key。"""
     model_id = "mimo-v2.5"
     cfg = FakeConfig(
         {
@@ -42,8 +43,8 @@ def test_export_config_has_api_key_with_custom_model_only():
         ]
     )
     data = export_config(cfg)
-    assert data["has_api_key"] is True
-    assert data["api_key"] == "********"
+    assert "api_key" not in data
+    assert "has_api_key" not in data
 
 
 def test_export_config_fills_defaults_for_empty_store(tmp_path):
@@ -109,8 +110,23 @@ def test_apply_config_patch_preserves_masked_custom_model_key():
     assert config.get_custom_models()[0]["apiKey"] == "sk-keep"
 
 
-def test_apply_config_patch_updates_batch_and_key():
-    config = FakeConfig({"api_endpoint": "old"})
+def test_apply_config_patch_updates_batch_and_ignores_visual_api_key():
+    """W-GLOBAL-VISUAL-APIKEY-REMOVE-001: apply_config_patch 不再接受 api_key / api_endpoint
+    （WEB_CONFIG_KEYS 已移除）；model 仍可写入并同步 default_model_id。"""
+    config = FakeConfig({"api_endpoint": "old", "default_model_id": "gpt-4o"})
+    # 提供完整 custom_models 档案以通过 validate_web_config_patch
+    config.set_custom_models(
+        [
+            {
+                "name": "Test",
+                "default_model_id": "gpt-4o",
+                "modelId": "gpt-4o",
+                "endpoint": "https://api.example.com/v1",
+                "apiKey": "sk-profile",
+                "mode": "openai",
+            }
+        ]
+    )
     personae = MagicMock()
     app = MagicMock()
     app.config = config
@@ -126,10 +142,13 @@ def test_apply_config_patch_updates_batch_and_key():
         },
     )
 
-    assert config.get("api_endpoint") == "https://new.example/v1"
+    # api_endpoint 不在 WEB_CONFIG_KEYS 中，不会被写入
+    assert config.get("api_endpoint") == "old"
+    # model 仍可写入
     assert config.get("model") == "gpt-4o"
     assert config.get_default_model_id() == "gpt-4o"
-    assert config.get_api_key() == "sk-new-key"
+    # api_key 被忽略（Phase 1 移除视觉 api_key 写入口）
+    assert config.get_api_key() == ""
     personae.set_active.assert_called_once()
     app.config_changed.emit.assert_called_once()
 
@@ -184,16 +203,28 @@ def test_apply_config_patch_preserves_masked_custom_model_key_by_identity():
 
 
 def test_apply_config_patch_syncs_default_model_id_to_legacy_model():
+    """W-GLOBAL-VISUAL-APIKEY-REMOVE-001: default_model_id 写入需对应完整 custom_models 档案。"""
+    new_model = "doubao-seed-1-6-flash-250828"
     config = FakeConfig({
         "model": "old-model",
-        "api_endpoint": "https://ark.cn-beijing.volces.com/api/v3",
-        "api_mode": "doubao",
+        "default_model_id": new_model,
     })
+    config.set_custom_models(
+        [
+            {
+                "name": "Doubao",
+                "default_model_id": new_model,
+                "modelId": new_model,
+                "endpoint": "https://ark.cn-beijing.volces.com/api/v3",
+                "apiKey": "sk-profile",
+                "mode": "doubao",
+            }
+        ]
+    )
     app = MagicMock()
     app.config = config
     app.personae = MagicMock()
 
-    new_model = "doubao-seed-1-6-flash-250828"
     apply_config_patch(app, {"default_model_id": new_model})
 
     assert config.get_default_model_id() == new_model
@@ -215,7 +246,9 @@ def test_extract_config_payload_rejects_empty():
 
 
 def test_web_config_keys_cover_core_settings():
-    assert "api_endpoint" in WEB_CONFIG_KEYS
+    # W-GLOBAL-VISUAL-APIKEY-REMOVE-001: api_endpoint/api_mode 已从 WEB_CONFIG_KEYS 移除
+    assert "api_endpoint" not in WEB_CONFIG_KEYS
+    assert "api_mode" not in WEB_CONFIG_KEYS
     assert "screen_index" in WEB_CONFIG_KEYS
     assert "region_x" not in WEB_CONFIG_KEYS
     assert "hotkey" in WEB_CONFIG_KEYS
@@ -263,8 +296,9 @@ def test_export_web_config_defaults():
     assert "custom_models" not in data
 
     doubao = get_provider("doubao")
-    assert data["api_endpoint"] == ""
-    assert data["api_mode"] == "openai"
+    # W-GLOBAL-VISUAL-APIKEY-REMOVE-001: api_endpoint/api_mode 已不在 WEB_CONFIG_KEYS
+    assert "api_endpoint" not in data
+    assert "api_mode" not in data
     assert data["model"] == default_catalog_model_id("custom_openai")
 
     assert data["mic_api_endpoint"] == doubao.default_endpoint
@@ -273,21 +307,33 @@ def test_export_web_config_defaults():
     assert data["pet_scale"] == "0.5"
 
     for key in WEB_CONFIG_KEYS:
-        if key in ("api_endpoint", "model", "mic_api_endpoint"):
+        if key in ("model", "mic_api_endpoint"):
             continue
         assert data[key] == CONFIG_DEFAULTS.get(key, ""), key
 
 
 def test_apply_config_patch_dashscope_model_syncs_default_model_id():
+    """W-GLOBAL-VISUAL-APIKEY-REMOVE-001: model 写入需对应完整 custom_models 档案。"""
     from app.model_catalog import default_catalog_model_id
 
     dash_model = default_catalog_model_id("dashscope")
     config = FakeConfig(
         {
-            "api_endpoint": "https://dashscope.aliyuncs.com/compatible-mode/v1",
-            "api_mode": "openai",
             "model": "doubao-seed-1-6-flash-250828",
+            "default_model_id": dash_model,
         }
+    )
+    config.set_custom_models(
+        [
+            {
+                "name": "DashScope",
+                "default_model_id": dash_model,
+                "modelId": dash_model,
+                "endpoint": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+                "apiKey": "sk-profile",
+                "mode": "openai",
+            }
+        ]
     )
     app = MagicMock()
     app.config = config
@@ -296,8 +342,6 @@ def test_apply_config_patch_dashscope_model_syncs_default_model_id():
     apply_config_patch(
         app,
         {
-            "api_endpoint": "https://dashscope.aliyuncs.com/compatible-mode/v1",
-            "api_mode": "openai",
             "model": dash_model,
         },
     )
