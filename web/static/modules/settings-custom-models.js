@@ -436,6 +436,22 @@ function onModelIdPresetChange() {
   }
 }
 
+/** 将存储的 mode（如 openai-compatible）映射为 #modelMode 下拉值 */
+function modeToSelectValue(mode, providerId = '') {
+  const raw = String(mode ?? '').trim().toLowerCase();
+  if (raw === 'doubao') return 'doubao';
+  if (raw === 'openai' || raw === 'openai-compatible' || raw === 'openai_compatible') {
+    return 'openai';
+  }
+  if (providerId) {
+    const provider = findProvider(providerId);
+    if (provider?.mode) {
+      return provider.mode === 'openai-compatible' ? 'openai' : provider.mode;
+    }
+  }
+  return 'openai';
+}
+
 /** 处理服务商切换联动 */
 function onProviderChangeInModal(providerId, options = {}) {
   const { isEdit = false } = options;
@@ -485,10 +501,9 @@ function onProviderChangeInModal(providerId, options = {}) {
   }
 
   // 联动 API 模式
-  const provider = findProvider(providerId);
   const modeEl = document.getElementById('modelMode');
-  if (provider && modeEl) {
-    modeEl.value = provider.mode === 'openai-compatible' ? 'openai' : provider.mode;
+  if (modeEl) {
+    modeEl.value = modeToSelectValue(findProvider(providerId)?.mode, providerId);
   }
 }
 
@@ -539,8 +554,14 @@ export function openModelModal(index, model = {}) {
     // 显示名称：优先保留原名称
     document.getElementById('modelName').value = model.name || '';
 
-    // API 模式回填
-    document.getElementById('modelMode').value = model.mode || (document.getElementById('api_mode')?.value || 'doubao');
+    // API 模式回填（存储值 openai-compatible 须映射为下拉 openai）
+    const modeEl = document.getElementById('modelMode');
+    if (modeEl) {
+      modeEl.value = modeToSelectValue(
+        model.mode || document.getElementById('api_mode')?.value,
+        providerId,
+      );
+    }
   } else {
     // 新增模式：默认 doubao + 联动
     onProviderChangeInModal(providerId, { isEdit: false });
@@ -563,10 +584,6 @@ export function openModelModal(index, model = {}) {
   document.getElementById('modelDescription').value = model.description || '';
   const supportsMicEl = document.getElementById('modelSupportsMic');
   if (supportsMicEl) supportsMicEl.checked = Boolean(model.supportsMic);
-  const toggleKey = document.getElementById('toggleModelKey');
-  if (toggleKey) toggleKey.checked = false;
-  const apiKeyEl = document.getElementById('modelApiKey');
-  if (apiKeyEl) apiKeyEl.type = 'password';
   const modal = document.getElementById('modelModal');
   modal.classList.remove('hidden');
   modal.classList.add('flex');
@@ -738,13 +755,6 @@ export function initModelModalBindings() {
     openBtn.addEventListener('click', () => {
       const website = openBtn.dataset.website || getProviderWebsite(document.getElementById('modelProvider')?.value);
       if (website) window.open(website, '_blank');
-    });
-  }
-  const toggleKey = document.getElementById('toggleModelKey');
-  if (toggleKey) {
-    toggleKey.addEventListener('change', () => {
-      const inp = document.getElementById('modelApiKey');
-      if (inp) inp.type = toggleKey.checked ? 'text' : 'password';
     });
   }
   const { input } = getTagInputState();

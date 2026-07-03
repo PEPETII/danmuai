@@ -220,10 +220,7 @@ export function collectFormData({ usesCustomCredentials = false } = {}) {
   data.floating_panel_font_bold = document.getElementById('floating_panel_font_bold')?.checked ? '1' : '0';
   data.bililive_dm_mode_enabled = document.getElementById('bililive_dm_mode_enabled')?.checked ? '1' : '0';
   data.use_thinking = document.getElementById('use_thinking')?.checked ? '1' : '0';
-  if (!usesCustomCredentials) {
-    const key = (document.getElementById('api_key')?.value || '').trim();
-    if (key && key !== MASKED_API_KEY) data.api_key = key;
-  }
+  // W-GLOBAL-VISUAL-APIKEY-REMOVE-001: 视觉全局 api_key 已下线，不再收集；mic/tts 独立 key 不受影响
   const micKey = (document.getElementById('mic_api_key')?.value || '').trim();
   if (micKey && micKey !== MASKED_API_KEY) data.mic_api_key = micKey;
   return data;
@@ -319,7 +316,7 @@ export async function fillForm(cfg) {
   coreDeps.syncVisionModelPickerFromForm(modelId);
   coreDeps.updateModelActiveSourceBanner(cfg);
   coreDeps.updateMicActiveSourceBanner(cfg);
-  document.getElementById('api_key').value = cfg.has_api_key ? MASKED_API_KEY : '';
+  // W-GLOBAL-VISUAL-APIKEY-REMOVE-001: 视觉全局 api_key 已下线，不再回填 hidden input
   const useThinking = document.getElementById('use_thinking');
   if (useThinking) {
     const v = cfg.use_thinking;

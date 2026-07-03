@@ -601,10 +601,7 @@ export function bindSettingsControls(deps = {}) {
           : active;
         showToast(label ? `配置已保存，当前生效模型：${label}` : '配置已保存~');
         if (onConfigSaved) onConfigSaved();
-        const keyInput = document.getElementById('api_key');
-        if (keyInput?.value && keyInput.value !== MASKED_API_KEY) {
-          keyInput.value = MASKED_API_KEY;
-        }
+        // W-GLOBAL-VISUAL-APIKEY-REMOVE-001: 视觉全局 api_key 已下线，不再回填；mic/tts 独立 key 保留回填
         const micKeyInput = document.getElementById('mic_api_key');
         if (micKeyInput?.value && micKeyInput.value !== MASKED_API_KEY) {
           micKeyInput.value = MASKED_API_KEY;
@@ -623,20 +620,10 @@ export function bindSettingsControls(deps = {}) {
   document.getElementById('btnProbe')?.addEventListener('click', async (e) => {
     const btn = e.currentTarget;
     await window.withLoadingState(btn, btn.textContent, async () => {
-      const usesCustom = getLastAppliedStatus()?.uses_custom_credentials === true;
-      const data = collectFormData({ usesCustomCredentials: usesCustom });
-      const keyField = (document.getElementById('api_key')?.value || '').trim();
       try {
-        const payload = {};
-        if (!usesCustom) {
-          payload.api_endpoint = data.api_endpoint;
-          payload.api_key = keyField === MASKED_API_KEY ? MASKED_API_KEY : (data.api_key || '');
-          payload.model = data.model;
-          payload.api_mode = data.api_mode;
-        }
         const res = await apiFetch('/api/probe', {
           method: 'POST',
-          body: JSON.stringify(payload),
+          body: JSON.stringify({}),
         });
         showToast(res.message || (res.ok ? '连接成功' : '连接失败'), !res.ok);
         if (res.ok) markProbeSuccess();
