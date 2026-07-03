@@ -1083,76 +1083,95 @@ class ConfigStore:
                 raise
 
     def _maybe_migrate_legacy_api_to_custom_models(self) -> bool:
-        """W-LEGACY-MIGRATE-003: 启动期把 legacy 顶栏 API 字段迁移到默认 custom_models 档案。
+        """W-GLOBAL-VISUAL-APIKEY-REMOVE-001: 启动期安全网 + 一次性清空全局视觉凭证。
 
-        触发条件（全部 AND）：
-            1. ``system_flags.legacy_api_migrated_v1`` 不为 ``"true"``
-            2. ``cfg.api_key`` 非空且非 ``MASKED_API_KEY``
-            3. ``get_custom_models()`` 返回空（无任何档案）
+        每次启动运行，但快速秒退：
+        - ``get_api_key()`` 为空 → 已清空，return True
+        - ``get_api_key()`` 非空 + 标志位 true → 之前已尝试且无法清理（分支 C），return True
+        - ``get_api_key()`` 非空 + 标志位非 true → 运行安全网：
+          - 分支 A：存在完整 custom_models 档案 → 清空全局 ``api_key`` / ``api_endpoint`` / ``api_mode``
+          - 分支 B：无完整档案但全局凭证完整（api_key + endpoint + model 均非空）→ 自动建档 + 清空全局
+          - 分支 C：全局凭证不完整 → 记 warning，不清空，置标志位避免重复尝试
 
-        迁移动作：
-            - 推断 provider（``guess_provider_from_endpoint`` 失败兜底 ``custom_openai``）
-            - 推断 mode（doubao provider → ``doubao``；其他 → ``openai-compatible``）
-            - 写入一条默认档案 dict（含 model_ids / default_model_id / max_tokens）
-            - 调 ``set_default_model_selection(config, default_model_id)``
-            - 写标志位 ``legacy_api_migrated_v1 = "true"``
+        保留 ``model`` 字段不动（双写兼容）；保留 ``max_tokens``（全局设置）。
+        ``mic_api_key`` / ``tts_api_key`` / ``danmu_read_api_key`` 职责不同，不受影响。
 
-        兜底（仅置标志位 true，不插档案、不改默认）：
-            - api_key 为空 / MASKED / 解密异常
-            - 已有 custom_models 档案（保护用户数据）
-
-        异常容错：迁移过程中任一步失败 → 不置标志位 → 下次启动重试；
-        记录 ``reason=legacy_migrate_failed`` 日志。
+        异常容错：迁移过程中任一步失败 → 不置标志位 → 下次启动重试。
 
         Returns:
-            True 表示执行了迁移或标志位已 true（无需再迁移）；
-            False 表示异常失败（下次启动重试）。
+            True 表示已完成或无需处理；False 表示异常失败（下次启动重试）。
         """
         try:
-            # 1. 标志位已 true → 直接 return（幂等保证）
-            if self.get_flag("legacy_api_migrated_v1") == "true":
-                return True
-
-            # 2. 读取 cfg.api_key（解密可能抛异常）
+            # 1. 读取 cfg.api_key（解密可能抛异常）
             try:
                 api_key = self.get_api_key()
             except Exception as exc:  # noqa: BLE001 — 解密异常需兜底
                 logger.warning(
-                    "legacy api migrate skipped: api_key decrypt failed",
-                    extra={"reason": "legacy_migrate_failed", "error": str(exc)},
+                    "legacy api cleanup skipped: api_key decrypt failed",
+                    extra={"reason": "legacy_cleanup_failed", "error": str(exc)},
                 )
                 self.set_flag("legacy_api_migrated_v1", "true")
                 return True
 
-            # 3. 空 key / MASKED 兜底：仅置标志位 true
+            # 2. 快速秒退：api_key 已空（已清空或从未设置）
+            if not api_key:
+                return True
+
+            # 3. MASKED key 兜底：仅置标志位 true（测试残留或显示值，非真实 key）
             from app.application.config_service import MASKED_API_KEY
 
-            if not api_key or api_key == MASKED_API_KEY:
+            if api_key == MASKED_API_KEY:
                 self.set_flag("legacy_api_migrated_v1", "true")
                 return True
 
-            # 4. 已有档案兜底：保护用户数据，仅置标志位 true
+            # 4. 标志位已 true + api_key 仍非空 → 分支 C 已命中过，不重试
+            if self.get_flag("legacy_api_migrated_v1") == "true":
+                return True
+
+            # 5. 运行安全网
+            from app.model_providers import (
+                guess_provider_from_endpoint,
+                is_model_config_complete,
+            )
+
             existing_models = self.get_custom_models()
-            if existing_models:
+
+            # 分支 A：存在完整 custom_models 档案 → 清空全局三字段
+            has_complete_profile = any(
+                is_model_config_complete(entry) for entry in existing_models
+            )
+            if has_complete_profile:
+                self.set_api_key("")
+                self.set("api_endpoint", "")
+                self.set("api_mode", "")
+                self.set_flag("legacy_api_migrated_v1", "true")
+                logger.info(
+                    "legacy global api cleaned: complete profile exists",
+                    extra={"reason": "legacy_cleanup_done", "branch": "A"},
+                )
+                return True
+
+            # 分支 B/C：检查全局凭证是否完整
+            endpoint = self.get("api_endpoint", "")
+            cfg_model = self.get("model", "")
+
+            if not endpoint or not cfg_model:
+                # 分支 C：全局凭证不完整，无法建档
+                logger.warning(
+                    "legacy cleanup incomplete: missing endpoint or model",
+                    extra={"reason": "legacy_cleanup_incomplete"},
+                )
                 self.set_flag("legacy_api_migrated_v1", "true")
                 return True
 
-            # 5. 推断 provider（失败兜底 custom_openai）
-            from app.model_providers import guess_provider_from_endpoint
-
-            endpoint = self.get("api_endpoint", "")
+            # 分支 B：全局凭证完整 → 自动建档 + 清空全局
             api_mode = self.get("api_mode", "")
             provider = (
                 guess_provider_from_endpoint(endpoint, api_mode) or "custom_openai"
             )
-
-            # 6. 推断 mode（按 provider 简化判断）
             mode = "doubao" if provider == "doubao" else "openai-compatible"
-
-            # 7. 构造默认档案 dict
-            cfg_model = self.get("model", "")
-            model_ids = [cfg_model] if cfg_model else []
-            default_model_id = cfg_model or ""
+            default_model_id = cfg_model
+            model_ids = [cfg_model]
             max_tokens_raw = self.get("max_tokens", "512")
             try:
                 max_tokens_int = int(max_tokens_raw) if max_tokens_raw else 512
@@ -1172,22 +1191,23 @@ class ConfigStore:
                 "description": "",
             }
 
-            # 8. 写入档案（set_custom_models 会触发缓存失效）
             self.set_custom_models([profile])
 
-            # 9. 调 set_default_model_selection 维护 default_model_id + legacy model 双写
-            if default_model_id:
-                from app.application.config_service import set_default_model_selection
+            from app.application.config_service import set_default_model_selection
 
-                set_default_model_selection(self, default_model_id)
+            set_default_model_selection(self, default_model_id)
 
-            # 10. 写标志位 true（幂等保证：下次启动不再迁移）
+            # 清空全局三字段
+            self.set_api_key("")
+            self.set("api_endpoint", "")
+            self.set("api_mode", "")
             self.set_flag("legacy_api_migrated_v1", "true")
 
             logger.info(
-                "legacy api migrated to default custom model profile",
+                "legacy api migrated to default custom model profile and global cleaned",
                 extra={
-                    "reason": "legacy_migrate_done",
+                    "reason": "legacy_cleanup_done",
+                    "branch": "B",
                     "provider": provider,
                     "model_id": default_model_id,
                 },
@@ -1195,8 +1215,8 @@ class ConfigStore:
             return True
         except Exception as exc:  # noqa: BLE001 — 顶层容错，下次重试
             logger.warning(
-                "legacy api migrate failed",
-                extra={"reason": "legacy_migrate_failed", "error": str(exc)},
+                "legacy api cleanup failed",
+                extra={"reason": "legacy_cleanup_failed", "error": str(exc)},
             )
             return False
 

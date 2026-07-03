@@ -185,12 +185,6 @@ def schedule_screen_cache(bridge: object) -> None:
     QTimer.singleShot(_SCREEN_CACHE_RETRY_DELAYS_MS[0], lambda: _attempt(0))
 
 
-def _mask_api_key(config) -> str:
-    from app.ai_client_requests import visual_credentials_ready
-
-    return MASKED_API_KEY if visual_credentials_ready(config) else ""
-
-
 def _mask_mic_api_key(config) -> str:
     getter = getattr(config, "get_mic_api_key", None)
     if callable(getter) and getter():
@@ -210,10 +204,8 @@ def export_config(config) -> dict[str, Any]:
     from app.web_api.custom_models import _mask_model
 
     data = {key: config_value_with_default(config, key) for key in WEB_CONFIG_KEYS}
-    data["api_key"] = _mask_api_key(config)
-    from app.ai_client_requests import visual_credentials_ready
-
-    data["has_api_key"] = visual_credentials_ready(config)
+    # W-GLOBAL-VISUAL-APIKEY-REMOVE-001: GET /api/config 不再返回 api_key / has_api_key
+    # （has_api_key 仍由 /api/status 经 runtime_state.py 提供）
     active_model_id = resolve_active_model_id(config)
     model_status = resolve_model_status(config)
     data["default_model_id"] = config.get_default_model_id()

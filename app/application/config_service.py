@@ -14,8 +14,6 @@ if TYPE_CHECKING:
 MASKED_API_KEY = "********"
 
 WEB_CONFIG_KEYS = (
-    "api_endpoint",
-    "api_mode",
     "model",
     "temperature",
     "max_tokens",
@@ -222,17 +220,17 @@ class ConfigService:
             if model_id:
                 items["default_model_id"] = model_id
 
-        api_key = _submitted_api_key(payload.get("api_key", ""))
+        # W-GLOBAL-VISUAL-APIKEY-REMOVE-001: 视觉 api_key 写入口已移除；仅 mic_api_key 走加密路径
         mic_api_key = _submitted_api_key(payload.get("mic_api_key", ""))
 
         custom_models: list[dict[str, Any]] | None = None
         if isinstance(payload.get("custom_models"), list):
             custom_models = self._merge_custom_models(payload["custom_models"])
 
-        if items or api_key or mic_api_key or custom_models is not None:
+        if items or mic_api_key or custom_models is not None:
             self._config.apply_web_save(
                 items=items or None,
-                api_key=api_key or None,
+                api_key=None,
                 mic_api_key=mic_api_key or None,
                 custom_models=custom_models,
             )
@@ -244,13 +242,6 @@ class ConfigService:
         self._app.config_changed.emit()
 
     def _normalize_items(self, items: dict[str, str]) -> None:
-        if "api_endpoint" in items or "api_mode" in items:
-            from app.model_providers import normalize_api_mode_for_select
-
-            endpoint = items.get("api_endpoint", self._config.get("api_endpoint", ""))
-            api_mode = items.get("api_mode", self._config.get("api_mode", "doubao"))
-            items["api_mode"] = normalize_api_mode_for_select(api_mode, endpoint)
-
         if "mic_api_endpoint" in items or "mic_api_mode" in items:
             from app.model_providers import normalize_api_mode_for_select
 

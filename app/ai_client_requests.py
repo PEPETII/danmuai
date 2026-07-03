@@ -66,28 +66,22 @@ def get_model_config(config) -> dict:
 
 
 def resolve_request_credentials(config) -> tuple[str, str, str, str] | None:
-    model_config = get_model_config(config)
-    if model_config:
-        endpoint = normalize_endpoint(model_config.get("endpoint", ""))
-        api_key = (model_config.get("apiKey") or "").strip()
-        model_id = (
-            model_config.get("default_model_id") or model_config.get("modelId") or ""
-        ).strip()
-        api_mode = normalize_mode(model_config.get("mode", ""))
-        if not endpoint or not api_key or not model_id:
-            return None
-        return endpoint, api_key, model_id, api_mode
+    """Resolve visual AI credentials from the active custom_models profile.
 
-    endpoint = normalize_endpoint(config.get("api_endpoint", ""))
-    if not endpoint or not is_valid_endpoint(endpoint):
+    W-GLOBAL-VISUAL-APIKEY-REMOVE-001: legacy global api_key/api_endpoint/api_mode
+    fallback removed. Returns None when no complete custom_models profile matches
+    default_model_id; callers surface a credential-gap error to the user.
+    """
+    model_config = get_model_config(config)
+    if not model_config:
         return None
-    api_key = (config.get_api_key() or "").strip()
+    endpoint = normalize_endpoint(model_config.get("endpoint", ""))
+    api_key = (model_config.get("apiKey") or "").strip()
     model_id = (
-        config.get_default_model_id()
-        or config.get("model", "doubao-seed-1-6-flash-250828")
-    )
-    api_mode = normalize_mode(config.get("api_mode", "doubao"))
-    if not api_key or not (model_id or "").strip():
+        model_config.get("default_model_id") or model_config.get("modelId") or ""
+    ).strip()
+    api_mode = normalize_mode(model_config.get("mode", ""))
+    if not endpoint or not api_key or not model_id:
         return None
     return endpoint, api_key, model_id, api_mode
 
@@ -147,7 +141,11 @@ def resolve_mic_request_credentials(config) -> tuple[str, str, str, str] | None:
 
 
 def credential_gap_translation_keys(config) -> list[str]:
-    """Translation keys for missing visual/custom-model credential fields."""
+    """Translation keys for missing visual/custom-model credential fields.
+
+    W-GLOBAL-VISUAL-APIKEY-REMOVE-001: legacy global fallback removed. When no
+    custom_models profile matches, all three fields are reported as missing.
+    """
     model_config = get_model_config(config)
     if model_config:
         gaps: list[str] = []
@@ -159,17 +157,11 @@ def credential_gap_translation_keys(config) -> list[str]:
         if not (model_config.get("modelId") or "").strip():
             gaps.append("custom_model.error_model_id")
         return gaps
-
-    gaps = []
-    endpoint = normalize_endpoint(config.get("api_endpoint", ""))
-    if not endpoint or not is_valid_endpoint(endpoint):
-        gaps.append("custom_model.error_endpoint")
-    if not (config.get_api_key() or "").strip():
-        gaps.append("custom_model.error_api_key")
-    model_id = config.get_default_model_id() or config.get("model", "")
-    if not (model_id or "").strip():
-        gaps.append("custom_model.error_model_id")
-    return gaps
+    return [
+        "custom_model.error_endpoint",
+        "custom_model.error_api_key",
+        "custom_model.error_model_id",
+    ]
 
 
 def mic_credential_gap_translation_keys(config) -> list[str]:

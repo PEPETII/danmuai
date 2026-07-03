@@ -104,25 +104,29 @@ class DanmuAppWebFacadeMixin:
         resolved = resolve_request_credentials(self.config)
         if resolved:
             cred_endpoint, cred_key, cred_model, cred_mode = resolved
-        else:
-            cred_endpoint = self.config.get("api_endpoint", "")
-            cred_key = self.config.get_api_key() or ""
-            cred_model = self.config.get("model", "")
-            cred_mode = self.config.get("api_mode", default_mode)
 
+        explicit_endpoint_or_model = bool(
+            (api_endpoint or "").strip() or (model or "").strip()
+        )
+        explicit_api_key = bool(
+            (api_key or "").strip() and (api_key or "").strip() != MASKED_KEY
+        )
         resolved_key = (api_key or "").strip()
         if not resolved_key or resolved_key == MASKED_KEY:
-            if api_endpoint or model or api_mode:
-                # 调用方显式传入了配置参数（如【API 与模型】界面），回退到全局 api_key
-                resolved_key = self.config.get_api_key() or ""
-            else:
-                resolved_key = cred_key
+            # W-GLOBAL-VISUAL-APIKEY-REMOVE-001: 不再回退全局 get_api_key()；
+            # MASKED 或空 key 时使用档案凭证 key，无档案则 key 为空（由 probe 返回错误）
+            resolved_key = cred_key
+
+        if explicit_endpoint_or_model or explicit_api_key:
+            effective_mode = (api_mode or cred_mode).strip() or default_mode
+        else:
+            effective_mode = (cred_mode or "").strip() or default_mode
 
         result = probe_connection(
             (api_endpoint or cred_endpoint).strip(),
             resolved_key,
             (model or cred_model).strip(),
-            (api_mode or cred_mode).strip() or default_mode,
+            effective_mode,
         )
         return {
             "ok": result.ok,

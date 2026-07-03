@@ -23,11 +23,9 @@ from app.model_providers import (
     guess_provider_from_endpoint,
     is_model_config_complete,
     is_valid_endpoint,
-    normalize_api_mode_for_select,
     normalize_endpoint,
     provider_label,
     resolve_active_model_id,
-    validate_endpoint_mode_consistency,
 )
 from app.translations import tr
 
@@ -69,7 +67,12 @@ def validate_global_model_selection(
     model_id: str,
     custom_models: list[Any],
 ) -> None:
-    """Reject invalid global model + endpoint combinations before persisting."""
+    """Reject invalid global model + endpoint combinations before persisting.
+
+    Deprecated (W-GLOBAL-VISUAL-APIKEY-REMOVE-001): kept for unit test coverage;
+    no longer called from validate_web_config_patch. Visual credentials must
+    come from a complete custom_models profile.
+    """
     mid = (model_id or "").strip()
     if not mid:
         raise ValueError(tr("config.error_model_id_required"))
@@ -109,7 +112,11 @@ def _uses_complete_custom_model(config, model_id: str) -> bool:
 
 
 def visual_api_endpoint_issue(config) -> str | None:
-    """Return user-facing error if global visual credentials lack a valid endpoint."""
+    """Return user-facing error if the active custom_models profile lacks a valid endpoint.
+
+    W-GLOBAL-VISUAL-APIKEY-REMOVE-001: legacy global api_endpoint fallback removed.
+    Returns error_api_endpoint_required when no complete custom_models profile exists.
+    """
     model_id = resolve_active_model_id(config)
     if _uses_complete_custom_model(config, model_id):
         custom = _custom_model_by_id(_custom_models_list(config), model_id)
@@ -117,21 +124,19 @@ def visual_api_endpoint_issue(config) -> str | None:
         if not is_valid_endpoint(endpoint):
             return tr("config.error_api_endpoint_invalid")
         return None
-    endpoint = normalize_endpoint(config.get("api_endpoint", ""))
-    if not endpoint:
-        return tr("config.error_api_endpoint_required")
-    if not is_valid_endpoint(endpoint):
-        return tr("config.error_api_endpoint_invalid")
-    return None
+    return tr("config.error_api_endpoint_required")
 
 
 def validate_web_config_patch(config, payload: dict[str, Any]) -> None:
-    """Validate model selection for PUT /api/config (call before emit / set_batch)."""
+    """Validate model selection for PUT /api/config (call before emit / set_batch).
+
+    W-GLOBAL-VISUAL-APIKEY-REMOVE-001: removed legacy global api_endpoint/api_mode
+    validation and validate_global_model_selection call. Visual credentials must
+    come from a complete custom_models profile.
+    """
     touches = {
         "model",
         "default_model_id",
-        "api_endpoint",
-        "api_mode",
         "mic_api_endpoint",
         "mic_api_mode",
         "mic_use_visual_model",
@@ -139,19 +144,6 @@ def validate_web_config_patch(config, payload: dict[str, Any]) -> None:
     if not touches.intersection(payload.keys()):
         return
 
-    if "api_endpoint" in payload:
-        endpoint_val = str(payload.get("api_endpoint", "")).strip()
-        if endpoint_val and not is_valid_endpoint(endpoint_val):
-            raise ValueError(tr("config.error_api_endpoint_invalid"))
-
-    endpoint = str(payload.get("api_endpoint", config.get("api_endpoint", ""))).strip()
-    api_mode_raw = str(payload.get("api_mode", config.get("api_mode", "doubao")))
-    # Align with probe/runtime: known hosts dictate transport; raw api_mode may be stale
-    # after the user edits endpoint without touching the mode select.
-    api_mode = normalize_api_mode_for_select(api_mode_raw, endpoint)
-    mode_mismatch = validate_endpoint_mode_consistency(endpoint, api_mode)
-    if mode_mismatch:
-        raise ValueError(tr(mode_mismatch))
     model_id = str(
         payload.get("model")
         or payload.get("default_model_id")
@@ -159,22 +151,10 @@ def validate_web_config_patch(config, payload: dict[str, Any]) -> None:
         or config.get("model", "")
     ).strip()
 
-    custom_models = _custom_models_list(config)
-
     if model_id:
-        uses_custom = _uses_complete_custom_model(config, model_id)
-        if not uses_custom:
-            if not endpoint:
-                raise ValueError(tr("config.error_api_endpoint_required"))
-            if not is_valid_endpoint(endpoint):
-                raise ValueError(tr("config.error_api_endpoint_invalid"))
-
-            validate_global_model_selection(
-                endpoint,
-                api_mode,
-                model_id,
-                custom_models,
-            )
+        # 视觉凭证必须来自完整 custom_models 档案；不再校验全局 api_endpoint/api_mode
+        if not _uses_complete_custom_model(config, model_id):
+            raise ValueError(tr("config.error_model_id_required"))
     elif "model" in payload or "default_model_id" in payload:
         raise ValueError(tr("config.error_model_id_required"))
 

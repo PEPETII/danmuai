@@ -101,7 +101,7 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
         api_endpoint: str = ""
         api_key: str = ""
         model: str = ""
-        api_mode: str = "doubao"
+        api_mode: str = ""
 
     class DanmuPoolSettingsPayload(BaseModel):
         custom_enabled: bool | None = None

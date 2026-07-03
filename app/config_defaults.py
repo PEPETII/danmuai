@@ -178,7 +178,7 @@ def export_web_config_defaults() -> dict[str, str]:
     from app.application.config_service import WEB_CONFIG_KEYS
 
     defaults = {key: CONFIG_DEFAULTS.get(key, "") for key in WEB_CONFIG_KEYS}
-    defaults["api_endpoint"] = _default_api_endpoint()
+    # W-GLOBAL-VISUAL-APIKEY-REMOVE-001: api_endpoint 已从 WEB_CONFIG_KEYS 移除，不再注入默认值
     default_model = _default_model_id()
     defaults["model"] = default_model
     defaults["mic_api_endpoint"] = _default_mic_api_endpoint()
