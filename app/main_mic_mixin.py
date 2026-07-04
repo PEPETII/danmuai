@@ -18,7 +18,11 @@ from app.main_helpers import MAX_MIC_IN_FLIGHT
 from app.mic_encode import pcm_to_wav_data_uri
 from app.mic_prompt import build_mic_insert_user_pt, mic_insert_reply_count
 from app.mic_service import mic_mode_enabled
-from app.model_providers import mic_audio_supported_for_mic_config, resolve_mic_model_id
+from app.model_providers import (
+    mic_audio_supported_for_mic_config,
+    mic_audio_unsupported_message,
+    resolve_mic_model_id,
+)
 from app.personae import append_live_topic_to_system_pt, append_nickname_to_system_pt
 from app.reply_parser import normalize_reply_batch, parse_ai_reply_payload
 from app.screenshot_compress import (
@@ -58,11 +62,23 @@ class DanmuAppMicMixin:
             resolve_active_model_id_fn=lambda: resolve_mic_model_id(self.config),
         )
         if self._mic_orchestrator.detector is not None:
+            # BUG-014: mic 已就绪（模型支持 + 采集运行中）→ 清掉之前的 unsupported 错误条
+            if self._mic_unsupported_error_active:
+                self._mic_unsupported_error_active = False
+                self.set_web_error_status("", is_error=False)
             self._mic_poll_timer.stop()
             self._mic_poll_timer.start(MIC_POLL_PHASE_MS)
             QTimer.singleShot(1500, self._calibrate_mic_noise_floor)
         else:
             self._mic_poll_timer.stop()
+
+    def _on_mic_model_unsupported(self, model_id: str) -> None:
+        """BUG-014: mic 模型不支持时，把错误推到 Web 状态栏。"""
+        self._mic_unsupported_error_active = True
+        self.set_web_error_status(
+            mic_audio_unsupported_message(model_id),
+            is_error=True,
+        )
 
     def _calibrate_mic_noise_floor(self) -> None:
         self._mic_orchestrator.calibrate_noise_floor(

@@ -32,12 +32,12 @@
         </div>
         <div>
           <label class="text-sm font-semibold text-warmText">显示名称 <span class="text-xs font-normal text-gray-400">（仅界面展示，不参与 API）</span></label>
-          <input id="modelName" class="w-full px-4 py-2 bg-cream rounded-xl mt-1" placeholder="例如：豆包 Pro 32K">
+          <input id="modelName" class="w-full px-4 py-2 bg-cream rounded-xl mt-1" data-i18n-placeholder="modals.placeholder.例如_豆包_Pro_32K" placeholder="例如：豆包 Pro 32K">
         </div>
         <div id="modelIdsTagsWrap">
           <label class="text-sm font-semibold text-warmText">模型 ID 列表 <span class="text-xs font-normal text-gray-400">（回车或逗号添加，点击 chip 切换默认）</span></label>
           <div id="modelIdsTags" class="tag-input-container mt-1">
-            <input id="modelIdsInput" class="tag-input" placeholder="例如：doubao-1-5-pro-32k-250115">
+            <input id="modelIdsInput" class="tag-input" data-i18n-placeholder="dynamic.settingsCustomModels.例如_doubao_1_5_pro_32k_25" placeholder="例如：doubao-1-5-pro-32k-250115">
           </div>
           <p class="text-xs text-gray-400 mt-1">第一个 chip 自动设为默认；删除默认 chip 后剩余第一个自动成为默认。</p>
         </div>
@@ -62,7 +62,7 @@
         </div>
         <div>
           <label class="text-sm font-semibold text-warmText">备注</label>
-          <input id="modelDescription" class="w-full px-4 py-2 bg-cream rounded-xl mt-1" placeholder="备注用途，如“识图主力模型”">
+          <input id="modelDescription" class="w-full px-4 py-2 bg-cream rounded-xl mt-1" data-i18n-placeholder="modals.placeholder.备注用途_如_识图主力模型" placeholder="备注用途，如“识图主力模型”">
         </div>
         <div>
           <label class="flex items-center gap-2 text-sm font-semibold text-warmText">
@@ -119,11 +119,11 @@
       <div class="space-y-3 mb-4">
         <div>
           <label for="errorReportUserNote" class="block text-sm font-semibold text-warmText mb-1">补充说明 <span class="text-xs font-normal text-gray-400">（可选，如复现步骤、期望行为）</span></label>
-          <textarea id="errorReportUserNote" rows="3" maxlength="1000" class="w-full px-4 py-2 bg-cream rounded-xl text-sm resize-y" placeholder="例如：刚切换自定义豆包后出现，期望提示填写 API 地址"></textarea>
+          <textarea id="errorReportUserNote" rows="3" maxlength="1000" class="w-full px-4 py-2 bg-cream rounded-xl text-sm resize-y" data-i18n-placeholder="modals.placeholder.例如_刚切换自定义豆包后出现_期望提示填写_API_地址" placeholder="例如：刚切换自定义豆包后出现，期望提示填写 API 地址"></textarea>
         </div>
         <div>
           <label for="errorReportContact" class="block text-sm font-semibold text-warmText mb-1">联系方式 <span class="text-xs font-normal text-gray-400">（可选）</span></label>
-          <input id="errorReportContact" type="text" maxlength="200" class="w-full px-4 py-2 bg-cream rounded-xl text-sm" placeholder="邮箱 / QQ / 微信，便于跟进">
+          <input id="errorReportContact" type="text" maxlength="200" class="w-full px-4 py-2 bg-cream rounded-xl text-sm" data-i18n-placeholder="modals.placeholder.邮箱_QQ_微信_便于跟进" placeholder="邮箱 / QQ / 微信，便于跟进">
         </div>
         <p id="errorReportQuotaHint" class="text-xs text-gray-500"></p>
       </div>

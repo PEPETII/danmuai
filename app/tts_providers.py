@@ -20,6 +20,7 @@ import httpx
 
 from app.errors import TtsError
 from app.model_providers import normalize_endpoint
+from app.translations import tr
 from app.tts_audio_utils import ensure_wav_bytes, pcm_to_wav
 
 logger = logging.getLogger(__name__)
@@ -38,17 +39,15 @@ MIMO_TTS_VOICES: tuple[str, ...] = (
     "Dean",
 )
 DEFAULT_TTS_VOICE = "冰糖"
-TTS_PROBE_TEXT = "你好，这是一条读弹幕试听。"
+TTS_PROBE_TEXT = tr("tts.probeText")
 
 TTS_PROVIDER_MIMO = "mimo"
 TTS_PROVIDER_DASHSCOPE_QWEN = "dashscope_qwen"
 _LEGACY_TTS_CUSTOM_OPENAI = "custom_openai"
 _LEGACY_TTS_DOUBAO = "doubao"
 
-_UNSUPPORTED_CUSTOM_TTS_MSG = (
-    "不再支持自定义 OpenAI 兼容 TTS，请改选 MiMo/百炼"
-)
-_UNSUPPORTED_DOUBAO_TTS_MSG = "不再支持火山豆包语音 TTS，请改选 MiMo 或百炼"
+_UNSUPPORTED_CUSTOM_TTS_MSG = tr("tts.unsupportedCustom")
+_UNSUPPORTED_DOUBAO_TTS_MSG = tr("tts.unsupportedDoubao")
 
 _PRESET_TTS_PROVIDERS = frozenset(
     {TTS_PROVIDER_MIMO, TTS_PROVIDER_DASHSCOPE_QWEN}
@@ -67,11 +66,7 @@ DanmuTtsError = TtsError
 def tts_audio_unsupported_message(model_id: str) -> str:
     """读弹幕为 TTS 链路；普通 chat 模型响应无 message.audio.data 时提示用户。"""
     mid = (model_id or "").strip() or "?"
-    return (
-        f"当前 provider/model「{mid}」不支持读弹幕 TTS 音频输出。"
-        "请使用支持 chat/completions 且响应含 message.audio.data 的 TTS 模型"
-        "（如小米 MiMo mimo-v2.5-tts）；普通聊天/视觉模型无法朗读。"
-    )
+    return tr("tts.unsupportedProvider").format(model_id=mid)
 
 
 def _extract_http_error_message(exc: httpx.HTTPStatusError) -> str:
@@ -202,7 +197,7 @@ def validate_custom_tts_fields(
         return
     if pid == TTS_PROVIDER_DASHSCOPE_QWEN:
         if not model_id:
-            raise ValueError("请选择百炼 Qwen3 模型")
+            raise ValueError(tr("tts.error.selectQwenModel"))
         return
 
 
@@ -282,7 +277,7 @@ def _build_chat_audio_payload(
 ) -> dict[str, Any]:
     content = (text or "").strip()
     if not content:
-        raise DanmuTtsError("朗读文本为空")
+        raise DanmuTtsError(tr("tts.error.emptyText"))
 
     messages: list[dict[str, str]] = []
     style = (style_prompt or "").strip()
@@ -311,7 +306,7 @@ def _post_chat_audio(
 ) -> bytes:
     key = (api_key or "").strip()
     if not key:
-        raise DanmuTtsError("未配置 TTS API Key")
+        raise DanmuTtsError(tr("tts.error.noApiKey"))
 
     url = f"{resolved.endpoint.rstrip('/')}/chat/completions"
     headers = {
@@ -324,13 +319,13 @@ def _post_chat_audio(
             response.raise_for_status()
             body = response.json()
     except httpx.TimeoutException as exc:
-        raise DanmuTtsError("TTS 请求超时") from exc
+        raise DanmuTtsError(tr("tts.error.timeout")) from exc
     except httpx.HTTPStatusError as exc:
         detail = _extract_http_error_message(exc)
         code = exc.response.status_code
         raise DanmuTtsError(detail or f"TTS HTTP {code}") from exc
     except httpx.HTTPError as exc:
-        raise DanmuTtsError(f"TTS 网络错误: {exc}") from exc
+        raise DanmuTtsError(tr("tts.error.network").format(error=exc)) from exc
 
     try:
         return _decode_audio_wav_from_body(body, model_id=resolved.model)
@@ -338,14 +333,14 @@ def _post_chat_audio(
         raise
     except (OSError, ValueError, TypeError, KeyError) as exc:
         logger.debug("tts response parse failed: %s", exc)
-        raise DanmuTtsError("TTS 响应解析失败") from exc
+        raise DanmuTtsError(tr("tts.error.parseFailed")) from exc
 
 
 def _decode_audio_wav_from_body(body: dict[str, Any], *, model_id: str) -> bytes:
     """解析 chat/completions 响应中的 base64 WAV；文本-only 响应给出 TTS 能力提示。"""
     choices = body.get("choices") or []
     if not choices:
-        raise DanmuTtsError("TTS 响应无音频数据")
+        raise DanmuTtsError(tr("tts.error.noAudioData"))
     message = choices[0].get("message") or {}
     audio = message.get("audio") or {}
     data_b64 = audio.get("data") or ""
@@ -354,7 +349,7 @@ def _decode_audio_wav_from_body(body: dict[str, Any], *, model_id: str) -> bytes
     content = message.get("content")
     if isinstance(content, str) and content.strip():
         raise DanmuTtsError(tts_audio_unsupported_message(model_id))
-    raise DanmuTtsError("TTS 响应无音频数据")
+    raise DanmuTtsError(tr("tts.error.noAudioData"))
 
 
 class MimoTtsAdapter:
@@ -393,12 +388,12 @@ class QwenTtsHttpAdapter:
     ) -> bytes:
         key = (api_key or "").strip()
         if not key:
-            raise DanmuTtsError("未配置百炼 API Key")
+            raise DanmuTtsError(tr("tts.error.bailianNoApiKey"))
         try:
             import dashscope
             from dashscope import MultiModalConversation
         except ImportError as exc:
-            raise DanmuTtsError("未安装 dashscope，请 pip install dashscope") from exc
+            raise DanmuTtsError(tr("tts.error.dashscopeMissing")) from exc
 
         dashscope.api_key = key
         voice_id = normalize_tts_voice(
@@ -406,7 +401,7 @@ class QwenTtsHttpAdapter:
         )
         content = (text or "").strip()
         if not content:
-            raise DanmuTtsError("朗读文本为空")
+            raise DanmuTtsError(tr("tts.error.emptyText"))
 
         try:
             response = MultiModalConversation.call(
@@ -418,18 +413,19 @@ class QwenTtsHttpAdapter:
                 stream=False,
             )
         except (ImportError, AttributeError, TypeError, ValueError, OSError) as exc:
-            raise DanmuTtsError(f"百炼 TTS 请求失败: {exc}") from exc
+            raise DanmuTtsError(tr("tts.error.bailianRequestFailed").format(error=exc)) from exc
 
         if getattr(response, "status_code", None) != 200:
+            code = getattr(response, 'status_code', '?')
             raise DanmuTtsError(
                 getattr(response, "message", None)
-                or f"百炼 TTS HTTP {getattr(response, 'status_code', '?')}"
+                or tr("tts.error.bailianHttpError").format(code=code)
             )
 
         output = getattr(response, "output", None) or {}
         audio = output.get("audio") if isinstance(output, dict) else getattr(output, "audio", None)
         if not audio:
-            raise DanmuTtsError("百炼 TTS 响应无音频")
+            raise DanmuTtsError(tr("tts.error.bailianNoAudio"))
 
         url = audio.get("url") if isinstance(audio, dict) else getattr(audio, "url", "")
         if url:
@@ -439,12 +435,12 @@ class QwenTtsHttpAdapter:
                     r.raise_for_status()
                     return ensure_wav_bytes(r.content)
             except httpx.HTTPError as exc:
-                raise DanmuTtsError(f"百炼音频下载失败: {exc}") from exc
+                raise DanmuTtsError(tr("tts.error.bailianDownloadFailed").format(error=exc)) from exc
 
         data_b64 = audio.get("data") if isinstance(audio, dict) else getattr(audio, "data", "")
         if data_b64:
             return ensure_wav_bytes(base64.b64decode(data_b64))
-        raise DanmuTtsError("百炼 TTS 响应无音频 URL 或数据")
+        raise DanmuTtsError(tr("tts.error.bailianNoAudioUrl"))
 
 
 class QwenTtsRealtimeAdapter:
@@ -464,10 +460,10 @@ class QwenTtsRealtimeAdapter:
 
         key = (api_key or "").strip()
         if not key:
-            raise DanmuTtsError("未配置百炼 API Key")
+            raise DanmuTtsError(tr("tts.error.bailianNoApiKey"))
         content = (text or "").strip()
         if not content:
-            raise DanmuTtsError("朗读文本为空")
+            raise DanmuTtsError(tr("tts.error.emptyText"))
 
         try:
             import dashscope
@@ -477,7 +473,7 @@ class QwenTtsRealtimeAdapter:
                 QwenTtsRealtimeCallback,
             )
         except ImportError as exc:
-            raise DanmuTtsError("未安装 dashscope，请 pip install dashscope>=1.24.6") from exc
+            raise DanmuTtsError(tr("tts.error.dashscopeMissing")) from exc
 
         from app.tts_catalog import model_supports_style
 
@@ -529,12 +525,12 @@ class QwenTtsRealtimeAdapter:
             while not state["closed"] and (time.perf_counter() - t0) < timeout_sec:
                 time.sleep(0.05)
         except (ImportError, AttributeError, TypeError, ValueError, OSError) as exc:
-            raise DanmuTtsError(f"百炼实时 TTS 失败: {exc}") from exc
+            raise DanmuTtsError(tr("tts.error.bailianRealtimeFailed").format(error=exc)) from exc
 
         if state["error"]:
             raise DanmuTtsError(state["error"])
         if not pcm_chunks:
-            raise DanmuTtsError("百炼实时 TTS 无音频数据")
+            raise DanmuTtsError(tr("tts.error.bailianRealtimeNoAudio"))
         return pcm_to_wav(b"".join(pcm_chunks))
 
 
@@ -557,7 +553,7 @@ def get_tts_adapter(provider_id: str, *, model_id: str = "") -> TtsSynthesisAdap
     adapter = _ADAPTERS.get(pid)
     if adapter is not None:
         return adapter
-    raise ValueError(f"不支持的 TTS 平台：{pid or '?'}")
+    raise ValueError(tr("tts.error.unsupportedPlatform").format(platform=pid or '?'))
 
 
 def synthesize_tts(

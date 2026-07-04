@@ -1,7 +1,39 @@
 /* 主题切换 — 弹幕设置页右上角 */
 .theme-toggle-wrap {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* 语言切换下拉 — 主题按钮左侧 */
+.lang-select-wrap {
+  display: inline-flex;
+  align-items: center;
+}
+
+.lang-select {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.5rem 0.85rem;
+  border-radius: var(--radius-md);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-warm);
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+
+.lang-select:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary-hover);
+}
+
+.lang-select:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.25);
 }
 
 .theme-toggle-btn {

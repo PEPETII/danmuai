@@ -25,7 +25,7 @@ from app.personae import (
 )
 from app.persona_contract import append_nickname_to_system_pt, append_live_topic_to_system_pt
 from app.templates import TemplateManager
-from app.translations import Translator
+from app.translations import Translator, tr
 
 if TYPE_CHECKING:
     from main import DanmuApp
@@ -60,7 +60,7 @@ def get_template_detail(app: "DanmuApp", name: str) -> dict[str, Any]:
 
     name = normalize_persona_name(name)
     if name not in personae.list():
-        raise ValueError("人格不存在")
+        raise ValueError(tr("persona.notFound"))
 
     is_builtin = name in BUILTIN_PERSONAE
 
@@ -138,7 +138,7 @@ def create_persona(app: "DanmuApp", name: str) -> dict[str, Any]:
 
     name = normalize_persona_name(validate_persona_name(name))
     if name in app.personae.list():
-        raise ValueError("人格名称已存在")
+        raise ValueError(tr("persona.alreadyExists"))
 
     user_pt = default_user_prompt()
     full_system = ensure_reply_contract("", app.config)
@@ -153,7 +153,7 @@ def delete_persona(app: "DanmuApp", name: str) -> None:
 
     name = normalize_persona_name(name)
     if name in BUILTIN_PERSONAE:
-        raise ValueError("内置人格不可删除")
+        raise ValueError(tr("persona.builtinCannotDelete"))
     app.personae.delete_custom(name)
     app.config_changed.emit()
 
@@ -163,7 +163,7 @@ def restore_builtin_default(app: "DanmuApp", name: str) -> dict[str, Any]:
 
     name = normalize_persona_name(name)
     if name not in BUILTIN_PERSONAE:
-        raise ValueError("仅内置人格可恢复默认")
+        raise ValueError(tr("persona.onlyBuiltinCanRestore"))
 
     app.personae.delete_custom(name)
     app.config_changed.emit()

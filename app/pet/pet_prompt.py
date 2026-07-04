@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from app.translations import Translator
+
 PET_COMMAND_BLOCK_TEMPLATE = (
     "【桌宠观众指令 · 本批优先】\n"
     "用户刚刚通过桌宠输入了以下内容。本批弹幕必须同时回应这条指令与当前截图画面，"
@@ -16,14 +18,49 @@ PET_COMMAND_BLOCK_TEMPLATE = (
     "- 仍遵守字数、数量、风格、去重和安全限制。"
 )
 
+PET_COMMAND_BLOCK_TEMPLATE_EN = (
+    "[Desktop pet viewer command · priority this batch]\n"
+    "The user just sent the following via the desktop pet. This batch must respond to "
+    "both this command and the current screenshot — do not comment on the screen alone "
+    "while ignoring the command.\n"
+    "Command:\n"
+    "{command_text}\n\n"
+    "Notes:\n"
+    "- At least half the danmu should echo or riff on this command (synonyms, split "
+    "phrases, callbacks — short and colloquial).\n"
+    "- The rest should weave the command theme into on-screen details (greetings match "
+    "the mood, roasts match visible elements).\n"
+    "- For greetings, slogans, or mood lines, similar phrasing is fine so viewers sense "
+    "what the user said.\n"
+    "- No explanations; output only a JSON string array in DanmuAI danmu format.\n"
+    "- Still obey length, count, style, dedup, and safety limits."
+)
+
 PET_COMMAND_SYSTEM_LINE_TEMPLATE = (
     "[桌宠指令：{command_text}；本批须同时回应此指令与当前画面，指令主题不可忽视，"
     "不可只评论画面]"
 )
 
+PET_COMMAND_SYSTEM_LINE_TEMPLATE_EN = (
+    "[Pet command: {command_text}; this batch must respond to this command and the "
+    "current screen — the command theme must not be ignored; do not comment on screen only]"
+)
+
+
+def _pet_command_block_template() -> str:
+    if Translator.get_language() == "en":
+        return PET_COMMAND_BLOCK_TEMPLATE_EN
+    return PET_COMMAND_BLOCK_TEMPLATE
+
+
+def _pet_command_system_line_template() -> str:
+    if Translator.get_language() == "en":
+        return PET_COMMAND_SYSTEM_LINE_TEMPLATE_EN
+    return PET_COMMAND_SYSTEM_LINE_TEMPLATE
+
 
 def build_pet_command_user_pt(user_pt: str, command_text: str) -> str:
-    block = PET_COMMAND_BLOCK_TEMPLATE.format(command_text=(command_text or "").strip())
+    block = _pet_command_block_template().format(command_text=(command_text or "").strip())
     base = (user_pt or "").rstrip()
     if not base:
         return block
@@ -35,7 +72,7 @@ def append_pet_command_to_system_pt(system_pt: str, command_text: str) -> str:
     cleaned = (command_text or "").strip()
     if not cleaned:
         return system_pt
-    suffix = PET_COMMAND_SYSTEM_LINE_TEMPLATE.format(command_text=cleaned)
+    suffix = _pet_command_system_line_template().format(command_text=cleaned)
     base = (system_pt or "").rstrip()
     if not base:
         return suffix

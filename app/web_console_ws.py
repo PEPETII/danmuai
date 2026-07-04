@@ -76,12 +76,20 @@ async def _authenticate_websocket(websocket, expected_token: str, timeout_sec: f
     保留 query 参数 ws_token 作为向后兼容（优先使用首次消息认证）。
     """
 
-    # 优先检查 query 参数（向后兼容）
+    # query 参数（向后兼容）：显式 token 错误时立即拒绝
     query_token = websocket.query_params.get("ws_token")
-    if query_token and query_token.strip() == expected_token:
-        return True
+    if query_token is not None:
+        token_text = str(query_token).strip()
+        if token_text and token_text == expected_token:
+            return True
+        if not await _send_json_with_timeout(
+            websocket, {"type": "auth", "ok": False, "error": "认证失败"}
+        ):
+            return False
+        await websocket.close(code=1008, reason="认证失败")
+        return False
 
-    # 首次消息认证
+    # 连接后首条消息认证
     try:
         data = await asyncio.wait_for(websocket.receive_json(), timeout=timeout_sec)
         if isinstance(data, dict) and data.get("type") == "auth":
@@ -113,6 +121,7 @@ async def _authenticate_websocket(websocket, expected_token: str, timeout_sec: f
 
 def register_websocket_routes(app, bridge, token: str, websocket_route, websocket_disconnect) -> None:
     async def _ws_status_endpoint(websocket):
+        await websocket.accept()
         if not await _authenticate_websocket(websocket, token):
             return
         if len(bridge._ws_status_queues) >= _WS_MAX_STATUS_CONSUMERS:
@@ -120,7 +129,6 @@ def register_websocket_routes(app, bridge, token: str, websocket_route, websocke
             return
         client = websocket.client
         peer = f"{client.host}:{client.port}" if client else "unknown"
-        await websocket.accept()
         bridge._ws_log_debug(f"WebSocket /ws/status accepted peer={peer}")
         queue: asyncio.Queue = asyncio.Queue(maxsize=64)
         bridge.register_status_consumer(queue)
@@ -144,6 +152,7 @@ def register_websocket_routes(app, bridge, token: str, websocket_route, websocke
             bridge.unregister_status_consumer(queue)
 
     async def _ws_logs_endpoint(websocket):
+        await websocket.accept()
         if not await _authenticate_websocket(websocket, token):
             return
         if len(bridge._ws_log_queues) >= _WS_MAX_LOG_CONSUMERS:
@@ -151,7 +160,6 @@ def register_websocket_routes(app, bridge, token: str, websocket_route, websocke
             return
         client = websocket.client
         peer = f"{client.host}:{client.port}" if client else "unknown"
-        await websocket.accept()
         bridge._ws_log_debug(f"WebSocket /ws/logs accepted peer={peer}")
         queue: asyncio.Queue = asyncio.Queue(maxsize=200)
         bridge.register_log_consumer(queue)

@@ -80,6 +80,28 @@ def test_status_track_layout_empty_tracks(workspace_tmp):
     assert layout["track_ys"] == []
 
 
+def test_status_track_layout_reads_engine_metrics(workspace_tmp):
+    """BUG-024: projection prefers engine _track_* fields over hardcoded defaults."""
+    config = ConfigStore(db_path=workspace_tmp / "track_layout_metrics.db")
+    engine = SimpleNamespace(
+        running=True,
+        tracks=[Track(y=100.0)],
+        screen_height=1080.0,
+        screen_width=1920.0,
+        drawable_height=lambda: 540.0,
+        _track_line_height=80.0,
+        _track_top_margin=100.0,
+        _track_bottom_margin=160.0,
+    )
+    app = _track_layout_app(config, tracks=engine.tracks, screen_h=1080.0, screen_w=1920.0)
+    app.engine = engine
+
+    layout = StatusSnapshotBuilder(app).build()["danmu_track_layout"]
+    assert layout["line_height"] == 80.0
+    assert layout["top_margin"] == 100.0
+    assert layout["bottom_margin"] == 160.0
+
+
 def test_status_track_layout_layout_mode_fallback(workspace_tmp):
     """未知 layout_mode 归一化为 fullscreen。"""
     config = ConfigStore(db_path=workspace_tmp / "track_layout_mode.db")

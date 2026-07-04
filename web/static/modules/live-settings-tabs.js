@@ -8,6 +8,7 @@
  */
 
 import { apiFetch } from './transport.js';
+import { t } from './i18n.js';
 
 let activeLiveSettingsTabId = 'live-output';
 let toast = () => {};
@@ -58,9 +59,9 @@ export function initLiveSettingsTabs() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ bililive_dm_mode_enabled: checked ? '1' : '0' }),
       });
-      toast('弹幕姬模式设置已保存');
+      toast(t('dynamic.liveSettingsTabs.弹幕姬模式设置已保存'));
     } catch (err) {
-      toast(err.message || '保存失败', true);
+      toast(err.message || t('dynamic.liveSettingsTabs.保存失败'), true);
     }
   });
   // 5. 初始化默认 Tab

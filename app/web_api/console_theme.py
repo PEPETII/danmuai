@@ -12,6 +12,8 @@ from __future__ import annotations
 
 from fastapi import HTTPException
 
+from app.translations import tr
+
 CONSOLE_THEME_KEY = "console_theme"
 DEFAULT_CONSOLE_THEME = "dark"
 _VALID_THEMES = frozenset({"light", "dark"})
@@ -37,8 +39,8 @@ def validate_payload(body: dict) -> str:
     if theme is None:
         theme = DEFAULT_CONSOLE_THEME
     if not isinstance(theme, str):
-        raise HTTPException(status_code=400, detail="theme 必须为字符串")
+        raise HTTPException(status_code=400, detail=tr("validation.themeMustBeString"))
     normalized = theme.strip().lower()
     if normalized not in _VALID_THEMES:
-        raise HTTPException(status_code=400, detail="theme 仅允许 light 或 dark")
+        raise HTTPException(status_code=400, detail=tr("validation.themeMustBeLightOrDark"))
     return normalized

@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+from app.translations import tr
 from fastapi import HTTPException
 
 APP_UPDATE_STATE_KEY = "app_update_state"
@@ -39,7 +40,7 @@ def validate_payload(body: dict) -> dict[str, str]:
         dismissed = ""
     if not isinstance(dismissed, str):
         raise HTTPException(
-            status_code=400, detail="dismissedLatestVersion 必须为字符串"
+            status_code=400, detail=tr("validation.dismissedLatestVersionMustBeString")
         )
     dismissed = dismissed.strip()
     if dismissed:
@@ -49,7 +50,7 @@ def validate_payload(body: dict) -> dict[str, str]:
             parse_version(dismissed)
         except ValueError as exc:
             raise HTTPException(
-                status_code=400, detail="dismissedLatestVersion 版本格式无效"
+                status_code=400, detail=tr("validation.dismissedLatestVersionInvalid")
             ) from exc
         dismissed = normalize_version(dismissed)
     return {"dismissedLatestVersion": dismissed}

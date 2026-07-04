@@ -16,6 +16,7 @@ from PIL import UnidentifiedImageError
 
 from app.config_defaults import DEFAULT_IMAGE_MAX_WIDTH
 from app.image_compress import compress_image_bytes
+from app.translations import tr
 from app.web_api.auth import require_auth
 
 
@@ -34,8 +35,8 @@ def register_preview_compress_route(app, check_token: Callable) -> None:
         quality = max(1, min(quality, 95))
         data = await file.read()
         if len(data) > 10 * 1024 * 1024:
-            raise HTTPException(status_code=400, detail="图片太大了，请换一张小一点的~")
+            raise HTTPException(status_code=400, detail=tr("previewCompress.imageTooLarge"))
         try:
             return compress_image_bytes(data, max_width=max_width, quality=quality)
         except (OSError, ValueError, UnidentifiedImageError) as exc:
-            raise HTTPException(status_code=400, detail=f"小助手读不懂这张图：{exc}") from exc
+            raise HTTPException(status_code=400, detail=tr("previewCompress.imageReadFailed", default="Could not read this image: {error}").format(error=exc)) from exc

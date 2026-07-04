@@ -1,4 +1,5 @@
 import { API, apiFetch } from './transport.js';
+import { t } from './i18n.js';
 import { activateFocusTrap, deactivateFocusTrap } from './modal-focus-trap.js';
 import { buildDiagnosticReportText } from './diagnostics.js';
 import {
@@ -287,19 +288,19 @@ function updateErrorReportQuotaHint(quota) {
   const submitBtn = document.getElementById('btnErrorReportSubmit');
   if (!el) return;
   if (!quota) {
-    el.textContent = '暂时无法查询提交额度';
+    el.textContent = t('dynamic.appErrorReporting.暂时无法查询提交额度');
     if (submitBtn) submitBtn.disabled = false;
     return;
   }
   const remaining = Number(quota.remaining ?? 0);
   const limit = Number(quota.limit ?? 3);
-  const hint = quota.resets_hint || `每 3 小时最多提交 ${limit} 条`;
+  const hint = quota.resets_hint || t('dynamic.appErrorReporting.每_3_小时最多提交_limit_条');
   if (remaining <= 0) {
     el.textContent = hint;
     el.classList.add('text-red-600');
     if (submitBtn) submitBtn.disabled = true;
   } else {
-    el.textContent = `本机还可提交 ${remaining} / ${limit} 条错误报告（${hint}）`;
+    el.textContent = t('dynamic.appErrorReporting.本机还可提交_remaining');
     el.classList.remove('text-red-600');
     if (submitBtn) submitBtn.disabled = false;
   }
@@ -309,18 +310,18 @@ async function refreshErrorReportQuota() {
   const el = document.getElementById('errorReportQuotaHint');
   if (!el) return;
   if (!window.DanmuSupabase?.isConfigured?.()) {
-    el.textContent = '未配置云端反馈服务，无法在线提交';
+    el.textContent = t('dynamic.appErrorReporting.未配置云端反馈服务_无法在线提交');
     const submitBtn = document.getElementById('btnErrorReportSubmit');
     if (submitBtn) submitBtn.disabled = true;
     return;
   }
-  el.textContent = '正在查询提交额度…';
+  el.textContent = t('dynamic.appErrorReporting.正在查询提交额度');
   el.classList.remove('text-red-600');
   try {
     const quota = await window.DanmuSupabase.getErrorReportQuota();
     updateErrorReportQuotaHint(quota);
   } catch (error) {
-    el.textContent = error.message || '无法查询提交额度';
+    el.textContent = error.message || t('dynamic.appErrorReporting.无法查询提交额度');
   }
 }
 
@@ -336,7 +337,7 @@ function showErrorReportModal(anchor) {
   const submitBtn = document.getElementById('btnErrorReportSubmit');
   if (submitBtn) {
     submitBtn.disabled = false;
-    submitBtn.textContent = '发送反馈';
+    submitBtn.textContent = t('common.sendFeedback');
   }
   refreshErrorReportQuota().catch(console.error);
 }
@@ -383,14 +384,14 @@ export async function maybePromptErrorReport(status) {
 async function submitErrorReportFromModal() {
   if (!errorReportAnchor || errorReportSubmitting) return;
   if (!window.DanmuSupabase?.isConfigured?.()) {
-    showToast('未配置云端反馈服务', true);
+    showToast(t('dynamic.appErrorReporting.未配置云端反馈服务'), true);
     return;
   }
   const submitBtn = document.getElementById('btnErrorReportSubmit');
   errorReportSubmitting = true;
   if (submitBtn) {
     submitBtn.disabled = true;
-    submitBtn.textContent = '发送中...';
+    submitBtn.textContent = t('dynamic.appErrorReporting.发送中');
   }
   try {
     const payload = await collectErrorReportContext(errorReportAnchor);
@@ -398,13 +399,13 @@ async function submitErrorReportFromModal() {
     markErrorReportHandled(errorReportAnchor.fingerprint, 'sent');
     clearErrorReportFormFields();
     closeErrorReportModal();
-    showToast('错误反馈已发送，感谢', false);
+    showToast(t('dynamic.appErrorReporting.错误反馈已发送_感谢'), false);
     errorReportAnchor = null;
   } catch (error) {
-    showToast(error.message || '发送失败', true);
+    showToast(error.message || t('dynamic.appErrorReporting.发送失败'), true);
     if (submitBtn) {
       submitBtn.disabled = false;
-      submitBtn.textContent = '发送反馈';
+      submitBtn.textContent = t('common.sendFeedback');
     }
     await refreshErrorReportQuota();
   } finally {
@@ -438,7 +439,7 @@ export function initErrorReporting(deps = {}) {
     ?.addEventListener('click', dismissErrorReportModal);
   document.getElementById('btnErrorReportSubmit')?.addEventListener('click', () => {
     submitErrorReportFromModal().catch((error) => {
-      showToast(error.message || '发送失败', true);
+      showToast(error.message || t('dynamic.appErrorReporting.发送失败'), true);
     });
   });
   document.getElementById('errorReportModal')?.addEventListener('click', (event) => {

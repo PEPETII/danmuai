@@ -5,7 +5,7 @@
       </header>
       <div class="card p-8 danmu-pool-page">
         <div class="settings-tabs-bar mb-6">
-          <div class="settings-tabs danmu-pool-tabs" role="tablist" aria-label="公式化弹幕库分类">
+          <div class="settings-tabs danmu-pool-tabs" role="tablist" data-i18n-aria-label="content.aria.公式化弹幕库分类" aria-label="公式化弹幕库分类">
             <button type="button" role="tab" class="danmu-pool-tab active" data-danmu-pool-tab="meme" aria-selected="true">烂梗公式化</button>
             <button type="button" role="tab" class="danmu-pool-tab" data-danmu-pool-tab="custom" aria-selected="false">自定义公式化</button>
           </div>
@@ -34,7 +34,7 @@
           </div>
           <div class="danmu-pool-section">
             <p id="hintMemeCategoryTitle" class="settings-section-title">分类</p>
-            <div class="flex flex-wrap gap-4 meme-category-group" role="radiogroup" aria-label="烂梗分类">
+            <div class="flex flex-wrap gap-4 meme-category-group" role="radiogroup" data-i18n-aria-label="content.aria.烂梗分类" aria-label="烂梗分类">
               <label class="flex items-center gap-2 font-semibold text-warmText">
                 <input type="radio" name="memeCategory" value="random" class="accent-warmPink" checked>
                 随机
@@ -51,7 +51,7 @@
           </div>
           <div class="danmu-pool-section">
             <p id="hintMemeDisplayModeTitle" class="settings-section-title">显示形式</p>
-            <div class="flex flex-wrap gap-4" role="radiogroup" aria-label="显示形式">
+            <div class="flex flex-wrap gap-4" role="radiogroup" data-i18n-aria-label="content.text.显示形式" aria-label="显示形式">
               <label class="flex items-center gap-2 font-semibold text-warmText">
                 <input type="radio" name="memeDisplayMode" value="full" class="accent-warmPink" checked>
                 全展示
@@ -129,7 +129,7 @@
           <div class="danmu-pool-section">
             <p class="settings-section-title">追加自定义句</p>
             <p class="settings-section-hint mb-2">一行一条，保存后上屏时完整展示，无字数限制。</p>
-            <textarea id="poolCustomTextarea" rows="6" class="danmu-pool-textarea w-full px-4 py-3 bg-cream rounded-xl text-warmText border border-softPeach" placeholder="太真实了&#10;这也行？"></textarea>
+            <textarea id="poolCustomTextarea" rows="6" class="danmu-pool-textarea w-full px-4 py-3 bg-cream rounded-xl text-warmText border border-softPeach" data-i18n-placeholder="content.placeholder.太真实了_10_这也行" placeholder="太真实了&#10;这也行？"></textarea>
             <div class="flex flex-wrap gap-3 mt-3">
               <button type="button" id="btnPoolCustomAppend" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm">保存 / 追加</button>
               <button type="button" id="btnPoolCustomClearInput" class="px-6 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50">清空输入</button>
@@ -142,7 +142,7 @@
             </div>
             <p id="poolCustomListHint" class="settings-section-hint mb-2">当前展示：手动添加条目。txt 导入内容已入库参与抽取，但不在此列表逐条展示。</p>
             <div class="flex flex-wrap items-center gap-3 mb-3">
-              <input type="search" id="poolCustomSearch" class="settings-field-control max-w-xs px-3 py-2 bg-cream rounded-xl text-warmText border border-softPeach" placeholder="搜索手动条目" aria-label="搜索手动条目">
+              <input type="search" id="poolCustomSearch" class="settings-field-control max-w-xs px-3 py-2 bg-cream rounded-xl text-warmText border border-softPeach" data-i18n-placeholder="content.placeholder.搜索手动条目" placeholder="搜索手动条目" data-i18n-aria-label="content.placeholder.搜索手动条目" aria-label="搜索手动条目">
               <label class="flex items-center gap-2 text-sm font-semibold text-warmText">
                 <input type="checkbox" id="poolCustomSelectAll" class="accent-warmPink">
                 全选本页
@@ -161,7 +161,7 @@
     </section>
 
     <!-- ========== 区域：桌宠 ========== -->
-        <section id="page-pet" class="page-panel" aria-label="桌宠">
+        <section id="page-pet" class="page-panel" data-i18n-aria-label="content.text.桌宠" aria-label="桌宠">
       <header class="mb-8">
         <h2 class="text-2xl font-bold text-warmText">桌宠</h2>
         <p class="text-gray-500 mt-1">桌面互动宠物与弹幕指令入口；复用助手模型，不单独请求 AI</p>
@@ -227,7 +227,7 @@
           <div class="flex flex-wrap gap-3 items-end max-w-2xl">
             <label class="settings-field flex-1 min-w-[200px]">
               <span class="settings-field-label">Web 调试指令</span>
-              <input type="text" id="petCommandInput" maxlength="200" placeholder="例如：接下来弹幕偏搞笑一点" class="settings-field-control">
+              <input type="text" id="petCommandInput" maxlength="200" data-i18n-placeholder="content.placeholder.例如_接下来弹幕偏搞笑一点" placeholder="例如：接下来弹幕偏搞笑一点" class="settings-field-control">
             </label>
             <button type="button" id="btnPetCommandSubmit" class="btn-primary px-5 py-2 text-white rounded-xl font-bold shadow-warm">提交指令</button>
           </div>
@@ -282,7 +282,7 @@
         </div>
         <div>
           <label for="personaSystemCustom" class="block text-sm font-semibold mb-2 text-warmText">系统提示补充</label>
-          <textarea id="personaSystemCustom" rows="4" class="w-full px-4 py-3 bg-cream rounded-xl text-warmText" placeholder="例如：语气温柔治愈，像闺蜜一样吐槽主播操作，偶尔玩梗"></textarea>
+          <textarea id="personaSystemCustom" rows="4" class="w-full px-4 py-3 bg-cream rounded-xl text-warmText" data-i18n-placeholder="content.placeholder.例如_语气温柔治愈_像闺蜜一样吐槽主播操作_偶尔玩梗" placeholder="例如：语气温柔治愈，像闺蜜一样吐槽主播操作，偶尔玩梗"></textarea>
         </div>
         <div class="flex flex-wrap gap-3">
           <button type="button" id="btnSavePersona" class="btn-primary px-6 py-2 text-white rounded-xl font-bold">保存人格</button>
@@ -304,13 +304,13 @@
     </section>
 
     <!-- ========== 区域：直播设置（两 Tab：直播输出 + 弹幕姬模式） ========== -->
-    <section id="page-live-settings" class="page-panel" aria-label="直播设置">
+    <section id="page-live-settings" class="page-panel" data-i18n-aria-label="content.text.直播设置" aria-label="直播设置">
       <header class="mb-8">
         <h2 class="text-2xl font-bold text-warmText">直播设置</h2>
         <p class="text-gray-500 mt-1">直播输出配置与弹幕姬模式</p>
       </header>
       <div class="settings-tabs-bar">
-        <div class="settings-tabs" role="tablist" aria-label="直播设置分类">
+        <div class="settings-tabs" role="tablist" data-i18n-aria-label="content.aria.直播设置分类" aria-label="直播设置分类">
           <button type="button" role="tab" class="settings-tab active" data-live-settings-tab="live-output" aria-selected="true">直播输出</button>
           <button type="button" role="tab" class="settings-tab" data-live-settings-tab="bililive-dm" aria-selected="false">弹幕姬模式</button>
         </div>
@@ -320,7 +320,7 @@
     </section>
 
     <!-- ========== 区域：直播输出（DOM 源，由 live-settings-tabs.js 搬入 #page-live-settings） ========== -->
-    <section id="page-live-output-source" class="page-panel" data-live-settings-panel="live-output-source" hidden aria-label="直播输出源">
+    <section id="page-live-output-source" class="page-panel" data-live-settings-panel="live-output-source" hidden data-i18n-aria-label="content.aria.直播输出源" aria-label="直播输出源">
       <div class="card p-8" id="liveOverlayPanel" data-live-settings-move="live-output">
         <div class="flex flex-wrap items-start justify-between gap-3 mb-2">
           <div>
@@ -340,7 +340,7 @@
           <span class="text-gray-400">SSE 连接数：<strong class="text-warmText" id="liveOverlayConnections">0</strong></span>
           <span class="text-gray-400">上次广播：<strong class="text-warmText" id="liveOverlayLastBroadcast">—</strong></span>
         </div>
-        <div id="liveOverlaySetupGuide" class="live-overlay-setup" aria-label="直播输出接入检查">
+        <div id="liveOverlaySetupGuide" class="live-overlay-setup" data-i18n-aria-label="content.aria.直播输出接入检查" aria-label="直播输出接入检查">
           <ol id="liveOverlaySetupSteps" class="live-overlay-setup-steps">
             <li class="live-overlay-setup-step" data-live-overlay-step="copy">
               <span class="live-overlay-step-dot"></span>
@@ -362,7 +362,7 @@
     </section>
 
     <!-- ========== 区域：弹幕姬模式（DOM 源，由 live-settings-tabs.js 搬入 #page-live-settings） ========== -->
-    <section id="page-bililive-dm-source" class="page-panel" data-live-settings-panel="bililive-dm-source" hidden aria-label="弹幕姬模式源">
+    <section id="page-bililive-dm-source" class="page-panel" data-live-settings-panel="bililive-dm-source" hidden data-i18n-aria-label="content.aria.弹幕姬模式源" aria-label="弹幕姬模式源">
       <div class="space-y-6" data-live-settings-move="bililive-dm">
         <h3 class="text-lg font-bold text-warmText flex items-center gap-2">
           <svg class="ui-icon text-warmPink" aria-hidden="true"><use href="#i-message"></use></svg> 弹幕姬模式
@@ -381,13 +381,13 @@
     </section>
 
     <!-- ========== 区域：教程|日志|反馈|公告（合并四 Tab） ========== -->
-    <section id="page-guide" class="page-panel" aria-label="教程|日志|反馈|公告">
+    <section id="page-guide" class="page-panel" data-i18n-aria-label="content.text.教程_日志_反馈_公告" aria-label="教程|日志|反馈|公告">
       <header class="mb-8">
         <h2 class="text-2xl font-bold text-warmText">教程|日志|反馈|公告</h2>
         <p class="text-gray-500 mt-1">教程、弹幕日志、公告与问题反馈</p>
       </header>
       <div class="settings-tabs-bar">
-        <div class="settings-tabs" role="tablist" aria-label="教程|日志|反馈|公告">
+        <div class="settings-tabs" role="tablist" data-i18n-aria-label="content.text.教程_日志_反馈_公告" aria-label="教程|日志|反馈|公告">
           <button type="button" role="tab" class="settings-tab active" data-guide-tab="tutorial" aria-selected="true">教程</button>
           <button type="button" role="tab" class="settings-tab" data-guide-tab="logs" aria-selected="false">弹幕日志</button>
           <button type="button" role="tab" class="settings-tab" data-guide-tab="announcements" aria-selected="false">公告</button>
@@ -402,7 +402,7 @@
 
     <!-- ========== 区域：教程（DOM 源，header 与 card 内容由 guide-tabs.js 搬入 #page-guide） ========== -->
     <!-- section: 使用教程（图文飞书链接 + Supabase 视频链接） -->
-    <section id="page-tutorial" class="page-panel" data-guide-panel="tutorial-source" hidden aria-label="使用教程">
+    <section id="page-tutorial" class="page-panel" data-guide-panel="tutorial-source" hidden data-i18n-aria-label="content.aria.使用教程" aria-label="使用教程">
       <header class="mb-8" data-guide-move="tutorial">
         <h2 class="text-2xl font-bold text-warmText">教程</h2>
         <p class="text-gray-500 mt-1">选择下方教程查看使用说明</p>
@@ -434,7 +434,7 @@
 
     <!-- ========== 区域：公告（DOM 源，header 与 card 内容由 guide-tabs.js 搬入 #page-guide） ========== -->
     <!-- section: 公告（Supabase announcements 表 + 本机已读 state） -->
-    <section id="page-announcements" class="page-panel" data-guide-panel="announcements-source" hidden aria-label="公告">
+    <section id="page-announcements" class="page-panel" data-guide-panel="announcements-source" hidden data-i18n-aria-label="content.text.公告" aria-label="公告">
       <header class="mb-8 flex flex-wrap justify-between items-start gap-4" data-guide-move="announcements">
         <div>
           <h2 class="text-2xl font-bold text-warmText">公告</h2>
@@ -449,7 +449,7 @@
 
     <!-- ========== 区域：问题反馈与群聊（DOM 源，header 与 card 内容由 guide-tabs.js 搬入 #page-guide） ========== -->
     <!-- section: 问题反馈与群聊（社群入口 + 错误反馈已分发给 W-ERROR-REPORT-*） -->
-    <section id="page-feedback" class="page-panel" data-guide-panel="feedback-source" hidden aria-label="问题反馈与群聊">
+    <section id="page-feedback" class="page-panel" data-guide-panel="feedback-source" hidden data-i18n-aria-label="content.text.问题反馈与群聊" aria-label="问题反馈与群聊">
       <header class="mb-8" data-guide-move="feedback">
         <h2 class="text-2xl font-bold text-warmText">问题反馈与群聊</h2>
         <p class="text-gray-500 mt-1">加入社群或在群内 @ 我，比私信更不容易触发平台限制</p>
@@ -469,7 +469,7 @@
               class="feedback-textarea w-full rounded-xl border border-softPeach px-4 py-3 text-warmText"
               rows="5"
               maxlength="2000"
-              placeholder="请描述问题或建议（请勿填写 API Key、密码或截图中的敏感信息）"
+              data-i18n-placeholder="content.placeholder.请描述问题或建议_请勿填写_API_Key_密码或截图中的敏感信息" placeholder="请描述问题或建议（请勿填写 API Key、密码或截图中的敏感信息）"
               required
             ></textarea>
           </div>
@@ -480,7 +480,7 @@
               type="text"
               class="feedback-input w-full rounded-xl border border-softPeach px-4 py-2 text-warmText"
               maxlength="200"
-              placeholder="QQ、邮箱等，方便回访"
+              data-i18n-placeholder="content.placeholder.QQ_邮箱等_方便回访" placeholder="QQ、邮箱等，方便回访"
             >
           </div>
           <button type="submit" id="btnFeedbackSubmit" class="px-6 py-2.5 bg-warmPink hover:bg-warmPinkHover text-white rounded-xl font-semibold shadow-warm">提交反馈</button>
@@ -525,7 +525,7 @@
           <button type="button" id="btnClearLogs" class="px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50">清空视图</button>
           <button type="button" id="btnCloseLogs" class="px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50">关闭日志</button>
         </div>
-        <div class="log-panel" role="region" aria-label="运行日志">
+        <div class="log-panel" role="region" data-i18n-aria-label="content.aria.运行日志" aria-label="运行日志">
           <p id="logViewEmpty" class="log-view-empty">等待日志… 点击「生成弹幕」后，截图、AI 请求与弹幕事件会在此实时显示。</p>
           <div id="logView" class="log-view max-h-[70vh] overflow-y-auto space-y-1" tabindex="0"></div>
         </div>
@@ -533,7 +533,7 @@
     </section>
 
     <!-- ========== 区域：AI管家（自然语言设置代理，W-AIBUTLER-002） ========== -->
-    <section id="page-ai-butler" class="page-panel" aria-label="AI管家">
+    <section id="page-ai-butler" class="page-panel" data-i18n-aria-label="content.text.AI管家" aria-label="AI管家">
       <header class="mb-8">
         <h2 class="text-2xl font-bold text-warmText">AI管家</h2>
         <p class="text-gray-500 mt-1">用自然语言告诉我你想调整什么，我来帮你改设置</p>
@@ -558,7 +558,7 @@
           <select
             id="aiButlerModelSelect"
             class="settings-field-control flex-1 min-w-[200px]"
-            aria-label="切换当前使用模型"
+            data-i18n-aria-label="content.aria.切换当前使用模型" aria-label="切换当前使用模型"
             aria-describedby="aiButlerModelHint"
           >
             <option value="">加载中…</option>
@@ -572,7 +572,7 @@
         id="aiButlerMessages"
         class="card p-5 mb-6 ai-butler-messages"
         role="log"
-        aria-label="AI管家对话"
+        data-i18n-aria-label="content.aria.AI管家对话" aria-label="AI管家对话"
         aria-live="polite"
       >
         <p class="ai-butler-empty-hint">告诉我你想调整什么设置，例如「把弹幕速度调快」</p>
@@ -586,8 +586,8 @@
             id="aiButlerInput"
             class="settings-field-control flex-1 min-w-[280px] resize-none"
             rows="2"
-            placeholder="告诉我想调整什么设置... (Enter 发送，Shift+Enter 换行)"
-            aria-label="AI管家输入框"
+            data-i18n-placeholder="content.placeholder.告诉我想调整什么设置_Enter_发送_Shift_Enter_换行" placeholder="告诉我想调整什么设置... (Enter 发送，Shift+Enter 换行)"
+            data-i18n-aria-label="content.aria.AI管家输入框" aria-label="AI管家输入框"
           ></textarea>
           <button
             type="button"

@@ -27,6 +27,7 @@
  */
 
 import { apiFetch } from './transport.js';
+import { t } from './i18n.js';
 import { applyTheme, THEME_STORAGE_KEY } from './theme.js';
 
 let toast = () => {};
@@ -90,18 +91,18 @@ let navObserver = null;
  * @returns {string} toast 文案
  */
 function mapLlmErrorToToast(error) {
-  if (!error) return '网络开小差了，请重试';
-  if (error === 'timeout') return '网络开小差了，请重试';
+  if (!error) return t('dynamic.appAiButlerPage.网络开小差了_请重试');
+  if (error === 'timeout') return t('dynamic.appAiButlerPage.网络开小差了_请重试');
   if (error === 'model_not_configured')
-    return '未配置模型，请先到「弹幕设置 → API 与模型」配置';
+    return t('dynamic.appAiButlerPage.未配置模型_请先到_弹幕设置_API_与模型');
   if (error.startsWith('credential_missing'))
-    return '凭证缺失，请检查 API Key 与端点配置';
+    return t('dynamic.appAiButlerPage.凭证缺失_请检查_API_Key_与端点配置');
   if (error.startsWith('http_'))
-    return `AI 服务返回错误（${error}），请稍后再试`;
+    return t('dynamic.appAiButlerPage.AI_服务返回错误_error_请稍后再');
   if (error.startsWith('internal_error'))
-    return 'AI 管家内部错误，请重试';
-  if (error === 'empty_messages') return '请输入内容后再发送';
-  return `AI 管家请求失败：${error}`;
+    return t('dynamic.appAiButlerPage.AI_管家内部错误_请重试');
+  if (error === 'empty_messages') return t('dynamic.appAiButlerPage.请输入内容后再发送');
+  return t('dynamic.appAiButlerPage.AI_管家请求失败_error');
 }
 
 /**
@@ -118,18 +119,18 @@ function mapLlmErrorToToast(error) {
  * @returns {string} 系统消息文案（已含 ❌ 前缀）
  */
 function mapConfigWriteErrorToMessage(error) {
-  const msg = (error && (error.message || error)) || '未知错误';
+  const msg = (error && (error.message || error)) || t('dynamic.appAiButlerPage.未知错误');
   const lower = String(msg).toLowerCase();
   if (lower.includes('timeout') || lower.includes('timed out'))
-    return '❌ 应用设置超时，请重试';
+    return t('dynamic.appAiButlerPage.应用设置超时_请重试');
   if (
     lower.includes('encrypt') ||
     lower.includes('fernet') ||
     lower.includes('.key') ||
     lower.includes('crypto')
   )
-    return '❌ 配置存储异常，请重启应用';
-  return `❌ 设置保存失败：${msg}`;
+    return t('dynamic.appAiButlerPage.配置存储异常_请重启应用');
+  return t('dynamic.appAiButlerPage.设置保存失败_msg');
 }
 
 // ---------------------------------------------------------------------------
@@ -186,7 +187,7 @@ function renderModelSelect(items, defaultModelId) {
   if (!items || !items.length) {
     const opt = document.createElement('option');
     opt.value = '';
-    opt.textContent = '（暂无模型档案，请到「弹幕设置 → API 与模型」添加）';
+    opt.textContent = t('dynamic.appAiButlerPage.暂无模型档案_请到_弹幕设置_API_与模');
     opt.disabled = true;
     opt.selected = true;
     select.appendChild(opt);
@@ -197,7 +198,7 @@ function renderModelSelect(items, defaultModelId) {
   items.forEach((model, index) => {
     const opt = document.createElement('option');
     opt.value = String(index);
-    const name = model.name || '未命名';
+    const name = model.name || t('common.unnamed');
     const mid = model.default_model_id || model.modelId || '';
     const isDefault = mid === defaultModelId;
     opt.textContent = `${name}${mid ? `（${mid}）` : ''}${isDefault ? ' ✓' : ''}`;
@@ -231,11 +232,11 @@ async function refreshModelSelect() {
     select.innerHTML = '';
     const opt = document.createElement('option');
     opt.value = '';
-    opt.textContent = '加载失败，请刷新页面重试';
+    opt.textContent = t('dynamic.appAiButlerPage.加载失败_请刷新页面重试');
     opt.disabled = true;
     opt.selected = true;
     select.appendChild(opt);
-    showToast(error.message || '加载模型列表失败', true);
+    showToast(error.message || t('dynamic.appAiButlerPage.加载模型列表失败'), true);
   }
 }
 
@@ -253,7 +254,7 @@ async function switchDefaultModel(index) {
     // 重新拉列表刷新选中态（确保与服务端一致）
     await refreshModelSelect();
   } catch (error) {
-    showToast(error.message || '切换模型失败', true);
+    showToast(error.message || t('dynamic.appAiButlerPage.切换模型失败'), true);
     // 恢复 select 到之前的选中项
     if (select && prevIndex >= 0) {
       select.value = String(prevIndex);
@@ -338,7 +339,7 @@ function appendSystemMessage(text) {
  * @returns {HTMLElement|null}
  */
 function showThinkingBubble() {
-  return appendMessage('thinking', '思考中…');
+  return appendMessage('thinking', t('dynamic.appAiButlerPage.思考中'));
 }
 
 function removeElement(el) {
@@ -367,7 +368,7 @@ function renderConfirmCard(toolCalls) {
   const count = toolCalls.length;
   const title = document.createElement('p');
   title.className = 'ai-butler-confirm-title';
-  title.textContent = count > 1 ? `📋 变更预览（共 ${count} 项）` : '📋 变更预览';
+  title.textContent = count > 1 ? t('dynamic.appAiButlerPage.变更预览_共_count_项') : t('dynamic.appAiButlerPage.变更预览');
   card.appendChild(title);
 
   // 变更行
@@ -387,17 +388,17 @@ function renderConfirmCard(toolCalls) {
   const confirmBtn = document.createElement('button');
   confirmBtn.type = 'button';
   confirmBtn.className = 'ai-butler-btn-confirm';
-  confirmBtn.textContent = '确认执行';
+  confirmBtn.textContent = t('dynamic.appAiButlerPage.确认执行');
   confirmBtn.addEventListener('click', () => {
     applyToolCalls(toolCalls, card).catch((err) =>
-      showToast(`执行异常：${err.message || err}`, true),
+      showToast(t('dynamic.appAiButlerPage.执行异常_err_message_er'), true),
     );
   });
 
   const cancelBtn = document.createElement('button');
   cancelBtn.type = 'button';
   cancelBtn.className = 'ai-butler-btn-cancel';
-  cancelBtn.textContent = '取消';
+  cancelBtn.textContent = t('common.cancel');
   cancelBtn.addEventListener('click', () => {
     cancelCurrentPlan(card);
   });
@@ -423,7 +424,7 @@ function setCardLoading(card) {
   if (!confirmBtn) return { confirmBtn: null, cancelBtn: null };
 
   confirmBtn.className = 'ai-butler-btn-loading';
-  confirmBtn.textContent = '应用中...';
+  confirmBtn.textContent = t('dynamic.appAiButlerPage.应用中');
   const spinner = document.createElement('span');
   spinner.className = 'ai-butler-spinner';
   confirmBtn.appendChild(spinner);
@@ -441,7 +442,7 @@ function cancelCurrentPlan(card) {
   removeElement(card);
   if (currentConfirmCard === card) currentConfirmCard = null;
   currentToolCalls = null;
-  appendSystemMessage('已取消');
+  appendSystemMessage(t('dynamic.appAiButlerPage.已取消'));
   setState('idle');
 }
 
@@ -476,10 +477,10 @@ async function applyToolCalls(toolCalls, card) {
         const newBtn = document.createElement('button');
         newBtn.type = 'button';
         newBtn.className = 'ai-butler-btn-confirm is-failed';
-        newBtn.textContent = '重试';
+        newBtn.textContent = t('common.retry');
         newBtn.addEventListener('click', () => {
           applyToolCalls(currentToolCalls, card).catch((err) =>
-            showToast(`执行异常：${err.message || err}`, true),
+            showToast(t('dynamic.appAiButlerPage.执行异常_err_message_er'), true),
           );
         });
         confirmBtn.replaceWith(newBtn);
@@ -487,7 +488,7 @@ async function applyToolCalls(toolCalls, card) {
       if (cancelBtn) cancelBtn.disabled = false;
       const errBox = document.createElement('div');
       errBox.className = 'ai-butler-error-text';
-      errBox.textContent = `第 ${i + 1} 项失败：${error.message || error}`;
+      errBox.textContent = t('dynamic.appAiButlerPage.第_i_1_项失败_error_m');
       card.appendChild(errBox);
       setState('failed');
       // W-004：配置写入失败 toast 差异化（spec §6.4）
@@ -502,7 +503,7 @@ async function applyToolCalls(toolCalls, card) {
     const newBtn = document.createElement('button');
     newBtn.type = 'button';
     newBtn.className = 'ai-butler-btn-confirm is-success';
-    newBtn.textContent = '完成';
+    newBtn.textContent = t('dynamic.appAiButlerPage.完成');
     newBtn.disabled = true;
     confirmBtn.replaceWith(newBtn);
   }
@@ -512,7 +513,7 @@ async function applyToolCalls(toolCalls, card) {
     successLabels.length > 3
       ? `${successLabels.slice(0, 3).join('、')} 等 ${successLabels.length} 项`
       : successLabels.join('、');
-  appendSystemMessage(`✅ ${labelText} 已应用`);
+  appendSystemMessage(t('dynamic.appAiButlerPage.labelText_已应用'));
 
   // 含 set_default_model 时刷新模型下拉
   if (hasSetDefaultModel) {
@@ -541,7 +542,7 @@ async function executeSingleToolCall(tc) {
   if (toolName === 'update_config') {
     // 聚合 changes 为 {key: value} payload，调 PUT /api/config
     const changes = Array.isArray(tc.changes) ? tc.changes : [];
-    if (!changes.length) throw new Error('changes 为空');
+    if (!changes.length) throw new Error(t('dynamic.appAiButlerPage.changes_为空'));
     const payload = {};
     changes.forEach((c) => {
       if (c.key) payload[c.key] = c.value;
@@ -570,11 +571,11 @@ async function executeSingleToolCall(tc) {
   }
   if (toolName === 'set_default_model') {
     const index = Number(tc.index);
-    if (!Number.isInteger(index) || index < 0) throw new Error('model index 非法');
+    if (!Number.isInteger(index) || index < 0) throw new Error(t('dynamic.appAiButlerPage.model_index_非法'));
     await apiFetch(`/api/custom-models/${index}/default`, { method: 'POST' });
     return;
   }
-  throw new Error(`未知工具：${toolName || 'undefined'}`);
+  throw new Error(t('dynamic.appAiButlerPage.未知工具_toolName', { toolName: toolName || 'undefined' }));
 }
 
 // ---------------------------------------------------------------------------
@@ -627,7 +628,7 @@ async function sendMessage() {
 
       // W-004（spec §6.3）：LLM 返回空 reply 且无 tool_calls → 降级为「无法识别意图」提示
       if (!reply && !hasToolCalls) {
-        const fallback = '我目前可以帮您调整弹幕设置，您可以试试说「把弹幕速度调快」';
+        const fallback = t('dynamic.appAiButlerPage.我目前可以帮您调整弹幕设置_您可以试试说_把弹幕');
         appendMessage('assistant', fallback);
         messages.push({ role: 'assistant', content: fallback });
         if (messages.length > MAX_MESSAGES) {
@@ -773,7 +774,7 @@ export function resetAiButlerConversation() {
     container.innerHTML = '';
     const hint = document.createElement('p');
     hint.className = 'ai-butler-empty-hint';
-    hint.textContent = '告诉我你想调整什么设置，例如「把弹幕速度调快」';
+    hint.textContent = t('dynamic.appAiButlerPage.告诉我你想调整什么设置_例如_把弹幕速度调快');
     container.appendChild(hint);
   }
 }

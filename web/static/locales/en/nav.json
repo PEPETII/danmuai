@@ -1,0 +1,30 @@
+{
+  "nav": {
+    "overview": "Dashboard",
+    "persona": "Persona Studio",
+    "aiButler": "AI Butler",
+    "danmuPool": "Formula Danmu Pool",
+    "pet": "Desktop Pet",
+    "settings": "Danmu Settings",
+    "tooltipCanDoTitle": "What you can do",
+    "tooltip": {
+      "设置_AI_接口_用哪块屏幕识图_弹幕样式_以及截图与压缩参数_改完后点_保存": "Set AI API, capture display, danmu style, and screenshot/compression. Click Save settings to apply.",
+      "API_与模型_麦克风模式_AI读弹幕_弹幕显示_识图区域_识图清晰度_字体设": "API & model, mic mode, AI danmu reader, danmu display, capture region, capture quality, and font settings. For persona and prompts, go to Persona Studio.",
+      "请先在_温馨控制台_开始或停止弹幕_API_密钥留空保存不会改掉旧密钥_默认识": "Start or stop danmu in Dashboard first; blank API key on save won't overwrite existing key; default capture is fullscreen on selected display—drag a sub-region in Capture region; Model profiles can have separate endpoint and key.",
+      "设置_AI_接口_用哪块屏幕识图_弹幕样式_以及": "Set AI API, capture display, danmu style, and screenshot/compression. Click Save settings to apply.",
+      "API_与模型_麦克风模式_AI读弹幕_弹幕显示": "API & model, mic mode, AI danmu reader, danmu display, capture region, capture quality, and font settings. For persona and prompts, go to Persona Studio.",
+      "请先在_温馨控制台_开始或停止弹幕_API_密钥": "Start or stop danmu in Dashboard first; blank API key on save won't overwrite existing key; default capture is fullscreen on selected display—drag a sub-region in Capture region; Model profiles can have separate endpoint and key."
+    },
+    "tooltipTabsTitle": "Seven tabs",
+    "tooltipNoticeTitle": "Before you start",
+    "liveSettings": "Live Settings",
+    "guide": "Guide | Logs | Feedback | News",
+    "reward": "Support",
+    "versionCurrent": "Current version:",
+    "versionLatest": "Latest version:",
+    "checkUpdate": "Check for updates",
+    "downloadRestart": "Download & restart",
+    "settingsHelpAria": "Danmu settings help",
+    "newAnnouncementBadge": "New announcement"
+  }
+}

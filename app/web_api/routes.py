@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING, Callable
 from urllib.parse import unquote
 
 from app.errors import AppError
+from app.translations import tr
 from fastapi import Header, HTTPException
 from pydantic import BaseModel
 
@@ -31,6 +32,7 @@ from app.web_api import announcements_state
 from app.web_api import app_update_state as app_update_state_api
 from app.web_api import console_theme as console_theme_api
 from app.web_api import custom_models as cm_api
+from app.web_api import language as language_api
 from app.web_api import danmu_pool as pool_api
 from app.web_api import danmu_read as read_api
 from app.web_api import font_registry as font_registry_api  # W-FONT-002
@@ -163,6 +165,9 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
     class ConsoleThemePayload(BaseModel):
         theme: str = "light"
 
+    class LanguagePayload(BaseModel):
+        language: str = "zh"
+
     def _invoke_main(fn, *args, **kwargs):
         """写 API：经 WebConsoleBridge.invoke_on_main 在主线程执行。"""
         try:
@@ -175,7 +180,7 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
             )
             raise HTTPException(
                 status_code=504,
-                detail={"ok": False, "error": "main_thread_timeout", "detail": "主线程操作超时，请稍后重试。"},
+                detail={"ok": False, "error": "main_thread_timeout", "detail": tr("common.mainThreadTimeout")},
             ) from exc
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -272,6 +277,20 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
         _invoke_main(console_theme_api.save_to_config, bridge.danmu_app.config, theme)
         return {"ok": True, "theme": theme}
 
+    @app.get("/api/language")
+    def get_language():
+        return language_api.get_from_config(bridge.danmu_app.config)
+
+    @app.put("/api/language")
+    @require_auth(check_token)
+    def put_language(
+        body: LanguagePayload,
+        authorization: str | None = Header(default=None),
+    ):
+        language = language_api.validate_payload(body.model_dump())
+        _invoke_main(language_api.save_to_config, bridge.danmu_app.config, language)
+        return {"ok": True, "language": language}
+
     @app.get("/api/personae/{name}/template")
     def get_persona_template(name: str):
         return read_api.safe_read_api(persona_api.get_template_detail, bridge.danmu_app, unquote(name))
@@ -330,7 +349,7 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
         authorization: str | None = Header(default=None),
     ):
         if not body.active:
-            raise HTTPException(status_code=400, detail="请至少选择一个人格")
+            raise HTTPException(status_code=400, detail=tr("persona.activeRequired"))
         _invoke_main(bridge.danmu_app.set_active_personae, body.active)
         return {"ok": True}
 

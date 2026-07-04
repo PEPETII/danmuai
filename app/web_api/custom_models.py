@@ -24,6 +24,7 @@ from app.model_providers import (
     normalize_mode,
     validate_model_config,
 )
+from app.translations import tr
 
 if TYPE_CHECKING:
     from main import DanmuApp
@@ -215,7 +216,7 @@ def create_custom_model(app: "DanmuApp", payload: dict) -> dict:
 def update_custom_model(app: "DanmuApp", index: int, payload: dict) -> dict:
     models = list(app.config.get_custom_models())
     if index < 0 or index >= len(models):
-        raise ValueError("模型索引无效")
+        raise ValueError(tr("customModel.indexInvalid"))
 
     existing = models[index]
     model = _normalize_payload(payload, existing, app)
@@ -232,7 +233,7 @@ def update_custom_model(app: "DanmuApp", index: int, payload: dict) -> dict:
 def delete_custom_model(app: "DanmuApp", index: int) -> None:
     models = list(app.config.get_custom_models())
     if index < 0 or index >= len(models):
-        raise ValueError("模型索引无效")
+        raise ValueError(tr("customModel.indexInvalid"))
 
     removed = models.pop(index)
     app.config.set_custom_models(models)
@@ -282,12 +283,12 @@ def _purge_persona_model_bindings_for_model(config, model_id: str) -> None:
 def set_default_custom_model(app: "DanmuApp", index: int) -> dict:
     models = app.config.get_custom_models()
     if index < 0 or index >= len(models):
-        raise ValueError("模型索引无效")
+        raise ValueError(tr("customModel.indexInvalid"))
 
     # W-CUSTOMMODEL-SCHEMA-002：优先读 default_model_id，保留 modelId 兜底
     model_id = (models[index].get("default_model_id") or models[index].get("modelId") or "").strip()
     if not model_id:
-        raise ValueError("模型 ID 为空")
+        raise ValueError(tr("customModel.idEmpty"))
 
     set_default_model_selection(app.config, model_id)
     app.config_changed.emit()

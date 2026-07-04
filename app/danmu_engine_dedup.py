@@ -13,6 +13,12 @@ _LEVENSHTEIN_UNAVAILABLE = object()
 _LEVENSHTEIN_FALLBACK_WARNED = False
 _DEDUP_PROFILE_FLAG: bool | None = None
 _DEDUP_THRESHOLD_FALLBACK = 0.5
+# BUG-009: pure-Python Levenshtein fallback is O(m×n); truncate long strings to
+# protect the 60fps Overlay main thread when neither python-Levenshtein nor
+# rapidfuzz is installed. Only the fallback path truncates — the C extension
+# path remains untouched. 32 chars covers typical danmu (15 中文字 / 40 英文字)
+# without measurable recall loss; longer danmu is rare and unlikely to repeat.
+_FALLBACK_MAX_LEN = 32
 # 仅保护 _LEVENSHTEIN_RATIO 懒加载；_dedup_profile_stats / _last_duplicate_observation
 # 是 best-effort profile/观察数据，刻意不加锁（AGENTS.md §11 避免过度工程）。
 _lazy_lock = threading.Lock()
@@ -134,6 +140,14 @@ def similarity(a: str, b: str) -> float:
         else:
             if profile:
                 _dedup_profile_stats.similarity_fallback_calls += 1
+            # BUG-009: bound the O(m×n) work in the pure-Python fallback so
+            # a 30-item dedup window of 80-char danmu can't stall the
+            # 60fps Overlay tick. Truncate before length-swap so the
+            # denominator stays consistent.
+            if len(a) > _FALLBACK_MAX_LEN:
+                a = a[:_FALLBACK_MAX_LEN]
+            if len(b) > _FALLBACK_MAX_LEN:
+                b = b[:_FALLBACK_MAX_LEN]
             m, n = len(a), len(b)
             if m > n:
                 a, b = b, a

@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "languages": [
+    "zh",
+    "en"
+  ],
+  "shards": [
+    "common",
+    "nav",
+    "overview",
+    "settings",
+    "content",
+    "modals",
+    "hints",
+    "dynamic"
+  ]
+}

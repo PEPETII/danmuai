@@ -1,4 +1,5 @@
 import { apiFetch } from './transport.js';
+import { t } from './i18n.js';
 import { activateFocusTrap, deactivateFocusTrap } from './modal-focus-trap.js';
 import {
   CONFIG_FIELDS,
@@ -138,12 +139,12 @@ function closeRestoreDefaultsModal() {
 function applySettingsDefaults(scope) {
   const configDefaultsCache = getConfigDefaultsCache();
   if (!configDefaultsCache || !Object.keys(configDefaultsCache).length) {
-    coreDeps.showToast('无法加载默认配置，请刷新页面后重试', true);
+    coreDeps.showToast(t('dynamic.settingsCore.无法加载默认配置_请刷新页面后重试'), true);
     return;
   }
   const keys = restorableKeysForScope(scope, getActiveSettingsTabId());
   if (scope === 'current' && keys.length === 0) {
-    coreDeps.showToast('当前分组无可恢复的表单项', true);
+    coreDeps.showToast(t('dynamic.settingsCore.当前分组无可恢复的表单项'), true);
     closeRestoreDefaultsModal();
     return;
   }
@@ -176,7 +177,7 @@ function applySettingsDefaults(scope) {
   updateNormalBatchPreview();
   coreDeps.refreshDanmuPreview();
   closeRestoreDefaultsModal();
-  coreDeps.showToast('已恢复默认值，请点击「保存配置」生效');
+  coreDeps.showToast(t('dynamic.settingsCore.已恢复默认值_请点击_保存配置_生效'));
 }
 
 export async function loadConfigDefaults() {
@@ -395,11 +396,11 @@ function _validateNumberInput(input) {
   const min = input.min !== '' ? Number(input.min) : null;
   const max = input.max !== '' ? Number(input.max) : null;
   if (min !== null && num < min) {
-    _showFieldError(input, `最小值 ${min}，当前 ${num}`);
+    _showFieldError(input, t('dynamic.settingsCore.最小值_min_当前_num'));
     return;
   }
   if (max !== null && num > max) {
-    _showFieldError(input, `最大值 ${max}，当前 ${num}`);
+    _showFieldError(input, t('dynamic.settingsCore.最大值_max_当前_num'));
     return;
   }
   // Step compliance check: only for inputs with an explicit step
@@ -411,7 +412,7 @@ function _validateNumberInput(input) {
     // Floating-point tolerance: remainder within 1e-9 of zero or of step
     const remainder = Math.abs((num - stepBase) % step);
     if (remainder > 1e-9 && Math.abs(remainder - step) > 1e-9) {
-      _showFieldError(input, `步长为 ${stepAttr}，请输入合规值`);
+      _showFieldError(input, t('dynamic.settingsCore.步长为_stepAttr_请输入合规值'));
       return;
     }
   }

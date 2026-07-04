@@ -22,6 +22,7 @@ from pydantic import BaseModel, Field
 
 from app.application.ai_butler_service import chat as butler_chat
 from app.errors import AppError
+from app.translations import tr
 from app.web_api.auth import require_auth
 
 if TYPE_CHECKING:
@@ -52,7 +53,7 @@ def register_ai_butler_route(app, bridge: "WebConsoleBridge", check_token: Calla
         authorization: str | None = Header(default=None),
     ):
         if not body.messages:
-            raise HTTPException(status_code=400, detail="messages 不能为空")
+            raise HTTPException(status_code=400, detail=tr("aiButler.messagesRequired"))
         config = bridge.danmu_app.config
         messages = [m.model_dump() for m in body.messages]
         loop = asyncio.get_running_loop()

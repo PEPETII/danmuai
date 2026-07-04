@@ -81,6 +81,24 @@ def test_feedback_context_migration_exists():
     assert "logs_excerpt" in sql
 
 
+def test_anon_table_grants_migration_exists():
+    """BUG-021: anon must have explicit REVOKE ALL + minimal GRANT per table."""
+    root = project_root()
+    path = root / "supabase" / "migrations" / "011_anon_table_grants.sql"
+    assert path.is_file()
+    sql = path.read_text(encoding="utf-8").lower()
+    assert "revoke all on public.feedback from anon" in sql
+    assert "grant insert on public.feedback to anon" in sql
+    assert "revoke all on public.error_reports from anon" in sql
+    assert "grant insert on public.error_reports to anon" in sql
+    assert "revoke all on public.announcements from anon" in sql
+    assert "grant select on public.announcements to anon" in sql
+    assert "revoke all on public.app_updates from anon" in sql
+    assert "grant select on public.app_updates to anon" in sql
+    assert "revoke all on public.tutorial_links from anon" in sql
+    assert "grant select on public.tutorial_links to anon" in sql
+
+
 def test_supabase_feedback_forwards_context_fields():
     text = (project_root() / "web" / "static" / "supabase-client.js").read_text(encoding="utf-8")
     func_start = text.index("async function submitFeedback(")

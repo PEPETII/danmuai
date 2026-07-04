@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 from PyQt6.QtGui import QImageReader
 
 from app.bundle_paths import resource_path
+from app.translations import tr
 
 if TYPE_CHECKING:
     from app.config_store import ConfigStore
@@ -99,8 +100,10 @@ def parse_spritesheet_layout(meta: dict) -> str:
     raw = str(meta.get("spritesheetLayout", LAYOUT_PETDEX) or LAYOUT_PETDEX).strip().lower()
     if raw not in VALID_SPRITESHEET_LAYOUTS:
         raise ValueError(
-            f"pet.json spritesheetLayout 无效：{raw!r}（允许："
-            f"{', '.join(sorted(VALID_SPRITESHEET_LAYOUTS))}）"
+            tr("pet.error.invalidSpritesheetLayout").format(
+                raw=raw,
+                allowed=", ".join(sorted(VALID_SPRITESHEET_LAYOUTS)),
+            )
         )
     return raw
 
@@ -172,8 +175,7 @@ def resolve_and_sandbox_pack_dir(config: "ConfigStore") -> Path:
             path = Path(custom)
             if not is_path_within_sandbox(path, ALLOWED_PET_PACK_ROOT):
                 raise ValueError(
-                    f"桌宠资源路径不在允许范围内：{custom}。"
-                    f"自定义资源必须放在 {ALLOWED_PET_PACK_ROOT} 目录下。"
+                    tr("pet.error.path_out_of_range").format(path=custom, allowed=ALLOWED_PET_PACK_ROOT)
                 )
             return path
     return BUILTIN_PET_DIR
@@ -188,16 +190,16 @@ def validate_pet_pack_dir(pack_dir: Path) -> tuple[dict, Path, int, int]:
     pack_dir = Path(pack_dir)
     meta_path = pack_dir / "pet.json"
     if not meta_path.is_file():
-        raise ValueError(f"缺少 pet.json：{meta_path}")
+        raise ValueError(tr("pet.error.missingPetJson").format(path=meta_path))
     try:
         meta = json.loads(meta_path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
-        raise ValueError(f"pet.json 解析失败：{exc}") from exc
+        raise ValueError(tr("pet.error.petJsonParseFailed").format(error=exc)) from exc
     if not isinstance(meta, dict):
-        raise ValueError("pet.json 必须是 JSON 对象")
+        raise ValueError(tr("pet.error.petJsonMustBeObject"))
     for key in ("id", "displayName", "spritesheetPath"):
         if not str(meta.get(key, "")).strip():
-            raise ValueError(f"pet.json 缺少必填字段：{key}")
+            raise ValueError(tr("pet.error.petJsonMissingField").format(field=key))
 
     parse_spritesheet_layout(meta)
 
@@ -212,23 +214,31 @@ def validate_pet_pack_dir(pack_dir: Path) -> tuple[dict, Path, int, int]:
             if alt_png.is_file():
                 sheet_path = alt_png
             else:
-                raise ValueError(f"找不到 spritesheet：{sheet_path}")
+                raise ValueError(tr("pet.error.spritesheetNotFound").format(path=sheet_path))
 
     reader = QImageReader(str(sheet_path))
     size = reader.size()
     if not size.isValid():
-        raise ValueError(f"spritesheet 无法加载：{sheet_path}")
+        raise ValueError(tr("pet.error.spritesheetLoadFailed").format(path=sheet_path))
     if size.width() % PET_FRAME_W or size.height() % PET_FRAME_H:
         raise ValueError(
-            f"spritesheet 宽高须为 {PET_FRAME_W}×{PET_FRAME_H} 的整数倍，"
-            f"实际为 {size.width()}×{size.height()}"
+            tr("pet.error.spritesheetInvalidSize").format(
+                frame_w=PET_FRAME_W,
+                frame_h=PET_FRAME_H,
+                width=size.width(),
+                height=size.height(),
+            )
         )
     grid_cols = size.width() // PET_FRAME_W
     grid_rows = size.height() // PET_FRAME_H
     if not (1 <= grid_cols <= PET_MAX_COLS and 1 <= grid_rows <= PET_MAX_ROWS):
         raise ValueError(
-            f"spritesheet 网格须在 1–{PET_MAX_COLS} 列、1–{PET_MAX_ROWS} 行内，"
-            f"实际为 {grid_cols}×{grid_rows}"
+            tr("pet.error.spritesheetInvalidGrid").format(
+                max_cols=PET_MAX_COLS,
+                max_rows=PET_MAX_ROWS,
+                cols=grid_cols,
+                rows=grid_rows,
+            )
         )
     return meta, sheet_path, grid_cols, grid_rows
 

@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 
 from app.application.config_service import MASKED_API_KEY, WEB_CONFIG_KEYS, apply_web_config_patch
 from app.errors import AppError
+from app.translations import tr
 from app.logger import (
     API_KEY_PATTERN,
     AUTH_HEADER_PATTERN,
@@ -84,7 +85,7 @@ class WebStatusSnapshot:
 def summarize_config_save_error(detail: object, *, max_len: int = SAVE_CONFIG_ERROR_DETAIL_MAX) -> str:
     text = str(detail or "").strip()
     if not text:
-        return "配置保存失败"
+        return tr("config.saveFailedGeneric")
     text = API_KEY_PATTERN.sub("sk-****", text)
     text = BASE64_IMAGE_PATTERN.sub("data:image/***;base64,(hidden)", text)
     text = BASE64_AUDIO_PATTERN.sub("data:audio/***;base64,(hidden)", text)
@@ -101,7 +102,7 @@ def enumerate_screens() -> list[dict[str, Any]]:
 
     app = QApplication.instance()
     if app is None:
-        return [{"index": 0, "label": "显示器 1", "width": 0, "height": 0}]
+        return [{"index": 0, "label": tr("display.label").format(n=1), "width": 0, "height": 0}]
     screens = app.screens() or []
     items = []
     for index, screen in enumerate(screens):
@@ -112,12 +113,12 @@ def enumerate_screens() -> list[dict[str, Any]]:
         items.append(
             {
                 "index": index,
-                "label": f"显示器 {index + 1} — {phys_w}×{phys_h}",
+                "label": tr("display.labelWithSize").format(n=index + 1, w=phys_w, h=phys_h),
                 "width": phys_w,
                 "height": phys_h,
             }
         )
-    return items or [{"index": 0, "label": "显示器 1", "width": 0, "height": 0}]
+    return items or [{"index": 0, "label": tr("display.label").format(n=1), "width": 0, "height": 0}]
 
 
 def is_empty_screens_fallback(screens: list[dict[str, Any]]) -> bool:
@@ -260,13 +261,13 @@ def _thinking_supported(config, active_model_id: str) -> bool:
 def extract_config_payload(body: Any) -> dict[str, Any]:
     """Accept `{data: {...}}` wrapper or a flat config patch dict."""
     if not isinstance(body, dict):
-        raise ValueError("无效的配置数据")
+        raise ValueError(tr("config.invalidData"))
     nested = body.get("data")
     if isinstance(nested, dict):
         return nested
     if body:
         return body
-    raise ValueError("配置数据为空")
+    raise ValueError(tr("config.emptyData"))
 
 
 def apply_config_patch(danmu_app, payload: dict[str, Any]) -> None:
@@ -301,7 +302,7 @@ def save_config_via_bridge(
     result: dict[str, Any] = {
         "ok": False,
         "error": "save_timeout",
-        "detail": "配置保存超时，请稍后重试。",
+        "detail": tr("config.saveTimeout"),
     }
     queued_payload = dict(payload)
     queued_payload[SAVE_DONE_EVENT_KEY] = done

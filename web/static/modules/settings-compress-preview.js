@@ -1,4 +1,5 @@
 import { API, apiFormFetch } from './transport.js';
+import { t } from './i18n.js';
 
 let compressPreviewDeps = {
   showToast: () => {},
@@ -60,7 +61,7 @@ function resetCompressedPreview() {
   }
   if (pending) {
     pending.classList.remove('hidden');
-    pending.textContent = '正在压缩…';
+    pending.textContent = t('dynamic.settingsCompressPreview.正在压缩');
   }
 }
 
@@ -78,7 +79,7 @@ export function bindCompressPreviewControls() {
     resetCompressedPreview();
     previewOrigUrl = URL.createObjectURL(file);
     setPreviewSlot(origImg, origPh, previewOrigUrl);
-    info.textContent = `已选择 ${file.name}，正在压缩预览…`;
+    info.textContent = t('dynamic.settingsCompressPreview.已选择_file_name_正在压缩预览');
 
     const fd = new FormData();
     fd.append('file', file);
@@ -86,7 +87,7 @@ export function bindCompressPreviewControls() {
     fd.append('quality', document.getElementById('image_quality')?.value || '85');
     try {
       if (!API.token) {
-        throw new Error('未获取会话令牌，请刷新页面或重启 DanmuAI');
+        throw new Error(t('dynamic.settingsCompressPreview.未获取会话令牌_请刷新页面或重启_DanmuAI'));
       }
       const data = await apiFormFetch('/api/preview/compress', fd);
       info.textContent =
@@ -96,11 +97,11 @@ export function bindCompressPreviewControls() {
         previewCompressedUrl = blobUrl;
       });
     } catch (error) {
-      const msg = error.message || '压缩预览失败';
-      info.textContent = `${msg}（左侧为原图；请重启 DanmuAI 后重试）`;
+      const msg = error.message || t('dynamic.settingsCompressPreview.压缩预览失败');
+      info.textContent = t('dynamic.settingsCompressPreview.msg_左侧为原图_请重启_DanmuAI');
       if (compressedPh) {
         compressedPh.classList.remove('hidden');
-        compressedPh.textContent = '压缩失败';
+        compressedPh.textContent = t('dynamic.settingsCompressPreview.压缩失败');
       }
       if (compressedImg) compressedImg.classList.add('hidden');
       compressPreviewDeps.showToast(msg, true);

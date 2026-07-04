@@ -19,6 +19,8 @@
  *   - 状态机由 setRealtimeHandlers({onStatus, onLog, onLogBatch, ...}) 解耦
  */
 
+import { t } from './i18n.js';
+
 export const API = { token: null, base: '' };
 
 /** @typedef {'connecting'|'connected'|'reconnecting'|'polling'|'failed'} RealtimeConnMode */
@@ -71,7 +73,7 @@ export function authHeaders() {
   return headers;
 }
 
-export function formatApiError(detail, fallback = '请求失败') {
+export function formatApiError(detail, fallback = t('common.requestFailed')) {
   if (!detail) return fallback;
   if (typeof detail === 'string') return detail;
   if (Array.isArray(detail)) {
@@ -98,13 +100,13 @@ export async function refreshSession() {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     const detail = formatApiError(err.detail, res.statusText);
     throw new Error(
-      `无法获取控制台会话（HTTP ${res.status}）: ${detail}。`
-      + '请确认终端有「Web 控制台 HTTP/WS 已监听」，且地址栏为 http://127.0.0.1:18765 后刷新页面。',
+      t('dynamic.transport.无法获取控制台会话_HTTP_res_sta')
+      + t('dynamic.transport.请确认终端有_Web_控制台_HTTP_WS_已'),
     );
   }
   const session = await res.json();
   if (!session?.token) {
-    throw new Error('会话接口未返回 token，请重启 python main.py 并刷新页面');
+    throw new Error(t('dynamic.transport.会话接口未返回_token_请重启_python'));
   }
   API.token = session.token;
   API.base = (session.base_url || window.location.origin).replace(/\/$/, '');
@@ -126,7 +128,7 @@ export async function apiFetch(path, options = {}, retried = false) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     const fallback =
       res.status === 404
-        ? '接口不存在，请完全退出并重新运行 python main.py 后再试'
+        ? t('dynamic.transport.接口不存在_请完全退出并重新运行_python')
         : res.statusText;
     throw new Error(formatApiError(err.detail, fallback));
   }
@@ -194,11 +196,11 @@ function authenticateWebSocket(ws, timeoutMs = 5000) {
 /** @param {RealtimeConnMode} mode */
 function setRealtimeConnUI(mode) {
   const labels = {
-    connecting: '连接中',
-    connected: '已连接',
-    reconnecting: '重连中',
-    polling: '已降级轮询',
-    failed: '连接失败',
+    connecting: t('common.connecting'),
+    connected: t('common.connected'),
+    reconnecting: t('common.reconnecting'),
+    polling: t('common.polling'),
+    failed: t('common.connectionFailed'),
   };
   const text = labels[mode] || labels.connecting;
   document.querySelectorAll('[data-realtime-conn]').forEach((el) => {
@@ -210,11 +212,11 @@ function setRealtimeConnUI(mode) {
 
 function setLogsConnUI(mode) {
   const labels = {
-    connecting: '连接中',
-    connected: '实时',
-    reconnecting: '重连中',
-    polling: 'HTTP 同步',
-    failed: '连接失败',
+    connecting: t('common.connecting'),
+    connected: t('common.realtime'),
+    reconnecting: t('common.reconnecting'),
+    polling: t('common.httpSync'),
+    failed: t('common.connectionFailed'),
   };
   const el = document.querySelector(
     '#guideTab-logs [data-realtime-conn], #page-logs [data-realtime-conn]',
@@ -237,13 +239,13 @@ function logsBackoffMs() {
 }
 
 /**
- * 判断 WS 关闭是否因"连接数已满"导致。
- * UX-012: 1008 + reason 含 "连接数已满" 或 "max consumers" 时停止重连并提示用户。
+ * 判断 WS 关闭是否因t('dynamic.transport.连接数已满')导致。
+ * UX-012: 1008 + reason 含 t('dynamic.transport.连接数已满') 或 "max consumers" 时停止重连并提示用户。
  */
 function isMaxConsumersClose(code, reason) {
   if (code !== 1008) return false;
   const r = (reason || '').toLowerCase();
-  return r.includes('连接数已满') || r.includes('max consumers');
+  return r.includes(t('dynamic.transport.连接数已满')) || r.includes('max consumers');
 }
 
 function clearStatusReconnect() {
@@ -336,7 +338,7 @@ function startStatusPolling() {
         const now = Date.now();
         if (now - REALTIME.lastStatusPollToastAt >= REALTIME.pollToastCooldownMs) {
           REALTIME.lastStatusPollToastAt = now;
-          handlers.showToast('状态轮询失败，界面可能不是最新', true);
+          handlers.showToast(t('dynamic.transport.状态轮询失败_界面可能不是最新'), true);
         }
       });
   };
@@ -488,9 +490,9 @@ function connectStatusWebSocket() {
     console.warn('[realtime] status WS error');
     if (REALTIME.statusAttempt >= 3) {
       console.warn(
-        '[realtime] 无法连接后端 WebSocket。请确认已运行 python main.py，'
-        + '终端有「Web 控制台 HTTP/WS 已监听」，且已安装 uvicorn[standard]（含 websockets）。'
-        + ' 可刷新页面或重启 DanmuAI。',
+        t('dynamic.transport.realtime_无法连接后端_WebSoc')
+        + t('dynamic.transport.终端有_Web_控制台_HTTP_WS_已监听')
+        + t('dynamic.transport.可刷新页面或重启_DanmuAI'),
       );
     }
   };
@@ -501,7 +503,7 @@ function connectStatusWebSocket() {
     if (!REALTIME.statusWsDownAt) REALTIME.statusWsDownAt = Date.now();
     if (isMaxConsumersClose(ev.code, ev.reason)) {
       console.warn('[realtime] status WS closed: max consumers reached, stopping reconnect');
-      handlers.showToast('WebSocket 连接数已达上限，请关闭其他控制台窗口后刷新页面', true);
+      handlers.showToast(t('dynamic.transport.WebSocket_连接数已达上限_请关闭其他控'), true);
       updateRealtimeConnUI();
       return;
     }
@@ -556,7 +558,7 @@ function connectLogsWebSocket() {
     console.warn('[realtime] logs WS error');
     if (REALTIME.logsAttempt >= 3) {
       console.warn(
-        '[realtime] 日志 WebSocket 未连接；约 1s 内会改用 HTTP 轮询同步日志。',
+        t('dynamic.transport.realtime_日志_WebSocket'),
       );
     }
     if (!REALTIME.logsWsDownAt) REALTIME.logsWsDownAt = Date.now();
@@ -569,7 +571,7 @@ function connectLogsWebSocket() {
     if (!REALTIME.logsWsDownAt) REALTIME.logsWsDownAt = Date.now();
     if (isMaxConsumersClose(ev.code, ev.reason)) {
       console.warn('[realtime] logs WS closed: max consumers reached, stopping reconnect');
-      handlers.showToast('WebSocket 连接数已达上限，请关闭其他控制台窗口后刷新页面', true);
+      handlers.showToast(t('dynamic.transport.WebSocket_连接数已达上限_请关闭其他控'), true);
       updateRealtimeConnUI();
       return;
     }

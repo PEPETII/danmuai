@@ -17,6 +17,7 @@ from fastapi import HTTPException
 
 from app.application.config_service import MASKED_API_KEY
 from app.danmu_read_service import export_danmu_read_config
+from app.translations import tr
 from app.model_providers import normalize_endpoint
 from app.tts_catalog import list_catalog_for_api
 from app.tts_providers import (
@@ -26,8 +27,8 @@ from app.tts_providers import (
     normalize_tts_voice,
 )
 
-_UNSUPPORTED_CUSTOM_TTS_MSG = "不再支持自定义 OpenAI 兼容 TTS，请改选 MiMo/百炼"
-_UNSUPPORTED_DOUBAO_TTS_MSG = "不再支持火山豆包语音 TTS，请改选 MiMo 或百炼"
+_UNSUPPORTED_CUSTOM_TTS_MSG = tr("tts.unsupportedCustom")
+_UNSUPPORTED_DOUBAO_TTS_MSG = tr("tts.unsupportedDoubao")
 
 if TYPE_CHECKING:
     from main import DanmuApp

@@ -28,10 +28,8 @@ from app.env_config import get as get_env
 from app.logger import SanitizedLogger
 from app.translations import tr
 
-DEPRECATED_LAUNCH_MSG = (
-    "已移除 Qt 主窗（--qt-ui）。请使用: python main.py 或 python main.py --web-browser\n"
-    "设置、日志、人格均在 Web 控制台（http://127.0.0.1:18765）。\n"
-)
+def _deprecated_launch_msg() -> str:
+    return tr("mainLaunch.deprecatedLaunchMsg")
 
 _unhandled_exception_notifier: Callable[[], None] | None = None
 
@@ -47,17 +45,17 @@ def register_unhandled_exception_notifier(
 def check_deprecated_launch_args() -> None:
     reasons: list[str] = []
     if "--qt-ui" in sys.argv or "--legacy-ui" in sys.argv:
-        reasons.append("命令行参数 --qt-ui / --legacy-ui")
+        reasons.append(tr("mainLaunch.reason.cliQtUi"))
     env_qt = get_env("DANMU_QT_UI").strip().lower()
     if env_qt in ("1", "true", "yes", "on"):
-        reasons.append("环境变量 DANMU_QT_UI")
+        reasons.append(tr("mainLaunch.reason.envQtUi"))
     env_web = get_env("DANMU_WEB_CONSOLE").strip().lower()
     if env_web in ("0", "false", "no", "off"):
-        reasons.append("环境变量 DANMU_WEB_CONSOLE=0")
+        reasons.append(tr("mainLaunch.reason.envWebConsoleOff"))
     if not reasons:
         return
-    sys.stderr.write(DEPRECATED_LAUNCH_MSG)
-    sys.stderr.write("废弃入口: " + "、".join(reasons) + "\n")
+    sys.stderr.write(_deprecated_launch_msg())
+    sys.stderr.write(tr("mainLaunch.deprecatedReasonPrefix").format(reasons="、".join(reasons)) + "\n")
     sys.exit(2)
 
 

@@ -18,17 +18,14 @@ from app.mic_encode import pcm_to_wav_data_uri
 from app.model_providers import mic_audio_unsupported_message, model_supports_mic_audio
 from app.translations import tr
 
-_TEST_USER_PT = "听得见吗？跟我打个招呼"
+_TEST_USER_PT = tr("micTestSend.probePrompt")
 _PREVIEW_MAX_LEN = 200
-_AUDIO_MODEL_HINT = "请确认当前模型支持音频理解（纯视觉 flash 模型可能无法处理 input_audio）。"
+_AUDIO_MODEL_HINT = tr("micTestSend.audioModelHint")
+
 def _mic_unsupported_config_message(model_id: str = "") -> str:
     if model_id:
         return mic_audio_unsupported_message(model_id)
-    return (
-        "当前配置未声明 mic_audio 支持。"
-        "开麦请使用火山方舟豆包全模态模型（如 doubao-seed-2-0-mini-260428）"
-        "或小米 MiMo 的 mimo-v2.5，或在模型配置档案中勾选「支持麦克风」。"
-    )
+    return tr("micTestSend.unsupportedConfig")
 @dataclass(frozen=True)
 class MicSendProbeResult:
     ok: bool
@@ -89,9 +86,8 @@ def _probe_result_from_ai(outcome: AiProbeResult) -> MicSendProbeResult:
             preview = preview[:_PREVIEW_MAX_LEN] + "…"
         return MicSendProbeResult(
             ok=True,
-            message=(
-                f"发送成功（input={outcome.input_tokens} · "
-                f"output={outcome.output_tokens}）"
+            message=tr("micTestSend.sendSuccess").format(
+                input_tokens=outcome.input_tokens, output_tokens=outcome.output_tokens
             ),
             input_tokens=outcome.input_tokens,
             output_tokens=outcome.output_tokens,
@@ -188,7 +184,7 @@ def run_mic_test_send(danmu_app, duration_sec: float = 3.0) -> MicTestSendResult
     if not audio_uri:
         return MicTestSendResult(
             ok=False,
-            message="音频编码失败，请重试",
+            message=tr("micTestSend.encodeFailed"),
             pcm_bytes=len(pcm),
             rms=capture.rms,
             level=capture.level,
@@ -210,16 +206,21 @@ def run_mic_test_send(danmu_app, duration_sec: float = 3.0) -> MicTestSendResult
 
     ok = probe.ok and capture.level in ("good", "quiet")
     if probe.ok:
-        message = (
-            f"{probe.message}；模型回复：{probe.reply_preview}"
-            if probe.reply_preview
-            else probe.message
-        )
+        if probe.reply_preview:
+            message = tr("micTestSend.replyWithPreview").format(
+                probe_message=probe.message, reply_preview=probe.reply_preview
+            )
+        else:
+            message = probe.message
         if capture.level == "silent":
-            message = f"API 已收到请求，但本地录音几乎无声（rms={capture.rms}）。{probe.message}"
+            message = tr("micTestSend.silentRecording").format(
+                rms=capture.rms, probe_message=probe.message
+            )
             ok = False
         elif capture.level == "quiet":
-            message = f"API 已收到请求，但本地音量偏低（rms={capture.rms}）。{probe.message}"
+            message = tr("micTestSend.lowVolumeRecording").format(
+                rms=capture.rms, probe_message=probe.message
+            )
     else:
         message = probe.message
 

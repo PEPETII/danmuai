@@ -14,6 +14,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from app.translations import tr
+
 APPDATA_DIR_NAME = "DanmuAI"
 DELETE_MARKER_NAME = ".delete_data_on_uninstall"
 
@@ -114,7 +116,7 @@ def get_status() -> UninstallStatus:
             frozen=False,
             supported=False,
             delete_user_data_requested=requested,
-            message="源码运行模式不支持 Velopack 卸载。",
+            message=tr("uninstall.source_mode_unsupported"),
         )
     if update_exe is None:
         return UninstallStatus(
@@ -123,7 +125,7 @@ def get_status() -> UninstallStatus:
             supported=False,
             delete_user_data_requested=requested,
             error="update_exe_missing",
-            message="未找到 Velopack Update.exe，无法触发卸载。",
+            message=tr("uninstall.update_exe_missing"),
         )
     return UninstallStatus(
         ok=True,
@@ -131,7 +133,7 @@ def get_status() -> UninstallStatus:
         supported=True,
         delete_user_data_requested=requested,
         update_exe_path=str(update_exe),
-        message="已就绪，可触发 Velopack 卸载。",
+        message=tr("uninstall.ready"),
     )
 
 
@@ -145,6 +147,6 @@ def request_uninstall(*, delete_user_data: bool = False) -> UninstallStatus:
         [update_exe, "uninstall", "--silent"],
         cwd=str(Path(update_exe).parent),
     )
-    status.message = "已启动卸载程序。"
+    status.message = tr("uninstall.started")
     status.delete_user_data_requested = delete_user_data
     return status

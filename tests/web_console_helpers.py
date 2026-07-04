@@ -65,70 +65,23 @@ def pump_qt_until(qt_app, *, invoke_worker=None, extra_thread=None) -> None:
 
 def build_ws_status_test_app(bridge, token: str):
     """Mirror WebConsoleServer WebSocketRoute registration for /ws/status."""
-    from app.web_console import _WS_MAX_STATUS_CONSUMERS
-    from app.web_console_ws import _authenticate_websocket
-    from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+    from app.web_console_ws import register_websocket_routes
+    from fastapi import FastAPI, WebSocketDisconnect
     from starlette.routing import WebSocketRoute
 
     app = FastAPI()
-
-    async def _ws_status_endpoint(websocket: WebSocket):
-        if not await _authenticate_websocket(websocket, token):
-            return
-        status_queues = bridge._ws_status_queues
-        if isinstance(status_queues, list) and len(status_queues) >= _WS_MAX_STATUS_CONSUMERS:
-            await websocket.close(code=1008, reason="连接数已满")
-            return
-        await websocket.accept()
-        bridge._ws_log_debug("WebSocket /ws/status accepted peer=test")
-        queue: asyncio.Queue = asyncio.Queue(maxsize=64)
-        bridge.register_status_consumer(queue)
-        cached = bridge._last_status_payload
-        if cached:
-            await websocket.send_json(cached)
-        bridge.status_refresh_requested.emit()
-        try:
-            while True:
-                item = await queue.get()
-                await websocket.send_json(item)
-        except WebSocketDisconnect:
-            pass
-        finally:
-            bridge.unregister_status_consumer(queue)
-
-    app.router.routes.insert(0, WebSocketRoute("/ws/status", endpoint=_ws_status_endpoint))
+    register_websocket_routes(app, bridge, token, WebSocketRoute, WebSocketDisconnect)
     return app
 
 
 def build_ws_logs_test_app(bridge, token: str):
     """Mirror WebConsoleServer WebSocketRoute registration for /ws/logs."""
-    from app.web_console import _WS_MAX_LOG_CONSUMERS
-    from app.web_console_ws import _authenticate_websocket
-    from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+    from app.web_console_ws import register_websocket_routes
+    from fastapi import FastAPI, WebSocketDisconnect
     from starlette.routing import WebSocketRoute
 
     app = FastAPI()
-
-    async def _ws_logs_endpoint(websocket: WebSocket):
-        if not await _authenticate_websocket(websocket, token):
-            return
-        log_queues = bridge._ws_log_queues
-        if isinstance(log_queues, list) and len(log_queues) >= _WS_MAX_LOG_CONSUMERS:
-            await websocket.close(code=1008, reason="连接数已满")
-            return
-        await websocket.accept()
-        queue: asyncio.Queue = asyncio.Queue(maxsize=200)
-        bridge.register_log_consumer(queue)
-        try:
-            while True:
-                item = await queue.get()
-                await websocket.send_json(item)
-        except WebSocketDisconnect:
-            pass
-        finally:
-            bridge.unregister_log_consumer(queue)
-
-    app.router.routes.insert(0, WebSocketRoute("/ws/logs", endpoint=_ws_logs_endpoint))
+    register_websocket_routes(app, bridge, token, WebSocketRoute, WebSocketDisconnect)
     return app
 
 

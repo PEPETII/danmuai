@@ -1,4 +1,5 @@
 import { API, apiFetch } from './transport.js';
+import { t } from './i18n.js';
 
 const URL_COPIED_KEY = 'danmu_live_overlay_url_copied_v1';
 const TEST_SENT_KEY = 'danmu_live_overlay_test_sent_v1';
@@ -64,27 +65,27 @@ function renderLiveOverlaySetup() {
     stateEl.classList.toggle('is-waiting', copied && !connected && !unavailable);
     stateEl.classList.toggle('is-error', unavailable);
     if (unavailable) {
-      stateEl.textContent = '状态未知';
+      stateEl.textContent = t('dynamic.appLiveOverlayPanel.状态未知');
     } else if (connected) {
-      stateEl.textContent = '已连接';
+      stateEl.textContent = t('common.connected');
     } else if (copied) {
-      stateEl.textContent = '等待连接';
+      stateEl.textContent = t('dynamic.appLiveOverlayPanel.等待连接');
     } else {
-      stateEl.textContent = '待接入';
+      stateEl.textContent = t('common.comingSoon');
     }
   }
 
   if (!hintEl) return;
   if (unavailable) {
-    hintEl.textContent = '暂时无法读取直播输出状态，请确认控制台服务仍在运行。';
+    hintEl.textContent = t('dynamic.appLiveOverlayPanel.暂时无法读取直播输出状态_请确认控制台服务仍在运');
   } else if (!copied && !connected) {
-    hintEl.textContent = '先复制地址，粘贴到直播软件的浏览器源 / 网页源。';
+    hintEl.textContent = t('dynamic.appLiveOverlayPanel.先复制地址_粘贴到直播软件的浏览器源_网页源');
   } else if (!connected) {
-    hintEl.textContent = '地址已复制。保存直播软件的网页源后，连接数会自动变为 1 或更多。';
+    hintEl.textContent = t('dynamic.appLiveOverlayPanel.地址已复制_保存直播软件的网页源后_连接数会自动');
   } else if (!testSent) {
-    hintEl.textContent = '已检测到网页源连接。发送测试弹幕，确认直播画面能看到弹幕。';
+    hintEl.textContent = t('dynamic.appLiveOverlayPanel.已检测到网页源连接_发送测试弹幕_确认直播画面能');
   } else {
-    hintEl.textContent = '直播输出已接通。正式生成弹幕时会同步推送到网页源。';
+    hintEl.textContent = t('dynamic.appLiveOverlayPanel.直播输出已接通_正式生成弹幕时会同步推送到网页源');
   }
 }
 
@@ -96,7 +97,7 @@ async function copyLiveOverlayUrl() {
   const urlEl = document.getElementById('liveOverlayUrl');
   const url = currentLiveOverlayUrl();
   if (!url) {
-    showToast('暂无直播地址');
+    showToast(t('dynamic.appLiveOverlayPanel.暂无直播地址'));
     return;
   }
   try {
@@ -109,9 +110,9 @@ async function copyLiveOverlayUrl() {
     }
     writeFlag(URL_COPIED_KEY);
     renderLiveOverlaySetup();
-    showToast('直播地址已复制');
+    showToast(t('dynamic.appLiveOverlayPanel.直播地址已复制'));
   } catch {
-    showToast('复制失败，请手动选择复制', true);
+    showToast(t('dynamic.appLiveOverlayPanel.复制失败_请手动选择复制'), true);
   }
 }
 
@@ -162,14 +163,14 @@ export function initLiveOverlayPanel(deps = {}) {
     document.getElementById('btnOpenLiveOverlayUrl')?.addEventListener('click', () => {
       const url = currentLiveOverlayUrl();
       if (!url) {
-        showToast('暂无直播地址');
+        showToast(t('dynamic.appLiveOverlayPanel.暂无直播地址'));
         return;
       }
       window.open(url, '_blank', 'noopener');
     });
     document.getElementById('btnRefreshLiveOverlayStatus')?.addEventListener('click', async () => {
       await refreshLiveOverlayStatus();
-      showToast('直播输出状态已刷新');
+      showToast(t('dynamic.appLiveOverlayPanel.直播输出状态已刷新'));
     });
     document.getElementById('btnLiveOverlayTest')?.addEventListener('click', async () => {
       try {
@@ -180,10 +181,10 @@ export function initLiveOverlayPanel(deps = {}) {
         });
         writeFlag(TEST_SENT_KEY);
         renderLiveOverlaySetup();
-        showToast('测试弹幕已发送');
+        showToast(t('dynamic.appLiveOverlayPanel.测试弹幕已发送'));
         await refreshLiveOverlayStatus();
       } catch (error) {
-        showToast(`发送失败：${error.message || error}`, true);
+        showToast(t('dynamic.appLiveOverlayPanel.发送失败_error_message'), true);
       }
     });
   }

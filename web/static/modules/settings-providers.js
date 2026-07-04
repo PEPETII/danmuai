@@ -1,20 +1,21 @@
 import { API } from './transport.js';
+import { t } from './i18n.js';
 
-const MANUAL_PROVIDER_LABEL = '手动填写';
+const MANUAL_PROVIDER_LABEL = t('dynamic.settingsProviders.手动填写');
 const FALLBACK_DEFAULT_PROVIDER_ID = 'custom_openai';
 const FALLBACK_EDITABLE_API_MODE_PROVIDER_IDS = new Set(['custom_openai', 'custom_doubao']);
 
 export const API_MODE_OPTIONS = [
-  { value: 'doubao', label: '豆包（火山方舟）' },
-  { value: 'openai', label: 'OpenAI 兼容接口' },
+  { value: 'doubao', label: t('dynamic.settingsProviders.豆包_火山方舟') },
+  { value: 'openai', label: t('dynamic.settingsProviders.OpenAI_兼容接口') },
 ];
 
 // Mic tab only: suffix clarifies audio capability; API tab uses plain provider labels.
 const MIC_LABEL_SUFFIX = {
-  doubao: '（支持部分全模态模型）',
+  doubao: t('dynamic.settingsProviders.支持部分全模态模型'),
   mimo: '（mimo-v2.5）',
-  custom_openai: '（需模型支持音频输入）',
-  custom_doubao: '（需模型支持 input_audio）',
+  custom_openai: t('dynamic.settingsProviders.需模型支持音频输入'),
+  custom_doubao: t('dynamic.settingsProviders.需模型支持_input_audio'),
 };
 
 let providersDeps = {
@@ -210,7 +211,7 @@ export function applyProviderPreset(providerId) {
   if (apiKeyEl) apiKeyEl.value = '';
   const defaultModelId = providersDeps.pickDefaultCatalogModelId(providerId);
   providersDeps.renderVisionModelPicker(providerId, defaultModelId, { providerSwitch: true });
-  providersDeps.showToast(`已填入 ${provider.label} 的默认地址，请填写对应 API 密钥~`);
+  providersDeps.showToast(t('dynamic.settingsProviders.已填入_provider_label_的默'));
 }
 
 export function resolveProviderIdForPicker() {
@@ -263,7 +264,7 @@ export function applyMicProviderPreset(providerId) {
   const defaultModelId = providersDeps.pickDefaultMicCatalogModelId(providerId);
   providersDeps.renderMicModelPicker(providerId, defaultModelId, { providerSwitch: true });
   providersDeps.updateMicModeHint();
-  providersDeps.showToast(`已填入 ${provider.label} 的默认麦克风地址，请填写对应 API 密钥~`);
+  providersDeps.showToast(t('dynamic.settingsProviders.已填入_provider_label_的默_2'));
 }
 
 export function isCustomProvider(providerId) {

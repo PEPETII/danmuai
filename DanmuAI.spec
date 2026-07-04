@@ -29,11 +29,29 @@ from PyInstaller.utils.hooks import collect_submodules
 root = Path(SPECPATH)
 
 
+# Allowlist of supabase-related files that are safe to ship (no credentials).
+# Keep in sync with scripts/publish_windows_release.ps1 and
+# tests/test_packaging_supabase_exclude.py.
+_ALLOWED_SUPABASE_FILES = frozenset({
+    "supabase-config.example.js",  # Template (no credentials)
+    "supabase-client.js",           # Legitimate client code (no credentials)
+})
+
+
 def _should_exclude_supabase_config(name: str) -> bool:
-    """Exclude credential-bearing supabase-config variants; keep supabase-config.example.js."""
-    if name == "supabase-config.example.js":
+    """Default-deny: exclude any file containing 'supabase-config' unless allowlisted.
+
+    Conservative credential-leak prevention (BUG-005). The previous prefix-based
+    whitelist (``supabase-config.js`` + ``supabase-config.js.*``) missed creative
+    variants like ``supabase-config-local.js`` or ``my-supabase-config.js``. This
+    default-deny rule excludes any file whose name (case-insensitive) contains
+    ``supabase-config`` unless it is in ``_ALLOWED_SUPABASE_FILES``. When
+    PyInstaller is invoked directly (skipping publish_windows_release.ps1), this
+    function is the only defense against shipping credentials.
+    """
+    if name in _ALLOWED_SUPABASE_FILES:
         return False
-    return name == "supabase-config.js" or name.startswith("supabase-config.js.")
+    return "supabase-config" in name.lower()
 
 
 def _collect_dir_datas(
@@ -78,7 +96,8 @@ EXCLUDES = [
 ]
 
 datas = []
-# web/static — 排除 supabase-config.js 及 .codex-release-backup 等变体（含凭据）
+# web/static — default-deny：排除任何含 'supabase-config' 的文件（除 allowlist），
+# 防止凭据泄露（BUG-005）。保留 supabase-config.example.js 与 supabase-client.js。
 datas += _collect_dir_datas(
     root / "web" / "static",
     "web/static",
@@ -234,6 +253,7 @@ hiddenimports: list[str] = [
     "app.web_console_ws",
     "app.web_static_mime",
     "app.webview_shell",
+    "app.webview2_runtime",
     "app.win32_overlay_zorder",
     "app.worker_pools",
     # ── app.application.* ────────────────────────────────────────

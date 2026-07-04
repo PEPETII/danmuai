@@ -16,6 +16,7 @@
  */
 
 import { API } from './transport.js';
+import { t } from './i18n.js';
 
 export const DIAGNOSTICS = {
   sse: null,
@@ -39,7 +40,7 @@ function formatDiagMs(value) {
 }
 
 export function buildDiagnosticReportText(diag) {
-  if (!diag) return '等待诊断数据...';
+  if (!diag) return t('dynamic.diagnostics.等待诊断数据');
   const configContext = diag.config_context || {};
   const scheduler = diag.scheduler || {};
   const timing = diag.timing || {};
@@ -51,16 +52,17 @@ export function buildDiagnosticReportText(diag) {
   const generation = runtimeState.generation_pipeline || {};
   const suggestions = [];
   if (diagnosis.scheduler_blocked) {
-    suggestions.push(`- 检查调度阻塞原因：${scheduler.block_reason || 'unknown'}`);
+    const reason = scheduler.block_reason || 'unknown';
+    suggestions.push(t('dynamic.diagnostics.检查调度阻塞原因_scheduler_b', { reason }));
   }
   if (diagnosis.high_rtt) {
-    suggestions.push('- 检查弱网、上游模型响应时间或过慢的视觉请求');
+    suggestions.push(t('dynamic.diagnostics.检查弱网_上游模型响应时间或过慢的视觉请求'));
   }
   if (diagnosis.has_pending_timing) {
-    suggestions.push('- 检查请求 timing 是否长时间未消费，重点看 reply/error 清理路径');
+    suggestions.push(t('dynamic.diagnostics.检查请求_timing_是否长时间未消费_重'));
   }
   if (!suggestions.length) {
-    suggestions.push('- 当前快照未发现明显调度或 timing 异常');
+    suggestions.push(t('dynamic.diagnostics.当前快照未发现明显调度或_timing_异常'));
   }
   return [
     'DanmuAI Diagnostic Report',
@@ -113,13 +115,13 @@ function renderDiagnosticSnapshot(diag) {
     if (el) el.textContent = value;
   };
 
-  setText('diagSchedulerBlocked', diagnosis.scheduler_blocked ? '是' : '否');
+  setText('diagSchedulerBlocked', diagnosis.scheduler_blocked ? t('common.yes') : t('common.no'));
   setText('diagBlockReason', scheduler.block_reason || '-');
   setText('diagTriggerGap', formatDiagSeconds(scheduler.seconds_since_last_trigger));
   setText('diagPendingTiming', String(timing.request_started_count ?? 0));
   setText('diagAvgRtt', formatDiagSeconds(timing.avg_rtt));
   setText('diagCooldown', formatDiagMs(timing.smart_cooldown_ms));
-  setText('diagHighRtt', diagnosis.high_rtt ? '是' : '否');
+  setText('diagHighRtt', diagnosis.high_rtt ? t('common.yes') : t('common.no'));
   setText('diagRttHistoryLen', String(timing.rtt_history_len ?? 0));
   setText(
     'diagRecentRttSamples',
@@ -276,7 +278,7 @@ function setDiagnosticsPanelVisible(visible) {
   if (!panel) return;
   panel.classList.toggle('hidden', !visible);
   panel.setAttribute('aria-hidden', visible ? 'false' : 'true');
-  if (btn) btn.textContent = visible ? '隐藏诊断面板' : '显示诊断面板';
+  if (btn) btn.textContent = visible ? t('dynamic.diagnostics.隐藏诊断面板') : t('dynamic.diagnostics.显示诊断面板');
   handlePanelVisibilityChange([
     { target: panel, isIntersecting: isDiagnosticsPanelVisible() },
   ]);
@@ -293,10 +295,10 @@ export function initDiagnosticsPanel({ showToast }) {
     const text = buildDiagnosticReportText(DIAGNOSTICS.last);
     try {
       await navigator.clipboard.writeText(text);
-      showToast('诊断报告已复制');
+      showToast(t('dynamic.diagnostics.诊断报告已复制'));
     } catch (err) {
       console.warn('[diagnostics] copy failed', err);
-      showToast('复制诊断报告失败', true);
+      showToast(t('dynamic.diagnostics.复制诊断报告失败'), true);
     }
   });
 

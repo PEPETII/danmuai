@@ -33,6 +33,7 @@ from .screen import (
     resolve_danmu_color,
     resolve_danmu_pending_entry_cap,
     resolve_danmu_track_retention_cap,
+    track_layout_metrics,
 )
 
 _log = logging.getLogger(__name__)
@@ -143,9 +144,13 @@ class DanmuEngine(QObject):
             self.recent_timestamps.pop(content, None)
 
     def _init_tracks(self):
-        line_height = 40
-        top_margin = 50
-        bottom_margin = 80
+        metrics = track_layout_metrics(self.config)
+        line_height = metrics["line_height"]
+        top_margin = metrics["top_margin"]
+        bottom_margin = metrics["bottom_margin"]
+        self._track_line_height = line_height
+        self._track_top_margin = top_margin
+        self._track_bottom_margin = bottom_margin
         ratio = layout_height_ratio(self.config)
         drawable_height = self.screen_height * ratio
         configured = self.config.get_int("danmu_lines", 0)

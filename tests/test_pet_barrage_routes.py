@@ -1,8 +1,17 @@
 from unittest.mock import MagicMock
 
+from app.translations import Translator
 from app.web_api.routes import register_web_routes
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+
+
+def _pet_preview_client(settings_snapshot: dict):
+    app = FastAPI()
+    bridge = MagicMock()
+    bridge.danmu_app.get_pet_settings_snapshot.return_value = settings_snapshot
+    register_web_routes(app, bridge, lambda _authorization=None: None)
+    return TestClient(app)
 
 
 def test_pet_settings_route_accepts_pet_barrage_payload():
@@ -52,3 +61,57 @@ def test_pet_settings_route_accepts_pet_barrage_payload():
         {"slot_id": 0, "x": 10, "y": 20},
         {"slot_id": 1, "x": 30, "y": 40},
     ]
+
+
+def test_get_pet_barrage_slot_preview_missing_slot_in_zh():
+    Translator.set_language("zh")
+    try:
+        client = _pet_preview_client({"pet_barrage": {"slot_assets": []}})
+        res = client.get("/api/pet/barrage-slots/0/preview")
+        assert res.status_code == 404
+        detail = res.json()["detail"]
+        assert "桌宠槽位不存在" in detail
+        assert "Pet barrage slot" not in detail
+    finally:
+        Translator.set_language("zh")
+
+
+def test_get_pet_barrage_slot_preview_missing_slot_in_en():
+    Translator.set_language("en")
+    try:
+        client = _pet_preview_client({"pet_barrage": {"slot_assets": []}})
+        res = client.get("/api/pet/barrage-slots/0/preview")
+        assert res.status_code == 404
+        detail = res.json()["detail"]
+        assert "Pet barrage slot does not exist" in detail
+    finally:
+        Translator.set_language("zh")
+
+
+def test_get_pet_barrage_slot_preview_missing_preview_in_zh():
+    Translator.set_language("zh")
+    try:
+        client = _pet_preview_client(
+            {"pet_barrage": {"slot_assets": [{"preview_path": ""}]}}
+        )
+        res = client.get("/api/pet/barrage-slots/0/preview")
+        assert res.status_code == 404
+        detail = res.json()["detail"]
+        assert "桌宠预览不存在" in detail
+        assert "Pet preview" not in detail
+    finally:
+        Translator.set_language("zh")
+
+
+def test_get_pet_barrage_slot_preview_missing_preview_in_en():
+    Translator.set_language("en")
+    try:
+        client = _pet_preview_client(
+            {"pet_barrage": {"slot_assets": [{"preview_path": ""}]}}
+        )
+        res = client.get("/api/pet/barrage-slots/0/preview")
+        assert res.status_code == 404
+        detail = res.json()["detail"]
+        assert "Pet preview does not exist" in detail
+    finally:
+        Translator.set_language("zh")

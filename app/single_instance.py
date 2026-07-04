@@ -2,7 +2,8 @@
 
 ``QLocalServer`` + ``QLocalSocket`` 实现单实例：第一个进程 bind ``DanmuAI-{user-salt}``，
 后续进程连 socket 发送 ``_ACTIVATE_MSG`` 后退出，激活原窗口。``_server_name`` 哈希
-``%USERNAME% + config 数据库路径``生成唯一 server 名，避免多用户 / 多 profile 误判。
+``USERNAME | APPDATA``（BUG-006：早期实现只哈希 APPDATA，多用户/同机器场景会互斥；
+现已混入 USERNAME，相同 APPDATA 下不同用户生成不同 server 名）。
 
 竞态窗口：若原实例正在启动但 ``QLocalServer`` 尚未就绪，新进程 ``_activate_existing_instance``
 超时返回 False，``_listen_primary`` 可能抢占成功（server 名尚未注册），导致双实例。
@@ -49,7 +50,13 @@ class SingleInstanceAcquireResult:
 
 def _server_name() -> str:
     appdata = os.environ.get("APPDATA", "").strip() or os.path.expanduser("~")
-    digest = hashlib.sha256(appdata.encode("utf-8", errors="replace")).hexdigest()[:16]
+    username = (
+        os.environ.get("USERNAME", "").strip()
+        or os.environ.get("USER", "").strip()
+    )
+    digest = hashlib.sha256(
+        f"{username}|{appdata}".encode("utf-8", errors="replace")
+    ).hexdigest()[:16]
     return f"DanmuAI-{digest}"
 
 

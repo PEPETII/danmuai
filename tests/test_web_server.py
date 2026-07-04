@@ -7,6 +7,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from app.application.web_runtime_state import WebRuntimeState
+from app.translations import Translator
 from app.web_console import (
     WebConsoleBridge,
 )
@@ -1006,3 +1007,30 @@ def test_static_js_response_content_type(tmp_path):
     res = client.get("/static/test.js")
     assert res.status_code == 200
     assert "javascript" in res.headers.get("content-type", "").lower()
+
+
+def test_invoke_main_route_timeout_returns_504_in_english():
+    from app.web_console import MainThreadInvokeTimeout
+    from fastapi.testclient import TestClient
+
+    Translator.set_language("en")
+    try:
+        bridge = MagicMock()
+        bridge.invoke_on_main.side_effect = MainThreadInvokeTimeout(10.0)
+        client = TestClient(
+            _register_invoke_main_test_routes(bridge), raise_server_exceptions=False
+        )
+
+        res = client.put(
+            "/api/danmu-pool/settings",
+            json={"custom_enabled": True},
+            headers={"Authorization": "Bearer x"},
+        )
+        assert res.status_code == 504
+        assert res.json()["detail"] == {
+            "ok": False,
+            "error": "main_thread_timeout",
+            "detail": "Main thread operation timed out; please try again later.",
+        }
+    finally:
+        Translator.set_language("zh")

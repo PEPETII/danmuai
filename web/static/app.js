@@ -1,3 +1,4 @@
+import { t } from './modules/i18n.js';
 import {
   API,
   REALTIME,
@@ -54,6 +55,8 @@ import {
 } from './modules/guide-tabs.js';
 import { isMaskedApiKey } from './modules/settings-defaults.js';
 import { initTheme } from './modules/theme.js';
+import { bootstrapI18n, initLanguage } from './modules/language.js';
+import { applyI18n } from './modules/i18n.js';
 import { initSetupGuide, refreshSetupGuide, markProbeSuccess, markTestDanmuSent } from './modules/app-setup-guide.js';
 import {
   bindContentPageControls,
@@ -179,7 +182,7 @@ function showToast(message, isError = false) {
 
 async function withLoadingState(btn, originalText, asyncFn, successText = null, successDurationMs = 2000) {
   if (!btn) return asyncFn();
-  const loadingText = originalText ? `${originalText}中...` : '处理中...';
+  const loadingText = originalText ? t('dynamic.app.originalText_中') : t('common.processing');
   const savedOriginal = originalText || btn.textContent;
   btn.disabled = true;
   btn.textContent = loadingText;
@@ -224,7 +227,7 @@ window.addEventListener('unhandledrejection', (event) => {
   const reason = event.reason;
   const message = reason instanceof Error ? reason.message : String(reason ?? 'unknown');
   console.warn('[app] unhandled promise rejection:', reason);
-  showToast(`操作失败: ${message}`, true);
+  showToast(t('dynamic.app.操作失败_message'), true);
 });
 
 function getDanmuReadCatalogProvider(providerId) {
@@ -283,11 +286,11 @@ function updateDanmuReadStyleHint(providerId, modelId) {
   const cat = getDanmuReadCatalogProvider(providerId);
   const model = cat?.models?.find((m) => m.id === modelId);
   if (model?.supports_style) {
-    hint.textContent = '当前模型支持风格指令，将用于控制语气与情感。';
+    hint.textContent = t('dynamic.app.当前模型支持风格指令_将用于控制语气与情感');
   } else if (!providerId) {
-    hint.textContent = 'MiMo：作为 user 消息控制语气；留空则仅朗读弹幕正文。';
+    hint.textContent = t('dynamic.app.MiMo_作为_user_消息控制语气_留空则仅');
   } else {
-    hint.textContent = '当前模型可能忽略风格指令，留空则仅朗读弹幕正文。';
+    hint.textContent = t('dynamic.app.当前模型可能忽略风格指令_留空则仅朗读弹幕正文');
   }
 }
 
@@ -332,7 +335,7 @@ function validateDanmuReadCustomFields(payload) {
   if (!provider) return true;
   if (provider === 'dashscope_qwen') {
     if (!modelId) {
-      showToast('请选择 TTS 模型', true);
+      showToast(t('dynamic.app.请选择_TTS_模型'), true);
       return false;
     }
   }
@@ -384,7 +387,7 @@ async function loadDanmuReadPage() {
     if (status) status.textContent = '';
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error ?? 'unknown');
-    showToast(`读弹幕页加载失败: ${message}`, true);
+    showToast(t('dynamic.app.读弹幕页加载失败_message'), true);
     throw error;
   }
 }
@@ -395,7 +398,7 @@ async function saveDanmuReadSettings() {
   const body = {
     enabled: Boolean(document.getElementById('danmuReadEnabled')?.checked),
     interval_sec: parseInt(document.getElementById('danmuReadInterval')?.value, 10) || 10,
-    voice: document.getElementById('danmuReadVoice')?.value || '冰糖',
+    voice: document.getElementById('danmuReadVoice')?.value || t('dynamic.app.冰糖'),
     style_prompt: document.getElementById('danmuReadStylePrompt')?.value || '',
     ...customPayload,
   };
@@ -415,7 +418,7 @@ async function probeDanmuRead() {
   const customPayload = collectDanmuReadCustomPayload();
   if (!validateDanmuReadCustomFields(customPayload)) return;
   const status = document.getElementById('danmuReadStatus');
-  if (status) status.textContent = '试听请求中（约 10-20 秒）...';
+  if (status) status.textContent = t('dynamic.app.试听请求中_约_10_20_秒');
   const body = { ...customPayload };
   const keyInput = document.getElementById('danmuReadApiKey')?.value?.trim();
   if (keyInput && !isMaskedApiKey(keyInput)) {
@@ -426,9 +429,9 @@ async function probeDanmuRead() {
     body: JSON.stringify(body),
   });
   if (status) status.textContent = result.message || '';
-  showToast(result.message || (result.ok ? '试听已开始' : '试听失败'), !result.ok);
+  showToast(result.message || (result.ok ? t('dynamic.app.试听已开始') : t('dynamic.app.试听失败')), !result.ok);
   if (result.ok && !document.getElementById('danmuReadEnabled')?.checked) {
-    showToast('未勾选「启用读弹幕」，定时朗读不会启动，请勾选后保存', true);
+    showToast(t('dynamic.app.未勾选_启用读弹幕_定时朗读不会启动_请勾选后'), true);
   }
 }
 
@@ -552,7 +555,9 @@ function navigate(page) {
 }
 
 async function init() {
+  await bootstrapI18n();
   initTheme();
+  initLanguage({ showToast });
   await refreshSession();
 
   await Promise.all([
@@ -687,21 +692,21 @@ async function init() {
       .filter((item) => logLevelFilters.has(item.level))
       .map((item) => `[${item.level}] ${item.message}`)
       .join('\n');
-    navigator.clipboard.writeText(text).then(() => showToast('已复制到剪贴板'));
+    navigator.clipboard.writeText(text).then(() => showToast(t('common.copied')));
   });
   document.getElementById('btnClearLogs')?.addEventListener('click', () => {
     clearLogBuffer();
     document.getElementById('logView').innerHTML = '';
     updateLogPanelState();
-    showToast('日志视图已清空');
+    showToast(t('dynamic.app.日志视图已清空'));
   });
   document.getElementById('btnCloseLogs')?.addEventListener('click', () => {
     if (logClosed) {
       reopenLogView();
-      showToast('日志已重新打开');
+      showToast(t('dynamic.app.日志已重新打开'));
     } else {
       closeLogView();
-      showToast('日志已关闭');
+      showToast(t('dynamic.app.日志已关闭'));
     }
   });
 
@@ -719,13 +724,13 @@ async function init() {
       const running = getLastAppliedStatus()?.running ?? false;
       if (running) {
         await apiFetch('/api/stop', { method: 'POST' });
-        showToast('小助手已休息');
+        showToast(t('dynamic.app.小助手已休息'));
       } else {
         await apiFetch('/api/start', { method: 'POST' });
-        showToast('弹幕生成已开启');
+        showToast(t('dynamic.app.弹幕生成已开启'));
       }
     } catch (error) {
-      showToast(error.message || '小助手遇到了一点问题', true);
+      showToast(error.message || t('dynamic.app.小助手遇到了一点问题'), true);
     }
   });
 
@@ -733,6 +738,9 @@ async function init() {
     refreshAnnouncementsUnreadBadge(),
     initAppVersionAndUpdateCheck(),
   ]);
+
+  // Re-apply after init* hooks that touch static DOM (hints, tabs, etc.)
+  applyI18n();
 }
 
 document.addEventListener('visibilitychange', () => {
@@ -760,5 +768,5 @@ window.addEventListener('pagehide', () => {
 
 init().catch((error) => {
   console.error(error);
-  showToast(error.message || '无法连接小助手，请确认 DanmuAI 已启动', true);
+  showToast(error.message || t('dynamic.app.无法连接小助手_请确认_DanmuAI_已启动'), true);
 });

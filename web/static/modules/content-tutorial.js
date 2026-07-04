@@ -2,7 +2,9 @@
  * 教程页：图文链接（本地硬编码）+ 视频链接（Supabase tutorial_links）。
  */
 
-export const VIDEO_PLACEHOLDER = '正在紧急赶制中...';
+import { t } from './i18n.js';
+
+export const VIDEO_PLACEHOLDER = t('dynamic.contentTutorial.正在紧急赶制中');
 
 export function isNavigableUrl(value) {
   return /^https?:\/\//i.test(String(value || '').trim());

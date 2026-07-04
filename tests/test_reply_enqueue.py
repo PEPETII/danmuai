@@ -347,6 +347,15 @@ def test_start_without_api_key_surfaces_ui_feedback(monkeypatch):
     tray.show_api_key_missing_hint.assert_called_once()
 
 
+def test_start_without_api_key_updates_tray_state(monkeypatch):
+    """BUG-022: missing API key must sync tray to stopped state."""
+    app, _engine_start_called, _screenshot_timer, tray = make_app_for_start_without_api_key(
+        monkeypatch
+    )
+    DanmuApp.start(app)
+    tray.update_state.assert_called_once_with(running=False)
+
+
 def _custom_model_only_config() -> FakeConfig:
     cfg = FakeConfig(
         {

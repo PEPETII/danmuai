@@ -5,6 +5,17 @@ from tests.conftest import bind_minimal_danmu_app
 from tests.fakes import FakeConfig
 
 
+def test_default_slot_positions_without_primary_screen(qapp, monkeypatch):
+    """BUG-018: fallback y must fit 768p when primaryScreen() is None."""
+    from app.pet import pet_barrage
+
+    monkeypatch.setattr(qapp, "primaryScreen", lambda: None)
+    positions = pet_barrage.default_slot_positions()
+    assert len(positions) == pet_barrage.PET_BARRAGE_COUNT
+    for slot in positions:
+        assert slot["y"] <= 668
+
+
 def test_pet_window_only_slot_zero_supports_command_box(qapp):
     app = DanmuApp.__new__(DanmuApp)
     bind_minimal_danmu_app(

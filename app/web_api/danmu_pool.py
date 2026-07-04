@@ -18,6 +18,7 @@ from app.danmu_pool import (
     danmu_pool_use_custom_from_config,
 )
 from app.danmu_pool_overlay import is_overlay_safe
+from app.translations import tr
 
 if TYPE_CHECKING:
     from main import DanmuApp
@@ -118,7 +119,7 @@ def _parse_incoming_lines(payload: dict[str, Any]) -> list[str]:
 def append_custom(app: "DanmuApp", payload: dict[str, Any]) -> dict[str, Any]:
     raw_lines = _parse_incoming_lines(payload)
     if len(raw_lines) > APPEND_BATCH_MAX:
-        raise ValueError(f"单次最多追加 {APPEND_BATCH_MAX} 条")
+        raise ValueError(tr("danmuPool.batchTooLarge").format(max=APPEND_BATCH_MAX))
 
     source = str(payload.get("source") or "manual").strip().lower()
     if source not in ("manual", "import"):
@@ -177,7 +178,7 @@ def append_custom(app: "DanmuApp", payload: dict[str, Any]) -> dict[str, Any]:
             stats["skipped_empty"] += int(batch_stats.get("skipped_empty", 0))
             stats["skipped_limit"] += int(batch_stats.get("skipped_limit", 0))
         else:
-            raise ValueError("追加接口不可用")
+            raise ValueError(tr("danmuPool.appendUnavailable"))
         app.config_changed.emit()
 
     skipped_total = sum(
@@ -214,15 +215,15 @@ def delete_custom(app: "DanmuApp", payload: dict[str, Any]) -> dict[str, Any]:
         if callable(delete_fn):
             removed = delete_fn([int(i) for i in ids])
         else:
-            raise ValueError("删除接口不可用")
+            raise ValueError(tr("danmuPool.deleteUnavailable"))
     elif isinstance(texts, list) and texts:
         delete_fn = getattr(app.config, "custom_danmu_delete_texts", None)
         if callable(delete_fn):
             removed = delete_fn(texts)
         else:
-            raise ValueError("删除接口不可用")
+            raise ValueError(tr("danmuPool.deleteUnavailable"))
     else:
-        raise ValueError("请提供要删除的弹幕句")
+        raise ValueError(tr("danmuPool.provideDeleteItems"))
 
     if removed:
         app.config_changed.emit()

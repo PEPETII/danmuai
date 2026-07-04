@@ -5,11 +5,13 @@
  * 不调用后端、不写入持久化、不接入真实 overlay。
  */
 
+import { t } from './i18n.js';
+
 const PREVIEW_TEXTS = [
-  '这波操作666',
-  '哈哈哈哈哈太搞了',
-  '主播好强！',
-  '前方高能预警',
+  t('dynamic.settingsDanmuPreview.这波操作666'),
+  t('dynamic.settingsDanmuPreview.哈哈哈哈哈太搞了'),
+  t('dynamic.settingsDanmuPreview.主播好强'),
+  t('dynamic.settingsDanmuPreview.前方高能预警'),
   'awsl',
 ];
 
@@ -251,7 +253,7 @@ function renderTrackBands() {
   topBand.className = 'danmu-track-band danmu-track-band-top';
   topBand.style.top = '0px';
   topBand.style.height = `${Math.max(1, TRACK_TOP_MARGIN * scale)}px`;
-  topBand.title = `顶部安全边距 ${TRACK_TOP_MARGIN}px`;
+  topBand.title = t('dynamic.settingsDanmuPreview.顶部安全边距_TRACK_TOP_MARGI');
   bandsEl.appendChild(topBand);
 
   // 底部安全边距带(在 drawable 底部)
@@ -261,7 +263,7 @@ function renderTrackBands() {
     bottomBand.className = 'danmu-track-band danmu-track-band-bottom';
     bottomBand.style.top = `${bottomBandTop * scale}px`;
     bottomBand.style.height = `${Math.max(1, TRACK_BOTTOM_MARGIN * scale)}px`;
-    bottomBand.title = `底部安全边距 ${TRACK_BOTTOM_MARGIN}px`;
+    bottomBand.title = t('dynamic.settingsDanmuPreview.底部安全边距_TRACK_BOTTOM_MA');
     bandsEl.appendChild(bottomBand);
   }
 
@@ -274,7 +276,7 @@ function renderTrackBands() {
     const line = document.createElement('div');
     line.className = 'danmu-track-line';
     line.style.top = `${y * scale}px`;
-    line.title = `轨道 ${drawn + 1} @ y=${y}px`;
+    line.title = t('dynamic.settingsDanmuPreview.轨道_drawn_1_y_y');
     bandsEl.appendChild(line);
     y += TRACK_LINE_HEIGHT;
     drawn += 1;
@@ -284,7 +286,7 @@ function renderTrackBands() {
   const drawableMarker = document.createElement('div');
   drawableMarker.className = 'danmu-track-drawable-marker';
   drawableMarker.style.top = `${drawableH * scale}px`;
-  drawableMarker.title = `可绘制区底部 ${drawableH}px (layout_mode=${layoutMode})`;
+  drawableMarker.title = t('dynamic.settingsDanmuPreview.可绘制区底部_drawableH_px_l');
   bandsEl.appendChild(drawableMarker);
 }
 

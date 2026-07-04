@@ -39,6 +39,38 @@ LAYOUT_MODE_RATIOS: dict[str, float] = {
 }
 DEFAULT_LAYOUT_MODE = "fullscreen"
 
+# 轨道布局基线（逻辑像素 @ 100% DPI）；_init_tracks 按 ui_scale_factor 缩放
+TRACK_LINE_HEIGHT_BASE = 40
+TRACK_TOP_MARGIN_BASE = 50
+TRACK_BOTTOM_MARGIN_BASE = 80
+
+
+def ui_scale_factor() -> float:
+    """UI 缩放因子；高分屏下与 QFont DPI 放大对齐。"""
+    try:
+        from PyQt6.QtGui import QGuiApplication
+
+        app = QGuiApplication.instance()
+        if app is None:
+            return 1.0
+        screen = app.primaryScreen()
+        if screen is None:
+            return 1.0
+        return max(1.0, float(screen.devicePixelRatio()))
+    except Exception:
+        return 1.0
+
+
+def track_layout_metrics(config=None) -> dict[str, float]:
+    """返回缩放后的轨道行高与上下边距（与 _init_tracks / Overlay clip 一致）。"""
+    del config  # 预留：未来若按 font_size 微调可在此读取
+    scale = ui_scale_factor()
+    return {
+        "line_height": float(TRACK_LINE_HEIGHT_BASE) * scale,
+        "top_margin": float(TRACK_TOP_MARGIN_BASE) * scale,
+        "bottom_margin": float(TRACK_BOTTOM_MARGIN_BASE) * scale,
+    }
+
 
 def normalize_layout_mode(mode: str | None) -> str:
     key = (mode or DEFAULT_LAYOUT_MODE).strip()

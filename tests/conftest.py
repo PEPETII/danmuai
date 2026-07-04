@@ -153,6 +153,7 @@ def bind_minimal_danmu_app(app, **overrides):
         "_consecutive_failures": 0,
         "_capture_fail_streak": 0,
         "_capture_error_active": False,
+        "_mic_unsupported_error_active": False,  # BUG-014: mic 模型不支持错误条标志
         "_capture_in_flight": False,
         "_failure_backoff_paused": False,
         "_last_error_message": "",

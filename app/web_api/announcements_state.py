@@ -15,6 +15,8 @@ import re
 
 from fastapi import HTTPException
 
+from app.translations import tr
+
 ANNOUNCEMENTS_READ_STATE_KEY = "announcements_read_state"
 ANNOUNCEMENTS_READ_IDS_MAX = 200
 _UUID_RE = re.compile(
@@ -82,16 +84,16 @@ def validate_payload(body: dict) -> dict[str, object]:
     if read_ids is None:
         read_ids = []
     if not isinstance(read_ids, list):
-        raise HTTPException(status_code=400, detail="readIds 必须为数组")
+        raise HTTPException(status_code=400, detail=tr("validation.readIdsMustBeArray"))
     cleaned: list[str] = []
     for item in read_ids:
         if not isinstance(item, str):
-            raise HTTPException(status_code=400, detail="readIds 元素必须为字符串")
+            raise HTTPException(status_code=400, detail=tr("validation.readIdsItemMustBeString"))
         item = item.strip()
         if not item:
             continue
         if not _UUID_RE.match(item):
-            raise HTTPException(status_code=400, detail="readIds 包含无效的公告 ID")
+            raise HTTPException(status_code=400, detail=tr("validation.readIdsInvalidId"))
         if item not in cleaned:
             cleaned.append(item)
     if len(cleaned) > ANNOUNCEMENTS_READ_IDS_MAX:
@@ -100,20 +102,20 @@ def validate_payload(body: dict) -> dict[str, object]:
     try:
         last_seen_ms = int(last_seen_ms)
     except (TypeError, ValueError) as exc:
-        raise HTTPException(status_code=400, detail="lastSeenMs 必须为整数") from exc
+        raise HTTPException(status_code=400, detail=tr("validation.lastSeenMsMustBeInt")) from exc
     if last_seen_ms < 0:
-        raise HTTPException(status_code=400, detail="lastSeenMs 不能为负数")
+        raise HTTPException(status_code=400, detail=tr("validation.lastSeenMsNonNegative"))
     overview_banner_dismissed_id = body.get("overviewBannerDismissedId", "")
     if overview_banner_dismissed_id is None:
         overview_banner_dismissed_id = ""
     if not isinstance(overview_banner_dismissed_id, str):
         raise HTTPException(
-            status_code=400, detail="overviewBannerDismissedId 必须为字符串"
+            status_code=400, detail=tr("validation.overviewBannerDismissedIdMustBeString")
         )
     overview_banner_dismissed_id = overview_banner_dismissed_id.strip()
     if overview_banner_dismissed_id and not _UUID_RE.match(overview_banner_dismissed_id):
         raise HTTPException(
-            status_code=400, detail="overviewBannerDismissedId 无效的公告 ID"
+            status_code=400, detail=tr("validation.overviewBannerDismissedIdInvalid")
         )
     return {
         "readIds": cleaned,

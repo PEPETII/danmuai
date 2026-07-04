@@ -142,3 +142,37 @@ def test_anim_tick_skips_redundant_repaint_when_frame_unchanged(qapp, monkeypatc
     assert update_calls["n"] == 1
     window._on_anim_tick()
     assert update_calls["n"] == 1
+
+
+def test_pet_window_does_not_set_ws_ex_transparent(qapp, monkeypatch):
+    """BUG-017: PetWindow must receive mouse events (no overlay click-through default)."""
+    import app.win32_overlay_zorder as mod
+    from app.pet.pet_window import PetWindow
+
+    app = DanmuApp.__new__(DanmuApp)
+    bind_minimal_danmu_app(app, config=FakeConfig({"pet_asset_source": "builtin", "pet_click_through": "0"}))
+    window = PetWindow(app)
+
+    stored: dict[int, int] = {mod._GWL_EXSTYLE: 0}
+    monkeypatch.setattr(mod, "_GetWindowLong", lambda hwnd, idx: stored.get(idx, 0))
+    monkeypatch.setattr(
+        mod,
+        "_SetWindowLong",
+        lambda hwnd, idx, value: stored.__setitem__(idx, value),
+    )
+    apply_calls: list[bool] = []
+    original_apply = mod.apply_overlay_exstyles
+
+    def recording_apply(hwnd, *, click_through=True):
+        apply_calls.append(click_through)
+        return original_apply(hwnd, click_through=click_through)
+
+    monkeypatch.setattr("app.pet.pet_window.apply_overlay_exstyles", recording_apply)
+    monkeypatch.setattr(window, "winId", lambda: 12345)
+    monkeypatch.setattr(window, "isVisible", lambda: True)
+    window._apply_win32_surface()
+
+    assert apply_calls == [False]
+    assert stored[mod._GWL_EXSTYLE] & mod._WS_EX_LAYERED
+    assert not (stored[mod._GWL_EXSTYLE] & mod._WS_EX_TRANSPARENT)
+    window.close()

@@ -28,6 +28,7 @@ CRITICAL_DEFERRED_IMPORTS: frozenset[str] = frozenset(
         "app.web_api.live_overlay",
         "app.uninstall_service",
         "app.font_registry",
+        "app.webview2_runtime",
         "app.pet.pet_window",
         "app.pet.pet_barrage",
         "app.pet.pet_command_service",

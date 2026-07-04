@@ -5,10 +5,11 @@ from __future__ import annotations
 import sys
 import threading
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
 from app.velopack_config import UPDATE_FEED_URL
+from app.velopack_runtime import is_velopack_install
+from app.translations import tr
 
 _lock = threading.Lock()
 _state: dict[str, Any] = {
@@ -65,13 +66,7 @@ def _is_frozen() -> bool:
 
 
 def _is_velopack_install() -> bool:
-    if not _is_frozen():
-        return False
-    exe_path = getattr(sys, "executable", "") or ""
-    if not exe_path:
-        return False
-    resolved = Path(exe_path).resolve()
-    return resolved.parent.name.lower() == "current" and (resolved.parent.parent / "Update.exe").is_file()
+    return is_velopack_install()
 
 
 _cached_manager = None
@@ -185,7 +180,7 @@ def get_status() -> UpdateStatus:
             ok=True,
             frozen=False,
             current_version=__version__,
-            message="当前运行不是 Velopack 安装版；应用内更新已跳过",
+            message=tr("update.not_velopack_skip"),
         )
 
     try:
@@ -204,7 +199,7 @@ def get_status() -> UpdateStatus:
             update_available = bool(pending_info) and phase not in {"ready", "downloading"}
             message = ""
             if pending or phase == "ready":
-                message = "已下载更新，可重启安装"
+                message = tr("update.download_ready_restart")
             snapshot = {
                 "download_phase": phase,
                 "download_progress": int(_state.get("download_progress") or 0),
@@ -240,7 +235,7 @@ def check_for_updates() -> UpdateStatus:
         return UpdateStatus(
             ok=False,
             frozen=False,
-            message="仅安装版支持检查更新",
+            message=tr("update.check_requires_install"),
             error="not_frozen",
         )
     try:
@@ -265,7 +260,7 @@ def check_for_updates() -> UpdateStatus:
                     current_version=current,
                     latest_version=current,
                     update_available=False,
-                    message="已是最新版本",
+                    message=tr("update.already_latest"),
                 )
             )
         latest = _latest_version_from_info(info)
@@ -277,7 +272,7 @@ def check_for_updates() -> UpdateStatus:
                 latest_version=latest,
                 update_available=True,
                 package_size_bytes=package_size,
-                message=f"发现新版本 {latest}",
+                message=tr("update.new_version_found").format(latest=latest),
             )
         )
     except Exception as exc:  # boundary: velopack check_for_updates
@@ -337,7 +332,7 @@ def _read_phase_and_guard(
                             ok=True,
                             frozen=True,
                             downloading=True,
-                            message="正在下载更新…",
+                            message=tr("update.downloading"),
                         ),
                         snapshot,
                     ),
@@ -353,7 +348,7 @@ def _read_phase_and_guard(
                         latest_version=_latest_version_from_info(update_info),
                         update_available=True,
                         download_ready=True,
-                        message="更新已下载，请重启应用以完成安装",
+                        message=tr("update.downloaded_restart"),
                     ),
                     snapshot,
                 ),
@@ -426,7 +421,7 @@ def download_updates(*, wait: bool = False) -> UpdateStatus:
                     latest_version=_latest_version_from_info(info),
                     update_available=True,
                     download_ready=True,
-                    message="更新已下载，请重启应用以完成安装",
+                    message=tr("update.downloaded_restart"),
                 )
             )
         st = get_status()
@@ -442,7 +437,7 @@ def download_updates(*, wait: bool = False) -> UpdateStatus:
             update_available=True,
             downloading=True,
             package_size_bytes=package_size,
-            message="正在下载更新…",
+            message=tr("update.downloading"),
         )
     )
 
@@ -458,20 +453,20 @@ def apply_updates_and_restart() -> UpdateStatus:
                 ok=False,
                 frozen=True,
                 error="no_downloaded_update",
-                message="请先检查并下载更新",
+                message=tr("update.check_download_first"),
             )
         if phase == "downloading":
             return UpdateStatus(
                 ok=False,
                 frozen=True,
                 error="download_in_progress",
-                message="更新仍在下载中，请稍候",
+                message=tr("update.download_in_progress"),
             )
         _state["download_phase"] = "applying"
     try:
         mgr = _manager()
         mgr.apply_updates_and_restart(info)
-        return UpdateStatus(ok=True, frozen=True, message="正在重启…", download_phase="applying")
+        return UpdateStatus(ok=True, frozen=True, message=tr("update.restarting"), download_phase="applying")
     except Exception as exc:  # boundary: velopack apply_updates_and_restart
         with _lock:
             _state["download_phase"] = "error"

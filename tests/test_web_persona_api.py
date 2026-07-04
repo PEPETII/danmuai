@@ -7,6 +7,7 @@ import pytest
 from app.config_store import ConfigStore
 from app.personae import BUILTIN_PERSONA_PINNED_FIRST, BUILTIN_PERSONAE, PersonaManager
 from app.templates import TemplateManager
+from app.translations import Translator
 from app.web_api import persona as persona_api
 
 
@@ -485,3 +486,28 @@ def test_put_persona_model_binding_url_encoded_name(persona_app):
     res = client.put(f"/api/personae/{quote('熬夜陪看型')}/model", json={"model_id": "m2"})
     assert res.status_code == 200
     assert persona_app.personae.get_model_binding("熬夜陪看型") == "m2"
+
+
+def test_put_active_personae_empty_list_in_zh(persona_app):
+    Translator.set_language("zh")
+    try:
+        client = _persona_routes_client(persona_app)
+        res = client.put("/api/personae/active", json={"active": []})
+        assert res.status_code == 400
+        detail = res.json()["detail"]
+        assert "请至少选择一个人格" in detail
+        assert "Please select" not in detail
+    finally:
+        Translator.set_language("zh")
+
+
+def test_put_active_personae_empty_list_in_en(persona_app):
+    Translator.set_language("en")
+    try:
+        client = _persona_routes_client(persona_app)
+        res = client.put("/api/personae/active", json={"active": []})
+        assert res.status_code == 400
+        detail = res.json()["detail"]
+        assert "Please select at least one persona" in detail
+    finally:
+        Translator.set_language("zh")

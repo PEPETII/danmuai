@@ -23,6 +23,7 @@ from app.web_console_support import (
 )
 from app.web_console_ws import register_websocket_routes
 from app.web_static_mime import ensure_web_static_mime_types
+from app.translations import tr
 
 
 def run_uvicorn_locked(server) -> None:
@@ -34,10 +35,7 @@ def run_uvicorn_locked(server) -> None:
         from fastapi.staticfiles import StaticFiles
         from starlette.routing import WebSocketRoute
     except ImportError as exc:
-        msg = (
-            f"Web console dependencies missing: {exc}. "
-            "Install with: pip install fastapi \"uvicorn[standard]>=0.32.0\""
-        )
+        msg = tr("webConsoleRuntime.dependenciesMissing").format(exc=exc)
         bridge.danmu_app.logger.error(msg)
         append_frozen_log(msg)
         return
@@ -52,8 +50,7 @@ def run_uvicorn_locked(server) -> None:
     except ImportError:
         ws_impl = "auto"
         bridge.danmu_app.logger.warning(
-            "未安装 websockets，/ws/status、/ws/logs 可能无法连接；"
-            "HTTP API 仍可用。请运行: pip install \"uvicorn[standard]>=0.32.0\""
+            tr("webConsoleRuntime.websocketsMissing")
         )
     token = server.token
 
@@ -78,9 +75,9 @@ def run_uvicorn_locked(server) -> None:
 
     def _check_token(authorization: str | None = Header(default=None)) -> None:
         if not authorization or not authorization.startswith("Bearer "):
-            raise HTTPException(status_code=401, detail="需要登录令牌")
+            raise HTTPException(status_code=401, detail=tr("webConsoleRuntime.tokenRequired"))
         if authorization.removeprefix("Bearer ").strip() != token:
-            raise HTTPException(status_code=403, detail="令牌无效")
+            raise HTTPException(status_code=403, detail=tr("webConsoleRuntime.tokenInvalid"))
 
     @app.get("/api/session")
     def read_console_session(
@@ -196,7 +193,7 @@ def run_uvicorn_locked(server) -> None:
         status_code = 504 if result.get("error") == "save_timeout" else 500
         raise HTTPException(
             status_code=status_code,
-            detail=result.get("detail", f"配置保存失败（{result.get('error', 'unknown')}）"),
+            detail=result.get("detail", tr("config.saveFailed").format(error=result.get("error", "unknown"))),
         )
 
     @app.post("/api/start")
@@ -234,7 +231,7 @@ def run_uvicorn_locked(server) -> None:
     def index():
         index_path = server.static_dir / "index.html"
         if not index_path.exists():
-            raise HTTPException(status_code=404, detail="index.html missing")
+            raise HTTPException(status_code=404, detail=tr("webConsoleRuntime.indexMissing"))
         return FileResponse(index_path)
 
     if server.static_dir.is_dir():
@@ -284,18 +281,12 @@ def run_uvicorn_locked(server) -> None:
     except SystemExit:
         if not server._ready.is_set():
             server._bind_failed.set()
-            msg = (
-                f"Web 控制台端口 {server.host}:{server.port} 绑定失败。"
-                "请关闭占用该端口的进程后重启 DanmuAI。"
-            )
+            msg = tr("webConsoleRuntime.portBindFailed").format(host=server.host, port=server.port)
             bridge.danmu_app.logger.error(msg)
             append_frozen_log(msg)
     except OSError as exc:
         server._bind_failed.set()
-        msg = (
-            f"Web 控制台端口 {server.host}:{server.port} 绑定失败: {exc}。"
-            "请关闭占用该端口的进程后重启 DanmuAI。"
-        )
+        msg = tr("webConsoleRuntime.portBindFailedWithReason").format(host=server.host, port=server.port, reason=exc)
         bridge.danmu_app.logger.error(msg)
         append_frozen_log(msg)
     except Exception as exc:  # boundary: uvicorn startup fatal exit
@@ -303,5 +294,5 @@ def run_uvicorn_locked(server) -> None:
 
         server._bind_failed.set()
         detail = traceback.format_exc()
-        bridge.danmu_app.logger.error(f"Web 控制台线程异常退出: {exc!r}")
+        bridge.danmu_app.logger.error(tr("webConsoleRuntime.threadCrashed").format(error=repr(exc)))
         append_frozen_log(f"Web console thread crashed (serve):\n{detail}")

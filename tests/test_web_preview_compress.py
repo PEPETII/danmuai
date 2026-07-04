@@ -10,6 +10,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 from PIL import Image
 
+from app.translations import Translator
+
 _TEST_TOKEN = "test-preview-token"
 
 
@@ -106,3 +108,66 @@ def test_preview_compress_clamps_zero_params(preview_client):
     body = res.json()
     # max_width clamped to 64; image is 400px wide so it resizes to 64
     assert body["out_w"] == 64
+
+
+def test_preview_compress_rejects_oversized_image_in_zh(preview_client):
+    Translator.set_language("zh")
+    try:
+        big = b"\x00" * (10 * 1024 * 1024 + 1)
+        res = preview_client.post(
+            "/api/preview/compress",
+            headers={"Authorization": f"Bearer {_TEST_TOKEN}"},
+            files={"file": ("big.bin", big, "application/octet-stream")},
+        )
+        assert res.status_code == 400, res.text
+        detail = res.json()["detail"]
+        assert "图片太大了" in detail
+        assert "Image is too large" not in detail
+    finally:
+        Translator.set_language("zh")
+
+
+def test_preview_compress_rejects_oversized_image_in_en(preview_client):
+    Translator.set_language("en")
+    try:
+        big = b"\x00" * (10 * 1024 * 1024 + 1)
+        res = preview_client.post(
+            "/api/preview/compress",
+            headers={"Authorization": f"Bearer {_TEST_TOKEN}"},
+            files={"file": ("big.bin", big, "application/octet-stream")},
+        )
+        assert res.status_code == 400, res.text
+        detail = res.json()["detail"]
+        assert "Image is too large" in detail
+    finally:
+        Translator.set_language("zh")
+
+
+def test_preview_compress_rejects_unreadable_image_in_zh(preview_client):
+    Translator.set_language("zh")
+    try:
+        res = preview_client.post(
+            "/api/preview/compress",
+            headers={"Authorization": f"Bearer {_TEST_TOKEN}"},
+            files={"file": ("bad.txt", b"not an image", "text/plain")},
+        )
+        assert res.status_code == 400, res.text
+        detail = res.json()["detail"]
+        assert "小助手读不懂这张图" in detail
+    finally:
+        Translator.set_language("zh")
+
+
+def test_preview_compress_rejects_unreadable_image_in_en(preview_client):
+    Translator.set_language("en")
+    try:
+        res = preview_client.post(
+            "/api/preview/compress",
+            headers={"Authorization": f"Bearer {_TEST_TOKEN}"},
+            files={"file": ("bad.txt", b"not an image", "text/plain")},
+        )
+        assert res.status_code == 400, res.text
+        detail = res.json()["detail"]
+        assert "Could not read this image" in detail
+    finally:
+        Translator.set_language("zh")

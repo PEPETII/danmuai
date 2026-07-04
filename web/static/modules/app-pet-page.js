@@ -1,4 +1,5 @@
 import { apiFetch } from './transport.js';
+import { t } from './i18n.js';
 
 let toast = () => {};
 let handlersBound = false;
@@ -46,17 +47,17 @@ function setResetButtonEnabled(enabled) {
 
 function describeAsset(data) {
   const asset = data.asset || {};
-  const displayName = asset.display_name || asset.id || '默认桌宠';
-  const sourceLabel = currentAssetSource === 'local' ? '本地目录' : '内置默认';
+  const displayName = asset.display_name || asset.id || t('dynamic.appPetPage.默认桌宠');
+  const sourceLabel = currentAssetSource === 'local' ? t('dynamic.appPetPage.本地目录') : t('dynamic.appPetPage.内置默认');
 
   if (asset.ok) {
     setAssetText(displayName);
     setAssetError('');
   } else if (asset.error) {
-    setAssetText(currentAssetSource === 'local' ? '自定义桌宠加载失败' : '默认桌宠');
+    setAssetText(currentAssetSource === 'local' ? t('dynamic.appPetPage.自定义桌宠加载失败') : t('dynamic.appPetPage.默认桌宠'));
     setAssetError(asset.error);
   } else {
-    setAssetText('默认桌宠');
+    setAssetText(t('dynamic.appPetPage.默认桌宠'));
     setAssetError('');
   }
 
@@ -87,9 +88,9 @@ function renderBarrageSlots(data) {
       <div class="flex items-start justify-between gap-3">
         <div>
           <h4 class="text-base font-bold text-warmText">槽位 ${slotId + 1}</h4>
-          <p class="text-sm text-gray-500">${asset.display_name || '默认桌宠'}</p>
+          <p class="text-sm text-gray-500">${asset.display_name || t('dynamic.appPetPage.默认桌宠')}</p>
         </div>
-        <span class="rounded-full bg-cream px-3 py-1 text-xs font-semibold text-warmText">${asset.resource_label || '内置默认'}</span>
+        <span class="rounded-full bg-cream px-3 py-1 text-xs font-semibold text-warmText">${asset.resource_label || t('dynamic.appPetPage.内置默认')}</span>
       </div>
       <div class="rounded-xl border border-softPeach bg-cream/60 p-2 flex items-center justify-center min-h-[140px]">
         <img
@@ -99,7 +100,7 @@ function renderBarrageSlots(data) {
         >
       </div>
       <div class="text-xs text-gray-500 space-y-1">
-        <p>资源来源：${asset.resource_label || '内置默认'}</p>
+        <p>资源来源：${asset.resource_label || t('dynamic.appPetPage.内置默认')}</p>
         <p class="break-all">资源路径：${slot.asset_path || '—'}</p>
       </div>
       <p class="slot-error text-sm font-semibold text-red-600 ${asset.error ? '' : 'hidden'}">${asset.error || ''}</p>
@@ -117,9 +118,9 @@ function updateBarrageModeHint() {
   const barrageEnabled = Boolean(document.getElementById('petBarrageModeEnabled')?.checked);
   if (!petEnabled) return;
   if (barrageEnabled) {
-    setStatusText('已启用 · 桌宠弹幕形式（保存后生效）');
+    setStatusText(t('dynamic.appPetPage.已启用_桌宠弹幕形式_保存后生效'));
   } else {
-    setStatusText('已启用 · 将显示普通单桌宠（保存后生效）');
+    setStatusText(t('dynamic.appPetPage.已启用_将显示普通单桌宠_保存后生效'));
   }
 }
 
@@ -158,15 +159,15 @@ function fillPetForm(data) {
 
   const pending = data.pending_command;
   if (data.has_pending_command && pending?.preview) {
-    setStatusText(`已启用 · 待注入指令：${pending.preview}`);
+    setStatusText(t('dynamic.appPetPage.已启用_待注入指令_pending_pr'));
   } else if (!data.enabled) {
-    setStatusText('未启用');
+    setStatusText(t('dynamic.appPetPage.未启用'));
   } else if (data.pet_barrage?.enabled) {
-    setStatusText('已启用 · 桌宠弹幕形式');
+    setStatusText(t('dynamic.appPetPage.已启用_桌宠弹幕形式'));
   } else if (data.visible) {
-    setStatusText('已启用');
+    setStatusText(t('dynamic.appPetPage.已启用'));
   } else {
-    setStatusText('已启用 · 已隐藏（可在桌宠右键菜单显示）');
+    setStatusText(t('dynamic.appPetPage.已启用_已隐藏_可在桌宠右键菜单显示'));
   }
 
   describeAsset(data);
@@ -201,14 +202,14 @@ async function savePetSettings() {
     body: JSON.stringify(payload),
   });
   fillPetForm(data);
-  showToast('桌宠设置已保存');
+  showToast(t('dynamic.appPetPage.桌宠设置已保存'));
 }
 
 async function submitPetCommand() {
   const input = document.getElementById('petCommandInput');
   const text = input?.value || '';
   if (!text.trim()) {
-    showToast('请先输入指令内容', true);
+    showToast(t('dynamic.appPetPage.请先输入指令内容'), true);
     return;
   }
   await apiFetch('/api/pet/command', {
@@ -217,7 +218,7 @@ async function submitPetCommand() {
   });
   if (input) input.value = '';
   await loadPetPage();
-  showToast('已加入下一次弹幕生成');
+  showToast(t('dynamic.appPetPage.已加入下一次弹幕生成'));
 }
 
 async function importPetFolder() {
@@ -232,7 +233,7 @@ async function importPetFolder() {
 async function resetPetAsset() {
   const data = await apiFetch('/api/pet/reset-asset', { method: 'POST' });
   fillPetForm(data);
-  showToast('已恢复默认桌宠');
+  showToast(t('dynamic.appPetPage.已恢复默认桌宠'));
 }
 
 async function setBarrageSlotToImported(slotId) {
@@ -242,7 +243,7 @@ async function setBarrageSlotToImported(slotId) {
     return;
   }
   await loadPetPage();
-  showToast(`槽位 ${slotId + 1} 已切换桌宠`);
+  showToast(t('dynamic.appPetPage.槽位_slotId_1_已切换桌宠'));
 }
 
 async function resetBarrageSlot(slotId) {
@@ -250,7 +251,7 @@ async function resetBarrageSlot(slotId) {
     method: 'POST',
   });
   fillPetForm(data);
-  showToast(`槽位 ${slotId + 1} 已恢复默认桌宠`);
+  showToast(t('dynamic.appPetPage.槽位_slotId_1_已恢复默认桌宠'));
 }
 
 function bindSlotActions() {

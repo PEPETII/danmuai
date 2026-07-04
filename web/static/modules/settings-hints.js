@@ -1,186 +1,187 @@
 import { showFloatingTooltip, wireFloatingTooltipButton } from './settings-model-catalog.js';
+import { t } from './i18n.js';
 
 const SETTINGS_FIELD_TIPS = {
   api_endpoint:
-    '视觉模型服务的网址。火山方舟豆包一般填到 /api/v3；多数 OpenAI 兼容服务填到 /v1。',
+    'dynamic.settingsHints.视觉模型服务的网址_火山方舟豆包一般填到_ap',
   api_mode:
-    'doubao：火山方舟豆包。openai：其他兼容 Chat 接口的服务（如部分第三方中转）。',
+    'dynamic.settingsHints.doubao_火山方舟豆包_openai_其他兼',
   mic_use_visual_model:
-    '开启时开麦与识图共用上方「API 与模型」的接口与模型；关闭后可在本标签单独配置支持麦克风的模型。',
+    'dynamic.settingsHints.开启时开麦与识图共用上方_API_与模型_的接口',
   micProviderPreset:
-    '为麦克风接话选择服务商预设，会自动填入麦克风 API 地址与模式。OpenAI 兼容类预设不保证支持音频，需模型声明支持或在模型配置档案中勾选「支持麦克风」。',
+    'dynamic.settingsHints.为麦克风接话选择服务商预设_会自动填入麦克风_A',
   mic_api_endpoint:
-    '麦克风专用 API 地址。豆包一般填到 /api/v3；MiMo 等 OpenAI 兼容服务填到 /v1。',
+    'dynamic.settingsHints.麦克风专用_API_地址_豆包一般填到_api',
   mic_api_mode:
-    '麦克风请求使用的 API 模式。开麦需 doubao 全模态或 MiMo 的 mimo-v2.5。',
+    'dynamic.settingsHints.麦克风请求使用的_API_模式_开麦需_doub',
   mic_model:
-    '听懂麦克风并生成接话弹幕的模型；与识图视觉模型可不同。',
+    'dynamic.settingsHints.听懂麦克风并生成接话弹幕的模型_与识图视觉模型可',
   mic_api_key:
-    '麦克风专用 API 密钥，与识图密钥分开加密保存。留空保存不会覆盖已有密钥。',
+    'dynamic.settingsHints.麦克风专用_API_密钥_与识图密钥分开加密保存',
   model:
-    '实际调用的模型名称或接入点 ID。也可在下方「模型配置档案」里保存多套 endpoint/密钥/模型。',
+    'dynamic.settingsHints.实际调用的模型名称或接入点_ID_也可在下方_模',
   screen_index:
-    '截图和弹幕叠在哪块显示器上。编号无效时会自动改用主屏。',
+    'dynamic.settingsHints.截图和弹幕叠在哪块显示器上_编号无效时会自动改用',
   temperature:
-    '创意程度（0–2）。越高弹幕用词越发散，越低越稳定、越像固定话术。',
+    'dynamic.settingsHints.创意程度_0_2_越高弹幕用词越发散_越低越稳',
   max_tokens:
-    '单次 AI 回复允许的最长输出。开启「思考」类模型时，程序会自动提高实际下限。',
+    'dynamic.settingsHints.单次_AI_回复允许的最长输出_开启_思考_类模',
   mic_mode_enabled:
-    '实验功能：说完一句话后额外生成几条接话弹幕，插队显示，不影响看屏识图节奏。需豆包接口且模型支持麦克风；默认关，录音仅在内存、不落盘。使用 Windows「设置 → 系统 → 声音 → 输入」里的默认麦克风；换耳机后建议先停弹幕再开或重启应用。',
+    'hints.mic_mode_enabled',
   mic_window_sec:
-    '每次说话时，附带最近多少秒的麦克风录音发给 AI（1–30 秒，默认 5）。',
+    'dynamic.settingsHints.每次说话时_附带最近多少秒的麦克风录音发给_AI',
   btnMicTest:
-    '录大约 3 秒，检查麦克风是否有声音。不联网、不上传、不保存文件。',
+    'dynamic.settingsHints.录大约_3_秒_检查麦克风是否有声音_不联网_不',
   btnMicTestSend:
-    '录大约 3 秒后，把声音和占位图发给 AI，确认模型能收到你的麦克风输入。',
+    'dynamic.settingsHints.录大约_3_秒后_把声音和占位图发给_AI_确认',
   api_key:
-    '访问 AI 的密钥，保存在本机并加密。留空点「保存配置」不会覆盖已有密钥。',
+    'dynamic.settingsHints.访问_AI_的密钥_保存在本机并加密_留空点_保',
   normal_recognition_interval_sec:
-    '普通模式下，每隔多少秒识图并生成一批弹幕（1–60 秒）。',
+    'dynamic.settingsHints.普通模式下_每隔多少秒识图并生成一批弹幕_1_6',
   normal_reply_count:
-    '普通模式下，每次识图固定生成几条弹幕（1–50 条）。',
+    'dynamic.settingsHints.普通模式下_每次识图固定生成几条弹幕_1_50',
   danmu_speed:
-    '弹幕横向移动快慢（约 0.5–5）。数字越大滚得越快。',
+    'dynamic.settingsHints.弹幕横向移动快慢_约_0_5_5_数字越大滚得',
   danmu_lines:
-    '屏幕上最多几行弹幕轨道（12–20 行）。',
+    'dynamic.settingsHints.屏幕上最多几行弹幕轨道_12_20_行',
   danmu_max_chars:
-    'AI 生成弹幕最多显示多少字（5–80），超出会截断并加省略号。公式化弹幕（自定义库、烂梗）完整展示。未填写时默认中文约 15、英文约 40。',
+    'dynamic.settingsHints.AI_生成弹幕最多显示多少字_5_80_超出会',
   font_size:
-    '弹幕字号，约 12–72 像素。',
+    'dynamic.settingsHints.弹幕字号_约_12_72_像素',
   danmu_font_family:
-    '横向弹幕使用的系统字体名。留空或填入不存在的字体名时回退到默认。',
+    'dynamic.settingsHints.横向弹幕使用的系统字体名_留空或填入不存在的字体',
   danmu_font_bold:
-    '是否加粗横向弹幕。',
+    'dynamic.settingsHints.是否加粗横向弹幕',
   floating_panel_font_family:
-    '悬浮窗使用的系统字体名。',
+    'dynamic.settingsHints.悬浮窗使用的系统字体名',
   floating_panel_font_bold:
-    '是否加粗悬浮窗弹幕。',
+    'dynamic.settingsHints.是否加粗悬浮窗弹幕',
   opacity:
-    '弹幕透明度 0–100%，100 为完全不透明。',
+    'dynamic.settingsHints.弹幕透明度_0_100_100_为完全不透明',
   dedup_threshold:
-    '和最近弹幕有多像就算重复（0–1）。越高越容易判重复并丢掉，默认约 0.5。',
+    'dynamic.settingsHints.和最近弹幕有多像就算重复_0_1_越高越容易判',
   layout_mode:
-    '弹幕显示区域占整块屏幕的比例（全屏、四分之三、一半、四分之一）。',
+    'dynamic.settingsHints.弹幕显示区域占整块屏幕的比例_全屏_四分之三_一',
   hotkey:
-    '全局快捷键，随时开始或停止生成弹幕。首次使用可能需在系统里允许本程序监听键盘。',
+    'dynamic.settingsHints.全局快捷键_随时开始或停止生成弹幕_首次使用可能',
   eviction_mode:
-    '自然：按正常速度滚出屏幕。加速：换场景或清屏时让旧弹幕更快消失。',
+    'dynamic.settingsHints.自然_按正常速度滚出屏幕_加速_换场景或清屏时让',
   danmu_pending_entry_cap:
-    '入口区（屏幕右侧待滚入）最多保留几条 pending 弹幕。新装默认 300；填 0 表示无限制。超出时淘汰最远屏外条目而非拒绝新弹幕。',
+    'dynamic.settingsHints.入口区_屏幕右侧待滚入_最多保留几条_pendi',
   danmu_track_retention_cap:
-    '所有轨道上同时保留的弹幕总条数上限。新装默认 600；填 0 表示无限制；超出时优先淘汰屏外 pending。',
+    'dynamic.settingsHints.所有轨道上同时保留的弹幕总条数上限_新装默认_6',
   reply_queue_max_items:
-    'AI 回复在入队等待上屏时的最大条数。0 表示不裁剪；>0 时超出会从队首丢弃最旧条目。',
+    'dynamic.settingsHints.AI_回复在入队等待上屏时的最大条数_0_表示不',
   empty_accel:
-    '某行轨道空了时，暂时加快滚动，让新弹幕更快占满空位。',
+    'dynamic.settingsHints.某行轨道空了时_暂时加快滚动_让新弹幕更快占满空',
   danmu_render_mode:
-    '横向弹幕：全屏透明 Overlay 横向滚动。从下到上：右侧窄窗自下而上连续上滚，越过顶部后消失。打游戏时建议游戏使用无边框窗口或窗口化全屏；独占全屏可能遮挡弹幕。',
+    'dynamic.settingsHints.横向弹幕_全屏透明_Overlay_横向滚动_从',
   floating_panel_width:
-    '从下到上模式窗口宽度（200–800 px），默认靠右显示。',
+    'dynamic.settingsHints.从下到上模式窗口宽度_200_800_px_默',
   floating_panel_speed:
-    '从下到上模式的滚动速度（0.5–5.0，默认 1）。数值越大上移越快（引擎约 120×速度 px/s）。',
+    'dynamic.settingsHints.从下到上模式的滚动速度_0_5_5_0_默认_1',
   floating_panel_x_offset:
-    '悬浮窗与屏幕右边缘的距离（px）。',
+    'dynamic.settingsHints.悬浮窗与屏幕右边缘的距离_px',
   floating_panel_y_offset:
-    '悬浮窗与屏幕上/下边缘的距离（px）。',
+    'dynamic.settingsHints.悬浮窗与屏幕上_下边缘的距离_px',
   floating_panel_opacity:
-    '悬浮窗整体不透明度 0–100（0 = 完全透明，100 = 完全不透明）。',
+    'dynamic.settingsHints.悬浮窗整体不透明度_0_100_0_完全透明',
   floating_panel_font_size:
-    '悬浮窗内每条弹幕的字号（12–48 px）。',
+    'dynamic.settingsHints.悬浮窗内每条弹幕的字号_12_48_px',
   floating_panel_max_items:
-    '悬浮窗同时显示的最多条数。超过时按 FIFO 丢最旧。',
+    'dynamic.settingsHints.悬浮窗同时显示的最多条数_超过时按_FIFO_丢',
   image_max_width:
-    '发给 AI 前把截图缩到多宽。越小越省流量和费用，越大越清晰。',
+    'dynamic.settingsHints.发给_AI_前把截图缩到多宽_越小越省流量和费用',
   image_quality:
-    'JPEG 压缩质量 1–100，默认 85。越高图越清楚、文件越大。',
+    'dynamic.settingsHints.JPEG_压缩质量_1_100_默认_85_越高',
   btnProbe:
-    '用当前填写的地址、模式和密钥试连一次 AI，不开始弹幕，也不改其它设置。',
+    'dynamic.settingsHints.用当前填写的地址_模式和密钥试连一次_AI_不开',
 };
 
 const OVERVIEW_FIELD_TIPS = {
   liveTopicInput:
-    '描述本次要玩的游戏或直播主题，便于 AI 生成更贴场景的弹幕。留空则不注入；建议 50 字内，上限 200 字。',
+    'dynamic.settingsHints.描述本次要玩的游戏或直播主题_便于_AI_生成更',
   userNicknameInput:
-    '你的昵称，AI 可在合适时自然称呼你。全局生效，与当前人格无关；上限 20 字。',
+    'dynamic.settingsHints.你的昵称_AI_可在合适时自然称呼你_全局生效',
 };
 
 const PERSONA_FIELD_TIPS = {
   personaSelect:
-    '选择要编辑的人格模板。内置人格可覆盖保存，也可点「恢复默认」还原。',
+    'dynamic.settingsHints.选择要编辑的人格模板_内置人格可覆盖保存_也可点',
   personaContract:
-    '只读的 JSON 输出格式要求。每次生成条数与弹幕设置「弹幕显示」中的条数同步；改条数请去弹幕设置。',
+    'dynamic.settingsHints.只读的_JSON_输出格式要求_每次生成条数与弹',
   personaSystemCustom:
-    '追加到该人格系统提示词的风格与人格要求；点「保存人格」后生效。',
+    'dynamic.settingsHints.追加到该人格系统提示词的风格与人格要求_点_保存',
 };
 
 const DANMU_POOL_FIELD_TIPS = {
   memeBarrageEnabled:
-    '开启后按下方配置独立采集与展示烂梗弹幕，不与 AI 生成弹幕共用展示额度。',
+    'dynamic.settingsHints.开启后按下方配置独立采集与展示烂梗弹幕_不与_A',
   memeCollectInterval:
-    '烂梗采集间隔（1–60 秒）。每隔该秒数从源拉取一批候选弹幕。',
+    'dynamic.settingsHints.烂梗采集间隔_1_60_秒_每隔该秒数从源拉取',
   memeCollectBatch:
-    '每次采集拉取的弹幕数量（1–100 条）。',
+    'dynamic.settingsHints.每次采集拉取的弹幕数量_1_100_条',
   memeDisplayInterval:
-    '烂梗展示间隔（1–60 秒）。每隔该秒数从待展示队列取出弹幕上屏。',
+    'dynamic.settingsHints.烂梗展示间隔_1_60_秒_每隔该秒数从待展示',
   memeDisplayBatch:
-    '每次展示取出的弹幕条数（1–50 条）。',
+    'dynamic.settingsHints.每次展示取出的弹幕条数_1_50_条',
   btnMemeBarrageClear:
-    '清空本地烂梗库与待展示队列；不影响已上屏弹幕。',
+    'dynamic.settingsHints.清空本地烂梗库与待展示队列_不影响已上屏弹幕',
   poolCustomEnabled:
-    '启用后，系统会从你保存的自定义弹幕句中抽取短句，用于弹幕不足时补足。',
+    'dynamic.settingsHints.启用后_系统会从你保存的自定义弹幕句中抽取短句',
   poolMinOnScreen:
-    '当屏幕上的弹幕少于该数量时，从自定义公式化弹幕库抽取短句补足。设为 0 则关闭补足。',
+    'dynamic.settingsHints.当屏幕上的弹幕少于该数量时_从自定义公式化弹幕库',
   poolCustomTextarea:
-    '一行一条短句，保存后上屏时完整展示、不截断。重复句会自动跳过。',
+    'dynamic.settingsHints.一行一条短句_保存后上屏时完整展示_不截断_重复',
   poolCustomSelectAll:
-    '勾选后可选中列表全部自定义句，便于批量删除。',
+    'dynamic.settingsHints.勾选后可选中列表全部自定义句_便于批量删除',
 };
 
 const PET_FIELD_TIPS = {
   petEnabled:
-    '开启后桌宠显示在桌面；临时隐藏请使用桌宠右键菜单。',
+    'dynamic.settingsHints.开启后桌宠显示在桌面_临时隐藏请使用桌宠右键菜单',
   petScale:
-    '桌宠显示大小倍率（0.5–2.0）。1 为默认尺寸。',
+    'dynamic.settingsHints.桌宠显示大小倍率_0_5_2_0_1_为默认尺',
   petOpacity:
-    '桌宠窗口不透明度（0.2–1.0）。1 为完全不透明。',
+    'dynamic.settingsHints.桌宠窗口不透明度_0_2_1_0_1_为完全不',
   petAlwaysOnTop:
-    '开启后桌宠窗口始终置顶，不会被其它窗口遮挡。',
+    'dynamic.settingsHints.开启后桌宠窗口始终置顶_不会被其它窗口遮挡',
   petClickThrough:
-    '开启后鼠标可穿透桌宠，但将无法拖动桌宠位置。',
+    'dynamic.settingsHints.开启后鼠标可穿透桌宠_但将无法拖动桌宠位置',
   petCommandBoxEnabled:
-    '开启后双击桌宠可弹出弹幕指令输入框。',
+    'dynamic.settingsHints.开启后双击桌宠可弹出弹幕指令输入框',
   petCommandTtl:
-    '指令提交后在此秒数内有效（5–300 秒），超时自动失效。',
+    'dynamic.settingsHints.指令提交后在此秒数内有效_5_300_秒_超时',
   petCommandApplyCount:
-    '一条指令最多影响几次截图弹幕生成（1–5 次）。',
+    'dynamic.settingsHints.一条指令最多影响几次截图弹幕生成_1_5_次',
   petCommandInput:
-    '在 Web 页调试注入弹幕指令；不会立即请求 AI，而是并入下一次正常截图生成。',
+    'dynamic.settingsHints.在_Web_页调试注入弹幕指令_不会立即请求_A',
   btnPetImportFolder:
-    '从本地文件夹导入桌宠素材。目录需包含 pet.json 与 spritesheet.webp 或 spritesheet.png。',
+    'dynamic.settingsHints.从本地文件夹导入桌宠素材_目录需包含_pet_j',
   btnPetResetAsset:
-    '恢复为内置默认桌宠，不会删除你原来的本地素材文件。',
+    'dynamic.settingsHints.恢复为内置默认桌宠_不会删除你原来的本地素材文件',
 };
 
 const SETTINGS_HEADING_TIPS = {
   'custom-models':
-    '模型配置档案：为不同接口地址、模型、密钥保存多套配置，可指定默认；这里的密钥与上方全局密钥分开管理。',
+    'dynamic.settingsHints.模型配置档案_为不同接口地址_模型_密钥保存多套',
   'compress-preview':
-    '上传一张样图，预览当前「最大宽度」和「JPEG 质量」下的压缩效果。图片只在内存里处理，不会保存到硬盘。',
+    'dynamic.settingsHints.上传一张样图_预览当前_最大宽度_和_JPEG',
 };
 
 const CONTENT_PAGE_SECTION_TIPS = {
   hintMemeCategoryTitle:
-    '随机：从全库抽取。自选：限选最多 3 个标签。本地库：仅使用本地导入的烂梗句。',
+    'dynamic.settingsHints.随机_从全库抽取_自选_限选最多_3_个标签_本',
   hintMemeDisplayModeTitle:
-    '全展示：采集结果全部进入展示队列。AI识别展示：由 AI 根据当前画面从候选中筛选。',
+    'dynamic.settingsHints.全展示_采集结果全部进入展示队列_AI识别展示',
   hintMemeTagTitle:
-    '仅「自选」分类时可选择标签，最多 3 个。',
+    'dynamic.settingsHints.仅_自选_分类时可选择标签_最多_3_个',
   hintMemeCollectTitle:
-    '控制烂梗弹幕的采集节奏：间隔秒数与每批采集条数。',
+    'dynamic.settingsHints.控制烂梗弹幕的采集节奏_间隔秒数与每批采集条数',
   hintMemeDisplayTitle:
-    '控制烂梗弹幕的上屏节奏：间隔秒数与每批展示条数。',
+    'dynamic.settingsHints.控制烂梗弹幕的上屏节奏_间隔秒数与每批展示条数',
   hintPersonaActiveTitle:
-    '勾选多个人格后，运行时每轮随机选一个生成弹幕；点「保存激活列表」生效。',
+    'dynamic.settingsHints.勾选多个人格后_运行时每轮随机选一个生成弹幕_点',
 };
 
 const SETTINGS_CONTROL_HINT_IDS = new Set(['btnMicTest', 'btnMicTestSend', 'btnProbe']);
@@ -201,7 +202,7 @@ function createFieldHintWrap(tipText, tipId) {
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'field-hint-btn';
-  btn.setAttribute('aria-label', '字段说明');
+  btn.setAttribute('aria-label', 'common.fieldHintAria');
   if (tipId) btn.setAttribute('aria-describedby', tipId);
   btn.innerHTML = '<svg class="ui-icon" aria-hidden="true"><use href="#i-info"></use></svg>';
   wireFloatingTooltipButton(btn, () => {
@@ -289,9 +290,18 @@ function attachHintAfterControl(control, tipText, tipId) {
   control.dataset.hintAttached = '1';
 }
 
+function resolveTipText(tip) {
+  if (typeof tip !== 'string') return tip;
+  if (tip.startsWith('hints.') || tip.startsWith('dynamic.') || tip.startsWith('common.')) {
+    return t(tip);
+  }
+  return tip;
+}
+
 function attachFieldHintsInRoot(root, fieldTips, controlHintIds = new Set()) {
   if (!root) return;
-  Object.entries(fieldTips).forEach(([fieldId, tip]) => {
+  Object.entries(fieldTips).forEach(([fieldId, tipKey]) => {
+    const tip = resolveTipText(tipKey);
     const field = root.querySelector(`#${fieldId}`) || document.getElementById(fieldId);
     if (!field || !root.contains(field)) return;
     const tipId = `tip-field-${fieldId}`;
@@ -328,14 +338,14 @@ export function initSettingsFieldHints() {
 
   attachHintToHeading(
     document.querySelector('#customModelsSection h4'),
-    SETTINGS_HEADING_TIPS['custom-models'],
+    resolveTipText(SETTINGS_HEADING_TIPS['custom-models']),
     'tip-heading-custom-models',
   );
   const compressTitle = document.querySelector('#compressPreviewSection > .settings-section-title');
   if (compressTitle) {
     attachHintToHeading(
       compressTitle,
-      SETTINGS_HEADING_TIPS['compress-preview'],
+      resolveTipText(SETTINGS_HEADING_TIPS['compress-preview']),
       'tip-heading-compress-preview',
     );
   }
@@ -352,8 +362,8 @@ export function initContentPageFieldHints() {
   attachFieldHintsInRoot(danmuPoolRoot, DANMU_POOL_FIELD_TIPS, CONTENT_PAGE_CONTROL_HINT_IDS);
   attachFieldHintsInRoot(petRoot, PET_FIELD_TIPS, CONTENT_PAGE_CONTROL_HINT_IDS);
 
-  Object.entries(CONTENT_PAGE_SECTION_TIPS).forEach(([elementId, tip]) => {
+  Object.entries(CONTENT_PAGE_SECTION_TIPS).forEach(([elementId, tipKey]) => {
     const heading = document.getElementById(elementId);
-    if (heading) attachHintToHeading(heading, tip, `tip-section-${elementId}`);
+    if (heading) attachHintToHeading(heading, resolveTipText(tipKey), `tip-section-${elementId}`);
   });
 }

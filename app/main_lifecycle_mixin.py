@@ -191,6 +191,7 @@ class DanmuAppLifecycleMixin:
             mic_service=self._mic_service,
             on_utterance_end=self._on_mic_utterance_end,
             log_fn=lambda msg: self.logger.info(msg),
+            on_unsupported_model_fn=self._on_mic_model_unsupported,
         )
         self._danmu_read_service = DanmuReadService(self)
         self.stats_state = StatsState()
@@ -275,7 +276,11 @@ class DanmuAppLifecycleMixin:
             self.hotkey.register()
         except Exception as exc:  # boundary: hotkey platform API
             self.logger.error("热键注册失败: %r", exc)
-            QMessageBox.warning(None, tr("app.error_title"), f"热键注册失败: {exc}")
+            QMessageBox.warning(
+                None,
+                tr("app.error_title"),
+                tr("app.hotkey_register_failed").format(error=exc),
+            )
         log_startup(
             "hotkey.register.done",
             ms=(time.perf_counter() - hotkey_started) * 1000.0,
@@ -309,7 +314,11 @@ class DanmuAppLifecycleMixin:
             self.web_server = attach_web_console(self)
         except Exception as exc:  # boundary: web console startup fatal
             self.logger.error("Web 控制台启动失败: %r", exc)
-            QMessageBox.critical(None, tr("app.error_title"), f"Web 控制台启动失败: {exc}")
+            QMessageBox.critical(
+                None,
+                tr("app.error_title"),
+                tr("app.web_console_startup_failed").format(error=exc),
+            )
             raise
 
         from app.font_registry import FontRegistry
@@ -515,6 +524,7 @@ class DanmuAppLifecycleMixin:
             self.tray.show_api_key_missing_hint()
             if self.web_server:
                 self._open_web_console("/#settings")
+            self.tray.update_state(running=False)
             return
 
         from app.model_selection import visual_api_endpoint_issue
@@ -525,6 +535,7 @@ class DanmuAppLifecycleMixin:
             self._set_error_status_safe(endpoint_issue, is_error=True)
             if self.web_server:
                 self._open_web_console("/#settings")
+            self.tray.update_state(running=False)
             return
 
         self.engine.start()

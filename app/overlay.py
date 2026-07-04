@@ -144,6 +144,8 @@ class DanmuOverlay(QWidget):
         self._profile_last_log_at: float = 0.0
         self._last_layout_ratio: float = layout_height_ratio(config)
         self._clear_drawable_on_next_paint: bool = False
+        # BUG-004: 连续 SetWindowPos 失败计数；成功即清零，达 3 次触发兼容性告警
+        self._topmost_fail_streak: int = 0
         # 待渲染队列：只含 _pixmap is None 且尚未过屏的 item，避免每帧 O(n) 全量扫描
         self._pending_render: list[DanmuItem] = []
 
@@ -233,16 +235,31 @@ class DanmuOverlay(QWidget):
             return
         apply_overlay_exstyles(int(self.winId()), click_through=True)
 
-    def reassert_topmost_zorder(self) -> None:
-        """Win32：Alt+Tab / 其它置顶窗抢栈后，用 SetWindowPos 恢复 HWND_TOPMOST（不抢焦点）。"""
+    def reassert_topmost_zorder(self) -> bool:
+        """Win32：Alt+Tab / 其它置顶窗抢栈后，用 SetWindowPos 恢复 HWND_TOPMOST（不抢焦点）。
+
+        返回 True 表示成功或无需操作；False 表示 SetWindowPos 失败。连续 3 次失败
+        记 warning 日志，调用方（_update_overlay_compat_warning）据此推送兼容性告警。
+        """
         if not self.isVisible():
-            return
+            return True
         self.raise_()
         try:
             hwnd = int(self.winId())
         except (RuntimeError, ValueError, TypeError):
-            return
-        reassert_hwnd_topmost(hwnd)
+            return True
+        success = reassert_hwnd_topmost(hwnd)
+        if success:
+            self._topmost_fail_streak = 0
+        else:
+            self._topmost_fail_streak += 1
+            if self._topmost_fail_streak == 3:
+                _overlay_logger.warning(
+                    "topmost reassert failed %d times; overlay may be blocked "
+                    "by exclusive fullscreen or another topmost window",
+                    self._topmost_fail_streak,
+                )
+        return success
 
     def _has_animatable_content(self) -> bool:
         """是否仍需 60fps：引擎内加速剩余、淡入淡出区或屏上可见条任一成立。"""
@@ -661,12 +678,29 @@ class DanmuOverlay(QWidget):
         """
         screens = QApplication.screens()
         if not screens:
+            _overlay_logger.warning(
+                "show_for_screen: no screens available; overlay stays hidden"
+            )
             return
         screen_index = max(0, min(int(screen_index), len(screens) - 1))
         if screen_index < len(screens):
             geo = screens[screen_index].geometry()
             if geo.width() <= 0 or geo.height() <= 0:
-                return
+                _overlay_logger.warning(
+                    "show_for_screen: screen %d has invalid geometry %dx%d; "
+                    "falling back to primary screen",
+                    screen_index, geo.width(), geo.height(),
+                )
+                if screen_index != 0:
+                    screen_index = 0
+                    geo = screens[0].geometry()
+                if geo.width() <= 0 or geo.height() <= 0:
+                    _overlay_logger.warning(
+                        "show_for_screen: primary screen also invalid %dx%d; "
+                        "overlay stays hidden",
+                        geo.width(), geo.height(),
+                    )
+                    return
             layout_mode = normalize_layout_mode(self.config.get("layout_mode", "fullscreen"))
             geo_key = (
                 screen_index,

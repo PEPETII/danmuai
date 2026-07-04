@@ -63,11 +63,15 @@ def stack_hwnd_above(hwnd: int, above_hwnd: int) -> None:
     )
 
 
-def reassert_hwnd_topmost(hwnd: int) -> None:
-    """Win32：SetWindowPos(HWND_TOPMOST) 恢复置顶，不抢焦点、不改尺寸位置。"""
+def reassert_hwnd_topmost(hwnd: int) -> bool:
+    """Win32：SetWindowPos(HWND_TOPMOST) 恢复置顶，不抢焦点、不改尺寸位置。
+
+    返回 True 表示成功或无需操作（非 win32 / hwnd 为 0）；
+    返回 False 表示 SetWindowPos 调用失败（返回 0），调用方可累计失败次数告警。
+    """
     if sys.platform != "win32" or not hwnd:
-        return
-    _SetWindowPos(
+        return True
+    result = _SetWindowPos(
         hwnd,
         _HWND_TOPMOST,
         0,
@@ -76,6 +80,7 @@ def reassert_hwnd_topmost(hwnd: int) -> None:
         0,
         _SWP_NOMOVE | _SWP_NOSIZE | _SWP_NOACTIVATE | _SWP_SHOWWINDOW,
     )
+    return bool(result)
 
 
 def _read_window_rect(hwnd: int) -> tuple[int, int, int, int] | None:

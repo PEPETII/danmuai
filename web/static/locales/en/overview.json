@@ -1,0 +1,59 @@
+{
+  "overview": {
+    "text": {
+      "小助手正在待命_随时为你生成暖心弹幕": "Assistant is on standby, ready to generate cozy danmu anytime~",
+      "反馈此问题": "Report this issue",
+      "首次设置引导": "First-time setup guide",
+      "API_模型已配置": "API / model configured",
+      "Probe_连通性检查": "Probe / connectivity check",
+      "识图屏幕已设置": "Capture screen set",
+      "测试弹幕_启动生成": "Test danmu / start generation",
+      "本次生成弹幕": "Danmu this session",
+      "待播队列": "Playback queue",
+      "运行时长": "Runtime duration",
+      "屏上弹幕": "On-screen danmu",
+      "生成总弹幕": "Total danmu generated",
+      "运行总时长": "Total runtime",
+      "输入总_Token": "Total input tokens",
+      "输出总_Token": "Total output tokens",
+      "提示内容": "Hint content",
+      "保存主题": "Save topic",
+      "昵称": "Nickname",
+      "保存昵称": "Save nickname",
+      "当前人格": "Current persona",
+      "显示诊断面板": "Show diagnostics panel",
+      "诊断面板": "Diagnostics panel",
+      "只读展示调度_RTT_cooldown_与_runtime_摘要": "Read-only view of scheduling, RTT, cooldown, and runtime summary",
+      "复制诊断报告": "Copy diagnostic report",
+      "调度阻塞": "Scheduler blocked",
+      "阻塞原因": "Block reason",
+      "距上次请求": "Since last request",
+      "Pending_Timing": "Pending Timing",
+      "平均_RTT": "Average RTT",
+      "智能冷却": "Smart cooldown",
+      "高_RTT": "High RTT",
+      "RTT_样本数": "RTT sample count",
+      "最近_RTT_样本": "Recent RTT samples",
+      "Runtime_摘要": "Runtime summary",
+      "等待诊断数据": "Waiting for diagnostics...",
+      "未上屏弹幕": "Skipped danmu",
+      "最近次数": "Recent count",
+      "总次数": "Total count",
+      "最新原因": "Latest reason",
+      "Top_原因": "Top reasons",
+      "最近未上屏原因": "Recent skip reasons",
+      "弹幕场次记录": "Danmu session log",
+      "每次_生成弹幕_至_停止弹幕_为一轮_保存在本机配置库_重启后仍可查看最近_10": "Each Start danmu to Stop danmu is one session; last 100 saved locally across restarts",
+      "暂无记录_停止弹幕后会在此显示时间与_Token_用量": "No records yet; stop danmu to see time and token usage here"
+    },
+    "placeholder": {
+      "描述本次你要玩的游戏或者直播主题等_以便_AI_更好地生成弹幕_文字尽量在_50": "Describe the game or stream topic so AI can generate better danmu; under 50 chars works best",
+      "请输入你的昵称_AI_可在合适时自然称呼你": "Enter your nickname (AI may use it naturally)"
+    },
+    "aria": {
+      "关闭公告提示": "Dismiss announcement notice",
+      "关闭错误提示": "Dismiss error notice",
+      "关闭引导": "Dismiss guide"
+    }
+  }
+}

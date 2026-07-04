@@ -38,7 +38,7 @@ except ImportError:
 from base64 import b64decode, b64encode
 
 from app.config_migrations import run_pending
-from app.translations import tr
+from app.translations import Translator, tr
 
 # 通过包属性访问 _HAS_CRYPTO，使 patch("app.config_store._HAS_CRYPTO", ...) 生效。
 # 详见模块 docstring。
@@ -182,12 +182,31 @@ class ConfigStore:
         if not self.secrets_storage_available:
             return tr("config.crypto_startup_notice")
         if self._key_regenerated:
+            affected = self._unreadable_encrypted_field_names()
+            if affected:
+                sep = "、" if Translator.get_language() == "zh" else ", "
+                keys_text = sep.join(affected)
+                if self._key_backup_path is not None:
+                    return tr("config.key_lost_notice_with_backup_specific").format(
+                        keys=keys_text, backup_path=self._key_backup_path
+                    )
+                return tr("config.key_lost_notice_specific").format(keys=keys_text)
+            # key 重新生成但无受影响字段 → 退回通用文案
             if self._key_backup_path is not None:
                 return tr("config.key_lost_notice_with_backup").format(
                     backup_path=self._key_backup_path
                 )
             return tr("config.key_lost_notice")
         return ""
+
+    def _unreadable_encrypted_field_names(self) -> list[str]:
+        """BUG-015: key 重新生成后，返回仍残留密文但已无法解密的字段本地化名列表。"""
+        fields = [
+            ("api_key_encrypted", "config.key_name.api_key"),
+            ("mic_api_key_encrypted", "config.key_name.mic_api_key"),
+            ("tts_api_key_encrypted", "config.key_name.tts_api_key"),
+        ]
+        return [tr(label) for cache_key, label in fields if self._cache.get(cache_key)]
 
     def _reject_insecure_encoded_write(self, key: str, value: str) -> None:
         if key.endswith("_encoded") and value and not self.secrets_storage_available:
@@ -298,14 +317,13 @@ class ConfigStore:
 
     def set(self, key: str, value: str):
         """单键写入：commit 成功后再更新 _cache（与 set_batch 一致，失败不污染缓存）。"""
+        # BUG-016: close 后写操作必须抛 RuntimeError 而非静默跳过，避免并发 close 竞态丢写无错误反馈。
         if self._closed:
-            logger.warning("ConfigStore.set(%s) called after close(), write skipped", key)
-            return
+            raise RuntimeError(f"ConfigStore.set({key!r}) called after close()")
         self._reject_insecure_encoded_write(key, value)
         with self._write_lock:
             if self._closed:
-                logger.warning("ConfigStore.set(%s) called after close(), write skipped", key)
-                return
+                raise RuntimeError(f"ConfigStore.set({key!r}) called after close()")
             try:
                 self.conn.execute("REPLACE INTO config (key, value) VALUES (?, ?)", (key, value))
                 self.conn.commit()
@@ -337,15 +355,13 @@ class ConfigStore:
         故 Web GET 不被阻塞。现状可接受，非缺陷（W-INVOKE-OBSERV-001 评估）。
         """
         if self._closed:
-            logger.warning("ConfigStore.set_batch() called after close(), write skipped")
-            return
+            raise RuntimeError("ConfigStore.set_batch() called after close()")
         changed = {k: v for k, v in items.items() if self._cache.get(k) != v}
         if not changed:
             return
         with self._write_lock:
             if self._closed:
-                logger.warning("ConfigStore.set_batch() called after close(), write skipped")
-                return
+                raise RuntimeError("ConfigStore.set_batch() called after close()")
             try:
                 pairs = list(changed.items())
                 self.conn.executemany(
@@ -1169,10 +1185,12 @@ class ConfigStore:
             return False
 
     def close(self):
+        # BUG-016: conn.close() 必须在 _write_lock 内完成，否则并发 set/set_batch
+        # 会在 close 出锁后、conn.close() 完成前拿到锁并走「静默跳过」分支丢写。
         with self._write_lock:
             self._closed = True
+            try:
+                self.conn.close()
+            except sqlite3.ProgrammingError:
+                pass
         self._invalidate_formula_text_cache()
-        try:
-            self.conn.close()
-        except sqlite3.ProgrammingError:
-            pass

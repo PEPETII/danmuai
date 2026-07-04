@@ -905,27 +905,27 @@ def test_get_after_close_logs_warning(tmp_path, caplog):
     )
 
 
-def test_set_after_close_does_not_raise(tmp_path):
-    """F05: close() 后 set() 不抛 ProgrammingError，静默跳过。"""
+def test_set_after_close_raises(tmp_path):
+    """BUG-016: close() 后 set() 必须抛 RuntimeError 而非静默跳过。"""
     store = ConfigStore(db_path=tmp_path / "close_set.db")
     store.set("before_close", "yes")
     store.close()
     assert store._closed is True
-    # close 后 set 不抛异常
-    store.set("after_close", "should_not_persist")
-    # 缓存也不应被更新（因为写被跳过）
+    with pytest.raises(RuntimeError, match="called after close"):
+        store.set("after_close", "should_not_persist")
+    # 缓存也不应被更新（因为写被拒绝）
     assert store.get("after_close", "") == ""
 
 
-def test_set_batch_after_close_does_not_raise(tmp_path):
-    """F05: close() 后 set_batch() 不抛 ProgrammingError，静默跳过。"""
+def test_set_batch_after_close_raises(tmp_path):
+    """BUG-016: close() 后 set_batch() 必须抛 RuntimeError 而非静默跳过。"""
     store = ConfigStore(db_path=tmp_path / "close_batch.db")
     store.set("batch_key", "original")
     store.close()
     assert store._closed is True
-    # close 后 set_batch 不抛异常
-    store.set_batch({"batch_key": "updated", "new_key": "new_val"})
-    # 缓存不应被更新
+    with pytest.raises(RuntimeError, match="called after close"):
+        store.set_batch({"batch_key": "updated", "new_key": "new_val"})
+    # 缓存不应被更新（因为写被拒绝）
     assert store.get("batch_key") == "original"
     assert store.get("new_key", "") == ""
 
@@ -1109,9 +1109,11 @@ def test_meme_barrage_library_fetch_batch_after_close(tmp_path):
 
 
 def test_config_store_concurrent_close(tmp_path):
-    """BUG-001: close() 与 set() 并发不崩溃、不损坏 DB。
+    """BUG-001 / BUG-016: close() 与 set() 并发不崩溃、不损坏 DB。
 
-    线程 A 反复 set()，线程 B 调用 close()；验证无未处理异常且 DB 可重新打开。
+    线程 A 反复 set()，线程 B 调用 close()；验证：
+    - 无未处理异常（RuntimeError "called after close" 是 BUG-016 之后的预期行为，视为正常）。
+    - DB 可重新打开读取（未损坏）。
     """
     db_path = tmp_path / "race_close.db"
     store = ConfigStore(db_path=db_path)
@@ -1126,6 +1128,12 @@ def test_config_store_concurrent_close(tmp_path):
             try:
                 store.set("race_key", f"value_{i}")
                 i += 1
+            except RuntimeError as exc:
+                # BUG-016: close 后 set 抛 RuntimeError 是预期行为，不算错误
+                if "called after close" in str(exc):
+                    break
+                errors.append(exc)
+                break
             except Exception as exc:
                 errors.append(exc)
                 break

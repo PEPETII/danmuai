@@ -1,6 +1,8 @@
 """运行期 HWND_TOPMOST 健康检查与独占全屏风险提示。"""
 from __future__ import annotations
 
+import logging
+import sys
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -275,3 +277,94 @@ def test_status_clears_overlay_compat_warning_when_stopped(monkeypatch):
     )
     status = DanmuApp.build_status_snapshot(app)
     assert status["overlay_compat_warning"] == ""
+
+
+def test_reassert_hwnd_topmost_returns_false_on_setwindowpos_failure(monkeypatch):
+    """BUG-004: SetWindowPos 返回 0 时 reassert_hwnd_topmost 必须返回 False；返回非 0 时 True。"""
+    import app.win32_overlay_zorder as mod
+
+    if mod.sys.platform != "win32":
+        pytest.skip("win32 only: _SetWindowPos 仅在 win32 平台存在")
+
+    monkeypatch.setattr(mod, "_SetWindowPos", lambda *a, **k: 0)
+    assert reassert_hwnd_topmost(12345) is False
+
+    monkeypatch.setattr(mod, "_SetWindowPos", lambda *a, **k: 1)
+    assert reassert_hwnd_topmost(12345) is True
+
+
+def test_overlay_topmost_fail_streak_accumulates_and_warns(
+    topmost_app, qapp, monkeypatch, caplog
+):
+    """BUG-004: 连续 3 次 SetWindowPos 失败 → _topmost_fail_streak==3 且记 warning 日志。"""
+    _, _, overlay, _ = topmost_app
+    overlay.show()
+    qapp.processEvents()
+
+    # 模拟 SetWindowPos 始终失败
+    monkeypatch.setattr("app.overlay.reassert_hwnd_topmost", lambda hwnd: False)
+
+    with caplog.at_level(logging.WARNING, logger="danmu.overlay"):
+        result1 = overlay.reassert_topmost_zorder()
+        result2 = overlay.reassert_topmost_zorder()
+        result3 = overlay.reassert_topmost_zorder()
+
+    assert result1 is False
+    assert result2 is False
+    assert result3 is False
+    assert overlay._topmost_fail_streak == 3
+    assert any(
+        "topmost reassert failed 3 times" in r.message for r in caplog.records
+    )
+
+
+def test_overlay_topmost_fail_streak_resets_on_success(topmost_app, qapp, monkeypatch):
+    """BUG-004: 失败 2 次后第 3 次成功 → _topmost_fail_streak 清零。"""
+    _, _, overlay, _ = topmost_app
+    overlay.show()
+    qapp.processEvents()
+
+    call_count = {"n": 0}
+
+    def fake_reassert(hwnd: int) -> bool:
+        call_count["n"] += 1
+        return call_count["n"] >= 3  # 前两次失败，第三次成功
+
+    monkeypatch.setattr("app.overlay.reassert_hwnd_topmost", fake_reassert)
+
+    overlay.reassert_topmost_zorder()
+    assert overlay._topmost_fail_streak == 1
+    overlay.reassert_topmost_zorder()
+    assert overlay._topmost_fail_streak == 2
+    overlay.reassert_topmost_zorder()
+    assert overlay._topmost_fail_streak == 0
+
+
+def test_update_overlay_compat_warning_uses_topmost_lost_when_fail_streak_3(
+    topmost_app, qapp, monkeypatch
+):
+    """BUG-004: _topmost_fail_streak >= 3 时 _update_overlay_compat_warning 推送 overlay.topmost_lost。
+
+    优先级高于独占全屏风险启发式：即使 probe_exclusive_fullscreen_risk 返回 False，
+    只要连续失败达 3 次，告警即为 overlay.topmost_lost。
+    """
+    if sys.platform != "win32":
+        pytest.skip("win32 only: _update_overlay_compat_warning 仅在 win32 处理告警")
+
+    app, engine, overlay, _ = topmost_app
+    engine.running = True
+    overlay.show()
+    qapp.processEvents()
+    overlay._topmost_fail_streak = 3
+
+    # 独占全屏风险探测返回 False，确保告警来源是 fail_streak 而非 at_risk
+    monkeypatch.setattr(
+        "app.main_display_mixin.probe_exclusive_fullscreen_risk",
+        lambda **kwargs: False,
+    )
+
+    app._update_overlay_compat_warning()
+
+    from app.translations import tr
+
+    assert app.web_runtime_state.overlay_compat_warning == tr("overlay.topmost_lost")

@@ -1,4 +1,5 @@
 import { apiFetch } from './transport.js';
+import { t } from './i18n.js';
 import { isMaskedApiKey } from './settings-defaults.js';
 import { findProvider, getProviderWebsite, isCustomProvider, getDefaultEndpoint } from './settings-providers.js';
 import { getModelCatalogModels, getModelNameFromCatalog, pickDefaultCatalogModelId } from './settings-model-catalog.js';
@@ -44,7 +45,7 @@ export async function loadCustomModels() {
   if (!list) return;
   list.innerHTML = '';
   if (!data.items.length) {
-    list.innerHTML = '<p class="text-sm text-gray-400">暂无模型配置档案，点击上方新增~</p>';
+    list.innerHTML = t('dynamic.settingsCustomModels.p_class_text_sm_text_g');
     return;
   }
   data.items.forEach((model, index) => {
@@ -57,7 +58,7 @@ export async function loadCustomModels() {
     colName.className = 'flex items-center gap-2 min-w-0 flex-1';
     const nameSpan = document.createElement('span');
     nameSpan.className = 'font-semibold text-warmText truncate';
-    nameSpan.textContent = model.name || '未命名';
+    nameSpan.textContent = model.name || t('common.unnamed');
     colName.appendChild(nameSpan);
     const providerId = model.provider || '';
     const provider = providerId ? findProvider(providerId) : null;
@@ -70,13 +71,13 @@ export async function loadCustomModels() {
     if (model.supportsMic) {
       const mic = document.createElement('span');
       mic.className = 'text-sky-600 text-xs font-bold';
-      mic.textContent = '支持麦克风';
+      mic.textContent = t('dynamic.settingsCustomModels.支持麦克风');
       colName.appendChild(mic);
     }
     if (model.complete === false) {
       const warn = document.createElement('span');
       warn.className = 'text-amber-600 text-xs font-bold';
-      warn.textContent = '配置不完整';
+      warn.textContent = t('dynamic.settingsCustomModels.配置不完整');
       colName.appendChild(warn);
     }
 
@@ -102,22 +103,22 @@ export async function loadCustomModels() {
     colDefault.className = 'custom-model-default-col';
     const defaultSelect = document.createElement('select');
     defaultSelect.className = 'px-2 py-1 bg-white border border-gray-200 rounded-lg text-xs';
-    defaultSelect.setAttribute('aria-label', '使用');
+    defaultSelect.setAttribute('aria-label', t('dynamic.settingsCustomModels.使用'));
     if (isDefault) {
       const opt = document.createElement('option');
       opt.value = '1';
       opt.selected = true;
-      opt.textContent = '✓ 使用';
+      opt.textContent = t('dynamic.settingsCustomModels.使用_2');
       defaultSelect.appendChild(opt);
       defaultSelect.disabled = true;
     } else {
       const placeholder = document.createElement('option');
       placeholder.value = '';
-      placeholder.textContent = '不使用';
+      placeholder.textContent = t('dynamic.settingsCustomModels.不使用');
       defaultSelect.appendChild(placeholder);
       const setOpt = document.createElement('option');
       setOpt.value = 'set';
-      setOpt.textContent = '设为使用';
+      setOpt.textContent = t('dynamic.settingsCustomModels.设为使用');
       defaultSelect.appendChild(setOpt);
       defaultSelect.addEventListener('change', async () => {
         if (defaultSelect.value === 'set') {
@@ -134,12 +135,12 @@ export async function loadCustomModels() {
     const editBtn = document.createElement('button');
     editBtn.type = 'button';
     editBtn.className = 'px-3 py-1 border border-gray-200 rounded-lg text-xs';
-    editBtn.textContent = '编辑';
+    editBtn.textContent = t('common.edit');
     editBtn.onclick = () => openModelModal(index, model);
     const delBtn = document.createElement('button');
     delBtn.type = 'button';
     delBtn.className = 'px-3 py-1 border border-red-200 rounded-lg text-xs text-red-600';
-    delBtn.textContent = '删除';
+    delBtn.textContent = t('common.delete');
     delBtn.onclick = () => openDeleteModelConfirm(model, index);
     colActions.appendChild(editBtn);
     colActions.appendChild(delBtn);
@@ -147,7 +148,7 @@ export async function loadCustomModels() {
       const defBtn = document.createElement('button');
       defBtn.type = 'button';
       defBtn.className = 'px-3 py-1 border border-gray-200 rounded-lg text-xs';
-      defBtn.textContent = '设默认';
+      defBtn.textContent = t('dynamic.settingsCustomModels.设默认');
       defBtn.onclick = async () => { await setProfileAsDefault(index, model); };
       colActions.appendChild(defBtn);
     }
@@ -170,7 +171,7 @@ async function setProfileAsDefault(index, model) {
   }
   const cfg = await customModelDeps.reloadConfigFromServer();
   customModelDeps.updateModelActiveSourceBanner(cfg);
-  customModelDeps.showToast(`已设为默认模型：${res.default_model_id || model.modelId}`);
+  customModelDeps.showToast(t('dynamic.settingsCustomModels.已设为默认模型_res_default_mo'));
   loadCustomModels();
 }
 
@@ -223,7 +224,7 @@ function applyChipDefault(chipEl, isDefault) {
   if (isDefault && !mark) {
     mark = document.createElement('span');
     mark.className = 'tag-default-mark';
-    mark.textContent = '默认';
+    mark.textContent = t('common.defaultLabel');
     chipEl.insertBefore(mark, chipEl.querySelector('.tag-remove'));
   } else if (!isDefault && mark) {
     mark.remove();
@@ -241,14 +242,14 @@ function renderTagChip(value, isDefault) {
   if (isDefault) {
     const mark = document.createElement('span');
     mark.className = 'tag-default-mark';
-    mark.textContent = '默认';
+    mark.textContent = t('common.defaultLabel');
     chip.appendChild(mark);
   }
   const removeBtn = document.createElement('button');
   removeBtn.type = 'button';
   removeBtn.className = 'tag-remove';
   removeBtn.textContent = '×';
-  removeBtn.setAttribute('aria-label', '删除');
+  removeBtn.setAttribute('aria-label', t('common.delete'));
   removeBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     const wasDefault = chip.hasAttribute('data-default');
@@ -268,7 +269,7 @@ function addTagChip(value) {
   const trimmed = String(value || '').trim();
   if (!trimmed) return false;
   if (trimmed.length > TAG_MAX_LEN) {
-    customModelDeps.showToast(`模型 ID 长度超过 ${TAG_MAX_LEN} 字符，未添加`, true);
+    customModelDeps.showToast(t('dynamic.settingsCustomModels.模型_ID_长度超过_TAG_MAX_LEN'), true);
     return false;
   }
   const existing = getModelIdsFromChips();
@@ -316,7 +317,7 @@ function updateProviderWebsiteDisplay(providerId) {
   const provider = findProvider(providerId);
   if (nameEl) {
     if (provider && provider.id) {
-      nameEl.textContent = `当前预设：${provider.label}`;
+      nameEl.textContent = t('dynamic.settingsCustomModels.当前预设_provider_label');
       nameEl.classList.remove('hidden');
     } else {
       nameEl.textContent = '';
@@ -355,7 +356,7 @@ function buildModelIdPresetOptions(providerId) {
   });
   const customOpt = document.createElement('option');
   customOpt.value = MODEL_ID_CUSTOM_VALUE;
-  customOpt.textContent = '自定义配置';
+  customOpt.textContent = t('dynamic.settingsCustomModels.自定义配置');
   select.appendChild(customOpt);
   return models;
 }
@@ -390,7 +391,7 @@ function setChipInputState(visible, disabled) {
     if (disabled) {
       input.placeholder = '';
     } else {
-      input.placeholder = '例如：doubao-1-5-pro-32k-250115';
+      input.placeholder = t('dynamic.settingsCustomModels.例如_doubao_1_5_pro_32k_25');
     }
   }
 }
@@ -477,7 +478,7 @@ function onProviderChangeInModal(providerId, options = {}) {
   const models = getModelCatalogModels(providerId);
 
   if (isCustomProvider(providerId)) {
-    // 自定义服务商：默认选中"自定义配置"
+    // 自定义服务商：默认选中t('dynamic.settingsCustomModels.自定义配置')
     const select = document.getElementById('modelIdPreset');
     if (select) select.value = MODEL_ID_CUSTOM_VALUE;
     setChipInputState(true, false);
@@ -510,7 +511,7 @@ function onProviderChangeInModal(providerId, options = {}) {
 export function openModelModal(index, model = {}) {
   const isEdit = index >= 0;
   document.getElementById('modelEditIndex').value = String(index);
-  document.getElementById('modelModalTitle').textContent = isEdit ? '编辑模型' : '新增模型';
+  document.getElementById('modelModalTitle').textContent = isEdit ? t('dynamic.settingsCustomModels.编辑模型') : t('dynamic.settingsCustomModels.新增模型');
 
   const providerId = isEdit ? (model.provider || '') : 'doubao';
   const providerEl = document.getElementById('modelProvider');
@@ -606,8 +607,8 @@ export function formatDeleteModelMessage(profile) {
   const name = (profile?.name || '').trim();
   const ids = Array.isArray(profile?.model_ids) ? profile.model_ids : [];
   const n = ids.length || 1;
-  const display = name || '这条模型档案';
-  return `确定删除模型「${display}」吗？该档案包含 ${n} 个模型 ID，将一并删除。若该档案是当前默认，将自动切换到下一条。`;
+  const display = name || t('dynamic.settingsCustomModels.这条模型档案');
+  return t('dynamic.settingsCustomModels.确定删除模型_display_吗_该档案包');
 }
 
 /** 一次性监听清理句柄（避免内存泄漏） */
@@ -643,7 +644,7 @@ export function openDeleteModelConfirm(profile, index) {
     try {
       await apiFetch(`/api/custom-models/${index}`, { method: 'DELETE' });
       closeDeleteModelConfirm();
-      customModelDeps.showToast('已删除~');
+      customModelDeps.showToast(t('dynamic.settingsCustomModels.已删除_2'));
       loadCustomModels();
     } catch (error) {
       closeDeleteModelConfirm();
@@ -705,7 +706,7 @@ export async function saveModel() {
   const index = parseInt(document.getElementById('modelEditIndex').value, 10);
   const body = collectModelForm();
   if (!body.model_ids.length) {
-    throw new Error('请至少添加一个模型 ID');
+    throw new Error(t('dynamic.settingsCustomModels.请至少添加一个模型_ID'));
   }
   if (index >= 0) {
     await apiFetch(`/api/custom-models/${index}`, { method: 'PUT', body: JSON.stringify(body) });
@@ -713,7 +714,7 @@ export async function saveModel() {
     await apiFetch('/api/custom-models', { method: 'POST', body: JSON.stringify(body) });
   }
   closeModelModal();
-  customModelDeps.showToast('模型已保存~');
+  customModelDeps.showToast(t('dynamic.settingsCustomModels.模型已保存'));
   loadCustomModels();
 }
 
@@ -721,7 +722,7 @@ export async function probe() {
   const index = parseInt(document.getElementById('modelEditIndex')?.value || '-1', 10);
   const form = collectModelForm();
   if (!form.model_ids.length) {
-    throw new Error('请至少添加一个模型 ID');
+    throw new Error(t('dynamic.settingsCustomModels.请至少添加一个模型_ID'));
   }
   const res = await apiFetch('/api/custom-models/probe', {
     method: 'POST',

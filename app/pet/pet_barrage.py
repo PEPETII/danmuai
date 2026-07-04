@@ -12,6 +12,7 @@ from PyQt6.QtWidgets import QApplication
 
 from app.pet.pet_assets import BUILTIN_PET_DIR, validate_pet_pack_dir
 from app.pet.pet_state import PetSettings
+from app.translations import tr
 
 if TYPE_CHECKING:
     from main import DanmuApp
@@ -20,6 +21,9 @@ if TYPE_CHECKING:
 
 
 PET_BARRAGE_COUNT = 5
+_FALLBACK_SCREEN_WIDTH = 1366
+_FALLBACK_SCREEN_HEIGHT = 768
+_FALLBACK_BOTTOM_MARGIN = 100
 
 
 @dataclass(frozen=True)
@@ -36,7 +40,8 @@ def default_slot_positions() -> list[dict[str, int]]:
     app = QApplication.instance()
     screen = app.primaryScreen() if app is not None else None
     if screen is None:
-        return [{"x": 80 + idx * 220, "y": 760} for idx in range(PET_BARRAGE_COUNT)]
+        fallback_y = min(760, _FALLBACK_SCREEN_HEIGHT - _FALLBACK_BOTTOM_MARGIN)
+        return [{"x": 80 + idx * 220, "y": fallback_y} for idx in range(PET_BARRAGE_COUNT)]
     geo = screen.availableGeometry()
     bottom_y = max(geo.top(), geo.bottom() - 180)
     left = geo.left() + 60
@@ -71,21 +76,21 @@ def resolve_slot_asset_summary(app: "DanmuApp", slot_id: int) -> dict[str, objec
     settings = PetSettings.from_config(app.config)
     payload = build_barrage_slots_payload(settings)
     if slot_id < 0 or slot_id >= len(payload):
-        raise ValueError("无效的桌宠槽位")
+        raise ValueError(tr("pet.error.invalid_slot"))
     row = payload[slot_id]
     asset_source = str(row["asset_source"] or "builtin")
     asset_path = str(row["asset_path"] or "")
     try:
         if asset_source == "local" and asset_path.strip():
             meta, sheet_path, _cols, _rows = validate_pet_pack_dir(Path(asset_path))
-            display_name = str(meta.get("displayName", "")) or str(meta.get("id", "")) or "自定义桌宠"
+            display_name = str(meta.get("displayName", "")) or str(meta.get("id", "")) or tr("pet.displayName.custom")
             return {
                 "ok": True,
                 "slot_id": slot_id,
                 "asset_source": "local",
                 "asset_path": asset_path,
                 "display_name": display_name,
-                "resource_label": "本地目录",
+                "resource_label": tr("pet.resourceLabel.local"),
                 "preview_path": str(sheet_path),
             }
         meta, sheet_path, _cols, _rows = validate_pet_pack_dir(BUILTIN_PET_DIR)
@@ -94,8 +99,8 @@ def resolve_slot_asset_summary(app: "DanmuApp", slot_id: int) -> dict[str, objec
             "slot_id": slot_id,
             "asset_source": "builtin",
             "asset_path": "",
-            "display_name": str(meta.get("displayName", "")) or str(meta.get("id", "")) or "默认桌宠",
-            "resource_label": "内置默认",
+            "display_name": str(meta.get("displayName", "")) or str(meta.get("id", "")) or tr("pet.displayName.default"),
+            "resource_label": tr("pet.resourceLabel.builtin"),
             "preview_path": str(sheet_path),
         }
     except ValueError as exc:
@@ -105,8 +110,8 @@ def resolve_slot_asset_summary(app: "DanmuApp", slot_id: int) -> dict[str, objec
             "slot_id": slot_id,
             "asset_source": asset_source,
             "asset_path": asset_path,
-            "display_name": "默认桌宠" if asset_source == "builtin" else "自定义桌宠",
-            "resource_label": "内置默认" if asset_source == "builtin" else "本地目录",
+            "display_name": tr("pet.displayName.default") if asset_source == "builtin" else tr("pet.displayName.custom"),
+            "resource_label": tr("pet.resourceLabel.builtin") if asset_source == "builtin" else tr("pet.resourceLabel.local"),
             "preview_path": str(fallback_sheet),
             "error": str(exc),
         }

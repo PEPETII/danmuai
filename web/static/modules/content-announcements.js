@@ -1,4 +1,5 @@
 import { API, apiFetch } from './transport.js';
+import { t } from './i18n.js';
 
 const ANNOUNCEMENTS_READ_IDS_KEY = 'danmu_announcements_read_ids';
 const ANNOUNCEMENTS_LAST_SEEN_MS_KEY = 'danmu_announcements_last_seen_ms';
@@ -410,18 +411,18 @@ function renderAnnouncementsList(items) {
   if (!list) return;
   if (!window.DanmuSupabase?.isConfigured?.()) {
     list.innerHTML =
-      '<p class="announcements-error">未配置云端公告服务。请将 supabase-config.example.js 复制为 supabase-config.js 并填入项目地址与密钥。</p>';
+      t('dynamic.contentAnnouncements.p_class_announcements');
     return;
   }
   if (!items?.length) {
-    list.innerHTML = '<p class="announcements-empty">暂无公告</p>';
+    list.innerHTML = t('dynamic.contentAnnouncements.p_class_announcements_2');
     return;
   }
   list.innerHTML = items
     .map((row) => {
       const level = ['info', 'warning', 'critical'].includes(row.level) ? row.level : 'info';
       const pinned = row.pinned
-        ? '<span class="announcement-pinned-badge">置顶</span>'
+        ? t('dynamic.contentAnnouncements.span_class_announcemen')
         : '';
       const meta = formatAnnouncementDate(row.created_at);
       return `<article class="announcement-card announcement-level-${level}">
@@ -443,7 +444,7 @@ export async function loadAnnouncementsPage() {
     renderAnnouncementsList([]);
     return;
   }
-  list.innerHTML = '<p class="text-gray-500 text-sm">正在加载公告…</p>';
+  list.innerHTML = t('dynamic.contentAnnouncements.p_class_text_gray_500');
   try {
     const rows = await window.DanmuSupabase.listAnnouncements();
     const items = Array.isArray(rows) ? rows : [];

@@ -1,4 +1,5 @@
 import { API, apiFetch, apiFormFetch } from './transport.js';
+import { t } from './i18n.js';
 
 let fontDeps = {
   showToast: () => {},
@@ -12,21 +13,21 @@ export async function uploadFontFile() {
   const input = document.getElementById('font_file_input');
   const file = input?.files?.[0];
   if (!file) {
-    fontDeps.showToast('请先选择一个 .ttf 或 .otf 文件', true);
+    fontDeps.showToast(t('dynamic.settingsFonts.请先选择一个_ttf_或_otf_文件'), true);
     return;
   }
   const form = new FormData();
   form.append('file', file, file.name);
   try {
     if (!API.token) {
-      throw new Error('未获取会话令牌，请刷新页面或重启 DanmuAI');
+      throw new Error(t('dynamic.settingsCompressPreview.未获取会话令牌_请刷新页面或重启_DanmuAI'));
     }
     const data = await apiFormFetch('/api/fonts/import', form);
-    fontDeps.showToast(`已导入字体：${data.family}`, false);
+    fontDeps.showToast(t('dynamic.settingsFonts.已导入字体_data_family'), false);
     await loadFontFamilies();
     if (input) input.value = '';
   } catch (error) {
-    fontDeps.showToast(`导入失败：${error.message || error}`, true);
+    fontDeps.showToast(t('dynamic.settingsFonts.导入失败_error_message'), true);
   }
 }
 
@@ -50,14 +51,14 @@ function refreshFontSelect(families) {
   const fltCurrent = fltSel.value;
   const merged = Array.from(new Set([...builtin, ...families]));
   const buildOptions = (current) => {
-    const opts = ['<option value="">— 系统默认 —</option>'];
+    const opts = [t('dynamic.settingsFonts.option_value_系统默认')];
     merged.forEach((family) => {
       const safe = String(family).replace(/"/g, '&quot;');
       opts.push(`<option value="${safe}">${safe}</option>`);
     });
     if (current && !merged.includes(current)) {
       const safe = String(current).replace(/"/g, '&quot;');
-      opts.push(`<option value="${safe}">自定义：${safe}</option>`);
+      opts.push(t('dynamic.settingsFonts.option_value_safe'));
     }
     return opts.join('');
   };
@@ -78,17 +79,17 @@ function renderImportedFontsList(imported) {
     node.querySelector('.font-meta').textContent =
       `（${item.original_name} · ${(item.size / 1024).toFixed(1)} KB）`;
     node.querySelector('.btn-delete-font').addEventListener('click', async () => {
-      if (!confirm(`确认删除已导入字体「${item.family}」？此操作不可撤销。`)) return;
+      if (!confirm(t('dynamic.settingsFonts.确认删除已导入字体_item_family'))) return;
       try {
         await apiFetch(`/api/fonts/${item.sha256}`, { method: 'DELETE' });
-        fontDeps.showToast(`已删除字体：${item.family}`, false);
+        fontDeps.showToast(t('dynamic.settingsFonts.已删除字体_item_family'), false);
         const danmuSel = document.getElementById('danmu_font_family');
         const fltSel = document.getElementById('floating_panel_font_family');
         if (danmuSel && danmuSel.value === item.family) danmuSel.value = '';
         if (fltSel && fltSel.value === item.family) fltSel.value = '';
         await loadFontFamilies();
       } catch (error) {
-        fontDeps.showToast(`删除失败：${error.message || error}`, true);
+        fontDeps.showToast(t('dynamic.settingsFonts.删除失败_error_message'), true);
       }
     });
     list.appendChild(node);
@@ -96,14 +97,14 @@ function renderImportedFontsList(imported) {
 }
 
 const DANMU_COLOR_SWATCHES = [
-  { hex: '#FF0000', name: '红' },
-  { hex: '#FFA500', name: '橙' },
-  { hex: '#FFFF00', name: '黄' },
-  { hex: '#00FF00', name: '绿' },
-  { hex: '#0000FF', name: '蓝' },
-  { hex: '#4B0082', name: '靛' },
-  { hex: '#800080', name: '紫' },
-  { hex: '#FFFFFF', name: '默认' },
+  { hex: '#FF0000', name: 'settings.colors.red' },
+  { hex: '#FFA500', name: 'settings.colors.orange' },
+  { hex: '#FFFF00', name: 'settings.colors.yellow' },
+  { hex: '#00FF00', name: 'settings.colors.green' },
+  { hex: '#0000FF', name: 'settings.colors.blue' },
+  { hex: '#4B0082', name: 'settings.colors.indigo' },
+  { hex: '#800080', name: 'settings.colors.purple' },
+  { hex: '#FFFFFF', name: 'common.defaultLabel' },
 ];
 
 function getSelectedColors() {
@@ -214,7 +215,7 @@ function initColorSwatches() {
     btn.style.backgroundColor = hex;
     btn.style.borderColor = '#9ca3af';
     btn.dataset.color = hex;
-    btn.title = name;
+    btn.title = t(name);
     btn.setAttribute('aria-pressed', 'false');
     btn.addEventListener('click', () => {
       btn.classList.toggle('selected');

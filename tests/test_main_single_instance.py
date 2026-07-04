@@ -175,3 +175,75 @@ def test_main_retries_activation_failed_then_activates_existing(monkeypatch):
     assert ("exit", 0) in events
     assert all(event[0] != "danmu_init" for event in events)
     assert try_acquire_calls == 2
+
+
+def test_server_name_includes_username(monkeypatch):
+    """BUG-006: same APPDATA but different USERNAME must yield different server names."""
+    import sys
+    from types import SimpleNamespace
+
+    # app.single_instance imports PyQt6.QtNetwork at module load time; stub it
+    # so the test can run without the QtNetwork DLL (the function under test
+    # only needs hashlib + os).
+    monkeypatch.setitem(
+        sys.modules,
+        "PyQt6.QtNetwork",
+        SimpleNamespace(QLocalServer=object(), QLocalSocket=object()),
+    )
+    from app.single_instance import _server_name
+
+    monkeypatch.setenv("APPDATA", "C:\\Users\\Shared\\AppData\\Roaming")
+    monkeypatch.setenv("USERNAME", "Alice")
+    monkeypatch.delenv("USER", raising=False)
+    name_alice = _server_name()
+
+    monkeypatch.setenv("USERNAME", "Bob")
+    name_bob = _server_name()
+
+    assert name_alice != name_bob
+    assert name_alice.startswith("DanmuAI-")
+    assert name_bob.startswith("DanmuAI-")
+    assert len(name_alice) == len("DanmuAI-") + 16
+    assert len(name_bob) == len("DanmuAI-") + 16
+
+
+def test_server_name_stable_for_same_user(monkeypatch):
+    """BUG-006: same USERNAME + APPDATA must yield stable server name across calls."""
+    import sys
+    from types import SimpleNamespace
+
+    monkeypatch.setitem(
+        sys.modules,
+        "PyQt6.QtNetwork",
+        SimpleNamespace(QLocalServer=object(), QLocalSocket=object()),
+    )
+    from app.single_instance import _server_name
+
+    monkeypatch.setenv("APPDATA", "C:\\Users\\Alice\\AppData\\Roaming")
+    monkeypatch.setenv("USERNAME", "Alice")
+    monkeypatch.delenv("USER", raising=False)
+
+    assert _server_name() == _server_name()
+
+
+def test_server_name_falls_back_to_user_env(monkeypatch):
+    """BUG-006: when USERNAME is missing, fall back to USER env (POSIX-style)."""
+    import sys
+    from types import SimpleNamespace
+
+    monkeypatch.setitem(
+        sys.modules,
+        "PyQt6.QtNetwork",
+        SimpleNamespace(QLocalServer=object(), QLocalSocket=object()),
+    )
+    from app.single_instance import _server_name
+
+    monkeypatch.setenv("APPDATA", "/home/alice/.config")
+    monkeypatch.delenv("USERNAME", raising=False)
+    monkeypatch.setenv("USER", "alice")
+
+    name = _server_name()
+    assert name.startswith("DanmuAI-")
+    # Must differ from the empty-username fallback.
+    monkeypatch.delenv("USER", raising=False)
+    assert name != _server_name()

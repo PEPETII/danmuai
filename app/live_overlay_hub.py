@@ -13,6 +13,8 @@ from collections import deque
 from dataclasses import dataclass, field
 from typing import Any
 
+from app.translations import tr
+
 
 def _put_on_queue(queue: asyncio.Queue, item: Any) -> None:
     try:
@@ -192,5 +194,5 @@ class LiveOverlayHub:
             )
 
     def broadcast_test(self, items: list[str] | None = None) -> None:
-        default = ["DanmuAI 测试弹幕", "直播输出连接正常"]
+        default = [tr("liveOverlay.testBarrage"), tr("liveOverlay.connectionOk")]
         self.broadcast_batch(items or default, source="test", batch_id=None)

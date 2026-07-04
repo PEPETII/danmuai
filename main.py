@@ -48,7 +48,6 @@ from app.main_helpers import (
     BatchTracker,  # noqa: F401 — re-exported for tests
 )
 from app.main_launch import (
-    DEPRECATED_LAUNCH_MSG,
     check_deprecated_launch_args,
     global_exception_hook,
     register_unhandled_exception_notifier,

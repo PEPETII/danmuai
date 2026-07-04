@@ -32,6 +32,7 @@ from app.model_providers import resolve_api_transport
 from app.providers import get_capabilities_for_endpoint, get_openai_adapter, provider_extra_headers
 from app.providers.constants import THINKING_DISABLED
 from app.errors import AppError
+from app.translations import Translator
 
 logger = logging.getLogger(__name__)
 
@@ -80,9 +81,16 @@ def _allowed_config_keys() -> frozenset[str]:
 
 _FALLBACK_REPLY = "我没太理解您的意思，请换个说法试试。"
 
+_FALLBACK_REPLY_EN = "I didn't quite catch that — please try rephrasing."
+
 _REPAIR_SUFFIX = (
     "\n\n【重要】你必须只输出一个 JSON 对象（含 reply 与 tool_calls 字段），"
     "不要 Markdown 代码块，不要 JSON 以外的任何文字。"
+)
+
+_REPAIR_SUFFIX_EN = (
+    "\n\n[Important] You must output exactly one JSON object (with reply and tool_calls), "
+    "no Markdown fences, and no text outside JSON."
 )
 
 _CHANGE_KEY_LABELS: dict[str, str] = {
@@ -102,11 +110,51 @@ _CHANGE_KEY_LABELS: dict[str, str] = {
     "normal_recognition_interval_sec": "识图间隔",
 }
 
+_CHANGE_KEY_LABELS_EN: dict[str, str] = {
+    "danmu_speed": "Danmu speed",
+    "danmu_lines": "Danmu lines",
+    "danmu_max_chars": "Max danmu length",
+    "font_size": "Danmu font size",
+    "opacity": "Danmu opacity",
+    "dedup_threshold": "Dedup threshold",
+    "danmu_font_bold": "Danmu bold",
+    "layout_mode": "Layout mode",
+    "danmu_render_mode": "Danmu render mode",
+    "mic_mode_enabled": "Mic mode",
+    "screen_index": "Display",
+    "api_mode": "API mode",
+    "normal_reply_count": "Normal reply count",
+    "normal_recognition_interval_sec": "Capture interval",
+}
+
+
+def _is_english() -> bool:
+    return Translator.get_language() == "en"
+
+
+def _fallback_reply() -> str:
+    return _FALLBACK_REPLY_EN if _is_english() else _FALLBACK_REPLY
+
+
+def _repair_suffix() -> str:
+    return _REPAIR_SUFFIX_EN if _is_english() else _REPAIR_SUFFIX
+
+
+def _change_key_labels() -> dict[str, str]:
+    return _CHANGE_KEY_LABELS_EN if _is_english() else _CHANGE_KEY_LABELS
+
 
 _JSON_OUTPUT_EXAMPLE = """{
   "reply": "口语化、简短的回复（说明你将做什么，或为什么不能做）",
   "tool_calls": [
     {"name":"update_config","changes":[{"key":"danmu_speed","value":"8","label":"弹幕速度: 5 → 8"}],"require_confirm":true}
+  ]
+}"""
+
+_JSON_OUTPUT_EXAMPLE_EN = """{
+  "reply": "Short, conversational reply (what you will do, or why you cannot)",
+  "tool_calls": [
+    {"name":"update_config","changes":[{"key":"danmu_speed","value":"8","label":"Danmu speed: 5 → 8"}],"require_confirm":true}
   ]
 }"""
 
@@ -154,6 +202,50 @@ _SYSTEM_PROMPT_PREFIX = """你是「AI管家」，DanmuAI 的自然语言设置�
 
 """
 
+_SYSTEM_PROMPT_PREFIX_EN = """You are the "AI Butler", DanmuAI's natural-language settings agent. Users describe needs in plain language; you parse intent and return tool calls.
+
+# Available tools (return a tool_calls array in JSON)
+
+1. update_config — change a setting (WEB_CONFIG_KEYS whitelist only)
+   Params: {"name":"update_config","changes":[{"key":"danmu_speed","value":"8","label":"Danmu speed: 5 → 8"}],"require_confirm":true}
+   - **All changes require user confirmation** (require_confirm is always true)
+   - label current values must match "current config values" below; target value goes in value
+   - One utterance may include multiple changes
+
+2. set_default_model — switch the active model profile
+   Params: {"name":"set_default_model","index":1,"model_id":"mimo-v2.5","label":"Vision model: doubao-seed → mimo-v2.5"}
+   - index is the profile position in the list (0-based); see "Current model profiles" below
+   - Always confirmation-level (require_confirm=true)
+
+3. set_console_theme — switch Web console light/dark theme (not via update_config)
+   Params: {"name":"set_console_theme","theme":"light","label":"Console theme: dark → light"}
+   - theme must be light or dark only
+   - Always confirmation-level (require_confirm=true)
+
+# Common natural language → config keys (prefer update_config keys)
+
+- Too many danmu / too many lines → danmu_lines (decrease)
+- Danmu too fast / too slow → danmu_speed
+- Font too big / too small → font_size (overlay danmu size, often 12–72, default 24)
+- Danmu too transparent / opaque → opacity
+- Too many duplicate danmu → dedup_threshold
+- Single danmu too long → danmu_max_chars
+- Layout / orientation → layout_mode
+- Light mode / dark mode → set_console_theme (do not use update_config for theme)
+
+# Boundaries (never do these)
+
+- Do not change api_key / mic_api_key (not exposed; tell users to edit under Danmu Settings → API & Models)
+- Do not use update_config for theme/console_theme (must use set_console_theme)
+- Do not change use_thinking (disabled at runtime; changes have no effect)
+- Do not change persona_model_bindings / region_x/y/w/h
+- Do not delete model profiles / reset all settings / clear danmu pool (text guidance only, no tool calls)
+- Changing screen_index invalidates in-flight AI replies; note that in label
+
+# Output format (strict JSON, no Markdown code fences)
+
+"""
+
 _SYSTEM_PROMPT_SUFFIX = """
 - 无工具调用时 tool_calls 为空数组 []
 - 不要输出 JSON 以外的内容
@@ -163,15 +255,27 @@ _SYSTEM_PROMPT_SUFFIX = """
 
 """
 
+_SYSTEM_PROMPT_SUFFIX_EN = """
+- When no tools apply, tool_calls is an empty array []
+- Do not output anything outside JSON
+- reply in English, conversational, avoid technical jargon
+
+# Current config context (pre-fetched; do not ask again)
+
+"""
+
 
 def _build_system_prompt(config) -> str:
     """组装完整 system prompt（单花括号 JSON 示例 + 当前配置上下文）。"""
-    return (
-        _SYSTEM_PROMPT_PREFIX
-        + _JSON_OUTPUT_EXAMPLE
-        + _SYSTEM_PROMPT_SUFFIX
-        + _build_context(config)
-    )
+    if _is_english():
+        prefix = _SYSTEM_PROMPT_PREFIX_EN
+        example = _JSON_OUTPUT_EXAMPLE_EN
+        suffix = _SYSTEM_PROMPT_SUFFIX_EN
+    else:
+        prefix = _SYSTEM_PROMPT_PREFIX
+        example = _JSON_OUTPUT_EXAMPLE
+        suffix = _SYSTEM_PROMPT_SUFFIX
+    return prefix + example + suffix + _build_context(config)
 
 
 # ---------------------------------------------------------------------------
@@ -258,8 +362,11 @@ def _effective_config_value(config, key: str) -> str:
 
 
 def _format_change_label(key: str, current: str, new_value: str) -> str:
-    name = _CHANGE_KEY_LABELS.get(key, key)
-    cur_display = current if current else "（默认）"
+    name = _change_key_labels().get(key, key)
+    if _is_english():
+        cur_display = current if current else "(default)"
+    else:
+        cur_display = current if current else "（默认）"
     return f"{name}: {cur_display} → {new_value}"
 
 
@@ -269,7 +376,25 @@ def _build_context(config) -> str:
     敏感字段（apiKey）永远掩码或不注入。``query_config`` 工具的结果由此合成，
     LLM 不真发 tool call 往返（spec §7.4）。
     """
-    lines: list[str] = ["## 当前配置值（权威来源，label 与 reply 中的当前值必须与此一致）"]
+    if _is_english():
+        lines: list[str] = [
+            "## Current config values (authoritative — label/reply current values must match)",
+        ]
+        unset = "(unset)"
+        theme_label = "console_theme (Web console theme)"
+        default_label = "default_model_id (active model)"
+        profiles_header = "## Current model profiles (apiKey masked, index from 0)"
+        no_profiles = "- (no model profiles)"
+        in_use = "(in use)"
+    else:
+        lines = ["## 当前配置值（权威来源，label 与 reply 中的当前值必须与此一致）"]
+        unset = "（未设置）"
+        theme_label = "console_theme（Web 控制台主题）"
+        default_label = "default_model_id（当前使用模型）"
+        profiles_header = "## 当前模型档案列表（apiKey 已掩码，index 从 0 起）"
+        no_profiles = "- （无模型档案）"
+        in_use = "（当前使用）"
+
     for key in _CONTEXT_CONFIG_KEYS:
         value = _effective_config_value(config, key)
         if not value:
@@ -277,25 +402,25 @@ def _build_context(config) -> str:
         lines.append(f"- {key}: {value}")
 
     console_theme = _console_theme_from_config(config)
-    lines.append(f"- console_theme（Web 控制台主题）: {console_theme}")
+    lines.append(f"- {theme_label}: {console_theme}")
 
     default_model_id = (config.get_default_model_id() or "").strip()
-    lines.append(f"- default_model_id（当前使用模型）: {default_model_id or '（未设置）'}")
+    lines.append(f"- {default_label}: {default_model_id or unset}")
 
     lines.append("")
-    lines.append("## 当前模型档案列表（apiKey 已掩码，index 从 0 起）")
+    lines.append(profiles_header)
     try:
         models = config.get_custom_models()
     except (RuntimeError, ValueError, OSError):
         models = []
     if not models:
-        lines.append("- （无模型档案）")
+        lines.append(no_profiles)
     else:
         for i, model in enumerate(models):
             mid = (model.get("default_model_id") or model.get("modelId") or "").strip()
             name = (model.get("name") or "").strip()
             mode = (model.get("mode") or "").strip()
-            is_default = "（当前使用）" if mid == default_model_id else ""
+            is_default = in_use if mid == default_model_id else ""
             lines.append(f"- index={i}: name={name or '—'} / model_id={mid or '—'} / mode={mode} {is_default}")
 
     return "\n".join(lines)
@@ -732,7 +857,7 @@ def _parse_butler_response(raw: str, config=None) -> dict:
             (raw or "")[:240],
         )
         return {
-            "reply": _FALLBACK_REPLY,
+            "reply": _fallback_reply(),
             "tool_calls": [],
         }
     reply = str(obj.get("reply") or "").strip()
@@ -790,15 +915,15 @@ def chat(config, messages: list[dict], model_id: str | None = None) -> dict:
             local = _try_local_intent(last_user, config)
             if local:
                 parsed = local
-            elif parsed.get("reply") == _FALLBACK_REPLY and last_user:
-                repair_pt = system_pt + _REPAIR_SUFFIX
+            elif parsed.get("reply") == _fallback_reply() and last_user:
+                repair_pt = system_pt + _repair_suffix()
                 raw_retry = _stream_llm(
                     worker,
                     repair_pt,
                     [{"role": "user", "content": last_user}],
                 )
                 parsed_retry = _parse_butler_response(raw_retry or "", config)
-                if parsed_retry.get("tool_calls") or parsed_retry.get("reply") != _FALLBACK_REPLY:
+                if parsed_retry.get("tool_calls") or parsed_retry.get("reply") != _fallback_reply():
                     parsed = parsed_retry
                 else:
                     local = _try_local_intent(last_user, config)

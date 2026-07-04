@@ -77,6 +77,15 @@ def test_spec_lists_lazy_third_party(spec_text: str) -> None:
     assert '"dashscope.audio.qwen_tts_realtime"' in spec_text
 
 
+def test_spec_lists_webview2_runtime(spec_text: str) -> None:
+    # BUG-001: webview_shell.py conditionally imports app.webview2_runtime on
+    # win32 inside begin_start(); PyInstaller static analysis cannot see it,
+    # so it must be listed explicitly.
+    assert '"app.webview2_runtime"' in spec_text, (
+        "DanmuAI.spec must include app.webview2_runtime (deferred win32 import)"
+    )
+
+
 def test_audit_script_exits_zero() -> None:
     audit_mod = _load_audit_module()
     spec_text = SPEC_PATH.read_text(encoding="utf-8")

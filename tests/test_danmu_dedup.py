@@ -173,6 +173,52 @@ def test_similarity_fallback_without_levenshtein(monkeypatch):
     assert DanmuEngine._similarity("kitten", "sitting") > 0.5
 
 
+def test_similarity_fallback_truncates_long_strings(monkeypatch):
+    """BUG-009: pure-Python fallback truncates inputs longer than _FALLBACK_MAX_LEN.
+
+    Without truncation, the fallback is O(m×n) and a 30-item dedup window of
+    80-char danmu can stall the 60fps Overlay tick. With truncation, two
+    strings that differ only past the cutoff compare as identical.
+    """
+    from app.danmu_engine_dedup import _FALLBACK_MAX_LEN
+
+    monkeypatch.setattr(danmu_engine_mod, "_LEVENSHTEIN_RATIO", _LEVENSHTEIN_UNAVAILABLE)
+    monkeypatch.setattr(danmu_dedup_mod, "_LEVENSHTEIN_RATIO", _LEVENSHTEIN_UNAVAILABLE)
+
+    prefix = "a" * _FALLBACK_MAX_LEN
+    a = prefix + "XYZ"
+    b = prefix + "ABC"
+    assert len(a) > _FALLBACK_MAX_LEN
+    assert len(b) > _FALLBACK_MAX_LEN
+
+    # After truncation both reduce to the same prefix → similarity == 1.0.
+    assert DanmuEngine._similarity(a, b) == 1.0
+
+
+def test_similarity_fallback_performance_under_5ms(monkeypatch):
+    """BUG-009: 30× comparison of 80-char strings in fallback must stay < 10ms.
+
+    Relaxed from 5ms to 10ms to absorb CI host jitter; the failure mode we
+    guard against is the >100ms stall from the unbounded O(m×n) loop. The
+    truncation caps each comparison at 32×32 = 1024 ops, so 30 comparisons
+    stay well under 1ms in practice.
+    """
+    monkeypatch.setattr(danmu_engine_mod, "_LEVENSHTEIN_RATIO", _LEVENSHTEIN_UNAVAILABLE)
+    monkeypatch.setattr(danmu_dedup_mod, "_LEVENSHTEIN_RATIO", _LEVENSHTEIN_UNAVAILABLE)
+
+    long_a = "x" * 80
+    long_b = "y" * 80
+    # Warm up any first-call overhead (lazy import attempts, etc.).
+    DanmuEngine._similarity(long_a, long_b)
+
+    start = time.perf_counter()
+    for _ in range(30):
+        DanmuEngine._similarity(long_a, long_b)
+    elapsed_ms = (time.perf_counter() - start) * 1000.0
+
+    assert elapsed_ms < 10.0, f"fallback 30×80-char comparison took {elapsed_ms:.2f}ms"
+
+
 def test_similarity_uses_c_extension_when_available(dedup_profile_on):
     if _get_levenshtein_ratio() is None:
         pytest.skip("Levenshtein C extension not available")

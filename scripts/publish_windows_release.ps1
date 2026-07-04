@@ -11,14 +11,15 @@ $OutputEncoding = [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
-# Guard: supabase-config.js and backup variants contain credentials and must not be packaged.
+# Guard: any file containing 'supabase-config' (except allowlist) contains credentials
+# and must not be packaged. Default-deny (BUG-005): the previous -Filter "supabase-config.js.*"
+# missed creative variants like supabase-config-local.js or my-supabase-config.js.
 $supabaseStaticDir = Join-Path $Root "web\static"
+$allowedSupabaseFiles = @("supabase-config.example.js", "supabase-client.js")
 $forbiddenSupabaseConfigs = @()
-$supabaseConfigPath = Join-Path $supabaseStaticDir "supabase-config.js"
-if (Test-Path $supabaseConfigPath) {
-    $forbiddenSupabaseConfigs += $supabaseConfigPath
-}
-Get-ChildItem -Path $supabaseStaticDir -Filter "supabase-config.js.*" -File -ErrorAction SilentlyContinue | ForEach-Object {
+Get-ChildItem -Path $supabaseStaticDir -File -ErrorAction SilentlyContinue | Where-Object {
+    $_.Name -like "*supabase-config*" -and $_.Name -notin $allowedSupabaseFiles
+} | ForEach-Object {
     $forbiddenSupabaseConfigs += $_.FullName
 }
 if ($forbiddenSupabaseConfigs.Count -gt 0) {
@@ -26,7 +27,7 @@ if ($forbiddenSupabaseConfigs.Count -gt 0) {
     Write-Error @"
 ABORT: credential-bearing Supabase config files must not be present before publishing:
 $listed
-Remove them before publishing (only supabase-config.example.js should be present).
+Remove them before publishing (only supabase-config.example.js and supabase-client.js should be present).
 "@
 }
 
@@ -60,14 +61,37 @@ if (-not (Test-Path (Join-Path $DistDir "DanmuAI.exe"))) {
 }
 
 New-Item -ItemType Directory -Force -Path $ReleaseRoot | Out-Null
-$versionOutput = python -c "from app.version import __version__; print(__version__)" 2>&1
-if ($LASTEXITCODE -ne 0) {
-    Write-Error "Failed to read app version from app.version.__version__ (exit $LASTEXITCODE): $versionOutput"
+
+function Get-AppVersion {
+    $versionOutput = python -c "from app.version import __version__; print(__version__)" 2>&1
+    if ($LASTEXITCODE -eq 0) {
+        $parsed = $versionOutput.Trim()
+        if ($parsed -match '^\d+\.\d+\.\d+') {
+            return $parsed
+        }
+    }
+
+    $versionFile = Join-Path $Root "app\version.py"
+    if (Test-Path -LiteralPath $versionFile) {
+        $content = Get-Content -LiteralPath $versionFile -Raw
+        if ($content -match '__version__\s*=\s*["''](\d+\.\d+\.\d+)["'']') {
+            return $Matches[1]
+        }
+    }
+
+    $gitDescribe = git describe --tags --abbrev=0 2>$null
+    if ($LASTEXITCODE -eq 0 -and $gitDescribe) {
+        $tag = $gitDescribe.Trim().TrimStart('v')
+        if ($tag -match '^\d+\.\d+\.\d+') {
+            return $tag
+        }
+    }
+
+    $detail = if ($versionOutput) { $versionOutput.Trim() } else { "(no python output)" }
+    Write-Error "Failed to determine app version (python import, app/version.py regex, and git describe all failed). Python output: $detail"
 }
-$appVersion = $versionOutput.Trim()
-if (-not $appVersion -or $appVersion -notmatch '^\d+\.\d+\.\d+') {
-    Write-Error "Invalid version string from app.version.__version__: '$appVersion' (expected semver x.y.z)"
-}
+
+$appVersion = Get-AppVersion
 
 New-Item -ItemType Directory -Force -Path $VelopackDir | Out-Null
 

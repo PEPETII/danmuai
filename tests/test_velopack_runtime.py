@@ -20,6 +20,21 @@ def test_run_startup_apply_skips_for_frozen_portable_without_update_exe():
             run_startup_apply_if_needed()
 
 
+def test_is_velopack_install_false_for_unrelated_update_exe(tmp_path):
+    """BUG-020: current/DanmuAI.exe + unrelated Update.exe must not count as Velopack."""
+    from app.velopack_runtime import is_velopack_install
+
+    root = tmp_path / "portable"
+    current = root / "current"
+    current.mkdir(parents=True)
+    (current / "DanmuAI.exe").write_bytes(b"MZ")
+    (root / "Update.exe").write_bytes(b"MZ unrelated updater")
+
+    with patch.object(sys, "frozen", True, create=True):
+        with patch.object(sys, "executable", str(current / "DanmuAI.exe"), create=True):
+            assert is_velopack_install() is False
+
+
 def test_run_startup_apply_calls_velopack_when_frozen():
     from app import velopack_runtime
 
@@ -32,7 +47,7 @@ def test_run_startup_apply_calls_velopack_when_frozen():
             str(Path("C:/Users/test/AppData/Local/PEPETII.DanmuAI/current/DanmuAI.exe")),
             create=True,
         ):
-            with patch.object(Path, "is_file", return_value=True):
+            with patch.object(velopack_runtime, "is_velopack_update_exe", return_value=True):
                 with patch.dict("sys.modules", {"velopack": velopack_mod}):
                     with patch("app.startup_trace.log_startup"):
                         velopack_runtime.run_startup_apply_if_needed()
@@ -59,7 +74,7 @@ def test_run_startup_apply_skips_on_import_error_when_frozen():
             str(Path("C:/Users/test/AppData/Local/PEPETII.DanmuAI/current/DanmuAI.exe")),
             create=True,
         ):
-            with patch.object(Path, "is_file", return_value=True):
+            with patch.object(velopack_runtime, "is_velopack_update_exe", return_value=True):
                 with patch("builtins.__import__", side_effect=_import):
                     with patch("app.startup_trace.log_startup") as log:
                         velopack_runtime.run_startup_apply_if_needed()
@@ -80,7 +95,7 @@ def test_run_startup_apply_returns_on_velopack_error():
             str(Path("C:/Users/test/AppData/Local/PEPETII.DanmuAI/current/DanmuAI.exe")),
             create=True,
         ):
-            with patch.object(Path, "is_file", return_value=True):
+            with patch.object(velopack_runtime, "is_velopack_update_exe", return_value=True):
                 with patch.dict("sys.modules", {"velopack": velopack_mod}):
                     with patch("app.startup_trace.log_startup") as log:
                         # Should not raise — just log and return

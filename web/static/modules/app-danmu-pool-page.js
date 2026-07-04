@@ -1,4 +1,5 @@
 import { apiFetch } from './transport.js';
+import { t } from './i18n.js';
 
 const MAX_IMPORT_FILES = 5;
 const MAX_LINES_PER_FILE = 1000;
@@ -34,8 +35,8 @@ function formatCustomPoolCount() {
   const total = danmuPoolMeta?.custom_count ?? 0;
   const max = danmuPoolMeta?.custom_max ?? 20000;
   const manual = danmuPoolMeta?.manual_count;
-  const base = `自定义库：${total} / ${max}`;
-  return manual != null ? `${base}（手动 ${manual} 条）` : base;
+  const base = t('dynamic.appDanmuPoolPage.自定义库_total_max');
+  return manual != null ? t('dynamic.appDanmuPoolPage.base_手动_manual_条') : base;
 }
 
 function updatePoolCustomPager() {
@@ -44,7 +45,7 @@ function updatePoolCustomPager() {
   const nextBtn = document.getElementById('btnPoolCustomNext');
   const totalPages = Math.max(1, Math.ceil(listTotal / PAGE_SIZE));
   if (pageInfo) {
-    pageInfo.textContent = `第 ${currentPage} / ${totalPages} 页（本页最多 ${PAGE_SIZE} 条）`;
+    pageInfo.textContent = t('dynamic.appDanmuPoolPage.第_currentPage_tot');
   }
   if (prevBtn) prevBtn.disabled = currentPage <= 1;
   if (nextBtn) nextBtn.disabled = currentPage >= totalPages;
@@ -101,7 +102,7 @@ function readFileAsText(file, encoding) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result ?? ''));
-    reader.onerror = () => reject(reader.error || new Error('文件读取失败'));
+    reader.onerror = () => reject(reader.error || new Error(t('dynamic.appDanmuPoolPage.文件读取失败')));
     reader.readAsText(file, encoding);
   });
 }
@@ -126,10 +127,10 @@ function countFileLines(text) {
 
 function buildImportSkippedHint(result) {
   const reasonLabels = {
-    duplicate: '重复',
-    empty: '空行',
-    limit_reached: '超限',
-    unsafe: '不安全',
+    duplicate: t('dynamic.appDanmuPoolPage.重复'),
+    empty: t('dynamic.appDanmuPoolPage.空行'),
+    limit_reached: t('dynamic.appDanmuPoolPage.超限'),
+    unsafe: t('dynamic.appDanmuPoolPage.不安全'),
   };
   const counts = {};
   const skippedItems = result?.skipped_items || [];
@@ -137,10 +138,10 @@ function buildImportSkippedHint(result) {
     const label = reasonLabels[item.reason] || item.reason;
     counts[label] = (counts[label] || 0) + 1;
   });
-  if (result?.skipped_duplicate) counts['重复'] = (counts['重复'] || 0) + result.skipped_duplicate;
-  if (result?.skipped_empty) counts['空行'] = (counts['空行'] || 0) + result.skipped_empty;
-  if (result?.skipped_unsafe) counts['不安全'] = (counts['不安全'] || 0) + result.skipped_unsafe;
-  if (result?.skipped_limit) counts['超限'] = (counts['超限'] || 0) + result.skipped_limit;
+  if (result?.skipped_duplicate) counts[t('dynamic.appDanmuPoolPage.重复')] = (counts[t('dynamic.appDanmuPoolPage.重复')] || 0) + result.skipped_duplicate;
+  if (result?.skipped_empty) counts[t('dynamic.appDanmuPoolPage.空行')] = (counts[t('dynamic.appDanmuPoolPage.空行')] || 0) + result.skipped_empty;
+  if (result?.skipped_unsafe) counts[t('dynamic.appDanmuPoolPage.不安全')] = (counts[t('dynamic.appDanmuPoolPage.不安全')] || 0) + result.skipped_unsafe;
+  if (result?.skipped_limit) counts[t('dynamic.appDanmuPoolPage.超限')] = (counts[t('dynamic.appDanmuPoolPage.超限')] || 0) + result.skipped_limit;
   const parts = Object.entries(counts).map(([label, n]) => `${label} ${n}`);
   return parts.length ? `（${parts.join('，')}）` : '';
 }
@@ -153,7 +154,7 @@ async function importCustomDanmuPoolTxtFiles(fileList) {
   if (!files.length) return;
 
   if (files.length > MAX_IMPORT_FILES) {
-    showToast('最多同时导入 5 个文件', true);
+    showToast(t('dynamic.appDanmuPoolPage.最多同时导入_5_个文件'), true);
     if (input) input.value = '';
     return;
   }
@@ -166,7 +167,7 @@ async function importCustomDanmuPoolTxtFiles(fileList) {
     for (let i = 0; i < files.length; i += 1) {
       const lineCount = countFileLines(readResults[i].text);
       if (lineCount > MAX_LINES_PER_FILE) {
-        showToast(`文件「${files[i].name}」超过 ${MAX_LINES_PER_FILE} 行上限`, true);
+        showToast(t('dynamic.appDanmuPoolPage.文件_files_i_name_超过'), true);
         return;
       }
     }
@@ -184,13 +185,13 @@ async function importCustomDanmuPoolTxtFiles(fileList) {
     const added = result.added || 0;
     const skipped = result.skipped || 0;
     const skipHint = buildImportSkippedHint(result);
-    let message = `导入成功，新增 ${added} 条，跳过 ${skipped} 条${skipHint}`;
+    let message = t('dynamic.appDanmuPoolPage.导入成功_新增_added_条_跳过');
     if (readResults.some((r) => r.hasReplacement)) {
-      message += '；部分字符无法识别';
+      message += t('dynamic.appDanmuPoolPage.部分字符无法识别');
     }
     showToast(message, skipped > 0 && !added);
   } catch (error) {
-    showToast(error.message || '导入失败', true);
+    showToast(error.message || t('dynamic.appDanmuPoolPage.导入失败'), true);
   } finally {
     if (btn) btn.disabled = false;
     if (input) input.value = '';
@@ -222,14 +223,14 @@ async function saveDanmuPoolSettings() {
   });
   danmuPoolMeta = await apiFetch('/api/danmu-pool/meta');
   updatePoolMinOnScreenControl();
-  showToast('公式化弹幕库设置已保存');
+  showToast(t('dynamic.appDanmuPoolPage.公式化弹幕库设置已保存'));
 }
 
 async function addCustomDanmuPoolItems() {
   const textarea = document.getElementById('poolCustomTextarea');
   const text = textarea?.value || '';
   if (!text.trim()) {
-    showToast('请先输入要追加的弹幕句子', true);
+    showToast(t('dynamic.appDanmuPoolPage.请先输入要追加的弹幕句子'), true);
     return;
   }
   await apiFetch('/api/danmu-pool/custom', {
@@ -240,7 +241,7 @@ async function addCustomDanmuPoolItems() {
   if (textarea) textarea.value = '';
   currentPage = 1;
   await loadCustomPage(1);
-  showToast('已追加手动条目');
+  showToast(t('dynamic.appDanmuPoolPage.已追加手动条目'));
 }
 
 async function deleteSelectedCustomDanmuPoolItems() {
@@ -248,7 +249,7 @@ async function deleteSelectedCustomDanmuPoolItems() {
     .map((cb) => parseInt(cb.dataset.id, 10))
     .filter((id) => Number.isFinite(id) && id > 0);
   if (!ids.length) {
-    showToast('请先勾选要删除的句子', true);
+    showToast(t('dynamic.appDanmuPoolPage.请先勾选要删除的句子'), true);
     return;
   }
   const result = await apiFetch('/api/danmu-pool/custom', {
@@ -259,7 +260,7 @@ async function deleteSelectedCustomDanmuPoolItems() {
   const totalPages = Math.max(1, Math.ceil((danmuPoolMeta.custom_count || 0) / PAGE_SIZE));
   if (currentPage > totalPages) currentPage = totalPages;
   await loadCustomPage(currentPage);
-  showToast(`已删除 ${result.removed} 条`);
+  showToast(t('dynamic.appDanmuPoolPage.已删除_result_removed_条'));
 }
 
 export function initDanmuPoolPage(deps = {}) {
@@ -297,7 +298,7 @@ export function initDanmuPoolPage(deps = {}) {
   });
   document.getElementById('poolImportTxtInput')?.addEventListener('change', (event) => {
     importCustomDanmuPoolTxtFiles(event.target.files).catch((error) =>
-      showToast(error.message || '导入失败', true),
+      showToast(error.message || t('dynamic.appDanmuPoolPage.导入失败'), true),
     );
   });
   document.getElementById('btnPoolCustomPrev')?.addEventListener('click', () => {

@@ -34,6 +34,7 @@ from app.pet.pet_assets import (
     validate_pet_pack_dir,
 )
 from app.pet.pet_state import PetSettings
+from app.translations import Translator, tr
 
 if TYPE_CHECKING:
     from main import DanmuApp
@@ -325,7 +326,6 @@ class PetWindow(QWidget):
         self.setStyleSheet("background: transparent; border: none;")
 
         self._command_edit = QLineEdit(self)
-        self._command_edit.setPlaceholderText("输入弹幕指令，Enter 提交，Esc 关闭")
         self._command_edit.setFont(QFont("Microsoft YaHei", 10))
         self._command_edit.setAutoFillBackground(False)
         self._command_edit.setStyleSheet(
@@ -341,6 +341,11 @@ class PetWindow(QWidget):
         self._anim_timer.timeout.connect(self._on_anim_tick)
 
         self._apply_window_geometry(reposition=True)
+        Translator.instance().language_changed.connect(self._retranslate_ui)
+        self._retranslate_ui()
+
+    def _retranslate_ui(self) -> None:
+        self._command_edit.setPlaceholderText(tr("pet.command_placeholder"))
 
     def _ensure_assets_loaded(self) -> None:
         """S-003: defer spritesheet decode until first show_pet (cold-start perf)."""
@@ -550,7 +555,7 @@ class PetWindow(QWidget):
             )
         except OSError:
             pass
-        apply_overlay_exstyles(hwnd, click_through=self._settings.click_through)
+        apply_overlay_exstyles(hwnd, click_through=bool(self._settings.click_through))
         self.update()
 
     def _sync_click_through(self) -> None:
@@ -720,7 +725,7 @@ class PetWindow(QWidget):
         y_offset = self._sprite_y_offset()
         if self._load_error:
             painter.setPen(Qt.GlobalColor.red)
-            painter.drawText(8, y_offset + 24, "宠物加载失败")
+            painter.drawText(8, y_offset + 24, tr("pet.load_failed"))
             return
         if self._pack is None or self._spritesheet is None or self._spritesheet.isNull():
             return
@@ -826,30 +831,33 @@ class PetWindow(QWidget):
     def _build_context_menu(self) -> QMenu:
         menu = QMenu(self)
         running = bool(getattr(self._app.engine, "running", False))
-        toggle_action = QAction("停止弹幕" if running else "开始弹幕", self)
+        toggle_action = QAction(
+            tr("pet.menu.stop_danmu") if running else tr("pet.menu.start_danmu"),
+            self,
+        )
         toggle_action.triggered.connect(self._app.toggle)
         menu.addAction(toggle_action)
 
         if self.isVisible():
-            hide_action = QAction("隐藏桌宠", self)
+            hide_action = QAction(tr("pet.menu.hide"), self)
             hide_action.triggered.connect(lambda: self._app.hide_pet())
             menu.addAction(hide_action)
         else:
-            show_action = QAction("显示桌宠", self)
+            show_action = QAction(tr("pet.menu.show"), self)
             show_action.triggered.connect(lambda: self._app.show_pet())
             menu.addAction(show_action)
 
-        settings_action = QAction("桌宠设置", self)
+        settings_action = QAction(tr("pet.menu.settings"), self)
         settings_action.triggered.connect(self._open_settings_page)
         menu.addAction(settings_action)
 
-        close_action = QAction("关闭桌宠", self)
+        close_action = QAction(tr("pet.menu.close"), self)
         close_action.triggered.connect(lambda: self._app.close_pet())
         menu.addAction(close_action)
 
         # 与托盘「退出」同路径；分隔线与「关闭桌宠」区分语义（仅关桌宠 vs 退出进程）。
         menu.addSeparator()
-        quit_action = QAction("退出应用", self)
+        quit_action = QAction(tr("pet.menu.quit_app"), self)
         quit_action.triggered.connect(self._app.quit)
         menu.addAction(quit_action)
         return menu
@@ -906,7 +914,7 @@ class PetWindow(QWidget):
             self.notify_command_submitted()
             bridge = getattr(self._app, "web_bridge", None)
             if bridge and hasattr(bridge, "publish_toast"):
-                bridge.publish_toast("已加入下一次弹幕生成")
+                bridge.publish_toast(tr("pet.toast.command_queued"))
             elif result.get("ok"):
                 pass
         except ValueError as exc:

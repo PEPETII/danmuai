@@ -88,6 +88,11 @@ from .screen import (
     resolve_danmu_max_chars,
     resolve_danmu_pending_entry_cap,
     resolve_danmu_track_retention_cap,
+    track_layout_metrics,
+    TRACK_BOTTOM_MARGIN_BASE,
+    TRACK_LINE_HEIGHT_BASE,
+    TRACK_TOP_MARGIN_BASE,
+    ui_scale_factor,
 )
 from .render import (  # noqa: F401 — re-exported
     ENTRY_ZONE_PX,
@@ -134,6 +139,11 @@ __all__ = [
     "resolve_danmu_max_chars",
     "resolve_danmu_pending_entry_cap",
     "resolve_danmu_track_retention_cap",
+    "track_layout_metrics",
+    "TRACK_BOTTOM_MARGIN_BASE",
+    "TRACK_LINE_HEIGHT_BASE",
+    "TRACK_TOP_MARGIN_BASE",
+    "ui_scale_factor",
     "ENTRY_ZONE_PX",
     "FADE_IN_PX",
     "FADE_OUT_PX",

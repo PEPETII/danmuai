@@ -6,6 +6,8 @@ import time
 import uuid
 from dataclasses import dataclass, field
 
+from app.translations import tr
+
 MAX_COMMAND_LEN = 200
 MAX_PENDING = 1
 
@@ -61,7 +63,7 @@ class PetCommandService:
     ) -> dict[str, object]:
         cleaned = (text or "").strip()
         if not cleaned:
-            raise ValueError("指令内容不能为空")
+            raise ValueError(tr("pet.error.emptyCommand"))
         if len(cleaned) > MAX_COMMAND_LEN:
             cleaned = cleaned[:MAX_COMMAND_LEN]
         self.purge_expired()

@@ -1,0 +1,22 @@
+{
+  "zh": {
+    "common": 57,
+    "nav": 24,
+    "overview": 48,
+    "settings": 173,
+    "content": 170,
+    "modals": 61,
+    "hints": 81,
+    "dynamic": 469
+  },
+  "en": {
+    "common": 57,
+    "nav": 24,
+    "overview": 48,
+    "settings": 173,
+    "content": 170,
+    "modals": 61,
+    "hints": 81,
+    "dynamic": 469
+  }
+}

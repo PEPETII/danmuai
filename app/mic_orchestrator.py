@@ -35,10 +35,12 @@ class MicOrchestrator:
         mic_service: MicService,
         on_utterance_end: Callable[[], None],
         log_fn: Callable[[str], None],
+        on_unsupported_model_fn: Callable[[str], None] | None = None,
     ) -> None:
         self._mic_service = mic_service
         self._on_utterance_end = on_utterance_end
         self._log = log_fn
+        self._on_unsupported_model_fn = on_unsupported_model_fn
         self._mic_utterance_detector: MicUtteranceDetector | None = None
         self._mic_poll_ms: int = MIC_POLL_MS
 
@@ -72,6 +74,9 @@ class MicOrchestrator:
         if not mic_audio_supported_fn():
             model_id = resolve_active_model_id_fn()
             self._log(f"mic unsupported for model {model_id or '?'}")
+            # BUG-014: 把错误推到 Web 状态栏（经 mixin 回调，保持编排器解耦）
+            if self._on_unsupported_model_fn is not None:
+                self._on_unsupported_model_fn(model_id or "?")
             self.stop_detector()
             return
         self.start_detector(config)

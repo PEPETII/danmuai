@@ -302,3 +302,94 @@ def test_mic_insert_reply_count_follows_normal_reply_count():
     assert mic_insert_reply_count(cfg) == 8
     out = build_mic_insert_user_pt("base", cfg)
     assert "请生成 8 条 JSON 数组弹幕" in out
+
+
+# ── BUG-014: mic 模型不支持时把错误推到 Web 状态栏 ──────────────────────
+
+
+def _bind_app_for_mic_unsupported(app, *, mic_service) -> None:
+    """装配 BUG-014 测试所需的 mic 链路对象。"""
+    from app.mic_orchestrator import MicOrchestrator
+
+    app._mic_service = mic_service
+    app._mic_poll_timer = FakeTimer()
+    app._mic_orchestrator = MicOrchestrator(
+        mic_service=mic_service,
+        on_utterance_end=lambda: None,
+        log_fn=lambda _msg: None,
+        on_unsupported_model_fn=app._on_mic_model_unsupported,
+    )
+    app.engine.running = True
+
+
+def test_sync_mic_service_sets_web_error_when_model_unsupported(monkeypatch):
+    """BUG-014: 模型不支持 mic_audio 时，sync 应通过回调把错误推到 Web 状态栏。"""
+    app = DanmuApp.__new__(DanmuApp)
+    bind_minimal_danmu_app(
+        app,
+        config=FakeConfig({"mic_mode_enabled": "1"}),
+    )
+    mic_service = SimpleNamespace(
+        is_running=lambda: True,
+        sync=lambda *, enabled, preferred_device_id=None: None,
+        last_error=lambda: "",
+    )
+    _bind_app_for_mic_unsupported(app, mic_service=mic_service)
+
+    error_calls: list[tuple[str, bool]] = []
+
+    def fake_set_web_error_status(message, *, is_error):
+        error_calls.append((message, is_error))
+
+    object.__setattr__(app, "set_web_error_status", fake_set_web_error_status)
+
+    monkeypatch.setattr("main.mic_audio_supported_for_mic_config", lambda _cfg: False)
+
+    DanmuApp._sync_mic_service(app)
+
+    # 期望：恰好一次以 is_error=True 推送错误，文案含「未声明 mic_audio 支持」
+    assert len(error_calls) == 1, f"期望 1 次错误调用，得到 {error_calls}"
+    msg, is_error = error_calls[0]
+    assert is_error is True
+    assert "未声明 mic_audio 支持" in msg
+    # 标志位已置 True
+    assert app._mic_unsupported_error_active is True
+    # 首次 sync 走 unsupported 分支 → stop_detector，detector 仍为 None
+    assert app._mic_orchestrator.detector is None
+
+
+def test_sync_mic_service_clears_error_when_model_supported(monkeypatch):
+    """BUG-014: 切回支持的模型后，sync 应清掉之前的 unsupported 错误条。"""
+    app = DanmuApp.__new__(DanmuApp)
+    bind_minimal_danmu_app(
+        app,
+        config=FakeConfig({"mic_mode_enabled": "1"}),
+    )
+    mic_service = SimpleNamespace(
+        is_running=lambda: True,
+        sync=lambda *, enabled, preferred_device_id=None: None,
+        last_error=lambda: "",
+    )
+    _bind_app_for_mic_unsupported(app, mic_service=mic_service)
+
+    # 预置：上一轮已设置错误条
+    object.__setattr__(app, "_mic_unsupported_error_active", True)
+
+    error_calls: list[tuple[str, bool]] = []
+
+    def fake_set_web_error_status(message, *, is_error):
+        error_calls.append((message, is_error))
+
+    object.__setattr__(app, "set_web_error_status", fake_set_web_error_status)
+
+    monkeypatch.setattr("main.mic_audio_supported_for_mic_config", lambda _cfg: True)
+    # 避免真起 Qt 计时器（清错路径会调 QTimer.singleShot）
+    monkeypatch.setattr("app.main_mic_mixin.QTimer.singleShot", lambda ms, fn: None)
+
+    DanmuApp._sync_mic_service(app)
+
+    # 期望：错误条被清除，标志位复位
+    assert app._mic_unsupported_error_active is False
+    assert ("", False) in error_calls, f"期望清错调用 ('', False)，得到 {error_calls}"
+    # start_detector 已创建 detector
+    assert app._mic_orchestrator.detector is not None

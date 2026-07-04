@@ -1,3 +1,5 @@
+import { getLanguage, t } from './i18n.js';
+
 const NORMAL_REPLY_COUNT_MIN = 1;
 const NORMAL_REPLY_COUNT_MAX = 50;
 const DEFAULT_NORMAL_REPLY_COUNT = 5;
@@ -111,10 +113,10 @@ function resolveDanmuMaxCharsPreview(lang = 'zh') {
 function buildNormalReplyContractPreviewZh(count, maxChars) {
   const total = clampNormalReplyCount(count, DEFAULT_NORMAL_REPLY_COUNT);
   const limit = maxChars ?? resolveDanmuMaxCharsPreview('zh');
-  const examples = Array.from({ length: total }, (_, i) => `弹幕${i + 1}`);
+  const examples = Array.from({ length: total }, (_, i) => t('dynamic.settingsDefaults.弹幕_i_1'));
   return (
-    '直播弹幕评论员。只输出 JSON 字符串数组，无解释、无 Markdown。'
-    + `固定 ${total} 条，每条≤${limit}字。`
+    t('dynamic.settingsDefaults.直播弹幕评论员_只输出_JSON_字符串数组_无')
+    + t('dynamic.settingsDefaults.固定_total_条_每条_limit')
     + `格式：["${examples.join('", "')}"]。`
   );
 }
@@ -127,9 +129,9 @@ export function updateNormalBatchPreview() {
   countEl.value = String(count);
   const hint = document.getElementById('normalBatchTotalHint');
   if (hint) {
-    hint.textContent = `每次固定 ${count} 条 · 保存后会同步到人格工坊的「输出契约」`;
+    hint.textContent = t('dynamic.settingsDefaults.每次固定_count_条_保存后会同步');
   }
-  const maxChars = resolveDanmuMaxCharsPreview('zh');
+  const maxChars = resolveDanmuMaxCharsPreview(getLanguage());
   const preview = buildNormalReplyContractPreviewZh(count, maxChars);
   const previewEl = document.getElementById('normalBatchContractPreview');
   if (previewEl) previewEl.textContent = preview;

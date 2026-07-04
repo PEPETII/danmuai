@@ -25,8 +25,7 @@ def _safe_app_attr(app: object, name: str, default: object = None) -> object:
 def _build_track_layout(app: object) -> dict[str, object]:
     """W-TRACK-VIS-002: 只读投影 engine 轨道几何,供前端轨道可视化预览。
 
-    top_margin/bottom_margin/line_height 与 app.danmu_engine._init_tracks
-    常量镜像;若 engine 改这些常量需同步此处。getattr-safe 兼容测试 SimpleNamespace。
+    边距/行高优先读 engine 实例字段（_init_tracks 写入）；缺省时 track_layout_metrics。
     """
     engine = _safe_app_attr(app, "engine", None)
     if engine is None:
@@ -34,12 +33,23 @@ def _build_track_layout(app: object) -> dict[str, object]:
     tracks = getattr(engine, "tracks", []) or []
     drawable_fn = getattr(engine, "drawable_height", None)
     drawable_height = float(drawable_fn()) if callable(drawable_fn) else 0.0
+    config = getattr(app, "config", None)
+    line_height = float(getattr(engine, "_track_line_height", 0.0) or 0.0)
+    top_margin = float(getattr(engine, "_track_top_margin", 0.0) or 0.0)
+    bottom_margin = float(getattr(engine, "_track_bottom_margin", 0.0) or 0.0)
+    if line_height <= 0.0 or top_margin <= 0.0:
+        from app.danmu_engine.screen import track_layout_metrics
+
+        metrics = track_layout_metrics(config)
+        line_height = metrics["line_height"]
+        top_margin = metrics["top_margin"]
+        bottom_margin = metrics["bottom_margin"]
     return {
         "track_count": len(tracks),
         "track_ys": [float(getattr(t, "y", 0.0)) for t in tracks],
-        "top_margin": 50,
-        "bottom_margin": 80,
-        "line_height": 40,
+        "top_margin": top_margin,
+        "bottom_margin": bottom_margin,
+        "line_height": line_height,
         "drawable_height": drawable_height,
         "screen_height": float(getattr(engine, "screen_height", 0.0)),
         "screen_width": float(getattr(engine, "screen_width", 0.0)),

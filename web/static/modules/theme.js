@@ -14,6 +14,7 @@
  */
 
 import { API, apiFetch, authHeaders } from './transport.js';
+import { t } from './i18n.js';
 
 export const THEME_STORAGE_KEY = 'danmu_console_theme';
 
@@ -53,10 +54,10 @@ export function applyTheme(theme) {
   if (btn) {
     const isDark = normalized === 'dark';
     btn.setAttribute('aria-pressed', isDark ? 'true' : 'false');
-    btn.setAttribute('aria-label', isDark ? '切换浅色模式' : '切换黑夜模式');
+    btn.setAttribute('aria-label', isDark ? t('common.toggleLightMode') : t('common.toggleDarkMode'));
     const label = btn.querySelector('.theme-toggle-label');
     if (label) {
-      label.textContent = isDark ? '浅色模式' : '黑夜模式';
+      label.textContent = isDark ? t('common.lightMode') : t('common.darkMode');
     }
   }
   return normalized;

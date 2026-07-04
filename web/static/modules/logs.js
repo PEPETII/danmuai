@@ -19,6 +19,7 @@
  */
 
 import { API, REALTIME } from './transport.js';
+import { t } from './i18n.js';
 
 export const logBuffer = [];
 const logKeySet = new Set();
@@ -43,12 +44,12 @@ export function closeLogView() {
   const view = document.getElementById('logView');
   if (view) view.innerHTML = '';
   const empty = document.getElementById('logViewEmpty');
-  if (empty) empty.textContent = '日志已关闭。点击「重新打开日志」按钮恢复显示。';
+  if (empty) empty.textContent = t('dynamic.logs.日志已关闭_点击_重新打开日志_按钮恢复显示');
   const panel = document.querySelector('.log-panel');
   if (panel) panel.classList.remove('has-logs');
   const btn = document.getElementById('btnCloseLogs');
   if (btn) {
-    btn.textContent = '重新打开日志';
+    btn.textContent = t('dynamic.logs.重新打开日志');
     btn.dataset.logClosed = '1';
   }
 }
@@ -57,7 +58,7 @@ export function reopenLogView() {
   logClosed = false;
   const btn = document.getElementById('btnCloseLogs');
   if (btn) {
-    btn.textContent = '关闭日志';
+    btn.textContent = t('dynamic.logs.关闭日志');
     delete btn.dataset.logClosed;
   }
   renderLogView({ force: true });
@@ -128,13 +129,13 @@ export function updateLogPanelState() {
   if (empty && visibleCount === 0) {
     if (REALTIME.logsOpen) {
       empty.textContent =
-        '等待日志… 点击「生成弹幕」后，截图、AI 请求与弹幕事件会在此实时显示。';
+        t('dynamic.logs.等待日志_点击_生成弹幕_后_截图_AI_请求');
     } else if (REALTIME.degradedLogsPolling) {
       empty.textContent =
-        '正在通过 HTTP 同步日志… 若长时间仍为空，请确认已点击「生成弹幕」并有截图/AI 活动。';
+        t('dynamic.logs.正在通过_HTTP_同步日志_若长时间仍为空');
     } else {
       empty.textContent =
-        '日志通道连接中… 若超过数秒仍无内容，请点左侧「温馨控制台」查看顶栏连接状态，或重启 DanmuAI。';
+        t('dynamic.logs.日志通道连接中_若超过数秒仍无内容_请点左侧');
     }
   }
 }

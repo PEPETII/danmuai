@@ -10,6 +10,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from app.translations import tr
+
 # 与 app/config_store.py:52 风格完全一致
 FONTS_DIR = Path(os.environ.get("APPDATA", ".")) / "DanmuAI" / "fonts"
 ALLOWED_SUFFIXES: tuple[str, ...] = (".ttf", ".otf")
@@ -55,7 +57,7 @@ class FontRegistry:
 
     def _ensure_enabled(self) -> None:
         if self._disabled:
-            raise ValueError("字体注册表不可用")
+            raise ValueError(tr("fontRegistry.unavailable"))
 
     def _read_imported_list(self) -> list[dict[str, Any]]:
         raw = self._config.get(CONFIG_KEY_IMPORTED, "[]") or "[]"
@@ -86,11 +88,11 @@ class FontRegistry:
 
         font_id = QFontDatabase.addApplicationFont(str(path))
         if font_id < 0:
-            raise ValueError("字体加载失败")
+            raise ValueError(tr("fontRegistry.loadFailed"))
         families = QFontDatabase.applicationFontFamilies(font_id)
         if not families:
             QFontDatabase.removeApplicationFont(font_id)
-            raise ValueError("未检测到字体族名称")
+            raise ValueError(tr("fontRegistry.noFamily"))
         family = family_override or families[0]
         record = {
             "sha256": sha256,
@@ -164,12 +166,12 @@ class FontRegistry:
     def import_bytes(self, data: bytes, original_name: str) -> dict[str, Any]:
         self._ensure_enabled()
         if len(data) == 0:
-            raise ValueError("文件为空")
+            raise ValueError(tr("fontRegistry.emptyFile"))
         if len(data) > MAX_FILE_BYTES:
-            raise ValueError("文件过大")
+            raise ValueError(tr("fontRegistry.fileTooLarge"))
         suffix = Path(original_name).suffix.lower()
         if suffix not in ALLOWED_SUFFIXES:
-            raise ValueError("不支持的文件格式，仅支持 .ttf 和 .otf")
+            raise ValueError(tr("fontRegistry.unsupportedFormat"))
 
         sha256 = hashlib.sha256(data).hexdigest()
         target = FONTS_DIR / safe_filename(sha256, suffix)

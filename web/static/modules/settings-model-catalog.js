@@ -1,4 +1,5 @@
 import { API } from './transport.js';
+import { t } from './i18n.js';
 import {
   guessProviderIdFromEndpoint,
   resolveMicProviderIdForPicker,
@@ -70,7 +71,8 @@ function formatTokenPrice(value, currency = 'CNY') {
   if (value === null || value === undefined) return '-';
   const num = Number(value);
   if (Number.isNaN(num)) return '-';
-  const unit = String(currency || 'CNY').toUpperCase() === 'USD' ? 'USD' : '元';
+  const isUsd = String(currency || 'CNY').toUpperCase() === 'USD';
+  const unit = isUsd ? 'USD' : t('settings.text.modelCatalogCurrencyUnit');
   return `${Number.isInteger(num) ? String(num) : String(num)} ${unit} / M tokens`;
 }
 
@@ -84,22 +86,22 @@ function buildModelRowBadges(model) {
     wrap.appendChild(badge);
   };
   if (model.cheapest && model.supports_mic) {
-    add('最便宜+麦克风');
+    add(t('dynamic.settingsModelCatalog.最便宜_麦克风'));
     return wrap;
   }
-  if (model.cheapest) add('本平台最便宜');
-  if (model.supports_mic) add('支持麦克风');
+  if (model.cheapest) add(t('dynamic.settingsModelCatalog.本平台最便宜'));
+  if (model.supports_mic) add(t('dynamic.settingsCustomModels.支持麦克风'));
   return wrap.childElementCount ? wrap : null;
 }
 
 function buildModelTooltipHtml(model) {
   const price = model.price || {};
   return (
-    `<span class="model-tooltip-line">模型名称：${model.name}</span>`
-    + `<span class="model-tooltip-line">模型 ID：${model.id}</span>`
-    + `<span class="model-tooltip-line">输入价格：${formatTokenPrice(price.input, price.currency)}</span>`
-    + `<span class="model-tooltip-line">音频价格：${formatTokenPrice(price.audio, price.currency)}</span>`
-    + `<span class="model-tooltip-line">输出价格：${formatTokenPrice(price.output, price.currency)}</span>`
+    t('dynamic.settingsModelCatalog.span_class_model_toolt')
+    + t('dynamic.settingsModelCatalog.span_class_model_toolt_2')
+    + t('dynamic.settingsModelCatalog.span_class_model_toolt_3')
+    + t('dynamic.settingsModelCatalog.span_class_model_toolt_4')
+    + t('dynamic.settingsModelCatalog.span_class_model_toolt_5')
   );
 }
 
@@ -175,7 +177,7 @@ function createModelPriceHint(model) {
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'field-hint-btn';
-  btn.setAttribute('aria-label', `查看 ${model.id} 的价格说明`);
+  btn.setAttribute('aria-label', t('dynamic.settingsModelCatalog.查看_model_id_的价格说明'));
   btn.innerHTML = '<svg class="ui-icon" aria-hidden="true"><use href="#i-info"></use></svg>';
   wireFloatingTooltipButton(btn, () => {
     showFloatingTooltip(btn, buildModelTooltipHtml(model), { html: true, wide: true });
@@ -308,7 +310,7 @@ export function renderVisionModelPicker(providerId, selectedModelId, options = {
   });
   const otherLabel = document.createElement('span');
   otherLabel.className = 'vision-model-id';
-  otherLabel.textContent = '手动输入模型 ID';
+  otherLabel.textContent = t('dynamic.settingsModelCatalog.手动输入模型_ID');
   otherRow.append(otherRadio, otherLabel);
   picker.appendChild(otherRow);
 
@@ -449,7 +451,7 @@ export function renderMicModelPicker(providerId, selectedModelId, options = {}) 
   });
   const otherLabel = document.createElement('span');
   otherLabel.className = 'vision-model-id';
-  otherLabel.textContent = '手动输入模型 ID';
+  otherLabel.textContent = t('dynamic.settingsModelCatalog.手动输入模型_ID');
   otherRow.append(otherRadio, otherLabel);
   picker.appendChild(otherRow);
 

@@ -1,4 +1,5 @@
 import { API, apiFetch } from './transport.js';
+import { t } from './i18n.js';
 import { activateFocusTrap, deactivateFocusTrap } from './modal-focus-trap.js';
 
 const APP_UPDATE_DISMISS_LOCAL_KEY = 'danmu_app_update_dismissed_latest';
@@ -58,7 +59,7 @@ function formatProgressMeta({ progress, downloadedBytes, totalBytes }) {
   const pct = Math.max(0, Math.min(100, Number(progress) || 0));
   if (totalBytes > 0) {
     const downloaded = downloadedBytes > 0 ? downloadedBytes : Math.round((totalBytes * pct) / 100);
-    return `${pct}% · ${formatBytes(downloaded)} / 约 ${formatBytes(totalBytes)}`;
+    return t('dynamic.appUpdateBanner.pct_formatBytes');
   }
   return `${pct}%`;
 }
@@ -136,16 +137,16 @@ function applyVelopackStatusToProgress(status, { fallbackStatusText = '' } = {})
   const totalBytes = Number(status?.package_size_bytes) || 0;
   const downloadedBytes = Number(status?.downloaded_bytes) || 0;
   let statusText = fallbackStatusText;
-  if (phase === 'checking') statusText = '正在检查更新…';
-  else if (phase === 'downloading' || status?.downloading) statusText = '正在下载更新…';
-  else if (phase === 'ready') statusText = '更新已下载，正在重启安装…';
-  else if (phase === 'applying') statusText = '正在重启安装…';
-  else if (phase === 'error') statusText = '更新失败';
+  if (phase === 'checking') statusText = t('dynamic.appUpdateBanner.正在检查更新');
+  else if (phase === 'downloading' || status?.downloading) statusText = t('dynamic.appUpdateBanner.正在下载更新');
+  else if (phase === 'ready') statusText = t('dynamic.appUpdateBanner.更新已下载_正在重启安装');
+  else if (phase === 'applying') statusText = t('dynamic.appUpdateBanner.正在重启安装');
+  else if (phase === 'error') statusText = t('dynamic.appUpdateBanner.更新失败');
   else if (status?.message) statusText = String(status.message);
 
   const latest = normalizeVersionString(status?.latest_version || '');
   if (phase === 'checking' && latest && totalBytes > 0) {
-    statusText = `发现新版本 ${latest}，更新包约 ${formatBytes(totalBytes)}`;
+    statusText = t('dynamic.appUpdateBanner.发现新版本_latest_更新包约_f');
   }
 
   setUpdateProgress({
@@ -155,7 +156,7 @@ function applyVelopackStatusToProgress(status, { fallbackStatusText = '' } = {})
     totalBytes,
     downloadedBytes,
     statusText,
-    errorText: phase === 'error' ? String(status?.error || status?.message || '更新失败') : '',
+    errorText: phase === 'error' ? String(status?.error || status?.message || t('dynamic.appUpdateBanner.更新失败')) : '',
   });
 }
 
@@ -182,7 +183,7 @@ async function pollUpdateStatusUntilDone() {
   while (Date.now() - startedAt < UPDATE_POLL_TIMEOUT_MS) {
     const status = await fetchVelopackUpdateStatus();
     if (!status) {
-      throw new Error('无法获取更新状态');
+      throw new Error(t('dynamic.appUpdateBanner.无法获取更新状态'));
     }
     applyVelopackStatusToProgress(status);
     refreshVelopackUpdateButtons(status);
@@ -190,14 +191,14 @@ async function pollUpdateStatusUntilDone() {
     const phase = String(status.download_phase || 'idle');
     if (phase === 'ready') return status;
     if (phase === 'error') {
-      throw new Error(status.error || status.message || '下载失败');
+      throw new Error(status.error || status.message || t('dynamic.appUpdateBanner.下载失败'));
     }
     if (!status.downloading && phase !== 'downloading' && status.download_ready) {
       return status;
     }
     await sleep(UPDATE_POLL_INTERVAL_MS);
   }
-  throw new Error('下载超时，请稍后重试');
+  throw new Error(t('dynamic.appUpdateBanner.下载超时_请稍后重试'));
 }
 
 function showToast(message, isError = false) {
@@ -309,19 +310,19 @@ function refreshAppVersionFooter() {
   currentEl.textContent = appVersionState.current || '-';
   latestEl.classList.remove('version-latest-ok', 'version-latest-update', 'version-latest-failed');
   if (appVersionState.checkStatus === 'check_failed') {
-    latestEl.textContent = '检查失败';
+    latestEl.textContent = t('dynamic.appUpdateBanner.检查失败');
     latestEl.classList.add('version-latest-failed');
     return;
   }
   if (appVersionState.checkStatus === 'update_available') {
     latestEl.textContent = appVersionState.stale
-      ? `${appVersionState.latest || '-'}（缓存）`
+      ? `${appVersionState.latest || '-'}${t('dynamic.appUpdateBanner.缓存')}`
       : appVersionState.latest || '-';
     latestEl.classList.add('version-latest-update');
     return;
   }
   if (appVersionState.checkStatus === 'up_to_date') {
-    latestEl.textContent = appVersionState.stale ? '已是最新（缓存）' : '已是最新';
+    latestEl.textContent = appVersionState.stale ? t('dynamic.appUpdateBanner.已是最新_缓存') : t('dynamic.appUpdateBanner.已是最新');
     latestEl.classList.add('version-latest-ok');
     return;
   }
@@ -350,7 +351,7 @@ function showAppUpdateModal(latest, message) {
   const msgEl = document.getElementById('appUpdateModalMessage');
   if (!modal || !msgEl) return;
   const current = appVersionState.current || '-';
-  let text = `当前版本 ${current}，发现新版本 ${latest}。`;
+  let text = t('dynamic.appUpdateBanner.当前版本_current_发现新版本');
   if (message) text += `\n\n${message}`;
   msgEl.textContent = text;
   hideChannelDetail();
@@ -478,7 +479,7 @@ async function runInAppUpdateWithProgress({ fromModal = false, skipCheck = false
   try {
     const initialStatus = await fetchVelopackUpdateStatus();
     if (initialStatus && !initialStatus.frozen) {
-      showToast(initialStatus.message || '源码模式不支持应用内更新');
+      showToast(initialStatus.message || t('dynamic.appUpdateBanner.源码模式不支持应用内更新'));
       return false;
     }
 
@@ -488,13 +489,13 @@ async function runInAppUpdateWithProgress({ fromModal = false, skipCheck = false
         visible: true,
         phase: 'checking',
         progress: 0,
-        statusText: '正在检查更新…',
+        statusText: t('dynamic.appUpdateBanner.正在检查更新'),
       });
       checkData = await runVelopackCheckUpdate();
       refreshVelopackUpdateButtons(checkData);
 
       if (!checkData.frozen || checkData.error === 'not_frozen') {
-        showToast(checkData.message || '源码模式不支持应用内更新');
+        showToast(checkData.message || t('dynamic.appUpdateBanner.源码模式不支持应用内更新'));
         return false;
       }
       if (!checkData.ok) {
@@ -502,12 +503,12 @@ async function runInAppUpdateWithProgress({ fromModal = false, skipCheck = false
           ...checkData,
           download_phase: 'error',
         });
-        showToast(checkData.error || checkData.message || '检查更新失败', true);
+        showToast(checkData.error || checkData.message || t('dynamic.appUpdateBanner.检查更新失败'), true);
         return false;
       }
       if (!checkData.update_available) {
         hideUpdateProgress();
-        showToast(checkData.message || '已是最新版本');
+        showToast(checkData.message || t('dynamic.appUpdateBanner.已是最新版本'));
         return false;
       }
 
@@ -520,7 +521,7 @@ async function runInAppUpdateWithProgress({ fromModal = false, skipCheck = false
       refreshVelopackUpdateButtons(checkData);
       if (!checkData.update_available) {
         hideUpdateProgress();
-        showToast(checkData.message || '请先检查更新');
+        showToast(checkData.message || t('dynamic.appUpdateBanner.请先检查更新'));
         return false;
       }
     }
@@ -532,8 +533,8 @@ async function runInAppUpdateWithProgress({ fromModal = false, skipCheck = false
       totalBytes: Number(checkData?.package_size_bytes) || 0,
       statusText:
         checkData?.latest_version
-          ? `发现新版本 ${checkData.latest_version}，正在下载…`
-          : '正在下载更新…',
+          ? t('dynamic.appUpdateBanner.发现新版本_checkData_latest')
+          : t('dynamic.appUpdateBanner.正在下载更新'),
     });
 
     const downloadStart = await runVelopackDownloadUpdate();
@@ -543,7 +544,7 @@ async function runInAppUpdateWithProgress({ fromModal = false, skipCheck = false
         ...downloadStart,
         download_phase: 'error',
       });
-      showToast(downloadStart.error || downloadStart.message || '下载失败', true);
+      showToast(downloadStart.error || downloadStart.message || t('dynamic.appUpdateBanner.下载失败'), true);
       return false;
     }
 
@@ -567,9 +568,9 @@ async function runInAppUpdateWithProgress({ fromModal = false, skipCheck = false
       progress: 100,
       totalBytes: Number(checkData?.package_size_bytes) || 0,
       downloadedBytes: Number(checkData?.package_size_bytes) || 0,
-      statusText: '更新已下载，正在重启安装…',
+      statusText: t('dynamic.appUpdateBanner.更新已下载_正在重启安装'),
     });
-    showToast('更新已下载，正在重启安装…');
+    showToast(t('dynamic.appUpdateBanner.更新已下载_正在重启安装'));
     await runVelopackRestartUpdate();
     return true;
   } catch (error) {
@@ -580,10 +581,10 @@ async function runInAppUpdateWithProgress({ fromModal = false, skipCheck = false
       progress: updateProgressState.progress,
       totalBytes: updateProgressState.totalBytes,
       downloadedBytes: updateProgressState.downloadedBytes,
-      statusText: '更新失败',
-      errorText: error?.message || '应用内更新失败',
+      statusText: t('dynamic.appUpdateBanner.更新失败'),
+      errorText: error?.message || t('dynamic.appUpdateBanner.应用内更新失败'),
     });
-    showToast(error?.message || '应用内更新失败', true);
+    showToast(error?.message || t('dynamic.appUpdateBanner.应用内更新失败'), true);
     return false;
   } finally {
     inAppUpdateBusy = false;
@@ -605,53 +606,53 @@ function openExternalUrl(url, fallbackMessage) {
     const opened = window.open(url, '_blank', 'noopener,noreferrer');
     if (!opened) {
       navigator.clipboard?.writeText(url);
-      showToast(fallbackMessage || '链接已复制到剪贴板，请手动打开');
+      showToast(fallbackMessage || t('dynamic.appUpdateBanner.链接已复制到剪贴板_请手动打开'));
       return;
     }
-    showToast('已在浏览器中打开链接');
+    showToast(t('dynamic.appUpdateBanner.已在浏览器中打开链接'));
   } catch {
-    showToast(fallbackMessage || `请手动打开：${url}`);
+    showToast(fallbackMessage || t('dynamic.appUpdateBanner.请手动打开_url'));
   }
 }
 
 async function copyTextToClipboard(text, successMessage) {
   try {
     await navigator.clipboard.writeText(text);
-    showToast(successMessage || '已复制到剪贴板');
+    showToast(successMessage || t('common.copied'));
   } catch {
-    showToast('复制失败，请手动选择文本复制', true);
+    showToast(t('dynamic.appUpdateBanner.复制失败_请手动选择文本复制'), true);
   }
 }
 
 function handleGitHubUpdateClick() {
   const url = releaseChannels.github_releases_url;
   if (!url) {
-    showToast('渠道信息不可用', true);
+    showToast(t('dynamic.appUpdateBanner.渠道信息不可用'), true);
     return;
   }
-  openExternalUrl(url, 'GitHub Releases 镜像链接已复制到剪贴板');
+  openExternalUrl(url, t('dynamic.appUpdateBanner.GitHub_Releases_镜像链接已复制到'));
 }
 
 function handleQuarkUpdateClick() {
   const url = releaseChannels.quark_url;
   const shareText = releaseChannels.quark_share_text;
   if (!url || !shareText) {
-    showToast('渠道信息不可用', true);
+    showToast(t('dynamic.appUpdateBanner.渠道信息不可用'), true);
     return;
   }
-  const body = `${shareText}\n\n链接：${url}`;
-  showChannelDetail('夸克网盘', body, `${shareText}\n${url}`, url);
+  const body = t('dynamic.appUpdateBanner.shareText_n_n链接_url');
+  showChannelDetail(t('dynamic.appUpdateBanner.夸克网盘'), body, `${shareText}\n${url}`, url);
 }
 
 function handleBaiduUpdateClick() {
   const url = releaseChannels.baidu_url;
   const code = releaseChannels.baidu_extract_code;
   if (!url || !code) {
-    showToast('渠道信息不可用', true);
+    showToast(t('dynamic.appUpdateBanner.渠道信息不可用'), true);
     return;
   }
-  const body = `链接：${url}\n提取码：${code}`;
-  showChannelDetail('百度网盘', body, `${body}`, url);
+  const body = t('dynamic.appUpdateBanner.链接_url_n提取码_code');
+  showChannelDetail(t('dynamic.appUpdateBanner.百度网盘'), body, `${body}`, url);
 }
 
 export async function handleCheckAppUpdateClick() {
@@ -663,23 +664,23 @@ export async function handleCheckAppUpdateClick() {
       visible: true,
       phase: 'checking',
       progress: 0,
-      statusText: '正在检查更新…',
+      statusText: t('dynamic.appUpdateBanner.正在检查更新'),
     });
     const data = await runVelopackCheckUpdate();
     refreshVelopackUpdateButtons(data);
     if (!data.frozen) {
       hideUpdateProgress();
-      showToast(data.message || '源码模式不支持应用内更新');
+      showToast(data.message || t('dynamic.appUpdateBanner.源码模式不支持应用内更新'));
       return;
     }
     if (!data.ok) {
       applyVelopackStatusToProgress({ ...data, download_phase: 'error' });
-      showToast(data.error || data.message || '检查更新失败', true);
+      showToast(data.error || data.message || t('dynamic.appUpdateBanner.检查更新失败'), true);
       return;
     }
     if (data.update_available) {
       const totalBytes = Number(data.package_size_bytes) || 0;
-      const sizeHint = totalBytes > 0 ? `，更新包约 ${formatBytes(totalBytes)}` : '';
+      const sizeHint = totalBytes > 0 ? t('dynamic.appUpdateBanner.更新包约_formatBytes_tota') : '';
       setUpdateProgress({
         visible: true,
         phase: 'idle',
@@ -687,7 +688,7 @@ export async function handleCheckAppUpdateClick() {
         totalBytes,
         statusText: `发现新版本 ${data.latest_version || ''}${sizeHint}`,
       });
-      showToast(data.message || `发现新版本 ${data.latest_version}`);
+      showToast(data.message || t('dynamic.appUpdateBanner.发现新版本_data_latest_vers_2'));
       window.setTimeout(() => {
         if (updateProgressState.phase === 'idle' && updateProgressState.visible) {
           hideUpdateProgress();
@@ -695,17 +696,17 @@ export async function handleCheckAppUpdateClick() {
       }, 5000);
     } else {
       hideUpdateProgress();
-      showToast(data.message || '已是最新版本');
+      showToast(data.message || t('dynamic.appUpdateBanner.已是最新版本'));
     }
   } catch (error) {
     console.warn('[update] check failed', error);
     setUpdateProgress({
       visible: true,
       phase: 'error',
-      statusText: '检查更新失败',
-      errorText: error?.message || '检查更新失败',
+      statusText: t('dynamic.appUpdateBanner.检查更新失败'),
+      errorText: error?.message || t('dynamic.appUpdateBanner.检查更新失败'),
     });
-    showToast('检查更新失败', true);
+    showToast(t('dynamic.appUpdateBanner.检查更新失败'), true);
   } finally {
     inAppUpdateBusy = false;
     setUpdateControlsDisabled(false);
@@ -748,12 +749,12 @@ export function initAppUpdateModal(deps = {}) {
   });
   document.getElementById('btnAppUpdateChannelCopy')?.addEventListener('click', () => {
     if (channelDetailState.copyText) {
-      void copyTextToClipboard(channelDetailState.copyText, '分享信息已复制到剪贴板');
+      void copyTextToClipboard(channelDetailState.copyText, t('dynamic.appUpdateBanner.分享信息已复制到剪贴板'));
     }
   });
   document.getElementById('btnAppUpdateChannelOpen')?.addEventListener('click', () => {
     if (channelDetailState.openUrl) {
-      openExternalUrl(channelDetailState.openUrl, '链接已复制到剪贴板');
+      openExternalUrl(channelDetailState.openUrl, t('dynamic.appUpdateBanner.链接已复制到剪贴板'));
     }
   });
   document.getElementById('btnAppUpdateDismiss')?.addEventListener('click', async () => {

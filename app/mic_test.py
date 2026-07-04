@@ -10,6 +10,7 @@ from app.mic_buffer import DEFAULT_MIC_SAMPLE_RATE, clamp_mic_window_sec
 from app.mic_capture import MicCaptureService, default_input_device_id, default_input_device_label
 from app.mic_encode import pcm_to_wav_data_uri
 from app.mic_service import MicService
+from app.translations import tr
 
 try:
     import sounddevice as sd
@@ -89,16 +90,16 @@ def _level_label(rms: int, pcm_bytes: int) -> str:
 
 
 def _message_for(level: str, *, rms: int, wav_ok: bool, device: str) -> str:
-    device_bit = f"（{device}）" if device else ""
+    device_bit = tr("micTest.deviceSuffix").format(device=device) if device else ""
     if level == "good" and wav_ok:
-        return f"麦克风正常{device_bit}，已收到语音输入（电平 rms={rms}）"
+        return tr("micTest.normal").format(device_bit=device_bit, rms=rms)
     if level == "quiet" and wav_ok:
-        return f"已录到音频但音量偏低{device_bit}，请靠近麦克风或提高系统输入音量（rms={rms}）"
+        return tr("micTest.quiet").format(device_bit=device_bit, rms=rms)
     if level == "silent":
-        return f"几乎未检测到声音{device_bit}，请检查系统默认录音设备与权限（rms={rms}）"
+        return tr("micTest.silent").format(device_bit=device_bit, rms=rms)
     if not wav_ok:
-        return f"录音缓冲过短{device_bit}，请重试并多讲几句"
-    return f"测试完成{device_bit}（rms={rms}）"
+        return tr("micTest.bufferTooShort").format(device_bit=device_bit)
+    return tr("micTest.done").format(device_bit=device_bit, rms=rms)
 
 
 def capture_mic_sample(
@@ -116,7 +117,7 @@ def capture_mic_sample(
     if not MicCaptureService.is_available():
         result = MicTestResult(
             ok=False,
-            message="未安装 sounddevice，无法测试麦克风",
+            message=tr("micTest.sounddeviceMissing"),
             error="sounddevice_unavailable",
             default_input=device,
         )
@@ -127,7 +128,7 @@ def capture_mic_sample(
         err = mic_service.last_error() or "capture_start_failed"
         result = MicTestResult(
             ok=False,
-            message=f"无法打开麦克风：{err}",
+            message=tr("micTest.openFailed").format(error=err),
             error=err,
             default_input=device,
             active_input_device_id=default_device_id,

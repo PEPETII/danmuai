@@ -7,6 +7,7 @@ import re
 from typing import TYPE_CHECKING
 
 from app.reply_parser import parse_ai_reply_payload
+from app.translations import Translator
 
 if TYPE_CHECKING:
     from app.config_store import ConfigStore
@@ -25,6 +26,12 @@ _MEME_SELECT_SYSTEM_EN = (
 
 def build_meme_select_user_prompt(candidates: list[str], pick_count: int) -> str:
     numbered = "\n".join(f"{i + 1}. {text}" for i, text in enumerate(candidates))
+    if Translator.get_language() == "en":
+        return (
+            f"From the candidate danmu below, pick about {pick_count} short lines that best "
+            f"match the current screen. Output a JSON string array (at most {pick_count} items):\n"
+            f"{numbered}"
+        )
     return (
         f"请从以下候选弹幕中挑选约 {pick_count} 条最符合当前画面的短句，"
         f"按 JSON 字符串数组输出（条数不超过 {pick_count}）：\n{numbered}"

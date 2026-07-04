@@ -37,7 +37,7 @@ def test_ws_status_websocket_accepts_valid_token_and_sends_status():
 
 
 def test_ws_status_websocket_accepts_first_message_auth():
-    """W-SECURITY-002: 首次消息认证机制。"""
+    """W-SECURITY-002: 连接后首条消息认证（无 query ws_token）。"""
     from fastapi.testclient import TestClient
 
     token = "ws-test-token-valid"
@@ -52,16 +52,20 @@ def test_ws_status_websocket_accepts_first_message_auth():
     app = build_ws_status_test_app(bridge, token)
     client = TestClient(app)
 
-    # 使用 query 参数传递 token 作为向后兼容方式
-    with client.websocket_connect(f"/ws/status?ws_token={token}") as ws:
+    with client.websocket_connect("/ws/status") as ws:
+        ws.send_json({"type": "auth", "token": token})
+        auth = ws.receive_json()
+        assert auth == {"type": "auth", "ok": True}
         payload = ws.receive_json()
         assert payload["running"] is True
         assert "danmu_count" in payload
 
+    bridge.register_status_consumer.assert_called_once()
+    bridge.unregister_status_consumer.assert_called_once()
+
 
 def test_ws_status_websocket_rejects_invalid_token_with_1008():
     from fastapi.testclient import TestClient
-    from starlette.websockets import WebSocketDisconnect
 
     token = "ws-test-token-valid"
     bridge = MagicMock()
@@ -70,11 +74,10 @@ def test_ws_status_websocket_rejects_invalid_token_with_1008():
     app = build_ws_status_test_app(bridge, token)
     client = TestClient(app)
 
-    with pytest.raises(WebSocketDisconnect) as exc_info:
-        with client.websocket_connect("/ws/status?ws_token=invalid-token"):
-            pass
+    with client.websocket_connect("/ws/status?ws_token=invalid-token") as ws:
+        resp = ws.receive_json()
+        assert resp == {"type": "auth", "ok": False, "error": "认证失败"}
 
-    assert exc_info.value.code == 1008
     bridge.register_status_consumer.assert_not_called()
 
 
@@ -146,9 +149,9 @@ def test_ws_status_max_connections_capped():
             ws.receive_json()
         assert len(bridge._ws_status_queues) == _WS_MAX_STATUS_CONSUMERS
 
-        with pytest.raises(WebSocketDisconnect) as exc_info:
-            stack.enter_context(client.websocket_connect(url))
-        assert exc_info.value.code == 1008
+        extra = stack.enter_context(client.websocket_connect(url))
+        with pytest.raises(WebSocketDisconnect):
+            extra.receive_json()
         assert len(bridge._ws_status_queues) == _WS_MAX_STATUS_CONSUMERS
 
     assert len(bridge._ws_status_queues) == 0
@@ -176,9 +179,9 @@ def test_ws_logs_max_connections_capped():
             stack.enter_context(client.websocket_connect(url))
         assert len(bridge._ws_log_queues) == _WS_MAX_LOG_CONSUMERS
 
-        with pytest.raises(WebSocketDisconnect) as exc_info:
-            stack.enter_context(client.websocket_connect(url))
-        assert exc_info.value.code == 1008
+        extra = stack.enter_context(client.websocket_connect(url))
+        with pytest.raises(WebSocketDisconnect):
+            extra.receive_json()
         assert len(bridge._ws_log_queues) == _WS_MAX_LOG_CONSUMERS
 
     assert len(bridge._ws_log_queues) == 0

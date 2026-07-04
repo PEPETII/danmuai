@@ -308,3 +308,102 @@ class TestP1005TransactionProtection:
         assert "commit_key_2" not in store._cache
 
         store.close()
+
+
+class _CloseDelayConn:
+    """包装真实 sqlite3.Connection，在 close() 上注入延迟/观察。
+
+    sqlite3.Connection.close 是只读 C 属性，无法用 unittest.mock.patch.object 替换；
+    改用包装类委托其他属性（仿同文件 MockConnection 模式）。
+    """
+
+    def __init__(self, real_conn, *, on_entered=None, can_finish=None, order=None):
+        self._real = real_conn
+        self._on_entered = on_entered
+        self._can_finish = can_finish
+        self._order = order
+
+    def close(self):
+        if self._on_entered is not None:
+            self._on_entered.set()
+        if self._can_finish is not None:
+            self._can_finish.wait(timeout=2.0)
+        if self._order is not None:
+            self._order.append("conn_close_start")
+        self._real.close()
+        if self._order is not None:
+            self._order.append("conn_close_end")
+
+    def __getattr__(self, name):
+        return getattr(self._real, name)
+
+
+class TestBUG016CloseWriteRace:
+    """BUG-016: close() 必须持锁完成 conn.close()，且写后关必须抛 RuntimeError 而非静默跳过。"""
+
+    def test_set_batch_during_close_raises_runtime_error(self, temp_db):
+        """并发线程在 close() 期间尝试 set_batch，必须抛 RuntimeError 而非静默跳过。
+
+        复现路径：
+        1. 线程 A 调 close()，用 _CloseDelayConn 包装 store.conn 让 close 阻塞制造持锁窗口。
+        2. 线程 B 在 A 持锁期间调 set_batch。
+        3. close 已设置 _closed=True，set_batch 的 fast-path 检查会立即抛 RuntimeError
+           （旧行为是静默 warning + return，导致用户配置静默丢失）。
+
+        注意：fast-path 检查发生在 ``with self._write_lock`` 之前，因此 writer 不会阻塞
+        在锁上——它看到 _closed=True 就直接 raise。本测试主要验证「不静默丢写」契约。
+        """
+        store = ConfigStore(db_path=temp_db)
+        store.set("init_key", "init_value")
+
+        close_entered = threading.Event()
+        close_can_finish = threading.Event()
+        store.conn = _CloseDelayConn(
+            store.conn, on_entered=close_entered, can_finish=close_can_finish
+        )
+
+        close_thread = threading.Thread(target=store.close)
+        close_thread.start()
+        assert close_entered.wait(timeout=2.0), "close() 未进入持锁阶段"
+
+        # 此时 close 已设置 _closed=True 并持有 _write_lock 调用 conn.close()
+        errors: list[Exception] = []
+        result: list[str] = []
+
+        def writer():
+            try:
+                store.set_batch({"raced_key": "raced_value"})
+                result.append("ok")
+            except Exception as exc:  # noqa: BLE001
+                errors.append(exc)
+
+        writer_thread = threading.Thread(target=writer)
+        writer_thread.start()
+
+        close_can_finish.set()
+        close_thread.join(timeout=2.0)
+        writer_thread.join(timeout=2.0)
+
+        # 期望：writer 抛 RuntimeError（fast-path 看到已关闭），而非静默成功
+        assert len(errors) == 1, f"期望恰好 1 个异常，得到 errors={errors} result={result}"
+        assert isinstance(errors[0], RuntimeError), f"期望 RuntimeError，得到 {type(errors[0])}"
+        assert "called after close" in str(errors[0])
+
+        # 验证数据未写入（重新打开 DB 确认）
+        store2 = ConfigStore(db_path=temp_db)
+        assert store2.get("raced_key", "") == ""
+        store2.close()
+
+    def test_close_holds_lock_until_conn_closed(self, temp_db):
+        """close() 期间 conn.close() 在 _write_lock 内完成，确认持锁顺序。"""
+        store = ConfigStore(db_path=temp_db)
+        store.set("init_key", "init_value")
+
+        call_order: list[str] = []
+        store.conn = _CloseDelayConn(store.conn, order=call_order)
+        store.close()
+
+        # conn.close() 在锁内完成；call_order 应连续（中间没有其他写操作插入）
+        assert call_order == ["conn_close_start", "conn_close_end"]
+        assert store._closed is True
+

@@ -17,6 +17,8 @@
  *     configureStatus() 注入；本模块不直接 import 减少耦合
  */
 
+import { t } from './i18n.js';
+
 let statusHadError = false;
 let lastAppliedStatus = null;
 let lastRunning = null;
@@ -133,9 +135,9 @@ export function formatRuntimeLong(sec) {
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);
   const r = s % 60;
-  if (h > 0) return `${h}小时${m}分`;
+  if (h > 0) return t('dynamic.status.h_小时_m_分');
   if (m > 0) return `${m}:${String(r).padStart(2, '0')}`;
-  return `${r}秒`;
+  return t('dynamic.status.r_秒');
 }
 
 function formatSessionTimestamp(unixSec) {
@@ -152,7 +154,7 @@ function formatSessionRunLine(run) {
   const input = run.input_tokens ?? 0;
   const output = run.output_tokens ?? 0;
   const total = run.total_tokens ?? (input + output);
-  return `${start} - ${end}  ${model}  输入 ${input}  输出 ${output}  总 ${total}`;
+  return t('dynamic.status.start_end_mod');
 }
 
 function sessionRunsKey(runs) {
@@ -215,16 +217,16 @@ function applyRunningUi(st, running) {
 
   if (running) {
     if (dot) dot.className = 'w-3 h-3 bg-green-400 rounded-full animate-pulse';
-    updateTextIfChanged(pill, '生成中');
-    updateTextIfChanged(sub, liveMessage || '小助手正在为你生成暖心弹幕~');
-    updateTextIfChanged(btn, '停止弹幕');
+    updateTextIfChanged(pill, t('common.generating'));
+    updateTextIfChanged(sub, liveMessage || t('dynamic.status.小助手正在为你生成暖心弹幕'));
+    updateTextIfChanged(btn, t('common.stopDanmu'));
     btn?.classList.remove('btn-primary', 'text-white');
     btn?.classList.add('bg-white', 'border', 'border-gray-200', 'text-warmText');
   } else {
     if (dot) dot.className = 'w-3 h-3 bg-gray-300 rounded-full';
-    updateTextIfChanged(pill, '待命');
-    updateTextIfChanged(sub, '小助手正在待命，随时为你生成暖心弹幕~');
-    updateTextIfChanged(btn, '生成弹幕');
+    updateTextIfChanged(pill, t('common.standby'));
+    updateTextIfChanged(sub, t('dynamic.status.小助手正在待命_随时为你生成暖心弹幕'));
+    updateTextIfChanged(btn, t('common.startDanmu'));
     btn?.classList.remove('bg-white', 'border', 'border-gray-200', 'text-warmText');
     btn?.classList.add('btn-primary', 'text-white');
   }
@@ -252,7 +254,7 @@ export function applyStatus(st) {
   if (displayEl) {
     updateTextIfChanged(displayEl, String(st.display_count ?? 0));
     const mode = st.danmu_render_mode || 'scrolling';
-    const title = mode === 'floating_panel' ? '侧边悬浮窗在屏条数' : '横向弹幕在屏条数';
+    const title = mode === 'floating_panel' ? t('dynamic.status.侧边悬浮窗在屏条数') : t('dynamic.status.横向弹幕在屏条数');
     if (displayEl.title !== title) displayEl.title = title;
   }
 
@@ -288,7 +290,7 @@ export function applyStatus(st) {
     const legacyExtra = lifetimeTotal - lifetimeIn - lifetimeOut;
     if (legacyExtra > 0) {
       const noteText =
-        `另有升级前累计 ${formatTokenCount(legacyExtra)} Token（尚未区分输入/输出，已计入历史合计）`;
+        t('dynamic.status.另有升级前累计_formatTokenCou');
       updateTextIfChanged(lifetimeNoteEl, noteText);
       lifetimeNoteEl.classList.remove('hidden');
     } else {
@@ -307,7 +309,7 @@ export function applyStatus(st) {
     const mismatchNote = document.getElementById('modelActiveSourceBanner');
     if (mismatchNote && mismatchNote.classList.contains('hidden')) {
       mismatchNote.textContent =
-        `当前 API 地址与模型「${st.active_model_id}」不匹配，请在弹幕设置中重新选择视觉模型并保存。`;
+        t('dynamic.status.当前_API_地址与模型_st_active');
       mismatchNote.classList.remove('hidden');
     }
   }

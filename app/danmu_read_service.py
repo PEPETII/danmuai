@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any
 from PyQt6.QtCore import QObject, QRunnable, QThreadPool, QTimer, pyqtSignal
 
 from app.application.config_service import MASKED_API_KEY
+from app.translations import tr
 from app.danmu_tts import (
     TTS_PROBE_TEXT,
     DanmuTtsError,
@@ -79,10 +80,10 @@ def _normalize_tts_provider(value: object) -> str:
         return ""
     _reject_removed_doubao_tts(raw)
     if raw == "custom_openai":
-        raise ValueError("不再支持自定义 OpenAI 兼容 TTS，请改选 MiMo/百炼")
+        raise ValueError(tr("tts.unsupportedCustom"))
     if raw == TTS_PROVIDER_DASHSCOPE_QWEN:
         return raw
-    raise ValueError(f"不支持的 TTS 平台：{raw}")
+    raise ValueError(tr("tts.error.unsupportedPlatform").format(platform=raw))
 
 
 class _DanmuTtsRunnable(QRunnable):
@@ -178,7 +179,7 @@ class DanmuReadService(QObject):
             self._timer.stop()
             return
         if not config.get_tts_api_key():
-            self._log_skip_once("no_key", "已启用但无 TTS API Key，请在「读弹幕」页保存 Key")
+            self._log_skip_once("no_key", tr("danmuRead.noKeyWarning"))
             self._timer.stop()
             return
         interval_ms = clamp_read_interval_sec(
@@ -220,15 +221,15 @@ class DanmuReadService(QObject):
         )
         if "provider" in patch or "endpoint" in patch or "model_id" in patch:
             if provider == "custom_openai":
-                raise ValueError("不再支持自定义 OpenAI 兼容 TTS，请改选 MiMo/百炼")
+                raise ValueError(tr("tts.unsupportedCustom"))
             if endpoint and provider != TTS_PROVIDER_DASHSCOPE_QWEN:
-                raise ValueError("不再支持自定义 OpenAI 兼容 TTS，请改选 MiMo/百炼")
+                raise ValueError(tr("tts.unsupportedCustom"))
             if not provider and not endpoint and not model_id:
                 items["tts_provider"] = ""
                 items["tts_endpoint"] = ""
                 items["tts_model_id"] = ""
             elif not provider and model_id:
-                raise ValueError("须选择 TTS 平台（百炼）")
+                raise ValueError(tr("danmuRead.providerRequired"))
             else:
                 validate_custom_tts_fields(provider, "", model_id)
                 items["tts_provider"] = provider
@@ -287,9 +288,9 @@ class DanmuReadService(QObject):
         config = self._app.config
         api_key = (api_key_override or "").strip() or config.get_tts_api_key()
         if not api_key:
-            return {"ok": False, "message": "请先填写 TTS API Key（可直接试听，保存后用于定时朗读）"}
+            return {"ok": False, "message": tr("danmuRead.fillApiKey")}
         if self._playback.is_busy() or self._tts_in_flight:
-            return {"ok": False, "message": "正在播放或合成，请稍后再试听"}
+            return {"ok": False, "message": tr("danmuRead.busyProbe")}
         try:
             resolved = resolve_tts_config(
                 config,
@@ -317,9 +318,9 @@ class DanmuReadService(QObject):
         )
         QThreadPool.globalInstance().start(runnable)
         self._app.logger.info("danmu read: probe synthesis submitted")
-        message = "试听已提交，正在合成…播放将在合成完成后开始"
+        message = tr("danmuRead.probeSubmitted")
         if not danmu_read_enabled(config):
-            message += "。提示：未勾选「启用读弹幕」，定时朗读不会启动，请勾选后保存"
+            message += tr("danmuRead.probeNotEnabledHint")
         return {"ok": True, "message": message}
 
     def _on_tick(self) -> None:
@@ -330,7 +331,7 @@ class DanmuReadService(QObject):
             return
         api_key = app.config.get_tts_api_key()
         if not api_key:
-            self._log_skip_once("no_key", "无 TTS API Key，跳过朗读")
+            self._log_skip_once("no_key", tr("danmuRead.skipNoKey"))
             return
         texts = app.engine.visible_display_texts()
         if not texts:
@@ -339,7 +340,7 @@ class DanmuReadService(QObject):
             if on_tracks > 0:
                 self._log_skip_once(
                     "no_visible_text",
-                    f"屏上暂无可见弹幕正文（轨道内 {on_tracks} 条，可见计数 {visible_n}），稍后重试",
+                    tr("danmuRead.noVisibleText").format(on_tracks=on_tracks, visible_n=visible_n),
                 )
             return
         candidates = [t for t in texts if t != self._last_text]
@@ -351,7 +352,7 @@ class DanmuReadService(QObject):
         try:
             resolved = resolve_tts_config(app.config)
         except ValueError as exc:
-            self._log_skip_once("bad_tts_config", f"TTS 配置无效，跳过朗读：{exc}")
+            self._log_skip_once("bad_tts_config", tr("danmuRead.invalidTtsConfig").format(error=exc))
             return
         voice = normalize_tts_voice(
             app.config.get("tts_voice", ""),

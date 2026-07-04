@@ -1,4 +1,5 @@
 import { API, apiFetch, formatApiError, refreshSession } from './transport.js';
+import { t } from './i18n.js';
 
 let currentPersonaId = '';
 let toast = () => {};
@@ -43,11 +44,11 @@ async function personaFetch(path) {
 }
 
 async function deletePersonaByName(name) {
-  if (!confirm(`确定删除人格“${name}”吗？`)) return;
+  if (!confirm(t('dynamic.appPersonaTopicPage.确定删除人格_name_吗'))) return;
   try {
     await apiFetch(`/api/personae/${enc(name)}`, { method: 'DELETE' });
     if (currentPersonaId === name) currentPersonaId = '';
-    showToast('已删除');
+    showToast(t('dynamic.appPersonaTopicPage.已删除'));
     await loadPersonaEditor();
   } catch (error) {
     showToast(error.message, true);
@@ -60,7 +61,7 @@ async function loadPersonaeCheckboxes(containerId) {
   if (!box) return data;
   box.innerHTML = '';
 
-  // W-PERSONA-MODEL-BIND-001：取自定义模型档案列表 + 全局"使用"模型，渲染每行模型下拉
+  // W-PERSONA-MODEL-BIND-001：取自定义模型档案列表 + 全局t('dynamic.settingsCustomModels.使用')模型，渲染每行模型下拉
   let modelItems = [];
   let globalDefaultModelId = '';
   try {
@@ -92,23 +93,23 @@ async function loadPersonaeCheckboxes(containerId) {
     const select = document.createElement('select');
     select.className =
       'shrink-0 max-w-[9rem] px-2 py-1 bg-white border border-gray-200 rounded-lg text-xs font-normal';
-    select.title = '为该人格选择模型（默认跟随全局"使用"模型）';
+    select.title = t('dynamic.appPersonaTopicPage.为该人格选择模型_默认跟随全局_使用_模型');
     const defaultOpt = document.createElement('option');
     defaultOpt.value = '';
-    defaultOpt.textContent = '默认（跟随全局）';
+    defaultOpt.textContent = t('dynamic.appPersonaTopicPage.默认_跟随全局');
     select.appendChild(defaultOpt);
     modelItems.forEach((m) => {
       const opt = document.createElement('option');
       const mid = (m.default_model_id || m.modelId || '').trim();
       opt.value = mid;
       const incomplete = m.complete === false;
-      opt.textContent = incomplete ? `${m.name || mid}（未完成）` : (m.name || mid);
+      opt.textContent = incomplete ? t('dynamic.appPersonaTopicPage.m_name_mid_未完成') : (m.name || mid);
       select.appendChild(opt);
     });
     const boundModelId = (item.model_id || '').trim();
     const targetValue = boundModelId || globalDefaultModelId;
     if (targetValue) select.value = targetValue;
-    // 若绑定值不在选项中（模型已删但绑定未清），回退"默认"
+    // 若绑定值不在选项中（模型已删但绑定未清），回退t('common.defaultLabel')
     if (targetValue && !Array.from(select.options).some((o) => o.value === targetValue)) {
       select.value = '';
     }
@@ -118,7 +119,7 @@ async function loadPersonaeCheckboxes(containerId) {
           method: 'PUT',
           body: JSON.stringify({ model_id: newModelId }),
         });
-        showToast(newModelId ? '模型已绑定' : '已恢复跟随全局');
+        showToast(newModelId ? t('dynamic.appPersonaTopicPage.模型已绑定') : t('dynamic.appPersonaTopicPage.已恢复跟随全局'));
       } catch (error) {
         if (rollbackTo !== undefined) select.value = rollbackTo;
         showToast(error.message, true);
@@ -135,8 +136,8 @@ async function loadPersonaeCheckboxes(containerId) {
       delBtn.type = 'button';
       delBtn.className =
         'shrink-0 px-2 py-1 border border-red-200 rounded-lg text-xs text-red-600 hover:bg-red-50';
-      delBtn.textContent = '删除';
-      delBtn.title = `删除人格“${item.label}”`;
+      delBtn.textContent = t('common.delete');
+      delBtn.title = t('dynamic.appPersonaTopicPage.删除人格_item_label');
       delBtn.addEventListener('click', (event) => {
         event.preventDefault();
         deletePersonaByName(item.id);
@@ -276,34 +277,34 @@ export function initPersonaTopicPage(deps = {}) {
   document.getElementById('btnSaveLiveTopic')?.addEventListener('click', async (e) => {
     const btn = e.currentTarget;
     try {
-      await window.withLoadingState(btn, btn.textContent, () => saveLiveTopic(), '已保存');
-      showToast('主题已保存');
-      showPersonaPageStatus('主题已更新，下一次生成会使用新内容');
+      await window.withLoadingState(btn, btn.textContent, () => saveLiveTopic(), t('dynamic.appPersonaTopicPage.已保存'));
+      showToast(t('dynamic.appPersonaTopicPage.主题已保存'));
+      showPersonaPageStatus(t('dynamic.appPersonaTopicPage.主题已更新_下一次生成会使用新内容'));
     } catch (error) {
-      showToast(error.message || '主题保存失败', true);
-      showPersonaPageStatus(error.message || '主题保存失败', true);
+      showToast(error.message || t('dynamic.appPersonaTopicPage.主题保存失败'), true);
+      showPersonaPageStatus(error.message || t('dynamic.appPersonaTopicPage.主题保存失败'), true);
     }
   });
   document.getElementById('btnSaveUserNickname')?.addEventListener('click', async (e) => {
     const btn = e.currentTarget;
     try {
-      await window.withLoadingState(btn, btn.textContent, () => saveUserNickname(), '已保存');
-      showToast('昵称已保存');
-      showPersonaPageStatus('昵称已更新，下一次生成会使用新内容');
+      await window.withLoadingState(btn, btn.textContent, () => saveUserNickname(), t('dynamic.appPersonaTopicPage.已保存'));
+      showToast(t('dynamic.appPersonaTopicPage.昵称已保存'));
+      showPersonaPageStatus(t('dynamic.appPersonaTopicPage.昵称已更新_下一次生成会使用新内容'));
     } catch (error) {
-      showToast(error.message || '昵称保存失败', true);
-      showPersonaPageStatus(error.message || '昵称保存失败', true);
+      showToast(error.message || t('dynamic.appPersonaTopicPage.昵称保存失败'), true);
+      showPersonaPageStatus(error.message || t('dynamic.appPersonaTopicPage.昵称保存失败'), true);
     }
   });
   document.getElementById('personaNamePrefixEnabled')?.addEventListener('change', async () => {
     try {
       await savePersonaNamePrefix();
       const checked = document.getElementById('personaNamePrefixEnabled').checked;
-      showToast(checked ? '名称显示已开启' : '名称显示已关闭');
-      showPersonaPageStatus('名称显示已更新，下一次生成会使用新内容');
+      showToast(checked ? t('dynamic.appPersonaTopicPage.名称显示已开启') : t('dynamic.appPersonaTopicPage.名称显示已关闭'));
+      showPersonaPageStatus(t('dynamic.appPersonaTopicPage.名称显示已更新_下一次生成会使用新内容'));
     } catch (error) {
-      showToast(error.message || '名称显示保存失败', true);
-      showPersonaPageStatus(error.message || '名称显示保存失败', true);
+      showToast(error.message || t('dynamic.appPersonaTopicPage.名称显示保存失败'), true);
+      showPersonaPageStatus(error.message || t('dynamic.appPersonaTopicPage.名称显示保存失败'), true);
     }
   });
   document.getElementById('btnSavePersona')?.addEventListener('click', async (e) => {
@@ -319,9 +320,9 @@ export function initPersonaTopicPage(deps = {}) {
           }),
         });
         loadPersonaTemplate().catch(console.error);
-      }, '已保存');
-      showToast('人格已保存');
-      showPersonaPageStatus('人格已更新，下一次生成会使用新内容');
+      }, t('dynamic.appPersonaTopicPage.已保存'));
+      showToast(t('dynamic.appPersonaTopicPage.人格已保存'));
+      showPersonaPageStatus(t('dynamic.appPersonaTopicPage.人格已更新_下一次生成会使用新内容'));
     } catch (error) {
       showToast(error.message, true);
       showPersonaPageStatus(error.message, true);
@@ -334,17 +335,17 @@ export function initPersonaTopicPage(deps = {}) {
       try {
         const data = await apiFetch(`/api/personae/${enc(name)}/restore`, { method: 'POST' });
         document.getElementById('personaSystemCustom').value = data.system_custom || '';
-        showToast('已恢复默认');
+        showToast(t('dynamic.appPersonaTopicPage.已恢复默认'));
       } catch (error) {
         showToast(error.message, true);
       }
     });
   });
   document.getElementById('btnNewPersona')?.addEventListener('click', async (e) => {
-    const name = prompt('新人格名称：');
+    const name = prompt(t('dynamic.appPersonaTopicPage.新人格名称'));
     if (!name?.trim()) return;
     if (/[/\\%#?]/.test(name)) {
-      showToast('人格名称不能包含 / \\ % # ? 等特殊字符', true);
+      showToast(t('dynamic.appPersonaTopicPage.人格名称不能包含_等特殊字'), true);
       return;
     }
     const btn = e.currentTarget;
@@ -355,7 +356,7 @@ export function initPersonaTopicPage(deps = {}) {
           body: JSON.stringify({ name: name.trim() }),
         });
         currentPersonaId = name.trim();
-        showToast('新人格已创建');
+        showToast(t('dynamic.appPersonaTopicPage.新人格已创建'));
         loadPersonaEditor().catch(console.error);
       } catch (error) {
         showToast(error.message, true);
@@ -379,9 +380,9 @@ export function initPersonaTopicPage(deps = {}) {
           method: 'PUT',
           body: JSON.stringify({ active }),
         });
-      }, '已保存');
-      showToast('激活人格已更新');
-      showPersonaPageStatus('激活人格已更新，下一次生成会使用新内容');
+      }, t('dynamic.appPersonaTopicPage.已保存'));
+      showToast(t('dynamic.appPersonaTopicPage.激活人格已更新'));
+      showPersonaPageStatus(t('dynamic.appPersonaTopicPage.激活人格已更新_下一次生成会使用新内容'));
     } catch (error) {
       showToast(error.message, true);
       showPersonaPageStatus(error.message, true);

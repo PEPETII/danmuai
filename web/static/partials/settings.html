@@ -11,7 +11,13 @@
           <p class="text-gray-500 mt-1">设置 AI 接口、识图屏幕和弹幕效果，保存后立即生效</p>
         </div>
         <div class="theme-toggle-wrap shrink-0">
-          <button type="button" id="themeToggle" class="theme-toggle-btn" aria-pressed="false" aria-label="切换黑夜模式">
+          <label class="lang-select-wrap" data-i18n-aria-label="settings.aria.界面语言" aria-label="界面语言">
+            <select id="languageSelect" class="lang-select" data-i18n-aria-label="settings.aria.界面语言" aria-label="界面语言">
+              <option value="zh" data-i18n="common.langZh">中文</option>
+              <option value="en" data-i18n="common.langEn">英语</option>
+            </select>
+          </label>
+          <button type="button" id="themeToggle" class="theme-toggle-btn" aria-pressed="false" data-i18n-aria-label="common.toggleDarkMode" aria-label="切换黑夜模式">
             <svg class="ui-icon theme-toggle-icon theme-toggle-icon-moon" aria-hidden="true"><use href="#i-moon"></use></svg>
             <svg class="ui-icon theme-toggle-icon theme-toggle-icon-sun" aria-hidden="true"><use href="#i-sun"></use></svg>
             <span class="theme-toggle-label">黑夜模式</span>
@@ -22,7 +28,7 @@
       <!-- 设置 tab 列表：api / mic / danmu-read / danmu / bililive-dm / capture / rhythm / font -->
       <form id="settingsForm" class="card p-8 space-y-0">
         <div class="settings-tabs-bar">
-          <div class="settings-tabs" role="tablist" aria-label="弹幕设置分类">
+          <div class="settings-tabs" role="tablist" data-i18n-aria-label="settings.aria.弹幕设置分类" aria-label="弹幕设置分类">
             <!-- tab: API 与模型 — 服务商/Key/视觉模型/温度/Token/记忆模式/模型配置档案 -->
             <button type="button" role="tab" class="settings-tab active" data-settings-tab="api" aria-selected="true">API 与模型</button>
             <!-- tab: 麦克风模式 — 开麦/与视觉同模型/独立 mic 服务商 -->
@@ -75,9 +81,9 @@
               <div id="visionModelField">
                 <input type="hidden" name="model" id="model" value="">
                 <p id="modelActiveSourceBanner" class="hidden text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2 mb-2" role="status"></p>
-                <div id="visionModelPicker" class="vision-model-picker" role="radiogroup" aria-label="视觉模型"></div>
+                <div id="visionModelPicker" class="vision-model-picker" role="radiogroup" data-i18n-aria-label="settings.text.视觉模型" aria-label="视觉模型"></div>
                 <div id="visionModelCustom" class="vision-model-custom hidden">
-                  <input type="text" id="modelCustom" class="w-full px-4 py-3 bg-cream border border-transparent rounded-xl text-warmText" placeholder="输入模型 ID" autocomplete="off">
+                  <input type="text" id="modelCustom" class="w-full px-4 py-3 bg-cream border border-transparent rounded-xl text-warmText" data-i18n-placeholder="settings.placeholder.输入模型_ID" placeholder="输入模型 ID" autocomplete="off">
                 </div>
               </div>
             </div>
@@ -160,9 +166,9 @@
                 <label class="block text-sm font-semibold mb-2 text-warmText"><svg class="ui-icon field-label-icon" aria-hidden="true"><use href="#i-brain"></use></svg>麦克风模型</label>
                 <div id="micModelField">
                   <input type="hidden" name="mic_model" id="mic_model" value="">
-                  <div id="micModelPicker" class="vision-model-picker" role="radiogroup" aria-label="麦克风模型"></div>
+                  <div id="micModelPicker" class="vision-model-picker" role="radiogroup" data-i18n-aria-label="settings.text.麦克风模型" aria-label="麦克风模型"></div>
                   <div id="micModelCustom" class="vision-model-custom hidden">
-                    <input type="text" id="micModelCustomInput" class="w-full px-4 py-3 bg-cream border border-transparent rounded-xl text-warmText" placeholder="输入模型 ID（须支持麦克风）" autocomplete="off">
+                    <input type="text" id="micModelCustomInput" class="w-full px-4 py-3 bg-cream border border-transparent rounded-xl text-warmText" data-i18n-placeholder="settings.placeholder.输入模型_ID_须支持麦克风" placeholder="输入模型 ID（须支持麦克风）" autocomplete="off">
                   </div>
                 </div>
                 <p class="text-xs text-gray-400 mt-1">仅列出目录中带「支持麦克风」标识的模型；豆包全模态或小米 MiMo 的 mimo-v2.5。</p>
@@ -192,7 +198,7 @@
         </div>
 
         <!-- AI读弹幕（MiMo TTS） -->
-        <div id="settingsTab-danmu-read" class="settings-tab-panel space-y-6 danmu-read-page" data-settings-panel="danmu-read" role="tabpanel" hidden aria-label="AI读弹幕">
+        <div id="settingsTab-danmu-read" class="settings-tab-panel space-y-6 danmu-read-page" data-settings-panel="danmu-read" role="tabpanel" hidden data-i18n-aria-label="settings.text.AI读弹幕" aria-label="AI读弹幕">
           <h3 class="text-lg font-bold text-warmText flex items-center gap-2">
             <svg class="ui-icon text-warmPink" aria-hidden="true"><use href="#i-message"></use></svg> 读弹幕
           </h3>
@@ -238,7 +244,7 @@
             </div>
             <div>
               <label for="danmuReadStylePrompt" class="block text-sm font-semibold mb-2 text-warmText">风格指令（可选）</label>
-              <textarea id="danmuReadStylePrompt" rows="4" class="w-full px-4 py-3 bg-cream rounded-xl text-warmText border border-softPeach" placeholder="温柔微颤语气，1.0倍速，温暖音色，独白式表达，句尾轻收配合自然呼吸停顿，情绪克制有层次，适配泪目治愈类弹幕"></textarea>
+              <textarea id="danmuReadStylePrompt" rows="4" class="w-full px-4 py-3 bg-cream rounded-xl text-warmText border border-softPeach" data-i18n-placeholder="settings.placeholder.温柔微颤语气_1_0倍速_温暖音色_独白式表达_句尾轻收配合自然呼吸停顿_情绪克" placeholder="温柔微颤语气，1.0倍速，温暖音色，独白式表达，句尾轻收配合自然呼吸停顿，情绪克制有层次，适配泪目治愈类弹幕"></textarea>
               <p id="danmuReadStyleHint" class="settings-section-hint mt-1">对应 API 中 role 为 user 的消息，用于控制语气与风格；新装默认已填泪目治愈向指令，留空则仅朗读弹幕正文。</p>
             </div>
             <p id="danmuReadModelHint" class="text-xs text-gray-500">模型：<span id="danmuReadModelLabel">mimo-v2.5-tts</span> · 接口：<span id="danmuReadEndpointLabel">—</span></p>
@@ -322,7 +328,7 @@
             </div>
             <div class="settings-field">
               <label for="reply_queue_max_items" class="settings-field-label">回复队列上限</label>
-              <input type="number" name="reply_queue_max_items" id="reply_queue_max_items" min="0" max="9999" step="1" class="settings-field-control" placeholder="0=无限制">
+              <input type="number" name="reply_queue_max_items" id="reply_queue_max_items" min="0" max="9999" step="1" class="settings-field-control" data-i18n-placeholder="settings.placeholder.k_0_无限制" placeholder="0=无限制">
             </div>
           </div>
           <div id="scrollingModeFields" class="space-y-3">
@@ -350,11 +356,11 @@
               </div>
               <div class="settings-field">
                 <label for="danmu_pending_entry_cap" class="settings-field-label">入口区 pending 上限</label>
-                <input type="number" name="danmu_pending_entry_cap" id="danmu_pending_entry_cap" min="0" max="9999" step="1" class="settings-field-control" placeholder="默认 300，0=无限制">
+                <input type="number" name="danmu_pending_entry_cap" id="danmu_pending_entry_cap" min="0" max="9999" step="1" class="settings-field-control" data-i18n-placeholder="settings.placeholder.默认_300_0_无限制" placeholder="默认 300，0=无限制">
               </div>
               <div class="settings-field">
                 <label for="danmu_track_retention_cap" class="settings-field-label">轨道总保留上限</label>
-                <input type="number" name="danmu_track_retention_cap" id="danmu_track_retention_cap" min="0" max="9999" step="1" class="settings-field-control" placeholder="默认 600，0=无限制">
+                <input type="number" name="danmu_track_retention_cap" id="danmu_track_retention_cap" min="0" max="9999" step="1" class="settings-field-control" data-i18n-placeholder="settings.placeholder.默认_600_0_无限制" placeholder="默认 600，0=无限制">
               </div>
             </div>
             <p class="settings-section-title">开关选项</p>

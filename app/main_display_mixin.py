@@ -352,11 +352,14 @@ class DanmuAppDisplayMixin:
             screen_h=geo.height(),
             own_hwnds=self._overlay_own_hwnds(),
         )
-        message = (
-            tr("overlay.exclusive_fullscreen_hint")
-            if at_risk
-            else ""
-        )
+        # BUG-004: 连续 3 次 SetWindowPos 失败 → 置顶已失效，优先级高于独占全屏风险启发式
+        fail_streak = getattr(layer, "_topmost_fail_streak", 0)
+        if fail_streak >= 3:
+            message = tr("overlay.topmost_lost")
+        elif at_risk:
+            message = tr("overlay.exclusive_fullscreen_hint")
+        else:
+            message = ""
         prev = str(getattr(runtime, "overlay_compat_warning", "") or "")
         runtime.set_overlay_compat_warning(message)
         if message != prev:
@@ -462,9 +465,9 @@ class DanmuAppDisplayMixin:
 
         normalized_items = [str(item).strip() for item in items if str(item).strip()]
         if not normalized_items:
-            raise ValueError("请至少提供一条弹幕")
+            raise ValueError(tr("overlay.test.atLeastOne"))
         if len(normalized_items) > 20:
-            raise ValueError("单次最多注入 20 条弹幕")
+            raise ValueError(tr("overlay.test.maxInject"))
 
         request_round = max(int(getattr(self, "screenshot_round", 0)), 0)
         latest_screenshot_id = max(

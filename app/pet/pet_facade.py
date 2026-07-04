@@ -17,6 +17,7 @@ from app.pet.pet_barrage import (
     resolve_slot_asset_summary,
 )
 from app.pet.pet_state import PetSettings, _truthy
+from app.translations import tr
 
 if TYPE_CHECKING:
     from main import DanmuApp
@@ -121,7 +122,7 @@ def import_pet_asset_via_dialog(app: "DanmuApp") -> dict[str, object]:
         start_dir = str(Path.home())
     selected_dir = QFileDialog.getExistingDirectory(
         None,
-        "选择桌宠文件夹",
+        tr("pet.dialog.select_folder"),
         start_dir,
         QFileDialog.Option.ShowDirsOnly,
     )
@@ -143,14 +144,14 @@ def import_pet_barrage_slot_asset_via_dialog(app: "DanmuApp", slot_id: int) -> d
 
     settings = PetSettings.from_config(app.config)
     if slot_id < 0 or slot_id >= PET_BARRAGE_COUNT:
-        raise ValueError("无效的桌宠槽位")
+        raise ValueError(tr("pet.error.invalid_slot"))
     current_slot = settings.barrage.slots[slot_id]
     start_dir = str(current_slot.asset_path or settings.asset_path or "").strip()
     if not start_dir:
         start_dir = str(Path.home())
     selected_dir = QFileDialog.getExistingDirectory(
         None,
-        f"选择槽位 {slot_id + 1} 桌宠文件夹",
+        tr("pet.dialog.select_slot_folder").format(slot=slot_id + 1),
         start_dir,
         QFileDialog.Option.ShowDirsOnly,
     )
@@ -185,7 +186,7 @@ def set_pet_barrage_slot_asset(
     asset_path: str,
 ) -> dict[str, object]:
     if slot_id < 0 or slot_id >= PET_BARRAGE_COUNT:
-        raise ValueError("无效的桌宠槽位")
+        raise ValueError(tr("pet.error.invalid_slot"))
     return apply_pet_settings_patch(
         app,
         {
@@ -237,8 +238,10 @@ def apply_pet_settings_patch(app: "DanmuApp", payload: dict[str, object]) -> dic
             path_obj = Path(str(path).strip())
             if not is_path_within_sandbox(path_obj, ALLOWED_PET_PACK_ROOT):
                 raise ValueError(
-                    f"桌宠资源路径不在允许范围内：{path}。"
-                    f"自定义资源必须放在 {ALLOWED_PET_PACK_ROOT} 目录下。"
+                    tr("pet.error.path_out_of_range").format(
+                        path=path,
+                        allowed=ALLOWED_PET_PACK_ROOT,
+                    )
                 )
             validate_pet_pack_dir(path_obj)
 
@@ -252,8 +255,10 @@ def apply_pet_settings_patch(app: "DanmuApp", payload: dict[str, object]) -> dic
                 path_obj = Path(asset_path)
                 if not is_path_within_sandbox(path_obj, ALLOWED_PET_PACK_ROOT):
                     raise ValueError(
-                        f"桌宠槽位资源路径不在允许范围内：{asset_path}。"
-                        f"自定义资源必须放在 {ALLOWED_PET_PACK_ROOT} 目录下。"
+                        tr("pet.error.slot_path_out_of_range").format(
+                            path=asset_path,
+                            allowed=ALLOWED_PET_PACK_ROOT,
+                        )
                     )
 
     if "pet_enabled" in items:
@@ -380,10 +385,10 @@ def submit_pet_command(
 ) -> dict[str, object]:
     svc = _pet_command_service(app)
     if svc is None:
-        raise ValueError("桌宠指令服务未初始化")
+        raise ValueError(tr("pet.error.service_not_initialized"))
     settings = PetSettings.from_config(app.config)
     if not settings.enabled:
-        raise ValueError("请先启用桌宠")
+        raise ValueError(tr("pet.error.enable_pet_first"))
     result = svc.submit(
         text,
         ttl_sec=settings.command_ttl_sec,

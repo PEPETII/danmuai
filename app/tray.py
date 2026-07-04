@@ -132,7 +132,7 @@ class TrayManager:
             reply = QMessageBox.question(
                 None,
                 title,
-                f"发现新版本 {result.latest_version}，是否下载？",
+                tr("tray.update_download_prompt").format(version=result.latest_version),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             )
             if reply == QMessageBox.StandardButton.Yes:

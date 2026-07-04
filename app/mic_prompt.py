@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from app.personae import normal_reply_count_from_config
+from app.translations import Translator
 
 if TYPE_CHECKING:
     from app.config_store import ConfigStore
@@ -20,7 +21,7 @@ def mic_insert_reply_count(config: "ConfigStore | None" = None) -> int:
     return normal_reply_count_from_config(config)
 
 
-def _build_mic_insert_block(reply_count: int) -> str:
+def _build_mic_insert_block_zh(reply_count: int) -> str:
     return (
         f"【麦克风插入】用户刚说完一句话，附带了真实语音。请生成 {reply_count} 条 JSON 数组弹幕。\n"
         f"这 {reply_count} 条弹幕必须全部同时结合当前画面与用户刚才说话内容，把用户说话内容优化成适合直播弹幕展示的短句。\n"
@@ -29,6 +30,25 @@ def _build_mic_insert_block(reply_count: int) -> str:
         "表达要自然、口语化、像真实观众弹幕，可以接话、提问、吐槽、补充或玩梗。\n"
         "每条尽量短，不要解释，不要输出多余内容，只输出 JSON 字符串数组。"
     )
+
+
+def _build_mic_insert_block_en(reply_count: int) -> str:
+    return (
+        f"[Mic insert] The user just finished speaking with real audio attached. "
+        f"Generate {reply_count} danmu as a JSON string array.\n"
+        f"All {reply_count} lines must combine the current screen with what the user "
+        "just said — polish their speech into short live-stream danmu.\n"
+        "Each line should show you heard them and fit the on-screen mood.\n"
+        "Do not only repeat the audio or only describe the screenshot.\n"
+        "Sound natural and colloquial like real viewer chat — reply, ask, roast, add, or meme.\n"
+        "Keep each line short; no explanations or extra text — JSON string array only."
+    )
+
+
+def _build_mic_insert_block(reply_count: int) -> str:
+    if Translator.get_language() == "en":
+        return _build_mic_insert_block_en(reply_count)
+    return _build_mic_insert_block_zh(reply_count)
 
 
 def build_mic_insert_user_pt(user_pt: str, config: "ConfigStore | None" = None) -> str:

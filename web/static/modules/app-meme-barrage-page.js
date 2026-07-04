@@ -1,4 +1,5 @@
 import { apiFetch } from './transport.js';
+import { t } from './i18n.js';
 
 const MAX_SELECTED_MEME_TAGS = 3;
 
@@ -79,7 +80,7 @@ function renderMemeTagGrid(tags) {
         selectedTags.delete(tag.value);
       } else {
         if (selectedTags.size >= MAX_SELECTED_MEME_TAGS) {
-          showToast(`最多只能选择 ${MAX_SELECTED_MEME_TAGS} 个标签`, true);
+          showToast(t('dynamic.appMemeBarragePage.最多只能选择_MAX_SELECTED_ME'), true);
           return;
         }
         selectedTags.add(tag.value);
@@ -180,7 +181,7 @@ async function saveMemeBarrageSettings() {
     body: JSON.stringify(body),
   });
   applyMemeMetaToForm(meta);
-  showToast('烂梗公式化设置已保存');
+  showToast(t('dynamic.appMemeBarragePage.烂梗公式化设置已保存'));
 }
 
 async function clearMemeBarrageLibrary() {
@@ -190,7 +191,7 @@ async function clearMemeBarrageLibrary() {
     library_count: result.library_count ?? 0,
     display_queue_size: result.display_queue_size ?? 0,
   });
-  showToast('本地库与待展示队列已清除');
+  showToast(t('dynamic.appMemeBarragePage.本地库与待展示队列已清除'));
 }
 
 export function startMemeBarrageMetaPolling() {

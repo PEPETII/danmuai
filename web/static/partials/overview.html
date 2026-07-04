@@ -8,7 +8,7 @@
     <section id="page-overview" class="page-panel active">
       <div id="overviewAnnouncementBanner" class="overview-announcement-banner hidden" role="status" aria-live="polite">
         <p class="overview-announcement-banner-text" id="overviewAnnouncementBannerText"></p>
-        <button type="button" id="btnOverviewAnnouncementDismiss" class="overview-announcement-banner-dismiss" aria-label="关闭公告提示">×</button>
+        <button type="button" id="btnOverviewAnnouncementDismiss" class="overview-announcement-banner-dismiss" data-i18n-aria-label="overview.aria.关闭公告提示" aria-label="关闭公告提示">×</button>
       </div>
       <header class="flex flex-wrap justify-between items-center gap-4 mb-8">
         <div>
@@ -28,7 +28,7 @@
 
       <div id="errorBanner" class="hidden mb-6 p-4 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-sm flex flex-wrap items-start justify-between gap-3">
         <span id="errorBannerMessage" class="flex-1 min-w-0 whitespace-pre-wrap break-words"></span>
-        <button type="button" id="btnErrorBannerDismiss" class="shrink-0 px-2 py-1.5 text-red-800 hover:bg-red-100/80 text-lg leading-none" aria-label="关闭错误提示">×</button>
+        <button type="button" id="btnErrorBannerDismiss" class="shrink-0 px-2 py-1.5 text-red-800 hover:bg-red-100/80 text-lg leading-none" data-i18n-aria-label="overview.aria.关闭错误提示" aria-label="关闭错误提示">×</button>
         <button type="button" id="btnErrorReportFromBanner" class="shrink-0 px-4 py-1.5 border border-red-200 rounded-xl text-sm font-semibold text-red-800 hover:bg-red-100/80">反馈此问题</button>
       </div>
 
@@ -37,7 +37,7 @@
       <div id="setupGuide" class="hidden mb-6 rounded-2xl bg-white border border-softPeach/60 px-6 py-4">
         <div class="flex items-center justify-between mb-3">
           <p class="text-sm font-bold text-warmText">首次设置引导</p>
-          <button type="button" id="btnSetupGuideDismiss" class="text-gray-400 hover:text-warmText text-lg leading-none" aria-label="关闭引导">×</button>
+          <button type="button" id="btnSetupGuideDismiss" class="text-gray-400 hover:text-warmText text-lg leading-none" data-i18n-aria-label="overview.aria.关闭引导" aria-label="关闭引导">×</button>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
           <div class="setup-guide-step" data-step="api">
@@ -148,7 +148,7 @@
               maxlength="200"
               autocomplete="off"
               class="w-full px-4 py-3 bg-cream rounded-xl text-warmText"
-              placeholder="描述本次你要玩的游戏或者直播主题等，以便 AI 更好地生成弹幕，文字尽量在 50 字内效果最佳"
+              data-i18n-placeholder="overview.placeholder.描述本次你要玩的游戏或者直播主题等_以便_AI_更好地生成弹幕_文字尽量在_50" placeholder="描述本次你要玩的游戏或者直播主题等，以便 AI 更好地生成弹幕，文字尽量在 50 字内效果最佳"
             ></textarea>
           </div>
           <button type="button" id="btnSaveLiveTopic" class="px-4 py-3 bg-white border border-gray-200 rounded-xl font-semibold text-warmText">保存主题</button>
@@ -162,7 +162,7 @@
               maxlength="20"
               autocomplete="off"
               class="w-full px-4 py-3 bg-cream rounded-xl text-warmText"
-              placeholder="请输入你的昵称（AI 可在合适时自然称呼你）"
+              data-i18n-placeholder="overview.placeholder.请输入你的昵称_AI_可在合适时自然称呼你" placeholder="请输入你的昵称（AI 可在合适时自然称呼你）"
             />
           </div>
           <button type="button" id="btnSaveUserNickname" class="px-4 py-3 bg-white border border-gray-200 rounded-xl font-semibold text-warmText">保存昵称</button>
@@ -203,7 +203,7 @@
             <p class="font-bold text-warmText" id="diagTriggerGap">0.0s</p>
           </div>
           <div class="rounded-2xl bg-cream px-4 py-3">
-            <p class="text-gray-400">Pending Timing</p>
+            <p class="text-gray-400" data-i18n="overview.text.Pending_Timing">Pending Timing</p>
             <p class="font-bold text-warmText" id="diagPendingTiming">0</p>
           </div>
           <div class="rounded-2xl bg-cream px-4 py-3">

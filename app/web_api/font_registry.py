@@ -13,6 +13,7 @@ from __future__ import annotations
 from fastapi import File, Header, HTTPException, Path, UploadFile
 
 from app.web_api.auth import require_auth
+from app.translations import tr
 from app.web_console import MainThreadInvokeTimeout
 
 
@@ -31,10 +32,10 @@ def register_font_registry_routes(app, bridge, check_token) -> None:
                 file.filename or "uploaded.ttf",
             )
         except MainThreadInvokeTimeout as exc:
-            raise HTTPException(status_code=504, detail="主线程操作超时，请稍后重试。") from exc
+            raise HTTPException(status_code=504, detail=tr("common.mainThreadTimeout")) from exc
         except ValueError as exc:
             detail = str(exc)
-            if detail == "字体注册表不可用":
+            if detail == tr("fontRegistry.unavailable"):
                 raise HTTPException(status_code=503, detail=detail) from exc
             raise HTTPException(status_code=400, detail=detail) from exc
         registry = bridge.danmu_app.font_registry
@@ -58,12 +59,12 @@ def register_font_registry_routes(app, bridge, check_token) -> None:
         try:
             ok = bridge.invoke_on_main(bridge.danmu_app.font_registry.delete, sha256)
         except MainThreadInvokeTimeout as exc:
-            raise HTTPException(status_code=504, detail="主线程操作超时，请稍后重试。") from exc
+            raise HTTPException(status_code=504, detail=tr("common.mainThreadTimeout")) from exc
         except ValueError as exc:
-            if str(exc) == "字体注册表不可用":
+            if str(exc) == tr("fontRegistry.unavailable"):
                 raise HTTPException(status_code=503, detail=str(exc)) from exc
             raise
         if not ok:
-            raise HTTPException(status_code=404, detail="字体记录不存在")
+            raise HTTPException(status_code=404, detail=tr("fontRegistry.recordNotFound"))
         registry = bridge.danmu_app.font_registry
         return {"ok": True, "families": registry.list_families()}

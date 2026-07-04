@@ -38,6 +38,8 @@ def test_get_status_source_mode(reset_state):
 
 
 def test_is_velopack_install_requires_current_dir_and_update_exe():
+    from app import velopack_runtime
+
     with patch.object(sys, "frozen", True, create=True):
         with patch.object(
             sys,
@@ -45,7 +47,7 @@ def test_is_velopack_install_requires_current_dir_and_update_exe():
             str(Path("C:/Users/test/AppData/Local/PEPETII.DanmuAI/current/DanmuAI.exe")),
             create=True,
         ):
-            with patch.object(Path, "is_file", return_value=True):
+            with patch.object(velopack_runtime, "is_velopack_update_exe", return_value=True):
                 assert update_service._is_velopack_install() is True
 
     with patch.object(sys, "frozen", True, create=True):

@@ -29,6 +29,7 @@
  */
 
 import { getLastAppliedStatus } from './status.js';
+import { t } from './i18n.js';
 import {
   API, apiFetch
 } from './transport.js';
@@ -164,7 +165,7 @@ export function configureSettingsBindings(deps) {
   configureSettingsModelCatalog({
     updateMicModeHint,
     onCatalogLoadFailed: () => {
-      showToast('模型目录加载失败，视觉模型列表可能为空，请刷新页面重试', true);
+      showToast(t('dynamic.settings.模型目录加载失败_视觉模型列表可能为空_请刷新页'), true);
     },
   });
   configureSettingsMicTools({
@@ -315,13 +316,13 @@ function refreshMicInputDeviceHint() {
   const { selectedId, selectedLabel, defaultLabel } = currentMicDeviceContext();
   if (selectedId === null) {
     hint.textContent = defaultLabel
-      ? `当前将跟随 Windows 默认录音设备：${defaultLabel}`
-      : '默认跟随 Windows 当前默认录音设备；也可以手动固定到某一只麦克风。';
+      ? t('dynamic.settings.当前将跟随_Windows_默认录音设备_d')
+      : t('dynamic.settings.默认跟随_Windows_当前默认录音设备_也可');
     return;
   }
   hint.textContent = selectedLabel
-    ? `当前固定使用：${selectedLabel}`
-    : '当前已手动固定设备；如设备拔出，将在运行时回退到系统默认输入。';
+    ? t('dynamic.settings.当前固定使用_selectedLabel')
+    : t('dynamic.settings.当前已手动固定设备_如设备拔出_将在运行时回退到');
 }
 
 export async function populateMicInputDevices(selectedValue = '', options = {}) {
@@ -336,16 +337,16 @@ export async function populateMicInputDevices(selectedValue = '', options = {}) 
   const currentFallbackLabel = useConfigCurrentLabel
     ? document.getElementById('micActiveSourceBanner')?.dataset.defaultInputLabel || ''
     : '';
-  const defaultLabel = micDevicesCache?.default_input_device_label || currentFallbackLabel || '未检测到默认输入';
+  const defaultLabel = micDevicesCache?.default_input_device_label || currentFallbackLabel || t('dynamic.settings.未检测到默认输入');
   select.innerHTML = '';
   const follow = document.createElement('option');
   follow.value = '';
-  follow.textContent = `跟随系统默认（当前：${defaultLabel}）`;
+  follow.textContent = t('dynamic.settings.跟随系统默认_当前_defaultLabel');
   select.appendChild(follow);
   (micDevicesCache?.devices || []).forEach((device) => {
     const opt = document.createElement('option');
     opt.value = String(device.id);
-    opt.textContent = device.is_default ? `${device.name}（默认）` : device.name;
+    opt.textContent = device.is_default ? t('dynamic.settings.device_name_默认') : device.name;
     select.appendChild(opt);
   });
   if ([...select.options].some((opt) => opt.value === String(selectedValue || ''))) {
@@ -452,7 +453,7 @@ export function updateMicModeHint() {
   const { selectedId, selectedLabel, defaultLabel } = currentMicDeviceContext();
   if (selectedId !== null && micDevicesCache?.available && !selectedLabel) {
     hint.classList.remove('hidden');
-    hint.textContent = `麦克风输入设备不可用：已选择的设备当前不存在，运行时将回退到系统默认（${defaultLabel || '未检测到默认输入'}）。`;
+    hint.textContent = `麦克风输入设备不可用：已选择的设备当前不存在，运行时将回退到系统默认（${defaultLabel || t('dynamic.settings.未检测到默认输入')}）。`;
     return;
   }
   if (micModeConfigSupported()) {
@@ -461,7 +462,7 @@ export function updateMicModeHint() {
     return;
   }
   hint.classList.remove('hidden');
-  const prefix = '麦克风可能无法识别你的声音：';
+  const prefix = t('dynamic.settings.麦克风可能无法识别你的声音');
   if (providerId === 'mimo') {
     hint.textContent = `${prefix}需使用 MiMo-V2.5（mimo-v2.5）。当前模型「${modelId || '未选'}」不支持开麦；请在麦克风标签改选 mimo-v2.5 或开启「与识图模型相同」，保存后再开始弹幕。`;
     return;
@@ -485,7 +486,7 @@ function updateModelActiveSourceBanner(cfg) {
   const name = cfg.model_display_name || cfg.active_model_id || '';
   const id = cfg.active_model_id || '';
   banner.textContent =
-    `当前默认模型来自模型配置档案「${name}」（${id}）。弹幕设置中的 API 地址与密钥不用于生成弹幕，请在模型配置档案列表中维护。`;
+    t('dynamic.settings.当前默认模型来自模型配置档案_name');
   banner.classList.remove('hidden');
   if (cfg.provider_model_mismatch) {
     banner.textContent +=
@@ -599,7 +600,7 @@ export function bindSettingsControls(deps = {}) {
         const label = cfg.model_display_name && cfg.model_display_name !== active
           ? `${cfg.model_display_name}（${active}）`
           : active;
-        showToast(label ? `配置已保存，当前生效模型：${label}` : '配置已保存~');
+        showToast(label ? t('dynamic.settings.配置已保存_当前生效模型_label') : t('common.configSaved'));
         if (onConfigSaved) onConfigSaved();
         // W-GLOBAL-VISUAL-APIKEY-REMOVE-001: 视觉全局 api_key 已下线，不再回填；mic/tts 独立 key 保留回填
         const micKeyInput = document.getElementById('mic_api_key');
@@ -611,7 +612,7 @@ export function bindSettingsControls(deps = {}) {
           danmuReadKeyInput.value = MASKED_API_KEY;
         }
       } catch (err) {
-        showToast(err.message || '保存时出了点小状况', true);
+        showToast(err.message || t('dynamic.settings.保存时出了点小状况'), true);
       }
     });
   });
@@ -625,10 +626,10 @@ export function bindSettingsControls(deps = {}) {
           method: 'POST',
           body: JSON.stringify({}),
         });
-        showToast(res.message || (res.ok ? '连接成功' : '连接失败'), !res.ok);
+        showToast(res.message || (res.ok ? t('common.connectionSuccess') : t('common.connectionFailed')), !res.ok);
         if (res.ok) markProbeSuccess();
       } catch (err) {
-        showToast(err.message || '网络连接似乎睡着了', true);
+        showToast(err.message || t('dynamic.settings.网络连接似乎睡着了'), true);
       }
     });
   });
@@ -677,7 +678,7 @@ export function bindSettingsControls(deps = {}) {
           await apiFetch('/api/custom-models', { method: 'POST', body: JSON.stringify(body) });
         }
         closeModelModal();
-        showToast('模型已保存~');
+        showToast(t('dynamic.settingsCustomModels.模型已保存'));
         loadCustomModels();
       } catch (err) {
         showToast(err.message, true);
