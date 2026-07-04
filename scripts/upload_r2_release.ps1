@@ -130,7 +130,6 @@ if (-not $setup -or -not $nupkg) {
 }
 
 $uploads = @(
-    @{ Local = $feed; Key = "releases/win/stable/releases.win.json"; Cache = "public, max-age=60"; ExpectedSize = (Get-Item -LiteralPath $feed).Length }
     @{ Local = $nupkg.FullName; Key = "releases/win/stable/$($nupkg.Name)"; Cache = "public, max-age=3600"; ExpectedSize = $nupkg.Length }
     @{ Local = $setup.FullName; Key = "downloads/PEPETII.DanmuAI-$appVersion-Setup.exe"; Cache = "public, max-age=86400"; ExpectedSize = $setup.Length }
 )
@@ -145,6 +144,7 @@ if ($portable) {
     }
     $uploads += @{ Local = $portable.FullName; Key = $portableKey; Cache = "public, max-age=86400"; ExpectedSize = $portable.Length }
 }
+$uploads += @{ Local = $feed; Key = "releases/win/stable/releases.win.json"; Cache = "public, max-age=60"; ExpectedSize = (Get-Item -LiteralPath $feed).Length }
 
 $versionedSetupKey = "downloads/PEPETII.DanmuAI-$appVersion-Setup.exe"
 $versionedPortableKey = "downloads/PEPETII.DanmuAI-$appVersion-win-Portable.zip"
@@ -221,6 +221,11 @@ if ($portable) {
 }
 Write-Host "  https://updates.qiaoqiao.buzz/releases/win/stable                   (更新 feed)"
 Write-Host ""
+
+$feedKey = "releases/win/stable/releases.win.json"
+if ($uploads[-1].Key -ne $feedKey) {
+    Write-Error "releases.win.json must be uploaded last (got $($uploads[-1].Key))"
+}
 
 foreach ($item in $uploads) {
     Invoke-R2Cp -LocalPath $item.Local -Key $item.Key -CacheControl $item.Cache -ExpectedSize $item.ExpectedSize

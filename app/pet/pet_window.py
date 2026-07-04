@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
-from PyQt6.QtCore import QEvent, QPoint, QRectF, Qt, QTimer
+from PyQt6.QtCore import QEvent, QPoint, QElapsedTimer, QRectF, Qt, QTimer
 from PyQt6.QtGui import (
     QAbstractTextDocumentLayout,
     QAction,
@@ -26,6 +26,11 @@ from PyQt6.QtGui import (
 from PyQt6.QtWidgets import QApplication, QLineEdit, QMenu, QWidget
 
 from app.pet.pet_animation_mapper import resolve_pet_animation_hint
+from app.pet.pet_render_loop import (
+    needs_animation_tick,
+    needs_high_frequency_tick,
+    ms_until_next_frame_tick,
+)
 from app.pet.pet_assets import (
     PET_FRAME_H,
     PET_FRAME_W,
@@ -339,6 +344,11 @@ class PetWindow(QWidget):
         self._anim_timer = QTimer(self)
         self._anim_timer.setInterval(_ANIM_INTERVAL_MS)
         self._anim_timer.timeout.connect(self._on_anim_tick)
+        self._wake_timer = QTimer(self)
+        self._wake_timer.setSingleShot(True)
+        self._wake_timer.timeout.connect(self._on_scheduled_wake)
+        self._anim_clock = QElapsedTimer()
+        self._anim_clock_valid = False
 
         self._apply_window_geometry(reposition=True)
         Translator.instance().language_changed.connect(self._retranslate_ui)
@@ -432,7 +442,7 @@ class PetWindow(QWidget):
         self._bubble_target_alpha = _BUBBLE_MAX_ALPHA if next_text else 0.0
         if next_text and self._bubble_alpha <= 0.05:
             self._bubble_alpha = 0.0
-        self.update()
+        self.start_render_loop()
 
     def notify_command_submitted(self) -> None:
         self._trigger_one_shot("jump")
@@ -447,13 +457,104 @@ class PetWindow(QWidget):
         self._one_shot = state
         self._one_shot_until = time.monotonic() + duration
         self._frame_index = 0
+        self.start_render_loop()
+
+    def _assets_ready(self) -> bool:
+        return (
+            self._pack is not None
+            and self._spritesheet is not None
+            and not self._spritesheet.isNull()
+        )
+
+    def _render_needs_high_frequency_tick(self) -> bool:
+        return needs_high_frequency_tick(
+            dragging=self._dragging,
+            momentum_active=self._momentum_active,
+            bubble_alpha=self._bubble_alpha,
+            bubble_target_alpha=self._bubble_target_alpha,
+        )
+
+    def _render_needs_animation_tick(self) -> bool:
+        return needs_animation_tick(
+            visible=self.isVisible(),
+            assets_ready=self._assets_ready(),
+            dragging=self._dragging,
+            momentum_active=self._momentum_active,
+            bubble_alpha=self._bubble_alpha,
+            bubble_target_alpha=self._bubble_target_alpha,
+            one_shot=self._one_shot,
+            one_shot_until=self._one_shot_until,
+            post_drag_waving_until=self._post_drag_waving_until,
+        )
+
+    def _frame_interval_sec(self) -> float:
+        if self._pack:
+            return self._pack.state_frame_interval_sec(self._animation_state)
+        return _DEFAULT_FRAME_INTERVAL_SEC
+
+    def _anim_tick_dt_sec(self) -> float:
+        if not self._anim_clock_valid:
+            self._anim_clock.start()
+            self._anim_clock_valid = True
+            return _ANIM_INTERVAL_MS / 1000.0
+        dt = self._anim_clock.restart() / 1000.0
+        if dt <= 0.0:
+            return _ANIM_INTERVAL_MS / 1000.0
+        return min(dt, 0.1)
+
+    def _cancel_anim_wake(self) -> None:
+        self._wake_timer.stop()
 
     def start_render_loop(self) -> None:
+        if not self.isVisible():
+            return
+        self._cancel_anim_wake()
         if not self._anim_timer.isActive():
+            self._anim_clock_valid = False
             self._anim_timer.start()
+        self._on_anim_tick()
 
-    def stop_render_loop(self) -> None:
+    def ensure_render_loop(self) -> None:
+        if not self.isVisible() or not self._render_needs_animation_tick():
+            return
+        if self._anim_timer.isActive() or self._wake_timer.isActive():
+            return
+        self.start_render_loop()
+
+    def stop_render_loop(self, *, repaint: bool = False) -> None:
+        was_active = self._anim_timer.isActive() or self._wake_timer.isActive()
         self._anim_timer.stop()
+        self._cancel_anim_wake()
+        self._anim_clock_valid = False
+        if repaint and was_active and self.isVisible():
+            self.update()
+
+    def _on_scheduled_wake(self) -> None:
+        if not self.isVisible():
+            return
+        self._on_anim_tick()
+
+    def _sync_render_timer(self) -> None:
+        if not self.isVisible():
+            self.stop_render_loop()
+            return
+        if self._render_needs_high_frequency_tick():
+            self._cancel_anim_wake()
+            if not self._anim_timer.isActive():
+                self._anim_clock_valid = False
+                self._anim_timer.start()
+            return
+        self._anim_timer.stop()
+        if not self._render_needs_animation_tick():
+            self.stop_render_loop(repaint=True)
+            return
+        wake_ms = ms_until_next_frame_tick(
+            frame_clock=self._frame_clock,
+            frame_interval_sec=self._frame_interval_sec(),
+        )
+        if not self._wake_timer.isActive():
+            self._anim_clock_valid = False
+            self._wake_timer.start(wake_ms)
 
     def show_pet(self) -> None:
         self._ensure_assets_loaded()
@@ -468,6 +569,7 @@ class PetWindow(QWidget):
         super().showEvent(event)
         self._sync_click_through()
         self._reassert_topmost()
+        self.ensure_render_loop()
 
     def hide_pet(self) -> None:
         self.stop_render_loop()
@@ -652,11 +754,10 @@ class PetWindow(QWidget):
         self.move(x, y)
         return hit_x, hit_y
 
-    def _tick_momentum(self) -> None:
+    def _tick_momentum(self, dt_sec: float) -> None:
         if not self._momentum_active:
             return
-        self._momentum_elapsed_ms += _ANIM_INTERVAL_MS
-        dt_sec = _ANIM_INTERVAL_MS / 1000.0
+        self._momentum_elapsed_ms += dt_sec * 1000.0
         hit_x, hit_y = self._move_window_clamped(
             int(self._momentum_vx * dt_sec),
             int(self._momentum_vy * dt_sec),
@@ -677,7 +778,8 @@ class PetWindow(QWidget):
             self._persist_position()
 
     def _on_anim_tick(self) -> None:
-        self._tick_momentum()
+        dt_sec = self._anim_tick_dt_sec()
+        self._tick_momentum(dt_sec)
         if self._bubble_alpha < self._bubble_target_alpha:
             self._bubble_alpha = min(_BUBBLE_MAX_ALPHA, self._bubble_alpha + _BUBBLE_FADE_STEP)
         elif self._bubble_alpha > self._bubble_target_alpha:
@@ -691,12 +793,8 @@ class PetWindow(QWidget):
             frame_changed = True
         else:
             self._animation_state = new_state
-        self._frame_clock += _ANIM_INTERVAL_MS / 1000.0
-        interval = (
-            self._pack.state_frame_interval_sec(self._animation_state)
-            if self._pack
-            else _DEFAULT_FRAME_INTERVAL_SEC
-        )
+        self._frame_clock += dt_sec
+        interval = self._frame_interval_sec()
         if self._frame_clock >= interval:
             self._frame_clock = 0.0
             frame_count = self._pack.state_frame_count(self._animation_state) if self._pack else 6
@@ -714,6 +812,7 @@ class PetWindow(QWidget):
             self._last_painted_frame_index = self._frame_index
             self._last_painted_animation_state = self._animation_state
             self.update()
+        self._sync_render_timer()
 
     def paintEvent(self, _event) -> None:
         painter = QPainter(self)
@@ -785,12 +884,14 @@ class PetWindow(QWidget):
             gy = event.globalPosition().y()
             self._push_pointer_sample(gx, gy)
             self._set_drag_anim_state("jumping")
+            self.start_render_loop()
             event.accept()
 
     def mouseMoveEvent(self, event) -> None:
         if self._settings.click_through or self._drag_offset is None:
             return
         if event.buttons() & Qt.MouseButton.LeftButton:
+            self.ensure_render_loop()
             global_pos = event.globalPosition().toPoint()
             target = global_pos - self._drag_offset
             dx = target.x() - self.x()

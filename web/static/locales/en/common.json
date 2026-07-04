@@ -26,6 +26,8 @@
     "edit": "Edit",
     "defaultLabel": "Default",
     "unnamed": "Unnamed",
+    "notSelected": "Not selected",
+    "notConfigured": "Not configured",
     "comingSoon": "Coming soon",
     "connecting": "Connecting",
     "connected": "Connected",

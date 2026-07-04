@@ -19,7 +19,7 @@ from app.live_freshness import LiveStatusSnapshot
 from app.reply_queue import QueuedReply
 from app.snipper import resolve_screen_index, resolve_screen_index_with_meta
 from app.translations import tr
-from app.win32_overlay_zorder import probe_exclusive_fullscreen_risk
+from app.win32_overlay_zorder import get_foreground_hwnd, probe_exclusive_fullscreen_risk
 
 # W-BILILIVE-DM-PLUGIN-FORMULA-008 — 公式化弹幕上屏后旁路推送到 bililive_dm 的来源标识。
 _FORMULA_BILILIVE_SOURCES = frozenset(
@@ -54,6 +54,9 @@ class DanmuAppDisplayMixin:
 
     def _publish_live_status(self):
         if not self.engine.running:
+            return
+        web_timer = getattr(self, "_web_status_timer", None)
+        if web_timer is not None and web_timer.isActive():
             return
         bridge = getattr(self, "web_bridge", None)
         if bridge:
@@ -263,6 +266,25 @@ class DanmuAppDisplayMixin:
             overlay.stop_render_loop()
             overlay.hide()
 
+    def _bind_screen_recovery_signals(self) -> None:
+        """Reconnect overlay when displays become available after RDP/GPU recovery."""
+        app = QApplication.instance()
+        if app is None or getattr(self, "_screen_recovery_bound", False):
+            return
+        app.screenAdded.connect(self._on_screen_topology_changed)
+        app.screenRemoved.connect(self._on_screen_topology_changed)
+        self._screen_recovery_bound = True
+
+    def _on_screen_topology_changed(self, *_args) -> None:
+        if not self.engine.running:
+            return
+        self._sync_overlay_visibility()
+        self._sync_floating_panel_visibility()
+        self._update_overlay_compat_warning()
+        bridge = getattr(self, "web_bridge", None)
+        if bridge is not None:
+            bridge.publish_status()
+
     def _active_overlay_layer(self):
         """当前 danmu_render_mode 下可见的弹幕层（横向 Overlay 或 floating_panel）。"""
         if not self.engine.running:
@@ -326,20 +348,39 @@ class DanmuAppDisplayMixin:
             if bridge:
                 bridge.publish_status()
 
-    def _update_overlay_compat_warning(self) -> None:
+    def _update_overlay_compat_warning(self, *, foreground_hwnd: int | None = None) -> None:
         runtime = self._ensure_web_runtime_state()
-        layer = self._active_overlay_layer()
-        if layer is None or sys.platform != "win32":
+        if sys.platform != "win32" or not self.engine.running:
             runtime.set_overlay_compat_warning("")
+            self.__dict__["_last_fullscreen_at_risk"] = False
+            return
+        screens = QApplication.screens()
+        danmu_overlay = getattr(self, "overlay", None)
+        fp_overlay = self.__dict__.get("floating_panel_overlay")
+        overlay_unavailable = bool(
+            getattr(danmu_overlay, "_overlay_screen_unavailable", False)
+        )
+        fp_unavailable = bool(getattr(fp_overlay, "_screen_unavailable", False))
+        if not screens or overlay_unavailable or fp_unavailable:
+            message = tr("overlay.screens_unavailable_hint")
+            prev = str(getattr(runtime, "overlay_compat_warning", "") or "")
+            runtime.set_overlay_compat_warning(message)
+            self.__dict__["_last_fullscreen_at_risk"] = False
+            if message != prev:
+                bridge = getattr(self, "web_bridge", None)
+                if bridge:
+                    bridge.publish_status()
+            return
+        layer = self._active_overlay_layer()
+        if layer is None:
+            runtime.set_overlay_compat_warning("")
+            self.__dict__["_last_fullscreen_at_risk"] = False
             return
         try:
             overlay_hwnd = int(layer.winId())
         except (RuntimeError, ValueError, TypeError):
             runtime.set_overlay_compat_warning("")
-            return
-        screens = QApplication.screens()
-        if not screens:
-            runtime.set_overlay_compat_warning("")
+            self.__dict__["_last_fullscreen_at_risk"] = False
             return
         screen_index = resolve_screen_index(self.config)
         screen_index = max(0, min(screen_index, len(screens) - 1))
@@ -351,7 +392,9 @@ class DanmuAppDisplayMixin:
             screen_w=geo.width(),
             screen_h=geo.height(),
             own_hwnds=self._overlay_own_hwnds(),
+            foreground_hwnd=foreground_hwnd,
         )
+        self.__dict__["_last_fullscreen_at_risk"] = at_risk
         # BUG-004: 连续 3 次 SetWindowPos 失败 → 置顶已失效，优先级高于独占全屏风险启发式
         fail_streak = getattr(layer, "_topmost_fail_streak", 0)
         if fail_streak >= 3:
@@ -388,11 +431,34 @@ class DanmuAppDisplayMixin:
     def _on_topmost_health_tick(self) -> None:
         if not self.engine.running:
             return
-        if self._active_overlay_layer() is None:
+        layer = self._active_overlay_layer()
+        if layer is None:
             self._ensure_web_runtime_state().set_overlay_compat_warning("")
+            self.__dict__["_last_foreground_hwnd"] = 0
+            self.__dict__["_last_fullscreen_at_risk"] = False
             return
-        self._reassert_active_overlay_topmost()
-        self._update_overlay_compat_warning()
+
+        from app.main_helpers import TOPMOST_HEALTH_HEARTBEAT_TICKS
+
+        fg = get_foreground_hwnd()
+        state = self.__dict__
+        last_fg = int(state.get("_last_foreground_hwnd", 0) or 0)
+        fg_changed = fg != last_fg
+        state["_last_foreground_hwnd"] = fg
+
+        fail_streak = int(getattr(layer, "_topmost_fail_streak", 0) or 0)
+        tick = int(state.get("_topmost_health_tick", 0) or 0) + 1
+        state["_topmost_health_tick"] = tick
+        heartbeat = tick % TOPMOST_HEALTH_HEARTBEAT_TICKS == 0
+
+        needs_reassert = fg_changed or fail_streak > 0 or heartbeat
+        last_at_risk = bool(state.get("_last_fullscreen_at_risk", False))
+        needs_probe = needs_reassert or last_at_risk
+
+        if needs_reassert:
+            self._reassert_active_overlay_topmost()
+        if needs_probe:
+            self._update_overlay_compat_warning(foreground_hwnd=fg or None)
         self._update_screen_index_fallback_warning()
 
     def _display_floating_panel_text(

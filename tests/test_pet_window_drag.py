@@ -15,6 +15,16 @@ from tests.conftest import bind_minimal_danmu_app
 from tests.fakes import FakeConfig
 
 
+@pytest.fixture(autouse=True)
+def _reset_stale_translator():
+    from PyQt6 import sip
+
+    from app.translations import Translator
+
+    if Translator._instance is not None and sip.isdeleted(Translator._instance):
+        Translator._instance = None
+
+
 def test_frame_rect_running_right_on_row_2(qapp):
     """Builtin sheet row 2 faces right (PET-013 debug: rows 1/2 swapped vs PetDex names)."""
     pack = load_pet_assets(FakeConfig({"pet_asset_source": "builtin"}))

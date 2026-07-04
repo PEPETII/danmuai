@@ -146,6 +146,8 @@ class DanmuOverlay(QWidget):
         self._clear_drawable_on_next_paint: bool = False
         # BUG-004: 连续 SetWindowPos 失败计数；成功即清零，达 3 次触发兼容性告警
         self._topmost_fail_streak: int = 0
+        # W-COMPAT-SCREEN-RECOVERY-001: screens 为空或 geometry 无效时供 mixin 推送 Web 告警
+        self._overlay_screen_unavailable: bool = False
         # 待渲染队列：只含 _pixmap is None 且尚未过屏的 item，避免每帧 O(n) 全量扫描
         self._pending_render: list[DanmuItem] = []
 
@@ -678,6 +680,7 @@ class DanmuOverlay(QWidget):
         """
         screens = QApplication.screens()
         if not screens:
+            self._overlay_screen_unavailable = True
             _overlay_logger.warning(
                 "show_for_screen: no screens available; overlay stays hidden"
             )
@@ -695,6 +698,7 @@ class DanmuOverlay(QWidget):
                     screen_index = 0
                     geo = screens[0].geometry()
                 if geo.width() <= 0 or geo.height() <= 0:
+                    self._overlay_screen_unavailable = True
                     _overlay_logger.warning(
                         "show_for_screen: primary screen also invalid %dx%d; "
                         "overlay stays hidden",
@@ -732,6 +736,7 @@ class DanmuOverlay(QWidget):
                     self._clear_drawable_on_next_paint = True
                     self.update(QRect(0, 0, self.width(), repaint_h))
             self._last_layout_ratio = new_ratio
+        self._overlay_screen_unavailable = False
         self._apply_font_from_config()
         self.show()
         self._apply_win32_click_through()

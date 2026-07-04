@@ -1,8 +1,10 @@
 import logging
 import re
+import sys
 
 from PyQt6.QtCore import QObject, pyqtSignal
 
+from app.bundle_paths import app_log_path, is_frozen
 from app.translations import tr
 
 API_KEY_PATTERN = re.compile(r"sk-[A-Za-z0-9_-]{20,}")
@@ -39,13 +41,38 @@ def get_log_bus() -> LogEmitBus:
     return _log_bus
 
 
+def _log_formatter() -> logging.Formatter:
+    return logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
+
+
+def _has_console_handler(handlers: list[logging.Handler]) -> bool:
+    return any(
+        isinstance(handler, logging.StreamHandler) and not isinstance(handler, logging.FileHandler)
+        for handler in handlers
+    )
+
+
+def _has_file_handler(handlers: list[logging.Handler]) -> bool:
+    return any(isinstance(handler, logging.FileHandler) for handler in handlers)
+
+
 def _ensure_stream_handler() -> logging.Logger:
     logger = logging.getLogger("DanmuAI")
     logger.setLevel(logging.DEBUG)
-    if not any(isinstance(handler, logging.StreamHandler) for handler in logger.handlers):
+    formatter = _log_formatter()
+    if sys.stderr is not None and not _has_console_handler(logger.handlers):
         handler = logging.StreamHandler()
-        handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+        handler.setFormatter(formatter)
         logger.addHandler(handler)
+    if (is_frozen() or sys.stderr is None) and not _has_file_handler(logger.handlers):
+        try:
+            path = app_log_path()
+            path.parent.mkdir(parents=True, exist_ok=True)
+            file_handler = logging.FileHandler(path, encoding="utf-8", mode="a")
+            file_handler.setFormatter(formatter)
+            logger.addHandler(file_handler)
+        except OSError:
+            pass
     return logger
 
 

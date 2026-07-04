@@ -416,8 +416,10 @@ export function updateMicActiveSourceBanner(cfg) {
   const useVisual = document.getElementById('mic_use_visual_model')?.checked !== false
     && cfg?.mic_use_visual_model !== '0';
   const inputSuffix = activeInputLabel
-    ? ` · 输入：${activeInputLabel}`
-    : (defaultInputLabel ? ` · 默认输入：${defaultInputLabel}` : '');
+    ? t('dynamic.settings.输入_activeInputLabel', { activeInputLabel })
+    : (defaultInputLabel ? t('dynamic.settings.默认输入_defaultInputLab', { defaultInputLabel }) : '');
+  const modelIdLabel = (modelId) => modelId || t('common.notSelected');
+  const endpointLabel = (endpoint) => endpoint || t('common.notConfigured');
   if (useVisual) {
     const usesCustom = cfg?.uses_custom_credentials === true;
     const modelId = (cfg?.active_model_id || cfg?.model || document.getElementById('model')?.value || '').trim();
@@ -426,14 +428,22 @@ export function updateMicActiveSourceBanner(cfg) {
         || document.getElementById('api_endpoint')?.value
         || ''
       : (document.getElementById('api_endpoint')?.value || cfg?.api_endpoint || '');
-    banner.textContent = `开麦使用识图模型：${modelId || '未选'} @ ${endpoint || '未配置'}${inputSuffix}`;
+    banner.textContent = t('dynamic.settings.micBannerVisualModel', {
+      modelId: modelIdLabel(modelId),
+      endpoint: endpointLabel(endpoint),
+      inputSuffix,
+    });
   } else {
     const modelId = (document.getElementById('mic_model')?.value || cfg?.mic_model || '').trim();
     const endpoint = document.getElementById('mic_api_endpoint')?.value || cfg?.mic_api_endpoint || '';
-    banner.textContent = `开麦使用独立麦克风模型：${modelId || '未选'} @ ${endpoint || '未配置'}${inputSuffix}`;
+    banner.textContent = t('dynamic.settings.micBannerDedicatedModel', {
+      modelId: modelIdLabel(modelId),
+      endpoint: endpointLabel(endpoint),
+      inputSuffix,
+    });
   }
   if (cfg?.fallback_to_default) {
-    banner.textContent += ` · 所选设备不可用，已回退到系统默认`;
+    banner.textContent += t('dynamic.settings.所选设备不可用_已回退到系统默认');
   }
   banner.classList.remove('hidden');
   refreshMicInputDeviceHint();
@@ -453,7 +463,9 @@ export function updateMicModeHint() {
   const { selectedId, selectedLabel, defaultLabel } = currentMicDeviceContext();
   if (selectedId !== null && micDevicesCache?.available && !selectedLabel) {
     hint.classList.remove('hidden');
-    hint.textContent = `麦克风输入设备不可用：已选择的设备当前不存在，运行时将回退到系统默认（${defaultLabel || t('dynamic.settings.未检测到默认输入')}）。`;
+    hint.textContent = t('dynamic.settings.micHintDeviceUnavailable', {
+      defaultLabel: defaultLabel || t('dynamic.settings.未检测到默认输入'),
+    });
     return;
   }
   if (micModeConfigSupported()) {
@@ -463,18 +475,19 @@ export function updateMicModeHint() {
   }
   hint.classList.remove('hidden');
   const prefix = t('dynamic.settings.麦克风可能无法识别你的声音');
+  const modelLabel = modelId || t('common.notSelected');
   if (providerId === 'mimo') {
-    hint.textContent = `${prefix}需使用 MiMo-V2.5（mimo-v2.5）。当前模型「${modelId || '未选'}」不支持开麦；请在麦克风标签改选 mimo-v2.5 或开启「与识图模型相同」，保存后再开始弹幕。`;
+    hint.textContent = t('dynamic.settings.micHintMimoRequired', { prefix, modelId: modelLabel });
     return;
   }
   if (apiMode !== 'doubao' && providerId !== 'doubao') {
-    hint.textContent = `${prefix}当前模型「${modelId || '未选'}」未声明 mic_audio 支持。请在模型配置档案中勾选「支持麦克风」，或改用豆包/MiMo，或在麦克风标签单独配置。`;
+    hint.textContent = t('dynamic.settings.micHintNoMicSupport', { prefix, modelId: modelLabel });
     return;
   }
-  hint.textContent = `${prefix}当前模型「${modelId || '未选'}」可能听不懂麦克风。请改选带「支持麦克风」的模型（例如 doubao-seed-2-0-mini），保存后再开始弹幕。`;
+  hint.textContent = t('dynamic.settings.micHintPickMicModel', { prefix, modelId: modelLabel });
 }
 
-function updateModelActiveSourceBanner(cfg) {
+export function updateModelActiveSourceBanner(cfg) {
   const banner = document.getElementById('modelActiveSourceBanner');
   if (!banner) return;
   const usesCustom = cfg?.uses_custom_credentials === true;
@@ -485,12 +498,10 @@ function updateModelActiveSourceBanner(cfg) {
   }
   const name = cfg.model_display_name || cfg.active_model_id || '';
   const id = cfg.active_model_id || '';
-  banner.textContent =
-    t('dynamic.settings.当前默认模型来自模型配置档案_name');
+  banner.textContent = t('dynamic.settings.当前默认模型来自模型配置档案_name', { name, id });
   banner.classList.remove('hidden');
   if (cfg.provider_model_mismatch) {
-    banner.textContent +=
-      ' 另外：当前 API 地址与已选模型目录不一致，保存配置时可能被拒绝，请重新选择视觉模型。';
+    banner.textContent += t('dynamic.settings.另外_当前_API_地址与已选模型目录不一致_保');
   }
 }
 

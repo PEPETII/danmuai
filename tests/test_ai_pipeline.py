@@ -116,7 +116,8 @@ def test_request_doubao_wall_clock_skips_http_before_retry():
     from app.ai_client_requests import request_doubao
 
     worker = MagicMock()
-    worker._request_deadline_at = time.monotonic() - 1.0
+    expired = time.monotonic() - 1.0
+    worker._request_deadline_at = expired
     worker._resolve_request_credentials.return_value = (
         "https://api.example/v1",
         "key",
@@ -137,6 +138,7 @@ def test_request_doubao_wall_clock_skips_http_before_retry():
         2,
         0.0,
         0,
+        deadline_at=expired,
     )
 
     worker._stream_doubao.assert_not_called()

@@ -17,6 +17,7 @@ from app.application.web_runtime_state import WebRuntimeState
 from app.config_defaults import config_value_with_default
 from app.config_store import ConfigStore
 from app.danmu_engine import DanmuEngine
+from app.main_helpers import TOPMOST_HEALTH_INTERVAL_MS
 from app.danmu_read_service import DanmuReadService
 from app.history_writer import HistoryWriter
 from app.hotkey import HotkeyManager
@@ -211,8 +212,13 @@ class DanmuAppLifecycleMixin:
         self._live_status_timer.timeout.connect(self._publish_live_status)
 
         self._topmost_health_timer = QTimer(self)
-        self._topmost_health_timer.setInterval(500)
+        self._topmost_health_timer.setInterval(TOPMOST_HEALTH_INTERVAL_MS)
         self._topmost_health_timer.timeout.connect(self._on_topmost_health_tick)
+        self._last_foreground_hwnd = 0
+        self._topmost_health_tick = 0
+        self._last_fullscreen_at_risk = False
+        self._screen_recovery_bound = False
+        self._bind_screen_recovery_signals()
         self._reset_scene_generation_baseline()
 
     def _reset_scene_generation_baseline(self) -> None:
@@ -275,7 +281,7 @@ class DanmuAppLifecycleMixin:
         try:
             self.hotkey.register()
         except Exception as exc:  # boundary: hotkey platform API
-            self.logger.error("热键注册失败: %r", exc)
+            self.logger.error(tr("app.hotkey_register_failed").format(error=exc))
             QMessageBox.warning(
                 None,
                 tr("app.error_title"),
@@ -313,12 +319,7 @@ class DanmuAppLifecycleMixin:
         try:
             self.web_server = attach_web_console(self)
         except Exception as exc:  # boundary: web console startup fatal
-            self.logger.error("Web 控制台启动失败: %r", exc)
-            QMessageBox.critical(
-                None,
-                tr("app.error_title"),
-                tr("app.web_console_startup_failed").format(error=exc),
-            )
+            self.logger.error(tr("app.web_console_startup_failed").format(error=exc))
             raise
 
         from app.font_registry import FontRegistry
@@ -337,16 +338,16 @@ class DanmuAppLifecycleMixin:
 
         initial = "/" if visual_credentials_ready(self.config) else "/#settings"
         if self.web_server.startup_ok:
-            self.logger.info(f"Web 控制台: {self.web_server.base_url} （托盘可再次打开）")
+            self.logger.info(
+                tr("app.web_console_ready").format(url=self.web_server.base_url)
+            )
         elif self.web_launch_mode == "browser":
             self.logger.warning(
-                f"Web 控制台仍在启动: {self.web_server.base_url} "
-                "（就绪前将先打开系统浏览器）"
+                tr("app.web_console_starting_browser").format(url=self.web_server.base_url)
             )
         else:
             self.logger.warning(
-                f"Web 控制台仍在启动: {self.web_server.base_url} "
-                "（就绪后将打开桌面壳，请勿仅用浏览器替代）"
+                tr("app.web_console_starting_shell").format(url=self.web_server.base_url)
             )
 
         show_startup_notice_if_needed(self.config, self.logger)
@@ -356,7 +357,7 @@ class DanmuAppLifecycleMixin:
                 lambda: self._open_web_console_when_ready(initial, use_browser=True),
             )
         else:
-            self.logger.info("桌面壳: pywebview（--web-browser 可改用系统浏览器）")
+            self.logger.info(tr("app.desktop_shell_pywebview"))
             if classify_web_console_startup(self.web_server) == "failed":
                 notify_web_console_failure(self, "web_console.startup_failed")
                 self.web_server._startup_failure_user_notified = True
@@ -625,6 +626,9 @@ class DanmuAppLifecycleMixin:
         self.screenshot_timer.stop()
         self._live_status_timer.stop()
         self._topmost_health_timer.stop()
+        self._last_foreground_hwnd = 0
+        self._topmost_health_tick = 0
+        self._last_fullscreen_at_risk = False
         runtime = self._ensure_web_runtime_state()
         runtime.set_overlay_compat_warning("")
         runtime.set_screen_index_fallback_warning("")
@@ -682,135 +686,151 @@ class DanmuAppLifecycleMixin:
 
     def quit(self) -> None:
         self.logger.info(tr("app.quitting"))
-        self.stop()
-        self._mic_service.stop()
-        self._pool_topup_timer.stop()
-        stop_meme_timers = self.__dict__.get("_stop_meme_barrage_timers")
-        if callable(stop_meme_timers):
-            stop_meme_timers()
 
-        read_svc = self.__dict__.get("_danmu_read_service")
-        if read_svc is not None:
-            read_svc.shutdown()
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtWidgets import QProgressDialog
 
-        self.hotkey.unregister()
-        self.tray.hide()
+        progress = QProgressDialog(tr("app.quitting"), None, 0, 0, None)
+        progress.setWindowModality(Qt.WindowModality.ApplicationModal)
+        progress.setCancelButton(None)
+        progress.setMinimumDuration(0)
+        progress.setWindowTitle("DanmuAI")
+        progress.show()
+        QApplication.processEvents()
 
-        from PyQt6 import QtCore
+        try:
+            self.stop()
+            self._mic_service.stop()
+            self._pool_topup_timer.stop()
+            stop_meme_timers = self.__dict__.get("_stop_meme_barrage_timers")
+            if callable(stop_meme_timers):
+                stop_meme_timers()
 
-        from app.worker_pools import ai_worker_pool, capture_worker_pool, meme_ai_pool, meme_fetch_pool
+            read_svc = self.__dict__.get("_danmu_read_service")
+            if read_svc is not None:
+                read_svc.shutdown()
 
-        capture_done = capture_worker_pool().waitForDone(2000)
-        if not capture_done:
-            cap_pool = capture_worker_pool()
-            self.logger.warning(
-                "quit timed out waiting for capture worker thread pool "
-                "active_threads=%s max_threads=%s",
-                cap_pool.activeThreadCount(),
-                cap_pool.maxThreadCount(),
-            )
+            self.hotkey.unregister()
+            self.tray.hide()
 
-        # W-TEARDOWN-RES-001：ai_worker_pool / meme_ai_pool 是独立 QThreadPool
-        # （非 globalInstance），需单独 waitForDone
-        ai_done = ai_worker_pool().waitForDone(2000)
-        if not ai_done:
-            ai_pool_inst = ai_worker_pool()
-            self.logger.warning(
-                "quit timed out waiting for ai worker thread pool "
-                "active_threads=%s max_threads=%s",
-                ai_pool_inst.activeThreadCount(),
-                ai_pool_inst.maxThreadCount(),
-            )
+            from PyQt6 import QtCore
 
-        meme_done = meme_ai_pool().waitForDone(2000)
-        if not meme_done:
-            m_pool = meme_ai_pool()
-            self.logger.warning(
-                "quit timed out waiting for meme ai worker thread pool "
-                "active_threads=%s max_threads=%s",
-                m_pool.activeThreadCount(),
-                m_pool.maxThreadCount(),
-            )
+            from app.worker_pools import ai_worker_pool, capture_worker_pool, meme_ai_pool, meme_fetch_pool
 
-        # ISSUE-072: meme_fetch_pool 也需等待，否则在途 MemeFetchRunnable
-        # 可能在 config.close() 后通过 Qt 信号回调访问已关闭 SQLite
-        fetch_done = meme_fetch_pool().waitForDone(2000)
-        if not fetch_done:
-            f_pool = meme_fetch_pool()
-            self.logger.warning(
-                "quit timed out waiting for meme fetch thread pool "
-                "active_threads=%s max_threads=%s",
-                f_pool.activeThreadCount(),
-                f_pool.maxThreadCount(),
-            )
-
-        pool = QtCore.QThreadPool.globalInstance()
-        pool_done = pool.waitForDone(2000)
-        if not pool_done:
-            self.logger.warning(
-                "quit timed out waiting for AI worker thread pool "
-                "active_threads=%s max_threads=%s",
-                pool.activeThreadCount(),
-                pool.maxThreadCount(),
-            )
-
-        # W-TEARDOWN-RES-001 / BUG-G-008：等所有 worker pool 结束后再关闭 httpx 客户端，
-        # 避免在途 MemeFetchRunnable 使用已关闭 client。
-        close_meme_client = self.__dict__.get("close_meme_barrage_client")
-        if callable(close_meme_client):
-            close_meme_client()
-
-        # W-QUIT-TEARDOWN-001：先停 Web 控制台（含 meta 轮询），再关 config.db，
-        # 避免 HTTP 线程在 conn.close() 后仍读 meme_barrage_library。
-        self.stop_web_status_timer()
-        server = getattr(self, "web_server", None)
-        if server:
-            server.stop()
-            web_thread = getattr(server, "_thread", None)
-            shutdown_done = False
-            wait_shutdown_complete = getattr(server, "wait_shutdown_complete", None)
-            if callable(wait_shutdown_complete):
-                shutdown_done = bool(wait_shutdown_complete())
-            if not shutdown_done and web_thread is not None and web_thread.is_alive():
-                web_thread.join(timeout=0.5)
-                shutdown_done = not web_thread.is_alive()
-            if not shutdown_done:
+            capture_done = capture_worker_pool().waitForDone(2000)
+            if not capture_done:
+                cap_pool = capture_worker_pool()
                 self.logger.warning(
-                    "quit timed out waiting for Web console shutdown "
-                    "startup_ok=%s bind_failed=%s shutdown_requested=%s shutdown_complete=%s",
-                    getattr(server, "startup_ok", False),
-                    bool(getattr(server, "_bind_failed", None) and server._bind_failed.is_set()),
-                    bool(getattr(server, "_shutdown_requested", None) and server._shutdown_requested.is_set()),
-                    bool(getattr(server, "_shutdown_complete", None) and server._shutdown_complete.is_set()),
+                    "quit timed out waiting for capture worker thread pool "
+                    "active_threads=%s max_threads=%s",
+                    cap_pool.activeThreadCount(),
+                    cap_pool.maxThreadCount(),
                 )
-            bridge = getattr(server, "bridge", None)
-            if bridge is not None:
-                bridge.set_event_loop(None)
-            server._loop = None
 
-        shell = getattr(self, "webview_shell", None)
-        if shell:
-            shell.destroy()
+            # W-TEARDOWN-RES-001：ai_worker_pool / meme_ai_pool 是独立 QThreadPool
+            # （非 globalInstance），需单独 waitForDone
+            ai_done = ai_worker_pool().waitForDone(2000)
+            if not ai_done:
+                ai_pool_inst = ai_worker_pool()
+                self.logger.warning(
+                    "quit timed out waiting for ai worker thread pool "
+                    "active_threads=%s max_threads=%s",
+                    ai_pool_inst.activeThreadCount(),
+                    ai_pool_inst.maxThreadCount(),
+                )
 
-        self.history_writer.stop()
-        self.ai_worker.close()
-        self.config.close()
+            meme_done = meme_ai_pool().waitForDone(2000)
+            if not meme_done:
+                m_pool = meme_ai_pool()
+                self.logger.warning(
+                    "quit timed out waiting for meme ai worker thread pool "
+                    "active_threads=%s max_threads=%s",
+                    m_pool.activeThreadCount(),
+                    m_pool.maxThreadCount(),
+                )
 
-        # 显式清理 pet 组件:停止 QTimer、释放 QPixmap,与 overlay 对称。
-        pet_window = self.__dict__.get("pet_window")
-        if pet_window is not None:
-            try:
-                pet_window.hide_pet()
-            except RuntimeError as exc:
-                self.logger.warning(f"pet window hide on quit failed: {exc!r}")
-        pet_barrage_ctrl = self.__dict__.get("pet_barrage_controller")
-        if pet_barrage_ctrl is not None:
-            try:
-                pet_barrage_ctrl.close()
-            except RuntimeError as exc:
-                self.logger.warning(f"pet barrage close on quit failed: {exc!r}")
+            # ISSUE-072: meme_fetch_pool 也需等待，否则在途 MemeFetchRunnable
+            # 可能在 config.close() 后通过 Qt 信号回调访问已关闭 SQLite
+            fetch_done = meme_fetch_pool().waitForDone(2000)
+            if not fetch_done:
+                f_pool = meme_fetch_pool()
+                self.logger.warning(
+                    "quit timed out waiting for meme fetch thread pool "
+                    "active_threads=%s max_threads=%s",
+                    f_pool.activeThreadCount(),
+                    f_pool.maxThreadCount(),
+                )
 
-        self.overlay.hide()
+            pool = QtCore.QThreadPool.globalInstance()
+            pool_done = pool.waitForDone(2000)
+            if not pool_done:
+                self.logger.warning(
+                    "quit timed out waiting for AI worker thread pool "
+                    "active_threads=%s max_threads=%s",
+                    pool.activeThreadCount(),
+                    pool.maxThreadCount(),
+                )
 
-        self.logger.info(tr("app.quit_done"))
+            # W-TEARDOWN-RES-001 / BUG-G-008：等所有 worker pool 结束后再关闭 httpx 客户端，
+            # 避免在途 MemeFetchRunnable 使用已关闭 client。
+            close_meme_client = self.__dict__.get("close_meme_barrage_client")
+            if callable(close_meme_client):
+                close_meme_client()
+
+            # W-QUIT-TEARDOWN-001：先停 Web 控制台（含 meta 轮询），再关 config.db，
+            # 避免 HTTP 线程在 conn.close() 后仍读 meme_barrage_library。
+            self.stop_web_status_timer()
+            server = getattr(self, "web_server", None)
+            if server:
+                server.stop()
+                web_thread = getattr(server, "_thread", None)
+                shutdown_done = False
+                wait_shutdown_complete = getattr(server, "wait_shutdown_complete", None)
+                if callable(wait_shutdown_complete):
+                    shutdown_done = bool(wait_shutdown_complete())
+                if not shutdown_done and web_thread is not None and web_thread.is_alive():
+                    web_thread.join(timeout=0.5)
+                    shutdown_done = not web_thread.is_alive()
+                if not shutdown_done:
+                    self.logger.warning(
+                        "quit timed out waiting for Web console shutdown "
+                        "startup_ok=%s bind_failed=%s shutdown_requested=%s shutdown_complete=%s",
+                        getattr(server, "startup_ok", False),
+                        bool(getattr(server, "_bind_failed", None) and server._bind_failed.is_set()),
+                        bool(getattr(server, "_shutdown_requested", None) and server._shutdown_requested.is_set()),
+                        bool(getattr(server, "_shutdown_complete", None) and server._shutdown_complete.is_set()),
+                    )
+                bridge = getattr(server, "bridge", None)
+                if bridge is not None:
+                    bridge.set_event_loop(None)
+                server._loop = None
+
+            shell = getattr(self, "webview_shell", None)
+            if shell:
+                shell.destroy()
+
+            self.history_writer.stop()
+            self.ai_worker.close()
+            self.config.close()
+
+            # 显式清理 pet 组件:停止 QTimer、释放 QPixmap,与 overlay 对称。
+            pet_window = self.__dict__.get("pet_window")
+            if pet_window is not None:
+                try:
+                    pet_window.hide_pet()
+                except RuntimeError as exc:
+                    self.logger.warning(f"pet window hide on quit failed: {exc!r}")
+            pet_barrage_ctrl = self.__dict__.get("pet_barrage_controller")
+            if pet_barrage_ctrl is not None:
+                try:
+                    pet_barrage_ctrl.close()
+                except RuntimeError as exc:
+                    self.logger.warning(f"pet barrage close on quit failed: {exc!r}")
+
+            self.overlay.hide()
+
+            self.logger.info(tr("app.quit_done"))
+        finally:
+            progress.close()
+
         QApplication.quit()

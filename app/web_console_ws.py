@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import secrets
 import time
 from typing import Any
 
@@ -34,7 +35,9 @@ async def _send_json_with_timeout(
 
 
 def _ws_token_valid(query_token: str | None, expected: str) -> bool:
-    return bool(query_token and query_token.strip() == expected)
+    if not query_token:
+        return False
+    return secrets.compare_digest(query_token.strip(), expected)
 
 
 def _enqueue_ws(
@@ -80,7 +83,7 @@ async def _authenticate_websocket(websocket, expected_token: str, timeout_sec: f
     query_token = websocket.query_params.get("ws_token")
     if query_token is not None:
         token_text = str(query_token).strip()
-        if token_text and token_text == expected_token:
+        if token_text and secrets.compare_digest(token_text, expected_token):
             return True
         if not await _send_json_with_timeout(
             websocket, {"type": "auth", "ok": False, "error": "认证失败"}
@@ -94,7 +97,7 @@ async def _authenticate_websocket(websocket, expected_token: str, timeout_sec: f
         data = await asyncio.wait_for(websocket.receive_json(), timeout=timeout_sec)
         if isinstance(data, dict) and data.get("type") == "auth":
             auth_token = data.get("token", "")
-            if auth_token.strip() == expected_token:
+            if secrets.compare_digest(auth_token.strip(), expected_token):
                 if not await _send_json_with_timeout(
                     websocket, {"type": "auth", "ok": True}
                 ):

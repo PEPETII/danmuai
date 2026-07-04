@@ -60,10 +60,14 @@ class Translator(QObject):
         return cls._lang
 
     @classmethod
-    def tr(cls, key: str, default: str = "") -> str:
+    def tr(cls, key: str, default: str = "", **params) -> str:
         lang_dict = TRANSLATIONS.get(cls._lang, {})
-        return lang_dict.get(key, default or key)
+        text = lang_dict.get(key, default or key)
+        if params:
+            for name, value in params.items():
+                text = text.replace(f"{{{name}}}", str(value))
+        return text
 
 
-def tr(key: str, default: str = "") -> str:
-    return Translator.tr(key, default)
+def tr(key: str, default: str = "", **params) -> str:
+    return Translator.tr(key, default, **params)

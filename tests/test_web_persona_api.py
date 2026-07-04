@@ -511,3 +511,22 @@ def test_put_active_personae_empty_list_in_en(persona_app):
         assert "Please select at least one persona" in detail
     finally:
         Translator.set_language("zh")
+
+
+def test_builtin_saved_zh_default_returns_en_prompt_when_language_en(persona_app):
+    from app.web_api import persona as persona_api
+
+    persona_api.save_template(
+        persona_app,
+        "高压吐槽型",
+        BUILTIN_PERSONAE["高压吐槽型"]["system_zh"],
+        "",
+    )
+    Translator.set_language("en")
+    try:
+        detail = persona_api.get_template_detail(persona_app, "高压吐槽型")
+        assert "sharp roast viewer" in detail["system_custom"]
+        assert "吐槽观众" not in detail["system_custom"]
+    finally:
+        Translator.set_language("zh")
+        persona_api.restore_builtin_default(persona_app, "高压吐槽型")

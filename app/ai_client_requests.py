@@ -41,15 +41,27 @@ from app.translations import tr
 logger = logging.getLogger(__name__)
 
 
-def _request_wall_clock_exceeded(worker) -> bool:
-    deadline = getattr(worker, "_request_deadline_at", None)
-    if deadline is None:
+def _resolve_request_timing(
+    worker,
+    *,
+    deadline_at: float | None = None,
+    started_at: float | None = None,
+) -> tuple[float | None, float | None]:
+    if deadline_at is None:
+        deadline_at = getattr(worker, "_request_deadline_at", None)
+    if started_at is None:
+        started_at = getattr(worker, "_request_started_at", None)
+    return deadline_at, started_at
+
+
+def _request_wall_clock_exceeded(*, deadline_at: float | None) -> bool:
+    if deadline_at is None:
         return False
-    return time.monotonic() > float(deadline)
+    return time.monotonic() > float(deadline_at)
 
 
-def _raise_if_wall_clock_exceeded(worker) -> None:
-    if _request_wall_clock_exceeded(worker):
+def _raise_if_wall_clock_exceeded(*, deadline_at: float | None) -> None:
+    if _request_wall_clock_exceeded(deadline_at=deadline_at):
         raise httpx.TimeoutException("request wall clock exceeded")
 
 
@@ -228,7 +240,12 @@ def request_doubao(
     audio_data_uri: str | None = None,
     resolved: tuple[str, str, str, str] | None = None,
     emit: bool = True,
+    deadline_at: float | None = None,
+    started_at: float | None = None,
 ) -> AiProbeResult | None:
+    deadline_at, started_at = _resolve_request_timing(
+        worker, deadline_at=deadline_at, started_at=started_at
+    )
     if resolved is None:
         resolved = worker._resolve_request_credentials()
     if resolved is None:
@@ -302,7 +319,7 @@ def request_doubao(
 
     http_client = worker._get_http_client()
     for attempt in range(2):
-        if _request_wall_clock_exceeded(worker):
+        if _request_wall_clock_exceeded(deadline_at=deadline_at):
             return worker._deliver_outcome(
                 emit=emit,
                 signal_name="error",
@@ -320,6 +337,8 @@ def request_doubao(
                 headers,
                 data,
                 first_content_timeout=STREAM_FIRST_CONTENT_TIMEOUT_SEC,
+                deadline_at=deadline_at,
+                started_at=started_at,
             )
             if text:
                 return worker._deliver_outcome(
@@ -409,11 +428,22 @@ def request_doubao(
     )
 
 
-def stream_doubao(worker, http_client, url: str, headers: dict, data: dict, *, first_content_timeout: float | None = None) -> tuple[str, int, int, str]:
+def stream_doubao(
+    worker,
+    http_client,
+    url: str,
+    headers: dict,
+    data: dict,
+    *,
+    first_content_timeout: float | None = None,
+    deadline_at: float | None = None,
+    started_at: float | None = None,
+) -> tuple[str, int, int, str]:
     from app.doubao_responses_stream import stream_doubao_responses
 
-    deadline_at = getattr(worker, "_request_deadline_at", None)
-    started_at = getattr(worker, "_request_started_at", None)
+    deadline_at, started_at = _resolve_request_timing(
+        worker, deadline_at=deadline_at, started_at=started_at
+    )
     result = stream_doubao_responses(
         http_client,
         url,
@@ -450,7 +480,12 @@ def request_openai(
     audio_data_uri: str | None = None,
     resolved: tuple[str, str, str, str] | None = None,
     emit: bool = True,
+    deadline_at: float | None = None,
+    started_at: float | None = None,
 ) -> AiProbeResult | None:
+    deadline_at, started_at = _resolve_request_timing(
+        worker, deadline_at=deadline_at, started_at=started_at
+    )
     if resolved is None:
         resolved = worker._resolve_request_credentials()
     if resolved is None:
@@ -531,7 +566,7 @@ def request_openai(
     headers.update(provider_extra_headers(endpoint))
 
     for attempt in range(2):
-        if _request_wall_clock_exceeded(worker):
+        if _request_wall_clock_exceeded(deadline_at=deadline_at):
             return worker._deliver_outcome(
                 emit=emit,
                 signal_name="error",
@@ -551,6 +586,8 @@ def request_openai(
                 endpoint=endpoint,
                 api_mode=api_mode,
                 first_content_timeout=STREAM_FIRST_CONTENT_TIMEOUT_SEC,
+                deadline_at=deadline_at,
+                started_at=started_at,
             )
             if text:
                 return worker._deliver_outcome(
@@ -649,7 +686,12 @@ def stream_openai(
     endpoint: str = "",
     api_mode: str = "",
     first_content_timeout: float | None = None,
+    deadline_at: float | None = None,
+    started_at: float | None = None,
 ) -> tuple[str, int, int]:
+    deadline_at, started_at = _resolve_request_timing(
+        worker, deadline_at=deadline_at, started_at=started_at
+    )
     collected: list[str] = []
     reasoning_parts: list[str] = []
     input_tokens = 0
@@ -662,10 +704,9 @@ def stream_openai(
         for line in resp.iter_lines():
             if worker._stopping.is_set():
                 break
-            _raise_if_wall_clock_exceeded(worker)
+            _raise_if_wall_clock_exceeded(deadline_at=deadline_at)
             # W-PERF-STREAM-001：首内容超时检查
             if first_content_timeout is not None and not got_first_content:
-                started_at = getattr(worker, "_request_started_at", None)
                 if started_at is not None and time.monotonic() - started_at > first_content_timeout:
                     logger.warning(
                         "openai stream first content timeout: %.1fs elapsed, no content delta received, endpoint=%s",

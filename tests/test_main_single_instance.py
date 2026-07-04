@@ -247,3 +247,49 @@ def test_server_name_falls_back_to_user_env(monkeypatch):
     # Must differ from the empty-username fallback.
     monkeypatch.delenv("USER", raising=False)
     assert name != _server_name()
+
+
+def test_server_name_includes_session_id(monkeypatch):
+    """W-COMPAT-SINGLE-INSTANCE-SESSION-001: different session IDs → different names."""
+    import sys
+    from types import SimpleNamespace
+
+    monkeypatch.setitem(
+        sys.modules,
+        "PyQt6.QtNetwork",
+        SimpleNamespace(QLocalServer=object(), QLocalSocket=object()),
+    )
+    from app import single_instance
+
+    monkeypatch.setenv("APPDATA", "C:\\Users\\Alice\\AppData\\Roaming")
+    monkeypatch.setenv("USERNAME", "Alice")
+    monkeypatch.delenv("USER", raising=False)
+
+    monkeypatch.setattr(single_instance, "_windows_session_id", lambda: "1")
+    name_session_1 = single_instance._server_name()
+
+    monkeypatch.setattr(single_instance, "_windows_session_id", lambda: "2")
+    name_session_2 = single_instance._server_name()
+
+    assert name_session_1 != name_session_2
+    assert name_session_1.startswith("DanmuAI-")
+
+
+def test_server_name_stable_for_same_session_triplet(monkeypatch):
+    """W-COMPAT-SINGLE-INSTANCE-SESSION-001: same USERNAME+APPDATA+session stays stable."""
+    import sys
+    from types import SimpleNamespace
+
+    monkeypatch.setitem(
+        sys.modules,
+        "PyQt6.QtNetwork",
+        SimpleNamespace(QLocalServer=object(), QLocalSocket=object()),
+    )
+    from app import single_instance
+
+    monkeypatch.setenv("APPDATA", "C:\\Users\\Alice\\AppData\\Roaming")
+    monkeypatch.setenv("USERNAME", "Alice")
+    monkeypatch.delenv("USER", raising=False)
+    monkeypatch.setattr(single_instance, "_windows_session_id", lambda: "7")
+
+    assert single_instance._server_name() == single_instance._server_name()

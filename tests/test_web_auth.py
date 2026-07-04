@@ -509,7 +509,51 @@ def test_require_auth_query_uses_query_param():
     assert ok.json() == {"ok": True}
 
 
+def test_enforce_session_authorization_uses_compare_digest(monkeypatch):
+    """BUG-003: Bearer token comparison must use secrets.compare_digest."""
+    digest_calls = []
 
+    def _track_digest(a, b):
+        digest_calls.append((a, b))
+        return a == b
+
+    monkeypatch.setattr(
+        "app.web_console_session_auth.secrets.compare_digest", _track_digest
+    )
+    from app.web_console_session_auth import enforce_session_authorization
+
+    enforce_session_authorization(
+        authorization="Bearer secret",
+        origin=None,
+        referer=None,
+        host="127.0.0.1:18765",
+        expected_token="secret",
+    )
+    assert digest_calls == [("secret", "secret")]
+
+
+def test_ws_token_valid_uses_compare_digest(monkeypatch):
+    """BUG-003: WebSocket query token comparison must use secrets.compare_digest."""
+    digest_calls = []
+
+    def _track_digest(a, b):
+        digest_calls.append((a, b))
+        return a == b
+
+    monkeypatch.setattr("app.web_console_ws.secrets.compare_digest", _track_digest)
+    from app.web_console_ws import _ws_token_valid
+
+    assert _ws_token_valid("tok", "tok") is True
+    assert digest_calls == [("tok", "tok")]
+
+
+def test_web_console_runtime_uses_compare_digest_for_bearer():
+    """BUG-003: _check_token in web_console_runtime must not use plain != comparison."""
+    from pathlib import Path
+
+    src = Path("app/web_console_runtime.py").read_text(encoding="utf-8")
+    assert "compare_digest" in src
+    assert '.strip() != token' not in src
 
 
 

@@ -20,6 +20,8 @@ bug-audit/bug-03.md 缺陷 1：`/api/session` 端点未鉴权即返回 Bearer To
 
 from __future__ import annotations
 
+import secrets
+
 from fastapi import HTTPException
 
 _LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
@@ -64,7 +66,7 @@ def enforce_session_authorization(
         auth = (authorization or "").strip()
         if auth.startswith("Bearer "):
             presented = auth[len("Bearer ") :].strip()
-            if presented == expected_token:
+            if secrets.compare_digest(presented, expected_token):
                 return
             raise HTTPException(status_code=403, detail="令牌无效")
         if auth:

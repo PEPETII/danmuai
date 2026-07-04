@@ -17,7 +17,7 @@
  *     configureStatus() 注入；本模块不直接 import 减少耦合
  */
 
-import { t } from './i18n.js';
+import { getLanguage, t } from './i18n.js';
 
 let statusHadError = false;
 let lastAppliedStatus = null;
@@ -135,9 +135,9 @@ export function formatRuntimeLong(sec) {
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);
   const r = s % 60;
-  if (h > 0) return t('dynamic.status.h_小时_m_分');
+  if (h > 0) return t('dynamic.status.h_小时_m_分', { h, m });
   if (m > 0) return `${m}:${String(r).padStart(2, '0')}`;
-  return t('dynamic.status.r_秒');
+  return t('dynamic.status.r_秒', { r });
 }
 
 function formatSessionTimestamp(unixSec) {
@@ -154,13 +154,13 @@ function formatSessionRunLine(run) {
   const input = run.input_tokens ?? 0;
   const output = run.output_tokens ?? 0;
   const total = run.total_tokens ?? (input + output);
-  return t('dynamic.status.start_end_mod');
+  return t('dynamic.status.start_end_mod', { start, end, model, input, output, total });
 }
 
 function sessionRunsKey(runs) {
   const list = Array.isArray(runs) ? runs : [];
   const first = list[0];
-  return `${list.length}|${first?.ended_at ?? ''}|${first?.started_at ?? ''}`;
+  return `${getLanguage()}|${list.length}|${first?.ended_at ?? ''}|${first?.started_at ?? ''}`;
 }
 
 function renderSessionRuns(runs) {
@@ -188,7 +188,14 @@ function renderSessionRuns(runs) {
 
 function formatTokenCount(n) {
   const v = Number(n) || 0;
-  return v >= 10000 ? v.toLocaleString('zh-CN') : String(v);
+  const locale = getLanguage() === 'en' ? 'en-US' : 'zh-CN';
+  return v >= 10000 ? v.toLocaleString(locale) : String(v);
+}
+
+/** Force running pill / sub text to refresh after language switch. */
+export function resetStatusUiI18nCache() {
+  lastRunning = null;
+  lastLiveMessage = null;
 }
 
 function updateTextIfChanged(el, newText) {
@@ -290,7 +297,7 @@ export function applyStatus(st) {
     const legacyExtra = lifetimeTotal - lifetimeIn - lifetimeOut;
     if (legacyExtra > 0) {
       const noteText =
-        t('dynamic.status.另有升级前累计_formatTokenCou');
+        t('dynamic.status.另有升级前累计_formatTokenCou', { legacyExtra: formatTokenCount(legacyExtra) });
       updateTextIfChanged(lifetimeNoteEl, noteText);
       lifetimeNoteEl.classList.remove('hidden');
     } else {
@@ -309,7 +316,7 @@ export function applyStatus(st) {
     const mismatchNote = document.getElementById('modelActiveSourceBanner');
     if (mismatchNote && mismatchNote.classList.contains('hidden')) {
       mismatchNote.textContent =
-        t('dynamic.status.当前_API_地址与模型_st_active');
+        t('dynamic.status.当前_API_地址与模型_st_active', { modelId: st.active_model_id });
       mismatchNote.classList.remove('hidden');
     }
   }

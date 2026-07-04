@@ -82,6 +82,44 @@ def test_providers_excludes_deepseek():
     assert "custom_openai" in ids
 
 
+def test_providers_api_labels_follow_translator_language():
+    from app.model_providers import PROVIDERS, provider_label
+    from app.translations import Translator
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    app = FastAPI()
+
+    @app.get("/api/providers")
+    def providers():
+        lang = Translator.get_language()
+        return [
+            {
+                "id": provider.id,
+                "label": provider_label(provider.id, lang),
+                "default_endpoint": provider.default_endpoint,
+                "mode": provider.mode,
+                "hint": (
+                    provider.model_id_hint_en
+                    if lang == "en"
+                    else provider.model_id_hint_zh
+                ),
+                "website": provider.website,
+            }
+            for provider in PROVIDERS
+        ]
+
+    client = TestClient(app)
+    Translator.set_language("en")
+    try:
+        payload = client.get("/api/providers").json()
+        mimo = next(item for item in payload if item["id"] == "mimo")
+        assert mimo["label"] == "Xiaomi MiMo"
+        assert "Vision danmu" in mimo["hint"]
+    finally:
+        Translator.set_language("zh")
+
+
 def test_provider_rules_endpoint():
     from app.model_providers import DEFAULT_PROVIDER_ID, provider_rules_for_api
     from app.web_api.routes import register_web_routes
@@ -210,6 +248,8 @@ def test_settings_providers_js_no_hardcoded_host_table():
 
 
 def test_web_settings_ui_provider_naming_unified():
+    import json
+
     from app.bundle_paths import project_root
 
     root = project_root()
@@ -223,14 +263,23 @@ def test_web_settings_ui_provider_naming_unified():
     settings_js = (root / "web" / "static" / "modules" / "settings.js").read_text(
         encoding="utf-8"
     )
+    zh_hints = json.loads(
+        (root / "web" / "static" / "locales" / "zh" / "hints.json").read_text(
+            encoding="utf-8"
+        )
+    )
     assert "手动填写" in html
     assert "模型配置档案" in html
     assert 'value="">自定义</option>' not in html
     assert ">自定义</option>" not in html
     assert "MANUAL_PROVIDER_LABEL" in providers_js
     assert "MIC_LABEL_SUFFIX" in providers_js
-    assert "选「手动填写」则不套用预设" in hints_js
-    assert "模型配置档案" in settings_js
+    assert "micProviderPreset:" in hints_js
+    assert (
+        "dynamic.settingsHints.为麦克风接话选择服务商预设_会自动填入麦克风_A" in hints_js
+    )
+    assert "为麦克风接话选择服务商预设" in zh_hints["hints"]["micProviderPreset"]
+    assert "dynamic.settings.当前默认模型来自模型配置档案_name" in settings_js
 
 
 def test_web_content_page_field_hints_wired():

@@ -656,18 +656,32 @@ def test_delete_custom_prunes_active_personae(tmp_path):
 
 def test_quit_stops_pool_topup_timer(monkeypatch):
     """BUG-019: quit() must stop _pool_topup_timer even if stop() does not."""
-    import PyQt6.QtCore as qtcore
-
     fake_pool = MagicMock()
     fake_pool.waitForDone.return_value = True
+    for name in (
+        "capture_worker_pool",
+        "ai_worker_pool",
+        "meme_ai_pool",
+        "meme_fetch_pool",
+    ):
+        monkeypatch.setattr(f"app.worker_pools.{name}", lambda _p=fake_pool: _p)
 
-    class _FakeQThreadPool:
-        @staticmethod
-        def globalInstance():
-            return fake_pool
+    import PyQt6.QtCore as qtcore
 
-    monkeypatch.setattr(qtcore, "QThreadPool", _FakeQThreadPool)
+    monkeypatch.setattr(qtcore.QThreadPool, "globalInstance", staticmethod(lambda: fake_pool))
     monkeypatch.setattr("main.QApplication.quit", MagicMock())
+
+    class _FakeProgressDialog:
+        def __init__(self, *_args, **_kwargs):
+            self.show = MagicMock()
+            self.close = MagicMock()
+            self.setWindowModality = MagicMock()
+            self.setCancelButton = MagicMock()
+            self.setMinimumDuration = MagicMock()
+            self.setWindowTitle = MagicMock()
+
+    monkeypatch.setattr("PyQt6.QtWidgets.QProgressDialog", _FakeProgressDialog)
+    monkeypatch.setattr("app.main_lifecycle_mixin.QApplication.processEvents", MagicMock())
 
     pool_timer = FakeTimer()
     pool_timer.active = True

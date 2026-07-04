@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 import pytest
 from app.config_store import ConfigStore
 from app.danmu_engine import FADE_IN_PX, DanmuEngine, DanmuItem
+from app.danmu_engine.screen import track_layout_metrics
 from app.overlay import _INTERVAL_MAX_MS, DanmuOverlay, _use_fast_danmu_render
 from PyQt6.QtCore import QRect
 from PyQt6.QtWidgets import QApplication
@@ -396,11 +397,12 @@ def test_top_track_paints_at_track_y(overlay_stack):
     top_track.add(item)
 
     paint_rect = overlay._item_paint_rect(item)
+    expected_top = track_layout_metrics()["top_margin"]
     assert paint_rect.y() == pytest.approx(top_track.y)
     assert paint_rect.y() == pytest.approx(item.y)
-    # 顶格轨道 y 应为 engine 的 top_margin=50，不应有 +30 偏移
-    assert top_track.y == pytest.approx(50.0)
-    assert paint_rect.y() != pytest.approx(80.0)
+    # 顶格轨道 y 应与 engine top_margin 一致，不应有 +30 渲染偏移
+    assert top_track.y == pytest.approx(expected_top)
+    assert paint_rect.y() != pytest.approx(expected_top + 30.0)
 
 
 def test_add_text_far_offscreen_defers_pixmap(overlay_stack, monkeypatch):

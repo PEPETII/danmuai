@@ -18,6 +18,7 @@
       "加载模型列表失败": "Failed to load model list",
       "已切换为默认模型_res_default_m": "Switched to default model: ${res.default_model_id ||",
       "切换模型失败": "Model switch failed",
+      "switchedDefaultModel": "Switched to default model: {modelId}",
       "思考中": "Thinking…",
       "变更预览_共_count_项": "📋 Change preview (${count} items)",
       "变更预览": "📋 Change preview",
@@ -178,6 +179,7 @@
       "更新包约_formatBytes_tota": ", package ~${formatBytes(totalBytes)}",
       "发现新版本_data_latest_vers": "New version ${data.latest_version ||",
       "发现新版本_data_latest_vers_2": "New version ${data.latest_version} found",
+      "newVersionStatus": "New version {latest}{sizeHint}",
       "分享信息已复制到剪贴板": "Share info copied to clipboard",
       "链接已复制到剪贴板": "Link copied to clipboard"
     },
@@ -227,7 +229,8 @@
       "关闭日志": "Close logs",
       "等待日志_点击_生成弹幕_后_截图_AI_请求": "Waiting for logs… After Start danmu, capture, AI requests, and danmu events appear here in real time.",
       "正在通过_HTTP_同步日志_若长时间仍为空": "Syncing logs via HTTP… If empty, confirm you clicked Start danmu and capture/AI activity exists.",
-      "日志通道连接中_若超过数秒仍无内容_请点左侧": "Log channel connecting… If empty after seconds, check connection in Dashboard header or restart DanmuAI."
+      "日志通道连接中_若超过数秒仍无内容_请点左侧": "Log channel connecting… If empty after seconds, check connection in Dashboard header or restart DanmuAI.",
+      "语言切换后日志已清空": "Language switched; log view cleared. New logs after Start danmu will use the current language."
     },
     "settingsCaptureRegion": {
       "正在框选": "Selecting region…",
@@ -445,10 +448,16 @@
       "未检测到默认输入": "No default input detected",
       "跟随系统默认_当前_defaultLabel": "Follow system default (current: ${defaultLabel})",
       "device_name_默认": "${device.name} (default)",
-      "输入_activeInputLabel": "· Input: ${activeInputLabel}",
-      "默认输入_defaultInputLab": "· Default input: ${defaultInputLabel}",
+      "输入_activeInputLabel": " · Input: {activeInputLabel}",
+      "默认输入_defaultInputLab": " · Default input: {defaultInputLabel}",
       "开麦使用识图模型_modelId": "Mic uses capture model: ${modelId ||",
       "开麦使用独立麦克风模型_modelId": "Mic uses dedicated model: ${modelId ||",
+      "micBannerVisualModel": "Mic uses capture model: {modelId} @ {endpoint}{inputSuffix}",
+      "micBannerDedicatedModel": "Mic uses dedicated model: {modelId} @ {endpoint}{inputSuffix}",
+      "micHintDeviceUnavailable": "Mic input unavailable: selected device missing; runtime falls back to system default ({defaultLabel}).",
+      "micHintMimoRequired": "{prefix}requires MiMo-V2.5 (mimo-v2.5). Current model「{modelId}」does not support mic; switch to mimo-v2.5 or enable「Same as capture model」in Mic tab, save, then start danmu.",
+      "micHintNoMicSupport": "{prefix}current model「{modelId}」does not declare mic_audio support. Enable「Supports microphone」in model profiles, use Doubao/MiMo, or configure separately in Mic tab.",
+      "micHintPickMicModel": "{prefix}current model「{modelId}」may not understand the mic. Pick a model with「Supports microphone」(e.g. doubao-seed-2-0-mini), save, then start danmu.",
       "所选设备不可用_已回退到系统默认": "· Selected device unavailable, using system default",
       "麦克风输入设备不可用_已选择的设备当前不存在_运": "Mic input unavailable: selected device missing; runtime falls back to system default (${defaultLabel ||",
       "麦克风可能无法识别你的声音": "Mic may not recognize your voice:",
@@ -457,7 +466,7 @@
       "prefix_当前模型_modelId": "${prefix}current model「${modelId ||",
       "未声明_mic_audio_支持_请在模型配": "}」does not declare mic_audio support. Enable「Supports microphone」in model profiles, use Doubao/MiMo, or configure separately in Mic tab.",
       "可能听不懂麦克风_请改选带_支持麦克风_的模": "}」may not understand the mic. Pick a model with「Supports microphone」(e.g. doubao-seed-2-0-mini), save, then start danmu.",
-      "当前默认模型来自模型配置档案_name": "Default model from profile「${name}」(${id}). API endpoint/key in Danmu Settings are not used for generation—maintain them in Model profiles.",
+      "当前默认模型来自模型配置档案_name": "Default model from profile「{name}」({id}). API endpoint/key in Danmu Settings are not used for generation—maintain them in Model profiles.",
       "另外_当前_API_地址与已选模型目录不一致_保": "Also: current API endpoint does not match selected model catalog; save may be rejected—re-select the vision model.",
       "配置已保存_当前生效模型_label": "Settings saved; active model: ${label}",
       "配置已保存": "Settings saved",
@@ -468,9 +477,9 @@
       "模型已保存_2": "Model saved~"
     },
     "status": {
-      "h_小时_m_分": "${h}h ${m}min",
-      "r_秒": "${r}s",
-      "start_end_mod": "${start} - ${end}  ${model}  in ${input}  out ${output}  total ${total}",
+      "h_小时_m_分": "{h}h {m}min",
+      "r_秒": "{r}s",
+      "start_end_mod": "{start} - {end}  {model}  in {input}  out {output}  total {total}",
       "生成中": "Generating",
       "小助手正在为你生成暖心弹幕": "Assistant is generating cozy danmu for you~",
       "停止弹幕": "Stop danmu",
@@ -479,8 +488,8 @@
       "生成弹幕": "Start danmu",
       "侧边悬浮窗在屏条数": "Floating panel on-screen count",
       "横向弹幕在屏条数": "Horizontal danmu on-screen count",
-      "另有升级前累计_formatTokenCou": "Plus ${formatTokenCount(legacyExtra)} pre-upgrade tokens (input/output not split; included in historical total)",
-      "当前_API_地址与模型_st_active": "Current API endpoint does not match model「${st.active_model_id}」; re-select vision model in Danmu Settings and save."
+      "另有升级前累计_formatTokenCou": "Plus {legacyExtra} pre-upgrade tokens (input/output not split; included in historical total)",
+      "当前_API_地址与模型_st_active": "Current API endpoint does not match model「{modelId}」; re-select vision model in Danmu Settings and save."
     },
     "theme": {
       "切换浅色模式": "Switch to light mode",

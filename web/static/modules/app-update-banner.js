@@ -686,7 +686,10 @@ export async function handleCheckAppUpdateClick() {
         phase: 'idle',
         progress: 0,
         totalBytes,
-        statusText: `发现新版本 ${data.latest_version || ''}${sizeHint}`,
+        statusText: t('dynamic.appUpdateBanner.newVersionStatus', {
+          latest: data.latest_version || '',
+          sizeHint,
+        }),
       });
       showToast(data.message || t('dynamic.appUpdateBanner.发现新版本_data_latest_vers_2'));
       window.setTimeout(() => {

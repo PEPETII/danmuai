@@ -5,9 +5,11 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pytest
+from app.translations import Translator
 from app.web_console_support import (
     enumerate_screens,
     is_empty_screens_fallback,
+    localize_screen_labels,
     resolve_screens_for_api,
     screens_for_api,
     try_cache_screens,
@@ -117,6 +119,24 @@ def test_screens_for_api_skips_enumerate_when_cache_valid(monkeypatch):
         return [{"index": 0, "label": "should-not-run", "width": 1, "height": 1}]
 
     monkeypatch.setattr("app.web_console_support.enumerate_screens", fake_enumerate)
-    result = screens_for_api(bridge)
+    Translator.set_language("en")
+    try:
+        result = screens_for_api(bridge)
+    finally:
+        Translator.set_language("zh")
     assert calls["n"] == 0
-    assert result == bridge.cached_screens
+    assert result[0]["label"].startswith("Display 1")
+    assert result[0]["width"] == 1920
+
+
+def test_localize_screen_labels_uses_current_language():
+    cached = [
+        {"index": 0, "label": "显示器 1 — 2560×1440", "width": 2560, "height": 1440},
+    ]
+    Translator.set_language("en")
+    try:
+        localized = localize_screen_labels(cached)
+    finally:
+        Translator.set_language("zh")
+    assert localized[0]["label"].startswith("Display 1")
+    assert "2560" in localized[0]["label"]

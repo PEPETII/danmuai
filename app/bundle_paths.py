@@ -31,6 +31,12 @@ def frozen_log_path() -> Path:
     return base / "DanmuAI" / "startup.log"
 
 
+def app_log_path() -> Path:
+    appdata = os.environ.get("APPDATA", "").strip()
+    base = Path(appdata) if appdata else Path.home()
+    return base / "DanmuAI" / "app.log"
+
+
 def append_frozen_log(message: str) -> None:
     """Best-effort diagnostics when console=False (PyInstaller)."""
     if not is_frozen():

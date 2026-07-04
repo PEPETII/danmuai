@@ -174,7 +174,7 @@ class GenerationPipeline:
             if not display_text:
                 app.logger.info(
                     tr("app.danmu_not_entered").format(content=f"{queued_item.content[:20]}...")
-                    + " [桌宠气泡/空文本]"
+                    + f" [{tr('log.reject.pet_empty')}]"
                 )
                 app._log_reply_pipeline_from_queued(
                     "reply_displayed",
@@ -254,7 +254,7 @@ class GenerationPipeline:
                 queued = app.reply_buffer.pop()
                 app.logger.info(
                     tr("app.danmu_not_entered").format(content=f"{queued.content[:20]}...")
-                    + " [悬浮窗/空文本]"
+                    + f" [{tr('log.reject.floating_panel_empty')}]"
                 )
                 app._log_reply_pipeline_from_queued(
                     "reply_displayed",
@@ -277,7 +277,7 @@ class GenerationPipeline:
                 )
                 app.logger.info(
                     tr("app.danmu_not_entered").format(content=f"{queued.content[:20]}...")
-                    + " [去重]"
+                    + f" [{tr('log.reject.dedup')}]"
                 )
                 app._log_reply_pipeline_from_queued(
                     "reply_displayed",
@@ -342,10 +342,10 @@ class GenerationPipeline:
             if fp_engine and (not skip_dedup) and fp_engine.is_duplicate(display_content):
                 duplicate_observation = get_last_duplicate_observation()
                 duplicate_match_type = str(duplicate_observation.get("match_type") or "")
-                reject = "去重"
+                reject = tr("log.reject.dedup")
                 diag_reason = "duplicate"
             else:
-                reject = "悬浮窗"
+                reject = tr("log.reject.floating_panel")
                 diag_reason = "floating_panel_spacing"
             app._record_undisplayed(diag_reason, persona_id=queued.persona_id)
             extra_fields: dict = {}
@@ -382,11 +382,9 @@ class GenerationPipeline:
                 tr("app.danmu_not_entered").format(content=f"{queued.content[:20]}...")
                 + f" [{reject}]"
             )
-            if reject == "悬浮窗":
+            if diag_reason == "floating_panel_spacing":
                 app.reply_buffer.prepend_batch([queued])
-                app.logger.warning(
-                    "floating_panel display failed after pop; re-queued head item"
-                )
+                app.logger.warning(tr("log.floating_panel_requeued"))
 
         if not app.reply_buffer.is_empty():
             delay = 100 if item is None else app._estimated_reply_gap_ms()
@@ -441,13 +439,13 @@ class GenerationPipeline:
             if (not skip_dedup) and app.engine.is_duplicate(display_content):
                 duplicate_observation = get_last_duplicate_observation()
                 duplicate_match_type = str(duplicate_observation.get("match_type") or "")
-                reject = "去重"
+                reject = tr("log.reject.dedup")
                 diag_reason = "duplicate"
             elif app.engine.entry_zone_overloaded():
-                reject = "入口区过载"
+                reject = tr("log.reject.entry_zone_overload")
                 diag_reason = "entry_zone_overload"
             else:
-                reject = "轨道/布局"
+                reject = tr("log.reject.layout")
                 diag_reason = "layout_rejection"
             app._record_undisplayed(diag_reason, persona_id=queued.persona_id)
             extra_fields: dict = {}

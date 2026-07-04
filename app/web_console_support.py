@@ -25,6 +25,25 @@ from app.logger import (
 if TYPE_CHECKING:
     from app.web_console import WebConsoleBridge
 
+_STATUS_DIFF_SKIP_KEYS = frozenset({
+    "runtime_sec",
+    "live_delay_sec",
+    "lifetime_runtime_sec",
+})
+
+
+def status_payloads_semantically_equal(
+    a: dict[str, Any] | None,
+    b: dict[str, Any] | None,
+) -> bool:
+    """比较 status payload，忽略单调递增时间字段（前端 RUNTIME_CLOCK 本地推进）。"""
+    if a is None or b is None:
+        return a is b
+    a_cmp = {k: v for k, v in a.items() if k not in _STATUS_DIFF_SKIP_KEYS}
+    b_cmp = {k: v for k, v in b.items() if k not in _STATUS_DIFF_SKIP_KEYS}
+    return a_cmp == b_cmp
+
+
 SAVE_CONFIG_TIMEOUT_SEC = 10.0
 SAVE_CONFIG_ERROR_DETAIL_MAX = 200
 SAVE_DONE_EVENT_KEY = "__save_done_event"
@@ -97,12 +116,44 @@ def summarize_config_save_error(detail: object, *, max_len: int = SAVE_CONFIG_ER
     return f"{text[:max_len]}…"
 
 
+def _screen_label(index: int, width: int, height: int) -> str:
+    n = index + 1
+    w = int(width or 0)
+    h = int(height or 0)
+    if w > 0 and h > 0:
+        return tr("display.labelWithSize").format(n=n, w=w, h=h)
+    return tr("display.label").format(n=n)
+
+
+def _screen_item(index: int, width: int, height: int) -> dict[str, Any]:
+    return {
+        "index": index,
+        "label": _screen_label(index, width, height),
+        "width": int(width),
+        "height": int(height),
+    }
+
+
+def localize_screen_labels(screens: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Re-label cached screens for the active Translator language."""
+    if not screens:
+        return [_screen_item(0, 0, 0)]
+    return [
+        _screen_item(
+            int(item.get("index", 0)),
+            int(item.get("width", 0)),
+            int(item.get("height", 0)),
+        )
+        for item in screens
+    ]
+
+
 def enumerate_screens() -> list[dict[str, Any]]:
     from PyQt6.QtWidgets import QApplication
 
     app = QApplication.instance()
     if app is None:
-        return [{"index": 0, "label": tr("display.label").format(n=1), "width": 0, "height": 0}]
+        return [_screen_item(0, 0, 0)]
     screens = app.screens() or []
     items = []
     for index, screen in enumerate(screens):
@@ -110,15 +161,8 @@ def enumerate_screens() -> list[dict[str, Any]]:
         dpr = screen.devicePixelRatio()
         phys_w = int(geo.width() * dpr)
         phys_h = int(geo.height() * dpr)
-        items.append(
-            {
-                "index": index,
-                "label": tr("display.labelWithSize").format(n=index + 1, w=phys_w, h=phys_h),
-                "width": phys_w,
-                "height": phys_h,
-            }
-        )
-    return items or [{"index": 0, "label": tr("display.label").format(n=1), "width": 0, "height": 0}]
+        items.append(_screen_item(index, phys_w, phys_h))
+    return items or [_screen_item(0, 0, 0)]
 
 
 def is_empty_screens_fallback(screens: list[dict[str, Any]]) -> bool:
@@ -152,9 +196,11 @@ def screens_for_api(bridge: object) -> list[dict[str, Any]]:
     """Return cached screens when valid; otherwise enumerate and merge."""
     cached = getattr(bridge, "cached_screens", None)
     if cached and not is_empty_screens_fallback(cached):
-        return list(cached)
-    live = enumerate_screens()
-    return resolve_screens_for_api(cached, live)
+        raw = list(cached)
+    else:
+        live = enumerate_screens()
+        raw = resolve_screens_for_api(cached, live)
+    return localize_screen_labels(raw)
 
 
 def try_cache_screens(bridge: object) -> bool:
@@ -329,7 +375,7 @@ def handle_save_config_request(bridge: "WebConsoleBridge", payload: object) -> N
     try:
         bridge.danmu_app.apply_web_config_payload(payload)
     except (AppError, ValueError, TypeError, PermissionError) as exc:
-        detail = summarize_config_save_error(f"配置保存失败: {exc}")
+        detail = summarize_config_save_error(tr("config.saveFailed", error=exc))
         write_config_save_result(
             result_holder,
             ok=False,
@@ -348,7 +394,7 @@ def handle_save_config_request(bridge: "WebConsoleBridge", payload: object) -> N
             done_event.set()
         return
     except Exception as exc:  # boundary: unexpected config save failure
-        detail = summarize_config_save_error(f"配置保存失败: {exc}")
+        detail = summarize_config_save_error(tr("config.saveFailed", error=exc))
         write_config_save_result(
             result_holder,
             ok=False,

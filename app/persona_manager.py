@@ -22,10 +22,47 @@ from app.persona_builtin import (
     builtin_personae_names,
     normalize_persona_name,
 )
-from app.persona_contract import ensure_reply_contract
+from app.persona_contract import (
+    ensure_reply_contract,
+    strip_reply_contract,
+    strip_system_style,
+)
 from app.translations import tr
 
 logger = logging.getLogger(__name__)
+
+
+def _persona_custom_body(system_pt: str) -> str:
+    return strip_system_style(strip_reply_contract(system_pt))
+
+
+def _builtin_default_system_custom(name: str, lang: str, config: ConfigStore) -> str:
+    prompt = BUILTIN_PERSONAE[name]
+    key = "system_en" if lang == "en" else "system_zh"
+    return _persona_custom_body(ensure_reply_contract(prompt[key], config))
+
+
+def _builtin_default_user_prompt(name: str, lang: str) -> str:
+    prompt = BUILTIN_PERSONAE[name]
+    key = "user_en" if lang == "en" else "user_zh"
+    return (prompt[key] or "").strip()
+
+
+def _is_builtin_lang_default_system(
+    stored_system_pt: str,
+    name: str,
+    lang: str,
+    config: ConfigStore,
+) -> bool:
+    expected = _builtin_default_system_custom(name, lang, config)
+    actual = _persona_custom_body(stored_system_pt)
+    return actual == expected
+
+
+def _is_builtin_lang_default_user(stored_user: str, name: str, lang: str) -> bool:
+    if not (stored_user or "").strip():
+        return True
+    return (stored_user or "").strip() == _builtin_default_user_prompt(name, lang)
 
 _REMOVED_PERSONAE = frozenset({
     "阿静",
@@ -149,6 +186,26 @@ class PersonaManager:
             prompt = custom[normalized]
             system_pt = (prompt.get("system_pt") or "").strip()
             if system_pt:
+                lang = Translator.get_language()
+                if normalized in BUILTIN_PERSONAE:
+                    other_lang = "en" if lang == "zh" else "zh"
+                    if _is_builtin_lang_default_system(
+                        system_pt, normalized, other_lang, self.config
+                    ):
+                        builtin = BUILTIN_PERSONAE[normalized]
+                        sys_key = "system_en" if lang == "en" else "system_zh"
+                        user_key = "user_en" if lang == "en" else "user_zh"
+                        stored_user = (prompt.get("user_pt") or "").strip()
+                        if not stored_user or _is_builtin_lang_default_user(
+                            stored_user, normalized, other_lang
+                        ):
+                            user_pt = builtin[user_key]
+                        else:
+                            user_pt = stored_user
+                        return (
+                            ensure_reply_contract(builtin[sys_key], self.config),
+                            user_pt,
+                        )
                 user_pt = prompt.get("user_pt") or tr("template.default_user_prompt")
                 return ensure_reply_contract(system_pt, self.config), user_pt
 

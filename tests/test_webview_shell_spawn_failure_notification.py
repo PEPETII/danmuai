@@ -48,6 +48,9 @@ def _make_oserror_spawn_context(*, fail_times: int = 3):
                 raise queue.Empty()
             return self._signals.pop(0)
 
+        def put(self, item):
+            self._signals.append(item)
+
     class FakeContext:
         def Queue(self):
             return FakeQueue()
@@ -308,11 +311,20 @@ def test_begin_start_webview2_missing_notifies_without_spawn(monkeypatch):
         "app.webview_shell.notify_web_console_failure", _fake_notify
     )
 
+    browser_fallbacks = []
+    monkeypatch.setattr(
+        "app.webview_shell._fallback_to_system_browser",
+        lambda server, path, reason: browser_fallbacks.append((path, reason)),
+    )
+    server._browser_launch_opened = False
+
     result = shell.begin_start("/")
 
     assert result is False
     assert spawn_started == []
     assert notified == [("web_console.webview2_missing", "https://go.microsoft.com/fwlink/p/?LinkId=2124703")]
+    assert len(browser_fallbacks) == 1
+    assert browser_fallbacks[0] == ("/", "WebView2 runtime not found")
 
 
 def test_notify_called_with_correct_danmu_app_on_spawn_fail(monkeypatch):

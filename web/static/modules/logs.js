@@ -26,6 +26,11 @@ const logKeySet = new Set();
 export let logLevelFilters = new Set(['INFO', 'WARNING', 'ERROR']);
 export let logAutoScroll = true;
 export let logClosed = false;
+let logsClearedForLanguageSwitch = false;
+
+export function setLogsClearedForLanguageSwitch() {
+  logsClearedForLanguageSwitch = true;
+}
 
 export function replaceLogLevelFilters(next) {
   logLevelFilters = next;
@@ -127,6 +132,10 @@ export function updateLogPanelState() {
   const visibleCount = view.childElementCount;
   panel.classList.toggle('has-logs', visibleCount > 0);
   if (empty && visibleCount === 0) {
+    if (logsClearedForLanguageSwitch) {
+      empty.textContent = t('dynamic.logs.语言切换后日志已清空');
+      return;
+    }
     if (REALTIME.logsOpen) {
       empty.textContent =
         t('dynamic.logs.等待日志_点击_生成弹幕_后_截图_AI_请求');
@@ -171,6 +180,7 @@ export function appendLog(item) {
   if (logKeySet.has(key)) return;
   logKeySet.add(key);
   logBuffer.push(item);
+  logsClearedForLanguageSwitch = false;
   trimLogBuffer();
   if (logLevelFilters.has(item.level || 'INFO')) {
     const view = document.getElementById('logView');
@@ -191,6 +201,7 @@ export function mergeLogItems(items) {
     if (logKeySet.has(key)) return;
     logKeySet.add(key);
     logBuffer.push(item);
+    logsClearedForLanguageSwitch = false;
     trimLogBuffer();
     if (item.ts > REALTIME.lastLogsPollTs) REALTIME.lastLogsPollTs = item.ts;
     addedAny = true;

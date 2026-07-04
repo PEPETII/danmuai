@@ -24,6 +24,7 @@ from types import TracebackType
 from PyQt6.QtCore import QThread, QTimer
 from PyQt6.QtWidgets import QApplication, QMessageBox
 
+from app.bundle_paths import append_frozen_log
 from app.env_config import get as get_env
 from app.logger import SanitizedLogger
 from app.translations import tr
@@ -83,7 +84,13 @@ def _log_unhandled_exception(message: str) -> None:
         logger.error(tr("app.unhandled_exception_log").format(message=message))
     except Exception:  # boundary: logging must not block fatal handler
         safe_message = re.sub(r"sk-[A-Za-z0-9_-]{20,}", "sk-****", message)
-        print(f"FATAL: {safe_message}", file=sys.stderr)
+        append_frozen_log(f"FATAL: {safe_message}")
+        if sys.stderr is not None:
+            try:
+                print(f"FATAL: {safe_message}", file=sys.stderr)
+            except Exception:
+                pass
+    append_frozen_log(f"UNHANDLED EXCEPTION:\n{message}")
 
 
 def _is_ignorable_exception(
@@ -139,6 +146,17 @@ def threading_exception_hook(args: threading.ExceptHookArgs) -> None:
         args.exc_value,
         args.exc_traceback,
         from_thread=True,
+    )
+
+
+def show_fatal_startup_error(exc: BaseException) -> None:
+    """Show a modal dialog for DanmuApp construction failures (QApplication must exist)."""
+    message = _format_exception(type(exc), exc, exc.__traceback__)
+    _log_unhandled_exception(message)
+    QMessageBox.critical(
+        None,
+        tr("app.error_title"),
+        tr("app.startup_init_failed").format(error=exc),
     )
 
 

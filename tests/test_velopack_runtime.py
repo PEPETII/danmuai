@@ -35,6 +35,24 @@ def test_is_velopack_install_false_for_unrelated_update_exe(tmp_path):
             assert is_velopack_install() is False
 
 
+def test_is_velopack_install_false_for_custom_current_with_branded_update_exe(tmp_path):
+    """W-COMPAT-VELOPACK-DETECT-001: custom .../current/ + Velopack Update.exe is not enough."""
+    from app.velopack_runtime import is_velopack_install
+
+    root = tmp_path / "tools"
+    current = root / "current"
+    current.mkdir(parents=True)
+    (current / "DanmuAI.exe").write_bytes(b"MZ")
+    (root / "Update.exe").write_bytes(b"MZ Velopack branded updater")
+
+    with patch.object(sys, "frozen", True, create=True):
+        with patch.object(sys, "executable", str(current / "DanmuAI.exe"), create=True):
+            with patch(
+                "app.velopack_runtime.is_velopack_update_exe", return_value=True
+            ):
+                assert is_velopack_install() is False
+
+
 def test_run_startup_apply_calls_velopack_when_frozen():
     from app import velopack_runtime
 

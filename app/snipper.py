@@ -13,6 +13,8 @@ from dataclasses import dataclass
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtWidgets import QApplication
 
+from app.translations import tr
+
 logger = logging.getLogger(__name__)
 
 
@@ -64,7 +66,7 @@ def resolve_capture_rect(config, screen_geometry) -> tuple[int, int, int, int]:
             width = config.get_int("region_w", 0)
             height = config.get_int("region_h", 0)
     except (AttributeError, TypeError, ValueError) as exc:
-        logger.info("识图区域回退全屏: reason=region_read_error error=%s", exc)
+        logger.info(tr("log.region_fallback_read_error").format(error=exc))
         return full
 
     try:
@@ -238,5 +240,5 @@ class ScreenCapturer:
         if self._last_logged_mode != "screen":
             self._last_logged_mode = "screen"
             self._fallback_count = 0
-            logger.info("捕获模式: screen")
+            logger.info(tr("log.capture_mode_screen"))
         return _grab_screen_from_plan(plan)

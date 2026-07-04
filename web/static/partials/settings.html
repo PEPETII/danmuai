@@ -7,8 +7,8 @@
     <section id="page-settings" class="page-panel">
       <header class="flex flex-wrap justify-between items-start gap-4 mb-8">
         <div>
-          <h2 class="text-2xl font-bold text-warmText">弹幕设置</h2>
-          <p class="text-gray-500 mt-1">设置 AI 接口、识图屏幕和弹幕效果，保存后立即生效</p>
+          <h2 class="text-2xl font-bold text-warmText" data-i18n="settings.text.弹幕设置">弹幕设置</h2>
+          <p class="text-gray-500 mt-1" data-i18n="settings.text.设置_AI_接口_识图屏幕和弹幕效果_保存后立即生效">设置 AI 接口、识图屏幕和弹幕效果，保存后立即生效</p>
         </div>
         <div class="theme-toggle-wrap shrink-0">
           <label class="lang-select-wrap" data-i18n-aria-label="settings.aria.界面语言" aria-label="界面语言">
@@ -20,7 +20,7 @@
           <button type="button" id="themeToggle" class="theme-toggle-btn" aria-pressed="false" data-i18n-aria-label="common.toggleDarkMode" aria-label="切换黑夜模式">
             <svg class="ui-icon theme-toggle-icon theme-toggle-icon-moon" aria-hidden="true"><use href="#i-moon"></use></svg>
             <svg class="ui-icon theme-toggle-icon theme-toggle-icon-sun" aria-hidden="true"><use href="#i-sun"></use></svg>
-            <span class="theme-toggle-label">黑夜模式</span>
+            <span class="theme-toggle-label" data-i18n="common.darkMode">黑夜模式</span>
           </button>
         </div>
       </header>
@@ -30,17 +30,17 @@
         <div class="settings-tabs-bar">
           <div class="settings-tabs" role="tablist" data-i18n-aria-label="settings.aria.弹幕设置分类" aria-label="弹幕设置分类">
             <!-- tab: API 与模型 — 服务商/Key/视觉模型/温度/Token/记忆模式/模型配置档案 -->
-            <button type="button" role="tab" class="settings-tab active" data-settings-tab="api" aria-selected="true">API 与模型</button>
+            <button type="button" role="tab" class="settings-tab active" data-settings-tab="api" aria-selected="true" data-i18n="settings.text.API_与模型">API 与模型</button>
             <!-- tab: 麦克风模式 — 开麦/与视觉同模型/独立 mic 服务商 -->
-            <button type="button" role="tab" class="settings-tab" data-settings-tab="mic" aria-selected="false">麦克风模式</button>
+            <button type="button" role="tab" class="settings-tab" data-settings-tab="mic" aria-selected="false" data-i18n="settings.text.麦克风模式">麦克风模式</button>
             <!-- tab: AI读弹幕 — MiMo TTS 启用/声音/语速/抽屏间隔 -->
-            <button type="button" role="tab" class="settings-tab" data-settings-tab="danmu-read" aria-selected="false">AI读弹幕</button>
-            <button type="button" role="tab" class="settings-tab" data-settings-tab="danmu" aria-selected="false">弹幕显示</button>
+            <button type="button" role="tab" class="settings-tab" data-settings-tab="danmu-read" aria-selected="false" data-i18n="settings.text.AI读弹幕">AI读弹幕</button>
+            <button type="button" role="tab" class="settings-tab" data-settings-tab="danmu" aria-selected="false" data-i18n="settings.text.弹幕显示">弹幕显示</button>
             <!-- tab: 识图区域 — screen_index + 鼠标框选子区域（POST /api/capture-region） -->
-            <button type="button" role="tab" class="settings-tab" data-settings-tab="capture" aria-selected="false">识图区域</button>
+            <button type="button" role="tab" class="settings-tab" data-settings-tab="capture" aria-selected="false" data-i18n="settings.text.识图区域">识图区域</button>
             <!-- tab: 识图清晰度 — 压缩质量、最大宽度、压缩预览等 -->
-            <button type="button" role="tab" class="settings-tab" data-settings-tab="rhythm" aria-selected="false">识图清晰度</button>
-            <button type="button" role="tab" class="settings-tab" data-settings-tab="font" aria-selected="false">字体设置</button>
+            <button type="button" role="tab" class="settings-tab" data-settings-tab="rhythm" aria-selected="false" data-i18n="settings.text.识图清晰度">识图清晰度</button>
+            <button type="button" role="tab" class="settings-tab" data-settings-tab="font" aria-selected="false" data-i18n="settings.text.字体设置">字体设置</button>
           </div>
 
         </div>

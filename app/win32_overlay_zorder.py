@@ -83,6 +83,13 @@ def reassert_hwnd_topmost(hwnd: int) -> bool:
     return bool(result)
 
 
+def get_foreground_hwnd() -> int:
+    """Win32：当前前台窗口 HWND；非 win32 或无效时返回 0。"""
+    if sys.platform != "win32":
+        return 0
+    return int(_GetForegroundWindow())
+
+
 def _read_window_rect(hwnd: int) -> tuple[int, int, int, int] | None:
     if sys.platform != "win32" or not hwnd:
         return None
@@ -100,11 +107,12 @@ def probe_exclusive_fullscreen_risk(
     screen_w: int,
     screen_h: int,
     own_hwnds: tuple[int, ...] = (),
+    foreground_hwnd: int | None = None,
 ) -> bool:
     """启发式：前台窗口几乎铺满目标屏且不是本应用 HWND → 疑似独占全屏压制 overlay。"""
     if sys.platform != "win32" or not overlay_hwnd or screen_w <= 0 or screen_h <= 0:
         return False
-    fg = int(_GetForegroundWindow())
+    fg = int(foreground_hwnd) if foreground_hwnd is not None else int(_GetForegroundWindow())
     if not fg:
         return False
     skip = {int(h) for h in own_hwnds if h}

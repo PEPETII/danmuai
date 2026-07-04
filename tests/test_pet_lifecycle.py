@@ -2,10 +2,21 @@
 
 from unittest.mock import MagicMock
 
+import pytest
 from main import DanmuApp
 
 from tests.conftest import bind_minimal_danmu_app
 from tests.fakes import FakeConfig
+
+
+@pytest.fixture(autouse=True)
+def _reset_stale_translator():
+    from PyQt6 import sip
+
+    from app.translations import Translator
+
+    if Translator._instance is not None and sip.isdeleted(Translator._instance):
+        Translator._instance = None
 
 
 def _bind_pet_lifecycle_methods(app: DanmuApp) -> None:
@@ -81,6 +92,9 @@ def test_sync_pet_window_visibility_skips_ensure_when_not_visible(qapp):
 
 def test_apply_pet_settings_patch_ensures_on_enable(qapp):
     from app.pet.pet_facade import apply_pet_settings_patch
+    from app.translations import Translator
+
+    Translator._instance = None
 
     app = DanmuApp.__new__(DanmuApp)
     bind_minimal_danmu_app(

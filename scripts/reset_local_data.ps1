@@ -2,6 +2,7 @@
 # Quit DanmuAI (tray -> exit or close python main.py) before running.
 
 $ErrorActionPreference = "Stop"
+$OutputEncoding = [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $dir = Join-Path $env:APPDATA "DanmuAI"
 
 if (-not (Test-Path $dir)) {

@@ -183,6 +183,9 @@ class AiWorker(QObject):
         captured_at: float = 0.0,
         scene_generation: int = 0,
         audio_data_uri: str | None = None,
+        *,
+        request_started_at: float | None = None,
+        request_deadline_at: float | None = None,
     ):
         """双模式路由入口：根据 api_mode 分发到 _request_doubao 或 _request_openai。
 
@@ -227,6 +230,8 @@ class AiWorker(QObject):
                 scene_generation,
                 audio_data_uri=audio_data_uri,
                 resolved=resolved,
+                deadline_at=request_deadline_at,
+                started_at=request_started_at,
             )
         else:
             self._request_openai(
@@ -240,6 +245,8 @@ class AiWorker(QObject):
                 scene_generation,
                 audio_data_uri=audio_data_uri,
                 resolved=resolved,
+                deadline_at=request_deadline_at,
+                started_at=request_started_at,
             )
 
     def _emit_safe(self, signal_name, *args):
@@ -332,6 +339,8 @@ class AiWorker(QObject):
         audio_data_uri: str | None = None,
         resolved: tuple[str, str, str, str] | None = None,
         emit: bool = True,
+        deadline_at: float | None = None,
+        started_at: float | None = None,
     ) -> AiProbeResult | None:
         return request_doubao(
             self,
@@ -346,10 +355,31 @@ class AiWorker(QObject):
             audio_data_uri=audio_data_uri,
             resolved=resolved,
             emit=emit,
+            deadline_at=deadline_at,
+            started_at=started_at,
         )
 
-    def _stream_doubao(self, http_client, url: str, headers: dict, data: dict, *, first_content_timeout: float | None = None) -> tuple[str, int, int, str]:
-        return stream_doubao(self, http_client, url, headers, data, first_content_timeout=first_content_timeout)
+    def _stream_doubao(
+        self,
+        http_client,
+        url: str,
+        headers: dict,
+        data: dict,
+        *,
+        first_content_timeout: float | None = None,
+        deadline_at: float | None = None,
+        started_at: float | None = None,
+    ) -> tuple[str, int, int, str]:
+        return stream_doubao(
+            self,
+            http_client,
+            url,
+            headers,
+            data,
+            first_content_timeout=first_content_timeout,
+            deadline_at=deadline_at,
+            started_at=started_at,
+        )
 
     def _request_openai(
         self,
@@ -365,6 +395,8 @@ class AiWorker(QObject):
         audio_data_uri: str | None = None,
         resolved: tuple[str, str, str, str] | None = None,
         emit: bool = True,
+        deadline_at: float | None = None,
+        started_at: float | None = None,
     ) -> AiProbeResult | None:
         return request_openai(
             self,
@@ -379,6 +411,8 @@ class AiWorker(QObject):
             audio_data_uri=audio_data_uri,
             resolved=resolved,
             emit=emit,
+            deadline_at=deadline_at,
+            started_at=started_at,
         )
 
     def _stream_openai(
@@ -391,6 +425,8 @@ class AiWorker(QObject):
         endpoint: str = "",
         api_mode: str = "",
         first_content_timeout: float | None = None,
+        deadline_at: float | None = None,
+        started_at: float | None = None,
     ) -> tuple[str, int, int]:
         return stream_openai(
             self,
@@ -401,6 +437,8 @@ class AiWorker(QObject):
             endpoint=endpoint,
             api_mode=api_mode,
             first_content_timeout=first_content_timeout,
+            deadline_at=deadline_at,
+            started_at=started_at,
         )
 
 

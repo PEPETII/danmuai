@@ -51,6 +51,7 @@ from app.main_launch import (
     check_deprecated_launch_args,
     global_exception_hook,
     register_unhandled_exception_notifier,
+    show_fatal_startup_error,
     show_startup_notice_if_needed,  # noqa: F401 — re-exported for tests
     threading_exception_hook,
     web_launch_mode_from_argv,
@@ -722,7 +723,7 @@ def main():
     # original instance's QLocalServer is not yet ready.
     if acquire_result.kind is SingleInstanceAcquireKind.ACTIVATION_FAILED:
         log_startup("single_instance.retry_begin")
-        for _attempt in range(2):
+        for _attempt in range(3):
             time.sleep(0.5)
             acquire_result = instance_guard.try_acquire()
             if acquire_result.kind is SingleInstanceAcquireKind.ACTIVATED_EXISTING:
@@ -750,7 +751,11 @@ def main():
         activated_existing=False,
     )
     launch_mode = web_launch_mode_from_argv()
-    _danmu = DanmuApp(web_launch_mode=launch_mode)
+    try:
+        _danmu = DanmuApp(web_launch_mode=launch_mode)
+    except Exception as exc:
+        show_fatal_startup_error(exc)
+        return sys.exit(1)
     register_unhandled_exception_notifier(
         lambda: _danmu.set_web_error_status(
             tr("app.error_friendly_message"),

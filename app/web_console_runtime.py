@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import asyncio
+import secrets
 import sys
 from contextlib import asynccontextmanager
 from dataclasses import asdict
@@ -76,7 +77,7 @@ def run_uvicorn_locked(server) -> None:
     def _check_token(authorization: str | None = Header(default=None)) -> None:
         if not authorization or not authorization.startswith("Bearer "):
             raise HTTPException(status_code=401, detail=tr("webConsoleRuntime.tokenRequired"))
-        if authorization.removeprefix("Bearer ").strip() != token:
+        if not secrets.compare_digest(authorization.removeprefix("Bearer ").strip(), token):
             raise HTTPException(status_code=403, detail=tr("webConsoleRuntime.tokenInvalid"))
 
     @app.get("/api/session")
@@ -154,15 +155,21 @@ def run_uvicorn_locked(server) -> None:
 
     @app.get("/api/providers")
     def providers():
-        from app.model_providers import PROVIDERS
+        from app.model_providers import PROVIDERS, provider_label
+        from app.translations import Translator
 
+        lang = Translator.get_language()
         return [
             {
                 "id": provider.id,
-                "label": provider.label_zh,
+                "label": provider_label(provider.id, lang),
                 "default_endpoint": provider.default_endpoint,
                 "mode": provider.mode,
-                "hint": provider.model_id_hint_zh,
+                "hint": (
+                    provider.model_id_hint_en
+                    if lang == "en"
+                    else provider.model_id_hint_zh
+                ),
                 "website": provider.website,
             }
             for provider in PROVIDERS

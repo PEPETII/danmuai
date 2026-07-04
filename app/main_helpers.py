@@ -27,6 +27,9 @@ MAX_IN_FLIGHT = 1
 MAX_MIC_IN_FLIGHT = 1
 # S-009: consecutive capture failures before surfacing Web status bar warning.
 CAPTURE_FAIL_WARN_THRESHOLD = 3
+# W-PERF-TIMER-001：topmost 健康检查间隔与心跳（约 9s 无条件重申 @ 1500ms × 6）。
+TOPMOST_HEALTH_INTERVAL_MS = 1500
+TOPMOST_HEALTH_HEARTBEAT_TICKS = 6
 
 
 class BatchTracker:

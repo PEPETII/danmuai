@@ -115,3 +115,17 @@ def test_threading_memory_error_does_not_exit():
         with patch("app.main_launch.QTimer.singleShot"):
             threading_exception_hook(_make_thread_hook_args(MemoryError("thread oom")))
     mock_exit.assert_not_called()
+
+
+def test_unhandled_exception_writes_frozen_log_when_frozen(monkeypatch):
+    calls: list[str] = []
+
+    def _capture(msg: str) -> None:
+        calls.append(msg)
+
+    monkeypatch.setattr("app.main_launch.append_frozen_log", _capture)
+    with patch.object(sys, "exit"):
+        _call_hook(RuntimeError("startup failure"))
+    assert len(calls) == 1
+    assert "UNHANDLED EXCEPTION" in calls[0]
+    assert "startup failure" in calls[0]

@@ -335,9 +335,10 @@ def test_logs_js_exports_clear_log_buffer():
 
 
 def test_status_js_skips_unchanged_session_runs():
-    """W-PERF-MED-003: session runs 脏检查避免 500ms 全量 DOM 重建。"""
+    """W-PERF-MED-003: session runs 脏检查避免 500ms 全量 DOM 重建；含语言以便 i18n 切换重绘。"""
     status_js = (project_root() / "web" / "static" / "modules" / "status.js").read_text(encoding="utf-8")
     assert "lastSessionRunsKey" in status_js
+    assert "getLanguage()" in status_js
     assert "if (key === lastSessionRunsKey) return" in status_js
 
 

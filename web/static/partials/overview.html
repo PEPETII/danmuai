@@ -121,7 +121,7 @@
           <div class="flex items-center gap-4">
             <div class="w-12 h-12 bg-pastelYellow/90 rounded-2xl flex items-center justify-center text-2xl icon-badge"><svg class="ui-icon ui-icon-lg" aria-hidden="true"><use href="#i-hash"></use></svg></div>
             <div class="min-w-0">
-              <p class="text-gray-400 text-sm">输入总 Token</p>
+              <p class="text-gray-400 text-sm" data-i18n="overview.text.输入总_Token">输入总 Token</p>
               <p class="text-2xl font-bold text-warmText" id="statLifetimeInputTokens">0</p>
             </div>
           </div>
@@ -130,7 +130,7 @@
           <div class="flex items-center gap-4">
             <div class="w-12 h-12 bg-blue-50/90 rounded-2xl flex items-center justify-center text-2xl icon-badge"><svg class="ui-icon ui-icon-lg" aria-hidden="true"><use href="#i-hash"></use></svg></div>
             <div class="min-w-0">
-              <p class="text-gray-400 text-sm">输出总 Token</p>
+              <p class="text-gray-400 text-sm" data-i18n="overview.text.输出总_Token">输出总 Token</p>
               <p class="text-2xl font-bold text-warmText" id="statLifetimeOutputTokens">0</p>
             </div>
           </div>
@@ -264,10 +264,10 @@
       </div>
 
       <div class="card p-6 mt-6">
-        <h3 class="text-lg font-bold text-warmText mb-2">弹幕场次记录</h3>
-        <p class="text-sm text-gray-400 mb-4">每次「生成弹幕」至「停止弹幕」为一轮；保存在本机配置库，重启后仍可查看最近 100 条</p>
+        <h3 class="text-lg font-bold text-warmText mb-2" data-i18n="overview.text.弹幕场次记录">弹幕场次记录</h3>
+        <p class="text-sm text-gray-400 mb-4" data-i18n="overview.text.每次_生成弹幕_至_停止弹幕_为一轮_保存在本机配置库_重启后仍可查看最近_10">每次「生成弹幕」至「停止弹幕」为一轮；保存在本机配置库，重启后仍可查看最近 100 条</p>
         <div id="sessionRunLog" class="session-run-log" role="log" aria-live="polite">
-          <p id="sessionRunLogEmpty" class="session-run-log-empty text-sm text-gray-400">暂无记录，停止弹幕后会在此显示时间与 Token 用量</p>
+          <p id="sessionRunLogEmpty" class="session-run-log-empty text-sm text-gray-400" data-i18n="overview.text.暂无记录_停止弹幕后会在此显示时间与_Token_用量">暂无记录，停止弹幕后会在此显示时间与 Token 用量</p>
         </div>
       </div>
     </section>

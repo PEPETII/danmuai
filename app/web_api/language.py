@@ -68,6 +68,6 @@ def validate_payload(body: dict) -> str:
         allowed = ", ".join(SUPPORTED_LANGUAGES)
         raise HTTPException(
             status_code=400,
-            detail=tr("validation.languageMustBeOneOf").format(allowed=allowed),
+            detail=tr("validation.languageMustBeOneOf", allowed=allowed),
         )
     return normalized

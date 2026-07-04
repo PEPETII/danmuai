@@ -31,6 +31,7 @@ from app.application.diagnostics_hub import DiagnosticsHub
 from app.bundle_paths import append_frozen_log, frozen_log_path, is_frozen, resource_path
 from app.live_overlay_hub import LiveOverlayHub
 from app.startup_trace import log_startup, web_console_ready_timeout
+from app.translations import tr
 from app.web_console_runtime import run_uvicorn_locked
 from app.web_console_support import SAVE_DONE_EVENT_KEY as _SAVE_DONE_EVENT_KEY
 from app.web_console_support import SAVE_RESULT_KEY as _SAVE_RESULT_KEY
@@ -43,6 +44,7 @@ from app.web_console_support import (
     handle_save_config_request,
     save_config_via_bridge,
     schedule_screen_cache,
+    status_payloads_semantically_equal,
 )
 from app.web_console_support import (
     write_config_save_result as _write_config_save_result,
@@ -94,6 +96,7 @@ DEFAULT_PORT = 18765
 INVOKE_ON_MAIN_TIMEOUT_SEC = 10.0
 WEB_CONSOLE_SHUTDOWN_TIMEOUT_SEC = 3.0
 WEB_CONSOLE_THREAD_JOIN_GRACE_SEC = 0.2
+WEB_STATUS_POLL_INTERVAL_MS = 1000
 
 
 class MainThreadInvokeTimeout(TimeoutError):
@@ -303,9 +306,11 @@ class WebConsoleBridge(QObject):
         self.status = WebStatusSnapshot(**snapshot)
         return self.status
 
-    def publish_status(self) -> None:
+    def publish_status(self, *, force: bool = False) -> None:
         status = self.refresh_status()
         payload = asdict(status)
+        if not force and status_payloads_semantically_equal(payload, self._last_status_payload):
+            return
         self._last_status_payload = payload
         self.status_updated.emit(status)
         self._broadcast_status(payload)
@@ -515,7 +520,9 @@ class WebConsoleServer:
 
             self._bind_failed.set()
             detail = traceback.format_exc()
-            bridge.danmu_app.logger.error(f"Web 控制台线程异常退出: {exc!r}")
+            bridge.danmu_app.logger.error(
+                tr("webConsoleRuntime.threadCrashed").format(error=repr(exc))
+            )
             append_frozen_log(f"Web console thread crashed (outer):\n{detail}")
         finally:
             self._shutdown_complete.set()
@@ -652,7 +659,7 @@ def attach_web_console(danmu_app: "DanmuApp", port: int = DEFAULT_PORT) -> WebCo
                 web_bridge.publish_diagnostic_snapshot()
 
     web_status_timer = QTimer(danmu_app)
-    web_status_timer.setInterval(500)
+    web_status_timer.setInterval(WEB_STATUS_POLL_INTERVAL_MS)
     web_status_timer.timeout.connect(_tick_status)
     danmu_app.attach_web_status_timer(web_status_timer)
     web_status_timer.start()

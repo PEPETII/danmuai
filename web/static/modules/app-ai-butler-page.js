@@ -250,7 +250,7 @@ async function switchDefaultModel(index) {
   const prevIndex = currentSelectedIndex;
   try {
     const res = await apiFetch(`/api/custom-models/${index}/default`, { method: 'POST' });
-    showToast(`已切换为默认模型：${res.default_model_id || ''}`);
+    showToast(t('dynamic.appAiButlerPage.switchedDefaultModel', { modelId: res.default_model_id || '' }));
     // 重新拉列表刷新选中态（确保与服务端一致）
     await refreshModelSelect();
   } catch (error) {

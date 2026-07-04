@@ -97,3 +97,19 @@ def test_show_event_reasserts_topmost(fp_v2_setup, qapp, monkeypatch):
     overlay.show()
     qapp.processEvents()
     assert calls == ["topmost"]
+
+
+def test_show_for_screen_no_screens_logs_warning(fp_v2_setup, qapp, monkeypatch, caplog):
+    """W-COMPAT-SCREEN-RECOVERY-001: empty screens → warning + unavailable flag."""
+    import logging
+
+    _, _, overlay = fp_v2_setup
+    monkeypatch.setattr("app.floating_panel_overlay.QApplication.screens", lambda: [])
+
+    with caplog.at_level(logging.WARNING, logger="danmu.floating_panel_overlay"):
+        overlay.show_for_screen(0)
+        qapp.processEvents()
+
+    assert overlay._screen_unavailable is True
+    assert not overlay.isVisible()
+    assert any("no screens available" in r.message for r in caplog.records)

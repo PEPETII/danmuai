@@ -66,6 +66,16 @@ def is_velopack_update_exe(path: Path) -> bool:
     return b"Velopack" in sample
 
 
+_VELOPACK_PACK_ID = "PEPETII.DanmuAI"
+
+
+def _has_velopack_install_layout(install_root: Path) -> bool:
+    """True when the parent of ``current/`` looks like a Velopack install root."""
+    if install_root.name == _VELOPACK_PACK_ID:
+        return True
+    return (install_root / "packages").is_dir()
+
+
 def is_velopack_install() -> bool:
     if not getattr(sys, "frozen", False):
         return False
@@ -75,7 +85,11 @@ def is_velopack_install() -> bool:
     resolved = Path(exe_path).resolve()
     if resolved.parent.name.lower() != "current":
         return False
-    return is_velopack_update_exe(resolved.parent.parent / "Update.exe")
+    install_root = resolved.parent.parent
+    update_exe = install_root / "Update.exe"
+    if not is_velopack_update_exe(update_exe):
+        return False
+    return _has_velopack_install_layout(install_root)
 
 
 def _is_velopack_install() -> bool:

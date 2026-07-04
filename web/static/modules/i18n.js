@@ -14,10 +14,16 @@ const DEFAULT_LANGUAGE = 'zh';
 let _dict = {};
 /** @type {Record<string, string>} cached zh flat dict for source-text lookup */
 let _zhDict = {};
+/** @type {Record<string, string>} cached en flat dict for bidirectional reverse lookup */
+let _enDict = {};
 let _lang = 'zh';
 let _ready = false;
 /** Maps any known locale string (zh or en) -> i18n key */
 let _sourceTextToKey = new Map();
+/** Trimmed zh+en locale values for acceptNode fallback */
+let _knownLocaleTexts = new Set();
+/** @type {Set<(lang: string) => void>} */
+const _languageChangeListeners = new Set();
 
 function normalizeLanguage(value) {
   if (typeof value === 'string' && SUPPORTED_LANGUAGES.includes(value)) {
@@ -62,30 +68,57 @@ async function fetchShard(lang, name) {
   return res.json();
 }
 
-async function loadZhDictIfNeeded() {
-  if (Object.keys(_zhDict).length > 0) return;
-  const shards = await Promise.all(LOCALE_SHARDS.map((n) => fetchShard('zh', n)));
-  _zhDict = {};
+async function loadFlatDict(lang) {
+  const shards = await Promise.all(LOCALE_SHARDS.map((n) => fetchShard(lang, n)));
+  const dict = {};
   for (const shard of shards) {
-    Object.assign(_zhDict, flattenDict(shard));
+    Object.assign(dict, flattenDict(shard));
+  }
+  return dict;
+}
+
+async function loadLocaleDictsIfNeeded() {
+  if (Object.keys(_zhDict).length === 0) {
+    _zhDict = await loadFlatDict('zh');
+  }
+  if (Object.keys(_enDict).length === 0) {
+    _enDict = await loadFlatDict('en');
   }
 }
 
 function rebuildSourceTextToKey() {
   _sourceTextToKey = new Map();
-  for (const dict of [_zhDict, _dict]) {
+  _knownLocaleTexts = new Set();
+  for (const dict of [_zhDict, _enDict]) {
     for (const [key, text] of Object.entries(dict)) {
       const trimmed = String(text ?? '').trim();
-      if (trimmed && !_sourceTextToKey.has(trimmed)) {
+      if (!trimmed) continue;
+      _knownLocaleTexts.add(trimmed);
+      if (!_sourceTextToKey.has(trimmed)) {
         _sourceTextToKey.set(trimmed, key);
       }
     }
   }
 }
 
+export function onLanguageChanged(fn) {
+  _languageChangeListeners.add(fn);
+  return () => _languageChangeListeners.delete(fn);
+}
+
+export function notifyLanguageChanged(lang = _lang) {
+  for (const listener of _languageChangeListeners) {
+    try {
+      listener(lang);
+    } catch (err) {
+      console.warn('[i18n] language listener failed', err);
+    }
+  }
+}
+
 export async function loadLocale(lang) {
   const normalized = normalizeLanguage(lang);
-  await loadZhDictIfNeeded();
+  await loadLocaleDictsIfNeeded();
   const shards = await Promise.all(LOCALE_SHARDS.map((n) => fetchShard(normalized, n)));
   _dict = {};
   for (const shard of shards) {
@@ -155,6 +188,7 @@ function applyTextNodeWalk(root) {
       const trimmed = (node.textContent || '').trim();
       if (!trimmed) return NodeFilter.FILTER_REJECT;
       if (_sourceTextToKey.has(trimmed)) return NodeFilter.FILTER_ACCEPT;
+      if (_knownLocaleTexts.has(trimmed)) return NodeFilter.FILTER_ACCEPT;
       if (/[\u4e00-\u9fff]/.test(node.textContent || '')) return NodeFilter.FILTER_ACCEPT;
       return NodeFilter.FILTER_REJECT;
     },
@@ -186,6 +220,7 @@ export async function setLanguage(lang) {
   await loadLocale(lang);
   storeLangLocal(lang);
   applyI18n();
+  notifyLanguageChanged(_lang);
   return _lang;
 }
 

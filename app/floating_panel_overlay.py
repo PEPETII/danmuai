@@ -4,6 +4,7 @@ W-FP-V3-002：仅保留现有外观，运动学改为持续向上滚动。
 """
 from __future__ import annotations
 
+import logging
 import sys
 import time
 from typing import TYPE_CHECKING
@@ -40,6 +41,8 @@ _FAST_OUTLINE_OFFSETS = (
     (-1, 1),
     (1, -1),
 )
+
+_fp_overlay_logger = logging.getLogger("danmu.floating_panel_overlay")
 
 
 def _use_fast_danmu_render(content: str) -> bool:
@@ -78,6 +81,7 @@ class FloatingPanelOverlay(QWidget):
         self._tick_clock = QElapsedTimer()
         self._last_tick_valid = False
         self.last_tick_dt_sec: float = _FRAME_DT
+        self._screen_unavailable: bool = False
 
         self.timer = QTimer(self)
         self.timer.setTimerType(Qt.TimerType.PreciseTimer)
@@ -242,9 +246,31 @@ class FloatingPanelOverlay(QWidget):
     def show_for_screen(self, screen_index: int = 0) -> None:
         screens = QApplication.screens()
         if not screens:
+            self._screen_unavailable = True
+            _fp_overlay_logger.warning(
+                "show_for_screen: no screens available; floating panel stays hidden"
+            )
             return
         screen_index = max(0, min(int(screen_index), len(screens) - 1))
         geo = screens[screen_index].geometry()
+        if geo.width() <= 0 or geo.height() <= 0:
+            _fp_overlay_logger.warning(
+                "show_for_screen: screen %d has invalid geometry %dx%d; "
+                "falling back to primary screen",
+                screen_index, geo.width(), geo.height(),
+            )
+            if screen_index != 0:
+                screen_index = 0
+                geo = screens[0].geometry()
+            if geo.width() <= 0 or geo.height() <= 0:
+                self._screen_unavailable = True
+                _fp_overlay_logger.warning(
+                    "show_for_screen: primary screen also invalid %dx%d; "
+                    "floating panel stays hidden",
+                    geo.width(), geo.height(),
+                )
+                return
+        self._screen_unavailable = False
         panel_h = max(160, geo.height() - self._y_offset * 2)
         x = geo.x() + geo.width() - self._panel_width - self._x_offset
         y = geo.y() + self._y_offset

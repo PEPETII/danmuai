@@ -26,6 +26,8 @@
     "edit": "编辑",
     "defaultLabel": "默认",
     "unnamed": "未命名",
+    "notSelected": "未选",
+    "notConfigured": "未配置",
     "comingSoon": "待接入",
     "connecting": "连接中",
     "connected": "已连接",

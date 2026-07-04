@@ -151,9 +151,7 @@ class AiRunnable(QRunnable):
         if self.mic_pcm and self.mic_attach_audio:
             audio_data_uri = pcm_to_wav_data_uri(self.mic_pcm)
 
-        self.worker._request_deadline_at = started + REQUEST_WALL_CLOCK_SEC
-        # W-PERF-STREAM-001：记录请求开始时间，供流式首内容超时检查
-        self.worker._request_started_at = started
+        deadline_at = started + REQUEST_WALL_CLOCK_SEC
         try:
             self.worker._request(
                 image_data_uri,
@@ -165,6 +163,8 @@ class AiRunnable(QRunnable):
                 self.captured_at,
                 self.scene_generation,
                 audio_data_uri=audio_data_uri,
+                request_started_at=started,
+                request_deadline_at=deadline_at,
             )
         except Exception as exc:  # boundary: AI request worker top-level
             if not self.worker._stopping.is_set():
@@ -182,6 +182,3 @@ class AiRunnable(QRunnable):
                 logger.debug(
                     f"ai request failed in runnable: {type(exc).__name__}: {exc}"
                 )
-        finally:
-            self.worker._request_deadline_at = None
-            self.worker._request_started_at = None

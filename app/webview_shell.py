@@ -423,7 +423,10 @@ class WebViewShell:
             from app.webview2_runtime import WEBVIEW2_INSTALL_URL, is_webview2_runtime_available
 
             if not is_webview2_runtime_available():
+                saved_defer = self._defer_browser_fallback
+                self._defer_browser_fallback = True
                 self._fail_start("WebView2 runtime not found", initial_path)
+                self._defer_browser_fallback = saved_defer
                 danmu_app = self.server.bridge.danmu_app
                 if not getattr(self.server, "_startup_failure_user_notified", False):
                     notify_web_console_failure(
@@ -432,6 +435,9 @@ class WebViewShell:
                         install_url=WEBVIEW2_INSTALL_URL,
                     )
                     self.server._startup_failure_user_notified = True
+                _fallback_to_system_browser(
+                    self.server, initial_path, "WebView2 runtime not found"
+                )
                 return False
         while self._spawn_attempt <= _SPAWN_MAX_ATTEMPTS:
             try:

@@ -2,12 +2,12 @@
 
 ``QLocalServer`` + ``QLocalSocket`` 实现单实例：第一个进程 bind ``DanmuAI-{user-salt}``，
 后续进程连 socket 发送 ``_ACTIVATE_MSG`` 后退出，激活原窗口。``_server_name`` 哈希
-``USERNAME | APPDATA``（BUG-006：早期实现只哈希 APPDATA，多用户/同机器场景会互斥；
-现已混入 USERNAME，相同 APPDATA 下不同用户生成不同 server 名）。
+``USERNAME | APPDATA | Windows session ID``（BUG-006 混入 USERNAME；W-COMPAT-SINGLE-INSTANCE-SESSION-001
+再混入会话 ID，避免快速用户切换 / 多会话 Terminal Services 误激活或互斥）。
 
 竞态窗口：若原实例正在启动但 ``QLocalServer`` 尚未就绪，新进程 ``_activate_existing_instance``
 超时返回 False，``_listen_primary`` 可能抢占成功（server 名尚未注册），导致双实例。
-``main()`` 对 ``ACTIVATION_FAILED`` 结果执行最多 2 次重试（间隔 500ms），重试期间原实例
+``main()`` 对 ``ACTIVATION_FAILED`` 结果执行最多 3 次重试（间隔 500ms），重试期间原实例
 ``QLocalServer`` 有机会就绪；重试耗尽则 ``sys.exit(2)`` 退出，阻止双实例。
 """
 
@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import sys
 from dataclasses import dataclass
 from enum import Enum
 from typing import Callable
@@ -48,14 +49,29 @@ class SingleInstanceAcquireResult:
         return self.kind is SingleInstanceAcquireKind.ACTIVATION_FAILED
 
 
+def _windows_session_id() -> str:
+    if sys.platform != "win32":
+        return "0"
+    try:
+        import ctypes
+
+        session_id = int(ctypes.windll.kernel32.WTSGetActiveConsoleSessionId())
+        if session_id >= 0:
+            return str(session_id)
+    except (AttributeError, OSError, ValueError):
+        pass
+    return "0"
+
+
 def _server_name() -> str:
     appdata = os.environ.get("APPDATA", "").strip() or os.path.expanduser("~")
     username = (
         os.environ.get("USERNAME", "").strip()
         or os.environ.get("USER", "").strip()
     )
+    session_id = _windows_session_id()
     digest = hashlib.sha256(
-        f"{username}|{appdata}".encode("utf-8", errors="replace")
+        f"{username}|{appdata}|{session_id}".encode("utf-8", errors="replace")
     ).hexdigest()[:16]
     return f"DanmuAI-{digest}"
 

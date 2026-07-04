@@ -100,15 +100,21 @@ def test_show_event_applies_win32_click_through(topmost_app, qapp):
     assert calls
 
 
-def test_health_tick_reasserts_scrolling_overlay(topmost_app, qapp):
+def test_health_tick_reasserts_scrolling_overlay(topmost_app, qapp, monkeypatch):
     app, engine, overlay, _ = topmost_app
     engine.running = True
     overlay.show()
     qapp.processEvents()
+    monkeypatch.setattr(
+        "app.main_display_mixin.get_foreground_hwnd",
+        lambda: 12345,
+    )
+    app.__dict__["_last_foreground_hwnd"] = 0
     calls: list[str] = []
     overlay.reassert_topmost_zorder = lambda: calls.append("overlay")
     app._reassert_pet_above_overlays = Mock()
     app._update_overlay_compat_warning = Mock()
+    app._update_screen_index_fallback_warning = Mock()
     app._on_topmost_health_tick()
     assert calls == ["overlay"]
 
@@ -119,10 +125,16 @@ def test_health_tick_reasserts_floating_panel(topmost_app, qapp, monkeypatch):
     engine.running = True
     fp_overlay.show()
     qapp.processEvents()
+    monkeypatch.setattr(
+        "app.main_display_mixin.get_foreground_hwnd",
+        lambda: 12345,
+    )
+    app.__dict__["_last_foreground_hwnd"] = 0
     calls: list[str] = []
     fp_overlay.reassert_topmost_zorder = lambda: calls.append("fp")
     app._reassert_pet_above_overlays = Mock()
     app._update_overlay_compat_warning = Mock()
+    app._update_screen_index_fallback_warning = Mock()
     app._on_topmost_health_tick()
     assert calls == ["fp"]
 
@@ -184,6 +196,79 @@ def test_probe_exclusive_fullscreen_risk(monkeypatch):
         screen_h=1080,
         own_hwnds=(),
     ) is False
+
+
+def test_health_tick_skips_reassert_when_fg_stable_and_not_heartbeat(
+    topmost_app, qapp, monkeypatch,
+):
+    app, engine, overlay, _ = topmost_app
+    engine.running = True
+    overlay.show()
+    qapp.processEvents()
+    monkeypatch.setattr(
+        "app.main_display_mixin.get_foreground_hwnd",
+        lambda: 42,
+    )
+    app.__dict__["_last_foreground_hwnd"] = 42
+    app.__dict__["_topmost_health_tick"] = 1
+    app.__dict__["_last_fullscreen_at_risk"] = False
+    overlay._topmost_fail_streak = 0
+    reassert_calls: list[str] = []
+    app._reassert_active_overlay_topmost = lambda: reassert_calls.append("reassert")
+    compat_calls: list[int] = []
+    app._update_overlay_compat_warning = lambda **kwargs: compat_calls.append(1)
+    app._update_screen_index_fallback_warning = Mock()
+    app._on_topmost_health_tick()
+    assert reassert_calls == []
+    assert compat_calls == []
+
+
+def test_health_tick_reasserts_on_fail_streak(topmost_app, qapp, monkeypatch):
+    app, engine, overlay, _ = topmost_app
+    engine.running = True
+    overlay.show()
+    qapp.processEvents()
+    monkeypatch.setattr(
+        "app.main_display_mixin.get_foreground_hwnd",
+        lambda: 42,
+    )
+    app.__dict__["_last_foreground_hwnd"] = 42
+    app.__dict__["_topmost_health_tick"] = 1
+    overlay._topmost_fail_streak = 2
+    calls: list[str] = []
+    overlay.reassert_topmost_zorder = lambda: calls.append("overlay")
+    app._reassert_pet_above_overlays = Mock()
+    app._update_overlay_compat_warning = Mock()
+    app._update_screen_index_fallback_warning = Mock()
+    app._on_topmost_health_tick()
+    assert calls == ["overlay"]
+
+
+def test_probe_foreground_hwnd_skips_get_foreground_window(monkeypatch):
+    import app.win32_overlay_zorder as mod
+
+    if mod.sys.platform != "win32":
+        pytest.skip("win32 only")
+
+    calls: list[int] = []
+
+    def fake_get_fg():
+        calls.append(1)
+        return 9999
+
+    monkeypatch.setattr(mod, "_GetForegroundWindow", fake_get_fg)
+    monkeypatch.setattr(mod, "_read_window_rect", lambda hwnd: (0, 0, 1920, 1080))
+    monkeypatch.setattr(mod, "_GetWindowLong", lambda hwnd, idx: 0)
+    probe_exclusive_fullscreen_risk(
+        overlay_hwnd=100,
+        screen_x=0,
+        screen_y=0,
+        screen_w=1920,
+        screen_h=1080,
+        own_hwnds=(),
+        foreground_hwnd=5555,
+    )
+    assert calls == []
 
 
 def test_apply_overlay_exstyles_sets_layered_and_transparent_bits(monkeypatch):

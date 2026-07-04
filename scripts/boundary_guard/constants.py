@@ -2,11 +2,12 @@
 
 本文件**不**做规则判定，只维护规则所需的"路径/正则/白名单"。每个规则模块
 按职责域分组（web / runtime / request / config / pipeline / diagnostics /
-status / baseline），常量与 [docs/CONTRIBUTING_ARCHITECTURE.md] 中的
-"Phase 4-A/B/C/D"、"Phase 4-F" 等对应。新增规则时务必先在本文件登记
-匹配模式 / 白名单，勿在 rules/*.py 中硬编码字符串。
+status / baseline），常量与 [AGENTS.md](../../AGENTS.md) §9 + 三登记表
+（`docs/runtime-state-map.md`、`docs/main-pipeline-sequence.md`、
+`docs/final-architecture-baseline.md`）中的 Phase 4-A/B/C/D、Phase 4-F 等对应。
+新增规则时务必先在本文件登记匹配模式 / 白名单，勿在 rules/*.py 中硬编码字符串。
 
-维护者：见 [docs/CONTRIBUTING_ARCHITECTURE.md] 的"维护者登记"小节。
+维护者：见 [AGENTS.md](../../AGENTS.md) §9 与上述三登记表。
 """
 
 from __future__ import annotations
