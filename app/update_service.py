@@ -77,7 +77,10 @@ def _manager():
     with _lock:
         if _cached_manager is not None:
             return _cached_manager
-        import velopack
+        try:
+            import velopack
+        except ImportError as exc:
+            raise ImportError(tr("update.velopack_missing")) from exc
 
         _cached_manager = velopack.UpdateManager(UPDATE_FEED_URL)
         return _cached_manager

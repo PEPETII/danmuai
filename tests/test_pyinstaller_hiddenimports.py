@@ -75,6 +75,13 @@ def test_spec_lists_lazy_third_party(spec_text: str) -> None:
     assert '"keyboard"' in spec_text
     assert '"dashscope"' in spec_text
     assert '"dashscope.audio.qwen_tts_realtime"' in spec_text
+    assert '"velopack"' in spec_text
+    assert '"velopack.velopack"' in spec_text
+
+
+def test_spec_bundles_velopack_pyd(spec_text: str) -> None:
+    assert "_collect_velopack_binary" in spec_text
+    assert "velopack.pyd" in spec_text
 
 
 def test_spec_lists_webview2_runtime(spec_text: str) -> None:

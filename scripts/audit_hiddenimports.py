@@ -43,6 +43,8 @@ CRITICAL_LAZY_THIRD_PARTY: frozenset[str] = frozenset(
         "keyboard",
         "dashscope",
         "dashscope.audio.qwen_tts_realtime",
+        "velopack",
+        "velopack.velopack",
     }
 )
 

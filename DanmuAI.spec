@@ -112,7 +112,19 @@ datas.append((str(root / "data" / "pet" / "default"), "data/pet/default"))
 if (root / "resources" / "icon.png").is_file():
     datas.append((str(root / "resources" / "icon.png"), "resources"))
 
-binaries: list = []
+def _collect_velopack_binary() -> list:
+    """PyInstaller does not pick up velopack.pyd via collect_dynamic_libs."""
+    try:
+        import velopack
+    except ImportError:
+        return []
+    pyd = Path(velopack.__file__).resolve().parent / "velopack.pyd"
+    if pyd.is_file():
+        return [(str(pyd), "velopack")]
+    return []
+
+
+binaries: list = _collect_velopack_binary()
 hiddenimports: list[str] = [
     # ── 第三方包 ──────────────────────────────────────────────────
     "webview",
@@ -158,6 +170,7 @@ hiddenimports: list[str] = [
     "dashscope",
     "dashscope.audio.qwen_tts_realtime",
     "velopack",
+    "velopack.velopack",
     # ── app 顶层模块 ─────────────────────────────────────────────
     "app.ai_client",
     "app.ai_client_requests",
