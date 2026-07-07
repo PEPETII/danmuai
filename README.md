@@ -7,7 +7,8 @@ DanmuAI is a Windows desktop danmu tool: it captures the **entire selected displ
 
 <img width="2487" height="1375" alt="Screenshot 2026-05-17 195301" src="https://github.com/user-attachments/assets/7a366c6c-1729-4852-b8df-c5755388fe60" />
 <img width="2541" height="1408" alt="Screenshot 2026-05-17 195727" src="https://github.com/user-attachments/assets/655b778a-26c8-4c3b-8fd3-45eef7aac4a9" />
-<img width="2526" height="1391" alt="Screenshot 2026-05-17 195659" src="https://github.com/user-attachments/assets/ab2aff3c-c1d0-44bc-b507-7a42921dbb48" />
+<img width="1159" height="610" alt="image" src="https://github.com/user-attachments/assets/0fa4f970-1493-4561-a504-7104a83c2e16" />
+
 
 Discord: https://discord.gg/xQyx24ttK
 
