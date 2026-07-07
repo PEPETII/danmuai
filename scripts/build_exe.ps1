@@ -1,75 +1,20 @@
 # Build DanmuAI Windows folder distribution (PyInstaller onedir).
 # Requires: a usable Python 3.12+ environment with PyInstaller installed.
-# Output: dist/DanmuAI/DanmuAI.exe
+# Output: dist/<WINDOWS_DIST_DIR>/<WINDOWS_EXE_NAME> (see app.packaging_constants)
 
 $ErrorActionPreference = "Stop"
 $OutputEncoding = [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
-function Test-PathStartsWith {
-    param(
-        [string]$Path,
-        [string]$Prefix
-    )
-    if (-not $Path -or -not $Prefix) {
-        return $false
-    }
-    return $Path.StartsWith($Prefix, [System.StringComparison]::OrdinalIgnoreCase)
-}
+. (Join-Path $PSScriptRoot "version_parse.ps1")
+$packagingPaths = Get-PackagingDistPaths
+$distDirName = $packagingPaths.DistDir
+$exeName = $packagingPaths.ExeName
 
-function Resolve-PythonCommand {
-    $candidates = @(
-        [pscustomobject]@{
-            Path = (Join-Path $Root ".venv-build\Scripts\python.exe")
-            Args = @()
-            Label = ".venv-build"
-            SkipDependencyInstall = $true
-        },
-        [pscustomobject]@{
-            Path = (Join-Path $Root ".venv-build-312\Scripts\python.exe")
-            Args = @()
-            Label = ".venv-build-312"
-            SkipDependencyInstall = $true
-        },
-        [pscustomobject]@{
-            Path = $env:DANMU_BUILD_PYTHON
-            Args = @()
-            Label = "DANMU_BUILD_PYTHON"
-            SkipDependencyInstall = Test-PathStartsWith -Path $env:DANMU_BUILD_PYTHON -Prefix "E:\cache\codex-runtimes\codex-primary-runtime\dependencies\python"
-        }
-    )
+. (Join-Path $PSScriptRoot "resolve_build_python.ps1")
 
-    foreach ($candidate in $candidates) {
-        if ($candidate.Path -and (Test-Path -LiteralPath $candidate.Path)) {
-            return $candidate
-        }
-    }
-
-    $py = Get-Command py -ErrorAction SilentlyContinue
-    if ($py) {
-        return [pscustomobject]@{
-            Path = "py"
-            Args = @("-3.12")
-            Label = "py -3.12"
-            SkipDependencyInstall = $true
-        }
-    }
-
-    $python = Get-Command python -ErrorAction SilentlyContinue
-    if ($python) {
-        return [pscustomobject]@{
-            Path = "python"
-            Args = @()
-            Label = "python"
-            SkipDependencyInstall = $false
-        }
-    }
-
-    throw "No usable Python launcher found"
-}
-
-$PythonCmd = Resolve-PythonCommand
+$PythonCmd = Resolve-BuildPythonCommand -Root $Root
 Write-Host "Using Python: $($PythonCmd.Label) => $($PythonCmd.Path)"
 if ($PythonCmd.Path -ne "py" -and $PythonCmd.Path -ne "python") {
     $PythonPrefix = Split-Path -Parent $PythonCmd.Path
@@ -83,15 +28,15 @@ if (-not (Test-Path "resources\icon.ico") -or -not (Test-Path "resources\icon.pn
     & $PythonCmd.Path @($PythonCmd.Args) (Join-Path $Root "scripts\generate_app_icon.py")
 }
 
-$distDir = Join-Path $Root "dist\DanmuAI"
-$exe = Join-Path $distDir "DanmuAI.exe"
+$distDir = Join-Path $Root "dist\$distDirName"
+$exe = Join-Path $distDir $exeName
 
 function Stop-DanmuAiProcesses {
     $procs = Get-Process -Name "DanmuAI" -ErrorAction SilentlyContinue
     if (-not $procs) {
         return
     }
-    Write-Host "Stopping running DanmuAI.exe (dist output is locked while it runs)..."
+    Write-Host "Stopping running $exeName (dist output is locked while it runs)..."
     $procs | Stop-Process -Force
     Start-Sleep -Seconds 2
 }
@@ -105,7 +50,7 @@ function Clear-DistOutput {
     } catch {
         Write-Error @"
 Cannot remove $distDir — files are in use.
-Close DanmuAI.exe / pywebview / tray, then rerun: .\scripts\build_exe.ps1
+Close $exeName / pywebview / tray, then rerun: .\scripts\build_exe.ps1
 Original error: $($_.Exception.Message)
 "@
     }

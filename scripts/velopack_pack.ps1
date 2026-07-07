@@ -6,15 +6,22 @@ param(
     [string]$PackDir = "",
     [string]$OutputDir = "",
     [string]$PackId = "PEPETII.DanmuAI",
-    [string]$MainExe = "DanmuAI.exe",
+    [string]$MainExe = "",
     [string]$PackTitle = "DanmuAI"
 )
 
 $ErrorActionPreference = "Stop"
 $OutputEncoding = [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $Root = Split-Path -Parent $PSScriptRoot
+
+. (Join-Path $PSScriptRoot "version_parse.ps1")
+if (-not $MainExe) {
+    $MainExe = Get-PackagingExeName
+}
+. (Join-Path $PSScriptRoot "resolve_build_python.ps1")
 if (-not $PackDir) {
-    $PackDir = Join-Path $Root "dist\DanmuAI"
+    $packagingPaths = Get-PackagingDistPaths
+    $PackDir = Join-Path $Root ("dist\" + $packagingPaths.DistDir)
 }
 if (-not $OutputDir) {
     $OutputDir = Join-Path $Root "release\velopack"
@@ -41,13 +48,14 @@ See docs/operations/PACKAGING_WINDOWS.md
 
 Ensure-Vpk
 
-$versionOutput = python -c "from app.version import __version__; print(__version__)" 2>&1
+$BuildPython = Assert-BuildPython -Root $Root
+$versionOutput = & $BuildPython.Path @($BuildPython.Args) -c "from app.version import __version__; print(__version__)" 2>&1
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Failed to read app version from app.version.__version__ (exit $LASTEXITCODE): $versionOutput"
 }
-$appVersion = $versionOutput.Trim()
-if (-not $appVersion -or $appVersion -notmatch '^\d+\.\d+\.\d+') {
-    Write-Error "Invalid version string from app.version.__version__: '$appVersion' (expected semver x.y.z)"
+$appVersion = Get-PythonVersionOutputLine -VersionOutput $versionOutput
+if (-not $appVersion -or $appVersion -notmatch $AppVersionPattern) {
+    Write-Error "Invalid version string from app.version.__version__: '$appVersion' (expected semver x.y.z or x.y.z-prerelease)"
 }
 $icon = Join-Path $Root "resources\icon.ico"
 $iconArg = @()
@@ -102,7 +110,7 @@ $versionedSetup = Join-Path $OutputDir "PEPETII.DanmuAI-$appVersion-Setup.exe"
 Copy-Item -LiteralPath $setup.FullName -Destination $versionedSetup -Force
 
 # Replace Velopack portable stub with a plain PyInstaller onedir archive.
-# Users should launch the real DanmuAI.exe, not the portable stub at zip root.
+# Users should launch the real app exe, not the portable stub at zip root.
 $portableZip = Join-Path $OutputDir "$PackId-win-Portable.zip"
 if (Test-Path -LiteralPath $portableZip) {
     Remove-Item -LiteralPath $portableZip -Force

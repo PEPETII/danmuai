@@ -1,6 +1,7 @@
 import sqlite3
 import logging
 import threading
+import time
 from base64 import b64encode
 
 import pytest
@@ -677,6 +678,75 @@ def test_apply_web_save_does_not_pollute_cache_on_failure(tmp_path):
     store.close()
 
 
+@pytest.mark.skipif(not _HAS_CRYPTO, reason="cryptography not installed")
+def test_apply_web_save_clears_api_key_with_empty_string(tmp_path):
+    """W-LEGACY-MIGRATE-ATOMIC-001: api_key=\"\" 经 apply_web_save 清空全局视觉 key。"""
+    store = ConfigStore(db_path=tmp_path / "config.db")
+    store.set_api_key("sk-clear-me-1234567890")
+    assert store.get_api_key() == "sk-clear-me-1234567890"
+
+    store.apply_web_save(api_key="")
+
+    assert store.get_api_key() == ""
+    store.close()
+
+
+def test_apply_web_save_flags_atomic_with_items(tmp_path):
+    """W-LEGACY-MIGRATE-ATOMIC-001: items 与 flags 同批 commit。"""
+    store = ConfigStore(db_path=tmp_path / "config.db")
+    counting = _CommitCountingConn(store.conn)
+    store.conn = counting
+
+    store.apply_web_save(
+        items={"danmu_speed": "5"},
+        flags={"legacy_api_migrated_v1": "true", "test_flag": "ok"},
+    )
+
+    assert counting.commit_call_count == 1
+    assert store.get("danmu_speed") == "5"
+    assert store.get_flag("legacy_api_migrated_v1") == "true"
+    assert store.get_flag("test_flag") == "ok"
+    store.close()
+
+
+def test_apply_web_save_flags_rollback_on_failure(tmp_path):
+    """W-LEGACY-MIGRATE-ATOMIC-001: flags 写入失败时 items 与 flags 均不落库。"""
+    store = ConfigStore(db_path=tmp_path / "config.db")
+    store.set("stable_key", "original")
+    store.set_flag("stable_flag", "original")
+    inner = store.conn
+
+    class _FailingConn:
+        def execute(self, sql, params=()):
+            raise sqlite3.OperationalError("database is locked")
+
+        def executemany(self, sql, seq_of_parameters):
+            raise sqlite3.OperationalError("database is locked")
+
+        def commit(self):
+            return inner.commit()
+
+        def rollback(self):
+            return inner.rollback()
+
+        def close(self):
+            return inner.close()
+
+    store.conn = _FailingConn()
+
+    with pytest.raises(sqlite3.OperationalError):
+        store.apply_web_save(
+            items={"stable_key": "new_value"},
+            flags={"legacy_api_migrated_v1": "true"},
+        )
+
+    store.conn = inner
+    assert store.get("stable_key") == "original"
+    assert store.get_flag("legacy_api_migrated_v1") is None
+    assert store.get_flag("stable_flag") == "original"
+    store.close()
+
+
 def test_custom_danmu_pool_json_migration(tmp_path):
     import json as json_mod
 
@@ -1162,6 +1232,58 @@ def test_config_store_concurrent_close(tmp_path):
     store2 = ConfigStore(db_path=db_path)
     val = store2.get("race_key", "")
     assert val  # 至少有初始值
+    store2.close()
+
+
+def test_config_store_concurrent_close_during_pool_write(tmp_path):
+    """BUG-005: close() 与 set_custom_danmu_pool() 并发不崩溃、不损坏 DB。
+
+    线程 A 反复大批量写入自定义弹幕库（持 _pool_write_lock），
+    线程 B 调用 close()；验证无未捕获异常且 DB 可重新打开。
+    """
+    db_path = tmp_path / "race_pool_close.db"
+    store = ConfigStore(db_path=db_path)
+    store.set("race_key", "initial")
+
+    errors: list[Exception] = []
+    stop_event = threading.Event()
+
+    def pool_writer():
+        i = 0
+        while not stop_event.is_set():
+            try:
+                items = [f"pool句{i}_{j}" for j in range(200)]
+                store.set_custom_danmu_pool(items)
+                i += 1
+            except Exception as exc:
+                errors.append(exc)
+                break
+
+    def closer():
+        try:
+            time.sleep(0.05)
+            store.close()
+        except Exception as exc:
+            errors.append(exc)
+        finally:
+            stop_event.set()
+
+    t_writer = threading.Thread(target=pool_writer)
+    t_closer = threading.Thread(target=closer)
+
+    t_writer.start()
+    t_closer.start()
+
+    t_writer.join(timeout=5)
+    t_closer.join(timeout=5)
+
+    assert not errors, f"并发 close+pool_write 产生异常: {errors}"
+    assert store._closed is True
+
+    store2 = ConfigStore(db_path=db_path)
+    assert store2.get("race_key", "") == "initial"
+    integrity = store2.conn.execute("PRAGMA integrity_check").fetchone()
+    assert integrity and integrity[0] == "ok"
     store2.close()
 
 

@@ -18,6 +18,7 @@ _DEFAULT_DANMU_TRACK_RETENTION_CAP = 600
 # 弹幕最大字数（截断阈值 + ... 后缀）
 DEFAULT_DANMU_MAX_CHARS_ZH = 20   # 中文默认最大字数
 DEFAULT_DANMU_MAX_CHARS_EN = 50   # 英文默认最大字符数
+_LEGACY_FACTORY_DANMU_MAX_CHARS = 15  # 与 config_defaults.LEGACY_DANMU_MAX_CHARS_FACTORY 同步
 DANMU_MAX_CHARS_MIN = 5
 DANMU_MAX_CHARS_MAX = 80
 
@@ -147,12 +148,20 @@ def resolve_danmu_color(config) -> QColor:
 
 
 def resolve_danmu_max_chars(config, *, lang: str | None = None) -> int:
-    """上屏弹幕最大字数；未配置时中文 15、英文 40。"""
+    """上屏弹幕最大字数；未配置时中文 20、英文 50。
+
+    历史工厂默认 ``15``（``_LEGACY_FACTORY_DANMU_MAX_CHARS``）按未配置处理，
+  以恢复语言相关默认长度。
+    """
     if lang is None:
         lang = Translator.get_language()
     fallback = DEFAULT_DANMU_MAX_CHARS_EN if lang == "en" else DEFAULT_DANMU_MAX_CHARS_ZH
     raw = config.get_int("danmu_max_chars", 0)
-    value = raw if raw > 0 else fallback
+    legacy_factory = _LEGACY_FACTORY_DANMU_MAX_CHARS
+    if raw <= 0 or raw == legacy_factory:
+        value = fallback
+    else:
+        value = raw
     return max(DANMU_MAX_CHARS_MIN, min(value, DANMU_MAX_CHARS_MAX))
 
 

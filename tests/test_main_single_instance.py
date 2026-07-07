@@ -20,6 +20,9 @@ def test_main_exits_on_activation_failed_after_retries(monkeypatch):
         def try_acquire(self):
             return SimpleNamespace(kind=activation_failed, became_primary=False)
 
+        def release(self):
+            events.append(("release", None))
+
     class FakeApp:
         def setQuitOnLastWindowClosed(self, value):
             events.append(("set_quit_on_last_window_closed", value))
@@ -57,6 +60,7 @@ def test_main_exits_on_activation_failed_after_retries(monkeypatch):
 
     assert main.main() == 2
     assert ("exit", 2) in events
+    assert ("release", None) in events
     assert all(event[0] != "danmu_init" for event in events)
 
 

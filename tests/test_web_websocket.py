@@ -99,6 +99,52 @@ def test_ws_status_websocket_rejects_missing_token_with_1008():
     bridge.register_status_consumer.assert_not_called()
 
 
+def test_ws_status_unauthenticated_closes_within_timeout_without_consumer():
+    """BUG-015: unauthenticated /ws/status closes within auth timeout and never registers consumer."""
+    import time
+
+    from fastapi.testclient import TestClient
+    from starlette.websockets import WebSocketDisconnect
+
+    token = "ws-test-token-valid"
+    bridge = MagicMock()
+
+    app = build_ws_status_test_app(bridge, token)
+    client = TestClient(app)
+
+    started = time.monotonic()
+    with pytest.raises(WebSocketDisconnect):
+        with client.websocket_connect("/ws/status"):
+            pass
+    elapsed = time.monotonic() - started
+
+    assert elapsed < 2.0
+    bridge.register_status_consumer.assert_not_called()
+
+
+def test_ws_logs_unauthenticated_closes_within_timeout_without_consumer():
+    """BUG-015: unauthenticated /ws/logs closes within auth timeout and never registers consumer."""
+    import time
+
+    from fastapi.testclient import TestClient
+    from starlette.websockets import WebSocketDisconnect
+
+    token = "ws-test-token-valid"
+    bridge = MagicMock()
+
+    app = build_ws_logs_test_app(bridge, token)
+    client = TestClient(app)
+
+    started = time.monotonic()
+    with pytest.raises(WebSocketDisconnect):
+        with client.websocket_connect("/ws/logs"):
+            pass
+    elapsed = time.monotonic() - started
+
+    assert elapsed < 2.0
+    bridge.register_log_consumer.assert_not_called()
+
+
 def test_ws_status_client_can_reconnect_after_disconnect():
     from fastapi.testclient import TestClient
 

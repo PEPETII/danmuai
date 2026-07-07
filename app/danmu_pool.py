@@ -214,6 +214,9 @@ def is_stored_custom_pool_text(config, content: str) -> bool:
     contains = getattr(config, "custom_danmu_contains_text", None)
     if callable(contains):
         return bool(contains(text))
+    conn_usable = getattr(config, "_conn_usable", None)
+    if callable(conn_usable) and conn_usable():
+        return custom_danmu_contains_text_for_store(config, text)
     getter = getattr(config, "get_custom_danmu_pool", None)
     if not callable(getter):
         return False

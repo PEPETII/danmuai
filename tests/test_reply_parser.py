@@ -260,6 +260,61 @@ def test_normalize_reply_batch_keeps_distinct_short_comments(monkeypatch):
     assert items == ["这波可以", "这把可以", "真的假的"]
 
 
+def test_english_batch_fuzzy_dedup_keeps_distinct_short_phrases(monkeypatch):
+    monkeypatch.setattr(
+        "app.reply_parser._scene_fillers",
+        lambda config=None: [],
+    )
+    monkeypatch.setattr(
+        "app.reply_parser._generic_fillers",
+        lambda config=None: [],
+    )
+    items = normalize_reply_batch(
+        ["that was clean", "that was close", "no way"],
+        scene_count=3,
+        filler_count=0,
+    )
+    assert items == ["that was clean", "that was close", "no way"]
+
+
+def test_batch_fuzzy_dedup_still_removes_exact_duplicates(monkeypatch):
+    monkeypatch.setattr(
+        "app.reply_parser._scene_fillers",
+        lambda config=None: [],
+    )
+    monkeypatch.setattr(
+        "app.reply_parser._generic_fillers",
+        lambda config=None: [],
+    )
+    items = normalize_reply_batch(
+        ["nice play", "nice play", "calm down"],
+        scene_count=3,
+        filler_count=0,
+    )
+    assert items == ["nice play", "calm down"]
+
+
+def test_chinese_batch_fuzzy_dedup_still_removes_near_duplicates(monkeypatch):
+    monkeypatch.setattr(
+        "app.reply_parser._scene_fillers",
+        lambda config=None: [],
+    )
+    monkeypatch.setattr(
+        "app.reply_parser._generic_fillers",
+        lambda config=None: [],
+    )
+    items = normalize_reply_batch(
+        [
+            "这波操作太秀了",
+            "这波操作太秀啦",
+            "后排围观一下",
+        ],
+        scene_count=3,
+        filler_count=0,
+    )
+    assert items == ["这波操作太秀了", "后排围观一下"]
+
+
 def test_build_local_fallback_batch_no_intra_batch_duplicates():
     items = build_local_fallback_batch(scene_count=3, filler_count=3)
     assert len(items) == len(set(items))

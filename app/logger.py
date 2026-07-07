@@ -76,6 +76,17 @@ def _ensure_stream_handler() -> logging.Logger:
     return logger
 
 
+def sanitize_log_message(msg: str) -> str:
+    """与 SanitizedLogger._sanitize 相同规则；供 append_frozen_log 等无 logger 实例路径复用。"""
+    msg = API_KEY_PATTERN.sub("sk-****", msg)
+    msg = BASE64_IMAGE_PATTERN.sub(f"data:image/***;base64,({tr('common.hidden')})", msg)
+    msg = BASE64_AUDIO_PATTERN.sub(f"data:audio/***;base64,({tr('common.hidden')})", msg)
+    msg = AUTH_HEADER_PATTERN.sub(f"Authorization: Bearer ({tr('common.hidden')})", msg)
+    msg = ENCRYPTED_KEY_PATTERN.sub(f"gAAAA****({tr('common.hidden')})", msg)
+    msg = GENERIC_API_KEY_PATTERN.sub("(api_key: ****)", msg)
+    return msg
+
+
 class SanitizedLogger:
     def __init__(self):
         self.logger = _ensure_stream_handler()
@@ -94,13 +105,7 @@ class SanitizedLogger:
             return f"{msg} {args!r}"
 
     def _sanitize(self, msg: str) -> str:
-        msg = API_KEY_PATTERN.sub("sk-****", msg)
-        msg = BASE64_IMAGE_PATTERN.sub(f"data:image/***;base64,({tr('common.hidden')})", msg)
-        msg = BASE64_AUDIO_PATTERN.sub(f"data:audio/***;base64,({tr('common.hidden')})", msg)
-        msg = AUTH_HEADER_PATTERN.sub(f"Authorization: Bearer ({tr('common.hidden')})", msg)
-        msg = ENCRYPTED_KEY_PATTERN.sub(f"gAAAA****({tr('common.hidden')})", msg)
-        msg = GENERIC_API_KEY_PATTERN.sub("(api_key: ****)", msg)
-        return msg
+        return sanitize_log_message(msg)
 
     def _emit(self, level: str, msg: str, *args) -> None:
         safe = self._sanitize(self._format_msg(msg, args))

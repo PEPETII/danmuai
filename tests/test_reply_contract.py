@@ -69,6 +69,28 @@ def test_get_reply_contract_clamps_danmu_max_chars():
     assert "每条弹幕不超过5个汉字" in contract
 
 
+def test_get_reply_contract_en_uses_language_default_when_unset():
+    from app.translations import Translator
+
+    Translator.set_language("en")
+    try:
+        contract = get_reply_contract(FakeConfig())
+        assert "Each danmu must not exceed 50 characters" in contract
+    finally:
+        Translator.set_language("zh")
+
+
+def test_get_reply_contract_en_legacy_factory_matches_local_truncation():
+    from app.translations import Translator
+
+    Translator.set_language("en")
+    try:
+        contract = get_reply_contract(FakeConfig({"danmu_max_chars": "15"}))
+        assert "Each danmu must not exceed 50 characters" in contract
+    finally:
+        Translator.set_language("zh")
+
+
 def test_normal_mode_contract_uses_single_reply_count():
     cfg = FakeConfig({"danmu_display_mode": "normal", "normal_reply_count": "8"})
     contract = get_reply_contract(cfg)

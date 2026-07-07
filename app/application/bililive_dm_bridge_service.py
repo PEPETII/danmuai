@@ -15,6 +15,7 @@ from app.ai_client_requests import stream_doubao, stream_openai
 from app.model_providers import resolve_api_transport
 from app.providers import get_capabilities_for_endpoint, get_openai_adapter, provider_extra_headers
 from app.providers.constants import THINKING_DISABLED
+from app.providers.thinking import apply_thinking_disabled
 from app.errors import AppError
 
 
@@ -141,6 +142,7 @@ def _stream_ai_reply(worker: _BridgeStreamWorker, system_pt: str, user_pt: str) 
         "stream": True,
     }
     adapter.patch_openai_chat_body(data, max_tokens=512, caps=caps)
+    apply_thinking_disabled(data, caps=caps)
     url = f"{endpoint}/chat/completions"
     headers = {
         "Authorization": f"Bearer {api_key}",

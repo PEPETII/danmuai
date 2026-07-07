@@ -121,15 +121,29 @@ class SingleInstanceGuard:
             self._server = server
             return True
 
+        server.close()
+
         if not QLocalServer.removeServer(self._name):
             return False
 
         retry_server = QLocalServer()
         if not retry_server.listen(self._name):
+            retry_server.close()
             return False
         retry_server.newConnection.connect(self._on_new_connection)
         self._server = retry_server
         return True
+
+    def release(self) -> None:
+        """Close the primary server and remove stale socket name on startup failure."""
+        server = self._server
+        self._server = None
+        if server is not None:
+            server.close()
+        try:
+            QLocalServer.removeServer(self._name)
+        except Exception:
+            pass
 
     def bind_activate(self, handler: Callable[[], None]) -> None:
         self._activate_handler = handler

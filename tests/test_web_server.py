@@ -846,6 +846,21 @@ def test_session_rejects_wrong_token():
     assert res.status_code == 403
 
 
+def test_session_rejects_token_with_different_length():
+    """BUG-008: 长度不同的 token 也应 403（compare_digest 路径）。"""
+    from fastapi.testclient import TestClient
+
+    client = TestClient(_build_session_app(expected_token="right-token-here"))
+    res = client.get(
+        "/api/session",
+        headers={
+            "Host": "127.0.0.1:18765",
+            "Authorization": "Bearer x",
+        },
+    )
+    assert res.status_code == 403
+
+
 def test_session_allows_correct_token_regardless_of_origin():
     """携带正确 token → 200；不要求 Origin/Referer。"""
     from fastapi.testclient import TestClient

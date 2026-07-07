@@ -58,13 +58,10 @@ class MicOrchestrator:
         preferred_device_id = mic_input_device_id_from_config(config)
         if engine_running:
             self._mic_service.sync(enabled=True, preferred_device_id=preferred_device_id)
-        elif not self._mic_service.is_running():
+        else:
+            self._mic_service.sync(enabled=False)
             self.stop_detector()
             self._log("mic mode enabled; capture starts when danmu is running")
-            return
-        else:
-            self.stop_detector()
-            self._log("mic mode enabled; keeping mic capture open until danmu starts")
             return
         if not self._mic_service.is_running():
             err = self._mic_service.last_error() or "unknown"

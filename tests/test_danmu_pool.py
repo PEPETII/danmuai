@@ -119,6 +119,51 @@ def test_pool_topup_skips_recent_dedup_window(qapp, workspace_tmp):
     assert "撞车句" in all_texts
 
 
+def test_is_stored_custom_pool_text_fallback_uses_sql_not_full_get(
+    tmp_path, monkeypatch
+):
+    """BUG-017: fallback without custom_danmu_contains_text must not full-table get."""
+    import time
+
+    from app.config_store import ConfigStore
+    from app.danmu_pool import is_stored_custom_pool_text
+
+    store = ConfigStore(db_path=tmp_path / "fallback_sql.db")
+    hit_text = "命中句00042"
+    items = [f"弹幕{i:05d}" for i in range(15_000)] + [hit_text]
+    store.custom_danmu_insert_many(items)
+    assert store.custom_danmu_count() == 15_001
+
+    monkeypatch.setattr(store, "custom_danmu_contains_text", None)
+    get_calls: list[int] = []
+    original_get = store.get_custom_danmu_pool
+
+    def _counting_get():
+        get_calls.append(1)
+        return original_get()
+
+    monkeypatch.setattr(store, "get_custom_danmu_pool", _counting_get)
+
+    started = time.perf_counter()
+    assert is_stored_custom_pool_text(store, hit_text) is True
+    assert is_stored_custom_pool_text(store, "未命中句") is False
+    elapsed = time.perf_counter() - started
+
+    assert get_calls == []
+    assert elapsed < 0.2, f"fallback membership took {elapsed:.3f}s, expected < 0.2s"
+    store.close()
+
+
+def test_is_stored_custom_pool_text_fake_config_uses_memory_getter():
+    """BUG-017: in-memory FakeConfig without store still uses getter fallback."""
+    from app.danmu_pool import is_stored_custom_pool_text
+    from tests.fakes import FakeConfig
+
+    config = FakeConfig({"custom_danmu_pool": ["句A"]})
+    assert is_stored_custom_pool_text(config, "句A") is True
+    assert is_stored_custom_pool_text(config, "句B") is False
+
+
 def test_formula_text_cache_reuses_custom_pool_contains(tmp_path, monkeypatch):
     """F-P002: membership uses SQL point lookup, not full-table get_custom_danmu_pool."""
     from app.config_store import ConfigStore

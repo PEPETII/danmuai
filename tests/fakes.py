@@ -85,15 +85,20 @@ class FakeConfig:
         api_key: str | None = None,
         mic_api_key: str | None = None,
         custom_models: list[dict] | None = None,
+        flags: dict[str, str] | None = None,
     ) -> None:
         if items:
             self.values.update(items)
-        if api_key:
+        if api_key is not None:
             self.set_api_key(api_key)
         if mic_api_key:
             self.set_mic_api_key(mic_api_key)
         if custom_models is not None:
             self.set_custom_models(custom_models)
+        if flags:
+            if not hasattr(self, "_flags"):
+                self._flags = {}
+            self._flags.update(flags)
 
     def set_api_key(self, key):
         self._api_key = key

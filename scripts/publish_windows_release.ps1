@@ -3,13 +3,17 @@
 
 param(
     [string]$BootstrapFeedUrl = "https://updates.qiaoqiao.buzz/releases/win/stable",
-    [switch]$SkipDeltaBootstrap
+    [switch]$SkipDeltaBootstrap,
+    [switch]$DryRun
 )
 
 $ErrorActionPreference = "Stop"
 $OutputEncoding = [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
+
+. (Join-Path $PSScriptRoot "version_parse.ps1")
+. (Join-Path $PSScriptRoot "resolve_build_python.ps1")
 
 # Guard: any file containing 'supabase-config' (except allowlist) contains credentials
 # and must not be packaged. Default-deny (BUG-005): the previous -Filter "supabase-config.js.*"
@@ -33,8 +37,11 @@ Remove them before publishing (only supabase-config.example.js and supabase-clie
 
 $ReleaseRoot = Join-Path $Root "release"
 $VelopackDir = Join-Path $ReleaseRoot "velopack"
-$DistDir = Join-Path $Root "dist\DanmuAI"
+$packagingPaths = Get-PackagingDistPaths
+$DistDir = Join-Path $Root ("dist\" + $packagingPaths.DistDir)
+$PackagingExeName = $packagingPaths.ExeName
 $VersionFile = Join-Path $VelopackDir "VERSION.txt"
+$BuildPython = Assert-BuildPython -Root $Root
 
 function Ensure-Vpk {
     $vpk = Get-Command vpk -ErrorAction SilentlyContinue
@@ -51,22 +58,11 @@ See docs/operations/PACKAGING_WINDOWS.md
 "@
 }
 
-& (Join-Path $Root "scripts\build_exe.ps1")
-if ($LASTEXITCODE -ne 0) {
-    Write-Error "build_exe.ps1 failed"
-}
-
-if (-not (Test-Path (Join-Path $DistDir "DanmuAI.exe"))) {
-    Write-Error "Missing $(Join-Path $DistDir 'DanmuAI.exe') after build"
-}
-
-New-Item -ItemType Directory -Force -Path $ReleaseRoot | Out-Null
-
 function Get-AppVersion {
-    $versionOutput = python -c "from app.version import __version__; print(__version__)" 2>&1
+    $versionOutput = & $BuildPython.Path @($BuildPython.Args) -c "from app.version import __version__; print(__version__)" 2>&1
     if ($LASTEXITCODE -eq 0) {
-        $parsed = $versionOutput.Trim()
-        if ($parsed -match '^\d+\.\d+\.\d+') {
+        $parsed = Get-PythonVersionOutputLine -VersionOutput $versionOutput
+        if ($parsed -match $AppVersionPattern) {
             return $parsed
         }
     }
@@ -74,7 +70,7 @@ function Get-AppVersion {
     $versionFile = Join-Path $Root "app\version.py"
     if (Test-Path -LiteralPath $versionFile) {
         $content = Get-Content -LiteralPath $versionFile -Raw
-        if ($content -match '__version__\s*=\s*["''](\d+\.\d+\.\d+)["'']') {
+        if ($content -match $VersionPyCapturePattern) {
             return $Matches[1]
         }
     }
@@ -82,17 +78,33 @@ function Get-AppVersion {
     $gitDescribe = git describe --tags --abbrev=0 2>$null
     if ($LASTEXITCODE -eq 0 -and $gitDescribe) {
         $tag = $gitDescribe.Trim().TrimStart('v')
-        if ($tag -match '^\d+\.\d+\.\d+') {
+        if ($tag -match $AppVersionPattern) {
             return $tag
         }
     }
 
-    $detail = if ($versionOutput) { $versionOutput.Trim() } else { "(no python output)" }
+    $detail = if ($versionOutput) { (Get-PythonVersionOutputLine -VersionOutput $versionOutput) } else { "(no python output)" }
     Write-Error "Failed to determine app version (python import, app/version.py regex, and git describe all failed). Python output: $detail"
 }
 
 $appVersion = Get-AppVersion
 
+if ($DryRun) {
+    Write-Host "[DryRun] App version: $appVersion"
+    Write-Host "[DryRun] Supabase guard passed. Skipping build/pack."
+    exit 0
+}
+
+& (Join-Path $Root "scripts\build_exe.ps1")
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "build_exe.ps1 failed"
+}
+
+if (-not (Test-Path (Join-Path $DistDir $PackagingExeName))) {
+    Write-Error "Missing $(Join-Path $DistDir $PackagingExeName) after build"
+}
+
+New-Item -ItemType Directory -Force -Path $ReleaseRoot | Out-Null
 New-Item -ItemType Directory -Force -Path $VelopackDir | Out-Null
 
 function Test-FileLocked {

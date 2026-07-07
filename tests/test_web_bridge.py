@@ -394,23 +394,18 @@ def test_attach_status_timer_clears_error_when_server_becomes_ready():
 
 
 def test_quit_stops_web_status_timer_before_server_shutdown(monkeypatch):
-    import PyQt6.QtCore as qtcore
-
     order = []
-    fake_pool = MagicMock()
-    fake_pool.waitForDone.side_effect = lambda ms: order.append(f"wait:{ms}") or True
-
-    class _FakeQThreadPool:
-        @staticmethod
-        def globalInstance():
-            return fake_pool
-
-    monkeypatch.setattr(qtcore, "QThreadPool", _FakeQThreadPool)
-    # W-TEARDOWN-RES-001：quit() 现在分别 waitForDone capture/ai/meme 三个独立池
-    monkeypatch.setattr("app.worker_pools.capture_worker_pool", lambda: fake_pool)
-    monkeypatch.setattr("app.worker_pools.ai_worker_pool", lambda: fake_pool)
-    monkeypatch.setattr("app.worker_pools.meme_ai_pool", lambda: fake_pool)
-    monkeypatch.setattr("app.worker_pools.meme_fetch_pool", lambda: fake_pool)
+    pool_results = {
+        "capture": True,
+        "ai": True,
+        "meme_ai": True,
+        "meme_fetch": True,
+        "global": True,
+    }
+    wait_mock = MagicMock(
+        side_effect=lambda timeout_ms: order.append(f"pool_wait:{timeout_ms}") or pool_results
+    )
+    monkeypatch.setattr("app.worker_pools.wait_all_worker_pools_done", wait_mock)
     quit_mock = MagicMock()
     monkeypatch.setattr("main.QApplication.quit", quit_mock)
 
@@ -443,15 +438,9 @@ def test_quit_stops_web_status_timer_before_server_shutdown(monkeypatch):
     app.stop_web_status_timer.assert_called_once_with()
     app.web_server.stop.assert_called_once_with()
     app.web_server.wait_shutdown_complete.assert_called_once_with()
-    # capture / ai / meme_ai / meme_fetch / global
-    assert fake_pool.waitForDone.call_count == 5
-    fake_pool.waitForDone.assert_called_with(2000)
+    wait_mock.assert_called_once_with(2000)
     assert order == [
-        "wait:2000",
-        "wait:2000",
-        "wait:2000",
-        "wait:2000",
-        "wait:2000",
+        "pool_wait:2000",
         "close_meme_client",
         "history_stop",
         "close",
@@ -461,22 +450,21 @@ def test_quit_stops_web_status_timer_before_server_shutdown(monkeypatch):
 
 
 def test_quit_logs_warning_when_thread_pool_does_not_finish(monkeypatch):
-    import PyQt6.QtCore as qtcore
+    wait_mock = MagicMock(
+        return_value={
+            "capture": True,
+            "ai": True,
+            "meme_ai": True,
+            "meme_fetch": True,
+            "global": False,
+        }
+    )
+    monkeypatch.setattr("app.worker_pools.wait_all_worker_pools_done", wait_mock)
 
     fake_pool = MagicMock()
-    fake_pool.waitForDone.return_value = False
-
-    class _FakeQThreadPool:
-        @staticmethod
-        def globalInstance():
-            return fake_pool
-
-    monkeypatch.setattr(qtcore, "QThreadPool", _FakeQThreadPool)
-    # W-TEARDOWN-RES-001：quit() 现在分别 waitForDone capture/ai/meme 三个独立池
-    monkeypatch.setattr("app.worker_pools.capture_worker_pool", lambda: fake_pool)
-    monkeypatch.setattr("app.worker_pools.ai_worker_pool", lambda: fake_pool)
-    monkeypatch.setattr("app.worker_pools.meme_ai_pool", lambda: fake_pool)
-    monkeypatch.setattr("app.worker_pools.meme_fetch_pool", lambda: fake_pool)
+    fake_pool.activeThreadCount.return_value = 1
+    fake_pool.maxThreadCount.return_value = 4
+    monkeypatch.setattr("app.worker_pools.worker_pool_for_label", lambda _label: fake_pool)
     monkeypatch.setattr("main.QApplication.quit", MagicMock())
 
     app = SimpleNamespace(
@@ -500,7 +488,8 @@ def test_quit_logs_warning_when_thread_pool_does_not_finish(monkeypatch):
 
     DanmuApp.quit(app)
 
-    # capture / ai / meme_ai / meme_fetch / global — 至少 1 次超时 warning
+    wait_mock.assert_called_once_with(2000)
+    # global pool timeout — at least one warning
     assert app.logger.warning.call_count >= 1
     args = app.logger.warning.call_args[0]
     assert args[0].startswith("quit timed out waiting for AI worker thread pool")

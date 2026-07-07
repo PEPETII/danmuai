@@ -13,7 +13,7 @@ import json
 import logging
 import random
 import re
-from difflib import SequenceMatcher
+from app.danmu_engine_dedup import texts_are_similar
 
 logger = logging.getLogger(__name__)
 
@@ -265,7 +265,7 @@ def _batch_has_similar_text(
             return True
         if abs(len(value) - len(prev)) > 3:
             continue
-        if SequenceMatcher(None, value, prev).ratio() >= threshold:
+        if texts_are_similar(value, prev, threshold):
             return True
     return False
 

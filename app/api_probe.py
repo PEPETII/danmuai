@@ -16,6 +16,7 @@ from app.providers import (
     is_minimax_endpoint,
     provider_extra_headers,
 )
+from app.providers.thinking import apply_thinking_disabled
 from app.translations import tr
 
 
@@ -114,6 +115,8 @@ def _probe_openai(endpoint: str, api_key: str, model_id: str, mode: str) -> Prob
         "stream": False,
     }
     adapter.patch_probe_body(data, caps=caps)
+    if caps.thinking_param_style != "none" or caps.thinking_param:
+        apply_thinking_disabled(data, caps=caps)
     if is_minimax_endpoint(endpoint):
         data["reasoning_split"] = True
     with httpx.Client(timeout=httpx.Timeout(10.0, connect=5.0)) as client:

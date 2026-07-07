@@ -418,19 +418,22 @@ class ConfigStore:
         api_key: str | None = None,
         mic_api_key: str | None = None,
         custom_models: list[dict] | None = None,
+        flags: dict[str, str] | None = None,
     ) -> None:
-        """Web PUT /api/config 原子落库：普通键、API Key、custom_models 单次 commit。
+        """Web PUT /api/config 原子落库：普通键、API Key、custom_models、flags 单次 commit。
 
-        仅供 ConfigService.apply_web_payload 使用；失败 rollback 且不更新 _cache。
+        仅供 ConfigService.apply_web_payload 与启动期 legacy 迁移使用；
+        失败 rollback 且不更新 _cache。``api_key=""`` 表示清空全局视觉 key。
         """
         pairs: list[tuple[str, str]] = []
         keys_to_delete: list[str] = []
         invalidate_secrets: list[str] = []
+        flag_pairs: list[tuple[str, str]] = list(flags.items()) if flags else []
 
         if items:
             pairs.extend(items.items())
 
-        if api_key:
+        if api_key is not None:
             self._queue_secret_write(
                 "api_key_encrypted",
                 "api_key_encoded",
@@ -453,7 +456,7 @@ class ConfigStore:
         if custom_models is not None:
             pairs.append(("custom_models", self._encode_custom_models_json(custom_models)))
 
-        if not pairs and not keys_to_delete:
+        if not pairs and not keys_to_delete and not flag_pairs:
             return
 
         with self._write_lock:
@@ -465,6 +468,11 @@ class ConfigStore:
                     )
                 for key in keys_to_delete:
                     self.conn.execute("DELETE FROM config WHERE key=?", (key,))
+                if flag_pairs:
+                    self.conn.executemany(
+                        "REPLACE INTO system_flags (key, value) VALUES (?, ?)",
+                        flag_pairs,
+                    )
                 self.conn.commit()
                 for key, value in pairs:
                     self._cache[key] = value
@@ -1105,10 +1113,11 @@ class ConfigStore:
                 is_model_config_complete(entry) for entry in existing_models
             )
             if has_complete_profile:
-                self.set_api_key("")
-                self.set("api_endpoint", "")
-                self.set("api_mode", "")
-                self.set_flag("legacy_api_migrated_v1", "true")
+                self.apply_web_save(
+                    items={"api_endpoint": "", "api_mode": ""},
+                    api_key="",
+                    flags={"legacy_api_migrated_v1": "true"},
+                )
                 logger.info(
                     "legacy global api cleaned: complete profile exists",
                     extra={"reason": "legacy_cleanup_done", "branch": "A"},
@@ -1155,17 +1164,17 @@ class ConfigStore:
                 "description": "",
             }
 
-            self.set_custom_models([profile])
-
-            from app.application.config_service import set_default_model_selection
-
-            set_default_model_selection(self, default_model_id)
-
-            # 清空全局三字段
-            self.set_api_key("")
-            self.set("api_endpoint", "")
-            self.set("api_mode", "")
-            self.set_flag("legacy_api_migrated_v1", "true")
+            self.apply_web_save(
+                items={
+                    "api_endpoint": "",
+                    "api_mode": "",
+                    "default_model_id": default_model_id,
+                    "model": default_model_id,
+                },
+                api_key="",
+                custom_models=[profile],
+                flags={"legacy_api_migrated_v1": "true"},
+            )
 
             logger.info(
                 "legacy api migrated to default custom model profile and global cleaned",
@@ -1185,12 +1194,14 @@ class ConfigStore:
             return False
 
     def close(self):
+        # BUG-005: 先等弹幕库写入结束（_pool_write_lock），再与配置写锁一起关闭连接。
         # BUG-016: conn.close() 必须在 _write_lock 内完成，否则并发 set/set_batch
         # 会在 close 出锁后、conn.close() 完成前拿到锁并走「静默跳过」分支丢写。
-        with self._write_lock:
-            self._closed = True
-            try:
-                self.conn.close()
-            except sqlite3.ProgrammingError:
-                pass
+        with self._pool_write_lock:
+            with self._write_lock:
+                self._closed = True
+                try:
+                    self.conn.close()
+                except sqlite3.ProgrammingError:
+                    pass
         self._invalidate_formula_text_cache()

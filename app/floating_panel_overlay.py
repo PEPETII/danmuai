@@ -132,10 +132,20 @@ class FloatingPanelOverlay(QWidget):
     def active_count(self) -> int:
         return self.engine.active_count()
 
-    def _apply_win32_click_through(self) -> None:
+    def _apply_win32_click_through(self, *, _defer_attempt: int = 0) -> None:
         if sys.platform != "win32":
             return
-        apply_overlay_exstyles(int(self.winId()), click_through=True)
+        hwnd = int(self.winId())
+        if not hwnd:
+            if _defer_attempt < 3 and self.isVisible():
+                QTimer.singleShot(
+                    0,
+                    lambda attempt=_defer_attempt + 1: self._apply_win32_click_through(
+                        _defer_attempt=attempt
+                    ),
+                )
+            return
+        apply_overlay_exstyles(hwnd, click_through=True)
 
     def reassert_topmost_zorder(self) -> None:
         """Win32：恢复 HWND_TOPMOST，不抢焦点。"""

@@ -8,6 +8,7 @@ from app.danmu_engine import (
     clamp_danmu_lines,
     is_persona_name_prefix_enabled,
     layout_height_ratio,
+    normalize_danmu_display_text,
     normalize_layout_mode,
     resolve_danmu_display_text,
     resolve_danmu_max_chars,
@@ -114,13 +115,47 @@ def test_add_text_keeps_meme_barrage_line_untruncated(engine):
     assert item.content == long_line
 
 
+def test_add_text_register_exception_rolls_back_track(engine, monkeypatch):
+    """BUG-P1-005: _register_item 异常时须从 track 回滚，避免计数不一致。"""
+    before_count = engine._total_item_count
+
+    def _boom(_track, _item):
+        raise RuntimeError("simulated register failure")
+
+    monkeypatch.setattr(engine, "_register_item", _boom)
+
+    with pytest.raises(RuntimeError, match="simulated"):
+        engine.add_text("rollback-test", skip_dedup=True)
+
+    assert sum(len(t.items) for t in engine.tracks) == 0
+    assert engine._total_item_count == before_count
+
+
 def test_resolve_danmu_max_chars_defaults_and_clamp(engine):
     engine.config.set("danmu_max_chars", "")
     assert resolve_danmu_max_chars(engine.config, lang="zh") == 20
+    assert resolve_danmu_max_chars(engine.config, lang="en") == 50
+    engine.config.set("danmu_max_chars", "15")
+    assert resolve_danmu_max_chars(engine.config, lang="en") == 50
+    assert resolve_danmu_max_chars(engine.config, lang="zh") == 20
+    engine.config.set("danmu_max_chars", "28")
+    assert resolve_danmu_max_chars(engine.config, lang="en") == 28
     engine.config.set("danmu_max_chars", "99")
     assert resolve_danmu_max_chars(engine.config) == 80
     engine.config.set("danmu_max_chars", "2")
     assert resolve_danmu_max_chars(engine.config) == 5
+
+
+def test_normalize_danmu_display_text_en_default_not_truncated_at_fifteen(engine):
+    engine.config.set("danmu_max_chars", "")
+    long_en = "This is definitely longer than fifteen chars"
+    assert (
+        normalize_danmu_display_text(long_en, engine.config, lang="en") == long_en
+    )
+    engine.config.set("danmu_max_chars", "15")
+    assert (
+        normalize_danmu_display_text(long_en, engine.config, lang="en") == long_en
+    )
 
 
 def test_init_tracks_clamps_configured_and_auto_line_count(engine):

@@ -100,6 +100,29 @@ def test_show_event_applies_win32_click_through(topmost_app, qapp):
     assert calls
 
 
+def test_overlay_click_through_after_show_event(topmost_app, qapp, monkeypatch):
+    """BUG-P1-003: winId() 在 showEvent 同步路径可能为 0，须 deferred 重试后应用穿透样式。"""
+    _app, _engine, overlay, _ = topmost_app
+    hwnd_calls: list[int] = []
+    winid_values = iter([0, 0, 12345])
+
+    monkeypatch.setattr(overlay, "winId", lambda: next(winid_values, 12345))
+    monkeypatch.setattr(
+        "app.overlay.apply_overlay_exstyles",
+        lambda hwnd, **kwargs: hwnd_calls.append(int(hwnd)),
+    )
+
+    overlay.hide()
+    qapp.processEvents()
+    overlay.show()
+    qapp.processEvents()
+    qapp.processEvents()
+
+    assert any(hwnd > 0 for hwnd in hwnd_calls), (
+        f"expected apply_overlay_exstyles with non-zero hwnd, got {hwnd_calls}"
+    )
+
+
 def test_health_tick_reasserts_scrolling_overlay(topmost_app, qapp, monkeypatch):
     app, engine, overlay, _ = topmost_app
     engine.running = True

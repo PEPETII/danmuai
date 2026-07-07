@@ -12,6 +12,7 @@ const MIC_MODEL_CUSTOM_VALUE = '__mic_custom__';
 let catalogDeps = {
   updateMicModeHint: () => {},
   onCatalogLoadFailed: () => {},
+  onVisionModelChanged: () => {},
 };
 
 let catalogCache = { platforms: [] };
@@ -52,6 +53,16 @@ export function catalogModelSupportsMic(modelId) {
   for (const platform of catalogCache.platforms || []) {
     const hit = (platform.models || []).find((model) => model.id === id);
     if (hit) return Boolean(hit.supports_mic);
+  }
+  return false;
+}
+
+export function catalogModelSupportsThinkingToggle(modelId) {
+  const id = (modelId || '').trim();
+  if (!id) return false;
+  for (const platform of catalogCache.platforms || []) {
+    const hit = (platform.models || []).find((model) => model.id === id);
+    if (hit) return Boolean(hit.supports_thinking_toggle);
   }
   return false;
 }
@@ -196,6 +207,7 @@ function setVisionModelValue(modelId) {
   const hidden = document.getElementById('model');
   if (hidden) hidden.value = modelId || '';
   catalogDeps.updateMicModeHint();
+  catalogDeps.onVisionModelChanged();
 }
 
 export function syncVisionModelToHidden() {

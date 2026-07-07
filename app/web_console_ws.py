@@ -18,6 +18,7 @@ _WS_BROADCAST_LOG_INTERVAL_SEC = 5.0
 _WS_MAX_STATUS_CONSUMERS = 10
 _WS_MAX_LOG_CONSUMERS = 10
 _WS_SEND_TIMEOUT_SEC = 2.0
+_WS_AUTH_TIMEOUT_SEC = 1.0
 
 
 async def _send_json_with_timeout(
@@ -72,7 +73,7 @@ def should_log_broadcast(last_at: float, *, consumer_count: int) -> tuple[bool, 
     return True, now
 
 
-async def _authenticate_websocket(websocket, expected_token: str, timeout_sec: float = 5.0) -> bool:
+async def _authenticate_websocket(websocket, expected_token: str, timeout_sec: float = _WS_AUTH_TIMEOUT_SEC) -> bool:
     """首次消息认证：客户端连接后发送 {"type":"auth","token":"xxx"} 进行认证。
 
     认证成功返回 True，失败或超时返回 False 并关闭连接。
@@ -125,7 +126,7 @@ async def _authenticate_websocket(websocket, expected_token: str, timeout_sec: f
 def register_websocket_routes(app, bridge, token: str, websocket_route, websocket_disconnect) -> None:
     async def _ws_status_endpoint(websocket):
         await websocket.accept()
-        if not await _authenticate_websocket(websocket, token):
+        if not await _authenticate_websocket(websocket, token, timeout_sec=_WS_AUTH_TIMEOUT_SEC):
             return
         if len(bridge._ws_status_queues) >= _WS_MAX_STATUS_CONSUMERS:
             await websocket.close(code=1008, reason="连接数已满")
@@ -156,7 +157,7 @@ def register_websocket_routes(app, bridge, token: str, websocket_route, websocke
 
     async def _ws_logs_endpoint(websocket):
         await websocket.accept()
-        if not await _authenticate_websocket(websocket, token):
+        if not await _authenticate_websocket(websocket, token, timeout_sec=_WS_AUTH_TIMEOUT_SEC):
             return
         if len(bridge._ws_log_queues) >= _WS_MAX_LOG_CONSUMERS:
             await websocket.close(code=1008, reason="连接数已满")

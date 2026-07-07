@@ -171,8 +171,8 @@ def test_mic_capture_start_falls_back_to_default_device(monkeypatch):
     assert cap.fallback_to_default is True
 
 
-def test_sync_mic_service_keeps_capture_when_danmu_pauses(monkeypatch):
-    """BUG-032: pausing danmu must not stop mic capture when mic mode stays enabled."""
+def test_sync_mic_service_stops_capture_when_danmu_pauses(monkeypatch):
+    """BUG-005: pausing/stopping danmu must release mic capture when mic mode stays enabled."""
     from app.mic_orchestrator import MicOrchestrator
 
     app = DanmuApp.__new__(DanmuApp)
@@ -181,12 +181,17 @@ def test_sync_mic_service_keeps_capture_when_danmu_pauses(monkeypatch):
         config=FakeConfig({"mic_mode_enabled": "1"}),
     )
     sync_calls: list[bool] = []
-    stop_called: list[bool] = []
+    running = [True]
+
+    def _sync(*, enabled, preferred_device_id=None):
+        sync_calls.append(enabled)
+        if not enabled:
+            running[0] = False
 
     mic_service = SimpleNamespace(
-        is_running=lambda: True,
-        sync=lambda *, enabled: sync_calls.append(enabled),
-        stop=lambda: stop_called.append(True),
+        is_running=lambda: running[0],
+        sync=_sync,
+        stop=lambda: running.__setitem__(0, False),
         last_error=lambda: "",
     )
     app._mic_service = mic_service
@@ -202,8 +207,43 @@ def test_sync_mic_service_keeps_capture_when_danmu_pauses(monkeypatch):
 
     DanmuApp._sync_mic_service(app)
 
-    assert sync_calls == []
-    assert stop_called == []
+    assert sync_calls == [False]
+    assert not mic_service.is_running()
+
+
+def test_mic_service_stops_when_engine_stops(monkeypatch):
+    """BUG-005: engine_running=False must disable MicService capture."""
+    from app.mic_orchestrator import MicOrchestrator
+
+    sync_calls: list[bool] = []
+    running = [True]
+
+    def _sync(*, enabled, preferred_device_id=None):
+        sync_calls.append(enabled)
+        if not enabled:
+            running[0] = False
+
+    mic_service = SimpleNamespace(
+        is_running=lambda: running[0],
+        sync=_sync,
+        last_error=lambda: "",
+    )
+    orch = MicOrchestrator(
+        mic_service=mic_service,
+        on_utterance_end=lambda: None,
+        log_fn=lambda _msg: None,
+    )
+    monkeypatch.setattr("app.mic_orchestrator.mic_mode_enabled", lambda _cfg: True)
+
+    orch.sync(
+        engine_running=False,
+        config=FakeConfig({"mic_mode_enabled": "1"}),
+        mic_audio_supported_fn=lambda: True,
+        resolve_active_model_id_fn=lambda: "mimo",
+    )
+
+    assert sync_calls == [False]
+    assert not mic_service.is_running()
 
 
 def _bind_app_for_stop(app, *, mic_service, mic_orchestrator) -> None:
@@ -232,8 +272,8 @@ def _bind_app_for_stop(app, *, mic_service, mic_orchestrator) -> None:
     )
 
 
-def test_stop_keeps_mic_capture_when_mode_enabled(monkeypatch):
-    """BUG-032: stop() must not close mic capture when mic mode stays enabled."""
+def test_stop_releases_mic_capture_when_mode_enabled(monkeypatch):
+    """BUG-005: stop() must close mic capture even when mic mode stays enabled."""
     from app.mic_orchestrator import MicOrchestrator
 
     app = DanmuApp.__new__(DanmuApp)
@@ -242,12 +282,17 @@ def test_stop_keeps_mic_capture_when_mode_enabled(monkeypatch):
         config=FakeConfig({"mic_mode_enabled": "1"}),
     )
     sync_calls: list[bool] = []
-    stop_called: list[bool] = []
+    running = [True]
+
+    def _sync(*, enabled, preferred_device_id=None):
+        sync_calls.append(enabled)
+        if not enabled:
+            running[0] = False
 
     mic_service = SimpleNamespace(
-        is_running=lambda: True,
-        sync=lambda *, enabled: sync_calls.append(enabled),
-        stop=lambda: stop_called.append(True),
+        is_running=lambda: running[0],
+        sync=_sync,
+        stop=lambda: running.__setitem__(0, False),
         last_error=lambda: "",
     )
     mic_orchestrator = MicOrchestrator(
@@ -262,9 +307,8 @@ def test_stop_keeps_mic_capture_when_mode_enabled(monkeypatch):
 
     DanmuApp.stop(app)
 
-    assert stop_called == []
-    assert sync_calls == []
-    assert mic_service.is_running()
+    assert sync_calls == [False]
+    assert not mic_service.is_running()
 
 
 def test_build_mic_insert_user_pt():

@@ -117,3 +117,39 @@ def test_set_bubble_text_fade_target_unchanged(qapp):
     window.set_bubble_text("")
     assert window._bubble_target_alpha == 0.0
     window.close()
+
+
+def test_paint_event_does_not_call_move_when_bubble_flips(qapp, monkeypatch):
+    """BUG-014: paintEvent must not call move(); side effects belong to set_bubble_text / drag."""
+    app = DanmuApp.__new__(DanmuApp)
+    bind_minimal_danmu_app(app, config=FakeConfig({"pet_asset_source": "builtin", "pet_scale": "1.0"}))
+    window = PetWindow(app)
+    window.show()
+    qapp.processEvents()
+
+    screen = qapp.primaryScreen()
+    assert screen is not None
+    geo = screen.availableGeometry()
+    pet_w, _ = window._pet_size()
+    window.move(int(geo.center().x() + 50), int(geo.center().y()))
+    qapp.processEvents()
+
+    window.set_bubble_text("测试弹幕")
+    qapp.processEvents()
+
+    move_calls: list[tuple[int, int]] = []
+    original_move = window.move
+
+    def tracking_move(x, y, *args, **kwargs):
+        move_calls.append((int(x), int(y)))
+        return original_move(x, y, *args, **kwargs)
+
+    monkeypatch.setattr(window, "move", tracking_move)
+
+    from PyQt6.QtGui import QPaintEvent
+
+    window.paintEvent(QPaintEvent(window.rect()))
+    qapp.processEvents()
+
+    assert move_calls == []
+    window.close()

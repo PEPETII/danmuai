@@ -190,6 +190,60 @@ def test_runnable_request_failure_releases_in_flight():
     assert app._is_generating is False
 
 
+def test_ai_request_incomplete_credentials_releases_inflight():
+    """BUG-P1-004: 凭证不完整时 _request 经 error 信号应释放 ai_in_flight。"""
+    from tests.fakes import ai_client_fake_config
+
+    _ = QApplication.instance() or QApplication([])
+
+    app = make_minimal_danmu_app()
+    worker = AiWorker(
+        ai_client_fake_config(
+            default_model_id="partial-model",
+            custom_models=[
+                {
+                    "name": "Partial",
+                    "modelId": "partial-model",
+                    "endpoint": "",
+                    "apiKey": "",
+                    "mode": "openai-compatible",
+                }
+            ],
+        )
+    )
+    app.ai_worker = worker
+    app._on_ai_error = DanmuApp._on_ai_error.__get__(app, DanmuApp)
+    worker.error.connect(lambda *args: app._on_ai_error(*args))
+
+    app.ai_in_flight = 1
+    app._is_generating = True
+    app._register_request_meta(2, 3, 1, "visual")
+
+    mock_pixmap = Mock()
+    mock_pixmap.width.return_value = 100
+    mock_pixmap.height.return_value = 80
+
+    runnable = AiRunnable(
+        worker=worker,
+        pixmap=mock_pixmap,
+        system_pt="system",
+        user_pt="user",
+        persona_id="test-persona",
+        request_round=2,
+        screenshot_id=3,
+        captured_at=2.0,
+        scene_generation=1,
+        compress_fn=lambda _p: "data:image/jpeg;base64,abc",
+        image_quality=85,
+    )
+    runnable.run()
+    QApplication.processEvents()
+
+    assert app.ai_in_flight == 0
+    assert app._is_generating is False
+    worker.close()
+
+
 def test_ai_success_reply_enqueued():
     """测试 AI 成功返回后弹幕正确入队"""
     app = make_minimal_danmu_app()

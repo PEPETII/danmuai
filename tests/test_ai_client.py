@@ -77,13 +77,70 @@ def test_request_openai_includes_thinking_for_mimo():
 
     data = captured["data"]
     assert data["thinking"] == {"type": "disabled"}
-    # MiMo caps.thinking_param → 更大输出下限（PR #10 与空响应缓解）
-    assert data["max_completion_tokens"] == DANMU_MIN_OUTPUT_TOKENS_THINKING
+    assert data["max_completion_tokens"] == DANMU_MIN_OUTPUT_TOKENS
     assert "max_tokens" not in data
     assert "stream_options" not in data
     user_content = data["messages"][1]["content"]
     assert user_content[0]["type"] == "image_url"
     assert user_content[1]["type"] == "text"
+    worker.close()
+
+
+def test_request_openai_dashscope_uses_enable_thinking_when_configured():
+    worker = AiWorker(
+        ai_client_fake_config(
+            data={
+                "api_mode": "openai-compatible",
+                "api_endpoint": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+                "model": "qwen3-vl-flash",
+                "use_thinking": "1",
+            }
+        )
+    )
+    captured: dict = {}
+
+    def capture(_http_client, _url, _headers, data, **kwargs):
+        captured["data"] = data
+        return ("ok", 1, 1)
+
+    with patch.object(worker, "_stream_openai", side_effect=capture):
+        with patch.object(worker, "_emit_safe"):
+            worker._request_openai(
+                "data:image/jpeg;base64,abc", "sys", "user", "p1", 1, 1, 1.0, 0
+            )
+
+    data = captured["data"]
+    assert data.get("enable_thinking") is True
+    assert "thinking" not in data
+    worker.close()
+
+
+def test_request_openai_siliconflow_instruct_omits_thinking_params():
+    worker = AiWorker(
+        ai_client_fake_config(
+            data={
+                "api_mode": "openai-compatible",
+                "api_endpoint": "https://api.siliconflow.cn/v1",
+                "model": "Qwen/Qwen3-VL-32B-Instruct",
+                "use_thinking": "1",
+            }
+        )
+    )
+    captured: dict = {}
+
+    def capture(_http_client, _url, _headers, data, **kwargs):
+        captured["data"] = data
+        return ("ok", 1, 1)
+
+    with patch.object(worker, "_stream_openai", side_effect=capture):
+        with patch.object(worker, "_emit_safe"):
+            worker._request_openai(
+                "data:image/jpeg;base64,abc", "sys", "user", "p1", 1, 1, 1.0, 0
+            )
+
+    data = captured["data"]
+    assert "enable_thinking" not in data
+    assert "thinking" not in data
     worker.close()
 
 
@@ -365,7 +422,7 @@ def test_request_doubao_thinking_disabled_when_model_unsupported():
     from app.providers.capabilities import ProviderCapabilities
 
     worker = AiWorker(ai_client_fake_config(data={"max_tokens": "200", "use_thinking": "1"}))
-    unsupported_caps = ProviderCapabilities(supports_thinking=False)
+    unsupported_caps = ProviderCapabilities(thinking_param_style="none", supports_thinking=False)
     with patch(
         "app.ai_client_requests.get_capabilities_for_model",
         return_value=unsupported_caps,

@@ -350,7 +350,9 @@ class DanmuAppLifecycleMixin:
                 tr("app.web_console_starting_shell").format(url=self.web_server.base_url)
             )
 
-        show_startup_notice_if_needed(self.config, self.logger)
+        QTimer.singleShot(
+            0, lambda: show_startup_notice_if_needed(self.config, self.logger)
+        )
         if self.web_launch_mode == "browser":
             QTimer.singleShot(
                 900,
@@ -684,6 +686,67 @@ class DanmuAppLifecycleMixin:
             return
         self.start()
 
+    def release_startup_failure(self) -> None:
+        """Release resources started during __init__ when construction aborts."""
+        hotkey = getattr(self, "hotkey", None)
+        if hotkey is not None:
+            hotkey.unregister()
+
+        tray = getattr(self, "tray", None)
+        if tray is not None:
+            tray.hide()
+
+        for attr in (
+            "_lifetime_flush_timer",
+            "_live_status_timer",
+            "_topmost_health_timer",
+            "screenshot_timer",
+            "reply_timer",
+            "_mic_poll_timer",
+            "_pool_topup_timer",
+        ):
+            timer = getattr(self, attr, None)
+            if timer is not None:
+                timer.stop()
+
+        overlay = getattr(self, "overlay", None)
+        if overlay is not None:
+            overlay.hide()
+
+        pet_window = self.__dict__.get("pet_window")
+        if pet_window is not None:
+            try:
+                pet_window.hide_pet()
+            except RuntimeError as exc:
+                logger = getattr(self, "logger", None)
+                if logger is not None:
+                    logger.debug(f"pet window hide on startup failure skipped: {exc!r}")
+
+        pet_barrage_ctrl = self.__dict__.get("pet_barrage_controller")
+        if pet_barrage_ctrl is not None:
+            try:
+                pet_barrage_ctrl.close()
+            except RuntimeError as exc:
+                logger = getattr(self, "logger", None)
+                if logger is not None:
+                    logger.debug(f"pet barrage close on startup failure skipped: {exc!r}")
+
+        server = getattr(self, "web_server", None)
+        if server is not None:
+            server.stop()
+
+        history_writer = getattr(self, "history_writer", None)
+        if history_writer is not None:
+            history_writer.stop()
+
+        ai_worker = getattr(self, "ai_worker", None)
+        if ai_worker is not None:
+            ai_worker.close()
+
+        config = getattr(self, "config", None)
+        if config is not None:
+            config.close()
+
     def quit(self) -> None:
         self.logger.info(tr("app.quitting"))
 
@@ -713,62 +776,26 @@ class DanmuAppLifecycleMixin:
             self.hotkey.unregister()
             self.tray.hide()
 
-            from PyQt6 import QtCore
+            from app.worker_pools import wait_all_worker_pools_done, worker_pool_for_label
 
-            from app.worker_pools import ai_worker_pool, capture_worker_pool, meme_ai_pool, meme_fetch_pool
-
-            capture_done = capture_worker_pool().waitForDone(2000)
-            if not capture_done:
-                cap_pool = capture_worker_pool()
+            # BUG-019：5 个 QThreadPool 并行 waitForDone，最坏 ~2s 而非串行 ~10s
+            pool_wait_labels = {
+                "capture": "capture worker thread pool",
+                "ai": "ai worker thread pool",
+                "meme_ai": "meme ai worker thread pool",
+                "meme_fetch": "meme fetch thread pool",
+                "global": "AI worker thread pool",
+            }
+            pool_results = wait_all_worker_pools_done(2000)
+            for label, done in pool_results.items():
+                if done:
+                    continue
+                pool = worker_pool_for_label(label)
                 self.logger.warning(
-                    "quit timed out waiting for capture worker thread pool "
-                    "active_threads=%s max_threads=%s",
-                    cap_pool.activeThreadCount(),
-                    cap_pool.maxThreadCount(),
-                )
-
-            # W-TEARDOWN-RES-001：ai_worker_pool / meme_ai_pool 是独立 QThreadPool
-            # （非 globalInstance），需单独 waitForDone
-            ai_done = ai_worker_pool().waitForDone(2000)
-            if not ai_done:
-                ai_pool_inst = ai_worker_pool()
-                self.logger.warning(
-                    "quit timed out waiting for ai worker thread pool "
-                    "active_threads=%s max_threads=%s",
-                    ai_pool_inst.activeThreadCount(),
-                    ai_pool_inst.maxThreadCount(),
-                )
-
-            meme_done = meme_ai_pool().waitForDone(2000)
-            if not meme_done:
-                m_pool = meme_ai_pool()
-                self.logger.warning(
-                    "quit timed out waiting for meme ai worker thread pool "
-                    "active_threads=%s max_threads=%s",
-                    m_pool.activeThreadCount(),
-                    m_pool.maxThreadCount(),
-                )
-
-            # ISSUE-072: meme_fetch_pool 也需等待，否则在途 MemeFetchRunnable
-            # 可能在 config.close() 后通过 Qt 信号回调访问已关闭 SQLite
-            fetch_done = meme_fetch_pool().waitForDone(2000)
-            if not fetch_done:
-                f_pool = meme_fetch_pool()
-                self.logger.warning(
-                    "quit timed out waiting for meme fetch thread pool "
-                    "active_threads=%s max_threads=%s",
-                    f_pool.activeThreadCount(),
-                    f_pool.maxThreadCount(),
-                )
-
-            pool = QtCore.QThreadPool.globalInstance()
-            pool_done = pool.waitForDone(2000)
-            if not pool_done:
-                self.logger.warning(
-                    "quit timed out waiting for AI worker thread pool "
-                    "active_threads=%s max_threads=%s",
-                    pool.activeThreadCount(),
-                    pool.maxThreadCount(),
+                    "quit timed out waiting for %s active_threads=%s max_threads=%s",
+                    pool_wait_labels.get(label, label),
+                    pool.activeThreadCount() if pool is not None else "?",
+                    pool.maxThreadCount() if pool is not None else "?",
                 )
 
             # W-TEARDOWN-RES-001 / BUG-G-008：等所有 worker pool 结束后再关闭 httpx 客户端，

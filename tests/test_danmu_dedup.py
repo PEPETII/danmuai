@@ -138,6 +138,25 @@ def test_fuzzy_duplicate_within_window_blocked(engine):
     assert engine._is_duplicate("hello wurld") is True
 
 
+def test_english_short_phrases_do_not_false_positive_similarity(engine):
+    engine.config.set("dedup_threshold", "0.5")
+    engine._remember_content("what a shot")
+
+    assert engine._is_duplicate("what a play") is False
+
+
+def test_exact_duplicate_still_rejected(engine):
+    engine._remember_content("nice play")
+
+    assert engine._is_duplicate("nice play") is True
+
+
+def test_chinese_near_duplicate_still_rejected(engine):
+    engine._remember_content("这波操作太秀了")
+
+    assert engine._is_duplicate("这波操作太秀啦") is True
+
+
 def test_remember_content_keeps_set_when_duplicate_still_in_deque(engine):
     for i in range(28):
         engine._remember_content(f"pad-{i}")

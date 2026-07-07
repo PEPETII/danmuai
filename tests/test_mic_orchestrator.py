@@ -15,6 +15,22 @@ def _orch(mic_service: MagicMock | None = None) -> MicOrchestrator:
     )
 
 
+def test_sync_stops_capture_when_engine_stops(monkeypatch):
+    mic = MagicMock()
+    mic.is_running.return_value = True
+    orch = _orch(mic)
+    monkeypatch.setattr("app.mic_orchestrator.mic_mode_enabled", lambda _cfg: True)
+
+    orch.sync(
+        engine_running=False,
+        config=MagicMock(),
+        mic_audio_supported_fn=lambda: True,
+        resolve_active_model_id_fn=lambda: "mimo",
+    )
+
+    mic.sync.assert_called_once_with(enabled=False)
+
+
 def test_sync_disables_mic_when_mode_off(monkeypatch):
     mic = MagicMock()
     orch = _orch(mic)

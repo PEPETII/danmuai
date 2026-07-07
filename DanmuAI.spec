@@ -19,14 +19,17 @@ PyInstaller spec for DanmuAI（Web 控制台 + pywebview + Qt overlay）。
     - 可选第三方懒加载（``keyboard``、``dashscope`` TTS）亦列入 hiddenimports
     - ``console=False``：发布为 GUI 应用（无控制台窗口）；debug 关闭
 
-产物路径：``dist/DanmuAI/DanmuAI.exe``（Windows）。
+产物路径：``dist/<WINDOWS_DIST_DIR>/<WINDOWS_EXE_NAME>``（Windows；见 ``app.packaging_constants``）。
 """
 
+import sys
 from pathlib import Path
 
 from PyInstaller.utils.hooks import collect_submodules
 
 root = Path(SPECPATH)
+sys.path.insert(0, str(root))
+from app.packaging_constants import WINDOWS_APP_NAME
 
 
 # Allowlist of supabase-related files that are safe to ship (no credentials).
@@ -343,7 +346,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name="DanmuAI",
+    name=WINDOWS_APP_NAME,
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -367,5 +370,5 @@ coll = COLLECT(
     strip=False,
     upx=False,
     upx_exclude=[],
-    name="DanmuAI",
+    name=WINDOWS_APP_NAME,
 )

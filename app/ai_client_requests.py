@@ -1,7 +1,8 @@
 """AI 请求构建与流式解析：豆包 Responses / OpenAI Chat Completions 双 API 路径。
 
-所有请求固定注入 thinking: {"type":"disabled"}（THINKING_DISABLED 常量），降低延迟并避免
-MiMo 等模型返回空内容。流式解析只收集 content，忽略 reasoning_content（思考内容不应作为弹幕）。
+默认关闭思考以降低延迟；用户开启 ``use_thinking`` 且模型目录声明 ``hybrid`` 时按各平台
+官方参数注入（``thinking.type`` 或 ``enable_thinking``）。流式解析只收集 content，
+忽略 reasoning_content（思考内容不应作为弹幕）。
 
 MiMo 特殊路径：mimo-v2.5 走 Chat Completions input_audio + input_audio.data（data URI）。
 """
@@ -35,10 +36,20 @@ from app.providers import (
     is_minimax_endpoint,
     provider_extra_headers,
 )
+from app.model_catalog import catalog_model_supports_thinking_toggle
 from app.providers.constants import THINKING_DISABLED, THINKING_ENABLED
+from app.providers.thinking import apply_thinking_mode
 from app.translations import tr
 
 logger = logging.getLogger(__name__)
+
+
+def _effective_use_thinking(caps, model_id: str, config_use_thinking: bool) -> bool:
+    return (
+        config_use_thinking
+        and caps.thinking_param_style != "none"
+        and catalog_model_supports_thinking_toggle(model_id)
+    )
 
 
 def _resolve_request_timing(
@@ -264,7 +275,7 @@ def request_doubao(
     configured_max = worker.config.get_int("max_tokens", DEFAULT_MAX_TOKENS)
     caps = get_capabilities_for_model(model, endpoint, api_mode)
     config_use_thinking = worker.config.get("use_thinking", "0") == "1"
-    effective_use_thinking = caps.supports_thinking and config_use_thinking
+    effective_use_thinking = _effective_use_thinking(caps, model, config_use_thinking)
     max_output_tokens = resolve_danmu_max_output_tokens(
         configured_max,
         use_thinking=effective_use_thinking,
@@ -504,7 +515,7 @@ def request_openai(
     configured_max = worker.config.get_int("max_tokens", DEFAULT_MAX_TOKENS)
     caps = get_capabilities_for_model(model, endpoint, api_mode)
     config_use_thinking = worker.config.get("use_thinking", "0") == "1"
-    effective_use_thinking = caps.thinking_param or (caps.supports_thinking and config_use_thinking)
+    effective_use_thinking = _effective_use_thinking(caps, model, config_use_thinking)
     max_tokens = resolve_danmu_max_output_tokens(
         configured_max,
         use_thinking=effective_use_thinking,
@@ -553,9 +564,10 @@ def request_openai(
         "stream": True,
     }
     adapter.patch_openai_chat_body(data, max_tokens=max_tokens, caps=caps)
-    # 思考模式扩展：supports_thinking 的 provider 响应 use_thinking 开关
-    if caps.supports_thinking and config_use_thinking:
-        data["thinking"] = dict(THINKING_ENABLED)
+    if catalog_model_supports_thinking_toggle(model) and caps.thinking_param_style != "none":
+        apply_thinking_mode(data, enabled=effective_use_thinking, caps=caps)
+    elif caps.thinking_param and caps.thinking_param_style != "none":
+        apply_thinking_mode(data, enabled=False, caps=caps)
     if is_minimax_endpoint(endpoint):
         data["reasoning_split"] = True
     url = f"{endpoint}/chat/completions"

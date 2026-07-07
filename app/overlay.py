@@ -226,16 +226,26 @@ class DanmuOverlay(QWidget):
         self.font.setBold(bold)
         self.font_metrics = QFontMetrics(self.font)
 
-    def _apply_win32_click_through(self):
+    def _apply_win32_click_through(self, *, _defer_attempt: int = 0) -> None:
         """Win32 原生层点击穿透：在 Qt 已设 WA_TransparentForMouseEvents 后再 OR 扩展样式位。
 
         WS_EX_LAYERED：分层窗口，与 WA_TranslucentBackground 配合 alpha 合成。
         WS_EX_TRANSPARENT：命中测试穿透，鼠标事件交给下层游戏/桌面；缺一则可能挡操作。
-        须在 show() 后调用（winId() 有效）。仅 win32 执行。
+        须在 show() 后调用（winId() 有效）。hwnd 未就绪时最多 deferred 重试 3 次。仅 win32 执行。
         """
         if sys.platform != "win32":
             return
-        apply_overlay_exstyles(int(self.winId()), click_through=True)
+        hwnd = int(self.winId())
+        if not hwnd:
+            if _defer_attempt < 3 and self.isVisible():
+                QTimer.singleShot(
+                    0,
+                    lambda attempt=_defer_attempt + 1: self._apply_win32_click_through(
+                        _defer_attempt=attempt
+                    ),
+                )
+            return
+        apply_overlay_exstyles(hwnd, click_through=True)
 
     def reassert_topmost_zorder(self) -> bool:
         """Win32：Alt+Tab / 其它置顶窗抢栈后，用 SetWindowPos 恢复 HWND_TOPMOST（不抢焦点）。

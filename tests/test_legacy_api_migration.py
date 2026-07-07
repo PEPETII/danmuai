@@ -536,3 +536,166 @@ def test_safety_net_branch_c_incomplete_creds_does_not_clean(tmp_path):
     )
     assert store3.get_flag("legacy_api_migrated_v1") == "true"
     store3.close()
+
+
+# --- W-LEGACY-MIGRATE-ATOMIC-001: 原子写入与失败回滚 ---
+
+
+class _CommitCountingConn:
+    """Wrap sqlite3.Connection to count commit() calls."""
+
+    def __init__(self, conn):
+        self._conn = conn
+        self.commit_call_count = 0
+
+    def execute(self, sql, params=()):
+        return self._conn.execute(sql, params)
+
+    def executemany(self, sql, seq_of_parameters):
+        return self._conn.executemany(sql, seq_of_parameters)
+
+    def commit(self):
+        self.commit_call_count += 1
+        return self._conn.commit()
+
+    def rollback(self):
+        return self._conn.rollback()
+
+    def close(self):
+        return self._conn.close()
+
+    def __getattr__(self, name):
+        return getattr(self._conn, name)
+
+
+def test_branch_b_migration_single_commit(tmp_path):
+    """W-LEGACY-MIGRATE-ATOMIC-001: 分支 B 迁移单次 commit。"""
+    db_path = tmp_path / "config.db"
+    store = ConfigStore(db_path=db_path)
+    _seed_legacy_config(
+        store,
+        api_key="sk-atomic-commit-1234567890",
+        endpoint="https://ark.cn-beijing.volces.com/api/v3",
+        model="doubao-seed-1-6-vision-32k-250115",
+        max_tokens=512,
+    )
+    _clear_legacy_flag(db_path)
+
+    counting = _CommitCountingConn(store.conn)
+    store.conn = counting
+    result = store._maybe_migrate_legacy_api_to_custom_models()
+
+    assert result is True
+    assert counting.commit_call_count == 1
+    assert len(store.get_custom_models()) == 1
+    assert store.get_api_key() == ""
+    assert store.get("api_endpoint") == ""
+    assert store.get("api_mode") == ""
+    assert store.get_flag("legacy_api_migrated_v1") == "true"
+    store.close()
+
+
+def test_branch_b_migration_rollback_on_failure_restart_consistent(tmp_path):
+    """W-LEGACY-MIGRATE-ATOMIC-001: 分支 B commit 失败全回滚，重启后重试成功。"""
+    db_path = tmp_path / "config.db"
+    store = ConfigStore(db_path=db_path)
+    original_key = "sk-rollback-retry-1234567890"
+    _seed_legacy_config(
+        store,
+        api_key=original_key,
+        endpoint="https://ark.cn-beijing.volces.com/api/v3",
+        model="doubao-seed-1-6-vision-32k-250115",
+        max_tokens=512,
+    )
+    _clear_legacy_flag(db_path)
+    inner = store.conn
+
+    class _FailingConn:
+        def execute(self, sql, params=()):
+            raise sqlite3.OperationalError("disk I/O error")
+
+        def executemany(self, sql, seq_of_parameters):
+            raise sqlite3.OperationalError("disk I/O error")
+
+        def commit(self):
+            return inner.commit()
+
+        def rollback(self):
+            return inner.rollback()
+
+        def close(self):
+            return inner.close()
+
+    store.conn = _FailingConn()
+    result = store._maybe_migrate_legacy_api_to_custom_models()
+
+    assert result is False
+    store.conn = inner
+    assert len(store.get_custom_models()) == 0, "半迁移：custom_models 不应落库"
+    assert store.get_api_key() == original_key, "半迁移：全局 api_key 应保留"
+    assert store.get("api_endpoint") == "https://ark.cn-beijing.volces.com/api/v3"
+    assert store.get_flag("legacy_api_migrated_v1") is None, "失败时不应置标志位"
+    store.close()
+
+    store2 = ConfigStore(db_path=db_path)
+    assert len(store2.get_custom_models()) == 1
+    assert store2.get_api_key() == ""
+    assert store2.get_flag("legacy_api_migrated_v1") == "true"
+    assert store2.get_default_model_id() == "doubao-seed-1-6-vision-32k-250115"
+    store2.close()
+
+
+def test_branch_a_migration_rollback_on_failure(tmp_path):
+    """W-LEGACY-MIGRATE-ATOMIC-001: 分支 A commit 失败时 profile 与全局 key 均不变。"""
+    db_path = tmp_path / "config.db"
+    store = ConfigStore(db_path=db_path)
+    profile = {
+        "name": "Existing Profile",
+        "provider": "custom_openai",
+        "mode": "openai-compatible",
+        "endpoint": "https://api.existing.example.com/v1",
+        "apiKey": "sk-existing-profile-1234567890",
+        "model_ids": ["existing-model"],
+        "default_model_id": "existing-model",
+        "max_tokens": 512,
+        "supportsMic": False,
+        "description": "",
+    }
+    store.set_custom_models([profile])
+    set_default_model_selection(store, "existing-model")
+    legacy_key = "sk-legacy-residual-1234567890"
+    store.set_api_key(legacy_key)
+    store.set("api_endpoint", "https://legacy.example.com/v1")
+    store.set("api_mode", "openai")
+    _clear_legacy_flag(db_path)
+    inner = store.conn
+
+    class _FailingConn:
+        def execute(self, sql, params=()):
+            raise sqlite3.OperationalError("disk I/O error")
+
+        def executemany(self, sql, seq_of_parameters):
+            raise sqlite3.OperationalError("disk I/O error")
+
+        def commit(self):
+            return inner.commit()
+
+        def rollback(self):
+            return inner.rollback()
+
+        def close(self):
+            return inner.close()
+
+    store.conn = _FailingConn()
+    result = store._maybe_migrate_legacy_api_to_custom_models()
+
+    assert result is False
+    store.conn = inner
+    models = store.get_custom_models()
+    assert len(models) == 1
+    assert models[0]["name"] == "Existing Profile"
+    assert models[0]["apiKey"] == "sk-existing-profile-1234567890"
+    assert store.get_api_key() == legacy_key
+    assert store.get("api_endpoint") == "https://legacy.example.com/v1"
+    assert store.get_flag("legacy_api_migrated_v1") is None
+    store.close()

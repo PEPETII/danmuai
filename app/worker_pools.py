@@ -64,3 +64,46 @@ def meme_fetch_pool() -> QThreadPool:
                 pool.setMaxThreadCount(1)
                 _meme_fetch_pool = pool
     return _meme_fetch_pool
+
+
+def wait_all_worker_pools_done(timeout_ms: int = 2000) -> dict[str, bool]:
+    """Parallel waitForDone for dedicated pools + globalInstance (BUG-019).
+
+    Each pool gets its own ``waitForDone(timeout_ms)`` on a daemon thread so
+    quit() wall-clock is ~timeout_ms instead of sum(5 * timeout_ms).
+    """
+    pools: list[tuple[str, QThreadPool]] = [
+        ("capture", capture_worker_pool()),
+        ("ai", ai_worker_pool()),
+        ("meme_ai", meme_ai_pool()),
+        ("meme_fetch", meme_fetch_pool()),
+        ("global", QThreadPool.globalInstance()),
+    ]
+    results: dict[str, bool] = {}
+    threads: list[threading.Thread] = []
+
+    def _wait(label: str, pool: QThreadPool) -> None:
+        results[label] = pool.waitForDone(timeout_ms)
+
+    for label, pool in pools:
+        thread = threading.Thread(target=_wait, args=(label, pool), daemon=True)
+        thread.start()
+        threads.append(thread)
+    for thread in threads:
+        thread.join()
+    return results
+
+
+def worker_pool_for_label(label: str) -> QThreadPool | None:
+    """Return the QThreadPool for a wait label (for quit timeout logging)."""
+    if label == "capture":
+        return capture_worker_pool()
+    if label == "ai":
+        return ai_worker_pool()
+    if label == "meme_ai":
+        return meme_ai_pool()
+    if label == "meme_fetch":
+        return meme_fetch_pool()
+    if label == "global":
+        return QThreadPool.globalInstance()
+    return None

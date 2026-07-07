@@ -33,6 +33,7 @@ Velopack 打包（需 .NET SDK + `dotnet tool install -g vpk`）：
 
 ```powershell
 .\scripts\publish_windows_release.ps1
+.\scripts\publish_windows_release.ps1 -DryRun   # version parse + Supabase guard only (no build)
 ```
 
 | 输出 | 说明 |

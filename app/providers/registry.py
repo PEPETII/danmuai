@@ -118,7 +118,9 @@ def provider_rules_for_api() -> dict:
             spec.id for spec in PROVIDERS if not spec.lock_mode
         ],
         "thinking_supported_provider_ids": [
-            spec.id for spec in PROVIDERS if get_capabilities(spec.id).supports_thinking
+            spec.id
+            for spec in PROVIDERS
+            if get_capabilities(spec.id).thinking_param_style != "none"
         ],
     }
 

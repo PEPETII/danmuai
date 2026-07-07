@@ -77,6 +77,7 @@ import {
 } from './settings-hints.js';
 import {
   catalogModelSupportsMic,
+  catalogModelSupportsThinkingToggle,
   configureSettingsModelCatalog,
   evaluateMicAudioSupported,
   loadModelCatalog,
@@ -164,6 +165,7 @@ export function configureSettingsBindings(deps) {
   });
   configureSettingsModelCatalog({
     updateMicModeHint,
+    onVisionModelChanged: updateThinkingModeFromForm,
     onCatalogLoadFailed: () => {
       showToast(t('dynamic.settings.模型目录加载失败_视觉模型列表可能为空_请刷新页'), true);
     },
@@ -537,7 +539,9 @@ export function updateThinkingModeAvailability(cfg) {
 function updateThinkingModeFromForm() {
   const presetSel = document.getElementById('providerPreset');
   const providerId = (presetSel?.value || '').trim() || resolveProviderIdForPicker();
-  const supported = isThinkingSupportedForProvider(providerId);
+  const modelId = (document.getElementById('model')?.value || '').trim();
+  const supported =
+    isThinkingSupportedForProvider(providerId) && catalogModelSupportsThinkingToggle(modelId);
   const checkbox = document.getElementById('use_thinking');
   const hint = document.getElementById('thinkingModeHint');
   if (checkbox) {

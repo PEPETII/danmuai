@@ -442,6 +442,8 @@ class PetWindow(QWidget):
         self._bubble_target_alpha = _BUBBLE_MAX_ALPHA if next_text else 0.0
         if next_text and self._bubble_alpha <= 0.05:
             self._bubble_alpha = 0.0
+        if next_text:
+            self._sync_bubble_window_position()
         self.start_render_loop()
 
     def notify_command_submitted(self) -> None:
@@ -591,7 +593,19 @@ class PetWindow(QWidget):
     def _sprite_y_offset(self) -> int:
         return sprite_y_offset(self._command_box_open())
 
-    def _sync_bubble_horizontal_side(self, show_left: bool, pet_w: int) -> int:
+    def _compute_show_left(self, pet_w: int) -> bool:
+        geo = self._available_geometry()
+        if geo is None:
+            return False
+        content_w = window_content_width(pet_w)
+        return self.x() + content_w - pet_w / 2.0 > geo.center().x()
+
+    def _sprite_x_for_paint(self, pet_w: int) -> int:
+        show_left = self._compute_show_left(pet_w)
+        overflow = max(0, window_content_width(pet_w) - pet_w)
+        return overflow if show_left else 0
+
+    def _apply_bubble_horizontal_side(self, show_left: bool, pet_w: int) -> None:
         overflow = max(0, window_content_width(pet_w) - pet_w)
         prev = self._bubble_show_left
         if overflow > 0:
@@ -600,15 +614,13 @@ class PetWindow(QWidget):
             elif prev is not None and prev != show_left:
                 self.move(self.x() + (-overflow if show_left else overflow), self.y())
         self._bubble_show_left = show_left
-        return overflow if show_left else 0
 
-    def _resolve_sprite_x(self, pet_w: int) -> int:
-        geo = self._available_geometry()
-        if geo is None:
-            return 0
-        content_w = window_content_width(pet_w)
-        show_left = self.x() + content_w - pet_w / 2.0 > geo.center().x()
-        return self._sync_bubble_horizontal_side(show_left, pet_w)
+    def _sync_bubble_window_position(self) -> None:
+        if not self._bubble_text:
+            return
+        w, _ = self._pet_size()
+        show_left = self._compute_show_left(w)
+        self._apply_bubble_horizontal_side(show_left, w)
 
     def _apply_window_geometry(self, *, reposition: bool = False) -> None:
         w, h = self._pet_size()
@@ -752,6 +764,8 @@ class PetWindow(QWidget):
             y = geo.bottom() - h
             hit_y = True
         self.move(x, y)
+        if self._bubble_text:
+            self._sync_bubble_window_position()
         return hit_x, hit_y
 
     def _tick_momentum(self, dt_sec: float) -> None:
@@ -831,7 +845,7 @@ class PetWindow(QWidget):
         opacity = max(0.2, min(self._settings.opacity, 1.0))
         painter.setOpacity(opacity)
         sx, sy, sw, sh = self._pack.frame_rect(self._animation_state, self._frame_index)
-        sprite_x = self._resolve_sprite_x(w)
+        sprite_x = self._sprite_x_for_paint(w)
         painter.drawPixmap(sprite_x, y_offset, w, h, self._spritesheet, sx, sy, sw, sh)
         painter.setOpacity(1.0)
         self._paint_bubble(painter, w, y_offset)

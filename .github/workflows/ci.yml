@@ -59,6 +59,9 @@ jobs:
           pip install -r requirements.txt -r requirements-dev.txt --dry-run
           pip install -r requirements.txt -r requirements-dev.txt
 
+      - name: Publish script DryRun (version parse smoke)
+        run: .\scripts\publish_windows_release.ps1 -DryRun
+
       - name: Build with PyInstaller
         run: .\scripts\build_exe.ps1
 
@@ -72,4 +75,5 @@ jobs:
           if (-not (Test-Path "$dir\PEPETII.DanmuAI-win-Setup.exe")) { Write-Error "Missing Setup.exe" }
           if (-not (Test-Path "$dir\PEPETII.DanmuAI-$version-full.nupkg")) { Write-Error "Missing full.nupkg" }
           if (-not (Test-Path "$dir\releases.win.json")) { Write-Error "Missing releases.win.json" }
+          python -c "from app.packaging_constants import WINDOWS_DIST_DIR, WINDOWS_EXE_NAME; import pathlib; p = pathlib.Path('dist') / WINDOWS_DIST_DIR / WINDOWS_EXE_NAME; assert p.is_file(), f'Missing PyInstaller exe: {p}'"
           Write-Host "Pack verification passed for version $version"

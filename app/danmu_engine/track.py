@@ -286,6 +286,14 @@ class DanmuEngine(QObject):
         if item is track._furthest_offscreen_item:
             self._recompute_track_offscreen_meta(track)
 
+    def _detach_track_item(self, track: Track, item: DanmuItem) -> None:
+        """从轨道移除 item 并撤销 _register_item 副作用（add_text/add_item 异常回滚）。"""
+        if item in track.items:
+            self._detach_item_visibility(item)
+            item._pixmap = None
+            track.items.remove(item)
+            self._unregister_item(track, item)
+
     def _on_item_x_changed(self, track: Track, item: DanmuItem, old_x: float) -> None:
         engine_entry, offscreen, track_entry = self._classify_item_zones(item)
         was_track_entry = item._cached_track_entry_zone
@@ -472,7 +480,11 @@ class DanmuEngine(QObject):
         if track is None:
             return False
         track.add(item)
-        self._register_item(track, item)
+        try:
+            self._register_item(track, item)
+        except Exception:
+            self._detach_track_item(track, item)
+            raise
         self._remember_content(item.content)
         self._refresh_item_visibility(item)
         return True
@@ -534,7 +546,11 @@ class DanmuEngine(QObject):
         if track is None:
             return None
         track.add(item)
-        self._register_item(track, item)
+        try:
+            self._register_item(track, item)
+        except Exception:
+            self._detach_track_item(track, item)
+            raise
         self._remember_content(content)
         if self.overlay is not None:
             self.overlay.measure_item_width(item)

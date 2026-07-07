@@ -136,13 +136,17 @@ class DanmuApp(
 
         log_startup("danmu_app.init.begin")
         init_started = time.perf_counter()
-        self._init_runtime_bridge_state(web_launch_mode)
-        self._init_core_subsystems(log_startup)
-        self._init_request_pipeline_state()
-        self._init_runtime_tracking_state()
-        self._init_startup_services(log_startup)
-        self._start_web_console_stack(log_startup)
-        self._sync_reply_batch_config()
+        try:
+            self._init_runtime_bridge_state(web_launch_mode)
+            self._init_core_subsystems(log_startup)
+            self._init_request_pipeline_state()
+            self._init_runtime_tracking_state()
+            self._init_startup_services(log_startup)
+            self._start_web_console_stack(log_startup)
+            self._sync_reply_batch_config()
+        except Exception:
+            self.release_startup_failure()
+            raise
         log_startup(
             "danmu_app.init.end",
             ms=(time.perf_counter() - init_started) * 1000.0,
@@ -744,6 +748,7 @@ def main():
                 break
         else:
             log_startup("single_instance.retry_exhausted")
+            instance_guard.release()
             return sys.exit(2)
     log_startup(
         "single_instance.done",
@@ -754,6 +759,7 @@ def main():
     try:
         _danmu = DanmuApp(web_launch_mode=launch_mode)
     except Exception as exc:
+        instance_guard.release()
         show_fatal_startup_error(exc)
         return sys.exit(1)
     register_unhandled_exception_notifier(

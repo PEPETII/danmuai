@@ -8,10 +8,12 @@ from app.model_catalog import (
     ZAI_MODELS,
     catalog_model_ids,
     catalog_model_supports_mic,
+    catalog_model_supports_thinking_toggle,
     catalog_provider_ids_for_model,
     default_catalog_model_id,
     enrich_platform_models,
     get_catalog_for_provider,
+    get_thinking_mode_for_model,
     is_catalog_model_for_provider,
     list_platform_catalogs,
 )
@@ -30,6 +32,17 @@ def test_catalog_model_supports_mic():
     assert catalog_model_supports_mic("mimo-v2.5")
     assert not catalog_model_supports_mic("doubao-seed-1-6-flash-250828")
     assert not catalog_model_supports_mic("unknown-model")
+
+
+def test_enriched_catalog_includes_thinking_metadata():
+    enriched = enrich_platform_models(DASHSCOPE_MODELS, provider_id="dashscope")
+    by_id = {m["id"]: m for m in enriched}
+    assert by_id["qwen3-vl-flash"]["thinking_mode"] == "hybrid"
+    assert by_id["qwen3-vl-flash"]["supports_thinking_toggle"] is True
+    assert by_id["qwen-vl-max"]["thinking_mode"] == "off"
+    assert catalog_model_supports_thinking_toggle("qwen3-vl-flash")
+    assert not catalog_model_supports_thinking_toggle("qwen-vl-max")
+    assert get_thinking_mode_for_model("unknown") == "off"
 
 
 def test_doubao_supports_mic_from_audio_price():

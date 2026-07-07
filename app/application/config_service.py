@@ -268,7 +268,7 @@ class ConfigService:
                 value = int(items["danmu_max_chars"])
                 items["danmu_max_chars"] = str(max(DANMU_MAX_CHARS_MIN, min(value, DANMU_MAX_CHARS_MAX)))
             except (TypeError, ValueError):
-                items["danmu_max_chars"] = "15"
+                items["danmu_max_chars"] = ""
 
         if "danmu_lines" in items:
             from app.danmu_engine import DEFAULT_DANMU_LINES, clamp_danmu_lines

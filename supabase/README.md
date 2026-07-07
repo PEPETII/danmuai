@@ -7,6 +7,8 @@ Apply migrations in order (or use Supabase MCP `apply_migration`):
 3. `migrations/003_app_updates.sql`
 4. `migrations/008_error_reports_user_note.sql` — 错误报告可选 `user_note`（补充说明）与 `contact`
 5. `migrations/009_tutorial_links.sql` — 教程页视频链接（`tutorial_links`，anon 只读）
+6. `migrations/010_feedback_context.sql` — 反馈 `context_json` / `logs_excerpt`
+7. `migrations/011_anon_table_grants.sql` — 显式 REVOKE/GRANT，anon 仅 insert 或 select（BUG-021）
 
 Copy `../web/static/supabase-config.example.js` to `../web/static/supabase-config.js` and set `url` + `anonKey`. The desktop **backend** reads the same credentials (or `DANMU_SUPABASE_URL` / `DANMU_SUPABASE_ANON_KEY`) for `GET /api/update/channels` → Supabase `app_updates`.
 
@@ -14,14 +16,15 @@ Copy `../web/static/supabase-config.example.js` to `../web/static/supabase-confi
 
 | 方式 | 适用场景 |
 |------|----------|
-| `web/static/supabase-config.js` | 本地开发、PyInstaller 打包（随 `web/static` 分发） |
-| `DANMU_SUPABASE_URL` + `DANMU_SUPABASE_ANON_KEY` | CI / 运维脚本启动、覆盖 js 文件 |
+| `web/static/supabase-config.js` | 本地开发（**不**打入 Velopack/PyInstaller 发布包） |
+| `DANMU_SUPABASE_URL` + `DANMU_SUPABASE_ANON_KEY` | 打包版、CI / 运维脚本启动（**推荐发布环境**） |
 
 - 仅使用 **anon / publishable** key；勿将 `service_role` 写入客户端或仓库。
+- **打包版不含 `supabase-config.js`**：`DanmuAI.spec` 对含 `supabase-config` 的文件 default-deny（仅保留 `supabase-config.example.js`）；运行时由 `app/supabase_config.py` 读取环境变量或开发用 js 文件。
 - 未配置或 PostgREST 不可达时，后端 `GET /api/update/channels` 将 `latest_version` 回退为本地 `app/version.py`，避免误报更新。
 - 实现：`app/supabase_config.py`、`app/supabase_app_updates.py`；缓存 5 分钟。
 
-发版检查清单见 [`docs/operations/RELEASE_CHECKLIST.md`](../docs/operations/RELEASE_CHECKLIST.md) § Supabase 更新元数据。
+发版检查清单见 [`docs/operations/PACKAGING_WINDOWS.md`](../docs/operations/PACKAGING_WINDOWS.md) 与本 README § `app_updates`。
 
 ## `feedback`（问题反馈）
 
@@ -63,7 +66,7 @@ Copy `../web/static/supabase-config.example.js` to `../web/static/supabase-confi
 | `enabled` | `false` 时客户端不读取该行 |
 | `message` | 可选，更新弹窗副文案 |
 
-**运维**：发布 GitHub Release 并确认安装包无误后，在 Table Editor 插入或更新**一条** `enabled=true` 记录（通常只保留最新一行；客户端按 `updated_at desc` 取第一条）。Web 控制台版本区与更新弹窗通过后端 `GET /api/update/channels` 读取本表，不再维护 `app/release_channels.py` 中的发布版本常量。
+**运维**：发布 GitHub Release 并确认安装包无误后，在 Table Editor 插入或更新**一条** `enabled=true` 记录（通常只保留最新一行；客户端按 `updated_at desc` 取第一条）。Web 控制台版本区与更新弹窗通过后端 `GET /api/update/channels` 读取本表（Supabase `app_updates` 为版本元数据主源）。[`app/release_channels.py`](../app/release_channels.py) **仍用于**镜像下载 URL（如夸克网盘分享文案等），不再维护发布版本常量。
 
 ```sql
 

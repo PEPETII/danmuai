@@ -393,7 +393,8 @@ def test_stream_llm_openai_path_injects_thinking_disabled(mock_cred, mock_stream
     worker = _AiButlerWorker(FakeConfig({"default_model_id": "qwen-plus"}))
     _stream_llm(worker, "sys", [{"role": "user", "content": "hi"}])
     data = mock_stream.call_args[0][4]
-    assert data["thinking"] == {"type": "disabled"}
+    assert data.get("enable_thinking") is False
+    assert "thinking" not in data
 
 
 @patch("app.application.ai_butler_service._stream_llm")

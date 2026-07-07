@@ -38,6 +38,7 @@ DEFAULT_DEDUP_THRESHOLD = 0.5
 DEFAULT_DANMU_RECENT_TTL_SEC = 30
 DEFAULT_IMAGE_MAX_WIDTH = 1024
 LEGACY_IMAGE_MAX_WIDTH = 768
+LEGACY_DANMU_MAX_CHARS_FACTORY = "15"
 DEFAULT_LANGUAGE = "zh"
 # 横屏 scrolling 与从下到上 floating_panel 的节奏默认值（仅键缺失时按 render mode 回落）
 SCROLLING_NORMAL_RECOGNITION_INTERVAL_SEC = 5
@@ -55,7 +56,7 @@ CONFIG_DEFAULTS: dict[str, str] = {
     "max_tokens": "512",
     "danmu_speed": "2",
     "danmu_lines": "20",
-    "danmu_max_chars": "15",
+    "danmu_max_chars": "",
     "dedup_threshold": "0.5",
     "danmu_recent_ttl_sec": str(DEFAULT_DANMU_RECENT_TTL_SEC),
     "screen_index": "0",
@@ -229,6 +230,19 @@ def migrate_legacy_image_max_width(config) -> bool:
     if raw != str(LEGACY_IMAGE_MAX_WIDTH):
         return False
     config.set("image_max_width", str(DEFAULT_IMAGE_MAX_WIDTH))
+    return True
+
+
+def migrate_legacy_danmu_max_chars_factory(config) -> bool:
+    """Clear historic language-blind factory default 15 so lang fallback applies.
+
+    Only rewrites the previous factory default; other values are left unchanged.
+    Returns True if danmu_max_chars was cleared.
+    """
+    raw = str(config.get("danmu_max_chars", "") or "").strip()
+    if raw != LEGACY_DANMU_MAX_CHARS_FACTORY:
+        return False
+    config.set("danmu_max_chars", "")
     return True
 
 

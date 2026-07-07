@@ -117,7 +117,8 @@ def consume_doubao_sse_lines(
             continue
         payload = line[6:]
         if payload.strip() == "[DONE]":
-            continue
+            # SSE 终止符；response.completed 应在 [DONE] 之前到达（见模块头注释）
+            break
         try:
             chunk = json.loads(payload)
         except json.JSONDecodeError:

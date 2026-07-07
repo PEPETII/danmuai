@@ -14,7 +14,6 @@
 
 from __future__ import annotations
 
-import re
 import sys
 import threading
 import traceback
@@ -83,7 +82,9 @@ def _log_unhandled_exception(message: str) -> None:
         logger = SanitizedLogger()
         logger.error(tr("app.unhandled_exception_log").format(message=message))
     except Exception:  # boundary: logging must not block fatal handler
-        safe_message = re.sub(r"sk-[A-Za-z0-9_-]{20,}", "sk-****", message)
+        from app.logger import sanitize_log_message
+
+        safe_message = sanitize_log_message(message)
         append_frozen_log(f"FATAL: {safe_message}")
         if sys.stderr is not None:
             try:

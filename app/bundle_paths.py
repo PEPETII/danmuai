@@ -42,6 +42,9 @@ def append_frozen_log(message: str) -> None:
     if not is_frozen():
         return
     try:
+        from app.logger import sanitize_log_message
+
+        message = sanitize_log_message(message)
         path = frozen_log_path()
         path.parent.mkdir(parents=True, exist_ok=True)
         stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")

@@ -31,6 +31,7 @@ from app.ai_client_requests import stream_doubao, stream_openai
 from app.model_providers import resolve_api_transport
 from app.providers import get_capabilities_for_endpoint, get_openai_adapter, provider_extra_headers
 from app.providers.constants import THINKING_DISABLED
+from app.providers.thinking import apply_thinking_disabled
 from app.errors import AppError
 from app.translations import Translator
 
@@ -509,7 +510,7 @@ def _stream_llm(worker: _AiButlerWorker, system_pt: str, messages: list[dict]) -
         "stream": True,
     }
     adapter.patch_openai_chat_body(data, max_tokens=1024, caps=caps)
-    data["thinking"] = dict(THINKING_DISABLED)
+    apply_thinking_disabled(data, caps=caps)
     data["response_format"] = {"type": "json_object"}
     url = f"{endpoint}/chat/completions"
     headers = {

@@ -22,12 +22,28 @@ def test_consume_doubao_sse_lines_collects_done_event():
     lines = [
         'data: {"type":"response.output_text.done","text":"hello"}',
         'data: {"type":"response.completed","response":{"usage":{"input_tokens":900,"output_tokens":12},"output":[{"type":"message","content":[{"type":"output_text","text":"hello"}]}]}}',
+        "data: [DONE]",
     ]
     result = consume_doubao_sse_lines(lines)
     assert result.text == "hello"
     assert result.input_tokens == 900
     assert result.output_tokens == 12
     assert result.reasoning_only is False
+
+
+def test_consume_doubao_sse_lines_breaks_on_done_after_completed():
+    """BUG-020: [DONE] terminates stream; trailing events must not be collected."""
+    lines = [
+        'data: {"type":"response.output_text.delta","delta":"hi"}',
+        'data: {"type":"response.completed","response":{"usage":{"input_tokens":10,"output_tokens":2}}}',
+        "data: [DONE]",
+        'data: {"type":"response.output_text.delta","delta":"SHOULD_NOT_APPEAR"}',
+    ]
+    result = consume_doubao_sse_lines(lines)
+    assert result.text == "hi"
+    assert result.input_tokens == 10
+    assert result.output_tokens == 2
+    assert "SHOULD_NOT_APPEAR" not in result.text
 
 
 def test_consume_doubao_sse_lines_collects_delta_and_done_text():

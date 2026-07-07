@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from app.providers.adapters.default_openai import DefaultOpenAIAdapter
 from app.providers.capabilities import ProviderCapabilities
-from app.providers.constants import THINKING_DISABLED
+from app.providers.thinking import apply_thinking_disabled
 
 
 class MimoOpenAIAdapter(DefaultOpenAIAdapter):
@@ -54,16 +54,16 @@ class MimoOpenAIAdapter(DefaultOpenAIAdapter):
         data.pop("max_tokens", None)
         # MiMo 不支持 stream_options.include_usage，强制清除避免百炼/MiMo 400
         data.pop("stream_options", None)
-        # thinking_param=True 需注入 thinking disabled（MiMo 默认行为易返回空）
+        # thinking_param=True 默认关闭思考（MiMo 默认 enabled 易返回空 content）
         if caps.thinking_param:
-            data["thinking"] = dict(THINKING_DISABLED)
+            apply_thinking_disabled(data, caps=caps)
         if max_tokens > 0:
             data[caps.max_tokens_field] = max_tokens
 
     def patch_probe_body(self, data: dict, *, caps: ProviderCapabilities) -> None:
         if "max_tokens" not in data:
             if caps.thinking_param:
-                data["thinking"] = dict(THINKING_DISABLED)
+                apply_thinking_disabled(data, caps=caps)
             return
         max_tokens = int(data.pop("max_tokens") or 1)
         self.patch_openai_chat_body(data, max_tokens=max_tokens, caps=caps)

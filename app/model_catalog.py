@@ -14,7 +14,7 @@
 - ``modelscope``：魔搭社区（Qwen3-VL-* 开源镜像，免费额度）
 
 每个 ``CatalogModel`` 含：name、id、price、modality、supports_vision、
-main_flow_recommended。
+main_flow_recommended、thinking_mode（off/hybrid/always）。
 ``ModelPrice`` 含 input/output/可选 audio（每百万 token，默认 CNY）。
 
 价格元数据仅用于 Web「视觉模型选择器」的预估成本展示，**不**写入计费。
@@ -23,7 +23,9 @@ main_flow_recommended。
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
+
+ThinkingMode = Literal["off", "hybrid", "always"]
 
 
 @dataclass(frozen=True)
@@ -50,6 +52,11 @@ class CatalogModel:
     modality: str = "图片输入 + 文本输入 → 文本输出"
     supports_vision: bool = True
     main_flow_recommended: bool = True
+    thinking_mode: ThinkingMode = "off"
+
+    @property
+    def supports_thinking_toggle(self) -> bool:
+        return self.thinking_mode == "hybrid"
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -59,6 +66,8 @@ class CatalogModel:
             "modality": self.modality,
             "supports_vision": self.supports_vision,
             "main_flow_recommended": self.main_flow_recommended,
+            "thinking_mode": self.thinking_mode,
+            "supports_thinking_toggle": self.supports_thinking_toggle,
         }
 
 
@@ -84,36 +93,43 @@ DOUBAO_MODELS: tuple[CatalogModel, ...] = (
         "Doubao-Seed-2.0-pro",
         "doubao-seed-2-0-pro-260215",
         ModelPrice(input=1.0, audio=15, output=9),
+        thinking_mode="hybrid",
     ),
     CatalogModel(
         "Doubao-Seed-2.0-lite",
         "doubao-seed-2-0-lite-260428",
         ModelPrice(input=0.6, audio=9, output=3.6),
+        thinking_mode="hybrid",
     ),
     CatalogModel(
         "Doubao-Seed-2.0-mini",
         "doubao-seed-2-0-mini-260428",
         ModelPrice(input=0.2, audio=3, output=2),
+        thinking_mode="hybrid",
     ),
     CatalogModel(
         "Doubao-Seed-1.8",
         "doubao-seed-1-8-251228",
         ModelPrice(input=0.8, audio=None, output=2),
+        thinking_mode="hybrid",
     ),
     CatalogModel(
         "Doubao-Seed-1.6",
         "doubao-seed-1-6-251015",
         ModelPrice(input=0.8, audio=None, output=2),
+        thinking_mode="hybrid",
     ),
     CatalogModel(
         "Doubao-Seed-1.6-vision",
         "doubao-seed-1-6-vision-250815",
         ModelPrice(input=0.8, audio=None, output=2),
+        thinking_mode="hybrid",
     ),
     CatalogModel(
         "Doubao-Seed-1.6-flash",
         "doubao-seed-1-6-flash-250828",
         ModelPrice(input=0.15, audio=None, output=1.5),
+        thinking_mode="hybrid",
     ),
 )
 
@@ -122,51 +138,61 @@ DASHSCOPE_MODELS: tuple[CatalogModel, ...] = (
         "Qwen3-VL-Flash",
         "qwen3-vl-flash",
         ModelPrice(input=0.15, audio=None, output=1.5),
+        thinking_mode="hybrid",
     ),
     CatalogModel(
         "Qwen3-VL-Plus",
         "qwen3-vl-plus",
         ModelPrice(input=0.8, audio=None, output=2),
+        thinking_mode="hybrid",
     ),
     CatalogModel(
         "Qwen3.7-Plus",
         "qwen3.7-plus",
         ModelPrice(input=1.2, audio=None, output=7.2),
+        thinking_mode="hybrid",
     ),
     CatalogModel(
         "Qwen3.5-Flash",
         "qwen3.5-flash",
         ModelPrice(input=0.2, audio=None, output=2),
+        thinking_mode="hybrid",
     ),
     CatalogModel(
         "Qwen-VL-Plus",
         "qwen-vl-plus",
         ModelPrice(input=0.8, audio=None, output=2),
+        thinking_mode="off",
     ),
     CatalogModel(
         "Qwen3.5-Plus",
         "qwen3.5-plus",
         ModelPrice(input=0.8, audio=None, output=4.8),
+        thinking_mode="hybrid",
     ),
     CatalogModel(
         "Qwen3.5-Omni-Plus",
         "qwen3.5-omni-plus",
         ModelPrice(input=0.8, audio=None, output=4.8),
+        thinking_mode="hybrid",
     ),
     CatalogModel(
         "Qwen3.6-Flash",
         "qwen3.6-flash",
         ModelPrice(input=1.2, audio=None, output=7.2),
+        thinking_mode="hybrid",
     ),
     CatalogModel(
         "Qwen3.6-Plus",
         "qwen3.6-plus",
         ModelPrice(input=1.2, audio=None, output=7.2),
+        thinking_mode="hybrid",
     ),
     CatalogModel(
         "Qwen-VL-Max",
         "qwen-vl-max",
         ModelPrice(input=1.6, audio=None, output=4),
+        thinking_mode="off",
     ),
 )
 
@@ -176,6 +202,7 @@ MIMO_MODELS: tuple[CatalogModel, ...] = (
         "MiMo-V2.5",
         "mimo-v2.5",
         ModelPrice(input=1.0, audio=1.0, output=2.0),
+        thinking_mode="hybrid",
     ),
 )
 
@@ -184,51 +211,61 @@ SILICONFLOW_MODELS: tuple[CatalogModel, ...] = (
         "Qwen3-VL-8B-Instruct",
         "Qwen/Qwen3-VL-8B-Instruct",
         ModelPrice(input=0.5, audio=None, output=2),
+        thinking_mode="off",
     ),
     CatalogModel(
         "Qwen3-VL-8B-Thinking",
         "Qwen/Qwen3-VL-8B-Thinking",
         ModelPrice(input=0.5, audio=None, output=5),
+        thinking_mode="always",
     ),
     CatalogModel(
         "Qwen3-VL-30B-A3B-Instruct",
         "Qwen/Qwen3-VL-30B-A3B-Instruct",
         ModelPrice(input=0.7, audio=None, output=2.8),
+        thinking_mode="off",
     ),
     CatalogModel(
         "Qwen3-VL-30B-A3B-Thinking",
         "Qwen/Qwen3-VL-30B-A3B-Thinking",
         ModelPrice(input=0.7, audio=None, output=2.8),
+        thinking_mode="always",
     ),
     CatalogModel(
         "Qwen3-Omni-30B-A3B-Instruct",
         "Qwen/Qwen3-Omni-30B-A3B-Instruct",
         ModelPrice(input=0.7, audio=None, output=2.8),
+        thinking_mode="off",
     ),
     CatalogModel(
         "Qwen3-Omni-30B-A3B-Thinking",
         "Qwen/Qwen3-Omni-30B-A3B-Thinking",
         ModelPrice(input=0.7, audio=None, output=2.8),
+        thinking_mode="always",
     ),
     CatalogModel(
         "Qwen3-Omni-30B-A3B-Captioner",
         "Qwen/Qwen3-Omni-30B-A3B-Captioner",
         ModelPrice(input=0.7, audio=None, output=2.8),
+        thinking_mode="off",
     ),
     CatalogModel(
         "Qwen3-VL-32B-Instruct",
         "Qwen/Qwen3-VL-32B-Instruct",
         ModelPrice(input=1, audio=None, output=4),
+        thinking_mode="off",
     ),
     CatalogModel(
         "Qwen3-VL-235B-A22B-Instruct",
         "Qwen/Qwen3-VL-235B-A22B-Instruct",
         ModelPrice(input=2, audio=None, output=8),
+        thinking_mode="off",
     ),
     CatalogModel(
         "GLM-4.5V",
         "zai-org/GLM-4.5V",
         ModelPrice(input=1, audio=None, output=6),
+        thinking_mode="off",
     ),
 )
 
@@ -237,32 +274,47 @@ ZAI_MODELS: tuple[CatalogModel, ...] = (
         "GLM-4.6V",
         "glm-4.6v",
         ModelPrice(input=0.6, audio=None, output=1.8, currency="USD"),
+        thinking_mode="hybrid",
     ),
     CatalogModel(
         "GLM-4.5V",
         "glm-4.5v",
         ModelPrice(input=0.6, audio=None, output=1.8, currency="USD"),
+        thinking_mode="hybrid",
     ),
 )
 
 # Moonshot (Kimi) — 视觉模型，无音频；定价来自 Moonshot 官网（CNY/百万 token）。
 MOONSHOT_MODELS: tuple[CatalogModel, ...] = (
-    CatalogModel("Kimi-Latest", "kimi-latest", ModelPrice(input=4.0, output=12.0)),
-    CatalogModel("Kimi-Latest-128K", "kimi-latest-128k", ModelPrice(input=4.0, output=12.0)),
+    CatalogModel(
+        "Kimi-Latest",
+        "kimi-latest",
+        ModelPrice(input=4.0, output=12.0),
+        thinking_mode="off",
+    ),
+    CatalogModel(
+        "Kimi-Latest-128K",
+        "kimi-latest-128k",
+        ModelPrice(input=4.0, output=12.0),
+        thinking_mode="off",
+    ),
     CatalogModel(
         "Moonshot-v1-8K-Vision",
         "moonshot-v1-8k-vision-preview",
         ModelPrice(input=8.0, output=24.0),
+        thinking_mode="off",
     ),
     CatalogModel(
         "Moonshot-v1-32K-Vision",
         "moonshot-v1-32k-vision-preview",
         ModelPrice(input=8.0, output=24.0),
+        thinking_mode="off",
     ),
     CatalogModel(
         "Kimi-Thinking-Preview",
         "kimi-thinking-preview",
         ModelPrice(input=8.0, output=24.0),
+        thinking_mode="always",
     ),
 )
 
@@ -272,17 +324,25 @@ HUNYUAN_MODELS: tuple[CatalogModel, ...] = (
         "Hunyuan-Turbos-Vision",
         "hunyuan-turbos-vision",
         ModelPrice(input=3.0, output=9.0),
+        thinking_mode="off",
     ),
-    CatalogModel("Hunyuan-Vision", "hunyuan-vision", ModelPrice(input=3.0, output=9.0)),
+    CatalogModel(
+        "Hunyuan-Vision",
+        "hunyuan-vision",
+        ModelPrice(input=3.0, output=9.0),
+        thinking_mode="off",
+    ),
     CatalogModel(
         "Hunyuan-T1-Vision",
         "hunyuan-t1-vision",
         ModelPrice(input=6.0, output=18.0),
+        thinking_mode="hybrid",
     ),
     CatalogModel(
         "Hunyuan-Large-Vision",
         "hunyuan-large-vision",
         ModelPrice(input=4.0, output=12.0),
+        thinking_mode="off",
     ),
 )
 
@@ -292,11 +352,13 @@ STEPFUN_MODELS: tuple[CatalogModel, ...] = (
         "Step-1o-Turbo-Vision",
         "step-1o-turbo-vision",
         ModelPrice(input=0.5, output=2.0),
+        thinking_mode="off",
     ),
     CatalogModel(
         "Step-1o-Vision-32K",
         "step-1o-vision-32k",
         ModelPrice(input=3.0, output=5.0),
+        thinking_mode="off",
     ),
 )
 
@@ -306,22 +368,31 @@ BAIDU_CLOUD_MODELS: tuple[CatalogModel, ...] = (
         "ERNIE-4.5-Turbo-VL",
         "ernie-4-5-turbo-vl",
         ModelPrice(input=2.8, output=8.4, currency="USD"),
+        thinking_mode="hybrid",
     ),
     CatalogModel(
         "ERNIE-4.5-VL-A3B",
         "ernie-4-5-vl-a3b",
         ModelPrice(input=2.7, output=2.7, currency="USD"),
+        thinking_mode="hybrid",
     ),
     CatalogModel(
         "ERNIE-4.5-VL-A47B",
         "ernie-4-5-vl-a47b",
         ModelPrice(input=4.0, output=12.0, currency="USD"),
+        thinking_mode="hybrid",
     ),
-    CatalogModel("ERNIE-5.0", "ernie-5-0", ModelPrice(input=4.0, output=12.0, currency="USD")),
+    CatalogModel(
+        "ERNIE-5.0",
+        "ernie-5-0",
+        ModelPrice(input=4.0, output=12.0, currency="USD"),
+        thinking_mode="hybrid",
+    ),
     CatalogModel(
         "ERNIE-5.0-Thinking-Latest",
         "ernie-5-0-thinking-latest",
         ModelPrice(input=6.0, output=18.0, currency="USD"),
+        thinking_mode="always",
     ),
 )
 
@@ -445,6 +516,10 @@ PLATFORM_CATALOGS: tuple[PlatformCatalog, ...] = (
 
 _CATALOG_BY_PROVIDER = {p.provider_id: p for p in PLATFORM_CATALOGS}
 _CATALOG_BY_PLATFORM = {p.platform_id: p for p in PLATFORM_CATALOGS}
+_CATALOG_BY_MODEL_ID: dict[str, CatalogModel] = {}
+for _platform in PLATFORM_CATALOGS:
+    for _model in _platform.models:
+        _CATALOG_BY_MODEL_ID[_model.id] = _model
 
 
 def enrich_platform_models(
@@ -540,4 +615,20 @@ def catalog_model_supports_mic(model_id: str) -> bool:
             if model.id == mid and model.price.audio is not None:
                 return True
     return False
+
+
+def get_thinking_mode_for_model(model_id: str) -> ThinkingMode:
+    """Catalog thinking mode for ``model_id``; unknown models return ``off``."""
+    mid = (model_id or "").strip()
+    if not mid:
+        return "off"
+    model = _CATALOG_BY_MODEL_ID.get(mid)
+    if model is None:
+        return "off"
+    return model.thinking_mode
+
+
+def catalog_model_supports_thinking_toggle(model_id: str) -> bool:
+    """True when settings may toggle thinking for a catalog-listed model."""
+    return get_thinking_mode_for_model(model_id) == "hybrid"
 

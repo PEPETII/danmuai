@@ -282,7 +282,12 @@ def export_config(config) -> dict[str, Any]:
 
 
 def _thinking_supported(config, active_model_id: str) -> bool:
+    from app.model_catalog import catalog_model_supports_thinking_toggle
     from app.model_providers import get_capabilities_for_model
+
+    mid = (active_model_id or "").strip()
+    if not mid or not catalog_model_supports_thinking_toggle(mid):
+        return False
 
     # 优先检查自定义模型档案（W-CUSTOMMODEL-SCHEMA-002：default_model_id 优先于 modelId）
     custom_models = config.get_custom_models()
@@ -295,13 +300,13 @@ def _thinking_supported(config, active_model_id: str) -> bool:
                 endpoint = model.get("endpoint") or ""
                 api_mode = model.get("mode") or ""
                 caps = get_capabilities_for_model(active_model_id, endpoint, api_mode)
-                return caps.supports_thinking
+                return caps.thinking_param_style != "none"
 
     # 全局 api_endpoint + api_mode
     endpoint = config.get("api_endpoint") or ""
     api_mode = config.get("api_mode") or "doubao"
     caps = get_capabilities_for_model(active_model_id, endpoint, api_mode)
-    return caps.supports_thinking
+    return caps.thinking_param_style != "none"
 
 
 def extract_config_payload(body: Any) -> dict[str, Any]:

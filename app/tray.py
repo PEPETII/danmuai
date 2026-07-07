@@ -297,11 +297,14 @@ class TrayManager:
             )
             return
 
-        QMessageBox.information(
-            None,
+        # Velopack uninstall needs DanmuAI.exe to exit before files can be removed.
+        self.tray.showMessage(
             title,
             launched.message or tr("tray.uninstall_started", "已启动卸载程序。"),
+            QSystemTrayIcon.MessageIcon.Information,
+            3000,
         )
+        QTimer.singleShot(0, self.app.quit)
 
     def _on_activated(self, reason):
         if reason in (

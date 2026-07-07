@@ -17,7 +17,12 @@ htmlcov/
 .venv/
 .venv-build/
 .venv-build-*/
+.venv-*/
 venv/
+
+# Local temp / scratch install artifacts (may contain copied supabase-config.js)
+.tmp/
+.tmp-*/
 
 # Desktop app local data and secrets
 *.db

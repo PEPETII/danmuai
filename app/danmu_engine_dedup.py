@@ -13,6 +13,10 @@ _LEVENSHTEIN_UNAVAILABLE = object()
 _LEVENSHTEIN_FALLBACK_WARNED = False
 _DEDUP_PROFILE_FLAG: bool | None = None
 _DEDUP_THRESHOLD_FALLBACK = 0.5
+# English live-comment phrases often share a prefix ("what a", "that was") while
+# the trailing word carries the meaning. Require near-typo similarity on the
+# last word before treating multi-word ASCII phrases as fuzzy duplicates.
+_ASCII_SUFFIX_TYPO_THRESHOLD = 0.75
 # BUG-009: pure-Python Levenshtein fallback is O(m×n); truncate long strings to
 # protect the 60fps Overlay main thread when neither python-Levenshtein nor
 # rapidfuzz is installed. Only the fallback path truncates — the C extension
@@ -168,6 +172,47 @@ def similarity(a: str, b: str) -> float:
     return result
 
 
+def _is_ascii_space_phrase(text: str) -> bool:
+    """True for short ASCII live-comment phrases with at least one space."""
+    return bool(text) and text.isascii() and " " in text
+
+
+def _ascii_trailing_words_clearly_distinct(a: str, b: str) -> bool:
+    """True when multi-word ASCII phrases differ in trailing vocabulary, not typo."""
+    words_a = a.lower().split()
+    words_b = b.lower().split()
+    if len(words_a) < 2 or len(words_a) != len(words_b):
+        return False
+
+    prefix_len = 0
+    for word_a, word_b in zip(words_a, words_b):
+        if word_a != word_b:
+            break
+        prefix_len += 1
+
+    if prefix_len != len(words_a) - 1:
+        return False
+
+    last_a = words_a[-1]
+    last_b = words_b[-1]
+    if last_a == last_b:
+        return False
+    return similarity(last_a, last_b) < _ASCII_SUFFIX_TYPO_THRESHOLD
+
+
+def texts_are_similar(a: str, b: str, threshold: float) -> bool:
+    """Shared fuzzy duplicate check for display-layer and batch cleaning."""
+    if a == b:
+        return True
+    if (
+        _is_ascii_space_phrase(a)
+        and _is_ascii_space_phrase(b)
+        and _ascii_trailing_words_clearly_distinct(a, b)
+    ):
+        return False
+    return similarity(a, b) > threshold
+
+
 def is_duplicate_in_recent(
     content: str,
     recent: deque[str],
@@ -204,7 +249,7 @@ def is_duplicate_in_recent(
                 if profile:
                     _dedup_profile_stats.length_pruned += 1
                 continue
-            if similarity(content, prev) > threshold:
+            if texts_are_similar(content, prev, threshold):
                 match_type = "similarity_hit"
                 result = True
                 break
@@ -237,4 +282,5 @@ __all__ = [
     "get_last_duplicate_observation",
     "is_duplicate_in_recent",
     "similarity",
+    "texts_are_similar",
 ]
