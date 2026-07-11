@@ -91,11 +91,15 @@ def _safe_node_dir(request) -> Path:
 @pytest.fixture(autouse=True)
 def _isolate_log_emit_bus():
     """Reset global LogEmitBus between tests (Qt teardown may delete C++ object)."""
-    import app.logger as logger_mod
-
-    logger_mod._log_bus = None
+    try:
+        import app.logger as logger_mod
+    except Exception:
+        logger_mod = None
+    if logger_mod is not None:
+        logger_mod._log_bus = None
     yield
-    logger_mod._log_bus = None
+    if logger_mod is not None:
+        logger_mod._log_bus = None
 
 
 @pytest.fixture

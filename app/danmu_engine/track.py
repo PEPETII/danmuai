@@ -482,7 +482,7 @@ class DanmuEngine(QObject):
         track.add(item)
         try:
             self._register_item(track, item)
-        except Exception:
+        except (ValueError, TypeError, RuntimeError):
             self._detach_track_item(track, item)
             raise
         self._remember_content(item.content)
@@ -548,7 +548,7 @@ class DanmuEngine(QObject):
         track.add(item)
         try:
             self._register_item(track, item)
-        except Exception:
+        except (ValueError, TypeError, RuntimeError):
             self._detach_track_item(track, item)
             raise
         self._remember_content(content)

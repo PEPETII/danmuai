@@ -6,6 +6,7 @@ from typing import Any
 
 import httpx
 
+from app.env_config import get as get_env
 from app.meme_barrage.config import normalize_meme_barrage_tags
 
 API_BASE = "https://hguofichp.cn:10086"
@@ -13,7 +14,7 @@ API_ORIGIN = "https://hguofichp.cn"
 
 DEFAULT_HEADERS = {
     "Accept": "application/json",
-    "Dpahjdoiaw": "danmuAi",
+    "Dpahjdoiaw": get_env("DANMU_MEME_API_KEY", "danmuAi").strip() or "danmuAi",
     "Origin": API_ORIGIN,
     "Referer": f"{API_ORIGIN}/",
 }
