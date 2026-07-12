@@ -12,7 +12,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from app.danmu_read_service import DanmuReadService
-from app.danmu_tts import ResolvedTtsConfig
+from app.tts_providers import ResolvedTtsConfig
 
 
 def _make_service(qapp):

@@ -7,12 +7,11 @@ $OutputEncoding = [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
+. (Join-Path $PSScriptRoot "resolve_build_python.ps1")
 . (Join-Path $PSScriptRoot "version_parse.ps1")
-$packagingPaths = Get-PackagingDistPaths
+$packagingPaths = Get-PackagingDistPaths -Root $Root
 $distDirName = $packagingPaths.DistDir
 $exeName = $packagingPaths.ExeName
-
-. (Join-Path $PSScriptRoot "resolve_build_python.ps1")
 
 $PythonCmd = Resolve-BuildPythonCommand -Root $Root
 Write-Host "Using Python: $($PythonCmd.Label) => $($PythonCmd.Path)"
@@ -56,11 +55,27 @@ Original error: $($_.Exception.Message)
     }
 }
 
-if ($PythonCmd.SkipDependencyInstall -and $env:DANMU_BUILD_FORCE_PIP_INSTALL -ne "1") {
+$useReleaseLock = $env:DANMU_BUILD_USE_RELEASE_LOCK -eq "1"
+$reqFiles = if ($useReleaseLock) {
+    @("-r", "requirements-release-win-lock.txt")
+} else {
+    @("-r", "requirements.txt", "-r", "requirements-dev.txt")
+}
+
+# Lock mode always installs so pre-provisioned .venv-build matches the pinned baseline.
+$shouldInstall = $useReleaseLock `
+    -or (-not $PythonCmd.SkipDependencyInstall) `
+    -or ($env:DANMU_BUILD_FORCE_PIP_INSTALL -eq "1")
+
+if (-not $shouldInstall) {
     Write-Host "Skipping pip install for pre-provisioned build Python."
 } else {
-    Write-Host "Installing build deps..."
-    & $PythonCmd.Path @($PythonCmd.Args) -m pip install -q -r requirements.txt -r requirements-dev.txt
+    if ($useReleaseLock) {
+        Write-Host "Installing release lock deps (DANMU_BUILD_USE_RELEASE_LOCK=1)..."
+    } else {
+        Write-Host "Installing build deps..."
+    }
+    & $PythonCmd.Path @($PythonCmd.Args) -m pip install -q @reqFiles
     if ($LASTEXITCODE -ne 0) {
         Write-Error "pip install failed with exit code $LASTEXITCODE"
     }

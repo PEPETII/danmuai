@@ -10,12 +10,13 @@
  *   - runtime 摘要 + 诊断报告（buildDiagnosticReportText）
  *   - config_context：当前 active_model_id / provider / persona（W-ERROR-REPORT-004）
  *
- * 重连：SSE 走 SSE_RECONNECT_BASE_MS=1s → SSE_MAX_RECONNECT_MS=8s 指数退避。
+ * 重连：fetch SSE 走 SSE_RECONNECT_BASE_MS=1s → SSE_MAX_RECONNECT_MS=8s 指数退避。
+ * 认证：Authorization Bearer header（EventSource 无法设 header，故用 fetch streaming）。
  *
  * 线程：浏览器主线程；不做任何 fetch 缓存之外的工作。
  */
 
-import { API } from './transport.js';
+import { API, authHeaders, refreshSession } from './transport.js';
 import { t } from './i18n.js';
 
 export const DIAGNOSTICS = {
@@ -169,17 +170,126 @@ function clearSseReconnect() {
 function disconnectDiagnosticsSSE() {
   clearSseReconnect();
   if (DIAGNOSTICS.sse) {
-    DIAGNOSTICS.sse.onopen = null;
-    DIAGNOSTICS.sse.onerror = null;
-    DIAGNOSTICS.sse.onmessage = null;
     try {
-      DIAGNOSTICS.sse.close();
+      DIAGNOSTICS.sse.abortController?.abort();
     } catch (_) {
       /* ignore */
     }
     DIAGNOSTICS.sse = null;
   }
   DIAGNOSTICS.attempt = 0;
+}
+
+function scheduleSseReconnect() {
+  clearSseReconnect();
+  if (DIAGNOSTICS.sse) {
+    try {
+      DIAGNOSTICS.sse.abortController?.abort();
+    } catch (_) {
+      /* ignore */
+    }
+    DIAGNOSTICS.sse = null;
+  }
+  DIAGNOSTICS.attempt += 1;
+  const delay = sseBackoffMs();
+  console.debug(`[diagnostics] SSE reconnect in ${delay}ms (attempt ${DIAGNOSTICS.attempt})`);
+  DIAGNOSTICS.reconnectTimer = setTimeout(() => {
+    DIAGNOSTICS.reconnectTimer = null;
+    if (isDiagnosticsPanelVisible()) {
+      connectDiagnosticsSSE();
+    }
+  }, delay);
+}
+
+function dispatchSseEvent(eventName, dataText) {
+  if (!dataText) return;
+  try {
+    if (eventName === 'hello') {
+      const data = JSON.parse(dataText);
+      console.debug('[diagnostics] SSE hello', data);
+      return;
+    }
+    if (eventName === 'diagnostic_snapshot') {
+      const diag = JSON.parse(dataText);
+      renderDiagnosticSnapshot(diag);
+    }
+  } catch (e) {
+    console.warn('[diagnostics] SSE event parse error', e);
+  }
+}
+
+async function readDiagnosticsSseStream(abortController) {
+  const response = await fetch(`${API.base}/api/diagnostics/events`, {
+    headers: { ...authHeaders(), Accept: 'text/event-stream' },
+    cache: 'no-store',
+    signal: abortController.signal,
+  });
+
+  if (abortController.signal.aborted) return;
+
+  if (response.status === 401 || response.status === 403) {
+    console.warn('[diagnostics] SSE auth rejected');
+    scheduleSseReconnect();
+    return;
+  }
+  if (!response.ok) {
+    console.warn('[diagnostics] SSE HTTP error', response.status);
+    scheduleSseReconnect();
+    return;
+  }
+
+  console.debug('[diagnostics] SSE open');
+  DIAGNOSTICS.attempt = 0;
+
+  const reader = response.body?.getReader();
+  if (!reader) {
+    console.warn('[diagnostics] SSE: no response body');
+    scheduleSseReconnect();
+    return;
+  }
+
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let currentEvent = '';
+  let currentData = '';
+
+  const flushEvent = () => {
+    if (currentData) {
+      dispatchSseEvent(currentEvent, currentData);
+    }
+    currentEvent = '';
+    currentData = '';
+  };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done || abortController.signal.aborted) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const rawLine of lines) {
+      const line = rawLine.replace(/\r$/, '');
+      if (line === '') {
+        flushEvent();
+        continue;
+      }
+      if (line.startsWith(':')) continue;
+      if (line.startsWith('event:')) {
+        currentEvent = line.slice(6).trim();
+        continue;
+      }
+      if (line.startsWith('data:')) {
+        const chunk = line.slice(5).trimStart();
+        currentData = currentData ? `${currentData}\n${chunk}` : chunk;
+      }
+    }
+  }
+
+  if (!abortController.signal.aborted) {
+    scheduleSseReconnect();
+  }
 }
 
 export function disconnectDiagnosticsPanel() {
@@ -200,62 +310,34 @@ export function destroyDiagnosticsPanel() {
 
 function connectDiagnosticsSSE() {
   if (DIAGNOSTICS.sse) return;
-  if (!API.base) {
-    console.warn('[diagnostics] SSE: API.base not ready');
-    return;
-  }
 
   clearSseReconnect();
-  const url = new URL(`${API.base}/api/diagnostics/events`);
-  if (API.token) {
-    url.searchParams.set('token', API.token);
-  }
-  console.debug('[diagnostics] SSE connecting', url.toString());
+  console.debug('[diagnostics] SSE connecting');
 
-  try {
-    const es = new EventSource(url.toString());
-    DIAGNOSTICS.sse = es;
+  const abortController = new AbortController();
+  DIAGNOSTICS.sse = { abortController };
 
-    es.onopen = () => {
-      console.debug('[diagnostics] SSE open');
-      DIAGNOSTICS.attempt = 0;
-    };
-
-    es.addEventListener('hello', (ev) => {
-      try {
-        const data = JSON.parse(ev.data);
-        console.debug('[diagnostics] SSE hello', data);
-      } catch (e) {
-        console.warn('[diagnostics] SSE hello parse error', e);
+  void (async () => {
+    try {
+      if (!API.base || !API.token) {
+        await refreshSession();
       }
-    });
-
-    es.addEventListener('diagnostic_snapshot', (ev) => {
-      try {
-        const diag = JSON.parse(ev.data);
-        renderDiagnosticSnapshot(diag);
-      } catch (e) {
-        console.warn('[diagnostics] SSE snapshot parse error', e);
+      if (!API.base || !API.token) {
+        console.warn('[diagnostics] SSE: session not ready');
+        scheduleSseReconnect();
+        return;
       }
-    });
-
-    es.onerror = () => {
-      console.warn('[diagnostics] SSE error');
-      disconnectDiagnosticsSSE();
-      DIAGNOSTICS.attempt += 1;
-      const delay = sseBackoffMs();
-      console.debug(`[diagnostics] SSE reconnect in ${delay}ms (attempt ${DIAGNOSTICS.attempt})`);
-      DIAGNOSTICS.reconnectTimer = setTimeout(() => {
-        DIAGNOSTICS.reconnectTimer = null;
-        if (isDiagnosticsPanelVisible()) {
-          connectDiagnosticsSSE();
-        }
-      }, delay);
-    };
-  } catch (e) {
-    console.warn('[diagnostics] SSE creation failed', e);
-    disconnectDiagnosticsSSE();
-  }
+      await readDiagnosticsSseStream(abortController);
+    } catch (e) {
+      if (e?.name === 'AbortError' || abortController.signal.aborted) return;
+      console.warn('[diagnostics] SSE stream error', e);
+      scheduleSseReconnect();
+    } finally {
+      if (DIAGNOSTICS.sse?.abortController === abortController) {
+        DIAGNOSTICS.sse = null;
+      }
+    }
+  })();
 }
 
 function handlePanelVisibilityChange(entries) {

@@ -120,7 +120,7 @@ def run_uvicorn_locked(server) -> None:
 
     @app.get("/api/personae")
     def list_personae():
-        from app.personae import BUILTIN_PERSONAE
+        from app.persona_builtin import BUILTIN_PERSONAE
 
         names = bridge.danmu_app.personae.list()
         active = set(bridge.danmu_app.personae.get_active())
@@ -171,6 +171,7 @@ def run_uvicorn_locked(server) -> None:
                     else provider.model_id_hint_zh
                 ),
                 "website": provider.website,
+                "region": provider.region,
             }
             for provider in PROVIDERS
         ]

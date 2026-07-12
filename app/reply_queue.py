@@ -35,7 +35,7 @@ class QueuedReply:
     persona_id: str  # 人格 id，决定弹幕样式与记忆 tone
     batch_index: int  # 请求轮次内的批次序号（历史/日志用）
     content_index: int  # 批次内第几条，用于记忆角度 bullet_angle_from_index
-    content: str  # 弹幕正文（展示前可能再经 normalize_danmu_display_text）
+    content: str  # 弹幕正文（展示前可能再经 normalize_danmu_display_text 轻量 strip）
     screenshot_round: int = 0  # 调度轮次（粗粒度）；purge_before_round 按此淘汰
     screenshot_id: int = 0  # 逐帧 id，随请求/RTT 元数据携带；当前不参与 stale 硬丢弃
     captured_at: float = 0.0  # 截图 monotonic 时间戳（元数据）；当前不参与 TTL 硬丢弃

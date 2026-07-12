@@ -4,7 +4,7 @@
 
 ## 1. 当前能力边界
 
-当前已经落地的能力有 3 条，方向不同，必须分开理解：
+当前已经落地的能力有 4 条，方向不同，必须分开理解：
 
 1. `MOCK-001`
    - 触发源：弹幕姬插件右键「管理」
@@ -24,9 +24,15 @@
    - 作用：DanmuAI 把本次最终显示文本主动 POST 到插件本地 `HttpListener`
    - 用途：不依赖直播评论事件，也能把 DanmuAI 生成结果显示到弹幕姬侧边栏
 
+4. `FORMULA-008`
+   - 触发源：公式化弹幕进入最终显示旁路
+   - 方向：DanmuAI -> 插件
+   - 作用：把 `pool_topup`、`pool_duplicate_topup`、`meme_barrage` 三类最终文本复用 PUSH 协议发送给插件
+   - 用途：开启弹幕姬模式后，公式化补位和烂梗弹幕不会因绕过 AI 回复队列而消失
+
 统一边界：
 
-- 以上 3 条都只是**弹幕姬本地显示**
+- 以上 4 条都只是**弹幕姬本地显示**
 - 都不是向 B 站直播间自动发言
 - 当前没有实现直播间自动发弹幕能力
 
@@ -38,6 +44,7 @@
 直播间评论
   -> bililive_dm 宿主触发 ReceivedDanmaku(Comment)
   -> DanmuAI Mock Plugin
+  -> 附带 X-DanmuAI-Plugin-Secret
   -> POST http://127.0.0.1:18765/api/plugin/bililive-dm/reply
   -> DanmuAI 旁路 AI 生成
   -> 返回 { ok, error, items }
@@ -57,6 +64,16 @@ DanmuAI Web「生成弹幕」
   -> 插件本地 HttpListener 收到 items
   -> 插件逐条 AddDM()
   -> 弹幕姬侧边栏本地显示
+```
+
+公式化弹幕不经过 `_enqueue_reply_batch()`；其分支为：
+
+```text
+pool_topup / pool_duplicate_topup / meme_barrage
+  -> main_render_coordinator_mixin._broadcast_live_overlay_item(...)
+  -> main_bililive_dm_mixin._schedule_bililive_dm_formula_push(...)
+  -> 复用 schedule_push_batch(...)
+  -> 插件本地显示
 ```
 
 ## 3. 关键文件
@@ -86,7 +103,11 @@ DanmuAI Web「生成弹幕」
 
 - [bililive_dm_bridge.py](../../app/web_api/bililive_dm_bridge.py)
   - `POST /api/plugin/bililive-dm/reply`
-  - 评论事件桥接路由
+  - 评论事件桥接路由；校验 `X-DanmuAI-Plugin-Secret`
+
+- [bililive_dm_plugin_auth.py](../../app/bililive_dm_plugin_auth.py)
+  - 共享密钥生成、持久化与常量定义
+  - 默认文件 `%APPDATA%/DanmuAI/bililive_dm_plugin.secret`，也可由 `DANMU_BILILIVE_DM_PLUGIN_SECRET` 覆盖
 
 - [bililive_dm_bridge_service.py](../../app/application/bililive_dm_bridge_service.py)
   - 旁路真实 AI 生成
@@ -107,27 +128,34 @@ DanmuAI Web「生成弹幕」
   - 后台线程 fire-and-forget 发 HTTP
   - 失败只记日志，不影响主链路
 
-- [main_display_mixin.py](../../app/main_display_mixin.py)
-  - `_schedule_bililive_dm_push(...)`
-  - 负责把主链路文本规范化后交给 push service
+- [main_bililive_dm_mixin.py](../../app/main_bililive_dm_mixin.py)
+  - `_schedule_bililive_dm_push(...)`：AI 批次旁路
+  - `_schedule_bililive_dm_formula_push(...)`：公式化弹幕旁路
+  - `_schedule_bililive_dm_push_items(...)`：统一模式门控、显示文本规范化和 push service 调用
 
 - [main_request_context_mixin.py](../../app/main_request_context_mixin.py)
   - `_enqueue_reply_batch(...)`
   - 当前在 AI 批次入队完成后调用 `_schedule_bililive_dm_push(...)`
 
+- [main_render_coordinator_mixin.py](../../app/main_render_coordinator_mixin.py)
+  - `_broadcast_live_overlay_item(...)`
+  - 对三类公式化来源调用 `_schedule_bililive_dm_formula_push(...)`
+
 ### 3.4 DanmuAI Web 按钮入口
 
-- [app.js](../../web/static/app.js:621)
+- [app.js](../../web/static/app.js#L722)
   - `btnToggle`
   - 只调用 `/api/start` 或 `/api/stop`
 
-- [web_console_runtime.py](../../app/web_console_runtime.py:197)
+- [web_console_runtime.py](../../app/web_console_runtime.py#L207)
   - `/api/start`
   - 只是发 `start_requested.emit()`
 
 ## 4. 当前协议
 
 ### 4.1 评论桥接协议
+
+请求必须带 `X-DanmuAI-Plugin-Secret`；缺失返回 `401 plugin_secret_required`，不匹配返回 `403 plugin_secret_invalid`。密钥由 DanmuAI 在本机生成，插件读取同一 `%APPDATA%/DanmuAI/bililive_dm_plugin.secret`，不得写入日志、Issue 或仓库。
 
 请求：
 
@@ -151,6 +179,8 @@ DanmuAI Web「生成弹幕」
 ```
 
 ### 4.2 主动推送协议
+
+DanmuAI 出站请求同样带 `X-DanmuAI-Plugin-Secret`，插件 listener 使用恒定时间比较校验后才处理 `items`。
 
 请求：
 
@@ -188,7 +218,7 @@ DanmuAI Web「生成弹幕」
 
 3. DanmuAI 侧推送策略调整
    - 例如只推首条、按人格过滤、限制节流
-   - 优先改 [bililive_dm_push_service.py](../../app/application/bililive_dm_push_service.py) 或 [main_display_mixin.py](../../app/main_display_mixin.py)
+   - 优先改 [bililive_dm_push_service.py](../../app/application/bililive_dm_push_service.py) 或 [main_bililive_dm_mixin.py](../../app/main_bililive_dm_mixin.py)
 
 4. 评论桥接 prompt / 输出风格
    - 改 [bililive_dm_bridge_service.py](../../app/application/bililive_dm_bridge_service.py)
@@ -205,7 +235,7 @@ DanmuAI Web「生成弹幕」
 - [main.py](../../main.py)
 - [reply_queue.py](../../app/reply_queue.py)
 - [overlay.py](../../app/overlay.py)
-- [danmu_engine.py](../../app/danmu_engine.py)
+- [danmu_engine/](../../app/danmu_engine/)
 - `web/static/**`
 
 原因：
@@ -220,7 +250,8 @@ DanmuAI Web「生成弹幕」
 3. `AddDM()` 只是本地显示，不是直播间发言
 4. DanmuAI 侧推送失败不能中断主链路
 5. 插件侧网络失败不能拖慢宿主
-6. 任何涉及 Qt 对象的主链路结果获取，都要走主线程安全边界
+6. 双向请求都必须校验 `X-DanmuAI-Plugin-Secret`，密钥不得出现在日志或提交内容中
+7. 任何涉及 Qt 对象的主链路结果获取，都要走主线程安全边界
 
 ## 8. 当前实用排查法
 
@@ -252,8 +283,9 @@ DanmuAI Web「生成弹幕」
 6. [bililive_dm_bridge_service.py](../../app/application/bililive_dm_bridge_service.py)
 7. [bililive_dm_contracts.py](../../app/application/bililive_dm_contracts.py)
 8. [bililive_dm_push_service.py](../../app/application/bililive_dm_push_service.py)
-9. [main_display_mixin.py](../../app/main_display_mixin.py)
+9. [main_bililive_dm_mixin.py](../../app/main_bililive_dm_mixin.py)
 10. [main_request_context_mixin.py](../../app/main_request_context_mixin.py)
+11. [main_render_coordinator_mixin.py](../../app/main_render_coordinator_mixin.py)
 
 ## 10. 当前工单对应关系
 
@@ -261,6 +293,7 @@ DanmuAI Web「生成弹幕」
 - `W-BILILIVE-DM-PLUGIN-BRIDGE-002`
 - `W-BILILIVE-DM-PLUGIN-BRIDGE-003`
 - `W-BILILIVE-DM-PLUGIN-PUSH-004`
+- `W-BILILIVE-DM-PLUGIN-FORMULA-008`
 
 如果后续要继续扩展，建议新工单命名继续沿用：
 

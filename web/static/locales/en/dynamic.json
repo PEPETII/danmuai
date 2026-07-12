@@ -341,7 +341,7 @@
       "普通模式下_每次识图固定生成几条弹幕_1_50": "In normal mode, fixed danmu count per capture (1–50).",
       "弹幕横向移动快慢_约_0_5_5_数字越大滚得": "Horizontal danmu speed (~0.5–5). Higher = faster scroll.",
       "屏幕上最多几行弹幕轨道_12_20_行": "Max danmu track rows on screen (12–20).",
-      "AI_生成弹幕最多显示多少字_5_80_超出会": "Max characters for AI danmu (5–80); excess truncated with ellipsis. Formula danmu (custom/meme pools) show in full. Default ~15 CN / ~40 EN if unset.",
+      "AI_生成弹幕最多显示多少字_5_80_超出会": "Target length for AI danmu (5–80); written into the prompt contract. Does not truncate on-screen text. Default ~20 CN / ~50 EN if unset.",
       "弹幕字号_约_12_72_像素": "Danmu font size, ~12–72 px.",
       "横向弹幕使用的系统字体名_留空或填入不存在的字体": "System font for horizontal danmu. Blank or invalid name uses default.",
       "是否加粗横向弹幕": "Bold horizontal danmu.",

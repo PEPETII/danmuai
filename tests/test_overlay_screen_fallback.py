@@ -177,8 +177,8 @@ def test_status_snapshot_reports_screens_unavailable_warning(
     engine.running = True
     overlay._overlay_screen_unavailable = True
 
-    monkeypatch.setattr("app.main_display_mixin.sys.platform", "win32")
-    monkeypatch.setattr("app.main_display_mixin.QApplication.screens", lambda: [])
+    monkeypatch.setattr("app.main_screen_topology_mixin.sys.platform", "win32")
+    monkeypatch.setattr("app.main_screen_topology_mixin.QApplication.screens", lambda: [])
 
     app._update_overlay_compat_warning()
     runtime = app._ensure_web_runtime_state()

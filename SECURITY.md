@@ -12,7 +12,7 @@
 ## 项目当前安全边界
 
 - API Key 默认保存在 `%APPDATA%/DanmuAI/config.db`，优先使用 Fernet 加密（全局 `api_key`）。
-- **自定义模型**的 `apiKey` 以 JSON 明文存入 SQLite；`GET /api/config` 与 `GET /api/custom-models` 返回掩码值 `********`。
+- **自定义模型**的 `apiKey` 以 Fernet 密文写入 `custom_models` JSON（与全局 `api_key_encrypted` 共用 `.key`）；读取时解密，legacy 明文会在读路径自动升级；`GET /api/config` 与 `GET /api/custom-models` 返回掩码值 `********`。
 - 日志会脱敏 API Key、`Authorization` 头、长 base64 图片数据和加密串；配置写入失败日志不会输出完整密钥字段。
 - 默认不保存截图，不会把截图原文写入日志。
 - 过期请求和旧场景回复会被丢弃，避免旧内容覆盖当前画面。

@@ -5,7 +5,11 @@ from unittest.mock import patch
 import pytest
 from app import release_channels
 from app.release_channels import R2_LATEST_INSTALLER_URL, UPDATE_FEED_URL
-from app.supabase_app_updates import AppUpdateRemote, clear_app_update_cache
+from app.supabase_app_updates import (
+    AppUpdateFetchResult,
+    AppUpdateRemote,
+    clear_app_update_cache,
+)
 from app.velopack_config import UPDATE_FEED_URL as VPK_FEED_URL
 from app.version import __version__
 from app.web_api import update as update_api_mod
@@ -113,7 +117,12 @@ def test_release_channels_api_route():
     def _channels():
         return update_api_mod.get_release_channels()
 
-    with patch.object(release_channels, "fetch_app_update", return_value=remote):
+    fetch_result = AppUpdateFetchResult(
+        update=remote,
+        cache_state="fresh",
+        cache_age_sec=0.0,
+    )
+    with patch.object(update_api_mod, "fetch_app_update_result", return_value=fetch_result):
         client = TestClient(api)
         res = client.get("/api/update/channels")
     assert res.status_code == 200
@@ -126,13 +135,36 @@ def test_release_channels_api_route():
     assert body["feed_url"] == UPDATE_FEED_URL
 
 
+def test_release_channels_api_route_empty_release_url_falls_back_to_r2():
+    remote = AppUpdateRemote(
+        latest_version="0.4.0",
+        release_url="",
+        message="",
+    )
+    fetch_result = AppUpdateFetchResult(
+        update=remote,
+        cache_state="fresh",
+        cache_age_sec=0.0,
+    )
+    with patch.object(update_api_mod, "fetch_app_update_result", return_value=fetch_result):
+        payload = update_api_mod.get_update_channels()
+    assert payload["latest_version"] == "0.4.0"
+    assert payload["release_url"] == R2_LATEST_INSTALLER_URL
+
+
 def test_get_update_channels_never_calls_velopack_check():
     from app import update_service
 
-    with patch.object(release_channels, "fetch_app_update", return_value=None):
+    fetch_result = AppUpdateFetchResult(
+        update=None,
+        cache_state="miss",
+        cache_age_sec=None,
+    )
+    with patch.object(update_api_mod, "fetch_app_update_result", return_value=fetch_result):
         with patch.object(update_service, "get_status") as mock_status:
             with patch.object(update_service, "check_for_updates") as mock_check:
                 payload = update_api_mod.get_update_channels()
     mock_status.assert_not_called()
     mock_check.assert_not_called()
     assert payload["latest_version"] == __version__
+    assert payload["update_available"] is False

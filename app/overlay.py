@@ -25,9 +25,7 @@ from app.danmu_engine import (
     DanmuEngine,
     DanmuItem,
     layout_height_ratio,
-    normalize_danmu_display_text,
     normalize_layout_mode,
-    resolve_danmu_max_chars,
 )
 from app.env_config import get as get_env
 from app.win32_overlay_zorder import apply_overlay_exstyles, reassert_hwnd_topmost
@@ -169,19 +167,14 @@ class DanmuOverlay(QWidget):
 
     def _sync_applied_display_settings_markers(self) -> None:
         self._applied_font_size = self._config_font_size()
-        self._applied_danmu_max_chars = resolve_danmu_max_chars(self.config)
         self._applied_danmu_font_family = self._config_danmu_font_family()
         self._applied_danmu_font_bold = str(
             self.config.get("danmu_font_bold", "1") or "1"
         ).strip().lower() not in ("0", "false", "no")
 
     def display_settings_dirty(self) -> bool:
-        """True when font_size or danmu_max_chars in config differs from last apply."""
+        """True when font_size / font family / bold in config differs from last apply."""
         if self._config_font_size() != getattr(self, "_applied_font_size", -1):
-            return True
-        if resolve_danmu_max_chars(self.config) != getattr(
-            self, "_applied_danmu_max_chars", -1
-        ):
             return True
         if self._config_danmu_font_family() != getattr(self, "_applied_danmu_font_family", ""):
             return True
@@ -193,13 +186,12 @@ class DanmuOverlay(QWidget):
         return False
 
     def apply_display_settings(self) -> None:
-        """Re-read font_size / danmu_max_chars and rebuild on-screen item metrics and pixmaps."""
+        """Re-read font settings and rebuild on-screen item metrics and pixmaps."""
         self._apply_font_from_config()
         # 重置待渲染队列：apply 后所有 item 都需要重新渲染
         self._pending_render.clear()
         for track in self.engine.tracks:
             for item in track.items:
-                item.content = normalize_danmu_display_text(item.content, self.config)
                 item._pixmap = None
                 item._opacity_cache_bucket = None
                 item._cached_opacity = None

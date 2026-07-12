@@ -7,12 +7,12 @@ from PyQt6.QtCore import QObject, pyqtSignal
 from app.bundle_paths import app_log_path, is_frozen
 from app.translations import tr
 
-API_KEY_PATTERN = re.compile(r"sk-[A-Za-z0-9_-]{20,}")
+API_KEY_PATTERN = re.compile(r"sk-[A-Za-z0-9._~+/-]{20,}=*")
 BASE64_IMAGE_PATTERN = re.compile(r"data:image/[^;]+;base64,[A-Za-z0-9+/=]{100,}")
 BASE64_AUDIO_PATTERN = re.compile(r"data:audio/[^;]+;base64,[A-Za-z0-9+/=]{100,}")
-AUTH_HEADER_PATTERN = re.compile(r"Authorization['\"]?\s*[:=]\s*['\"]?Bearer\s+[A-Za-z0-9_-]{20,}['\"]?", re.IGNORECASE)
+AUTH_HEADER_PATTERN = re.compile(r"Authorization['\"]?\s*[:=]\s*['\"]?Bearer\s+[A-Za-z0-9._~+/-]{20,}=*['\"]?", re.IGNORECASE)
 ENCRYPTED_KEY_PATTERN = re.compile(r"gAAAA[A-Za-z0-9_-]{50,}")
-GENERIC_API_KEY_PATTERN = re.compile(r"(?:api[_-]?key|apikey)\s*[:=]\s*['\"]?[A-Za-z0-9_-]{20,}", re.IGNORECASE)
+GENERIC_API_KEY_PATTERN = re.compile(r"(?:api[_-]?key|apikey)\s*[:=]\s*['\"]?[A-Za-z0-9._~+/-]{20,}=*", re.IGNORECASE)
 
 _log_bus: "LogEmitBus | None" = None
 
@@ -76,15 +76,27 @@ def _ensure_stream_handler() -> logging.Logger:
     return logger
 
 
+def sanitize_sensitive_text(
+    text: str,
+    *,
+    max_len: int | None = None,
+    hidden_label: str = "hidden",
+) -> str:
+    """对文本应用 6 类敏感 pattern 替换；可选按 max_len 截断（追加 …）。"""
+    result = API_KEY_PATTERN.sub("sk-****", text)
+    result = BASE64_IMAGE_PATTERN.sub(f"data:image/***;base64,({hidden_label})", result)
+    result = BASE64_AUDIO_PATTERN.sub(f"data:audio/***;base64,({hidden_label})", result)
+    result = AUTH_HEADER_PATTERN.sub(f"Authorization: Bearer ({hidden_label})", result)
+    result = ENCRYPTED_KEY_PATTERN.sub(f"gAAAA****({hidden_label})", result)
+    result = GENERIC_API_KEY_PATTERN.sub("(api_key: ****)", result)
+    if max_len is not None and len(result) > max_len:
+        return f"{result[:max_len]}…"
+    return result
+
+
 def sanitize_log_message(msg: str) -> str:
     """与 SanitizedLogger._sanitize 相同规则；供 append_frozen_log 等无 logger 实例路径复用。"""
-    msg = API_KEY_PATTERN.sub("sk-****", msg)
-    msg = BASE64_IMAGE_PATTERN.sub(f"data:image/***;base64,({tr('common.hidden')})", msg)
-    msg = BASE64_AUDIO_PATTERN.sub(f"data:audio/***;base64,({tr('common.hidden')})", msg)
-    msg = AUTH_HEADER_PATTERN.sub(f"Authorization: Bearer ({tr('common.hidden')})", msg)
-    msg = ENCRYPTED_KEY_PATTERN.sub(f"gAAAA****({tr('common.hidden')})", msg)
-    msg = GENERIC_API_KEY_PATTERN.sub("(api_key: ****)", msg)
-    return msg
+    return sanitize_sensitive_text(msg, hidden_label=tr("common.hidden"))
 
 
 class SanitizedLogger:

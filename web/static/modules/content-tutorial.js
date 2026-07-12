@@ -43,6 +43,11 @@ export async function loadTutorialPage() {
       renderTutorialVideo(row.url);
     }
   } catch (error) {
-    console.warn('[tutorial] supabase fetch failed', error);
+    // Timeout / offline: keep VIDEO_PLACEHOLDER already rendered above.
+    if (error?.kind === 'timeout' || error?.kind === 'network_error') {
+      console.warn('[tutorial] supabase fetch failed (offline/timeout)', error.kind);
+    } else {
+      console.warn('[tutorial] supabase fetch failed', error);
+    }
   }
 }

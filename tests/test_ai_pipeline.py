@@ -113,6 +113,8 @@ def test_request_doubao_wall_clock_skips_http_before_retry():
     import time
     from unittest.mock import MagicMock
 
+    from unittest.mock import MagicMock, patch
+
     from app.ai_client_requests import request_doubao
 
     worker = MagicMock()
@@ -128,20 +130,21 @@ def test_request_doubao_wall_clock_skips_http_before_retry():
     worker.config.get_int.return_value = 512
     worker._deliver_outcome.return_value = None
 
-    request_doubao(
-        worker,
-        "data:image/jpeg;base64,abc",
-        "sys",
-        "user",
-        "p1",
-        1,
-        2,
-        0.0,
-        0,
-        deadline_at=expired,
-    )
+    with patch("app.ai_client_requests.stream_doubao") as mock_stream:
+        request_doubao(
+            worker,
+            "data:image/jpeg;base64,abc",
+            "sys",
+            "user",
+            "p1",
+            1,
+            2,
+            0.0,
+            0,
+            deadline_at=expired,
+        )
 
-    worker._stream_doubao.assert_not_called()
+    mock_stream.assert_not_called()
     worker._deliver_outcome.assert_called_once()
     assert worker._deliver_outcome.call_args.kwargs["signal_name"] == "error"
 

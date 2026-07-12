@@ -23,9 +23,8 @@ export function customModelSupportsMic(modelId) {
   if (!id) return false;
   const hit = cachedCustomModels.find((model) => {
     const ids = Array.isArray(model.model_ids) ? model.model_ids.map((x) => String(x || '').trim()) : [];
-    const legacy = (model.modelId || '').trim();
     const def = (model.default_model_id || '').trim();
-    return ids.includes(id) || legacy === id || def === id;
+    return ids.includes(id) || def === id;
   });
   return Boolean(hit?.supportsMic);
 }
@@ -51,7 +50,7 @@ export async function loadCustomModels() {
   data.items.forEach((model, index) => {
     const row = document.createElement('div');
     row.className = 'custom-model-row flex flex-wrap items-center gap-3 p-3 bg-cream rounded-xl text-sm';
-    const isDefault = (model.default_model_id || model.modelId) === data.default_model_id;
+    const isDefault = model.default_model_id === data.default_model_id;
 
     // 列 1：模型名 + provider chip
     const colName = document.createElement('div');
@@ -85,7 +84,7 @@ export async function loadCustomModels() {
     const colModelId = document.createElement('div');
     colModelId.className = 'custom-model-id-col text-gray-500 text-xs whitespace-nowrap';
     const modelIds = Array.isArray(model.model_ids) ? model.model_ids : [];
-    const defaultId = model.default_model_id || model.modelId || '';
+    const defaultId = model.default_model_id || '';
     const extra = Math.max(0, modelIds.length - 1);
     const idSpan = document.createElement('span');
     idSpan.className = 'font-mono';
@@ -534,10 +533,8 @@ export function openModelModal(index, model = {}) {
     }
 
     // 模型 ID 下拉回填
-    const modelIds = Array.isArray(model.model_ids) && model.model_ids.length
-      ? model.model_ids
-      : (model.modelId ? [model.modelId] : []);
-    const defaultModelId = model.default_model_id || model.modelId || '';
+    const modelIds = Array.isArray(model.model_ids) ? model.model_ids : [];
+    const defaultModelId = model.default_model_id || '';
     syncModelIdPresetFromForm(modelIds, defaultModelId, providerId);
 
     // chip 回填
@@ -689,7 +686,6 @@ export function collectModelForm() {
   const maxTokens = Number.isNaN(maxTokensRaw) || maxTokensRaw < 512 ? 512 : maxTokensRaw;
   return {
     name: document.getElementById('modelName').value,
-    modelId: defaultModelId,
     model_ids: modelIds,
     default_model_id: defaultModelId,
     max_tokens: maxTokens,

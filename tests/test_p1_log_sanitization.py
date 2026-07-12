@@ -1,7 +1,72 @@
 """Tests for P1-007 (log sanitization)."""
 
+import httpx
 import pytest
-from app.logger import SanitizedLogger
+from app.ai_client_support import format_http_status_error
+from app.logger import SanitizedLogger, sanitize_sensitive_text
+
+
+_FAKE_SHORT_HEAD_JWT = "fakeHead.fakePayload123456.fakeSignature789012"
+_FAKE_LONG_HEAD_JWT = (
+    "fakeHeaderSegment1234567890.fakePayload456789.fakeSignature012345"
+)
+_FAKE_DOTTED_KEY = "opaquePrefix1234567890.payloadPart456.signaturePart789"
+_FAKE_DOTTED_SK_KEY = "sk-ABCDEFGHIJKLMNOPQRSTUV.payloadPart456.signaturePart789"
+
+
+class TestSanitizeSensitiveText:
+    def test_redacts_api_key_with_default_hidden_label(self):
+        msg = "fail sk-abc1234567890abcdef1234567890abcdef end"
+        result = sanitize_sensitive_text(msg)
+        assert "sk-abc1234567890abcdef1234567890abcdef" not in result
+        assert "sk-****" in result
+
+        auth = "Authorization: Bearer abc1234567890abcdef1234567890abcdef"
+        assert "Authorization: Bearer (hidden)" in sanitize_sensitive_text(auth)
+
+    def test_truncates_with_ellipsis(self):
+        raw = "a" * 250
+        result = sanitize_sensitive_text(raw, max_len=200)
+        assert len(result) == 201
+        assert result.endswith("…")
+        assert result.startswith("a" * 200)
+
+    def test_custom_hidden_label(self):
+        msg = "Authorization: Bearer abc1234567890abcdef1234567890abcdef"
+        result = sanitize_sensitive_text(msg, hidden_label="已隐藏")
+        assert "Authorization: Bearer (已隐藏)" in result
+
+    @pytest.mark.parametrize(
+        ("message", "secret_parts"),
+        [
+            (
+                f'headers={{"Authorization":"Bearer {_FAKE_SHORT_HEAD_JWT}","retry":false}}',
+                tuple(_FAKE_SHORT_HEAD_JWT.split(".")),
+            ),
+            (
+                f"Authorization: Bearer {_FAKE_LONG_HEAD_JWT}, request failed",
+                tuple(_FAKE_LONG_HEAD_JWT.split(".")),
+            ),
+            (
+                f"api_key='{_FAKE_DOTTED_KEY}', request failed",
+                tuple(_FAKE_DOTTED_KEY.split(".")),
+            ),
+            (
+                f"provider key {_FAKE_DOTTED_SK_KEY}, request failed",
+                tuple(_FAKE_DOTTED_SK_KEY.split(".")),
+            ),
+        ],
+    )
+    def test_redacts_entire_dotted_secret(self, message, secret_parts):
+        result = sanitize_sensitive_text(message)
+
+        for part in secret_parts:
+            assert part not in result
+
+    def test_legitimate_dotted_text_is_unchanged(self):
+        message = "HTTP 400 from api.example.com: model v1.2.3 failed at config.json"
+
+        assert sanitize_sensitive_text(message) == message
 
 
 class TestP1007LogSanitization:
@@ -131,3 +196,33 @@ class TestP1007LogSanitization:
         logger_b.warning("from instance b")
 
         assert received == [("INFO", "from instance a"), ("WARNING", "from instance b")]
+
+
+def test_provider_error_is_sanitized_before_runtime_status():
+    from tests.conftest import make_minimal_danmu_app
+
+    request = httpx.Request("POST", "https://api.example.com/v1/chat/completions")
+    provider_message = (
+        f"provider rejected Authorization: Bearer {_FAKE_SHORT_HEAD_JWT}; "
+        f"api_key={_FAKE_DOTTED_KEY}"
+    )
+    response = httpx.Response(400, request=request, json={"message": provider_message})
+    exc = httpx.HTTPStatusError("bad", request=request, response=response)
+    formatted = format_http_status_error(exc)
+
+    app = make_minimal_danmu_app()
+    app.logger = SanitizedLogger()
+    app.ai_in_flight = 1
+    app._register_request_meta(7, 9, 0, "visual")
+    app._on_ai_error(formatted, "persona-1", 7, 9, 1.0, 0)
+
+    surfaced = "\n".join(
+        (
+            formatted,
+            app._last_error_message,
+            app.web_runtime_state.error_message,
+        )
+    )
+    for part in (*_FAKE_SHORT_HEAD_JWT.split("."), *_FAKE_DOTTED_KEY.split(".")):
+        assert part not in surfaced
+    assert "HTTP 400" in surfaced

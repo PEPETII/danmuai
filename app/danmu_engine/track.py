@@ -499,12 +499,11 @@ class DanmuEngine(QObject):
         skip_dedup: bool = False,
         pre_resolved: bool = False,
     ) -> DanmuItem | None:
-        """弹幕入轨：截断 → 去重 → 可选屏外淘汰 → _pick_track → 记入 recent 窗口。
+        """弹幕入轨：规范化 → 去重 → 可选屏外淘汰 → _pick_track → 记入 recent 窗口。
 
         默认无固定上屏数量上限；初始 x 在屏幕右缘外（待滚入）。
         skip_dedup 用于池补齐等已在外层去重的文本。
-        pre_resolved=True 时 content 已是最终上屏文本（含人格前缀），不再二次截断。
-        公式化弹幕经 normalize_danmu_display_text 完整展示；AI 弹幕受 danmu_max_chars 限制。
+        pre_resolved=True 时 content 已是最终上屏文本（含人格前缀），不再二次规范化。
         """
         if not content or not content.strip():
             return None

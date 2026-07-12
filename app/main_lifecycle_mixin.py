@@ -22,14 +22,14 @@ from app.danmu_read_service import DanmuReadService
 from app.history_writer import HistoryWriter
 from app.hotkey import HotkeyManager
 from app.lifetime_stats import LifetimeStats
-from app.logger import SanitizedLogger
+from app.logger import SanitizedLogger, sanitize_sensitive_text
 from app.main_launch import show_startup_notice_if_needed
 from app.main_mic_mixin import MIC_POLL_MS
 from app.mic_orchestrator import MicOrchestrator
 from app.mic_service import MicService
 from app.model_providers import resolve_active_model_id
 from app.overlay import DanmuOverlay
-from app.personae import PersonaManager
+from app.persona_manager import PersonaManager
 from app.reply_queue import AIReplyFIFOBuffer
 from app.snipper import ScreenCapturer, resolve_screen_index
 from app.templates import TemplateManager
@@ -138,6 +138,7 @@ class DanmuAppLifecycleMixin:
 
         self._capture_coordinator = CaptureCoordinator(self)
         self._capture_coordinator.completed.connect(self._on_capture_completed)
+        self._capture_coordinator.failed.connect(self._on_capture_failed)
         self._capture_in_flight = False
 
         self._mic_poll_timer = QTimer(self)
@@ -438,6 +439,7 @@ class DanmuAppLifecycleMixin:
                 request_round, screenshot_id, scene_generation,
             )
             return
+        msg = sanitize_sensitive_text(str(msg or ""))
         source = meta.get("source") or "visual"
         is_mic = source == "mic"
 

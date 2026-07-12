@@ -23,7 +23,7 @@ from app.model_providers import (
     mic_audio_unsupported_message,
     resolve_mic_model_id,
 )
-from app.personae import append_live_topic_to_system_pt, append_nickname_to_system_pt
+from app.persona_contract import append_live_topic_to_system_pt, append_nickname_to_system_pt
 from app.reply_parser import normalize_reply_batch, parse_ai_reply_payload
 from app.screenshot_compress import (
     IMAGE_JPEG_QUALITY,

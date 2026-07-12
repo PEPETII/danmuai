@@ -274,7 +274,7 @@ class PersonaManager:
             )
 
     def get_display_name(self, name: str) -> str:
-        from app.personae import persona_display_name_with_config
+        from app.persona_display import persona_display_name_with_config
 
         return persona_display_name_with_config(name, self.config)
 

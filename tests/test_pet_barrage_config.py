@@ -1,6 +1,6 @@
 from app.application.config_service import WEB_CONFIG_KEYS
 from app.config_defaults import CONFIG_DEFAULTS
-from app.personae import DEFAULT_NORMAL_REPLY_COUNT
+from app.persona_contract import DEFAULT_NORMAL_REPLY_COUNT
 
 PET_BARRAGE_DEFAULTS = {
     "pet_barrage_mode_enabled": "0",

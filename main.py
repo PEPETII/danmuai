@@ -5,7 +5,7 @@
 - 与 DanmuOverlay / DanmuEngine 协同上屏；Web 控制台经 bridge 信号回主线程改配置
 - 运行态对外展示委托 StatusSnapshotBuilder / DiagnosticSnapshotBuilder，勿在 Web 层拼私有字段
 
-主链路（普通模式，详见 docs/MAIN_PIPELINE.md）：
+主链路（普通模式，详见 docs/main-pipeline-sequence.md）：
   screenshot_timer → _on_normal_capture_tick → _schedule_capture → CaptureRunnable
   → _on_capture_completed → _trigger_api_call → AiRunnable → _on_ai_reply → ...
 
@@ -40,7 +40,12 @@ from app.live_freshness import (
     build_local_fallback_batch,
     is_model_slow,
 )
-from app.main_display_mixin import DanmuAppDisplayMixin
+from app.main_bililive_dm_mixin import DanmuAppBililiveDmMixin
+from app.main_floating_panel_mixin import DanmuAppFloatingPanelMixin
+from app.main_overlay_mixin import DanmuAppOverlayMixin
+from app.main_pet_mixin import DanmuAppPetMixin
+from app.main_render_coordinator_mixin import DanmuAppRenderCoordinatorMixin
+from app.main_screen_topology_mixin import DanmuAppScreenTopologyMixin
 from app.main_helpers import (
     MAX_IN_FLIGHT,
     VISUAL_INFLIGHT_RECOVER_SEC,
@@ -70,12 +75,11 @@ from app.model_providers import (
     mic_audio_supported_for_mic_config,  # noqa: F401
     resolve_active_model_id,  # noqa: F401 — re-exported for tests
 )
-from app.personae import (
+from app.persona_contract import (
     append_live_topic_to_system_pt,
     append_nickname_to_system_pt,
-    persona_display_name,
-    persona_display_name_with_config,
 )
+from app.persona_display import persona_display_name_with_config
 from app.screenshot_compress import (
     IMAGE_JPEG_QUALITY,
     IMAGE_MAX_WIDTH,
@@ -96,7 +100,12 @@ class DanmuApp(
     DanmuAppWebFacadeMixin,
     DanmuAppStateMixin,
     DanmuAppMicMixin,
-    DanmuAppDisplayMixin,
+    DanmuAppRenderCoordinatorMixin,
+    DanmuAppPetMixin,
+    DanmuAppOverlayMixin,
+    DanmuAppFloatingPanelMixin,
+    DanmuAppBililiveDmMixin,
+    DanmuAppScreenTopologyMixin,
     DanmuAppRequestContextMixin,
     DanmuAppMemeMixin,
     DanmuAppLifecycleMixin,
@@ -353,6 +362,17 @@ class DanmuApp(
         if self._scene_refresh_wanted and not self._has_visual_request_in_flight():
             self._try_scene_refresh()
 
+    def _on_capture_failed(self, error: str) -> None:
+        """CaptureCoordinator.failed 主线程槽：释放截图槽位并记录失败。"""
+        self._capture_in_flight = False
+        if not self.engine.running or self.ai_worker._stopping.is_set():
+            return
+        self.logger.warning(
+            "截图 worker 失败: %s reason=capture_worker_error",
+            error,
+        )
+        self._note_capture_failure()
+
     def _on_screenshot_timer(self):
         """screenshot_timer 超时回调（主线程 QTimer）；转发到 _on_normal_capture_tick。"""
         self._on_normal_capture_tick()
@@ -404,32 +424,28 @@ class DanmuApp(
             self._latest_screenshot_time,
         )
 
-    def _trigger_api_call(self, source: str = "unknown", *, enforce_min_interval: bool = True):
-        """占用唯一视觉 in-flight 槽位，用当前 _latest_screenshot 发起 AiRunnable。
-
-        调用线程：主线程（由 _on_normal_capture_tick 或 local fallback 调用）。
-        关键副作用：
-        - 注册 _pending_request_meta（复合键 {request_round}:{screenshot_id}:{scene_generation}）
-        - RequestTimingService.mark_started（RTT 跟踪）
-        - QThreadPool.start(AiRunnable)（AI 请求在 QThreadPool 执行）
-        - 递增 screenshot_round / _batch_id，登记 _inflight_* 供回复到达时做过期判断
-        - 成功触发后清除 local_fallback 标记，避免与真 AI 回复重复占位
-        """
+    def _blocked_visual_api_trigger(
+        self, source: str, *, enforce_min_interval: bool
+    ) -> bool:
         block = self._api_schedule_block_reason(enforce_min_interval=enforce_min_interval)
         if block:
             self._log_api_schedule(decision="block", source=source, block_reason=block)
             if block == "in_flight":
                 self.logger.debug(tr("app.skip_api_generating"))
-            return
+            return True
         if self.ai_in_flight >= MAX_IN_FLIGHT:
             self._log_api_schedule(decision="block", source=source, block_reason="in_flight")
             self.logger.debug(tr("app.skip_api_generating"))
-            return
+            return True
         if self._latest_screenshot is None:
             self._log_api_schedule(decision="block", source=source, block_reason="no_screenshot")
             self.logger.debug(tr("app.skip_api_no_screenshot"))
-            return
+            return True
+        return False
 
+    def _begin_visual_api_round(
+        self, source: str
+    ) -> tuple[object, int, float, int, int]:
         trigger_at = time.monotonic()
         self._local_fallback_active = False
         self._get_request_scheduler().record_trigger_time(now=trigger_at)
@@ -443,7 +459,15 @@ class DanmuApp(
         self._latest_requested_screenshot_id = screenshot_id
         self._acquire_visual_inflight(screenshot_id, self._scene_generation)
         self._publish_live_status()
+        return pixmap, screenshot_id, captured_at, request_round, batch_id
 
+    def _build_visual_prompts(
+        self,
+        *,
+        request_round: int,
+        screenshot_id: int,
+        batch_id: int,
+    ) -> tuple[str, str, str] | None:
         persona = self.personae.pick_random()
         system_pt, user_pt = self.personae.get_prompt(persona)
         if not (system_pt or "").strip():
@@ -454,10 +478,9 @@ class DanmuApp(
             )
             self._release_inflight_for_source("visual")
             self._publish_live_status()
-            return
+            return None
         system_pt = append_nickname_to_system_pt(system_pt, self.config)  # W-NICKNAME-001
         system_pt = append_live_topic_to_system_pt(system_pt, self.config)  # W-LIVE-TOPIC-001
-
         request_id = self._reply_request_id(request_round, screenshot_id, self._scene_generation)
         self.logger.info(
             tr("app.api_triggered").format(
@@ -473,7 +496,6 @@ class DanmuApp(
         user_pt = user_pt.replace("{current_time}", now)
         user_pt = user_pt.replace("{round}", str(self.screenshot_round))
 
-        # PET-006：调度已通过且 record_trigger_time 完成，才消费桌宠待注入指令
         pet_svc = self.__dict__.get("pet_command_service")
         if pet_svc is not None:
             from app.pet.pet_prompt import (
@@ -487,6 +509,20 @@ class DanmuApp(
                 system_pt = append_pet_command_to_system_pt(system_pt, command_text)
 
         self._current_persona = persona
+        return system_pt, user_pt, persona
+
+    def _dispatch_visual_ai_runnable(
+        self,
+        pixmap: object,
+        system_pt: str,
+        user_pt: str,
+        persona: str,
+        *,
+        request_round: int,
+        screenshot_id: int,
+        captured_at: float,
+    ) -> None:
+        request_id = self._reply_request_id(request_round, screenshot_id, self._scene_generation)
         request_started_at = self._get_request_timing_service().mark_started(
             request_id=request_id,
             now=time.monotonic(),
@@ -525,6 +561,40 @@ class DanmuApp(
         )
         ai_worker_pool().start(runnable)
 
+    def _trigger_api_call(self, source: str = "unknown", *, enforce_min_interval: bool = True):
+        """占用唯一视觉 in-flight 槽位，用当前 _latest_screenshot 发起 AiRunnable。
+
+        调用线程：主线程（由 _on_normal_capture_tick 或 local fallback 调用）。
+        关键副作用：
+        - 注册 _pending_request_meta（复合键 {request_round}:{screenshot_id}:{scene_generation}）
+        - RequestTimingService.mark_started（RTT 跟踪）
+        - QThreadPool.start(AiRunnable)（AI 请求在 QThreadPool 执行）
+        - 递增 screenshot_round / _batch_id，登记 _inflight_* 供回复到达时做过期判断
+        - 成功触发后清除 local_fallback 标记，避免与真 AI 回复重复占位
+        """
+        if self._blocked_visual_api_trigger(source, enforce_min_interval=enforce_min_interval):
+            return
+        pixmap, screenshot_id, captured_at, request_round, batch_id = self._begin_visual_api_round(
+            source
+        )
+        prompts = self._build_visual_prompts(
+            request_round=request_round,
+            screenshot_id=screenshot_id,
+            batch_id=batch_id,
+        )
+        if prompts is None:
+            return
+        system_pt, user_pt, persona = prompts
+        self._dispatch_visual_ai_runnable(
+            pixmap,
+            system_pt,
+            user_pt,
+            persona,
+            request_round=request_round,
+            screenshot_id=screenshot_id,
+            captured_at=captured_at,
+        )
+
     def _danmu_pixels_per_second(self, speed: float | None = None) -> float:
         if speed is None:
             from app.config_defaults import DEFAULT_DANMU_SPEED
@@ -545,143 +615,245 @@ class DanmuApp(
         distance = self.engine.screen_width * 0.25
         return distance / speed_per_second
 
-    def _on_ai_reply(self, text: str, persona_id: str, request_round: int, screenshot_id: int, captured_at: float, scene_generation: int, input_tokens: int = 0, output_tokens: int = 0):
-        """AiWorker.finished 主线程入口：释放在途 → 解析入队 → 驱动 _consume_reply_queue。
+    def _drop_reply_if_meta_missing(
+        self,
+        meta: dict,
+        *,
+        request_round: int,
+        screenshot_id: int,
+        captured_at: float,
+        scene_generation: int,
+        reply_received_at: float,
+    ) -> bool:
+        """W-RACE-001：meta 为空时不释放在途槽位、不入队。"""
+        if meta:
+            return False
+        self._log_reply_pipeline(
+            "reply_received",
+            request_id=format_reply_request_id(request_round, screenshot_id, scene_generation),
+            request_round=request_round,
+            screenshot_id=screenshot_id,
+            captured_at=captured_at,
+            request_started_at=self._peek_request_started_at(
+                request_round, screenshot_id, scene_generation
+            ),
+            reply_received_at=reply_received_at,
+            scene_generation=scene_generation,
+            dropped_as_stale=True,
+            enqueued=False,
+            displayed=False,
+        )
+        self.logger.warning(
+            "stale_reply_dropped: request_round=%s screenshot_id=%s "
+            "scene_generation=%s reason=meta_missing_after_stop",
+            request_round,
+            screenshot_id,
+            scene_generation,
+        )
+        return True
 
-        调用线程：主线程（ai_worker.finished signal 回调）。
-        关键副作用：
-        - 释放 ai_in_flight / mic_in_flight 槽位
-        - 统计 token 消耗
-        - 视觉回复：解析 JSON → normalize → _enqueue_reply_batch
-        - 麦克风回复：走 _handle_mic_ai_reply 独立路径
-        """
-        self.logger.debug(f"[DEBUG] _on_ai_reply called, text length={len(text)}")
-        reply_received_at = time.monotonic()
-        meta = self._pop_request_meta(request_round, screenshot_id, scene_generation)
-        # W-RACE-001（bug-03 缺陷 3 修复）：陈旧 AiRunnable 在 stop()→start() 之间
-        # 完成时，_pending_request_meta 已被 stop() 清空，_pop_request_meta 返回
-        # 空 dict（既有 request_meta_missing warning 仍保留作可观测性）。本判断作为
-        # 第二道防线：若 meta 为空（stop 后到位的 reply），既不释放新会话的 in-flight
-        # 槽位，也不入队。
-        if not meta:
-            self._log_reply_pipeline(
-                "reply_received",
-                request_id=format_reply_request_id(request_round, screenshot_id, scene_generation),
-                request_round=request_round,
-                screenshot_id=screenshot_id,
-                captured_at=captured_at,
-                request_started_at=self._peek_request_started_at(
-                    request_round, screenshot_id, scene_generation
-                ),
-                reply_received_at=reply_received_at,
-                scene_generation=scene_generation,
-                dropped_as_stale=True,
-                enqueued=False,
-                displayed=False,
-            )
-            self.logger.warning(
-                "stale_reply_dropped: request_round=%s screenshot_id=%s "
-                "scene_generation=%s reason=meta_missing_after_stop",
-                request_round,
-                screenshot_id,
-                scene_generation,
-            )
-            return
-        source = meta.get("source") or "visual"
-        is_mic = source == "mic"
-
-        if not is_mic:
-            stale_reason = self._visual_reply_stale_reason(scene_generation)
-            if stale_reason:
-                self._release_inflight_for_source(source)
-                self._consume_request_timing(request_round, screenshot_id, scene_generation)
-                self._log_reply_pipeline(
-                    "reply_received",
-                    request_id=format_reply_request_id(
-                        request_round, screenshot_id, scene_generation
-                    ),
-                    request_round=request_round,
-                    screenshot_id=screenshot_id,
-                    captured_at=captured_at,
-                    request_started_at=self._peek_request_started_at(
-                        request_round, screenshot_id, scene_generation
-                    ),
-                    reply_received_at=reply_received_at,
-                    scene_generation=scene_generation,
-                    current_scene_generation=self._scene_generation,
-                    dropped_as_stale=True,
-                    enqueued=False,
-                    displayed=False,
-                )
-                self.logger.warning(
-                    "stale_reply_dropped: request_round=%s screenshot_id=%s "
-                    "scene_generation=%s current_scene_generation=%s reason=%s",
-                    request_round,
-                    screenshot_id,
-                    scene_generation,
-                    self._scene_generation,
-                    stale_reason,
-                )
-                self._try_scene_refresh()
-                return
-
+    def _drop_stale_visual_reply_if_needed(
+        self,
+        *,
+        is_mic: bool,
+        source: str,
+        request_round: int,
+        screenshot_id: int,
+        captured_at: float,
+        scene_generation: int,
+        reply_received_at: float,
+    ) -> bool:
+        if is_mic:
+            return False
+        stale_reason = self._visual_reply_stale_reason(scene_generation)
+        if not stale_reason:
+            return False
         self._release_inflight_for_source(source)
+        self._consume_request_timing(request_round, screenshot_id, scene_generation)
+        self._log_reply_pipeline(
+            "reply_received",
+            request_id=format_reply_request_id(
+                request_round, screenshot_id, scene_generation
+            ),
+            request_round=request_round,
+            screenshot_id=screenshot_id,
+            captured_at=captured_at,
+            request_started_at=self._peek_request_started_at(
+                request_round, screenshot_id, scene_generation
+            ),
+            reply_received_at=reply_received_at,
+            scene_generation=scene_generation,
+            current_scene_generation=self._scene_generation,
+            dropped_as_stale=True,
+            enqueued=False,
+            displayed=False,
+        )
+        self.logger.warning(
+            "stale_reply_dropped: request_round=%s screenshot_id=%s "
+            "scene_generation=%s current_scene_generation=%s reason=%s",
+            request_round,
+            screenshot_id,
+            scene_generation,
+            self._scene_generation,
+            stale_reason,
+        )
+        self._try_scene_refresh()
+        return True
 
+    def _account_reply_token_usage(self, input_tokens: int, output_tokens: int) -> None:
         stats_state = self._ensure_stats_state()
         stats_state.add_tokens(input_tokens, output_tokens)
         self.lifetime_stats.add_tokens(input_tokens, output_tokens)
         if input_tokens > 0 or output_tokens > 0:
             self.logger.debug(
                 "tokens: input=%s, output=%s, total_input=%s, total_output=%s",
-                input_tokens, output_tokens,
-                stats_state.total_input_tokens, stats_state.total_output_tokens,
+                input_tokens,
+                output_tokens,
+                stats_state.total_input_tokens,
+                stats_state.total_output_tokens,
             )
 
-        request_started_at = self._peek_request_started_at(
-            request_round, screenshot_id, scene_generation
-        )
-        if is_mic:
-            self._log_reply_pipeline(
-                "reply_received",
-                request_id=format_reply_request_id(request_round, screenshot_id, scene_generation),
-                request_round=request_round,
-                screenshot_id=screenshot_id,
-                captured_at=captured_at,
-                request_started_at=request_started_at,
-                reply_received_at=reply_received_at,
-                scene_generation=scene_generation,
-                source="mic",
-                dropped_as_stale=False,
-                enqueued=False,
-                displayed=False,
-            )
-            self._handle_mic_ai_reply(
-                text,
-                persona_id,
-                request_round,
-                screenshot_id,
-                captured_at,
-                scene_generation,
-            )
+    def _reset_failure_backoff_if_needed(self) -> None:
+        if self._consecutive_failures <= 0:
             return
+        self._consecutive_failures = 0
+        self._last_error_message = ""
+        if not self._failure_backoff_paused:
+            return
+        self._failure_backoff_paused = False
+        self._set_error_status_safe("", is_error=False)
+        if self.engine.running and not self.screenshot_timer.isActive():
+            self.screenshot_timer.start()
 
-        if self._consecutive_failures > 0:
-            self._consecutive_failures = 0
-            self._last_error_message = ""
-            if self._failure_backoff_paused:
-                self._failure_backoff_paused = False
-                self._set_error_status_safe("", is_error=False)
-                if self.engine.running and not self.screenshot_timer.isActive():
-                    self.screenshot_timer.start()
+    def _dispatch_mic_ai_reply_branch(
+        self,
+        text: str,
+        persona_id: str,
+        *,
+        request_round: int,
+        screenshot_id: int,
+        captured_at: float,
+        scene_generation: int,
+        request_started_at: float,
+        reply_received_at: float,
+    ) -> None:
+        self._log_reply_pipeline(
+            "reply_received",
+            request_id=format_reply_request_id(request_round, screenshot_id, scene_generation),
+            request_round=request_round,
+            screenshot_id=screenshot_id,
+            captured_at=captured_at,
+            request_started_at=request_started_at,
+            reply_received_at=reply_received_at,
+            scene_generation=scene_generation,
+            source="mic",
+            dropped_as_stale=False,
+            enqueued=False,
+            displayed=False,
+        )
+        self._handle_mic_ai_reply(
+            text,
+            persona_id,
+            request_round,
+            screenshot_id,
+            captured_at,
+            scene_generation,
+        )
 
+    def _dispatch_visual_reply_to_pipeline(
+        self,
+        text: str,
+        persona_id: str,
+        *,
+        request_round: int,
+        screenshot_id: int,
+        captured_at: float,
+        scene_generation: int,
+        request_started_at: float,
+        reply_received_at: float,
+    ) -> None:
+        self._reset_failure_backoff_if_needed()
         self._consume_request_timing(request_round, screenshot_id, scene_generation)
-
-        # W-GENPIPELINE-EXTRACT：解析 → 入队 → 驱动 已委托 GenerationPipeline。
-        # 前置门控（释放在途/token 统计/scene_generation 门控/mic 分流/失败计数重置
-        # /timing 消费）仍在本方法；request_started_at 已在上方经 _peek_request_started_at 解析。
         self._generation_pipeline.handle_reply_parsed(
             text=text,
             persona_id=persona_id,
+            request_round=request_round,
+            screenshot_id=screenshot_id,
+            captured_at=captured_at,
+            scene_generation=scene_generation,
+            request_started_at=request_started_at,
+            reply_received_at=reply_received_at,
+        )
+
+    def _abort_ai_reply_early(
+        self,
+        meta: dict,
+        *,
+        request_round: int,
+        screenshot_id: int,
+        captured_at: float,
+        scene_generation: int,
+        reply_received_at: float,
+    ) -> str | None:
+        if self._drop_reply_if_meta_missing(
+            meta,
+            request_round=request_round,
+            screenshot_id=screenshot_id,
+            captured_at=captured_at,
+            scene_generation=scene_generation,
+            reply_received_at=reply_received_at,
+        ):
+            return None
+        source = meta.get("source") or "visual"
+        if self._drop_stale_visual_reply_if_needed(
+            is_mic=source == "mic",
+            source=source,
+            request_round=request_round,
+            screenshot_id=screenshot_id,
+            captured_at=captured_at,
+            scene_generation=scene_generation,
+            reply_received_at=reply_received_at,
+        ):
+            return None
+        return source
+
+    def _on_ai_reply(self, text: str, persona_id: str, request_round: int, screenshot_id: int, captured_at: float, scene_generation: int, input_tokens: int = 0, output_tokens: int = 0):
+        """AiWorker.finished 主线程入口：释放在途 → 解析入队 → 驱动 _consume_reply_queue。"""
+        self.logger.debug(f"[DEBUG] _on_ai_reply called, text length={len(text)}")
+        reply_received_at = time.monotonic()
+        meta = self._pop_request_meta(request_round, screenshot_id, scene_generation)
+        source = self._abort_ai_reply_early(
+            meta,
+            request_round=request_round,
+            screenshot_id=screenshot_id,
+            captured_at=captured_at,
+            scene_generation=scene_generation,
+            reply_received_at=reply_received_at,
+        )
+        if source is None:
+            return
+
+        self._release_inflight_for_source(source)
+        self._account_reply_token_usage(input_tokens, output_tokens)
+        request_started_at = self._peek_request_started_at(
+            request_round, screenshot_id, scene_generation
+        )
+        if source == "mic":
+            self._dispatch_mic_ai_reply_branch(
+                text,
+                persona_id,
+                request_round=request_round,
+                screenshot_id=screenshot_id,
+                captured_at=captured_at,
+                scene_generation=scene_generation,
+                request_started_at=request_started_at,
+                reply_received_at=reply_received_at,
+            )
+            return
+
+        self._dispatch_visual_reply_to_pipeline(
+            text,
+            persona_id,
             request_round=request_round,
             screenshot_id=screenshot_id,
             captured_at=captured_at,

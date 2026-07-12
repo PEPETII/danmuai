@@ -1,5 +1,5 @@
-from app.personae import (
-    BUILTIN_PERSONAE,
+from app.persona_builtin import BUILTIN_PERSONAE
+from app.persona_contract import (
     DEFAULT_REPLY_FILLER_COUNT,
     DEFAULT_REPLY_SCENE_COUNT,
     DEFAULT_SYSTEM_STYLE_ZH,

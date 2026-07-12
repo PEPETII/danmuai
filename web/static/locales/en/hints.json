@@ -21,7 +21,7 @@
     "normal_reply_count": "In normal mode, fixed danmu count per capture (1–50).",
     "danmu_speed": "Horizontal danmu speed (~0.5–5). Higher = faster scroll.",
     "danmu_lines": "Max danmu track rows on screen (12–20).",
-    "danmu_max_chars": "Max characters for AI danmu (5–80); excess truncated with ellipsis. Formula danmu (custom/meme pools) show in full. Default ~15 CN / ~40 EN if unset.",
+    "danmu_max_chars": "Target length for AI danmu (5–80); written into the prompt contract. Does not truncate on-screen text. Default ~20 CN / ~50 EN if unset.",
     "font_size": "Danmu font size, ~12–72 px.",
     "danmu_font_family": "System font for horizontal danmu. Blank or invalid name uses default.",
     "danmu_font_bold": "Bold horizontal danmu.",

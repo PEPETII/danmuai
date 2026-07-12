@@ -26,6 +26,9 @@ $OutputEncoding = [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
+. (Join-Path $PSScriptRoot "resolve_build_python.ps1")
+. (Join-Path $PSScriptRoot "version_parse.ps1")
+
 if (-not $ReleaseDir) {
     $ReleaseDir = $env:R2_RELEASE_DIR
 }
@@ -55,7 +58,8 @@ function Resolve-UploadVersion {
     if ($ExplicitVersion) { return $ExplicitVersion.Trim() }
     $fromFile = Get-VersionFromVersionFile -Dir $Dir
     if ($fromFile) { return $fromFile }
-    return (python -c "from app.version import __version__; print(__version__)").Trim()
+    $pythonCmd = Resolve-BuildPythonCommand -Root $Root
+    return Get-AppVersionFromProject -Root $Root -PythonCmd $pythonCmd
 }
 
 function Get-FeedLatestFullVersion {
@@ -129,6 +133,10 @@ if (-not $setup -or -not $nupkg) {
     Write-Error "Incomplete Velopack release in $releaseFull for version $appVersion (need Setup and full.nupkg)"
 }
 
+. (Join-Path $PSScriptRoot "write_release_hash_manifest.ps1")
+Test-ReleaseHashManifest -Dir $releaseFull -AppVersion $appVersion | Out-Null
+Write-Host "SHA256 manifest verification passed."
+
 $uploads = @(
     @{ Local = $nupkg.FullName; Key = "releases/win/stable/$($nupkg.Name)"; Cache = "public, max-age=3600"; ExpectedSize = $nupkg.Length }
     @{ Local = $setup.FullName; Key = "downloads/PEPETII.DanmuAI-$appVersion-Setup.exe"; Cache = "public, max-age=86400"; ExpectedSize = $setup.Length }
@@ -144,7 +152,25 @@ if ($portable) {
     }
     $uploads += @{ Local = $portable.FullName; Key = $portableKey; Cache = "public, max-age=86400"; ExpectedSize = $portable.Length }
 }
-$uploads += @{ Local = $feed; Key = "releases/win/stable/releases.win.json"; Cache = "public, max-age=60"; ExpectedSize = (Get-Item -LiteralPath $feed).Length }
+$feedKey = "releases/win/stable/releases.win.json"
+$feedAliasKey = "releases/win/stable"
+$feedSize = (Get-Item -LiteralPath $feed).Length
+$uploads += @{ Local = $feed; Key = $feedKey; Cache = "public, max-age=60"; ExpectedSize = $feedSize; ContentType = "application/json" }
+$uploads += @{ Local = $feed; Key = $feedAliasKey; Cache = "public, max-age=60"; ExpectedSize = $feedSize; ContentType = "application/json" }
+
+$manifestPath = Join-Path $releaseFull "SHA256SUMS.txt"
+if (-not (Test-Path -LiteralPath $manifestPath)) {
+    Write-Error "Missing SHA256SUMS.txt in $releaseFull"
+}
+$manifestLines = @(Get-Content -Encoding UTF8 -LiteralPath $manifestPath | Where-Object { $_.Trim() })
+foreach ($item in $uploads) {
+    $basename = [System.IO.Path]::GetFileName($item.Local)
+    $manifestPattern = "^[0-9a-f]{64}  $([regex]::Escape($basename))$"
+    $manifestEntry = @($manifestLines | Where-Object { $_ -match $manifestPattern } | Select-Object -First 1)
+    if ($manifestEntry.Count -eq 0) {
+        Write-Error "Upload artifact not listed in SHA256SUMS.txt: $basename"
+    }
+}
 
 $versionedSetupKey = "downloads/PEPETII.DanmuAI-$appVersion-Setup.exe"
 $versionedPortableKey = "downloads/PEPETII.DanmuAI-$appVersion-win-Portable.zip"
@@ -170,7 +196,7 @@ function Assert-R2Object {
 }
 
 function Invoke-R2Cp {
-    param([string]$LocalPath, [string]$Key, [string]$CacheControl, [long]$ExpectedSize)
+    param([string]$LocalPath, [string]$Key, [string]$CacheControl, [long]$ExpectedSize, [string]$ContentType = "")
     $uri = "s3://$bucket/$Key"
     Write-Host "$(if ($DryRun) { '[dry-run] ' })upload: $LocalPath -> $uri"
     if ($DryRun) { return }
@@ -183,6 +209,9 @@ function Invoke-R2Cp {
         "--cli-connect-timeout", "120",
         "--only-show-errors"
     )
+    if ($ContentType) {
+        $args += @("--content-type", $ContentType)
+    }
     & aws @args
     if ($LASTEXITCODE -ne 0) {
         Write-Error "aws s3 cp failed for $Key"
@@ -222,13 +251,13 @@ if ($portable) {
 Write-Host "  https://updates.qiaoqiao.buzz/releases/win/stable                   (更新 feed)"
 Write-Host ""
 
-$feedKey = "releases/win/stable/releases.win.json"
-if ($uploads[-1].Key -ne $feedKey) {
-    Write-Error "releases.win.json must be uploaded last (got $($uploads[-1].Key))"
+if ($uploads.Count -lt 2 -or $uploads[-2].Key -ne $feedKey -or $uploads[-1].Key -ne $feedAliasKey) {
+    Write-Error "feed metadata must be uploaded last (got $($uploads[-2].Key), $($uploads[-1].Key))"
 }
 
 foreach ($item in $uploads) {
-    Invoke-R2Cp -LocalPath $item.Local -Key $item.Key -CacheControl $item.Cache -ExpectedSize $item.ExpectedSize
+    $contentType = if ($item.ContainsKey("ContentType")) { $item.ContentType } else { "" }
+    Invoke-R2Cp -LocalPath $item.Local -Key $item.Key -CacheControl $item.Cache -ExpectedSize $item.ExpectedSize -ContentType $contentType
 }
 
 Invoke-R2LatestAliasCopy -SourceKey $versionedSetupKey -AliasKey "downloads/DanmuAI-Setup.exe" -ExpectedSize $setup.Length

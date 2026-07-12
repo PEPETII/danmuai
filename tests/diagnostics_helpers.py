@@ -40,24 +40,30 @@ def make_diagnostic_app(**overrides):
     return app
 
 
-def read_sse_lines(client, *, max_lines: int = 8, timeout_sec: float = 5.0, token: str | None = None):
+def read_sse_lines(
+    client,
+    *,
+    max_lines: int = 8,
+    timeout_sec: float = 5.0,
+    authorization: str | None = None,
+):
     """Sync TestClient 在无限 SSE 上会阻塞；在线程中读取若干行后 close。"""
     import concurrent.futures
 
     def _read():
-        url = "/api/diagnostics/events"
-        if token:
-            url += f"?token={token}"
-        with client.stream("GET", url) as response:
+        headers = {}
+        if authorization:
+            headers["Authorization"] = authorization
+        with client.stream("GET", "/api/diagnostics/events", headers=headers) as response:
             status_code = response.status_code
-            headers = dict(response.headers)
+            headers_out = dict(response.headers)
             lines: list[str] = []
             for line in response.iter_lines():
                 lines.append(line)
                 if len(lines) >= max_lines:
                     break
             response.close()
-            return status_code, headers, lines
+            return status_code, headers_out, lines
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
         return pool.submit(_read).result(timeout=timeout_sec)

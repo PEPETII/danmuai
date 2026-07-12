@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 from contextlib import contextmanager
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
@@ -87,19 +87,20 @@ def test_request_openai_retry_wall_clock_uses_explicit_deadline():
     worker.config.get_int.return_value = 512
     worker._deliver_outcome.return_value = None
 
-    request_openai(
-        worker,
-        "data:image/jpeg;base64,abc",
-        "sys",
-        "user",
-        "p1",
-        1,
-        2,
-        0.0,
-        0,
-        deadline_at=time.monotonic() - 1.0,
-    )
+    with patch("app.ai_client_requests.stream_openai") as mock_stream:
+        request_openai(
+            worker,
+            "data:image/jpeg;base64,abc",
+            "sys",
+            "user",
+            "p1",
+            1,
+            2,
+            0.0,
+            0,
+            deadline_at=time.monotonic() - 1.0,
+        )
 
-    worker._stream_openai.assert_not_called()
+    mock_stream.assert_not_called()
     worker._deliver_outcome.assert_called_once()
     assert worker._deliver_outcome.call_args.kwargs["signal_name"] == "error"

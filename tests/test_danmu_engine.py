@@ -55,11 +55,11 @@ def test_reply_fifo_buffer_keeps_eight_latest_items_by_default():
     assert buffer.pop().content == "msg-1"
 
 
-def test_add_text_truncates_to_configured_max_chars(engine):
+def test_add_text_keeps_full_text_regardless_of_max_chars(engine):
     engine.config.set("danmu_max_chars", "8")
     item = engine.add_text("一二三四五六七八九十")
     assert item is not None
-    assert item.content == "一二三四五六七八..."
+    assert item.content == "一二三四五六七八九十"
 
 
 def test_resolve_danmu_display_text_without_prefix(engine):
@@ -72,10 +72,10 @@ def test_resolve_danmu_display_text_with_prefix(engine):
     assert resolve_danmu_display_text("你好世界", engine.config, "吐槽型") == "吐槽型：你好世界"
 
 
-def test_resolve_danmu_display_text_truncates_body_before_prefix(engine):
+def test_resolve_danmu_display_text_keeps_full_body_before_prefix(engine):
     engine.config.set("persona_name_prefix_enabled", "1")
     engine.config.set("danmu_max_chars", "5")
-    assert resolve_danmu_display_text("一二三四五六", engine.config, "吐槽型") == "吐槽型：一二三四五..."
+    assert resolve_danmu_display_text("一二三四五六", engine.config, "吐槽型") == "吐槽型：一二三四五六"
 
 
 def test_is_persona_name_prefix_enabled_parses_truthy_values(engine):
@@ -85,7 +85,7 @@ def test_is_persona_name_prefix_enabled_parses_truthy_values(engine):
     assert is_persona_name_prefix_enabled(engine.config) is False
 
 
-def test_add_text_pre_resolved_skips_retruncate(engine):
+def test_add_text_pre_resolved_skips_renormalize(engine):
     engine.config.set("danmu_max_chars", "4")
     prefixed = "吐槽型：这是一段很长的弹幕正文"
     item = engine.add_text(prefixed, persona="吐槽型", pre_resolved=True, skip_dedup=True)
@@ -146,13 +146,17 @@ def test_resolve_danmu_max_chars_defaults_and_clamp(engine):
     assert resolve_danmu_max_chars(engine.config) == 5
 
 
-def test_normalize_danmu_display_text_en_default_not_truncated_at_fifteen(engine):
+def test_normalize_danmu_display_text_strips_only(engine):
     engine.config.set("danmu_max_chars", "")
     long_en = "This is definitely longer than fifteen chars"
     assert (
         normalize_danmu_display_text(long_en, engine.config, lang="en") == long_en
     )
     engine.config.set("danmu_max_chars", "15")
+    assert (
+        normalize_danmu_display_text(long_en, engine.config, lang="en") == long_en
+    )
+    engine.config.set("danmu_max_chars", "8")
     assert (
         normalize_danmu_display_text(long_en, engine.config, lang="en") == long_en
     )

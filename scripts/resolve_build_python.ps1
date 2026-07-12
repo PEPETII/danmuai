@@ -84,3 +84,22 @@ Build Python not found. Create .venv-build first:
     }
     return $pythonCmd
 }
+
+function Invoke-BuildPythonExpression {
+    param(
+        [Parameter(Mandatory)]
+        [string]$Root,
+        [Parameter(Mandatory)]
+        [string]$Code,
+        [pscustomobject]$PythonCmd = $null
+    )
+
+    if (-not $PythonCmd) {
+        $PythonCmd = Resolve-BuildPythonCommand -Root $Root
+    }
+    $output = & $PythonCmd.Path @($PythonCmd.Args) -c $Code 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Python failed (exit $LASTEXITCODE): $output"
+    }
+    return $output
+}

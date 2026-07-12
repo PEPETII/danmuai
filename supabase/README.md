@@ -1,6 +1,6 @@
 # Supabase — 公告、反馈、错误报告与版本更新
 
-Apply migrations in order (or use Supabase MCP `apply_migration`):
+Apply the checked-in migrations in filename order to the intended hosted project. For a linked local/CI workflow use the current Supabase CLI commands discovered with `supabase --help`; for a hosted project the Dashboard SQL editor or an approval-gated migration runner is acceptable. Do not treat a successful local migration as proof that the hosted Data API exposes the tables.
 
 1. `migrations/001_announcements_feedback.sql`
 2. `migrations/002_error_reports.sql`
@@ -9,6 +9,18 @@ Apply migrations in order (or use Supabase MCP `apply_migration`):
 5. `migrations/009_tutorial_links.sql` — 教程页视频链接（`tutorial_links`，anon 只读）
 6. `migrations/010_feedback_context.sql` — 反馈 `context_json` / `logs_excerpt`
 7. `migrations/011_anon_table_grants.sql` — 显式 REVOKE/GRANT，anon 仅 insert 或 select（BUG-021）
+
+执行后核对迁移历史和 Data API 暴露设置。Supabase 自 2026-04-28 起不再保证新建 public 表自动暴露给 Data API；RLS 与角色 GRANT 都通过后，还要在项目 Data API 设置中确认所需 schema/table 已暴露。
+
+## 部署后最小验证
+
+1. 在 SQL Editor 或受控 SQL 客户端确认所有 7 个 migration 已按顺序执行。
+2. 用只读查询确认 `public.announcements`、`public.app_updates`、`public.tutorial_links` 的 `anon` SELECT 与 `feedback`、`error_reports` 的 `anon` INSERT 权限符合 `011_anon_table_grants.sql`。
+3. 用前端实际使用的 publishable/anon key 做一次只读公告、版本和教程请求；不要用 `service_role` 模拟客户端。
+4. 分别提交一条脱敏测试反馈与错误报告，确认额度 RPC 生效，再按项目保留策略清理测试数据。
+5. 运行当前 CLI 支持的 `supabase db advisors`（先用 `supabase --help` 确认版本）并记录结果；线上状态须另行记录，不能由本 README 推断。
+
+> **已确认的代码侧注意项（线上状态未确认）**：`001`/`002` 创建了 `public` schema 下的 `SECURITY DEFINER` 函数，`011` 只显式收紧表权限。当前迁移文本没有显式 `REVOKE EXECUTE ... FROM PUBLIC`；部署前应检查函数执行权限和默认权限策略，必要时另开安全工单，不要把文档中的“anon 仅 insert/select”误读为函数权限也已收紧。
 
 Copy `../web/static/supabase-config.example.js` to `../web/static/supabase-config.js` and set `url` + `anonKey`. The desktop **backend** reads the same credentials (or `DANMU_SUPABASE_URL` / `DANMU_SUPABASE_ANON_KEY`) for `GET /api/update/channels` → Supabase `app_updates`.
 
@@ -43,6 +55,18 @@ Copy `../web/static/supabase-config.example.js` to `../web/static/supabase-confi
 
 额度：每 `client_id` 每 3 小时最多 2 条（RLS + `feedback_quota` RPC）。
 
+## `announcements`（公告）
+
+| 列 | 说明 |
+|----|------|
+| `title` | 公告标题 |
+| `body` | 公告正文 |
+| `level` | `info` / `warning` / `critical` |
+| `published` | 是否对 `anon` 可见；还受 `starts_at` / `ends_at` 限制 |
+| `pinned` | 是否置顶排序 |
+
+客户端只读取满足发布时间窗口且 `published=true` 的公告；维护者在 Table Editor 发布或撤回，不应直接把未审核内容设为公开。
+
 ## `error_reports`（自动错误反馈）
 
 | 列 | 说明 |
@@ -66,7 +90,7 @@ Copy `../web/static/supabase-config.example.js` to `../web/static/supabase-confi
 | `enabled` | `false` 时客户端不读取该行 |
 | `message` | 可选，更新弹窗副文案 |
 
-**运维**：发布 GitHub Release 并确认安装包无误后，在 Table Editor 插入或更新**一条** `enabled=true` 记录（通常只保留最新一行；客户端按 `updated_at desc` 取第一条）。Web 控制台版本区与更新弹窗通过后端 `GET /api/update/channels` 读取本表（Supabase `app_updates` 为版本元数据主源）。[`app/release_channels.py`](../app/release_channels.py) **仍用于**镜像下载 URL（如夸克网盘分享文案等），不再维护发布版本常量。
+**运维**：先完成本地打包校验，再上传 R2 主源并验证 Setup、Portable 和 feed；GitHub Release 只作镜像。确认线上资产无误后，在 Table Editor 插入或更新**一条** `enabled=true` 记录（通常只保留最新一行；客户端按 `updated_at desc` 取第一条）。Web 控制台版本区与更新弹窗通过后端 `GET /api/update/channels` 读取本表（Supabase `app_updates` 为版本元数据主源）。[`app/release_channels.py`](../app/release_channels.py) **仍用于**镜像下载 URL（如夸克网盘分享文案等），不再维护发布版本常量。
 
 ```sql
 

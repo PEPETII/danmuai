@@ -12,8 +12,8 @@ $OutputEncoding = [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
-. (Join-Path $PSScriptRoot "version_parse.ps1")
 . (Join-Path $PSScriptRoot "resolve_build_python.ps1")
+. (Join-Path $PSScriptRoot "version_parse.ps1")
 
 # Guard: any file containing 'supabase-config' (except allowlist) contains credentials
 # and must not be packaged. Default-deny (BUG-005): the previous -Filter "supabase-config.js.*"
@@ -37,7 +37,7 @@ Remove them before publishing (only supabase-config.example.js and supabase-clie
 
 $ReleaseRoot = Join-Path $Root "release"
 $VelopackDir = Join-Path $ReleaseRoot "velopack"
-$packagingPaths = Get-PackagingDistPaths
+$packagingPaths = Get-PackagingDistPaths -Root $Root
 $DistDir = Join-Path $Root ("dist\" + $packagingPaths.DistDir)
 $PackagingExeName = $packagingPaths.ExeName
 $VersionFile = Join-Path $VelopackDir "VERSION.txt"
@@ -59,32 +59,7 @@ See docs/operations/PACKAGING_WINDOWS.md
 }
 
 function Get-AppVersion {
-    $versionOutput = & $BuildPython.Path @($BuildPython.Args) -c "from app.version import __version__; print(__version__)" 2>&1
-    if ($LASTEXITCODE -eq 0) {
-        $parsed = Get-PythonVersionOutputLine -VersionOutput $versionOutput
-        if ($parsed -match $AppVersionPattern) {
-            return $parsed
-        }
-    }
-
-    $versionFile = Join-Path $Root "app\version.py"
-    if (Test-Path -LiteralPath $versionFile) {
-        $content = Get-Content -LiteralPath $versionFile -Raw
-        if ($content -match $VersionPyCapturePattern) {
-            return $Matches[1]
-        }
-    }
-
-    $gitDescribe = git describe --tags --abbrev=0 2>$null
-    if ($LASTEXITCODE -eq 0 -and $gitDescribe) {
-        $tag = $gitDescribe.Trim().TrimStart('v')
-        if ($tag -match $AppVersionPattern) {
-            return $tag
-        }
-    }
-
-    $detail = if ($versionOutput) { (Get-PythonVersionOutputLine -VersionOutput $versionOutput) } else { "(no python output)" }
-    Write-Error "Failed to determine app version (python import, app/version.py regex, and git describe all failed). Python output: $detail"
+    return Get-AppVersionFromProject -Root $Root -PythonCmd $BuildPython
 }
 
 $appVersion = Get-AppVersion
@@ -165,7 +140,7 @@ if (-not $SkipDeltaBootstrap -and $existingFull.Count -eq 0 -and $BootstrapFeedU
     }
 }
 
-$packResult = & (Join-Path $Root "scripts\velopack_pack.ps1") -PackDir $DistDir -OutputDir $VelopackDir
+$packResult = & (Join-Path $Root "scripts\velopack_pack.ps1") -PackDir $DistDir -OutputDir $VelopackDir -BuildPython $BuildPython
 
 $gitSha = "unknown"
 try {
@@ -224,6 +199,12 @@ if ($env:DANMU_CODE_SIGN -eq "1") {
     Write-Host "Signature verification passed."
 }
 
+& (Join-Path $Root "scripts\write_release_hash_manifest.ps1") -ReleaseDir $VelopackDir -Version $appVersion
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "write_release_hash_manifest.ps1 failed (exit $LASTEXITCODE)"
+}
+$manifestPath = Join-Path $VelopackDir "SHA256SUMS.txt"
+
 Write-Host ""
 Write-Host "Done."
 Write-Host "  Output:   $VelopackDir"
@@ -235,3 +216,4 @@ Write-Host "  Feed:     $($packResult.FeedJson)"
 if ($packResult.PortableZip) {
     Write-Host "  Portable: $($packResult.PortableZip)"
 }
+Write-Host "  SHA256:   $manifestPath"

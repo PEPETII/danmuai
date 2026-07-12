@@ -18,7 +18,7 @@ from app.api_schedule import time_to_anchor_boundary
 from app.danmu_engine import resolve_danmu_display_text
 from app.danmu_engine_dedup import get_last_duplicate_observation
 from app.main_request_context_mixin import format_reply_request_id
-from app.personae import persona_display_name_with_config
+from app.persona_display import persona_display_name_with_config
 from app.reply_parser import normalize_reply_batch, parse_ai_reply_payload
 from app.translations import tr
 
@@ -44,10 +44,10 @@ class GenerationPipeline:
         三路分发各自独立 return，无 fall-through。
         """
         app = self._app
-        if app._pet_barrage_mode_enabled():
+        if app.is_pet_barrage_mode_enabled():
             self._dispatch_to_pet(app)
             return
-        if app._danmu_render_mode() == "floating_panel":
+        if app.danmu_render_mode() == "floating_panel":
             self._dispatch_to_floating_panel(app)
             return
         self._dispatch_to_overlay(app)
@@ -74,13 +74,13 @@ class GenerationPipeline:
         raw_items = parse_ai_reply_payload(text)
         normalized_items = normalize_reply_batch(
             raw_items,
-            scene_count=app._reply_scene_count,
-            filler_count=app._reply_filler_count,
+            scene_count=app.reply_scene_count,
+            filler_count=app.reply_filler_count,
             config=app.config,
         )
         if not normalized_items:
-            request_id = app._reply_request_id(request_round, screenshot_id, scene_generation)
-            app._log_reply_pipeline(
+            request_id = app.reply_request_id(request_round, screenshot_id, scene_generation)
+            app.log_reply_pipeline(
                 "reply_received",
                 request_id=format_reply_request_id(request_round, screenshot_id, scene_generation),
                 request_round=request_round,
@@ -103,11 +103,11 @@ class GenerationPipeline:
                 len(text or ""),
                 len(raw_items),
             )
-            app._record_undisplayed("empty_parse", persona_id=persona_id)
+            app.record_undisplayed("empty_parse", persona_id=persona_id)
             return
 
-        request_id = app._reply_request_id(request_round, screenshot_id, scene_generation)
-        app._log_reply_pipeline(
+        request_id = app.reply_request_id(request_round, screenshot_id, scene_generation)
+        app.log_reply_pipeline(
             "reply_received",
             request_id=format_reply_request_id(request_round, screenshot_id, scene_generation),
             request_round=request_round,
@@ -122,10 +122,10 @@ class GenerationPipeline:
         )
         app.reply_buffer.drop_replaceable_fallbacks(
             request_id=request_id,
-            batch_id=app._batch_id,
+            batch_id=app.current_batch_id,
             scene_generation=scene_generation,
         )
-        app._enqueue_reply_batch(
+        app.enqueue_reply_batch_for_pipeline(
             persona_id,
             request_round,
             screenshot_id,
@@ -136,12 +136,12 @@ class GenerationPipeline:
             request_started_at=request_started_at,
             reply_received_at=reply_received_at,
         )
-        app._notify_pet_visual_success()
-        app._publish_live_status()
+        app.notify_pet_visual_success()
+        app.publish_live_status()
 
         if not app.reply_timer.isActive():
             self.consume_reply_queue()
-        elif app.reply_buffer.size() > app._queue_low_watermark:
+        elif app.reply_buffer.size() > app.queue_low_watermark:
             app.reply_timer.stop()
             self.consume_reply_queue()
         else:
@@ -176,7 +176,7 @@ class GenerationPipeline:
                     tr("app.danmu_not_entered").format(content=f"{queued_item.content[:20]}...")
                     + f" [{tr('log.reject.pet_empty')}]"
                 )
-                app._log_reply_pipeline_from_queued(
+                app.log_reply_pipeline_from_queued(
                     "reply_displayed",
                     queued_item,
                     displayed=False,
@@ -186,8 +186,8 @@ class GenerationPipeline:
         if not rendered_rows:
             if not app.reply_buffer.is_empty():
                 app.reply_timer.start(100)
-            app._update_stats(success=False)
-            app._maybe_pool_topup()
+            app.update_stats_from_pipeline(success=False)
+            app.maybe_pool_topup()
             return
         barrage.deliver_batch(
             [text for _, text in rendered_rows[:5]],
@@ -198,23 +198,19 @@ class GenerationPipeline:
         )
         for queued_item, text in rendered_rows[:5]:
             app.history_writer.enqueue(text, queued_item.persona_id, queued_item.batch_index)
-            app._log_reply_pipeline_from_queued(
+            app.log_reply_pipeline_from_queued(
                 "reply_displayed",
                 queued_item,
                 displayed=True,
             )
-        app._latest_displayed_round = max(
-            app._latest_displayed_round,
-            max(item.screenshot_round for item, _ in rendered_rows),
-        )
-        app._latest_displayed_screenshot_id = max(
-            app._latest_displayed_screenshot_id,
-            max(item.screenshot_id for item, _ in rendered_rows),
+        app.set_latest_displayed_from_pipeline(
+            screenshot_round=max(item.screenshot_round for item, _ in rendered_rows),
+            screenshot_id=max(item.screenshot_id for item, _ in rendered_rows),
         )
         if not app.reply_buffer.is_empty():
-            app.reply_timer.start(app._estimated_reply_gap_ms())
-        app._update_stats(success=True, count=len(rendered_rows[:5]))
-        app._maybe_pool_topup()
+            app.reply_timer.start(app.estimated_reply_gap_ms())
+        app.update_stats_from_pipeline(success=True, count=len(rendered_rows[:5]))
+        app.maybe_pool_topup()
 
     def _dispatch_to_floating_panel(self, app: "DanmuApp") -> None:
         """浮动面板分发：peek 预检（容量/空文本/去重）→ pop + 上屏 + 锚点 + 失败回插。
@@ -256,22 +252,22 @@ class GenerationPipeline:
                     tr("app.danmu_not_entered").format(content=f"{queued.content[:20]}...")
                     + f" [{tr('log.reject.floating_panel_empty')}]"
                 )
-                app._log_reply_pipeline_from_queued(
+                app.log_reply_pipeline_from_queued(
                     "reply_displayed",
                     queued,
                     displayed=False,
                 )
-                app._record_undisplayed("empty_text", persona_id=queued.persona_id)
+                app.record_undisplayed("empty_text", persona_id=queued.persona_id)
                 if not app.reply_buffer.is_empty():
                     app.reply_timer.start(100)
-                app._update_stats(success=False)
-                app._maybe_pool_topup()
+                app.update_stats_from_pipeline(success=False)
+                app.maybe_pool_topup()
                 return
             if not skip_dedup_peek and fp_engine.is_duplicate(display_peek):
                 queued = app.reply_buffer.pop()
                 duplicate_observation = get_last_duplicate_observation()
                 duplicate_match_type = str(duplicate_observation.get("match_type") or "")
-                duplicate_stats = app._track_duplicate_rejection(
+                duplicate_stats = app.track_duplicate_rejection(
                     queued,
                     match_type=duplicate_match_type or "duplicate",
                 )
@@ -279,7 +275,7 @@ class GenerationPipeline:
                     tr("app.danmu_not_entered").format(content=f"{queued.content[:20]}...")
                     + f" [{tr('log.reject.dedup')}]"
                 )
-                app._log_reply_pipeline_from_queued(
+                app.log_reply_pipeline_from_queued(
                     "reply_displayed",
                     queued,
                     displayed=False,
@@ -290,15 +286,15 @@ class GenerationPipeline:
                     duplicate_exact_window_hit=duplicate_stats["duplicate_exact_window_hit"],
                     duplicate_similarity_hit=duplicate_stats["duplicate_similarity_hit"],
                 )
-                app._record_undisplayed("duplicate", persona_id=queued.persona_id)
-                app._record_undisplayed(
+                app.record_undisplayed("duplicate", persona_id=queued.persona_id)
+                app.record_undisplayed(
                     "duplicate_exact_set_hit",
                     persona_id=queued.persona_id,
                 )
                 if not app.reply_buffer.is_empty():
                     app.reply_timer.start(100)
-                app._update_stats(success=False)
-                app._maybe_pool_topup()
+                app.update_stats_from_pipeline(success=False)
+                app.maybe_pool_topup()
                 return
 
         # pop + 上屏
@@ -313,7 +309,7 @@ class GenerationPipeline:
             queued.persona_id,
         )
         skip_dedup = queued.is_fallback or queued.source == "fallback"
-        item = app._display_danmu_text(
+        item = app.display_danmu_text(
             display_content,
             queued.persona_id,
             batch_id=queued.batch_id,
@@ -322,9 +318,11 @@ class GenerationPipeline:
             pre_resolved=True,
         )
         if item:
-            app._latest_displayed_round = max(app._latest_displayed_round, queued.screenshot_round)
-            app._latest_displayed_screenshot_id = max(app._latest_displayed_screenshot_id, queued.screenshot_id)
-            app._log_reply_pipeline_from_queued(
+            app.set_latest_displayed_from_pipeline(
+                screenshot_round=queued.screenshot_round,
+                screenshot_id=queued.screenshot_id,
+            )
+            app.log_reply_pipeline_from_queued(
                 "reply_displayed",
                 queued,
                 displayed=True,
@@ -334,7 +332,7 @@ class GenerationPipeline:
 
             if isinstance(item, DanmuItem):
                 overlay_source = queued.source if queued.source in ("ai", "mic", "test") else "ai"
-                app._broadcast_live_overlay_item(item, display_content, source=overlay_source)
+                app.broadcast_live_overlay_item(item, display_content, source=overlay_source)
 
             self._compute_anchor_update(app, item)
         else:
@@ -347,18 +345,18 @@ class GenerationPipeline:
             else:
                 reject = tr("log.reject.floating_panel")
                 diag_reason = "floating_panel_spacing"
-            app._record_undisplayed(diag_reason, persona_id=queued.persona_id)
+            app.record_undisplayed(diag_reason, persona_id=queued.persona_id)
             extra_fields: dict = {}
             if diag_reason == "duplicate":
-                duplicate_stats = app._track_duplicate_rejection(
+                duplicate_stats = app.track_duplicate_rejection(
                     queued,
                     match_type=duplicate_match_type or "duplicate",
                 )
-                duplicate_topup_added = app._maybe_duplicate_loss_topup(
+                duplicate_topup_added = app.maybe_duplicate_loss_topup(
                     queued,
                     duplicate_stats,
                 )
-                app._record_undisplayed(
+                app.record_undisplayed(
                     f"duplicate_{duplicate_match_type or 'duplicate'}",
                     persona_id=queued.persona_id,
                 )
@@ -372,7 +370,7 @@ class GenerationPipeline:
                     "duplicate_topup_triggered": duplicate_stats["duplicate_topup_triggered"],
                     "duplicate_topup_added": duplicate_topup_added,
                 }
-            app._log_reply_pipeline_from_queued(
+            app.log_reply_pipeline_from_queued(
                 "reply_displayed",
                 queued,
                 displayed=False,
@@ -387,14 +385,14 @@ class GenerationPipeline:
                 app.logger.warning(tr("log.floating_panel_requeued"))
 
         if not app.reply_buffer.is_empty():
-            delay = 100 if item is None else app._estimated_reply_gap_ms()
+            delay = 100 if item is None else app.estimated_reply_gap_ms()
             app.reply_timer.start(delay)
 
-        app._update_stats(success=item is not None)
-        app._maybe_pool_topup()
+        app.update_stats_from_pipeline(success=item is not None)
+        app.maybe_pool_topup()
 
     def _dispatch_to_overlay(self, app: "DanmuApp") -> None:
-        """overlay 主路径：pop → _display_danmu_text 上屏 → 锚点更新 / 拒因诊断。
+        """overlay 主路径：pop → display_danmu_text 上屏 → 锚点更新 / 拒因诊断。
 
         失败拒因：duplicate / entry_zone_overload / layout_rejection（不含
         floating_panel 间距拒因，该分支已迁入 _dispatch_to_floating_panel）。
@@ -410,7 +408,7 @@ class GenerationPipeline:
             queued.persona_id,
         )
         skip_dedup = queued.is_fallback or queued.source == "fallback"
-        item = app._display_danmu_text(
+        item = app.display_danmu_text(
             display_content,
             queued.persona_id,
             batch_id=queued.batch_id,
@@ -419,9 +417,11 @@ class GenerationPipeline:
             pre_resolved=True,
         )
         if item:
-            app._latest_displayed_round = max(app._latest_displayed_round, queued.screenshot_round)
-            app._latest_displayed_screenshot_id = max(app._latest_displayed_screenshot_id, queued.screenshot_id)
-            app._log_reply_pipeline_from_queued(
+            app.set_latest_displayed_from_pipeline(
+                screenshot_round=queued.screenshot_round,
+                screenshot_id=queued.screenshot_id,
+            )
+            app.log_reply_pipeline_from_queued(
                 "reply_displayed",
                 queued,
                 displayed=True,
@@ -431,7 +431,7 @@ class GenerationPipeline:
 
             if isinstance(item, DanmuItem):
                 overlay_source = queued.source if queued.source in ("ai", "mic", "test") else "ai"
-                app._broadcast_live_overlay_item(item, display_content, source=overlay_source)
+                app.broadcast_live_overlay_item(item, display_content, source=overlay_source)
 
             self._compute_anchor_update(app, item)
         else:
@@ -447,18 +447,18 @@ class GenerationPipeline:
             else:
                 reject = tr("log.reject.layout")
                 diag_reason = "layout_rejection"
-            app._record_undisplayed(diag_reason, persona_id=queued.persona_id)
+            app.record_undisplayed(diag_reason, persona_id=queued.persona_id)
             extra_fields: dict = {}
             if diag_reason == "duplicate":
-                duplicate_stats = app._track_duplicate_rejection(
+                duplicate_stats = app.track_duplicate_rejection(
                     queued,
                     match_type=duplicate_match_type or "duplicate",
                 )
-                duplicate_topup_added = app._maybe_duplicate_loss_topup(
+                duplicate_topup_added = app.maybe_duplicate_loss_topup(
                     queued,
                     duplicate_stats,
                 )
-                app._record_undisplayed(
+                app.record_undisplayed(
                     f"duplicate_{duplicate_match_type or 'duplicate'}",
                     persona_id=queued.persona_id,
                 )
@@ -472,7 +472,7 @@ class GenerationPipeline:
                     "duplicate_topup_triggered": duplicate_stats["duplicate_topup_triggered"],
                     "duplicate_topup_added": duplicate_topup_added,
                 }
-            app._log_reply_pipeline_from_queued(
+            app.log_reply_pipeline_from_queued(
                 "reply_displayed",
                 queued,
                 displayed=False,
@@ -484,11 +484,11 @@ class GenerationPipeline:
             )
 
         if not app.reply_buffer.is_empty():
-            delay = 100 if item is None else app._estimated_reply_gap_ms()
+            delay = 100 if item is None else app.estimated_reply_gap_ms()
             app.reply_timer.start(delay)
 
-        app._update_stats(success=item is not None)
-        app._maybe_pool_topup()
+        app.update_stats_from_pipeline(success=item is not None)
+        app.maybe_pool_topup()
 
     def _compute_anchor_update(self, app: "DanmuApp", item) -> None:
         """共享锚点更新：成功上屏后设置 batch.anchor_item 与 next_generation_time。
@@ -497,7 +497,7 @@ class GenerationPipeline:
         """
         from app.danmu_engine_models import DanmuItem
 
-        batch = app._current_batch
+        batch = app.current_reply_batch
         if (
             batch
             and batch.anchor_item is None

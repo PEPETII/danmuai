@@ -408,20 +408,20 @@ def test_forget_content_keeps_set_when_duplicate_still_in_deque(engine):
     assert "shared" in engine.recent_exact_set
 
 
-def test_normalize_danmu_display_text_matches_add_text_truncation(engine):
+def test_normalize_danmu_display_text_matches_add_text_strip(engine):
     engine.config.set("danmu_max_chars", "8")
     raw = "一二三四五六七八九十"
-    assert normalize_danmu_display_text(raw, engine.config) == "一二三四五六七八..."
+    assert normalize_danmu_display_text(raw, engine.config) == raw
 
 
-def test_normalize_danmu_display_text_skips_formula_custom_pool(engine):
+def test_normalize_danmu_display_text_keeps_formula_custom_pool(engine):
     engine.config.set("danmu_max_chars", "8")
     long_line = "这是一句保存于公式化弹幕库的超长句子应完整上屏展示"
     engine.config.set_custom_danmu_pool([long_line])
     assert normalize_danmu_display_text(long_line, engine.config) == long_line
 
 
-def test_normalize_danmu_display_text_skips_formula_meme_barrage(engine):
+def test_normalize_danmu_display_text_keeps_formula_meme_barrage(engine):
     engine.config.set("danmu_max_chars", "8")
     long_line = "瓦批的一天：查看商店，练呲水枪，打开麻麻模拟器，启动！"
     engine.config.meme_barrage_library_insert_many(

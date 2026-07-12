@@ -13,6 +13,7 @@ from app.model_providers import (
     normalize_api_mode_for_select,
     normalize_endpoint,
     normalize_mode,
+    provider_region,
     provider_rules_for_api,
     resolve_active_model_id,
     resolve_api_transport,
@@ -22,6 +23,33 @@ from app.model_providers import (
     validate_model_config,
 )
 from app.providers.registry import HOST_ENTRIES
+
+
+def test_provider_region_classification():
+    international = {
+        "openai",
+        "google_gemini",
+        "xai",
+        "mistral",
+        "together",
+        "fireworks",
+        "dashscope_intl",
+        "openrouter",
+        "zai",
+        "custom_openai",
+    }
+    for provider in PROVIDERS:
+        assert provider.region in ("china", "international", "global")
+        if provider.id in international:
+            assert provider.region == "international"
+        elif provider.id == "mimo":
+            assert provider.region == "global"
+        else:
+            assert provider.region == "china"
+    assert provider_region("openrouter") == "international"
+    assert provider_region("mimo") == "global"
+    assert provider_region("doubao") == "china"
+    assert provider_region("unknown-provider") == "china"
 
 
 def test_normalize_endpoint_strips_trailing_slash():
@@ -64,28 +92,51 @@ def test_normalize_mode_maps_openai_aliases():
     assert is_doubao_mode("doubao")
 
 
+def _canonical_model(**kwargs):
+    base = {
+        "name": kwargs.get("name", "x"),
+        "model_ids": kwargs.get("model_ids", ["m"]),
+        "default_model_id": kwargs.get("default_model_id", "m"),
+        "endpoint": kwargs.get("endpoint", ""),
+        "apiKey": kwargs.get("apiKey", "k"),
+    }
+    base.update({k: v for k, v in kwargs.items() if k not in base})
+    return base
+
+
 def test_validate_model_config_requires_all_fields():
-    errors = validate_model_config({"name": "x", "modelId": "m", "endpoint": "", "apiKey": "k"})
+    errors = validate_model_config(_canonical_model(endpoint=""))
     assert "custom_model.error_endpoint" in errors
 
     errors = validate_model_config(
-        {
-            "name": "x",
-            "modelId": "m",
-            "endpoint": "https://api.deepseek.com/v1",
-            "apiKey": "",
-        }
+        _canonical_model(
+            endpoint="https://api.deepseek.com/v1",
+            apiKey="",
+        )
     )
     assert "custom_model.error_api_key" in errors
 
     assert is_model_config_complete(
         {
             "name": "DeepSeek",
-            "modelId": "deepseek-chat",
+            "model_ids": ["deepseek-chat"],
+            "default_model_id": "deepseek-chat",
             "endpoint": "https://api.deepseek.com/v1",
             "apiKey": "sk-test",
         }
     )
+
+
+def test_validate_model_config_rejects_legacy_model_id_without_model_ids():
+    errors = validate_model_config(
+        {
+            "name": "x",
+            "modelId": "m",
+            "endpoint": "https://api.deepseek.com/v1",
+            "apiKey": "k",
+        }
+    )
+    assert "custom_model.error_model_id" in errors
 
 
 def test_apply_provider_to_form_doubao():
@@ -97,25 +148,58 @@ def test_apply_provider_to_form_doubao():
 
 def test_validate_model_config_invalid_endpoint():
     errors = validate_model_config(
-        {
-            "name": "x",
-            "modelId": "m",
-            "endpoint": "ftp://bad",
-            "apiKey": "k",
-        }
+        _canonical_model(
+            endpoint="ftp://bad",
+        )
     )
     assert "custom_model.error_endpoint_invalid" in errors
 
 
+def test_validate_model_config_accepts_ollama_model_id_with_colon():
+    errors = validate_model_config(
+        _canonical_model(
+            model_ids=["qwen2.5:7b"],
+            default_model_id="qwen2.5:7b",
+            endpoint="https://api.example.com/v1",
+        )
+    )
+
+    assert errors == []
+
+
+def test_validate_model_config_accepts_local_openai_v1_endpoint():
+    errors = validate_model_config(
+        _canonical_model(
+            model_ids=["local-model"],
+            default_model_id="local-model",
+            endpoint="http://127.0.0.1:11434/v1",
+        )
+    )
+
+    assert errors == []
+
+
+def test_validate_model_config_reports_endpoint_before_model_id():
+    errors = validate_model_config(
+        _canonical_model(
+            model_ids=["invalid model id"],
+            default_model_id="invalid model id",
+            endpoint="127.0.0.1:11434/v1",
+        )
+    )
+
+    assert errors[:2] == [
+        "custom_model.error_endpoint_invalid",
+        "custom_model.error_model_id_invalid",
+    ]
+
+
 def test_validate_model_config_normalizes_stale_mode_on_known_host():
     errors = validate_model_config(
-        {
-            "name": "x",
-            "modelId": "m",
-            "endpoint": "https://dashscope.aliyuncs.com/compatible-mode/v1",
-            "apiKey": "k",
-            "mode": "doubao",
-        }
+        _canonical_model(
+            endpoint="https://dashscope.aliyuncs.com/compatible-mode/v1",
+            mode="doubao",
+        )
     )
     assert "config.error_endpoint_mode_mismatch" not in errors
     assert errors == []
@@ -141,6 +225,13 @@ def test_guess_provider_from_endpoint():
     assert guess_provider_from_endpoint("") == DEFAULT_PROVIDER_ID
     assert guess_provider_from_endpoint("https://api.xiaomimimo.com/v1") == "mimo"
     assert guess_provider_from_endpoint("https://api.z.ai/api/paas/v4") == "zai"
+    assert guess_provider_from_endpoint("https://api.openai.com/v1") == "openai"
+    assert guess_provider_from_endpoint("https://generativelanguage.googleapis.com/v1beta/openai") == "google_gemini"
+    assert guess_provider_from_endpoint("https://api.x.ai/v1") == "xai"
+    assert guess_provider_from_endpoint("https://api.mistral.ai/v1") == "mistral"
+    assert guess_provider_from_endpoint("https://api.together.xyz/v1") == "together"
+    assert guess_provider_from_endpoint("https://api.fireworks.ai/inference/v1") == "fireworks"
+    assert guess_provider_from_endpoint("https://dashscope-intl.aliyuncs.com/compatible-mode/v1") == "dashscope_intl"
 
 
 def test_provider_rules_for_api_matches_host_entries():
@@ -222,7 +313,11 @@ def test_resolve_active_model_id_prefers_custom_default():
         model="doubao-seed-1-6-flash-250828",
         default_model_id="doubao-seed-2-0-mini-260428",
         custom_models=[
-            {"modelId": "doubao-seed-2-0-mini-260428", "endpoint": "https://x/v3", "apiKey": "k"},
+            {
+                "default_model_id": "doubao-seed-2-0-mini-260428",
+                "endpoint": "https://x/v3",
+                "apiKey": "k",
+            },
         ],
     )
     assert resolve_active_model_id(cfg) == "doubao-seed-2-0-mini-260428"
@@ -344,7 +439,7 @@ def test_mic_audio_supported_for_config_custom_model_supports_mic_flag():
         default_model_id="or-audio",
         custom_models=[
             {
-                "modelId": "or-audio",
+                "default_model_id": "or-audio",
                 "endpoint": "https://openrouter.ai/api/v1",
                 "mode": "openai-compatible",
                 "apiKey": "sk",
@@ -390,10 +485,10 @@ def test_get_openai_adapter_for_model_mimo_v25_requires_official_host():
 
 
 def test_providers_website_field_present_on_all_built_in_presets():
-    # 14 个内置预设均含 website 字段（dataclass asdict 序列化键存在）
+    # 21 个内置预设均含 website 字段（dataclass asdict 序列化键存在）
     from dataclasses import asdict
 
-    assert len(PROVIDERS) == 14
+    assert len(PROVIDERS) == 21
     for spec in PROVIDERS:
         assert "website" in asdict(spec)
         assert hasattr(spec, "website")
@@ -403,6 +498,13 @@ def test_providers_website_non_null_for_built_in_presets():
     expected = {
         "doubao": "https://www.volcengine.com/product/ark",
         "dashscope": "https://help.aliyun.com/zh/dashscope/",
+        "openai": "https://platform.openai.com/",
+        "google_gemini": "https://ai.google.dev/gemini-api/docs",
+        "xai": "https://docs.x.ai/",
+        "mistral": "https://docs.mistral.ai/",
+        "together": "https://docs.together.ai/",
+        "fireworks": "https://docs.fireworks.ai/",
+        "dashscope_intl": "https://www.alibabacloud.com/help/en/model-studio/",
         "zai": "https://z.ai/",
         "zhipu": "https://open.bigmodel.cn/",
         "moonshot": "https://platform.moonshot.cn/",
@@ -426,3 +528,34 @@ def test_providers_website_none_for_custom_presets():
     assert by_id["custom_openai"].website is None
     assert by_id["custom_doubao"].website is None
 
+
+def test_canonical_profile_uses_default_model_id_not_first_model_ids_entry():
+    """W-ARCH-MODEL-PROFILE-CANONICAL-002: runtime uses default_model_id, not model_ids[0]."""
+    from app.ai_client_support import get_model_config, resolve_request_credentials
+    from app.model_selection import resolve_model_status
+
+    cfg = _Cfg(
+        default_model_id="model-b",
+        custom_models=[
+            {
+                "name": "Dual",
+                "model_ids": ["model-a", "model-b"],
+                "default_model_id": "model-b",
+                "endpoint": "https://api.example.com/v1",
+                "apiKey": "sk-dual",
+                "mode": "openai",
+            }
+        ],
+    )
+    profile = get_model_config(cfg)
+    assert profile.get("default_model_id") == "model-b"
+
+    resolved = resolve_request_credentials(cfg)
+    assert resolved is not None
+    assert resolved[2] == "model-b"
+
+    status = resolve_model_status(cfg)
+    assert status["active_model_id"] == "model-b"
+    assert status["uses_custom_credentials"] is True
+
+    assert mic_audio_supported_for_config(cfg) is False

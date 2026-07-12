@@ -56,11 +56,12 @@ import {
 } from './settings-core.js';
 import {
   closeModelModal,
-  collectModelForm,
   configureSettingsCustomModels,
   customModelSupportsMic,
   loadCustomModels,
   openModelModal,
+  probe,
+  saveModel,
 } from './settings-custom-models.js';
 import {
   bindCompressPreviewControls,
@@ -684,17 +685,8 @@ export function bindSettingsControls(deps = {}) {
     e.preventDefault();
     const btn = e.submitter || document.activeElement;
     await window.withLoadingState(btn, btn?.textContent, async () => {
-      const index = parseInt(document.getElementById('modelEditIndex').value, 10);
-      const body = collectModelForm();
       try {
-        if (index >= 0) {
-          await apiFetch(`/api/custom-models/${index}`, { method: 'PUT', body: JSON.stringify(body) });
-        } else {
-          await apiFetch('/api/custom-models', { method: 'POST', body: JSON.stringify(body) });
-        }
-        closeModelModal();
-        showToast(t('dynamic.settingsCustomModels.模型已保存'));
-        loadCustomModels();
+        await saveModel();
       } catch (err) {
         showToast(err.message, true);
       }
@@ -704,12 +696,7 @@ export function bindSettingsControls(deps = {}) {
     const btn = e.currentTarget;
     await window.withLoadingState(btn, btn.textContent, async () => {
       try {
-        const index = parseInt(document.getElementById('modelEditIndex')?.value || '-1', 10);
-        const res = await apiFetch('/api/custom-models/probe', {
-          method: 'POST',
-          body: JSON.stringify({ ...collectModelForm(), index }),
-        });
-        showToast(res.message, !res.ok);
+        await probe();
       } catch (err) {
         showToast(err.message, true);
       }

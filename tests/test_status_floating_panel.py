@@ -28,6 +28,10 @@ def _minimal_status_app(*, config, floating_panel_overlay=None, visible_overlay:
         session_run_log=SimpleNamespace(list_dicts_newest_first=lambda: []),
         build_live_status_snapshot=lambda: None,
         region_selection_state="idle",
+        latest_displayed_round=0,
+        latest_requested_screenshot_id=0,
+        latest_queued_screenshot_id=0,
+        latest_displayed_screenshot_id=0,
     )
 
 

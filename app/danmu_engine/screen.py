@@ -15,9 +15,9 @@ from app.translations import Translator
 _DEFAULT_DANMU_PENDING_ENTRY_CAP = 300
 _DEFAULT_DANMU_TRACK_RETENTION_CAP = 600
 
-# 弹幕最大字数（截断阈值 + ... 后缀）
-DEFAULT_DANMU_MAX_CHARS_ZH = 20   # 中文默认最大字数
-DEFAULT_DANMU_MAX_CHARS_EN = 50   # 英文默认最大字符数
+# AI 生成契约目标长度（prompt 约束，不截断上屏文本）
+DEFAULT_DANMU_MAX_CHARS_ZH = 20   # 中文默认目标字数
+DEFAULT_DANMU_MAX_CHARS_EN = 50   # 英文默认目标字符数
 _LEGACY_FACTORY_DANMU_MAX_CHARS = 15  # 与 config_defaults.LEGACY_DANMU_MAX_CHARS_FACTORY 同步
 DANMU_MAX_CHARS_MIN = 5
 DANMU_MAX_CHARS_MAX = 80
@@ -148,10 +148,10 @@ def resolve_danmu_color(config) -> QColor:
 
 
 def resolve_danmu_max_chars(config, *, lang: str | None = None) -> int:
-    """上屏弹幕最大字数；未配置时中文 20、英文 50。
+    """AI 生成契约目标长度；未配置时中文 20、英文 50。
 
     历史工厂默认 ``15``（``_LEGACY_FACTORY_DANMU_MAX_CHARS``）按未配置处理，
-  以恢复语言相关默认长度。
+    以恢复语言相关默认长度。仅用于 prompt 契约，不截断上屏文本。
     """
     if lang is None:
         lang = Translator.get_language()
@@ -166,19 +166,12 @@ def resolve_danmu_max_chars(config, *, lang: str | None = None) -> int:
 
 
 def normalize_danmu_display_text(content: str, config, *, lang: str | None = None) -> str:
-    """与 add_text 上屏前一致的截断规则，供去重判断与日志拒因对齐。
+    """与 add_text 上屏前一致的轻量规范化，供去重判断与日志拒因对齐。
 
-    公式化弹幕（自定义库、烂梗库）完整展示；仅 AI 等来源受 danmu_max_chars 限制。
+    仅转字符串并 strip；不按 danmu_max_chars 截断。
     """
-    from app.danmu_pool import is_formula_danmu_text
-
-    raw = str(content).strip()
-    if is_formula_danmu_text(config, raw):
-        return raw
-    max_len = resolve_danmu_max_chars(config, lang=lang)
-    if len(raw) > max_len:
-        return raw[:max_len] + "..."
-    return raw
+    del config, lang  # 保留签名以兼容现有调用方
+    return str(content).strip()
 
 
 def is_persona_name_prefix_enabled(config) -> bool:
@@ -197,11 +190,11 @@ def resolve_danmu_display_text(
     *,
     lang: str | None = None,
 ) -> str:
-    """最终上屏文本：先截断正文，再按需拼接人格显示名前缀。"""
+    """最终上屏文本：规范化正文，再按需拼接人格显示名前缀。"""
     body = normalize_danmu_display_text(content, config, lang=lang)
     if not body or not persona_id or not is_persona_name_prefix_enabled(config):
         return body
-    from app.personae import persona_display_name_with_config
+    from app.persona_display import persona_display_name_with_config
 
     name = persona_display_name_with_config(persona_id, config).strip()
     return f"{name}：{body}" if name else body

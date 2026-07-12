@@ -66,6 +66,12 @@ Desktop.ini
 # Local tool directories
 .agents/
 .trae/
+.codex/
+mcps/
+terminals/
+
+# Local prompt-training experiments (large image datasets, never publish)
+gepa_danmu_prompt_training_*/
 
 # Scratch and draft files
 scratchpad.md

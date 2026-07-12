@@ -340,6 +340,10 @@ export function getOverviewBannerLatestId() {
   return overviewBannerLatestId;
 }
 
+function formatAnnouncementsError(err) {
+  return window.DanmuSupabase?.formatSupabaseError?.(err, '加载失败') || err?.message || '加载失败';
+}
+
 export async function refreshAnnouncementsUnreadBadge() {
   if (!announcementsReadStateLoaded) {
     await loadAnnouncementsReadState();
@@ -363,7 +367,8 @@ export async function refreshAnnouncementsUnreadBadge() {
       return;
     }
     updateAnnouncementsNavBadge(hasUnreadAnnouncements(list));
-  } catch {
+  } catch (err) {
+    console.warn('[announcements] supabase fetch failed', err?.kind || err);
     hideOverviewAnnouncementBanner();
     /* keep current badge state */
   }
@@ -452,7 +457,8 @@ export async function loadAnnouncementsPage() {
     markAnnouncementsRead(items);
     updateAnnouncementsNavBadge(false);
   } catch (err) {
-    list.innerHTML = `<p class="announcements-error">${escapeHtml(err.message || '加载失败')} <button type="button" class="underline font-semibold" id="btnAnnouncementsRetry">重试</button></p>`;
+    const message = formatAnnouncementsError(err);
+    list.innerHTML = `<p class="announcements-error">${escapeHtml(message)} <button type="button" class="underline font-semibold" id="btnAnnouncementsRetry">重试</button></p>`;
     document.getElementById('btnAnnouncementsRetry')?.addEventListener('click', () => {
       loadAnnouncementsPage().catch(console.error);
     });

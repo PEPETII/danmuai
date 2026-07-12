@@ -129,7 +129,7 @@ def test_health_tick_reasserts_scrolling_overlay(topmost_app, qapp, monkeypatch)
     overlay.show()
     qapp.processEvents()
     monkeypatch.setattr(
-        "app.main_display_mixin.get_foreground_hwnd",
+        "app.main_screen_topology_mixin.get_foreground_hwnd",
         lambda: 12345,
     )
     app.__dict__["_last_foreground_hwnd"] = 0
@@ -149,7 +149,7 @@ def test_health_tick_reasserts_floating_panel(topmost_app, qapp, monkeypatch):
     fp_overlay.show()
     qapp.processEvents()
     monkeypatch.setattr(
-        "app.main_display_mixin.get_foreground_hwnd",
+        "app.main_screen_topology_mixin.get_foreground_hwnd",
         lambda: 12345,
     )
     app.__dict__["_last_foreground_hwnd"] = 0
@@ -229,7 +229,7 @@ def test_health_tick_skips_reassert_when_fg_stable_and_not_heartbeat(
     overlay.show()
     qapp.processEvents()
     monkeypatch.setattr(
-        "app.main_display_mixin.get_foreground_hwnd",
+        "app.main_screen_topology_mixin.get_foreground_hwnd",
         lambda: 42,
     )
     app.__dict__["_last_foreground_hwnd"] = 42
@@ -252,7 +252,7 @@ def test_health_tick_reasserts_on_fail_streak(topmost_app, qapp, monkeypatch):
     overlay.show()
     qapp.processEvents()
     monkeypatch.setattr(
-        "app.main_display_mixin.get_foreground_hwnd",
+        "app.main_screen_topology_mixin.get_foreground_hwnd",
         lambda: 42,
     )
     app.__dict__["_last_foreground_hwnd"] = 42
@@ -344,6 +344,10 @@ def test_status_includes_overlay_compat_warning(monkeypatch):
         visible_display_count=lambda: 0,
         build_live_status_snapshot=lambda: None,
         _region_selection_state="idle",
+        latest_displayed_round=0,
+        latest_requested_screenshot_id=0,
+        latest_queued_screenshot_id=0,
+        latest_displayed_screenshot_id=0,
     )
     app.web_runtime_state.set_overlay_compat_warning("fullscreen-risk")
     monkeypatch.setattr(
@@ -373,6 +377,10 @@ def test_status_clears_overlay_compat_warning_when_stopped(monkeypatch):
         visible_display_count=lambda: 0,
         build_live_status_snapshot=lambda: None,
         _region_selection_state="idle",
+        latest_displayed_round=0,
+        latest_requested_screenshot_id=0,
+        latest_queued_screenshot_id=0,
+        latest_displayed_screenshot_id=0,
     )
     app.web_runtime_state.set_overlay_compat_warning("should-not-leak")
     monkeypatch.setattr(
@@ -467,7 +475,7 @@ def test_update_overlay_compat_warning_uses_topmost_lost_when_fail_streak_3(
 
     # 独占全屏风险探测返回 False，确保告警来源是 fail_streak 而非 at_risk
     monkeypatch.setattr(
-        "app.main_display_mixin.probe_exclusive_fullscreen_risk",
+        "app.main_screen_topology_mixin.probe_exclusive_fullscreen_risk",
         lambda **kwargs: False,
     )
 

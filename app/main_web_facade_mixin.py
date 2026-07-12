@@ -329,3 +329,171 @@ class DanmuAppWebFacadeMixin:
             f"fallback_to_default={result.fallback_to_default}"
         )
         return asdict(result)
+
+    # --- GenerationPipeline Host Façade (W-T5-GP-002) ---
+
+    def enqueue_reply_batch_for_pipeline(
+        self,
+        persona_id: str,
+        request_round: int,
+        screenshot_id: int,
+        captured_at: float,
+        scene_generation: int,
+        normalized_items: list[str],
+        *,
+        from_local_fallback: bool = False,
+        from_mic_insert: bool = False,
+        request_started_at: float | None = None,
+        reply_received_at: float | None = None,
+    ) -> None:
+        """GP 入队写回：解析后批次写入 reply_buffer（所有权仍属 DanmuApp）。"""
+        self._enqueue_reply_batch(
+            persona_id,
+            request_round,
+            screenshot_id,
+            captured_at,
+            scene_generation,
+            normalized_items,
+            from_local_fallback=from_local_fallback,
+            from_mic_insert=from_mic_insert,
+            request_started_at=request_started_at,
+            reply_received_at=reply_received_at,
+        )
+
+    def update_stats_from_pipeline(self, *, success: bool = True, count: int = 1) -> None:
+        """GP 统计写回：会话 danmu 计数与 lifetime 累计。"""
+        self._update_stats(success=success, count=count)
+
+    def set_latest_displayed_from_pipeline(
+        self,
+        *,
+        screenshot_round: int,
+        screenshot_id: int,
+    ) -> None:
+        """GP 代龄投影写回：单调递增 latest_displayed_round / screenshot_id。"""
+        self._latest_displayed_round = max(
+            self.latest_displayed_round,
+            int(screenshot_round),
+        )
+        self._latest_displayed_screenshot_id = max(
+            self.latest_displayed_screenshot_id,
+            int(screenshot_id),
+        )
+
+    # --- GenerationPipeline Host Façade (W-T5-GP-003) ---
+
+    def record_undisplayed(self, reason: str, *, persona_id: str = "") -> None:
+        """GP 诊断写回：未上屏 reason 写入 danmu_diagnostics。"""
+        self._record_undisplayed(reason, persona_id=persona_id)
+
+    def track_duplicate_rejection(self, queued, *, match_type: str) -> dict[str, int | str]:
+        """GP 诊断写回：duplicate 损耗统计，供 pipeline log / diagnostics 复用。"""
+        return self._track_duplicate_rejection(queued, match_type=match_type)
+
+    def maybe_duplicate_loss_topup(self, queued, stats: dict[str, int | str]) -> int:
+        """GP 诊断写回：duplicate 损耗触发的公式化池回填条数。"""
+        return self._maybe_duplicate_loss_topup(queued, stats)
+
+    def display_danmu_text(
+        self,
+        content: str,
+        persona_id: str,
+        *,
+        batch_id: int,
+        scene_generation: int,
+        skip_dedup: bool,
+        pre_resolved: bool = False,
+    ):
+        """GP 上屏写回：按 danmu_render_mode 路由 overlay / floating_panel。"""
+        return self._display_danmu_text(
+            content,
+            persona_id,
+            batch_id=batch_id,
+            scene_generation=scene_generation,
+            skip_dedup=skip_dedup,
+            pre_resolved=pre_resolved,
+        )
+
+    # --- GenerationPipeline Host Façade (W-T5-GP-005) ---
+
+    def is_pet_barrage_mode_enabled(self) -> bool:
+        """GP 读侧：桌宠弹幕模式是否启用。"""
+        return self._pet_barrage_mode_enabled()
+
+    def danmu_render_mode(self) -> str:
+        """GP 读侧：弹幕渲染模式（overlay / floating_panel）。"""
+        return self._danmu_render_mode()
+
+    @property
+    def reply_scene_count(self) -> int:
+        """GP 读侧：AI 回复场景句数。"""
+        return int(self._reply_scene_count)
+
+    @property
+    def reply_filler_count(self) -> int:
+        """GP 读侧：AI 回复填充句数。"""
+        return int(self._reply_filler_count)
+
+    def reply_request_id(
+        self,
+        request_round: int,
+        screenshot_id: int,
+        scene_generation: int,
+    ) -> tuple[int, int, int]:
+        """GP 读侧：结构化 request_id 复合键。"""
+        return self._reply_request_id(request_round, screenshot_id, scene_generation)
+
+    def log_reply_pipeline(self, event: str, **fields) -> None:
+        """GP 诊断写回：入队/接收阶段 pipeline 日志。"""
+        self._log_reply_pipeline(event, **fields)
+
+    def log_reply_pipeline_from_queued(
+        self,
+        event: str,
+        queued,
+        *,
+        displayed: bool,
+        **extra,
+    ) -> None:
+        """GP 诊断写回：出队消费阶段 pipeline 日志。"""
+        self._log_reply_pipeline_from_queued(
+            event,
+            queued,
+            displayed=displayed,
+            **extra,
+        )
+
+    @property
+    def current_batch_id(self) -> int:
+        """GP 读侧：当前批次 ID（drop_replaceable_fallbacks 键）。"""
+        return int(self._batch_id)
+
+    def notify_pet_visual_success(self) -> None:
+        """GP 写回：桌宠视觉成功动画 hint。"""
+        self._notify_pet_visual_success()
+
+    def publish_live_status(self) -> None:
+        """GP 写回：刷新 live status 快照。"""
+        self._publish_live_status()
+
+    @property
+    def queue_low_watermark(self) -> int:
+        """GP 读侧：回复队列低水位阈值。"""
+        return int(self._queue_low_watermark)
+
+    def maybe_pool_topup(self) -> int:
+        """GP 写回：公式化弹幕池同屏密度补足。"""
+        return self._maybe_pool_topup()
+
+    def estimated_reply_gap_ms(self) -> int:
+        """GP 读侧：reply_timer 自适应间隔。"""
+        return self._estimated_reply_gap_ms()
+
+    def broadcast_live_overlay_item(self, item, text: str, *, source: str) -> None:
+        """GP 写回：/live-overlay SSE 旁路广播。"""
+        self._broadcast_live_overlay_item(item, text, source=source)
+
+    @property
+    def current_reply_batch(self):
+        """GP 读侧：当前回复批次上下文（锚点更新）。"""
+        return self._current_batch

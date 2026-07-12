@@ -4,6 +4,8 @@
 > **执行前须 grep 复核行号**——本文件是 i18n backlog，不是架构真相源；行号漂移时用 `rg`/Read 工具复算后再改代码。
 > **工单登记**：新 i18n 工单须在 [.local-ai/workorders/工单列表.md](.local-ai/workorders/工单列表.md) 登记 ID；本计划 §3 的 WEB-xx / QT-xx 编号仅为计划内分组，**不**替代工单列表条目。
 
+> **2026-07-12 复核说明**：本文是 2026-07-05 的 backlog 快照，不代表所有条目仍未完成。表格中标为“已有/已用/已实现”的项目应先回读当前源码确认，不得直接重复开工单；源码路径发生拆分时，以 `main.py`、`app/` 和三份 Boundary Guard 登记表为准。已删除的 `app/main_display_mixin.py` 仅作为历史名称保留，当前显示测试入口位于 `app/main_render_coordinator_mixin.py`。
+
 ## 1. 上下文与目标
 
 当前 DanmuAI 切换语言时，Web 控制台和 Qt/Python 侧均存在部分硬编码中文未走 i18n，导致切换到英文后仍显示中文。本项目已有 key-based i18n 基础设施：
@@ -74,10 +76,10 @@
 | `app/web_console_runtime.py:55-297` | 运行时错误 | `未安装 websockets...`、`需要登录令牌` 等 | `webConsoleRuntime.*`、`auth.*`、`config.saveFailed` |
 | `app/web_console_support.py:87-120` | 显示器标签 | `显示器 1` | `display.label` |
 | `app/font_registry.py:58-172` | 字体注册错误 | `字体注册表不可用`、`文件为空` 等 | `fontRegistry.*` |
-| `app/main_display_mixin.py:465-467` | 测试弹幕 | `请至少提供一条弹幕` 等 | `overlay.test.*` |
+| `app/main_render_coordinator_mixin.py`（历史 `main_display_mixin.py:465-467`） | 测试弹幕 | `请至少提供一条弹幕` 等 | `overlay.test.*`；当前已由 `tr()` 接线，先复核而非重复实现 |
 | `app/live_overlay_hub.py:914` | 测试弹幕 | `DanmuAI 测试弹幕` 等 | `liveOverlay.*` |
 | `app/release_channels.py:16-17` | 夸克分享 | `我用夸克网盘给你分享了...` | `releaseChannels.quarkShareText` |
-| `app/ai_butler_service.py` | 配置标签/回复 | `弹幕速度`、`好的，我帮你把弹幕速度调快一些。` | `aiButler.*` |
+| `app/application/ai_butler_service.py` | 配置标签/回复 | `弹幕速度`、`好的，我帮你把弹幕速度调快一些。` | `aiButler.*` |
 | `app/web_api/meme_barrage.py` | 分类标签 | `喷玩机器`、`木柜子` 等 | `memeBarrage.categories.*` |
 
 ## 3. 工单拆分
@@ -233,7 +235,7 @@
   - `app/webview_shell.py`
   - `app/web_console_runtime.py`
   - `app/live_overlay_hub.py`
-  - `app/main_display_mixin.py`
+  - `app/main_render_coordinator_mixin.py`（历史路径 `app/main_display_mixin.py` 已拆分删除）
   - `app/translations_tray.py`、`app/translations_ui.py`
 - **内容**：
   - 启动弃用提示、托盘提示、运行时错误、Live Overlay 测试弹幕、测试注入限制提示改为 `tr()`。
@@ -245,7 +247,7 @@
   - `app/pet/pet_assets.py`
   - `app/pet/pet_barrage.py`
   - `app/pet/pet_command_service.py`
-  - `app/ai_butler_service.py`
+  - `app/application/ai_butler_service.py`
   - `app/web_api/meme_barrage.py`
   - `app/translations_pet.py`、`app/translations_ui.py`、`app/translations_danmu.py`
 - **内容**：

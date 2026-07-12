@@ -4,7 +4,7 @@
 # Default: signing DISABLED. Set DANMU_CODE_SIGN=1 to enable.
 # Credentials via environment variables ONLY — never commit PFX, passwords, or PINs.
 #
-# Docs: docs/operations/WINDOWS_CODE_SIGNING.md
+# Docs: docs/operations/PACKAGING_WINDOWS.md（「代码签名（可选）」章节）
 # Assessment: reports/windows-code-signing-assessment.md
 #
 # Usage:
@@ -27,7 +27,7 @@ Set-Location $Root
 
 if ($env:DANMU_CODE_SIGN -ne "1") {
     Write-Host "Code signing disabled (DANMU_CODE_SIGN is not 1). No action taken."
-    Write-Host "See docs/operations/WINDOWS_CODE_SIGNING.md"
+    Write-Host "See docs/operations/PACKAGING_WINDOWS.md（「代码签名（可选）」章节）"
     exit 0
 }
 
@@ -58,7 +58,7 @@ DANMU_CODE_SIGN=1 but no signing config found.
 Set ONE of:
   VPK_SIGN_PARAMS          (signtool args for vpk pack --signParams)
   VPK_AZURE_TRUSTED_SIGN_FILE  (path to Azure Artifact Signing metadata JSON)
-See docs/operations/WINDOWS_CODE_SIGNING.md
+See docs/operations/PACKAGING_WINDOWS.md（「代码签名（可选）」章节）
 "@
     }
     if ($hasAzure) {

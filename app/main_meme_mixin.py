@@ -25,8 +25,8 @@ class _MemeBarrageBridge(QObject):
 
     fetch_done = pyqtSignal(object)
     fetch_failed = pyqtSignal()
-    ai_select_done = pyqtSignal(object, object, int)
-    ai_select_failed = pyqtSignal(object, int)
+    ai_select_done = pyqtSignal(object, object, int, int, int, int)
+    ai_select_failed = pyqtSignal(object, int, int, int, int)
 
 
 class DanmuAppMemeMixin:
@@ -144,6 +144,7 @@ class DanmuAppMemeMixin:
         if display_timer is not None:
             display_timer.stop()
         service = self.__dict__.get("_meme_barrage_service")
+        self.__dict__["_meme_ai_select_active_request_id"] = 0
         if service is not None:
             service.set_fetch_in_flight(False)
             service.set_ai_select_in_flight(False)
@@ -255,14 +256,30 @@ class DanmuAppMemeMixin:
         service.set_ai_select_in_flight(True)
         pick_count = int(settings["display_batch_size"])
         fallback_n = pick_count
+        request_id = int(self.__dict__.get("_meme_ai_select_request_id", 0)) + 1
+        self.__dict__["_meme_ai_select_request_id"] = request_id
+        self.__dict__["_meme_ai_select_active_request_id"] = request_id
 
         bridge = self._meme_barrage_bridge
 
-        def on_success(selected: list[str]) -> None:
-            bridge.ai_select_done.emit(selected, candidates, fallback_n)
+        def on_success(selected: list[str], input_tokens: int, output_tokens: int) -> None:
+            bridge.ai_select_done.emit(
+                selected,
+                candidates,
+                fallback_n,
+                request_id,
+                input_tokens,
+                output_tokens,
+            )
 
-        def on_error(_message: str) -> None:
-            bridge.ai_select_failed.emit(candidates, fallback_n)
+        def on_error(_message: str, input_tokens: int, output_tokens: int) -> None:
+            bridge.ai_select_failed.emit(
+                candidates,
+                fallback_n,
+                request_id,
+                input_tokens,
+                output_tokens,
+            )
 
         runnable = MemeAiSelectRunnable(
             worker=self.ai_worker,
@@ -281,15 +298,75 @@ class DanmuAppMemeMixin:
         selected: list[str],
         fallback_candidates: list[str],
         fallback_n: int,
+        request_id: int,
+        input_tokens: int,
+        output_tokens: int,
     ) -> None:
         self._on_meme_ai_select_done(
             selected,
             fallback_candidates=fallback_candidates,
             fallback_n=fallback_n,
+            request_id=request_id,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
         )
 
-    def _on_meme_ai_select_failed_signal(self, candidates: list[str], fallback_n: int) -> None:
-        self._on_meme_ai_select_failed(candidates, fallback_n)
+    def _on_meme_ai_select_failed_signal(
+        self,
+        candidates: list[str],
+        fallback_n: int,
+        request_id: int,
+        input_tokens: int,
+        output_tokens: int,
+    ) -> None:
+        self._on_meme_ai_select_failed(
+            candidates,
+            fallback_n,
+            request_id=request_id,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+        )
+
+    def _finish_meme_ai_select(
+        self,
+        service: MemeBarrageService,
+        *,
+        request_id: int,
+        input_tokens: int,
+        output_tokens: int,
+    ) -> bool:
+        if request_id <= 0:
+            service.set_ai_select_in_flight(False)
+            if input_tokens > 0 or output_tokens > 0:
+                self._account_reply_token_usage(input_tokens, output_tokens)
+            return True
+
+        accounted_ids = self.__dict__.setdefault(
+            "_meme_ai_select_accounted_request_ids",
+            set(),
+        )
+        is_duplicate = request_id in accounted_ids
+        if not is_duplicate:
+            accounted_ids.add(request_id)
+            if input_tokens > 0 or output_tokens > 0:
+                self._account_reply_token_usage(input_tokens, output_tokens)
+
+        active_request_id = int(
+            self.__dict__.get("_meme_ai_select_active_request_id", 0)
+        )
+        if request_id != active_request_id:
+            reason = "duplicate_callback" if is_duplicate else "stale_request"
+            self.logger.warning(
+                "meme_ai_select_callback_ignored reason=%s request_id=%s active_request_id=%s",
+                reason,
+                request_id,
+                active_request_id,
+            )
+            return False
+
+        self.__dict__["_meme_ai_select_active_request_id"] = 0
+        service.set_ai_select_in_flight(False)
+        return not is_duplicate
 
     def _on_meme_ai_select_done(
         self,
@@ -297,18 +374,41 @@ class DanmuAppMemeMixin:
         *,
         fallback_candidates: list[str],
         fallback_n: int,
+        request_id: int = 0,
+        input_tokens: int = 0,
+        output_tokens: int = 0,
     ) -> None:
         service = self._ensure_meme_barrage_service()
-        service.set_ai_select_in_flight(False)
+        if not self._finish_meme_ai_select(
+            service,
+            request_id=request_id,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+        ):
+            return
         if selected:
             service.enqueue_display(selected)
         else:
             self.logger.warning("meme_ai_select_failed reason=empty_result")
             service.enqueue_display(fallback_candidates[:fallback_n])
 
-    def _on_meme_ai_select_failed(self, candidates: list[str], fallback_n: int) -> None:
+    def _on_meme_ai_select_failed(
+        self,
+        candidates: list[str],
+        fallback_n: int,
+        *,
+        request_id: int = 0,
+        input_tokens: int = 0,
+        output_tokens: int = 0,
+    ) -> None:
         service = self._ensure_meme_barrage_service()
-        service.set_ai_select_in_flight(False)
+        if not self._finish_meme_ai_select(
+            service,
+            request_id=request_id,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+        ):
+            return
         self.logger.warning("meme_ai_select_failed reason=request_failed")
         service.enqueue_display(candidates[:fallback_n])
 

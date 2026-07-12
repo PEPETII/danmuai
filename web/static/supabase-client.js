@@ -25,6 +25,9 @@
  */
 (function initDanmuSupabase(global) {
   const STORAGE_CLIENT_ID = 'danmu_feedback_client_id';
+  const DEFAULT_FETCH_TIMEOUT_MS = 8000;
+  const SUPABASE_TIMEOUT_MSG = '网络请求超时，请检查网络后重试';
+  const SUPABASE_NETWORK_MSG = '网络连接失败，请稍后重试';
   const FEEDBACK_RATE_LIMIT_MSG = '每 3 小时最多提交 2 条反馈，请稍后再试';
   const ERROR_REPORT_RATE_LIMIT_MSG =
     '每 3 小时最多自动提交 3 条错误报告，请稍后再试或使用侧栏「问题反馈与群聊」';
@@ -77,14 +80,81 @@
     }
   }
 
-  function parseErrorMessage(res, bodyText) {
+  function isRateLimitResponse(res, bodyText) {
     const text = bodyText || '';
-    if (
+    return (
       res.status === 403 ||
       res.status === 401 ||
       /row-level security/i.test(text) ||
       /policy/i.test(text)
-    ) {
+    );
+  }
+
+  function httpErrorKind(res, bodyText) {
+    return isRateLimitResponse(res, bodyText) ? 'rate_limit' : 'http_error';
+  }
+
+  function sanitizeErrorMessage(msg) {
+    let s = String(msg || '');
+    const cfg = config();
+    if (cfg?.anonKey) {
+      s = s.split(cfg.anonKey).join('[redacted]');
+    }
+    s = s.replace(/apikey['":\s]+[^\s'"]+/gi, 'apikey [redacted]');
+    s = s.replace(/Bearer\s+\S+/gi, 'Bearer [redacted]');
+    return s.trim() || '请求失败';
+  }
+
+  function createSupabaseError(message, { kind, status } = {}) {
+    const err = new Error(sanitizeErrorMessage(message));
+    err.kind = kind || 'http_error';
+    if (status != null) err.status = status;
+    return err;
+  }
+
+  function isAbortError(err) {
+    return err?.name === 'AbortError' || err?.code === 20;
+  }
+
+  function mergeAbortSignals(signals) {
+    const controller = new AbortController();
+    for (const sig of signals) {
+      if (!sig) continue;
+      if (sig.aborted) {
+        controller.abort(sig.reason);
+        return controller.signal;
+      }
+      sig.addEventListener('abort', () => controller.abort(sig.reason), { once: true });
+    }
+    return controller.signal;
+  }
+
+  function requestAbortSignal(userSignal, timeoutMs) {
+    const timeoutController = new AbortController();
+    const timer = global.setTimeout(() => timeoutController.abort(), timeoutMs);
+    let signal = timeoutController.signal;
+    if (userSignal) {
+      if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.any === 'function') {
+        signal = AbortSignal.any([userSignal, timeoutController.signal]);
+      } else {
+        signal = mergeAbortSignals([userSignal, timeoutController.signal]);
+      }
+    }
+    return { signal, clearTimer: () => global.clearTimeout(timer) };
+  }
+
+  function formatSupabaseError(err, fallback = '请求失败') {
+    if (!err) return fallback;
+    if (err.kind === 'not_configured') return err.message || '未配置 Supabase';
+    if (err.kind === 'timeout') return SUPABASE_TIMEOUT_MSG;
+    if (err.kind === 'network_error') return SUPABASE_NETWORK_MSG;
+    if (err.kind === 'rate_limit') return err.message || fallback;
+    return err.message || fallback;
+  }
+
+  function parseErrorMessage(res, bodyText) {
+    const text = bodyText || '';
+    if (isRateLimitResponse(res, text)) {
       if (/error_reports/i.test(text) || res.url?.includes('/error_reports')) {
         return ERROR_REPORT_RATE_LIMIT_MSG;
       }
@@ -104,21 +174,44 @@
 
   async function supabaseFetch(path, options = {}) {
     const cfg = config();
-    if (!cfg) throw new Error('未配置 Supabase');
-    const res = await global.fetch(`${cfg.url}${path}`, {
-      ...options,
-      headers: authHeaders(options.headers),
-    });
-    if (!res.ok) {
-      const text = await res.text();
-      const err = new Error(parseErrorMessage(res, text));
-      err.status = res.status;
-      throw err;
+    if (!cfg) {
+      throw createSupabaseError('未配置 Supabase', { kind: 'not_configured' });
     }
-    if (res.status === 204) return null;
-    const text = await res.text();
-    if (!text) return null;
-    return JSON.parse(text);
+
+    const {
+      signal: userSignal,
+      timeoutMs = DEFAULT_FETCH_TIMEOUT_MS,
+      headers,
+      ...fetchOptions
+    } = options;
+    const { signal, clearTimer } = requestAbortSignal(userSignal, timeoutMs);
+
+    try {
+      const res = await global.fetch(`${cfg.url}${path}`, {
+        ...fetchOptions,
+        signal,
+        headers: authHeaders(headers),
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw createSupabaseError(parseErrorMessage(res, text), {
+          kind: httpErrorKind(res, text),
+          status: res.status,
+        });
+      }
+      if (res.status === 204) return null;
+      const text = await res.text();
+      if (!text) return null;
+      return JSON.parse(text);
+    } catch (err) {
+      if (err.kind) throw err;
+      if (isAbortError(err)) {
+        throw createSupabaseError(SUPABASE_TIMEOUT_MSG, { kind: 'timeout' });
+      }
+      throw createSupabaseError(SUPABASE_NETWORK_MSG, { kind: 'network_error' });
+    } finally {
+      clearTimer();
+    }
   }
 
   async function fetchAppUpdate() {
@@ -196,8 +289,11 @@
         }),
       });
     } catch (err) {
-      if (err.status === 403 || err.status === 401) {
-        throw new Error(FEEDBACK_RATE_LIMIT_MSG);
+      if (err.kind === 'rate_limit' || err.status === 403 || err.status === 401) {
+        throw createSupabaseError(FEEDBACK_RATE_LIMIT_MSG, {
+          kind: 'rate_limit',
+          status: err.status,
+        });
       }
       throw err;
     }
@@ -259,8 +355,11 @@
         body: JSON.stringify(body),
       });
     } catch (err) {
-      if (err.status === 403 || err.status === 401) {
-        throw new Error(ERROR_REPORT_RATE_LIMIT_MSG);
+      if (err.kind === 'rate_limit' || err.status === 403 || err.status === 401) {
+        throw createSupabaseError(ERROR_REPORT_RATE_LIMIT_MSG, {
+          kind: 'rate_limit',
+          status: err.status,
+        });
       }
       throw err;
     }
@@ -268,8 +367,12 @@
 
   global.DanmuSupabase = {
     resolveAppVersion,
+    DEFAULT_FETCH_TIMEOUT_MS,
+    SUPABASE_TIMEOUT_MSG,
+    SUPABASE_NETWORK_MSG,
     FEEDBACK_RATE_LIMIT_MSG,
     ERROR_REPORT_RATE_LIMIT_MSG,
+    formatSupabaseError,
     isConfigured,
     getOrCreateClientId,
     fetchAppUpdate,

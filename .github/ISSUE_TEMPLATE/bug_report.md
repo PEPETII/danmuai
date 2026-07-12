@@ -25,10 +25,15 @@ labels: bug
 - Python 版本：
 - DanmuAI 版本/commit：
 - 启动方式：`python main.py` / `python main.py --web-browser`
+- 安装形式：源码 / Velopack Setup / Portable
+- 服务商与模型（请勿填写 API Key）：
+- 是否可稳定复现：是 / 否 / 未知
 
 ## 日志摘要
 
 请勿粘贴完整日志。只贴关键错误行，并确认已脱敏 API Key 和 Token。
+
+如日志中有 `reason=`、HTTP 状态码或请求阶段（截图 / AI / 解析 / 上屏），请一并保留；这比整段日志更便于定位。
 
 ## 截图
 

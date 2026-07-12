@@ -8,12 +8,14 @@ from unittest.mock import MagicMock
 import pytest
 from app.application.web_runtime_state import WebRuntimeState
 from app.web_console import (
-    _SAVE_DONE_EVENT_KEY,
-    _SAVE_RESULT_KEY,
     MainThreadInvokeTimeout,
     WebConsoleBridge,
-    _write_config_save_result,
     save_config_via_bridge,
+)
+from app.web_console_support import (
+    SAVE_DONE_EVENT_KEY,
+    SAVE_RESULT_KEY,
+    write_config_save_result,
 )
 from main import DanmuApp
 
@@ -51,8 +53,8 @@ def test_save_config_via_bridge_returns_success_under_main_thread_load():
     def _emit(payload):
         def _ack():
             time.sleep(0.02)
-            _write_config_save_result(payload[_SAVE_RESULT_KEY], ok=True)
-            payload[_SAVE_DONE_EVENT_KEY].set()
+            write_config_save_result(payload[SAVE_RESULT_KEY], ok=True)
+            payload[SAVE_DONE_EVENT_KEY].set()
 
         threading.Thread(target=_ack, daemon=True).start()
 
@@ -270,6 +272,50 @@ def test_invoke_on_main_timeout_increments_counter():
     assert bridge.invoke_timeout_count() == 1
 
 
+def test_invoke_on_main_timeout_runner_is_noop():
+    """BUG-A-001: queued runner must not execute fn after HTTP side timed out."""
+    from PyQt6.QtCore import QThread
+    from PyQt6.QtWidgets import QApplication
+
+    qt_app = QApplication.instance() or QApplication([])
+    bridge = WebConsoleBridge(MagicMock())
+    gate = threading.Event()
+    hold = threading.Event()
+    called: dict[str, bool] = {}
+    observed: dict[str, object] = {}
+
+    class BlockWorker(QThread):
+        def run(self) -> None:
+            def block_main() -> None:
+                hold.set()
+                gate.wait(timeout=10.0)
+
+            bridge.invoke_on_main(block_main, timeout_sec=10.0)
+
+    def run_timeout_invoke() -> None:
+        if not hold.wait(timeout=2.0):
+            pytest.fail("block_main did not occupy main thread before timeout invoke")
+
+        def tracked_fn() -> None:
+            called["yes"] = True
+
+        try:
+            bridge.invoke_on_main(tracked_fn, timeout_sec=0.05)
+        except MainThreadInvokeTimeout as exc:
+            observed["exc"] = exc
+        finally:
+            gate.set()
+
+    block_worker = BlockWorker()
+    timeout_thread = threading.Thread(target=run_timeout_invoke, daemon=True)
+    block_worker.start()
+    timeout_thread.start()
+    pump_qt_until(qt_app, invoke_worker=block_worker, extra_thread=timeout_thread)
+
+    assert isinstance(observed.get("exc"), MainThreadInvokeTimeout)
+    assert "yes" not in called
+
+
 def test_invoke_on_main_timeout_under_main_thread_load():
     """BUG-072: sync invoke vs save_config on the same Qt thread must not deadlock."""
     from PyQt6.QtCore import QThread
@@ -393,7 +439,7 @@ def test_attach_status_timer_clears_error_when_server_becomes_ready():
         server._thread.join(timeout=1.0)
 
 
-def test_quit_stops_web_status_timer_before_server_shutdown(monkeypatch):
+def test_quit_stops_web_status_timer_before_server_shutdown(monkeypatch, qapp):
     order = []
     pool_results = {
         "capture": True,
@@ -407,7 +453,7 @@ def test_quit_stops_web_status_timer_before_server_shutdown(monkeypatch):
     )
     monkeypatch.setattr("app.worker_pools.wait_all_worker_pools_done", wait_mock)
     quit_mock = MagicMock()
-    monkeypatch.setattr("main.QApplication.quit", quit_mock)
+    monkeypatch.setattr("app.main_lifecycle_mixin.QApplication.quit", quit_mock)
 
     app = SimpleNamespace(
         logger=MagicMock(),
@@ -449,7 +495,7 @@ def test_quit_stops_web_status_timer_before_server_shutdown(monkeypatch):
     quit_mock.assert_called_once_with()
 
 
-def test_quit_logs_warning_when_thread_pool_does_not_finish(monkeypatch):
+def test_quit_logs_warning_when_thread_pool_does_not_finish(monkeypatch, qapp):
     wait_mock = MagicMock(
         return_value={
             "capture": True,
@@ -465,7 +511,7 @@ def test_quit_logs_warning_when_thread_pool_does_not_finish(monkeypatch):
     fake_pool.activeThreadCount.return_value = 1
     fake_pool.maxThreadCount.return_value = 4
     monkeypatch.setattr("app.worker_pools.worker_pool_for_label", lambda _label: fake_pool)
-    monkeypatch.setattr("main.QApplication.quit", MagicMock())
+    monkeypatch.setattr("app.main_lifecycle_mixin.QApplication.quit", MagicMock())
 
     app = SimpleNamespace(
         logger=MagicMock(),
@@ -492,10 +538,11 @@ def test_quit_logs_warning_when_thread_pool_does_not_finish(monkeypatch):
     # global pool timeout — at least one warning
     assert app.logger.warning.call_count >= 1
     args = app.logger.warning.call_args[0]
-    assert args[0].startswith("quit timed out waiting for AI worker thread pool")
+    assert args[0] == "quit timed out waiting for %s active_threads=%s max_threads=%s"
+    assert args[1] == "AI worker thread pool"
 
 
-def test_quit_warns_when_web_console_shutdown_does_not_finish(monkeypatch):
+def test_quit_warns_when_web_console_shutdown_does_not_finish(monkeypatch, qapp):
     import PyQt6.QtCore as qtcore
 
     fake_pool = MagicMock()
@@ -512,7 +559,7 @@ def test_quit_warns_when_web_console_shutdown_does_not_finish(monkeypatch):
     monkeypatch.setattr("app.worker_pools.ai_worker_pool", lambda: fake_pool)
     monkeypatch.setattr("app.worker_pools.meme_ai_pool", lambda: fake_pool)
     monkeypatch.setattr("app.worker_pools.meme_fetch_pool", lambda: fake_pool)
-    monkeypatch.setattr("main.QApplication.quit", MagicMock())
+    monkeypatch.setattr("app.main_lifecycle_mixin.QApplication.quit", MagicMock())
 
     fake_thread = MagicMock()
     fake_thread.is_alive.return_value = True

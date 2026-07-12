@@ -8,8 +8,7 @@ import io
 from PIL import Image
 
 from app.env_config import get as get_env
-
-_DATA_URI_PREFIX = "data:image/jpeg;base64,"
+from app.jpeg_resize import JPEG_DATA_URI_PREFIX
 
 
 def image_metrics_enabled() -> bool:
@@ -19,9 +18,9 @@ def image_metrics_enabled() -> bool:
 
 def jpeg_output_size(data_uri: str) -> tuple[int, int, int]:
     """Return (out_w, out_h, jpeg_bytes) from a JPEG data URI."""
-    if not data_uri.startswith(_DATA_URI_PREFIX):
+    if not data_uri.startswith(JPEG_DATA_URI_PREFIX):
         return 0, 0, len(data_uri)
-    jpeg_bytes = base64.b64decode(data_uri[len(_DATA_URI_PREFIX) :], validate=True)
+    jpeg_bytes = base64.b64decode(data_uri[len(JPEG_DATA_URI_PREFIX) :], validate=True)
     with Image.open(io.BytesIO(jpeg_bytes)) as img:
         out_w, out_h = img.size
     return out_w, out_h, len(jpeg_bytes)

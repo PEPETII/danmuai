@@ -106,7 +106,7 @@
       "每次生成弹幕数": "Danmu per generation",
       "每次固定_5_条_保存后会同步到人格工坊的_输出契约": "Fixed 5 per batch · syncs to Persona Studio「Output contract」after save",
       "外观与行为": "Appearance & behavior",
-      "最大弹幕字数": "Max danmu characters",
+      "最大弹幕字数": "AI danmu target length",
       "去重阈值": "Dedup threshold",
       "回复队列上限": "Reply queue cap",
       "弹幕速度": "Danmu speed",

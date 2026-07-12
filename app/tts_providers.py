@@ -11,13 +11,13 @@ MiMo TTS + 播放链路：
 from __future__ import annotations
 
 import base64
-import json
 import logging
 from dataclasses import dataclass
 from typing import Any, Protocol
 
 import httpx
 
+from app.ai_client_support import extract_http_error_message
 from app.errors import TtsError
 from app.model_providers import normalize_endpoint
 from app.translations import tr
@@ -67,29 +67,6 @@ def tts_audio_unsupported_message(model_id: str) -> str:
     """读弹幕为 TTS 链路；普通 chat 模型响应无 message.audio.data 时提示用户。"""
     mid = (model_id or "").strip() or "?"
     return tr("tts.unsupportedProvider").format(model_id=mid)
-
-
-def _extract_http_error_message(exc: httpx.HTTPStatusError) -> str:
-    try:
-        err_body = exc.response.json()
-    except (json.JSONDecodeError, ValueError):
-        return ""
-    if not isinstance(err_body, dict):
-        return ""
-    message = err_body.get("message")
-    if isinstance(message, str) and message.strip():
-        return message.strip()
-    err = err_body.get("error")
-    if isinstance(err, dict):
-        nested = err.get("message")
-        if isinstance(nested, str) and nested.strip():
-            return nested.strip()
-        code = err.get("code")
-        if code is not None:
-            return str(code)
-    if isinstance(err, str) and err.strip():
-        return err.strip()
-    return ""
 
 
 def normalize_tts_voice(
@@ -321,7 +298,7 @@ def _post_chat_audio(
     except httpx.TimeoutException as exc:
         raise DanmuTtsError(tr("tts.error.timeout")) from exc
     except httpx.HTTPStatusError as exc:
-        detail = _extract_http_error_message(exc)
+        detail = extract_http_error_message(exc)
         code = exc.response.status_code
         raise DanmuTtsError(detail or f"TTS HTTP {code}") from exc
     except httpx.HTTPError as exc:

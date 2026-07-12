@@ -5,7 +5,8 @@ from unittest.mock import MagicMock
 
 import pytest
 from app.config_store import ConfigStore
-from app.personae import BUILTIN_PERSONA_PINNED_FIRST, BUILTIN_PERSONAE, PersonaManager
+from app.persona_builtin import BUILTIN_PERSONA_PINNED_FIRST, BUILTIN_PERSONAE
+from app.persona_manager import PersonaManager
 from app.templates import TemplateManager
 from app.translations import Translator
 from app.web_api import persona as persona_api
@@ -40,7 +41,7 @@ def test_get_template_detail_missing_persona_raises():
     from unittest.mock import MagicMock
 
     from app.config_store import ConfigStore
-    from app.personae import PersonaManager
+    from app.persona_manager import PersonaManager
     from app.templates import TemplateManager
 
     config = ConfigStore()
@@ -404,7 +405,7 @@ def test_put_config_persists_live_topic(persona_app):
 
     from app.application.config_service import apply_web_config_patch
     from app.config_store import ConfigStore
-    from app.personae import append_live_topic_to_system_pt
+    from app.persona_contract import append_live_topic_to_system_pt
 
     store = persona_app.config
     assert store.get("live_topic", "") == ""

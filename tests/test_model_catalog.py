@@ -2,9 +2,16 @@
 
 from app.model_catalog import (
     DASHSCOPE_MODELS,
+    DASHSCOPE_INTL_MODELS,
     DOUBAO_MODELS,
+    FIREWORKS_MODELS,
+    GOOGLE_GEMINI_MODELS,
     MIMO_MODELS,
+    MISTRAL_MODELS,
+    OPENAI_MODELS,
     SILICONFLOW_MODELS,
+    TOGETHER_MODELS,
+    XAI_MODELS,
     ZAI_MODELS,
     catalog_model_ids,
     catalog_model_supports_mic,
@@ -73,7 +80,26 @@ def _platform_by_id(platforms, platform_id):
 
 def test_list_platform_catalogs_has_vision_platforms():
     platforms = list_platform_catalogs()
-    assert len(platforms) == 11
+    assert len(platforms) == 18
+    international = {
+        "openai",
+        "google_gemini",
+        "xai",
+        "mistral",
+        "together",
+        "fireworks",
+        "dashscope_intl",
+        "openrouter",
+        "zai",
+    }
+    for platform in platforms:
+        assert platform["region"] in ("china", "international", "global")
+        if platform["provider_id"] in international:
+            assert platform["region"] == "international"
+        elif platform["provider_id"] == "mimo":
+            assert platform["region"] == "global"
+        elif platform["provider_id"] == "doubao":
+            assert platform["region"] == "china"
     doubao = _platform_by_id(platforms, "doubao")
     assert doubao["provider_id"] == "doubao"
     assert len(doubao["models"]) == 7
@@ -81,6 +107,27 @@ def test_list_platform_catalogs_has_vision_platforms():
     assert dashscope["provider_id"] == "dashscope"
     assert dashscope["platform_label"] == "DashScope"
     assert len(dashscope["models"]) == 10
+    openai = _platform_by_id(platforms, "openai")
+    assert openai["provider_id"] == "openai"
+    assert len(openai["models"]) == 5
+    gemini = _platform_by_id(platforms, "google-gemini")
+    assert gemini["provider_id"] == "google_gemini"
+    assert len(gemini["models"]) == 5
+    xai = _platform_by_id(platforms, "xai")
+    assert xai["provider_id"] == "xai"
+    assert len(xai["models"]) == 5
+    mistral = _platform_by_id(platforms, "mistral")
+    assert mistral["provider_id"] == "mistral"
+    assert len(mistral["models"]) == 5
+    together = _platform_by_id(platforms, "together")
+    assert together["provider_id"] == "together"
+    assert len(together["models"]) == 5
+    fireworks = _platform_by_id(platforms, "fireworks")
+    assert fireworks["provider_id"] == "fireworks"
+    assert len(fireworks["models"]) == 5
+    dashscope_intl = _platform_by_id(platforms, "dashscope-intl")
+    assert dashscope_intl["provider_id"] == "dashscope_intl"
+    assert len(dashscope_intl["models"]) == 5
     siliconflow = _platform_by_id(platforms, "siliconflow")
     assert siliconflow["provider_id"] == "siliconflow"
     assert siliconflow["platform_label"] == "硅基流动"
@@ -96,6 +143,13 @@ def test_list_platform_catalogs_has_vision_platforms():
     all_models = (
         doubao["models"]
         + dashscope["models"]
+        + openai["models"]
+        + gemini["models"]
+        + xai["models"]
+        + mistral["models"]
+        + together["models"]
+        + fireworks["models"]
+        + dashscope_intl["models"]
         + siliconflow["models"]
         + mimo["models"]
         + zai["models"]
@@ -124,6 +178,73 @@ def test_dashscope_catalog_has_no_mic_flagged_models():
     """Omni models removed from catalog (W-MODEL-CATALOG-PROBE-001); VL-only list."""
     enriched = enrich_platform_models(DASHSCOPE_MODELS)
     assert all(not m["supports_mic"] for m in enriched)
+
+
+def test_international_catalog_presets_have_five_models_each():
+    expected = {
+        "openai": (OPENAI_MODELS, {"gpt-5.1", "gpt-5", "gpt-5-mini", "gpt-5-nano", "gpt-4.1"}),
+        "google_gemini": (
+            GOOGLE_GEMINI_MODELS,
+            {
+                "gemini-3.5-flash",
+                "gemini-3.1-pro",
+                "gemini-3-flash",
+                "gemini-2.5-pro",
+                "gemini-2.5-flash",
+            },
+        ),
+        "xai": (
+            XAI_MODELS,
+            {
+                "grok-4.3",
+                "grok-4.20-multi-agent-0309",
+                "grok-4.20-0309-reasoning",
+                "grok-4.20-0309-non-reasoning",
+                "grok-build-0.1",
+            },
+        ),
+        "mistral": (
+            MISTRAL_MODELS,
+            {
+                "mistral-large-2512",
+                "mistral-medium-2508",
+                "mistral-small-2506",
+                "ministral-14b-2512",
+                "ministral-8b-2512",
+            },
+        ),
+        "together": (
+            TOGETHER_MODELS,
+            {
+                "Qwen/Qwen3.5-9B",
+                "google/gemma-4-31B-it",
+                "MiniMaxAI/MiniMax-M3",
+                "moonshotai/Kimi-K2.7-Code",
+                "moonshotai/Kimi-K2.6",
+            },
+        ),
+        "fireworks": (
+            FIREWORKS_MODELS,
+            {
+                "accounts/fireworks/models/kimi-k2p6",
+                "accounts/fireworks/models/qwen3p6-plus",
+                "accounts/fireworks/models/step-3p7-flash-nvfp4",
+                "accounts/fireworks/models/gemma-4-31b-it",
+                "accounts/fireworks/models/qwen3-omni-30b-a3b-instruct",
+            },
+        ),
+        "dashscope_intl": (
+            DASHSCOPE_INTL_MODELS,
+            {"qwen3-vl-flash", "qwen3-vl-plus", "qwen-vl-plus", "qwen-vl-max", "qwen3.5-omni-plus"},
+        ),
+    }
+    for provider_id, (models, ids) in expected.items():
+        assert len(models) == 5
+        assert {m.id for m in models} == ids
+        catalog = get_catalog_for_provider(provider_id)
+        assert catalog is not None
+        assert len(catalog["models"]) == 5
+        assert catalog["region"] == "international"
 
 
 def test_get_catalog_for_provider_doubao():
@@ -228,6 +349,13 @@ def test_catalog_model_ids_doubao():
 def test_default_catalog_model_id_uses_cheapest():
     assert default_catalog_model_id("doubao") == "doubao-seed-1-6-flash-250828"
     assert default_catalog_model_id("dashscope") == "qwen3-vl-flash"
+    assert default_catalog_model_id("openai") == "gpt-5-nano"
+    assert default_catalog_model_id("google_gemini") == "gemini-3.5-flash"
+    assert default_catalog_model_id("xai") == "grok-build-0.1"
+    assert default_catalog_model_id("mistral") == "ministral-8b-2512"
+    assert default_catalog_model_id("together") == "Qwen/Qwen3.5-9B"
+    assert default_catalog_model_id("fireworks") == "accounts/fireworks/models/step-3p7-flash-nvfp4"
+    assert default_catalog_model_id("dashscope_intl") == "qwen3-vl-flash"
     assert default_catalog_model_id("siliconflow") == "Qwen/Qwen3-VL-8B-Instruct"
     assert default_catalog_model_id("mimo") == "mimo-v2.5"
     assert default_catalog_model_id("zai") == "glm-4.6v"
@@ -246,4 +374,5 @@ def test_is_catalog_model_for_provider():
 
 def test_catalog_provider_ids_for_model():
     assert catalog_provider_ids_for_model("glm-4.6v") == frozenset({"zai"})
+    assert catalog_provider_ids_for_model("qwen3-vl-flash") == frozenset({"dashscope", "dashscope_intl"})
     assert catalog_provider_ids_for_model("ep-20260618-custom-vision") == frozenset()

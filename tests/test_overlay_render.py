@@ -317,7 +317,17 @@ def test_apply_display_settings_refreshes_pixmap_on_font_change(overlay_stack):
     assert item._pixmap is not None
 
 
-def test_apply_display_settings_retruncates_on_max_chars_change(overlay_stack):
+def test_display_settings_dirty_ignores_max_chars_change(overlay_stack):
+    store, _engine, overlay = overlay_stack
+    store.set("danmu_max_chars", "80")
+    overlay._sync_applied_display_settings_markers()
+    assert overlay.display_settings_dirty() is False
+
+    store.set("danmu_max_chars", "8")
+    assert overlay.display_settings_dirty() is False
+
+
+def test_apply_display_settings_preserves_content_on_max_chars_change(overlay_stack):
     store, engine, overlay = overlay_stack
     long_text = "这是一段超过八个字的中文测试文案"
     store.set("danmu_max_chars", "80")
@@ -328,42 +338,7 @@ def test_apply_display_settings_retruncates_on_max_chars_change(overlay_stack):
     store.set("danmu_max_chars", "8")
     overlay.apply_display_settings()
 
-    assert len(item.content) <= 11
-    assert item.content.endswith("...")
-
-
-def test_apply_display_settings_keeps_formula_pool_line_untruncated(overlay_stack):
-    store, engine, overlay = overlay_stack
-    long_line = "这是一句保存于公式化弹幕库的超长句子应完整上屏展示"
-    store.set_custom_danmu_pool([long_line])
-    store.set("danmu_max_chars", "80")
-    item = DanmuItem(content=long_line, width=0.0)
-    engine.tracks[0].add(item)
-    overlay.prepare_item_pixmap(item)
-
-    store.set("danmu_max_chars", "8")
-    overlay.apply_display_settings()
-
-    assert item.content == long_line
-
-
-def test_apply_display_settings_keeps_meme_barrage_line_untruncated(overlay_stack):
-    store, engine, overlay = overlay_stack
-    long_line = "瓦批的一天：查看商店，练呲水枪，打开麻麻模拟器，启动！"
-    store.meme_barrage_library_insert_many(
-        [(long_line, None, None)],
-        collected_at=0.0,
-        max_rows=10_000,
-    )
-    store.set("danmu_max_chars", "80")
-    item = DanmuItem(content=long_line, width=0.0)
-    engine.tracks[0].add(item)
-    overlay.prepare_item_pixmap(item)
-
-    store.set("danmu_max_chars", "8")
-    overlay.apply_display_settings()
-
-    assert item.content == long_line
+    assert item.content == long_text
 
 
 def test_item_paint_opacity_includes_global(overlay_stack):

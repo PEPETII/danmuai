@@ -161,14 +161,8 @@ def _submitted_api_key(value: Any) -> str:
 
 
 def _custom_model_identity(model: dict[str, Any]) -> tuple[str, str]:
-    # W-CUSTOMMODEL-SCHEMA-002：优先按 default_model_id 去重，保留 modelId 兜底
     return (
-        str(
-            model.get("default_model_id")
-            or model.get("modelId")
-            or model.get("model")
-            or ""
-        ).strip(),
+        str(model.get("default_model_id") or "").strip(),
         str(model.get("name") or "").strip(),
     )
 
@@ -330,7 +324,7 @@ class ConfigService:
         _clamp_int_key(items, "opacity", 100, 0, 100)
 
         if "normal_recognition_interval_sec" in items or "normal_reply_count" in items:
-            from app.personae import DEFAULT_NORMAL_REPLY_COUNT, NORMAL_REPLY_COUNT_MAX
+            from app.persona_contract import DEFAULT_NORMAL_REPLY_COUNT, NORMAL_REPLY_COUNT_MAX
 
             _clamp_int_key(items, "normal_recognition_interval_sec", 5, 1, 60)
             _clamp_int_key(
@@ -417,7 +411,7 @@ class ConfigService:
                 "scrolling",
             )
         if "pet_barrage_previous_reply_count" in items:
-            from app.personae import DEFAULT_NORMAL_REPLY_COUNT, NORMAL_REPLY_COUNT_MAX
+            from app.persona_contract import DEFAULT_NORMAL_REPLY_COUNT, NORMAL_REPLY_COUNT_MAX
 
             _clamp_int_key(
                 items,
@@ -452,6 +446,7 @@ class ConfigService:
             items["use_thinking"] = "1" if _v in ("1", "true", "yes", "on") else "0"
 
     def _merge_custom_models(self, payload_models: list[Any]) -> list[dict[str, Any]]:
+        from app.config_store import canonicalize_custom_model_profile
         from app.web_api.custom_models import MASKED_KEY
 
         existing = [model for model in self._config.get_custom_models() if isinstance(model, dict)]
@@ -464,7 +459,7 @@ class ConfigService:
         for index, incoming in enumerate(payload_models):
             if not isinstance(incoming, dict):
                 continue
-            row = dict(incoming)
+            row = canonicalize_custom_model_profile(dict(incoming))
             key = (row.get("apiKey") or row.get("api_key") or "").strip()
             previous = existing_by_identity.get(_custom_model_identity(row))
             if previous is None and index < len(existing):

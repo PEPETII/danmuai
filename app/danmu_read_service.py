@@ -18,22 +18,20 @@ from PyQt6.QtCore import QObject, QRunnable, QThreadPool, QTimer, pyqtSignal
 
 from app.application.config_service import MASKED_API_KEY
 from app.translations import tr
-from app.danmu_tts import (
-    TTS_PROBE_TEXT,
-    DanmuTtsError,
-    ResolvedTtsConfig,
-    clamp_read_interval_sec,
-    normalize_tts_voice,
-    resolve_tts_config,
-    synthesize_tts,
-)
 from app.danmu_tts_playback import DanmuTtsPlayback
 from app.model_providers import normalize_endpoint
 from app.tts_providers import (
     MIMO_TTS_MODEL,
+    TTS_PROBE_TEXT,
     TTS_PROVIDER_DASHSCOPE_QWEN,
     TTS_PROVIDER_MIMO,
+    DanmuTtsError,
+    ResolvedTtsConfig,
     _reject_removed_doubao_tts,
+    clamp_read_interval_sec,
+    normalize_tts_voice,
+    resolve_tts_config,
+    synthesize_tts,
     validate_custom_tts_fields,
 )
 

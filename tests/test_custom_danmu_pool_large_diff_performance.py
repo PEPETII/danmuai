@@ -84,3 +84,19 @@ def test_diff_no_change_large_pool_is_noop(tmp_path):
     )
     assert store.custom_danmu_count() == 10_000
     store.close()
+
+
+def test_get_custom_danmu_pool_large_completes_fast(tmp_path):
+    """W-ARCH-DANMU-POOL-PERF-001: paged get_custom_danmu_pool on 10k rows stays fast."""
+    from app.config_store import ConfigStore
+
+    store = ConfigStore(db_path=tmp_path / "large_get.db")
+    store.custom_danmu_insert_many([f"句{k:05d}" for k in range(10_000)])
+
+    start = time.perf_counter()
+    pool = store.get_custom_danmu_pool()
+    elapsed = time.perf_counter() - start
+
+    assert len(pool) == 10_000
+    assert elapsed < 2.0, f"Paged get_custom_danmu_pool took {elapsed:.2f}s, expected < 2s"
+    store.close()

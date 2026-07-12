@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from app.personae import normal_reply_count_from_config
+from app.persona_contract import normal_reply_count_from_config
 from app.translations import Translator
 
 if TYPE_CHECKING:

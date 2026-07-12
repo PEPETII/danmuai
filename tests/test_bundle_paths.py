@@ -1,4 +1,6 @@
 
+import json
+
 import pytest
 from app.bundle_paths import is_frozen, project_root
 
@@ -29,13 +31,15 @@ def test_feedback_static_images_packaged():
 
 def test_feedback_page_in_index_html():
     html = (project_root() / "web" / "static" / "index.html").read_text(encoding="utf-8")
-    assert 'data-page="feedback"' in html
+    assert 'data-page="guide"' in html
+    assert 'data-guide-tab="feedback"' in html
     assert 'id="page-feedback"' in html
     assert 'id="feedbackForm"' in html
     assert 'id="feedbackContent"' in html
+    assert 'id="feedbackCommunityQq"' in html
     assert "/static/image/qrcode_1779738450536.jpg" in html
     assert 'id="rewardModal"' in html
-    assert "提交时会自动附带当前运行信息（已脱敏）" in html
+    assert "附带当前运行信息（推荐）" in html
 
 
 def test_feedback_context_module_exists():
@@ -49,7 +53,8 @@ def test_feedback_context_module_exists():
 
 def test_announcements_page_in_index_html():
     html = (project_root() / "web" / "static" / "index.html").read_text(encoding="utf-8")
-    assert 'data-page="announcements"' in html
+    assert 'data-page="guide"' in html
+    assert 'data-guide-tab="announcements"' in html
     assert 'id="page-announcements"' in html
     assert 'id="announcementsList"' in html
     assert 'id="announcementsNavBadge"' in html
@@ -492,3 +497,45 @@ def test_danmuai_spec_includes_pet_default_assets():
     )
     # 同时确认源路径出现在源端（str(root / "data" / "pet" / "default") 形式）
     assert "data" in spec_text and "pet" in spec_text and "default" in spec_text
+
+
+def test_en_hides_meme_formula_tab_in_danmu_pool():
+    """W-I18N-EN-HIDE-MEME-FORMULA-TAB-001: 英文态隐藏烂梗公式化 tab 并切到 custom。"""
+    root = project_root()
+    meme_js = (root / "web" / "static" / "modules" / "app-meme-barrage-page.js").read_text(
+        encoding="utf-8"
+    )
+    html = (root / "web" / "static" / "index.html").read_text(encoding="utf-8")
+    assert "export function applyDanmuPoolLanguageLayout" in meme_js
+    assert "getLanguage()" in meme_js
+    assert "onLanguageChanged" in meme_js
+    assert "switchDanmuPoolTab('custom')" in meme_js
+    assert 'data-danmu-pool-tab="meme"' in html
+    assert 'id="danmuPoolTabBtn-meme"' in html
+    assert 'data-danmu-pool-panel="custom"' in html
+
+
+def test_feedback_community_entry_switches_by_language():
+    """W-I18N-GUIDE-COMMUNITY-DISCORD-MOCK-001: 反馈页按语言切换 QQ / Discord mock 入口。"""
+    root = project_root()
+    zh_nav = json.loads((root / "web" / "static" / "locales" / "zh" / "nav.json").read_text(encoding="utf-8"))
+    en_nav = json.loads((root / "web" / "static" / "locales" / "en" / "nav.json").read_text(encoding="utf-8"))
+    zh_content = json.loads(
+        (root / "web" / "static" / "locales" / "zh" / "content.json").read_text(encoding="utf-8")
+    )
+    en_content = json.loads(
+        (root / "web" / "static" / "locales" / "en" / "content.json").read_text(encoding="utf-8")
+    )
+    feedback_js = (root / "web" / "static" / "modules" / "content-feedback.js").read_text(encoding="utf-8")
+    html = (root / "web" / "static" / "index.html").read_text(encoding="utf-8")
+    assert "群聊" in zh_nav["nav"]["guide"]
+    assert "Chat" in en_nav["nav"]["guide"]
+    assert "Discord_群聊_mock_链接" in zh_content["content"]["text"]
+    assert "Discord_mock_占位说明" in en_content["content"]["text"]
+    assert "DISCORD_MOCK_INVITE_URL" in feedback_js
+    assert "discord.gg/danmuai-mock" in feedback_js
+    assert "getLanguage()" in feedback_js
+    assert "onLanguageChanged" in feedback_js
+    assert 'id="feedbackCommunityQq"' in html
+    assert 'id="feedbackCommunityDiscord"' in html
+    assert "qrcode_1779738450536.jpg" in html

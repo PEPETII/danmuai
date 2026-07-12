@@ -14,16 +14,17 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from app.personae import (
-    BUILTIN_PERSONAE,
-    PersonaManager,
-    default_user_prompt,
+from app.persona_builtin import BUILTIN_PERSONAE, normalize_persona_name, validate_persona_name
+from app.persona_contract import (
+    append_live_topic_to_system_pt,
+    append_nickname_to_system_pt,
     ensure_reply_contract,
     get_reply_contract,
     strip_reply_contract,
     strip_system_style,
 )
-from app.persona_contract import append_nickname_to_system_pt, append_live_topic_to_system_pt
+from app.persona_manager import PersonaManager
+from app.persona_display import default_user_prompt
 from app.templates import TemplateManager
 from app.translations import Translator, tr
 
@@ -56,7 +57,7 @@ def get_template_detail(app: "DanmuApp", name: str) -> dict[str, Any]:
     personae: PersonaManager = app.personae
     templates: TemplateManager = app.templates
 
-    from app.personae import normalize_persona_name
+    from app.persona_builtin import normalize_persona_name
 
     name = normalize_persona_name(name)
     if name not in personae.list():
@@ -87,15 +88,14 @@ def get_template_detail(app: "DanmuApp", name: str) -> dict[str, Any]:
 
 
 def list_versions(app: "DanmuApp", name: str) -> list[dict[str, Any]]:
-    from app.persona_version_history import list_versions as list_persona_versions
-    from app.personae import normalize_persona_name
+    from app.persona_builtin import normalize_persona_name
 
     name = normalize_persona_name(name)
-    return list_persona_versions(app.templates, name)
+    return app.templates.versions(name)
 
 
 def save_template(app: "DanmuApp", name: str, system_custom: str, user_pt: str, label: str = "") -> None:
-    from app.personae import normalize_persona_name
+    from app.persona_builtin import normalize_persona_name
 
     name = normalize_persona_name(name)
 
@@ -122,7 +122,7 @@ def save_template(app: "DanmuApp", name: str, system_custom: str, user_pt: str, 
 
 
 def rollback_preview(app: "DanmuApp", name: str, version: int) -> dict[str, Any]:
-    from app.personae import normalize_persona_name
+    from app.persona_builtin import normalize_persona_name
 
     name = normalize_persona_name(name)
     system_pt, user_pt = app.templates.load(name, version)
@@ -134,7 +134,7 @@ def rollback_preview(app: "DanmuApp", name: str, version: int) -> dict[str, Any]
 
 
 def create_persona(app: "DanmuApp", name: str) -> dict[str, Any]:
-    from app.personae import normalize_persona_name, validate_persona_name
+    from app.persona_builtin import normalize_persona_name, validate_persona_name
 
     name = normalize_persona_name(validate_persona_name(name))
     if name in app.personae.list():
@@ -149,7 +149,7 @@ def create_persona(app: "DanmuApp", name: str) -> dict[str, Any]:
 
 
 def delete_persona(app: "DanmuApp", name: str) -> None:
-    from app.personae import normalize_persona_name
+    from app.persona_builtin import normalize_persona_name
 
     name = normalize_persona_name(name)
     if name in BUILTIN_PERSONAE:
@@ -159,7 +159,7 @@ def delete_persona(app: "DanmuApp", name: str) -> None:
 
 
 def restore_builtin_default(app: "DanmuApp", name: str) -> dict[str, Any]:
-    from app.personae import normalize_persona_name
+    from app.persona_builtin import normalize_persona_name
 
     name = normalize_persona_name(name)
     if name not in BUILTIN_PERSONAE:

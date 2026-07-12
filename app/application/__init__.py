@@ -12,4 +12,6 @@
     - 只读数据须经 DanmuApp 公开 property 或 DanmuAppWebFacadeMixin 方法
     - generation_pipeline.py 行为层可写回 DanmuApp 字段（由 boundary_guard 治理），
       但读路径仍应优先公开 façade（如 optional_* 访问器）
+    - 显示路由方法（如 _display_danmu_text）现分布于 main_render_coordinator_mixin 等
+      DanmuApp Mixin，仍经 DanmuApp 实例调用（W-ARCH-DANMUAPP-SPLIT-001）
 """

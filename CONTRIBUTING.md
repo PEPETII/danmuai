@@ -39,8 +39,8 @@ python scripts/boundary_guard.py
 
 - 不要提交 API Key、日志、截图、`%APPDATA%/DanmuAI/` 下的本地数据库或 `.key` 文件。
 - 不要把调试截图、缓存目录、`.coverage`、`__pycache__`、`.pytest_cache` 带入版本库。
-- 新功能或行为变化需要同步更新 `README.md`、`docs/WEB_CONSOLE.md`（若涉及 Web API/UI）和 `docs/CHANGELOG.md`。
-- 修改文档时，请同步更新 `docs/CHANGELOG.md` 与相关 docs 页面。
+- 新功能或行为变化需要同步更新 `README.md`、[项目技术上下文](.local-ai/prompts/ai-project-context.md)（若涉及 Web API/UI）和 [CHANGELOG](docs/operations/CHANGELOG.md)。
+- 修改维护者文档时，请同步更新 [CHANGELOG](docs/operations/CHANGELOG.md) 与对应的 Boundary Guard 登记表（若触达线程、状态或架构边界）。
 
 ## Issue 与 PR
 

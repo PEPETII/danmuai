@@ -11,6 +11,7 @@ import re
 from app.bundle_paths import project_root
 
 FEED_KEY = "releases/win/stable/releases.win.json"
+FEED_ALIAS_KEY = "releases/win/stable"
 SCRIPT_PATH = project_root() / "scripts" / "upload_r2_release.ps1"
 
 
@@ -40,19 +41,21 @@ def test_r2_upload_feed_not_in_initial_array() -> None:
     assert "$feed" not in block
 
 
-def test_r2_upload_feed_appended_last() -> None:
-    """BUG-011 (R2): the final $uploads += line must append the feed."""
+def test_r2_upload_feed_metadata_appended_last() -> None:
+    """BUG-011 (R2): feed metadata must be appended after binary assets."""
     append_lines = _upload_append_lines(_script_text())
     assert append_lines, "expected at least one $uploads += line for feed"
     feed_lines = [line for line in append_lines if "releases.win.json" in line or "$feed" in line]
-    assert len(feed_lines) == 1, f"feed must be appended exactly once, got: {feed_lines}"
-    assert append_lines[-1] == feed_lines[0], (
-        "releases.win.json feed append must be the last $uploads += statement"
+    assert len(feed_lines) == 2, f"feed metadata must be appended exactly twice, got: {feed_lines}"
+    assert append_lines[-2:] == feed_lines, (
+        "feed metadata append statements must be the final $uploads += statements"
     )
 
 
 def test_r2_upload_feed_last_guard_present() -> None:
     """BUG-011 (R2): runtime guard must abort if feed is not last in $uploads."""
     text = _script_text()
-    assert "releases.win.json must be uploaded last" in text
-    assert "$uploads[-1].Key -ne $feedKey" in text
+    assert "feed metadata must be uploaded last" in text
+    assert "$uploads[-2].Key -ne $feedKey" in text
+    assert "$uploads[-1].Key -ne $feedAliasKey" in text
+    assert FEED_ALIAS_KEY in text

@@ -155,7 +155,14 @@ class FakeConfig:
         self.values["mic_api_key_encrypted"] = "enc"
 
     def get_custom_models(self):
-        return list(self.values.get("custom_models", []))
+        from app.config_store.crypto import canonicalize_custom_model_profile
+
+        raw = self.values.get("custom_models", [])
+        return [
+            canonicalize_custom_model_profile(dict(m))
+            for m in raw
+            if isinstance(m, dict)
+        ]
 
     def get_mic_devices(self):
         return list(self.values.get("mic_devices", []))

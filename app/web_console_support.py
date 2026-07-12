@@ -13,14 +13,7 @@ from typing import TYPE_CHECKING, Any
 from app.application.config_service import MASKED_API_KEY, WEB_CONFIG_KEYS, apply_web_config_patch
 from app.errors import AppError
 from app.translations import tr
-from app.logger import (
-    API_KEY_PATTERN,
-    AUTH_HEADER_PATTERN,
-    BASE64_AUDIO_PATTERN,
-    BASE64_IMAGE_PATTERN,
-    ENCRYPTED_KEY_PATTERN,
-    GENERIC_API_KEY_PATTERN,
-)
+from app.logger import sanitize_sensitive_text
 
 if TYPE_CHECKING:
     from app.web_console import WebConsoleBridge
@@ -105,15 +98,7 @@ def summarize_config_save_error(detail: object, *, max_len: int = SAVE_CONFIG_ER
     text = str(detail or "").strip()
     if not text:
         return tr("config.saveFailedGeneric")
-    text = API_KEY_PATTERN.sub("sk-****", text)
-    text = BASE64_IMAGE_PATTERN.sub("data:image/***;base64,(hidden)", text)
-    text = BASE64_AUDIO_PATTERN.sub("data:audio/***;base64,(hidden)", text)
-    text = AUTH_HEADER_PATTERN.sub("Authorization: Bearer (hidden)", text)
-    text = ENCRYPTED_KEY_PATTERN.sub("gAAAA****(hidden)", text)
-    text = GENERIC_API_KEY_PATTERN.sub("(api_key: ****)", text)
-    if len(text) <= max_len:
-        return text
-    return f"{text[:max_len]}…"
+    return sanitize_sensitive_text(text, max_len=max_len)
 
 
 def _screen_label(index: int, width: int, height: int) -> str:
@@ -247,7 +232,7 @@ def export_config(config) -> dict[str, Any]:
         resolve_active_model_id,
     )
     from app.model_selection import resolve_model_status
-    from app.personae import normal_reply_count_from_config
+    from app.persona_contract import normal_reply_count_from_config
     from app.web_api.capture_region import capture_region_mode
     from app.web_api.custom_models import _mask_model
 
@@ -289,18 +274,14 @@ def _thinking_supported(config, active_model_id: str) -> bool:
     if not mid or not catalog_model_supports_thinking_toggle(mid):
         return False
 
-    # 优先检查自定义模型档案（W-CUSTOMMODEL-SCHEMA-002：default_model_id 优先于 modelId）
-    custom_models = config.get_custom_models()
-    for model in custom_models:
-        if isinstance(model, dict):
-            entry_id = (
-                model.get("default_model_id") or model.get("modelId") or ""
-            ).strip()
-            if entry_id == active_model_id:
-                endpoint = model.get("endpoint") or ""
-                api_mode = model.get("mode") or ""
-                caps = get_capabilities_for_model(active_model_id, endpoint, api_mode)
-                return caps.thinking_param_style != "none"
+    from app.model_providers import find_custom_model_profile
+
+    model = find_custom_model_profile(config.get_custom_models(), active_model_id)
+    if model is not None:
+        endpoint = model.get("endpoint") or ""
+        api_mode = model.get("mode") or ""
+        caps = get_capabilities_for_model(active_model_id, endpoint, api_mode)
+        return caps.thinking_param_style != "none"
 
     # 全局 api_endpoint + api_mode
     endpoint = config.get("api_endpoint") or ""

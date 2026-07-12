@@ -64,6 +64,8 @@ def placeholder_image_data_uri() -> str:
 
 
 def _resolve_supports_mic_declared(danmu_app, model_id: str):
+    from app.model_providers import custom_model_profile_id, find_custom_model_profile
+
     try:
         config = danmu_app.config
     except (AttributeError, RuntimeError):
@@ -73,10 +75,10 @@ def _resolve_supports_mic_declared(danmu_app, model_id: str):
     default_id = (config.get_default_model_id() or "").strip()
     if default_id != (model_id or "").strip():
         return None
-    for entry in config.get_custom_models():
-        if (entry.get("modelId") or "").strip() == default_id:
-            return entry.get("supportsMic")
-    return None
+    entry = find_custom_model_profile(config.get_custom_models(), default_id)
+    if entry is None:
+        return None
+    return entry.get("supportsMic")
 
 
 def _probe_result_from_ai(outcome: AiProbeResult) -> MicSendProbeResult:

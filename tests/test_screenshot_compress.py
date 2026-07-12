@@ -3,17 +3,20 @@
 from __future__ import annotations
 
 import base64
+import io
 import statistics
 import time
 
+from app.image_compress import compress_image_bytes
+from app.jpeg_resize import JPEG_DATA_URI_PREFIX
 from app.screenshot_compress import (
     IMAGE_JPEG_QUALITY,
     IMAGE_MAX_WIDTH,
     compress_screenshot,
 )
+from PIL import Image
 from PyQt6.QtGui import QColor, QImage, QPixmap
-
-_DATA_URI_PREFIX = "data:image/jpeg;base64,"
+import pytest
 
 
 def _make_pixmap(width: int, height: int, *, color: QColor | None = None) -> QPixmap:
@@ -23,8 +26,8 @@ def _make_pixmap(width: int, height: int, *, color: QColor | None = None) -> QPi
 
 
 def _jpeg_bytes_from_uri(data_uri: str) -> bytes:
-    assert data_uri.startswith(_DATA_URI_PREFIX)
-    return base64.b64decode(data_uri[len(_DATA_URI_PREFIX) :], validate=True)
+    assert data_uri.startswith(JPEG_DATA_URI_PREFIX)
+    return base64.b64decode(data_uri[len(JPEG_DATA_URI_PREFIX) :], validate=True)
 
 
 def _decoded_size(data_uri: str) -> tuple[int, int]:
@@ -41,12 +44,12 @@ def test_compress_screenshot_constants():
 
 def test_compress_screenshot_data_uri_prefix(qapp):
     uri = compress_screenshot(_make_pixmap(640, 480))
-    assert uri.startswith(_DATA_URI_PREFIX)
+    assert uri.startswith(JPEG_DATA_URI_PREFIX)
 
 
 def test_compress_screenshot_non_empty_payload(qapp):
     uri = compress_screenshot(_make_pixmap(640, 480))
-    payload = uri[len(_DATA_URI_PREFIX) :]
+    payload = uri[len(JPEG_DATA_URI_PREFIX) :]
     assert payload
     _jpeg_bytes_from_uri(uri)
 
@@ -86,8 +89,55 @@ def test_compress_screenshot_benchmark_repeatable(qapp):
         started = time.perf_counter()
         uri = compress_screenshot(pixmap, max_width=768, quality=85)
         timings_ms.append((time.perf_counter() - started) * 1000.0)
-        assert uri.startswith(_DATA_URI_PREFIX)
+        assert uri.startswith(JPEG_DATA_URI_PREFIX)
         assert _jpeg_bytes_from_uri(uri)
 
     median_ms = statistics.median(timings_ms)
     assert median_ms < 500.0
+
+
+def _pil_rgb_to_qpixmap(pil_image: Image.Image) -> QPixmap:
+    rgba = pil_image.convert("RGBA")
+    w, h = rgba.size
+    qimage = QImage(rgba.tobytes("raw", "RGBA"), w, h, QImage.Format.Format_RGBA8888)
+    pixmap = QPixmap.fromImage(qimage)
+    if pixmap.isNull():
+        raise RuntimeError("Failed to convert PIL image to QPixmap.")
+    return pixmap
+
+
+def _make_jpeg_bytes(width: int, height: int) -> bytes:
+    img = Image.new("RGB", (width, height), color=(255, 100, 100))
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG")
+    return buf.getvalue()
+
+
+@pytest.mark.parametrize(
+    ("width", "height"),
+    [
+        (1920, 1080),
+        (1024, 768),
+        (200, 200),
+    ],
+)
+def test_both_pipelines_output_size_within_5_percent(qapp, width, height):
+    """PIL bytes path vs Qt QPixmap path on the same synthetic image."""
+    max_width = IMAGE_MAX_WIDTH
+    quality = IMAGE_JPEG_QUALITY
+    data = _make_jpeg_bytes(width, height)
+
+    pil_result = compress_image_bytes(data, max_width=max_width, quality=quality)
+    pil_bytes = pil_result["jpeg_bytes"]
+
+    pixmap = _pil_rgb_to_qpixmap(Image.open(io.BytesIO(data)))
+    qt_uri = compress_screenshot(pixmap, max_width=max_width, quality=quality)
+    qt_bytes = len(_jpeg_bytes_from_uri(qt_uri))
+
+    assert pil_bytes > 0
+    assert abs(qt_bytes - pil_bytes) / pil_bytes < 0.05
+
+    pil_out_w, pil_out_h = pil_result["out_w"], pil_result["out_h"]
+    qt_out_w, qt_out_h = _decoded_size(qt_uri)
+    assert pil_out_w == qt_out_w
+    assert abs(pil_out_h - qt_out_h) <= 1

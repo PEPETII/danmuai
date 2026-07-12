@@ -170,7 +170,7 @@ def test_ws_status_max_connections_capped():
     """BUG-038: reject excess /ws/status clients before register_status_consumer."""
     from contextlib import ExitStack
 
-    from app.web_console import _WS_MAX_STATUS_CONSUMERS
+    from app.web_console_ws import _WS_MAX_STATUS_CONSUMERS
     from fastapi.testclient import TestClient
     from starlette.websockets import WebSocketDisconnect
 
@@ -207,7 +207,7 @@ def test_ws_logs_max_connections_capped():
     """S-026: reject excess /ws/logs clients before register_log_consumer."""
     from contextlib import ExitStack
 
-    from app.web_console import _WS_MAX_LOG_CONSUMERS
+    from app.web_console_ws import _WS_MAX_LOG_CONSUMERS
     from fastapi.testclient import TestClient
     from starlette.websockets import WebSocketDisconnect
 
@@ -231,6 +231,29 @@ def test_ws_logs_max_connections_capped():
         assert len(bridge._ws_log_queues) == _WS_MAX_LOG_CONSUMERS
 
     assert len(bridge._ws_log_queues) == 0
+
+
+def test_ws_logs_dotted_token_replay_is_sanitized():
+    from app.logger import SanitizedLogger
+    from fastapi.testclient import TestClient
+    from tests.web_console_helpers import make_status_app
+
+    token = "ws-test-token-sanitized-log"
+    jwt = "fakeHead.fakePayload123456.fakeSignature789012"
+    danmu_app = make_status_app()
+    danmu_app.logger = SanitizedLogger()
+    bridge = WebConsoleBridge(danmu_app)
+    danmu_app.logger.error(f"provider Authorization: Bearer {jwt}")
+
+    app = build_ws_logs_test_app(bridge, token)
+    client = TestClient(app)
+    with client.websocket_connect(f"/ws/logs?ws_token={token}") as ws:
+        payload = ws.receive_json()
+
+    assert payload["level"] == "ERROR"
+    for part in jwt.split("."):
+        assert part not in payload["message"]
+    assert "Authorization: Bearer" in payload["message"]
 
 
 def test_send_json_with_timeout_returns_false_on_slow_client():

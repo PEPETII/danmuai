@@ -15,11 +15,20 @@ Closes #
 
 ## 自检清单
 
-- [ ] 已运行 `python -m pytest tests/ -q`，测试通过
+- [ ] 已记录基线 commit、开工前工作树状态和定向测试基线
+- [ ] 已按改动范围分批运行相关 `tests/test_*.py -q -x`，并记录每批通过/失败数；未由 Agent 本地执行全量 pytest
 - [ ] 未引入 API Key、日志、截图等敏感文件
-- [ ] **Web 默认路径**：`python -m pytest tests/test_web_console.py tests/test_web_persona_api.py tests/test_web_custom_models.py tests/test_image_compress.py tests/test_ui_mode.py -q`（若触及 Web/API/UI）
+- [ ] **Web/API/UI**：已运行相关 Web 测试批次并带 `-q -x`；触达编排、Web API 或 `DanmuApp` 主链路时已运行 `python scripts/boundary_guard.py`
 - [ ] 如涉及 Web UI 变更，已对照 `prototype/Qwen_html_*.html`
-- [ ] 已更新 `README.md` 或 `docs/CHANGELOG.md`（如需要）；若面向国际贡献者，可同步 `README.en.md`
+- [ ] 已按需要更新 `README.md`、`docs/operations/CHANGELOG.md`、架构登记表或工单状态
+- [ ] 已列出手动验证结果、未验证路径、兼容旧契约的消费者和回滚方式
+
+## 验证结果与风险
+
+- 实际运行的命令与结果：
+- 未覆盖的路径（需谁手动验证）：
+- 兼容旧客户端/缓存/服务端的说明：
+- 回滚方式：
 
 ## 截图/录屏
 

@@ -1,38 +1,34 @@
 """AI 请求构建与流式解析：豆包 Responses / OpenAI Chat Completions 双 API 路径。
-
 默认关闭思考以降低延迟；用户开启 ``use_thinking`` 且模型目录声明 ``hybrid`` 时按各平台
 官方参数注入（``thinking.type`` 或 ``enable_thinking``）。流式解析只收集 content，
 忽略 reasoning_content（思考内容不应作为弹幕）。
-
 MiMo 特殊路径：mimo-v2.5 走 Chat Completions input_audio + input_audio.data（data URI）。
 """
-
 from __future__ import annotations
-
-import json
 import logging
-import time
-
 import httpx
-
 from app.ai_client_support import (
     DEFAULT_MAX_TOKENS,
     AiProbeResult,
-    format_http_status_error,
+    _StreamAttemptResult,
+    execute_stream_request_with_retry,
+    format_credential_error,
+    format_mic_credential_error,
+    get_model_config,
     resolve_danmu_max_output_tokens,
+    resolve_mic_request_credentials,
+    resolve_request_credentials,
+    resolve_request_credentials_for_persona,
+    visual_credentials_ready,
 )
 from app.main_helpers import STREAM_FIRST_CONTENT_TIMEOUT_SEC
 from app.model_providers import (
     get_capabilities_for_model,
     get_openai_adapter_for_model,
-    is_valid_endpoint,
     model_supports_mic_audio,
     normalize_endpoint,
-    normalize_mode,
 )
 from app.providers import (
-    get_capabilities_for_endpoint,
-    get_openai_adapter,
     is_minimax_endpoint,
     provider_extra_headers,
 )
@@ -40,18 +36,13 @@ from app.model_catalog import catalog_model_supports_thinking_toggle
 from app.providers.constants import THINKING_DISABLED, THINKING_ENABLED
 from app.providers.thinking import apply_thinking_mode
 from app.translations import tr
-
 logger = logging.getLogger(__name__)
-
-
 def _effective_use_thinking(caps, model_id: str, config_use_thinking: bool) -> bool:
     return (
         config_use_thinking
         and caps.thinking_param_style != "none"
         and catalog_model_supports_thinking_toggle(model_id)
     )
-
-
 def _resolve_request_timing(
     worker,
     *,
@@ -63,161 +54,6 @@ def _resolve_request_timing(
     if started_at is None:
         started_at = getattr(worker, "_request_started_at", None)
     return deadline_at, started_at
-
-
-def _request_wall_clock_exceeded(*, deadline_at: float | None) -> bool:
-    if deadline_at is None:
-        return False
-    return time.monotonic() > float(deadline_at)
-
-
-def _raise_if_wall_clock_exceeded(*, deadline_at: float | None) -> None:
-    if _request_wall_clock_exceeded(deadline_at=deadline_at):
-        raise httpx.TimeoutException("request wall clock exceeded")
-
-
-def get_model_config(config) -> dict:
-    default_model_id = (config.get_default_model_id() or "").strip()
-    if not default_model_id:
-        return {}
-    custom_models = config.get_custom_models()
-    for model in custom_models:
-        entry_id = (model.get("default_model_id") or model.get("modelId") or "").strip()
-        if entry_id == default_model_id:
-            return model
-    return {}
-
-
-def resolve_request_credentials(config) -> tuple[str, str, str, str] | None:
-    """Resolve visual AI credentials from the active custom_models profile.
-
-    W-GLOBAL-VISUAL-APIKEY-REMOVE-001: legacy global api_key/api_endpoint/api_mode
-    fallback removed. Returns None when no complete custom_models profile matches
-    default_model_id; callers surface a credential-gap error to the user.
-    """
-    model_config = get_model_config(config)
-    if not model_config:
-        return None
-    endpoint = normalize_endpoint(model_config.get("endpoint", ""))
-    api_key = (model_config.get("apiKey") or "").strip()
-    model_id = (
-        model_config.get("default_model_id") or model_config.get("modelId") or ""
-    ).strip()
-    api_mode = normalize_mode(model_config.get("mode", ""))
-    if not endpoint or not api_key or not model_id:
-        return None
-    return endpoint, api_key, model_id, api_mode
-
-
-def visual_credentials_ready(config) -> bool:
-    """True when visual AI requests can resolve endpoint, key, and model."""
-    return resolve_request_credentials(config) is not None
-
-
-def _read_persona_model_bindings(config) -> dict:
-    """轻量内联 helper：直接 JSON 解析 persona_model_bindings，避免导入 PersonaManager（防循环依赖）。"""
-    raw = config.get("persona_model_bindings", "{}")
-    try:
-        loaded = json.loads(raw)
-        return loaded if isinstance(loaded, dict) else {}
-    except (json.JSONDecodeError, TypeError):
-        return {}
-
-
-def resolve_request_credentials_for_persona(
-    config, persona_id: str = ""
-) -> tuple[str, str, str, str] | None:
-    """W-PERSONA-MODEL-BIND-001：按人格绑定模型解析凭证。
-
-    persona_id 非空 → 读 persona_model_bindings[persona_id]：
-      - 绑定存在且对应 custom_model 档案完整（is_model_config_complete）→ 返回该档案 (endpoint, apiKey, default_model_id, mode)
-      - 否则（未绑定/档案被删/档案不完整）→ 委托 resolve_request_credentials(config) 回退全局"使用"模型
-    persona_id 为空 → 直接回退 resolve_request_credentials(config)
-    """
-    if persona_id:
-        from app.model_providers import is_model_config_complete
-        bound_id = (_read_persona_model_bindings(config).get(persona_id) or "").strip()
-        if bound_id:
-            for entry in config.get_custom_models():
-                entry_id = (entry.get("default_model_id") or entry.get("modelId") or "").strip()
-                if entry_id == bound_id and is_model_config_complete(entry):
-                    endpoint = normalize_endpoint(entry.get("endpoint", ""))
-                    api_key = (entry.get("apiKey") or "").strip()
-                    model_id = (entry.get("default_model_id") or entry.get("modelId") or "").strip()
-                    api_mode = normalize_mode(entry.get("mode", ""))
-                    if endpoint and api_key and model_id:
-                        return endpoint, api_key, model_id, api_mode
-    return resolve_request_credentials(config)
-
-
-def resolve_mic_request_credentials(config) -> tuple[str, str, str, str] | None:
-    """Credentials for mic insert / mic probe (independent when mic_use_visual_model=0)."""
-    if config.get("mic_use_visual_model", "1") == "1":
-        return resolve_request_credentials(config)
-    endpoint = normalize_endpoint(config.get("mic_api_endpoint", ""))
-    api_key = (config.get_mic_api_key() or "").strip()
-    model_id = (config.get("mic_model") or "").strip()
-    api_mode = normalize_mode(config.get("mic_api_mode", "doubao"))
-    if not endpoint or not api_key or not model_id:
-        return None
-    return endpoint, api_key, model_id, api_mode
-
-
-def credential_gap_translation_keys(config) -> list[str]:
-    """Translation keys for missing visual/custom-model credential fields.
-
-    W-GLOBAL-VISUAL-APIKEY-REMOVE-001: legacy global fallback removed. When no
-    custom_models profile matches, all three fields are reported as missing.
-    """
-    model_config = get_model_config(config)
-    if model_config:
-        gaps: list[str] = []
-        endpoint = normalize_endpoint(model_config.get("endpoint", ""))
-        if not endpoint or not is_valid_endpoint(endpoint):
-            gaps.append("custom_model.error_endpoint")
-        if not (model_config.get("apiKey") or "").strip():
-            gaps.append("custom_model.error_api_key")
-        if not (model_config.get("modelId") or "").strip():
-            gaps.append("custom_model.error_model_id")
-        return gaps
-    return [
-        "custom_model.error_endpoint",
-        "custom_model.error_api_key",
-        "custom_model.error_model_id",
-    ]
-
-
-def mic_credential_gap_translation_keys(config) -> list[str]:
-    """Translation keys for missing mic credential fields."""
-    if config.get("mic_use_visual_model", "1") == "1":
-        return credential_gap_translation_keys(config)
-    gaps: list[str] = []
-    endpoint = normalize_endpoint(config.get("mic_api_endpoint", ""))
-    if not endpoint or not is_valid_endpoint(endpoint):
-        gaps.append("custom_model.error_endpoint")
-    if not (config.get_mic_api_key() or "").strip():
-        gaps.append("custom_model.error_api_key")
-    if not (config.get("mic_model") or "").strip():
-        gaps.append("custom_model.error_model_id")
-    return gaps
-
-
-def _format_gap_error(config, gap_keys_fn) -> str:
-    gaps = gap_keys_fn(config)
-    if not gaps:
-        return tr("custom_model.error_incomplete")
-    fields = "、".join(tr(key) for key in gaps)
-    return tr("custom_model.error_incomplete_fields").format(fields=fields)
-
-
-def format_credential_error(config) -> str:
-    return _format_gap_error(config, credential_gap_translation_keys)
-
-
-def format_mic_credential_error(config) -> str:
-    return _format_gap_error(config, mic_credential_gap_translation_keys)
-
-
 def reset_worker_http_client(worker) -> httpx.Client:
     if hasattr(worker._thread_local, "client") and worker._thread_local.client is not None:
         try:
@@ -236,6 +72,129 @@ def reset_worker_http_client(worker) -> httpx.Client:
         raise RuntimeError("AI HTTP client reset returned None")
     return client
 
+def _deliver_request_error(
+    worker,
+    *,
+    emit: bool,
+    message: str,
+    persona_id: str,
+    request_round: int,
+    screenshot_id: int,
+    captured_at: float,
+    scene_generation: int,
+):
+    return worker._deliver_outcome(
+        emit=emit,
+        signal_name="error",
+        message=message,
+        persona_id=persona_id,
+        request_round=request_round,
+        screenshot_id=screenshot_id,
+        captured_at=captured_at,
+        scene_generation=scene_generation,
+    )
+
+
+def _prepare_visual_request_context(
+    worker,
+    *,
+    resolved: tuple[str, str, str, str] | None,
+    emit: bool,
+    persona_id: str,
+    request_round: int,
+    screenshot_id: int,
+    captured_at: float,
+    scene_generation: int,
+    deadline_at: float | None,
+    started_at: float | None,
+):
+    """Shared preflight for doubao/openai visual stream requests.
+
+    Returns either an error AiProbeResult from _deliver_outcome, or a context
+    tuple: (deadline_at, started_at, endpoint, api_key, model, api_mode, caps,
+    effective_use_thinking, max_tokens, temperature, http_client).
+    """
+    deadline_at, started_at = _resolve_request_timing(
+        worker, deadline_at=deadline_at, started_at=started_at
+    )
+    if resolved is None:
+        resolved = worker._resolve_request_credentials()
+    if resolved is None:
+        return _deliver_request_error(
+            worker,
+            emit=emit,
+            message=format_credential_error(worker.config),
+            persona_id=persona_id,
+            request_round=request_round,
+            screenshot_id=screenshot_id,
+            captured_at=captured_at,
+            scene_generation=scene_generation,
+        ), None
+    endpoint, api_key, model, api_mode = resolved
+    temperature = worker.config.get_float("temperature", 0.8)
+    configured_max = worker.config.get_int("max_tokens", DEFAULT_MAX_TOKENS)
+    caps = get_capabilities_for_model(model, endpoint, api_mode)
+    config_use_thinking = worker.config.get("use_thinking", "0") == "1"
+    effective_use_thinking = _effective_use_thinking(caps, model, config_use_thinking)
+    max_tokens = resolve_danmu_max_output_tokens(
+        configured_max,
+        use_thinking=effective_use_thinking,
+    )
+    if not api_key:
+        return _deliver_request_error(
+            worker,
+            emit=emit,
+            message=tr("ai.error_api_key_missing"),
+            persona_id=persona_id,
+            request_round=request_round,
+            screenshot_id=screenshot_id,
+            captured_at=captured_at,
+            scene_generation=scene_generation,
+        ), None
+    http_client = worker._get_http_client()
+    ctx = (
+        deadline_at,
+        started_at,
+        endpoint,
+        api_key,
+        model,
+        api_mode,
+        caps,
+        effective_use_thinking,
+        max_tokens,
+        temperature,
+        http_client,
+    )
+    return None, ctx
+
+
+def _run_visual_stream_request(
+    worker,
+    *,
+    http_client,
+    deadline_at: float | None,
+    emit: bool,
+    persona_id: str,
+    request_round: int,
+    screenshot_id: int,
+    captured_at: float,
+    scene_generation: int,
+    attempt_stream,
+    empty_message,
+):
+    return execute_stream_request_with_retry(
+        worker,
+        http_client,
+        deadline_at=deadline_at,
+        emit=emit,
+        persona_id=persona_id,
+        request_round=request_round,
+        screenshot_id=screenshot_id,
+        captured_at=captured_at,
+        scene_generation=scene_generation,
+        attempt_stream=attempt_stream,
+        empty_message=empty_message,
+    )
 
 def request_doubao(
     worker,
@@ -254,52 +213,39 @@ def request_doubao(
     deadline_at: float | None = None,
     started_at: float | None = None,
 ) -> AiProbeResult | None:
-    deadline_at, started_at = _resolve_request_timing(
-        worker, deadline_at=deadline_at, started_at=started_at
+    err, ctx = _prepare_visual_request_context(
+        worker,
+        resolved=resolved,
+        emit=emit,
+        persona_id=persona_id,
+        request_round=request_round,
+        screenshot_id=screenshot_id,
+        captured_at=captured_at,
+        scene_generation=scene_generation,
+        deadline_at=deadline_at,
+        started_at=started_at,
     )
-    if resolved is None:
-        resolved = worker._resolve_request_credentials()
-    if resolved is None:
-        return worker._deliver_outcome(
-            emit=emit,
-            signal_name="error",
-            message=format_credential_error(worker.config),
-            persona_id=persona_id,
-            request_round=request_round,
-            screenshot_id=screenshot_id,
-            captured_at=captured_at,
-            scene_generation=scene_generation,
-        )
-    endpoint, api_key, model, api_mode = resolved
-    temperature = worker.config.get_float("temperature", 0.8)
-    configured_max = worker.config.get_int("max_tokens", DEFAULT_MAX_TOKENS)
-    caps = get_capabilities_for_model(model, endpoint, api_mode)
-    config_use_thinking = worker.config.get("use_thinking", "0") == "1"
-    effective_use_thinking = _effective_use_thinking(caps, model, config_use_thinking)
-    max_output_tokens = resolve_danmu_max_output_tokens(
-        configured_max,
-        use_thinking=effective_use_thinking,
-    )
-
-    if not api_key:
-        return worker._deliver_outcome(
-            emit=emit,
-            signal_name="error",
-            message=tr("ai.error_api_key_missing"),
-            persona_id=persona_id,
-            request_round=request_round,
-            screenshot_id=screenshot_id,
-            captured_at=captured_at,
-            scene_generation=scene_generation,
-        )
-
+    if ctx is None:
+        return err
+    (
+        deadline_at,
+        started_at,
+        endpoint,
+        api_key,
+        model,
+        api_mode,
+        caps,
+        effective_use_thinking,
+        max_output_tokens,
+        temperature,
+        http_client,
+    ) = ctx
     user_content: list[dict] = [
         {"type": "input_image", "image_url": image_data_uri},
         {"type": "input_text", "text": user_pt},
     ]
     if audio_data_uri:
         user_content.append({"type": "input_audio", "audio_url": audio_data_uri})
-
     input_messages = [
         {
             "type": "message",
@@ -307,7 +253,6 @@ def request_doubao(
             "content": user_content,
         }
     ]
-
     data = {
         "model": model,
         "input": input_messages,
@@ -321,123 +266,38 @@ def request_doubao(
         dict(THINKING_ENABLED) if effective_use_thinking else dict(THINKING_DISABLED)
     )
     data["max_output_tokens"] = max_output_tokens
-
     url = f"{endpoint}/responses"
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
     }
 
-    http_client = worker._get_http_client()
-    for attempt in range(2):
-        if _request_wall_clock_exceeded(deadline_at=deadline_at):
-            return worker._deliver_outcome(
-                emit=emit,
-                signal_name="error",
-                message=tr("ai.error_timeout"),
-                persona_id=persona_id,
-                request_round=request_round,
-                screenshot_id=screenshot_id,
-                captured_at=captured_at,
-                scene_generation=scene_generation,
-            )
-        try:
-            text, input_tokens, output_tokens, stream_error = worker._stream_doubao(
-                http_client,
-                url,
-                headers,
-                data,
-                first_content_timeout=STREAM_FIRST_CONTENT_TIMEOUT_SEC,
-                deadline_at=deadline_at,
-                started_at=started_at,
-            )
-            if text:
-                return worker._deliver_outcome(
-                    emit=emit,
-                    signal_name="finished",
-                    message=text.strip(),
-                    persona_id=persona_id,
-                    request_round=request_round,
-                    screenshot_id=screenshot_id,
-                    captured_at=captured_at,
-                    scene_generation=scene_generation,
-                    input_tokens=input_tokens,
-                    output_tokens=output_tokens,
-                )
-            msg = stream_error or tr("ai.error_empty_response")
-            return worker._deliver_outcome(
-                emit=emit,
-                signal_name="error",
-                message=msg,
-                persona_id=persona_id,
-                request_round=request_round,
-                screenshot_id=screenshot_id,
-                captured_at=captured_at,
-                scene_generation=scene_generation,
-                input_tokens=input_tokens,
-                output_tokens=output_tokens,
-            )
-        except httpx.TimeoutException:
-            if attempt < 1:
-                continue
-            return worker._deliver_outcome(
-                emit=emit,
-                signal_name="error",
-                message=tr("ai.error_timeout"),
-                persona_id=persona_id,
-                request_round=request_round,
-                screenshot_id=screenshot_id,
-                captured_at=captured_at,
-                scene_generation=scene_generation,
-            )
-        except httpx.HTTPStatusError as exc:
-            return worker._deliver_outcome(
-                emit=emit,
-                signal_name="error",
-                message=format_http_status_error(exc),
-                persona_id=persona_id,
-                request_round=request_round,
-                screenshot_id=screenshot_id,
-                captured_at=captured_at,
-                scene_generation=scene_generation,
-            )
-        except Exception as exc:  # boundary: retry once after client reset
-            if attempt < 1:
-                try:
-                    http_client = reset_worker_http_client(worker)
-                except RuntimeError as reset_exc:
-                    return worker._deliver_outcome(
-                        emit=emit,
-                        signal_name="error",
-                        message=tr("ai.error_request_failed").format(error=reset_exc),
-                        persona_id=persona_id,
-                        request_round=request_round,
-                        screenshot_id=screenshot_id,
-                        captured_at=captured_at,
-                        scene_generation=scene_generation,
-                    )
-                continue
-            return worker._deliver_outcome(
-                emit=emit,
-                signal_name="error",
-                message=tr("ai.error_request_failed").format(error=exc),
-                persona_id=persona_id,
-                request_round=request_round,
-                screenshot_id=screenshot_id,
-                captured_at=captured_at,
-                scene_generation=scene_generation,
-            )
-    return worker._deliver_outcome(
+    def _attempt_stream(client: httpx.Client) -> _StreamAttemptResult:
+        text, input_tokens, output_tokens, stream_error = stream_doubao(
+            worker,
+            client,
+            url,
+            headers,
+            data,
+            first_content_timeout=STREAM_FIRST_CONTENT_TIMEOUT_SEC,
+            deadline_at=deadline_at,
+            started_at=started_at,
+        )
+        return _StreamAttemptResult(text, input_tokens, output_tokens, stream_error)
+
+    return _run_visual_stream_request(
+        worker,
+        http_client=http_client,
+        deadline_at=deadline_at,
         emit=emit,
-        signal_name="error",
-        message=tr("ai.error_empty_response"),
         persona_id=persona_id,
         request_round=request_round,
         screenshot_id=screenshot_id,
         captured_at=captured_at,
         scene_generation=scene_generation,
+        attempt_stream=_attempt_stream,
+        empty_message=lambda result: result.stream_error or tr("ai.error_empty_response"),
     )
-
 
 def stream_doubao(
     worker,
@@ -451,7 +311,6 @@ def stream_doubao(
     started_at: float | None = None,
 ) -> tuple[str, int, int, str]:
     from app.doubao_responses_stream import stream_doubao_responses
-
     deadline_at, started_at = _resolve_request_timing(
         worker, deadline_at=deadline_at, started_at=started_at
     )
@@ -476,7 +335,6 @@ def stream_doubao(
         )
     return result.text, result.input_tokens, result.output_tokens, result.error
 
-
 def request_openai(
     worker,
     image_data_uri: str,
@@ -494,45 +352,33 @@ def request_openai(
     deadline_at: float | None = None,
     started_at: float | None = None,
 ) -> AiProbeResult | None:
-    deadline_at, started_at = _resolve_request_timing(
-        worker, deadline_at=deadline_at, started_at=started_at
+    err, ctx = _prepare_visual_request_context(
+        worker,
+        resolved=resolved,
+        emit=emit,
+        persona_id=persona_id,
+        request_round=request_round,
+        screenshot_id=screenshot_id,
+        captured_at=captured_at,
+        scene_generation=scene_generation,
+        deadline_at=deadline_at,
+        started_at=started_at,
     )
-    if resolved is None:
-        resolved = worker._resolve_request_credentials()
-    if resolved is None:
-        return worker._deliver_outcome(
-            emit=emit,
-            signal_name="error",
-            message=format_credential_error(worker.config),
-            persona_id=persona_id,
-            request_round=request_round,
-            screenshot_id=screenshot_id,
-            captured_at=captured_at,
-            scene_generation=scene_generation,
-        )
-    endpoint, api_key, model, api_mode = resolved
-    temperature = worker.config.get_float("temperature", 0.8)
-    configured_max = worker.config.get_int("max_tokens", DEFAULT_MAX_TOKENS)
-    caps = get_capabilities_for_model(model, endpoint, api_mode)
-    config_use_thinking = worker.config.get("use_thinking", "0") == "1"
-    effective_use_thinking = _effective_use_thinking(caps, model, config_use_thinking)
-    max_tokens = resolve_danmu_max_output_tokens(
-        configured_max,
-        use_thinking=effective_use_thinking,
-    )
-
-    if not api_key:
-        return worker._deliver_outcome(
-            emit=emit,
-            signal_name="error",
-            message=tr("ai.error_api_key_missing"),
-            persona_id=persona_id,
-            request_round=request_round,
-            screenshot_id=screenshot_id,
-            captured_at=captured_at,
-            scene_generation=scene_generation,
-        )
-
+    if ctx is None:
+        return err
+    (
+        deadline_at,
+        started_at,
+        endpoint,
+        api_key,
+        model,
+        api_mode,
+        caps,
+        effective_use_thinking,
+        max_tokens,
+        temperature,
+        http_client,
+    ) = ctx
     mic_audio = audio_data_uri
     if mic_audio and not model_supports_mic_audio(model, endpoint=endpoint, api_mode=api_mode):
         from app.model_providers import mic_audio_unsupported_message
@@ -544,8 +390,6 @@ def request_openai(
             mic_audio_unsupported_message(model),
         )
         mic_audio = None
-
-    http_client = worker._get_http_client()
     adapter = get_openai_adapter_for_model(model, endpoint, api_mode)
     data: dict[str, object] = {
         "model": model,
@@ -577,116 +421,34 @@ def request_openai(
     }
     headers.update(provider_extra_headers(endpoint))
 
-    for attempt in range(2):
-        if _request_wall_clock_exceeded(deadline_at=deadline_at):
-            return worker._deliver_outcome(
-                emit=emit,
-                signal_name="error",
-                message=tr("ai.error_timeout"),
-                persona_id=persona_id,
-                request_round=request_round,
-                screenshot_id=screenshot_id,
-                captured_at=captured_at,
-                scene_generation=scene_generation,
-            )
-        try:
-            text, input_tokens, output_tokens = worker._stream_openai(
-                http_client,
-                url,
-                headers,
-                data,
-                endpoint=endpoint,
-                api_mode=api_mode,
-                first_content_timeout=STREAM_FIRST_CONTENT_TIMEOUT_SEC,
-                deadline_at=deadline_at,
-                started_at=started_at,
-            )
-            if text:
-                return worker._deliver_outcome(
-                    emit=emit,
-                    signal_name="finished",
-                    message=text.strip(),
-                    persona_id=persona_id,
-                    request_round=request_round,
-                    screenshot_id=screenshot_id,
-                    captured_at=captured_at,
-                    scene_generation=scene_generation,
-                    input_tokens=input_tokens,
-                    output_tokens=output_tokens,
-                )
-            return worker._deliver_outcome(
-                emit=emit,
-                signal_name="error",
-                message=tr("ai.error_empty_response"),
-                persona_id=persona_id,
-                request_round=request_round,
-                screenshot_id=screenshot_id,
-                captured_at=captured_at,
-                scene_generation=scene_generation,
-                input_tokens=input_tokens,
-                output_tokens=output_tokens,
-            )
-        except httpx.TimeoutException:
-            if attempt < 1:
-                continue
-            return worker._deliver_outcome(
-                emit=emit,
-                signal_name="error",
-                message=tr("ai.error_timeout"),
-                persona_id=persona_id,
-                request_round=request_round,
-                screenshot_id=screenshot_id,
-                captured_at=captured_at,
-                scene_generation=scene_generation,
-            )
-        except httpx.HTTPStatusError as exc:
-            return worker._deliver_outcome(
-                emit=emit,
-                signal_name="error",
-                message=format_http_status_error(exc),
-                persona_id=persona_id,
-                request_round=request_round,
-                screenshot_id=screenshot_id,
-                captured_at=captured_at,
-                scene_generation=scene_generation,
-            )
-        except Exception as exc:  # boundary: retry once after client reset
-            if attempt < 1:
-                try:
-                    http_client = reset_worker_http_client(worker)
-                except RuntimeError as reset_exc:
-                    return worker._deliver_outcome(
-                        emit=emit,
-                        signal_name="error",
-                        message=tr("ai.error_request_failed").format(error=reset_exc),
-                        persona_id=persona_id,
-                        request_round=request_round,
-                        screenshot_id=screenshot_id,
-                        captured_at=captured_at,
-                        scene_generation=scene_generation,
-                    )
-                continue
-            return worker._deliver_outcome(
-                emit=emit,
-                signal_name="error",
-                message=tr("ai.error_request_failed").format(error=exc),
-                persona_id=persona_id,
-                request_round=request_round,
-                screenshot_id=screenshot_id,
-                captured_at=captured_at,
-                scene_generation=scene_generation,
-            )
-    return worker._deliver_outcome(
+    def _attempt_stream(client: httpx.Client) -> _StreamAttemptResult:
+        text, input_tokens, output_tokens = stream_openai(
+            worker,
+            client,
+            url,
+            headers,
+            data,
+            endpoint=endpoint,
+            api_mode=api_mode,
+            first_content_timeout=STREAM_FIRST_CONTENT_TIMEOUT_SEC,
+            deadline_at=deadline_at,
+            started_at=started_at,
+        )
+        return _StreamAttemptResult(text, input_tokens, output_tokens)
+
+    return _run_visual_stream_request(
+        worker,
+        http_client=http_client,
+        deadline_at=deadline_at,
         emit=emit,
-        signal_name="error",
-        message=tr("ai.error_empty_response"),
         persona_id=persona_id,
         request_round=request_round,
         screenshot_id=screenshot_id,
         captured_at=captured_at,
         scene_generation=scene_generation,
+        attempt_stream=_attempt_stream,
+        empty_message=lambda _result: tr("ai.error_empty_response"),
     )
-
 
 def stream_openai(
     worker,
@@ -701,79 +463,27 @@ def stream_openai(
     deadline_at: float | None = None,
     started_at: float | None = None,
 ) -> tuple[str, int, int]:
+    from app.openai_chat_stream import stream_openai_chat
     deadline_at, started_at = _resolve_request_timing(
         worker, deadline_at=deadline_at, started_at=started_at
     )
-    collected: list[str] = []
-    reasoning_parts: list[str] = []
-    input_tokens = 0
-    output_tokens = 0
-    got_first_content = False
-    caps = get_capabilities_for_endpoint(endpoint, api_mode)
-    adapter = get_openai_adapter(endpoint, api_mode)
-    with http_client.stream("POST", url, headers=headers, json=data) as resp:
-        resp.raise_for_status()
-        for line in resp.iter_lines():
-            if worker._stopping.is_set():
-                break
-            _raise_if_wall_clock_exceeded(deadline_at=deadline_at)
-            # W-PERF-STREAM-001：首内容超时检查
-            if first_content_timeout is not None and not got_first_content:
-                if started_at is not None and time.monotonic() - started_at > first_content_timeout:
-                    logger.warning(
-                        "openai stream first content timeout: %.1fs elapsed, no content delta received, endpoint=%s",
-                        first_content_timeout,
-                        normalize_endpoint(endpoint) if endpoint else url,
-                    )
-                    break
-            if not line or not line.startswith("data: "):
-                continue
-            payload = line[6:]
-            if payload.strip() == "[DONE]":
-                break
-            try:
-                chunk = json.loads(payload)
-                usage = chunk.get("usage")
-                if usage:
-                    input_tokens, output_tokens = adapter.normalize_usage(usage, caps=caps)
-                choice = chunk.get("choices", [{}])[0]
-                delta = choice.get("delta", {})
-                content = delta.get("content", "")
-                if content:
-                    got_first_content = True
-                    collected.append(content)
-                reasoning = delta.get("reasoning_content", "")  # 忽略：豆包/OpenAI 思考内容不应作为弹幕
-                if reasoning:
-                    reasoning_parts.append(reasoning)  # 仅用于诊断日志
-                if not content and not reasoning:
-                    message = choice.get("message", {})
-                    message_content = message.get("content", "")
-                    if message_content:
-                        got_first_content = True
-                        collected.append(message_content)
-                    message_reasoning = message.get("reasoning_content", "")
-                    if message_reasoning:
-                        reasoning_parts.append(message_reasoning)
-            except (json.JSONDecodeError, IndexError, KeyError) as exc:
-                logger.debug("stream chunk parse skipped: %r payload=%.80s", exc, payload)
-                continue
-    text = "".join(collected)
-    if not text and reasoning_parts:
-        reasoning_len = sum(len(part) for part in reasoning_parts)
-        logger.warning(
-            "openai stream 只有 reasoning_content 没有 content "
-            "(thinking:disabled 未生效，已通过增大 max_completion_tokens 缓解): "
-            "input_tokens=%s output_tokens=%s reasoning_chars=%s endpoint=%s",
-            input_tokens,
-            output_tokens,
-            reasoning_len,
-            normalize_endpoint(endpoint) if endpoint else url,
-        )
-    if not text:
+    result = stream_openai_chat(
+        http_client,
+        url,
+        headers,
+        data,
+        endpoint=endpoint,
+        api_mode=api_mode,
+        deadline_at=deadline_at,
+        first_content_timeout=first_content_timeout,
+        started_at=started_at,
+        stopping=worker._stopping.is_set,
+    )
+    if not result.text:
         logger.warning(
             "openai stream 返回空文本: input_tokens=%s output_tokens=%s endpoint=%s",
-            input_tokens,
-            output_tokens,
+            result.input_tokens,
+            result.output_tokens,
             normalize_endpoint(endpoint) if endpoint else url,
         )
-    return text, input_tokens, output_tokens
+    return result.text, result.input_tokens, result.output_tokens

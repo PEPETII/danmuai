@@ -7,12 +7,12 @@ from unittest.mock import patch
 from app.ai_client import AiWorker
 from app.ai_client_requests import request_openai
 
-from tests.fakes import FakeConfig
+from tests.fakes import ai_client_fake_config
 
 
 def test_request_openai_strips_mic_audio_and_logs_when_unsupported():
     worker = AiWorker(
-        FakeConfig(
+        ai_client_fake_config(
             data={
                 "api_mode": "openai",
                 "api_endpoint": "https://api.openai.com/v1",
@@ -24,12 +24,12 @@ def test_request_openai_strips_mic_audio_and_logs_when_unsupported():
     resolved = ("https://api.openai.com/v1", "sk-test", "gpt-4o", "openai")
     captured: dict = {}
 
-    def fake_stream(_client, _url, _headers, data, **_kwargs):
+    def fake_stream(_worker, _client, _url, _headers, data, **_kwargs):
         captured["data"] = data
         return ("ok", 1, 1)
 
     with patch("app.ai_client_requests.model_supports_mic_audio", return_value=False):
-        with patch.object(worker, "_stream_openai", side_effect=fake_stream):
+        with patch("app.ai_client_requests.stream_openai", side_effect=fake_stream):
             with patch("app.ai_client_requests.logger") as mock_log:
                 request_openai(
                     worker,

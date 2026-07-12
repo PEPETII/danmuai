@@ -6,8 +6,9 @@
   ``validate_model_config`` 校验 name/model_ids/endpoint/apiKey 完整性。
 - ``DELETE /api/custom-models/{id}``：删除后若 id 是默认模型，重置为「未设置默认」。
 
-W-CUSTOMMODEL-SCHEMA-002：每条档案支持 1:N（``model_ids: list[str]`` +
-``default_model_id: str`` + ``max_tokens: int``）；旧 ``modelId`` 字段保留兜底。
+W-ARCH-MODEL-PROFILE-CANONICAL-004：公开契约仅含 canonical 字段
+（``model_ids`` / ``default_model_id`` / ``max_tokens``）；legacy ``modelId`` 仅由
+持久化 adapter 在读取历史 JSON 时内部消费。
 
 设计约束：GET 必须返回掩码 apiKey（防泄漏）；**不**在 ``web_api/custom_models.py`` 内
 直接读 ``DanmuApp._config`` 私有字段，统一经 ``app.config`` 公开 façade。
@@ -18,6 +19,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from app.application.config_service import set_default_model_selection
+from app.config_store.crypto import canonicalize_custom_model_profile
 from app.model_providers import (
     is_model_config_complete,
     normalize_endpoint,
@@ -64,20 +66,11 @@ def _resolve_api_key(payload: dict, existing: dict | None, app: "DanmuApp") -> s
 def _find_existing_model(models: list[dict], payload: dict, index: int) -> dict | None:
     if 0 <= index < len(models):
         return models[index]
-    # W-CUSTOMMODEL-SCHEMA-002：优先按 default_model_id 匹配，保留 modelId 兜底
-    model_id = (
-        payload.get("default_model_id")
-        or payload.get("modelId")
-        or payload.get("model_id")
-        or ""
-    )
-    model_id = (model_id or "").strip()
+    model_id = (payload.get("default_model_id") or "").strip()
     if not model_id:
         return None
     for model in models:
-        entry_id = (
-            (model.get("default_model_id") or model.get("modelId") or "").strip()
-        )
+        entry_id = (model.get("default_model_id") or "").strip()
         if entry_id == model_id:
             return model
     return None
@@ -96,84 +89,78 @@ def _normalize_supports_mic(payload: dict, existing: dict | None) -> bool:
     return False
 
 
-def _normalize_model_ids(payload: dict, existing: dict | None) -> list[str]:
-    """W-CUSTOMMODEL-SCHEMA-002：解析 model_ids 数组。
+def _assert_canonical_http_payload(payload: dict, existing: dict | None) -> None:
+    """Reject legacy-only HTTP bodies that omit canonical ``model_ids``."""
+    if isinstance(payload.get("model_ids"), list):
+        return
+    if existing is not None and isinstance(existing.get("model_ids"), list):
+        return
+    raise ValueError(tr("custom_model.error_model_id"))
 
-    优先级：payload.model_ids > payload.modelId > existing.model_ids > existing.modelId。
-    payload 的 modelId 优先于 existing确保 probe 场景下用户新填的 modelId 生效。
+
+def _merge_payload_for_canonicalization(payload: dict, existing: dict | None) -> dict:
+    """HTTP 写入场景：按 payload vs existing 优先级合并字段，再交 adapter canonical 化。
+
+    W-004：payload 侧不接受 legacy modelId；无 model_ids list 时仅从 existing 继承。
     """
-    raw = payload.get("model_ids")
-    if isinstance(raw, list):
-        return [str(mid).strip() for mid in raw if str(mid or "").strip()]
-    # payload 没有 model_ids → 优先从 payload 的 legacy modelId 兜底
-    legacy = (payload.get("modelId") or payload.get("model_id") or "").strip()
-    if legacy:
-        return [legacy]
-    # payload 既没有 model_ids 也没有 modelId → 从 existing 兜底（update 场景保留已有值）
-    if existing and isinstance(existing.get("model_ids"), list):
-        return [str(mid).strip() for mid in existing["model_ids"] if str(mid or "").strip()]
-    if existing:
-        legacy_existing = (existing.get("modelId") or existing.get("model_id") or "").strip()
-        if legacy_existing:
-            return [legacy_existing]
-    return []
+    base = dict(existing) if existing else {}
 
+    raw_ids = payload.get("model_ids")
+    if isinstance(raw_ids, list):
+        model_ids = [str(mid).strip() for mid in raw_ids if str(mid or "").strip()]
+    elif existing and isinstance(existing.get("model_ids"), list):
+        model_ids = [
+            str(mid).strip() for mid in existing["model_ids"] if str(mid or "").strip()
+        ]
+    else:
+        model_ids = []
 
-def _normalize_default_model_id(payload: dict, existing: dict | None, model_ids: list[str]) -> str:
-    """W-CUSTOMMODEL-SCHEMA-002：解析 default_model_id。
+    raw_default = (payload.get("default_model_id") or "").strip()
+    if raw_default:
+        default_model_id = raw_default
+    elif model_ids:
+        default_model_id = model_ids[0]
+    elif existing:
+        default_model_id = (existing.get("default_model_id") or "").strip()
+    else:
+        default_model_id = ""
 
-    优先级：payload.default_model_id > model_ids[0] > payload.modelId > existing。
-    """
-    raw = (payload.get("default_model_id") or "").strip()
-    if raw:
-        return raw
-    # payload 没有 default_model_id → 优先从 model_ids[0] 兜底
-    if model_ids:
-        return model_ids[0]
-    # model_ids 也为空 → 从 payload 的 legacy modelId 兜底
-    legacy = (payload.get("modelId") or payload.get("model_id") or "").strip()
-    if legacy:
-        return legacy
-    # payload 完全没有 model 信息 → 从 existing 兜底（update 场景保留已有值）
-    if existing:
-        existing_default = (existing.get("default_model_id") or "").strip()
-        if existing_default:
-            return existing_default
-        return (existing.get("modelId") or existing.get("model_id") or "").strip()
-    return ""
-
-
-def _normalize_max_tokens(payload: dict, existing: dict | None) -> int:
-    """W-CUSTOMMODEL-SCHEMA-002：解析 max_tokens；缺省时取 existing 或 512。"""
-    raw = payload.get("max_tokens")
-    if raw is not None:
+    raw_mt = payload.get("max_tokens")
+    if raw_mt is not None:
         try:
-            return int(raw)
+            max_tokens = int(raw_mt)
         except (TypeError, ValueError):
-            return 512
-    if existing is not None:
+            max_tokens = 512
+    elif existing is not None:
         existing_raw = existing.get("max_tokens")
         if isinstance(existing_raw, int):
-            return existing_raw
-        if existing_raw is not None:
+            max_tokens = existing_raw
+        elif existing_raw is not None:
             try:
-                return int(existing_raw)
+                max_tokens = int(existing_raw)
             except (TypeError, ValueError):
-                pass
-    return 512
+                max_tokens = 512
+        else:
+            max_tokens = 512
+    else:
+        max_tokens = 512
+
+    base["model_ids"] = model_ids
+    base["default_model_id"] = default_model_id
+    base["max_tokens"] = max_tokens
+    return base
 
 
 def _normalize_payload(payload: dict, existing: dict | None = None, app: "DanmuApp | None" = None) -> dict:
-    model_ids = _normalize_model_ids(payload, existing)
-    default_model_id = _normalize_default_model_id(payload, existing, model_ids)
-    max_tokens = _normalize_max_tokens(payload, existing)
+    canonical = canonicalize_custom_model_profile(
+        _merge_payload_for_canonicalization(payload, existing)
+    )
+    default_model_id = canonical["default_model_id"]
     return {
         "name": (payload.get("name") or "").strip(),
-        # W-CUSTOMMODEL-SCHEMA-002：保留旧 modelId 字段与 default_model_id 同值（兼容回滚）
-        "modelId": default_model_id,
-        "model_ids": model_ids,
+        "model_ids": canonical["model_ids"],
         "default_model_id": default_model_id,
-        "max_tokens": max_tokens,
+        "max_tokens": canonical["max_tokens"],
         "mode": normalize_mode((payload.get("mode") or "doubao").strip()),
         "endpoint": normalize_endpoint((payload.get("endpoint") or "").strip()),
         "apiKey": _resolve_api_key(payload, existing, app),
@@ -186,25 +173,25 @@ def _normalize_payload(payload: dict, existing: dict | None = None, app: "DanmuA
 def resolve_probe_credentials(app: "DanmuApp", payload: dict, index: int = -1) -> dict:
     """Resolve probe credentials the same way as save (masked key + endpoint normalization).
 
-    W-CUSTOMMODEL-SCHEMA-002：probe 入参 ``{profile_index, model_id?}``；
-    ``model_id`` 缺省时取档案的 ``default_model_id``。
+    probe 入参 ``{profile_index, model_id?}``；``model_id`` 缺省时取档案的
+    ``default_model_id``。
     """
     models = list(app.config.get_custom_models())
     existing = _find_existing_model(models, payload, index)
+    _assert_canonical_http_payload(payload, existing)
     resolved = _normalize_payload(payload, existing, app)
-    # W-CUSTOMMODEL-SCHEMA-002：若入参指定 model_id，则探测该具体 model_id
     probe_model_id = (payload.get("model_id") or "").strip()
     if probe_model_id:
-        resolved["modelId"] = probe_model_id
         resolved["default_model_id"] = probe_model_id
     return resolved
 
 
 def create_custom_model(app: "DanmuApp", payload: dict) -> dict:
+    _assert_canonical_http_payload(payload, existing=None)
     model = _normalize_payload(payload, app=app)
     errors = validate_model_config(model)
     if errors:
-        raise ValueError(errors[0])
+        raise ValueError(tr(errors[0]))
 
     models = list(app.config.get_custom_models())
     models.append(model)
@@ -219,10 +206,11 @@ def update_custom_model(app: "DanmuApp", index: int, payload: dict) -> dict:
         raise ValueError(tr("customModel.indexInvalid"))
 
     existing = models[index]
+    _assert_canonical_http_payload(payload, existing)
     model = _normalize_payload(payload, existing, app)
     errors = validate_model_config(model)
     if errors:
-        raise ValueError(errors[0])
+        raise ValueError(tr(errors[0]))
 
     models[index] = model
     app.config.set_custom_models(models)
@@ -238,12 +226,11 @@ def delete_custom_model(app: "DanmuApp", index: int) -> None:
     removed = models.pop(index)
     app.config.set_custom_models(models)
     default_id = app.config.get_default_model_id()
-    # W-CUSTOMMODEL-SCHEMA-002：优先读 default_model_id，保留 modelId 兜底
-    removed_id = (removed.get("default_model_id") or removed.get("modelId") or "").strip()
+    removed_id = (removed.get("default_model_id") or "").strip()
     if removed_id == default_id:
         fallback = ""
         if models:
-            fallback = (models[0].get("default_model_id") or models[0].get("modelId") or "").strip()
+            fallback = (models[0].get("default_model_id") or "").strip()
         if not fallback:
             fallback = app.config.get("model", "")
         if fallback:
@@ -285,8 +272,7 @@ def set_default_custom_model(app: "DanmuApp", index: int) -> dict:
     if index < 0 or index >= len(models):
         raise ValueError(tr("customModel.indexInvalid"))
 
-    # W-CUSTOMMODEL-SCHEMA-002：优先读 default_model_id，保留 modelId 兜底
-    model_id = (models[index].get("default_model_id") or models[index].get("modelId") or "").strip()
+    model_id = (models[index].get("default_model_id") or "").strip()
     if not model_id:
         raise ValueError(tr("customModel.idEmpty"))
 

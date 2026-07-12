@@ -9,7 +9,7 @@ import pytest
 from app.application.stats_state import StatsState
 from app.application.web_runtime_state import WebRuntimeState
 from app.config_store import ConfigStore
-from app.danmu_engine import DanmuEngine, normalize_danmu_display_text
+from app.danmu_engine import DanmuEngine
 from app.lifetime_stats import STATS_LIFETIME_RUNTIME_SEC, LifetimeStats
 from app.overlay import DanmuOverlay
 from app.reply_queue import AIReplyFIFOBuffer, QueuedReply
@@ -123,13 +123,12 @@ def test_duplicate_loss_topup_only_triggers_once_per_request(monkeypatch):
     assert calls == [1, 2]
 
 
-def test_history_enqueue_matches_display_truncation():
-    """BUG-015: history row content matches on-screen truncation."""
+def test_history_enqueue_matches_full_display_text():
+    """BUG-015: history row content matches full on-screen text."""
     app = make_minimal_danmu_app()
     app.config = FakeConfig({"danmu_max_chars": "8", "drop_stale": "0"})
     app.engine.running = True
     raw = "一二三四五六七八九十"
-    expected = normalize_danmu_display_text(raw, app.config)
     now = time.monotonic()
     app.reply_buffer.push(
         QueuedReply(
@@ -144,27 +143,24 @@ def test_history_enqueue_matches_display_truncation():
     )
     app._consume_reply_queue()
     assert len(app.history_writer.calls) == 1
-    assert app.history_writer.calls[0][0] == expected
-    assert app.history_writer.calls[0][0] != raw
+    assert app.history_writer.calls[0][0] == raw
 
 
-def test_inject_test_danmu_batch_reuses_history_truncation_path():
+def test_inject_test_danmu_batch_returns_full_expected_texts():
     app = make_minimal_danmu_app()
     app.config = FakeConfig({"danmu_max_chars": "8", "drop_stale": "0"})
     raw = "一二三四五六七八九十"
-    expected = normalize_danmu_display_text(raw, app.config)
 
     result = app.inject_test_danmu_batch([raw], persona_id="验收")
 
     assert result["ok"] is True
     assert result["queued"] == 1
-    assert result["expected_texts"] == [expected]
+    assert result["expected_texts"] == [raw]
     assert result["visible_texts"] == []
     assert result["active_texts"] == []
     assert app.reply_buffer.is_empty()
     assert len(app.history_writer.calls) == 1
-    assert app.history_writer.calls[0][0] == expected
-    assert app.history_writer.calls[0][0] != raw
+    assert app.history_writer.calls[0][0] == raw
 
 
 def test_inject_test_danmu_batch_rejects_empty_items():
@@ -279,7 +275,11 @@ def test_start_seeds_visibility_counts(workspace_tmp, monkeypatch):
         lifetime_stats=SimpleNamespace(snapshot=lambda **_kwargs: {}),
         session_run_log=SimpleNamespace(list_dicts_newest_first=lambda: []),
         build_live_status_snapshot=lambda: None,
-        _region_selection_state="idle",
+        region_selection_state="idle",
+        latest_displayed_round=0,
+        latest_requested_screenshot_id=0,
+        latest_queued_screenshot_id=0,
+        latest_displayed_screenshot_id=0,
     )
     status = DanmuApp.build_status_snapshot(app)
     assert status["display_count"] > 0
@@ -368,7 +368,7 @@ def _custom_model_only_config() -> FakeConfig:
             {
                 "name": "MiMo",
                 "default_model_id": "mimo-v2.5",
-                "modelId": "mimo-v2.5",
+                "model_ids": ["mimo-v2.5"],
                 "endpoint": "https://api.xiaomimimo.com/v1",
                 "apiKey": "sk-mimo",
                 "mode": "openai",
@@ -618,7 +618,8 @@ def test_stop_skips_session_when_lifetime_runtime_flush_fails(workspace_tmp, mon
 
 
 def test_pick_random_skips_deleted_custom_persona(tmp_path):
-    from app.personae import PersonaManager, get_reply_contract
+    from app.persona_contract import get_reply_contract
+    from app.persona_manager import PersonaManager
 
     store = ConfigStore(db_path=tmp_path / "persona_pick.db")
     personae = PersonaManager(store)
@@ -639,7 +640,8 @@ def test_pick_random_skips_deleted_custom_persona(tmp_path):
 
 
 def test_delete_custom_prunes_active_personae(tmp_path):
-    from app.personae import PersonaManager, get_reply_contract
+    from app.persona_contract import get_reply_contract
+    from app.persona_manager import PersonaManager
 
     store = ConfigStore(db_path=tmp_path / "persona_prune.db")
     personae = PersonaManager(store)

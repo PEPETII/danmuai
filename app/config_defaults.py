@@ -23,7 +23,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from app.personae import DEFAULT_NORMAL_REPLY_COUNT
+from app.persona_contract import DEFAULT_NORMAL_REPLY_COUNT
 
 if TYPE_CHECKING:
     from app.config_store import ConfigStore

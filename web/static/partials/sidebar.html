@@ -1,7 +1,17 @@
   <aside class="w-64 bg-white p-6 flex flex-col border-r border-pastelYellow shrink-0">
     <div class="flex items-center gap-3 mb-10">
       <div class="w-10 h-10 bg-softPeach rounded-full flex items-center justify-center text-xl shadow-sm icon-badge"><svg class="ui-icon ui-icon-lg" aria-hidden="true"><use href="#i-paw"></use></svg></div>
-      <h1 class="text-xl font-bold text-warmText">DanmuAI</h1>
+      <div class="flex flex-col min-w-0">
+        <h1 class="text-xl font-bold text-warmText">DanmuAI</h1>
+        <a
+          href="https://danmuai.xyz/"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="sidebar-official-site-btn"
+          data-i18n="nav.officialSite"
+          data-i18n-aria-label="nav.officialSiteAria"
+        >官网</a>
+      </div>
     </div>
     <nav class="flex-1 space-y-2" id="nav">
       <a href="#overview" data-page="overview" class="sidebar-item active w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-left">
@@ -38,7 +48,7 @@
         <svg class="ui-icon w-5" aria-hidden="true"><use href="#i-film"></use></svg> <span data-i18n="nav.liveSettings">直播设置</span>
       </a>
       <a href="#guide" data-page="guide" class="sidebar-item sidebar-item-with-badge w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-left">
-        <svg class="ui-icon w-5" aria-hidden="true"><use href="#i-graduation"></use></svg> <span data-i18n="nav.guide">教程|日志|反馈|公告</span>
+        <svg class="ui-icon w-5" aria-hidden="true"><use href="#i-graduation"></use></svg> <span data-i18n="nav.guide">教程|日志|反馈|公告|群聊</span>
         <span id="announcementsNavBadge" class="sidebar-nav-badge hidden" data-i18n-aria-label="nav.newAnnouncementBadge"></span>
       </a>
     </nav>

@@ -4,6 +4,9 @@
 - ``storage.py``：``ConfigStore`` 类主体、常量、``_HAS_CRYPTO``
 - ``crypto.py``：Fernet 加密辅助、密钥管理、异常类
 - ``pool.py``：自定义弹幕池 CRUD 函数重新导出（实现仍位于 ``app/danmu_pool.py``）
+- ``storage_meme.py``：烂梗库 ``meme_barrage_library`` 表 CRUD 实现
+- ``storage_models.py``：custom_models 档案与 API Key 加解密读写实现
+- ``storage_legacy.py``：system_flags 读写与 legacy API 启动期迁移
 
 所有原 ``from app.config_store import X`` 调用方无需改动。
 ``patch("app.config_store._HAS_CRYPTO", ...)`` 通过 ``storage.py`` 内的
@@ -32,6 +35,7 @@ from .crypto import (
     ConfigStoreCryptoUnavailableError,
     _backup_corrupted_key_file,
     _migrate_custom_model_shape,
+    canonicalize_custom_model_profile,
     _restrict_key_file_permissions,
 )
 from .pool import (
@@ -48,5 +52,6 @@ __all__ = [
     "set_custom_danmu_pool_for_store",
     "_restrict_key_file_permissions",
     "_migrate_custom_model_shape",
+    "canonicalize_custom_model_profile",
     "_HAS_CRYPTO",
 ]

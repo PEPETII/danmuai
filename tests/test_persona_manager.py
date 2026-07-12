@@ -1,7 +1,7 @@
 """PersonaManager 持久化与加载边界测试。"""
 
 from app.config_store import ConfigStore
-from app.personae import PersonaManager
+from app.persona_manager import PersonaManager
 
 
 def test_load_custom_corrupt_json_falls_back_to_empty(tmp_path):

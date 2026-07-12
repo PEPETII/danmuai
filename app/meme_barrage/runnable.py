@@ -76,8 +76,8 @@ class MemeAiSelectRunnable(QRunnable):
         config: "ConfigStore",
         candidates: list[str],
         pick_count: int,
-        on_success: Callable[[list[str]], None],
-        on_error: Callable[[str], None],
+        on_success: Callable[[list[str], int, int], None],
+        on_error: Callable[[str, int, int], None],
         image_data_uri: str | None = None,
         pixmap: Any = None,
         compress_fn: Callable[[Any], str] | None = None,
@@ -96,10 +96,10 @@ class MemeAiSelectRunnable(QRunnable):
 
     def run(self) -> None:
         if self._worker._stopping.is_set():
-            _safe_emit(self._on_error, "stopping")
+            _safe_emit(self._on_error, "stopping", 0, 0)
             return
         if not self._candidates:
-            _safe_emit(self._on_error, "empty_candidates")
+            _safe_emit(self._on_error, "empty_candidates", 0, 0)
             return
         if self._image_data_uri:
             image_data_uri = self._image_data_uri
@@ -107,27 +107,31 @@ class MemeAiSelectRunnable(QRunnable):
             try:
                 image_data_uri = self._compress_fn(self._pixmap)
             except (OSError, ValueError, RuntimeError, TypeError) as exc:
-                _safe_emit(self._on_error, f"compress_error:{exc!r}")
+                _safe_emit(self._on_error, f"compress_error:{exc!r}", 0, 0)
                 return
             if not image_data_uri:
-                _safe_emit(self._on_error, "compress_empty")
+                _safe_emit(self._on_error, "compress_empty", 0, 0)
                 return
         else:
-            _safe_emit(self._on_error, "no_image")
+            _safe_emit(self._on_error, "no_image", 0, 0)
             return
+        input_tokens = 0
+        output_tokens = 0
         try:
+            from app.ai_client_requests import request_doubao, request_openai
             from app.model_providers import resolve_api_transport
 
             system_pt = build_meme_select_system_prompt(self._config)
             user_pt = build_meme_select_user_prompt(self._candidates, self._pick_count)
             resolved = self._worker.resolve_request_credentials()
             if resolved is None:
-                _safe_emit(self._on_error, "incomplete_credentials")
+                _safe_emit(self._on_error, "incomplete_credentials", 0, 0)
                 return
             endpoint, _, _, api_mode = resolved
             persona_id = "meme_select"
             if resolve_api_transport(endpoint, api_mode) == "doubao":
-                result = self._worker._request_doubao(
+                result = request_doubao(
+                    self._worker,
                     image_data_uri,
                     system_pt,
                     user_pt,
@@ -140,7 +144,8 @@ class MemeAiSelectRunnable(QRunnable):
                     emit=False,
                 )
             else:
-                result = self._worker._request_openai(
+                result = request_openai(
+                    self._worker,
                     image_data_uri,
                     system_pt,
                     user_pt,
@@ -152,14 +157,27 @@ class MemeAiSelectRunnable(QRunnable):
                     resolved=resolved,
                     emit=False,
                 )
+            if result is not None:
+                input_tokens = result.input_tokens
+                output_tokens = result.output_tokens
             if result is None or result.signal != "finished":
                 msg = result.message if result else "no_result"
-                _safe_emit(self._on_error, msg or "request_failed")
+                _safe_emit(
+                    self._on_error,
+                    msg or "request_failed",
+                    input_tokens,
+                    output_tokens,
+                )
                 return
             selected = parse_meme_ai_selection(result.message, self._candidates)
             if not selected:
-                _safe_emit(self._on_error, "empty_parse")
+                _safe_emit(self._on_error, "empty_parse", input_tokens, output_tokens)
                 return
-            _safe_emit(self._on_success, selected[: self._pick_count])
+            _safe_emit(
+                self._on_success,
+                selected[: self._pick_count],
+                input_tokens,
+                output_tokens,
+            )
         except (httpx.HTTPError, RuntimeError, ValueError, KeyError, TypeError) as exc:
-            _safe_emit(self._on_error, str(exc))
+            _safe_emit(self._on_error, str(exc), input_tokens, output_tokens)

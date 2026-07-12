@@ -13,7 +13,7 @@ from app.ai_client_requests import visual_credentials_ready
 from app.application.generation_pipeline_state import GenerationPipelineState
 from app.config_defaults import resolve_danmu_render_mode
 from app.danmu_engine import dedup_profile_enabled
-from app.personae import persona_display_name_with_config
+from app.persona_display import persona_display_name_with_config
 
 if TYPE_CHECKING:
     from main import DanmuApp

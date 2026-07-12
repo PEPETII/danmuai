@@ -1,5 +1,6 @@
 """Custom model web API service tests."""
 
+import json
 import re
 import sqlite3
 from pathlib import Path
@@ -8,6 +9,8 @@ from unittest.mock import MagicMock
 
 import pytest
 from app.config_store import ConfigStore
+from app.translations import tr
+from app.translations_settings import TRANSLATIONS_EN, TRANSLATIONS_ZH
 from app.web_api import custom_models as cm_api
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -26,57 +29,58 @@ def model_app(tmp_path):
     return app
 
 
+def _model_payload(model_id: str, **kwargs) -> dict:
+    """Canonical custom model HTTP payload for tests."""
+    payload = {
+        "name": kwargs.get("name", "Test"),
+        "model_ids": kwargs.get("model_ids", [model_id]),
+        "default_model_id": kwargs.get("default_model_id", model_id),
+        "mode": kwargs.get("mode", "openai"),
+        "endpoint": kwargs.get("endpoint", "https://api.example.com/v1"),
+        "apiKey": kwargs.get("apiKey", "sk-test-key-1234567890"),
+        "provider": kwargs.get("provider", "custom_openai"),
+    }
+    if "max_tokens" in kwargs:
+        payload["max_tokens"] = kwargs["max_tokens"]
+    if "supportsMic" in kwargs:
+        payload["supportsMic"] = kwargs["supportsMic"]
+    return payload
+
+
 def test_custom_model_crud(model_app):
-    created = cm_api.create_custom_model(
-        model_app,
-        {
-            "name": "Test",
-            "modelId": "test-model",
-            "mode": "openai",
-            "endpoint": "https://api.example.com/v1",
-            "apiKey": "sk-test-key-1234567890",
-            "provider": "custom_openai",
-        },
-    )
+    created = cm_api.create_custom_model(model_app, _model_payload("test-model"))
     assert created["index"] == 0
 
     listing = cm_api.list_custom_models(model_app)
     assert len(listing["items"]) == 1
     assert listing["items"][0]["apiKey"] == "********"
-    # W-CUSTOMMODEL-SCHEMA-002：新 shape 字段
     assert listing["items"][0]["model_ids"] == ["test-model"]
     assert listing["items"][0]["default_model_id"] == "test-model"
     assert listing["items"][0]["max_tokens"] == 512
+    assert "modelId" not in listing["items"][0]
 
     updated = cm_api.update_custom_model(
         model_app,
         0,
-        {
-            "name": "Test2",
-            "modelId": "test-model-2",
-            "mode": "openai",
-            "endpoint": "https://api.example.com/v1",
-            "apiKey": "********",
-            "provider": "custom_openai",
-        },
+        _model_payload(
+            "test-model-2",
+            name="Test2",
+            apiKey="********",
+        ),
     )
     assert updated["item"]["name"] == "Test2"
-    # W-CUSTOMMODEL-SCHEMA-002：update 后新 shape 同步
     assert updated["item"]["model_ids"] == ["test-model-2"]
     assert updated["item"]["default_model_id"] == "test-model-2"
 
     with_mic = cm_api.update_custom_model(
         model_app,
         0,
-        {
-            "name": "Test2",
-            "modelId": "test-model-2",
-            "mode": "openai",
-            "endpoint": "https://api.example.com/v1",
-            "apiKey": "********",
-            "provider": "custom_openai",
-            "supportsMic": True,
-        },
+        _model_payload(
+            "test-model-2",
+            name="Test2",
+            apiKey="********",
+            supportsMic=True,
+        ),
     )
     assert with_mic["item"]["supportsMic"] is True
     stored = model_app.config.get_custom_models()[0]
@@ -89,23 +93,38 @@ def test_custom_model_crud(model_app):
     assert model_app.config.get_custom_models() == []
 
 
+def test_create_custom_model_returns_readable_validation_error(model_app):
+    with pytest.raises(ValueError) as exc_info:
+        cm_api.create_custom_model(model_app, _model_payload("invalid model id"))
+
+    assert str(exc_info.value) == tr("custom_model.error_model_id_invalid")
+    assert str(exc_info.value) != "custom_model.error_model_id_invalid"
+
+
+def test_update_custom_model_returns_readable_validation_error(model_app):
+    cm_api.create_custom_model(model_app, _model_payload("valid-model"))
+
+    with pytest.raises(ValueError) as exc_info:
+        cm_api.update_custom_model(model_app, 0, _model_payload("invalid model id"))
+
+    assert str(exc_info.value) == tr("custom_model.error_model_id_invalid")
+    assert str(exc_info.value) != "custom_model.error_model_id_invalid"
+
+
+def test_model_id_invalid_translations_include_colon():
+    assert "冒号" in TRANSLATIONS_ZH["custom_model.error_model_id_invalid"]
+    assert "colons" in TRANSLATIONS_EN["custom_model.error_model_id_invalid"]
+
+
 def test_resolve_probe_credentials_restores_masked_key_by_index(model_app):
     cm_api.create_custom_model(
         model_app,
-        {
-            "name": "Test",
-            "modelId": "test-model",
-            "mode": "openai",
-            "endpoint": "https://api.example.com/v1",
-            "apiKey": "sk-custom-probe-key",
-            "provider": "custom_openai",
-        },
+        _model_payload("test-model", apiKey="sk-custom-probe-key"),
     )
     resolved = cm_api.resolve_probe_credentials(
         model_app,
         {
             "name": "Test",
-            "modelId": "renamed-model",
             "mode": "openai",
             "endpoint": "https://api.example.com/v1",
             "apiKey": "********",
@@ -114,52 +133,44 @@ def test_resolve_probe_credentials_restores_masked_key_by_index(model_app):
         index=0,
     )
     assert resolved["apiKey"] == "sk-custom-probe-key"
-    assert resolved["modelId"] == "renamed-model"
-    # W-CUSTOMMODEL-SCHEMA-002：probe 解析后含新 shape 字段
-    assert resolved["model_ids"] == ["renamed-model"]
-    assert resolved["default_model_id"] == "renamed-model"
+    assert resolved["model_ids"] == ["test-model"]
+    assert resolved["default_model_id"] == "test-model"
+    assert "modelId" not in resolved
 
 
 def test_resolve_probe_credentials_masked_key_without_existing_returns_empty(model_app):
     resolved = cm_api.resolve_probe_credentials(
         model_app,
-        {
-            "name": "New",
-            "modelId": "new-model",
-            "mode": "openai",
-            "endpoint": "https://api.example.com/v1",
-            "apiKey": "********",
-        },
+        _model_payload("new-model", apiKey="********"),
         index=-1,
     )
     assert resolved["apiKey"] == ""
 
 
 def test_resolve_probe_credentials_normalizes_full_endpoint_url(model_app):
-    resolved = cm_api.resolve_probe_credentials(
-        model_app,
-        {
-            "name": "Test",
-            "modelId": "test-model",
-            "mode": "openai-compatible",
-            "endpoint": "https://openrouter.ai/api/v1/chat/completions",
-            "apiKey": "sk-test",
-        },
-        index=-1,
-    )
-    assert resolved["endpoint"] == "https://openrouter.ai/api/v1"
+    with pytest.raises(ValueError):
+        cm_api.resolve_probe_credentials(
+            model_app,
+            {
+                "name": "Test",
+                "mode": "openai-compatible",
+                "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+                "apiKey": "sk-test",
+            },
+            index=-1,
+        )
 
 
 def test_create_custom_model_normalizes_endpoint_on_save(model_app):
     created = cm_api.create_custom_model(
         model_app,
-        {
-            "name": "OpenRouter",
-            "modelId": "openrouter-model",
-            "mode": "openai",
-            "endpoint": "https://openrouter.ai/api/v1/chat/completions/",
-            "apiKey": "sk-save-key",
-        },
+        _model_payload(
+            "openrouter-model",
+            name="OpenRouter",
+            endpoint="https://openrouter.ai/api/v1/chat/completions/",
+            apiKey="sk-save-key",
+            provider="",
+        ),
     )
     stored = model_app.config.get_custom_models()[created["index"]]
     assert stored["endpoint"] == "https://openrouter.ai/api/v1"
@@ -171,14 +182,11 @@ def test_custom_model_api_key_encrypted_at_rest_in_sqlite(model_app):
     secret = "sk-plaintext-storage-test-key"
     cm_api.create_custom_model(
         model_app,
-        {
-            "name": "Plain",
-            "modelId": "plain-model",
-            "mode": "openai",
-            "endpoint": "https://api.example.com/v1",
-            "apiKey": secret,
-            "provider": "custom_openai",
-        },
+        _model_payload(
+            "plain-model",
+            name="Plain",
+            apiKey=secret,
+        ),
     )
     listing = cm_api.list_custom_models(model_app)
     assert listing["items"][0]["apiKey"] == "********"
@@ -216,8 +224,7 @@ def test_create_custom_model_with_multiple_model_ids_and_default(model_app):
     assert item["model_ids"] == ["model-a", "model-b", "model-c"]
     assert item["default_model_id"] == "model-b"
     assert item["max_tokens"] == 1024
-    # legacy modelId 保持与 default_model_id 同值（兼容回滚）
-    assert item["modelId"] == "model-b"
+    assert "modelId" not in item
 
     stored = model_app.config.get_custom_models()[0]
     assert stored["model_ids"] == ["model-a", "model-b", "model-c"]
@@ -239,7 +246,7 @@ def test_create_custom_model_default_model_id_falls_back_to_first(model_app):
         },
     )
     assert created["item"]["default_model_id"] == "alpha"
-    assert created["item"]["modelId"] == "alpha"
+    assert "modelId" not in created["item"]
 
 
 def test_probe_with_explicit_model_id_overrides_default(model_app):
@@ -271,8 +278,8 @@ def test_probe_with_explicit_model_id_overrides_default(model_app):
         index=0,
     )
     assert resolved["apiKey"] == "sk-probe-key"
-    assert resolved["modelId"] == "alternate-id"
     assert resolved["default_model_id"] == "alternate-id"
+    assert "modelId" not in resolved
 
 
 def test_probe_without_model_id_uses_default(model_app):
@@ -302,8 +309,8 @@ def test_probe_without_model_id_uses_default(model_app):
         },
         index=0,
     )
-    assert resolved["modelId"] == "second"
     assert resolved["default_model_id"] == "second"
+    assert "modelId" not in resolved
 
 
 def test_update_custom_model_switches_default_within_model_ids(model_app):
@@ -335,8 +342,31 @@ def test_update_custom_model_switches_default_within_model_ids(model_app):
         },
     )
     assert updated["item"]["default_model_id"] == "y"
-    assert updated["item"]["modelId"] == "y"
     assert updated["item"]["max_tokens"] == 2048
+    assert "modelId" not in updated["item"]
+
+
+def test_create_custom_model_legacy_only_payload_rejected(model_app):
+    """W-004：legacy-only POST body 获得明确 4xx。"""
+    with pytest.raises(ValueError):
+        cm_api.create_custom_model(
+            model_app,
+            {
+                "name": "Legacy",
+                "modelId": "legacy-only",
+                "mode": "openai",
+                "endpoint": "https://api.example.com/v1",
+                "apiKey": "sk-legacy-only",
+                "provider": "custom_openai",
+            },
+        )
+
+
+def test_list_custom_models_response_has_no_model_id(model_app):
+    """W-004：GET 列表项不含 modelId。"""
+    cm_api.create_custom_model(model_app, _model_payload("listed-model"))
+    listing = cm_api.list_custom_models(model_app)
+    assert "modelId" not in listing["items"][0]
 
 
 def test_create_custom_model_empty_model_ids_rejected(model_app):
@@ -400,17 +430,23 @@ def test_format_delete_model_message_function_exported():
 
 
 def test_format_delete_model_message_text_rules_in_source():
-    """W-DELETE-CONFIRM-005：formatDeleteModelMessage 文案模板关键短语在源码中存在。"""
+    """W-DELETE-CONFIRM-005：formatDeleteModelMessage 使用 i18n key 与 model_ids 契约。"""
     src = _read_settings_custom_models_js()
-    # name 空降级
-    assert "'这条模型档案'" in src
-    # 文案模板片段
-    assert "确定删除模型「" in src
-    assert "该档案包含" in src
-    assert "个模型 ID，将一并删除" in src
-    assert "若该档案是当前默认，将自动切换到下一条" in src
+    # name 空降级与确认文案经 t() 引用，不硬编码中文
+    assert "t('dynamic.settingsCustomModels.这条模型档案')" in src
+    assert "t('dynamic.settingsCustomModels.确定删除模型_display_吗_该档案包')" in src
     # N 来自 model_ids.length
     assert "model_ids" in src
+    assert "display" in src
+    assert "ids.length" in src
+    zh_dynamic = json.loads(
+        (REPO_ROOT / "web" / "static" / "locales" / "zh" / "dynamic.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    custom_models = zh_dynamic["dynamic"]["settingsCustomModels"]
+    assert "这条模型档案" in custom_models["这条模型档案"]
+    assert "确定删除模型「" in custom_models["确定删除模型_display_吗_该档案包"]
 
 
 def test_open_delete_model_confirm_uses_focus_trap_and_classlist():
@@ -439,7 +475,7 @@ def test_open_delete_model_confirm_calls_delete_api_and_toast():
     """W-DELETE-CONFIRM-005：确认按钮回调调用 DELETE /api/custom-models/{index} + toast + loadCustomModels。"""
     src = _read_settings_custom_models_js()
     assert "apiFetch(`/api/custom-models/${index}`, { method: 'DELETE' })" in src
-    assert "customModelDeps.showToast('已删除~')" in src
+    assert "customModelDeps.showToast(t('dynamic.settingsCustomModels.已删除_2'))" in src
     assert "loadCustomModels()" in src
     # 错误处理：失败时关闭 modal + 错误 toast
     assert "customModelDeps.showToast(error.message, true)" in src
@@ -649,34 +685,76 @@ def test_delete_button_still_calls_open_delete_model_confirm():
 
 
 # ---------------------------------------------------------------------------
+# W-ARCH-MODEL-PROFILE-CANONICAL-003：前端 canonical payload 与唯一 save/probe action
+# ---------------------------------------------------------------------------
+
+
+def _collect_model_form_return_block(src: str) -> str:
+    marker = "export function collectModelForm()"
+    start = src.index(marker)
+    return_start = src.index("return {", start)
+    return_end = src.index("};", return_start)
+    return src[return_start:return_end]
+
+
+def test_collect_model_form_payload_excludes_model_id():
+    """W-ARCH-MODEL-PROFILE-CANONICAL-003：collectModelForm 提交块不含 legacy modelId。"""
+    src = SETTINGS_CUSTOM_MODELS_JS.read_text(encoding="utf-8")
+    block = _collect_model_form_return_block(src)
+    assert "model_ids:" in block
+    assert "default_model_id:" in block
+    assert "modelId:" not in block
+
+
+def test_settings_js_delegates_model_save_and_probe():
+    """W-ARCH-MODEL-PROFILE-CANONICAL-003：settings.js 导入并调用 saveModel / probe。"""
+    src = SETTINGS_JS.read_text(encoding="utf-8")
+    assert "saveModel" in src
+    assert "probe" in src
+    assert "await saveModel()" in src
+    assert "await probe()" in src
+
+
+def test_settings_js_has_no_duplicate_custom_model_http():
+    """W-ARCH-MODEL-PROFILE-CANONICAL-003：settings.js 不复制模型档案 POST/PUT/probe HTTP。"""
+    src = SETTINGS_JS.read_text(encoding="utf-8")
+    assert "/api/custom-models" not in src
+
+
+def test_custom_models_module_is_unique_save_probe_owner():
+    """W-ARCH-MODEL-PROFILE-CANONICAL-003：saveModel / probe 唯一实现在 settings-custom-models.js。"""
+    custom_src = SETTINGS_CUSTOM_MODELS_JS.read_text(encoding="utf-8")
+    settings_src = SETTINGS_JS.read_text(encoding="utf-8")
+    assert "export async function saveModel()" in custom_src
+    assert "export async function probe()" in custom_src
+    assert "await apiFetch(`/api/custom-models/${index}`" in custom_src
+    assert "await apiFetch('/api/custom-models'" in custom_src
+    assert "await apiFetch('/api/custom-models/probe'" in custom_src
+    assert "export async function saveModel()" not in settings_src
+    assert "export async function probe()" not in settings_src
+
+
+def test_probe_payload_includes_explicit_model_id():
+    """W-ARCH-MODEL-PROFILE-CANONICAL-003：probe 显式携带 model_id=default_model_id。"""
+    src = SETTINGS_CUSTOM_MODELS_JS.read_text(encoding="utf-8")
+    assert "model_id: form.default_model_id" in src
+
+
+def test_custom_models_ui_no_model_id_fallback_reads():
+    """W-ARCH-MODEL-PROFILE-CANONICAL-003：模型档案 UI 不以 model.modelId 回退读取。"""
+    src = SETTINGS_CUSTOM_MODELS_JS.read_text(encoding="utf-8")
+    assert "model.modelId" not in src
+
+
+# ---------------------------------------------------------------------------
 # W-PERSONA-MODEL-BIND-001：删除自定义模型时清理 persona_model_bindings
 # ---------------------------------------------------------------------------
 
 
 def test_delete_custom_model_clears_persona_bindings(model_app):
     """删除模型档案后，引用该 model_id 的人格绑定应被清空。"""
-    cm_api.create_custom_model(
-        model_app,
-        {
-            "name": "Bound",
-            "modelId": "bound-1",
-            "mode": "openai",
-            "endpoint": "https://api.example.com/v1",
-            "apiKey": "sk-bound-key-1234567890",
-            "provider": "custom_openai",
-        },
-    )
-    cm_api.create_custom_model(
-        model_app,
-        {
-            "name": "Other",
-            "modelId": "other-2",
-            "mode": "openai",
-            "endpoint": "https://api.example.com/v1",
-            "apiKey": "sk-other-key-1234567890",
-            "provider": "custom_openai",
-        },
-    )
+    cm_api.create_custom_model(model_app, _model_payload("bound-1", name="Bound"))
+    cm_api.create_custom_model(model_app, _model_payload("other-2", name="Other"))
     # 绑定：高压吐槽型 → bound-1，熬夜陪看型 → other-2
     model_app.config.set(
         "persona_model_bindings", '{"高压吐槽型": "bound-1", "熬夜陪看型": "other-2"}'
@@ -694,17 +772,7 @@ def test_delete_custom_model_clears_persona_bindings(model_app):
 
 def test_delete_custom_model_no_bindings_is_noop(model_app):
     """删除模型时若无人格绑定引用它，清理逻辑应幂等无副作用。"""
-    cm_api.create_custom_model(
-        model_app,
-        {
-            "name": "Solo",
-            "modelId": "solo-1",
-            "mode": "openai",
-            "endpoint": "https://api.example.com/v1",
-            "apiKey": "sk-solo-key-1234567890",
-            "provider": "custom_openai",
-        },
-    )
+    cm_api.create_custom_model(model_app, _model_payload("solo-1", name="Solo"))
     # 无人格绑定
     cm_api.delete_custom_model(model_app, 0)
     assert model_app.config.get("persona_model_bindings", "{}") in ("{}", "")

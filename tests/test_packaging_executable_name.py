@@ -45,16 +45,22 @@ def test_velopack_pack_mainexe_uses_ssot() -> None:
 
 def test_build_exe_script_uses_ssot() -> None:
     text = _read_script("build_exe.ps1")
-    assert "Get-PackagingDistPaths" in text
+    assert "Get-PackagingDistPaths -Root $Root" in text
     assert 'Join-Path $distDir "DanmuAI.exe"' not in text
     assert 'dist\\DanmuAI"' not in text
 
 
 def test_publish_windows_release_uses_ssot() -> None:
     text = _read_script("publish_windows_release.ps1")
-    assert "Get-PackagingDistPaths" in text
+    assert "Get-PackagingDistPaths -Root $Root" in text
     assert 'Join-Path $DistDir "DanmuAI.exe"' not in text
     assert 'dist\\DanmuAI"' not in text
+
+
+def test_velopack_pack_passes_root_to_packaging_helpers() -> None:
+    text = _read_script("velopack_pack.ps1")
+    assert "Get-PackagingExeName -Root $Root" in text
+    assert "Get-PackagingDistPaths -Root $Root" in text
 
 
 def test_version_parse_exports_packaging_helpers() -> None:
@@ -62,6 +68,7 @@ def test_version_parse_exports_packaging_helpers() -> None:
     assert "function Get-PackagingExeName" in text
     assert "function Get-PackagingDistPaths" in text
     assert "packaging_constants" in text
+    assert "[string]$Root" in text
 
 
 def test_velopack_pack_id_matches_ssot() -> None:

@@ -537,11 +537,13 @@ class WebViewShell:
         initial_path: str,
         *,
         fallback_browser: bool = True,
+        allow_failed_state_fallback: bool = False,
     ) -> bool:
-        if self._handshake_failed and not fallback_browser:
-            return False
-        if self._handshake_failed and fallback_browser:
-            return False
+        if self._handshake_failed:
+            if not allow_failed_state_fallback or not fallback_browser:
+                return False
+            if getattr(self.server, "_browser_launch_opened", False):
+                return False
         danmu_app = self.server.bridge.danmu_app
         if fallback_browser:
             danmu_app.logger.error(f"pywebview 启动失败: {error}")
@@ -565,7 +567,12 @@ class WebViewShell:
     def finalize_handshake_failure(self, error: str, initial_path: str) -> bool:
         """Final attach failure: always allow browser fallback (BUG-014 dedupe)."""
         self._defer_browser_fallback = False
-        return self._abort_handshake(error, initial_path, fallback_browser=True)
+        return self._abort_handshake(
+            error,
+            initial_path,
+            fallback_browser=True,
+            allow_failed_state_fallback=True,
+        )
 
     def _succeed_start(self, initial_path: str) -> bool:
         self._started = True

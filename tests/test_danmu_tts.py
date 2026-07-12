@@ -9,20 +9,18 @@ from app.danmu_engine import DanmuEngine, DanmuItem
 from app.danmu_read_service import (
     danmu_read_enabled,
 )
-from app.danmu_tts import (
+from app.danmu_tts_playback import DanmuTtsPlayback
+from app.tts_providers import (
     MIMO_TTS_ENDPOINT,
     MIMO_TTS_MODEL,
+    TTS_PROVIDER_DASHSCOPE_QWEN,
+    TTS_PROVIDER_MIMO,
     DanmuTtsError,
     ResolvedTtsConfig,
     clamp_read_interval_sec,
     normalize_tts_voice,
     resolve_tts_config,
-    synthesize_mimo_tts,
-)
-from app.danmu_tts_playback import DanmuTtsPlayback
-from app.tts_providers import (
-    TTS_PROVIDER_DASHSCOPE_QWEN,
-    TTS_PROVIDER_MIMO,
+    synthesize_tts,
 )
 
 from tests.fakes import FakeConfig
@@ -104,7 +102,18 @@ def test_synthesize_mimo_tts_parses_audio(monkeypatch):
             return FakeResponse()
 
     monkeypatch.setattr("app.tts_providers.httpx.Client", FakeClient)
-    out = synthesize_mimo_tts("sk-test", "你好", style_prompt="轻快", voice="冰糖")
+    resolved = ResolvedTtsConfig(
+        provider=TTS_PROVIDER_MIMO,
+        endpoint=MIMO_TTS_ENDPOINT,
+        model=MIMO_TTS_MODEL,
+        is_custom=False,
+        stored_provider="",
+        stored_endpoint="",
+        stored_model_id="",
+    )
+    out = synthesize_tts(
+        "sk-test", "你好", resolved=resolved, style_prompt="轻快", voice="冰糖"
+    )
     assert out == wav
 
 
@@ -152,8 +161,17 @@ def test_resolve_tts_config_rejects_custom_openai():
 
 
 def test_synthesize_mimo_tts_missing_key():
+    resolved = ResolvedTtsConfig(
+        provider=TTS_PROVIDER_MIMO,
+        endpoint=MIMO_TTS_ENDPOINT,
+        model=MIMO_TTS_MODEL,
+        is_custom=False,
+        stored_provider="",
+        stored_endpoint="",
+        stored_model_id="",
+    )
     with pytest.raises(DanmuTtsError, match="API Key"):
-        synthesize_mimo_tts("", "hi")
+        synthesize_tts("", "hi", resolved=resolved)
 
 
 def test_synthesize_mimo_tts_text_only_response(monkeypatch):
@@ -194,7 +212,7 @@ def test_synthesize_mimo_tts_text_only_response(monkeypatch):
         stored_model_id="",
     )
     with pytest.raises(DanmuTtsError, match="不支持读弹幕 TTS 音频输出"):
-        synthesize_mimo_tts("sk-test", "你好", resolved=resolved)
+        synthesize_tts("sk-test", "你好", resolved=resolved)
 
 
 def test_config_tts_api_key_roundtrip(workspace_tmp):

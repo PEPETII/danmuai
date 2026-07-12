@@ -7,20 +7,21 @@ param(
     [string]$OutputDir = "",
     [string]$PackId = "PEPETII.DanmuAI",
     [string]$MainExe = "",
-    [string]$PackTitle = "DanmuAI"
+    [string]$PackTitle = "DanmuAI",
+    [pscustomobject]$BuildPython = $null
 )
 
 $ErrorActionPreference = "Stop"
 $OutputEncoding = [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $Root = Split-Path -Parent $PSScriptRoot
 
+. (Join-Path $PSScriptRoot "resolve_build_python.ps1")
 . (Join-Path $PSScriptRoot "version_parse.ps1")
 if (-not $MainExe) {
-    $MainExe = Get-PackagingExeName
+    $MainExe = Get-PackagingExeName -Root $Root
 }
-. (Join-Path $PSScriptRoot "resolve_build_python.ps1")
 if (-not $PackDir) {
-    $packagingPaths = Get-PackagingDistPaths
+    $packagingPaths = Get-PackagingDistPaths -Root $Root
     $PackDir = Join-Path $Root ("dist\" + $packagingPaths.DistDir)
 }
 if (-not $OutputDir) {
@@ -48,11 +49,10 @@ See docs/operations/PACKAGING_WINDOWS.md
 
 Ensure-Vpk
 
-$BuildPython = Assert-BuildPython -Root $Root
-$versionOutput = & $BuildPython.Path @($BuildPython.Args) -c "from app.version import __version__; print(__version__)" 2>&1
-if ($LASTEXITCODE -ne 0) {
-    Write-Error "Failed to read app version from app.version.__version__ (exit $LASTEXITCODE): $versionOutput"
+if (-not $BuildPython) {
+    $BuildPython = Assert-BuildPython -Root $Root
 }
+$versionOutput = Invoke-BuildPythonExpression -Root $Root -Code "from app.version import __version__; print(__version__)" -PythonCmd $BuildPython
 $appVersion = Get-PythonVersionOutputLine -VersionOutput $versionOutput
 if (-not $appVersion -or $appVersion -notmatch $AppVersionPattern) {
     Write-Error "Invalid version string from app.version.__version__: '$appVersion' (expected semver x.y.z or x.y.z-prerelease)"
@@ -68,7 +68,7 @@ New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 # Code signing gate (SIGN-004 / W-PACK-001).
 # When DANMU_CODE_SIGN=1, pass signing params to vpk pack.
 # Credentials via environment variables ONLY — never commit PFX, passwords, or PINs.
-# See docs/operations/WINDOWS_CODE_SIGNING.md
+# See docs/operations/PACKAGING_WINDOWS.md（「代码签名（可选）」章节）
 $signArgs = @()
 if ($env:DANMU_CODE_SIGN -eq "1") {
     if ($env:VPK_AZURE_TRUSTED_SIGN_FILE) {
@@ -78,7 +78,7 @@ if ($env:DANMU_CODE_SIGN -eq "1") {
         $signArgs = @("--signParams", $env:VPK_SIGN_PARAMS)
         Write-Host "Code signing enabled: signtool (--signParams)"
     } else {
-        Write-Error "DANMU_CODE_SIGN=1 but neither VPK_SIGN_PARAMS nor VPK_AZURE_TRUSTED_SIGN_FILE is set. See docs/operations/WINDOWS_CODE_SIGNING.md"
+        Write-Error "DANMU_CODE_SIGN=1 but neither VPK_SIGN_PARAMS nor VPK_AZURE_TRUSTED_SIGN_FILE is set. See docs/operations/PACKAGING_WINDOWS.md（「代码签名（可选）」章节）"
     }
 }
 

@@ -40,6 +40,30 @@ a.sidebar-item {
   display: none;
 }
 
+/* 侧栏品牌区：官网链接 */
+.sidebar-official-site-btn {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  margin-top: 0.25rem;
+  padding: 0.125rem 0.625rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--color-primary, #ff8585);
+  background: rgba(255, 133, 133, 0.1);
+  border: 1px solid rgba(255, 133, 133, 0.35);
+  border-radius: 9999px;
+  text-decoration: none;
+  transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.sidebar-official-site-btn:hover {
+  color: #fff;
+  background: var(--color-primary, #ff8585);
+  border-color: var(--color-primary, #ff8585);
+}
+
 /* 侧栏左下角：赞赏 + 版本信息 */
 .sidebar-bottom {
   margin-top: auto;

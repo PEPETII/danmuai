@@ -1,11 +1,42 @@
 import { collectFeedbackContext } from './feedback-context.js';
-import { t } from './i18n.js';
+import { getLanguage, onLanguageChanged, t } from './i18n.js';
+
+function formatSupabaseUserMessage(err, { rateLimitMsg, fallback }) {
+  if (err?.kind === 'rate_limit' || err?.message === rateLimitMsg) return rateLimitMsg;
+  if (err?.kind === 'timeout' || err?.kind === 'network_error') {
+    return t('dynamic.appAiButlerPage.网络开小差了_请重试');
+  }
+  return window.DanmuSupabase?.formatSupabaseError?.(err, fallback) || err?.message || fallback;
+}
+
+export const DISCORD_MOCK_INVITE_URL = 'https://discord.gg/danmuai-mock';
 
 let showToast = () => {};
 let feedbackPageInitialized = false;
+let communityListenerRegistered = false;
 
 export function configureFeedbackBindings(deps = {}) {
   showToast = deps.showToast || showToast;
+}
+
+export function applyFeedbackCommunityEntry() {
+  const isEn = getLanguage() === 'en';
+  const qqWrap = document.getElementById('feedbackCommunityQq');
+  const discordWrap = document.getElementById('feedbackCommunityDiscord');
+  const discordLink = document.getElementById('feedbackDiscordLink');
+
+  if (qqWrap) qqWrap.hidden = isEn;
+  if (discordWrap) {
+    discordWrap.hidden = !isEn;
+    discordWrap.classList.toggle('hidden', !isEn);
+  }
+  if (discordLink) discordLink.href = DISCORD_MOCK_INVITE_URL;
+}
+
+function ensureFeedbackCommunityListener() {
+  if (communityListenerRegistered) return;
+  communityListenerRegistered = true;
+  onLanguageChanged(applyFeedbackCommunityEntry);
 }
 
 function updateFeedbackQuotaHint(quota) {
@@ -44,11 +75,16 @@ async function refreshFeedbackQuota() {
     const quota = await window.DanmuSupabase.getFeedbackQuota();
     updateFeedbackQuotaHint(quota);
   } catch (err) {
-    el.textContent = err.message || t('dynamic.appErrorReporting.无法查询提交额度');
+    el.textContent = formatSupabaseUserMessage(err, {
+      rateLimitMsg: window.DanmuSupabase?.FEEDBACK_RATE_LIMIT_MSG,
+      fallback: t('dynamic.appErrorReporting.无法查询提交额度'),
+    });
   }
 }
 
 export function initFeedbackPage() {
+  ensureFeedbackCommunityListener();
+  applyFeedbackCommunityEntry();
   refreshFeedbackQuota().catch(console.error);
   if (feedbackPageInitialized) return;
   feedbackPageInitialized = true;
@@ -78,7 +114,13 @@ export function initFeedbackPage() {
       if (input) input.value = '';
       await refreshFeedbackQuota();
     } catch (err) {
-      showToast(err.message || t('dynamic.contentFeedback.提交失败'), true);
+      showToast(
+        formatSupabaseUserMessage(err, {
+          rateLimitMsg: window.DanmuSupabase?.FEEDBACK_RATE_LIMIT_MSG,
+          fallback: t('dynamic.contentFeedback.提交失败'),
+        }),
+        true,
+      );
     } finally {
       await refreshFeedbackQuota();
     }

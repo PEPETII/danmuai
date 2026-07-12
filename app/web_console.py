@@ -68,13 +68,6 @@ __all__ = [
     "WebConsoleBridge",
     "WebConsoleServer",
     "WebStatusSnapshot",
-    "_SAVE_DONE_EVENT_KEY",
-    "_SAVE_RESULT_KEY",
-    "_WS_MAX_LOG_CONSUMERS",
-    "_WS_MAX_STATUS_CONSUMERS",
-    "_write_config_save_result",
-    "_enqueue_ws",
-    "_ws_token_valid",
     "apply_config_patch",
     "attach_web_console",
     "classify_web_console_startup",
@@ -200,6 +193,7 @@ class WebConsoleBridge(QObject):
 
         线程安全机制：sync_invoke_requested 经 QueuedConnection 排队到主线程；
         HTTP 线程用 threading.Event.wait 等待完成，超时抛出 MainThreadInvokeTimeout。
+        超时后已排队但未执行的 runner 会检查 aborted 标记并跳过 fn；fn 已启动则无法中断。
         """
         if QThread.currentThread() is self.thread():
             return fn(*args, **kwargs)
@@ -210,10 +204,13 @@ class WebConsoleBridge(QObject):
             else float(timeout_sec)
         )
         done = threading.Event()
+        aborted = threading.Event()
         result_holder: dict[str, object] = {}
         error_holder: list[BaseException] = []
 
         def runner() -> None:
+            if aborted.is_set():
+                return
             try:
                 result_holder["result"] = fn(*args, **kwargs)
             except BaseException as exc:
@@ -223,6 +220,7 @@ class WebConsoleBridge(QObject):
 
         self.sync_invoke_requested.emit(runner)
         if not done.wait(timeout=timeout):
+            aborted.set()
             # W-INVOKE-OBSERV-001：先计数再告警，便于 /api/diagnostics 读取累计超时次数
             self._invoke_timeout_count += 1
             self.danmu_app.logger.error(

@@ -157,8 +157,8 @@ pip install -r requirements.txt -r requirements-dev.txt
 
 ### 为什么旧画面的弹幕没显示出来？
 
-- **当前普通模式策略**：不做场景代际（`scene_generation`）检查，也不因过期 `screenshot_id` 或新鲜度 TTL 硬丢弃 AI 回复；慢模型下弹幕可能相对画面略有滞后，优先保证弹幕连续性。
-- 若仍看不到弹幕，常见原因包括：API/截图失败、连续失败退避、去重拒绝、轨道已满导致 `add_text` 暂不上屏等。可在「弹幕日记」查看错误日志。
+- **当前普通模式策略**：不做截图 hash 场景判定，但仍执行 `scene_generation` 代际门控。回复的代际落后于当前画面时会被丢弃，并记录 `reason=scene_generation_lagged`。
+- `screenshot_id` 主要用于关联请求和日志，不等同于场景代际。若仍看不到弹幕，还应检查 API/截图失败、连续失败退避、`reason=empty_parse`、去重拒绝和轨道满载等日志。
 
 ### 程序会保存截图吗？
 
@@ -194,7 +194,7 @@ pip install -r requirements.txt -r requirements-dev.txt
 
 ## 贡献方式
 
-- 提交 Issue 前阅读 [SECURITY.md](SECURITY.md) 和 [data/ATTRIBUTION.md](data/ATTRIBUTION.md)、[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+- 提交 Issue 前阅读 [SECURITY.md](SECURITY.md) 和 [data/ATTRIBUTION.md](data/ATTRIBUTION.md)。
 - 参与社区请遵守 [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)。
 - 提交代码前请运行测试集（见 [CONTRIBUTING.md](CONTRIBUTING.md)）。
 - 新功能默认在 **Web**（`web/static/`、`app/web_api/`）实现。
@@ -205,7 +205,8 @@ pip install -r requirements.txt -r requirements-dev.txt
 
 | 资源 | 说明 |
 |------|------|
-| [docs/README.md](docs/README.md) | 架构优化建议报告索引（非对外文档入口） |
+| [docs/README.md](docs/README.md) | 2026-07-02 架构优化历史报告索引（非当前架构基线） |
+| [docs/glossary.md](docs/glossary.md) | 运行时、架构与发布术语 |
 | [docs/final-architecture-baseline.md](docs/final-architecture-baseline.md) | Boundary Guard 架构基线登记表 |
 | [docs/main-pipeline-sequence.md](docs/main-pipeline-sequence.md) | 主链路定时器 / 线程触发登记表 |
 | [docs/runtime-state-map.md](docs/runtime-state-map.md) | 运行态字段投影登记表 |
@@ -242,6 +243,4 @@ SPDX-License-Identifier: `GPL-3.0-or-later`
 
 本项目基于 [GNU General Public License v3.0 或更新版本](LICENSE) 开源。
 
-第三方组件许可证见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) 和 [data/ATTRIBUTION.md](data/ATTRIBUTION.md)。弹幕语料子集归因见 [data/ATTRIBUTION.md](data/ATTRIBUTION.md)。
-
-英文概要：[README.en.md](README.en.md)
+第三方素材与弹幕语料子集归因见 [data/ATTRIBUTION.md](data/ATTRIBUTION.md)。依赖包许可证以各依赖自身发布信息为准；仓库当前没有独立 `THIRD_PARTY_NOTICES.md`。

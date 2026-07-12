@@ -81,6 +81,18 @@ _register(
     usage_token_style="dashscope",
     thinking_param_style="enable_thinking",
 )
+_register("openai", thinking_param_style="none", supports_thinking=False)
+_register("google_gemini", thinking_param_style="none", supports_thinking=False)
+_register("xai", thinking_param_style="none", supports_thinking=False)
+_register("mistral", thinking_param_style="none", supports_thinking=False)
+_register("together", thinking_param_style="none", supports_thinking=False)
+_register("fireworks", thinking_param_style="none", supports_thinking=False)
+_register(
+    "dashscope_intl",
+    thinking_param_style="none",
+    supports_thinking=False,
+    usage_token_style="dashscope",
+)
 _register("zai", thinking_param_style="thinking_type")
 _register("zhipu", thinking_param_style="thinking_type")
 _register("moonshot", thinking_param_style="thinking_type")

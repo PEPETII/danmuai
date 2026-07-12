@@ -1,8 +1,15 @@
 """Provider presets and validation for custom model configurations.
 
-14 个服务商预设（``PROVIDERS`` 列表，按 preset id 排序）：
+21 个服务商预设（``PROVIDERS`` 列表）：
 - doubao（火山方舟） — mode=doubao，lock_mode=True（不可切换 Chat Completions）
 - dashscope（阿里云百炼） — OpenAI 兼容
+- openai（OpenAI） — OpenAI 兼容
+- google_gemini（Google Gemini） — OpenAI 兼容
+- xai（xAI） — OpenAI 兼容
+- mistral（Mistral AI） — OpenAI 兼容
+- together（Together AI） — OpenAI 兼容
+- fireworks（Fireworks AI） — OpenAI 兼容
+- dashscope_intl（DashScope International） — OpenAI 兼容
 - zai（Z.AI / 智谱） — OpenAI 兼容
 - zhipu（智谱 AI） — OpenAI 兼容
 - moonshot（Moonshot Kimi） — OpenAI 兼容
@@ -25,7 +32,10 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from typing import Literal
 from urllib.parse import urlparse
+
+Region = Literal["china", "international", "global"]
 
 
 @dataclass(frozen=True)
@@ -37,6 +47,7 @@ class ProviderSpec:
     mode: str
     model_id_hint_zh: str
     model_id_hint_en: str
+    region: Region
     lock_mode: bool = True
     lock_endpoint: bool = False
     website: str | None = None
@@ -51,6 +62,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         mode="doubao",
         model_id_hint_zh="截图弹幕可用 flash；开麦请用 doubao-seed-2-0-mini-260428 等全模态/vision 模型",
         model_id_hint_en="flash for vision-only danmu; enable mic with doubao-seed-2-0-mini-260428 or vision models",
+        region="china",
         website="https://www.volcengine.com/product/ark",
     ),
     ProviderSpec(
@@ -61,7 +73,85 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         mode="openai-compatible",
         model_id_hint_zh="例如：qwen-vl-max",
         model_id_hint_en="e.g. qwen-vl-max",
+        region="china",
         website="https://help.aliyun.com/zh/dashscope/",
+    ),
+    ProviderSpec(
+        id="openai",
+        label_zh="OpenAI",
+        label_en="OpenAI",
+        default_endpoint="https://api.openai.com/v1",
+        mode="openai-compatible",
+        model_id_hint_zh="截图弹幕：gpt-5.1 / gpt-5 / gpt-4.1",
+        model_id_hint_en="Vision danmu: gpt-5.1 / gpt-5 / gpt-4.1",
+        region="international",
+        website="https://platform.openai.com/",
+    ),
+    ProviderSpec(
+        id="google_gemini",
+        label_zh="Google Gemini",
+        label_en="Google Gemini",
+        default_endpoint="https://generativelanguage.googleapis.com/v1beta/openai",
+        mode="openai-compatible",
+        model_id_hint_zh="截图弹幕：gemini-3.5-flash / gemini-2.5-flash",
+        model_id_hint_en="Vision danmu: gemini-3.5-flash / gemini-2.5-flash",
+        region="international",
+        website="https://ai.google.dev/gemini-api/docs",
+    ),
+    ProviderSpec(
+        id="xai",
+        label_zh="xAI",
+        label_en="xAI",
+        default_endpoint="https://api.x.ai/v1",
+        mode="openai-compatible",
+        model_id_hint_zh="截图弹幕：grok-4.3 / grok-4.20 系列",
+        model_id_hint_en="Vision danmu: grok-4.3 / grok-4.20 series",
+        region="international",
+        website="https://docs.x.ai/",
+    ),
+    ProviderSpec(
+        id="mistral",
+        label_zh="Mistral AI",
+        label_en="Mistral AI",
+        default_endpoint="https://api.mistral.ai/v1",
+        mode="openai-compatible",
+        model_id_hint_zh="截图弹幕：mistral-large-2512 / mistral-medium-2508",
+        model_id_hint_en="Vision danmu: mistral-large-2512 / mistral-medium-2508",
+        region="international",
+        website="https://docs.mistral.ai/",
+    ),
+    ProviderSpec(
+        id="together",
+        label_zh="Together AI",
+        label_en="Together AI",
+        default_endpoint="https://api.together.xyz/v1",
+        mode="openai-compatible",
+        model_id_hint_zh="截图弹幕：Qwen / Gemma / Kimi / MiniMax 多模型预设",
+        model_id_hint_en="Vision danmu: Qwen / Gemma / Kimi / MiniMax presets",
+        region="international",
+        website="https://docs.together.ai/",
+    ),
+    ProviderSpec(
+        id="fireworks",
+        label_zh="Fireworks AI",
+        label_en="Fireworks AI",
+        default_endpoint="https://api.fireworks.ai/inference/v1",
+        mode="openai-compatible",
+        model_id_hint_zh="截图弹幕：Kimi / Qwen / Step / Gemma 多模型预设",
+        model_id_hint_en="Vision danmu: Kimi / Qwen / Step / Gemma presets",
+        region="international",
+        website="https://docs.fireworks.ai/",
+    ),
+    ProviderSpec(
+        id="dashscope_intl",
+        label_zh="DashScope International",
+        label_en="DashScope International",
+        default_endpoint="https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+        mode="openai-compatible",
+        model_id_hint_zh="截图弹幕：qwen3-vl-flash / qwen-vl-max",
+        model_id_hint_en="Vision danmu: qwen3-vl-flash / qwen-vl-max",
+        region="international",
+        website="https://www.alibabacloud.com/help/en/model-studio/",
     ),
     ProviderSpec(
         id="zai",
@@ -71,6 +161,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         mode="openai-compatible",
         model_id_hint_zh="截图弹幕：glm-4.6v / glm-4.5v（图片输入 + 文本输入 → 文本输出）",
         model_id_hint_en="Vision danmu: glm-4.6v / glm-4.5v (image + text input to text output)",
+        region="international",
         website="https://z.ai/",
     ),
     ProviderSpec(
@@ -81,6 +172,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         mode="openai-compatible",
         model_id_hint_zh="例如：glm-4v-flash",
         model_id_hint_en="e.g. glm-4v-flash",
+        region="china",
         website="https://open.bigmodel.cn/",
     ),
     ProviderSpec(
@@ -91,6 +183,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         mode="openai-compatible",
         model_id_hint_zh="例如：moonshot-v1-8k-vision-preview",
         model_id_hint_en="e.g. moonshot-v1-8k-vision-preview",
+        region="china",
         website="https://platform.moonshot.cn/",
     ),
     ProviderSpec(
@@ -101,6 +194,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         mode="openai-compatible",
         model_id_hint_zh="例如：deepseek-ai/DeepSeek-V3",
         model_id_hint_en="e.g. deepseek-ai/DeepSeek-V3",
+        region="china",
         website="https://siliconflow.cn/",
     ),
     ProviderSpec(
@@ -111,6 +205,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         mode="openai-compatible",
         model_id_hint_zh="截图弹幕与开麦：mimo-v2.5",
         model_id_hint_en="Vision danmu and mic: mimo-v2.5",
+        region="global",
         website="https://api.xiaomimimo.com/",
     ),
     ProviderSpec(
@@ -121,6 +216,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         mode="openai-compatible",
         model_id_hint_zh="截图弹幕：hunyuan-turbos-vision / hunyuan-t1-vision",
         model_id_hint_en="Vision danmu: hunyuan-turbos-vision / hunyuan-t1-vision",
+        region="china",
         website="https://cloud.tencent.com/product/hunyuan",
     ),
     ProviderSpec(
@@ -131,6 +227,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         mode="openai-compatible",
         model_id_hint_zh="截图弹幕：step-3 / step-3-7-flash",
         model_id_hint_en="Vision danmu: step-3 / step-3-7-flash",
+        region="china",
         website="https://platform.stepfun.com/",
     ),
     ProviderSpec(
@@ -141,6 +238,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         mode="openai-compatible",
         model_id_hint_zh="截图弹幕：ernie-4-5-turbo-vl / ernie-5-0-thinking-latest",
         model_id_hint_en="Vision danmu: ernie-4-5-turbo-vl / ernie-5-0-thinking-latest",
+        region="china",
         website="https://qianfan.cloud.baidu.com/",
     ),
     ProviderSpec(
@@ -151,6 +249,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         mode="openai-compatible",
         model_id_hint_zh="例如：anthropic/claude-sonnet-4.5（带厂商前缀）",
         model_id_hint_en="e.g. anthropic/claude-sonnet-4.5 (with vendor prefix)",
+        region="international",
         website="https://openrouter.ai/",
     ),
     ProviderSpec(
@@ -161,6 +260,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         mode="openai-compatible",
         model_id_hint_zh="例如：Qwen/Qwen3-VL-8B-Instruct（与 SiliconFlow 同名）",
         model_id_hint_en="e.g. Qwen/Qwen3-VL-8B-Instruct (same as SiliconFlow)",
+        region="china",
         website="https://modelscope.cn/",
     ),
     ProviderSpec(
@@ -171,6 +271,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         mode="openai-compatible",
         model_id_hint_zh="填写服务商文档中的模型 ID",
         model_id_hint_en="Model ID from your provider docs",
+        region="international",
         lock_mode=False,
         lock_endpoint=False,
     ),
@@ -182,6 +283,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         mode="doubao",
         model_id_hint_zh="填写豆包 Responses API 的模型或接入点 ID",
         model_id_hint_en="Doubao Responses model or endpoint ID",
+        region="china",
         lock_mode=False,
         lock_endpoint=False,
     ),
@@ -194,6 +296,11 @@ DEFAULT_PROVIDER_ID = "custom_openai"
 
 def get_provider(provider_id: str) -> ProviderSpec | None:
     return _PROVIDER_BY_ID.get(provider_id)
+
+
+def provider_region(provider_id: str) -> Region:
+    spec = get_provider(provider_id)
+    return spec.region if spec is not None else "china"
 
 
 def provider_label(provider_id: str, lang: str = "zh") -> str:
@@ -305,19 +412,30 @@ def validate_endpoint_mode_consistency(endpoint: str, api_mode: str) -> str | No
     return None
 
 
-def resolve_active_model_id(config) -> str:
-    """Model id used for API requests (matches ``AiWorker._resolve_request_credentials``).
+def custom_model_profile_id(entry: dict) -> str:
+    """Active model id from a canonical ``get_custom_models()`` profile."""
+    return str(entry.get("default_model_id") or "").strip()
 
-    W-CUSTOMMODEL-SCHEMA-002：优先读 ``default_model_id``，保留 ``modelId`` 兜底。
-    """
+
+def find_custom_model_profile(custom_models: list, model_id: str) -> dict | None:
+    """Find a custom model profile by canonical ``default_model_id``."""
+    mid = (model_id or "").strip()
+    if not mid:
+        return None
+    for entry in custom_models:
+        if not isinstance(entry, dict):
+            continue
+        if custom_model_profile_id(entry) == mid:
+            return entry
+    return None
+
+
+def resolve_active_model_id(config) -> str:
+    """Model id used for API requests (matches ``AiWorker._resolve_request_credentials``)."""
     default_id = (config.get_default_model_id() or "").strip()
     if default_id:
-        for entry in config.get_custom_models():
-            entry_id = (
-                entry.get("default_model_id") or entry.get("modelId") or ""
-            )
-            if (entry_id or "").strip() == default_id:
-                return default_id
+        if find_custom_model_profile(config.get_custom_models(), default_id):
+            return default_id
         return default_id
     return (config.get("model") or "").strip()
 
@@ -428,23 +546,17 @@ def mic_audio_unsupported_message(model_id: str) -> str:
 
 
 def mic_audio_supported_for_config(config) -> bool:
-    """Match runtime mic gating: active model + global or custom endpoint/mode.
-
-    W-CUSTOMMODEL-SCHEMA-002：优先读 ``default_model_id``，保留 ``modelId`` 兜底。
-    """
+    """Match runtime mic gating: active model + global or custom endpoint/mode."""
     default_model_id = (config.get_default_model_id() or "").strip()
     if default_model_id:
-        for model in config.get_custom_models():
-            entry_id = (
-                model.get("default_model_id") or model.get("modelId") or ""
+        model = find_custom_model_profile(config.get_custom_models(), default_model_id)
+        if model is not None:
+            return model_supports_mic_audio(
+                default_model_id,
+                endpoint=(model.get("endpoint") or ""),
+                api_mode=(model.get("mode") or ""),
+                supports_mic_declared=model.get("supportsMic"),
             )
-            if (entry_id or "").strip() == default_model_id:
-                return model_supports_mic_audio(
-                    default_model_id,
-                    endpoint=(model.get("endpoint") or ""),
-                    api_mode=(model.get("mode") or ""),
-                    supports_mic_declared=model.get("supportsMic"),
-                )
     return model_supports_mic_audio(
         resolve_active_model_id(config),
         endpoint=(config.get("api_endpoint") or ""),
@@ -476,18 +588,21 @@ def resolve_mic_model_id(config) -> str:
 def validate_model_config(data: dict) -> list[str]:
     """Return translation keys for validation errors (in order).
 
-    W-CUSTOMMODEL-SCHEMA-002：优先校验新 shape（``model_ids`` 数组 +
-    ``default_model_id``）；旧 ``modelId`` 单值字段降级为兼容性兜底。
+    W-ARCH-MODEL-PROFILE-CANONICAL-004：仅校验 canonical shape（``model_ids`` 数组 +
+    ``default_model_id``）。
     """
     errors: list[str] = []
     name = (data.get("name") or "").strip()
     endpoint = normalize_endpoint(data.get("endpoint") or "")
     api_key = (data.get("apiKey") or data.get("api_key") or "").strip()
 
-    # W-CUSTOMMODEL-SCHEMA-002：model_ids 数组校验
+    if not endpoint:
+        errors.append("custom_model.error_endpoint")
+    elif not is_valid_endpoint(endpoint):
+        errors.append("custom_model.error_endpoint_invalid")
+
     model_ids = data.get("model_ids")
     if isinstance(model_ids, list):
-        # 新 shape：校验数组非空 + 每个 model_id 格式 + default_model_id 属于数组
         if not model_ids:
             errors.append("custom_model.error_model_id")
         else:
@@ -496,7 +611,7 @@ def validate_model_config(data: dict) -> list[str]:
                 if not mid_str:
                     errors.append("custom_model.error_model_id")
                     break
-                if not re.match(r'^[a-zA-Z0-9_./-]+$', mid_str):
+                if not re.match(r'^[a-zA-Z0-9_./:-]+$', mid_str):
                     errors.append("custom_model.error_model_id_invalid")
                     break
             default_model_id = (data.get("default_model_id") or "").strip()
@@ -507,19 +622,10 @@ def validate_model_config(data: dict) -> list[str]:
             elif not default_model_id:
                 errors.append("custom_model.error_model_id")
     else:
-        # 旧 shape 兼容：校验 legacy modelId 单值
-        legacy_model_id = (data.get("modelId") or data.get("model_id") or "").strip()
-        if not legacy_model_id:
-            errors.append("custom_model.error_model_id")
-        elif not re.match(r'^[a-zA-Z0-9_./-]+$', legacy_model_id):
-            errors.append("custom_model.error_model_id_invalid")
+        errors.append("custom_model.error_model_id")
 
     if not name:
         errors.append("custom_model.error_name")
-    if not endpoint:
-        errors.append("custom_model.error_endpoint")
-    elif not is_valid_endpoint(endpoint):
-        errors.append("custom_model.error_endpoint_invalid")
     if not api_key:
         errors.append("custom_model.error_api_key")
 

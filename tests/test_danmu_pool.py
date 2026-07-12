@@ -306,6 +306,29 @@ def test_set_custom_danmu_pool_respects_max(tmp_path, monkeypatch):
     store.close()
 
 
+def test_custom_pool_import_room_with_preexisting_duplicates(tmp_path, monkeypatch):
+    """BUG-F-001: room 计算须预剔除库内重复，避免 INSERT OR IGNORE 空占位截断。"""
+    from app.config_store import ConfigStore
+
+    store = ConfigStore(db_path=tmp_path / "pool_import_room.db")
+    monkeypatch.setattr("app.danmu_pool.CUSTOM_DANMU_POOL_MAX", 100)
+
+    existing = [f"pool-{i:04d}" for i in range(95)]
+    store.custom_danmu_insert_many(existing)
+    assert store.custom_danmu_count() == 95
+
+    import_texts = [f"pool-{i:04d}" for i in range(15)] + [
+        f"new-{i:04d}" for i in range(5)
+    ]
+    stats = store.custom_danmu_insert_many(import_texts, source="import")
+
+    assert store.custom_danmu_count() == 100
+    assert stats["added"] == 5
+    assert stats["skipped_duplicate"] == 15
+    assert stats["skipped_limit"] == 0
+    store.close()
+
+
 def test_read_without_write_lock_no_deadlock(tmp_path):
     """BUG-A02: Read operations should not hold _write_lock, avoiding deadlock with writes."""
     from app.config_store import ConfigStore
@@ -433,6 +456,82 @@ def test_load_danmu_pool_for_config_uses_cached_sampling(tmp_path, monkeypatch):
     assert len(getter_calls) == 0
     assert len(ids_calls) == 1
     assert random_sample_calls == []
+    store.close()
+
+
+def test_sample_fallback_uses_random_sample_not_full_get(tmp_path, monkeypatch):
+    """W-ARCH-DANMU-POOL-PERF-001: no-id-facade fallback uses random_sample, not full get."""
+    from app.config_store import ConfigStore
+    from app.danmu_pool import sample_danmu_for_config
+
+    store = ConfigStore(db_path=tmp_path / "sample_fallback.db")
+    store.custom_danmu_insert_many([f"弹幕{i:05d}" for i in range(15_000)])
+    store.set("danmu_pool_use_custom", "1")
+    assert store.custom_danmu_count() == 15_000
+
+    monkeypatch.setattr(store, "custom_danmu_enabled_ids", lambda: [])
+    get_calls: list[int] = []
+    original_get = store.get_custom_danmu_pool
+
+    def _counting_get():
+        get_calls.append(1)
+        return original_get()
+
+    monkeypatch.setattr(store, "get_custom_danmu_pool", _counting_get)
+
+    sample_calls: list[int] = []
+    original_sample = store.custom_danmu_random_sample
+
+    def _counting_sample(count: int) -> list[str]:
+        sample_calls.append(count)
+        return original_sample(count)
+
+    monkeypatch.setattr(store, "custom_danmu_random_sample", _counting_sample)
+
+    picked = sample_danmu_for_config(store, 3)
+    assert len(picked) == 3
+    assert all(t.startswith("弹幕") for t in picked)
+    assert get_calls == []
+    assert sample_calls == [3]
+    store.close()
+
+
+def test_get_custom_danmu_pool_paginated_complete(tmp_path):
+    """W-ARCH-DANMU-POOL-PERF-001: paged full load returns complete ordered list."""
+    from app.config_store import ConfigStore
+    from app.danmu_pool import get_custom_danmu_pool_for_store
+
+    store = ConfigStore(db_path=tmp_path / "paged_complete.db")
+    expected = [f"句{i:04d}" for i in range(2_500)]
+    store.custom_danmu_insert_many(expected)
+    pool = get_custom_danmu_pool_for_store(store)
+    assert pool == expected
+    store.close()
+
+
+def test_get_custom_danmu_pool_uses_paged_queries(tmp_path):
+    """W-ARCH-DANMU-POOL-PERF-001: full get issues LIMIT/OFFSET pages, not one 20k fetchall."""
+    from app.config_store import ConfigStore
+    from app.danmu_pool import get_custom_danmu_pool_for_store
+
+    store = ConfigStore(db_path=tmp_path / "paged_queries.db")
+    store.custom_danmu_insert_many([f"弹幕{i:05d}" for i in range(2_500)])
+
+    paged_sql: list[str] = []
+
+    def _trace(sql: str) -> None:
+        if "custom_danmu_pool_entries" in sql and "SELECT text" in sql:
+            paged_sql.append(sql)
+
+    store.conn.set_trace_callback(_trace)
+    try:
+        pool = get_custom_danmu_pool_for_store(store)
+    finally:
+        store.conn.set_trace_callback(None)
+
+    assert len(pool) == 2_500
+    assert len(paged_sql) >= 2
+    assert all("LIMIT" in sql and "OFFSET" in sql for sql in paged_sql)
     store.close()
 
 

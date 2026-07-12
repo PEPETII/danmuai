@@ -17,7 +17,7 @@ from app.ai_client_requests import (
     resolve_request_credentials_for_persona,
 )
 from app.config_store import ConfigStore
-from app.personae import PersonaManager
+from app.persona_manager import PersonaManager
 
 
 @pytest.fixture
@@ -37,6 +37,7 @@ def _make_complete_model(
     return {
         "name": name,
         "modelId": model_id,
+        "default_model_id": model_id,
         "mode": "openai",
         "endpoint": "https://api.example.com/v1",
         "apiKey": api_key,

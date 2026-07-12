@@ -81,12 +81,24 @@ def check_status_route_boundary(repo_root: Path, changed: dict[Path, str]) -> li
         findings.append(Finding(severity='error', rule='diagnostics-plan.md / phase5-c', path=str(WEB_CONSOLE_PATH), line=0, message='`/api/status` must not be polluted by diagnostics data or `build_diagnostic_snapshot()`'))
     return findings
 
+def _diagnostics_route_paths() -> tuple[Path, ...]:
+    return (
+        WEB_API_DIR / 'routes.py',
+        WEB_API_DIR / 'diagnostics_routes.py',
+    )
+
+
 def check_web_diagnostics_route_boundary(repo_root: Path, changed: dict[Path, str]) -> list[Finding]:
     findings: list[Finding] = []
-    routes_path = WEB_API_DIR / 'routes.py'
-    if routes_path not in changed:
+    candidate_paths = [path for path in _diagnostics_route_paths() if path in changed]
+    if not candidate_paths:
         return findings
-    lines = _read_lines(repo_root / routes_path)
+    lines: list[str] = []
+    routes_path = WEB_API_DIR / 'diagnostics_routes.py'
+    for rel_path in _diagnostics_route_paths():
+        abs_path = repo_root / rel_path
+        if abs_path.is_file():
+            lines.extend(_read_lines(abs_path))
     routes_text = '\n'.join(lines)
     if '"/api/diagnostics"' not in routes_text and "'/api/diagnostics'" not in routes_text:
         return findings
@@ -99,18 +111,19 @@ def check_web_diagnostics_route_boundary(repo_root: Path, changed: dict[Path, st
         findings.append(Finding(severity='error', rule='diagnostics-plan.md / phase5-b', path=str(routes_path), line=0, message='`/api/diagnostics` must stay independent from `/api/status` and must not reuse `build_status_snapshot()`'))
     if '"ok": True' not in body_text and "'ok': True" not in body_text:
         findings.append(Finding(severity='error', rule='diagnostics-plan.md / phase5-b', path=str(routes_path), line=0, message='`/api/diagnostics` must return an independent payload with `ok` and `diagnostics` keys'))
-    for line_no, line in get_added_lines(repo_root, routes_path, changed[routes_path]):
-        if _is_comment_or_blank(line):
-            continue
-        for pattern, message in DIAGNOSTICS_ROUTE_FORBIDDEN_TOKENS:
-            if re.search(pattern, line):
-                findings.append(Finding(severity='error', rule='diagnostics-plan.md / phase5-b', path=str(routes_path), line=line_no, message=message))
-                break
-        else:
-            for token in DIAGNOSTICS_ROUTE_FORBIDDEN_CALLS:
-                if token in line:
-                    findings.append(Finding(severity='error', rule='diagnostics-plan.md / phase5-b', path=str(routes_path), line=line_no, message='Diagnostics route must not call trigger, reply, or queue pipeline functions'))
+    for rel_path in candidate_paths:
+        for line_no, line in get_added_lines(repo_root, rel_path, changed[rel_path]):
+            if _is_comment_or_blank(line):
+                continue
+            for pattern, message in DIAGNOSTICS_ROUTE_FORBIDDEN_TOKENS:
+                if re.search(pattern, line):
+                    findings.append(Finding(severity='error', rule='diagnostics-plan.md / phase5-b', path=str(rel_path), line=line_no, message=message))
                     break
+            else:
+                for token in DIAGNOSTICS_ROUTE_FORBIDDEN_CALLS:
+                    if token in line:
+                        findings.append(Finding(severity='error', rule='diagnostics-plan.md / phase5-b', path=str(rel_path), line=line_no, message='Diagnostics route must not call trigger, reply, or queue pipeline functions'))
+                        break
     return findings
 
 def check_web_diagnostics_ui_boundary(repo_root: Path, changed: dict[Path, str]) -> list[Finding]:

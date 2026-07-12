@@ -271,7 +271,7 @@ def apply_pet_settings_patch(app: "DanmuApp", payload: dict[str, object]) -> dic
         old_enabled = _truthy(app.config.get("pet_barrage_mode_enabled", "0"))
         new_enabled = _truthy(items["pet_barrage_mode_enabled"])
         if new_enabled and not old_enabled:
-            from app.personae import DEFAULT_NORMAL_REPLY_COUNT
+            from app.persona_contract import DEFAULT_NORMAL_REPLY_COUNT
 
             items.setdefault(
                 "pet_barrage_previous_render_mode",

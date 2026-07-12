@@ -1,16 +1,22 @@
-"""QPixmap → JPEG Base64 data URI：视觉 AI 请求的截图压缩。
+"""QPixmap → JPEG Base64 data URI：主链路截图压缩（视觉 AI / 烂梗）。
 
-隐私设计：内存压缩、不落盘。默认 max_width=1024 / quality=85，返回 data:image/jpeg;base64,...。
+隐私设计：内存压缩、不落盘。默认 max_width=1024 / quality=85。
+
+与 image_compress.py 并存原因：
+- 输入已是 QPixmap（CaptureRunnable QThreadPool），Qt ``scaledToWidth`` +
+  ``QImageWriter`` 避免 toImage→RGB888→Pillow 的额外拷贝。
+- Web 预览走 bytes+PIL（``image_compress``），无法在 HTTP 线程引入 Qt。
+- 两条管线共用 ``jpeg_resize.jpeg_bytes_to_data_uri``；PIL resize 仅在
+  ``jpeg_resize.resize_rgb_to_jpeg_bytes``，本模块不走该函数。
 """
 
 from __future__ import annotations
-
-import base64
 
 from PyQt6.QtCore import QBuffer, QIODevice, Qt
 from PyQt6.QtGui import QImage, QImageWriter, QPixmap
 
 from app.config_defaults import DEFAULT_IMAGE_MAX_WIDTH
+from app.jpeg_resize import jpeg_bytes_to_data_uri
 
 IMAGE_MAX_WIDTH = DEFAULT_IMAGE_MAX_WIDTH
 IMAGE_JPEG_QUALITY = 85
@@ -45,5 +51,4 @@ def compress_screenshot(
         raise RuntimeError(writer.errorString())
 
     jpeg_bytes = bytes(buffer.data())
-    b64 = base64.b64encode(jpeg_bytes).decode("utf-8")
-    return f"data:image/jpeg;base64,{b64}"
+    return jpeg_bytes_to_data_uri(jpeg_bytes)

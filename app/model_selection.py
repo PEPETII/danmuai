@@ -20,6 +20,7 @@ from app.model_catalog import (
     is_catalog_model_for_provider,
 )
 from app.model_providers import (
+    find_custom_model_profile,
     guess_provider_from_endpoint,
     is_model_config_complete,
     is_valid_endpoint,
@@ -36,15 +37,7 @@ def infer_provider_id(api_endpoint: str, api_mode: str = "") -> str:
 
 
 def _custom_model_by_id(custom_models: list[Any], model_id: str) -> dict[str, Any] | None:
-    mid = (model_id or "").strip()
-    if not mid:
-        return None
-    for entry in custom_models:
-        if not isinstance(entry, dict):
-            continue
-        if (entry.get("modelId") or "").strip() == mid:
-            return entry
-    return None
+    return find_custom_model_profile(custom_models, model_id)
 
 
 def _provider_has_catalog(provider_id: str) -> bool:

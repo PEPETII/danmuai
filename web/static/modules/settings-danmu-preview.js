@@ -47,7 +47,6 @@ function buildScrollingStyle() {
   const speed = getNumber('danmu_speed', 3);
   const fontSize = getNumber('danmu_font_size', 24);
   const opacity = Math.max(0, Math.min(1, getNumber('danmu_opacity', 100) / 100));
-  const maxChars = getNumber('danmu_max_chars', 15);
   const fontFamily = getSelect('danmu_font_family', '');
   const bold = getChecked('danmu_font_bold');
   const color = resolvePreviewColor();
@@ -56,7 +55,6 @@ function buildScrollingStyle() {
     speed,
     fontSize,
     opacity,
-    maxChars,
     fontFamily,
     bold,
     color,
@@ -126,12 +124,6 @@ function buildFloatingStyle() {
   };
 }
 
-function truncate(text, maxChars) {
-  if (!maxChars || maxChars <= 0) return text;
-  if (text.length <= maxChars) return text;
-  return text.slice(0, maxChars) + '...';
-}
-
 function renderScrollingPreview() {
   const track = document.getElementById('danmuPreviewTrack');
   if (!track) return;
@@ -139,7 +131,7 @@ function renderScrollingPreview() {
   const style = buildScrollingStyle();
   track.innerHTML = '';
 
-  const text = truncate(PREVIEW_TEXTS[previewIndex % PREVIEW_TEXTS.length], style.maxChars);
+  const text = PREVIEW_TEXTS[previewIndex % PREVIEW_TEXTS.length];
   previewIndex++;
 
   const item = document.createElement('span');
@@ -176,7 +168,7 @@ function renderFloatingPreview() {
   const fontWeight = style.bold ? 'bold' : 'normal';
   const fontFamily = style.fontFamily || 'inherit';
 
-  const text = truncate(PREVIEW_TEXTS[previewIndex % PREVIEW_TEXTS.length], 0);
+  const text = PREVIEW_TEXTS[previewIndex % PREVIEW_TEXTS.length];
   previewIndex++;
 
   const item = document.createElement('div');
@@ -316,7 +308,6 @@ export function initDanmuPreview() {
     'danmu_speed',
     'danmu_font_size',
     'danmu_opacity',
-    'danmu_max_chars',
     'danmu_font_family',
     'danmu_font_bold',
     'danmu_font_color_selected',

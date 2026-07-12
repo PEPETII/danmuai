@@ -21,7 +21,7 @@ def test_model_catalog_api_payload():
     from app.model_catalog import list_platform_catalogs
 
     platforms = list_platform_catalogs()
-    assert len(platforms) == 11
+    assert len(platforms) == 18
     by_id = {p["platform_id"]: p for p in platforms}
 
     doubao = by_id["doubao"]
@@ -46,6 +46,14 @@ def test_model_catalog_api_payload():
     assert all(m["id"] != "qwen3-vl-max" for m in dashscope["models"])
     dash_mic = {m["id"] for m in dashscope["models"] if m["supports_mic"]}
     assert dash_mic == set()
+
+    assert len(by_id["openai"]["models"]) == 5
+    assert len(by_id["google-gemini"]["models"]) == 5
+    assert len(by_id["xai"]["models"]) == 5
+    assert len(by_id["mistral"]["models"]) == 5
+    assert len(by_id["together"]["models"]) == 5
+    assert len(by_id["fireworks"]["models"]) == 5
+    assert len(by_id["dashscope-intl"]["models"]) == 5
 
     siliconflow = by_id["siliconflow"]
     assert siliconflow["platform_label"] == "硅基流动"
@@ -105,6 +113,7 @@ def test_providers_api_labels_follow_translator_language():
                     else provider.model_id_hint_zh
                 ),
                 "website": provider.website,
+                "region": provider.region,
             }
             for provider in PROVIDERS
         ]
@@ -116,8 +125,46 @@ def test_providers_api_labels_follow_translator_language():
         mimo = next(item for item in payload if item["id"] == "mimo")
         assert mimo["label"] == "Xiaomi MiMo"
         assert "Vision danmu" in mimo["hint"]
+        assert mimo["region"] == "global"
+        openrouter = next(item for item in payload if item["id"] == "openrouter")
+        assert openrouter["region"] == "international"
+        openai = next(item for item in payload if item["id"] == "openai")
+        assert openai["region"] == "international"
+        assert all("region" in item for item in payload)
     finally:
         Translator.set_language("zh")
+
+
+def test_settings_providers_js_filters_by_region_and_language():
+    from app.bundle_paths import project_root
+
+    providers_js = (
+        project_root() / "web" / "static" / "modules" / "settings-providers.js"
+    ).read_text(encoding="utf-8")
+    assert "getLanguage" in providers_js
+    assert "getVisibleProviders" in providers_js
+    assert "region" in providers_js
+    assert "isProviderVisibleForLanguage" in providers_js
+    assert "custom_doubao') return false" in providers_js
+    assert "custom_openai') return true" in providers_js
+    assert "provider.region === 'global'" in providers_js
+    assert "lang === 'zh'" in providers_js
+    assert "provider.region === 'china'" in providers_js
+
+
+def test_settings_model_catalog_js_filters_visible_platforms():
+    from app.bundle_paths import project_root
+
+    catalog_js = (
+        project_root() / "web" / "static" / "modules" / "settings-model-catalog.js"
+    ).read_text(encoding="utf-8")
+    assert "getLanguage" in catalog_js
+    assert "getVisibleCatalogPlatforms" in catalog_js
+    assert "region" in catalog_js
+    assert "resolveFullCatalogPlatform" in catalog_js
+    assert "lang === 'zh'" in catalog_js
+    assert "platform.region === 'global'" in catalog_js
+    assert "platform.region === 'china'" in catalog_js
 
 
 def test_provider_rules_endpoint():
@@ -363,6 +410,22 @@ def test_list_recent_logs_filters_by_since_ts():
     assert items[0]["ts"] == 20.0
 
 
+def test_log_ring_dotted_token_is_sanitized_for_http_replay():
+    from app.logger import SanitizedLogger
+
+    jwt = "fakeHead.fakePayload123456.fakeSignature789012"
+    app = make_status_app()
+    app.logger = SanitizedLogger()
+    bridge = WebConsoleBridge(app)
+
+    app.logger.error(f"provider Authorization: Bearer {jwt}")
+    messages = "\n".join(item["message"] for item in bridge.list_recent_logs())
+
+    for part in jwt.split("."):
+        assert part not in messages
+    assert "Authorization: Bearer" in messages
+
+
 def test_register_status_consumer_logs_consumer_count():
     app = make_status_app()
     app.logger = MagicMock()
@@ -377,7 +440,7 @@ def test_register_status_consumer_logs_consumer_count():
 
 def test_enqueue_ws_replaces_oldest_on_full_queue():
 
-    from app.web_console import _enqueue_ws
+    from app.web_console_ws import _enqueue_ws
 
     async def _run() -> None:
         loop = asyncio.get_running_loop()

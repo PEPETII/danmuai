@@ -1,5 +1,5 @@
 import { apiFetch } from './transport.js';
-import { t } from './i18n.js';
+import { getLanguage, onLanguageChanged, t } from './i18n.js';
 
 const MAX_SELECTED_MEME_TAGS = 3;
 
@@ -9,6 +9,7 @@ let selectedTags = new Set(['06']);
 let toast = () => {};
 let handlersBound = false;
 let metaPollTimer = null;
+let languageLayoutListenerRegistered = false;
 
 function showToast(message, isError = false) {
   toast(message, isError);
@@ -138,6 +139,9 @@ function applyMemeMetaToForm(meta, { formFields = true } = {}) {
 }
 
 export function switchDanmuPoolTab(tabId) {
+  if (getLanguage() === 'en' && tabId === 'meme') {
+    tabId = 'custom';
+  }
   document.querySelectorAll('[data-danmu-pool-tab]').forEach((tab) => {
     const active = tab.dataset.danmuPoolTab === tabId;
     tab.classList.toggle('active', active);
@@ -148,6 +152,41 @@ export function switchDanmuPoolTab(tabId) {
     panel.classList.toggle('active', active);
     panel.hidden = !active;
   });
+}
+
+export function applyDanmuPoolLanguageLayout() {
+  const isEn = getLanguage() === 'en';
+  const memeTab = document.querySelector('[data-danmu-pool-tab="meme"]');
+  const memePanel = document.querySelector('[data-danmu-pool-panel="meme"]');
+  const tabBar = document.querySelector('.danmu-pool-tabs');
+  const tabsBarWrap = document.querySelector('.danmu-pool-page .settings-tabs-bar');
+
+  if (memeTab) {
+    memeTab.hidden = isEn;
+    memeTab.setAttribute('aria-hidden', isEn ? 'true' : 'false');
+    memeTab.tabIndex = isEn ? -1 : 0;
+  }
+  if (memePanel) {
+    if (isEn) {
+      memePanel.hidden = true;
+      memePanel.classList.remove('active');
+      memePanel.setAttribute('aria-hidden', 'true');
+    } else {
+      memePanel.setAttribute('aria-hidden', 'false');
+    }
+  }
+  if (tabBar) tabBar.classList.toggle('hidden', isEn);
+  if (tabsBarWrap) tabsBarWrap.classList.toggle('hidden', isEn);
+
+  if (isEn) {
+    switchDanmuPoolTab('custom');
+  }
+}
+
+function ensureDanmuPoolLanguageLayoutListener() {
+  if (languageLayoutListenerRegistered) return;
+  languageLayoutListenerRegistered = true;
+  onLanguageChanged(applyDanmuPoolLanguageLayout);
 }
 
 export async function loadMemeBarragePage() {
@@ -211,12 +250,17 @@ export function stopMemeBarrageMetaPolling() {
 
 export function initMemeBarragePage(deps = {}) {
   toast = deps.showToast || toast;
+  ensureDanmuPoolLanguageLayoutListener();
+  applyDanmuPoolLanguageLayout();
   if (handlersBound) return;
   handlersBound = true;
 
   document.querySelectorAll('[data-danmu-pool-tab]').forEach((tab) => {
     tab.addEventListener('click', (event) => {
       event.stopPropagation();
+      if (getLanguage() === 'en' && tab.dataset.danmuPoolTab === 'meme') {
+        return;
+      }
       switchDanmuPoolTab(tab.dataset.danmuPoolTab);
     });
   });

@@ -1,7 +1,7 @@
 """AI 请求客户端：双 API 模式（豆包 Responses / OpenAI Chat Completions）与线程安全 httpx 连接池。
 
 职责：
-- 根据 api_mode 路由到 _request_doubao 或 _request_openai
+- 根据 api_mode 路由到 request_doubao 或 request_openai
 - 在 QThreadPool 线程中执行 HTTP 请求（由 AiRunnable 调用 _request）
 - 通过 Qt 信号 finished/error 将结果回传主线程 DanmuApp
 - 管理线程局部 httpx 客户端池（httpx 非线程安全，每个线程独立实例）
@@ -28,8 +28,6 @@ from app.ai_client_requests import (
     resolve_mic_request_credentials,
     resolve_request_credentials,
     resolve_request_credentials_for_persona,
-    stream_doubao,
-    stream_openai,
 )
 from app.ai_client_support import (
     DANMU_MIN_OUTPUT_TOKENS,
@@ -145,7 +143,8 @@ class AiWorker(QObject):
         endpoint, _, _, api_mode = resolved
         persona_id = "mic_probe"
         if resolve_api_transport(endpoint, api_mode) == "doubao":
-            return self._request_doubao(
+            return request_doubao(
+                self,
                 image_data_uri,
                 system_pt,
                 user_pt,
@@ -158,7 +157,8 @@ class AiWorker(QObject):
                 resolved=resolved,
                 emit=False,
             )
-        return self._request_openai(
+        return request_openai(
+            self,
             image_data_uri,
             system_pt,
             user_pt,
@@ -187,7 +187,7 @@ class AiWorker(QObject):
         request_started_at: float | None = None,
         request_deadline_at: float | None = None,
     ):
-        """双模式路由入口：根据 api_mode 分发到 _request_doubao 或 _request_openai。
+        """双模式路由入口：根据 api_mode 分发到 request_doubao 或 request_openai。
 
         audio_data_uri 用于麦克风插入：豆包 Responses（audio_url）或 MiMo Chat Completions（input_audio）。
         仅通过 finished/error 信号回传结果，禁止在此读写 DanmuApp / Overlay / 回复队列。
@@ -219,7 +219,8 @@ class AiWorker(QObject):
             return
         endpoint, _, _, api_mode = resolved
         if resolve_api_transport(endpoint, api_mode) == "doubao":
-            self._request_doubao(
+            request_doubao(
+                self,
                 image_data_uri,
                 system_pt,
                 user_pt,
@@ -234,7 +235,8 @@ class AiWorker(QObject):
                 started_at=request_started_at,
             )
         else:
-            self._request_openai(
+            request_openai(
+                self,
                 image_data_uri,
                 system_pt,
                 user_pt,
@@ -324,123 +326,6 @@ class AiWorker(QObject):
         if persona_id:
             return resolve_request_credentials_for_persona(self.config, persona_id)
         return resolve_request_credentials(self.config)
-
-    def _request_doubao(
-        self,
-        image_data_uri: str,
-        system_pt: str,
-        user_pt: str,
-        persona_id: str,
-        request_round: int,
-        screenshot_id: int,
-        captured_at: float,
-        scene_generation: int,
-        *,
-        audio_data_uri: str | None = None,
-        resolved: tuple[str, str, str, str] | None = None,
-        emit: bool = True,
-        deadline_at: float | None = None,
-        started_at: float | None = None,
-    ) -> AiProbeResult | None:
-        return request_doubao(
-            self,
-            image_data_uri,
-            system_pt,
-            user_pt,
-            persona_id,
-            request_round,
-            screenshot_id,
-            captured_at,
-            scene_generation,
-            audio_data_uri=audio_data_uri,
-            resolved=resolved,
-            emit=emit,
-            deadline_at=deadline_at,
-            started_at=started_at,
-        )
-
-    def _stream_doubao(
-        self,
-        http_client,
-        url: str,
-        headers: dict,
-        data: dict,
-        *,
-        first_content_timeout: float | None = None,
-        deadline_at: float | None = None,
-        started_at: float | None = None,
-    ) -> tuple[str, int, int, str]:
-        return stream_doubao(
-            self,
-            http_client,
-            url,
-            headers,
-            data,
-            first_content_timeout=first_content_timeout,
-            deadline_at=deadline_at,
-            started_at=started_at,
-        )
-
-    def _request_openai(
-        self,
-        image_data_uri: str,
-        system_pt: str,
-        user_pt: str,
-        persona_id: str,
-        request_round: int,
-        screenshot_id: int,
-        captured_at: float,
-        scene_generation: int,
-        *,
-        audio_data_uri: str | None = None,
-        resolved: tuple[str, str, str, str] | None = None,
-        emit: bool = True,
-        deadline_at: float | None = None,
-        started_at: float | None = None,
-    ) -> AiProbeResult | None:
-        return request_openai(
-            self,
-            image_data_uri,
-            system_pt,
-            user_pt,
-            persona_id,
-            request_round,
-            screenshot_id,
-            captured_at,
-            scene_generation,
-            audio_data_uri=audio_data_uri,
-            resolved=resolved,
-            emit=emit,
-            deadline_at=deadline_at,
-            started_at=started_at,
-        )
-
-    def _stream_openai(
-        self,
-        http_client,
-        url: str,
-        headers: dict,
-        data: dict,
-        *,
-        endpoint: str = "",
-        api_mode: str = "",
-        first_content_timeout: float | None = None,
-        deadline_at: float | None = None,
-        started_at: float | None = None,
-    ) -> tuple[str, int, int]:
-        return stream_openai(
-            self,
-            http_client,
-            url,
-            headers,
-            data,
-            endpoint=endpoint,
-            api_mode=api_mode,
-            first_content_timeout=first_content_timeout,
-            deadline_at=deadline_at,
-            started_at=started_at,
-        )
-
 
     def close(self):
         """关闭所有 httpx 客户端连接。DanmuApp.quit() 时调用。"""

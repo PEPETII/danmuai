@@ -1,5 +1,5 @@
 import { API } from './transport.js';
-import { t } from './i18n.js';
+import { getLanguage, t } from './i18n.js';
 import {
   guessProviderIdFromEndpoint,
   resolveMicProviderIdForPicker,
@@ -42,7 +42,24 @@ export async function loadModelCatalog() {
   if (!catalogCache.platforms) catalogCache.platforms = [];
 }
 
+function getVisibleCatalogPlatforms() {
+  const platforms = catalogCache.platforms || [];
+  const lang = getLanguage();
+  if (lang === 'en') {
+    return platforms.filter((platform) => platform.region === 'international' || platform.region === 'global');
+  }
+  if (lang === 'zh') {
+    return platforms.filter((platform) => platform.region === 'china' || platform.region === 'global');
+  }
+  return platforms;
+}
+
 function resolveCatalogPlatform(providerId) {
+  if (!providerId) return null;
+  return getVisibleCatalogPlatforms().find((platform) => platform.provider_id === providerId) || null;
+}
+
+function resolveFullCatalogPlatform(providerId) {
   if (!providerId) return null;
   return catalogCache.platforms.find((platform) => platform.provider_id === providerId) || null;
 }
@@ -512,16 +529,16 @@ export function getMicConfigProviderId(apiMode, modelId, endpoint, options = {})
 }
 
 export function getModelCatalogPlatform(providerId) {
-  return resolveCatalogPlatform(providerId);
+  return resolveFullCatalogPlatform(providerId);
 }
 
 export function getModelCatalogModels(providerId) {
-  const platform = resolveCatalogPlatform(providerId);
+  const platform = resolveFullCatalogPlatform(providerId);
   return platform?.models || [];
 }
 
 export function getModelNameFromCatalog(providerId, modelId) {
-  const platform = resolveCatalogPlatform(providerId);
+  const platform = resolveFullCatalogPlatform(providerId);
   if (!platform?.models) return '';
   const model = platform.models.find((m) => m.id === modelId);
   return model ? model.name : '';

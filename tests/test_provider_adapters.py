@@ -20,6 +20,13 @@ def test_host_entries_derived_from_providers_single_source():
     assert "ark.cn-beijing.volces.com" in fragments
     assert "api.xiaomimimo.com" in fragments
     assert "dashscope.aliyuncs.com" in fragments
+    assert "dashscope-intl.aliyuncs.com" in fragments
+    assert "api.openai.com" in fragments
+    assert "generativelanguage.googleapis.com" in fragments
+    assert "api.x.ai" in fragments
+    assert "api.mistral.ai" in fragments
+    assert "api.together.xyz" in fragments
+    assert "api.fireworks.ai" in fragments
     assert "api.z.ai" in fragments
     assert len(fragments) == len(HOST_ENTRIES)
 
@@ -47,6 +54,21 @@ def test_get_capabilities_mimo():
     assert caps.image_before_text is True
     assert caps.max_tokens_field == "max_completion_tokens"
     assert caps.stream_usage_in_final_chunk is False
+
+
+def test_get_capabilities_new_international_providers_default_openai():
+    for provider_id in ("openai", "google_gemini", "xai", "mistral", "together", "fireworks"):
+        caps = get_capabilities(provider_id)
+        assert caps.transport == "openai"
+        assert caps.thinking_param_style == "none"
+        assert caps.supports_thinking is False
+        assert caps.usage_token_style == "openai"
+
+    dashscope_intl = get_capabilities("dashscope_intl")
+    assert dashscope_intl.transport == "openai"
+    assert dashscope_intl.thinking_param_style == "none"
+    assert dashscope_intl.supports_thinking is False
+    assert dashscope_intl.usage_token_style == "dashscope"
 
 
 def test_get_capabilities_for_endpoint_unknown_openai_defaults():

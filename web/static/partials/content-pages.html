@@ -6,7 +6,7 @@
       <div class="card p-8 danmu-pool-page">
         <div class="settings-tabs-bar mb-6">
           <div class="settings-tabs danmu-pool-tabs" role="tablist" data-i18n-aria-label="content.aria.公式化弹幕库分类" aria-label="公式化弹幕库分类">
-            <button type="button" role="tab" class="danmu-pool-tab active" data-danmu-pool-tab="meme" aria-selected="true">烂梗公式化</button>
+            <button type="button" role="tab" id="danmuPoolTabBtn-meme" class="danmu-pool-tab active" data-danmu-pool-tab="meme" aria-selected="true">烂梗公式化</button>
             <button type="button" role="tab" class="danmu-pool-tab" data-danmu-pool-tab="custom" aria-selected="false">自定义公式化</button>
           </div>
         </div>
@@ -381,13 +381,13 @@
     </section>
 
     <!-- ========== 区域：教程|日志|反馈|公告（合并四 Tab） ========== -->
-    <section id="page-guide" class="page-panel" data-i18n-aria-label="content.text.教程_日志_反馈_公告" aria-label="教程|日志|反馈|公告">
+    <section id="page-guide" class="page-panel" data-i18n-aria-label="content.text.教程_日志_反馈_公告" aria-label="教程|日志|反馈|公告|群聊">
       <header class="mb-8">
-        <h2 class="text-2xl font-bold text-warmText">教程|日志|反馈|公告</h2>
-        <p class="text-gray-500 mt-1">教程、弹幕日志、公告与问题反馈</p>
+        <h2 class="text-2xl font-bold text-warmText">教程|日志|反馈|公告|群聊</h2>
+        <p class="text-gray-500 mt-1">教程、弹幕日志、公告、问题反馈与群聊</p>
       </header>
       <div class="settings-tabs-bar">
-        <div class="settings-tabs" role="tablist" data-i18n-aria-label="content.text.教程_日志_反馈_公告" aria-label="教程|日志|反馈|公告">
+        <div class="settings-tabs" role="tablist" data-i18n-aria-label="content.text.教程_日志_反馈_公告" aria-label="教程|日志|反馈|公告|群聊">
           <button type="button" role="tab" class="settings-tab active" data-guide-tab="tutorial" aria-selected="true">教程</button>
           <button type="button" role="tab" class="settings-tab" data-guide-tab="logs" aria-selected="false">弹幕日志</button>
           <button type="button" role="tab" class="settings-tab" data-guide-tab="announcements" aria-selected="false">公告</button>
@@ -485,17 +485,31 @@
           </div>
           <button type="submit" id="btnFeedbackSubmit" class="px-6 py-2.5 bg-warmPink hover:bg-warmPinkHover text-white rounded-xl font-semibold shadow-warm">提交反馈</button>
         </form>
-        <p class="feedback-notice text-warmText">
-          有任何问题可以在qq群/抖音群/小红书群内@我，因为最近很多人私信我，我一一回答后系统警告我，说我在做不好的事情，谢谢大家理解，邮箱：utar00701233@163.com
-        </p>
-        <div class="feedback-qr-wrap">
-          <img
-            src="/static/image/qrcode_1779738450536.jpg"
-            alt="DanmuAI QQ 群二维码，群号 677218917"
-            class="feedback-qr-img"
-            width="320"
-            height="320"
-          >
+        <div id="feedbackCommunityQq" class="feedback-community-qq space-y-4">
+          <p class="feedback-notice text-warmText">
+            有任何问题可以在qq群/抖音群/小红书群内@我，因为最近很多人私信我，我一一回答后系统警告我，说我在做不好的事情，谢谢大家理解，邮箱：utar00701233@163.com
+          </p>
+          <div class="feedback-qr-wrap">
+            <img
+              src="/static/image/qrcode_1779738450536.jpg"
+              alt="DanmuAI QQ 群二维码，群号 677218917"
+              class="feedback-qr-img"
+              width="320"
+              height="320"
+            >
+          </div>
+        </div>
+        <div id="feedbackCommunityDiscord" class="feedback-community-discord space-y-3 hidden">
+          <p class="feedback-notice text-warmText" data-i18n="content.text.加入_Discord_社区">加入 Discord 社区</p>
+          <a
+            id="feedbackDiscordLink"
+            href="https://discord.gg/danmuai-mock"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="tutorial-link break-all inline-block"
+            data-i18n="content.text.Discord_群聊_mock_链接"
+          >打开 Discord 群聊（mock）</a>
+          <p class="text-xs text-gray-400" data-i18n="content.text.Discord_mock_占位说明">占位链接，非正式服务器</p>
         </div>
       </div>
     </section>

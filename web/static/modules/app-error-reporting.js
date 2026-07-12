@@ -23,6 +23,14 @@ let errorReportSubmitting = false;
 let toast = () => {};
 let handlersBound = false;
 
+function formatErrorReportSupabaseMessage(err, { rateLimitMsg, fallback }) {
+  if (err?.kind === 'rate_limit' || err?.message === rateLimitMsg) return rateLimitMsg;
+  if (err?.kind === 'timeout' || err?.kind === 'network_error') {
+    return t('dynamic.appAiButlerPage.网络开小差了_请重试');
+  }
+  return window.DanmuSupabase?.formatSupabaseError?.(err, fallback) || err?.message || fallback;
+}
+
 function showToast(message, isError = false) {
   toast(message, isError);
 }
@@ -321,7 +329,10 @@ async function refreshErrorReportQuota() {
     const quota = await window.DanmuSupabase.getErrorReportQuota();
     updateErrorReportQuotaHint(quota);
   } catch (error) {
-    el.textContent = error.message || t('dynamic.appErrorReporting.无法查询提交额度');
+    el.textContent = formatErrorReportSupabaseMessage(error, {
+      rateLimitMsg: window.DanmuSupabase?.ERROR_REPORT_RATE_LIMIT_MSG,
+      fallback: t('dynamic.appErrorReporting.无法查询提交额度'),
+    });
   }
 }
 
@@ -402,7 +413,13 @@ async function submitErrorReportFromModal() {
     showToast(t('dynamic.appErrorReporting.错误反馈已发送_感谢'), false);
     errorReportAnchor = null;
   } catch (error) {
-    showToast(error.message || t('dynamic.appErrorReporting.发送失败'), true);
+    showToast(
+      formatErrorReportSupabaseMessage(error, {
+        rateLimitMsg: window.DanmuSupabase?.ERROR_REPORT_RATE_LIMIT_MSG,
+        fallback: t('dynamic.appErrorReporting.发送失败'),
+      }),
+      true,
+    );
     if (submitBtn) {
       submitBtn.disabled = false;
       submitBtn.textContent = t('common.sendFeedback');
@@ -439,7 +456,13 @@ export function initErrorReporting(deps = {}) {
     ?.addEventListener('click', dismissErrorReportModal);
   document.getElementById('btnErrorReportSubmit')?.addEventListener('click', () => {
     submitErrorReportFromModal().catch((error) => {
-      showToast(error.message || t('dynamic.appErrorReporting.发送失败'), true);
+      showToast(
+        formatErrorReportSupabaseMessage(error, {
+          rateLimitMsg: window.DanmuSupabase?.ERROR_REPORT_RATE_LIMIT_MSG,
+          fallback: t('dynamic.appErrorReporting.发送失败'),
+        }),
+        true,
+      );
     });
   });
   document.getElementById('errorReportModal')?.addEventListener('click', (event) => {

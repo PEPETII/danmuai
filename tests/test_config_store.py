@@ -577,7 +577,7 @@ def test_custom_models_cache_invalidates_on_set_batch(tmp_path):
         }
     )
     updated = store.get_custom_models()
-    assert updated[0]["modelId"] == "model-b"
+    assert updated[0]["default_model_id"] == "model-b"
     assert updated[0]["apiKey"] == "sk-model-b"
     store.close()
 
@@ -612,7 +612,7 @@ def test_get_custom_models_returned_copy_does_not_pollute_cache(tmp_path):
 
     second = store.get_custom_models()
     assert len(second) == 1
-    assert second[0]["modelId"] == "model-a"
+    assert second[0]["default_model_id"] == "model-a"
     assert second[0]["apiKey"] == "sk-model-a"
     assert first is not second
     store.close()

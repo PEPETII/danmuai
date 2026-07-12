@@ -19,6 +19,9 @@ $OutputEncoding = [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
+. (Join-Path $PSScriptRoot "resolve_build_python.ps1")
+. (Join-Path $PSScriptRoot "version_parse.ps1")
+
 if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
     Write-Error "GitHub CLI (gh) not found. Install: https://cli.github.com/"
 }
@@ -45,7 +48,8 @@ function Resolve-UploadVersion {
     if ($ExplicitVersion) { return $ExplicitVersion.Trim() }
     $fromFile = Get-VersionFromVersionFile -Dir $Dir
     if ($fromFile) { return $fromFile }
-    return (python -c "from app.version import __version__; print(__version__)").Trim()
+    $pythonCmd = Resolve-BuildPythonCommand -Root $Root
+    return Get-AppVersionFromProject -Root $Root -PythonCmd $pythonCmd
 }
 
 $appVersion = Resolve-UploadVersion -ExplicitVersion $Version -Dir $releaseFull

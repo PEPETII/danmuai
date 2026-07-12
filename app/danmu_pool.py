@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 CUSTOM_DANMU_POOL_MAX = 20000
 _TEXTS_BY_IDS_CHUNK = 500
+_CUSTOM_POOL_PAGE_SIZE = 500
 
 # 按 config 实例缓存烂梗库句集合；池/烂梗库写入后须 invalidate_formula_text_cache。
 _formula_meme_sets: weakref.WeakKeyDictionary = weakref.WeakKeyDictionary()
@@ -57,7 +58,11 @@ def effective_min_on_screen(config) -> int:
 
 
 def load_custom_danmu_pool(config) -> list[str]:
-    """Load all custom pool texts (compat / empty-pool checks); prefer SQL facades in hot paths."""
+    """Load all custom pool texts (compat / export only).
+
+    Production hot paths should prefer ``custom_danmu_count``, paginated
+    ``custom_danmu_list``, or id-based sampling instead of this full load.
+    """
     if config is None or not danmu_pool_use_custom_from_config(config):
         return []
     getter = getattr(config, "get_custom_danmu_pool", None)
@@ -88,7 +93,11 @@ def sample_danmu_for_config(
 
 
 def _custom_pool_text_list(config) -> list[str]:
-    """Cached ordered list of all enabled custom pool texts (compat / export only)."""
+    """Cached ordered list of all custom pool texts (compat / export only).
+
+    Main-thread hot paths must not call this; use id cache + ``texts_by_ids`` or
+    ``custom_danmu_random_sample`` for sampling instead.
+    """
     cached = _formula_custom_lists.get(config)
     if cached is not None:
         return cached
@@ -141,7 +150,11 @@ def _sample_custom_pool_texts(
             return fetcher(picked_ids)
         return []
 
-    # Fallback for FakeConfig / in-memory configs without SQL id facades.
+    # Fallback for configs without SQL id facades (FakeConfig / tests).
+    sampler = getattr(config, "custom_danmu_random_sample", None)
+    if callable(sampler):
+        return sampler(count)
+
     pool = _custom_pool_text_list(config)
     if not pool:
         return []
@@ -441,6 +454,24 @@ def custom_danmu_list_for_store(
     }
 
 
+def _existing_custom_texts_locked(store, texts: list[str]) -> set[str]:
+    """在持锁上下文内，分块 IN 查询候选文本是否已存在于库。"""
+    if not texts or not store._conn_usable():
+        return set()
+    existing: set[str] = set()
+    for offset in range(0, len(texts), _TEXTS_BY_IDS_CHUNK):
+        chunk = texts[offset : offset + _TEXTS_BY_IDS_CHUNK]
+        placeholders = ",".join("?" for _ in chunk)
+        rows = store.conn.execute(
+            f"SELECT text FROM custom_danmu_pool_entries WHERE text IN ({placeholders})",
+            chunk,
+        ).fetchall()
+        existing.update(
+            str(row[0]).strip() for row in rows if row and row[0] and str(row[0]).strip()
+        )
+    return existing
+
+
 def custom_danmu_insert_many_for_store(
     store, texts: list[str], source: str = "manual"
 ) -> dict[str, int]:
@@ -449,17 +480,24 @@ def custom_danmu_insert_many_for_store(
     now = time.time()
     batch: list[tuple[str, str, float, float]] = []
     seen: set[str] = set()
+    candidates: list[str] = []
+    for raw in texts:
+        text = str(raw).strip()
+        if not text:
+            stats["skipped_empty"] += 1
+            continue
+        if text in seen:
+            stats["skipped_duplicate"] += 1
+            continue
+        seen.add(text)
+        candidates.append(text)
     with store._pool_write_lock:
+        existing = _existing_custom_texts_locked(store, candidates)
         room = max(0, CUSTOM_DANMU_POOL_MAX - _custom_danmu_count_locked(store))
-        for raw in texts:
-            text = str(raw).strip()
-            if not text:
-                stats["skipped_empty"] += 1
-                continue
-            if text in seen:
+        for text in candidates:
+            if text in existing:
                 stats["skipped_duplicate"] += 1
                 continue
-            seen.add(text)
             if len(batch) >= room:
                 stats["skipped_limit"] += 1
                 continue
@@ -575,16 +613,37 @@ def custom_danmu_contains_text_for_store(store, text: str) -> bool:
     return row is not None
 
 
-def get_custom_danmu_pool_for_store(store) -> list[str]:
+def _iter_custom_danmu_pool_texts_for_store(store):
+    """Yield custom pool texts in id order, paged to avoid single huge fetchall."""
     if not store._conn_usable():
-        return []
+        return
+    offset = 0
+    fetched = 0
     try:
-        rows = store.conn.execute(
-            "SELECT text FROM custom_danmu_pool_entries ORDER BY id ASC LIMIT 20000"
-        ).fetchall()
+        while fetched < CUSTOM_DANMU_POOL_MAX:
+            limit = min(_CUSTOM_POOL_PAGE_SIZE, CUSTOM_DANMU_POOL_MAX - fetched)
+            rows = store.conn.execute(
+                "SELECT text FROM custom_danmu_pool_entries ORDER BY id ASC LIMIT ? OFFSET ?",
+                (limit, offset),
+            ).fetchall()
+            if not rows:
+                break
+            for row in rows:
+                if row and row[0]:
+                    text = str(row[0]).strip()
+                    if text:
+                        yield text
+            batch_len = len(rows)
+            fetched += batch_len
+            offset += batch_len
+            if batch_len < limit:
+                break
     except sqlite3.ProgrammingError:
-        return []
-    return [str(row[0]).strip() for row in rows if row and row[0] and str(row[0]).strip()]
+        return
+
+
+def get_custom_danmu_pool_for_store(store) -> list[str]:
+    return list(_iter_custom_danmu_pool_texts_for_store(store))
 
 
 def _diff_custom_danmu_pool(

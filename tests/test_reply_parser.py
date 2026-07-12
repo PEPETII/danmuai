@@ -2,7 +2,7 @@ import time
 
 from app.live_freshness import build_local_fallback_batch
 from app.mic_prompt import mic_insert_reply_count
-from app.personae import PersonaManager
+from app.persona_manager import PersonaManager
 from app.reply_parser import (
     _MAX_HEURISTIC_NODES,
     _heuristic_comments_from_malformed_json,

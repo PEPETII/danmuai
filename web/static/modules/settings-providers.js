@@ -1,5 +1,5 @@
 import { API } from './transport.js';
-import { t } from './i18n.js';
+import { getLanguage, t } from './i18n.js';
 
 const MANUAL_PROVIDER_LABEL = t('dynamic.settingsProviders.手动填写');
 const FALLBACK_DEFAULT_PROVIDER_ID = 'custom_openai';
@@ -115,6 +115,21 @@ export function syncApiModeLockState() {
   sel.disabled = locked;
 }
 
+function isProviderVisibleForLanguage(provider) {
+  const id = provider?.id;
+  if (id === 'custom_doubao') return false;
+  if (id === 'custom_openai') return true;
+  if (provider.region === 'global') return true;
+  const lang = getLanguage();
+  if (lang === 'en') return provider.region === 'international';
+  if (lang === 'zh') return provider.region === 'china';
+  return true;
+}
+
+function getVisibleProviders() {
+  return providersCache.filter(isProviderVisibleForLanguage);
+}
+
 function appendManualProviderOption(sel) {
   const opt = document.createElement('option');
   opt.value = '';
@@ -124,7 +139,7 @@ function appendManualProviderOption(sel) {
 
 function fillProviderPresetSelect(sel, { mic = false } = {}) {
   sel.innerHTML = '';
-  providersCache.forEach((p) => {
+  getVisibleProviders().forEach((p) => {
     const opt = document.createElement('option');
     opt.value = p.id;
     const suffix = mic ? (MIC_LABEL_SUFFIX[p.id] || '') : '';
@@ -165,7 +180,7 @@ export async function loadProviders() {
   const modelProv = document.getElementById('modelProvider');
   if (modelProv) {
     modelProv.innerHTML = '';
-    providersCache.forEach((p) => {
+    getVisibleProviders().forEach((p) => {
       const opt = document.createElement('option');
       opt.value = p.id;
       opt.textContent = p.label;
@@ -177,6 +192,16 @@ export async function loadProviders() {
     fillProviderPresetSelect(micSel, { mic: true });
   }
   initApiModeSelect();
+  syncProviderPresetFromEndpoint();
+  syncMicProviderPresetFromEndpoint();
+  providersDeps.renderVisionModelPicker(
+    resolveProviderIdForPicker(),
+    document.getElementById('model')?.value || '',
+  );
+  providersDeps.renderMicModelPicker(
+    resolveMicProviderIdForPicker(),
+    document.getElementById('mic_model')?.value || '',
+  );
 }
 
 export function syncProviderPresetFromEndpoint() {

@@ -1,8 +1,15 @@
 """Platform model catalogs with pricing metadata for the Web console vision model picker.
 
-十一平台目录（按 ``_CATALOG_BY_PROVIDER`` key）：
+十八平台目录（按 ``_CATALOG_BY_PROVIDER`` key）：
 - ``doubao``：火山方舟（豆包 Responses 模型）
 - ``dashscope``：阿里云百炼（qwen-vl-* 等）
+- ``openai``：OpenAI（GPT 系列）
+- ``google_gemini``：Google Gemini（Gemini 系列）
+- ``xai``：xAI（Grok 系列）
+- ``mistral``：Mistral AI（Mistral / Ministral 系列）
+- ``together``：Together AI（Qwen / Gemma / Kimi / MiniMax）
+- ``fireworks``：Fireworks AI（Kimi / Qwen / Step / Gemma）
+- ``dashscope_intl``：DashScope International（Qwen 视觉/多模态）
 - ``siliconflow``：硅基流动（deepseek-ai/* 等）
 - ``mimo``：小米 MiMo（仅 ``mimo-v2.5``）
 - ``zai``：Z.AI / 智谱（GLM-4.6V / GLM-4.5V）
@@ -79,10 +86,13 @@ class PlatformCatalog:
     models: tuple[CatalogModel, ...]
 
     def to_dict(self) -> dict[str, Any]:
+        from app.model_providers import provider_region
+
         return {
             "platform_id": self.platform_id,
             "platform_label": self.platform_label,
             "provider_id": self.provider_id,
+            "region": provider_region(self.provider_id),
             "default_model_id": default_catalog_model_id(self.provider_id),
             "models": enrich_platform_models(self.models, provider_id=self.provider_id),
         }
@@ -193,6 +203,209 @@ DASHSCOPE_MODELS: tuple[CatalogModel, ...] = (
         "qwen-vl-max",
         ModelPrice(input=1.6, audio=None, output=4),
         thinking_mode="off",
+    ),
+)
+
+OPENAI_MODELS: tuple[CatalogModel, ...] = (
+    CatalogModel(
+        "GPT-5.1",
+        "gpt-5.1",
+        ModelPrice(input=1.25, audio=None, output=10.0, currency="USD"),
+    ),
+    CatalogModel(
+        "GPT-5",
+        "gpt-5",
+        ModelPrice(input=1.25, audio=None, output=10.0, currency="USD"),
+    ),
+    CatalogModel(
+        "GPT-5-mini",
+        "gpt-5-mini",
+        ModelPrice(input=0.25, audio=None, output=2.0, currency="USD"),
+    ),
+    CatalogModel(
+        "GPT-5-nano",
+        "gpt-5-nano",
+        ModelPrice(input=0.05, audio=None, output=0.4, currency="USD"),
+    ),
+    CatalogModel(
+        "GPT-4.1",
+        "gpt-4.1",
+        ModelPrice(input=2.0, audio=None, output=8.0, currency="USD"),
+    ),
+)
+
+GOOGLE_GEMINI_MODELS: tuple[CatalogModel, ...] = (
+    CatalogModel(
+        "Gemini-3.5-Flash",
+        "gemini-3.5-flash",
+        ModelPrice(input=0.3, audio=None, output=2.5, currency="USD"),
+    ),
+    CatalogModel(
+        "Gemini-3.1-Pro",
+        "gemini-3.1-pro",
+        ModelPrice(input=1.25, audio=None, output=10.0, currency="USD"),
+    ),
+    CatalogModel(
+        "Gemini-3-Flash",
+        "gemini-3-flash",
+        ModelPrice(input=0.3, audio=None, output=2.5, currency="USD"),
+    ),
+    CatalogModel(
+        "Gemini-2.5-Pro",
+        "gemini-2.5-pro",
+        ModelPrice(input=1.25, audio=None, output=10.0, currency="USD"),
+    ),
+    CatalogModel(
+        "Gemini-2.5-Flash",
+        "gemini-2.5-flash",
+        ModelPrice(input=0.3, audio=None, output=2.5, currency="USD"),
+    ),
+)
+
+XAI_MODELS: tuple[CatalogModel, ...] = (
+    CatalogModel(
+        "Grok-4.3",
+        "grok-4.3",
+        ModelPrice(input=1.25, audio=None, output=2.5, currency="USD"),
+    ),
+    CatalogModel(
+        "Grok-4.20-Multi-Agent-0309",
+        "grok-4.20-multi-agent-0309",
+        ModelPrice(input=2.0, audio=None, output=6.0, currency="USD"),
+        thinking_mode="always",
+    ),
+    CatalogModel(
+        "Grok-4.20-0309-Reasoning",
+        "grok-4.20-0309-reasoning",
+        ModelPrice(input=2.0, audio=None, output=6.0, currency="USD"),
+        thinking_mode="always",
+    ),
+    CatalogModel(
+        "Grok-4.20-0309-Non-Reasoning",
+        "grok-4.20-0309-non-reasoning",
+        ModelPrice(input=2.0, audio=None, output=6.0, currency="USD"),
+    ),
+    CatalogModel(
+        "Grok-Build-0.1",
+        "grok-build-0.1",
+        ModelPrice(input=0.2, audio=None, output=0.5, currency="USD"),
+    ),
+)
+
+MISTRAL_MODELS: tuple[CatalogModel, ...] = (
+    CatalogModel(
+        "Mistral-Large-2512",
+        "mistral-large-2512",
+        ModelPrice(input=2.0, audio=None, output=6.0, currency="USD"),
+    ),
+    CatalogModel(
+        "Mistral-Medium-2508",
+        "mistral-medium-2508",
+        ModelPrice(input=0.4, audio=None, output=2.0, currency="USD"),
+    ),
+    CatalogModel(
+        "Mistral-Small-2506",
+        "mistral-small-2506",
+        ModelPrice(input=0.1, audio=None, output=0.3, currency="USD"),
+    ),
+    CatalogModel(
+        "Ministral-14B-2512",
+        "ministral-14b-2512",
+        ModelPrice(input=0.1, audio=None, output=0.3, currency="USD"),
+    ),
+    CatalogModel(
+        "Ministral-8B-2512",
+        "ministral-8b-2512",
+        ModelPrice(input=0.05, audio=None, output=0.1, currency="USD"),
+    ),
+)
+
+TOGETHER_MODELS: tuple[CatalogModel, ...] = (
+    CatalogModel(
+        "Qwen3.5-9B",
+        "Qwen/Qwen3.5-9B",
+        ModelPrice(input=0.3, audio=None, output=0.6, currency="USD"),
+    ),
+    CatalogModel(
+        "Gemma-4-31B-it",
+        "google/gemma-4-31B-it",
+        ModelPrice(input=0.8, audio=None, output=0.8, currency="USD"),
+    ),
+    CatalogModel(
+        "MiniMax-M3",
+        "MiniMaxAI/MiniMax-M3",
+        ModelPrice(input=0.4, audio=None, output=0.4, currency="USD"),
+    ),
+    CatalogModel(
+        "Kimi-K2.7-Code",
+        "moonshotai/Kimi-K2.7-Code",
+        ModelPrice(input=0.6, audio=None, output=2.5, currency="USD"),
+    ),
+    CatalogModel(
+        "Kimi-K2.6",
+        "moonshotai/Kimi-K2.6",
+        ModelPrice(input=0.6, audio=None, output=2.5, currency="USD"),
+    ),
+)
+
+FIREWORKS_MODELS: tuple[CatalogModel, ...] = (
+    CatalogModel(
+        "Kimi-K2.6",
+        "accounts/fireworks/models/kimi-k2p6",
+        ModelPrice(input=0.95, audio=None, output=4.0, currency="USD"),
+    ),
+    CatalogModel(
+        "Qwen3.6-Plus",
+        "accounts/fireworks/models/qwen3p6-plus",
+        ModelPrice(input=0.4, audio=None, output=1.2, currency="USD"),
+    ),
+    CatalogModel(
+        "Step-3.7-Flash-NVFP4",
+        "accounts/fireworks/models/step-3p7-flash-nvfp4",
+        ModelPrice(input=0.2, audio=None, output=0.8, currency="USD"),
+    ),
+    CatalogModel(
+        "Gemma-4-31B-it",
+        "accounts/fireworks/models/gemma-4-31b-it",
+        ModelPrice(input=0.8, audio=None, output=0.8, currency="USD"),
+    ),
+    CatalogModel(
+        "Qwen3-Omni-30B-A3B-Instruct",
+        "accounts/fireworks/models/qwen3-omni-30b-a3b-instruct",
+        ModelPrice(input=0.7, audio=None, output=2.8, currency="USD"),
+    ),
+)
+
+DASHSCOPE_INTL_MODELS: tuple[CatalogModel, ...] = (
+    CatalogModel(
+        "Qwen3-VL-Flash",
+        "qwen3-vl-flash",
+        ModelPrice(input=0.15, audio=None, output=1.5),
+        thinking_mode="hybrid",
+    ),
+    CatalogModel(
+        "Qwen3-VL-Plus",
+        "qwen3-vl-plus",
+        ModelPrice(input=0.8, audio=None, output=2),
+        thinking_mode="hybrid",
+    ),
+    CatalogModel(
+        "Qwen-VL-Plus",
+        "qwen-vl-plus",
+        ModelPrice(input=0.8, audio=None, output=2),
+        thinking_mode="off",
+    ),
+    CatalogModel(
+        "Qwen-VL-Max",
+        "qwen-vl-max",
+        ModelPrice(input=1.6, audio=None, output=4),
+        thinking_mode="off",
+    ),
+    CatalogModel(
+        "Qwen3.5-Omni-Plus",
+        "qwen3.5-omni-plus",
+        ModelPrice(input=0.8, audio=None, output=4.8),
+        thinking_mode="hybrid",
     ),
 )
 
@@ -459,6 +672,48 @@ PLATFORM_CATALOGS: tuple[PlatformCatalog, ...] = (
         models=DASHSCOPE_MODELS,
     ),
     PlatformCatalog(
+        platform_id="openai",
+        platform_label="OpenAI",
+        provider_id="openai",
+        models=OPENAI_MODELS,
+    ),
+    PlatformCatalog(
+        platform_id="google-gemini",
+        platform_label="Google Gemini",
+        provider_id="google_gemini",
+        models=GOOGLE_GEMINI_MODELS,
+    ),
+    PlatformCatalog(
+        platform_id="xai",
+        platform_label="xAI",
+        provider_id="xai",
+        models=XAI_MODELS,
+    ),
+    PlatformCatalog(
+        platform_id="mistral",
+        platform_label="Mistral AI",
+        provider_id="mistral",
+        models=MISTRAL_MODELS,
+    ),
+    PlatformCatalog(
+        platform_id="together",
+        platform_label="Together AI",
+        provider_id="together",
+        models=TOGETHER_MODELS,
+    ),
+    PlatformCatalog(
+        platform_id="fireworks",
+        platform_label="Fireworks AI",
+        provider_id="fireworks",
+        models=FIREWORKS_MODELS,
+    ),
+    PlatformCatalog(
+        platform_id="dashscope-intl",
+        platform_label="DashScope International",
+        provider_id="dashscope_intl",
+        models=DASHSCOPE_INTL_MODELS,
+    ),
+    PlatformCatalog(
         platform_id="siliconflow",
         platform_label="硅基流动",
         provider_id="siliconflow",
@@ -631,4 +886,3 @@ def get_thinking_mode_for_model(model_id: str) -> ThinkingMode:
 def catalog_model_supports_thinking_toggle(model_id: str) -> bool:
     """True when settings may toggle thinking for a catalog-listed model."""
     return get_thinking_mode_for_model(model_id) == "hybrid"
-

@@ -22,13 +22,14 @@ from app.translations import tr
 
 
 class CaptureCoordinator(QObject):
-    """Main-thread QObject; capture worker emits completed via queued connection."""
+    """Main-thread QObject; capture worker emits completed/failed signals."""
 
     completed = pyqtSignal(object)
+    failed = pyqtSignal(str)
 
 
 class CaptureRunnable(QRunnable):
-    """Capture worker: execute_capture(plan) → coordinator.completed(pixmap)."""
+    """Capture worker: emit completed on success and failed on backend errors."""
 
     def __init__(
         self,
@@ -45,7 +46,11 @@ class CaptureRunnable(QRunnable):
     def run(self) -> None:
         if self._stopping.is_set():
             return
-        pixmap = execute_capture(self._plan)
+        try:
+            pixmap = execute_capture(self._plan)
+        except Exception as exc:  # boundary: capture backend must settle the slot
+            self._coordinator.failed.emit(f"{type(exc).__name__}: {exc}")
+            return
         if self._stopping.is_set():
             return
         self._coordinator.completed.emit(pixmap)

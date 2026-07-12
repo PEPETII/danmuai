@@ -108,6 +108,46 @@ def test_supabase_feedback_forwards_context_fields():
     assert "logs_excerpt" in func_body
 
 
+def test_supabase_client_fetch_timeout_and_error_kinds():
+    text = (project_root() / "web" / "static" / "supabase-client.js").read_text(encoding="utf-8")
+    assert "AbortController" in text
+    assert "DEFAULT_FETCH_TIMEOUT_MS" in text
+    assert "8000" in text
+    assert "sanitizeErrorMessage" in text
+    assert "formatSupabaseError" in text
+    assert "kind: 'timeout'" in text
+    assert "kind: 'network_error'" in text
+    assert "kind: 'not_configured'" in text
+    assert "kind: 'rate_limit'" in text
+    assert "SUPABASE_TIMEOUT_MSG" in text
+    assert "SUPABASE_NETWORK_MSG" in text
+    # User-facing timeout/network messages must not echo auth header patterns.
+    timeout_msg_start = text.index("const SUPABASE_TIMEOUT_MSG = ")
+    timeout_msg_end = text.index(";", timeout_msg_start)
+    timeout_msg = text[timeout_msg_start:timeout_msg_end]
+    assert "apikey" not in timeout_msg.lower()
+    assert "authorization" not in timeout_msg.lower()
+    assert "bearer" not in timeout_msg.lower()
+
+
+def test_supabase_modules_use_format_supabase_error():
+    root = project_root()
+    announcements = (root / "web" / "static" / "modules" / "content-announcements.js").read_text(
+        encoding="utf-8"
+    )
+    feedback = (root / "web" / "static" / "modules" / "content-feedback.js").read_text(
+        encoding="utf-8"
+    )
+    error_reporting = (root / "web" / "static" / "modules" / "app-error-reporting.js").read_text(
+        encoding="utf-8"
+    )
+    assert "formatSupabaseError" in announcements
+    assert "formatSupabaseUserMessage" in feedback
+    assert "formatErrorReportSupabaseMessage" in error_reporting
+    assert "err?.kind" in feedback or "error?.kind" in feedback
+    assert "err?.kind" in error_reporting or "error?.kind" in error_reporting
+
+
 def test_app_update_banner_uses_backend_metadata_only():
     text = (project_root() / "web" / "static" / "modules" / "app-update-banner.js").read_text(
         encoding="utf-8"

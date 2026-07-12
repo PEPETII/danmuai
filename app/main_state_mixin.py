@@ -19,7 +19,7 @@ from app.application.request_scheduler import RequestScheduler
 from app.application.request_timing_service import RequestTimingService
 from app.application.stats_state import StatsState
 from app.application.web_runtime_state import WebRuntimeState
-from app.personae import normal_reply_count_from_config
+from app.persona_contract import normal_reply_count_from_config
 
 if TYPE_CHECKING:
     from app.application.danmu_diagnostics import DanmuDiagnosticsRecorder
@@ -159,6 +159,10 @@ class DanmuAppStateMixin:
     def _cached_layout_mode(self, value: str) -> None:
         state = self._ensure_web_runtime_state()
         state.cached_layout_mode = str(value or "fullscreen")
+
+    # --- Generation pipeline ID 投影只读访问器（W-T5-GP-004）---
+    # 写路径：set_latest_displayed_from_pipeline（main_web_facade_mixin）；
+    # 读路径：GenerationPipelineState.from_app 与本 @property 对称。
 
     @property
     def latest_displayed_round(self) -> int:

@@ -3,6 +3,38 @@
 from unittest.mock import MagicMock
 
 
+def test_post_custom_model_legacy_only_body_returns_400():
+    """W-004：legacy-only POST /api/custom-models 获得 400。"""
+    from app.web_api.routes import register_web_routes
+    from fastapi import FastAPI, HTTPException
+    from fastapi.testclient import TestClient
+
+    app = FastAPI()
+    bridge = MagicMock()
+    bridge.invoke_on_main.side_effect = lambda fn, *args, **kwargs: fn(*args, **kwargs)
+
+    def _check_token(authorization: str | None = None) -> None:
+        if authorization != "Bearer cm-secret":
+            raise HTTPException(status_code=401)
+
+    register_web_routes(app, bridge, _check_token)
+    client = TestClient(app, raise_server_exceptions=False)
+
+    res = client.post(
+        "/api/custom-models",
+        json={
+            "name": "Legacy",
+            "modelId": "legacy-only",
+            "mode": "openai",
+            "endpoint": "https://api.example.com/v1",
+            "apiKey": "sk-legacy-only",
+            "provider": "custom_openai",
+        },
+        headers={"Authorization": "Bearer cm-secret"},
+    )
+    assert res.status_code == 400
+
+
 def test_probe_route_accepts_json_body():
     """Regression: /api/probe in web_console._run nested scope caused query: Field required 422."""
     from app.web_api.routes import register_web_routes
@@ -296,7 +328,7 @@ def test_user_nickname_round_trip_via_config_service(tmp_path):
     """PUT /api/config { user_nickname } must persist to ConfigStore and survive reload."""
     from app.application.config_service import apply_web_config_patch
     from app.config_store import ConfigStore
-    from app.personae import append_nickname_to_system_pt
+    from app.persona_contract import append_nickname_to_system_pt
 
     db_path = tmp_path / "config.db"
     store = ConfigStore(db_path)

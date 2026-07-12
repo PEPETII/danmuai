@@ -197,15 +197,17 @@ from app.application.generation_pipeline_state import GenerationPipelineState
 from app.application.stats_state import StatsState
 from app.application.web_runtime_state import WebRuntimeState
 from app.web_console import (
-    _SAVE_DONE_EVENT_KEY,
-    _SAVE_RESULT_KEY,
     WEB_CONFIG_KEYS,
     WebConsoleBridge,
-    _write_config_save_result,
     apply_config_patch,
     export_config,
     extract_config_payload,
     save_config_via_bridge,
+)
+from app.web_console_support import (
+    SAVE_DONE_EVENT_KEY,
+    SAVE_RESULT_KEY,
+    write_config_save_result,
 )
 from main import DanmuApp
 
