@@ -1,7 +1,8 @@
-"""侧边悬浮窗渲染层：右侧透明置顶窄窗，气泡皮肤 + 预渲染 QPixmap。
+"""侧边悬浮窗渲染层：透明置顶窄窗，样式契约驱动的 card/bubble 预渲染。
 
-W-FP-V3-002：运动学为持续向上滚动。
-W-FP-BUBBLE-001：仿微信/blivechat 暖色圆角气泡（左尾、描边、轻阴影）视觉试做。
+W-FP-V3-002：历史运动学为持续向上滚动。
+W-FP-BUBBLE-001：暖色圆角气泡试做（固定常量）。
+W-FP-STYLE-QT-001：从 FloatingPanelStyle 读取规范化样式；左对齐堆积；严格 clip。
 """
 from __future__ import annotations
 
@@ -16,6 +17,12 @@ from PyQt6.QtWidgets import QApplication, QWidget
 
 from app.danmu_pool import is_formula_danmu_text
 from app.floating_panel_engine import FloatingPanelEngine, FloatingPanelItem
+from app.floating_panel_style import (
+    FloatingPanelStyleSnapshot,
+    WECHAT_CARD_COLORS,
+    WECHAT_TEXT_COLOR,
+    style_snapshot_from_mapping,
+)
 from app.win32_overlay_zorder import apply_overlay_exstyles, reassert_hwnd_topmost
 
 if TYPE_CHECKING:
@@ -25,24 +32,8 @@ _FRAME_DT = 1.0 / 60.0
 _INTERVAL_MS = 16
 _DT_CAP_SEC = 0.1
 
-# --- Bubble prototype skin (W-FP-BUBBLE-001); fixed constants, not config ---
-_BUBBLE_RADIUS = 12.0
-_CARD_H_PAD = 12.0
-_CARD_V_PAD = 8.0
-_BUBBLE_BG = QColor(255, 236, 210, 200)  # warm semi-transparent fill
-_BUBBLE_TAIL_W = 8.0
-_BUBBLE_TAIL_H = 10.0
-_BUBBLE_SHADOW_DX = 2.0
-_BUBBLE_SHADOW_DY = 3.0
-_BUBBLE_SHADOW_COLOR = QColor(0, 0, 0, 45)
-# Outer pads so tail + offset shadow stay inside the pixmap (no clip)
-_BUBBLE_SHADOW_PAD_TOP = 1.0
-_BUBBLE_SHADOW_PAD_BOTTOM = 6.0
-_BUBBLE_SHADOW_PAD_RIGHT = 6.0
-# Dark text on warm fill; light outline for readability on busy game backgrounds
-_TEXT_FILL = QColor(40, 28, 18)
-_TEXT_OUTLINE = QColor(255, 255, 255, 200)
-_OUTLINE_WIDTH = 2
+# 面板内边距：条目左对齐起点与右侧预算（非业务皮肤常量）
+_PANEL_INSET = 4.0
 _FAST_DANMU_RENDER_MIN_LEN = 36
 _FAST_OUTLINE_OFFSETS = (
     (-2, 0),
@@ -55,35 +46,72 @@ _FAST_OUTLINE_OFFSETS = (
     (1, -1),
 )
 
-
-def _bubble_extra_width() -> float:
-    """Horizontal extent beyond content body: left tail + right shadow pad."""
-    return _BUBBLE_TAIL_W + _BUBBLE_SHADOW_PAD_RIGHT
-
-
-def _bubble_extra_height() -> float:
-    """Vertical extent beyond content body: top/bottom shadow pads."""
-    return _BUBBLE_SHADOW_PAD_TOP + _BUBBLE_SHADOW_PAD_BOTTOM
-
-
-def _bubble_body_path(body: QRectF) -> QPainterPath:
-    """Rounded body + left-pointing tail (WeChat/blivechat style)."""
-    path = QPainterPath()
-    path.addRoundedRect(body, _BUBBLE_RADIUS, _BUBBLE_RADIUS)
-    # Tail attaches to left edge, slightly above vertical center
-    cy = body.top() + body.height() * 0.38
-    tip = QPointF(body.left() - _BUBBLE_TAIL_W, cy)
-    # Overlap base slightly into body so fill has no seam
-    base_x = body.left() + 1.0
-    half_h = _BUBBLE_TAIL_H * 0.5
-    tail = QPainterPath()
-    tail.moveTo(tip)
-    tail.lineTo(QPointF(base_x, cy - half_h))
-    tail.lineTo(QPointF(base_x, cy + half_h))
-    tail.closeSubpath()
-    return path.united(tail)
-
 _fp_overlay_logger = logging.getLogger("danmu.floating_panel_overlay")
+
+
+def _hex_to_qcolor(value: str, *, alpha_override: int | None = None) -> QColor:
+    """Parse #RRGGBB / #RRGGBBAA into QColor; invalid → dark text."""
+    raw = str(value or "").strip()
+    if raw.startswith("#"):
+        raw = raw[1:]
+    if len(raw) == 6:
+        try:
+            r = int(raw[0:2], 16)
+            g = int(raw[2:4], 16)
+            b = int(raw[4:6], 16)
+            a = 255 if alpha_override is None else max(0, min(255, int(alpha_override)))
+            return QColor(r, g, b, a)
+        except ValueError:
+            pass
+    elif len(raw) == 8:
+        try:
+            r = int(raw[0:2], 16)
+            g = int(raw[2:4], 16)
+            b = int(raw[4:6], 16)
+            a_hex = int(raw[6:8], 16)
+            a = a_hex if alpha_override is None else max(0, min(255, int(alpha_override)))
+            return QColor(r, g, b, a)
+        except ValueError:
+            pass
+    if alpha_override is None:
+        return QColor(40, 28, 18, 255)
+    return QColor(40, 28, 18, max(0, min(255, int(alpha_override))))
+
+
+def _pick_palette_color(
+    colors: tuple[str, ...] | list[str],
+    mode: str,
+    weights: dict[str, float] | None,
+    style_index: int,
+    *,
+    fallback: str,
+) -> str:
+    """Deterministic color from palette + style_index (no global random)."""
+    palette = [str(c) for c in (colors or ()) if str(c).strip()]
+    if not palette:
+        return fallback
+    idx = int(style_index) % len(palette)
+    if str(mode or "").strip().lower() != "weighted" or not weights:
+        return palette[idx]
+
+    w_list: list[float] = []
+    for c in palette:
+        try:
+            w = float((weights or {}).get(c, 0.0))
+        except (TypeError, ValueError):
+            w = 0.0
+        w_list.append(max(0.0, w))
+    total = sum(w_list)
+    if total <= 0.0:
+        return palette[idx]
+    # Stable pseudo-slot from style_index into [0, total)
+    slot = ((int(style_index) * 2654435761) & 0xFFFFFFFF) / 4294967296.0 * total
+    acc = 0.0
+    for c, w in zip(palette, w_list):
+        acc += w
+        if slot < acc:
+            return c
+    return palette[-1]
 
 
 def _use_fast_danmu_render(content: str) -> bool:
@@ -94,7 +122,7 @@ def _use_fast_danmu_render(content: str) -> bool:
 
 
 class FloatingPanelOverlay(QWidget):
-    """右侧窄窗悬浮弹幕；始终鼠标穿透。"""
+    """右侧窄窗悬浮弹幕；始终鼠标穿透；条目左对齐堆积。"""
 
     def __init__(self, config: "ConfigStore", engine: FloatingPanelEngine):
         super().__init__()
@@ -113,6 +141,7 @@ class FloatingPanelOverlay(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_DontCreateNativeAncestors)
         self.setStyleSheet("background: transparent;")
 
+        self._style: FloatingPanelStyleSnapshot = style_snapshot_from_mapping(None)
         self._opacity_pct = 85
         self._panel_width = 360
         self._x_offset = 20
@@ -130,6 +159,72 @@ class FloatingPanelOverlay(QWidget):
 
         self._apply_config()
 
+    # ------------------------------------------------------------------
+    # Style / geometry helpers
+    # ------------------------------------------------------------------
+
+    def current_style(self) -> FloatingPanelStyleSnapshot:
+        return self._style
+
+    def _tail_w(self) -> float:
+        st = self._style
+        if st.shape == "bubble" and st.tail_enabled and st.tail_width > 0:
+            return float(st.tail_width)
+        return 0.0
+
+    def _tail_h(self) -> float:
+        st = self._style
+        if st.shape == "bubble" and st.tail_enabled and st.tail_height > 0:
+            return float(st.tail_height)
+        return 0.0
+
+    def _shadow_pads(self) -> tuple[float, float, float, float]:
+        """Return (pad_left_beyond_tail, pad_top, pad_right, pad_bottom) for shadow extent."""
+        st = self._style
+        if not st.shadow_enabled:
+            return (0.0, 1.0, 1.0, 1.0)
+        blur = max(0.0, float(st.shadow_blur))
+        # Approximate blur soft edge + solid offset extent
+        soft = max(1.0, blur * 0.5) if blur > 0 else 1.0
+        dx = float(st.shadow_offset_x)
+        dy = float(st.shadow_offset_y)
+        pad_left = max(0.0, -dx) + (soft if dx < 0 else 0.0)
+        pad_right = max(0.0, dx) + soft + 2.0
+        pad_top = max(0.0, -dy) + soft
+        pad_bottom = max(0.0, dy) + soft + 1.0
+        return (pad_left, max(1.0, pad_top), pad_right, max(1.0, pad_bottom))
+
+    def _extra_width(self) -> float:
+        """Horizontal extent beyond content body: left tail + shadow pads."""
+        pad_left, _pt, pad_right, _pb = self._shadow_pads()
+        return self._tail_w() + pad_left + pad_right
+
+    def _extra_height(self) -> float:
+        """Vertical extent beyond content body: top/bottom shadow pads."""
+        _pl, pad_top, _pr, pad_bottom = self._shadow_pads()
+        return pad_top + pad_bottom
+
+    def _body_path(self, body: QRectF) -> QPainterPath:
+        """Rounded body; bubble + tail_enabled → left-pointing triangle."""
+        st = self._style
+        radius = float(max(0, st.radius))
+        path = QPainterPath()
+        path.addRoundedRect(body, radius, radius)
+        tail_w = self._tail_w()
+        tail_h = self._tail_h()
+        if st.shape != "bubble" or tail_w <= 0.0 or tail_h <= 0.0:
+            return path
+        cy = body.top() + body.height() * 0.38
+        tip = QPointF(body.left() - tail_w, cy)
+        base_x = body.left() + 1.0
+        half_h = tail_h * 0.5
+        tail = QPainterPath()
+        tail.moveTo(tip)
+        tail.lineTo(QPointF(base_x, cy - half_h))
+        tail.lineTo(QPointF(base_x, cy + half_h))
+        tail.closeSubpath()
+        return path.united(tail)
+
     def _apply_config(self) -> None:
         def _int(key: str, default: int, lo: int, hi: int) -> int:
             raw = self.config.get(key, "")
@@ -138,28 +233,25 @@ class FloatingPanelOverlay(QWidget):
             except (TypeError, ValueError):
                 return default
 
-        self._opacity_pct = _int("floating_panel_opacity", 85, 0, 100)
-        self._panel_width = _int("floating_panel_width", 360, 200, 800)
+        # 布局偏移仍由 ConfigStore 直接读取（非样式契约字段）
         self._x_offset = _int("floating_panel_x_offset", 20, 0, 400)
         self._y_offset = _int("floating_panel_y_offset", 80, 0, 400)
-        size = _int("floating_panel_font_size", 20, 12, 48)
-        from app.config_defaults import DEFAULT_DANMU_FONT_FAMILY
 
-        family = str(
-            self.config.get("floating_panel_font_family", DEFAULT_DANMU_FONT_FAMILY)
-            or DEFAULT_DANMU_FONT_FAMILY
-        ).strip()
-        bold = str(self.config.get("floating_panel_font_bold", "1") or "1").strip().lower() not in (
-            "0",
-            "false",
-            "no",
-        )
+        # 规范化样式快照（缺失字段回退 wechat 工厂）
+        self._style = style_snapshot_from_mapping(self.config)
+        st = self._style
+        self._opacity_pct = max(0, min(100, int(st.panel_opacity)))
+        self._panel_width = max(200, min(800, int(st.width)))
+
+        family = str(st.font_family or "Microsoft YaHei").strip() or "Microsoft YaHei"
+        size = max(12, min(48, int(st.font_size)))
         self._font = QFont(family, size)
-        self._font.setBold(bold)
+        self._font.setBold(bool(st.font_bold))
         self._font_metrics = QFontMetrics(self._font)
         self.engine.apply_config()
 
     def apply_config(self) -> None:
+        """热更新样式/字体/几何：重算可见条 pixmap 与堆积目标，不清空正常可见弹幕。"""
         self._apply_config()
         for item in self.engine.visible_items():
             self._prepare_item_pixmap(item)
@@ -200,10 +292,11 @@ class FloatingPanelOverlay(QWidget):
         reassert_hwnd_topmost(hwnd)
 
     def _estimate_item_height(self) -> float:
+        st = self._style
         if self._font_metrics is None:
-            return 40.0 + _bubble_extra_height()
-        content_h = float(self._font_metrics.height()) + _CARD_V_PAD * 2
-        return content_h + _bubble_extra_height()
+            return 40.0 + self._extra_height()
+        content_h = float(self._font_metrics.height()) + float(st.padding_y) * 2
+        return content_h + self._extra_height()
 
     def estimate_item_height(self) -> float:
         """供主链路 peek 阶段估算竖向准入，避免访问私有方法。"""
@@ -237,28 +330,47 @@ class FloatingPanelOverlay(QWidget):
     def _prepare_item_pixmap(self, item: FloatingPanelItem) -> None:
         if self._font is None or self._font_metrics is None:
             return
+        st = self._style
         text_w = self._font_metrics.horizontalAdvance(item.content)
         panel_w = float(self.width() or self._panel_width)
-        # Reserve horizontal room for left tail + right shadow so paintEvent right-align
-        # keeps the full bubble inside the panel (4px margins on each side → -8).
-        max_total_w = max(1.0, panel_w - 8.0)
-        max_content_w = max(1.0, max_total_w - _bubble_extra_width())
-        content_w = min(max_content_w, text_w + _CARD_H_PAD * 2)
-        content_h = float(self._font_metrics.height()) + _CARD_V_PAD * 2
-        total_h = content_h + _bubble_extra_height()
+        # 左对齐：两侧 inset 后整颗气泡（主体 + 尾 + 阴影）不得超过面板宽度
+        max_total_w = max(1.0, panel_w - _PANEL_INSET * 2.0)
+        max_content_w = max(1.0, max_total_w - self._extra_width())
+        pad_x = float(st.padding_x)
+        pad_y = float(st.padding_y)
+        content_w = min(max_content_w, text_w + pad_x * 2)
+        content_h = float(self._font_metrics.height()) + pad_y * 2
+        total_h = content_h + self._extra_height()
         self.engine.update_item_height(item, total_h)
-        item.pixmap = self._render_card_pixmap(item.content, int(content_w), int(content_h))
+        item.pixmap = self._render_card_pixmap(
+            item.content,
+            int(content_w),
+            int(content_h),
+            style_index=int(item.style_index),
+        )
 
-    def _render_card_pixmap(self, text: str, width: int, height: int) -> QPixmap:
-        """Render bubble pixmap.
+    def _render_card_pixmap(
+        self,
+        text: str,
+        width: int,
+        height: int,
+        *,
+        style_index: int = 0,
+    ) -> QPixmap:
+        """Render card/bubble pixmap from current style.
 
         ``width`` / ``height`` are the **content body** size (text + padding).
         Returned pixmap is larger by tail + shadow pads so nothing is clipped.
+        Colors are fixed by ``style_index`` (no re-sample during animation).
         """
+        st = self._style
         content_w = max(1, int(width))
         content_h = max(1, int(height))
-        total_w = content_w + int(_bubble_extra_width())
-        total_h = content_h + int(_bubble_extra_height())
+        pad_left_shadow, pad_top, pad_right, pad_bottom = self._shadow_pads()
+        tail_w = self._tail_w()
+        left_origin = tail_w + pad_left_shadow
+        total_w = content_w + int(self._extra_width())
+        total_h = content_h + int(pad_top + pad_bottom)
         dpr = self.devicePixelRatio() or 1.0
         w_px = max(1, int(total_w * dpr))
         h_px = max(1, int(total_h * dpr))
@@ -271,27 +383,67 @@ class FloatingPanelOverlay(QWidget):
             painter.setRenderHint(QPainter.RenderHint.TextAntialiasing)
 
             body = QRectF(
-                _BUBBLE_TAIL_W,
-                _BUBBLE_SHADOW_PAD_TOP,
+                left_origin,
+                pad_top,
                 float(content_w),
                 float(content_h),
             )
-            bubble_path = _bubble_body_path(body)
+            shape_path = self._body_path(body)
 
-            # Fixed slight shadow (solid offset path; no blur filter)
-            shadow_path = QPainterPath(bubble_path)
-            shadow_path.translate(_BUBBLE_SHADOW_DX, _BUBBLE_SHADOW_DY)
-            painter.fillPath(shadow_path, _BUBBLE_SHADOW_COLOR)
-            painter.fillPath(bubble_path, _BUBBLE_BG)
+            # Card fill color (style_index fixed) × card_opacity
+            card_hex = _pick_palette_color(
+                st.card_colors,
+                st.card_color_mode,
+                st.card_color_weights,
+                style_index,
+                fallback=WECHAT_CARD_COLORS[0],
+            )
+            card_alpha = int(round(255 * max(0, min(100, st.card_opacity)) / 100.0))
+            card_color = _hex_to_qcolor(card_hex, alpha_override=card_alpha)
+
+            # Shadow (approximate blur via multi-pass soft offset)
+            if st.shadow_enabled:
+                shadow_base = _hex_to_qcolor(st.shadow_color)
+                dx = float(st.shadow_offset_x)
+                dy = float(st.shadow_offset_y)
+                blur = max(0, int(st.shadow_blur))
+                if blur <= 0:
+                    shadow_path = QPainterPath(shape_path)
+                    shadow_path.translate(dx, dy)
+                    painter.fillPath(shadow_path, shadow_base)
+                else:
+                    # Soft shadow: concentric offsets with decreasing alpha
+                    steps = min(4, max(1, blur // 2))
+                    for i in range(steps, 0, -1):
+                        frac = i / float(steps)
+                        soft = QPainterPath(shape_path)
+                        soft.translate(dx * frac, dy * frac)
+                        a = max(1, int(shadow_base.alpha() * (0.35 + 0.65 * (1.0 - frac * 0.5)) / steps * 1.2))
+                        c = QColor(shadow_base.red(), shadow_base.green(), shadow_base.blue(), min(255, a))
+                        painter.fillPath(soft, c)
+                    solid = QPainterPath(shape_path)
+                    solid.translate(dx, dy)
+                    painter.fillPath(solid, shadow_base)
+
+            painter.fillPath(shape_path, card_color)
 
             if self._font is None or self._font_metrics is None:
                 return pm
 
+            text_hex = _pick_palette_color(
+                st.text_colors,
+                st.text_color_mode,
+                st.text_color_weights,
+                style_index,
+                fallback=WECHAT_TEXT_COLOR,
+            )
+            text_fill = _hex_to_qcolor(text_hex)
+            pad_x = float(st.padding_x)
+            pad_y = float(st.padding_y)
             painter.setFont(self._font)
-            # Text sits in body; left of body is tail (must not cover glyphs)
-            text_x = body.left() + _CARD_H_PAD
-            baseline_y = body.top() + _CARD_V_PAD + self._font_metrics.ascent()
-            max_text_w = max(1, int(content_w - _CARD_H_PAD * 2))
+            text_x = body.left() + pad_x
+            baseline_y = body.top() + pad_y + self._font_metrics.ascent()
+            max_text_w = max(1, int(content_w - pad_x * 2))
             draw_text = text
             if is_formula_danmu_text(self.config, text):
                 draw_text = self._font_metrics.elidedText(
@@ -299,27 +451,32 @@ class FloatingPanelOverlay(QWidget):
                     Qt.TextElideMode.ElideRight,
                     max_text_w,
                 )
+
+            outline_on = bool(st.outline_enabled) and st.outline_width > 0
+            outline_color = _hex_to_qcolor(st.outline_color)
+            outline_w = max(1, int(st.outline_width)) if outline_on else 0
+
             if _use_fast_danmu_render(draw_text):
-                # 快路径：drawText + 8 方向偏移描边，避免 QPainterPath.addText 对 CJK 的路径计算开销
-                outline_pen = QPen(_TEXT_OUTLINE)
-                outline_pen.setWidth(_OUTLINE_WIDTH)
-                for dx, dy in _FAST_OUTLINE_OFFSETS:
-                    painter.setPen(outline_pen)
-                    painter.drawText(int(text_x + dx), int(baseline_y + dy), draw_text)
-                painter.setPen(QPen(_TEXT_FILL))
+                if outline_on:
+                    outline_pen = QPen(outline_color)
+                    outline_pen.setWidth(outline_w)
+                    for odx, ody in _FAST_OUTLINE_OFFSETS:
+                        painter.setPen(outline_pen)
+                        painter.drawText(int(text_x + odx), int(baseline_y + ody), draw_text)
+                painter.setPen(QPen(text_fill))
                 painter.drawText(int(text_x), int(baseline_y), draw_text)
             else:
-                # 慢路径：QPainterPath.addText 描边 + 填充（短 ASCII 文本）
                 text_path = QPainterPath()
                 text_path.addText(text_x, baseline_y, self._font, draw_text)
-                pen = QPen(_TEXT_OUTLINE)
-                pen.setWidth(_OUTLINE_WIDTH)
-                pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-                pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-                painter.setPen(pen)
-                painter.drawPath(text_path)
+                if outline_on:
+                    pen = QPen(outline_color)
+                    pen.setWidth(outline_w)
+                    pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+                    pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+                    painter.setPen(pen)
+                    painter.drawPath(text_path)
                 painter.setPen(Qt.PenStyle.NoPen)
-                painter.setBrush(_TEXT_FILL)
+                painter.setBrush(text_fill)
                 painter.drawPath(text_path)
         finally:
             painter.end()
@@ -435,15 +592,18 @@ class FloatingPanelOverlay(QWidget):
         try:
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
             painter.setRenderHint(QPainter.RenderHint.TextAntialiasing)
-            panel_w = float(self.width())
+            # 严格裁剪于容器矩形：部分越顶/越底像素不得显示
+            clip = QRectF(0.0, 0.0, float(self.width()), float(self.height()))
+            painter.setClipRect(clip)
+            # 左对齐：统一左侧内缩，禁止 panel_w - pm_w 右对齐
+            left_x = _PANEL_INSET
             for item in items:
                 alpha = item.opacity * global_alpha
                 if alpha <= 0.0 or item.pixmap is None:
                     continue
                 pm: QPixmap = item.pixmap
-                x = max(4.0, panel_w - float(pm.width() / (pm.devicePixelRatio() or 1.0)) - 4.0)
                 painter.setOpacity(alpha)
-                painter.drawPixmap(int(x), int(item.current_y), pm)
+                painter.drawPixmap(int(left_x), int(item.current_y), pm)
             painter.setOpacity(1.0)
         finally:
             painter.end()

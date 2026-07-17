@@ -582,15 +582,23 @@
             </template>
           </div>
           <div class="settings-section space-y-3">
-            <p class="settings-section-title">样式预览</p>
-            <p class="settings-section-hint">根据当前表单值实时预览弹幕效果，不会保存或发送到 overlay。轨道带可视化反映「轨道行数」与「布局」对应的实际可绘制范围与安全边距。</p>
+            <p class="settings-section-title" data-i18n="settings.text.样式预览">样式预览</p>
+            <p class="settings-section-hint" data-i18n="settings.text.根据当前表单值实时预览弹幕效果_不会保存或发送到_overlay_轨道带可视化反映轨道行数与布局">
+              根据当前表单值实时预览弹幕效果，不会保存或发送到 overlay。轨道带可视化反映「轨道行数」与「布局」对应的实际可绘制范围与安全边距。
+            </p>
             <div id="danmuStylePreview" class="danmu-style-preview">
               <div id="danmuPreviewScrolling" class="danmu-preview-scrolling">
                 <div id="danmuTrackBands" class="danmu-track-bands hidden"></div>
                 <div class="danmu-preview-track" id="danmuPreviewTrack"></div>
               </div>
               <div id="danmuPreviewFloating" class="danmu-preview-floating hidden">
-                <div class="danmu-preview-floating-panel" id="danmuPreviewFloatingPanel"></div>
+                <div class="sg-settings-floating-entry p-4 space-y-3 text-left">
+                  <p class="text-sm font-semibold text-white" data-i18n="settings.text.从下到上样式请使用样式生成器">从下到上样式请使用样式生成器</p>
+                  <p class="text-xs text-white/80" data-i18n="settings.text.旧简化浮动预览已停用_完整堆积_卡片气泡_透明度与动画请在样式生成器中编辑与预览">
+                    旧简化浮动预览已停用。完整堆积、卡片/气泡、透明度与动画请在样式生成器中编辑与预览。
+                  </p>
+                  <a href="#style-generator" id="btnOpenStyleGeneratorFromSettings" class="inline-flex items-center px-4 py-2 rounded-xl bg-softPeach text-warmText font-semibold text-sm shadow-warm hover:opacity-90" data-page-link="style-generator" data-i18n="settings.text.打开样式生成器">打开样式生成器</a>
+                </div>
               </div>
             </div>
           </div>

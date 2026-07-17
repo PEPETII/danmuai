@@ -294,6 +294,16 @@
       "轨道_drawn_1_y_y": "轨道 {trackNum} @ y={y}px",
       "可绘制区底部_drawableH_px_l": "可绘制区底部 {drawableH}px (layout_mode={layoutMode})"
     },
+    "appStyleGenerator": {
+      "预览消息_精彩操作": "这波操作也太秀了",
+      "预设不可用": "预设不可用，请确认后端 style-presets 接口",
+      "已应用预设_preset": "已应用预设：{preset}",
+      "至少保留一种颜色": "至少保留一种颜色",
+      "最多十六种颜色": "最多 16 种颜色",
+      "样式已保存": "样式已保存",
+      "保存失败": "保存失败",
+      "加载失败": "样式生成器加载失败"
+    },
     "settingsDefaults": {
       "弹幕_i_1": "弹幕{index}",
       "直播弹幕评论员_只输出_JSON_字符串数组_无": "直播弹幕评论员。只输出 JSON 字符串数组，无解释、无 Markdown。",

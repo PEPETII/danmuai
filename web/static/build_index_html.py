@@ -16,6 +16,7 @@ PARTIALS = {
     "{{sidebar}}": ROOT / "partials" / "sidebar.html",
     "{{overview}}": ROOT / "partials" / "overview.html",
     "{{settings}}": ROOT / "partials" / "settings.html",
+    "{{style_generator}}": ROOT / "partials" / "style-generator.html",
     "{{content_pages}}": ROOT / "partials" / "content-pages.html",
     "{{modals}}": ROOT / "partials" / "modals.html",
 }

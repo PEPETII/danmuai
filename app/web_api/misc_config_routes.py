@@ -102,3 +102,10 @@ def register_misc_config_routes(
         language = language_api.validate_payload(body.model_dump())
         invoke_main(language_api.save_to_config, bridge.danmu_app.config, language)
         return {"ok": True, "language": language}
+
+    # W-FP-STYLE-CONTRACT-001：只读样式预设；不要求写权限；HTTP 线程不写 ConfigStore
+    @app.get("/api/floating-panel/style-presets")
+    def get_floating_panel_style_presets():
+        from app.floating_panel_style import style_presets_api_payload
+
+        return style_presets_api_payload()

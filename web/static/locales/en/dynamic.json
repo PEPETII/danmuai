@@ -294,6 +294,16 @@
       "轨道_drawn_1_y_y": "Track {trackNum} @ y={y}px",
       "可绘制区底部_drawableH_px_l": "Drawable area bottom {drawableH}px (layout_mode={layoutMode})"
     },
+    "appStyleGenerator": {
+      "预览消息_精彩操作": "That play was insane",
+      "预设不可用": "Preset unavailable; check style-presets API",
+      "已应用预设_preset": "Applied preset: {preset}",
+      "至少保留一种颜色": "Keep at least one color",
+      "最多十六种颜色": "At most 16 colors",
+      "样式已保存": "Style saved",
+      "保存失败": "Save failed",
+      "加载失败": "Failed to load Style Generator"
+    },
     "settingsDefaults": {
       "弹幕_i_1": "Danmu {index}",
       "直播弹幕评论员_只输出_JSON_字符串数组_无": "Live danmu commentator. Output JSON string array only—no explanation or Markdown.",

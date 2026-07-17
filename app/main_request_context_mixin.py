@@ -310,14 +310,12 @@ class DanmuAppRequestContextMixin:
                 return current_interval
 
         if self._danmu_render_mode() == "floating_panel":
-            fp_engine = self.__dict__.get("floating_panel_engine")
-            fp_overlay = self.__dict__.get("floating_panel_overlay")
-            if fp_engine is not None and fp_overlay is not None:
-                est_h = fp_overlay.estimate_item_height()
-                if not fp_engine.can_accept_new_item(est_h):
-                    return fp_engine.estimate_entry_delay_ms(est_h)
-                return 120
-            return 200
+            # 堆积节奏：以 push 动画时长作消费节流，不再按底部空间/entry_delay 等待。
+            # 安全下限 100ms 防止 tight loop；上限 1000ms 与 reply 自适应区间对齐。
+            push_ms = self.config.get_int("floating_panel_push_duration_ms", 180)
+            if push_ms <= 0:
+                return 100
+            return max(100, min(int(push_ms), 1000))
 
         if hasattr(self.engine, "visibility_counts"):
             visible_total, right_count = self.engine.visibility_counts()

@@ -55,6 +55,36 @@ WEB_CONFIG_KEYS = (
     "floating_panel_y_offset",
     "floating_panel_opacity",
     "floating_panel_font_size",
+    # W-FP-STYLE-CONTRACT-001：从下到上样式扁平字段（无单一 JSON 档）
+    "floating_panel_style_preset",
+    "floating_panel_shape",
+    "floating_panel_card_colors",
+    "floating_panel_card_color_mode",
+    "floating_panel_card_color_weights",
+    "floating_panel_text_colors",
+    "floating_panel_text_color_mode",
+    "floating_panel_text_color_weights",
+    "floating_panel_card_opacity",
+    "floating_panel_outline_enabled",
+    "floating_panel_outline_color",
+    "floating_panel_outline_width",
+    "floating_panel_shadow_enabled",
+    "floating_panel_shadow_color",
+    "floating_panel_shadow_blur",
+    "floating_panel_shadow_offset_x",
+    "floating_panel_shadow_offset_y",
+    "floating_panel_padding_x",
+    "floating_panel_padding_y",
+    "floating_panel_radius",
+    "floating_panel_tail_enabled",
+    "floating_panel_tail_width",
+    "floating_panel_tail_height",
+    "floating_panel_entry_animation",
+    "floating_panel_entry_duration_ms",
+    "floating_panel_push_duration_ms",
+    "floating_panel_exit_animation",
+    "floating_panel_exit_duration_ms",
+    "floating_panel_stack_gap",
     # W-FONT-001：字体设置
     "danmu_font_family",
     "danmu_font_bold",
@@ -370,6 +400,12 @@ class ConfigService:
             if _key in items:
                 _v = str(items[_key]).strip()
                 items[_key] = _v if _v else "Microsoft YaHei"
+
+        # W-FP-STYLE-CONTRACT-001：样式预设展开与扁平字段归一化
+        # （classic/wechat 展开；custom 非法回退 wechat；不改 danmu_render_mode）
+        from app.floating_panel_style import normalize_floating_panel_style_items
+
+        normalize_floating_panel_style_items(items)
 
         # PET-003：桌宠配置归一化
         if "pet_asset_source" in items:

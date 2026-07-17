@@ -446,6 +446,29 @@ def test_pet_page_in_index_html():
     assert "/api/pet/reset-asset" in pet_js
 
 
+def test_style_generator_page_in_index_html():
+    """W-FP-STYLEGEN-WEB-001: 构建产物含样式生成器页且无重复。"""
+    root = project_root()
+    html = (root / "web" / "static" / "index.html").read_text(encoding="utf-8")
+    partial = (root / "web" / "static" / "partials" / "style-generator.html").read_text(
+        encoding="utf-8"
+    )
+    assert 'data-page="style-generator"' in html
+    assert 'id="page-style-generator"' in html
+    assert html.count('id="page-style-generator"') == 1
+    assert 'id="styleGeneratorForm"' in html
+    assert 'id="styleGeneratorPreview"' in html
+    assert 'id="page-style-generator"' in partial
+    app_js = (root / "web" / "static" / "app.js").read_text(encoding="utf-8")
+    assert "ensureStyleGeneratorPage" in app_js
+    assert "app-style-generator-page.js" in app_js
+    mod = (root / "web" / "static" / "modules" / "app-style-generator-page.js").read_text(
+        encoding="utf-8"
+    )
+    assert "/api/floating-panel/style-presets" in mod
+    assert "apiFetch" in mod
+
+
 def test_tailwind_offline_bundle_packaged():
     """BUG-059: 控制台使用内置 tailwindcdn.js，不依赖外网 CDN。"""
     root = project_root()

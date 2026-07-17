@@ -214,12 +214,14 @@ class GenerationPipeline:
         app.maybe_pool_topup()
 
     def _dispatch_to_floating_panel(self, app: "DanmuApp") -> None:
-        """浮动面板分发：peek 预检（容量/空文本/去重）→ pop + 上屏 + 锚点 + 失败回插。
+        """浮动面板分发：peek 预检（空文本/去重）→ pop + 上屏 + 锚点 + 失败回插。
 
-        与 overlay 分支解耦：失败时 floating_panel 间距拒因走 prepend_batch 回插队首，
-        避免静默丢失。成功时锚点更新经 ``_compute_anchor_update`` 共享。
+        堆积模型下不再做底部空间准入；旧条目可见时仍立即消费。
+        display 返回 None 时区分 empty / duplicate / floating_panel_render；
+        仅真实渲染失败走 prepend 重试，不再写 floating_panel_spacing。
+        成功时锚点更新经 ``_compute_anchor_update`` 共享。
         """
-        # peek 预检（容量/空文本/去重 early-return）
+        # peek 预检（空文本/去重 early-return；无空间门控）
         queued_peek = app.reply_buffer.peek()
         if queued_peek is None:
             return
@@ -234,13 +236,6 @@ class GenerationPipeline:
         else:
             fp_overlay = getattr(app, "floating_panel_overlay", None)
         if fp_engine is not None and fp_overlay is not None:
-            est_h = fp_overlay.estimate_item_height()
-            if not fp_engine.can_accept_new_item(est_h):
-                delay = fp_engine.estimate_entry_delay_ms(est_h)
-                if not app.reply_buffer.is_empty():
-                    app.reply_timer.start(max(50, delay))
-                return
-
             display_peek = resolve_danmu_display_text(
                 queued_peek.content,
                 app.config,
@@ -298,7 +293,7 @@ class GenerationPipeline:
                 app.maybe_pool_topup()
                 return
 
-        # pop + 上屏
+        # pop + 上屏（通过预检后立即消费，不等待底部空间）
         queued = app.reply_buffer.pop()
         if queued is None:
             return
@@ -337,15 +332,19 @@ class GenerationPipeline:
 
             self._compute_anchor_update(app, item)
         else:
+            # 拒因重分类：empty / duplicate / 真实渲染失败（不再 floating_panel_spacing）
             duplicate_match_type = ""
-            if fp_engine and (not skip_dedup) and fp_engine.is_duplicate(display_content):
+            if not display_content:
+                reject = tr("log.reject.floating_panel_empty")
+                diag_reason = "empty_text"
+            elif fp_engine and (not skip_dedup) and fp_engine.is_duplicate(display_content):
                 duplicate_observation = get_last_duplicate_observation()
                 duplicate_match_type = str(duplicate_observation.get("match_type") or "")
                 reject = tr("log.reject.dedup")
                 diag_reason = "duplicate"
             else:
                 reject = tr("log.reject.floating_panel")
-                diag_reason = "floating_panel_spacing"
+                diag_reason = "floating_panel_render"
             app.record_undisplayed(diag_reason, persona_id=queued.persona_id)
             extra_fields: dict = {}
             if diag_reason == "duplicate":
@@ -381,7 +380,8 @@ class GenerationPipeline:
                 tr("app.danmu_not_entered").format(content=f"{queued.content[:20]}...")
                 + f" [{reject}]"
             )
-            if diag_reason == "floating_panel_spacing":
+            # 仅真实渲染失败回插；不因旧条目占位做 spacing prepend
+            if diag_reason == "floating_panel_render":
                 app.reply_buffer.prepend_batch([queued])
                 app.logger.warning(tr("log.floating_panel_requeued"))
 
@@ -396,7 +396,7 @@ class GenerationPipeline:
         """overlay 主路径：pop → display_danmu_text 上屏 → 锚点更新 / 拒因诊断。
 
         失败拒因：duplicate / entry_zone_overload / layout_rejection（不含
-        floating_panel 间距拒因，该分支已迁入 _dispatch_to_floating_panel）。
+        floating_panel 堆积路径拒因，该分支在 _dispatch_to_floating_panel）。
         """
         queued = app.reply_buffer.pop()
         if queued is None:

@@ -98,6 +98,7 @@ let danmuReadConfigCache = null;
 let danmuReadCatalog = null;
 let danmuPoolPagesReady = false;
 let petPageReady = false;
+let styleGeneratorPageReady = false;
 let diagnosticsReady = false;
 let aiButlerPageReady = false;
 
@@ -128,6 +129,15 @@ async function ensureAiButlerPage() {
   if (!aiButlerPageReady) {
     mod.initAiButlerPage({ showToast });
     aiButlerPageReady = true;
+  }
+  return mod;
+}
+
+async function ensureStyleGeneratorPage() {
+  const mod = await import('./modules/app-style-generator-page.js');
+  if (!styleGeneratorPageReady) {
+    mod.initStyleGeneratorPage({ showToast, navigate });
+    styleGeneratorPageReady = true;
   }
   return mod;
 }
@@ -482,6 +492,15 @@ function navigate(page) {
   if (panel) panel.classList.add('active');
   const btn = document.querySelector(`#nav [data-page="${page}"]`);
   if (btn) btn.classList.add('active');
+  // 保持 hash 与当前页一致，支持刷新深链接
+  try {
+    const desired = `#${page}`;
+    if ((location.hash || '') !== desired) {
+      history.replaceState(null, '', desired);
+    }
+  } catch {
+    /* ignore */
+  }
 
   if (page === 'settings') {
     reloadConfigFromServer().catch(console.error);
@@ -514,6 +533,11 @@ function navigate(page) {
   if (page === 'pet') {
     ensurePetPage()
       .then((mod) => mod.loadPetPage())
+      .catch((error) => showToast(error.message, true));
+  }
+  if (page === 'style-generator') {
+    ensureStyleGeneratorPage()
+      .then((mod) => mod.loadStyleGeneratorPage())
       .catch((error) => showToast(error.message, true));
   }
   if (page === 'ai-butler') {
@@ -640,6 +664,11 @@ async function init() {
         loadDanmuReadPage().catch(() => {});
       }
     },
+  });
+  // 设置页「打开样式生成器」入口（不依赖样式页懒加载）
+  document.getElementById('btnOpenStyleGeneratorFromSettings')?.addEventListener('click', (event) => {
+    event.preventDefault();
+    navigate('style-generator');
   });
   initNumberSteppers(document);
   configureGuideTabs({

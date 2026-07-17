@@ -112,3 +112,31 @@ def test_config_defaults_include_v2_keys():
     assert "display_mode" not in CONFIG_DEFAULTS
     assert "bililive_dm_mode_enabled" not in CONFIG_DEFAULTS
     assert "bililive_dm_mode_enabled" not in WEB_CONFIG_KEYS
+
+
+def test_floating_panel_style_contract_keys_in_web_config():
+    """W-FP-STYLE-CONTRACT-001：样式扁平键进入白名单与默认值。"""
+    style_keys = (
+        "floating_panel_style_preset",
+        "floating_panel_shape",
+        "floating_panel_card_colors",
+        "floating_panel_text_colors",
+        "floating_panel_card_opacity",
+        "floating_panel_tail_enabled",
+        "floating_panel_stack_gap",
+    )
+    for key in style_keys:
+        assert key in WEB_CONFIG_KEYS
+        assert key in CONFIG_DEFAULTS
+    assert CONFIG_DEFAULTS["floating_panel_style_preset"] == "wechat"
+    defaults = export_web_config_defaults()
+    assert defaults["floating_panel_style_preset"] == "wechat"
+
+
+def test_floating_panel_style_preset_via_config_does_not_change_render_mode(tmp_path):
+    store = ConfigStore(db_path=tmp_path / "fp_style_cfg.db")
+    app = _stub_app(store)
+    apply_web_config_patch(app, {"danmu_render_mode": "scrolling"})
+    apply_web_config_patch(app, {"floating_panel_style_preset": "classic"})
+    assert store.get("danmu_render_mode") == "scrolling"
+    assert store.get("floating_panel_shape") == "card"

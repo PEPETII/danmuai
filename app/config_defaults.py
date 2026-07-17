@@ -146,6 +146,17 @@ CONFIG_DEFAULTS: dict[str, str] = {
     "danmu_font_color_weights": "{}",
 }
 
+# W-FP-STYLE-CONTRACT-001：从下到上样式契约默认值（wechat；扁平字段）
+# 延迟展开，避免与 style 模块循环依赖；仅注入 STYLE_FIELD_KEYS。
+def _inject_floating_panel_style_defaults(defaults: dict[str, str]) -> None:
+    from app.floating_panel_style import style_defaults_for_config
+
+    for key, value in style_defaults_for_config().items():
+        defaults.setdefault(key, value)
+
+
+_inject_floating_panel_style_defaults(CONFIG_DEFAULTS)
+
 # 首装视觉 API 默认服务商（与 model_providers.DEFAULT_PROVIDER_ID 一致）
 _DEFAULT_PROVIDER_ID = "custom_openai"
 # 麦克风「恢复默认」仍使用火山方舟预设地址

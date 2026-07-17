@@ -1188,6 +1188,152 @@
 }
 
 /* =========================================================================
+   样式生成器（W-FP-STYLEGEN-WEB-001）
+   - 左侧控制 / 右侧堆积预览
+   - 底入、顶推、严格裁剪、左对齐
+   ========================================================================= */
+
+.style-generator-layout {
+  display: grid;
+  grid-template-columns: minmax(320px, 1.1fr) minmax(280px, 0.9fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .style-generator-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.style-generator-controls {
+  max-height: calc(100vh - 10rem);
+  overflow-y: auto;
+}
+
+.style-generator-preview-pane {
+  position: sticky;
+  top: 1rem;
+}
+
+.sg-preset-btn.is-active {
+  background: rgba(var(--color-primary-rgb), 0.15);
+  border-color: rgba(var(--color-primary-rgb), 0.45);
+  color: var(--color-text, #5d5757);
+  box-shadow: var(--shadow-warm, 0 4px 15px -3px rgba(255, 165, 165, 0.2));
+}
+
+.sg-color-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.sg-color-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--border, #e5d3c0);
+  background: var(--color-surface, #fff);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.sg-color-swatch {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  flex-shrink: 0;
+}
+
+.sg-color-hex {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.sg-color-remove {
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted, #6b7280);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 0.15rem;
+}
+
+.sg-color-picker {
+  width: 2.5rem;
+  height: 2rem;
+  padding: 0;
+  border: 1px solid var(--border, #e5d3c0);
+  border-radius: 0.5rem;
+  background: transparent;
+}
+
+.sg-weight-row {
+  display: grid;
+  grid-template-columns: auto 1fr minmax(4rem, 5.5rem);
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.sg-preview-stage {
+  position: relative;
+  width: 100%;
+  height: min(62vh, 520px);
+  min-height: 320px;
+  border-radius: 0.75rem;
+  overflow: hidden; /* 严格裁剪：顶/底/左右 */
+  background:
+    linear-gradient(180deg, rgba(26, 26, 46, 0.96) 0%, rgba(22, 33, 62, 0.98) 100%);
+  border: 1px solid var(--color-border, #e5d3c0);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.sg-preview-stack {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.sg-preview-item {
+  position: absolute;
+  left: 8px;
+  right: auto;
+  top: 0;
+  max-width: calc(100% - 16px);
+  box-sizing: border-box;
+  text-align: left;
+  word-break: break-word;
+  will-change: transform, opacity;
+  line-height: 1.35;
+}
+
+.sg-preview-item.sg-item-bubble {
+  position: absolute;
+}
+
+.sg-preview-item.sg-item-bubble::before {
+  content: '';
+  position: absolute;
+  left: calc(-1 * var(--sg-tail-w, 8px));
+  bottom: 10px;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: calc(var(--sg-tail-h, 10px) / 2) var(--sg-tail-w, 8px) calc(var(--sg-tail-h, 10px) / 2) 0;
+  border-color: transparent var(--sg-tail-color, #ffecd2) transparent transparent;
+}
+
+.sg-settings-floating-entry {
+  width: 100%;
+}
+
+/* =========================================================================
    AI 管家对话页（W-AIBUTLER-003）
    - 全部引用 token，颜色随 [data-theme="dark"] 自动翻转
    - 唯二例外：.ai-butler-btn-confirm.is-success (#4ade80) / is-failed (#ef4444)

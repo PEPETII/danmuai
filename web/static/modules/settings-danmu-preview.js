@@ -1,8 +1,9 @@
 /**
- * 弹幕样式预览 (W-PR-INTAKE-022)
+ * 弹幕样式预览 (W-PR-INTAKE-022 / W-FP-STYLEGEN-WEB-001)
  *
- * 纯前端预览：读取 settingsTab-danmu 表单值，实时渲染弹幕效果。
- * 不调用后端、不写入持久化、不接入真实 overlay。
+ * 纯前端预览：横向 scrolling 仍在本模块实时渲染。
+ * 从下到上浮动面板的堆积预览已迁到 #style-generator（app-style-generator-page.js），
+ * 本模块在 floating_panel 模式下仅切换入口提示，不再维护第二份简化堆积 DOM。
  */
 
 import { t } from './i18n.js';
@@ -104,26 +105,6 @@ function resolvePreviewColor() {
   return selected[Math.floor(Math.random() * selected.length)];
 }
 
-function buildFloatingStyle() {
-  const width = getNumber('floating_panel_width', 400);
-  const maxItems = getNumber('floating_panel_max_items', 10);
-  const speed = getNumber('floating_panel_speed', 2);
-  const opacity = Math.max(0, Math.min(1, getNumber('floating_panel_opacity', 90) / 100));
-  const fontSize = getNumber('floating_panel_font_size', 20);
-  const fontFamily = getSelect('floating_panel_font_family', '');
-  const bold = getChecked('floating_panel_font_bold');
-
-  return {
-    width,
-    maxItems,
-    speed,
-    opacity,
-    fontSize,
-    fontFamily,
-    bold,
-  };
-}
-
 function renderScrollingPreview() {
   const track = document.getElementById('danmuPreviewTrack');
   if (!track) return;
@@ -153,49 +134,6 @@ function renderScrollingPreview() {
   requestAnimationFrame(() => {
     item.style.right = '100%';
   });
-}
-
-function renderFloatingPreview() {
-  const panel = document.getElementById('danmuPreviewFloatingPanel');
-  if (!panel) return;
-
-  const style = buildFloatingStyle();
-
-  panel.style.width = `${Math.min(style.width, 400)}px`;
-  panel.style.opacity = String(style.opacity);
-
-  const fontSize = `${style.fontSize}px`;
-  const fontWeight = style.bold ? 'bold' : 'normal';
-  const fontFamily = style.fontFamily || 'inherit';
-
-  const text = PREVIEW_TEXTS[previewIndex % PREVIEW_TEXTS.length];
-  previewIndex++;
-
-  const item = document.createElement('div');
-  item.textContent = text;
-  item.style.fontSize = fontSize;
-  item.style.fontWeight = fontWeight;
-  item.style.fontFamily = fontFamily;
-  item.style.color = '#fff';
-  item.style.padding = '4px 8px';
-  item.style.transition = `transform ${3 / style.speed}s ease-out, opacity 0.3s`;
-  item.style.opacity = '0';
-
-  panel.appendChild(item);
-  requestAnimationFrame(() => {
-    item.style.opacity = '1';
-  });
-
-  while (panel.children.length > style.maxItems) {
-    const first = panel.firstChild;
-    if (first) {
-      first.style.opacity = '0';
-      first.style.transform = 'translateY(-10px)';
-      setTimeout(() => first.remove(), 300);
-    } else {
-      break;
-    }
-  }
 }
 
 function switchPreviewMode() {
@@ -287,9 +225,8 @@ function tick() {
   if (mode === 'scrolling') {
     renderTrackBands();
     renderScrollingPreview();
-  } else {
-    renderFloatingPreview();
   }
+  // floating_panel：仅展示入口（HTML 静态），不跑第二套堆积预览
 }
 
 export function refreshDanmuPreview() {
@@ -315,6 +252,7 @@ export function initDanmuPreview() {
     'danmu_font_color_mode',
     'danmu_lines',
     'layout_mode',
+    // 基础字体镜像字段仍监听（影响设置页展示；浮动堆积预览不在此实现）
     'floating_panel_width',
     'floating_panel_max_items',
     'floating_panel_speed',
@@ -348,6 +286,7 @@ export function initDanmuPreview() {
   previewTimer = setInterval(() => {
     const previewEl = document.getElementById('danmuStylePreview');
     if (!previewEl || previewEl.closest('[hidden]')) return;
+    if (getRenderMode() !== 'scrolling') return;
     tick();
   }, 2500);
 }
