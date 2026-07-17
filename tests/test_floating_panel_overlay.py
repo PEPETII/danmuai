@@ -113,3 +113,36 @@ def test_show_for_screen_no_screens_logs_warning(fp_v2_setup, qapp, monkeypatch,
     assert overlay._screen_unavailable is True
     assert not overlay.isVisible()
     assert any("no screens available" in r.message for r in caplog.records)
+
+
+def test_bubble_pixmap_includes_tail_and_shadow_extent(fp_v2_setup):
+    """W-FP-BUBBLE-001: pixmap is larger than content body by fixed tail+shadow pads."""
+    from app.floating_panel_overlay import _bubble_extra_height, _bubble_extra_width
+
+    _, _, overlay = fp_v2_setup
+    content_w, content_h = 120, 36
+    pm = overlay._render_card_pixmap("bubble hi", content_w, content_h)
+    assert pm is not None
+    dpr = pm.devicePixelRatio() or 1.0
+    logical_w = pm.width() / dpr
+    logical_h = pm.height() / dpr
+    assert logical_w >= content_w + _bubble_extra_width() - 0.5
+    assert logical_h >= content_h + _bubble_extra_height() - 0.5
+    # Has alpha channel usage (transparent margins around bubble)
+    assert pm.hasAlphaChannel()
+
+
+def test_prepare_item_pixmap_stays_within_panel_budget(fp_v2_setup, qapp):
+    """W-FP-BUBBLE-001: total bubble width respects panel width minus side margins."""
+    _, engine, overlay = fp_v2_setup
+    overlay.resize(360, 400)
+    qapp.processEvents()
+    long = "这是一条很长很长很长很长很长很长很长很长的气泡测试文本用于宽度上限"
+    item = overlay.add_danmu_text(long)
+    assert item is not None
+    assert item.pixmap is not None
+    dpr = item.pixmap.devicePixelRatio() or 1.0
+    logical_w = item.pixmap.width() / dpr
+    # paintEvent uses panel_w - pm_w - 4 with min x=4 → total budget panel_w - 8
+    assert logical_w <= float(overlay.width()) - 8.0 + 0.5
+    assert engine.visible_count() == 1

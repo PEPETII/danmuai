@@ -1,6 +1,7 @@
-"""侧边悬浮窗渲染层：右侧透明置顶窄窗，圆角卡片 + 预渲染 QPixmap。
+"""侧边悬浮窗渲染层：右侧透明置顶窄窗，气泡皮肤 + 预渲染 QPixmap。
 
-W-FP-V3-002：仅保留现有外观，运动学改为持续向上滚动。
+W-FP-V3-002：运动学为持续向上滚动。
+W-FP-BUBBLE-001：仿微信/blivechat 暖色圆角气泡（左尾、描边、轻阴影）视觉试做。
 """
 from __future__ import annotations
 
@@ -9,7 +10,7 @@ import sys
 import time
 from typing import TYPE_CHECKING
 
-from PyQt6.QtCore import QElapsedTimer, QRectF, Qt, QTimer
+from PyQt6.QtCore import QElapsedTimer, QPointF, QRectF, Qt, QTimer
 from PyQt6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPainterPath, QPen, QPixmap
 from PyQt6.QtWidgets import QApplication, QWidget
 
@@ -23,13 +24,25 @@ if TYPE_CHECKING:
 _FRAME_DT = 1.0 / 60.0
 _INTERVAL_MS = 16
 _DT_CAP_SEC = 0.1
-_CARD_RADIUS = 10.0
+
+# --- Bubble prototype skin (W-FP-BUBBLE-001); fixed constants, not config ---
+_BUBBLE_RADIUS = 12.0
 _CARD_H_PAD = 12.0
 _CARD_V_PAD = 8.0
-_TEXT_FILL = QColor(255, 255, 255)
-_TEXT_OUTLINE = QColor(0, 0, 0, 200)
-_OUTLINE_WIDTH = 3
-_CARD_BG = QColor(20, 20, 28, 170)
+_BUBBLE_BG = QColor(255, 236, 210, 200)  # warm semi-transparent fill
+_BUBBLE_TAIL_W = 8.0
+_BUBBLE_TAIL_H = 10.0
+_BUBBLE_SHADOW_DX = 2.0
+_BUBBLE_SHADOW_DY = 3.0
+_BUBBLE_SHADOW_COLOR = QColor(0, 0, 0, 45)
+# Outer pads so tail + offset shadow stay inside the pixmap (no clip)
+_BUBBLE_SHADOW_PAD_TOP = 1.0
+_BUBBLE_SHADOW_PAD_BOTTOM = 6.0
+_BUBBLE_SHADOW_PAD_RIGHT = 6.0
+# Dark text on warm fill; light outline for readability on busy game backgrounds
+_TEXT_FILL = QColor(40, 28, 18)
+_TEXT_OUTLINE = QColor(255, 255, 255, 200)
+_OUTLINE_WIDTH = 2
 _FAST_DANMU_RENDER_MIN_LEN = 36
 _FAST_OUTLINE_OFFSETS = (
     (-2, 0),
@@ -41,6 +54,34 @@ _FAST_OUTLINE_OFFSETS = (
     (-1, 1),
     (1, -1),
 )
+
+
+def _bubble_extra_width() -> float:
+    """Horizontal extent beyond content body: left tail + right shadow pad."""
+    return _BUBBLE_TAIL_W + _BUBBLE_SHADOW_PAD_RIGHT
+
+
+def _bubble_extra_height() -> float:
+    """Vertical extent beyond content body: top/bottom shadow pads."""
+    return _BUBBLE_SHADOW_PAD_TOP + _BUBBLE_SHADOW_PAD_BOTTOM
+
+
+def _bubble_body_path(body: QRectF) -> QPainterPath:
+    """Rounded body + left-pointing tail (WeChat/blivechat style)."""
+    path = QPainterPath()
+    path.addRoundedRect(body, _BUBBLE_RADIUS, _BUBBLE_RADIUS)
+    # Tail attaches to left edge, slightly above vertical center
+    cy = body.top() + body.height() * 0.38
+    tip = QPointF(body.left() - _BUBBLE_TAIL_W, cy)
+    # Overlap base slightly into body so fill has no seam
+    base_x = body.left() + 1.0
+    half_h = _BUBBLE_TAIL_H * 0.5
+    tail = QPainterPath()
+    tail.moveTo(tip)
+    tail.lineTo(QPointF(base_x, cy - half_h))
+    tail.lineTo(QPointF(base_x, cy + half_h))
+    tail.closeSubpath()
+    return path.united(tail)
 
 _fp_overlay_logger = logging.getLogger("danmu.floating_panel_overlay")
 
@@ -160,8 +201,9 @@ class FloatingPanelOverlay(QWidget):
 
     def _estimate_item_height(self) -> float:
         if self._font_metrics is None:
-            return 40.0
-        return float(self._font_metrics.height()) + _CARD_V_PAD * 2
+            return 40.0 + _bubble_extra_height()
+        content_h = float(self._font_metrics.height()) + _CARD_V_PAD * 2
+        return content_h + _bubble_extra_height()
 
     def estimate_item_height(self) -> float:
         """供主链路 peek 阶段估算竖向准入，避免访问私有方法。"""
@@ -196,15 +238,30 @@ class FloatingPanelOverlay(QWidget):
         if self._font is None or self._font_metrics is None:
             return
         text_w = self._font_metrics.horizontalAdvance(item.content)
-        card_w = min(float(self.width() or self._panel_width) - 8.0, text_w + _CARD_H_PAD * 2)
-        card_h = float(self._font_metrics.height()) + _CARD_V_PAD * 2
-        self.engine.update_item_height(item, card_h)
-        item.pixmap = self._render_card_pixmap(item.content, int(card_w), int(card_h))
+        panel_w = float(self.width() or self._panel_width)
+        # Reserve horizontal room for left tail + right shadow so paintEvent right-align
+        # keeps the full bubble inside the panel (4px margins on each side → -8).
+        max_total_w = max(1.0, panel_w - 8.0)
+        max_content_w = max(1.0, max_total_w - _bubble_extra_width())
+        content_w = min(max_content_w, text_w + _CARD_H_PAD * 2)
+        content_h = float(self._font_metrics.height()) + _CARD_V_PAD * 2
+        total_h = content_h + _bubble_extra_height()
+        self.engine.update_item_height(item, total_h)
+        item.pixmap = self._render_card_pixmap(item.content, int(content_w), int(content_h))
 
     def _render_card_pixmap(self, text: str, width: int, height: int) -> QPixmap:
+        """Render bubble pixmap.
+
+        ``width`` / ``height`` are the **content body** size (text + padding).
+        Returned pixmap is larger by tail + shadow pads so nothing is clipped.
+        """
+        content_w = max(1, int(width))
+        content_h = max(1, int(height))
+        total_w = content_w + int(_bubble_extra_width())
+        total_h = content_h + int(_bubble_extra_height())
         dpr = self.devicePixelRatio() or 1.0
-        w_px = max(1, int(width * dpr))
-        h_px = max(1, int(height * dpr))
+        w_px = max(1, int(total_w * dpr))
+        h_px = max(1, int(total_h * dpr))
         pm = QPixmap(w_px, h_px)
         pm.setDevicePixelRatio(dpr)
         pm.fill(Qt.GlobalColor.transparent)
@@ -212,14 +269,29 @@ class FloatingPanelOverlay(QWidget):
         try:
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
             painter.setRenderHint(QPainter.RenderHint.TextAntialiasing)
-            rect = QRectF(0, 0, width, height)
-            path = QPainterPath()
-            path.addRoundedRect(rect, _CARD_RADIUS, _CARD_RADIUS)
-            painter.fillPath(path, _CARD_BG)
+
+            body = QRectF(
+                _BUBBLE_TAIL_W,
+                _BUBBLE_SHADOW_PAD_TOP,
+                float(content_w),
+                float(content_h),
+            )
+            bubble_path = _bubble_body_path(body)
+
+            # Fixed slight shadow (solid offset path; no blur filter)
+            shadow_path = QPainterPath(bubble_path)
+            shadow_path.translate(_BUBBLE_SHADOW_DX, _BUBBLE_SHADOW_DY)
+            painter.fillPath(shadow_path, _BUBBLE_SHADOW_COLOR)
+            painter.fillPath(bubble_path, _BUBBLE_BG)
+
+            if self._font is None or self._font_metrics is None:
+                return pm
+
             painter.setFont(self._font)
-            baseline_y = _CARD_V_PAD + self._font_metrics.ascent()
-            text_x = _CARD_H_PAD
-            max_text_w = max(1, int(width - _CARD_H_PAD * 2))
+            # Text sits in body; left of body is tail (must not cover glyphs)
+            text_x = body.left() + _CARD_H_PAD
+            baseline_y = body.top() + _CARD_V_PAD + self._font_metrics.ascent()
+            max_text_w = max(1, int(content_w - _CARD_H_PAD * 2))
             draw_text = text
             if is_formula_danmu_text(self.config, text):
                 draw_text = self._font_metrics.elidedText(
