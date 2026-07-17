@@ -1,5 +1,16 @@
 # Scripts
 
+## `scan_i18n.py` / `scan_dynamic.py`
+
+i18n 扫描辅助（原根目录临时脚本，已归位至此）。
+
+```bash
+python scripts/scan_i18n.py      # 报告写入 scripts/output/i18n_scan_report.txt
+python scripts/scan_dynamic.py   # 对比 zh/en dynamic 键
+```
+
+Backlog 计划见 `.local-ai/workorders/i18n_completion_plan.md`（本地协作文档）。
+
 ## `generate_app_icon.py`
 
 生成 `resources/icon.png`（托盘）与 `resources/icon.ico`（PyInstaller exe 图标）。`build_exe.ps1` 在图标缺失时会自动调用。

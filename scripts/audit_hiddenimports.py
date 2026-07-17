@@ -22,8 +22,6 @@ SCAN_PATHS = [ROOT / "main.py", ROOT / "app"]
 CRITICAL_DEFERRED_IMPORTS: frozenset[str] = frozenset(
     {
         "app.application.ai_butler_service",
-        "app.application.bililive_dm_bridge_service",
-        "app.application.bililive_dm_push_service",
         "app.web_api.ai_butler",
         "app.web_api.live_overlay",
         "app.uninstall_service",

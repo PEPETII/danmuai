@@ -1,0 +1,335 @@
+warning: in the working copy of 'app/application/ai_butler_service.py', LF will be replaced by CRLF the next time Git touches it
+ .gitignore                                         |    3 +
+ DanmuAI.spec                                       |    3 -
+ app/application/ai_butler_service.py               |  616 +-----
+ app/application/bililive_dm_bridge_service.py      |  219 --
+ app/application/bililive_dm_contracts.py           |   18 -
+ app/application/bililive_dm_push_service.py        |  145 --
+ app/application/config_service.py                  |    3 -
+ app/application/generation_pipeline.py             |   11 +-
+ app/bililive_dm_plugin_auth.py                     |   75 -
+ app/config_defaults.py                             |    2 -
+ app/config_store/storage.py                        |   44 +-
+ app/danmu_pool.py                                  |   27 +-
+ app/env_config.py                                  |    7 -
+ app/history_writer.py                              |   41 +-
+ app/main_bililive_dm_mixin.py                      |   81 -
+ app/main_lifecycle_mixin.py                        |    3 +
+ app/main_render_coordinator_mixin.py               |   13 +-
+ app/main_request_context_mixin.py                  |   19 +-
+ app/reply_queue.py                                 |   26 +-
+ app/runnable.py                                    |    4 +
+ app/web_api/ai_butler.py                           |    9 +-
+ app/web_api/bililive_dm_bridge.py                  |   53 -
+ app/web_api/routes.py                              |    4 -
+ i18n_completion_plan.md                            |  284 ---
+ i18n_scan_report.txt                               | 2192 --------------------
+ main.py                                            |    7 +-
+ scan_dynamic.py                                    |   36 -
+ scan_i18n.py                                       |  182 --
+ scripts/README.md                                  |   11 +
+ scripts/_untranslated.json                         |    8 +-
+ scripts/_zh_strings_list.json                      |    8 +-
+ scripts/audit_hiddenimports.py                     |    2 -
+ scripts/check_release_endpoints.ps1                |  411 +++-
+ scripts/locale_en_extra.json                       |    6 -
+ scripts/locale_en_strings.json                     |    6 -
+ tests/test_ai_butler_service.py                    |  343 +--
+ tests/test_ai_pipeline.py                          |    2 +-
+ tests/test_bililive_dm_bridge.py                   |  188 --
+ tests/test_bililive_dm_bridge_ai.py                |  215 --
+ tests/test_bililive_dm_formula_push.py             |   92 -
+ tests/test_bililive_dm_mode_display.py             |   66 -
+ tests/test_bililive_dm_push.py                     |  257 ---
+ tests/test_capture_flow.py                         |   11 +-
+ tests/test_capture_worker_failure_release.py       |   81 +
+ tests/test_check_release_endpoints_script.py       |   56 +-
+ tests/test_config_defaults.py                      |    5 -
+ tests/test_danmu_pool.py                           |   26 +-
+ tests/test_history_writer.py                       |  179 +-
+ tests/test_pyinstaller_hiddenimports.py            |    6 +-
+ tests/test_release_endpoint_content_validation.py  |   50 +-
+ tests/test_web_console.py                          |   21 +-
+ tools/bililive_dm_plugin_mock/MODULE_OVERVIEW.md   |  301 ---
+ tools/bililive_dm_plugin_mock/README.md            |  311 ---
+ tools/bililive_dm_plugin_mock/scripts/Probe.cs     |   79 -
+ .../bin/Release/net8.0/probe_user_dll.deps.json    |   23 -
+ .../scripts/bin/Release/net8.0/probe_user_dll.dll  |  Bin 7680 -> 0 bytes
+ .../scripts/bin/Release/net8.0/probe_user_dll.exe  |  Bin 151552 -> 0 bytes
+ .../scripts/bin/Release/net8.0/probe_user_dll.pdb  |  Bin 11032 -> 0 bytes
+ .../net8.0/probe_user_dll.runtimeconfig.json       |   13 -
+ .../scripts/list_loaded_assemblies.ps1             |   43 -
+ .../.NETCoreApp,Version=v8.0.AssemblyAttributes.cs |    4 -
+ .../scripts/obj/Release/net8.0/apphost.exe         |  Bin 151552 -> 0 bytes
+ .../Release/net8.0/probe_user_dll.AssemblyInfo.cs  |   22 -
+ .../net8.0/probe_user_dll.AssemblyInfoInputs.cache |    1 -
+ ...r_dll.GeneratedMSBuildEditorConfig.editorconfig |   13 -
+ .../obj/warning: in the working copy of 'app/application/generation_pipeline.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/reply_queue.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/web_api/ai_butler.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'scripts/check_release_endpoints.ps1', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/test_ai_butler_service.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/test_ai_pipeline.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/test_check_release_endpoints_script.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/test_release_endpoint_content_validation.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'web/static/modules/app-ai-butler-page.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'web/static/modules/live-settings-tabs.js', LF will be replaced by CRLF the next time Git touches it
+Release/net8.0/probe_user_dll.assets.cache |  Bin 151 -> 0 bytes
+ .../probe_user_dll.csproj.CoreCompileInputs.cache  |    1 -
+ .../probe_user_dll.csproj.FileListAbsolute.txt     |   15 -
+ .../scripts/obj/Release/net8.0/probe_user_dll.dll  |  Bin 7680 -> 0 bytes
+ .../net8.0/probe_user_dll.genruntimeconfig.cache   |    1 -
+ .../scripts/obj/Release/net8.0/probe_user_dll.pdb  |  Bin 11032 -> 0 bytes
+ .../Release/net8.0/probe_user_dll.sourcelink.json  |    1 -
+ .../obj/Release/net8.0/ref/probe_user_dll.dll      |  Bin 5120 -> 0 bytes
+ .../obj/Release/net8.0/refint/probe_user_dll.dll   |  Bin 5120 -> 0 bytes
+ .../obj/probe_user_dll.csproj.nuget.dgspec.json    |   66 -
+ .../obj/probe_user_dll.csproj.nuget.g.props        |   15 -
+ .../obj/probe_user_dll.csproj.nuget.g.targets      |    2 -
+ .../scripts/obj/project.assets.json                |   71 -
+ .../scripts/obj/project.nuget.cache                |    8 -
+ .../scripts/probe_user_dll.csproj                  |    9 -
+ .../scripts/probe_user_dll.csx                     |   66 -
+ .../scripts/probe_user_dll.ps1                     |   23 -
+ .../scripts/repro_bridge_call.py                   |   89 -
+ .../scripts/repro_push_call.py                     |   80 -
+ .../sdk/BilibiliDM_PluginFramework.csproj          |   38 -
+ tools/bililive_dm_plugin_mock/sdk/DMPlugin.cs      |  278 ---
+ tools/bililive_dm_plugin_mock/sdk/DanmakuModel.cs  |  886 --------
+ tools/bililive_dm_plugin_mock/sdk/Events.cs        |   32 -
+ tools/bililive_dm_plugin_mock/sdk/GiftRank.cs      |   92 -
+ .../sdk/Properties/Annotations.cs                  | 1445 -------------
+ .../sdk/Properties/AssemblyInfo.cs                 |   35 -
+ .../Release/net461/BilibiliDM_PluginFramework.dll  |  Bin 38400 -> 0 bytes
+ .../Release/net461/BilibiliDM_PluginFramework.pdb  |  Bin 11616 -> 0 bytes
+ .../sdk/bin/Release/net461/Newtonsoft.Json.dll     |  Bin 701992 -> 0 bytes
+ ...biliDM_PluginFramework.csproj.nuget.dgspec.json |   67 -
+ ...BilibiliDM_PluginFramework.csproj.nuget.g.props |   15 -
+ ...libiliDM_PluginFramework.csproj.nuget.g.targets |    6 -
+ ...iDM_PluginFramework.csproj.FileListAbsolute.txt |    0
+ ...TFramework,Version=v4.6.1.AssemblyAttributes.cs |    4 -
+ .../obj/Release/net461/Bilibili.88F99B45.Up2Date   |    0
+ ...ework.GeneratedMSBuildEditorConfig.editorconfig |    5 -
+ .../net461/BilibiliDM_PluginFramework.assets.cache |  Bin 1430 -> 0 bytes
+ ..._PluginFramework.csproj.AssemblyReference.cache |  Bin 4403 -> 0 bytes
+ ..._PluginFramework.csproj.CoreCompileInputs.cache |    1 -
+ ...iDM_PluginFramework.csproj.FileListAbsolute.txt |   10 -
+ .../Release/net461/BilibiliDM_PluginFramework.dll  |  Bin 38400 -> 0 bytes
+ .../Release/net461/BilibiliDM_PluginFramework.pdb  |  Bin 11616 -> 0 bytes
+ .../BilibiliDM_PluginFramework.sourcelink.json     |    1 -
+ .../sdk/obj/project.assets.json                    |  469 -----
+ .../sdk/obj/project.nuget.cache                    |   12 -
+ .../src/BililiveDmMockPlugin.csproj                |   51 -
+ .../src/DanmuAiMockPlugin.cs                       |  331 ---
+ .../src/DanmuAiPushListener.cs                     |  341 ---
+ .../src/PluginEnablePreference.cs                  |   60 -
+ .../Release/net461/BilibiliDM_PluginFramework.dll  |  Bin 38400 -> 0 bytes
+ .../Release/net461/BilibiliDM_PluginFramework.pdb  |  Bin 11616 -> 0 bytes
+ .../bin/Release/net461/BililiveDmMockPlugin.dll    |  Bin 19968 -> 0 bytes
+ .../bin/Release/net461/BililiveDmMockPlugin.pdb    |  Bin 6396 -> 0 bytes
+ .../src/bin/Release/net461/Newtonsoft.Json.dll     |  Bin 701992 -> 0 bytes
+ .../BililiveDmMockPlugin.csproj.nuget.dgspec.json  |   67 -
+ .../obj/BililiveDmMockPlugin.csproj.nuget.g.props  |   15 -
+ .../BililiveDmMockPlugin.csproj.nuget.g.targets    |    6 -
+ ...ililiveDmMockPlugin.csproj.FileListAbsolute.txt |    0
+ ...TFramework,Version=v4.6.1.AssemblyAttributes.cs |    4 -
+ .../obj/Release/net461/Bililive.691DDD99.Up2Date   |    0
+ ...lugin.GeneratedMSBuildEditorConfig.editorconfig |    5 -
+ .../net461/BililiveDmMockPlugin.assets.cache       |  Bin 1430 -> 0 bytes
+ ...liveDmMockPlugin.csproj.AssemblyReference.cache |  Bin 5448 -> 0 bytes
+ ...liveDmMockPlugin.csproj.CoreCompileInputs.cache |    1 -
+ ...ililiveDmMockPlugin.csproj.FileListAbsolute.txt |   12 -
+ .../obj/Release/net461/BililiveDmMockPlugin.dll    |  Bin 19968 -> 0 bytes
+ .../obj/Release/net461/BililiveDmMockPlugin.pdb    |  Bin 6396 -> 0 bytes
+ .../net461/BililiveDmMockPlugin.sourcelink.json    |    1 -
+ .../src/obj/project.assets.json
+
+... (output truncated) ...
+
+tab.addEventListener('click', () => switchLiveSettingsTab(tab.dataset.liveSettingsTab));
+   });
+-  // 4. 绑定弹幕姬模式保存按钮
+-  document.getElementById('btnSaveBililiveDmSettings')?.addEventListener('click', async () => {
+-    const checked = document.getElementById('bililive_dm_mode_enabled')?.checked;
+-    try {
+-      await apiFetch('/api/config', {
+-        method: 'PUT',
+-        headers: { 'Content-Type': 'application/json' },
+-        body: JSON.stringify({ bililive_dm_mode_enabled: checked ? '1' : '0' }),
+-      });
+-      toast(t('dynamic.liveSettingsTabs.弹幕姬模式设置已保存'));
+-    } catch (err) {
+-      toast(err.message || t('dynamic.liveSettingsTabs.保存失败'), true);
+-    }
+-  });
+-  // 5. 初始化默认 Tab
++  // 4. 初始化默认 Tab
+   switchLiveSettingsTab(activeLiveSettingsTabId);
+ }
+diff --git a/web/static/modules/settings-core.js b/web/static/modules/settings-core.js
+index c4cd840..6df7fcf 100644
+--- a/web/static/modules/settings-core.js
++++ b/web/static/modules/settings-core.js
+@@ -219,7 +219,6 @@ export function collectFormData({ usesCustomCredentials = false } = {}) {
+   data.mic_use_visual_model = document.getElementById('mic_use_visual_model')?.checked ? '1' : '0';
+   data.danmu_font_bold = document.getElementById('danmu_font_bold')?.checked ? '1' : '0';
+   data.floating_panel_font_bold = document.getElementById('floating_panel_font_bold')?.checked ? '1' : '0';
+-  data.bililive_dm_mode_enabled = document.getElementById('bililive_dm_mode_enabled')?.checked ? '1' : '0';
+   data.use_thinking = document.getElementById('use_thinking')?.checked ? '1' : '0';
+   // W-GLOBAL-VISUAL-APIKEY-REMOVE-001: 视觉全局 api_key 已下线，不再收集；mic/tts 独立 key 不受影响
+   const micKey = (document.getElementById('mic_api_key')?.value || '').trim();
+@@ -275,8 +274,6 @@ export async function fillForm(cfg) {
+   coreDeps.setMicAudioLikelySupported(cfg.mic_audio_likely_supported !== false);
+   const micMode = document.getElementById('mic_mode_enabled');
+   if (micMode) micMode.checked = cfg.mic_mode_enabled === '1';
+-  const bililiveDmMode = document.getElementById('bililive_dm_mode_enabled');
+-  if (bililiveDmMode) bililiveDmMode.checked = cfg.bililive_dm_mode_enabled === '1';
+   const micUseVisual = document.getElementById('mic_use_visual_model');
+   if (micUseVisual) micUseVisual.checked = cfg.mic_use_visual_model !== '0';
+   const micWindow = document.getElementById('mic_window_sec');
+diff --git a/web/static/modules/settings-defaults.js b/web/static/modules/settings-defaults.js
+index c99d732..f71f142 100644
+--- a/web/static/modules/settings-defaults.js
++++ b/web/static/modules/settings-defaults.js
+@@ -44,7 +44,6 @@ export const CONFIG_FIELDS = [
+   'mic_window_sec', 'mic_input_device_id', 'mic_api_endpoint', 'mic_api_mode', 'mic_model',
+   'normal_recognition_interval_sec', 'normal_reply_count',
+   'danmu_render_mode',
+-  'bililive_dm_mode_enabled',
+   'floating_panel_width',
+   'floating_panel_max_items',
+   'floating_panel_speed',
+diff --git a/web/static/partials/content-pages.html b/web/static/partials/content-pages.html
+index 525a129..aacd810 100644
+--- a/web/static/partials/content-pages.html
++++ b/web/static/partials/content-pages.html
+@@ -303,20 +303,18 @@
+       </div>
+     </section>
+ 
+-    <!-- ========== 区域：直播设置（两 Tab：直播输出 + 弹幕姬模式） ========== -->
++    <!-- ========== 区域：直播设置（直播输出） ========== -->
+     <section id="page-live-settings" class="page-panel" data-i18n-aria-label="content.text.直播设置" aria-label="直播设置">
+       <header class="mb-8">
+         <h2 class="text-2xl font-bold text-warmText">直播设置</h2>
+-        <p class="text-gray-500 mt-1">直播输出配置与弹幕姬模式</p>
++        <p class="text-gray-500 mt-1">直播输出配置</p>
+       </header>
+       <div class="settings-tabs-bar">
+         <div class="settings-tabs" role="tablist" data-i18n-aria-label="content.aria.直播设置分类" aria-label="直播设置分类">
+           <button type="button" role="tab" class="settings-tab active" data-live-settings-tab="live-output" aria-selected="true">直播输出</button>
+-          <button type="button" role="tab" class="settings-tab" data-live-settings-tab="bililive-dm" aria-selected="false">弹幕姬模式</button>
+         </div>
+       </div>
+       <div id="liveSettingsTab-live-output" class="settings-tab-panel active space-y-6" data-live-settings-panel="live-output" role="tabpanel"></div>
+-      <div id="liveSettingsTab-bililive-dm" class="settings-tab-panel space-y-6" data-live-settings-panel="bililive-dm" role="tabpanel" hidden></div>
+     </section>
+ 
+     <!-- ========== 区域：直播输出（DOM 源，由 live-settings-tabs.js 搬入 #page-live-settings） ========== -->
+@@ -361,25 +359,6 @@
+       </div>
+     </section>
+ 
+-    <!-- ========== 区域：弹幕姬模式（DOM 源，由 live-settings-tabs.js 搬入 #page-live-settings） ========== -->
+-    <section id="page-bililive-dm-source" class="page-panel" data-live-settings-panel="bililive-dm-source" hidden data-i18n-aria-label="content.aria.弹幕姬模式源" aria-label="弹幕姬模式源">
+-      <div class="space-y-6" data-live-settings-move="bililive-dm">
+-        <h3 class="text-lg font-bold text-warmText flex items-center gap-2">
+-          <svg class="ui-icon text-warmPink" aria-hidden="true"><use href="#i-message"></use></svg> 弹幕姬模式
+-        </h3>
+-        <p class="settings-section-hint text-sm text-gray-500">开启后关闭本机屏幕弹幕（横向 Overlay / 从下到上悬浮窗），主链路「生成弹幕」结果仅在 bililive_dm 窗口显示。关闭后恢复屏幕弹幕显示，且主链路结果不再推送到 bililive_dm；直播评论桥接不受影响。</p>
+-        <div class="settings-toggle-row">
+-          <label class="flex items-center gap-2">
+-            <input type="checkbox" id="bililive_dm_mode_enabled" class="accent-warmPink">
+-            开启弹幕姬模式
+-          </label>
+-        </div>
+-        <div class="flex flex-wrap gap-3 mt-4">
+-          <button type="button" id="btnSaveBililiveDmSettings" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm">保存设置</button>
+-        </div>
+-      </div>
+-    </section>
+-
+     <!-- ========== 区域：教程|日志|反馈|公告（合并四 Tab） ========== -->
+     <section id="page-guide" class="page-panel" data-i18n-aria-label="content.text.教程_日志_反馈_公告" aria-label="教程|日志|反馈|公告|群聊">
+       <header class="mb-8">
+@@ -546,26 +525,26 @@
+       </div>
+     </section>
+ 
+-    <!-- ========== 区域：AI管家（自然语言设置代理，W-AIBUTLER-002） ========== -->
++    <!-- ========== 区域：AI管家（纯对话助手，W-AIBUTLER-CHAT-ONLY-001） ========== -->
+     <section id="page-ai-butler" class="page-panel" data-i18n-aria-label="content.text.AI管家" aria-label="AI管家">
+       <header class="mb-8">
+         <h2 class="text-2xl font-bold text-warmText">AI管家</h2>
+-        <p class="text-gray-500 mt-1">用自然语言告诉我你想调整什么，我来帮你改设置</p>
++        <p class="text-gray-500 mt-1" data-i18n="content.text.用自然语言提问_我来解答与指引">用自然语言提问，我来解答使用问题并指引设置页</p>
+       </header>
+ 
+-      <!-- 能力说明卡片（静态，spec §2.2） -->
++      <!-- 能力说明卡片（静态） -->
+       <div class="card p-6 mb-6 ai-butler-capability-card">
+-        <p class="settings-section-title mb-3">我可以帮你做</p>
++        <p class="settings-section-title mb-3" data-i18n="content.text.我可以帮你做">我可以帮你做</p>
+         <ul class="text-sm text-warmText space-y-1.5 list-disc list-inside">
+-          <li>把弹幕速度调快一点</li>
+-          <li>把 API 改成 OpenAI 模式</li>
+-          <li>开启麦克风模式</li>
+-          <li>识图区域选第二个显示器</li>
++          <li data-i18n="content.text.解答功能怎么用">解答功能怎么用</li>
++          <li data-i18n="content.text.说明当前配置状态">说明当前配置状态</li>
++          <li data-i18n="content.text.指引你到对应设置页手动修改">指引你到对应设置页手动修改</li>
++          <li data-i18n="content.text.闲聊与使用建议">闲聊与使用建议</li>
+         </ul>
+-        <p class="text-xs text-gray-400 mt-3">说明：涉及 API Key、删除模型等敏感操作，我会指引你到设置页手动修改。</p>
++        <p class="text-xs text-gray-400 mt-3" data-i18n="content.text.说明_我不会代你改任何设置_所有设置请在对应页面手动修改">说明：我不会代你改任何设置；所有设置请在对应页面手动修改。</p>
+       </div>
+ 
+-      <!-- 当前使用模型 + 下拉（spec §2.3） -->
++      <!-- 当前使用模型 + 下拉 -->
+       <div class="card p-5 mb-6">
+         <div class="flex flex-wrap items-center gap-3">
+           <label for="aiButlerModelSelect" class="text-sm font-semibold text-warmText whitespace-nowrap">当前使用模型</label>
+@@ -581,7 +560,7 @@
+         <p id="aiButlerModelHint" class="text-xs text-gray-400 mt-2">切换后，后续对话自动使用新模型；当前对话历史保留。</p>
+       </div>
+ 
+-      <!-- 对话消息区（spec §2.1） — W-003 切换为 warm-tokens 专属类（W-002 Tailwind 内联已废弃） -->
++      <!-- 对话消息区 -->
+       <div
+         id="aiButlerMessages"
+         class="card p-5 mb-6 ai-butler-messages"
+@@ -589,18 +568,18 @@
+         data-i18n-aria-label="content.aria.AI管家对话" aria-label="AI管家对话"
+         aria-live="polite"
+       >
+-        <p class="ai-butler-empty-hint">告诉我你想调整什么设置，例如「把弹幕速度调快」</p>
++        <p class="ai-butler-empty-hint">有什么想问的？例如「弹幕速度在哪改」</p>
+       </div>
+ 
+       <!-- 输入区 -->
+       <div class="card p-4">
+         <div class="flex flex-wrap items-end gap-3">
+-          <label for="aiButlerInput" class="sr-only">告诉 AI 管家想调整什么</label>
++          <label for="aiButlerInput" class="sr-only" data-i18n="content.text.和_AI_管家对话">和 AI 管家对话</label>
+           <textarea
+             id="aiButlerInput"
+             class="settings-field-control flex-1 min-w-[280px] resize-none"
+             rows="2"
+-            data-i18n-placeholder="content.placeholder.告诉我想调整什么设置_Enter_发送_Shift_Enter_换行" placeholder="告诉我想调整什么设置... (Enter 发送，Shift+Enter 换行)"
++            data-i18n-placeholder="content.placeholder.有什么想问的_Enter_发送_Shift_Enter_换行" placeholder="有什么想问的... (Enter 发送，Shift+Enter 换行)"
+             data-i18n-aria-label="content.aria.AI管家输入框" aria-label="AI管家输入框"
+           ></textarea>
+           <button
+diff --git a/web/static/partials/settings.html b/web/static/partials/settings.html
+index e00e196..759f9d1 100644
+--- a/web/static/partials/settings.html
++++ b/web/static/partials/settings.html
+@@ -26,7 +26,7 @@
+         </div>
+       </header>
+ 
+-      <!-- 设置 tab 列表：api / mic / danmu-read / danmu / bililive-dm / capture / rhythm / font -->
++      <!-- 设置 tab 列表：api / mic / danmu-read / danmu / capture / rhythm / font -->
+       <form id="settingsForm" class="card p-8 space-y-0">
+         <div class="settings-tabs-bar">
+           <div class="settings-tabs" role="tablist" data-i18n-aria-label="settings.aria.弹幕设置分类" aria-label="弹幕设置分类">
