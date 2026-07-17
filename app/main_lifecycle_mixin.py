@@ -188,6 +188,7 @@ class DanmuAppLifecycleMixin:
         self._latest_requested_screenshot_id = 0
         self._latest_queued_screenshot_id = 0
         self._latest_displayed_screenshot_id = 0
+        self._mic_unsupported_error_active = False
         self._mic_service = MicService(log_fn=lambda msg: self.logger.info(msg))
         self._mic_orchestrator = MicOrchestrator(
             mic_service=self._mic_service,
@@ -640,9 +641,13 @@ class DanmuAppLifecycleMixin:
         self.ai_worker.mark_stopping()
         self.ai_in_flight = 0
         self.mic_in_flight = 0
+        # 与 ai_in_flight 对称：截图 worker stopping 早退或迟到信号前主线程必释放
+        #（W-AUDIT-0714-CAPTURE-STOP-001 / BUG-005）
+        self._capture_in_flight = False
         self._local_fallback_active = False
         self._pending_request_meta.clear()
         self._mic_orchestrator.stop_detector()
+        self._mic_poll_timer.stop()
         self._is_generating = False
         self._inflight_started_at = 0.0
         self._inflight_screenshot_id = 0

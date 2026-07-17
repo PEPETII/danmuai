@@ -13,9 +13,10 @@
 
 from __future__ import annotations
 
+import platform
 import threading
 from dataclasses import dataclass
-from typing import Callable
+from typing import Callable, Iterable
 
 _MIC_DEVICE_ERRORS = (OSError, RuntimeError, ValueError, TypeError, AttributeError)
 
@@ -43,6 +44,205 @@ class MicInputDeviceInfo:
     name: str
     is_default: bool
     max_input_channels: int
+    hostapi: str = ""
+    role: str = "unknown"
+    is_loopback: bool = False
+
+
+_HOSTAPI_SLUGS: dict[str, str] = {
+    "mme": "mme",
+    "windows directsound": "directsound",
+    "windows wasapi": "wasapi",
+    "windows wdm-ks": "wdm-ks",
+}
+
+_HOSTAPI_PREFERENCE: tuple[str, ...] = ("wasapi", "wdm-ks", "directsound", "mme")
+
+_VIRTUAL_MAPPER_NAMES: frozenset[str] = frozenset(
+    {
+        "microsoft sound mapper - input",
+        "microsoft 声音映射器 - input",
+        "primary sound capture driver",
+        "主声音捕获驱动程序",
+    }
+)
+
+_LISTABLE_MIC_ROLES: frozenset[str] = frozenset({"microphone"})
+
+
+def _hostapi_slug(hostapi_name: str) -> str:
+    return _HOSTAPI_SLUGS.get(str(hostapi_name or "").strip().casefold(), "unknown")
+
+
+def _hostapi_priority(slug: str) -> int:
+    try:
+        return _HOSTAPI_PREFERENCE.index(slug)
+    except ValueError:
+        return len(_HOSTAPI_PREFERENCE)
+
+
+def _strip_loopback_marker(name: str) -> str:
+    text = str(name or "").strip()
+    for marker in (" [Loopback]", "[Loopback]"):
+        if marker in text:
+            text = text.replace(marker, "").strip()
+    return text
+
+
+def _extract_parenthetical_suffix(name: str) -> str:
+    text = _strip_loopback_marker(name)
+    if "(" not in text or ")" not in text:
+        return ""
+    return text.rsplit("(", 1)[-1].rsplit(")", 1)[0].strip()
+
+
+def _friendly_label(name: str) -> str:
+    text = _strip_loopback_marker(name)
+    if "(" in text:
+        text = text.split("(", 1)[0].strip()
+    return text
+
+
+def _normalize_friendly_name(name: str) -> str:
+    label = _friendly_label(name).casefold()
+    if label in _VIRTUAL_MAPPER_NAMES:
+        return ""
+    return label
+
+
+def _is_virtual_mapper(name: str) -> bool:
+    return _friendly_label(name).casefold() in _VIRTUAL_MAPPER_NAMES
+
+
+def _classify_wdm_ks_suffix(suffix: str) -> tuple[str, bool] | None:
+    text = str(suffix or "").casefold()
+    if not text:
+        return None
+    if " output" in text or text.endswith(" output") or " output with" in text:
+        return "render_loopback", True
+    if "stereo input" in text:
+        return "stereo_mix", True
+    if "mic array input" in text or " mic input" in text:
+        return "microphone", False
+    return None
+
+
+def _classify_input_role(
+    *,
+    name: str,
+    hostapi_slug: str,
+    output_names_on_hostapi: set[str],
+) -> tuple[str, bool]:
+    if _is_virtual_mapper(name):
+        return "virtual_mapper", False
+
+    wdm_suffix = _extract_parenthetical_suffix(name)
+    if hostapi_slug == "wdm-ks" and wdm_suffix:
+        classified = _classify_wdm_ks_suffix(wdm_suffix)
+        if classified is not None:
+            return classified
+
+    normalized = _normalize_friendly_name(name)
+    if normalized and normalized in output_names_on_hostapi:
+        return "render_loopback", True
+
+    if "[loopback]" in str(name or "").casefold():
+        return "render_loopback", True
+
+    if hostapi_slug == "wasapi":
+        # OBS win-wasapi enumerates eCapture only for microphone sources.
+        return "microphone", False
+
+    return "microphone", False
+
+
+def _iter_input_candidates(
+    devices: Iterable[dict],
+    hostapi_names: dict[int, str],
+) -> list[dict[str, object]]:
+    output_names_by_hostapi: dict[str, set[str]] = {}
+    for index, device in enumerate(devices):
+        try:
+            max_output = int(device.get("max_output_channels", 0) or 0)
+        except _MIC_DEVICE_ERRORS:
+            max_output = 0
+        if max_output <= 0:
+            continue
+        hostapi_index = int(device.get("hostapi", -1))
+        slug = _hostapi_slug(hostapi_names.get(hostapi_index, ""))
+        normalized = _normalize_friendly_name(str(device.get("name", "") or ""))
+        if not normalized:
+            continue
+        output_names_by_hostapi.setdefault(slug, set()).add(normalized)
+
+    candidates: list[dict[str, object]] = []
+    for index, device in enumerate(devices):
+        try:
+            max_input = int(device.get("max_input_channels", 0) or 0)
+        except _MIC_DEVICE_ERRORS:
+            max_input = 0
+        if max_input <= 0:
+            continue
+        hostapi_index = int(device.get("hostapi", -1))
+        hostapi_name = hostapi_names.get(hostapi_index, "")
+        hostapi_slug = _hostapi_slug(hostapi_name)
+        device_name = str(device.get("name", "") or f"Input {index}")
+        role, is_loopback = _classify_input_role(
+            name=device_name,
+            hostapi_slug=hostapi_slug,
+            output_names_on_hostapi=output_names_by_hostapi.get(hostapi_slug, set()),
+        )
+        candidates.append(
+            {
+                "id": int(index),
+                "name": device_name,
+                "max_input_channels": max_input,
+                "hostapi": hostapi_slug,
+                "role": role,
+                "is_loopback": is_loopback,
+                "normalized_name": _normalize_friendly_name(device_name),
+                "hostapi_priority": _hostapi_priority(hostapi_slug),
+            }
+        )
+    return candidates
+
+
+def _select_mic_picker_candidates(candidates: list[dict[str, object]]) -> list[dict[str, object]]:
+    listable = [
+        item
+        for item in candidates
+        if item.get("role") in _LISTABLE_MIC_ROLES and not bool(item.get("is_loopback"))
+    ]
+    if not listable:
+        return []
+
+    prefer_wasapi = platform.system().casefold() == "windows"
+    if prefer_wasapi:
+        wasapi_only = [item for item in listable if item.get("hostapi") == "wasapi"]
+        if wasapi_only:
+            listable = wasapi_only
+
+    deduped: dict[str, dict[str, object]] = {}
+    for item in listable:
+        key = str(item.get("normalized_name") or item.get("name") or item.get("id"))
+        if not key:
+            key = str(item.get("id"))
+        existing = deduped.get(key)
+        if existing is None or int(item.get("hostapi_priority", 99)) < int(
+            existing.get("hostapi_priority", 99)
+        ):
+            deduped[key] = item
+    return sorted(deduped.values(), key=lambda item: int(item.get("id", 0)))
+
+
+def _default_normalized_name(devices: Iterable[dict], default_id: int | None) -> str:
+    if default_id is None:
+        return ""
+    try:
+        default_device = devices[default_id]
+    except (IndexError, KeyError, TypeError):
+        return ""
+    return _normalize_friendly_name(str(default_device.get("name", "") or ""))
 
 
 def default_input_device_id() -> int | None:
@@ -72,28 +272,37 @@ def default_input_device_label(device_id: int | None = None) -> str:
 
 
 def list_input_devices() -> list[MicInputDeviceInfo]:
-    """Enumerate PortAudio input devices for the Web settings picker."""
+    """Enumerate physical microphone inputs for the Web settings picker.
+
+    Classification follows PortAudio host API semantics (WDM-KS driver suffixes,
+    WASAPI capture vs render separation per OBS win-wasapi) and deduplicates cross
+    Host API aliases by preferring WASAPI on Windows.
+    """
     if not _HAS_SOUNDDEVICE:
         return []
     default_id = default_input_device_id()
     try:
         devices = sd.query_devices()
+        hostapis = sd.query_hostapis()
     except _MIC_DEVICE_ERRORS:
         return []
+    hostapi_names = {index: str(item.get("name", "") or "") for index, item in enumerate(hostapis)}
+    candidates = _iter_input_candidates(devices, hostapi_names)
+    selected = _select_mic_picker_candidates(candidates)
+    default_name = _default_normalized_name(devices, default_id)
     items: list[MicInputDeviceInfo] = []
-    for index, device in enumerate(devices):
-        try:
-            max_input = int(device.get("max_input_channels", 0) or 0)
-        except _MIC_DEVICE_ERRORS:
-            max_input = 0
-        if max_input <= 0:
-            continue
+    for item in selected:
+        normalized = str(item.get("normalized_name") or "")
+        is_default = bool(default_name and normalized and normalized == default_name)
         items.append(
             MicInputDeviceInfo(
-                id=int(index),
-                name=str(device.get("name", "") or f"Input {index}"),
-                is_default=int(index) == default_id,
-                max_input_channels=max_input,
+                id=int(item["id"]),
+                name=str(item["name"]),
+                is_default=is_default,
+                max_input_channels=int(item["max_input_channels"]),
+                hostapi=str(item["hostapi"]),
+                role=str(item["role"]),
+                is_loopback=bool(item["is_loopback"]),
             )
         )
     return items

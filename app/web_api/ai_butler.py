@@ -1,13 +1,12 @@
-"""W-AIBUTLER-001 — AI管家对话路由。
+"""W-AIBUTLER-CHAT-ONLY-001 — AI管家对话路由。
 
 注册 ``POST /api/ai-butler/chat``：
 - 鉴权：需 Bearer token（与 settings 写路由一致）
 - 线程模型：async 路由 + 专用 ThreadPoolExecutor 跑同步 LLM（不触 Qt / 主链路；config 只读快照）
 - 入参：``{"messages": [...], "model_id": str?}``
-- 出参：``{"ok": True, "reply": str, "tool_calls": list}`` 或 ``{"ok": False, "error": str}``
+- 出参：``{"ok": True, "reply": str, "tool_calls": []}`` 或 ``{"ok": False, "error": str}``
 
-不执行任何配置变更：变更执行由前端调既有 ``PUT /api/config`` /
-``POST /api/custom-models/{index}/default`` 完成（W-003）。
+仅返回自然语言对话；**不执行**任何配置变更。``tool_calls`` 恒为空数组（兼容旧前端字段）。
 """
 
 from __future__ import annotations
@@ -40,7 +39,7 @@ class AiButlerMessage(BaseModel):
 
 class AiButlerChatRequest(BaseModel):
     messages: list[AiButlerMessage] = Field(default_factory=list)
-    model_id: str | None = None  # W-001 暂不支持覆盖，保留字段
+    model_id: str | None = None  # 保留字段；服务层暂忽略覆盖
 
 
 def register_ai_butler_route(app, bridge: "WebConsoleBridge", check_token: Callable) -> None:

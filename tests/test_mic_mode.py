@@ -311,6 +311,111 @@ def test_stop_releases_mic_capture_when_mode_enabled(monkeypatch):
     assert not mic_service.is_running()
 
 
+def test_stop_after_mic_started_does_not_restart_poll_or_calibrate(monkeypatch):
+    """W-MIC-STOP-STATE-INIT-001: stop() must not restart mic poll or noise calibration."""
+    from app.mic_orchestrator import MicOrchestrator
+    from app.mic_utterance import MicUtteranceConfig, MicUtteranceDetector
+
+    app = DanmuApp.__new__(DanmuApp)
+    bind_minimal_danmu_app(
+        app,
+        config=FakeConfig({"mic_mode_enabled": "1"}),
+    )
+    running = [True]
+
+    def _sync(*, enabled, preferred_device_id=None):
+        if not enabled:
+            running[0] = False
+
+    mic_service = SimpleNamespace(
+        is_running=lambda: running[0],
+        sync=_sync,
+        stop=lambda: running.__setitem__(0, False),
+        last_error=lambda: "",
+    )
+    mic_orchestrator = MicOrchestrator(
+        mic_service=mic_service,
+        on_utterance_end=lambda: None,
+        log_fn=lambda _msg: None,
+    )
+    mic_orchestrator._mic_utterance_detector = MicUtteranceDetector(
+        on_utterance_end=lambda: None,
+        config=MicUtteranceConfig(),
+    )
+    app.engine.running = True
+    _bind_app_for_stop(app, mic_service=mic_service, mic_orchestrator=mic_orchestrator)
+    app._mic_poll_timer.start(MIC_POLL_PHASE_MS)
+
+    calibrate_calls: list[int] = []
+
+    def _track_single_shot(ms, fn):
+        if fn.__name__ == "_calibrate_mic_noise_floor":
+            calibrate_calls.append(ms)
+
+    monkeypatch.setattr("main.mic_audio_supported_for_mic_config", lambda _cfg: True)
+    monkeypatch.setattr("app.main_mic_mixin.QTimer.singleShot", _track_single_shot)
+
+    poll_starts_before = app._mic_poll_timer.started
+    DanmuApp.stop(app)
+
+    assert app._mic_orchestrator.detector is None
+    assert not app._mic_poll_timer.active
+    assert app._mic_poll_timer.started == poll_starts_before
+    assert calibrate_calls == []
+
+
+def test_restart_after_stop_resumes_mic_poll(monkeypatch):
+    """W-MIC-STOP-STATE-INIT-001: start() after stop() should resume mic polling."""
+    from app.mic_orchestrator import MicOrchestrator
+
+    app = DanmuApp.__new__(DanmuApp)
+    bind_minimal_danmu_app(
+        app,
+        config=FakeConfig({"mic_mode_enabled": "1"}),
+    )
+    running = [False]
+
+    def _sync(*, enabled, preferred_device_id=None):
+        running[0] = enabled
+
+    mic_service = SimpleNamespace(
+        is_running=lambda: running[0],
+        sync=_sync,
+        stop=lambda: running.__setitem__(0, False),
+        last_error=lambda: "",
+    )
+    mic_orchestrator = MicOrchestrator(
+        mic_service=mic_service,
+        on_utterance_end=lambda: None,
+        log_fn=lambda _msg: None,
+    )
+    app._mic_service = mic_service
+    app._mic_orchestrator = mic_orchestrator
+    app._mic_poll_timer = FakeTimer()
+    object.__setattr__(app, "_sync_mic_service", DanmuApp._sync_mic_service.__get__(app, DanmuApp))
+
+    monkeypatch.setattr("main.mic_audio_supported_for_mic_config", lambda _cfg: True)
+    monkeypatch.setattr("app.main_mic_mixin.QTimer.singleShot", lambda ms, fn: None)
+
+    app.engine.running = True
+    DanmuApp._sync_mic_service(app)
+
+    assert app._mic_orchestrator.detector is not None
+    assert app._mic_poll_timer.active
+
+    app.engine.running = False
+    DanmuApp._sync_mic_service(app)
+
+    assert app._mic_orchestrator.detector is None
+    assert not app._mic_poll_timer.active
+
+    app.engine.running = True
+    DanmuApp._sync_mic_service(app)
+
+    assert app._mic_orchestrator.detector is not None
+    assert app._mic_poll_timer.active
+
+
 def test_build_mic_insert_user_pt():
     out = build_mic_insert_user_pt("请生成弹幕：")
     assert "请生成弹幕：" in out

@@ -120,11 +120,20 @@ def test_start_resets_capture_in_flight(monkeypatch):
     app._lifetime_flush_timer = FakeTimer()
     app._topmost_health_timer = FakeTimer()
     app._pool_topup_timer = FakeTimer()
+    app.reply_timer = FakeTimer()
     app.state_changed = Mock()
     app._set_error_status_safe = Mock()
     app._open_web_console = Mock()
+    # __new__ 未调 QObject.__init__：未设置属性 getattr 会 RuntimeError
+    object.__setattr__(app, "web_server", None)
+    app.ai_worker.reset_stopping = Mock()
+    app._on_normal_capture_tick = Mock()
 
-    # mock model_selection 避免端点检查失败
+    # 跳过凭据/端点检查，直接进入 start 复位分支
+    monkeypatch.setattr(
+        "app.ai_client_requests.visual_credentials_ready",
+        lambda _cfg: True,
+    )
     monkeypatch.setattr("app.model_selection.visual_api_endpoint_issue", lambda c: None)
 
     # 绑定真实 start 方法

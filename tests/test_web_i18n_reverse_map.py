@@ -67,6 +67,24 @@ def test_reverse_map_covers_all_zh_and_en_values():
     assert not missing_en, f"en values missing from reverse map: {missing_en[:10]}"
 
 
+USER_PATH_DYNAMIC_KEYS = [
+    "dynamic.settings.跟随系统默认_当前_defaultLabel",
+    "dynamic.settings.device_name_默认",
+    "dynamic.app.originalText_中",
+]
+
+
+def test_user_path_dynamic_templates_stay_in_reverse_map():
+    zh = _load_lang("zh")
+    en = _load_lang("en")
+    reverse = _build_reverse_map(zh, en)
+    for key in USER_PATH_DYNAMIC_KEYS:
+        for text in (zh[key], en[key]):
+            trimmed = text.strip()
+            assert trimmed in reverse, f"missing reverse map for {key}: {trimmed[:40]}"
+            assert reverse[trimmed] == key
+
+
 def test_reverse_map_resolves_cross_language_samples():
     zh = _load_lang("zh")
     en = _load_lang("en")

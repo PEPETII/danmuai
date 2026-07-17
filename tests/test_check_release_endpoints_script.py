@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import io
 import json
 import re
 import sys
 import subprocess
 import threading
+import zipfile
+from functools import lru_cache
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -17,6 +20,36 @@ from app.bundle_paths import project_root
 ROOT = project_root()
 SCRIPT_PATH = ROOT / "scripts" / "check_release_endpoints.ps1"
 DOC_PATH = ROOT / "docs" / "operations" / "RELEASE_MONITORING.md"
+MINIMUM_ASSET_BYTES = 8 * 1024 * 1024
+
+
+@lru_cache(maxsize=1)
+def _valid_setup() -> bytes:
+    return b"MZ" + b"\0" * MINIMUM_ASSET_BYTES
+
+
+@lru_cache(maxsize=1)
+def _valid_portable() -> bytes:
+    output = io.BytesIO()
+    with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_STORED) as archive:
+        archive.writestr("DanmuAI.exe", b"MZstub")
+        archive.writestr("_internal/padding.bin", b"\0" * MINIMUM_ASSET_BYTES)
+    return output.getvalue()
+
+
+def _range_bounds(value: str, total_length: int) -> tuple[int, int]:
+    match = re.fullmatch(r"bytes=(\d*)-(\d*)", value)
+    if not match:
+        raise ValueError(f"unsupported Range: {value}")
+    start_text, end_text = match.groups()
+    if start_text:
+        start = int(start_text)
+        end = int(end_text) if end_text else total_length - 1
+    else:
+        suffix_length = int(end_text)
+        start = max(0, total_length - suffix_length)
+        end = total_length - 1
+    return start, min(end, total_length - 1)
 
 
 def _read_script() -> str:
@@ -40,6 +73,10 @@ def _run_with_local_endpoints(
         }
     ).encode("utf-8")
     github_payload = json.dumps({"tag_name": f"v{expected_version}"}).encode("utf-8")
+    binary_assets = {
+        "/setup": _valid_setup(),
+        "/portable": _valid_portable(),
+    }
 
     class Handler(BaseHTTPRequestHandler):
         def do_HEAD(self) -> None:  # noqa: N802
@@ -48,6 +85,19 @@ def _run_with_local_endpoints(
             self.end_headers()
 
         def do_GET(self) -> None:  # noqa: N802
+            asset = binary_assets.get(self.path)
+            range_value = self.headers.get("Range")
+            if asset is not None and range_value:
+                start, end = _range_bounds(range_value, len(asset))
+                payload = asset[start : end + 1]
+                self.send_response(206)
+                self.send_header("Content-Type", "application/octet-stream")
+                self.send_header("Content-Range", f"bytes {start}-{end}/{len(asset)}")
+                self.send_header("Content-Length", str(len(payload)))
+                self.send_header("Accept-Ranges", "bytes")
+                self.end_headers()
+                self.wfile.write(payload)
+                return
             if self.path == "/feed":
                 payload = feed_payload
                 content_type = "application/json"
@@ -138,7 +188,11 @@ def test_check_release_endpoints_script_read_only_methods():
     text = _read_script()
     assert re.search(r"ValidateSet\('Head',\s*'Get'\)", text)
     assert "Method Get" in text or "-Method Get" in text
-    assert "Method Head" in text or "-Method Head" in text
+    assert "ResponseHeadersRead" in text
+    assert "Range" in text
+    for method in ("Post", "Put", "Patch", "Delete"):
+        assert f"Method {method}" not in text
+        assert f"-Method {method}" not in text
     assert "FeedLatestFull" in text
     assert "ContentLength" in text
     assert "ExpectedVersion" in text

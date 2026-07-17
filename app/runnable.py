@@ -44,7 +44,10 @@ class CaptureRunnable(QRunnable):
         self.setAutoDelete(True)
 
     def run(self) -> None:
+        # stopping 早退必须 failed 结算槽位；主线程 _on_capture_failed 清 _capture_in_flight
+        #（worker 禁止直接写 DanmuApp；W-AUDIT-0714-CAPTURE-STOP-001 / BUG-005）
         if self._stopping.is_set():
+            self._coordinator.failed.emit("capture_aborted_stopping")
             return
         try:
             pixmap = execute_capture(self._plan)
@@ -52,6 +55,7 @@ class CaptureRunnable(QRunnable):
             self._coordinator.failed.emit(f"{type(exc).__name__}: {exc}")
             return
         if self._stopping.is_set():
+            self._coordinator.failed.emit("capture_aborted_stopping")
             return
         self._coordinator.completed.emit(pixmap)
 

@@ -48,8 +48,6 @@ WEB_CONFIG_KEYS = (
     "persona_name_prefix_enabled",  # W-PERSONA-NAME-DISPLAY-001
     # W-FP-V2-001：弹幕渲染模式与侧边悬浮窗配置
     "danmu_render_mode",
-    # W-BILILIVE-DM-PLUGIN-MODE-005：弹幕姬模式
-    "bililive_dm_mode_enabled",
     "floating_panel_width",
     "floating_panel_max_items",
     "floating_panel_speed",
@@ -383,7 +381,6 @@ class ConfigService:
             "pet_click_through",
             "pet_command_box_enabled",
             "pet_barrage_mode_enabled",
-            "bililive_dm_mode_enabled",
         ):
             if _key in items:
                 _v = str(items[_key]).strip().lower()

@@ -400,7 +400,18 @@ class DanmuAppRequestContextMixin:
         if not from_mic_insert:
             self._latest_queued_screenshot_id = max(self._latest_queued_screenshot_id, screenshot_id)
         queue_size_before_enqueue = self.reply_buffer.size()
-        if from_mic_insert or from_local_fallback:
+        queue_drop_count = 0
+        queue_drop_reason = ""
+        if from_mic_insert:
+            queue_drop_reason = "mic_prepend_capacity"
+            queue_drop_count = self.reply_buffer.prepend_batch(
+                batch_items,
+                preserve_existing=None,
+                preserve_scene_generation=None,
+                preserve_replaceable=True,
+                trim_reason=queue_drop_reason,
+            )
+        elif from_local_fallback:
             self.reply_buffer.prepend_batch(
                 batch_items,
                 preserve_existing=self._queue_fallback_keep,
@@ -423,6 +434,9 @@ class DanmuAppRequestContextMixin:
             "displayed": False,
             "batch_count": len(normalized_items),
         }
+        if queue_drop_count:
+            enqueue_fields["queue_drop_count"] = queue_drop_count
+            enqueue_fields["queue_drop_reason"] = queue_drop_reason
         if request_started_at is not None:
             enqueue_fields["request_started_at"] = request_started_at
         if reply_received_at is not None:
@@ -441,9 +455,6 @@ class DanmuAppRequestContextMixin:
                     interval=self._default_batch_interval(),
                 )
             )
-
-        if not from_mic_insert and not from_local_fallback:
-            self._schedule_bililive_dm_push(persona_id, batch_id, normalized_items)
 
     def _rtt_avg(self) -> float:
         return self._get_request_timing_service().avg_rtt()

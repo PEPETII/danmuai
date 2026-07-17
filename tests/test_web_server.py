@@ -242,8 +242,24 @@ def test_mic_devices_endpoint_payload(monkeypatch):
             "default_input_device_id": 2,
             "default_input_device_label": "Mic 2",
             "devices": [
-                {"id": 2, "name": "Mic 2", "is_default": True, "max_input_channels": 1},
-                {"id": 5, "name": "Mic 5", "is_default": False, "max_input_channels": 2},
+                {
+                    "id": 2,
+                    "name": "Mic 2",
+                    "is_default": True,
+                    "max_input_channels": 1,
+                    "hostapi": "wasapi",
+                    "role": "microphone",
+                    "is_loopback": False,
+                },
+                {
+                    "id": 5,
+                    "name": "Mic 5",
+                    "is_default": False,
+                    "max_input_channels": 2,
+                    "hostapi": "wasapi",
+                    "role": "microphone",
+                    "is_loopback": False,
+                },
             ],
         },
     )

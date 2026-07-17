@@ -92,16 +92,43 @@ class HistoryWriter:
         # W-CONC-001：通过 ConfigStore.with_write_lock() 与主线程 set/set_batch 共享
         # _write_lock，规避主线程持锁时本后台线程 executemany 抛 database is locked
         # 导致整批弹幕历史永久丢失（PRAGMA busy_timeout=5000 不足以覆盖截图/API 延宕）。
+        # W-AUDIT-V2-BUG-007：commit/executemany 失败后须在持锁内 best-effort rollback，
+        # 再回填 buffer；否则 active 事务未清，下次 flush 会重复 INSERT。
+        rollback_ok = False
         try:
             with self.config.with_write_lock():
-                self.config.conn.executemany(
-                    "INSERT INTO history (time, persona, content, image, round) VALUES (?,?,?,?,?)",
-                    items,
-                )
-                self._maybe_prune_rows()
-                self.config.conn.commit()
+                try:
+                    self.config.conn.executemany(
+                        "INSERT INTO history (time, persona, content, image, round) VALUES (?,?,?,?,?)",
+                        items,
+                    )
+                    self._maybe_prune_rows()
+                    self.config.conn.commit()
+                except sqlite3.Error:
+                    try:
+                        self.config.conn.rollback()
+                        rollback_ok = True
+                    except Exception:
+                        _logger.exception(
+                            "history flush rollback failed items=%d "
+                            "reason=history_flush_rollback_failed; "
+                            "items retained; connection may retain active transaction; "
+                            "further writes may be unsafe",
+                            len(items),
+                        )
+                    raise
         except sqlite3.Error:
-            _logger.exception("history flush failed items=%d, will retry on next flush", len(items))
+            if rollback_ok:
+                _logger.exception(
+                    "history flush failed items=%d, will retry on next flush",
+                    len(items),
+                )
+            else:
+                _logger.exception(
+                    "history flush failed items=%d; transaction not confirmed rolled back — "
+                    "items retained, not claiming safe retry",
+                    len(items),
+                )
             # W-DATA-LOSS-001：回填失败批次到 buffer 队首，防止永久丢失
             with self._lock:
                 for item in reversed(items):

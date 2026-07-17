@@ -103,10 +103,13 @@ class ConfigStore:
         self._schema_version = run_pending(self.conn)
         self._cache: dict[str, str] = {}
         self._load_cache()
-        # 所有 REPLACE/commit 串行化，保证 _cache 与 DB 同事务一致
+        # 所有 REPLACE/commit 串行化，保证 _cache 与 DB 同事务一致。
+        # W-AUDIT-V2-BUG-005（方案 A）：弹幕库写与配置写共用同一把写锁。
+        # SQLite 事务属于 connection 而非 Python lock；独立 _pool_write_lock
+        # 无法阻止 pool rollback 回滚未提交的配置写（见审计 BUG-001 / V2-005）。
+        # _pool_write_lock 保留为别名，兼容 danmu_pool 调用点，禁止嵌套 acquire。
         self._write_lock = threading.Lock()
-        # 弹幕库写操作独立锁，与配置读写互不阻塞
-        self._pool_write_lock = threading.Lock()
+        self._pool_write_lock = self._write_lock
         self._closed = False
         # W-FP-V2-002：须在 seed 之前写回，避免 seed 先落 danmu_render_mode=scrolling 盖掉遗留 display_mode
         self._migrate_legacy_display_mode_to_render_mode()
@@ -350,9 +353,9 @@ class ConfigStore:
         与缓存相同的键会被跳过，减少无意义 WAL 提交。
 
         锁作用域 = 单次 ``executemany + commit``。典型 Web 保存（≤20 键）持锁
-        <5ms；万键批（如自定义弹幕池走 ``set_custom_danmu_pool_for_store``，已走
-        diff-based 增量路径）不经过本方法。读路径走 ``_cache`` 不持 ``_write_lock``，
-        故 Web GET 不被阻塞。现状可接受，非缺陷（W-INVOKE-OBSERV-001 评估）。
+        <5ms；万键批（自定义弹幕池走 ``set_custom_danmu_pool_for_store``，已走
+        diff-based 增量路径）不经过本方法，但与本锁串行（W-AUDIT-V2-BUG-005）。
+        读路径走 ``_cache`` 不持 ``_write_lock``，故 Web GET 不被阻塞。
         """
         if self._closed:
             raise RuntimeError("ConfigStore.set_batch() called after close()")
@@ -436,14 +439,17 @@ class ConfigStore:
 
     @contextmanager
     def with_pool_write_lock(self):
-        """Acquire the pool write lock for danmu_pool operations.
+        """Acquire the store write lock for danmu_pool operations.
 
-        与 ``_write_lock`` 独立，弹幕库写入不阻塞配置读写。
-        仅供 ``app/danmu_pool.py`` 使用。
+        W-AUDIT-V2-BUG-005（方案 A）：``_pool_write_lock is _write_lock``，与
+        ``set`` / ``set_batch`` / ``with_write_lock`` 共用同一把锁，保证同
+        connection 上 commit/rollback 串行、互不污染。
+
+        仅供 ``app/danmu_pool.py`` 使用。正确性优先于「pool 写不阻塞 config 写」。
 
         限制：
             - 不可重入：同线程内嵌套调用会死锁。
-            - 不可与 ``_write_lock`` 嵌套使用（会死锁）。
+            - 不可与 ``with_write_lock`` 嵌套（同一 Lock，会自死锁）。
         """
         with self._pool_write_lock:
             yield self.conn
@@ -776,14 +782,14 @@ class ConfigStore:
         return maybe_migrate_legacy_api_to_custom_models_for_store(self)
 
     def close(self):
-        # BUG-005: 先等弹幕库写入结束（_pool_write_lock），再与配置写锁一起关闭连接。
-        # BUG-016: conn.close() 必须在 _write_lock 内完成，否则并发 set/set_batch
+        # W-AUDIT-V2-BUG-005：统一写锁后只 acquire 一次。
+        # （_pool_write_lock is _write_lock 时双层 with 会在同线程自死锁。）
+        # BUG-016: conn.close() 必须在写锁内完成，否则并发 set/set_batch
         # 会在 close 出锁后、conn.close() 完成前拿到锁并走「静默跳过」分支丢写。
-        with self._pool_write_lock:
-            with self._write_lock:
-                self._closed = True
-                try:
-                    self.conn.close()
-                except sqlite3.ProgrammingError:
-                    pass
+        with self._write_lock:
+            self._closed = True
+            try:
+                self.conn.close()
+            except sqlite3.ProgrammingError:
+                pass
         self._invalidate_formula_text_cache()

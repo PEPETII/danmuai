@@ -50,8 +50,6 @@ from app.web_api import font_registry as font_registry_api
 
 from app.web_api import providers as providers_api
 
-from app.web_api.bililive_dm_bridge import register_bililive_dm_bridge_route
-
 from app.web_api.capture_region_routes import register_capture_region_routes
 
 from app.web_api.custom_models_routes import register_custom_models_routes
@@ -79,8 +77,6 @@ from app.web_api.misc_config_routes import register_misc_config_routes
 from app.web_api.persona_routes import register_persona_routes
 
 from app.web_api.pet_routes import register_pet_routes
-
-from app.web_api.preview_compress import register_preview_compress_route
 
 from app.web_api.route_invoke import make_invoke_main
 
@@ -113,10 +109,6 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
     invoke_main = make_invoke_main(bridge)
 
 
-
-    register_preview_compress_route(app, check_token)
-
-    register_bililive_dm_bridge_route(app, bridge.danmu_app.config, check_token)
 
     providers_api.register_provider_routes(app)
 

@@ -4,7 +4,7 @@
 - danmu_render_mode 与模式门控
 - live status 投影与发布
 - 按 render mode 路由上屏与测试注入
-- 不迁出 Overlay / floating panel / bililive 子模块实现
+- 不迁出 Overlay / floating panel 子模块实现
 """
 
 from __future__ import annotations
@@ -25,20 +25,13 @@ class DanmuAppRenderCoordinatorMixin:
     def _pet_barrage_mode_enabled(self) -> bool:
         return self.config.get("pet_barrage_mode_enabled", "0") == "1"
 
-    def _bililive_dm_mode_enabled(self) -> bool:
-        return self.config.get("bililive_dm_mode_enabled", "0") == "1"
-
     def _overlay_display_enabled(self) -> bool:
         if self._pet_barrage_mode_enabled():
-            return False
-        if self._bililive_dm_mode_enabled():
             return False
         return self._danmu_render_mode() == "scrolling"
 
     def _floating_panel_v2_enabled(self) -> bool:
         if self._pet_barrage_mode_enabled():
-            return False
-        if self._bililive_dm_mode_enabled():
             return False
         return self._danmu_render_mode() == "floating_panel"
 
@@ -90,8 +83,6 @@ class DanmuAppRenderCoordinatorMixin:
 
     def _broadcast_live_overlay_item(self, item, text: str, *, source: str) -> None:
         """Qt 上屏后旁路同步单条弹幕到网页层（仅横向 DanmuItem）。"""
-        if text:
-            self._schedule_bililive_dm_formula_push(text, source=source, persona="")
         if not isinstance(item, DanmuItem):
             return
         state = getattr(self, "__dict__", None) or {}
@@ -123,8 +114,6 @@ class DanmuAppRenderCoordinatorMixin:
     ):
         """按 danmu_render_mode 路由上屏：互斥，floating_panel 不触碰 DanmuEngine。"""
         if self._pet_barrage_mode_enabled():
-            return None
-        if self._bililive_dm_mode_enabled():
             return None
         if self._danmu_render_mode() == "floating_panel":
             return self._display_floating_panel_text(

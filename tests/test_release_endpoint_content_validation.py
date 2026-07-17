@@ -8,6 +8,7 @@ import re
 import subprocess
 import sys
 import threading
+import time
 import zipfile
 from dataclasses import dataclass
 from functools import lru_cache
@@ -30,6 +31,8 @@ class _Asset:
     suffix: bytes = b""
     data: bytes | None = None
     supports_range: bool = True
+    stall_after_bytes: int | None = None
+    stall_seconds: float = 0.0
 
     def read_range(self, start: int, end: int) -> bytes:
         if self.data is not None:
@@ -90,7 +93,12 @@ def _parse_range(value: str, total_length: int) -> tuple[int, int]:
     return start, min(end, total_length - 1)
 
 
-def _run_monitor(setup: _Asset, portable: _Asset) -> subprocess.CompletedProcess[str]:
+def _run_monitor(
+    setup: _Asset,
+    portable: _Asset,
+    *,
+    timeout_sec: int = 5,
+) -> subprocess.CompletedProcess[str]:
     feed_payload = json.dumps(
         {"Assets": [{"Type": "Full", "Version": "0.4.0"}]}
     ).encode("utf-8")
@@ -125,7 +133,18 @@ def _run_monitor(setup: _Asset, portable: _Asset) -> subprocess.CompletedProcess
                     self.send_header("Content-Length", str(len(payload)))
                     self.send_header("Accept-Ranges", "bytes")
                     self.end_headers()
-                    self.wfile.write(payload)
+                    split_at = asset.stall_after_bytes
+                    if split_at is None:
+                        self.wfile.write(payload)
+                    else:
+                        split_at = max(0, min(split_at, len(payload)))
+                        self.wfile.write(payload[:split_at])
+                        self.wfile.flush()
+                        time.sleep(asset.stall_seconds)
+                        try:
+                            self.wfile.write(payload[split_at:])
+                        except (BrokenPipeError, ConnectionResetError):
+                            pass
                     return
                 payload = asset.data or asset.read_range(0, asset.total_length - 1)
                 self.send_response(200)
@@ -162,7 +181,8 @@ def _run_monitor(setup: _Asset, portable: _Asset) -> subprocess.CompletedProcess
     thread.start()
     base_url = f"http://127.0.0.1:{server.server_port}"
     try:
-        return subprocess.run(
+        started = time.monotonic()
+        completed = subprocess.run(
             [
                 "powershell",
                 "-NoProfile",
@@ -183,7 +203,7 @@ def _run_monitor(setup: _Asset, portable: _Asset) -> subprocess.CompletedProcess
                 "-GitHubApiLatestUrl",
                 f"{base_url}/api",
                 "-TimeoutSec",
-                "5",
+                str(timeout_sec),
             ],
             cwd=ROOT,
             capture_output=True,
@@ -193,6 +213,8 @@ def _run_monitor(setup: _Asset, portable: _Asset) -> subprocess.CompletedProcess
             timeout=60,
             check=False,
         )
+        completed.monitor_elapsed = time.monotonic() - started
+        return completed
     finally:
         server.shutdown()
         server.server_close()
@@ -268,3 +290,23 @@ def test_fails_closed_when_range_is_unsupported() -> None:
     assert completed.returncode != 0
     assert "Setup content invalid" in output
     assert "Range" in output
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="release monitor is Windows-only")
+def test_range_body_read_respects_timeout() -> None:
+    portable = _portable_zip(True)
+    completed = _run_monitor(
+        _Asset(
+            total_length=MINIMUM_ASSET_BYTES + 1024,
+            prefix=b"MZ",
+            stall_after_bytes=1,
+            stall_seconds=15,
+        ),
+        _Asset(total_length=len(portable), data=portable),
+        timeout_sec=1,
+    )
+    elapsed = completed.monitor_elapsed
+    output = _output(completed)
+    assert completed.returncode != 0
+    assert "Setup content invalid" in output
+    assert elapsed < 12, f"bounded read ignored TimeoutSec: elapsed={elapsed:.2f}s\n{output}"

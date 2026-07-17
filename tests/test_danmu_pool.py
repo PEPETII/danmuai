@@ -366,19 +366,23 @@ def test_read_without_write_lock_no_deadlock(tmp_path):
     store.close()
 
 
-def test_pool_write_lock_independent_from_config_lock(tmp_path):
-    """W-PERF-CONFIG-POOL-LOCK-SPLIT-001: pool 写锁不阻塞配置读写。"""
+def test_pool_write_lock_shares_config_write_lock(tmp_path):
+    """W-AUDIT-V2-BUG-005: pool 与 config 共用写锁；并发写串行且均持久化。"""
     from app.config_store import ConfigStore
+    import sqlite3
     import threading
 
-    store = ConfigStore(tmp_path / "pool_lock_split.db")
+    db_path = tmp_path / "pool_lock_unified.db"
+    store = ConfigStore(db_path)
     store.custom_danmu_insert_many(["弹幕A"])
+
+    # 别名契约：禁止再假设两把独立锁可并行进入未提交窗口
+    assert store._pool_write_lock is store._write_lock
 
     errors = []
     barrier = threading.Barrier(2, timeout=5)
 
     def pool_writer():
-        """持 _pool_write_lock 写弹幕库。"""
         try:
             barrier.wait()
             store.custom_danmu_insert_many(["弹幕B"])
@@ -386,7 +390,6 @@ def test_pool_write_lock_independent_from_config_lock(tmp_path):
             errors.append(e)
 
     def config_writer():
-        """持 _write_lock 写配置。应不被 pool 锁阻塞。"""
         try:
             barrier.wait()
             store.set("test_key", "test_value")
@@ -403,7 +406,20 @@ def test_pool_write_lock_independent_from_config_lock(tmp_path):
     assert not errors, f"Concurrent pool/config write errors: {errors}"
     assert store.get("test_key") == "test_value"
     assert store.custom_danmu_count() >= 2
+
     store.close()
+    reopened = sqlite3.connect(str(db_path))
+    try:
+        row = reopened.execute(
+            "SELECT value FROM config WHERE key = ?", ("test_key",)
+        ).fetchone()
+        assert row is not None and row[0] == "test_value"
+        count = reopened.execute(
+            "SELECT COUNT(*) FROM custom_danmu_pool_entries"
+        ).fetchone()[0]
+        assert int(count) >= 2
+    finally:
+        reopened.close()
 
 
 def test_load_danmu_pool_for_config_uses_cached_sampling(tmp_path, monkeypatch):

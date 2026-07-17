@@ -46,6 +46,27 @@ def test_zh_en_locale_key_parity():
     assert not missing_in_zh, f"zh missing keys: {sorted(missing_in_zh)[:20]}"
 
 
+USER_PATH_DYNAMIC_KEYS = [
+    "dynamic.settings.跟随系统默认_当前_defaultLabel",
+    "dynamic.settings.device_name_默认",
+    "dynamic.settings.当前将跟随_Windows_默认录音设备_d",
+    "dynamic.settings.当前固定使用_selectedLabel",
+    "dynamic.settings.配置已保存_当前生效模型_label",
+    "dynamic.app.originalText_中",
+]
+
+
+def test_user_path_dynamic_keys_use_brace_placeholders_not_dollar():
+    import re
+
+    legacy = re.compile(r"\$\{")
+    for key in USER_PATH_DYNAMIC_KEYS:
+        zh_val = _load_shard("zh", "dynamic")[key]
+        en_val = _load_shard("en", "dynamic")[key]
+        assert not legacy.search(zh_val), f"zh dynamic still has ${{ in {key}"
+        assert not legacy.search(en_val), f"en dynamic still has ${{ in {key}"
+
+
 def test_en_locale_has_no_cjk():
     import re
 

@@ -92,6 +92,7 @@ class MicOrchestrator:
         """停止检测器（不操作 QTimer）。"""
         if self._mic_utterance_detector is not None:
             self._mic_utterance_detector.reset()
+            self._mic_utterance_detector = None
 
     # ------------------------------------------------------------------ #
     # 轮询

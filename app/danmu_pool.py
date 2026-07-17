@@ -372,6 +372,7 @@ def _custom_danmu_count_locked(store, source: str | None = None) -> int:
 def migrate_custom_danmu_pool_json(store) -> None:
     if store.get("custom_danmu_pool_migrated") == "1":
         return
+    # 持写锁迁移；store.set 必须在锁外（_write_lock 不可重入，W-AUDIT-V2-BUG-005）。
     with store._pool_write_lock:
         if _custom_danmu_count_locked(store) > 0:
             pass
@@ -472,6 +473,26 @@ def _existing_custom_texts_locked(store, texts: list[str]) -> set[str]:
     return existing
 
 
+def _commit_pool_write(conn, *, op: str) -> None:
+    """Commit a custom-pool write; on failure rollback then re-raise.
+
+    Mirrors the diff-setter contract: commit failure must not leave an active
+    transaction that a later successful commit would flush. Rollback failure
+    is logged and re-raised; the connection must not be treated as reusable.
+    """
+    try:
+        conn.commit()
+    except sqlite3.Error:
+        try:
+            conn.rollback()
+        except sqlite3.Error:
+            logger.exception(
+                "custom_danmu_pool %s rollback failed after commit failure", op
+            )
+            raise
+        raise
+
+
 def custom_danmu_insert_many_for_store(
     store, texts: list[str], source: str = "manual"
 ) -> dict[str, int]:
@@ -512,7 +533,7 @@ def custom_danmu_insert_many_for_store(
             inserted = store.conn.total_changes - before
             stats["added"] = inserted
             stats["skipped_duplicate"] += len(batch) - inserted
-            store.conn.commit()
+            _commit_pool_write(store.conn, op="insert_many")
     store._invalidate_formula_text_cache()
     return stats
 
@@ -529,7 +550,7 @@ def custom_danmu_delete_ids_for_store(store, ids: list[int]) -> int:
             clean,
         )
         removed = store.conn.total_changes - before
-        store.conn.commit()
+        _commit_pool_write(store.conn, op="delete_ids")
     if removed:
         store._invalidate_formula_text_cache()
     return removed
@@ -547,7 +568,7 @@ def custom_danmu_delete_texts_for_store(store, texts: list[str]) -> int:
             clean,
         )
         removed = store.conn.total_changes - before
-        store.conn.commit()
+        _commit_pool_write(store.conn, op="delete_texts")
     if removed:
         store._invalidate_formula_text_cache()
     return removed

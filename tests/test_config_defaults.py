@@ -60,11 +60,6 @@ def test_danmu_recent_ttl_default_and_web_key_present():
     assert "danmu_recent_ttl_sec" in WEB_CONFIG_KEYS
 
 
-def test_bililive_dm_mode_default_is_off():
-    assert CONFIG_DEFAULTS["bililive_dm_mode_enabled"] == "0"
-    assert "bililive_dm_mode_enabled" in WEB_CONFIG_KEYS
-
-
 def test_mic_insert_keys_absent_from_defaults():
     assert "mic_insert_reply_count" not in CONFIG_DEFAULTS
     assert "mic_insert_voice_reply_count" not in CONFIG_DEFAULTS

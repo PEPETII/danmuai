@@ -57,6 +57,7 @@ def test_stop_detector_resets_utterance_state():
     orch.stop_detector()
 
     detector.reset.assert_called_once()
+    assert orch._mic_utterance_detector is None
 
 
 def test_poll_returns_false_when_engine_stopped(monkeypatch):

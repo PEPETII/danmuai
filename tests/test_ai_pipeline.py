@@ -520,7 +520,7 @@ def test_success_resets_failure_count():
     app._last_error_message = "previous error"
     app._register_request_meta(10, 10, 0, "visual")  # W-RACE-001: 需预注册 meta
 
-    app._on_ai_reply('["??????"]', "persona-1", 10, 10, time.monotonic(), 0)
+    app._on_ai_reply('["有效回复"]', "persona-1", 10, 10, time.monotonic(), 0)
 
     assert app._consecutive_failures == 0
     assert app._failure_backoff_paused is False

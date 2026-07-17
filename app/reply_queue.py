@@ -72,10 +72,11 @@ class AIReplyFIFOBuffer:
         *,
         drop_from_left: bool,
         prefer_replaceable_fallback: bool = False,
-    ) -> None:
+        reason: str = "reply_queue_trim",
+    ) -> int:
         # Caller must hold _lock.
         if self._max_items <= 0:
-            return
+            return 0
         size_before = len(self._items)
         dropped = 0
         while len(self._items) > self._max_items:
@@ -102,12 +103,14 @@ class AIReplyFIFOBuffer:
                 )
             _logger.warning(
                 "reply_queue trim: dropped=%s max_items=%s drop_from_left=%s "
-                "reason=reply_queue_trim%s",
+                "reason=%s%s",
                 dropped,
                 self._max_items,
                 drop_from_left,
+                reason,
                 extra,
             )
+        return dropped
 
     def push(self, item: QueuedReply):
         """追加一条到队尾。"""
@@ -155,31 +158,38 @@ class AIReplyFIFOBuffer:
     def prepend_batch(
         self,
         items: list[QueuedReply],
-        preserve_existing: int = 0,
+        preserve_existing: int | None = 0,
         preserve_scene_generation: int | None = None,
         preserve_replaceable: bool = True,
-    ):
+        trim_reason: str = "reply_queue_trim",
+    ) -> int:
         """麦克风或本地兜底插入时，新批次插在队首而非 append。
 
         push 追加队尾（正常 AI 回复）；prepend 插队首（优先消费新批次）。
         超长时 push 从队首丢、prepend 从队尾丢。
+        preserve_existing=None 时保留全部符合筛选条件的既有项；默认 0 维持
+        历史的替换队列行为。
         preserve_scene_generation: 非 None 时只保留该代际（历史兼容，运行期常为 0）。
         """
         with self._lock:
             preserved: list[QueuedReply] = []
-            if preserve_existing > 0:
+            if preserve_existing is None or preserve_existing > 0:
                 for item in self._items:
                     if preserve_scene_generation is not None and item.scene_generation != preserve_scene_generation:
                         continue
                     if not preserve_replaceable and item.replaceable:
                         continue
                     preserved.append(item)
-                    if len(preserved) >= preserve_existing:
+                    if preserve_existing is not None and len(preserved) >= preserve_existing:
                         break
 
             self._items = deque([*items, *preserved])
             # S-017: prepend overflow drops replaceable fallback tail before AI batches.
-            self._trim_overflow(drop_from_left=False, prefer_replaceable_fallback=True)
+            return self._trim_overflow(
+                drop_from_left=False,
+                prefer_replaceable_fallback=True,
+                reason=trim_reason,
+            )
 
     def drop_replaceable_fallbacks(
         self,

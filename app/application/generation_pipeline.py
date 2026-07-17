@@ -62,13 +62,13 @@ class GenerationPipeline:
         scene_generation: int,
         request_started_at: float,
         reply_received_at: float,
-    ) -> None:
-        """处理已通过门控的视觉回复：解析 → 入队 → 驱动 consume_reply_queue。
+    ) -> bool:
+        """处理已通过门控的视觉回复并报告是否有规范化结果入队。
 
         从 DanmuApp._on_ai_reply 后置段抽离（main.py:679-753）。
         调用线程：Qt 主线程（ai_worker.finished 信号回调）。
-        前置门控（释放在途/token 统计/scene_generation 门控/mic 分流/失败计数重置
-        /timing 消费）仍属 DanmuApp._on_ai_reply。
+        前置门控（释放在途/token 统计/scene_generation 门控/mic 分流/timing 消费）
+        仍属 DanmuApp._on_ai_reply；失败退避仅在本方法返回 True 后由 DanmuApp 复位。
         """
         app = self._app
         raw_items = parse_ai_reply_payload(text)
@@ -104,7 +104,7 @@ class GenerationPipeline:
                 len(raw_items),
             )
             app.record_undisplayed("empty_parse", persona_id=persona_id)
-            return
+            return False
 
         request_id = app.reply_request_id(request_round, screenshot_id, scene_generation)
         app.log_reply_pipeline(
@@ -146,6 +146,7 @@ class GenerationPipeline:
             self.consume_reply_queue()
         else:
             app.reply_timer.setInterval(min(app.reply_timer.interval(), 200))
+        return True
 
     def _dispatch_to_pet(self, app: "DanmuApp") -> None:
         """桌宠气泡分发：批量 pop（最多 5 条）→ 渲染 → deliver_batch。"""

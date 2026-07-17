@@ -108,6 +108,20 @@ def test_supabase_feedback_forwards_context_fields():
     assert "logs_excerpt" in func_body
 
 
+def test_logs_excerpt_hard_capped_at_8000():
+    """logs_excerpt must hard-cap at 8000 so DB check constraint is never violated."""
+    root = project_root()
+    client = (root / "web" / "static" / "supabase-client.js").read_text(encoding="utf-8")
+    reporting = (root / "web" / "static" / "modules" / "app-error-reporting.js").read_text(
+        encoding="utf-8"
+    )
+    # Must not use the old suffix-overshoot pattern (7990 + marker > 8000).
+    assert "slice(0, 7990)" not in client
+    assert "slice(0, 7990)" not in reporting
+    assert "slice(0, 8000)" in client
+    assert "slice(0, 8000)" in reporting
+
+
 def test_supabase_client_fetch_timeout_and_error_kinds():
     text = (project_root() / "web" / "static" / "supabase-client.js").read_text(encoding="utf-8")
     assert "AbortController" in text

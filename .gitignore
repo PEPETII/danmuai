@@ -73,6 +73,9 @@ terminals/
 # Local prompt-training experiments (large image datasets, never publish)
 gepa_danmu_prompt_training_*/
 
+# Local bililive_dm / 弹幕姬 feature backup (restore only, never publish)
+danmuji_backup/
+
 # Scratch and draft files
 scratchpad.md
 
@@ -89,6 +92,7 @@ danmu_jpeg_bench_*.json
 
 # Local reference clones (do not commit)
 python-mss-main/
+可参考开源项目/
 开源项目/
 Danmaku-master/
 .cursor/

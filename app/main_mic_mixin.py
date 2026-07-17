@@ -61,7 +61,7 @@ class DanmuAppMicMixin:
             mic_audio_supported_fn=self._mic_audio_supported,
             resolve_active_model_id_fn=lambda: resolve_mic_model_id(self.config),
         )
-        if self._mic_orchestrator.detector is not None:
+        if self.engine.running and self._mic_orchestrator.detector is not None:
             # BUG-014: mic 已就绪（模型支持 + 采集运行中）→ 清掉之前的 unsupported 错误条
             if self._mic_unsupported_error_active:
                 self._mic_unsupported_error_active = False

@@ -32,6 +32,9 @@ def list_mic_devices(app: "DanmuApp") -> dict[str, object]:
             "name": item.name,
             "is_default": item.is_default,
             "max_input_channels": item.max_input_channels,
+            "hostapi": item.hostapi,
+            "role": item.role,
+            "is_loopback": item.is_loopback,
         }
         for item in MicService.list_input_devices()
     ]

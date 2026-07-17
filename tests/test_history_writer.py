@@ -1,4 +1,5 @@
 import logging
+import sqlite3
 import threading
 import time
 from unittest.mock import MagicMock
@@ -8,11 +9,12 @@ from app.history_writer import HistoryWriter
 
 
 def test_history_writer_logs_flush_failures(monkeypatch):
+    """失败注入须为 sqlite3.Error 子类，与生产 except 契约一致（BUG-009 / W-AUDIT-V2-BUG-007）。"""
     logger = MagicMock()
     monkeypatch.setattr("app.history_writer._logger", logger)
 
     config = MagicMock()
-    config.conn.executemany.side_effect = RuntimeError("db locked")
+    config.conn.executemany.side_effect = sqlite3.OperationalError("db locked")
 
     writer = HistoryWriter(config, flush_interval=60.0)
     writer.enqueue("hello", "persona", 1)
@@ -191,7 +193,7 @@ def test_flush_failure_backfills_items_to_buffer(monkeypatch):
     monkeypatch.setattr("app.history_writer._logger", logger)
 
     config = MagicMock()
-    config.conn.executemany.side_effect = RuntimeError("db locked")
+    config.conn.executemany.side_effect = sqlite3.OperationalError("db locked")
 
     writer = HistoryWriter(config, flush_interval=3600.0, buffer_max=3)
     try:
@@ -202,7 +204,8 @@ def test_flush_failure_backfills_items_to_buffer(monkeypatch):
         assert writer.dropped_total == 2
 
         writer.flush()
-        logger.exception.assert_called_once()
+        # flush 失败路径至少 exception 一次；rollback 成功时也可能只有一次
+        assert logger.exception.call_count >= 1
 
         # W-DATA-LOSS-001：失败后 items 被回填到 buffer，不丢失
         assert writer.buffer_size() == 3, "flush 失败后 items 应回填到 buffer"
@@ -301,58 +304,164 @@ def test_history_writer_prunes_oldest_rows_when_over_cap(tmp_path):
         store.close()
 
 
+class _ConnMethodProxy:
+    """Proxy over sqlite3.Connection so tests can inject method failures.
+
+    CPython 3.14 marks Connection method slots read-only; assigning
+    ``conn.commit = ...`` raises AttributeError. HistoryWriter always goes
+    through ``config.conn``, so swapping the conn object is the portable hook.
+    """
+
+    def __init__(self, real: sqlite3.Connection):
+        object.__setattr__(self, "_real", real)
+        object.__setattr__(self, "_commit_hook", None)
+        object.__setattr__(self, "_rollback_hook", None)
+        object.__setattr__(self, "_executemany_hook", None)
+
+    def executemany(self, *args, **kwargs):
+        hook = object.__getattribute__(self, "_executemany_hook")
+        if hook is not None:
+            return hook(*args, **kwargs)
+        return object.__getattribute__(self, "_real").executemany(*args, **kwargs)
+
+    def commit(self):
+        hook = object.__getattribute__(self, "_commit_hook")
+        if hook is not None:
+            return hook()
+        return object.__getattribute__(self, "_real").commit()
+
+    def rollback(self):
+        hook = object.__getattribute__(self, "_rollback_hook")
+        if hook is not None:
+            return hook()
+        return object.__getattribute__(self, "_real").rollback()
+
+    def __getattr__(self, name):
+        return getattr(object.__getattribute__(self, "_real"), name)
+
+
 def test_flush_failure_retries_on_next_flush(tmp_path, monkeypatch):
-    """W-DATA-LOSS-001：flush 失败后 items 回填 buffer，下次 flush 成功时全部写出。"""
+    """W-DATA-LOSS-001：executemany 阶段 OperationalError 后回填，下次 flush 写出。"""
     logger = MagicMock()
     monkeypatch.setattr("app.history_writer._logger", logger)
 
     store = ConfigStore(db_path=tmp_path / "config.db")
+    proxy = _ConnMethodProxy(store.conn)
+    store.conn = proxy  # type: ignore[assignment]
     writer = HistoryWriter(store, flush_interval=3600.0)
     try:
         writer.enqueue("retry-me-1", "persona-A", 1)
         writer.enqueue("retry-me-2", "persona-B", 2)
 
-        # 第一次 flush：通过 with_write_lock 上下文模拟写入失败
-        _flush_count = [0]
+        fail_once = {"n": 0}
+        real_exec = proxy._real.executemany
 
-        class _FailingThenOkContext:
-            def __enter__(self):
-                return store.conn
+        def _failing_then_ok_exec(sql, params):
+            fail_once["n"] += 1
+            if fail_once["n"] == 1:
+                raise sqlite3.OperationalError("db locked")
+            return real_exec(sql, params)
 
-            def __exit__(self, exc_type, exc, tb):
-                return False
+        proxy._executemany_hook = _failing_then_ok_exec
 
-        _original_wl = store.with_write_lock
-
-        def _failing_write_lock():
-            _flush_count[0] += 1
-            if _flush_count[0] == 1:
-                # 第一次：进入上下文后 executemany 会失败
-                ctx = _FailingThenOkContext()
-                original_exec = store.conn.executemany
-
-                def _failing_exec(sql, params):
-                    raise RuntimeError("db locked")
-
-                store.conn.executemany = _failing_exec  # type: ignore[method-assign]
-                return ctx
-            else:
-                return _original_wl()
-
-        store.with_write_lock = _failing_write_lock  # type: ignore[method-assign]
-
-        writer.flush()  # 失败 → 回填到 buffer
+        writer.flush()  # 失败 → rollback → 回填到 buffer
         assert logger.exception.call_count >= 1
+        assert writer.buffer_size() == 2
+        assert proxy.in_transaction is False
 
         writer.flush()  # 第二次 flush 成功，回填的 items 全部写出
 
-        rows = store.conn.execute(
+        rows = proxy.execute(
             "SELECT persona, content, round FROM history ORDER BY id ASC"
         ).fetchall()
         contents = [r[1] for r in rows]
-        assert "retry-me-1" in contents, f"missing retry-me-1, got {contents}"
-        assert "retry-me-2" in contents, f"missing retry-me-2, got {contents}"
+        assert contents == ["retry-me-1", "retry-me-2"], f"unexpected rows: {contents}"
+        assert len(contents) == 2
     finally:
+        writer.stop()
+        store.close()
+
+
+def test_commit_failure_rollbacks_then_retries_without_duplicate(tmp_path):
+    """W-AUDIT-V2-BUG-007 / BUG-002：executemany 已执行、事务 active、commit 失败时
+    必须 rollback 后再回填；二次 flush 后每条 content 恰好一行（无重复）。
+    """
+    store = ConfigStore(db_path=tmp_path / "commit_fail.db")
+    proxy = _ConnMethodProxy(store.conn)
+    store.conn = proxy  # type: ignore[assignment]
+    writer = HistoryWriter(store, flush_interval=3600.0)
+    try:
+        writer.enqueue("c1", "persona-A", 1)
+
+        commit_calls = {"n": 0}
+        real_commit = proxy._real.commit
+
+        def _commit_fail_once():
+            commit_calls["n"] += 1
+            if commit_calls["n"] == 1:
+                # executemany 已写入未提交事务；模拟 commit 阶段 OperationalError
+                raise sqlite3.OperationalError("disk I/O error")
+            return real_commit()
+
+        proxy._commit_hook = _commit_fail_once
+
+        writer.flush()
+        assert writer.buffer_size() == 1, "commit 失败后 items 应回填 buffer"
+        assert proxy.in_transaction is False, "rollback 后连接不得仍在事务中"
+        assert proxy.execute("SELECT COUNT(*) FROM history").fetchone()[0] == 0
+
+        writer.enqueue("c2", "persona-B", 2)
+        writer.flush()
+
+        rows = proxy.execute(
+            "SELECT content FROM history ORDER BY id ASC"
+        ).fetchall()
+        assert rows == [("c1",), ("c2",)], f"expected no duplicate c1, got {rows}"
+
+        dups = proxy.execute(
+            "SELECT content, COUNT(*) AS n FROM history "
+            "GROUP BY content HAVING COUNT(*) > 1"
+        ).fetchall()
+        assert dups == [], f"duplicate history rows: {dups}"
+    finally:
+        writer.stop()
+        store.close()
+
+
+def test_rollback_failure_retains_items_and_does_not_claim_safe_retry(tmp_path, caplog):
+    """W-AUDIT-V2-BUG-007：rollback 自身失败时仍保留 items，并明确告警不可安全继续写。"""
+    store = ConfigStore(db_path=tmp_path / "rollback_fail.db")
+    proxy = _ConnMethodProxy(store.conn)
+    store.conn = proxy  # type: ignore[assignment]
+    writer = HistoryWriter(store, flush_interval=3600.0)
+    try:
+        writer.enqueue("keep-me", "persona", 1)
+
+        def _fail_commit():
+            raise sqlite3.OperationalError("disk I/O error")
+
+        def _fail_rollback():
+            raise sqlite3.OperationalError("cannot rollback")
+
+        proxy._commit_hook = _fail_commit
+        proxy._rollback_hook = _fail_rollback
+
+        with caplog.at_level(logging.ERROR, logger="app.history_writer"):
+            writer.flush()
+
+        assert writer.buffer_size() == 1, "rollback 失败也不得丢弃 items"
+        messages = " ".join(r.message for r in caplog.records)
+        assert "history_flush_rollback_failed" in messages
+        assert "not claiming safe retry" in messages
+    finally:
+        # 解除失败钩子，尽量结束残留事务，避免 stop→flush 再次踩坏连接
+        proxy._commit_hook = None
+        proxy._rollback_hook = None
+        try:
+            if proxy.in_transaction:
+                proxy.rollback()
+        except Exception:
+            pass
         writer.stop()
         store.close()
 
@@ -360,7 +469,7 @@ def test_flush_failure_retries_on_next_flush(tmp_path, monkeypatch):
 def test_flush_failure_backfill_preserves_order(monkeypatch):
     """W-DATA-LOSS-001：回填使用 appendleft(reversed)，保持 FIFO 时间序。"""
     config = MagicMock()
-    config.conn.executemany.side_effect = RuntimeError("db locked")
+    config.conn.executemany.side_effect = sqlite3.OperationalError("db locked")
 
     writer = HistoryWriter(config, flush_interval=3600.0, buffer_max=100)
     try:
@@ -397,7 +506,7 @@ def test_flush_failure_backfill_overflow_drops_gracefully(caplog, monkeypatch):
     monkeypatch.setattr("app.history_writer._logger", logger)
 
     config = MagicMock()
-    config.conn.executemany.side_effect = RuntimeError("db locked")
+    config.conn.executemany.side_effect = sqlite3.OperationalError("db locked")
 
     # buffer_max=2，正常回填不溢出
     writer = HistoryWriter(config, flush_interval=3600.0, buffer_max=2)

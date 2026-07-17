@@ -98,6 +98,7 @@ def test_theme_static_assets_present():
     assert 'id="themeToggle"' in html
     assert "danmu_console_theme" in html
     assert '[data-theme="dark"]' in css
+    assert "color-scheme: dark" in base_css
     assert "--tooltip-bg" in base_css
     assert "--tooltip-fg" in base_css
     assert "background-color: var(--tooltip-bg)" in components_css

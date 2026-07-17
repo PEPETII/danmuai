@@ -40,7 +40,6 @@ from app.live_freshness import (
     build_local_fallback_batch,
     is_model_slow,
 )
-from app.main_bililive_dm_mixin import DanmuAppBililiveDmMixin
 from app.main_floating_panel_mixin import DanmuAppFloatingPanelMixin
 from app.main_overlay_mixin import DanmuAppOverlayMixin
 from app.main_pet_mixin import DanmuAppPetMixin
@@ -104,7 +103,6 @@ class DanmuApp(
     DanmuAppPetMixin,
     DanmuAppOverlayMixin,
     DanmuAppFloatingPanelMixin,
-    DanmuAppBililiveDmMixin,
     DanmuAppScreenTopologyMixin,
     DanmuAppRequestContextMixin,
     DanmuAppMemeMixin,
@@ -772,9 +770,8 @@ class DanmuApp(
         request_started_at: float,
         reply_received_at: float,
     ) -> None:
-        self._reset_failure_backoff_if_needed()
         self._consume_request_timing(request_round, screenshot_id, scene_generation)
-        self._generation_pipeline.handle_reply_parsed(
+        enqueued = self._generation_pipeline.handle_reply_parsed(
             text=text,
             persona_id=persona_id,
             request_round=request_round,
@@ -784,6 +781,8 @@ class DanmuApp(
             request_started_at=request_started_at,
             reply_received_at=reply_received_at,
         )
+        if enqueued:
+            self._reset_failure_backoff_if_needed()
 
     def _abort_ai_reply_early(
         self,
