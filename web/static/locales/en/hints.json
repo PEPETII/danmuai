@@ -79,7 +79,6 @@
     "hintMemeCollectTitle": "Meme collect rhythm: interval seconds and batch size.",
     "hintMemeDisplayTitle": "Meme display rhythm: interval seconds and batch size.",
     "hintPersonaActiveTitle": "Multiple checked personas: one random per round; Save active list to apply.",
-    "custom-models": "Model profiles: multiple endpoint/model/key sets with optional default; keys separate from global above.",
-    "compress-preview": "Upload a sample image to preview compression at current max width and JPEG quality. In-memory only."
+    "custom-models": "Model profiles: multiple endpoint/model/key sets with optional default; keys separate from global above."
   }
 }

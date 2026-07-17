@@ -46,7 +46,8 @@ import {
   reloadConfigFromServer,
   switchSettingsTab,
   getActiveSettingsTabId,
-} from './modules/settings.js';
+} from './modules/settings.js?v=20260717-number-stepper-v1';
+import { initNumberSteppers } from './modules/number-stepper.js?v=20260717-number-stepper-v1';
 import {
   configureGuideTabs,
   getActiveGuideTabId,
@@ -182,7 +183,7 @@ function showToast(message, isError = false) {
 
 async function withLoadingState(btn, originalText, asyncFn, successText = null, successDurationMs = 2000) {
   if (!btn) return asyncFn();
-  const loadingText = originalText ? t('dynamic.app.originalText_中') : t('common.processing');
+  const loadingText = originalText ? t('dynamic.app.originalText_中', { originalText }) : t('common.processing');
   const savedOriginal = originalText || btn.textContent;
   btn.disabled = true;
   btn.textContent = loadingText;
@@ -468,7 +469,7 @@ function navigate(page) {
   if (page === 'guide') {
     switchGuideTab(getActiveGuideTabId());
   }
-  if (page === 'live-output' || page === 'bililive-dm') {
+  if (page === 'live-output') {
     switchLiveSettingsTab(page);
     page = 'live-settings';
   }
@@ -640,6 +641,7 @@ async function init() {
       }
     },
   });
+  initNumberSteppers(document);
   configureGuideTabs({
     onGuideTabSwitch: (tabId) => {
       if (tabId === 'logs') {

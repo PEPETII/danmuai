@@ -35,8 +35,8 @@ function formatCustomPoolCount() {
   const total = danmuPoolMeta?.custom_count ?? 0;
   const max = danmuPoolMeta?.custom_max ?? 20000;
   const manual = danmuPoolMeta?.manual_count;
-  const base = t('dynamic.appDanmuPoolPage.自定义库_total_max');
-  return manual != null ? t('dynamic.appDanmuPoolPage.base_手动_manual_条') : base;
+  const base = t('dynamic.appDanmuPoolPage.自定义库_total_max', { total, max });
+  return manual != null ? t('dynamic.appDanmuPoolPage.base_手动_manual_条', { base, manual }) : base;
 }
 
 function updatePoolCustomPager() {
@@ -45,7 +45,11 @@ function updatePoolCustomPager() {
   const nextBtn = document.getElementById('btnPoolCustomNext');
   const totalPages = Math.max(1, Math.ceil(listTotal / PAGE_SIZE));
   if (pageInfo) {
-    pageInfo.textContent = t('dynamic.appDanmuPoolPage.第_currentPage_tot');
+    pageInfo.textContent = t('dynamic.appDanmuPoolPage.第_currentPage_tot', {
+      currentPage,
+      totalPages,
+      pageSize: PAGE_SIZE,
+    });
   }
   if (prevBtn) prevBtn.disabled = currentPage <= 1;
   if (nextBtn) nextBtn.disabled = currentPage >= totalPages;
@@ -67,10 +71,11 @@ function renderCustomDanmuPoolList(payload) {
     const li = document.createElement('li');
     li.className = 'danmu-pool-custom-item';
     const label = document.createElement('label');
-    label.className = 'flex items-start gap-2 text-warmText';
+    label.className = 'toggle-switch flex items-start gap-2 text-warmText';
     const cb = document.createElement('input');
     cb.type = 'checkbox';
-    cb.className = 'pool-custom-cb accent-warmPink mt-1';
+    cb.setAttribute('role', 'switch');
+    cb.className = 'pool-custom-cb mt-1';
     if (id != null) cb.dataset.id = String(id);
     const span = document.createElement('span');
     span.textContent = text;
@@ -167,7 +172,10 @@ async function importCustomDanmuPoolTxtFiles(fileList) {
     for (let i = 0; i < files.length; i += 1) {
       const lineCount = countFileLines(readResults[i].text);
       if (lineCount > MAX_LINES_PER_FILE) {
-        showToast(t('dynamic.appDanmuPoolPage.文件_files_i_name_超过'), true);
+        showToast(t('dynamic.appDanmuPoolPage.文件_files_i_name_超过', {
+          fileName: files[i].name,
+          maxLines: MAX_LINES_PER_FILE,
+        }), true);
         return;
       }
     }
@@ -185,7 +193,7 @@ async function importCustomDanmuPoolTxtFiles(fileList) {
     const added = result.added || 0;
     const skipped = result.skipped || 0;
     const skipHint = buildImportSkippedHint(result);
-    let message = t('dynamic.appDanmuPoolPage.导入成功_新增_added_条_跳过');
+    let message = t('dynamic.appDanmuPoolPage.导入成功_新增_added_条_跳过', { added, skipped, skipHint });
     if (readResults.some((r) => r.hasReplacement)) {
       message += t('dynamic.appDanmuPoolPage.部分字符无法识别');
     }
@@ -260,7 +268,7 @@ async function deleteSelectedCustomDanmuPoolItems() {
   const totalPages = Math.max(1, Math.ceil((danmuPoolMeta.custom_count || 0) / PAGE_SIZE));
   if (currentPage > totalPages) currentPage = totalPages;
   await loadCustomPage(currentPage);
-  showToast(t('dynamic.appDanmuPoolPage.已删除_result_removed_条'));
+  showToast(t('dynamic.appDanmuPoolPage.已删除_result_removed_条', { removed: result.removed }));
 }
 
 export function initDanmuPoolPage(deps = {}) {

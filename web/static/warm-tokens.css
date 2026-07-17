@@ -16,5 +16,5 @@
 @import url('/static/warm-tokens-base.css');
 @import url('/static/warm-tokens-layout.css');
 @import url('/static/warm-tokens-components.css');
-@import url('/static/warm-tokens-pages.css');
+@import url('/static/warm-tokens-pages.css?v=20260717-number-stepper-v2');
 @import url('/static/warm-tokens-dark.css');

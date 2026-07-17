@@ -170,7 +170,9 @@ async function setProfileAsDefault(index, model) {
   }
   const cfg = await customModelDeps.reloadConfigFromServer();
   customModelDeps.updateModelActiveSourceBanner(cfg);
-  customModelDeps.showToast(t('dynamic.settingsCustomModels.已设为默认模型_res_default_mo'));
+  customModelDeps.showToast(t('dynamic.settingsCustomModels.已设为默认模型_res_default_mo', {
+    modelId: res.default_model_id || model.modelId,
+  }));
   loadCustomModels();
 }
 
@@ -268,7 +270,9 @@ function addTagChip(value) {
   const trimmed = String(value || '').trim();
   if (!trimmed) return false;
   if (trimmed.length > TAG_MAX_LEN) {
-    customModelDeps.showToast(t('dynamic.settingsCustomModels.模型_ID_长度超过_TAG_MAX_LEN'), true);
+    customModelDeps.showToast(t('dynamic.settingsCustomModels.模型_ID_长度超过_TAG_MAX_LEN', {
+      maxLen: TAG_MAX_LEN,
+    }), true);
     return false;
   }
   const existing = getModelIdsFromChips();
@@ -316,7 +320,9 @@ function updateProviderWebsiteDisplay(providerId) {
   const provider = findProvider(providerId);
   if (nameEl) {
     if (provider && provider.id) {
-      nameEl.textContent = t('dynamic.settingsCustomModels.当前预设_provider_label');
+      nameEl.textContent = t('dynamic.settingsCustomModels.当前预设_provider_label', {
+        providerLabel: provider.label,
+      });
       nameEl.classList.remove('hidden');
     } else {
       nameEl.textContent = '';
@@ -605,7 +611,7 @@ export function formatDeleteModelMessage(profile) {
   const ids = Array.isArray(profile?.model_ids) ? profile.model_ids : [];
   const n = ids.length || 1;
   const display = name || t('dynamic.settingsCustomModels.这条模型档案');
-  return t('dynamic.settingsCustomModels.确定删除模型_display_吗_该档案包');
+  return t('dynamic.settingsCustomModels.确定删除模型_display_吗_该档案包', { display, n });
 }
 
 /** 一次性监听清理句柄（避免内存泄漏） */

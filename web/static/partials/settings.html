@@ -26,7 +26,7 @@
         </div>
       </header>
 
-      <!-- 设置 tab 列表：api / mic / danmu-read / danmu / bililive-dm / capture / rhythm / font -->
+      <!-- 设置 tab 列表：api / mic / danmu-read / danmu / capture / rhythm / font -->
       <form id="settingsForm" class="card p-8 space-y-0">
         <div class="settings-tabs-bar">
           <div class="settings-tabs" role="tablist" data-i18n-aria-label="settings.aria.弹幕设置分类" aria-label="弹幕设置分类">
@@ -98,9 +98,9 @@
             </div>
           </div>
           <div class="mt-2">
-            <label class="flex items-center gap-2 text-sm font-semibold text-warmText">
-              <input type="checkbox" id="use_thinking" class="accent-warmPink">
-              思考模式
+            <label class="toggle-switch">
+              <input type="checkbox" id="use_thinking" role="switch">
+              <span>思考模式</span>
             </label>
             <p class="text-xs text-gray-400 mt-1">开启后模型会先进行内部思考再生成弹幕，响应延迟增加且 Token 消耗上升。思考过程不会显示在弹幕中。</p>
             <p id="thinkingModeHint" class="hidden text-xs text-amber-700 mt-1">当前 API 模式不支持思考模式</p>
@@ -121,18 +121,18 @@
           </h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div class="md:col-span-2">
-              <label class="flex items-center gap-2 text-sm font-semibold text-warmText">
-                <input type="checkbox" id="mic_mode_enabled" class="accent-warmPink">
-                麦克风模式（实验）
+              <label class="toggle-switch">
+                <input type="checkbox" id="mic_mode_enabled" role="switch">
+                <span>麦克风模式（实验）</span>
               </label>
               <p class="text-xs text-gray-400 mt-1">开启后，说完一句话会额外生成几条接话弹幕，并插队显示，不影响看屏识图的节奏。请<strong>说完后停顿约半秒</strong>；环境较吵时启动后会自动校准。录音只在内存里处理，不会保存到硬盘。</p>
               <div id="micModeHint" class="hidden mt-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="alert" aria-live="polite"></div>
               <p id="micActiveSourceBanner" class="text-xs text-sky-700 mt-2 hidden"></p>
             </div>
             <div class="md:col-span-2">
-              <label class="flex items-center gap-2 text-sm font-semibold text-warmText">
-                <input type="checkbox" id="mic_use_visual_model" class="accent-warmPink" checked>
-                与识图模型相同
+              <label class="toggle-switch">
+                <input type="checkbox" id="mic_use_visual_model" role="switch" checked>
+                <span>与识图模型相同</span>
               </label>
               <p class="text-xs text-gray-400 mt-1">默认开启：开麦使用「API 与模型」里的接口与视觉模型。关闭后可单独配置支持麦克风的模型（识图仍用视觉模型）。</p>
             </div>
@@ -210,9 +210,9 @@
             <p class="mt-2 text-xs text-gray-500">MiMo 参数说明见 <a href="https://platform.xiaomimimo.com/docs/zh-CN/usage-guide/speech-synthesis-v2.5" target="_blank" rel="noopener noreferrer" class="text-warmPink underline">语音合成文档</a>。</p>
           </div>
           <div class="space-y-4">
-            <label class="flex items-center gap-2 font-semibold text-warmText">
-              <input type="checkbox" id="danmuReadEnabled" class="accent-warmPink">
-              启用读弹幕
+            <label class="toggle-switch">
+              <input type="checkbox" id="danmuReadEnabled" role="switch">
+              <span>启用读弹幕</span>
             </label>
             <div class="settings-field max-w-xs">
               <label for="danmuReadInterval" class="settings-field-label">朗读间隔（秒）</label>
@@ -302,72 +302,106 @@
               </div>
             </div>
           </div>
-          <div id="normalModeOptions" class="settings-section space-y-3">
-            <p class="settings-section-title">每批弹幕</p>
-            <div class="settings-params-grid cols-2">
-              <div class="settings-field">
-                <label for="normal_recognition_interval_sec" class="settings-field-label">识别间隔（秒）</label>
-                <input type="number" name="normal_recognition_interval_sec" id="normal_recognition_interval_sec" min="1" max="60" step="1" class="settings-field-control">
+          <div class="settings-rhythm-accordion" data-settings-rhythm-accordion>
+            <section class="settings-rhythm-accordion-item">
+              <h4 class="settings-rhythm-accordion-heading">
+                <button type="button" id="settingsDanmuBatchAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="settingsDanmuBatchAccordionPanel">
+                  <span>每批弹幕</span>
+                  <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
+                </button>
+              </h4>
+              <div id="settingsDanmuBatchAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="settingsDanmuBatchAccordionTrigger" hidden>
+                <div id="normalModeOptions" class="space-y-3">
+                  <div class="settings-rhythm-accordion-fields">
+                    <div class="settings-rhythm-accordion-field">
+                      <label for="normal_recognition_interval_sec" class="settings-field-label">识别间隔（秒）</label>
+                      <input type="number" name="normal_recognition_interval_sec" id="normal_recognition_interval_sec" min="1" max="60" step="1" class="settings-field-control">
+                    </div>
+                    <div class="settings-rhythm-accordion-field">
+                      <label for="normal_reply_count" class="settings-field-label">每次生成弹幕数</label>
+                      <input type="number" name="normal_reply_count" id="normal_reply_count" min="1" max="50" step="1" class="settings-field-control">
+                    </div>
+                  </div>
+                  <p id="normalBatchTotalHint" class="settings-section-hint">每次固定 5 条 · 保存后会同步到人格工坊的「输出契约」</p>
+                  <pre id="normalBatchContractPreview" class="settings-contract-preview"></pre>
+                </div>
               </div>
-              <div class="settings-field">
-                <label for="normal_reply_count" class="settings-field-label">每次生成弹幕数</label>
-                <input type="number" name="normal_reply_count" id="normal_reply_count" min="1" max="50" step="1" class="settings-field-control">
+            </section>
+            <section class="settings-rhythm-accordion-item">
+              <h4 class="settings-rhythm-accordion-heading">
+                <button type="button" id="settingsDanmuAppearanceAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="settingsDanmuAppearanceAccordionPanel">
+                  <span>外观与行为</span>
+                  <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
+                </button>
+              </h4>
+              <div id="settingsDanmuAppearanceAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="settingsDanmuAppearanceAccordionTrigger" hidden>
+                <div class="settings-rhythm-accordion-fields">
+                  <div class="settings-rhythm-accordion-field">
+                    <label for="danmu_max_chars" class="settings-field-label">最大弹幕字数</label>
+                    <input type="number" name="danmu_max_chars" id="danmu_max_chars" min="5" max="80" step="1" class="settings-field-control" placeholder="15">
+                  </div>
+                  <div class="settings-rhythm-accordion-field">
+                    <label for="dedup_threshold" class="settings-field-label">去重阈值</label>
+                    <input type="number" name="dedup_threshold" id="dedup_threshold" min="0" max="1" step="0.05" class="settings-field-control">
+                  </div>
+                  <div class="settings-rhythm-accordion-field">
+                    <label for="reply_queue_max_items" class="settings-field-label">回复队列上限</label>
+                    <input type="number" name="reply_queue_max_items" id="reply_queue_max_items" min="0" max="9999" step="1" class="settings-field-control" data-i18n-placeholder="settings.placeholder.k_0_无限制" placeholder="0=无限制">
+                  </div>
+                </div>
               </div>
-            </div>
-            <p id="normalBatchTotalHint" class="settings-section-hint">每次固定 5 条 · 保存后会同步到人格工坊的「输出契约」</p>
-            <pre id="normalBatchContractPreview" class="settings-contract-preview"></pre>
-          </div>
-          <p class="settings-section-title mt-2">外观与行为</p>
-          <div class="settings-params-grid cols-3">
-            <div class="settings-field">
-              <label for="danmu_max_chars" class="settings-field-label">最大弹幕字数</label>
-              <input type="number" name="danmu_max_chars" id="danmu_max_chars" min="5" max="80" step="1" class="settings-field-control" placeholder="15">
-            </div>
-            <div class="settings-field">
-              <label for="dedup_threshold" class="settings-field-label">去重阈值</label>
-              <input type="number" name="dedup_threshold" id="dedup_threshold" min="0" max="1" step="0.05" class="settings-field-control">
-            </div>
-            <div class="settings-field">
-              <label for="reply_queue_max_items" class="settings-field-label">回复队列上限</label>
-              <input type="number" name="reply_queue_max_items" id="reply_queue_max_items" min="0" max="9999" step="1" class="settings-field-control" data-i18n-placeholder="settings.placeholder.k_0_无限制" placeholder="0=无限制">
-            </div>
-          </div>
-          <div id="scrollingModeFields" class="space-y-3">
-            <p class="settings-section-title">横向弹幕</p>
-            <div class="settings-params-grid cols-3">
-              <div class="settings-field">
-                <label for="danmu_speed" class="settings-field-label">弹幕速度</label>
-                <input type="number" name="danmu_speed" id="danmu_speed" min="0.5" max="5" step="0.1" class="settings-field-control">
+            </section>
+            <section class="settings-rhythm-accordion-item">
+              <h4 class="settings-rhythm-accordion-heading">
+                <button type="button" id="settingsDanmuScrollingAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="settingsDanmuScrollingAccordionPanel">
+                  <span>横向弹幕</span>
+                  <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
+                </button>
+              </h4>
+              <div id="settingsDanmuScrollingAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="settingsDanmuScrollingAccordionTrigger" hidden>
+                <div id="scrollingModeFields" class="space-y-3">
+                  <div class="settings-rhythm-accordion-fields">
+                    <div class="settings-rhythm-accordion-field">
+                      <label for="danmu_speed" class="settings-field-label">弹幕速度</label>
+                      <input type="number" name="danmu_speed" id="danmu_speed" min="0.5" max="5" step="0.1" class="settings-field-control">
+                    </div>
+                    <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--stacked">
+                      <label for="opacity" class="settings-field-label">不透明度 (%)</label>
+                      <div class="settings-rhythm-accordion-control-stack">
+                        <input type="number" name="opacity" id="opacity" min="0" max="100" class="settings-field-control">
+                        <div id="opacity-warning" class="text-xs text-amber-600 mt-1 hidden" role="alert">透明度过低可能导致弹幕完全不可见</div>
+                      </div>
+                    </div>
+                    <div class="settings-rhythm-accordion-field">
+                      <label for="hotkey" class="settings-field-label">全局快捷键</label>
+                      <input type="text" name="hotkey" id="hotkey" class="settings-field-control" placeholder="Ctrl+Shift+B">
+                    </div>
+                    <div class="settings-rhythm-accordion-field">
+                      <label for="eviction_mode" class="settings-field-label">退场模式</label>
+                      <select name="eviction_mode" id="eviction_mode" class="settings-field-control text-left">
+                        <option value="natural">自然</option>
+                        <option value="accelerate">加速</option>
+                      </select>
+                    </div>
+                    <div class="settings-rhythm-accordion-field">
+                      <label for="danmu_pending_entry_cap" class="settings-field-label">入口区 pending 上限</label>
+                      <input type="number" name="danmu_pending_entry_cap" id="danmu_pending_entry_cap" min="0" max="9999" step="1" class="settings-field-control" data-i18n-placeholder="settings.placeholder.默认_300_0_无限制" placeholder="默认 300，0=无限制">
+                    </div>
+                    <div class="settings-rhythm-accordion-field">
+                      <label for="danmu_track_retention_cap" class="settings-field-label">轨道总保留上限</label>
+                      <input type="number" name="danmu_track_retention_cap" id="danmu_track_retention_cap" min="0" max="9999" step="1" class="settings-field-control" data-i18n-placeholder="settings.placeholder.默认_600_0_无限制" placeholder="默认 600，0=无限制">
+                    </div>
+                    <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--toggle">
+                      <span class="settings-field-label">空轨道时加速补位</span>
+                      <label class="toggle-switch">
+                        <input type="checkbox" id="empty_accel" role="switch">
+                        <span aria-hidden="true"></span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div class="settings-field">
-                <label for="opacity" class="settings-field-label">不透明度 (%)</label>
-                <input type="number" name="opacity" id="opacity" min="0" max="100" class="settings-field-control">
-                <div id="opacity-warning" class="text-xs text-amber-600 mt-1 hidden" role="alert">透明度过低可能导致弹幕完全不可见</div>
-              </div>
-              <div class="settings-field">
-                <label for="hotkey" class="settings-field-label">全局快捷键</label>
-                <input type="text" name="hotkey" id="hotkey" class="settings-field-control" placeholder="Ctrl+Shift+B">
-              </div>
-              <div class="settings-field">
-                <label for="eviction_mode" class="settings-field-label">退场模式</label>
-                <select name="eviction_mode" id="eviction_mode" class="settings-field-control text-left">
-                  <option value="natural">自然</option>
-                  <option value="accelerate">加速</option>
-                </select>
-              </div>
-              <div class="settings-field">
-                <label for="danmu_pending_entry_cap" class="settings-field-label">入口区 pending 上限</label>
-                <input type="number" name="danmu_pending_entry_cap" id="danmu_pending_entry_cap" min="0" max="9999" step="1" class="settings-field-control" data-i18n-placeholder="settings.placeholder.默认_300_0_无限制" placeholder="默认 300，0=无限制">
-              </div>
-              <div class="settings-field">
-                <label for="danmu_track_retention_cap" class="settings-field-label">轨道总保留上限</label>
-                <input type="number" name="danmu_track_retention_cap" id="danmu_track_retention_cap" min="0" max="9999" step="1" class="settings-field-control" data-i18n-placeholder="settings.placeholder.默认_600_0_无限制" placeholder="默认 600，0=无限制">
-              </div>
-            </div>
-            <p class="settings-section-title">开关选项</p>
-            <div class="settings-toggle-row">
-              <label class="flex items-center gap-2"><input type="checkbox" id="empty_accel" class="accent-warmPink"> 空轨道时加速补位</label>
-            </div>
+            </section>
           </div>
         </div>
         <!-- 识图区域 -->
@@ -395,33 +429,27 @@
           <h3 class="text-lg font-bold text-warmText flex items-center gap-2">
             <svg class="ui-icon text-warmPink" aria-hidden="true"><use href="#i-gauge"></use></svg> 节奏与截图策略
           </h3>
-          <p class="settings-section-title">识图节奏与压缩</p>
-          <div class="settings-params-grid cols-3">
-            <div class="settings-field">
-              <label for="image_max_width" class="settings-field-label">最大宽度 (px)</label>
-              <input type="number" name="image_max_width" id="image_max_width" min="256" max="4096" step="128" class="settings-field-control">
-            </div>
-            <div class="settings-field">
-              <label for="image_quality" class="settings-field-label">JPEG 质量 (%)</label>
-              <input type="number" name="image_quality" id="image_quality" min="1" max="100" value="85" class="settings-field-control">
-            </div>
-          </div>
-          <div id="compressPreviewSection" class="settings-section space-y-3">
-            <p class="settings-section-title">图像压缩预览</p>
-            <input type="file" id="previewImageFile" accept="image/*" class="text-sm text-warmText w-full">
-            <div id="previewImageInfo" class="text-xs text-gray-500 min-h-[1.25rem]"></div>
-            <div id="previewImageFrame" class="preview-image-frame grid grid-cols-1 sm:grid-cols-2 gap-3 min-h-[12rem] rounded-xl border border-dashed border-pastelYellow/80 bg-white/60 p-3">
-              <div class="preview-slot flex flex-col items-center justify-center gap-1 min-h-[10rem]">
-                <span class="text-xs font-semibold text-gray-400">原图</span>
-                <img id="previewImageOrig" alt="原图" class="max-h-44 max-w-full rounded-lg object-contain hidden">
-                <p id="previewOrigPlaceholder" class="text-xs text-gray-400 text-center px-2">未选择</p>
+          <div class="settings-rhythm-accordion" data-settings-rhythm-accordion>
+            <section class="settings-rhythm-accordion-item">
+              <h4 class="settings-rhythm-accordion-heading">
+                <button type="button" id="settingsRhythmAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="settingsRhythmCompressionPanel">
+                  <span>识图节奏与压缩</span>
+                  <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
+                </button>
+              </h4>
+              <div id="settingsRhythmCompressionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="settingsRhythmAccordionTrigger" hidden>
+                <div class="settings-rhythm-accordion-fields">
+                  <div class="settings-rhythm-accordion-field">
+                    <label for="image_max_width" class="settings-field-label">最大宽度 (px)</label>
+                    <input type="number" name="image_max_width" id="image_max_width" min="256" max="4096" step="128" class="settings-field-control">
+                  </div>
+                  <div class="settings-rhythm-accordion-field">
+                    <label for="image_quality" class="settings-field-label">JPEG 质量 (%)</label>
+                    <input type="number" name="image_quality" id="image_quality" min="1" max="100" value="85" class="settings-field-control">
+                  </div>
+                </div>
               </div>
-              <div class="preview-slot flex flex-col items-center justify-center gap-1 min-h-[10rem]">
-                <span class="text-xs font-semibold text-gray-400">压缩后 (JPEG)</span>
-                <img id="previewImageCompressed" alt="压缩后" class="max-h-44 max-w-full rounded-lg object-contain hidden">
-                <p id="previewCompressedPlaceholder" class="text-xs text-gray-400 text-center px-2">上传后显示</p>
-              </div>
-            </div>
+            </section>
           </div>
         </div>
         <!-- 字体设置 -->
@@ -429,68 +457,105 @@
           <h3 class="text-lg font-bold text-warmText flex items-center gap-2">
             <svg class="ui-icon text-warmPink" aria-hidden="true"><use href="#i-hash"></use></svg> 字体设置
           </h3>
-          <p class="settings-section-title">横向弹幕字体</p>
-          <div class="settings-params-grid cols-3">
-            <div class="settings-field">
-              <label for="danmu_font_family" class="settings-field-label">字体名</label>
-              <select id="danmu_font_family" name="danmu_font_family" class="settings-field-control text-left">
-                <option value="">— 系统默认 —</option>
-              </select>
-            </div>
-            <div class="settings-field">
-              <label for="font_size" class="settings-field-label">字号 (px)</label>
-              <input type="number" name="font_size" id="font_size" min="12" max="72" class="settings-field-control">
-            </div>
-            <div class="settings-field">
-              <label for="danmu_lines" class="settings-field-label">轨道行数</label>
-              <input type="number" name="danmu_lines" id="danmu_lines" min="12" max="20" value="20" class="settings-field-control">
-            </div>
-            <div class="settings-field">
-              <label for="layout_mode" class="settings-field-label">布局</label>
-              <select name="layout_mode" id="layout_mode" class="settings-field-control text-left">
-                <option value="fullscreen">全屏</option>
-                <option value="3/4">3/4</option>
-                <option value="1/2">1/2</option>
-                <option value="1/4">1/4</option>
-              </select>
-            </div>
-          </div>
-          <div class="settings-toggle-row">
-            <label class="flex items-center gap-2"><input type="checkbox" id="danmu_font_bold" name="danmu_font_bold" class="settings-field-control accent-warmPink"> 横向弹幕加粗</label>
-          </div>
-          <div class="settings-section space-y-3">
-            <p class="settings-section-title">弹幕颜色</p>
-            <div id="danmuFontColorSwatches" class="flex flex-wrap gap-3"></div>
-            <div class="flex items-center gap-4 mt-2">
-              <label class="flex items-center gap-2 text-sm font-semibold text-warmText cursor-pointer">
-                <input type="radio" name="danmu_font_color_mode_radio" value="equal" id="danmuFontColorModeEqual" checked>
-                平均概率
-              </label>
-              <label class="flex items-center gap-2 text-sm font-semibold text-warmText cursor-pointer">
-                <input type="radio" name="danmu_font_color_mode_radio" value="weighted" id="danmuFontColorModeWeighted">
-                自定义概率
-              </label>
-            </div>
-            <div id="danmuFontColorWeights" class="hidden space-y-2 mt-2"></div>
-            <input type="hidden" name="danmu_font_color_selected" id="danmu_font_color_selected">
-            <input type="hidden" name="danmu_font_color_weights" id="danmu_font_color_weights">
-            <input type="hidden" name="danmu_font_color_mode" id="danmu_font_color_mode">
-          </div>
-          <p class="settings-section-title">悬浮窗字体</p>
-          <div class="settings-params-grid cols-3">
-            <div class="settings-field">
-              <label for="floating_panel_font_family" class="settings-field-label">字体名</label>
-              <select id="floating_panel_font_family" name="floating_panel_font_family" class="settings-field-control text-left">
-                <option value="">— 系统默认 —</option>
-              </select>
-            </div>
-            <div class="settings-field">
-              <label for="floating_panel_font_size" class="settings-field-label">字号 (px)</label>
-              <input type="number" name="floating_panel_font_size" id="floating_panel_font_size" min="12" max="48" class="settings-field-control">
-            </div>
-          </div>
-          <div class="settings-toggle-row">
-            <label class="flex items-center gap-2"><input type="checkbox" id="floating_panel_font_bold" name="floating_panel_font_bold" class="settings-field-control accent-warmPink"> 悬浮窗加粗</label>
+          <div class="settings-rhythm-accordion" data-settings-rhythm-accordion>
+            <section class="settings-rhythm-accordion-item">
+              <h4 class="settings-rhythm-accordion-heading">
+                <button type="button" id="settingsFontScrollingAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="settingsFontScrollingAccordionPanel">
+                  <span>横向弹幕字体</span>
+                  <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
+                </button>
+              </h4>
+              <div id="settingsFontScrollingAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="settingsFontScrollingAccordionTrigger" hidden>
+                <div class="settings-rhythm-accordion-fields">
+                  <div class="settings-rhythm-accordion-field">
+                    <label for="danmu_font_family" class="settings-field-label">字体名</label>
+                    <select id="danmu_font_family" name="danmu_font_family" class="settings-field-control text-left">
+                      <option value="">— 系统默认 —</option>
+                    </select>
+                  </div>
+                  <div class="settings-rhythm-accordion-field">
+                    <label for="font_size" class="settings-field-label">字号 (px)</label>
+                    <input type="number" name="font_size" id="font_size" min="12" max="72" class="settings-field-control">
+                  </div>
+                  <div class="settings-rhythm-accordion-field">
+                    <label for="danmu_lines" class="settings-field-label">轨道行数</label>
+                    <input type="number" name="danmu_lines" id="danmu_lines" min="12" max="20" value="20" class="settings-field-control">
+                  </div>
+                  <div class="settings-rhythm-accordion-field">
+                    <label for="layout_mode" class="settings-field-label">布局</label>
+                    <select name="layout_mode" id="layout_mode" class="settings-field-control text-left">
+                      <option value="fullscreen">全屏</option>
+                      <option value="3/4">3/4</option>
+                      <option value="1/2">1/2</option>
+                      <option value="1/4">1/4</option>
+                    </select>
+                  </div>
+                  <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--toggle">
+                    <span class="settings-field-label">横向弹幕加粗</span>
+                    <label class="toggle-switch">
+                      <input type="checkbox" id="danmu_font_bold" name="danmu_font_bold" role="switch">
+                      <span aria-hidden="true"></span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </section>
+            <section class="settings-rhythm-accordion-item">
+              <h4 class="settings-rhythm-accordion-heading">
+                <button type="button" id="settingsFontColorAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="settingsFontColorAccordionPanel">
+                  <span>弹幕颜色</span>
+                  <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
+                </button>
+              </h4>
+              <div id="settingsFontColorAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="settingsFontColorAccordionTrigger" hidden>
+                <div class="space-y-3">
+                  <div id="danmuFontColorSwatches" class="flex flex-wrap gap-3"></div>
+                  <div class="flex items-center gap-4 mt-2">
+                    <label class="flex items-center gap-2 text-sm font-semibold text-warmText cursor-pointer">
+                      <input type="radio" name="danmu_font_color_mode_radio" value="equal" id="danmuFontColorModeEqual" checked>
+                      平均概率
+                    </label>
+                    <label class="flex items-center gap-2 text-sm font-semibold text-warmText cursor-pointer">
+                      <input type="radio" name="danmu_font_color_mode_radio" value="weighted" id="danmuFontColorModeWeighted">
+                      自定义概率
+                    </label>
+                  </div>
+                  <div id="danmuFontColorWeights" class="hidden space-y-2 mt-2"></div>
+                  <input type="hidden" name="danmu_font_color_selected" id="danmu_font_color_selected">
+                  <input type="hidden" name="danmu_font_color_weights" id="danmu_font_color_weights">
+                  <input type="hidden" name="danmu_font_color_mode" id="danmu_font_color_mode">
+                </div>
+              </div>
+            </section>
+            <section class="settings-rhythm-accordion-item">
+              <h4 class="settings-rhythm-accordion-heading">
+                <button type="button" id="settingsFontFloatingAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="settingsFontFloatingAccordionPanel">
+                  <span>悬浮窗字体</span>
+                  <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
+                </button>
+              </h4>
+              <div id="settingsFontFloatingAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="settingsFontFloatingAccordionTrigger" hidden>
+                <div class="settings-rhythm-accordion-fields">
+                  <div class="settings-rhythm-accordion-field">
+                    <label for="floating_panel_font_family" class="settings-field-label">字体名</label>
+                    <select id="floating_panel_font_family" name="floating_panel_font_family" class="settings-field-control text-left">
+                      <option value="">— 系统默认 —</option>
+                    </select>
+                  </div>
+                  <div class="settings-rhythm-accordion-field">
+                    <label for="floating_panel_font_size" class="settings-field-label">字号 (px)</label>
+                    <input type="number" name="floating_panel_font_size" id="floating_panel_font_size" min="12" max="48" class="settings-field-control">
+                  </div>
+                  <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--toggle">
+                    <span class="settings-field-label">悬浮窗加粗</span>
+                    <label class="toggle-switch">
+                      <input type="checkbox" id="floating_panel_font_bold" name="floating_panel_font_bold" role="switch">
+                      <span aria-hidden="true"></span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </section>
           </div>
           <div class="settings-section space-y-3">
             <p class="settings-section-title">导入本地字体</p>

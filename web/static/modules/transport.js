@@ -100,7 +100,7 @@ export async function refreshSession() {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     const detail = formatApiError(err.detail, res.statusText);
     throw new Error(
-      t('dynamic.transport.无法获取控制台会话_HTTP_res_sta')
+      t('dynamic.transport.无法获取控制台会话_HTTP_res_sta', { status: res.status, detail })
       + t('dynamic.transport.请确认终端有_Web_控制台_HTTP_WS_已'),
     );
   }

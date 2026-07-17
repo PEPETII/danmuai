@@ -184,7 +184,9 @@ export function initLiveOverlayPanel(deps = {}) {
         showToast(t('dynamic.appLiveOverlayPanel.测试弹幕已发送'));
         await refreshLiveOverlayStatus();
       } catch (error) {
-        showToast(t('dynamic.appLiveOverlayPanel.发送失败_error_message'), true);
+        showToast(t('dynamic.appLiveOverlayPanel.发送失败_error_message', {
+          error: error?.message || String(error),
+        }), true);
       }
     });
   }

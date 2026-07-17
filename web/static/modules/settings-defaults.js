@@ -44,7 +44,6 @@ export const CONFIG_FIELDS = [
   'mic_window_sec', 'mic_input_device_id', 'mic_api_endpoint', 'mic_api_mode', 'mic_model',
   'normal_recognition_interval_sec', 'normal_reply_count',
   'danmu_render_mode',
-  'bililive_dm_mode_enabled',
   'floating_panel_width',
   'floating_panel_max_items',
   'floating_panel_speed',
@@ -113,10 +112,10 @@ function resolveDanmuMaxCharsPreview(lang = 'zh') {
 function buildNormalReplyContractPreviewZh(count, maxChars) {
   const total = clampNormalReplyCount(count, DEFAULT_NORMAL_REPLY_COUNT);
   const limit = maxChars ?? resolveDanmuMaxCharsPreview('zh');
-  const examples = Array.from({ length: total }, (_, i) => t('dynamic.settingsDefaults.弹幕_i_1'));
+  const examples = Array.from({ length: total }, (_, i) => t('dynamic.settingsDefaults.弹幕_i_1', { index: i + 1 }));
   return (
     t('dynamic.settingsDefaults.直播弹幕评论员_只输出_JSON_字符串数组_无')
-    + t('dynamic.settingsDefaults.固定_total_条_每条_limit')
+    + t('dynamic.settingsDefaults.固定_total_条_每条_limit', { total, limit })
     + `格式：["${examples.join('", "')}"]。`
   );
 }
@@ -129,7 +128,7 @@ export function updateNormalBatchPreview() {
   countEl.value = String(count);
   const hint = document.getElementById('normalBatchTotalHint');
   if (hint) {
-    hint.textContent = t('dynamic.settingsDefaults.每次固定_count_条_保存后会同步');
+    hint.textContent = t('dynamic.settingsDefaults.每次固定_count_条_保存后会同步', { count });
   }
   const maxChars = resolveDanmuMaxCharsPreview(getLanguage());
   const preview = buildNormalReplyContractPreviewZh(count, maxChars);

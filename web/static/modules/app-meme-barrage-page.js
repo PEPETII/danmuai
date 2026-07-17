@@ -81,7 +81,9 @@ function renderMemeTagGrid(tags) {
         selectedTags.delete(tag.value);
       } else {
         if (selectedTags.size >= MAX_SELECTED_MEME_TAGS) {
-          showToast(t('dynamic.appMemeBarragePage.最多只能选择_MAX_SELECTED_ME'), true);
+          showToast(t('dynamic.appMemeBarragePage.最多只能选择_MAX_SELECTED_ME', {
+            maxTags: MAX_SELECTED_MEME_TAGS,
+          }), true);
           return;
         }
         selectedTags.add(tag.value);

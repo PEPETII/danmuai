@@ -165,8 +165,6 @@ const PET_FIELD_TIPS = {
 const SETTINGS_HEADING_TIPS = {
   'custom-models':
     'dynamic.settingsHints.模型配置档案_为不同接口地址_模型_密钥保存多套',
-  'compress-preview':
-    'dynamic.settingsHints.上传一张样图_预览当前_最大宽度_和_JPEG',
 };
 
 const CONTENT_PAGE_SECTION_TIPS = {
@@ -341,14 +339,6 @@ export function initSettingsFieldHints() {
     resolveTipText(SETTINGS_HEADING_TIPS['custom-models']),
     'tip-heading-custom-models',
   );
-  const compressTitle = document.querySelector('#compressPreviewSection > .settings-section-title');
-  if (compressTitle) {
-    attachHintToHeading(
-      compressTitle,
-      resolveTipText(SETTINGS_HEADING_TIPS['compress-preview']),
-      'tip-heading-compress-preview',
-    );
-  }
 }
 
 export function initContentPageFieldHints() {

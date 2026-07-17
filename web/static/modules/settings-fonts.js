@@ -1,5 +1,6 @@
 import { API, apiFetch, apiFormFetch } from './transport.js';
 import { t } from './i18n.js';
+import { initNumberSteppers } from './number-stepper.js?v=20260717-number-stepper-v1';
 
 let fontDeps = {
   showToast: () => {},
@@ -20,14 +21,16 @@ export async function uploadFontFile() {
   form.append('file', file, file.name);
   try {
     if (!API.token) {
-      throw new Error(t('dynamic.settingsCompressPreview.未获取会话令牌_请刷新页面或重启_DanmuAI'));
+      throw new Error(t('dynamic.settingsFonts.未获取会话令牌_请刷新页面或重启_DanmuAI_2'));
     }
     const data = await apiFormFetch('/api/fonts/import', form);
-    fontDeps.showToast(t('dynamic.settingsFonts.已导入字体_data_family'), false);
+    fontDeps.showToast(t('dynamic.settingsFonts.已导入字体_data_family', { family: data.family }), false);
     await loadFontFamilies();
     if (input) input.value = '';
   } catch (error) {
-    fontDeps.showToast(t('dynamic.settingsFonts.导入失败_error_message'), true);
+    fontDeps.showToast(t('dynamic.settingsFonts.导入失败_error_message', {
+      error: error?.message || String(error),
+    }), true);
   }
 }
 
@@ -58,7 +61,7 @@ function refreshFontSelect(families) {
     });
     if (current && !merged.includes(current)) {
       const safe = String(current).replace(/"/g, '&quot;');
-      opts.push(t('dynamic.settingsFonts.option_value_safe'));
+      opts.push(t('dynamic.settingsFonts.option_value_safe', { safe }));
     }
     return opts.join('');
   };
@@ -79,17 +82,19 @@ function renderImportedFontsList(imported) {
     node.querySelector('.font-meta').textContent =
       `（${item.original_name} · ${(item.size / 1024).toFixed(1)} KB）`;
     node.querySelector('.btn-delete-font').addEventListener('click', async () => {
-      if (!confirm(t('dynamic.settingsFonts.确认删除已导入字体_item_family'))) return;
+      if (!confirm(t('dynamic.settingsFonts.确认删除已导入字体_item_family', { family: item.family }))) return;
       try {
         await apiFetch(`/api/fonts/${item.sha256}`, { method: 'DELETE' });
-        fontDeps.showToast(t('dynamic.settingsFonts.已删除字体_item_family'), false);
+        fontDeps.showToast(t('dynamic.settingsFonts.已删除字体_item_family', { family: item.family }), false);
         const danmuSel = document.getElementById('danmu_font_family');
         const fltSel = document.getElementById('floating_panel_font_family');
         if (danmuSel && danmuSel.value === item.family) danmuSel.value = '';
         if (fltSel && fltSel.value === item.family) fltSel.value = '';
         await loadFontFamilies();
       } catch (error) {
-        fontDeps.showToast(t('dynamic.settingsFonts.删除失败_error_message'), true);
+        fontDeps.showToast(t('dynamic.settingsFonts.删除失败_error_message', {
+          error: error?.message || String(error),
+        }), true);
       }
     });
     list.appendChild(node);
@@ -194,6 +199,7 @@ function renderWeightInputs() {
     container.appendChild(row);
   });
 
+  initNumberSteppers(container);
   container.querySelectorAll('.weight-input').forEach((input) => {
     input.addEventListener('input', () => {
       normalizeWeights();

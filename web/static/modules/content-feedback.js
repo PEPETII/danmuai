@@ -48,12 +48,12 @@ function updateFeedbackQuotaHint(quota) {
   }
   const remaining = Number(quota.remaining ?? 0);
   const limit = Number(quota.limit ?? 2);
-  const hint = quota.resets_hint || t('dynamic.appErrorReporting.每_3_小时最多提交_limit_条');
+  const hint = quota.resets_hint || t('dynamic.appErrorReporting.每_3_小时最多提交_limit_条', { limit });
   if (remaining <= 0) {
     el.textContent = hint;
     el.classList.add('text-red-600');
   } else {
-    el.textContent = t('dynamic.contentFeedback.本机还可提交_remaining_2');
+    el.textContent = t('dynamic.contentFeedback.本机还可提交_remaining_2', { remaining, limit, hint });
     el.classList.remove('text-red-600');
   }
   const submitBtn = document.getElementById('btnFeedbackSubmit');

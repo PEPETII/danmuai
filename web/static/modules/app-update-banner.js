@@ -59,7 +59,11 @@ function formatProgressMeta({ progress, downloadedBytes, totalBytes }) {
   const pct = Math.max(0, Math.min(100, Number(progress) || 0));
   if (totalBytes > 0) {
     const downloaded = downloadedBytes > 0 ? downloadedBytes : Math.round((totalBytes * pct) / 100);
-    return t('dynamic.appUpdateBanner.pct_formatBytes');
+    return t('dynamic.appUpdateBanner.pct_formatBytes', {
+      pct,
+      downloaded: formatBytes(downloaded),
+      total: formatBytes(totalBytes),
+    });
   }
   return `${pct}%`;
 }
@@ -146,7 +150,10 @@ function applyVelopackStatusToProgress(status, { fallbackStatusText = '' } = {})
 
   const latest = normalizeVersionString(status?.latest_version || '');
   if (phase === 'checking' && latest && totalBytes > 0) {
-    statusText = t('dynamic.appUpdateBanner.发现新版本_latest_更新包约_f');
+    statusText = t('dynamic.appUpdateBanner.发现新版本_latest_更新包约_f', {
+      latest,
+      packageSize: formatBytes(totalBytes),
+    });
   }
 
   setUpdateProgress({
@@ -351,7 +358,7 @@ function showAppUpdateModal(latest, message) {
   const msgEl = document.getElementById('appUpdateModalMessage');
   if (!modal || !msgEl) return;
   const current = appVersionState.current || '-';
-  let text = t('dynamic.appUpdateBanner.当前版本_current_发现新版本');
+  let text = t('dynamic.appUpdateBanner.当前版本_current_发现新版本', { current, latest });
   if (message) text += `\n\n${message}`;
   msgEl.textContent = text;
   hideChannelDetail();
@@ -533,7 +540,7 @@ async function runInAppUpdateWithProgress({ fromModal = false, skipCheck = false
       totalBytes: Number(checkData?.package_size_bytes) || 0,
       statusText:
         checkData?.latest_version
-          ? t('dynamic.appUpdateBanner.发现新版本_checkData_latest')
+          ? t('dynamic.appUpdateBanner.发现新版本_checkData_latest', { latest: checkData.latest_version })
           : t('dynamic.appUpdateBanner.正在下载更新'),
     });
 
@@ -611,7 +618,7 @@ function openExternalUrl(url, fallbackMessage) {
     }
     showToast(t('dynamic.appUpdateBanner.已在浏览器中打开链接'));
   } catch {
-    showToast(fallbackMessage || t('dynamic.appUpdateBanner.请手动打开_url'));
+    showToast(fallbackMessage || t('dynamic.appUpdateBanner.请手动打开_url', { url }));
   }
 }
 
@@ -640,7 +647,7 @@ function handleQuarkUpdateClick() {
     showToast(t('dynamic.appUpdateBanner.渠道信息不可用'), true);
     return;
   }
-  const body = t('dynamic.appUpdateBanner.shareText_n_n链接_url');
+  const body = t('dynamic.appUpdateBanner.shareText_n_n链接_url', { shareText, url });
   showChannelDetail(t('dynamic.appUpdateBanner.夸克网盘'), body, `${shareText}\n${url}`, url);
 }
 
@@ -651,7 +658,7 @@ function handleBaiduUpdateClick() {
     showToast(t('dynamic.appUpdateBanner.渠道信息不可用'), true);
     return;
   }
-  const body = t('dynamic.appUpdateBanner.链接_url_n提取码_code');
+  const body = t('dynamic.appUpdateBanner.链接_url_n提取码_code', { url, code });
   showChannelDetail(t('dynamic.appUpdateBanner.百度网盘'), body, `${body}`, url);
 }
 
@@ -680,7 +687,9 @@ export async function handleCheckAppUpdateClick() {
     }
     if (data.update_available) {
       const totalBytes = Number(data.package_size_bytes) || 0;
-      const sizeHint = totalBytes > 0 ? t('dynamic.appUpdateBanner.更新包约_formatBytes_tota') : '';
+      const sizeHint = totalBytes > 0
+        ? t('dynamic.appUpdateBanner.更新包约_formatBytes_tota', { packageSize: formatBytes(totalBytes) })
+        : '';
       setUpdateProgress({
         visible: true,
         phase: 'idle',
@@ -691,7 +700,9 @@ export async function handleCheckAppUpdateClick() {
           sizeHint,
         }),
       });
-      showToast(data.message || t('dynamic.appUpdateBanner.发现新版本_data_latest_vers_2'));
+      showToast(data.message || t('dynamic.appUpdateBanner.发现新版本_data_latest_vers_2', {
+        latest: data.latest_version || '',
+      }));
       window.setTimeout(() => {
         if (updateProgressState.phase === 'idle' && updateProgressState.visible) {
           hideUpdateProgress();

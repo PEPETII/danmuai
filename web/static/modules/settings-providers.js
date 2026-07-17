@@ -236,7 +236,9 @@ export function applyProviderPreset(providerId) {
   if (apiKeyEl) apiKeyEl.value = '';
   const defaultModelId = providersDeps.pickDefaultCatalogModelId(providerId);
   providersDeps.renderVisionModelPicker(providerId, defaultModelId, { providerSwitch: true });
-  providersDeps.showToast(t('dynamic.settingsProviders.已填入_provider_label_的默'));
+  providersDeps.showToast(t('dynamic.settingsProviders.已填入_provider_label_的默', {
+    providerLabel: provider.label,
+  }));
 }
 
 export function resolveProviderIdForPicker() {
@@ -289,7 +291,9 @@ export function applyMicProviderPreset(providerId) {
   const defaultModelId = providersDeps.pickDefaultMicCatalogModelId(providerId);
   providersDeps.renderMicModelPicker(providerId, defaultModelId, { providerSwitch: true });
   providersDeps.updateMicModeHint();
-  providersDeps.showToast(t('dynamic.settingsProviders.已填入_provider_label_的默_2'));
+  providersDeps.showToast(t('dynamic.settingsProviders.已填入_provider_label_的默_2', {
+    providerLabel: provider.label,
+  }));
 }
 
 export function isCustomProvider(providerId) {

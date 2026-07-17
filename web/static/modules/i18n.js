@@ -154,6 +154,9 @@ export function t(key, params) {
       text = text.replace(new RegExp(`\\{${k}\\}`, 'g'), String(v));
     }
   }
+  // Strip unreplaced named placeholders and legacy ${...} so users never see template source.
+  text = text.replace(/\{[a-zA-Z_][a-zA-Z0-9_]*\}/g, '');
+  text = text.replace(/\$\{[^}]+\}/g, '');
   return text;
 }
 

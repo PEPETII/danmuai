@@ -125,11 +125,17 @@ function buildModelRowBadges(model) {
 function buildModelTooltipHtml(model) {
   const price = model.price || {};
   return (
-    t('dynamic.settingsModelCatalog.span_class_model_toolt')
-    + t('dynamic.settingsModelCatalog.span_class_model_toolt_2')
-    + t('dynamic.settingsModelCatalog.span_class_model_toolt_3')
-    + t('dynamic.settingsModelCatalog.span_class_model_toolt_4')
-    + t('dynamic.settingsModelCatalog.span_class_model_toolt_5')
+    t('dynamic.settingsModelCatalog.span_class_model_toolt', { modelName: model.name })
+    + t('dynamic.settingsModelCatalog.span_class_model_toolt_2', { modelId: model.id })
+    + t('dynamic.settingsModelCatalog.span_class_model_toolt_3', {
+      inputPrice: formatTokenPrice(price.input, price.currency),
+    })
+    + t('dynamic.settingsModelCatalog.span_class_model_toolt_4', {
+      audioPrice: formatTokenPrice(price.audio, price.currency),
+    })
+    + t('dynamic.settingsModelCatalog.span_class_model_toolt_5', {
+      outputPrice: formatTokenPrice(price.output, price.currency),
+    })
   );
 }
 
@@ -205,7 +211,9 @@ function createModelPriceHint(model) {
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'field-hint-btn';
-  btn.setAttribute('aria-label', t('dynamic.settingsModelCatalog.查看_model_id_的价格说明'));
+  btn.setAttribute('aria-label', t('dynamic.settingsModelCatalog.查看_model_id_的价格说明', {
+    modelId: model.id,
+  }));
   btn.innerHTML = '<svg class="ui-icon" aria-hidden="true"><use href="#i-info"></use></svg>';
   wireFloatingTooltipButton(btn, () => {
     showFloatingTooltip(btn, buildModelTooltipHtml(model), { html: true, wide: true });

@@ -245,7 +245,7 @@ function renderTrackBands() {
   topBand.className = 'danmu-track-band danmu-track-band-top';
   topBand.style.top = '0px';
   topBand.style.height = `${Math.max(1, TRACK_TOP_MARGIN * scale)}px`;
-  topBand.title = t('dynamic.settingsDanmuPreview.顶部安全边距_TRACK_TOP_MARGI');
+  topBand.title = t('dynamic.settingsDanmuPreview.顶部安全边距_TRACK_TOP_MARGI', { margin: TRACK_TOP_MARGIN });
   bandsEl.appendChild(topBand);
 
   // 底部安全边距带(在 drawable 底部)
@@ -255,7 +255,7 @@ function renderTrackBands() {
     bottomBand.className = 'danmu-track-band danmu-track-band-bottom';
     bottomBand.style.top = `${bottomBandTop * scale}px`;
     bottomBand.style.height = `${Math.max(1, TRACK_BOTTOM_MARGIN * scale)}px`;
-    bottomBand.title = t('dynamic.settingsDanmuPreview.底部安全边距_TRACK_BOTTOM_MA');
+    bottomBand.title = t('dynamic.settingsDanmuPreview.底部安全边距_TRACK_BOTTOM_MA', { margin: TRACK_BOTTOM_MARGIN });
     bandsEl.appendChild(bottomBand);
   }
 
@@ -268,7 +268,7 @@ function renderTrackBands() {
     const line = document.createElement('div');
     line.className = 'danmu-track-line';
     line.style.top = `${y * scale}px`;
-    line.title = t('dynamic.settingsDanmuPreview.轨道_drawn_1_y_y');
+    line.title = t('dynamic.settingsDanmuPreview.轨道_drawn_1_y_y', { trackNum: drawn + 1, y });
     bandsEl.appendChild(line);
     y += TRACK_LINE_HEIGHT;
     drawn += 1;
@@ -278,7 +278,7 @@ function renderTrackBands() {
   const drawableMarker = document.createElement('div');
   drawableMarker.className = 'danmu-track-drawable-marker';
   drawableMarker.style.top = `${drawableH * scale}px`;
-  drawableMarker.title = t('dynamic.settingsDanmuPreview.可绘制区底部_drawableH_px_l');
+  drawableMarker.title = t('dynamic.settingsDanmuPreview.可绘制区底部_drawableH_px_l', { drawableH, layoutMode });
   bandsEl.appendChild(drawableMarker);
 }
 

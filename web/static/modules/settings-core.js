@@ -219,7 +219,6 @@ export function collectFormData({ usesCustomCredentials = false } = {}) {
   data.mic_use_visual_model = document.getElementById('mic_use_visual_model')?.checked ? '1' : '0';
   data.danmu_font_bold = document.getElementById('danmu_font_bold')?.checked ? '1' : '0';
   data.floating_panel_font_bold = document.getElementById('floating_panel_font_bold')?.checked ? '1' : '0';
-  data.bililive_dm_mode_enabled = document.getElementById('bililive_dm_mode_enabled')?.checked ? '1' : '0';
   data.use_thinking = document.getElementById('use_thinking')?.checked ? '1' : '0';
   // W-GLOBAL-VISUAL-APIKEY-REMOVE-001: 视觉全局 api_key 已下线，不再收集；mic/tts 独立 key 不受影响
   const micKey = (document.getElementById('mic_api_key')?.value || '').trim();
@@ -275,8 +274,6 @@ export async function fillForm(cfg) {
   coreDeps.setMicAudioLikelySupported(cfg.mic_audio_likely_supported !== false);
   const micMode = document.getElementById('mic_mode_enabled');
   if (micMode) micMode.checked = cfg.mic_mode_enabled === '1';
-  const bililiveDmMode = document.getElementById('bililive_dm_mode_enabled');
-  if (bililiveDmMode) bililiveDmMode.checked = cfg.bililive_dm_mode_enabled === '1';
   const micUseVisual = document.getElementById('mic_use_visual_model');
   if (micUseVisual) micUseVisual.checked = cfg.mic_use_visual_model !== '0';
   const micWindow = document.getElementById('mic_window_sec');
@@ -396,11 +393,11 @@ function _validateNumberInput(input) {
   const min = input.min !== '' ? Number(input.min) : null;
   const max = input.max !== '' ? Number(input.max) : null;
   if (min !== null && num < min) {
-    _showFieldError(input, t('dynamic.settingsCore.最小值_min_当前_num'));
+    _showFieldError(input, t('dynamic.settingsCore.最小值_min_当前_num', { min, num }));
     return;
   }
   if (max !== null && num > max) {
-    _showFieldError(input, t('dynamic.settingsCore.最大值_max_当前_num'));
+    _showFieldError(input, t('dynamic.settingsCore.最大值_max_当前_num', { max, num }));
     return;
   }
   // Step compliance check: only for inputs with an explicit step
@@ -412,7 +409,7 @@ function _validateNumberInput(input) {
     // Floating-point tolerance: remainder within 1e-9 of zero or of step
     const remainder = Math.abs((num - stepBase) % step);
     if (remainder > 1e-9 && Math.abs(remainder - step) > 1e-9) {
-      _showFieldError(input, t('dynamic.settingsCore.步长为_stepAttr_请输入合规值'));
+      _showFieldError(input, t('dynamic.settingsCore.步长为_stepAttr_请输入合规值', { step: stepAttr }));
       return;
     }
   }

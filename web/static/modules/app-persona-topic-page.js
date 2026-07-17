@@ -44,7 +44,7 @@ async function personaFetch(path) {
 }
 
 async function deletePersonaByName(name) {
-  if (!confirm(t('dynamic.appPersonaTopicPage.确定删除人格_name_吗'))) return;
+  if (!confirm(t('dynamic.appPersonaTopicPage.确定删除人格_name_吗', { name }))) return;
   try {
     await apiFetch(`/api/personae/${enc(name)}`, { method: 'DELETE' });
     if (currentPersonaId === name) currentPersonaId = '';
@@ -77,12 +77,13 @@ async function loadPersonaeCheckboxes(containerId) {
     row.className =
       'flex items-center gap-2 px-3 py-2 bg-cream rounded-xl text-sm font-semibold text-warmText';
     const label = document.createElement('label');
-    label.className = 'flex items-center gap-2 flex-1 min-w-0 cursor-pointer';
+    label.className = 'toggle-switch flex items-center gap-2 flex-1 min-w-0 cursor-pointer';
     const cb = document.createElement('input');
     cb.type = 'checkbox';
+    cb.setAttribute('role', 'switch');
     cb.value = item.id;
     cb.checked = !!item.active;
-    cb.className = 'rounded accent-[#FFA5A5] shrink-0';
+    cb.className = 'shrink-0';
     const span = document.createElement('span');
     span.className = 'truncate';
     span.textContent = item.label;
@@ -103,7 +104,9 @@ async function loadPersonaeCheckboxes(containerId) {
       const mid = (m.default_model_id || m.modelId || '').trim();
       opt.value = mid;
       const incomplete = m.complete === false;
-      opt.textContent = incomplete ? t('dynamic.appPersonaTopicPage.m_name_mid_未完成') : (m.name || mid);
+      opt.textContent = incomplete
+        ? t('dynamic.appPersonaTopicPage.m_name_mid_未完成', { label: m.name || mid })
+        : (m.name || mid);
       select.appendChild(opt);
     });
     const boundModelId = (item.model_id || '').trim();
@@ -137,7 +140,7 @@ async function loadPersonaeCheckboxes(containerId) {
       delBtn.className =
         'shrink-0 px-2 py-1 border border-red-200 rounded-lg text-xs text-red-600 hover:bg-red-50';
       delBtn.textContent = t('common.delete');
-      delBtn.title = t('dynamic.appPersonaTopicPage.删除人格_item_label');
+      delBtn.title = t('dynamic.appPersonaTopicPage.删除人格_item_label', { label: item.label });
       delBtn.addEventListener('click', (event) => {
         event.preventDefault();
         deletePersonaByName(item.id);

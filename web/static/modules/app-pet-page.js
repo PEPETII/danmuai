@@ -159,7 +159,7 @@ function fillPetForm(data) {
 
   const pending = data.pending_command;
   if (data.has_pending_command && pending?.preview) {
-    setStatusText(t('dynamic.appPetPage.已启用_待注入指令_pending_pr'));
+    setStatusText(t('dynamic.appPetPage.已启用_待注入指令_pending_pr', { preview: pending.preview }));
   } else if (!data.enabled) {
     setStatusText(t('dynamic.appPetPage.未启用'));
   } else if (data.pet_barrage?.enabled) {
@@ -243,7 +243,7 @@ async function setBarrageSlotToImported(slotId) {
     return;
   }
   await loadPetPage();
-  showToast(t('dynamic.appPetPage.槽位_slotId_1_已切换桌宠'));
+  showToast(t('dynamic.appPetPage.槽位_slotId_1_已切换桌宠', { slotNumber: slotId + 1 }));
 }
 
 async function resetBarrageSlot(slotId) {
@@ -251,7 +251,7 @@ async function resetBarrageSlot(slotId) {
     method: 'POST',
   });
   fillPetForm(data);
-  showToast(t('dynamic.appPetPage.槽位_slotId_1_已恢复默认桌宠'));
+  showToast(t('dynamic.appPetPage.槽位_slotId_1_已恢复默认桌宠', { slotNumber: slotId + 1 }));
 }
 
 function bindSlotActions() {

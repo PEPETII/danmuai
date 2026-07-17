@@ -1,5 +1,5 @@
 /**
- * 模块：settings — 弹幕设置页（8 个 tab）+ 视觉模型选择 + 识图框选 + 压缩预览。
+ * 模块：settings — 弹幕设置页（8 个 tab）+ 视觉模型选择 + 识图框选。
  *
  * 关键数据：
  *   - CONFIG_FIELDS：白名单字段表，决定 GET /api/config 与 PUT /api/config
@@ -64,10 +64,6 @@ import {
   saveModel,
 } from './settings-custom-models.js';
 import {
-  bindCompressPreviewControls,
-  configureSettingsCompressPreview,
-} from './settings-compress-preview.js';
-import {
   bindFontControls,
   configureSettingsFonts,
 } from './settings-fonts.js';
@@ -115,6 +111,7 @@ import {
 } from './settings-tabs.js';
 import { markProbeSuccess } from './app-setup-guide.js';
 import { initDanmuPreview, refreshDanmuPreview } from './settings-danmu-preview.js';
+import { initSettingsRhythmAccordion } from './settings-rhythm-accordion.js?v=20260717-number-stepper-v1';
 
 export { MASKED_API_KEY } from './settings-defaults.js';
 export { initNormalBatchControls } from './settings-defaults.js';
@@ -159,9 +156,6 @@ export function configureSettingsBindings(deps) {
     onSettingsTabSwitch: bindDeps.onSettingsTabSwitch,
   });
   configureSettingsCaptureRegion({
-    showToast,
-  });
-  configureSettingsCompressPreview({
     showToast,
   });
   configureSettingsModelCatalog({
@@ -319,12 +313,12 @@ function refreshMicInputDeviceHint() {
   const { selectedId, selectedLabel, defaultLabel } = currentMicDeviceContext();
   if (selectedId === null) {
     hint.textContent = defaultLabel
-      ? t('dynamic.settings.当前将跟随_Windows_默认录音设备_d')
+      ? t('dynamic.settings.当前将跟随_Windows_默认录音设备_d', { defaultLabel })
       : t('dynamic.settings.默认跟随_Windows_当前默认录音设备_也可');
     return;
   }
   hint.textContent = selectedLabel
-    ? t('dynamic.settings.当前固定使用_selectedLabel')
+    ? t('dynamic.settings.当前固定使用_selectedLabel', { selectedLabel })
     : t('dynamic.settings.当前已手动固定设备_如设备拔出_将在运行时回退到');
 }
 
@@ -344,12 +338,12 @@ export async function populateMicInputDevices(selectedValue = '', options = {}) 
   select.innerHTML = '';
   const follow = document.createElement('option');
   follow.value = '';
-  follow.textContent = t('dynamic.settings.跟随系统默认_当前_defaultLabel');
+  follow.textContent = t('dynamic.settings.跟随系统默认_当前_defaultLabel', { defaultLabel });
   select.appendChild(follow);
   (micDevicesCache?.devices || []).forEach((device) => {
     const opt = document.createElement('option');
     opt.value = String(device.id);
-    opt.textContent = device.is_default ? t('dynamic.settings.device_name_默认') : device.name;
+    opt.textContent = device.is_default ? t('dynamic.settings.device_name_默认', { name: device.name }) : device.name;
     select.appendChild(opt);
   });
   if ([...select.options].some((opt) => opt.value === String(selectedValue || ''))) {
@@ -555,6 +549,7 @@ function updateThinkingModeFromForm() {
 
 export function bindSettingsControls(deps = {}) {
   configureSettingsBindings(deps);
+  initSettingsRhythmAccordion();
   const { onConfigSaved } = bindDeps;
 
   // W-SETTINGS-RESTRUCT-A-006：旧顶栏 API 字段软隐藏（DOM 属性 hidden 双保险，配合 CSS .legacy-api-fields）
@@ -616,7 +611,7 @@ export function bindSettingsControls(deps = {}) {
         const label = cfg.model_display_name && cfg.model_display_name !== active
           ? `${cfg.model_display_name}（${active}）`
           : active;
-        showToast(label ? t('dynamic.settings.配置已保存_当前生效模型_label') : t('common.configSaved'));
+        showToast(label ? t('dynamic.settings.配置已保存_当前生效模型_label', { label }) : t('common.configSaved'));
         if (onConfigSaved) onConfigSaved();
         // W-GLOBAL-VISUAL-APIKEY-REMOVE-001: 视觉全局 api_key 已下线，不再回填；mic/tts 独立 key 保留回填
         const micKeyInput = document.getElementById('mic_api_key');
@@ -661,8 +656,6 @@ export function bindSettingsControls(deps = {}) {
     const inp = document.getElementById('mic_api_key');
     if (inp) inp.type = inp.type === 'password' ? 'text' : 'password';
   });
-
-  bindCompressPreviewControls();
 
   document.getElementById('btnModelCancel')?.addEventListener('click', closeModelModal);
 

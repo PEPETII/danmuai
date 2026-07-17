@@ -266,8 +266,9 @@ async function collectErrorReportContext(anchor) {
     logsExcerpt = `${logsExcerpt}\n\n--- status ---\n${meta}`;
   }
 
+  // DB check: char_length(logs_excerpt) <= 8000 — hard cap only (no suffix overshoot).
   if (logsExcerpt.length > 8000) {
-    logsExcerpt = `${logsExcerpt.slice(0, 7990)}\n...[truncated]`;
+    logsExcerpt = logsExcerpt.slice(0, 8000);
   }
 
   const summary = String(anchor.errorMessage || 'unknown error').trim().slice(0, 500);
@@ -302,13 +303,13 @@ function updateErrorReportQuotaHint(quota) {
   }
   const remaining = Number(quota.remaining ?? 0);
   const limit = Number(quota.limit ?? 3);
-  const hint = quota.resets_hint || t('dynamic.appErrorReporting.每_3_小时最多提交_limit_条');
+  const hint = quota.resets_hint || t('dynamic.appErrorReporting.每_3_小时最多提交_limit_条', { limit });
   if (remaining <= 0) {
     el.textContent = hint;
     el.classList.add('text-red-600');
     if (submitBtn) submitBtn.disabled = true;
   } else {
-    el.textContent = t('dynamic.appErrorReporting.本机还可提交_remaining');
+    el.textContent = t('dynamic.appErrorReporting.本机还可提交_remaining', { remaining, limit, hint });
     el.classList.remove('text-red-600');
     if (submitBtn) submitBtn.disabled = false;
   }

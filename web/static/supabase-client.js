@@ -268,8 +268,9 @@
     if (contactVal.length > 200) throw new Error('联系方式不能超过 200 字');
 
     let logsExcerptVal = logsExcerpt == null ? null : String(logsExcerpt);
+    // DB check: char_length(logs_excerpt) <= 8000 — hard cap only (no suffix overshoot).
     if (logsExcerptVal && logsExcerptVal.length > 8000) {
-      logsExcerptVal = `${logsExcerptVal.slice(0, 7990)}\n…[truncated]`;
+      logsExcerptVal = logsExcerptVal.slice(0, 8000);
     }
 
     const clientId = getOrCreateClientId();
@@ -321,14 +322,15 @@
     if (summaryVal.length > 500) throw new Error('错误摘要不能超过 500 字');
 
     let logsVal = logsExcerpt == null ? null : String(logsExcerpt);
+    // DB check: char_length(logs_excerpt) <= 8000 — hard cap only (no suffix overshoot).
     if (logsVal && logsVal.length > 8000) {
-      logsVal = `${logsVal.slice(0, 7990)}\n…[truncated]`;
+      logsVal = logsVal.slice(0, 8000);
     }
 
     const fingerprintVal = String(errorFingerprint || '').trim() || null;
     let userNoteVal = userNote == null ? null : String(userNote).trim();
     if (userNoteVal && userNoteVal.length > 1000) {
-      userNoteVal = `${userNoteVal.slice(0, 990)}…[truncated]`;
+      userNoteVal = userNoteVal.slice(0, 1000);
     }
     let contactVal = contact == null ? null : String(contact).trim();
     if (contactVal && contactVal.length > 200) {

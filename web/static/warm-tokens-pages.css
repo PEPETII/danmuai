@@ -447,6 +447,329 @@
   margin-top: 0.25rem;
 }
 
+.settings-rhythm-accordion {
+  min-width: 0;
+}
+
+.settings-rhythm-accordion-item + .settings-rhythm-accordion-item {
+  border-top: 1px solid var(--border);
+}
+
+.settings-rhythm-accordion-item.is-open {
+  background: rgba(var(--color-primary-rgb), 0.045);
+}
+
+.settings-rhythm-accordion-heading {
+  margin: 0;
+}
+
+.settings-rhythm-accordion-trigger {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 14px;
+  border: 0;
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.settings-rhythm-accordion-trigger:hover {
+  background: rgba(var(--color-primary-rgb), 0.06);
+}
+
+.settings-rhythm-accordion-trigger:focus-visible {
+  outline: 3px solid rgba(var(--color-primary-rgb), 0.28);
+  outline-offset: -3px;
+}
+
+.settings-rhythm-accordion-item.is-open .settings-rhythm-accordion-trigger {
+  color: var(--color-primary-hover);
+}
+
+.settings-rhythm-accordion-chevron {
+  width: 8px;
+  height: 8px;
+  margin-left: auto;
+  border-right: 2px solid var(--color-text-muted);
+  border-bottom: 2px solid var(--color-text-muted);
+  transform: rotate(-45deg);
+  transition: transform 0.2s, border-color 0.2s;
+}
+
+.settings-rhythm-accordion-item.is-open .settings-rhythm-accordion-chevron {
+  border-color: var(--color-primary-hover);
+  transform: rotate(45deg);
+}
+
+.settings-rhythm-accordion-panel {
+  padding: 0 14px 14px;
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+.settings-rhythm-accordion-panel[hidden] {
+  display: none;
+}
+
+.settings-rhythm-accordion-fields {
+  display: grid;
+  gap: 10px;
+}
+
+.settings-rhythm-accordion-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-width: 0;
+  min-height: 42px;
+  padding: 4px 0;
+}
+
+.settings-rhythm-accordion-field .settings-field-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+}
+
+.settings-rhythm-accordion-field .settings-field-control {
+  flex: 0 0 132px;
+  width: 132px;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 0 !important;
+  border-radius: var(--radius-sm);
+  background: rgba(var(--color-primary-rgb), 0.08) !important;
+  box-shadow: none !important;
+  appearance: textfield;
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.settings-rhythm-accordion-field .settings-field-control::-webkit-inner-spin-button,
+.settings-rhythm-accordion-field .settings-field-control::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+.settings-rhythm-accordion-field .settings-field-control:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.24) !important;
+}
+
+.settings-rhythm-accordion-field select.settings-field-control,
+.settings-rhythm-accordion-field input[type="text"].settings-field-control {
+  flex: 0 1 auto;
+  width: auto;
+  min-width: 132px;
+  max-width: 50%;
+  text-align: left;
+}
+
+.settings-rhythm-accordion-field--stacked {
+  align-items: flex-start;
+}
+
+.settings-rhythm-accordion-field--stacked .settings-rhythm-accordion-control-stack {
+  flex: 0 1 auto;
+  min-width: 132px;
+  max-width: 50%;
+}
+
+.settings-rhythm-accordion-field--stacked .settings-rhythm-accordion-control-stack .settings-field-control {
+  width: 100%;
+}
+
+.settings-rhythm-accordion-field--toggle {
+  min-height: 42px;
+}
+
+.settings-rhythm-accordion-field--toggle .toggle-switch {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+.settings-rhythm-accordion-inline-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 4px 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.settings-rhythm-accordion-inline-row .settings-field-control {
+  flex: 0 0 auto;
+  width: 5rem;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 0 !important;
+  border-radius: var(--radius-sm);
+  background: rgba(var(--color-primary-rgb), 0.08) !important;
+  box-shadow: none !important;
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.settings-rhythm-accordion-inline-row .settings-field-control:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.24) !important;
+}
+
+.settings-rhythm-accordion-control-group {
+  flex: 0 1 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  max-width: 60%;
+}
+
+.settings-rhythm-accordion-control-group .settings-field-control {
+  flex: 1 1 10rem;
+  width: auto;
+  min-width: 0;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 0 !important;
+  border-radius: var(--radius-sm);
+  background: rgba(var(--color-primary-rgb), 0.08) !important;
+  box-shadow: none !important;
+  font-size: 0.875rem;
+  text-align: left;
+}
+
+.settings-rhythm-accordion-control-group .settings-field-control:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.24) !important;
+}
+
+.settings-rhythm-accordion-panel .settings-field,
+.settings-rhythm-accordion-panel .settings-section,
+.settings-rhythm-accordion-panel .settings-toggle-row {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.settings-rhythm-stepper {
+  flex: 0 0 132px;
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) 30px;
+  min-height: 40px;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: rgba(var(--color-primary-rgb), 0.08);
+}
+
+.settings-rhythm-accordion-field > .settings-rhythm-stepper {
+  flex: 0 0 132px;
+  width: 132px;
+}
+
+.settings-rhythm-accordion-field--stacked .settings-rhythm-accordion-control-stack > .settings-rhythm-stepper {
+  width: 100%;
+}
+
+.settings-field .settings-rhythm-stepper {
+  width: 100%;
+  max-width: 132px;
+}
+
+.settings-rhythm-accordion-inline-row .settings-rhythm-stepper {
+  flex: 0 0 auto;
+  width: 5rem;
+  grid-template-columns: 24px minmax(0, 1fr) 24px;
+}
+
+.settings-rhythm-stepper--wide {
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: none;
+}
+
+.settings-rhythm-stepper--compact {
+  flex: 0 0 auto;
+  width: 5.5rem;
+  grid-template-columns: 22px minmax(0, 1fr) 22px;
+  min-height: 32px;
+}
+
+/* 自定义 +/- 已接管步进：隐藏浏览器原生上下箭头，避免双重控件 */
+.settings-rhythm-stepper input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.settings-rhythm-stepper input[type="number"]::-webkit-outer-spin-button,
+.settings-rhythm-stepper input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+}
+
+.settings-rhythm-stepper .settings-field-control {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  padding: 0 6px;
+  border: 0 !important;
+  border-radius: 0;
+  background: transparent !important;
+  box-shadow: none !important;
+  text-align: center;
+}
+
+.settings-rhythm-stepper--compact .settings-field-control {
+  min-height: 32px;
+  padding: 0 4px;
+  font-size: 0.875rem;
+}
+
+.settings-rhythm-step-button {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 1.125rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.settings-rhythm-step-button:hover:not(:disabled) {
+  background: rgba(var(--color-primary-rgb), 0.16);
+  color: var(--color-primary-hover);
+}
+
+.settings-rhythm-step-button:focus-visible {
+  outline: 2px solid var(--color-primary-hover);
+  outline-offset: -2px;
+}
+
+.settings-rhythm-step-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
 .settings-params-grid {
   display: grid;
   grid-template-columns: repeat(1, minmax(0, 1fr));
@@ -1104,4 +1427,3 @@
   color: #fca5a5;
   background: rgba(239, 68, 68, 0.12);
 }
-

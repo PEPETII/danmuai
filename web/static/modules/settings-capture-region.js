@@ -37,7 +37,12 @@ export function applyCaptureRegionFromPayload(data) {
   if (mode === 'custom' && region.w > 0 && region.h > 0) {
     modeEl.textContent = t('dynamic.settingsCaptureRegion.自定义区域识图');
     if (coordsEl) {
-      coordsEl.textContent = t('dynamic.settingsCaptureRegion.区域_x_region_x_y_re');
+      coordsEl.textContent = t('dynamic.settingsCaptureRegion.区域_x_region_x_y_re', {
+        x: region.x,
+        y: region.y,
+        w: region.w,
+        h: region.h,
+      });
       coordsEl.classList.remove('hidden');
     }
     resetBtn?.classList.remove('hidden');

@@ -65,9 +65,9 @@
           <input id="modelDescription" class="w-full px-4 py-2 bg-cream rounded-xl mt-1" data-i18n-placeholder="modals.placeholder.备注用途_如_识图主力模型" placeholder="备注用途，如“识图主力模型”">
         </div>
         <div>
-          <label class="flex items-center gap-2 text-sm font-semibold text-warmText">
-            <input type="checkbox" id="modelSupportsMic" class="accent-warmPink">
-            支持麦克风（input_audio）
+          <label class="toggle-switch text-sm font-semibold text-warmText">
+            <input type="checkbox" id="modelSupportsMic" role="switch">
+            <span>支持麦克风（input_audio）</span>
           </label>
           <p class="text-xs text-gray-400 mt-1">OpenRouter 等自定义 OpenAI 兼容网关：若模型文档声明支持音频理解，请勾选此项以允许开麦附加音频。</p>
         </div>
@@ -110,8 +110,8 @@
     <div class="bg-white rounded-3xl shadow-warm max-w-lg w-full p-8 max-h-[90vh] overflow-y-auto">
       <h3 id="errorReportModalTitle" class="text-lg font-bold text-warmText mb-2">发现问题</h3>
       <p class="text-sm text-gray-600 mb-3">是否要将该问题反馈？我们将附带相关日志（已脱敏）。</p>
-      <label class="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none mb-3">
-        <input type="checkbox" id="errorReportIncludeRuntimeInfo" checked class="rounded border-gray-300 text-warmPink focus:ring-warmPink">
+      <label class="toggle-switch text-sm text-gray-600 cursor-pointer select-none mb-3">
+        <input type="checkbox" id="errorReportIncludeRuntimeInfo" role="switch" checked>
         <span>附带当前运行信息（推荐）</span>
         <span class="text-xs text-gray-400">模型名、API 地址、服务商、API 模式（已脱敏）</span>
       </label>
