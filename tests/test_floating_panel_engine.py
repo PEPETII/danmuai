@@ -326,3 +326,64 @@ def test_scrolling_mode_uses_danmu_engine_not_fp_engine(workspace_tmp):
     store = ConfigStore(db_path=workspace_tmp / "mode.db")
     store.set("danmu_render_mode", "scrolling")
     assert resolve_danmu_render_mode(store) == "scrolling"
+
+
+def test_min_on_screen_zero_when_pool_disabled(workspace_tmp):
+    engine = _engine(workspace_tmp, min_on_screen="5", danmu_pool_use_custom="0")
+    assert engine.min_on_screen() == 0
+    assert engine.deficit_below_min() == 0
+    assert engine.needs_refill() is False
+
+
+def test_deficit_below_min_uses_active_count(workspace_tmp):
+    engine = _engine(
+        workspace_tmp,
+        danmu_pool_use_custom="1",
+        min_on_screen="5",
+        floating_panel_entry_duration_ms="0",
+        floating_panel_push_duration_ms="0",
+    )
+    engine.running = True
+    assert engine.deficit_below_min() == 5
+    engine.add_text("a", item_height=30.0, now=0.0, skip_dedup=True)
+    engine.add_text("b", item_height=30.0, now=0.1, skip_dedup=True)
+    assert engine.active_count() == 2
+    assert engine.deficit_below_min() == 3
+    assert engine.needs_refill() is True
+
+
+def test_deficit_ignores_exiting_items(workspace_tmp):
+    engine = _engine(
+        workspace_tmp,
+        danmu_pool_use_custom="1",
+        min_on_screen="3",
+        floating_panel_max_items="2",
+        floating_panel_entry_duration_ms="0",
+        floating_panel_push_duration_ms="0",
+        floating_panel_exit_duration_ms="200",
+    )
+    engine.running = True
+    for i in range(3):
+        engine.add_text(f"x{i}", item_height=30.0, now=float(i), skip_dedup=True)
+    active = engine.active_count()
+    total = engine.visible_count()
+    assert total >= active
+    assert engine.deficit_below_min() == max(0, 3 - active)
+
+
+def test_plan_pool_topup_accepts_floating_panel_engine(workspace_tmp, monkeypatch):
+    from app.danmu_pool import plan_pool_topup
+
+    engine = _engine(
+        workspace_tmp,
+        danmu_pool_use_custom="1",
+        min_on_screen="4",
+    )
+    engine.running = True
+    monkeypatch.setattr(
+        "app.danmu_pool.sample_danmu_for_config",
+        lambda _cfg, n: [f"p{i}" for i in range(n)],
+    )
+    limit, texts = plan_pool_topup(engine, engine.config)
+    assert limit == 4
+    assert len(texts) == 4

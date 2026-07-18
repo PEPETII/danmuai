@@ -224,12 +224,20 @@ class DanmuOverlay(QWidget):
         WS_EX_LAYERED：分层窗口，与 WA_TranslucentBackground 配合 alpha 合成。
         WS_EX_TRANSPARENT：命中测试穿透，鼠标事件交给下层游戏/桌面；缺一则可能挡操作。
         须在 show() 后调用（winId() 有效）。hwnd 未就绪时最多 deferred 重试 3 次。仅 win32 执行。
+        销毁后 deferred 重试时 winId()/isVisible() 可能抛 RuntimeError，须吞掉避免主线程崩溃。
         """
         if sys.platform != "win32":
             return
-        hwnd = int(self.winId())
+        try:
+            hwnd = int(self.winId())
+        except (RuntimeError, ValueError, TypeError):
+            return
         if not hwnd:
-            if _defer_attempt < 3 and self.isVisible():
+            try:
+                still_visible = self.isVisible()
+            except (RuntimeError, ValueError, TypeError):
+                return
+            if _defer_attempt < 3 and still_visible:
                 QTimer.singleShot(
                     0,
                     lambda attempt=_defer_attempt + 1: self._apply_win32_click_through(

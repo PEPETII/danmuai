@@ -297,6 +297,55 @@ class DanmuAppRequestContextMixin:
             stats[key] += 1
         return stats
 
+    def _inject_knowledge_prompt(
+        self,
+        system_pt: str,
+        *,
+        request_round: int,
+        screenshot_id: int,
+        scene_brief_extra: str = "",
+    ) -> str:
+        """注入知识包检索结果到 system_pt 末尾（Phase B / Wave 7）。
+
+        若 ``knowledge_runtime`` 未挂载、检索无命中或任何异常 → 原样返回
+        ``system_pt``（主链路不得因知识模块故障中断）。
+
+        Args:
+            system_pt: 原 system prompt 文本。
+            request_round: 触发该次检索的 request_round（诊断用）。
+            screenshot_id: 触发该次检索的 screenshot_id（诊断用）。
+            scene_brief_extra: 可选的场景简述追加文本；为空时用
+                ``round=… screenshot=…`` 占位。
+
+        Returns:
+            拼接知识提示后的 system_pt；无命中时原样返回。
+        """
+        # 用 __dict__.get 而非 getattr，兼容测试中 QObject 未走 __init__ 的场景
+        # （与 _build_visual_prompts 访问 pet_command_service 的模式一致）。
+        knowledge_runtime = self.__dict__.get("knowledge_runtime")
+        if knowledge_runtime is None:
+            return system_pt
+        try:
+            scene_brief = (
+                scene_brief_extra.strip()
+                if scene_brief_extra and scene_brief_extra.strip()
+                else f"round={request_round} screenshot={screenshot_id}"
+            )
+            injection = knowledge_runtime.build_visual_prompt_injection(
+                scene_brief=scene_brief,
+                keywords=[],
+                request_round=request_round,
+                screenshot_id=screenshot_id,
+            )
+        except Exception as exc:  # boundary: 知识注入失败不影响主链路
+            self.logger.debug(
+                "knowledge prompt injection failed (non-fatal): %r", exc
+            )
+            return system_pt
+        if not injection:
+            return system_pt
+        return f"{system_pt}\n\n{injection}"
+
     def _min_density_target(self) -> int:
         return self.engine.min_on_screen()
 

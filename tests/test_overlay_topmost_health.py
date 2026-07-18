@@ -123,6 +123,49 @@ def test_overlay_click_through_after_show_event(topmost_app, qapp, monkeypatch):
     )
 
 
+
+def test_apply_win32_click_through_survives_destroyed_widget(topmost_app, monkeypatch):
+    """BUG-001: deferred/retry path must not raise if C++ QWidget already deleted."""
+    if sys.platform != "win32":
+        pytest.skip("win32 only")
+    _app, _engine, overlay, _ = topmost_app
+    applied: list[int] = []
+
+    def boom_winid():
+        raise RuntimeError("wrapped C/C++ object of type QWidget has been deleted")
+
+    monkeypatch.setattr(overlay, "winId", boom_winid)
+    monkeypatch.setattr(
+        "app.overlay.apply_overlay_exstyles",
+        lambda hwnd, **kwargs: applied.append(int(hwnd)),
+    )
+    # Must not raise.
+    overlay._apply_win32_click_through()
+    overlay._apply_win32_click_through(_defer_attempt=2)
+    assert applied == []
+
+
+def test_apply_win32_click_through_survives_destroyed_is_visible(topmost_app, monkeypatch):
+    """BUG-001: hwnd==0 retry branch must tolerate isVisible RuntimeError."""
+    if sys.platform != "win32":
+        pytest.skip("win32 only")
+    _app, _engine, overlay, _ = topmost_app
+    applied: list[int] = []
+
+    monkeypatch.setattr(overlay, "winId", lambda: 0)
+
+    def boom_visible():
+        raise RuntimeError("wrapped C/C++ object of type QWidget has been deleted")
+
+    monkeypatch.setattr(overlay, "isVisible", boom_visible)
+    monkeypatch.setattr(
+        "app.overlay.apply_overlay_exstyles",
+        lambda hwnd, **kwargs: applied.append(int(hwnd)),
+    )
+    overlay._apply_win32_click_through()
+    assert applied == []
+
+
 def test_health_tick_reasserts_scrolling_overlay(topmost_app, qapp, monkeypatch):
     app, engine, overlay, _ = topmost_app
     engine.running = True

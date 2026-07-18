@@ -503,42 +503,6 @@ def test_log_broadcast_coalesces_call_soon_threadsafe():
     loop.close()
 
 
-def test_publish_diagnostic_snapshot_skips_without_subscribers():
-    app = make_status_app()
-    app.logger = MagicMock()
-    bridge = WebConsoleBridge(app)
-    bridge._diagnostics_hub = __import__(
-        "app.application.diagnostics_hub", fromlist=["DiagnosticsHub"]
-    ).DiagnosticsHub()
-    bridge.publish_diagnostic_snapshot()
-    app.build_diagnostic_snapshot.assert_not_called()
-
-
-def test_publish_diagnostic_snapshot_broadcasts_to_hub():
-    import asyncio
-
-    from app.application.diagnostics_hub import DiagnosticsHub
-
-    app = make_status_app()
-    app.build_diagnostic_snapshot.return_value = {
-        "scheduler": {},
-        "timing": {},
-        "runtime_state": {},
-        "diagnosis": {},
-    }
-    app.logger = MagicMock()
-    bridge = WebConsoleBridge(app)
-    hub = DiagnosticsHub()
-    loop = asyncio.new_event_loop()
-    hub.set_loop(loop)
-    bridge._diagnostics_hub = hub
-    queue: asyncio.Queue = asyncio.Queue(maxsize=64)
-    hub.register(queue)
-    bridge.publish_diagnostic_snapshot()
-    loop.run_until_complete(asyncio.sleep(0.05))
-    item = queue.get_nowait()
-    assert item["data"] == app.build_diagnostic_snapshot.return_value
-    loop.close()
 
 
 def test_web_console_wait_ready_fails_fast_when_bind_failed():

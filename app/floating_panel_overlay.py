@@ -12,10 +12,19 @@ import time
 from typing import TYPE_CHECKING
 
 from PyQt6.QtCore import QElapsedTimer, QPointF, QRectF, Qt, QTimer
-from PyQt6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPainterPath, QPen, QPixmap
+from PyQt6.QtGui import (
+    QColor,
+    QFont,
+    QFontMetrics,
+    QPainter,
+    QPainterPath,
+    QPen,
+    QPixmap,
+    QTextLayout,
+    QTextOption,
+)
 from PyQt6.QtWidgets import QApplication, QWidget
 
-from app.danmu_pool import is_formula_danmu_text
 from app.floating_panel_engine import FloatingPanelEngine, FloatingPanelItem
 from app.floating_panel_style import (
     FloatingPanelStyleSnapshot,
@@ -35,6 +44,8 @@ _DT_CAP_SEC = 0.1
 # 面板内边距：条目左对齐起点与右侧预算（非业务皮肤常量）
 _PANEL_INSET = 4.0
 _FAST_DANMU_RENDER_MIN_LEN = 36
+# 单条卡片内文本最多行数（不进 ConfigStore）
+FLOATING_PANEL_TEXT_MAX_LINES = 2
 _FAST_OUTLINE_OFFSETS = (
     (-2, 0),
     (2, 0),
@@ -119,6 +130,74 @@ def _use_fast_danmu_render(content: str) -> bool:
     if len(content) >= _FAST_DANMU_RENDER_MIN_LEN:
         return True
     return any(ord(ch) > 127 for ch in content)
+
+
+
+def fit_floating_panel_text(
+    text: str,
+    font: QFont,
+    metrics: QFontMetrics,
+    max_text_w: float,
+    *,
+    max_lines: int = FLOATING_PANEL_TEXT_MAX_LINES,
+) -> tuple[list[str], float, float]:
+    """Wrap card text to at most ``max_lines``; elide remainder on the last line.
+
+    Measure and draw must both call this helper so height and glyphs stay in sync.
+
+    Returns ``(lines, used_width, text_block_height)``.
+    """
+    raw = str(text or "")
+    max_w = max(1, int(max_text_w))
+    line_h = float(metrics.height())
+    max_lines = max(1, int(max_lines))
+    if not raw:
+        return [""], 0.0, line_h
+
+    natural_w = float(metrics.horizontalAdvance(raw))
+    if natural_w <= float(max_w):
+        return [raw], natural_w, line_h
+
+    option = QTextOption()
+    option.setWrapMode(QTextOption.WrapMode.WrapAtWordBoundaryOrAnywhere)
+    option.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+
+    layout = QTextLayout(raw, font)
+    layout.setTextOption(option)
+    layout.beginLayout()
+    lines: list[str] = []
+    used_w = 0.0
+    try:
+        while True:
+            line = layout.createLine()
+            if not line.isValid():
+                break
+            line.setLineWidth(float(max_w))
+            start = int(line.textStart())
+            if len(lines) + 1 >= max_lines:
+                remaining = raw[start:]
+                elided = metrics.elidedText(
+                    remaining,
+                    Qt.TextElideMode.ElideRight,
+                    max_w,
+                )
+                lines.append(elided)
+                used_w = max(used_w, float(metrics.horizontalAdvance(elided)))
+                break
+            length = int(line.textLength())
+            segment = raw[start : start + length]
+            lines.append(segment)
+            used_w = max(used_w, float(line.naturalTextWidth()))
+    finally:
+        layout.endLayout()
+
+    if not lines:
+        elided = metrics.elidedText(raw, Qt.TextElideMode.ElideRight, max_w)
+        lines = [elided]
+        used_w = float(metrics.horizontalAdvance(elided))
+
+    height = line_h * float(len(lines))
+    return lines, min(float(max_w), used_w), height
 
 
 class FloatingPanelOverlay(QWidget):
@@ -268,9 +347,16 @@ class FloatingPanelOverlay(QWidget):
     def _apply_win32_click_through(self, *, _defer_attempt: int = 0) -> None:
         if sys.platform != "win32":
             return
-        hwnd = int(self.winId())
+        try:
+            hwnd = int(self.winId())
+        except (RuntimeError, ValueError, TypeError):
+            return
         if not hwnd:
-            if _defer_attempt < 3 and self.isVisible():
+            try:
+                still_visible = self.isVisible()
+            except (RuntimeError, ValueError, TypeError):
+                return
+            if _defer_attempt < 3 and still_visible:
                 QTimer.singleShot(
                     0,
                     lambda attempt=_defer_attempt + 1: self._apply_win32_click_through(
@@ -331,15 +417,25 @@ class FloatingPanelOverlay(QWidget):
         if self._font is None or self._font_metrics is None:
             return
         st = self._style
-        text_w = self._font_metrics.horizontalAdvance(item.content)
         panel_w = float(self.width() or self._panel_width)
         # 左对齐：两侧 inset 后整颗气泡（主体 + 尾 + 阴影）不得超过面板宽度
         max_total_w = max(1.0, panel_w - _PANEL_INSET * 2.0)
         max_content_w = max(1.0, max_total_w - self._extra_width())
         pad_x = float(st.padding_x)
         pad_y = float(st.padding_y)
-        content_w = min(max_content_w, text_w + pad_x * 2)
-        content_h = float(self._font_metrics.height()) + pad_y * 2
+        max_text_w = max(1.0, max_content_w - pad_x * 2.0)
+        lines, text_w, text_h = fit_floating_panel_text(
+            item.content,
+            self._font,
+            self._font_metrics,
+            max_text_w,
+        )
+        # 多行时铺满可用内容宽，保证 _render 用同一 max_text_w 再 fit
+        if len(lines) > 1:
+            content_w = max_content_w
+        else:
+            content_w = min(max_content_w, text_w + pad_x * 2.0)
+        content_h = float(text_h) + pad_y * 2.0
         total_h = content_h + self._extra_height()
         self.engine.update_item_height(item, total_h)
         item.pixmap = self._render_card_pixmap(
@@ -442,32 +538,43 @@ class FloatingPanelOverlay(QWidget):
             pad_y = float(st.padding_y)
             painter.setFont(self._font)
             text_x = body.left() + pad_x
-            baseline_y = body.top() + pad_y + self._font_metrics.ascent()
-            max_text_w = max(1, int(content_w - pad_x * 2))
-            draw_text = text
-            if is_formula_danmu_text(self.config, text):
-                draw_text = self._font_metrics.elidedText(
-                    text,
-                    Qt.TextElideMode.ElideRight,
-                    max_text_w,
-                )
+            max_text_w = max(1.0, float(content_w) - pad_x * 2.0)
+            lines, _used_w, _text_h = fit_floating_panel_text(
+                text,
+                self._font,
+                self._font_metrics,
+                max_text_w,
+            )
+            line_h = float(self._font_metrics.height())
+            ascent = float(self._font_metrics.ascent())
+            joined = "\n".join(lines)
 
             outline_on = bool(st.outline_enabled) and st.outline_width > 0
             outline_color = _hex_to_qcolor(st.outline_color)
             outline_w = max(1, int(st.outline_width)) if outline_on else 0
 
-            if _use_fast_danmu_render(draw_text):
+            if _use_fast_danmu_render(joined):
                 if outline_on:
                     outline_pen = QPen(outline_color)
                     outline_pen.setWidth(outline_w)
-                    for odx, ody in _FAST_OUTLINE_OFFSETS:
-                        painter.setPen(outline_pen)
-                        painter.drawText(int(text_x + odx), int(baseline_y + ody), draw_text)
+                    for i, line_text in enumerate(lines):
+                        baseline_y = body.top() + pad_y + ascent + i * line_h
+                        for odx, ody in _FAST_OUTLINE_OFFSETS:
+                            painter.setPen(outline_pen)
+                            painter.drawText(
+                                int(text_x + odx),
+                                int(baseline_y + ody),
+                                line_text,
+                            )
                 painter.setPen(QPen(text_fill))
-                painter.drawText(int(text_x), int(baseline_y), draw_text)
+                for i, line_text in enumerate(lines):
+                    baseline_y = body.top() + pad_y + ascent + i * line_h
+                    painter.drawText(int(text_x), int(baseline_y), line_text)
             else:
                 text_path = QPainterPath()
-                text_path.addText(text_x, baseline_y, self._font, draw_text)
+                for i, line_text in enumerate(lines):
+                    baseline_y = body.top() + pad_y + ascent + i * line_h
+                    text_path.addText(text_x, baseline_y, self._font, line_text)
                 if outline_on:
                     pen = QPen(outline_color)
                     pen.setWidth(outline_w)

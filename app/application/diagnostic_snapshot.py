@@ -86,6 +86,7 @@ class DiagnosticSnapshotBuilder:
                 "has_pending_timing": request_started_count > 0,
             },
             "undisplayed": undisplayed_summary,
+            "knowledge": self._knowledge_summary(),
         }
 
     @staticmethod
@@ -146,6 +147,66 @@ class DiagnosticSnapshotBuilder:
             "runtime_sec": float(runtime_sec),
         }
 
+    def _knowledge_summary(self) -> dict[str, Any]:
+        """只读投影 knowledge_runtime 状态；任何异常返回降级字段。
+
+        用 ``self._app.__dict__.get("knowledge_runtime")`` 而非 ``getattr``：在测试
+        场景下 ``make_minimal_danmu_app()`` 创建的 QObject 未走 ``__init__``，直接
+        ``getattr`` 会触发 ``RuntimeError: super-class __init__() of type DanmuApp
+        was never called``。
+        """
+        runtime = self._app.__dict__.get("knowledge_runtime")
+        if runtime is None:
+            return {
+                "enabled": False,
+                "fts_backend": "",
+                "packages_count": 0,
+                "enabled_packages_count": 0,
+                "items_count": 0,
+                "enabled_items_count": 0,
+                "last_injected_count": 0,
+            }
+        retriever = getattr(runtime, "retriever", None)
+        repo = getattr(runtime, "repository", None)
+        fts_backend = ""
+        last_injected_count = 0
+        if retriever is not None:
+            fts_backend = str(getattr(retriever, "_fts_backend", "") or "")
+            last_injected_count = len(
+                getattr(retriever, "_last_injected_contents", []) or []
+            )
+        packages_count = 0
+        enabled_packages_count = 0
+        items_count = 0
+        enabled_items_count = 0
+        if repo is not None:
+            try:
+                packages_count = len(repo.list_packages() or [])
+                enabled_packages_count = len(
+                    repo.list_packages(enabled_only=True) or []
+                )
+            except Exception:
+                pass
+            try:
+                items_count = int(
+                    repo.list_items(page=1, page_size=1).get("total", 0) or 0
+                )
+                enabled_items_count = int(
+                    repo.list_items(enabled=True, page=1, page_size=1).get("total", 0)
+                    or 0
+                )
+            except Exception:
+                pass
+        return {
+            "enabled": True,
+            "fts_backend": fts_backend,
+            "packages_count": packages_count,
+            "enabled_packages_count": enabled_packages_count,
+            "items_count": items_count,
+            "enabled_items_count": enabled_items_count,
+            "last_injected_count": last_injected_count,
+        }
+
 
 def build_diagnostic_report(snapshot: dict[str, object]) -> str:
     config_context = snapshot.get("config_context", {}) if isinstance(snapshot, dict) else {}
@@ -154,6 +215,7 @@ def build_diagnostic_report(snapshot: dict[str, object]) -> str:
     runtime_state = snapshot.get("runtime_state", {}) if isinstance(snapshot, dict) else {}
     diagnosis = snapshot.get("diagnosis", {}) if isinstance(snapshot, dict) else {}
     undisplayed = snapshot.get("undisplayed", {}) if isinstance(snapshot, dict) else {}
+    knowledge = snapshot.get("knowledge", {}) if isinstance(snapshot, dict) else {}
     web_runtime = runtime_state.get("web_runtime", {}) if isinstance(runtime_state, dict) else {}
     stats = runtime_state.get("stats", {}) if isinstance(runtime_state, dict) else {}
     generation = (
@@ -225,6 +287,15 @@ def build_diagnostic_report(snapshot: dict[str, object]) -> str:
         f"latest_reason: {undisplayed.get('latest_reason', '')}",
         f"top_reason: {undisplayed.get('top_reason', '')} ({undisplayed.get('top_reason_count', 0)})",
         f"reason_counts: {undisplayed.get('reason_counts', {})}",
+        "",
+        "[knowledge]",
+        f"enabled: {knowledge.get('enabled', False)}",
+        f"fts_backend: {knowledge.get('fts_backend', '')}",
+        f"packages_count: {knowledge.get('packages_count', 0)}",
+        f"enabled_packages_count: {knowledge.get('enabled_packages_count', 0)}",
+        f"items_count: {knowledge.get('items_count', 0)}",
+        f"enabled_items_count: {knowledge.get('enabled_items_count', 0)}",
+        f"last_injected_count: {knowledge.get('last_injected_count', 0)}",
         "",
         "[boundary_guard]",
         "- Phase 4 ownership freeze remains in force",

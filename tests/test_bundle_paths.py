@@ -143,7 +143,7 @@ def test_web_console_modules_exist():
         "transport.js",
         "status.js",
         "logs.js",
-        "diagnostics.js",
+        "diagnostic-report-text.js",
         "settings.js",
         "content-pages.js",
         "theme.js",
@@ -216,37 +216,6 @@ def test_settings_core_fill_form_is_async_and_reload_awaits_it():
     assert "await fillForm(cfg);" in settings_core_js
 
 
-def test_diagnostics_panel_visibility_toggle_wires_button_and_sse_gate():
-    """BUG-067: 诊断面板展开/收起按钮与 hidden 门控 SSE（静态符号回归）。"""
-    root = project_root()
-    index_html = (root / "web" / "static" / "index.html").read_text(encoding="utf-8")
-    diagnostics_js = (root / "web" / "static" / "modules" / "diagnostics.js").read_text(
-        encoding="utf-8"
-    )
-
-    assert 'id="btnToggleDiagnosticsPanel"' in index_html
-    assert 'id="diagnosticsPanel"' in index_html
-    diag_panel_idx = index_html.index('id="diagnosticsPanel"')
-    diag_panel_chunk = index_html[max(0, diag_panel_idx - 80) : diag_panel_idx + 120]
-    assert "hidden" in diag_panel_chunk
-
-    assert "btnToggleDiagnosticsPanel" in diagnostics_js
-    assert "setDiagnosticsPanelVisible" in diagnostics_js
-    assert "classList.toggle('hidden'" in diagnostics_js
-    assert "aria-hidden" in diagnostics_js
-    init_start = diagnostics_js.index("export function initDiagnosticsPanel")
-    init_snippet = diagnostics_js[init_start : init_start + 2500]
-    assert "addEventListener('click'" in init_snippet
-    assert "显示诊断面板" in diagnostics_js
-    assert "隐藏诊断面板" in diagnostics_js
-
-    assert "isIntersecting: true" not in diagnostics_js
-    assert "isDiagnosticsPanelVisible" in diagnostics_js
-    assert "page-overview" in diagnostics_js
-    assert "panel.classList.contains('hidden')" in diagnostics_js
-    assert "setInterval(refreshDiagnostics" not in diagnostics_js
-    assert "refreshDiagnostics, 2500" not in diagnostics_js
-
 
 def test_announcements_badge_polling_stops_on_announcements_page_navigate():
     """BUG-042: 公告页停止 5min 轮询，其他页恢复（静态符号回归）。"""
@@ -289,22 +258,17 @@ def test_meme_barrage_meta_polling_stops_when_leaving_danmu_pool():
     assert "stopMemeBarrageMetaPolling()" in navigate_body
 
 
-def test_realtime_transport_and_diagnostics_teardown_on_pagehide():
-    """W-PERF-MED-004 P-38: pagehide 统一清理 WS/SSE/轮询（静态符号回归）。"""
+def test_realtime_transport_teardown_on_pagehide():
+    """W-PERF-MED-004 P-38: pagehide 统一清理 WS/轮询（静态符号回归）。"""
     root = project_root()
     transport_js = (root / "web" / "static" / "modules" / "transport.js").read_text(encoding="utf-8")
-    diagnostics_js = (root / "web" / "static" / "modules" / "diagnostics.js").read_text(
-        encoding="utf-8"
-    )
     app_js = (root / "web" / "static" / "app.js").read_text(encoding="utf-8")
     assert "export function stopRealtimeTransport" in transport_js
     assert "detachWebSocket(REALTIME.statusWs)" in transport_js
-    assert "export function destroyDiagnosticsPanel" in diagnostics_js
-    assert "export function disconnectDiagnosticsPanel" in diagnostics_js
     assert "pagehide" in app_js
     assert "stopRealtimeTransport()" in app_js
-    assert "destroyDiagnosticsPanel()" in app_js
-    assert "disconnectDiagnosticsPanel()" in app_js
+    assert "modules/diagnostics.js" not in app_js
+    assert "destroyDiagnosticsPanel" not in app_js
 
 
 def test_status_js_renders_legacy_lifetime_token_note():

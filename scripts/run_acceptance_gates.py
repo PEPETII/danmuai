@@ -9,7 +9,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 COMMANDS: list[tuple[str, list[str]]] = [
     ("boundary_guard", [sys.executable, "scripts/boundary_guard.py"]),
     ("test_boundary_guard_rules", [sys.executable, "-m", "pytest", "tests/test_boundary_guard_web_rules.py", "tests/test_boundary_guard_runtime_rules.py", "tests/test_boundary_guard_request_rules.py", "tests/test_boundary_guard_diagnostics_rules.py", "-q"]),
-    ("test_diagnostics", [sys.executable, "-m", "pytest", "tests/test_diagnostics_snapshot.py", "tests/test_diagnostics_sse_route.py", "tests/test_diagnostics_sse.py", "tests/test_diagnostics_hub.py", "-q"]),
+    ("test_diagnostics", [sys.executable, "-m", "pytest", "tests/test_diagnostics_snapshot.py", "tests/test_danmu_diagnostics.py", "-q"]),
     ("test_request_scheduling", [sys.executable, "-m", "pytest", "tests/test_request_scheduling.py", "-q"]),
     (
         "test_web_console_p0",

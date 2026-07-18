@@ -59,7 +59,6 @@ def run_uvicorn_locked(server) -> None:
     async def lifespan(app: FastAPI):
         server._loop = asyncio.get_running_loop()
         bridge.set_event_loop(server._loop)
-        server.diagnostics_hub.set_loop(server._loop)
         server.live_overlay_hub.set_loop(server._loop)
         try:
             yield
@@ -223,7 +222,7 @@ def run_uvicorn_locked(server) -> None:
         return {"ok": True}
 
     from app.web_api.live_overlay import register_live_overlay_routes
-    from app.web_api.routes import register_diagnostics_sse_route, register_web_routes
+    from app.web_api.routes import register_web_routes
 
     register_web_routes(app, bridge, _check_token)
     register_live_overlay_routes(
@@ -232,7 +231,6 @@ def run_uvicorn_locked(server) -> None:
         server.base_url,
         _check_token,
     )
-    register_diagnostics_sse_route(app, server.diagnostics_hub, bridge, _check_token)
     register_websocket_routes(app, bridge, token, WebSocketRoute, WebSocketDisconnect)
 
     @app.get("/")

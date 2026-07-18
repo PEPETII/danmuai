@@ -3,7 +3,6 @@
     <!-- section: 运行指示（状态药丸 + Realtime 连接状态 + 开始/停止按钮） -->
     <!-- section: 4 张统计卡（本场 / 累计） + 4 张累计 Token / 运行时长卡 -->
     <!-- section: 当前人格 + 直播输出面板（OBS/直播伴侣网页弹幕层地址） -->
-    <!-- section: 诊断面板（默认折叠；调度阻塞/RTT/cooldown/runtime 摘要） -->
     <!-- section: 弹幕场次记录（最近 100 条 session_runs，存于 config.db） -->
     <section id="page-overview" class="page-panel active">
       <div id="overviewAnnouncementBanner" class="overview-announcement-banner hidden" role="status" aria-live="polite">
@@ -173,94 +172,6 @@
         <h3 class="text-lg font-bold text-warmText mb-4">当前人格</h3>
         <p class="text-warmText" id="activePersonae">—</p>
         <p class="text-sm text-gray-400 mt-4" id="liveStatusLine"></p>
-      </div>
-
-      <div class="mt-6">
-        <button type="button" id="btnToggleDiagnosticsPanel" class="px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50">显示诊断面板</button>
-      </div>
-
-      <div class="card p-6 mt-6 hidden" id="diagnosticsPanel" aria-hidden="true">
-        <div class="flex flex-wrap items-start justify-between gap-4 mb-4">
-          <div>
-            <h3 class="text-lg font-bold text-warmText">诊断面板</h3>
-            <p class="text-sm text-gray-400">只读展示调度、RTT、cooldown 与 runtime 摘要</p>
-          </div>
-          <button type="button" id="btnCopyDiagnosticsReport" class="px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50">
-            复制诊断报告
-          </button>
-        </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-4 text-sm">
-          <div class="rounded-2xl bg-cream px-4 py-3">
-            <p class="text-gray-400">调度阻塞</p>
-            <p class="font-bold text-warmText" id="diagSchedulerBlocked">未知</p>
-          </div>
-          <div class="rounded-2xl bg-cream px-4 py-3">
-            <p class="text-gray-400">阻塞原因</p>
-            <p class="font-bold text-warmText" id="diagBlockReason">-</p>
-          </div>
-          <div class="rounded-2xl bg-cream px-4 py-3">
-            <p class="text-gray-400">距上次请求</p>
-            <p class="font-bold text-warmText" id="diagTriggerGap">0.0s</p>
-          </div>
-          <div class="rounded-2xl bg-cream px-4 py-3">
-            <p class="text-gray-400" data-i18n="overview.text.Pending_Timing">Pending Timing</p>
-            <p class="font-bold text-warmText" id="diagPendingTiming">0</p>
-          </div>
-          <div class="rounded-2xl bg-cream px-4 py-3">
-            <p class="text-gray-400">平均 RTT</p>
-            <p class="font-bold text-warmText" id="diagAvgRtt">0.00s</p>
-          </div>
-          <div class="rounded-2xl bg-cream px-4 py-3">
-            <p class="text-gray-400">智能冷却</p>
-            <p class="font-bold text-warmText" id="diagCooldown">0ms</p>
-          </div>
-          <div class="rounded-2xl bg-cream px-4 py-3">
-            <p class="text-gray-400">高 RTT</p>
-            <p class="font-bold text-warmText" id="diagHighRtt">否</p>
-          </div>
-          <div class="rounded-2xl bg-cream px-4 py-3">
-            <p class="text-gray-400">RTT 样本数</p>
-            <p class="font-bold text-warmText" id="diagRttHistoryLen">0</p>
-          </div>
-        </div>
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4 text-sm">
-          <div class="rounded-2xl bg-white border border-softPeach/60 px-4 py-3">
-            <p class="text-gray-400 mb-1">最近 RTT 样本</p>
-            <p class="font-semibold text-warmText break-all" id="diagRecentRttSamples">[]</p>
-          </div>
-          <div class="rounded-2xl bg-white border border-softPeach/60 px-4 py-3">
-            <p class="text-gray-400 mb-1">Runtime 摘要</p>
-            <p class="font-semibold text-warmText break-all" id="diagRuntimeStats">等待诊断数据...</p>
-          </div>
-        </div>
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4 text-sm">
-          <div class="rounded-2xl bg-white border border-softPeach/60 px-4 py-3">
-            <p class="text-gray-400 mb-1">未上屏弹幕</p>
-            <div class="grid grid-cols-2 gap-2">
-              <div>
-                <p class="text-xs text-gray-400">最近次数</p>
-                <p class="font-bold text-warmText" id="diagUndisplayedRecent">0</p>
-              </div>
-              <div>
-                <p class="text-xs text-gray-400">总次数</p>
-                <p class="font-bold text-warmText" id="diagUndisplayedTotal">0</p>
-              </div>
-              <div>
-                <p class="text-xs text-gray-400">最新原因</p>
-                <p class="font-bold text-warmText" id="diagUndisplayedLatest">-</p>
-              </div>
-              <div>
-                <p class="text-xs text-gray-400">Top 原因</p>
-                <p class="font-bold text-warmText" id="diagUndisplayedTop">-</p>
-              </div>
-            </div>
-          </div>
-          <div class="rounded-2xl bg-white border border-softPeach/60 px-4 py-3">
-            <p class="text-gray-400 mb-1">最近未上屏原因</p>
-            <p class="font-semibold text-warmText break-all text-xs" id="diagUndisplayedRecentList">-</p>
-          </div>
-        </div>
-        <pre id="diagnosticReportPreview" class="rounded-2xl bg-cream px-4 py-3 text-xs text-warmText whitespace-pre-wrap overflow-x-auto">等待诊断数据...</pre>
       </div>
 
       <div class="card p-6 mt-6">

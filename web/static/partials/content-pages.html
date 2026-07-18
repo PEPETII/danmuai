@@ -660,3 +660,188 @@
         </div>
       </div>
     </section>
+
+    <!-- ========== 区域：知识包（Wave 5 A9） ========== -->
+    <section id="page-knowledge" class="page-panel" data-i18n-aria-label="nav.knowledge" aria-label="知识包">
+      <header class="mb-8">
+        <h2 class="text-2xl font-bold text-warmText" data-i18n="dynamic.appKnowledgePage.title">知识包</h2>
+        <p class="text-gray-500 mt-1" data-i18n="dynamic.appKnowledgePage.subtitle">导入游戏 / 主播梗 / 表达参考 / 直播弹幕日志，由 AI 整理为可检索的短知识</p>
+      </header>
+
+      <!-- 视图 1：知识包列表 -->
+      <div id="knowledgeListView" class="knowledge-view">
+        <div class="flex flex-wrap items-center gap-3 mb-6">
+          <button type="button" id="btnKnowledgeNewPackage" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm" data-i18n="dynamic.appKnowledgePage.newPackage">新建知识包</button>
+          <button type="button" id="btnKnowledgeRefresh" class="px-6 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50" data-i18n="dynamic.appKnowledgePage.refresh">刷新</button>
+          <button type="button" id="btnKnowledgeRetrievalPreview" class="px-6 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50" data-i18n="dynamic.appKnowledgePage.retrievalPreview">检索预览</button>
+        </div>
+        <div id="knowledgePackageList" class="space-y-4"></div>
+        <p id="knowledgePackageEmpty" class="text-gray-500 text-sm hidden" data-i18n="dynamic.appKnowledgePage.empty">暂无知识包，点「新建」开始导入第一份知识</p>
+      </div>
+
+      <!-- 视图 2：知识包详情 -->
+      <div id="knowledgePackageDetail" class="knowledge-view hidden space-y-6">
+        <button type="button" id="btnKnowledgeBackToList" class="px-4 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50" data-i18n="dynamic.appKnowledgePage.backToList">← 返回列表</button>
+
+        <div class="card p-8 space-y-4">
+          <div class="settings-field">
+            <label for="knowledgePackageName" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.name">名称</label>
+            <input type="text" id="knowledgePackageName" class="settings-field-control">
+          </div>
+          <div class="settings-field">
+            <label for="knowledgePackageDescription" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.description">描述</label>
+            <textarea id="knowledgePackageDescription" rows="3" class="settings-field-control"></textarea>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="settings-field">
+              <label for="knowledgePackageContentKind" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.contentKind">内容类型</label>
+              <select id="knowledgePackageContentKind" class="settings-field-control">
+                <option value="auto">auto</option>
+                <option value="fact">fact</option>
+                <option value="meme">meme</option>
+                <option value="livestream">livestream</option>
+                <option value="persona">persona</option>
+              </select>
+            </div>
+            <div class="settings-field">
+              <label for="knowledgePackageScopeMode" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.scopeMode">作用范围</label>
+              <select id="knowledgePackageScopeMode" class="settings-field-control">
+                <option value="global">global</option>
+                <option value="tagged">tagged</option>
+              </select>
+            </div>
+          </div>
+          <div class="settings-field">
+            <label for="knowledgePackageScopeTags" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.scopeTags">作用标签（逗号分隔）</label>
+            <input type="text" id="knowledgePackageScopeTags" class="settings-field-control">
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="settings-field">
+              <label for="knowledgePackagePriority" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.priority">优先级</label>
+              <input type="number" id="knowledgePackagePriority" min="0" max="100" value="0" class="settings-field-control">
+            </div>
+            <div class="settings-field">
+              <span class="settings-field-label" data-i18n="dynamic.appKnowledgePage.enabled">启用</span>
+              <label class="toggle-switch font-semibold text-warmText">
+                <input type="checkbox" id="knowledgePackageEnabled" role="switch">
+                <span></span>
+              </label>
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-3">
+            <button type="button" id="btnKnowledgeSavePackage" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm" data-i18n="dynamic.appKnowledgePage.save">保存设置</button>
+            <button type="button" id="btnKnowledgeDeletePackage" class="px-6 py-2 bg-red-50 border border-red-200 rounded-xl font-semibold text-red-600" data-i18n="dynamic.appKnowledgePage.delete">删除包</button>
+          </div>
+        </div>
+
+        <!-- 来源与导入任务 -->
+        <div class="card p-8 space-y-4">
+          <p class="settings-section-title" data-i18n="dynamic.appKnowledgePage.sources">来源与导入任务</p>
+          <div class="settings-field">
+            <label for="knowledgeSourceType" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.sourceType">来源类型</label>
+            <select id="knowledgeSourceType" class="settings-field-control">
+              <option value="pasted_text">pasted_text</option>
+              <option value="txt">txt</option>
+              <option value="markdown">markdown</option>
+              <option value="webpage">webpage</option>
+            </select>
+          </div>
+          <div class="settings-field">
+            <label for="knowledgeDisplayName" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.displayName">显示名称</label>
+            <input type="text" id="knowledgeDisplayName" class="settings-field-control">
+          </div>
+          <div id="knowledgeSourceUrlWrap" class="settings-field hidden">
+            <label for="knowledgeSourceUrl" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.sourceUrl">网页 URL</label>
+            <input type="text" id="knowledgeSourceUrl" class="settings-field-control">
+          </div>
+          <div id="knowledgePastedTextWrap" class="settings-field">
+            <label for="knowledgePastedText" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.pastedText">粘贴文本</label>
+            <textarea id="knowledgePastedText" rows="6" class="settings-field-control"></textarea>
+          </div>
+          <div class="settings-field">
+            <label for="knowledgeDocumentKind" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.documentKind">文档类型</label>
+            <select id="knowledgeDocumentKind" class="settings-field-control">
+              <option value="auto">auto</option>
+              <option value="article">article</option>
+              <option value="livestream_log">livestream_log</option>
+              <option value="faq">faq</option>
+            </select>
+          </div>
+          <button type="button" id="btnKnowledgeStartImport" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm" data-i18n="dynamic.appKnowledgePage.startImport">开始导入</button>
+
+          <p class="settings-section-title mt-6" data-i18n="dynamic.appKnowledgePage.jobs">任务列表</p>
+          <div id="knowledgeJobList" class="space-y-2"></div>
+          <p id="knowledgeJobEmpty" class="text-gray-500 text-sm hidden" data-i18n="dynamic.appKnowledgePage.noJobs">暂无任务</p>
+        </div>
+
+        <!-- 知识条目 -->
+        <div class="card p-8 space-y-4">
+          <p class="settings-section-title" data-i18n="dynamic.appKnowledgePage.items">知识条目</p>
+          <div class="flex flex-wrap items-center gap-3">
+            <select id="knowledgeItemKindFilter" class="settings-field-control max-w-[160px]">
+              <option value="" data-i18n="dynamic.appKnowledgePage.all">全部</option>
+              <option value="fact">fact</option>
+              <option value="reaction_pattern">reaction_pattern</option>
+              <option value="meme">meme</option>
+              <option value="style_example">style_example</option>
+            </select>
+            <select id="knowledgeItemEnabledFilter" class="settings-field-control max-w-[160px]">
+              <option value="" data-i18n="dynamic.appKnowledgePage.all">全部</option>
+              <option value="true" data-i18n="dynamic.appKnowledgePage.enabled">启用</option>
+              <option value="false">disabled</option>
+            </select>
+            <input type="search" id="knowledgeItemSearch" class="settings-field-control max-w-[240px]" data-i18n-placeholder="dynamic.appKnowledgePage.search" placeholder="搜索">
+            <button type="button" id="btnKnowledgeSearchItems" class="px-4 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50" data-i18n="dynamic.appKnowledgePage.search">搜索</button>
+          </div>
+          <div id="knowledgeItemList" class="space-y-2"></div>
+          <p id="knowledgeItemEmpty" class="text-gray-500 text-sm hidden" data-i18n="dynamic.appKnowledgePage.noItems">暂无条目</p>
+          <div class="flex flex-wrap items-center gap-3 mt-3 text-sm text-warmText">
+            <button type="button" id="btnKnowledgeItemPrev" class="px-3 py-1.5 bg-white border border-gray-200 rounded-lg font-semibold hover:bg-gray-50" data-i18n="dynamic.appKnowledgePage.prev">上一页</button>
+            <span id="knowledgeItemPageInfo" class="text-gray-500"></span>
+            <button type="button" id="btnKnowledgeItemNext" class="px-3 py-1.5 bg-white border border-gray-200 rounded-lg font-semibold hover:bg-gray-50" data-i18n="dynamic.appKnowledgePage.next">下一页</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 视图 3：检索预览 -->
+      <div id="knowledgeRetrievalPreview" class="knowledge-view hidden space-y-6">
+        <button type="button" id="btnKnowledgePreviewBack" class="px-4 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50" data-i18n="dynamic.appKnowledgePage.backToList">← 返回列表</button>
+        <div class="card p-8 space-y-4">
+          <p class="settings-section-title" data-i18n="dynamic.appKnowledgePage.retrievalTitle">检索预览（沙盒，不写入运行时）</p>
+          <div class="settings-field">
+            <label for="knowledgeSceneBrief" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.sceneBrief">场景简述</label>
+            <textarea id="knowledgeSceneBrief" rows="3" class="settings-field-control"></textarea>
+          </div>
+          <div class="settings-field">
+            <label for="knowledgeKeywords" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.keywords">关键词（逗号分隔）</label>
+            <input type="text" id="knowledgeKeywords" class="settings-field-control">
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="settings-field">
+              <label for="knowledgeMaxItems" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.maxItems">最大条目</label>
+              <input type="number" id="knowledgeMaxItems" min="1" max="50" value="4" class="settings-field-control">
+            </div>
+            <div class="settings-field">
+              <label for="knowledgeMaxChars" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.maxChars">字符上限</label>
+              <input type="number" id="knowledgeMaxChars" min="100" max="5000" value="360" class="settings-field-control">
+            </div>
+          </div>
+          <button type="button" id="btnKnowledgeStartPreview" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm" data-i18n="dynamic.appKnowledgePage.startPreview">开始预览</button>
+        </div>
+        <div id="knowledgeRetrievalResult" class="card p-8 space-y-4 hidden">
+          <div class="flex flex-wrap items-center gap-4 text-sm text-warmText">
+            <span id="knowledgeRetrievalHitCount" class="font-semibold"></span>
+            <span id="knowledgeRetrievalMs" class="text-gray-500"></span>
+            <span id="knowledgeRetrievalFts" class="text-gray-500"></span>
+          </div>
+          <div>
+            <p class="settings-section-title" data-i18n="dynamic.appKnowledgePage.promptText">Prompt 文本</p>
+            <pre id="knowledgePromptText" class="bg-cream border border-softPeach rounded-xl p-4 text-sm text-warmText whitespace-pre-wrap break-words max-h-[400px] overflow-y-auto"></pre>
+          </div>
+          <div>
+            <p class="settings-section-title" data-i18n="dynamic.appKnowledgePage.items">知识条目</p>
+            <div id="knowledgeRetrievalItems" class="space-y-2"></div>
+          </div>
+        </div>
+      </div>
+    </section>

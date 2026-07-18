@@ -147,6 +147,13 @@ class DanmuAppMicMixin:
         system_pt, user_pt = self.personae.get_prompt(persona)
         system_pt = append_nickname_to_system_pt(system_pt, self.config)
         system_pt = append_live_topic_to_system_pt(system_pt, self.config)
+        # Phase B / Wave 7（B2）：知识包检索注入到 system_pt 末尾。
+        # 异常隔离：knowledge_runtime 未挂载或检索失败 → 原样返回 system_pt。
+        system_pt = self._inject_knowledge_prompt(
+            system_pt,
+            request_round=request_round,
+            screenshot_id=screenshot_id,
+        )
         now = datetime.now().strftime("%H:%M:%S")
         user_pt = user_pt.replace("{current_time}", now)
         user_pt = user_pt.replace("{round}", str(self.screenshot_round))

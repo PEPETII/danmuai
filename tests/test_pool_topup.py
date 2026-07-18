@@ -222,3 +222,132 @@ def test_duplicate_loss_topup_triggers_once_when_threshold_met(tmp_path, monkeyp
         limit=2,
     )
     assert added == 2
+
+
+def test_maybe_pool_topup_floating_panel_fills_fp_not_scrolling(tmp_path, monkeypatch):
+    """W-FP-POOL-TOPUP-ROUTE-001: floating mode topup 写入 FP，不写横向 engine。"""
+    from app.floating_panel_engine import FloatingPanelEngine
+
+    store = ConfigStore(db_path=tmp_path / "fp_topup.db")
+    store.set("danmu_render_mode", "floating_panel")
+    store.set("danmu_pool_use_custom", "1")
+    store.set("min_on_screen", "3")
+    store.set("danmu_speed", "2.0")
+    store.set("danmu_lines", "5")
+
+    scroll_engine = DanmuEngine(store)
+    scroll_engine.set_screen_width(900.0)
+    scroll_engine.set_screen_height(400.0)
+    scroll_engine.reload_tracks()
+    scroll_engine.running = True
+    scroll_before = scroll_engine.current_display_count()
+
+    fp_engine = FloatingPanelEngine(store)
+    fp_engine.set_panel_height(400.0)
+    fp_engine.running = True
+
+    pool_lines = [f"fp-pool-{i}" for i in range(8)]
+    monkeypatch.setattr(
+        "app.danmu_pool.sample_danmu_for_config",
+        lambda _cfg, n: pool_lines[:n],
+    )
+
+    app = DanmuApp.__new__(DanmuApp)
+    app.engine = scroll_engine
+    app.config = store
+    app._scene_generation = 0
+    app.floating_panel_engine = fp_engine
+    app.floating_panel_overlay = object()  # presence only; display mocked
+    app._broadcast_live_overlay_item = lambda *a, **k: None
+
+    def _display(text, persona, **kwargs):
+        return fp_engine.add_text(
+            text,
+            persona or "",
+            item_height=32.0,
+            batch_id=int(kwargs.get("batch_id", 0)),
+            scene_generation=int(kwargs.get("scene_generation", 0)),
+            skip_dedup=bool(kwargs.get("skip_dedup", False)),
+        )
+
+    app._display_floating_panel_text = _display
+
+    assert fp_engine.active_count() == 0
+    added = app._maybe_pool_topup()
+    assert added >= 1
+    assert fp_engine.active_count() >= 1
+    assert scroll_engine.current_display_count() == scroll_before
+
+
+def test_maybe_pool_topup_floating_noop_when_fp_not_ready(tmp_path, monkeypatch):
+    store = ConfigStore(db_path=tmp_path / "fp_not_ready.db")
+    store.set("danmu_render_mode", "floating_panel")
+    store.set("danmu_pool_use_custom", "1")
+    store.set("min_on_screen", "3")
+
+    scroll_engine = DanmuEngine(store)
+    scroll_engine.set_screen_width(900.0)
+    scroll_engine.reload_tracks()
+    scroll_engine.running = True
+
+    monkeypatch.setattr(
+        "app.danmu_pool.sample_danmu_for_config",
+        lambda _cfg, n: ["x"] * n,
+    )
+
+    app = DanmuApp.__new__(DanmuApp)
+    app.engine = scroll_engine
+    app.config = store
+    app._scene_generation = 0
+    # no floating_panel_engine / overlay
+    assert app._maybe_pool_topup() == 0
+    assert scroll_engine.current_display_count() == 0
+
+
+def test_maybe_duplicate_loss_topup_floating_panel(tmp_path, monkeypatch):
+    from app.floating_panel_engine import FloatingPanelEngine
+    from types import SimpleNamespace
+
+    store = ConfigStore(db_path=tmp_path / "fp_dup_topup.db")
+    store.set("danmu_render_mode", "floating_panel")
+    store.set("danmu_pool_use_custom", "1")
+    store.set("min_on_screen", "5")
+
+    scroll_engine = DanmuEngine(store)
+    scroll_engine.set_screen_width(900.0)
+    scroll_engine.reload_tracks()
+    scroll_engine.running = True
+    scroll_before = scroll_engine.current_display_count()
+
+    fp_engine = FloatingPanelEngine(store)
+    fp_engine.set_panel_height(400.0)
+    fp_engine.running = True
+
+    monkeypatch.setattr(
+        "app.danmu_pool.sample_danmu_for_config",
+        lambda _cfg, n: [f"d{i}" for i in range(n)],
+    )
+
+    app = DanmuApp.__new__(DanmuApp)
+    app.engine = scroll_engine
+    app.config = store
+    app.floating_panel_engine = fp_engine
+    app.floating_panel_overlay = object()
+    app._broadcast_live_overlay_item = lambda *a, **k: None
+    app._display_floating_panel_text = (
+        lambda text, persona, **kwargs: fp_engine.add_text(
+            text,
+            item_height=32.0,
+            skip_dedup=True,
+            batch_id=0,
+            scene_generation=int(kwargs.get("scene_generation", 0)),
+        )
+    )
+
+    stats: dict[str, int | str] = {"duplicate_loss_total": 3, "duplicate_topup_triggered": 0}
+    queued = SimpleNamespace(scene_generation=2)
+    added = app._maybe_duplicate_loss_topup(queued, stats)
+    assert added >= 1
+    assert stats["duplicate_topup_triggered"] == 1
+    assert fp_engine.active_count() >= 1
+    assert scroll_engine.current_display_count() == scroll_before

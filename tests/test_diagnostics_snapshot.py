@@ -231,6 +231,15 @@ def test_diagnostics_api_returns_independent_read_only_payload(monkeypatch: pyte
                 "has_pending_timing": True,
             },
             "undisplayed": {},
+            "knowledge": {
+                "enabled": False,
+                "fts_backend": "",
+                "packages_count": 0,
+                "enabled_packages_count": 0,
+                "items_count": 0,
+                "enabled_items_count": 0,
+                "last_injected_count": 0,
+            },
         },
     }
     assert diagnostics_res.status_code == 200
@@ -309,23 +318,6 @@ def test_build_diagnostic_report_formats_existing_snapshot():
     assert "No immediate scheduler/timing anomaly detected" in report
 
 
-def test_diagnostics_panel_files_use_independent_endpoint_and_render_targets():
-    from app.bundle_paths import project_root
-
-    root = project_root()
-    app_js = (root / "web" / "static" / "app.js").read_text(encoding="utf-8")
-    diagnostics_js = (root / "web" / "static" / "modules" / "diagnostics.js").read_text(
-        encoding="utf-8",
-    )
-    index_html = (root / "web" / "static" / "index.html").read_text(encoding="utf-8")
-
-    assert "/api/diagnostics" in diagnostics_js
-    assert "buildDiagnosticReportText" in diagnostics_js
-    assert "initDiagnosticsPanel" in app_js
-    assert "btnCopyDiagnosticsReport" in diagnostics_js
-    assert "诊断面板" in index_html
-    assert "diagnosticReportPreview" in index_html
-
 
 def test_diagnostics_requires_auth():
     """W-SECURITY-001: /api/diagnostics 无 Token 应返回 401。"""
@@ -366,3 +358,19 @@ def test_diagnostics_accepts_valid_token():
     response = client.get("/api/diagnostics", headers={"Authorization": "Bearer test-token"})
     assert response.status_code == 200
     assert response.json()["ok"] is True
+
+def test_diagnostic_report_text_helper_exists_for_error_reporting():
+    """W-DIAGNOSTICS-PANEL-REMOVE-001: 面板删除后报告文本 helper 仍供错误上报。"""
+    from app.bundle_paths import project_root
+
+    root = project_root()
+    helper = (root / "web" / "static" / "modules" / "diagnostic-report-text.js").read_text(
+        encoding="utf-8",
+    )
+    error_js = (root / "web" / "static" / "modules" / "app-error-reporting.js").read_text(
+        encoding="utf-8",
+    )
+    assert "export function buildDiagnosticReportText" in helper
+    assert "diagnostic-report-text.js" in error_js
+    assert "/api/diagnostics" in error_js
+

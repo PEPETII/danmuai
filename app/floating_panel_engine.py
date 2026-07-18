@@ -167,6 +167,22 @@ class FloatingPanelEngine:
     def active_count(self) -> int:
         return sum(1 for it in self._items if not it.exiting)
 
+    def min_on_screen(self) -> int:
+        """公式化补足目标条数；池关闭时为 0（与 DanmuEngine 对齐 duck-type）。"""
+        from app.danmu_pool import effective_min_on_screen
+
+        return effective_min_on_screen(self.config)
+
+    def deficit_below_min(self) -> int:
+        """相对 min_on_screen 的不足条数（按非退出 active_count 计）。"""
+        min_n = self.min_on_screen()
+        if min_n <= 0:
+            return 0
+        return max(0, min_n - self.active_count())
+
+    def needs_refill(self) -> bool:
+        return self.deficit_below_min() > 0
+
     @property
     def pixels_per_second(self) -> float:
         """兼容旧 API：仍由 floating_panel_speed 派生，不驱动堆积动画。"""

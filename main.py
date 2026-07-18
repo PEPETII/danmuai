@@ -163,17 +163,38 @@ class DanmuApp(
     def _has_visual_request_in_flight(self) -> bool:
         return self._is_generating or self.ai_in_flight >= MAX_IN_FLIGHT
 
-    def _maybe_pool_topup(self) -> int:
-        from app.danmu_pool import plan_pool_topup
+    def _pool_topup_target(self):
+        """解析公式化补足目标面：('scrolling'|'floating_panel', plan_engine) 或 None。
 
-        limit, texts = plan_pool_topup(self.engine, self.config)
-        if limit <= 0 or not texts:
-            return 0
-        scene_generation = int(getattr(self, "_scene_generation", 0))
-        added = 0
-        for text in texts:
-            if added >= limit:
-                break
+        floating 时禁止写横向 DanmuEngine；scrolling 时禁止写 FP。
+        pet 模式或显示面未就绪时返回 None。
+        """
+        if self._pet_barrage_mode_enabled():
+            return None
+        mode = self._danmu_render_mode()
+        if mode == "floating_panel":
+            eng = self.__dict__.get("floating_panel_engine")
+            ov = self.__dict__.get("floating_panel_overlay")
+            if eng is not None and ov is not None and bool(getattr(eng, "running", False)):
+                return ("floating_panel", eng)
+            return None
+        if mode == "scrolling":
+            engine = getattr(self, "engine", None)
+            if engine is not None and bool(getattr(engine, "running", False)):
+                return ("scrolling", engine)
+            return None
+        return None
+
+    def _add_pool_topup_text(
+        self,
+        kind: str,
+        text: str,
+        *,
+        scene_generation: int,
+        source: str,
+    ) -> bool:
+        """按目标面写入一条补足弹幕；成功返回 True。"""
+        if kind == "scrolling":
             item = self.engine.add_text(
                 text,
                 persona="",
@@ -181,8 +202,40 @@ class DanmuApp(
                 scene_generation=scene_generation,
                 skip_dedup=True,
             )
-            if item:
-                self._broadcast_live_overlay_item(item, item.content, source="pool_topup")
+            if not item:
+                return False
+            self._broadcast_live_overlay_item(item, item.content, source=source)
+            return True
+        item = self._display_floating_panel_text(
+            text,
+            "",
+            batch_id=0,
+            scene_generation=scene_generation,
+            skip_dedup=True,
+        )
+        return item is not None
+
+    def _maybe_pool_topup(self) -> int:
+        from app.danmu_pool import plan_pool_topup
+
+        target = self._pool_topup_target()
+        if target is None:
+            return 0
+        kind, plan_engine = target
+        limit, texts = plan_pool_topup(plan_engine, self.config)
+        if limit <= 0 or not texts:
+            return 0
+        scene_generation = int(getattr(self, "_scene_generation", 0))
+        added = 0
+        for text in texts:
+            if added >= limit:
+                break
+            if self._add_pool_topup_text(
+                kind,
+                text,
+                scene_generation=scene_generation,
+                source="pool_topup",
+            ):
                 added += 1
         return added
 
@@ -195,8 +248,12 @@ class DanmuApp(
             return 0
         from app.danmu_pool import plan_duplicate_loss_topup
 
+        target = self._pool_topup_target()
+        if target is None:
+            return 0
+        kind, plan_engine = target
         texts = plan_duplicate_loss_topup(
-            self.engine,
+            plan_engine,
             self.config,
             duplicate_loss_total=int(stats.get("duplicate_loss_total", 0)),
         )
@@ -205,19 +262,12 @@ class DanmuApp(
         scene_generation = int(getattr(queued, "scene_generation", 0))
         added = 0
         for text in texts:
-            item = self.engine.add_text(
+            if self._add_pool_topup_text(
+                kind,
                 text,
-                persona="",
-                batch_id=0,
                 scene_generation=scene_generation,
-                skip_dedup=True,
-            )
-            if item:
-                self._broadcast_live_overlay_item(
-                    item,
-                    item.content,
-                    source="pool_duplicate_topup",
-                )
+                source="pool_duplicate_topup",
+            ):
                 added += 1
         if added > 0:
             stats["duplicate_topup_triggered"] = 1
@@ -505,6 +555,14 @@ class DanmuApp(
             if command_text:
                 user_pt = build_pet_command_user_pt(user_pt, command_text)
                 system_pt = append_pet_command_to_system_pt(system_pt, command_text)
+
+        # Phase B / Wave 7（B2）：知识包检索注入到 system_pt 末尾。
+        # 异常隔离：knowledge_runtime 未挂载或检索失败 → 原样返回 system_pt。
+        system_pt = self._inject_knowledge_prompt(
+            system_pt,
+            request_round=request_round,
+            screenshot_id=screenshot_id,
+        )
 
         self._current_persona = persona
         return system_pt, user_pt, persona

@@ -1,0 +1,179 @@
+"""知识包 Pydantic 模型与运行时快照 dataclass。
+
+字段约束严格对齐 ``docs/DanmuAI_知识包功能_实现说明(1).md`` §4.2 与
+``.trae/specs/FEATURE-KNOWLEDGE-PACKAGE-001/spec.md`` §ADDED Requirements。
+
+本模块只定义数据形状；持久化逻辑见 ``app.knowledge.repository``，
+AI 整理与校验见后续任务（A4/A5）的 ``ai_organizer`` / ``validator``。
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Annotated, Literal
+
+from pydantic import BaseModel, Field
+
+# 知识条目 kind 枚举（spec §4.1）
+KnowledgeItemKind = Literal["fact", "style_example", "reaction_pattern", "meme"]
+
+# 单条 example 最多 30 字（spec §4.2）
+_ExampleStr = Annotated[str, Field(max_length=30)]
+
+
+class KnowledgeItemCandidate(BaseModel):
+    """AI 整理输出的单条知识条目候选（未持久化、未去重）。
+
+    字段约束（spec §4.2）：
+        kind: 只允许 fact / style_example / reaction_pattern / meme
+        title: 1~40 字
+        content: 1~160 字
+        examples: 最多 5 条，每条最多 30 字
+        triggers: 最多 10 个
+        tones: 最多 5 个
+        scopes: 最多 8 个
+        entities: 最多 8 个
+        confidence: 0~1
+        evidence: 可选，必须来自当前原始分块，最多 160 字
+    """
+
+    kind: KnowledgeItemKind
+    title: str = Field(..., min_length=1, max_length=40)
+    content: str = Field(..., min_length=1, max_length=500)
+    examples: list[_ExampleStr] = Field(default_factory=list, max_length=5)
+    triggers: list[str] = Field(default_factory=list, max_length=10)
+    tones: list[str] = Field(default_factory=list, max_length=5)
+    scopes: list[str] = Field(default_factory=list, max_length=8)
+    entities: list[str] = Field(default_factory=list, max_length=8)
+    confidence: float = Field(default=1.0, ge=0.0, le=1.0)
+    evidence: str = Field(default="", max_length=500)
+
+    model_config = {"extra": "ignore"}
+
+
+class KnowledgeBatchResponse(BaseModel):
+    """AI 整理单批输出信封（spec §4.2 示例）。"""
+
+    document_kind: str = ""
+    items: list[KnowledgeItemCandidate] = Field(default_factory=list)
+
+    model_config = {"extra": "ignore"}
+
+
+# ---------------------------------------------------------------------------
+# API DTO（用于 Web API；A8 再使用，本任务先建类型）
+# ---------------------------------------------------------------------------
+
+
+class PackageCreatePayload(BaseModel):
+    """POST /api/knowledge/packages 请求体。"""
+
+    name: str = Field(..., min_length=1, max_length=80)
+    description: str = Field(default="", max_length=500)
+    content_kind: str = "auto"
+    scope_mode: str = "global"
+    scope_tags: list[str] = Field(default_factory=list, max_length=20)
+    enabled: bool = True
+    priority: int = 0
+
+    model_config = {"extra": "ignore"}
+
+
+class PackageUpdatePayload(BaseModel):
+    """PATCH/PUT /api/knowledge/packages/{id} 请求体（部分更新）。"""
+
+    name: str | None = Field(default=None, min_length=1, max_length=80)
+    description: str | None = Field(default=None, max_length=500)
+    content_kind: str | None = None
+    scope_mode: str | None = None
+    scope_tags: list[str] | None = Field(default=None, max_length=20)
+    enabled: bool | None = None
+    priority: int | None = None
+
+    model_config = {"extra": "ignore"}
+
+
+class ImportPayload(BaseModel):
+    """POST /api/knowledge/packages/{id}/imports 请求体。
+
+    source_type:
+        pasted_text — pasted_text 字段必填
+        txt / markdown — content_base64 字段必填（File.arrayBuffer → Base64）
+        webpage — source_url 字段必填
+    """
+
+    source_type: Literal["pasted_text", "txt", "markdown", "webpage"]
+    display_name: str = ""
+    source_url: str | None = None
+    pasted_text: str | None = None
+    content_base64: str | None = None
+    document_kind: str = "auto"
+
+    model_config = {"extra": "ignore"}
+
+
+class ItemUpdatePayload(BaseModel):
+    """PATCH /api/knowledge/items/{id} 请求体（部分更新）。"""
+
+    title: str | None = Field(default=None, min_length=1, max_length=40)
+    content: str | None = Field(default=None, min_length=1, max_length=500)
+    examples: list[str] | None = Field(default=None, max_length=5)
+    triggers: list[str] | None = Field(default=None, max_length=10)
+    tones: list[str] | None = Field(default=None, max_length=5)
+    scopes: list[str] | None = Field(default=None, max_length=8)
+    entities: list[str] | None = Field(default=None, max_length=8)
+    enabled: bool | None = None
+    priority: int | None = None
+
+    model_config = {"extra": "ignore"}
+
+
+class RetrievalPreviewPayload(BaseModel):
+    """POST /api/knowledge/retrieval/preview 请求体。"""
+
+    scene_brief: str = ""
+    keywords: list[str] = Field(default_factory=list, max_length=20)
+    max_items: int | None = Field(default=None, ge=1, le=10)
+    max_chars: int | None = Field(default=None, ge=1, le=600)
+
+    model_config = {"extra": "ignore"}
+
+
+# ---------------------------------------------------------------------------
+# 运行时快照（B2 任务使用；本任务先建类型）
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class KnowledgeContextSnapshot:
+    """运行时检索快照（不可变；主线程只读）。
+
+    字段：
+        prompt_text: 已构建的提示词片段（空字符串表示无知识命中）。
+        scene_brief: 触发该检索的场景简述（用于诊断与防陈旧覆盖）。
+        keywords: 触发该检索的关键词元组。
+        item_ids: 命中条目的内部 ID 元组（用于 mark_items_used）。
+        source_request_round: 触发该检索时的 request_round（防陈旧覆盖）。
+        source_screenshot_id: 触发该检索时的 screenshot_id。
+        updated_at: 快照生成时间（time.time()，秒）。
+    """
+
+    prompt_text: str
+    scene_brief: str
+    keywords: tuple[str, ...]
+    item_ids: tuple[int, ...]
+    source_request_round: int
+    source_screenshot_id: int
+    updated_at: float
+
+
+__all__ = [
+    "KnowledgeItemKind",
+    "KnowledgeItemCandidate",
+    "KnowledgeBatchResponse",
+    "PackageCreatePayload",
+    "PackageUpdatePayload",
+    "ImportPayload",
+    "ItemUpdatePayload",
+    "RetrievalPreviewPayload",
+    "KnowledgeContextSnapshot",
+]

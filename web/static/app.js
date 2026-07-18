@@ -99,8 +99,8 @@ let danmuReadCatalog = null;
 let danmuPoolPagesReady = false;
 let petPageReady = false;
 let styleGeneratorPageReady = false;
-let diagnosticsReady = false;
 let aiButlerPageReady = false;
+let knowledgePageReady = false;
 
 async function ensureDanmuPoolPages() {
   const [poolMod, memeMod] = await Promise.all([
@@ -133,6 +133,15 @@ async function ensureAiButlerPage() {
   return mod;
 }
 
+async function ensureKnowledgePage() {
+  const mod = await import('./modules/app-knowledge-page.js');
+  if (!knowledgePageReady) {
+    mod.initKnowledgePage({ showToast });
+    knowledgePageReady = true;
+  }
+  return mod;
+}
+
 async function ensureStyleGeneratorPage() {
   const mod = await import('./modules/app-style-generator-page.js');
   if (!styleGeneratorPageReady) {
@@ -142,28 +151,7 @@ async function ensureStyleGeneratorPage() {
   return mod;
 }
 
-async function ensureDiagnosticsPanel() {
-  if (diagnosticsReady) return;
-  const mod = await import('./modules/diagnostics.js');
-  mod.initDiagnosticsPanel({ showToast });
-  diagnosticsReady = true;
-}
 
-function wireLazyDiagnosticsToggle() {
-  const btn = document.getElementById('btnToggleDiagnosticsPanel');
-  if (!btn) return;
-  btn.addEventListener(
-    'click',
-    async function onFirstDiagnosticsClick(event) {
-      if (diagnosticsReady) return;
-      event.stopImmediatePropagation();
-      await ensureDiagnosticsPanel();
-      btn.removeEventListener('click', onFirstDiagnosticsClick, { capture: true });
-      btn.click();
-    },
-    { capture: true },
-  );
-}
 
 function invalidateDanmuReadCache() {
   danmuReadConfigCache = null;
@@ -511,11 +499,6 @@ function navigate(page) {
     }
   }
   if (page === 'overview') loadOverviewGlobalFields().catch(console.error);
-  else {
-    import('./modules/diagnostics.js')
-      .then((mod) => mod.disconnectDiagnosticsPanel())
-      .catch(() => {});
-  }
   if (page === 'persona') loadPersonaEditor().catch(console.error);
   if (page === 'danmu-pool') {
     ensureDanmuPoolPages()
@@ -544,6 +527,15 @@ function navigate(page) {
     ensureAiButlerPage()
       .then((mod) => mod.loadAiButlerPage())
       .catch((error) => showToast(error.message, true));
+  }
+  if (page === 'knowledge') {
+    ensureKnowledgePage()
+      .then((mod) => mod.loadKnowledgePage())
+      .catch((error) => showToast(error.message, true));
+  } else {
+    import('./modules/app-knowledge-page.js')
+      .then((mod) => mod.stopKnowledgeJobPolling())
+      .catch(() => {});
   }
   if (page === 'live-settings') {
     const activeTab = getActiveLiveSettingsTabId();
@@ -608,7 +600,6 @@ async function init() {
   initPersonaTopicPage({ showToast });
   loadOverviewGlobalFields().catch(console.error);
   initAppUpdateModal({ showToast });
-  wireLazyDiagnosticsToggle();
 
   initSetupGuide({
     getConfig: () => window.__danmuaiConfig || {},
@@ -788,11 +779,11 @@ document.addEventListener('visibilitychange', () => {
 
 window.addEventListener('pagehide', () => {
   stopRealtimeTransport();
-  import('./modules/diagnostics.js')
-    .then((mod) => mod.destroyDiagnosticsPanel())
-    .catch(() => {});
   import('./modules/app-meme-barrage-page.js')
     .then((mod) => mod.stopMemeBarrageMetaPolling())
+    .catch(() => {});
+  import('./modules/app-knowledge-page.js')
+    .then((mod) => mod.stopKnowledgeJobPolling())
     .catch(() => {});
   stopAnnouncementsBadgePolling();
 });

@@ -1,4 +1,4 @@
-"""Web PUT /api/config 的业务写入入口：校验、归一化后写 ConfigStore 并 emit config_changed。
+﻿"""Web PUT /api/config 的业务写入入口：校验、归一化后写 ConfigStore 并 emit config_changed。
 
 WEB_CONFIG_KEYS 白名单：仅允许这些键通过 Web API 修改，防止前端误改敏感配置（如加密相关）。
 ConfigService 在主线程执行（经 bridge.invoke_on_main），不触达 Qt 对象。

@@ -6,6 +6,10 @@
   3. 纯文本 — 按换行拆分
 
 调用方：DanmuApp._on_ai_reply() → parse_ai_reply_payload → normalize_reply_batch
+
+Phase B（Wave 7）：``parse_ai_reply_envelope`` 额外抽取可选的
+``knowledge_used`` 字段（item public_id 列表），供 ``KnowledgeRuntimeService``
+更新条目最近使用窗口。``parse_ai_reply_payload`` 行为保持不变。
 """
 from __future__ import annotations
 
@@ -13,6 +17,8 @@ import json
 import logging
 import random
 import re
+from dataclasses import dataclass, field
+
 from app.danmu_engine_dedup import texts_are_similar
 
 logger = logging.getLogger(__name__)
@@ -25,6 +31,24 @@ from app.danmu_pool import (
 
 _COMMENT_KEYS = ("comments", "replies", "items", "data")
 _HEURISTIC_SKIP = frozenset({"comments", ":", ""})
+
+
+@dataclass(frozen=True)
+class ParsedAiReply:
+    """AI 回复解析结果（含可选知识引用追踪）。
+
+    Phase B（Wave 7）：``parse_ai_reply_envelope`` 返回值。
+
+    字段：
+        items: 解析后的弹幕文本列表（与 ``parse_ai_reply_payload`` 等价）。
+        knowledge_used: AI 显式声明引用的知识条目 public_id 列表；
+            绝大多数回复不会包含该字段（空列表）。
+    """
+
+    items: list[str] = field(default_factory=list)
+    knowledge_used: list[str] = field(default_factory=list)
+
+
 _MAX_HEURISTIC_DEPTH = 16
 # Defense-in-depth: even though the iterative stack replaces the call stack,
 # a pathological input could still grow the worklist. Cap the total number of
@@ -349,6 +373,42 @@ def parse_ai_reply_payload(text: str) -> list[str]:
         candidates = _heuristic_comments_from_malformed_json(raw)
 
     return _normalize_comment_list(candidates)
+
+
+def parse_ai_reply_envelope(text: str) -> ParsedAiReply:
+    """解析 AI 回复信封，提取弹幕 items 与可选的 ``knowledge_used`` 列表。
+
+    信封格式（Phase B / Wave 7）::
+
+        {"comments": ["弹幕1", "弹幕2"],
+         "knowledge_used": ["<item_public_id_1>", "<item_public_id_2>"]}
+
+    - ``knowledge_used`` 字段**可选**；绝大多数回复不会包含（AI 仅在实际引用
+      知识时被提示附带）。不存在时返回空列表。
+    - ``items`` 复用 ``parse_ai_reply_payload`` 的全部容错逻辑（JSON 数组 /
+      对象信封 / 纯文本 / heuristic 兜底），行为与既有调用方一致。
+    - 任何解析异常 → ``ParsedAiReply(items=parse_ai_reply_payload(text), knowledge_used=[])``，
+      不抛异常（主链路不得因知识字段故障中断）。
+    - ``knowledge_used`` 非 list 或元素非字符串时被忽略 / 过滤掉。
+    """
+    items = parse_ai_reply_payload(text)
+    try:
+        raw = _strip_reasoning_tags(str(text or "").strip()).strip()
+        if not raw or not raw.startswith("{"):
+            return ParsedAiReply(items=items, knowledge_used=[])
+        parsed = _try_parse_json_object(raw)
+        if not isinstance(parsed, dict):
+            return ParsedAiReply(items=items, knowledge_used=[])
+        knowledge_used_raw = parsed.get("knowledge_used")
+        if not isinstance(knowledge_used_raw, list):
+            return ParsedAiReply(items=items, knowledge_used=[])
+        knowledge_used = [
+            str(k) for k in knowledge_used_raw if isinstance(k, str) and k
+        ]
+        return ParsedAiReply(items=items, knowledge_used=knowledge_used)
+    except Exception:  # boundary: envelope 解析不得影响主链路
+        logger.debug("parse_ai_reply_envelope knowledge_used extraction failed", exc_info=True)
+        return ParsedAiReply(items=items, knowledge_used=[])
 
 
 def _append_next_unique_from_pool(

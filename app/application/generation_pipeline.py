@@ -19,7 +19,11 @@ from app.danmu_engine import resolve_danmu_display_text
 from app.danmu_engine_dedup import get_last_duplicate_observation
 from app.main_request_context_mixin import format_reply_request_id
 from app.persona_display import persona_display_name_with_config
-from app.reply_parser import normalize_reply_batch, parse_ai_reply_payload
+from app.reply_parser import (
+    normalize_reply_batch,
+    parse_ai_reply_envelope,
+    parse_ai_reply_payload,  # noqa: F401 — 保留以兼容现有测试 monkeypatch 目标
+)
 from app.translations import tr
 
 if TYPE_CHECKING:
@@ -71,7 +75,12 @@ class GenerationPipeline:
         仍属 DanmuApp._on_ai_reply；失败退避仅在本方法返回 True 后由 DanmuApp 复位。
         """
         app = self._app
-        raw_items = parse_ai_reply_payload(text)
+        # Phase B / Wave 7（B2）：用信封解析器提取 items + knowledge_used。
+        # parse_ai_reply_envelope 内部复用 parse_ai_reply_payload 的全部容错逻辑，
+        # 任何异常均返回 ParsedAiReply(items=parse_ai_reply_payload(text), knowledge_used=[])。
+        envelope = parse_ai_reply_envelope(text)
+        raw_items = envelope.items
+        knowledge_used = envelope.knowledge_used
         normalized_items = normalize_reply_batch(
             raw_items,
             scene_count=app.reply_scene_count,
@@ -136,6 +145,18 @@ class GenerationPipeline:
             request_started_at=request_started_at,
             reply_received_at=reply_received_at,
         )
+        # Phase B / Wave 7（B2）：通知知识包服务更新条目最近使用窗口。
+        # 异常隔离：knowledge_runtime 未挂载或调用失败均 no-op，不打断主链路。
+        # 用 __dict__.get 而非 getattr，兼容测试中 QObject 未走 __init__ 的场景
+        # （与 _build_visual_prompts 访问 pet_command_service 的模式一致）。
+        knowledge_runtime = app.__dict__.get("knowledge_runtime")
+        if knowledge_runtime is not None and knowledge_used:
+            try:
+                knowledge_runtime.on_reply_consumed(knowledge_used)
+            except Exception as exc:  # boundary: 知识回写失败不影响主链路
+                app.logger.debug(
+                    "knowledge on_reply_consumed failed (non-fatal): %r", exc
+                )
         app.notify_pet_visual_success()
         app.publish_live_status()
 

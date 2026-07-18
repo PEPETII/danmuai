@@ -1,7 +1,7 @@
-import { API, apiFetch } from './transport.js';
+﻿import { API, apiFetch } from './transport.js';
 import { t } from './i18n.js';
 import { activateFocusTrap, deactivateFocusTrap } from './modal-focus-trap.js';
-import { buildDiagnosticReportText } from './diagnostics.js';
+import { buildDiagnosticReportText } from './diagnostic-report-text.js';
 import {
   collectFeedbackContext,
   sanitizeApiEndpoint,

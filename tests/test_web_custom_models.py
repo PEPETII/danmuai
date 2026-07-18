@@ -434,7 +434,7 @@ def test_format_delete_model_message_text_rules_in_source():
     src = _read_settings_custom_models_js()
     # name 空降级与确认文案经 t() 引用，不硬编码中文
     assert "t('dynamic.settingsCustomModels.这条模型档案')" in src
-    assert "t('dynamic.settingsCustomModels.确定删除模型_display_吗_该档案包')" in src
+    assert "t('dynamic.settingsCustomModels.确定删除模型_display_吗_该档案包', { display, n })" in src
     # N 来自 model_ids.length
     assert "model_ids" in src
     assert "display" in src

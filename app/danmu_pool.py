@@ -2,6 +2,9 @@
 
 开关与 min_on_screen 经 /api/danmu-pool/* 写入（见 web_api/danmu_pool.py），不在 PUT /api/config 全量表单内。
 自定义库开启且 min_on_screen>0 时，main._maybe_pool_topup 从自定义池抽样补足同屏密度。
+plan_pool_topup 对引擎 duck-type：running + deficit_below_min()（DanmuEngine 与
+FloatingPanelEngine 均提供）；可选 entry_zone_overloaded() 仅横向有。
+实际上屏由 DanmuApp 按 danmu_render_mode 路由到 scrolling 或 floating_panel。
 """
 
 from __future__ import annotations

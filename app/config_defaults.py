@@ -1,4 +1,4 @@
-"""Default config values for export and first-run seeding.
+﻿"""Default config values for export and first-run seeding.
 
 ``CONFIG_DEFAULTS`` 分组说明（新增字段时请同步到对应组并核对 ``WEB_CONFIG_KEYS``）：
 

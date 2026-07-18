@@ -27,7 +27,6 @@ from typing import TYPE_CHECKING, Any, Literal
 from PyQt6.QtCore import QObject, Qt, QThread, QTimer, pyqtSignal, pyqtSlot
 
 from app.application.config_service import WEB_CONFIG_KEYS
-from app.application.diagnostics_hub import DiagnosticsHub
 from app.bundle_paths import append_frozen_log, frozen_log_path, is_frozen, resource_path
 from app.live_overlay_hub import LiveOverlayHub
 from app.startup_trace import log_startup, web_console_ready_timeout
@@ -149,7 +148,6 @@ class WebConsoleBridge(QObject):
         self._last_broadcast_log_at: float = 0.0
         self._last_status_payload: dict[str, Any] | None = None
         self.cached_screens: list[dict[str, Any]] = []
-        self._diagnostics_hub: DiagnosticsHub | None = None
         self._pending_log_items: list[dict[str, Any]] = []
         self._log_flush_scheduled: bool = False
         # W-INVOKE-OBSERV-001：invoke_on_main 超时累计计数（供 /api/diagnostics 读取）
@@ -313,13 +311,6 @@ class WebConsoleBridge(QObject):
         self.status_updated.emit(status)
         self._broadcast_status(payload)
 
-    def publish_diagnostic_snapshot(self) -> None:
-        """主线程构建诊断快照并推送给 SSE 订阅者；无订阅者时立即返回。"""
-        hub = self._diagnostics_hub
-        if hub is None or hub.connection_count <= 0:
-            return
-        snapshot = self.danmu_app.build_diagnostic_snapshot()
-        hub.broadcast_snapshot(snapshot)
 
     def _maybe_log_broadcast(self, kind: str, count: int) -> None:
         should_log, new_last_at = should_log_broadcast(
@@ -408,7 +399,6 @@ class WebConsoleServer:
         self.host = host
         self.port = port
         self.static_dir = STATIC_DIR
-        self.diagnostics_hub = DiagnosticsHub()
         self.live_overlay_hub = LiveOverlayHub()
         self.token = secrets.token_urlsafe(24)
         self._thread: threading.Thread | None = None
@@ -615,7 +605,6 @@ def attach_web_console(danmu_app: "DanmuApp", port: int = DEFAULT_PORT) -> WebCo
     bridge = WebConsoleBridge(danmu_app)
     danmu_app.web_bridge = bridge
     server = WebConsoleServer(bridge, port=port)
-    bridge._diagnostics_hub = server.diagnostics_hub
     danmu_app.web_server = server
     log_startup("web_server.start")
     server.start()
@@ -639,10 +628,7 @@ def attach_web_console(danmu_app: "DanmuApp", port: int = DEFAULT_PORT) -> WebCo
 
     QTimer.singleShot(int(ready_timeout * 1000), _check_ready_deadline)
 
-    _diagnostic_tick = 0
-
     def _tick_status():
-        nonlocal _diagnostic_tick
         phase = classify_web_console_startup(server)
         if phase == "ready":
             server._restart_attempts = 0
@@ -652,9 +638,6 @@ def attach_web_console(danmu_app: "DanmuApp", port: int = DEFAULT_PORT) -> WebCo
         web_bridge = getattr(danmu_app, "web_bridge", None)
         if web_bridge:
             web_bridge.publish_status()
-            _diagnostic_tick += 1
-            if _diagnostic_tick % 5 == 0:
-                web_bridge.publish_diagnostic_snapshot()
 
     web_status_timer = QTimer(danmu_app)
     web_status_timer.setInterval(WEB_STATUS_POLL_INTERVAL_MS)

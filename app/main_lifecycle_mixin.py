@@ -302,6 +302,16 @@ class DanmuAppLifecycleMixin:
         self._lifetime_flush_timer.setInterval(2000)
         self._lifetime_flush_timer.timeout.connect(self.lifetime_stats.flush_pending)
 
+        # Phase B / Wave 7（B2）：挂载知识包运行时服务。
+        # 异常隔离：装配失败 → knowledge_runtime=None，主链路调用全部 no-op。
+        try:
+            from app.knowledge.runtime_service import KnowledgeRuntimeService
+
+            self.knowledge_runtime = KnowledgeRuntimeService(self)
+        except Exception as exc:
+            self.logger.warning(f"knowledge_runtime mount failed: {exc!r}")
+            self.knowledge_runtime = None
+
         # PET-009 / W-PET-LAZY-INIT-VISIBILITY-001：启动期按需初始化并同步桌宠显隐。
         # config_changed 信号在 _start_web_console_stack 才连接，启动期收不到；
         # _sync_pet_window_visibility 会在 enabled+visible 时触发 _ensure_pet_components。
@@ -682,6 +692,14 @@ class DanmuAppLifecycleMixin:
                 self.logger.debug(f"floating panel stop cleanup skipped: {exc!r}")
         if fp_engine is not None:
             fp_engine.stop()
+
+        # Phase B / Wave 7（B2）：关闭知识包运行时服务（执行器 + DB 连接）。
+        knowledge_runtime = self.__dict__.get("knowledge_runtime")
+        if knowledge_runtime is not None:
+            try:
+                knowledge_runtime.close()
+            except Exception as exc:
+                self.logger.warning(f"knowledge_runtime close failed: {exc!r}")
 
         self.tray.update_state(running=False)
         self.state_changed.emit(False)

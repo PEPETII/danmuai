@@ -266,7 +266,6 @@ hiddenimports: list[str] = [
     "app.application.ai_butler_service",
     "app.application.config_service",
     "app.application.danmu_diagnostics",
-    "app.application.diagnostics_hub",
     "app.application.diagnostic_snapshot",
     "app.application.generation_pipeline_state",
     "app.application.live_status_projection",

@@ -317,3 +317,88 @@ def test_paint_uses_clip_rect(fp_v2_setup, qapp, monkeypatch):
     overlay.repaint()
     qapp.processEvents()
     assert clips, "paintEvent must establish a clip rect"
+
+
+def test_short_text_stays_single_line_height(fp_v2_setup, qapp):
+    """短句仍约 1 行高，宽度可小于面板。"""
+    from app.floating_panel_overlay import FLOATING_PANEL_TEXT_MAX_LINES
+
+    _, engine, overlay = fp_v2_setup
+    overlay.resize(360, 400)
+    overlay.show()
+    qapp.processEvents()
+    item = overlay.add_danmu_text("短句", skip_dedup=True)
+    assert item is not None
+    assert overlay._font_metrics is not None
+    line_h = float(overlay._font_metrics.height())
+    pad_y = float(overlay._style.padding_y)
+    one_line_total = line_h + pad_y * 2.0 + overlay._extra_height()
+    two_line_total = line_h * FLOATING_PANEL_TEXT_MAX_LINES + pad_y * 2.0 + overlay._extra_height()
+    assert abs(item.height - one_line_total) <= 1.5
+    assert item.height < two_line_total - line_h * 0.5
+    dpr = item.pixmap.devicePixelRatio() or 1.0
+    pm_w = item.pixmap.width() / dpr
+    assert pm_w < float(overlay.width()) - 8.0
+
+
+def test_long_cjk_wraps_to_two_lines(fp_v2_setup, qapp):
+    """长中文无空格：高度显著大于单行，且不超过约 2 行上限。"""
+    from app.floating_panel_overlay import FLOATING_PANEL_TEXT_MAX_LINES, fit_floating_panel_text
+
+    _, engine, overlay = fp_v2_setup
+    overlay.resize(240, 400)
+    overlay.show()
+    qapp.processEvents()
+    long_text = "这是一句没有空格的中文长弹幕用来验证自动折成两行高度是否正确"
+    item = overlay.add_danmu_text(long_text, skip_dedup=True)
+    assert item is not None
+    assert overlay._font is not None and overlay._font_metrics is not None
+    line_h = float(overlay._font_metrics.height())
+    pad_y = float(overlay._style.padding_y)
+    one_line_total = line_h + pad_y * 2.0 + overlay._extra_height()
+    two_line_cap = line_h * FLOATING_PANEL_TEXT_MAX_LINES + pad_y * 2.0 + overlay._extra_height()
+    assert item.height > one_line_total + line_h * 0.5
+    assert item.height <= two_line_cap + 1.5
+    pad_x = float(overlay._style.padding_x)
+    panel_w = float(overlay.width())
+    max_total_w = max(1.0, panel_w - 4.0 * 2.0)
+    max_content_w = max(1.0, max_total_w - overlay._extra_width())
+    max_text_w = max(1.0, max_content_w - pad_x * 2.0)
+    lines, _w, text_h = fit_floating_panel_text(
+        long_text, overlay._font, overlay._font_metrics, max_text_w
+    )
+    assert 1 < len(lines) <= FLOATING_PANEL_TEXT_MAX_LINES
+    assert text_h <= line_h * FLOATING_PANEL_TEXT_MAX_LINES + 0.5
+
+
+def test_overlong_text_capped_at_two_lines_with_elide(fp_v2_setup, qapp):
+    """超长文案高度不超过 2 行；第二行 elide；pixmap 不超面板宽。"""
+    from app.floating_panel_overlay import FLOATING_PANEL_TEXT_MAX_LINES, fit_floating_panel_text
+
+    _, engine, overlay = fp_v2_setup
+    overlay.resize(220, 400)
+    overlay.show()
+    qapp.processEvents()
+    overlong = "超长弹幕" * 40
+    item = overlay.add_danmu_text(overlong, skip_dedup=True)
+    assert item is not None
+    assert item.pixmap is not None
+    assert overlay._font is not None and overlay._font_metrics is not None
+    line_h = float(overlay._font_metrics.height())
+    pad_y = float(overlay._style.padding_y)
+    two_line_cap = line_h * FLOATING_PANEL_TEXT_MAX_LINES + pad_y * 2.0 + overlay._extra_height()
+    assert item.height <= two_line_cap + 1.5
+    pad_x = float(overlay._style.padding_x)
+    panel_w = float(overlay.width())
+    max_total_w = max(1.0, panel_w - 4.0 * 2.0)
+    max_content_w = max(1.0, max_total_w - overlay._extra_width())
+    max_text_w = max(1.0, max_content_w - pad_x * 2.0)
+    lines, _w, text_h = fit_floating_panel_text(
+        overlong, overlay._font, overlay._font_metrics, max_text_w
+    )
+    assert len(lines) == FLOATING_PANEL_TEXT_MAX_LINES
+    assert any(("…" in line) or ("..." in line) for line in lines)
+    assert text_h <= line_h * FLOATING_PANEL_TEXT_MAX_LINES + 0.5
+    dpr = item.pixmap.devicePixelRatio() or 1.0
+    pm_w = item.pixmap.width() / dpr
+    assert pm_w <= panel_w + 1.0
