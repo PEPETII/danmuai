@@ -127,8 +127,31 @@ def append_custom(app: "DanmuApp", payload: dict[str, Any]) -> dict[str, Any]:
     is_import = source == "import"
 
     config = app.config
+
+    # BUG-AUD-003：循环前一次性批量查询已存在文本，避免循环内逐条 SQL
+    # 旧实现每条调用 contains(text)（1 次 SELECT）+ custom_pool_size(config)（1 次 COUNT），
+    # 5000 条 × 2 查询 ≈ 10s 主线程阻塞
+    unique_candidates: list[str] = []
+    seen_for_query: set[str] = set()
+    for raw in raw_lines:
+        text = str(raw).strip()
+        if text and text not in seen_for_query:
+            unique_candidates.append(text)
+            seen_for_query.add(text)
+
     existing_set: set[str] = set()
-    contains = getattr(config, "custom_danmu_contains_text", None)
+    batch_existing_fn = getattr(config, "custom_danmu_existing_texts", None)
+    if unique_candidates and callable(batch_existing_fn):
+        # 走批量 IN 查询路径（首选）
+        existing_set = set(batch_existing_fn(unique_candidates))
+    elif unique_candidates:
+        # 兜底：逐条查询（仅在 ConfigStore 未暴露批量方法时）
+        contains = getattr(config, "custom_danmu_contains_text", None)
+        if callable(contains):
+            existing_set = {t for t in unique_candidates if contains(t)}
+
+    # 循环前一次性 COUNT，缓存 room_left 起点；不再每条 COUNT
+    current_size = custom_pool_size(config)
 
     to_insert: list[str] = []
     skipped_items: list[dict[str, str]] = []
@@ -147,10 +170,8 @@ def append_custom(app: "DanmuApp", payload: dict[str, Any]) -> dict[str, Any]:
             stats["skipped_empty"] += 1
             skipped_items.append({"text": raw, "reason": _SKIP_REASON_EMPTY})
             continue
-        if callable(contains):
-            dup = text in batch_seen or contains(text)
-        else:
-            dup = text in batch_seen or text in existing_set
+        # 复用循环前的批量结果，避免逐条 SQL
+        dup = text in batch_seen or text in existing_set
         if dup:
             stats["skipped_duplicate"] += 1
             skipped_items.append({"text": text, "reason": _SKIP_REASON_DUPLICATE})
@@ -159,15 +180,14 @@ def append_custom(app: "DanmuApp", payload: dict[str, Any]) -> dict[str, Any]:
             stats["skipped_unsafe"] += 1
             skipped_items.append({"text": text, "reason": _SKIP_REASON_UNSAFE})
             continue
-        room_left = CUSTOM_POOL_MAX - custom_pool_size(config) - len(to_insert)
+        # room_left 用缓存的 current_size 计算，不再每条 COUNT
+        room_left = CUSTOM_POOL_MAX - current_size - len(to_insert)
         if room_left <= 0:
             stats["skipped_limit"] += 1
             skipped_items.append({"text": text, "reason": _SKIP_REASON_LIMIT})
             continue
         to_insert.append(text)
         batch_seen.add(text)
-        if not callable(contains):
-            existing_set.add(text)
 
     if to_insert:
         insert_fn = getattr(config, "custom_danmu_insert_many", None)

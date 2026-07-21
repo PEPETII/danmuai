@@ -153,3 +153,39 @@ def test_consume_doubao_sse_lines_reasoning_done_no_duplicate():
     result = consume_doubao_sse_lines(lines)
     assert result.text == ""
     assert result.reasoning_only is True
+
+
+def test_consume_doubao_sse_lines_stops_when_stopping_true():
+    """BUG-AUD-002: stopping() 返回 True 时立即 break，不消费后续 SSE。"""
+    lines = [
+        'data: {"type":"response.output_text.delta","delta":"first"}',
+        'data: {"type":"response.output_text.delta","delta":"second"}',
+        'data: {"type":"response.output_text.delta","delta":"third"}',
+        'data: {"type":"response.output_text.delta","delta":"fourth"}',
+    ]
+    call_count = {"n": 0}
+
+    def stopping():
+        call_count["n"] += 1
+        # 第 3 次调用（即第 3 次循环开头）返回 True
+        return call_count["n"] >= 3
+
+    result = consume_doubao_sse_lines(lines, stopping=stopping)
+    # 前两行已收集；第 3 次循环开头 stopping() 返回 True 触发 break
+    assert "first" in result.text
+    assert "second" in result.text
+    assert "third" not in result.text
+    assert "fourth" not in result.text
+
+
+def test_consume_doubao_sse_lines_stopping_none_does_not_check():
+    """BUG-AUD-002: stopping=None 时行为与原实现一致（向后兼容）。"""
+    lines = [
+        'data: {"type":"response.output_text.delta","delta":"hello"}',
+        'data: {"type":"response.completed","response":{"usage":{"input_tokens":10,"output_tokens":2}}}',
+        "data: [DONE]",
+    ]
+    result = consume_doubao_sse_lines(lines, stopping=None)
+    assert result.text == "hello"
+    assert result.input_tokens == 10
+    assert result.output_tokens == 2

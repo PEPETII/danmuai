@@ -322,6 +322,7 @@ def stream_doubao(
         deadline_at=deadline_at,
         first_content_timeout=first_content_timeout,
         started_at=started_at,
+        stopping=worker._stopping.is_set,
     )
     if not result.text:
         logger.warning(

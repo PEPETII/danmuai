@@ -17,18 +17,24 @@ SETTINGS_MODULE = STATIC_ROOT / "modules" / "settings.js"
 def test_rhythm_accordion_keeps_existing_config_field_contracts():
     html = SETTINGS_HTML.read_text(encoding="utf-8")
 
-    assert 'data-settings-rhythm-accordion' in html
-    assert 'id="settingsRhythmAccordionTrigger"' in html
-    assert 'type="button"' in html
-    assert 'aria-expanded="false"' in html
-    assert 'aria-controls="settingsRhythmCompressionPanel"' in html
-    assert re.search(r'id="settingsRhythmCompressionPanel"[^>]*\bhidden\b', html)
-    assert 'aria-labelledby="settingsRhythmAccordionTrigger"' in html
-    assert 'id="image_max_width"' in html
-    assert 'name="image_max_width"' in html
-    assert 'id="image_quality"' in html
-    assert 'name="image_quality"' in html
-    assert 'data-rhythm-step' not in html
+    # 压缩折叠已并入 AI识图相关（settingsTab-capture）；无独立 rhythm tab
+    assert 'data-settings-tab="rhythm"' not in html
+    assert 'id="settingsTab-rhythm"' not in html
+    capture_start = html.index('id="settingsTab-capture"')
+    font_start = html.index('id="settingsTab-font"')
+    capture = html[capture_start:font_start]
+    assert 'id="settingsRhythmAccordionTrigger"' in capture
+    assert 'type="button"' in capture
+    assert 'aria-expanded="false"' in capture
+    assert 'aria-controls="settingsRhythmCompressionPanel"' in capture
+    assert re.search(r'id="settingsRhythmCompressionPanel"[^>]*\bhidden\b', capture)
+    assert 'aria-labelledby="settingsRhythmAccordionTrigger"' in capture
+    assert 'id="image_max_width"' in capture
+    assert 'name="image_max_width"' in capture
+    assert 'id="image_quality"' in capture
+    assert 'name="image_quality"' in capture
+    assert 'data-rhythm-step' not in capture
+    assert 'data-i18n="settings.text.AI识图相关"' in capture or 'AI识图相关' in capture
 
 
 def test_rhythm_accordion_module_only_toggles_dom_state():

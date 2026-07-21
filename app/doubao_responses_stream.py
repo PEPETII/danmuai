@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import logging
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Iterable
 
@@ -95,6 +96,7 @@ def consume_doubao_sse_lines(
     deadline_at: float | None = None,
     first_content_timeout: float | None = None,
     started_at: float | None = None,
+    stopping: Callable[[], bool] | None = None,
 ) -> DoubaoResponsesResult:
     collected: list[str] = []
     summary_parts: list[str] = []
@@ -102,6 +104,9 @@ def consume_doubao_sse_lines(
     got_first_content = False
 
     for raw in lines:
+        # BUG-AUD-002: 与 consume_openai_sse_lines 对齐，支持 stop() 中断
+        if stopping is not None and stopping():
+            break
         if deadline_at is not None and time.monotonic() > float(deadline_at):
             raise httpx.TimeoutException("request wall clock exceeded")
         # W-PERF-STREAM-001：首内容超时检查
@@ -207,6 +212,7 @@ def stream_doubao_responses(
     deadline_at: float | None = None,
     first_content_timeout: float | None = None,
     started_at: float | None = None,
+    stopping: Callable[[], bool] | None = None,
 ) -> DoubaoResponsesResult:
     with http_client.stream("POST", url, headers=headers, json=data) as resp:
         resp.raise_for_status()
@@ -227,4 +233,5 @@ def stream_doubao_responses(
             deadline_at=deadline_at,
             first_content_timeout=first_content_timeout,
             started_at=started_at,
+            stopping=stopping,
         )

@@ -337,7 +337,7 @@ def test_apply_pet_settings_patch_invalid_local_path_keeps_existing_config(qapp)
         }
     )
 
-    with pytest.raises(ValueError, match="不在允许范围内"):
+    with pytest.raises(ValueError, match="pet.json"):
         apply_pet_settings_patch(
             app,
             {
@@ -399,11 +399,33 @@ def test_resolve_and_sandbox_pack_dir_builtin(qapp):
     assert pack_dir == BUILTIN_PET_DIR
 
 
-def test_resolve_and_sandbox_pack_dir_allows_whitelisted_path(qapp, monkeypatch, tmp_path):
+def test_resolve_and_sandbox_pack_dir_rejects_outside_sandbox(qapp, tmp_path, monkeypatch):
+    """BUG-AUD-001: 沙箱外路径必须被拒绝（旧测试错误地断言「允许任意路径」）。"""
     from app.pet import pet_assets
 
-    monkeypatch.setattr(pet_assets, "ALLOWED_PET_PACK_ROOT", tmp_path)
-    pack_dir = tmp_path / "mypack"
+    # 沙箱根设为 tmp_path 内的子目录，传入 tmp_path 外的路径必须被拒绝
+    sandbox_root = tmp_path / "pet-packs"
+    sandbox_root.mkdir()
+    monkeypatch.setattr(pet_assets, "ALLOWED_PET_PACK_ROOT", sandbox_root)
+
+    outside = tmp_path / "elsewhere" / "pack"
+    outside.mkdir(parents=True)
+    # 错误消息中含路径片段（"elsewhere" 在路径中），匹配中文/英文两版翻译
+    with pytest.raises(ValueError, match="elsewhere"):
+        resolve_and_sandbox_pack_dir(
+            FakeConfig({"pet_asset_source": "local", "pet_asset_path": str(outside)})
+        )
+
+
+def test_resolve_and_sandbox_pack_dir_allows_inside_sandbox(qapp, tmp_path, monkeypatch):
+    """BUG-AUD-001: 沙箱内路径仍然允许。"""
+    from app.pet import pet_assets
+
+    sandbox_root = tmp_path / "pet-packs"
+    sandbox_root.mkdir()
+    monkeypatch.setattr(pet_assets, "ALLOWED_PET_PACK_ROOT", sandbox_root)
+
+    pack_dir = sandbox_root / "mypack"
     pack_dir.mkdir()
     result = resolve_and_sandbox_pack_dir(
         FakeConfig({"pet_asset_source": "local", "pet_asset_path": str(pack_dir)})
@@ -411,46 +433,46 @@ def test_resolve_and_sandbox_pack_dir_allows_whitelisted_path(qapp, monkeypatch,
     assert result == pack_dir
 
 
-def test_resolve_and_sandbox_pack_dir_rejects_traversal(qapp, monkeypatch, tmp_path):
-    from app.pet import pet_assets
+def test_validate_pet_pack_dir_rejects_spritesheet_path_traversal(qapp, tmp_path, monkeypatch):
+    """BUG-AUD-001: pet.json spritesheetPath 字段不允许路径穿越。"""
+    # 构造一个合法的 pet.json，但 spritesheetPath 指向 pack 之外
+    meta = {
+        "id": "evil-pack",
+        "displayName": "Evil Pack",
+        "spritesheetPath": "../../../etc/passwd.png",
+    }
+    pack_dir = tmp_path / "evil-pack"
+    pack_dir.mkdir()
+    (pack_dir / "pet.json").write_text(json.dumps(meta), encoding="utf-8")
+    # 不需要真实 spritesheet 文件；路径穿越检查应在文件存在检查之前触发
+    # 错误消息中含 "spritesheetPath"（中英文翻译都含此字段名）
+    with pytest.raises(ValueError, match="spritesheetPath"):
+        validate_pet_pack_dir(pack_dir)
 
-    monkeypatch.setattr(pet_assets, "ALLOWED_PET_PACK_ROOT", tmp_path)
-    outside = tmp_path.parent / "secret"
-    with pytest.raises(ValueError, match="不在允许范围内"):
-        resolve_and_sandbox_pack_dir(
-            FakeConfig({"pet_asset_source": "local", "pet_asset_path": str(outside)})
-        )
 
-
-def test_apply_pet_settings_patch_rejects_path_traversal(qapp, monkeypatch, tmp_path):
+def test_apply_pet_settings_patch_rejects_invalid_pet_pack(qapp):
     from app.pet.pet_facade import apply_pet_settings_patch
-    from app.pet import pet_assets
 
-    monkeypatch.setattr(pet_assets, "ALLOWED_PET_PACK_ROOT", tmp_path)
     app = _make_patch_app({"pet_asset_source": "builtin", "pet_asset_path": ""})
 
-    outside = tmp_path.parent / "secret"
-    with pytest.raises(ValueError, match="不在允许范围内"):
+    with pytest.raises(ValueError, match="pet.json"):
         apply_pet_settings_patch(
             app,
             {
                 "pet_asset_source": "local",
-                "pet_asset_path": str(outside),
+                "pet_asset_path": str(Path("/nonexistent/pet-pack")),
             },
         )
     assert app.config.get("pet_asset_source") == "builtin"
     assert app.config.get("pet_asset_path") == ""
 
 
-def test_apply_pet_settings_patch_rejects_slot_path_traversal(qapp, monkeypatch, tmp_path):
+def test_apply_pet_settings_patch_rejects_slot_invalid_pet_pack(qapp):
     from app.pet.pet_facade import apply_pet_settings_patch
-    from app.pet import pet_assets
 
-    monkeypatch.setattr(pet_assets, "ALLOWED_PET_PACK_ROOT", tmp_path)
     app = _make_patch_app({"pet_asset_source": "builtin"})
 
-    outside = tmp_path.parent / "secret"
-    with pytest.raises(ValueError, match="不在允许范围内"):
+    with pytest.raises(ValueError, match="pet.json"):
         apply_pet_settings_patch(
             app,
             {
@@ -458,7 +480,7 @@ def test_apply_pet_settings_patch_rejects_slot_path_traversal(qapp, monkeypatch,
                     {
                         "slot_id": 0,
                         "asset_source": "local",
-                        "asset_path": str(outside),
+                        "asset_path": str(Path("/nonexistent/pet-pack")),
                     }
                 ]
             },

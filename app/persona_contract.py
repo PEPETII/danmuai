@@ -80,6 +80,7 @@ _CONTRACT_NORMAL_ZH_V2_RE = re.compile(
     r"- 每条弹幕不超过\d+个汉字\n"
     r"- 固定输出\d+条\n"
     r"- 不要任何解释、Markdown格式或其他文字"
+    r"(?:\n- 避免与最近发送过的弹幕重复)?"
 )
 _CONTRACT_NORMAL_ZH_LEGACY_RE = re.compile(
     r"你是直播弹幕评论员。必须且只能返回 JSON 字符串数组，不要解释，不要 Markdown。"
@@ -111,6 +112,7 @@ _CONTRACT_NORMAL_EN_V2_RE = re.compile(
     r"- Each danmu must not exceed \d+ characters\n"
     r"- Always output exactly \d+ danmu\n"
     r"- No explanations, Markdown formatting, or other text"
+    r"(?:\n- Avoid repeating recently sent danmu)?"
 )
 _CONTRACT_NORMAL_EN_LEGACY_RE = re.compile(
     r"You are a live-stream danmu commentator\. You must return a JSON string array only, "
@@ -197,7 +199,8 @@ def build_normal_reply_contract_zh(
         f'{_json_example_zh(total)}\n'
         f"- 每条弹幕不超过{limit}个汉字\n"
         f"- 固定输出{total}条\n"
-        "- 不要任何解释、Markdown格式或其他文字"
+        "- 不要任何解释、Markdown格式或其他文字\n"
+        "- 避免与最近发送过的弹幕重复"
     )
 
 
@@ -212,7 +215,8 @@ def build_normal_reply_contract_en(
         f'{_json_example_en(total)}\n'
         f"- Each danmu must not exceed {limit} characters\n"
         f"- Always output exactly {total} danmu\n"
-        "- No explanations, Markdown formatting, or other text"
+        "- No explanations, Markdown formatting, or other text\n"
+        "- Avoid repeating recently sent danmu"
     )
 
 

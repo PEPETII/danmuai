@@ -269,10 +269,29 @@ export async function loadOverviewGlobalFields() {
   await loadUserNickname();
 }
 
+function initPersonaTabs() {
+  document.querySelectorAll('.persona-tabs .settings-tab').forEach((tab) => {
+    tab.addEventListener('click', () => {
+      const tabId = tab.dataset.personaTab;
+      document.querySelectorAll('.persona-tabs .settings-tab').forEach((t) => {
+        const active = t.dataset.personaTab === tabId;
+        t.classList.toggle('active', active);
+        t.setAttribute('aria-selected', active ? 'true' : 'false');
+      });
+      document.querySelectorAll('[data-persona-panel]').forEach((panel) => {
+        const active = panel.dataset.personaPanel === tabId;
+        panel.classList.toggle('active', active);
+        panel.hidden = !active;
+      });
+    });
+  });
+}
+
 export function initPersonaTopicPage(deps = {}) {
   toast = deps.showToast || toast;
   if (handlersBound) return;
   handlersBound = true;
+  initPersonaTabs();
 
   document.getElementById('personaSelect')?.addEventListener('change', () => {
     loadPersonaTemplate().catch((error) => showToast(error.message, true));

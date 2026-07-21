@@ -434,9 +434,9 @@ class DanmuAppMemeMixin:
             self._meme_display_backlog = backlog[_MEME_DISPLAY_MAX_PER_TICK:]
             scene_generation = int(getattr(self, "_scene_generation", 0))
             for text in chunk:
-                item = self.engine.add_text(
+                item = self.display_danmu_text(
                     text,
-                    persona="",
+                    "",
                     batch_id=0,
                     scene_generation=scene_generation,
                     skip_dedup=True,

@@ -58,7 +58,6 @@ import { isMaskedApiKey } from './modules/settings-defaults.js';
 import { initTheme } from './modules/theme.js';
 import { bootstrapI18n, initLanguage } from './modules/language.js';
 import { applyI18n } from './modules/i18n.js';
-import { initSetupGuide, refreshSetupGuide, markProbeSuccess, markTestDanmuSent } from './modules/app-setup-guide.js';
 import {
   bindContentPageControls,
   loadAnnouncementsPage,
@@ -601,12 +600,6 @@ async function init() {
   loadOverviewGlobalFields().catch(console.error);
   initAppUpdateModal({ showToast });
 
-  initSetupGuide({
-    getConfig: () => window.__danmuaiConfig || {},
-    getStatus: () => getLastAppliedStatus() || {},
-  });
-  refreshSetupGuide(cfg, getLastAppliedStatus() || {});
-
   configureStatus({
     applyCaptureRegion: applyCaptureRegionFromPayload,
     onErrorPrompt: maybePromptErrorReport,
@@ -615,7 +608,6 @@ async function init() {
   setRealtimeHandlers({
     onStatus: (status) => {
       applyStatus(status);
-      refreshSetupGuide(window.__danmuaiConfig || {}, status || {});
     },
     onLog: appendLog,
     onLogBatch: mergeLogItems,

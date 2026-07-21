@@ -285,24 +285,28 @@
             </div>
           </section>
         </div>
-        <div class="space-y-4">
-          <p class="settings-section-title">宠物素材</p>
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl">
-            <div class="settings-field">
-              <span class="settings-field-label">素材来源</span>
-              <p id="petAssetSourceText" class="settings-field-control min-h-[48px] flex items-center">内置默认</p>
+        <div class="settings-rhythm-accordion" data-settings-rhythm-accordion>
+          <section class="settings-rhythm-accordion-item">
+            <h4 class="settings-rhythm-accordion-heading">
+              <button type="button" id="petAssetAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="petAssetAccordionPanel">
+                <span>导入新桌宠图片</span>
+                <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
+              </button>
+            </h4>
+            <div id="petAssetAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="petAssetAccordionTrigger" hidden>
+              <div class="settings-rhythm-accordion-fields">
+                <div class="settings-rhythm-accordion-field">
+                  <span class="settings-field-label">素材来源</span>
+                  <p id="petAssetSourceText" class="settings-field-control min-h-[48px] flex items-center break-all">使用默认桌宠</p>
+                </div>
+              </div>
+              <p id="petAssetErrorText" class="hidden text-sm font-semibold text-red-600 mt-2"></p>
+              <div class="flex flex-wrap gap-3 mt-3">
+                <button type="button" id="btnPetImportFolder" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm">导入文件夹</button>
+                <button type="button" id="btnPetResetAsset" class="px-6 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50">恢复默认桌宠</button>
+              </div>
             </div>
-            <div class="settings-field md:col-span-2">
-              <span class="settings-field-label">当前素材路径</span>
-              <p id="petAssetPathText" class="settings-field-control min-h-[48px] flex items-center break-all">—</p>
-            </div>
-          </div>
-          <p id="petAssetErrorText" class="hidden text-sm font-semibold text-red-600"></p>
-          <div class="flex flex-wrap gap-3">
-            <button type="button" id="btnPetImportFolder" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm">导入文件夹</button>
-            <button type="button" id="btnPetResetAsset" class="px-6 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50">恢复默认桌宠</button>
-          </div>
-          <p class="settings-section-hint">目录中需包含 pet.json 与 spritesheet.webp 或 spritesheet.png。导入成功后会直接替换当前桌宠，不会删除你原来的本地文件。</p>
+          </section>
         </div>
         <div id="petBarrageSlotsSection" class="space-y-4 hidden">
           <div>
@@ -316,42 +320,56 @@
     </section>
 <section id="page-persona" class="page-panel">
       <header class="mb-8">
-        <h2 class="text-2xl font-bold text-warmText">人格工坊</h2>
-        <p class="text-gray-500 mt-1">编辑系统提示；内置人格可覆盖保存，恢复默认可还原</p>
+        <h2 class="text-2xl font-bold text-warmText">弹幕人格</h2>
+        <p class="text-gray-500 mt-1">激活运行时人格，或编辑管理人格提示与契约</p>
       </header>
       <div class="card p-8 space-y-4">
         <div id="personaSaveStatusBanner" class="hidden mb-4 px-4 py-2 rounded-xl bg-green-50 border border-green-200 text-sm text-green-700 font-semibold" role="status" aria-live="polite"></div>
-        <div class="flex flex-wrap gap-3 items-end">
-          <div class="flex-1 min-w-[200px]">
-            <label for="personaSelect" class="block text-sm font-semibold mb-2 text-warmText">选择人格</label>
-            <select id="personaSelect" class="w-full px-4 py-3 bg-cream rounded-xl text-warmText"></select>
+        <div class="settings-tabs-bar mb-6">
+          <div class="settings-tabs persona-tabs" role="tablist" aria-label="弹幕人格分类">
+            <button type="button" role="tab" id="personaTabBtn-active" class="settings-tab active" data-persona-tab="active" aria-selected="true">激活人格</button>
+            <button type="button" role="tab" class="settings-tab" data-persona-tab="manage" aria-selected="false">人格管理</button>
           </div>
-          <button type="button" id="btnNewPersona" class="px-4 py-3 bg-white border border-gray-200 rounded-xl font-semibold text-warmText">新建人格</button>
-          <button type="button" id="btnDeletePersona" class="px-4 py-3 bg-red-50 border border-red-200 rounded-xl font-semibold text-red-600">删除</button>
         </div>
-        <div>
-          <label for="personaContract" class="block text-sm font-semibold mb-2 text-warmText">输出契约（只读）</label>
-          <textarea id="personaContract" readonly rows="4" class="w-full px-4 py-3 bg-cream rounded-xl text-sm text-gray-500"></textarea>
+
+        <div id="personaTab-active" class="settings-tab-panel active space-y-4" data-persona-panel="active" role="tabpanel">
+          <div>
+            <label class="toggle-switch text-sm font-semibold text-warmText">
+              <input type="checkbox" id="personaNamePrefixEnabled" role="switch">
+              <span>名称显示</span>
+            </label>
+            <p class="text-xs text-gray-500 mt-1">开启后，弹幕上屏为「人格名称：弹幕内容」</p>
+          </div>
+          <div>
+            <div class="field-label-row flex items-center gap-1 mb-4">
+              <span class="block text-sm font-semibold mb-2 text-warmText flex-1 min-w-0 mb-0" id="hintPersonaActiveTitle">激活人格（运行时随机）</span>
+            </div>
+            <div id="personaActiveList" class="grid grid-cols-1 sm:grid-cols-2 gap-2"></div>
+            <button type="button" id="btnSavePersonaActive" class="mt-3 px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold">保存激活列表</button>
+          </div>
         </div>
-        <div>
-          <label for="personaSystemCustom" class="block text-sm font-semibold mb-2 text-warmText">系统提示补充</label>
-          <textarea id="personaSystemCustom" rows="4" class="w-full px-4 py-3 bg-cream rounded-xl text-warmText" data-i18n-placeholder="content.placeholder.例如_语气温柔治愈_像闺蜜一样吐槽主播操作_偶尔玩梗" placeholder="例如：语气温柔治愈，像闺蜜一样吐槽主播操作，偶尔玩梗"></textarea>
-        </div>
-        <div class="flex flex-wrap gap-3">
-          <button type="button" id="btnSavePersona" class="btn-primary px-6 py-2 text-white rounded-xl font-bold">保存人格</button>
-          <button type="button" id="btnRestorePersona" class="px-6 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText">恢复默认</button>
-        </div>
-        <div>
-          <label class="toggle-switch text-sm font-semibold text-warmText">
-            <input type="checkbox" id="personaNamePrefixEnabled" role="switch">
-            <span>名称显示</span>
-          </label>
-          <p class="text-xs text-gray-500 mt-1">开启后，弹幕上屏为「人格名称：弹幕内容」</p>
-        </div>
-        <div>
-          <label id="hintPersonaActiveTitle" class="block text-sm font-semibold mb-2 text-warmText">激活人格（运行时随机）</label>
-          <div id="personaActiveList" class="grid grid-cols-1 sm:grid-cols-2 gap-2"></div>
-          <button type="button" id="btnSavePersonaActive" class="mt-3 px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold">保存激活列表</button>
+
+        <div id="personaTab-manage" class="settings-tab-panel space-y-4" data-persona-panel="manage" role="tabpanel" hidden>
+          <div class="flex flex-wrap gap-3 items-end">
+            <div class="flex-1 min-w-[200px]">
+              <label for="personaSelect" class="block text-sm font-semibold mb-2 text-warmText">选择人格</label>
+              <select id="personaSelect" class="w-full px-4 py-3 bg-cream rounded-xl text-warmText"></select>
+            </div>
+            <button type="button" id="btnNewPersona" class="px-4 py-3 bg-white border border-gray-200 rounded-xl font-semibold text-warmText">新建人格</button>
+            <button type="button" id="btnDeletePersona" class="px-4 py-3 bg-red-50 border border-red-200 rounded-xl font-semibold text-red-600">删除</button>
+          </div>
+          <div>
+            <label for="personaContract" class="block text-sm font-semibold mb-2 text-warmText">输出契约（只读）</label>
+            <textarea id="personaContract" readonly rows="4" class="w-full px-4 py-3 bg-cream rounded-xl text-sm text-gray-500"></textarea>
+          </div>
+          <div>
+            <label for="personaSystemCustom" class="block text-sm font-semibold mb-2 text-warmText">系统提示补充</label>
+            <textarea id="personaSystemCustom" rows="4" class="w-full px-4 py-3 bg-cream rounded-xl text-warmText" data-i18n-placeholder="content.placeholder.例如_语气温柔治愈_像闺蜜一样吐槽主播操作_偶尔玩梗" placeholder="例如：语气温柔治愈，像闺蜜一样吐槽主播操作，偶尔玩梗"></textarea>
+          </div>
+          <div class="flex flex-wrap gap-3">
+            <button type="button" id="btnSavePersona" class="btn-primary px-6 py-2 text-white rounded-xl font-bold">保存人格</button>
+            <button type="button" id="btnRestorePersona" class="px-6 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText">恢复默认</button>
+          </div>
         </div>
       </div>
     </section>
@@ -696,18 +714,18 @@
             <div class="settings-field">
               <label for="knowledgePackageContentKind" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.contentKind">内容类型</label>
               <select id="knowledgePackageContentKind" class="settings-field-control">
-                <option value="auto">auto</option>
-                <option value="fact">fact</option>
-                <option value="meme">meme</option>
-                <option value="livestream">livestream</option>
-                <option value="persona">persona</option>
+                <option value="auto" data-i18n="dynamic.appKnowledgePage.optContentAuto">自动</option>
+                <option value="fact" data-i18n="dynamic.appKnowledgePage.optContentFact">事实</option>
+                <option value="meme" data-i18n="dynamic.appKnowledgePage.optContentMeme">梗</option>
+                <option value="livestream" data-i18n="dynamic.appKnowledgePage.optContentLivestream">直播</option>
+                <option value="persona" data-i18n="dynamic.appKnowledgePage.optContentPersona">人格</option>
               </select>
             </div>
             <div class="settings-field">
               <label for="knowledgePackageScopeMode" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.scopeMode">作用范围</label>
               <select id="knowledgePackageScopeMode" class="settings-field-control">
-                <option value="global">global</option>
-                <option value="tagged">tagged</option>
+                <option value="global" data-i18n="dynamic.appKnowledgePage.optScopeGlobal">全局</option>
+                <option value="tagged" data-i18n="dynamic.appKnowledgePage.optScopeTagged">按标签</option>
               </select>
             </div>
           </div>
@@ -740,10 +758,10 @@
           <div class="settings-field">
             <label for="knowledgeSourceType" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.sourceType">来源类型</label>
             <select id="knowledgeSourceType" class="settings-field-control">
-              <option value="pasted_text">pasted_text</option>
-              <option value="txt">txt</option>
-              <option value="markdown">markdown</option>
-              <option value="webpage">webpage</option>
+              <option value="pasted_text" data-i18n="dynamic.appKnowledgePage.optSourcePastedText">粘贴文本</option>
+              <option value="txt" data-i18n="dynamic.appKnowledgePage.optSourceTxt">文本文件 (.txt)</option>
+              <option value="markdown" data-i18n="dynamic.appKnowledgePage.optSourceMarkdown">Markdown 文档</option>
+              <option value="webpage" data-i18n="dynamic.appKnowledgePage.optSourceWebpage">网页</option>
             </select>
           </div>
           <div class="settings-field">
@@ -761,10 +779,10 @@
           <div class="settings-field">
             <label for="knowledgeDocumentKind" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.documentKind">文档类型</label>
             <select id="knowledgeDocumentKind" class="settings-field-control">
-              <option value="auto">auto</option>
-              <option value="article">article</option>
-              <option value="livestream_log">livestream_log</option>
-              <option value="faq">faq</option>
+              <option value="auto" data-i18n="dynamic.appKnowledgePage.optDocAuto">自动</option>
+              <option value="article" data-i18n="dynamic.appKnowledgePage.optDocArticle">文章</option>
+              <option value="livestream_log" data-i18n="dynamic.appKnowledgePage.optDocLivestreamLog">直播日志</option>
+              <option value="faq" data-i18n="dynamic.appKnowledgePage.optDocFaq">常见问答</option>
             </select>
           </div>
           <button type="button" id="btnKnowledgeStartImport" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm" data-i18n="dynamic.appKnowledgePage.startImport">开始导入</button>
@@ -780,15 +798,15 @@
           <div class="flex flex-wrap items-center gap-3">
             <select id="knowledgeItemKindFilter" class="settings-field-control max-w-[160px]">
               <option value="" data-i18n="dynamic.appKnowledgePage.all">全部</option>
-              <option value="fact">fact</option>
-              <option value="reaction_pattern">reaction_pattern</option>
-              <option value="meme">meme</option>
-              <option value="style_example">style_example</option>
+              <option value="fact" data-i18n="dynamic.appKnowledgePage.kindFact">事实</option>
+              <option value="reaction_pattern" data-i18n="dynamic.appKnowledgePage.kindReaction">反应方式</option>
+              <option value="meme" data-i18n="dynamic.appKnowledgePage.kindMeme">梗</option>
+              <option value="style_example" data-i18n="dynamic.appKnowledgePage.kindStyle">表达参考</option>
             </select>
             <select id="knowledgeItemEnabledFilter" class="settings-field-control max-w-[160px]">
               <option value="" data-i18n="dynamic.appKnowledgePage.all">全部</option>
               <option value="true" data-i18n="dynamic.appKnowledgePage.enabled">启用</option>
-              <option value="false">disabled</option>
+              <option value="false" data-i18n="dynamic.appKnowledgePage.disabled">未启用</option>
             </select>
             <input type="search" id="knowledgeItemSearch" class="settings-field-control max-w-[240px]" data-i18n-placeholder="dynamic.appKnowledgePage.search" placeholder="搜索">
             <button type="button" id="btnKnowledgeSearchItems" class="px-4 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50" data-i18n="dynamic.appKnowledgePage.search">搜索</button>

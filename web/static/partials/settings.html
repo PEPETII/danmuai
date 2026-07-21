@@ -3,7 +3,7 @@
 
     <!-- ========== 区域：弹幕设置 ========== -->
     <!-- section: 弹幕设置（PUT /api/config → ConfigService，主线程落库） -->
-    <!-- 8 个设置 tab（顺序固定，由 modules/settings.js initSettingsTabs 渲染） -->
+    <!-- 6 个设置 tab（顺序固定，由 modules/settings.js initSettingsTabs 渲染） -->
     <section id="page-settings" class="page-panel">
       <header class="flex flex-wrap justify-between items-start gap-4 mb-8">
         <div>
@@ -26,7 +26,7 @@
         </div>
       </header>
 
-      <!-- 设置 tab 列表：api / mic / danmu-read / danmu / capture / rhythm / font -->
+      <!-- 设置 tab 列表：api / mic / danmu-read / danmu / capture / font -->
       <form id="settingsForm" class="card p-8 space-y-0">
         <div class="settings-tabs-bar">
           <div class="settings-tabs" role="tablist" data-i18n-aria-label="settings.aria.弹幕设置分类" aria-label="弹幕设置分类">
@@ -37,10 +37,8 @@
             <!-- tab: AI读弹幕 — MiMo TTS 启用/声音/语速/抽屏间隔 -->
             <button type="button" role="tab" class="settings-tab" data-settings-tab="danmu-read" aria-selected="false" data-i18n="settings.text.AI读弹幕">AI读弹幕</button>
             <button type="button" role="tab" class="settings-tab" data-settings-tab="danmu" aria-selected="false" data-i18n="settings.text.弹幕显示">弹幕显示</button>
-            <!-- tab: 识图区域 — screen_index + 鼠标框选子区域（POST /api/capture-region） -->
-            <button type="button" role="tab" class="settings-tab" data-settings-tab="capture" aria-selected="false" data-i18n="settings.text.识图区域">识图区域</button>
-            <!-- tab: 识图清晰度 — 压缩质量、最大宽度、压缩预览等 -->
-            <button type="button" role="tab" class="settings-tab" data-settings-tab="rhythm" aria-selected="false" data-i18n="settings.text.识图清晰度">识图清晰度</button>
+            <!-- tab: AI识图相关 — 鼠标框选子区域 + 压缩质量/最大宽度（POST /api/capture-region） -->
+            <button type="button" role="tab" class="settings-tab" data-settings-tab="capture" aria-selected="false" data-i18n="settings.text.AI识图相关">AI识图相关</button>
             <button type="button" role="tab" class="settings-tab" data-settings-tab="font" aria-selected="false" data-i18n="settings.text.字体设置">字体设置</button>
           </div>
 
@@ -404,10 +402,11 @@
             </section>
           </div>
         </div>
-        <!-- 识图区域 -->
+        <!-- AI识图相关：识图区域 + 识图清晰度（原 capture / rhythm 合并） -->
         <div id="settingsTab-capture" class="settings-tab-panel space-y-6" data-settings-panel="capture" role="tabpanel" hidden>
           <h3 class="text-lg font-bold text-warmText flex items-center gap-2">
-            <svg class="ui-icon text-warmPink" aria-hidden="true"><use href="#i-crop"></use></svg> 识图与隐私区域
+            <svg class="ui-icon text-warmPink" aria-hidden="true"><use href="#i-crop"></use></svg>
+            <span data-i18n="settings.text.AI识图相关">AI识图相关</span>
           </h3>
           <div class="bg-softPeach/30 p-4 rounded-xl text-sm text-warmText border border-softPeach flex gap-3">
             <svg class="ui-icon mt-1 text-warmPink" aria-hidden="true"><use href="#i-info"></use></svg>
@@ -423,12 +422,6 @@
               <button type="button" id="btnCaptureRegionReset" class="px-5 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-warmText hidden">恢复全屏识图</button>
             </div>
           </div>
-        </div>
-        <!-- 识图清晰度 -->
-        <div id="settingsTab-rhythm" class="settings-tab-panel space-y-6" data-settings-panel="rhythm" role="tabpanel" hidden>
-          <h3 class="text-lg font-bold text-warmText flex items-center gap-2">
-            <svg class="ui-icon text-warmPink" aria-hidden="true"><use href="#i-gauge"></use></svg> 节奏与截图策略
-          </h3>
           <div class="settings-rhythm-accordion" data-settings-rhythm-accordion>
             <section class="settings-rhythm-accordion-item">
               <h4 class="settings-rhythm-accordion-heading">
@@ -484,10 +477,10 @@
                   <div class="settings-rhythm-accordion-field">
                     <label for="layout_mode" class="settings-field-label">布局</label>
                     <select name="layout_mode" id="layout_mode" class="settings-field-control text-left">
-                      <option value="fullscreen">全屏</option>
-                      <option value="3/4">3/4</option>
-                      <option value="1/2">1/2</option>
-                      <option value="1/4">1/4</option>
+                      <option value="fullscreen" data-i18n="settings.text.全屏">全屏</option>
+                      <option value="3/4" data-i18n="settings.text.占比四分之三">四分之三</option>
+                      <option value="1/2" data-i18n="settings.text.占比二分之一">二分之一</option>
+                      <option value="1/4" data-i18n="settings.text.占比四分之一">四分之一</option>
                     </select>
                   </div>
                   <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--toggle">
@@ -556,30 +549,40 @@
                 </div>
               </div>
             </section>
-          </div>
-          <div class="settings-section space-y-3">
-            <p class="settings-section-title">导入本地字体</p>
-            <p class="settings-section-hint">
-              支持 .ttf / .otf 格式，单文件最大 25MB。
-              <br>请确认字体授权允许个人使用；DanmuAI 只在本机加载字体，不会上传到外部服务。
-            </p>
-            <div class="settings-params-grid cols-2">
-              <div class="settings-field">
-                <label for="font_file_input" class="settings-field-label">选择字体文件</label>
-                <input type="file" id="font_file_input" accept=".ttf,.otf" class="settings-field-control">
+            <section class="settings-rhythm-accordion-item">
+              <h4 class="settings-rhythm-accordion-heading">
+                <button type="button" id="settingsFontImportAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="settingsFontImportAccordionPanel">
+                  <span data-i18n="settings.text.导入本地字体">导入本地字体</span>
+                  <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
+                </button>
+              </h4>
+              <div id="settingsFontImportAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="settingsFontImportAccordionTrigger" hidden>
+                <p class="settings-section-hint">
+                  支持 .ttf / .otf 格式，单文件最大 25MB。
+                  <br>请确认字体授权允许个人使用；DanmuAI 只在本机加载字体，不会上传到外部服务。
+                </p>
+                <div class="settings-rhythm-accordion-fields">
+                  <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--stacked">
+                    <label for="font_file_input" class="settings-field-label">选择字体文件</label>
+                    <div class="settings-rhythm-accordion-control-stack">
+                      <input type="file" id="font_file_input" accept=".ttf,.otf" class="settings-field-control">
+                    </div>
+                  </div>
+                  <div class="settings-rhythm-accordion-field">
+                    <span class="settings-field-label" aria-hidden="true">&nbsp;</span>
+                    <button type="button" id="btnImportFont" class="settings-action-btn">导入字体</button>
+                  </div>
+                </div>
+                <div id="importedFontsList" class="settings-imported-fonts-list"></div>
+                <template id="fontRowTemplate">
+                  <div class="settings-imported-font-row">
+                    <span class="font-family"></span>
+                    <span class="font-meta"></span>
+                    <button type="button" class="settings-action-btn-sm btn-delete-font">删除</button>
+                  </div>
+                </template>
               </div>
-              <div class="settings-field" style="align-self: end;">
-                <button type="button" id="btnImportFont" class="settings-action-btn">导入字体</button>
-              </div>
-            </div>
-            <div id="importedFontsList" class="settings-imported-fonts-list"></div>
-            <template id="fontRowTemplate">
-              <div class="settings-imported-font-row">
-                <span class="font-family"></span>
-                <span class="font-meta"></span>
-                <button type="button" class="settings-action-btn-sm btn-delete-font">删除</button>
-              </div>
-            </template>
+            </section>
           </div>
           <div class="settings-section space-y-3">
             <p class="settings-section-title" data-i18n="settings.text.样式预览">样式预览</p>

@@ -7,8 +7,6 @@ from typing import TYPE_CHECKING, Any
 
 from app.pet.pet_animation_mapper import resolve_pet_animation_hint
 from app.pet.pet_assets import (
-    ALLOWED_PET_PACK_ROOT,
-    is_path_within_sandbox,
     validate_pet_pack_dir,
 )
 from app.pet.pet_barrage import (
@@ -236,13 +234,6 @@ def apply_pet_settings_patch(app: "DanmuApp", payload: dict[str, object]) -> dic
         path = items.get("pet_asset_path") or app.config.get("pet_asset_path", "")
         if str(path).strip():
             path_obj = Path(str(path).strip())
-            if not is_path_within_sandbox(path_obj, ALLOWED_PET_PACK_ROOT):
-                raise ValueError(
-                    tr("pet.error.path_out_of_range").format(
-                        path=path,
-                        allowed=ALLOWED_PET_PACK_ROOT,
-                    )
-                )
             validate_pet_pack_dir(path_obj)
 
     if slot_updates is not None:
@@ -253,13 +244,7 @@ def apply_pet_settings_patch(app: "DanmuApp", payload: dict[str, object]) -> dic
             asset_path = str(row.get("asset_path", "") or "").strip()
             if asset_source == "local" and asset_path:
                 path_obj = Path(asset_path)
-                if not is_path_within_sandbox(path_obj, ALLOWED_PET_PACK_ROOT):
-                    raise ValueError(
-                        tr("pet.error.slot_path_out_of_range").format(
-                            path=asset_path,
-                            allowed=ALLOWED_PET_PACK_ROOT,
-                        )
-                    )
+                validate_pet_pack_dir(path_obj)
 
     if "pet_enabled" in items:
         old_enabled = _truthy(app.config.get("pet_enabled", "0"))

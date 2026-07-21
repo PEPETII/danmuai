@@ -387,3 +387,29 @@ def test_plan_pool_topup_accepts_floating_panel_engine(workspace_tmp, monkeypatc
     limit, texts = plan_pool_topup(engine, engine.config)
     assert limit == 4
     assert len(texts) == 4
+
+
+def test_recent_sent_view_returns_snapshot(workspace_tmp):
+    """recent_sent_view 返回 tuple 快照，按插入顺序，不修改内部状态。"""
+    engine = _engine(workspace_tmp)
+
+    # 初始：dedup 队列为空 → 返回空 tuple
+    assert engine.recent_sent_view() == ()
+    assert isinstance(engine.recent_sent_view(), tuple)
+
+    # 通过公开 add_text 写入 dedup 队列（skip_dedup=True 跳过重复检查，但仍走 _remember）
+    first = engine.add_text("弹幕A", item_height=30.0, now=0.0, skip_dedup=True)
+    second = engine.add_text("弹幕B", item_height=30.0, now=0.1, skip_dedup=True)
+    assert first is not None and second is not None
+
+    snapshot = engine.recent_sent_view()
+    assert snapshot == ("弹幕A", "弹幕B")
+    assert isinstance(snapshot, tuple)
+
+    # 不修改内部状态：快照后队列长度仍为 2
+    assert len(engine._recent) == 2
+
+    # 快照不可变：后续 append 不影响已返回的 tuple
+    engine._recent.append("弹幕C")
+    assert snapshot == ("弹幕A", "弹幕B")
+    assert engine.recent_sent_view() == ("弹幕A", "弹幕B", "弹幕C")

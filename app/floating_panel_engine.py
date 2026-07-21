@@ -211,6 +211,13 @@ class FloatingPanelEngine:
             self.config,
         )
 
+    def recent_sent_view(self) -> tuple[str, ...]:
+        """返回当前 dedup 队列的只读快照（按插入顺序，最早在前、最近在末尾）。
+
+        供 AI prompt 反重复上下文注入使用；不修改内部状态。
+        """
+        return tuple(self._recent)
+
     def _remember(self, content: str) -> None:
         self._prune_recent_by_ttl()
         evicted = None

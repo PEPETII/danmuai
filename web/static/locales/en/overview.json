@@ -3,11 +3,6 @@
     "text": {
       "小助手正在待命_随时为你生成暖心弹幕": "Assistant is on standby, ready to generate cozy danmu anytime~",
       "反馈此问题": "Report this issue",
-      "首次设置引导": "First-time setup guide",
-      "API_模型已配置": "API / model configured",
-      "Probe_连通性检查": "Probe / connectivity check",
-      "识图屏幕已设置": "Capture screen set",
-      "测试弹幕_启动生成": "Test danmu / start generation",
       "本次生成弹幕": "Danmu this session",
       "待播队列": "Playback queue",
       "运行时长": "Runtime duration",
@@ -31,8 +26,7 @@
     },
     "aria": {
       "关闭公告提示": "Dismiss announcement notice",
-      "关闭错误提示": "Dismiss error notice",
-      "关闭引导": "Dismiss guide"
+      "关闭错误提示": "Dismiss error notice"
     }
   }
 }

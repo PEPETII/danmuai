@@ -10,8 +10,8 @@
           <div class="space-y-2">
             <p class="settings-section-title" data-i18n="content.text.样式预设">样式预设</p>
             <div class="flex flex-wrap gap-2" role="group" aria-label="样式预设">
-              <button type="button" id="sgBtnPresetClassic" class="sg-preset-btn px-4 py-2 rounded-xl border border-gray-200 font-semibold text-sm" data-preset="classic">Classic</button>
-              <button type="button" id="sgBtnPresetWechat" class="sg-preset-btn px-4 py-2 rounded-xl border border-gray-200 font-semibold text-sm" data-preset="wechat">WeChat</button>
+              <button type="button" id="sgBtnPresetClassic" class="sg-preset-btn px-4 py-2 rounded-xl border border-gray-200 font-semibold text-sm" data-preset="classic" data-i18n="content.text.预设经典">经典</button>
+              <button type="button" id="sgBtnPresetWechat" class="sg-preset-btn px-4 py-2 rounded-xl border border-gray-200 font-semibold text-sm" data-preset="wechat" data-i18n="content.text.预设微信">微信风格</button>
               <button type="button" id="sgBtnPresetCustom" class="sg-preset-btn px-4 py-2 rounded-xl border border-gray-200 font-semibold text-sm" data-preset="custom" disabled data-i18n="content.text.自定义">自定义</button>
             </div>
             <input type="hidden" name="floating_panel_style_preset" id="sg-floating_panel_style_preset" value="wechat">
@@ -30,15 +30,15 @@
             </div>
             <div class="settings-field">
               <label for="sg-floating_panel_stack_gap" class="settings-field-label" data-i18n="content.text.堆积间距">堆积间距</label>
-              <input type="number" name="floating_panel_stack_gap" id="sg-floating_panel_stack_gap" min="0" max="48" class="settings-field-control">
+              <input type="number" name="floating_panel_stack_gap" id="sg-floating_panel_stack_gap" min="0" max="48" class="settings-field-control" value="8">
             </div>
             <div class="settings-field">
               <label for="sg-floating_panel_card_opacity" class="settings-field-label" data-i18n="content.text.卡片不透明度">卡片不透明度 (%)</label>
-              <input type="number" name="floating_panel_card_opacity" id="sg-floating_panel_card_opacity" min="0" max="100" class="settings-field-control">
+              <input type="number" name="floating_panel_card_opacity" id="sg-floating_panel_card_opacity" min="0" max="100" class="settings-field-control" value="78">
             </div>
             <div class="settings-field">
               <label for="sg-floating_panel_opacity" class="settings-field-label" data-i18n="content.text.整体不透明度">整体不透明度 (%)</label>
-              <input type="number" name="floating_panel_opacity" id="sg-floating_panel_opacity" min="0" max="100" class="settings-field-control">
+              <input type="number" name="floating_panel_opacity" id="sg-floating_panel_opacity" min="0" max="100" class="settings-field-control" value="85">
             </div>
           </div>
 
@@ -100,7 +100,7 @@
               </div>
               <div class="settings-field">
                 <label for="sg-floating_panel_outline_width" class="settings-field-label" data-i18n="content.text.描边宽度">描边宽度</label>
-                <input type="number" name="floating_panel_outline_width" id="sg-floating_panel_outline_width" min="0" max="8" class="settings-field-control">
+                <input type="number" name="floating_panel_outline_width" id="sg-floating_panel_outline_width" min="0" max="8" class="settings-field-control" value="2">
               </div>
               <div class="settings-field settings-field--toggle">
                 <span class="settings-field-label" data-i18n="content.text.阴影">阴影</span>
@@ -115,15 +115,15 @@
               </div>
               <div class="settings-field">
                 <label for="sg-floating_panel_shadow_blur" class="settings-field-label" data-i18n="content.text.阴影模糊">阴影模糊</label>
-                <input type="number" name="floating_panel_shadow_blur" id="sg-floating_panel_shadow_blur" min="0" max="32" class="settings-field-control">
+                <input type="number" name="floating_panel_shadow_blur" id="sg-floating_panel_shadow_blur" min="0" max="32" class="settings-field-control" value="4">
               </div>
               <div class="settings-field">
                 <label for="sg-floating_panel_shadow_offset_x" class="settings-field-label" data-i18n="content.text.阴影偏移_X">阴影偏移 X</label>
-                <input type="number" name="floating_panel_shadow_offset_x" id="sg-floating_panel_shadow_offset_x" min="-20" max="20" class="settings-field-control">
+                <input type="number" name="floating_panel_shadow_offset_x" id="sg-floating_panel_shadow_offset_x" min="-20" max="20" class="settings-field-control" value="2">
               </div>
               <div class="settings-field">
                 <label for="sg-floating_panel_shadow_offset_y" class="settings-field-label" data-i18n="content.text.阴影偏移_Y">阴影偏移 Y</label>
-                <input type="number" name="floating_panel_shadow_offset_y" id="sg-floating_panel_shadow_offset_y" min="-20" max="20" class="settings-field-control">
+                <input type="number" name="floating_panel_shadow_offset_y" id="sg-floating_panel_shadow_offset_y" min="-20" max="20" class="settings-field-control" value="3">
               </div>
             </div>
           </div>
@@ -142,7 +142,7 @@
               </div>
               <div class="settings-field">
                 <label for="sg-floating_panel_font_size" class="settings-field-label" data-i18n="content.text.字号">字号 (px)</label>
-                <input type="number" name="floating_panel_font_size" id="sg-floating_panel_font_size" min="12" max="48" class="settings-field-control">
+                <input type="number" name="floating_panel_font_size" id="sg-floating_panel_font_size" min="12" max="48" class="settings-field-control" value="20">
               </div>
               <div class="settings-field settings-field--toggle">
                 <span class="settings-field-label" data-i18n="content.text.加粗">加粗</span>
@@ -153,15 +153,15 @@
               </div>
               <div class="settings-field">
                 <label for="sg-floating_panel_radius" class="settings-field-label" data-i18n="content.text.圆角">圆角</label>
-                <input type="number" name="floating_panel_radius" id="sg-floating_panel_radius" min="0" max="48" class="settings-field-control">
+                <input type="number" name="floating_panel_radius" id="sg-floating_panel_radius" min="0" max="48" class="settings-field-control" value="12">
               </div>
               <div class="settings-field">
                 <label for="sg-floating_panel_padding_x" class="settings-field-label" data-i18n="content.text.水平内边距">水平内边距</label>
-                <input type="number" name="floating_panel_padding_x" id="sg-floating_panel_padding_x" min="0" max="48" class="settings-field-control">
+                <input type="number" name="floating_panel_padding_x" id="sg-floating_panel_padding_x" min="0" max="48" class="settings-field-control" value="12">
               </div>
               <div class="settings-field">
                 <label for="sg-floating_panel_padding_y" class="settings-field-label" data-i18n="content.text.垂直内边距">垂直内边距</label>
-                <input type="number" name="floating_panel_padding_y" id="sg-floating_panel_padding_y" min="0" max="48" class="settings-field-control">
+                <input type="number" name="floating_panel_padding_y" id="sg-floating_panel_padding_y" min="0" max="48" class="settings-field-control" value="8">
               </div>
             </div>
           </div>
@@ -178,11 +178,11 @@
               </div>
               <div class="settings-field">
                 <label for="sg-floating_panel_tail_width" class="settings-field-label" data-i18n="content.text.尾巴宽度">尾巴宽度</label>
-                <input type="number" name="floating_panel_tail_width" id="sg-floating_panel_tail_width" min="0" max="32" class="settings-field-control">
+                <input type="number" name="floating_panel_tail_width" id="sg-floating_panel_tail_width" min="0" max="32" class="settings-field-control" value="8">
               </div>
               <div class="settings-field">
                 <label for="sg-floating_panel_tail_height" class="settings-field-label" data-i18n="content.text.尾巴高度">尾巴高度</label>
-                <input type="number" name="floating_panel_tail_height" id="sg-floating_panel_tail_height" min="0" max="32" class="settings-field-control">
+                <input type="number" name="floating_panel_tail_height" id="sg-floating_panel_tail_height" min="0" max="32" class="settings-field-control" value="10">
               </div>
             </div>
           </div>
@@ -193,29 +193,29 @@
               <div class="settings-field">
                 <label for="sg-floating_panel_entry_animation" class="settings-field-label" data-i18n="content.text.入场动画">入场动画</label>
                 <select name="floating_panel_entry_animation" id="sg-floating_panel_entry_animation" class="settings-field-control text-left">
-                  <option value="none">none</option>
-                  <option value="fade">fade</option>
-                  <option value="slide_up">slide_up</option>
+                  <option value="none" data-i18n="content.text.动画无">无</option>
+                  <option value="fade" data-i18n="content.text.动画淡入淡出">淡入淡出</option>
+                  <option value="slide_up" data-i18n="content.text.动画上滑">上滑进入</option>
                 </select>
               </div>
               <div class="settings-field">
                 <label for="sg-floating_panel_entry_duration_ms" class="settings-field-label" data-i18n="content.text.入场时长_ms">入场时长 (ms)</label>
-                <input type="number" name="floating_panel_entry_duration_ms" id="sg-floating_panel_entry_duration_ms" min="0" max="2000" class="settings-field-control">
+                <input type="number" name="floating_panel_entry_duration_ms" id="sg-floating_panel_entry_duration_ms" min="0" max="2000" class="settings-field-control" value="200">
               </div>
               <div class="settings-field">
                 <label for="sg-floating_panel_push_duration_ms" class="settings-field-label" data-i18n="content.text.顶推时长_ms">顶推时长 (ms)</label>
-                <input type="number" name="floating_panel_push_duration_ms" id="sg-floating_panel_push_duration_ms" min="0" max="2000" class="settings-field-control">
+                <input type="number" name="floating_panel_push_duration_ms" id="sg-floating_panel_push_duration_ms" min="0" max="2000" class="settings-field-control" value="180">
               </div>
               <div class="settings-field">
                 <label for="sg-floating_panel_exit_animation" class="settings-field-label" data-i18n="content.text.退出动画">退出动画</label>
                 <select name="floating_panel_exit_animation" id="sg-floating_panel_exit_animation" class="settings-field-control text-left">
-                  <option value="none">none</option>
-                  <option value="fade">fade</option>
+                  <option value="none" data-i18n="content.text.动画无">无</option>
+                  <option value="fade" data-i18n="content.text.动画淡入淡出">淡入淡出</option>
                 </select>
               </div>
               <div class="settings-field">
                 <label for="sg-floating_panel_exit_duration_ms" class="settings-field-label" data-i18n="content.text.退出时长_ms">退出时长 (ms)</label>
-                <input type="number" name="floating_panel_exit_duration_ms" id="sg-floating_panel_exit_duration_ms" min="0" max="2000" class="settings-field-control">
+                <input type="number" name="floating_panel_exit_duration_ms" id="sg-floating_panel_exit_duration_ms" min="0" max="2000" class="settings-field-control" value="200">
               </div>
             </div>
           </div>

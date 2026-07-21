@@ -22,20 +22,22 @@ function syncStepButtons(stepper) {
   const input = stepper.querySelector('input[type="number"]');
   if (!(input instanceof HTMLInputElement)) return;
 
-  const value = input.valueAsNumber;
   const min = input.min === '' ? null : Number(input.min);
   const max = input.max === '' ? null : Number(input.max);
+  let value = input.valueAsNumber;
+  if (!Number.isFinite(value)) {
+    value = min !== null ? min : 0;
+  }
 
   stepper.querySelectorAll('[data-step-dir]').forEach((button) => {
     const direction = Number(button.dataset.stepDir);
-    button.disabled = !Number.isFinite(value)
-      || (direction < 0 && min !== null && value <= min)
+    button.disabled = (direction < 0 && min !== null && value <= min)
       || (direction > 0 && max !== null && value >= max);
   });
 }
 
 function stepInput(input, direction) {
-  if (!Number.isFinite(input.valueAsNumber)) input.value = input.min || '0';
+  if (!Number.isFinite(input.valueAsNumber)) input.value = (input.min !== '' ? input.min : '0');
   if (direction > 0) input.stepUp();
   else input.stepDown();
   input.dispatchEvent(new Event('input', { bubbles: true }));

@@ -178,6 +178,9 @@ function setFieldValue(name, value) {
     return;
   }
   el.value = value == null ? '' : String(value);
+  if (el.type === 'number' && el.closest('.settings-rhythm-stepper')) {
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  }
 }
 
 function collectStylePayload() {

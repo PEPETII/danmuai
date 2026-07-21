@@ -66,7 +66,7 @@ export const SETTINGS_RESTORE_GROUPS = {
   mic: [
     'mic_window_sec', 'mic_input_device_id', 'mic_api_endpoint', 'mic_api_mode', 'mic_model',
   ],
-  capture: [],
+  capture: ['image_max_width', 'image_quality'],
   danmu: [
     'normal_recognition_interval_sec', 'normal_reply_count', 'danmu_speed', 'danmu_lines',
     'danmu_max_chars', 'opacity', 'dedup_threshold', 'layout_mode', 'hotkey',
@@ -80,7 +80,6 @@ export const SETTINGS_RESTORE_GROUPS = {
     'font_size', 'floating_panel_font_size',
     'danmu_font_color_selected', 'danmu_font_color_mode', 'danmu_font_color_weights',
   ],
-  rhythm: ['image_max_width', 'image_quality'],
   'danmu-read': [],
 };
 
@@ -90,7 +89,6 @@ export const SETTINGS_RESTORE_CHECKBOXES = {
   capture: [],
   danmu: ['empty_accel'],
   font: ['danmu_font_bold', 'floating_panel_font_bold'],
-  rhythm: [],
 };
 
 let configDefaultsCache = null;

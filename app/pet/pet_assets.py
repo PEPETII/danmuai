@@ -167,7 +167,13 @@ def is_path_within_sandbox(path: Path, root: Path) -> bool:
 
 
 def resolve_and_sandbox_pack_dir(config: "ConfigStore") -> Path:
-    """Resolve pack directory with path-traversal sandboxing."""
+    """Resolve pack directory from config; format validated via ``validate_pet_pack_dir``.
+
+    For ``local`` source the path must resolve inside ``ALLOWED_PET_PACK_ROOT``
+    (i.e. ``%APPDATA%/DanmuAI/pet-packs``). Anything outside is rejected with a
+    ``ValueError`` to prevent path traversal from ``pet_asset_path`` or
+    ``pet.json:spritesheetPath``.
+    """
     source = str(config.get("pet_asset_source", "builtin") or "builtin").strip().lower()
     if source == "local":
         custom = str(config.get("pet_asset_path", "") or "").strip()
@@ -175,7 +181,9 @@ def resolve_and_sandbox_pack_dir(config: "ConfigStore") -> Path:
             path = Path(custom)
             if not is_path_within_sandbox(path, ALLOWED_PET_PACK_ROOT):
                 raise ValueError(
-                    tr("pet.error.path_out_of_range").format(path=custom, allowed=ALLOWED_PET_PACK_ROOT)
+                    tr("pet.error.pathOutsideSandbox").format(
+                        path=path, root=ALLOWED_PET_PACK_ROOT
+                    )
                 )
             return path
     return BUILTIN_PET_DIR
@@ -205,6 +213,15 @@ def validate_pet_pack_dir(pack_dir: Path) -> tuple[dict, Path, int, int]:
 
     sheet_name = str(meta["spritesheetPath"]).strip()
     sheet_path = pack_dir / sheet_name
+    # BUG-AUD-001: 阻断 spritesheetPath 字段的路径穿越（如 "../../etc/passwd.png"）
+    try:
+        resolved_sheet = sheet_path.resolve()
+        resolved_pack = pack_dir.resolve()
+        resolved_sheet.relative_to(resolved_pack)
+    except (OSError, ValueError) as exc:
+        raise ValueError(
+            tr("pet.error.spritesheetPathOutsidePack").format(path=sheet_name)
+        ) from exc
     if not sheet_path.is_file():
         alt = pack_dir / "spritesheet.webp"
         if alt.is_file():

@@ -15,9 +15,8 @@ TRANSLATIONS_ZH: dict[str, str] = {
     "pet.dialog.select_slot_folder": "选择槽位 {slot} 桌宠文件夹",
     "pet.error.invalid_slot": "无效的桌宠槽位",
     "pet.error.invalidSpritesheetLayout": "pet.json spritesheetLayout 无效：{raw}（允许：{allowed}）",
-    "pet.error.path_out_of_range": (
-        "桌宠资源路径不在允许范围内：{path}。自定义资源必须放在 {allowed} 目录下。"
-    ),
+    "pet.error.pathOutsideSandbox": "桌宠资源路径超出沙箱：{path}（允许根目录：{root}）",
+    "pet.error.spritesheetPathOutsidePack": "pet.json spritesheetPath 字段不允许路径穿越：{path}",
     "pet.error.missingPetJson": "缺少 pet.json：{path}",
     "pet.error.petJsonParseFailed": "pet.json 解析失败：{error}",
     "pet.error.petJsonMustBeObject": "pet.json 必须是 JSON 对象",
@@ -31,9 +30,6 @@ TRANSLATIONS_ZH: dict[str, str] = {
     "pet.displayName.default": "默认桌宠",
     "pet.displayName.custom": "自定义桌宠",
     "pet.error.emptyCommand": "指令内容不能为空",
-    "pet.error.slot_path_out_of_range": (
-        "桌宠槽位资源路径不在允许范围内：{path}。自定义资源必须放在 {allowed} 目录下。"
-    ),
     "pet.error.service_not_initialized": "桌宠指令服务未初始化",
     "pet.error.enable_pet_first": "请先启用桌宠",
 }
@@ -53,9 +49,8 @@ TRANSLATIONS_EN: dict[str, str] = {
     "pet.dialog.select_slot_folder": "Select pet folder for slot {slot}",
     "pet.error.invalid_slot": "Invalid pet slot",
     "pet.error.invalidSpritesheetLayout": "Invalid pet.json spritesheetLayout: {raw} (allowed: {allowed})",
-    "pet.error.path_out_of_range": (
-        "Pet asset path is not allowed: {path}. Custom assets must be under {allowed}."
-    ),
+    "pet.error.pathOutsideSandbox": "Pet pack path is outside the sandbox: {path} (allowed root: {root})",
+    "pet.error.spritesheetPathOutsidePack": "pet.json spritesheetPath must not traverse outside the pack: {path}",
     "pet.error.missingPetJson": "Missing pet.json: {path}",
     "pet.error.petJsonParseFailed": "Failed to parse pet.json: {error}",
     "pet.error.petJsonMustBeObject": "pet.json must be a JSON object",
@@ -69,9 +64,6 @@ TRANSLATIONS_EN: dict[str, str] = {
     "pet.displayName.default": "Default Pet",
     "pet.displayName.custom": "Custom Pet",
     "pet.error.emptyCommand": "Command content cannot be empty",
-    "pet.error.slot_path_out_of_range": (
-        "Pet slot asset path is not allowed: {path}. Custom assets must be under {allowed}."
-    ),
     "pet.error.service_not_initialized": "Pet command service is not initialized",
     "pet.error.enable_pet_first": "Enable the desktop pet first",
 }

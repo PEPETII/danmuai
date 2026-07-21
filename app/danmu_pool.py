@@ -637,6 +637,20 @@ def custom_danmu_contains_text_for_store(store, text: str) -> bool:
     return row is not None
 
 
+def custom_danmu_existing_texts_for_store(store, texts: list[str]) -> set[str]:
+    """批量查询已存在的自定义弹幕文本（用于导入前去重，避免逐条 SQL）。
+
+    BUG-AUD-003：旧实现 ``append_custom`` 在循环内逐条调用
+    ``custom_danmu_contains_text_for_store``，5000 条导入阻塞 10s+。
+    本函数复用 ``_existing_custom_texts_locked`` 的分块 IN 查询模式，
+    一次性返回所有已存在文本的 set，供循环内 O(1) 查找。
+
+    WAL 模式下读不需要持锁；此处为只读查询，与 ``custom_danmu_contains_text_for_store``
+    保持相同的锁语义（无锁）。
+    """
+    return _existing_custom_texts_locked(store, list(texts))
+
+
 def _iter_custom_danmu_pool_texts_for_store(store):
     """Yield custom pool texts in id order, paged to avoid single huge fetchall."""
     if not store._conn_usable():

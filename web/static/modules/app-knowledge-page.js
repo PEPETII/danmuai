@@ -51,6 +51,19 @@ function kindKey(kind) {
   return map[kind] || 'kindFact';
 }
 
+/** 知识包 content_kind 展示文案（API 值保持英文，UI 本地化）。 */
+function contentKindLabel(kind) {
+  const map = {
+    auto: 'optContentAuto',
+    fact: 'optContentFact',
+    meme: 'optContentMeme',
+    livestream: 'optContentLivestream',
+    persona: 'optContentPersona',
+  };
+  const key = map[kind];
+  return key ? t(`dynamic.appKnowledgePage.${key}`) : kind || '';
+}
+
 function parseScopeTags(text) {
   if (!text) return [];
   return String(text)
@@ -113,7 +126,7 @@ function renderPackageList(packages) {
       const kindBadge = document.createElement('span');
       kindBadge.className =
         'px-2 py-0.5 text-xs font-semibold rounded-full bg-softPeach text-warmText';
-      kindBadge.textContent = pkg.content_kind;
+      kindBadge.textContent = contentKindLabel(pkg.content_kind);
       header.append(kindBadge);
     }
 
@@ -123,7 +136,7 @@ function renderPackageList(packages) {
     }`;
     enabledBadge.textContent = pkg.enabled
       ? t('dynamic.appKnowledgePage.enabled')
-      : 'disabled';
+      : t('dynamic.appKnowledgePage.disabled');
     header.append(enabledBadge);
 
     card.append(header);

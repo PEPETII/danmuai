@@ -164,3 +164,27 @@ def test_danmu_pool_routes_registered(tmp_path):
     )
     assert deleted.status_code == 200
     assert deleted.json()["removed"] == 1
+
+
+def test_append_custom_5000_items_does_not_block_main_thread(pool_app):
+    """BUG-AUD-003: 5000 条 unique 短句导入主线程耗时 < 2s。
+
+    旧实现：循环内逐条调用 contains(text) + custom_pool_size(config)，
+    5000 × 2 ≈ 10000 次 SQL，主线程阻塞 10s+。
+    修复后：循环前一次性批量 IN 查询 + 1 次 COUNT，主线程耗时 < 2s。
+
+    注：使用 ``f"句{i}"`` 模式避免 ``REPEAT_CHAR_RE`` 误判（如 ``句00000`` 含 5 个 0
+    会被 ``is_overlay_safe`` 标记为 unsafe）。
+    """
+    import time as _time
+
+    lines = [f"句{i}" for i in range(5000)]
+    payload = {"items": lines, "source": "import"}
+
+    start = _time.monotonic()
+    result = pool_api.append_custom(pool_app, payload)
+    elapsed = _time.monotonic() - start
+
+    assert result["added"] == 5000
+    assert elapsed < 2.0, f"5000 条导入耗时 {elapsed:.2f}s，超过 2s 阈值（旧实现约 10s+）"
+    assert pool_app.config.custom_danmu_count("import") == 5000

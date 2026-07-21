@@ -564,6 +564,21 @@ class DanmuApp(
             screenshot_id=screenshot_id,
         )
 
+        # BUG-AI-DEDUP-CONTEXT-001：注入最近已发送弹幕作为反重复上下文。
+        # 在知识包注入之后；空列表跳过；异常隔离不阻塞 prompt 构造。
+        try:
+            recent_sent = self._recent_sent_danmu_for_prompt(10)
+            if recent_sent:
+                system_pt = (
+                    system_pt
+                    + "\n最近已发送的弹幕（请勿重复上述内容）："
+                    + " | ".join(recent_sent)
+                )
+        except Exception as exc:
+            self.logger.warning(
+                "inject recent_sent_danmu failed: %r", exc
+            )
+
         self._current_persona = persona
         return system_pt, user_pt, persona
 

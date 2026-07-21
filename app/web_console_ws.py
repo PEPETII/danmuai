@@ -135,13 +135,13 @@ def register_websocket_routes(app, bridge, token: str, websocket_route, websocke
         peer = f"{client.host}:{client.port}" if client else "unknown"
         bridge._ws_log_debug(f"WebSocket /ws/status accepted peer={peer}")
         queue: asyncio.Queue = asyncio.Queue(maxsize=64)
-        bridge.register_status_consumer(queue)
-        cached = bridge._last_status_payload
-        if cached:
-            if not await _send_json_with_timeout(websocket, cached):
-                return
-        bridge.status_refresh_requested.emit()
         try:
+            bridge.register_status_consumer(queue)
+            cached = bridge._last_status_payload
+            if cached:
+                if not await _send_json_with_timeout(websocket, cached):
+                    return
+            bridge.status_refresh_requested.emit()
             while True:
                 item = await queue.get()
                 if not await _send_json_with_timeout(websocket, item):
@@ -166,8 +166,8 @@ def register_websocket_routes(app, bridge, token: str, websocket_route, websocke
         peer = f"{client.host}:{client.port}" if client else "unknown"
         bridge._ws_log_debug(f"WebSocket /ws/logs accepted peer={peer}")
         queue: asyncio.Queue = asyncio.Queue(maxsize=200)
-        bridge.register_log_consumer(queue)
         try:
+            bridge.register_log_consumer(queue)
             while True:
                 item = await queue.get()
                 if not await _send_json_with_timeout(websocket, item):

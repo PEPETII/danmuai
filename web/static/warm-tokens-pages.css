@@ -1077,37 +1077,6 @@
   border-color: var(--color-accent, #d97757);
 }
 
-/* Setup guide (W-PR-INTAKE-023) */
-.setup-guide-step {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: var(--color-text-secondary, #6b7280);
-  transition: color 0.2s ease;
-}
-.setup-guide-step-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.5rem;
-  height: 1.5rem;
-  border-radius: 50%;
-  font-size: 0.875rem;
-  font-weight: 700;
-  background: var(--color-bg, #faf6f0);
-  color: var(--color-text-secondary, #6b7280);
-  border: 1px solid var(--color-border, #e5d3c0);
-  flex-shrink: 0;
-}
-.setup-guide-step-done {
-  color: var(--color-text, #4a3728);
-}
-.setup-guide-step-done .setup-guide-step-icon {
-  background: var(--color-accent, #d97757);
-  color: #fff;
-  border-color: var(--color-accent, #d97757);
-}
-
 /* Danmu style preview (W-PR-INTAKE-022) */
 .danmu-style-preview {
   position: relative;

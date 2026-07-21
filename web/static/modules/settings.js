@@ -1,5 +1,5 @@
 /**
- * 模块：settings — 弹幕设置页（8 个 tab）+ 视觉模型选择 + 识图框选。
+ * 模块：settings — 弹幕设置页（6 个 tab）+ 视觉模型选择 + 识图框选。
  *
  * 关键数据：
  *   - CONFIG_FIELDS：白名单字段表，决定 GET /api/config 与 PUT /api/config
@@ -109,7 +109,6 @@ import {
   initSettingsTabs,
   switchSettingsTab,
 } from './settings-tabs.js';
-import { markProbeSuccess } from './app-setup-guide.js';
 import { initDanmuPreview, refreshDanmuPreview } from './settings-danmu-preview.js';
 import { initSettingsRhythmAccordion } from './settings-rhythm-accordion.js?v=20260717-number-stepper-v1';
 
@@ -638,7 +637,6 @@ export function bindSettingsControls(deps = {}) {
           body: JSON.stringify({}),
         });
         showToast(res.message || (res.ok ? t('common.connectionSuccess') : t('common.connectionFailed')), !res.ok);
-        if (res.ok) markProbeSuccess();
       } catch (err) {
         showToast(err.message || t('dynamic.settings.网络连接似乎睡着了'), true);
       }

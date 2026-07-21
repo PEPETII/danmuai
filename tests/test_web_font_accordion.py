@@ -22,10 +22,15 @@ def test_font_accordion_wraps_only_target_sections():
     assert 'id="settingsFontScrollingAccordionTrigger"' in section
     assert 'id="settingsFontColorAccordionTrigger"' in section
     assert 'id="settingsFontFloatingAccordionTrigger"' in section
+    assert 'id="settingsFontImportAccordionTrigger"' in section
     assert 'id="font_file_input"' in section
     assert 'id="btnImportFont"' in section
-    accordion_end = section.index('id="font_file_input"')
-    assert section.index('data-settings-rhythm-accordion') < accordion_end
+    # 导入区在同一 accordion 根内（折叠项，非独立 section）
+    accordion_start = section.index('data-settings-rhythm-accordion')
+    import_panel = section.index('id="settingsFontImportAccordionPanel"')
+    font_input_pos = section.index('id="font_file_input"')
+    assert accordion_start < import_panel < font_input_pos
+    assert 'settings-section-title">导入本地字体' not in section
 
 
 def test_font_accordion_preserves_field_ids_and_aria():
@@ -47,6 +52,10 @@ def test_font_accordion_preserves_field_ids_and_aria():
         "floating_panel_font_family",
         "floating_panel_font_size",
         "floating_panel_font_bold",
+        "font_file_input",
+        "btnImportFont",
+        "importedFontsList",
+        "fontRowTemplate",
     ):
         assert f'id="{field_id}"' in section
         assert section.count(f'id="{field_id}"') == 1
@@ -57,5 +66,8 @@ def test_font_accordion_preserves_field_ids_and_aria():
     assert re.search(r'id="settingsFontScrollingAccordionPanel"[^>]*\bhidden\b', section)
     assert re.search(r'id="settingsFontColorAccordionPanel"[^>]*\bhidden\b', section)
     assert re.search(r'id="settingsFontFloatingAccordionPanel"[^>]*\bhidden\b', section)
+    assert re.search(r'id="settingsFontImportAccordionPanel"[^>]*\bhidden\b', section)
     assert 'aria-controls="settingsFontScrollingAccordionPanel"' in section
     assert 'aria-labelledby="settingsFontScrollingAccordionTrigger"' in section
+    assert 'aria-controls="settingsFontImportAccordionPanel"' in section
+    assert 'aria-labelledby="settingsFontImportAccordionTrigger"' in section

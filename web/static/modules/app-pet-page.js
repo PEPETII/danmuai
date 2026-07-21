@@ -48,7 +48,6 @@ function setResetButtonEnabled(enabled) {
 function describeAsset(data) {
   const asset = data.asset || {};
   const displayName = asset.display_name || asset.id || t('dynamic.appPetPage.默认桌宠');
-  const sourceLabel = currentAssetSource === 'local' ? t('dynamic.appPetPage.本地目录') : t('dynamic.appPetPage.内置默认');
 
   if (asset.ok) {
     setAssetText(displayName);
@@ -61,8 +60,10 @@ function describeAsset(data) {
     setAssetError('');
   }
 
-  setText('petAssetSourceText', sourceLabel);
-  setText('petAssetPathText', currentAssetPath || '—');
+  const sourceText = currentAssetSource === 'local'
+    ? currentAssetPath || t('dynamic.appPetPage.本地目录')
+    : t('dynamic.appPetPage.使用默认桌宠');
+  setText('petAssetSourceText', sourceText);
   setResetButtonEnabled(currentAssetSource === 'local' || Boolean(currentAssetPath));
 }
 

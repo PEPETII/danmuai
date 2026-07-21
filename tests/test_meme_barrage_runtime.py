@@ -34,10 +34,12 @@ def test_clear_resets_library_and_queue(tmp_path):
     assert service.display_queue_size() == 0
 
 
-def test_meme_display_tick_uses_engine_not_reply_buffer(tmp_path, monkeypatch):
+def test_meme_display_tick_uses_display_danmu_text(tmp_path, monkeypatch):
+    """烂梗 display tick 按 render_mode 路由上屏（scrolling 模式走 engine.add_text）。"""
     config = ConfigStore(db_path=tmp_path / "meme_display.db")
     config.set("meme_barrage_enabled", "1")
     config.set("meme_barrage_display_batch_size", "2")
+    config.set("danmu_render_mode", "scrolling")
 
     engine = FakeEngine()
     engine.running = True
@@ -56,6 +58,9 @@ def test_meme_display_tick_uses_engine_not_reply_buffer(tmp_path, monkeypatch):
     app._scene_generation = 0
     app._update_stats = MagicMock()
     app._meme_barrage_service = MemeBarrageService(config)
+    # display_danmu_text → _display_danmu_text 在 scrolling 模式下委托 engine.add_text
+    app._pet_barrage_mode_enabled = lambda: False
+    app._danmu_render_mode = lambda: "scrolling"
 
     service = app._meme_barrage_service
     service.enqueue_display(["烂梗1", "烂梗2", "烂梗3"])
@@ -63,6 +68,51 @@ def test_meme_display_tick_uses_engine_not_reply_buffer(tmp_path, monkeypatch):
     app._meme_display_tick()
     assert added == ["烂梗1", "烂梗2"]
     assert service.display_queue_size() == 1
+
+
+def test_meme_display_tick_routes_to_floating_panel(tmp_path, monkeypatch):
+    """floating_panel 模式下烂梗 display tick 路由到浮动面板而非横向引擎。"""
+    config = ConfigStore(db_path=tmp_path / "meme_fp.db")
+    config.set("meme_barrage_enabled", "1")
+    config.set("meme_barrage_display_batch_size", "2")
+    config.set("danmu_render_mode", "floating_panel")
+
+    engine = FakeEngine()
+    engine.running = True
+
+    app = DanmuApp.__new__(DanmuApp)
+    app.config = config
+    app.engine = engine
+    app.logger = MagicMock()
+    app._scene_generation = 0
+    app._update_stats = MagicMock()
+    app._meme_barrage_service = MemeBarrageService(config)
+    app._pet_barrage_mode_enabled = lambda: False
+    app._danmu_render_mode = lambda: "floating_panel"
+
+    fp_added: list[str] = []
+
+    def _fp_display(content, persona_id, **kwargs):
+        fp_added.append(content)
+        return MagicMock()
+
+    app._display_floating_panel_text = _fp_display
+
+    # 横向引擎不应被调用
+    engine_added: list[str] = []
+
+    def _engine_add_text(content, persona="", **kwargs):
+        engine_added.append(content)
+        return MagicMock()
+
+    engine.add_text = _engine_add_text
+
+    service = app._meme_barrage_service
+    service.enqueue_display(["烂梗A", "烂梗B"])
+
+    app._meme_display_tick()
+    assert fp_added == ["烂梗A", "烂梗B"]
+    assert engine_added == []
 
 
 def test_meme_collect_local_mode_skips_reingest(tmp_path):
@@ -100,6 +150,7 @@ def test_meme_display_tick_reentrancy_guard(tmp_path):
     config = ConfigStore(db_path=tmp_path / "meme_reentry.db")
     config.set("meme_barrage_enabled", "1")
     config.set("meme_barrage_display_batch_size", "4")
+    config.set("danmu_render_mode", "scrolling")
 
     app = DanmuApp.__new__(DanmuApp)
     app.config = config
@@ -110,6 +161,8 @@ def test_meme_display_tick_reentrancy_guard(tmp_path):
     app._update_stats = MagicMock()
     app._meme_display_ticking = False
     app._meme_barrage_service = MemeBarrageService(config)
+    app._pet_barrage_mode_enabled = lambda: False
+    app._danmu_render_mode = lambda: "scrolling"
 
     added: list[str] = []
 
@@ -134,6 +187,7 @@ def test_meme_display_tick_recursion_depth_limit(tmp_path, monkeypatch):
     config = ConfigStore(db_path=tmp_path / "meme_recursion.db")
     config.set("meme_barrage_enabled", "1")
     config.set("meme_barrage_display_batch_size", "100")
+    config.set("danmu_render_mode", "scrolling")
 
     app = DanmuApp.__new__(DanmuApp)
     app.config = config
@@ -144,6 +198,8 @@ def test_meme_display_tick_recursion_depth_limit(tmp_path, monkeypatch):
     app._update_stats = MagicMock()
     app._meme_display_ticking = False
     app._meme_barrage_service = MemeBarrageService(config)
+    app._pet_barrage_mode_enabled = lambda: False
+    app._danmu_render_mode = lambda: "scrolling"
 
     added: list[str] = []
 

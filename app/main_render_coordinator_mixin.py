@@ -224,3 +224,32 @@ class DanmuAppRenderCoordinatorMixin:
             "visible_texts": visible_texts,
             "active_texts": active_texts,
         }
+
+    def _recent_sent_danmu_for_prompt(self, limit: int = 10) -> list[str]:
+        """返回最近已发送弹幕（最近在前），供 AI prompt 反重复上下文注入。
+
+        - floating_panel 模式从 FloatingPanelEngine.recent_sent_view() 取
+        - 其他模式（scrolling 等）从 DanmuEngine.recent 取
+        - deque 末尾是最近发送，需反转后截取前 limit 条
+        - 异常时返回空列表，不阻塞 prompt 构造
+        """
+        try:
+            mode = self.config.get("danmu_render_mode", "")
+            if mode == "floating_panel":
+                engine = getattr(self, "floating_panel_engine", None)
+                if engine is None:
+                    return []
+                recent = list(engine.recent_sent_view())
+            else:
+                engine = getattr(self, "engine", None)
+                if engine is None:
+                    return []
+                recent = list(engine.recent)
+            # deque 末尾是最近发送，反转后最近在前
+            recent.reverse()
+            if limit > 0:
+                recent = recent[:limit]
+            return recent
+        except Exception as exc:
+            self.logger.warning("_recent_sent_danmu_for_prompt failed: %r", exc)
+            return []
