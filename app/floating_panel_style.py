@@ -44,6 +44,9 @@ EXIT_ANIMATION_CHOICES: tuple[str, ...] = ("none", "fade")
 DEFAULT_ENTRY_ANIMATION = "fade"
 DEFAULT_EXIT_ANIMATION = "fade"
 
+TAIL_STYLE_CHOICES: tuple[str, ...] = ("round", "sharp", "none")
+DEFAULT_TAIL_STYLE = "round"
+
 _HEX_COLOR_RE = re.compile(r"^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$")
 
 PALETTE_MIN_COLORS = 1
@@ -57,14 +60,25 @@ PALETTE_MAX_COLORS = 16
 STYLE_INT_RANGES: dict[str, tuple[int, int, int]] = {
     "floating_panel_card_opacity": (0, 100, 78),  # 200/255 ≈ 暖色气泡 alpha
     "floating_panel_outline_width": (0, 8, 2),
-    "floating_panel_shadow_blur": (0, 32, 4),
+    "floating_panel_shadow_blur": (0, 32, 12),
     "floating_panel_shadow_offset_x": (-20, 20, 2),
-    "floating_panel_shadow_offset_y": (-20, 20, 3),
-    "floating_panel_padding_x": (0, 48, 12),
-    "floating_panel_padding_y": (0, 48, 8),
-    "floating_panel_radius": (0, 48, 12),
+    "floating_panel_shadow_offset_y": (-20, 20, 2),
+    "floating_panel_shadow_opacity": (0, 100, 30),
+    "floating_panel_border_width": (0, 8, 1),
+    "floating_panel_border_opacity": (0, 100, 40),
+    "floating_panel_padding_x": (0, 48, 14),
+    "floating_panel_padding_y": (0, 48, 10),
+    "floating_panel_radius": (0, 48, 16),
     "floating_panel_tail_width": (0, 32, 8),
     "floating_panel_tail_height": (0, 32, 10),
+    "floating_panel_tail_size": (0, 32, 10),
+    "floating_panel_tail_offset_y": (0, 100, 38),
+    "floating_panel_username_size": (8, 32, 14),
+    "floating_panel_username_weight": (100, 900, 700),
+    "floating_panel_content_size": (8, 32, 16),
+    "floating_panel_content_weight": (100, 900, 400),
+    "floating_panel_content_line_height": (100, 200, 140),
+    "floating_panel_gap_username_content": (0, 24, 4),
     "floating_panel_entry_duration_ms": (0, 2000, 200),
     "floating_panel_push_duration_ms": (0, 2000, 180),
     "floating_panel_exit_duration_ms": (0, 2000, 200),
@@ -99,15 +113,33 @@ STYLE_FIELD_KEYS: tuple[str, ...] = (
     "floating_panel_outline_width",
     "floating_panel_shadow_enabled",
     "floating_panel_shadow_color",
+    "floating_panel_shadow_opacity",
     "floating_panel_shadow_blur",
     "floating_panel_shadow_offset_x",
     "floating_panel_shadow_offset_y",
+    "floating_panel_border_enabled",
+    "floating_panel_border_color",
+    "floating_panel_border_width",
+    "floating_panel_border_opacity",
     "floating_panel_padding_x",
     "floating_panel_padding_y",
     "floating_panel_radius",
     "floating_panel_tail_enabled",
+    "floating_panel_tail_style",
     "floating_panel_tail_width",
     "floating_panel_tail_height",
+    "floating_panel_tail_size",
+    "floating_panel_tail_offset_y",
+    "floating_panel_username_enabled",
+    "floating_panel_username_text",
+    "floating_panel_username_color",
+    "floating_panel_username_size",
+    "floating_panel_username_weight",
+    "floating_panel_username_separator",
+    "floating_panel_content_size",
+    "floating_panel_content_weight",
+    "floating_panel_content_line_height",
+    "floating_panel_gap_username_content",
     "floating_panel_entry_animation",
     "floating_panel_entry_duration_ms",
     "floating_panel_push_duration_ms",
@@ -149,6 +181,8 @@ BOOL_KEYS: tuple[str, ...] = (
     "floating_panel_outline_enabled",
     "floating_panel_shadow_enabled",
     "floating_panel_tail_enabled",
+    "floating_panel_border_enabled",
+    "floating_panel_username_enabled",
     "floating_panel_font_bold",
 )
 
@@ -181,21 +215,39 @@ _CLASSIC_FLAT: dict[str, str] = {
     "floating_panel_text_colors": json.dumps([CLASSIC_TEXT_COLOR], ensure_ascii=False),
     "floating_panel_text_color_mode": "equal",
     "floating_panel_text_color_weights": "{}",
-    "floating_panel_card_opacity": "100",
+    "floating_panel_card_opacity": "95",
     "floating_panel_outline_enabled": "1",
     "floating_panel_outline_color": "#1A1A1A",
     "floating_panel_outline_width": "1",
-    "floating_panel_shadow_enabled": "1",
-    "floating_panel_shadow_color": "#0000002D",  # alpha 45
-    "floating_panel_shadow_blur": "4",
-    "floating_panel_shadow_offset_x": "2",
-    "floating_panel_shadow_offset_y": "3",
+    "floating_panel_shadow_enabled": "0",
+    "floating_panel_shadow_color": "#000000",
+    "floating_panel_shadow_opacity": "20",
+    "floating_panel_shadow_blur": "8",
+    "floating_panel_shadow_offset_x": "0",
+    "floating_panel_shadow_offset_y": "2",
+    "floating_panel_border_enabled": "0",
+    "floating_panel_border_color": "#FFFFFF",
+    "floating_panel_border_width": "1",
+    "floating_panel_border_opacity": "30",
     "floating_panel_padding_x": "12",
     "floating_panel_padding_y": "8",
     "floating_panel_radius": "10",
     "floating_panel_tail_enabled": "0",
+    "floating_panel_tail_style": DEFAULT_TAIL_STYLE,
     "floating_panel_tail_width": "0",
     "floating_panel_tail_height": "0",
+    "floating_panel_tail_size": "0",
+    "floating_panel_tail_offset_y": "38",
+    "floating_panel_username_enabled": "0",
+    "floating_panel_username_text": "弹幕",
+    "floating_panel_username_color": CLASSIC_TEXT_COLOR,
+    "floating_panel_username_size": "14",
+    "floating_panel_username_weight": "700",
+    "floating_panel_username_separator": "：",
+    "floating_panel_content_size": "16",
+    "floating_panel_content_weight": "400",
+    "floating_panel_content_line_height": "140",
+    "floating_panel_gap_username_content": "4",
     "floating_panel_entry_animation": DEFAULT_ENTRY_ANIMATION,
     "floating_panel_entry_duration_ms": "200",
     "floating_panel_push_duration_ms": "180",
@@ -208,7 +260,7 @@ _CLASSIC_FLAT: dict[str, str] = {
     "floating_panel_opacity": "100",
 }
 
-# wechat：shape=bubble、左尾；暖色首色与柔和变体
+# wechat：shape=bubble、左尾；暖色首色与柔和变体，向 blivechat 直播气泡靠拢
 _WECHAT_FLAT: dict[str, str] = {
     "floating_panel_style_preset": "wechat",
     "floating_panel_shape": "bubble",
@@ -218,21 +270,39 @@ _WECHAT_FLAT: dict[str, str] = {
     "floating_panel_text_colors": json.dumps([WECHAT_TEXT_COLOR], ensure_ascii=False),
     "floating_panel_text_color_mode": "equal",
     "floating_panel_text_color_weights": "{}",
-    "floating_panel_card_opacity": "78",
-    "floating_panel_outline_enabled": "1",
-    "floating_panel_outline_color": "#FFFFFFC8",  # 浅色文字描边，alpha 200
+    "floating_panel_card_opacity": "88",
+    "floating_panel_outline_enabled": "0",
+    "floating_panel_outline_color": "#FFFFFF",
     "floating_panel_outline_width": "2",
     "floating_panel_shadow_enabled": "1",
-    "floating_panel_shadow_color": "#0000002D",
-    "floating_panel_shadow_blur": "4",
+    "floating_panel_shadow_color": "#000000",
+    "floating_panel_shadow_opacity": "25",
+    "floating_panel_shadow_blur": "12",
     "floating_panel_shadow_offset_x": "2",
-    "floating_panel_shadow_offset_y": "3",
-    "floating_panel_padding_x": "12",
-    "floating_panel_padding_y": "8",
-    "floating_panel_radius": "12",
+    "floating_panel_shadow_offset_y": "2",
+    "floating_panel_border_enabled": "1",
+    "floating_panel_border_color": "#FFFFFF",
+    "floating_panel_border_width": "1",
+    "floating_panel_border_opacity": "45",
+    "floating_panel_padding_x": "14",
+    "floating_panel_padding_y": "10",
+    "floating_panel_radius": "16",
     "floating_panel_tail_enabled": "1",
+    "floating_panel_tail_style": DEFAULT_TAIL_STYLE,
     "floating_panel_tail_width": "8",
     "floating_panel_tail_height": "10",
+    "floating_panel_tail_size": "10",
+    "floating_panel_tail_offset_y": "38",
+    "floating_panel_username_enabled": "1",
+    "floating_panel_username_text": "弹幕",
+    "floating_panel_username_color": WECHAT_TEXT_COLOR,
+    "floating_panel_username_size": "14",
+    "floating_panel_username_weight": "700",
+    "floating_panel_username_separator": "：",
+    "floating_panel_content_size": "16",
+    "floating_panel_content_weight": "400",
+    "floating_panel_content_line_height": "140",
+    "floating_panel_gap_username_content": "4",
     "floating_panel_entry_animation": DEFAULT_ENTRY_ANIMATION,
     "floating_panel_entry_duration_ms": "200",
     "floating_panel_push_duration_ms": "180",
@@ -461,6 +531,8 @@ def _normalize_style_values(
             items[key] = _choice(raw, STYLE_PRESET_CHOICES, DEFAULT_STYLE_PRESET)
         elif key == "floating_panel_shape":
             items[key] = _choice(raw, SHAPE_CHOICES, factory.get(key, "bubble"))
+        elif key == "floating_panel_tail_style":
+            items[key] = _choice(raw, TAIL_STYLE_CHOICES, factory.get(key, DEFAULT_TAIL_STYLE))
         elif key in ("floating_panel_card_color_mode", "floating_panel_text_color_mode"):
             items[key] = _choice(raw, COLOR_MODE_CHOICES, DEFAULT_COLOR_MODE)
         elif key == "floating_panel_entry_animation":
@@ -495,8 +567,14 @@ def _normalize_style_values(
             except (TypeError, ValueError):
                 fb_int = None
             items[key] = clamp_style_int(raw, key, fallback=fb_int)
-        elif key in ("floating_panel_outline_color", "floating_panel_shadow_color"):
+        elif key in ("floating_panel_outline_color", "floating_panel_shadow_color", "floating_panel_border_color", "floating_panel_username_color"):
             items[key] = normalize_hex_color(raw, fallback=fb or "#000000")
+        elif key == "floating_panel_username_text":
+            v = str(raw if raw is not None else "").strip()
+            items[key] = v if v else (fb or "弹幕")
+        elif key == "floating_panel_username_separator":
+            v = str(raw if raw is not None else "").strip()
+            items[key] = v if v else (fb or "：")
         elif key == "floating_panel_font_family":
             v = str(raw or "").strip()
             items[key] = v if v else (fb or "Microsoft YaHei")
@@ -532,15 +610,33 @@ class FloatingPanelStyleSnapshot:
     outline_width: int
     shadow_enabled: bool
     shadow_color: str
+    shadow_opacity: int
     shadow_blur: int
     shadow_offset_x: int
     shadow_offset_y: int
+    border_enabled: bool
+    border_color: str
+    border_width: int
+    border_opacity: int
     padding_x: int
     padding_y: int
     radius: int
     tail_enabled: bool
+    tail_style: str
     tail_width: int
     tail_height: int
+    tail_size: int
+    tail_offset_y: int
+    username_enabled: bool
+    username_text: str
+    username_color: str
+    username_size: int
+    username_weight: int
+    username_separator: str
+    content_size: int
+    content_weight: int
+    content_line_height: int
+    gap_username_content: int
     entry_animation: str
     entry_duration_ms: int
     push_duration_ms: int
@@ -666,17 +762,39 @@ def style_snapshot_from_mapping(mapping: Mapping[str, Any] | None) -> FloatingPa
         outline_width=_int("floating_panel_outline_width", 2),
         shadow_enabled=_bool("floating_panel_shadow_enabled"),
         shadow_color=normalize_hex_color(
-            src.get("floating_panel_shadow_color"), fallback="#0000002D"
+            src.get("floating_panel_shadow_color"), fallback="#000000"
         ),
-        shadow_blur=_int("floating_panel_shadow_blur", 4),
+        shadow_opacity=_int("floating_panel_shadow_opacity", 30),
+        shadow_blur=_int("floating_panel_shadow_blur", 12),
         shadow_offset_x=_int("floating_panel_shadow_offset_x", 2),
-        shadow_offset_y=_int("floating_panel_shadow_offset_y", 3),
-        padding_x=_int("floating_panel_padding_x", 12),
-        padding_y=_int("floating_panel_padding_y", 8),
-        radius=_int("floating_panel_radius", 12),
+        shadow_offset_y=_int("floating_panel_shadow_offset_y", 2),
+        border_enabled=_bool("floating_panel_border_enabled"),
+        border_color=normalize_hex_color(
+            src.get("floating_panel_border_color"), fallback="#FFFFFF"
+        ),
+        border_width=_int("floating_panel_border_width", 1),
+        border_opacity=_int("floating_panel_border_opacity", 40),
+        padding_x=_int("floating_panel_padding_x", 14),
+        padding_y=_int("floating_panel_padding_y", 10),
+        radius=_int("floating_panel_radius", 16),
         tail_enabled=_bool("floating_panel_tail_enabled"),
+        tail_style=_choice(src.get("floating_panel_tail_style"), TAIL_STYLE_CHOICES, DEFAULT_TAIL_STYLE),
         tail_width=_int("floating_panel_tail_width", 8),
         tail_height=_int("floating_panel_tail_height", 10),
+        tail_size=_int("floating_panel_tail_size", 10),
+        tail_offset_y=_int("floating_panel_tail_offset_y", 38),
+        username_enabled=_bool("floating_panel_username_enabled"),
+        username_text=str(src.get("floating_panel_username_text") or "弹幕"),
+        username_color=normalize_hex_color(
+            src.get("floating_panel_username_color"), fallback=WECHAT_TEXT_COLOR
+        ),
+        username_size=_int("floating_panel_username_size", 14),
+        username_weight=_int("floating_panel_username_weight", 700),
+        username_separator=str(src.get("floating_panel_username_separator") or "："),
+        content_size=_int("floating_panel_content_size", 16),
+        content_weight=_int("floating_panel_content_weight", 400),
+        content_line_height=_int("floating_panel_content_line_height", 140),
+        gap_username_content=_int("floating_panel_gap_username_content", 4),
         entry_animation=_choice(
             src.get("floating_panel_entry_animation"),
             ENTRY_ANIMATION_CHOICES,
@@ -715,6 +833,7 @@ def style_presets_api_payload() -> dict[str, Any]:
         "fields": list(STYLE_FIELD_KEYS),
         "restore_keys": list(STYLE_RESTORE_KEYS),
         "shape_choices": list(SHAPE_CHOICES),
+        "tail_style_choices": list(TAIL_STYLE_CHOICES),
         "color_mode_choices": list(COLOR_MODE_CHOICES),
         "entry_animation_choices": list(ENTRY_ANIMATION_CHOICES),
         "exit_animation_choices": list(EXIT_ANIMATION_CHOICES),
@@ -732,6 +851,8 @@ __all__ = [
     "DEFAULT_STYLE_PRESET",
     "SHAPE_CHOICES",
     "COLOR_MODE_CHOICES",
+    "TAIL_STYLE_CHOICES",
+    "DEFAULT_TAIL_STYLE",
     "STYLE_FIELD_KEYS",
     "STYLE_RESTORE_KEYS",
     "STYLE_PRESET_APPLY_KEYS",

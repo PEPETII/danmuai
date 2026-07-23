@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>DanmuAI Floating Panel Prototype</title>
+<style>
+  :root {
+    --base-size: 1px;
+    --card-bg: #fff7ed;
+    --card-border: #fbbf24;
+    --username-color: #f59e0b;
+    --content-color: #1f2937;
+    --outline-color: #ffffff;
+    --shadow-color: rgba(0, 0, 0, 0.18);
+  }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: transparent !important;
+    overflow: hidden;
+    font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+    /* 关键：让 body 完全透明，否则 WebView2 会绘制白色背景 */
+    background-color: transparent !important;
+  }
+  /* 容器：从底部锚定，左对齐堆积 */
+  #panel {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column-reverse;  /* 反转：新条目在底部 */
+    justify-content: flex-start;
+    align-items: flex-start;
+    padding: 16px;
+    box-sizing: border-box;
+    gap: 8px;
+    pointer-events: none;  /* 默认不拦截鼠标，让点击穿透到下层 */
+  }
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    padding: 8px 12px;
+    max-width: 280px;
+    box-shadow:
+      0 2px 4px rgba(0, 0, 0, 0.10),
+      0 4px 8px rgba(0, 0, 0, 0.08),
+      0 8px 16px rgba(0, 0, 0, 0.06);
+    /* Material Design 三段阴影（参考 blivechat yt-live-chat-paid-message-renderer.css） */
+    animation: slideUp 0.25s ease-out;
+    backdrop-filter: blur(2px);
+    will-change: transform, opacity;
+  }
+  .card.exiting {
+    animation: fadeOut 0.25s ease-in forwards;
+  }
+  .username {
+    font-size: 12px;
+    color: var(--username-color);
+    font-weight: 600;
+    text-shadow:
+      1px 1px 0 var(--outline-color),
+      -1px -1px 0 var(--outline-color),
+      1px -1px 0 var(--outline-color),
+      -1px 1px 0 var(--outline-color);
+    margin-bottom: 2px;
+  }
+  .content {
+    font-size: 14px;
+    color: var(--content-color);
+    line-height: 1.4;
+    word-break: break-word;
+    text-shadow:
+      1px 1px 0 var(--outline-color),
+      -1px -1px 0 var(--outline-color);
+  }
+  @keyframes slideUp {
+    0%   { transform: translateY(40%); opacity: 0; }
+    100% { transform: translateY(0);   opacity: 1; }
+  }
+  @keyframes fadeOut {
+    0%   { opacity: 1; transform: translateY(0); }
+    100% { opacity: 0; transform: translateY(-20px); }
+  }
+  /* 状态条：用于测试 WebSocket 通信 */
+  #status {
+    position: fixed;
+    bottom: 4px;
+    right: 8px;
+    font-size: 10px;
+    color: #888;
+    background: rgba(255,255,255,0.6);
+    padding: 2px 6px;
+    border-radius: 4px;
+    pointer-events: none;
+  }
+  #probe-target {
+    /* 用于测试鼠标命中：默认隐藏，鼠标进入区域时显示 */
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    width: 80px;
+    height: 80px;
+    background: rgba(255, 0, 0, 0.4);
+    color: white;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    pointer-events: auto;
+  }
+  #probe-target.hit {
+    background: rgba(0, 255, 0, 0.6);
+  }
+</style>
+</head>
+<body>
+<div id="panel"></div>
+<div id="probe-target">CLICK</div>
+<div id="status">init</div>
+
+<script>
+  // 状态：用于让外部 evaluate_js 读取
+  window.__panelState = {
+    cardsAdded: 0,
+    cardsRemoved: 0,
+    wsReceived: 0,
+    lastWmMsg: null,
+    animationFrame: 0,
+    pointerEventsOnCards: false,
+  };
+
+  const panel = document.getElementById('panel');
+  const statusEl = document.getElementById('status');
+  const probeTarget = document.getElementById('probe-target');
+
+  function setStatus(text) {
+    statusEl.textContent = text;
+    window.__panelState.lastWmMsg = text;
+  }
+
+  function addCard(username, content) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `<div class="username">${escapeHtml(username)}</div>` +
+                     `<div class="content">${escapeHtml(content)}</div>`;
+    card.dataset.addedAt = performance.now().toString();
+    panel.appendChild(card);
+    window.__panelState.cardsAdded++;
+    // 自动移除最旧的（保留 6 条）
+    while (panel.children.length > 6) {
+      const oldest = panel.firstElementChild;
+      oldest.classList.add('exiting');
+      setTimeout(() => {
+        if (oldest.parentNode) oldest.parentNode.removeChild(oldest);
+        window.__panelState.cardsRemoved++;
+      }, 250);
+    }
+    setStatus(`cards=${panel.children.length}`);
+  }
+  // 暴露给外部 evaluate_js 调用
+  window.addCard = addCard;
+  window.__measureFirstCard = function() {
+    const first = panel.firstElementChild;
+    if (!first) return null;
+    const rect = first.getBoundingClientRect();
+    return {
+      x: rect.x, y: rect.y, w: rect.width, h: rect.height,
+      offsetY: first.offsetTop,
+      computedStyle: {
+        boxShadow: getComputedStyle(first).boxShadow.substring(0, 80),
+        transform: getComputedStyle(first).transform,
+        borderRadius: getComputedStyle(first).borderRadius,
+      }
+    };
+  };
+  window.__startAnimationProbe = function() {
+    let frames = 0;
+    function tick() {
+      window.__panelState.animationFrame = frames++;
+      if (frames < 60) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+    return 'started';
+  };
+  window.__showProbeTarget = function(show) {
+    probeTarget.style.display = show ? 'flex' : 'none';
+    return probeTarget.style.display;
+  };
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[c]));
+  }
+
+  // 测试用：测量首张卡片的渲染尺寸
+  // 已在 addCard 之后暴露：window.__measureFirstCard / __startAnimationProbe / __showProbeTarget
+
+  // probe-target 点击回调
+  probeTarget.addEventListener('click', () => {
+    probeTarget.classList.add('hit');
+    window.__panelState.probeHit = true;
+    setStatus('probe-hit');
+  });
+
+  // WebSocket 连接测试
+  function connectWS(url) {
+    try {
+      const ws = new WebSocket(url);
+      ws.onopen = () => { setStatus('ws-open'); window.__panelState.wsOpen = true; };
+      ws.onmessage = (e) => {
+        window.__panelState.wsReceived++;
+        try {
+          const msg = JSON.parse(e.data);
+          if (msg.type === 'card') {
+            addCard(msg.username || 'AI', msg.content || '');
+          } else if (msg.type === 'ping') {
+            ws.send(JSON.stringify({type:'pong', t: Date.now()}));
+          } else if (msg.type === 'get-state') {
+            // 通过 WS 返回页面状态（替代 evaluate_js）
+            const firstCard = document.querySelector('.card');
+            let cardInfo = null;
+            if (firstCard) {
+              const r = firstCard.getBoundingClientRect();
+              const s = getComputedStyle(firstCard);
+              cardInfo = {
+                w: Math.round(r.width), h: Math.round(r.height),
+                bg: s.backgroundColor,
+                shadow: s.boxShadow.substring(0, 100),
+                radius: s.borderRadius,
+                transform: s.transform,
+                opacity: s.opacity,
+              };
+            }
+            const bodyStyle = getComputedStyle(document.body);
+            ws.send(JSON.stringify({
+              type: 'state-report',
+              cardsCount: document.querySelectorAll('.card').length,
+              cardInfo: cardInfo,
+              bodyBg: bodyStyle.backgroundColor,
+              bodyColor: bodyStyle.color,
+              htmlBg: getComputedStyle(document.documentElement).backgroundColor,
+              panelBg: getComputedStyle(document.getElementById('panel')).backgroundColor,
+              animationFrame: window.__panelState.animationFrame,
+              wsReceived: window.__panelState.wsReceived,
+              wsOpen: window.__panelState.wsOpen === true,
+              timestamp: Date.now(),
+            }));
+          }
+          setStatus(`ws-msg:${msg.type}`);
+        } catch (err) {
+          setStatus(`ws-err:${err.message}`);
+        }
+      };
+      ws.onclose = (e) => { setStatus(`ws-closed:${e.code}`); window.__panelState.wsOpen = false; };
+      ws.onerror = (e) => { setStatus('ws-error'); window.__panelState.wsError = true; };
+      window.__ws = ws;
+      return 'connecting';
+    } catch (e) {
+      setStatus(`ws-fail:${e.message}`);
+      return 'fail';
+    }
+  }
+  window.connectWS = connectWS;
+
+  // 启动：从 query 取 ws_url
+  (function init() {
+    const params = new URLSearchParams(location.search);
+    const wsUrl = params.get('ws_url');
+    if (wsUrl) {
+      connectWS(wsUrl);
+    } else {
+      // 演示模式：自动添加 5 条测试卡片
+      const samples = [
+        ['AI 管家', '你好，欢迎来到直播间~'],
+        ['观众甲', '哈哈哈这个 AI 好可爱'],
+        ['SC 用户', '主播加油！今天份的 SC 已送达'],
+        ['萌新', '请问这是怎么实现的？'],
+        ['老粉', '关注了，期待下一场直播'],
+      ];
+      samples.forEach(([u, c], i) => {
+        setTimeout(() => addCard(u, c), i * 300);
+      });
+      setStatus('demo');
+    }
+    setStatus('ready');
+  })();
+</script>
+</body>
+</html>

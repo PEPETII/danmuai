@@ -1280,22 +1280,61 @@
   word-break: break-word;
   will-change: transform, opacity;
   line-height: 1.35;
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
 }
 
 .sg-preview-item.sg-item-bubble {
   position: absolute;
 }
 
+/* 非气泡形态不显示尾巴 */
+.sg-preview-item.sg-item-card::before,
+.sg-preview-item.sg-item-card::after {
+  display: none;
+}
+
+/* 气泡尾巴：默认锐利三角（sharp） */
 .sg-preview-item.sg-item-bubble::before {
   content: '';
   position: absolute;
   left: calc(-1 * var(--sg-tail-w, 8px));
-  bottom: 10px;
+  top: var(--sg-tail-offset-y, 38%);
   width: 0;
   height: 0;
+  margin-top: calc(var(--sg-tail-h, 10px) / -2);
   border-style: solid;
   border-width: calc(var(--sg-tail-h, 10px) / 2) var(--sg-tail-w, 8px) calc(var(--sg-tail-h, 10px) / 2) 0;
   border-color: transparent var(--sg-tail-color, #ffecd2) transparent transparent;
+}
+
+/* 圆润尾巴：水滴形，模拟 blivechat 聊天气泡 */
+.sg-preview-item.sg-item-bubble[data-tail-style="round"]::before {
+  width: var(--sg-tail-w, 8px);
+  height: var(--sg-tail-h, 10px);
+  margin-top: calc(var(--sg-tail-h, 10px) / -2);
+  border: 0;
+  border-radius: 100% 0 100% 100%;
+  background: var(--sg-tail-color, #ffecd2);
+}
+
+/* 无尾巴 */
+.sg-preview-item.sg-item-bubble[data-tail-style="none"]::before {
+  display: none;
+}
+
+.sg-item-username {
+  display: inline;
+  white-space: nowrap;
+  font-weight: inherit;
+  font-size: inherit;
+  color: inherit;
+  margin-right: 0;
+}
+
+.sg-item-content {
+  display: inline;
 }
 
 .sg-settings-floating-entry {

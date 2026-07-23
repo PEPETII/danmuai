@@ -1,0 +1,109 @@
+:root {
+  --card-bg: #fff7ed;
+  --card-border: #fbbf24;
+  --username-color: #f59e0b;
+  --content-color: #1f2937;
+  --outline-color: #ffffff;
+  --card-radius: 12px;
+  --card-max-width: 280px;
+  --font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+  --font-size-username: 12px;
+  --font-size-content: 14px;
+  --panel-padding: 16px;
+  --stack-gap: 8px;
+  --entry-duration: 250ms;
+  --exit-duration: 250ms;
+  --card-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.10),
+    0 4px 8px rgba(0, 0, 0, 0.08),
+    0 8px 16px rgba(0, 0, 0, 0.06);
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent !important;
+  background-color: transparent !important;
+  font-family: var(--font-family);
+}
+
+#panel {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column-reverse;
+  justify-content: flex-start;
+  align-items: flex-start;
+  padding: var(--panel-padding);
+  box-sizing: border-box;
+  gap: var(--stack-gap);
+  pointer-events: none;
+  background: transparent;
+}
+
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--card-radius);
+  padding: 8px 12px;
+  max-width: var(--card-max-width);
+  box-shadow: var(--card-shadow);
+  animation: slideUp var(--entry-duration) ease-out;
+  backdrop-filter: blur(2px);
+  will-change: transform, opacity;
+}
+
+.card.exiting {
+  animation: fadeOut var(--exit-duration) ease-in forwards;
+}
+
+.username {
+  font-size: var(--font-size-username);
+  color: var(--username-color);
+  font-weight: 600;
+  text-shadow:
+    1px 1px 0 var(--outline-color),
+    -1px -1px 0 var(--outline-color),
+    1px -1px 0 var(--outline-color),
+    -1px 1px 0 var(--outline-color);
+  margin-bottom: 2px;
+}
+
+.content {
+  font-size: var(--font-size-content);
+  color: var(--content-color);
+  line-height: 1.4;
+  word-break: break-word;
+  text-shadow:
+    1px 1px 0 var(--outline-color),
+    -1px -1px 0 var(--outline-color);
+}
+
+@keyframes slideUp {
+  0% {
+    transform: translateY(40%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+}

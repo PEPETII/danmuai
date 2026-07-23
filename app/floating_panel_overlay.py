@@ -284,7 +284,10 @@ class FloatingPanelOverlay(QWidget):
         return pad_top + pad_bottom
 
     def _body_path(self, body: QRectF) -> QPainterPath:
-        """Rounded body; bubble + tail_enabled → left-pointing triangle."""
+        """Rounded body; bubble + tail_enabled → left-pointing tail.
+
+        支持 round（平滑水滴尾巴）与 sharp（锐利三角），位置由 tail_offset_y 控制。
+        """
         st = self._style
         radius = float(max(0, st.radius))
         path = QPainterPath()
@@ -293,15 +296,34 @@ class FloatingPanelOverlay(QWidget):
         tail_h = self._tail_h()
         if st.shape != "bubble" or tail_w <= 0.0 or tail_h <= 0.0:
             return path
-        cy = body.top() + body.height() * 0.38
+        tail_style = str(st.tail_style or "round").strip().lower()
+        offset_pct = max(0, min(100, int(st.tail_offset_y))) / 100.0
+        cy = body.top() + body.height() * offset_pct
         tip = QPointF(body.left() - tail_w, cy)
         base_x = body.left() + 1.0
         half_h = tail_h * 0.5
         tail = QPainterPath()
-        tail.moveTo(tip)
-        tail.lineTo(QPointF(base_x, cy - half_h))
-        tail.lineTo(QPointF(base_x, cy + half_h))
-        tail.closeSubpath()
+        if tail_style == "sharp":
+            tail.moveTo(tip)
+            tail.lineTo(QPointF(base_x, cy - half_h))
+            tail.lineTo(QPointF(base_x, cy + half_h))
+            tail.closeSubpath()
+        else:
+            # round：贝塞尔曲线水滴尾巴，模拟 blivechat 聊天气泡
+            ctrl_in = tail_w * 0.55
+            ctrl_out = tail_w * 0.25
+            tail.moveTo(QPointF(base_x, cy - half_h))
+            tail.cubicTo(
+                QPointF(base_x + ctrl_in, cy - half_h),
+                QPointF(body.left() + ctrl_out, cy - half_h * 0.35),
+                tip,
+            )
+            tail.cubicTo(
+                QPointF(body.left() + ctrl_out, cy + half_h * 0.35),
+                QPointF(base_x + ctrl_in, cy + half_h),
+                QPointF(base_x, cy + half_h),
+            )
+            tail.closeSubpath()
         return path.united(tail)
 
     def _apply_config(self) -> None:
@@ -381,7 +403,11 @@ class FloatingPanelOverlay(QWidget):
         st = self._style
         if self._font_metrics is None:
             return 40.0 + self._extra_height()
-        content_h = float(self._font_metrics.height()) + float(st.padding_y) * 2
+        content_font = QFont(self._font)
+        content_font.setPointSize(max(6, min(72, int(st.content_size))))
+        content_metrics = QFontMetrics(content_font)
+        line_spacing = max(1.0, float(st.content_line_height) / 100.0)
+        content_h = float(content_metrics.height()) * line_spacing + float(st.padding_y) * 2
         return content_h + self._extra_height()
 
     def estimate_item_height(self) -> float:
@@ -499,7 +525,8 @@ class FloatingPanelOverlay(QWidget):
 
             # Shadow (approximate blur via multi-pass soft offset)
             if st.shadow_enabled:
-                shadow_base = _hex_to_qcolor(st.shadow_color)
+                shadow_alpha = int(round(255 * max(0, min(100, st.shadow_opacity)) / 100.0))
+                shadow_base = _hex_to_qcolor(st.shadow_color, alpha_override=shadow_alpha)
                 dx = float(st.shadow_offset_x)
                 dy = float(st.shadow_offset_y)
                 blur = max(0, int(st.shadow_blur))
@@ -523,6 +550,18 @@ class FloatingPanelOverlay(QWidget):
 
             painter.fillPath(shape_path, card_color)
 
+            # Border on top of fill
+            if st.border_enabled and st.border_width > 0:
+                border_alpha = int(round(255 * max(0, min(100, st.border_opacity)) / 100.0))
+                border_color = _hex_to_qcolor(st.border_color, alpha_override=border_alpha)
+                border_pen = QPen(border_color)
+                border_pen.setWidth(max(1, int(st.border_width)))
+                border_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+                border_pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+                painter.setPen(border_pen)
+                painter.setBrush(Qt.BrushStyle.NoBrush)
+                painter.drawPath(shape_path)
+
             if self._font is None or self._font_metrics is None:
                 return pm
 
@@ -537,54 +576,133 @@ class FloatingPanelOverlay(QWidget):
             pad_x = float(st.padding_x)
             pad_y = float(st.padding_y)
             painter.setFont(self._font)
+
+            # 用户名与内容分离（参考 blivechat 的 author-name / message 层级）
+            username_on = bool(st.username_enabled)
+            username_text = str(st.username_text or "弹幕") if username_on else ""
+            username_sep = str(st.username_separator or "：") if username_on else ""
+            full_text = text
+            username_w = 0.0
+            username_font = None
+            username_metrics = None
+            if username_text:
+                username_font = QFont(self._font)
+                username_font.setPointSize(max(6, min(72, int(st.username_size))))
+                username_font.setBold(int(st.username_weight) >= 600)
+                username_font.setWeight(max(1, min(99, int(st.username_weight))))
+                username_metrics = QFontMetrics(username_font)
+                username_w = float(username_metrics.horizontalAdvance(username_text + username_sep))
+
+            content_font = QFont(self._font)
+            content_font.setPointSize(max(6, min(72, int(st.content_size))))
+            content_font.setBold(int(st.content_weight) >= 600)
+            content_font.setWeight(max(1, min(99, int(st.content_weight))))
+            content_metrics = QFontMetrics(content_font)
+            line_spacing = max(1.0, float(st.content_line_height) / 100.0)
+
             text_x = body.left() + pad_x
             max_text_w = max(1.0, float(content_w) - pad_x * 2.0)
+            content_max_w = max(1.0, max_text_w - username_w - float(st.gap_username_content))
             lines, _used_w, _text_h = fit_floating_panel_text(
-                text,
-                self._font,
-                self._font_metrics,
-                max_text_w,
+                full_text,
+                content_font,
+                content_metrics,
+                content_max_w,
             )
-            line_h = float(self._font_metrics.height())
-            ascent = float(self._font_metrics.ascent())
+            line_h = float(content_metrics.height()) * line_spacing
+            ascent = float(content_metrics.ascent())
             joined = "\n".join(lines)
+
+            # 用户名颜色（与内容文字使用不同层级）
+            username_color = _hex_to_qcolor(st.username_color)
 
             outline_on = bool(st.outline_enabled) and st.outline_width > 0
             outline_color = _hex_to_qcolor(st.outline_color)
             outline_w = max(1, int(st.outline_width)) if outline_on else 0
 
+            # 单行且开启用户名时，将用户名与首行内容在同一基线绘制
+            def _draw_text_line(
+                painter_: QPainter,
+                font_: QFont,
+                metrics_: QFontMetrics,
+                line_text: str,
+                x: float,
+                baseline_y: float,
+                fill_: QColor,
+                do_outline: bool,
+            ) -> None:
+                painter_.setFont(font_)
+                if do_outline:
+                    outline_pen_ = QPen(outline_color)
+                    outline_pen_.setWidth(outline_w)
+                    for odx, ody in _FAST_OUTLINE_OFFSETS:
+                        painter_.setPen(outline_pen_)
+                        painter_.drawText(int(x + odx), int(baseline_y + ody), line_text)
+                painter_.setPen(QPen(fill_))
+                painter_.drawText(int(x), int(baseline_y), line_text)
+
             if _use_fast_danmu_render(joined):
-                if outline_on:
-                    outline_pen = QPen(outline_color)
-                    outline_pen.setWidth(outline_w)
-                    for i, line_text in enumerate(lines):
-                        baseline_y = body.top() + pad_y + ascent + i * line_h
-                        for odx, ody in _FAST_OUTLINE_OFFSETS:
-                            painter.setPen(outline_pen)
-                            painter.drawText(
-                                int(text_x + odx),
-                                int(baseline_y + ody),
-                                line_text,
-                            )
-                painter.setPen(QPen(text_fill))
                 for i, line_text in enumerate(lines):
                     baseline_y = body.top() + pad_y + ascent + i * line_h
-                    painter.drawText(int(text_x), int(baseline_y), line_text)
+                    if i == 0 and username_text:
+                        ux = text_x
+                        _draw_text_line(
+                            painter, username_font, username_metrics,
+                            username_text + username_sep, ux, baseline_y, username_color, outline_on,
+                        )
+                        cx = ux + username_w + float(st.gap_username_content)
+                        _draw_text_line(
+                            painter, content_font, content_metrics,
+                            line_text, cx, baseline_y, text_fill, outline_on,
+                        )
+                    else:
+                        _draw_text_line(
+                            painter, content_font, content_metrics,
+                            line_text, text_x, baseline_y, text_fill, outline_on,
+                        )
             else:
-                text_path = QPainterPath()
                 for i, line_text in enumerate(lines):
                     baseline_y = body.top() + pad_y + ascent + i * line_h
-                    text_path.addText(text_x, baseline_y, self._font, line_text)
-                if outline_on:
-                    pen = QPen(outline_color)
-                    pen.setWidth(outline_w)
-                    pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-                    pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-                    painter.setPen(pen)
-                    painter.drawPath(text_path)
-                painter.setPen(Qt.PenStyle.NoPen)
-                painter.setBrush(text_fill)
-                painter.drawPath(text_path)
+                    if i == 0 and username_text:
+                        ux = text_x
+                        up = QPainterPath()
+                        up.addText(ux, baseline_y, username_font, username_text + username_sep)
+                        if outline_on:
+                            pen = QPen(outline_color)
+                            pen.setWidth(outline_w)
+                            pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+                            pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+                            painter.setPen(pen)
+                            painter.drawPath(up)
+                        painter.setPen(Qt.PenStyle.NoPen)
+                        painter.setBrush(username_color)
+                        painter.drawPath(up)
+
+                        cp = QPainterPath()
+                        cp.addText(ux + username_w + float(st.gap_username_content), baseline_y, content_font, line_text)
+                        if outline_on:
+                            pen = QPen(outline_color)
+                            pen.setWidth(outline_w)
+                            pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+                            pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+                            painter.setPen(pen)
+                            painter.drawPath(cp)
+                        painter.setPen(Qt.PenStyle.NoPen)
+                        painter.setBrush(text_fill)
+                        painter.drawPath(cp)
+                    else:
+                        tp = QPainterPath()
+                        tp.addText(text_x, baseline_y, content_font, line_text)
+                        if outline_on:
+                            pen = QPen(outline_color)
+                            pen.setWidth(outline_w)
+                            pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+                            pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+                            painter.setPen(pen)
+                            painter.drawPath(tp)
+                        painter.setPen(Qt.PenStyle.NoPen)
+                        painter.setBrush(text_fill)
+                        painter.drawPath(tp)
         finally:
             painter.end()
         return pm

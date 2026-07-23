@@ -85,7 +85,7 @@
           </div>
 
           <div class="space-y-3">
-            <p class="settings-section-title" data-i18n="content.text.描边与阴影">描边与阴影</p>
+            <p class="settings-section-title" data-i18n="content.text.描边">描边</p>
             <div class="settings-params-grid cols-2">
               <div class="settings-field settings-field--toggle">
                 <span class="settings-field-label" data-i18n="content.text.描边">描边</span>
@@ -102,8 +102,14 @@
                 <label for="sg-floating_panel_outline_width" class="settings-field-label" data-i18n="content.text.描边宽度">描边宽度</label>
                 <input type="number" name="floating_panel_outline_width" id="sg-floating_panel_outline_width" min="0" max="8" class="settings-field-control" value="2">
               </div>
+            </div>
+          </div>
+
+          <div class="space-y-3">
+            <p class="settings-section-title" data-i18n="content.text.阴影">阴影</p>
+            <div class="settings-params-grid cols-2">
               <div class="settings-field settings-field--toggle">
-                <span class="settings-field-label" data-i18n="content.text.阴影">阴影</span>
+                <span class="settings-field-label" data-i18n="content.text.启用阴影">启用阴影</span>
                 <label class="toggle-switch">
                   <input type="checkbox" name="floating_panel_shadow_enabled" id="sg-floating_panel_shadow_enabled" role="switch" value="1">
                   <span aria-hidden="true"></span>
@@ -111,11 +117,15 @@
               </div>
               <div class="settings-field">
                 <label for="sg-floating_panel_shadow_color" class="settings-field-label" data-i18n="content.text.阴影颜色">阴影颜色</label>
-                <input type="text" name="floating_panel_shadow_color" id="sg-floating_panel_shadow_color" class="settings-field-control" placeholder="#0000002D">
+                <input type="text" name="floating_panel_shadow_color" id="sg-floating_panel_shadow_color" class="settings-field-control" placeholder="#000000">
+              </div>
+              <div class="settings-field">
+                <label for="sg-floating_panel_shadow_opacity" class="settings-field-label" data-i18n="content.text.阴影不透明度">阴影不透明度 (%)</label>
+                <input type="number" name="floating_panel_shadow_opacity" id="sg-floating_panel_shadow_opacity" min="0" max="100" class="settings-field-control" value="25">
               </div>
               <div class="settings-field">
                 <label for="sg-floating_panel_shadow_blur" class="settings-field-label" data-i18n="content.text.阴影模糊">阴影模糊</label>
-                <input type="number" name="floating_panel_shadow_blur" id="sg-floating_panel_shadow_blur" min="0" max="32" class="settings-field-control" value="4">
+                <input type="number" name="floating_panel_shadow_blur" id="sg-floating_panel_shadow_blur" min="0" max="32" class="settings-field-control" value="12">
               </div>
               <div class="settings-field">
                 <label for="sg-floating_panel_shadow_offset_x" class="settings-field-label" data-i18n="content.text.阴影偏移_X">阴影偏移 X</label>
@@ -123,7 +133,81 @@
               </div>
               <div class="settings-field">
                 <label for="sg-floating_panel_shadow_offset_y" class="settings-field-label" data-i18n="content.text.阴影偏移_Y">阴影偏移 Y</label>
-                <input type="number" name="floating_panel_shadow_offset_y" id="sg-floating_panel_shadow_offset_y" min="-20" max="20" class="settings-field-control" value="3">
+                <input type="number" name="floating_panel_shadow_offset_y" id="sg-floating_panel_shadow_offset_y" min="-20" max="20" class="settings-field-control" value="2">
+              </div>
+            </div>
+          </div>
+
+          <div class="space-y-3">
+            <p class="settings-section-title" data-i18n="content.text.边框">边框</p>
+            <div class="settings-params-grid cols-2">
+              <div class="settings-field settings-field--toggle">
+                <span class="settings-field-label" data-i18n="content.text.启用边框">启用边框</span>
+                <label class="toggle-switch">
+                  <input type="checkbox" name="floating_panel_border_enabled" id="sg-floating_panel_border_enabled" role="switch" value="1">
+                  <span aria-hidden="true"></span>
+                </label>
+              </div>
+              <div class="settings-field">
+                <label for="sg-floating_panel_border_color" class="settings-field-label" data-i18n="content.text.边框颜色">边框颜色</label>
+                <input type="text" name="floating_panel_border_color" id="sg-floating_panel_border_color" class="settings-field-control" placeholder="#FFFFFF">
+              </div>
+              <div class="settings-field">
+                <label for="sg-floating_panel_border_width" class="settings-field-label" data-i18n="content.text.边框宽度">边框宽度</label>
+                <input type="number" name="floating_panel_border_width" id="sg-floating_panel_border_width" min="0" max="8" class="settings-field-control" value="1">
+              </div>
+              <div class="settings-field">
+                <label for="sg-floating_panel_border_opacity" class="settings-field-label" data-i18n="content.text.边框不透明度">边框不透明度 (%)</label>
+                <input type="number" name="floating_panel_border_opacity" id="sg-floating_panel_border_opacity" min="0" max="100" class="settings-field-control" value="45">
+              </div>
+            </div>
+          </div>
+
+          <div class="space-y-3">
+            <p class="settings-section-title" data-i18n="content.text.用户名与内容">用户名与内容</p>
+            <div class="settings-params-grid cols-2">
+              <div class="settings-field settings-field--toggle">
+                <span class="settings-field-label" data-i18n="content.text.显示用户名">显示用户名</span>
+                <label class="toggle-switch">
+                  <input type="checkbox" name="floating_panel_username_enabled" id="sg-floating_panel_username_enabled" role="switch" value="1">
+                  <span aria-hidden="true"></span>
+                </label>
+              </div>
+              <div class="settings-field">
+                <label for="sg-floating_panel_username_text" class="settings-field-label" data-i18n="content.text.用户名文本">用户名文本</label>
+                <input type="text" name="floating_panel_username_text" id="sg-floating_panel_username_text" class="settings-field-control" value="弹幕">
+              </div>
+              <div class="settings-field">
+                <label for="sg-floating_panel_username_color" class="settings-field-label" data-i18n="content.text.用户名颜色">用户名颜色</label>
+                <input type="text" name="floating_panel_username_color" id="sg-floating_panel_username_color" class="settings-field-control" placeholder="#281C12">
+              </div>
+              <div class="settings-field">
+                <label for="sg-floating_panel_username_size" class="settings-field-label" data-i18n="content.text.用户名字号">用户名字号 (px)</label>
+                <input type="number" name="floating_panel_username_size" id="sg-floating_panel_username_size" min="8" max="32" class="settings-field-control" value="14">
+              </div>
+              <div class="settings-field">
+                <label for="sg-floating_panel_username_weight" class="settings-field-label" data-i18n="content.text.用户名字重">用户名字重</label>
+                <input type="number" name="floating_panel_username_weight" id="sg-floating_panel_username_weight" min="100" max="900" class="settings-field-control" value="700">
+              </div>
+              <div class="settings-field">
+                <label for="sg-floating_panel_username_separator" class="settings-field-label" data-i18n="content.text.用户名分隔符">用户名分隔符</label>
+                <input type="text" name="floating_panel_username_separator" id="sg-floating_panel_username_separator" class="settings-field-control" value="：">
+              </div>
+              <div class="settings-field">
+                <label for="sg-floating_panel_content_size" class="settings-field-label" data-i18n="content.text.内容字号">内容字号 (px)</label>
+                <input type="number" name="floating_panel_content_size" id="sg-floating_panel_content_size" min="8" max="32" class="settings-field-control" value="16">
+              </div>
+              <div class="settings-field">
+                <label for="sg-floating_panel_content_weight" class="settings-field-label" data-i18n="content.text.内容字重">内容字重</label>
+                <input type="number" name="floating_panel_content_weight" id="sg-floating_panel_content_weight" min="100" max="900" class="settings-field-control" value="400">
+              </div>
+              <div class="settings-field">
+                <label for="sg-floating_panel_content_line_height" class="settings-field-label" data-i18n="content.text.内容行高">内容行高 (%)</label>
+                <input type="number" name="floating_panel_content_line_height" id="sg-floating_panel_content_line_height" min="100" max="200" class="settings-field-control" value="140">
+              </div>
+              <div class="settings-field">
+                <label for="sg-floating_panel_gap_username_content" class="settings-field-label" data-i18n="content.text.用户名与内容间距">用户名与内容间距 (px)</label>
+                <input type="number" name="floating_panel_gap_username_content" id="sg-floating_panel_gap_username_content" min="0" max="24" class="settings-field-control" value="4">
               </div>
             </div>
           </div>
@@ -153,15 +237,15 @@
               </div>
               <div class="settings-field">
                 <label for="sg-floating_panel_radius" class="settings-field-label" data-i18n="content.text.圆角">圆角</label>
-                <input type="number" name="floating_panel_radius" id="sg-floating_panel_radius" min="0" max="48" class="settings-field-control" value="12">
+                <input type="number" name="floating_panel_radius" id="sg-floating_panel_radius" min="0" max="48" class="settings-field-control" value="16">
               </div>
               <div class="settings-field">
                 <label for="sg-floating_panel_padding_x" class="settings-field-label" data-i18n="content.text.水平内边距">水平内边距</label>
-                <input type="number" name="floating_panel_padding_x" id="sg-floating_panel_padding_x" min="0" max="48" class="settings-field-control" value="12">
+                <input type="number" name="floating_panel_padding_x" id="sg-floating_panel_padding_x" min="0" max="48" class="settings-field-control" value="14">
               </div>
               <div class="settings-field">
                 <label for="sg-floating_panel_padding_y" class="settings-field-label" data-i18n="content.text.垂直内边距">垂直内边距</label>
-                <input type="number" name="floating_panel_padding_y" id="sg-floating_panel_padding_y" min="0" max="48" class="settings-field-control" value="8">
+                <input type="number" name="floating_panel_padding_y" id="sg-floating_panel_padding_y" min="0" max="48" class="settings-field-control" value="10">
               </div>
             </div>
           </div>
@@ -177,12 +261,28 @@
                 </label>
               </div>
               <div class="settings-field">
+                <label for="sg-floating_panel_tail_style" class="settings-field-label" data-i18n="content.text.尾巴样式">尾巴样式</label>
+                <select name="floating_panel_tail_style" id="sg-floating_panel_tail_style" class="settings-field-control text-left">
+                  <option value="round" data-i18n="content.text.尾巴圆润">圆润</option>
+                  <option value="sharp" data-i18n="content.text.尾巴锐利">锐利</option>
+                  <option value="none" data-i18n="content.text.尾巴无">无</option>
+                </select>
+              </div>
+              <div class="settings-field">
                 <label for="sg-floating_panel_tail_width" class="settings-field-label" data-i18n="content.text.尾巴宽度">尾巴宽度</label>
                 <input type="number" name="floating_panel_tail_width" id="sg-floating_panel_tail_width" min="0" max="32" class="settings-field-control" value="8">
               </div>
               <div class="settings-field">
                 <label for="sg-floating_panel_tail_height" class="settings-field-label" data-i18n="content.text.尾巴高度">尾巴高度</label>
                 <input type="number" name="floating_panel_tail_height" id="sg-floating_panel_tail_height" min="0" max="32" class="settings-field-control" value="10">
+              </div>
+              <div class="settings-field">
+                <label for="sg-floating_panel_tail_size" class="settings-field-label" data-i18n="content.text.尾巴大小">尾巴大小</label>
+                <input type="number" name="floating_panel_tail_size" id="sg-floating_panel_tail_size" min="0" max="32" class="settings-field-control" value="10">
+              </div>
+              <div class="settings-field">
+                <label for="sg-floating_panel_tail_offset_y" class="settings-field-label" data-i18n="content.text.尾巴垂直位置">尾巴垂直位置 (%)</label>
+                <input type="number" name="floating_panel_tail_offset_y" id="sg-floating_panel_tail_offset_y" min="0" max="100" class="settings-field-control" value="38">
               </div>
             </div>
           </div>

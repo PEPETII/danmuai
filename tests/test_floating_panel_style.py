@@ -156,9 +156,9 @@ def test_invalid_enum_and_range_fallback_no_empty():
     assert items["floating_panel_style_preset"] == "wechat"
     assert items["floating_panel_shape"] == "bubble"
     assert json.loads(items["floating_panel_card_colors"])
-    assert items["floating_panel_card_opacity"] == "78"
+    assert items["floating_panel_card_opacity"] == "88"
     assert int(items["floating_panel_radius"]) >= 0
-    assert items["floating_panel_outline_enabled"] == "1"
+    assert items["floating_panel_outline_enabled"] == "0"
     assert items["floating_panel_entry_animation"] == "fade"
     # 无空样式字段
     for key in STYLE_FIELD_KEYS:
@@ -333,3 +333,64 @@ def test_style_presets_api_readonly_no_auth():
 def test_style_presets_payload_matches_module():
     assert style_presets_api_payload()["version"] >= 1
     assert style_presets_api_payload()["presets"]["wechat"]["floating_panel_tail_enabled"] == "1"
+
+
+def test_wechat_preset_has_bubble_tail_and_username_fields():
+    w = STYLE_PRESETS["wechat"]
+    assert w["floating_panel_shape"] == "bubble"
+    assert w["floating_panel_tail_enabled"] == "1"
+    assert w["floating_panel_tail_style"] == "round"
+    assert w["floating_panel_tail_width"] == "8"
+    assert w["floating_panel_tail_height"] == "10"
+    assert w["floating_panel_username_enabled"] == "1"
+    assert w["floating_panel_username_separator"] == "："
+    assert w["floating_panel_shadow_enabled"] == "1"
+    assert w["floating_panel_shadow_opacity"] == "25"
+    assert w["floating_panel_border_enabled"] == "1"
+    assert w["floating_panel_border_opacity"] == "45"
+
+
+def test_classic_preset_has_no_tail_and_username_fields():
+    c = STYLE_PRESETS["classic"]
+    assert c["floating_panel_shape"] == "card"
+    assert c["floating_panel_tail_enabled"] == "0"
+    assert c["floating_panel_tail_style"] == "round"
+    assert c["floating_panel_username_enabled"] == "0"
+    assert c["floating_panel_shadow_enabled"] == "0"
+    assert c["floating_panel_border_enabled"] == "0"
+
+
+def test_snapshot_exposes_new_style_fields():
+    snap = style_snapshot_from_mapping({})
+    assert snap.tail_style == "round"
+    assert snap.tail_enabled is True
+    assert snap.tail_width == 8
+    assert snap.shadow_opacity == 25
+    assert snap.border_enabled is True
+    assert snap.border_width == 1
+    assert snap.username_enabled is True
+    assert snap.username_size == 14
+    assert snap.username_weight == 700
+    assert snap.content_size == 16
+    assert snap.content_line_height == 140
+    assert snap.gap_username_content == 4
+
+
+def test_normalize_tail_style_border_and_username_fields():
+    items = {
+        "floating_panel_style_preset": "custom",
+        "floating_panel_tail_style": "sharp",
+        "floating_panel_shadow_opacity": "120",
+        "floating_panel_border_width": "5",
+        "floating_panel_username_enabled": "true",
+        "floating_panel_content_size": "24",
+        "floating_panel_gap_username_content": "12",
+    }
+    normalize_floating_panel_style_items(items)
+    assert items["floating_panel_style_preset"] == "custom"
+    assert items["floating_panel_tail_style"] == "sharp"
+    assert items["floating_panel_shadow_opacity"] == "100"
+    assert items["floating_panel_border_width"] == "5"
+    assert items["floating_panel_username_enabled"] == "1"
+    assert items["floating_panel_content_size"] == "24"
+    assert items["floating_panel_gap_username_content"] == "12"

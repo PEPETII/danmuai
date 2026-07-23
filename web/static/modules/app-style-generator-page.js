@@ -25,15 +25,33 @@ const STYLE_SAVE_KEYS = [
   'floating_panel_outline_width',
   'floating_panel_shadow_enabled',
   'floating_panel_shadow_color',
+  'floating_panel_shadow_opacity',
   'floating_panel_shadow_blur',
   'floating_panel_shadow_offset_x',
   'floating_panel_shadow_offset_y',
+  'floating_panel_border_enabled',
+  'floating_panel_border_color',
+  'floating_panel_border_width',
+  'floating_panel_border_opacity',
   'floating_panel_padding_x',
   'floating_panel_padding_y',
   'floating_panel_radius',
   'floating_panel_tail_enabled',
+  'floating_panel_tail_style',
   'floating_panel_tail_width',
   'floating_panel_tail_height',
+  'floating_panel_tail_size',
+  'floating_panel_tail_offset_y',
+  'floating_panel_username_enabled',
+  'floating_panel_username_text',
+  'floating_panel_username_color',
+  'floating_panel_username_size',
+  'floating_panel_username_weight',
+  'floating_panel_username_separator',
+  'floating_panel_content_size',
+  'floating_panel_content_weight',
+  'floating_panel_content_line_height',
+  'floating_panel_gap_username_content',
   'floating_panel_entry_animation',
   'floating_panel_entry_duration_ms',
   'floating_panel_push_duration_ms',
@@ -50,6 +68,8 @@ const BOOL_KEYS = new Set([
   'floating_panel_outline_enabled',
   'floating_panel_shadow_enabled',
   'floating_panel_tail_enabled',
+  'floating_panel_border_enabled',
+  'floating_panel_username_enabled',
   'floating_panel_font_bold',
 ]);
 
@@ -333,16 +353,34 @@ function readPreviewStyle() {
     outlineColor: readStr('floating_panel_outline_color', '#FFFFFFC8'),
     outlineWidth: readInt('floating_panel_outline_width', 2),
     shadowEnabled: readBool('floating_panel_shadow_enabled'),
-    shadowColor: readStr('floating_panel_shadow_color', '#0000002D'),
-    shadowBlur: readInt('floating_panel_shadow_blur', 4),
+    shadowColor: readStr('floating_panel_shadow_color', '#000000'),
+    shadowOpacity: Math.max(0, Math.min(100, readInt('floating_panel_shadow_opacity', 30))) / 100,
+    shadowBlur: readInt('floating_panel_shadow_blur', 12),
     shadowOffsetX: readInt('floating_panel_shadow_offset_x', 2),
-    shadowOffsetY: readInt('floating_panel_shadow_offset_y', 3),
-    paddingX: readInt('floating_panel_padding_x', 12),
-    paddingY: readInt('floating_panel_padding_y', 8),
-    radius: readInt('floating_panel_radius', 12),
+    shadowOffsetY: readInt('floating_panel_shadow_offset_y', 2),
+    borderEnabled: readBool('floating_panel_border_enabled'),
+    borderColor: readStr('floating_panel_border_color', '#FFFFFF'),
+    borderWidth: readInt('floating_panel_border_width', 1),
+    borderOpacity: Math.max(0, Math.min(100, readInt('floating_panel_border_opacity', 45))) / 100,
+    paddingX: readInt('floating_panel_padding_x', 14),
+    paddingY: readInt('floating_panel_padding_y', 10),
+    radius: readInt('floating_panel_radius', 16),
     tailEnabled: readBool('floating_panel_tail_enabled'),
+    tailStyle: readStr('floating_panel_tail_style', 'round'),
     tailWidth: readInt('floating_panel_tail_width', 8),
     tailHeight: readInt('floating_panel_tail_height', 10),
+    tailSize: readInt('floating_panel_tail_size', 10),
+    tailOffsetY: readInt('floating_panel_tail_offset_y', 38),
+    usernameEnabled: readBool('floating_panel_username_enabled'),
+    usernameText: readStr('floating_panel_username_text', '弹幕'),
+    usernameColor: readStr('floating_panel_username_color', '#281C12'),
+    usernameSize: readInt('floating_panel_username_size', 14),
+    usernameWeight: readInt('floating_panel_username_weight', 700),
+    usernameSeparator: readStr('floating_panel_username_separator', '：'),
+    contentSize: readInt('floating_panel_content_size', 16),
+    contentWeight: readInt('floating_panel_content_weight', 400),
+    contentLineHeight: readInt('floating_panel_content_line_height', 140),
+    gapUsernameContent: readInt('floating_panel_gap_username_content', 4),
     entryAnim: readStr('floating_panel_entry_animation', 'fade'),
     entryMs: Math.max(0, readInt('floating_panel_entry_duration_ms', 200)),
     pushMs: Math.max(0, readInt('floating_panel_push_duration_ms', 180)),
@@ -364,8 +402,9 @@ function applyItemDomStyle(el, item, style, useFixedColors) {
   el.style.background = hexToRgba(cardColor, style.cardOpacity);
   el.style.color = textColor;
   el.style.fontFamily = style.fontFamily || 'inherit';
-  el.style.fontSize = `${style.fontSize}px`;
-  el.style.fontWeight = style.fontBold ? '700' : '400';
+  el.style.fontSize = `${style.contentSize}px`;
+  el.style.fontWeight = String(style.contentWeight);
+  el.style.lineHeight = `${style.contentLineHeight}%`;
   el.style.padding = `${style.paddingY}px ${style.paddingX}px`;
   el.style.borderRadius = `${style.radius}px`;
   if (style.outlineEnabled && style.outlineWidth > 0) {
@@ -379,8 +418,13 @@ function applyItemDomStyle(el, item, style, useFixedColors) {
   } else {
     el.style.textShadow = 'none';
   }
+  if (style.borderEnabled && style.borderWidth > 0) {
+    el.style.border = `${style.borderWidth}px solid ${hexToRgba(style.borderColor, style.borderOpacity)}`;
+  } else {
+    el.style.border = 'none';
+  }
   if (style.shadowEnabled) {
-    el.style.boxShadow = `${style.shadowOffsetX}px ${style.shadowOffsetY}px ${style.shadowBlur}px ${hexToRgba(style.shadowColor)}`;
+    el.style.boxShadow = `${style.shadowOffsetX}px ${style.shadowOffsetY}px ${style.shadowBlur}px ${hexToRgba(style.shadowColor, style.shadowOpacity)}`;
   } else {
     el.style.boxShadow = 'none';
   }
@@ -388,10 +432,39 @@ function applyItemDomStyle(el, item, style, useFixedColors) {
     el.style.setProperty('--sg-tail-w', `${style.tailWidth}px`);
     el.style.setProperty('--sg-tail-h', `${style.tailHeight}px`);
     el.style.setProperty('--sg-tail-color', hexToRgba(cardColor, style.cardOpacity));
+    el.style.setProperty('--sg-tail-style', style.tailStyle);
+    el.style.setProperty('--sg-tail-offset-y', `${style.tailOffsetY}%`);
     el.style.marginLeft = `${Math.max(style.tailWidth, 0)}px`;
+    el.dataset.tailStyle = style.tailStyle;
   } else {
     el.style.marginLeft = '0';
+    delete el.dataset.tailStyle;
   }
+
+  // 用户名与内容分离（参考 blivechat author-name / message 层级）
+  let usernameEl = el.querySelector('.sg-item-username');
+  let contentEl = el.querySelector('.sg-item-content');
+  if (!usernameEl) {
+    usernameEl = document.createElement('span');
+    usernameEl.className = 'sg-item-username';
+    el.appendChild(usernameEl);
+  }
+  if (!contentEl) {
+    contentEl = document.createElement('span');
+    contentEl.className = 'sg-item-content';
+    el.appendChild(contentEl);
+  }
+  if (style.usernameEnabled) {
+    usernameEl.style.display = '';
+    usernameEl.textContent = style.usernameText + style.usernameSeparator;
+    usernameEl.style.color = style.usernameColor;
+    usernameEl.style.fontSize = `${style.usernameSize}px`;
+    usernameEl.style.fontWeight = String(style.usernameWeight);
+    usernameEl.style.marginRight = `${style.gapUsernameContent}px`;
+  } else {
+    usernameEl.style.display = 'none';
+  }
+  contentEl.textContent = item.text;
 }
 
 function ensurePreviewTick() {
@@ -523,7 +596,6 @@ function addPreviewMessage(text) {
 
   const el = document.createElement('div');
   el.className = 'sg-preview-item';
-  el.textContent = text;
   el.dataset.styleIndex = String(idx);
   el.dataset.cardColor = cardColor;
   el.dataset.textColor = textColor;

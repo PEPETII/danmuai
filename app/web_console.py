@@ -152,6 +152,10 @@ class WebConsoleBridge(QObject):
         self._log_flush_scheduled: bool = False
         # W-INVOKE-OBSERV-001：invoke_on_main 超时累计计数（供 /api/diagnostics 读取）
         self._invoke_timeout_count: int = 0
+        # pywebview 浮动面板 WS 桥（方案 A：WebConsoleBridge 薄委托 PanelBridge）
+        from app.floating_panel_web.panel_bridge import PanelBridge
+
+        self._panel_bridge = PanelBridge()
 
         self.status_refresh_requested.connect(self.publish_status)
         self.sync_invoke_requested.connect(
@@ -244,10 +248,37 @@ class WebConsoleBridge(QObject):
 
     def set_event_loop(self, loop: asyncio.AbstractEventLoop | None) -> None:
         self._loop = loop
+        panel_bridge = getattr(self, "_panel_bridge", None)
+        if panel_bridge is not None:
+            panel_bridge.set_event_loop(loop)
         if loop is not None:
             self._ws_log_debug("asyncio event loop attached for WebSocket broadcast")
         else:
             self._ws_log_debug("asyncio event loop detached for WebSocket broadcast")
+
+    @property
+    def panel_bridge(self):
+        return self._panel_bridge
+
+    @property
+    def _ws_panel_queues(self):
+        return self._panel_bridge._ws_panel_queues
+
+    @property
+    def _panel_backfill_buffer(self):
+        return self._panel_bridge._panel_backfill_buffer
+
+    def register_panel_consumer(self, queue: asyncio.Queue) -> None:
+        self._panel_bridge.register_panel_consumer(queue)
+        self._ws_log_debug(
+            f"register_panel_consumer consumers={len(self._ws_panel_queues)}"
+        )
+
+    def unregister_panel_consumer(self, queue: asyncio.Queue) -> None:
+        self._panel_bridge.unregister_panel_consumer(queue)
+        self._ws_log_debug(
+            f"unregister_panel_consumer consumers={len(self._ws_panel_queues)}"
+        )
 
     def _ws_loop_active(self) -> bool:
         loop = self._loop

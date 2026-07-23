@@ -1,7 +1,8 @@
-"""Web 控制台 WebSocket 端点：/ws/status 状态推送、/ws/logs 日志推送。
+"""Web 控制台 WebSocket 端点：/ws/status、/ws/logs、/ws/panel。
 
 协议：1008 关闭码 → 前端 refreshSession()（token 失效或连接数已满）。
-主线程通过 _enqueue_ws 线程安全入队，asyncio 事件循环推送给客户端。
+主线程通过 _enqueue_ws / PanelBridge 线程安全入队，asyncio 事件循环推送给客户端。
+/ws/panel 最多 1 个消费者（浮动面板 pywebview 页面）。
 """
 
 from __future__ import annotations
@@ -17,8 +18,10 @@ logger = logging.getLogger(__name__)
 _WS_BROADCAST_LOG_INTERVAL_SEC = 5.0
 _WS_MAX_STATUS_CONSUMERS = 10
 _WS_MAX_LOG_CONSUMERS = 10
+_WS_MAX_PANEL_CONSUMERS = 1
 _WS_SEND_TIMEOUT_SEC = 2.0
 _WS_AUTH_TIMEOUT_SEC = 1.0
+_WS_PANEL_HEARTBEAT_SEC = 2.0
 
 
 async def _send_json_with_timeout(
@@ -181,5 +184,83 @@ def register_websocket_routes(app, bridge, token: str, websocket_route, websocke
         finally:
             bridge.unregister_log_consumer(queue)
 
+    async def _ws_panel_endpoint(websocket):
+        await websocket.accept()
+        if not await _authenticate_websocket(websocket, token, timeout_sec=_WS_AUTH_TIMEOUT_SEC):
+            return
+        panel_queues = getattr(bridge, "_ws_panel_queues", None)
+        if panel_queues is None or not hasattr(bridge, "register_panel_consumer"):
+            await websocket.close(code=1011, reason="panel bridge unavailable")
+            return
+        if len(panel_queues) >= _WS_MAX_PANEL_CONSUMERS:
+            await websocket.close(code=1008, reason="连接数已满")
+            return
+        client = websocket.client
+        peer = f"{client.host}:{client.port}" if client else "unknown"
+        bridge._ws_log_debug(f"WebSocket /ws/panel accepted peer={peer}")
+        queue: asyncio.Queue = asyncio.Queue(maxsize=64)
+
+        async def _heartbeat() -> None:
+            while True:
+                if not await _send_json_with_timeout(
+                    websocket, {"type": "ping", "t": time.time()}
+                ):
+                    return
+                await asyncio.sleep(_WS_PANEL_HEARTBEAT_SEC)
+
+        async def _sender() -> None:
+            while True:
+                item = await queue.get()
+                if not await _send_json_with_timeout(websocket, item):
+                    return
+
+        async def _receiver() -> None:
+            while True:
+                data = await websocket.receive_json()
+                if not isinstance(data, dict):
+                    continue
+                msg_type = data.get("type")
+                if msg_type in ("pong",):
+                    continue
+                if msg_type == "state-report":
+                    bridge._ws_log_debug(
+                        f"panel state-report cards={data.get('cardsCount')} peer={peer}"
+                    )
+                elif msg_type == "error":
+                    bridge._ws_log_debug(
+                        f"panel page error message={data.get('message')!r} peer={peer}"
+                    )
+                elif msg_type == "user-event":
+                    bridge._ws_log_debug(
+                        f"panel user-event event={data.get('event')!r} peer={peer}"
+                    )
+                elif msg_type == "get-state":
+                    if not await _send_json_with_timeout(websocket, {"type": "get-state"}):
+                        return
+
+        try:
+            bridge.register_panel_consumer(queue)
+            tasks = [
+                asyncio.create_task(_heartbeat()),
+                asyncio.create_task(_sender()),
+                asyncio.create_task(_receiver()),
+            ]
+            done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+            for task in pending:
+                task.cancel()
+            for task in done:
+                exc = task.exception() if not task.cancelled() else None
+                if exc is not None and not isinstance(exc, websocket_disconnect):
+                    raise exc
+        except websocket_disconnect:
+            bridge._ws_log_debug(f"WebSocket /ws/panel disconnected peer={peer}")
+        except Exception as exc:  # boundary: send/queue errors after auth
+            bridge._ws_log_debug(
+                f"WebSocket /ws/panel closed peer={peer} error={exc!r}"
+            )
+        finally:
+            bridge.unregister_panel_consumer(queue)
+
     app.router.routes.insert(0, websocket_route("/ws/status", endpoint=_ws_status_endpoint))
     app.router.routes.insert(0, websocket_route("/ws/logs", endpoint=_ws_logs_endpoint))
+    app.router.routes.insert(0, websocket_route("/ws/panel", endpoint=_ws_panel_endpoint))
