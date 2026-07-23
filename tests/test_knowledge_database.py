@@ -102,11 +102,12 @@ class TestModels:
     def test_knowledge_item_candidate_rejects_long_content(self) -> None:
         from pydantic import ValidationError
 
+        # content max_length=500（models.KnowledgeItemCandidate）
         with pytest.raises(ValidationError):
             KnowledgeItemCandidate(
                 kind="fact",
                 title="标题",
-                content="字" * 161,
+                content="字" * 501,
             )
 
     def test_knowledge_item_candidate_rejects_too_many_examples(self) -> None:

@@ -365,7 +365,7 @@ def test_organize_chunk_doubao_path(mock_cred, mock_stream_openai, mock_stream_d
     doubao_data = mock_stream_doubao.call_args[0][4]
     assert "instructions" in doubao_data
     assert doubao_data["thinking"] == {"type": "disabled"}
-    assert doubao_data["max_output_tokens"] == 4096
+    assert doubao_data["max_output_tokens"] == 8192
 
 
 @patch("app.knowledge.ai_organizer.stream_openai")

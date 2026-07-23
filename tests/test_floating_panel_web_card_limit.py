@@ -56,7 +56,7 @@ def test_schedule_card_exit_is_idempotent_source():
 def test_apply_config_triggers_remove_after_max_cards():
     src = _app_js_text()
     config_body = src.split("function applyConfig(msg)")[1].split(
-        "function detachCard"
+        "function scheduleCardExit"
     )[0]
     assert "removeOldestIfNeeded()" in config_body
 
@@ -273,7 +273,6 @@ def test_source_matches_node_sim_key_symbols():
     src = _app_js_text()
     for token in (
         "scheduleCardExit",
-        "detachCard",
         "needExit",
         "hardLimit",
         "maxCards * 2",

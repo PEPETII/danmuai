@@ -51,20 +51,83 @@
     return url;
   }
 
-  function applyStyleVars(style) {
-    if (!style || typeof style !== "object") return;
-    var root = document.documentElement.style;
-    if (style.card_bg) root.setProperty("--card-bg", String(style.card_bg));
-    if (style.card_border) root.setProperty("--card-border", String(style.card_border));
-    if (style.username_color) root.setProperty("--username-color", String(style.username_color));
-    if (style.content_color) root.setProperty("--content-color", String(style.content_color));
-    if (style.outline_color) root.setProperty("--outline-color", String(style.outline_color));
-    if (style.font_family) root.setProperty("--font-family", String(style.font_family));
-    if (style.font_size_username) root.setProperty("--font-size-username", Number(style.font_size_username) + "px");
-    if (style.font_size_content) root.setProperty("--font-size-content", Number(style.font_size_content) + "px");
-    if (style.border_radius != null) root.setProperty("--card-radius", Number(style.border_radius) + "px");
-    if (style.max_width != null) root.setProperty("--card-max-width", Number(style.max_width) + "px");
-    if (style.box_shadow) root.setProperty("--card-shadow", String(style.box_shadow));
+  /** Parse #RRGGBB / #RRGGBBAA → rgba(); alphaOverride in 0..1 optional. */
+  function hexToRgba(hex, alphaOverride) {
+    var h = String(hex || "").trim();
+    if (h.charAt(0) === "#") h = h.slice(1);
+    var r = 255;
+    var g = 255;
+    var b = 255;
+    var a = 1;
+    if (h.length === 6 || h.length === 8) {
+      r = parseInt(h.slice(0, 2), 16);
+      g = parseInt(h.slice(2, 4), 16);
+      b = parseInt(h.slice(4, 6), 16);
+      if (h.length === 8) a = parseInt(h.slice(6, 8), 16) / 255;
+    }
+    if (alphaOverride !== undefined && alphaOverride !== null && !isNaN(alphaOverride)) {
+      a = Math.max(0, Math.min(1, Number(alphaOverride)));
+    }
+    if (isNaN(r) || isNaN(g) || isNaN(b)) {
+      r = 255;
+      g = 247;
+      b = 237;
+    }
+    return "rgba(" + r + "," + g + "," + b + "," + a + ")";
+  }
+
+  /** Apply style vars to a single card element (not document.documentElement). */
+  function applyCardStyleVars(cardEl, style) {
+    if (!cardEl || !style || typeof style !== "object") return;
+    var s = cardEl.style;
+    if (style.username_color) s.setProperty("--username-color", String(style.username_color));
+    if (style.content_color) s.setProperty("--content-color", String(style.content_color));
+    if (style.outline_color) s.setProperty("--outline-color", String(style.outline_color));
+    if (style.font_family) s.setProperty("--font-family", String(style.font_family));
+    if (style.font_size_username != null) s.setProperty("--font-size-username", Number(style.font_size_username) + "px");
+    if (style.font_size_content != null) s.setProperty("--font-size-content", Number(style.font_size_content) + "px");
+    if (style.border_radius != null) s.setProperty("--card-radius", Number(style.border_radius) + "px");
+    if (style.max_width != null) s.setProperty("--card-max-width", Number(style.max_width) + "px");
+    if (style.box_shadow) s.setProperty("--card-shadow", String(style.box_shadow));
+
+    // === 扩展字段 ===
+    if (style.padding_x != null) s.setProperty("--padding-x", Number(style.padding_x) + "px");
+    if (style.padding_y != null) s.setProperty("--padding-y", Number(style.padding_y) + "px");
+    if (style.border_width != null) s.setProperty("--border-width", Number(style.border_width) + "px");
+    if (style.outline_width != null) s.setProperty("--outline-w", Number(style.outline_width) + "px");
+    if (style.tail_width != null) s.setProperty("--tail-w", Number(style.tail_width) + "px");
+    if (style.tail_height != null) s.setProperty("--tail-h", Number(style.tail_height) + "px");
+    if (style.tail_offset_y != null) s.setProperty("--tail-offset-y", Number(style.tail_offset_y) + "%");
+    // card_bg / tail with card_opacity (0-100)
+    (function applyCardBg() {
+      var bg = String(style.card_bg || "#fff7ed");
+      var rgba = hexToRgba(bg, style.card_opacity != null ? Number(style.card_opacity) / 100 : undefined);
+      s.setProperty("--card-bg", rgba);
+      s.setProperty("--tail-color", rgba);
+    })();
+    // border color × border_opacity
+    if (style.card_border || style.border_opacity != null) {
+      s.setProperty(
+        "--card-border",
+        hexToRgba(String(style.card_border || "#fbbf24"), style.border_opacity != null ? Number(style.border_opacity) / 100 : undefined)
+      );
+    }
+    if (style.username_weight != null) s.setProperty("--font-weight-username", String(style.username_weight));
+    if (style.content_weight != null) s.setProperty("--font-weight-content", String(style.content_weight));
+    if (style.content_line_height != null) s.setProperty("--content-line-height", Number(style.content_line_height) / 100);
+    if (style.gap_username_content != null) s.setProperty("--gap-username-content", Number(style.gap_username_content) + "px");
+
+    // Classes
+    cardEl.classList.toggle("no-border", style.border_enabled === false || style.border_width === 0);
+    cardEl.classList.toggle("has-outline", style.outline_enabled === true && style.outline_width > 0);
+    cardEl.classList.toggle("is-bold", style.font_bold === true);
+    var isBubble = style.shape === "bubble" && style.tail_enabled === true;
+    cardEl.classList.toggle("is-bubble", isBubble);
+    if (isBubble) {
+      cardEl.dataset.tailStyle = String(style.tail_style || "round");
+    } else {
+      delete cardEl.dataset.tailStyle;
+    }
   }
 
   function applyConfig(msg) {
@@ -82,25 +145,52 @@
       exitDurationMs = Number(msg.exit_duration_ms) || 250;
       document.documentElement.style.setProperty("--exit-duration", exitDurationMs + "ms");
     }
+    if (msg.panel_opacity != null) {
+      document.documentElement.style.setProperty("--panel-opacity", Math.max(0, Math.min(100, Number(msg.panel_opacity))) / 100);
+    }
+    // Converge to maxCards after config change
+    removeOldestIfNeeded();
+  }
+
+  function scheduleCardExit(node) {
+    if (!node || node.classList.contains("exiting")) return;
+    var id = node.dataset.cardId;
+    node.classList.add("exiting");
+    setTimeout(function (n, cid) {
+      if (n && n.parentNode) n.parentNode.removeChild(n);
+      if (cid) cardIds.delete(cid);
+    }, exitDurationMs, node, id);
   }
 
   function removeOldestIfNeeded() {
-    while (panel.children.length > maxCards) {
+    // Count non-exiting cards
+    var active = 0;
+    var i;
+    for (i = 0; i < panel.children.length; i++) {
+      if (!panel.children[i].classList.contains("exiting")) active += 1;
+    }
+    var needExit = active - maxCards;
+    if (needExit <= 0) return;
+    // Schedule exit for oldest active cards (first children are oldest)
+    for (i = 0; i < panel.children.length && needExit > 0; i++) {
+      if (panel.children[i].classList.contains("exiting")) continue;
+      scheduleCardExit(panel.children[i]);
+      needExit -= 1;
+    }
+    // Hard limit: if somehow still > maxCards * 2, force remove
+    var hardLimit = maxCards * 2;
+    while (panel.children.length > hardLimit) {
       var oldest = panel.firstElementChild;
       if (!oldest) break;
-      var id = oldest.dataset.cardId;
-      oldest.classList.add("exiting");
-      setTimeout(function (node, cardId) {
-        if (node && node.parentNode) node.parentNode.removeChild(node);
-        if (cardId) cardIds.delete(cardId);
-      }, exitDurationMs, oldest, id);
+      var cid = oldest.dataset.cardId;
+      if (cid) cardIds.delete(cid);
+      if (oldest.parentNode) oldest.parentNode.removeChild(oldest);
     }
   }
 
   function addCard(msg) {
     var id = msg.id != null ? String(msg.id) : "";
     if (id && cardIds.has(id)) return;
-    if (msg.style) applyStyleVars(msg.style);
     var card = document.createElement("div");
     card.className = "card";
     if (id) {
@@ -109,9 +199,20 @@
     }
     var username = escapeHtml(msg.username || "AI");
     var content = escapeHtml(msg.content || "");
-    card.innerHTML =
-      '<div class="username">' + username + "</div>" +
-      '<div class="content">' + content + "</div>";
+    // Apply per-card style (not via document root)
+    if (msg.style) applyCardStyleVars(card, msg.style);
+    // Build inner HTML
+    var usernameEnabled = msg.style ? msg.style.username_enabled !== false : true;
+    var usernameSeparator = (msg.style && msg.style.username_separator) || "：";
+    if (usernameEnabled) {
+      card.innerHTML =
+        '<div class="username">' + username + usernameSeparator + '</div>' +
+        '<div class="content">' + content + '</div>';
+    } else {
+      card.innerHTML =
+        '<div class="username is-hidden"></div>' +
+        '<div class="content">' + content + '</div>';
+    }
     panel.appendChild(card);
     removeOldestIfNeeded();
   }
@@ -238,7 +339,7 @@
       wsOpen = true;
       reconnectAttempts = 0;
       var token = readToken();
-      if (token && url.indexOf("ws_token=") === -1) {
+      if (token && url.indexOf("ws_token") === -1) {
         sendJson({ type: "auth", token: token });
       }
     };

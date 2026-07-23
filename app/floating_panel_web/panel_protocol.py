@@ -31,6 +31,29 @@ class CardStyle:
         "0 4px 8px rgba(0,0,0,0.08), "
         "0 8px 16px rgba(0,0,0,0.06)"
     )
+    # === 新增字段（向后兼容，缺省有默认值） ===
+    shape: str = "bubble"
+    card_opacity: int = 88
+    border_enabled: bool = False
+    border_width: int = 1
+    border_opacity: int = 40
+    outline_enabled: bool = False
+    outline_width: int = 2
+    shadow_enabled: bool = True
+    padding_x: int = 14
+    padding_y: int = 10
+    tail_enabled: bool = True
+    tail_style: str = "round"
+    tail_width: int = 8
+    tail_height: int = 10
+    tail_offset_y: int = 38
+    username_enabled: bool = True
+    username_weight: int = 700
+    username_separator: str = "："
+    content_weight: int = 400
+    content_line_height: int = 140
+    gap_username_content: int = 4
+    font_bold: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -90,6 +113,7 @@ class ConfigMessage:
     panel_position: str = "bottom-left"
     panel_width: int = 360
     panel_height: int = 600
+    panel_opacity: int = 85
     type: Literal["config"] = "config"
 
     def to_dict(self) -> dict[str, Any]:
@@ -103,6 +127,7 @@ class ConfigMessage:
             "panel_position": str(self.panel_position),
             "panel_width": int(self.panel_width),
             "panel_height": int(self.panel_height),
+            "panel_opacity": int(self.panel_opacity),
         }
 
     @classmethod
@@ -132,6 +157,7 @@ class ConfigMessage:
             panel_position=str(data["panel_position"]),
             panel_width=int(data["panel_width"]),
             panel_height=int(data["panel_height"]),
+            panel_opacity=int(data.get("panel_opacity", 85)),
         )
 
 

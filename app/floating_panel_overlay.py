@@ -30,6 +30,7 @@ from app.floating_panel_style import (
     FloatingPanelStyleSnapshot,
     WECHAT_CARD_COLORS,
     WECHAT_TEXT_COLOR,
+    pick_palette_color,
     style_snapshot_from_mapping,
 )
 from app.win32_overlay_zorder import apply_overlay_exstyles, reassert_hwnd_topmost
@@ -97,32 +98,8 @@ def _pick_palette_color(
     *,
     fallback: str,
 ) -> str:
-    """Deterministic color from palette + style_index (no global random)."""
-    palette = [str(c) for c in (colors or ()) if str(c).strip()]
-    if not palette:
-        return fallback
-    idx = int(style_index) % len(palette)
-    if str(mode or "").strip().lower() != "weighted" or not weights:
-        return palette[idx]
-
-    w_list: list[float] = []
-    for c in palette:
-        try:
-            w = float((weights or {}).get(c, 0.0))
-        except (TypeError, ValueError):
-            w = 0.0
-        w_list.append(max(0.0, w))
-    total = sum(w_list)
-    if total <= 0.0:
-        return palette[idx]
-    # Stable pseudo-slot from style_index into [0, total)
-    slot = ((int(style_index) * 2654435761) & 0xFFFFFFFF) / 4294967296.0 * total
-    acc = 0.0
-    for c, w in zip(palette, w_list):
-        acc += w
-        if slot < acc:
-            return c
-    return palette[-1]
+    """Delegates to shared pick_palette_color in floating_panel_style."""
+    return pick_palette_color(colors, mode, weights, style_index, fallback=fallback)
 
 
 def _use_fast_danmu_render(content: str) -> bool:

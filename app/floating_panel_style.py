@@ -844,6 +844,50 @@ def style_presets_api_payload() -> dict[str, Any]:
     }
 
 
+# ---------------------------------------------------------------------------
+# 调色板选色（pure function，供 Overlay 与 Web mixin 复用）
+# ---------------------------------------------------------------------------
+
+
+def pick_palette_color(
+    colors: tuple[str, ...] | list[str],
+    mode: str,
+    weights: dict[str, float] | None,
+    style_index: int,
+    *,
+    fallback: str = "#FFFFFF",
+) -> str:
+    """Deterministic color from palette + style_index (no global random).
+
+    Same algorithm as floating_panel_overlay._pick_palette_color.
+    """
+    palette = [str(c) for c in (colors or ()) if str(c).strip()]
+    if not palette:
+        return fallback
+    idx = int(style_index) % len(palette)
+    if str(mode or "").strip().lower() != "weighted" or not weights:
+        return palette[idx]
+
+    w_list: list[float] = []
+    for c in palette:
+        try:
+            w = float((weights or {}).get(c, 0.0))
+        except (TypeError, ValueError):
+            w = 0.0
+        w_list.append(max(0.0, w))
+    total = sum(w_list)
+    if total <= 0.0:
+        return palette[idx]
+    # Stable pseudo-slot from style_index into [0, total)
+    slot = ((int(style_index) * 2654435761) & 0xFFFFFFFF) / 4294967296.0 * total
+    acc = 0.0
+    for c, w in zip(palette, w_list):
+        acc += w
+        if slot < acc:
+            return c
+    return palette[-1]
+
+
 __all__ = [
     "STYLE_CONTRACT_VERSION",
     "STYLE_PRESET_IDS",
@@ -873,4 +917,5 @@ __all__ = [
     "normalize_bool01",
     "style_snapshot_from_mapping",
     "style_presets_api_payload",
+    "pick_palette_color",
 ]

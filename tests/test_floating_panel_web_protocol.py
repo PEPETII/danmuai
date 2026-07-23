@@ -36,7 +36,14 @@ def test_card_message_fields():
     parsed = CardMessage.from_mapping(data)
     assert parsed.id == "c1"
     assert parsed.content == "你好"
-    assert "card_bg" in parsed.style.to_dict()
+    style_dict = parsed.style.to_dict()
+    assert "card_bg" in style_dict
+    # 扩展字段
+    assert "shape" in style_dict
+    assert "card_opacity" in style_dict
+    assert "tail_enabled" in style_dict
+    assert "username_enabled" in style_dict
+    assert "padding_x" in style_dict
 
 
 def test_config_message_fields():
@@ -51,9 +58,16 @@ def test_config_message_fields():
         "panel_position",
         "panel_width",
         "panel_height",
+        "panel_opacity",
     ):
         assert key in data
     assert ConfigMessage.from_mapping(data).max_cards == 6
+    assert data["panel_opacity"] == 85
+    # 旧消息缺 panel_opacity 应默认
+    old = dict(data)
+    del old["panel_opacity"]
+    parsed = ConfigMessage.from_mapping(old)
+    assert parsed.panel_opacity == 85
 
 
 def test_clear_message_reason_enum():

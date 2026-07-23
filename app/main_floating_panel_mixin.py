@@ -151,6 +151,7 @@ class DanmuAppFloatingPanelMixin:
                 panel_position="bottom-left",
                 panel_width=int(width),
                 panel_height=int(height),
+                panel_opacity=int(snap.panel_opacity or 85),
             )
             bridge.enqueue_message(msg.to_dict())
         except Exception as exc:
@@ -163,26 +164,77 @@ class DanmuAppFloatingPanelMixin:
         *,
         style_index: int = 0,
     ) -> dict[str, Any]:
-        from app.floating_panel_style import style_snapshot_from_mapping
+        from app.floating_panel_style import pick_palette_color, style_snapshot_from_mapping
         from app.floating_panel_web.panel_protocol import CardMessage, CardStyle
 
         snap = style_snapshot_from_mapping(self.config)
-        colors = snap.card_colors or ("#fff7ed",)
-        text_colors = snap.text_colors or ("#1f2937",)
-        idx = int(style_index) % len(colors)
-        tidx = int(style_index) % len(text_colors)
+        idx = int(style_index)
+        card_color = pick_palette_color(
+            snap.card_colors, snap.card_color_mode, snap.card_color_weights, idx,
+            fallback="#fff7ed",
+        )
+        text_color = pick_palette_color(
+            snap.text_colors, snap.text_color_mode, snap.text_color_weights, idx,
+            fallback="#1f2937",
+        )
         username = str(snap.username_text or "").strip() or (persona_id or "AI")
+
+        # Build box_shadow string from snap shadow fields (respect shadow_color)
+        if snap.shadow_enabled:
+            raw_sc = str(snap.shadow_color or "#000000").lstrip("#")
+            try:
+                if len(raw_sc) >= 6:
+                    sr = int(raw_sc[0:2], 16)
+                    sg = int(raw_sc[2:4], 16)
+                    sb = int(raw_sc[4:6], 16)
+                else:
+                    sr, sg, sb = 0, 0, 0
+            except ValueError:
+                sr, sg, sb = 0, 0, 0
+            sa = max(0, min(100, int(snap.shadow_opacity or 0))) / 100.0
+            box_shadow = (
+                f"{snap.shadow_offset_x}px {snap.shadow_offset_y}px "
+                f"{snap.shadow_blur}px "
+                f"rgba({sr},{sg},{sb},{sa})"
+            )
+        else:
+            box_shadow = "none"
+
         style = CardStyle(
-            card_bg=str(colors[idx]),
+            card_bg=str(card_color),
             card_border=str(snap.border_color or "#fbbf24"),
             username_color=str(snap.username_color or "#f59e0b"),
-            content_color=str(text_colors[tidx]),
+            content_color=str(text_color),
             outline_color=str(snap.outline_color or "#ffffff"),
             font_family=str(snap.font_family or "Microsoft YaHei, PingFang SC, sans-serif"),
             font_size_username=int(snap.username_size or 12),
             font_size_content=int(snap.content_size or snap.font_size or 14),
             border_radius=int(snap.radius or 12),
             max_width=max(120, int(snap.width or 280) - 40),
+            box_shadow=box_shadow,
+            # 新增扩展字段
+            shape=str(snap.shape or "bubble"),
+            card_opacity=int(snap.card_opacity or 88),
+            border_enabled=bool(snap.border_enabled),
+            border_width=int(snap.border_width or 1),
+            border_opacity=int(snap.border_opacity or 40),
+            outline_enabled=bool(snap.outline_enabled),
+            outline_width=int(snap.outline_width or 2),
+            shadow_enabled=bool(snap.shadow_enabled),
+            padding_x=int(snap.padding_x or 14),
+            padding_y=int(snap.padding_y or 10),
+            tail_enabled=bool(snap.tail_enabled),
+            tail_style=str(snap.tail_style or "round"),
+            tail_width=int(snap.tail_width or 8),
+            tail_height=int(snap.tail_height or 10),
+            tail_offset_y=int(snap.tail_offset_y or 38),
+            username_enabled=bool(snap.username_enabled),
+            username_weight=int(snap.username_weight or 700),
+            username_separator=str(snap.username_separator or "："),
+            content_weight=int(snap.content_weight or 400),
+            content_line_height=int(snap.content_line_height or 140),
+            gap_username_content=int(snap.gap_username_content or 4),
+            font_bold=bool(snap.font_bold),
         )
         msg = CardMessage(
             id=str(uuid.uuid4()),

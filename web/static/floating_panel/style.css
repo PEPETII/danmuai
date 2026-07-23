@@ -13,10 +13,23 @@
   --stack-gap: 8px;
   --entry-duration: 250ms;
   --exit-duration: 250ms;
-  --card-shadow:
-    0 2px 4px rgba(0, 0, 0, 0.10),
+  --panel-opacity: 1;
+  --card-shadow: 0 2px 4px rgba(0, 0, 0, 0.10),
     0 4px 8px rgba(0, 0, 0, 0.08),
     0 8px 16px rgba(0, 0, 0, 0.06);
+  /* 扩展默认变量 */
+  --padding-x: 12px;
+  --padding-y: 8px;
+  --border-width: 0px;
+  --outline-w: 0px;
+  --tail-w: 0px;
+  --tail-h: 0px;
+  --tail-offset-y: 38%;
+  --tail-color: var(--card-bg);
+  --font-weight-username: 700;
+  --font-weight-content: 400;
+  --content-line-height: 1.4;
+  --gap-username-content: 4px;
 }
 
 html,
@@ -46,46 +59,107 @@ body {
   gap: var(--stack-gap);
   pointer-events: none;
   background: transparent;
+  opacity: var(--panel-opacity);
 }
 
+/* ===== 卡片基础 ===== */
 .card {
   background: var(--card-bg);
-  border: 1px solid var(--card-border);
+  border: var(--border-width) solid var(--card-border);
   border-radius: var(--card-radius);
-  padding: 8px 12px;
+  padding: var(--padding-y) var(--padding-x);
   max-width: var(--card-max-width);
   box-shadow: var(--card-shadow);
   animation: slideUp var(--entry-duration) ease-out;
   backdrop-filter: blur(2px);
   will-change: transform, opacity;
+  position: relative;
+  font-family: var(--font-family);
+  box-sizing: border-box;
 }
 
 .card.exiting {
   animation: fadeOut var(--exit-duration) ease-in forwards;
 }
 
+.card.no-border {
+  border-color: transparent;
+  border-width: 0;
+}
+
+.card.has-outline .username,
+.card.has-outline .content {
+  text-shadow:
+    calc(-1 * var(--outline-w)) 0 0 var(--outline-color),
+    var(--outline-w) 0 0 var(--outline-color),
+    0 calc(-1 * var(--outline-w)) 0 var(--outline-color),
+    0 var(--outline-w) 0 var(--outline-color);
+}
+
+.card.is-bold .username,
+.card.is-bold .content {
+  font-weight: bold;
+}
+
+/* ===== 气泡尾巴 ===== */
+.card.is-bubble {
+  margin-left: calc(var(--tail-w) + 4px);
+}
+
+.card.is-bubble::before {
+  content: "";
+  position: absolute;
+  left: calc(-1 * var(--tail-w) - 1px);
+  top: var(--tail-offset-y);
+  width: var(--tail-w);
+  height: var(--tail-h);
+  background: var(--tail-color);
+  pointer-events: none;
+}
+
+.card.is-bubble[data-tail-style="round"]::before {
+  border-radius: 0 0 0 50%;
+  clip-path: polygon(100% 0, 100% 100%, 0 100%);
+}
+
+.card.is-bubble[data-tail-style="sharp"]::before {
+  clip-path: polygon(100% 0, 0 50%, 100% 100%);
+}
+
+.card.is-bubble[data-tail-style="none"]::before {
+  display: none;
+}
+
+/* ===== 用户名 ===== */
 .username {
   font-size: var(--font-size-username);
   color: var(--username-color);
-  font-weight: 600;
-  text-shadow:
-    1px 1px 0 var(--outline-color),
-    -1px -1px 0 var(--outline-color),
-    1px -1px 0 var(--outline-color),
-    -1px 1px 0 var(--outline-color);
-  margin-bottom: 2px;
+  font-weight: var(--font-weight-username);
+  margin-bottom: var(--gap-username-content);
+  line-height: 1.2;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
+.username.is-hidden {
+  display: none;
+}
+
+/* ===== 内容 2 行 clamp ===== */
 .content {
   font-size: var(--font-size-content);
   color: var(--content-color);
-  line-height: 1.4;
+  font-weight: var(--font-weight-content);
+  line-height: var(--content-line-height);
   word-break: break-word;
-  text-shadow:
-    1px 1px 0 var(--outline-color),
-    -1px -1px 0 var(--outline-color);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
+/* ===== 动画 ===== */
 @keyframes slideUp {
   0% {
     transform: translateY(40%);
