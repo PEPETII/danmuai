@@ -222,17 +222,26 @@ class TestTxtExtractor:
         assert r.error == "empty_content"
 
     def test_invalid_base64(self):
+        # 优先 validate=True：含非法字符的串应 decode_failed（不再静默剥掉字符）
         r = extract("txt", {"content_base64": "!!!not base64!!!"})
-        # base64.b64decode(validate=False) 对非法字符会忽略；若完全无法解码返回 decode_failed
-        # 用 validate=True 行为；当前实现 validate=False，非法字符被忽略
-        # 这里 "!!!not base64!!!" 去掉非 base64 字符后是 "notbase64"，能解码为字节
-        # 所以测试改为明确非法的 base64
+        assert r.error == "decode_failed"
+        assert r.normalized_text == ""
+
+    def test_invalid_base64_padding(self):
+        # 明显损坏的 padding / 非 base64 字母表
+        r = extract("txt", {"content_base64": "===="})
         assert r.error in ("decode_failed", "empty_content")
 
     def test_too_large(self):
         big = "A" * (MAX_SOURCE_CHARS + 1)
         b64 = base64.b64encode(big.encode("utf-8")).decode()
         r = extract("txt", {"content_base64": b64})
+        assert r.error == "source_too_large"
+
+    def test_base64_string_too_large_rejected_before_decode(self):
+        # 超大 base64 串应在解码前被 size guard 拒绝
+        huge_b64 = "A" * ((MAX_RESPONSE_BYTES * 4) // 3 + 100)
+        r = extract("txt", {"content_base64": huge_b64})
         assert r.error == "source_too_large"
 
 
@@ -335,6 +344,11 @@ class TestMarkdownExtractor:
     def test_empty_content(self):
         r = extract("markdown", {"content_base64": base64.b64encode(b"").decode()})
         assert r.error == "empty_content"
+
+    def test_invalid_base64(self):
+        r = extract("markdown", {"content_base64": "!!!not base64!!!"})
+        assert r.error == "decode_failed"
+        assert r.normalized_text == ""
 
     def test_whitespace_only(self):
         r = extract("markdown", {"content_base64": base64.b64encode(b"   \n\n  ").decode()})

@@ -297,6 +297,54 @@ class DanmuAppRequestContextMixin:
             stats[key] += 1
         return stats
 
+    def _build_knowledge_scene_context(
+        self,
+        *,
+        request_round: int,
+        screenshot_id: int,
+        scene_brief_extra: str = "",
+        extra_keywords: list[str] | None = None,
+        mic_text: str = "",
+    ):
+        """组装知识检索场景语义；无语义时返回空 brief/keywords（禁止 round 占位）。"""
+        from app.knowledge.runtime_service import build_knowledge_scene_context
+
+        live_topic = ""
+        user_nickname = ""
+        try:
+            cfg = self.__dict__.get("config")
+            if cfg is not None:
+                live_topic = str(cfg.get("live_topic", "") or "")
+                user_nickname = str(cfg.get("user_nickname", "") or "")
+        except Exception:
+            pass
+
+        recent_danmu: list[str] = []
+        try:
+            recent_fn = getattr(self, "_recent_sent_danmu_for_prompt", None)
+            if callable(recent_fn):
+                recent_danmu = list(recent_fn(8) or [])
+        except Exception:
+            recent_danmu = []
+
+        scene_generation = 0
+        try:
+            scene_generation = int(getattr(self, "_scene_generation", 0) or 0)
+        except Exception:
+            scene_generation = 0
+
+        return build_knowledge_scene_context(
+            live_topic=live_topic,
+            recent_danmu=recent_danmu,
+            mic_text=mic_text,
+            user_nickname=user_nickname,
+            extra_brief=scene_brief_extra,
+            extra_keywords=list(extra_keywords or []),
+            request_round=request_round,
+            screenshot_id=screenshot_id,
+            scene_generation=scene_generation,
+        )
+
     def _inject_knowledge_prompt(
         self,
         system_pt: str,
@@ -304,38 +352,44 @@ class DanmuAppRequestContextMixin:
         request_round: int,
         screenshot_id: int,
         scene_brief_extra: str = "",
+        extra_keywords: list[str] | None = None,
+        mic_text: str = "",
     ) -> str:
-        """注入知识包检索结果到 system_pt 末尾（Phase B / Wave 7）。
+        """注入知识包检索结果到 system_pt 末尾。
+
+        使用 live_topic / 最近弹幕 / 麦文本等真实语义检索；无语义则跳过注入。
+        禁止使用 ``round=… screenshot=…`` 作为查询文本。
+        注入成功时由 runtime 更新 use_count（注入次数），不依赖模型 knowledge_used。
 
         若 ``knowledge_runtime`` 未挂载、检索无命中或任何异常 → 原样返回
         ``system_pt``（主链路不得因知识模块故障中断）。
-
-        Args:
-            system_pt: 原 system prompt 文本。
-            request_round: 触发该次检索的 request_round（诊断用）。
-            screenshot_id: 触发该次检索的 screenshot_id（诊断用）。
-            scene_brief_extra: 可选的场景简述追加文本；为空时用
-                ``round=… screenshot=…`` 占位。
-
-        Returns:
-            拼接知识提示后的 system_pt；无命中时原样返回。
         """
         # 用 __dict__.get 而非 getattr，兼容测试中 QObject 未走 __init__ 的场景
-        # （与 _build_visual_prompts 访问 pet_command_service 的模式一致）。
         knowledge_runtime = self.__dict__.get("knowledge_runtime")
         if knowledge_runtime is None:
             return system_pt
         try:
-            scene_brief = (
-                scene_brief_extra.strip()
-                if scene_brief_extra and scene_brief_extra.strip()
-                else f"round={request_round} screenshot={screenshot_id}"
-            )
-            injection = knowledge_runtime.build_visual_prompt_injection(
-                scene_brief=scene_brief,
-                keywords=[],
+            scene_generation = int(getattr(self, "_scene_generation", 0) or 0)
+            note_fn = getattr(knowledge_runtime, "note_scene_generation", None)
+            if callable(note_fn):
+                note_fn(scene_generation)
+
+            ctx = self._build_knowledge_scene_context(
                 request_round=request_round,
                 screenshot_id=screenshot_id,
+                scene_brief_extra=scene_brief_extra,
+                extra_keywords=extra_keywords,
+                mic_text=mic_text,
+            )
+            if not ctx.has_semantic_query:
+                return system_pt
+
+            injection = knowledge_runtime.build_visual_prompt_injection(
+                scene_brief=ctx.scene_brief,
+                keywords=list(ctx.keywords),
+                request_round=request_round,
+                screenshot_id=screenshot_id,
+                scene_tags=list(ctx.scene_tags),
             )
         except Exception as exc:  # boundary: 知识注入失败不影响主链路
             self.logger.debug(
@@ -344,7 +398,13 @@ class DanmuAppRequestContextMixin:
             return system_pt
         if not injection:
             return system_pt
-        return f"{system_pt}\n\n{injection}"
+        prompt_text = getattr(injection, "prompt_text", None)
+        if not prompt_text:
+            # 兼容旧测试/stub 返回纯 str
+            if isinstance(injection, str) and injection.strip():
+                return f"{system_pt}\n\n{injection}"
+            return system_pt
+        return f"{system_pt}\n\n{prompt_text}"
 
     def _min_density_target(self) -> int:
         return self.engine.min_on_screen()

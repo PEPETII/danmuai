@@ -165,16 +165,33 @@ class DiagnosticSnapshotBuilder:
                 "items_count": 0,
                 "enabled_items_count": 0,
                 "last_injected_count": 0,
+                "last_injected_public_ids": [],
+                "last_query_brief": "",
             }
         retriever = getattr(runtime, "retriever", None)
         repo = getattr(runtime, "repository", None)
         fts_backend = ""
         last_injected_count = 0
+        last_injected_public_ids: list[str] = []
+        last_query_brief = ""
         if retriever is not None:
             fts_backend = str(getattr(retriever, "_fts_backend", "") or "")
             last_injected_count = len(
                 getattr(retriever, "_last_injected_contents", []) or []
             )
+        try:
+            last_inj = getattr(runtime, "get_last_injection", None)
+            if callable(last_inj):
+                inj = last_inj()
+                if inj is not None:
+                    last_injected_public_ids = list(
+                        getattr(inj, "public_ids", ()) or ()
+                    )
+                    last_query_brief = str(getattr(inj, "scene_brief", "") or "")
+                    if not last_injected_count:
+                        last_injected_count = len(last_injected_public_ids)
+        except Exception:
+            pass
         packages_count = 0
         enabled_packages_count = 0
         items_count = 0
@@ -205,6 +222,8 @@ class DiagnosticSnapshotBuilder:
             "items_count": items_count,
             "enabled_items_count": enabled_items_count,
             "last_injected_count": last_injected_count,
+            "last_injected_public_ids": last_injected_public_ids,
+            "last_query_brief": last_query_brief,
         }
 
 

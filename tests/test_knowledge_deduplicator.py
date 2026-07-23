@@ -295,6 +295,66 @@ class TestResetAndEdgeCases:
 
 
 # ---------------------------------------------------------------------------
+# 跨导入 seed_existing
+# ---------------------------------------------------------------------------
+
+
+class TestSeedExisting:
+    """seed_existing 预载包内已有条目，跨导入去重。"""
+
+    def test_seed_exact_hash_deduped(self) -> None:
+        """预载后同 content 再 dedupe → 丢弃。"""
+        dd = KnowledgeDeduplicator(package_id=1)
+        dd.seed_existing(
+            [
+                {
+                    "kind": "fact",
+                    "content": "葛瑞克二阶段会喷火",
+                    "content_hash": "unused",
+                    "normalized_content": "葛瑞克二阶段会喷火",
+                }
+            ]
+        )
+        kept, dedup_count = dd.dedupe(
+            [_make_item("fact", "葛瑞克二阶段会喷火")]
+        )
+        assert kept == []
+        assert dedup_count == 1
+
+    def test_seed_normalized_equal_deduped(self) -> None:
+        """归一化相等（大小写）→ 去重。"""
+        dd = KnowledgeDeduplicator(package_id=1)
+        dd.seed_existing(
+            [{"kind": "fact", "content": "Hello World"}]
+        )
+        kept, dedup_count = dd.dedupe([_make_item("fact", "hello world")])
+        assert kept == []
+        assert dedup_count == 1
+
+    def test_seed_similar_same_kind_deduped(self) -> None:
+        """同 kind 近似 → 去重。"""
+        dd = KnowledgeDeduplicator(package_id=1, threshold=0.85)
+        dd.seed_existing([{"kind": "fact", "content": "主播操作失误了"}])
+        kept, dedup_count = dd.dedupe(
+            [_make_item("fact", "主播又操作失误了")]
+        )
+        assert len(kept) == 0
+        assert dedup_count == 1
+
+    def test_seed_different_kind_keeps_both(self) -> None:
+        """不同 kind 同 content → 保留。"""
+        dd = KnowledgeDeduplicator(package_id=1)
+        dd.seed_existing([{"kind": "fact", "content": "测试"}])
+        kept, dedup_count = dd.dedupe([_make_item("meme", "测试")])
+        assert len(kept) == 1
+        assert dedup_count == 0
+
+    def test_seed_empty_noop(self) -> None:
+        assert KnowledgeDeduplicator(package_id=1).seed_existing([]) == 0
+        assert KnowledgeDeduplicator(package_id=1).seed_existing(None) == 0
+
+
+# ---------------------------------------------------------------------------
 # 阈值边界
 # ---------------------------------------------------------------------------
 

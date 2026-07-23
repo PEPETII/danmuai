@@ -246,6 +246,21 @@ def _migrate_v1_initial_schema(conn: sqlite3.Connection, fts_backend: str) -> No
             logger.warning("knowledge.fts5 plain creation failed: %s", exc)
 
 
+@register(2, "items_package_kind_content_hash_index")
+def _migrate_v2_items_dedupe_index(
+    conn: sqlite3.Connection, fts_backend: str
+) -> None:
+    """v2：为跨导入去重查询加索引 ``(package_id, kind, content_hash)``。
+
+    **非** UNIQUE：历史数据可能已有重复行，仅加速 ``list_item_dedupe_keys``。
+    """
+    del fts_backend  # noqa: ARG001 — 本迁移不依赖 FTS
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_items_package_kind_content_hash "
+        "ON knowledge_items(package_id, kind, content_hash)"
+    )
+
+
 __all__ = [
     "MIGRATIONS",
     "register",

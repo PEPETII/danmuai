@@ -15,11 +15,12 @@
     6. 超大来源（normalized_text > 5 MiB）→ job='failed', error='source_too_large'
     7. token 统计累加（2 个 chunk，每个 input=100/output=50）→ job.input_tokens=200, output_tokens=100
     8. 去重生效（2 个 chunk 返回相同 content 的 item）→ 只存 1 条，dedup_count=1
-    9. 空 items（mock 返回 items=[]）→ chunk='completed', job='completed', kept=0
+    9. 空 items（mock 返回 items=[]）→ chunk='completed', job='failed'（no_items_generated）, source='failed'
     10. 异常不终止整个进程（mock 抛 RuntimeError）→ job='failed' 但不传播异常
     11. 多 chunk 进度更新（3 个 chunk，验证 processed_chunks 递增）
     12. public_id 生成（job_public_id 是 "kj_" + uuid4 hex）
     13. close 等待未完成任务（提交后立即 close()，验证任务仍完成）
+    14. source 终态映射：success/fail/cancel/zero items/empty chunks/exception
 """
 from __future__ import annotations
 
@@ -261,6 +262,10 @@ class TestImportOrchestratorSingleChunkFailure:
         # 验证 error_message 包含错误信息
         assert "json_parse_failed" in job["error_message"]
 
+        # 部分成功 → source=processed_with_errors
+        sources = repo.list_sources(package_id)
+        assert sources[0]["status"] == "processed_with_errors"
+
 
 class TestImportOrchestratorCancel:
     """3. 协作式取消：提交后立即 cancel_job，验证 job='cancelled'，未处理 chunk 仍是 'pending'。"""
@@ -304,6 +309,10 @@ class TestImportOrchestratorCancel:
         pending_chunks = [c for c in chunks if c["status"] == "pending"]
         assert len(pending_chunks) >= 1
 
+        # 取消 → source=cancelled
+        sources = repo.list_sources(package_id)
+        assert sources[0]["status"] == "cancelled"
+
 
 class TestImportOrchestratorModelNotConfigured:
     """4. 模型未配置：mock 返回 ok=False, error='model_not_configured' → 所有 chunk failed → job='failed'。"""
@@ -334,6 +343,10 @@ class TestImportOrchestratorModelNotConfigured:
         chunks = repo.list_chunks(source_id)
         assert chunks[0]["status"] == "failed"
         assert chunks[0]["error_message"] == "model_not_configured"
+
+        # 全失败 → source=failed
+        sources = repo.list_sources(package_id)
+        assert sources[0]["status"] == "failed"
 
 
 class TestImportOrchestratorExtractFailure:
@@ -488,6 +501,11 @@ class TestImportOrchestratorEmptyItems:
         # 验证 chunk 状态
         chunks = repo.list_chunks(source_id)
         assert chunks[0]["status"] == "completed"
+
+        # 零条目 → source=failed（禁止无条件 processed）
+        sources = repo.list_sources(package_id)
+        assert sources[0]["status"] == "failed"
+        assert "no_items_generated" in (sources[0].get("error_message") or "")
 
         # 验证 knowledge_items 为空
         result = repo.list_items(package_id=package_id)
@@ -667,13 +685,14 @@ class TestImportOrchestratorCancelNonExistent:
 class TestImportOrchestratorSourceStatusUpdate:
     """补充：验证 source 状态在导入过程中正确更新。"""
 
-    def test_source_status_transitions(self, orchestrator, db, repo, config):
+    def test_source_status_transitions_success(self, orchestrator, db, repo, config):
         package_id, source_id = _create_package_and_source(db, repo)
         payload = {"pasted_text": "# Test\n\nThis is test content for source status."}
+        item = _ok_item(content="source status ok")
 
         with patch(
             "app.knowledge.import_service.organize_chunk",
-            return_value=_ok_result(items=[]),
+            return_value=_ok_result(items=[item]),
         ):
             job_id = orchestrator.submit_import(
                 config=config,
@@ -682,15 +701,69 @@ class TestImportOrchestratorSourceStatusUpdate:
                 source_type="pasted_text",
                 payload=payload,
             )
-            _wait_for_job_done(repo, job_id)
+            job = _wait_for_job_done(repo, job_id)
 
-        # source 最终状态应为 'processed'
+        assert job["status"] == "completed"
+        # 成功有条目 → source=processed
         sources = repo.list_sources(package_id)
         assert sources[0]["status"] == "processed"
         # normalized_text 应非空
         assert sources[0]["normalized_text"] != ""
         # content_hash 应已更新
         assert sources[0]["content_hash"] != ""
+
+    def test_empty_chunks_fail_source(self, orchestrator, db, repo, config):
+        """chunk_source 返回 [] → job/source=failed, error=no_chunks_generated。"""
+        package_id, source_id = _create_package_and_source(db, repo)
+        payload = {"pasted_text": "# Test\n\ncontent that will be chunked empty."}
+
+        with patch(
+            "app.knowledge.import_service.chunk_source",
+            return_value=[],
+        ), patch(
+            "app.knowledge.import_service.organize_chunk",
+            return_value=_ok_result(items=[_ok_item()]),
+        ):
+            job_id = orchestrator.submit_import(
+                config=config,
+                package_id=package_id,
+                source_id=source_id,
+                source_type="pasted_text",
+                payload=payload,
+            )
+            job = _wait_for_job_done(repo, job_id)
+
+        assert job["status"] == "failed"
+        assert job["error_message"] == "no_chunks_generated"
+        sources = repo.list_sources(package_id)
+        assert sources[0]["status"] == "failed"
+        assert sources[0]["error_message"] == "no_chunks_generated"
+        # 不应进入 AI，source 应已 extracted 再失败
+        assert sources[0]["normalized_text"] != ""
+
+    def test_top_level_exception_fails_source(self, orchestrator, db, repo, config):
+        """顶层异常路径同时更新 job 与 source 为 failed。"""
+        package_id, source_id = _create_package_and_source(db, repo)
+        payload = {"pasted_text": "# Test\n\nThis is test content."}
+
+        with patch(
+            "app.knowledge.import_service.chunk_source",
+            side_effect=RuntimeError("chunk boom"),
+        ):
+            job_id = orchestrator.submit_import(
+                config=config,
+                package_id=package_id,
+                source_id=source_id,
+                source_type="pasted_text",
+                payload=payload,
+            )
+            job = _wait_for_job_done(repo, job_id)
+
+        assert job["status"] == "failed"
+        assert "chunk boom" in job["error_message"]
+        sources = repo.list_sources(package_id)
+        assert sources[0]["status"] == "failed"
+        assert "chunk boom" in (sources[0].get("error_message") or "")
 
 
 class TestImportOrchestratorValidationErrors:
@@ -760,3 +833,163 @@ class TestImportOrchestratorWebpageWithMockItems:
         assert job["generated_items"] >= 1
         result = repo.list_items(package_id=package_id)
         assert result["total"] >= 1
+
+
+class TestImportOrchestratorCrossImportDedup:
+    """Wave 4：跨导入 / 跨 source 去重。"""
+
+    def test_reimport_same_content_no_double_items(
+        self, orchestrator, db, repo, config
+    ):
+        """同一包第二次导入相同 content → 不新增 item，deduplicated_items>0。"""
+        package_id, source_id_1 = _create_package_and_source(db, repo)
+        payload = {"pasted_text": "# Test\n\nThis is test content for reimport."}
+        item = _ok_item(content="跨导入去重内容唯一")
+
+        with patch(
+            "app.knowledge.import_service.organize_chunk",
+            return_value=_ok_result(items=[item]),
+        ):
+            job1 = orchestrator.submit_import(
+                config=config,
+                package_id=package_id,
+                source_id=source_id_1,
+                source_type="pasted_text",
+                payload=payload,
+            )
+            _wait_for_job_done(repo, job1)
+
+        assert repo.list_items(package_id=package_id)["total"] == 1
+
+        # 第二 source + 再导入相同 item
+        source2 = repo.create_source(
+            package_id=package_id,
+            source_type="pasted_text",
+            display_name="second source",
+        )
+        with patch(
+            "app.knowledge.import_service.organize_chunk",
+            return_value=_ok_result(items=[item]),
+        ):
+            job2 = orchestrator.submit_import(
+                config=config,
+                package_id=package_id,
+                source_id=source2["id"],
+                source_type="pasted_text",
+                payload=payload,
+            )
+            done2 = _wait_for_job_done(repo, job2)
+
+        assert done2["generated_items"] == 0
+        assert done2["deduplicated_items"] >= 1
+        assert repo.list_items(package_id=package_id)["total"] == 1
+
+    def test_same_content_two_sources_deduped(
+        self, orchestrator, db, repo, config
+    ):
+        """两个 source 各返回相同 content → 只存 1 条。"""
+        package_id, source_id_1 = _create_package_and_source(db, repo)
+        item = _ok_item(content="双 source 相同内容")
+        payload = {"pasted_text": "# A\n\nContent for dual source."}
+
+        with patch(
+            "app.knowledge.import_service.organize_chunk",
+            return_value=_ok_result(items=[item]),
+        ):
+            j1 = orchestrator.submit_import(
+                config=config,
+                package_id=package_id,
+                source_id=source_id_1,
+                source_type="pasted_text",
+                payload=payload,
+            )
+            _wait_for_job_done(repo, j1)
+
+        source2 = repo.create_source(
+            package_id=package_id,
+            source_type="pasted_text",
+            display_name="src2",
+        )
+        with patch(
+            "app.knowledge.import_service.organize_chunk",
+            return_value=_ok_result(items=[item]),
+        ):
+            j2 = orchestrator.submit_import(
+                config=config,
+                package_id=package_id,
+                source_id=source2["id"],
+                source_type="pasted_text",
+                payload=payload,
+            )
+            _wait_for_job_done(repo, j2)
+
+        assert repo.list_items(package_id=package_id)["total"] == 1
+
+    def test_different_kind_same_text_keeps_both(
+        self, orchestrator, db, repo, config
+    ):
+        """不同 kind 同 content 可并存。"""
+        package_id, source_id = _create_package_and_source(db, repo)
+        payload = {"pasted_text": "# Test\n\nDual kind content."}
+        items = [
+            _ok_item(kind="fact", content="同文不同 kind"),
+            _ok_item(kind="meme", content="同文不同 kind"),
+        ]
+
+        with patch(
+            "app.knowledge.import_service.organize_chunk",
+            return_value=_ok_result(items=items),
+        ):
+            job_id = orchestrator.submit_import(
+                config=config,
+                package_id=package_id,
+                source_id=source_id,
+                source_type="pasted_text",
+                payload=payload,
+            )
+            job = _wait_for_job_done(repo, job_id)
+
+        assert job["status"] == "completed"
+        assert job["generated_items"] == 2
+        assert repo.list_items(package_id=package_id)["total"] == 2
+
+    def test_document_kind_livestream_log_passed_to_chunk_source(
+        self, orchestrator, db, repo, config
+    ):
+        """import 将 document_kind 传给 chunk_source。"""
+        package_id, source_id = _create_package_and_source(db, repo)
+        payload = {"pasted_text": "弹幕一行\n弹幕二行"}
+        captured: dict = {}
+
+        def _capture_chunk(source_type, text, content_kind="auto", document_kind="auto", metadata=None):
+            captured["document_kind"] = document_kind
+            captured["content_kind"] = content_kind
+            from app.knowledge.chunker import chunk_source as real_chunk
+
+            return real_chunk(
+                source_type,
+                text,
+                content_kind=content_kind,
+                document_kind=document_kind,
+                metadata=metadata,
+            )
+
+        with patch(
+            "app.knowledge.import_service.chunk_source",
+            side_effect=_capture_chunk,
+        ), patch(
+            "app.knowledge.import_service.organize_chunk",
+            return_value=_ok_result(items=[_ok_item()]),
+        ):
+            job_id = orchestrator.submit_import(
+                config=config,
+                package_id=package_id,
+                source_id=source_id,
+                source_type="pasted_text",
+                payload=payload,
+                document_kind="livestream_log",
+                content_kind="auto",
+            )
+            _wait_for_job_done(repo, job_id)
+
+        assert captured.get("document_kind") == "livestream_log"

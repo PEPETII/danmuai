@@ -16,13 +16,56 @@ import { t } from './i18n.js';
 const JOB_POLL_INTERVAL_MS = 2000;
 const ITEMS_PAGE_SIZE = 50;
 const ACTIVE_JOB_STATUSES = new Set(['pending', 'running']);
+const TERMINAL_JOB_STATUSES = new Set([
+  'completed',
+  'completed_with_errors',
+  'failed',
+  'cancelled',
+  'interrupted',
+]);
+/** 客户端文件大小上限（与后端 MAX_SOURCE_CHARS 精神对齐，5 MiB）。 */
+const MAX_CLIENT_FILE_BYTES = 5 * 1024 * 1024;
+
+/** 已知 error_message 代码 → i18n 后缀（dynamic.appKnowledgePage.errors.*）。 */
+const JOB_ERROR_CODE_KEYS = {
+  empty_content: 'emptyContent',
+  decode_failed: 'decodeFailed',
+  source_too_large: 'sourceTooLarge',
+  ssrf_blocked: 'ssrfBlocked',
+  timeout: 'timeout',
+  http_error: 'httpError',
+  unsupported_content_type: 'unsupportedContentType',
+  no_items_generated: 'noItemsGenerated',
+  no_chunks_generated: 'noChunksGenerated',
+  cancelled: 'cancelled',
+};
 
 let toast = () => {};
 let handlersBound = false;
 let jobPollTimer = null;
 let currentPackageId = null;
+/** 当前轮询绑定的 package_id；与 currentPackageId 同步，用于忽略过期响应。 */
+let jobPollPackageId = null;
+/** 递增 token：package 切换 / 停轮询时递增，丢弃过期 refreshJobs 结果。 */
+let jobPollToken = 0;
+/** job.public_id → 上次看到的 status（用于检测 active→terminal 转移）。 */
+let previousJobStatusById = new Map();
 let itemPage = 1;
 let itemTotalPages = 1;
+
+/**
+ * 检测 job 是否从 ACTIVE 转入 TERMINAL。
+ * 纯函数，便于单测/注释对齐后端契约。
+ * @param {string|undefined|null} previousStatus
+ * @param {string|undefined|null} nextStatus
+ * @returns {boolean}
+ */
+export function isActiveToTerminalTransition(previousStatus, nextStatus) {
+  if (!TERMINAL_JOB_STATUSES.has(nextStatus)) return false;
+  // 无历史记录时不视为「完成转移」（避免首次加载已完成 job 误触发 toast/reload）
+  if (previousStatus == null || previousStatus === '') return false;
+  return ACTIVE_JOB_STATUSES.has(previousStatus);
+}
 
 function showToast(message, isError = false) {
   toast(message, isError);
@@ -41,6 +84,47 @@ function statusKey(status) {
   return map[status] || 'statusPending';
 }
 
+function stageKey(stage) {
+  const map = {
+    queued: 'stageQueued',
+    extracting: 'stageExtracting',
+    chunking: 'stageChunking',
+    organizing: 'stageOrganizing',
+    finished: 'stageFinished',
+    failed: 'stageFailed',
+    cancelled: 'stageCancelled',
+  };
+  return map[stage] || '';
+}
+
+/** 从 error_message 中提取首个已知错误码（完整匹配或前缀/包含）。 */
+function extractErrorCode(errorMessage) {
+  if (!errorMessage) return '';
+  const raw = String(errorMessage).trim();
+  if (!raw) return '';
+  if (Object.prototype.hasOwnProperty.call(JOB_ERROR_CODE_KEYS, raw)) return raw;
+  for (const code of Object.keys(JOB_ERROR_CODE_KEYS)) {
+    if (raw === code || raw.startsWith(`${code}:`) || raw.includes(code)) {
+      return code;
+    }
+  }
+  return '';
+}
+
+function humanizeJobError(errorMessage) {
+  if (!errorMessage) return '';
+  const code = extractErrorCode(errorMessage);
+  if (code) {
+    const key = JOB_ERROR_CODE_KEYS[code];
+    const localized = t(`dynamic.appKnowledgePage.errors.${key}`);
+    // i18n 未命中时 t() 可能返回 key 本身；仍展示原始码
+    if (localized && !localized.includes('errors.')) {
+      return localized;
+    }
+  }
+  return String(errorMessage);
+}
+
 function kindKey(kind) {
   const map = {
     fact: 'kindFact',
@@ -57,7 +141,8 @@ function contentKindLabel(kind) {
     auto: 'optContentAuto',
     fact: 'optContentFact',
     meme: 'optContentMeme',
-    livestream: 'optContentLivestream',
+    livestream_chat: 'optContentLivestream',
+    livestream: 'optContentLivestream', // 历史别名
     persona: 'optContentPersona',
   };
   const key = map[kind];
@@ -234,6 +319,8 @@ export async function loadKnowledgePage() {
   showListView();
   stopKnowledgeJobPolling();
   currentPackageId = null;
+  jobPollPackageId = null;
+  previousJobStatusById = new Map();
   try {
     const data = await apiFetch('/api/knowledge/packages');
     renderPackageList(data.packages || []);
@@ -254,7 +341,10 @@ function fillPackageForm(pkg) {
   };
   set('knowledgePackageName', pkg.name);
   set('knowledgePackageDescription', pkg.description);
-  set('knowledgePackageContentKind', pkg.content_kind || 'auto');
+  // 历史 content_kind=livestream 归一为 livestream_chat（与后端一致）
+  const contentKind =
+    pkg.content_kind === 'livestream' ? 'livestream_chat' : (pkg.content_kind || 'auto');
+  set('knowledgePackageContentKind', contentKind);
   set('knowledgePackageScopeMode', pkg.scope_mode || 'global');
   set('knowledgePackageScopeTags', Array.isArray(pkg.scope_tags) ? pkg.scope_tags.join(', ') : '');
   set('knowledgePackagePriority', pkg.priority ?? 0);
@@ -301,6 +391,18 @@ function renderJobs(jobs) {
     badge.textContent = t(`dynamic.appKnowledgePage.${statusKey(job.status)}`);
     top.append(badge);
 
+    if (job.stage) {
+      const stageLabel = stageKey(job.stage)
+        ? t(`dynamic.appKnowledgePage.${stageKey(job.stage)}`)
+        : job.stage;
+      const stageEl = document.createElement('span');
+      stageEl.className = 'text-xs text-gray-500';
+      stageEl.textContent = t('dynamic.appKnowledgePage.stageLabel', {
+        stage: stageLabel,
+      });
+      top.append(stageEl);
+    }
+
     if (job.total_chunks != null && job.processed_chunks != null) {
       const progress = document.createElement('span');
       progress.className = 'text-xs text-gray-500';
@@ -309,15 +411,6 @@ function renderJobs(jobs) {
         total: job.total_chunks,
       });
       top.append(progress);
-    }
-
-    if (job.generated_items != null) {
-      const itemsInfo = document.createElement('span');
-      itemsInfo.className = 'text-xs text-gray-500';
-      itemsInfo.textContent = t('dynamic.appKnowledgePage.generatedItems', {
-        count: job.generated_items,
-      });
-      top.append(itemsInfo);
     }
 
     if (ACTIVE_JOB_STATUSES.has(job.status)) {
@@ -334,10 +427,55 @@ function renderJobs(jobs) {
 
     row.append(top);
 
+    const meta = document.createElement('p');
+    meta.className = 'text-xs text-gray-500 flex flex-wrap gap-x-3 gap-y-1';
+    const metaParts = [];
+    if (job.failed_chunks != null && job.failed_chunks > 0) {
+      metaParts.push(
+        t('dynamic.appKnowledgePage.failedChunks', { count: job.failed_chunks }),
+      );
+    }
+    if (job.generated_items != null) {
+      metaParts.push(
+        t('dynamic.appKnowledgePage.generatedItems', {
+          count: job.generated_items,
+        }),
+      );
+    }
+    if (job.deduplicated_items != null && job.deduplicated_items > 0) {
+      metaParts.push(
+        t('dynamic.appKnowledgePage.deduplicatedItems', {
+          count: job.deduplicated_items,
+        }),
+      );
+    }
+    const inTok = job.input_tokens ?? 0;
+    const outTok = job.output_tokens ?? 0;
+    if (inTok > 0 || outTok > 0) {
+      metaParts.push(
+        t('dynamic.appKnowledgePage.tokens', { input: inTok, output: outTok }),
+      );
+    }
+    if (metaParts.length > 0) {
+      meta.textContent = metaParts.join(' · ');
+      row.append(meta);
+    }
+
     if (job.error_message) {
       const err = document.createElement('p');
       err.className = 'text-xs text-red-600 break-words';
-      err.textContent = job.error_message;
+      err.title = job.error_message;
+      const human = humanizeJobError(job.error_message);
+      const humanSpan = document.createElement('span');
+      humanSpan.textContent = human;
+      err.append(humanSpan);
+      // 人类可读文案与原始码不同时，附加原始码
+      if (human !== job.error_message) {
+        const codeHint = document.createElement('span');
+        codeHint.className = 'text-gray-400 ml-1';
+        codeHint.textContent = `(${job.error_message})`;
+        err.append(codeHint);
+      }
       row.append(err);
     }
 
@@ -357,21 +495,93 @@ async function cancelJobById(jobId) {
   }
 }
 
+function notifyJobTerminalTransition(job) {
+  const status = job?.status;
+  const count = job?.generated_items ?? 0;
+  if (status === 'completed') {
+    showToast(
+      t('dynamic.appKnowledgePage.jobCompleted', { count }),
+      false,
+    );
+    return;
+  }
+  if (status === 'completed_with_errors') {
+    showToast(
+      t('dynamic.appKnowledgePage.jobCompletedWithErrors', { count }),
+      false,
+    );
+    return;
+  }
+  if (status === 'cancelled') {
+    showToast(t('dynamic.appKnowledgePage.jobCancelled'), false);
+    return;
+  }
+  if (status === 'interrupted') {
+    showToast(t('dynamic.appKnowledgePage.jobInterrupted'), true);
+    return;
+  }
+  // failed / other terminal
+  const errText = humanizeJobError(job?.error_message || '');
+  showToast(
+    errText
+      ? t('dynamic.appKnowledgePage.jobFailedWithError', { error: errText })
+      : t('dynamic.appKnowledgePage.jobFailed'),
+    true,
+  );
+}
+
 async function refreshJobs() {
   if (!currentPackageId) return;
+  const packageId = currentPackageId;
+  const token = jobPollToken;
   try {
     const data = await apiFetch(
-      `/api/knowledge/jobs?package_id=${encodeURIComponent(currentPackageId)}`,
+      `/api/knowledge/jobs?package_id=${encodeURIComponent(packageId)}`,
     );
-    const hadActive = (data.jobs || []).some((j) => ACTIVE_JOB_STATUSES.has(j.status));
-    renderJobs(data.jobs || []);
-    const anyActive = (data.jobs || []).some((j) => ACTIVE_JOB_STATUSES.has(j.status));
+    // 忽略切换 package / 停轮询后的过期响应
+    if (token !== jobPollToken || packageId !== currentPackageId) {
+      return;
+    }
+    const jobs = data.jobs || [];
+    let anyTerminalTransition = false;
+    const transitionedJobs = [];
+
+    jobs.forEach((job) => {
+      const id = job.public_id;
+      if (!id) return;
+      const prev = previousJobStatusById.get(id);
+      if (isActiveToTerminalTransition(prev, job.status)) {
+        anyTerminalTransition = true;
+        transitionedJobs.push(job);
+      }
+      previousJobStatusById.set(id, job.status);
+    });
+
+    renderJobs(jobs);
+
+    if (anyTerminalTransition) {
+      for (const job of transitionedJobs) {
+        notifyJobTerminalTransition(job);
+      }
+      await loadItems();
+      // 刷新包详情统计（item_count 等）
+      try {
+        if (currentPackageId === packageId) {
+          const pkg = await apiFetch(
+            `/api/knowledge/packages/${encodeURIComponent(packageId)}`,
+          );
+          if (currentPackageId === packageId && pkg) {
+            fillPackageForm(pkg);
+          }
+        }
+      } catch (error) {
+        console.warn('[knowledge] refresh package after job terminal failed', error);
+      }
+    }
+
+    const anyActive = jobs.some((j) => ACTIVE_JOB_STATUSES.has(j.status));
     if (!anyActive) {
       stopKnowledgeJobPolling();
-      // 任务从活跃变为终态 → 刷新条目列表
-      if (hadActive) {
-        await loadItems();
-      }
     }
   } catch (error) {
     console.warn('[knowledge] refreshJobs failed', error);
@@ -558,7 +768,13 @@ async function deleteItemById(itemId) {
 }
 
 async function openPackageDetail(packageId) {
+  // 切换 package：停旧轮询、清空 status 历史，避免串包 toast/reload
+  if (jobPollPackageId && jobPollPackageId !== packageId) {
+    stopKnowledgeJobPolling();
+  }
   currentPackageId = packageId;
+  jobPollPackageId = packageId;
+  previousJobStatusById = new Map();
   itemPage = 1;
   showDetailView();
   try {
@@ -615,43 +831,182 @@ async function deleteCurrentPackage() {
   }
 }
 
+function clearFileInput() {
+  const fileEl = document.getElementById('knowledgeSourceFile');
+  const nameEl = document.getElementById('knowledgeSourceFileName');
+  if (fileEl) fileEl.value = '';
+  if (nameEl) nameEl.textContent = '';
+}
+
+function updateSourceFileAccept(sourceType) {
+  const fileEl = document.getElementById('knowledgeSourceFile');
+  if (!fileEl) return;
+  if (sourceType === 'txt') {
+    fileEl.accept = '.txt,text/plain';
+  } else if (sourceType === 'markdown') {
+    fileEl.accept = '.md,.markdown,text/markdown,text/x-markdown';
+  } else {
+    fileEl.accept = '.txt,.md,.markdown,text/plain,text/markdown';
+  }
+}
+
 function syncSourceFormVisibility() {
   const type = document.getElementById('knowledgeSourceType')?.value || 'pasted_text';
   const urlWrap = document.getElementById('knowledgeSourceUrlWrap');
   const textWrap = document.getElementById('knowledgePastedTextWrap');
+  const fileWrap = document.getElementById('knowledgeSourceFileWrap');
   if (urlWrap) urlWrap.classList.toggle('hidden', type !== 'webpage');
-  if (textWrap) textWrap.classList.toggle('hidden', type === 'webpage');
+  if (textWrap) textWrap.classList.toggle('hidden', type !== 'pasted_text');
+  if (fileWrap) fileWrap.classList.toggle('hidden', type !== 'txt' && type !== 'markdown');
+  updateSourceFileAccept(type);
+}
+
+function onSourceTypeChange() {
+  const type = document.getElementById('knowledgeSourceType')?.value || 'pasted_text';
+  const textEl = document.getElementById('knowledgePastedText');
+  const urlEl = document.getElementById('knowledgeSourceUrl');
+  // 切换类型时清空无关字段
+  if (type !== 'pasted_text' && textEl) textEl.value = '';
+  if (type !== 'webpage' && urlEl) urlEl.value = '';
+  if (type !== 'txt' && type !== 'markdown') clearFileInput();
+  syncSourceFormVisibility();
+}
+
+function onSourceFileChange() {
+  const fileEl = document.getElementById('knowledgeSourceFile');
+  const nameEl = document.getElementById('knowledgeSourceFileName');
+  const file = fileEl?.files?.[0];
+  if (!nameEl) return;
+  if (!file) {
+    nameEl.textContent = '';
+    return;
+  }
+  nameEl.textContent = t('dynamic.appKnowledgePage.fileSelected', { name: file.name });
+}
+
+function fileExtension(name) {
+  const idx = String(name || '').lastIndexOf('.');
+  if (idx < 0) return '';
+  return String(name).slice(idx + 1).toLowerCase();
+}
+
+function isMatchingFileType(sourceType, fileName) {
+  const ext = fileExtension(fileName);
+  if (sourceType === 'txt') return ext === 'txt';
+  if (sourceType === 'markdown') return ext === 'md' || ext === 'markdown';
+  return false;
+}
+
+/** ArrayBuffer → pure base64（无 data URL 前缀；分块 btoa 避免大文件栈溢出）。 */
+function arrayBufferToBase64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize);
+    binary += String.fromCharCode.apply(null, chunk);
+  }
+  return btoa(binary);
+}
+
+async function readFileAsBase64(file) {
+  const buffer = await file.arrayBuffer();
+  return arrayBufferToBase64(buffer);
+}
+
+function clearImportInputs() {
+  const textEl = document.getElementById('knowledgePastedText');
+  const urlEl = document.getElementById('knowledgeSourceUrl');
+  const nameEl = document.getElementById('knowledgeDisplayName');
+  if (textEl) textEl.value = '';
+  if (urlEl) urlEl.value = '';
+  if (nameEl) nameEl.value = '';
+  clearFileInput();
 }
 
 async function startImport() {
   if (!currentPackageId) return;
   const sourceType = document.getElementById('knowledgeSourceType')?.value || 'pasted_text';
+  let displayName = (document.getElementById('knowledgeDisplayName')?.value || '').trim();
   const body = {
     source_type: sourceType,
-    display_name: document.getElementById('knowledgeDisplayName')?.value || '',
+    display_name: displayName,
     document_kind: document.getElementById('knowledgeDocumentKind')?.value || 'auto',
   };
-  if (sourceType === 'webpage') {
-    body.source_url = document.getElementById('knowledgeSourceUrl')?.value || '';
+
+  if (sourceType === 'pasted_text') {
+    const pasted = (document.getElementById('knowledgePastedText')?.value || '').trim();
+    if (!pasted) {
+      showToast(t('dynamic.appKnowledgePage.pastedTextRequired'), true);
+      return;
+    }
+    body.pasted_text = pasted;
+  } else if (sourceType === 'webpage') {
+    const url = (document.getElementById('knowledgeSourceUrl')?.value || '').trim();
+    if (!url) {
+      showToast(t('dynamic.appKnowledgePage.urlRequired'), true);
+      return;
+    }
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        showToast(t('dynamic.appKnowledgePage.urlInvalid'), true);
+        return;
+      }
+    } catch {
+      showToast(t('dynamic.appKnowledgePage.urlInvalid'), true);
+      return;
+    }
+    body.source_url = url;
+  } else if (sourceType === 'txt' || sourceType === 'markdown') {
+    const fileEl = document.getElementById('knowledgeSourceFile');
+    const file = fileEl?.files?.[0];
+    if (!file) {
+      showToast(t('dynamic.appKnowledgePage.fileRequired'), true);
+      return;
+    }
+    if (!isMatchingFileType(sourceType, file.name)) {
+      showToast(t('dynamic.appKnowledgePage.fileTypeMismatch'), true);
+      return;
+    }
+    if (file.size <= 0) {
+      showToast(t('dynamic.appKnowledgePage.fileEmpty'), true);
+      return;
+    }
+    if (file.size > MAX_CLIENT_FILE_BYTES) {
+      showToast(t('dynamic.appKnowledgePage.fileTooLarge'), true);
+      return;
+    }
+    if (!displayName) {
+      displayName = file.name;
+      body.display_name = displayName;
+    }
+    try {
+      body.content_base64 = await readFileAsBase64(file);
+    } catch (error) {
+      showToast(error.message || t('dynamic.appKnowledgePage.fileEmpty'), true);
+      return;
+    }
   } else {
-    body.pasted_text = document.getElementById('knowledgePastedText')?.value || '';
+    showToast(t('dynamic.appKnowledgePage.loadFailed'), true);
+    return;
   }
+
   try {
-    await apiFetch(
+    const result = await apiFetch(
       `/api/knowledge/packages/${encodeURIComponent(currentPackageId)}/imports`,
       { method: 'POST', body: JSON.stringify(body) },
     );
+    // 预置 pending，确保极快完成的 job 也能被识别为 active→terminal
+    if (result?.job_id) {
+      previousJobStatusById.set(result.job_id, 'pending');
+    }
     showToast(t('dynamic.appKnowledgePage.importStarted'));
-    // 清空粘贴 / URL
-    const textEl = document.getElementById('knowledgePastedText');
-    const urlEl = document.getElementById('knowledgeSourceUrl');
-    const nameEl = document.getElementById('knowledgeDisplayName');
-    if (textEl) textEl.value = '';
-    if (urlEl) urlEl.value = '';
-    if (nameEl) nameEl.value = '';
+    clearImportInputs();
     await refreshJobs();
     startKnowledgeJobPolling(currentPackageId);
   } catch (error) {
+    // 失败保留输入，便于用户修正后重试
     showToast(error.message, true);
   }
 }
@@ -744,13 +1099,14 @@ async function startPreview() {
 export function startKnowledgeJobPolling(packagePublicId) {
   if (jobPollTimer) {
     // 若切换到不同 package，先停掉旧轮询
-    if (currentPackageId !== packagePublicId) {
+    if (jobPollPackageId !== packagePublicId) {
       stopKnowledgeJobPolling();
     } else {
       return;
     }
   }
   currentPackageId = packagePublicId;
+  jobPollPackageId = packagePublicId;
   jobPollTimer = window.setInterval(() => {
     refreshJobs().catch((error) => {
       console.warn('[knowledge] job poll failed', error);
@@ -759,6 +1115,7 @@ export function startKnowledgeJobPolling(packagePublicId) {
 }
 
 export function stopKnowledgeJobPolling() {
+  jobPollToken += 1;
   if (!jobPollTimer) return;
   window.clearInterval(jobPollTimer);
   jobPollTimer = null;
@@ -798,7 +1155,10 @@ export function initKnowledgePage(deps = {}) {
   });
 
   document.getElementById('knowledgeSourceType')?.addEventListener('change', () => {
-    syncSourceFormVisibility();
+    onSourceTypeChange();
+  });
+  document.getElementById('knowledgeSourceFile')?.addEventListener('change', () => {
+    onSourceFileChange();
   });
   document.getElementById('btnKnowledgeStartImport')?.addEventListener('click', () => {
     void startImport();

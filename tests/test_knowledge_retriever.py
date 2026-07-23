@@ -832,6 +832,173 @@ class TestEmptyQuery:
 
 
 # ---------------------------------------------------------------------------
+# Wave 4：package scope_mode 过滤
+# ---------------------------------------------------------------------------
+
+
+class TestPackageScopeFilter:
+    """global 始终可检索；tagged 需 scene_tags 与 scope_tags 有交集。"""
+
+    def _insert_scoped_item(
+        self,
+        knowledge_db: KnowledgeDatabase,
+        *,
+        name: str,
+        scope_mode: str,
+        scope_tags: list[str],
+        title: str,
+        content: str,
+        priority: int = 5,
+    ) -> dict:
+        pkg_pub = create_package_for_db(
+            knowledge_db,
+            name=name,
+            priority=priority,
+            enabled=True,
+            scope_mode=scope_mode,
+            scope_tags=scope_tags,
+        )["public_id"]
+        pkg = get_package_for_db(knowledge_db, pkg_pub)
+        assert pkg is not None
+        src = create_source_for_db(
+            knowledge_db,
+            package_id=pkg["id"],
+            source_type="pasted_text",
+            display_name="src",
+        )
+        return insert_item_for_db(
+            knowledge_db,
+            package_id=pkg["id"],
+            source_id=src["id"],
+            chunk_id=None,
+            kind="fact",
+            title=title,
+            content=content,
+            scopes=[],
+            enabled=True,
+            priority=5,
+            confidence=0.9,
+        )
+
+    def test_tagged_no_match_excluded(
+        self, knowledge_db: KnowledgeDatabase
+    ) -> None:
+        self._insert_scoped_item(
+            knowledge_db,
+            name="tagged-pkg",
+            scope_mode="tagged",
+            scope_tags=["elden-ring"],
+            title="标签条目",
+            content="标签条目内容 测试关键词",
+        )
+        retriever = KnowledgeRetriever(knowledge_db)
+        result = retriever.retrieve(
+            keywords=["测试关键词"], scene_tags=["other-game"]
+        )
+        titles = [it["title"] for it in result.items]
+        assert "标签条目" not in titles
+
+    def test_tagged_match_included(
+        self, knowledge_db: KnowledgeDatabase
+    ) -> None:
+        self._insert_scoped_item(
+            knowledge_db,
+            name="tagged-pkg",
+            scope_mode="tagged",
+            scope_tags=["Elden-Ring"],
+            title="匹配条目",
+            content="匹配条目内容 测试关键词",
+        )
+        retriever = KnowledgeRetriever(knowledge_db)
+        # casefold 比较
+        result = retriever.retrieve(
+            keywords=["测试关键词"], scene_tags=["elden-ring"]
+        )
+        titles = [it["title"] for it in result.items]
+        assert "匹配条目" in titles
+
+    def test_global_always_eligible(
+        self, knowledge_db: KnowledgeDatabase
+    ) -> None:
+        self._insert_scoped_item(
+            knowledge_db,
+            name="global-pkg",
+            scope_mode="global",
+            scope_tags=[],
+            title="全局条目",
+            content="全局条目内容 测试关键词",
+        )
+        retriever = KnowledgeRetriever(knowledge_db)
+        result = retriever.retrieve(
+            keywords=["测试关键词"], scene_tags=[]
+        )
+        titles = [it["title"] for it in result.items]
+        assert "全局条目" in titles
+
+    def test_priority_and_scope_together(
+        self, knowledge_db: KnowledgeDatabase
+    ) -> None:
+        """tagged 不匹配的高优先级包不得挤掉匹配的低优先级包。"""
+        self._insert_scoped_item(
+            knowledge_db,
+            name="high-tagged-wrong",
+            scope_mode="tagged",
+            scope_tags=["wrong"],
+            title="高优先错标签",
+            content="高优先错标签 测试关键词",
+            priority=100,
+        )
+        self._insert_scoped_item(
+            knowledge_db,
+            name="low-tagged-ok",
+            scope_mode="tagged",
+            scope_tags=["ok"],
+            title="低优先对标签",
+            content="低优先对标签 测试关键词",
+            priority=1,
+        )
+        retriever = KnowledgeRetriever(knowledge_db)
+        result = retriever.retrieve(
+            keywords=["测试关键词"], scene_tags=["ok"]
+        )
+        titles = [it["title"] for it in result.items]
+        assert "低优先对标签" in titles
+        assert "高优先错标签" not in titles
+
+    def test_like_path_respects_scope(
+        self, knowledge_db: KnowledgeDatabase
+    ) -> None:
+        self._insert_scoped_item(
+            knowledge_db,
+            name="like-tagged",
+            scope_mode="tagged",
+            scope_tags=["only-me"],
+            title="LIKE标签条目",
+            content="LIKE标签条目 测试关键词",
+        )
+        object.__setattr__(knowledge_db, "fts_backend", "fallback")
+        retriever = KnowledgeRetriever(knowledge_db)
+        miss = retriever.retrieve(
+            keywords=["测试关键词"], scene_tags=["other"]
+        )
+        assert "LIKE标签条目" not in [it["title"] for it in miss.items]
+        hit = retriever.retrieve(
+            keywords=["测试关键词"], scene_tags=["only-me"]
+        )
+        assert "LIKE标签条目" in [it["title"] for it in hit.items]
+
+
+class TestNormalizeScopeTags:
+    def test_strip_casefold_dedupe(self) -> None:
+        from app.knowledge.retriever import normalize_scope_tags
+
+        assert normalize_scope_tags(["  Foo ", "foo", "", "Bar"]) == [
+            "foo",
+            "bar",
+        ]
+
+
+# ---------------------------------------------------------------------------
 # 附加：RetrievalResult 不可变 + prompt_builder 单元测试
 # ---------------------------------------------------------------------------
 

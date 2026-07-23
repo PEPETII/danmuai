@@ -25,7 +25,9 @@ from app.knowledge.database import KNOWLEDGE_DB_PATH, KnowledgeDatabase
 from app.knowledge.models import (
     KnowledgeBatchResponse,
     KnowledgeContextSnapshot,
+    KnowledgeInjectionResult,
     KnowledgeItemCandidate,
+    KnowledgeSceneContext,
 )
 from app.knowledge.repository import KnowledgeRepository
 
@@ -47,6 +49,8 @@ __all__ = [
     "KnowledgeItemCandidate",
     "KnowledgeBatchResponse",
     "KnowledgeContextSnapshot",
+    "KnowledgeSceneContext",
+    "KnowledgeInjectionResult",
     "KnowledgeRuntimeService",
     "ImportOrchestrator",
     "KNOWLEDGE_DB_PATH",

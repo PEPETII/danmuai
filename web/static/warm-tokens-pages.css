@@ -1249,13 +1249,46 @@
   align-items: center;
 }
 
+/* 预览舞台：与真实 web/static/floating_panel 同一布局语义（column-reverse + card） */
 .sg-preview-stage {
+  --card-bg: #fff7ed;
+  --card-border: #fbbf24;
+  --username-color: #f59e0b;
+  --content-color: #1f2937;
+  --outline-color: #ffffff;
+  --card-radius: 12px;
+  --card-max-width: 280px;
+  --font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+  --font-size-username: 12px;
+  --font-size-content: 14px;
+  --font-weight-username: 600;
+  --font-weight-content: 400;
+  --content-line-height: 1.4;
+  --gap-username-content: 4px;
+  --padding-x: 12px;
+  --padding-y: 8px;
+  --border-width: 1px;
+  --panel-padding: 16px;
+  --stack-gap: 8px;
+  --entry-duration: 250ms;
+  --exit-duration: 250ms;
+  --panel-opacity: 1;
+  --card-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.10),
+    0 4px 8px rgba(0, 0, 0, 0.08),
+    0 8px 16px rgba(0, 0, 0, 0.06);
+  --tail-w: 8px;
+  --tail-h: 10px;
+  --tail-offset-y: 38%;
+  --tail-color: var(--card-bg);
+  --outline-w: 1px;
+
   position: relative;
   width: 100%;
   height: min(62vh, 520px);
   min-height: 320px;
   border-radius: 0.75rem;
-  overflow: hidden; /* 严格裁剪：顶/底/左右 */
+  overflow: hidden;
   background:
     linear-gradient(180deg, rgba(26, 26, 46, 0.96) 0%, rgba(22, 33, 62, 0.98) 100%);
   border: 1px solid var(--color-border, #e5d3c0);
@@ -1265,76 +1298,144 @@
 .sg-preview-stack {
   position: absolute;
   inset: 0;
+  display: flex;
+  flex-direction: column-reverse;
+  justify-content: flex-start;
+  align-items: flex-start;
+  padding: var(--panel-padding);
+  box-sizing: border-box;
+  gap: var(--stack-gap);
   overflow: hidden;
   pointer-events: none;
+  opacity: var(--panel-opacity);
+  font-family: var(--font-family);
 }
 
-.sg-preview-item {
-  position: absolute;
-  left: 8px;
-  right: auto;
-  top: 0;
-  max-width: calc(100% - 16px);
+/* 与 floating_panel/.card 同构（类名 .sg-preview-card 避免污染控制台） */
+.sg-preview-card {
+  position: relative;
+  background: var(--card-bg);
+  border: var(--border-width) solid var(--card-border);
+  border-radius: var(--card-radius);
+  padding: var(--padding-y) var(--padding-x);
+  max-width: var(--card-max-width);
+  box-shadow: var(--card-shadow);
+  animation: sg-fp-slideUp var(--entry-duration) ease-out;
+  will-change: transform, opacity;
   box-sizing: border-box;
   text-align: left;
-  word-break: break-word;
-  will-change: transform, opacity;
-  line-height: 1.35;
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: baseline;
 }
 
-.sg-preview-item.sg-item-bubble {
+.sg-preview-card.no-border {
+  border-color: transparent;
+  border-width: 0;
+}
+
+.sg-preview-card.exiting {
+  animation: sg-fp-fadeOut var(--exit-duration) ease-in forwards;
+}
+
+.sg-preview-card.is-bubble {
+  margin-left: var(--tail-w);
+}
+
+.sg-preview-card.is-bubble::before {
+  content: "";
   position: absolute;
-}
-
-/* 非气泡形态不显示尾巴 */
-.sg-preview-item.sg-item-card::before,
-.sg-preview-item.sg-item-card::after {
-  display: none;
-}
-
-/* 气泡尾巴：默认锐利三角（sharp） */
-.sg-preview-item.sg-item-bubble::before {
-  content: '';
-  position: absolute;
-  left: calc(-1 * var(--sg-tail-w, 8px));
-  top: var(--sg-tail-offset-y, 38%);
+  left: calc(-1 * var(--tail-w));
+  top: var(--tail-offset-y);
   width: 0;
   height: 0;
-  margin-top: calc(var(--sg-tail-h, 10px) / -2);
+  margin-top: calc(var(--tail-h) / -2);
   border-style: solid;
-  border-width: calc(var(--sg-tail-h, 10px) / 2) var(--sg-tail-w, 8px) calc(var(--sg-tail-h, 10px) / 2) 0;
-  border-color: transparent var(--sg-tail-color, #ffecd2) transparent transparent;
+  border-width: calc(var(--tail-h) / 2) var(--tail-w) calc(var(--tail-h) / 2) 0;
+  border-color: transparent var(--tail-color) transparent transparent;
 }
 
-/* 圆润尾巴：水滴形，模拟 blivechat 聊天气泡 */
-.sg-preview-item.sg-item-bubble[data-tail-style="round"]::before {
-  width: var(--sg-tail-w, 8px);
-  height: var(--sg-tail-h, 10px);
-  margin-top: calc(var(--sg-tail-h, 10px) / -2);
+.sg-preview-card.is-bubble[data-tail-style="round"]::before {
+  width: var(--tail-w);
+  height: var(--tail-h);
+  margin-top: calc(var(--tail-h) / -2);
   border: 0;
   border-radius: 100% 0 100% 100%;
-  background: var(--sg-tail-color, #ffecd2);
+  background: var(--tail-color);
 }
 
-/* 无尾巴 */
-.sg-preview-item.sg-item-bubble[data-tail-style="none"]::before {
+.sg-preview-card.is-bubble[data-tail-style="none"]::before,
+.sg-preview-card:not(.is-bubble)::before {
   display: none;
 }
 
-.sg-item-username {
-  display: inline;
+.sg-preview-card .username {
+  display: block;
+  font-size: var(--font-size-username);
+  color: var(--username-color);
+  font-weight: var(--font-weight-username);
+  margin-bottom: var(--gap-username-content);
+  line-height: 1.2;
   white-space: nowrap;
-  font-weight: inherit;
-  font-size: inherit;
-  color: inherit;
-  margin-right: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.sg-item-content {
-  display: inline;
+.sg-preview-card .username.is-hidden {
+  display: none;
+}
+
+.sg-preview-card.has-outline .username {
+  text-shadow:
+    calc(-1 * var(--outline-w)) 0 0 var(--outline-color),
+    var(--outline-w) 0 0 var(--outline-color),
+    0 calc(-1 * var(--outline-w)) 0 var(--outline-color),
+    0 var(--outline-w) 0 var(--outline-color);
+}
+
+.sg-preview-card .content {
+  font-size: var(--font-size-content);
+  color: var(--content-color);
+  font-weight: var(--font-weight-content);
+  line-height: var(--content-line-height);
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sg-preview-card.has-outline .content {
+  text-shadow:
+    calc(-1 * var(--outline-w)) 0 0 var(--outline-color),
+    var(--outline-w) 0 0 var(--outline-color),
+    0 calc(-1 * var(--outline-w)) 0 var(--outline-color),
+    0 var(--outline-w) 0 var(--outline-color);
+}
+
+.sg-preview-card.is-bold .content {
+  font-weight: 700;
+}
+
+@keyframes sg-fp-slideUp {
+  0% {
+    transform: translateY(40%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes sg-fp-fadeOut {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
 }
 
 .sg-settings-floating-entry {

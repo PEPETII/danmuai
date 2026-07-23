@@ -145,6 +145,54 @@ def delete_package(
     return {"ok": True}
 
 
+def _validate_import_payload(payload: dict[str, Any]) -> str | None:
+    """导入请求跨字段校验；通过返回 ``None``，否则返回稳定 error code。
+
+    在 ``create_source`` / ``submit_import`` 之前调用，避免无效 payload 留下
+    空 source / job。与 ``ImportPayload`` 的 model_validator 错误码对齐。
+    """
+    import base64
+    from urllib.parse import urlparse
+
+    # 与 source_extractors.MAX_RESPONSE_BYTES 同量级（避免循环 import）
+    max_response_bytes = 10 * 1024 * 1024
+
+    source_type = payload.get("source_type") or "pasted_text"
+    if source_type == "pasted_text":
+        if not str(payload.get("pasted_text") or "").strip():
+            return "missing_pasted_text"
+        return None
+
+    if source_type in ("txt", "markdown"):
+        b64 = str(payload.get("content_base64") or "").strip()
+        if not b64:
+            return "missing_content_base64"
+        max_b64_len = (max_response_bytes * 4) // 3 + 8
+        if len(b64) > max_b64_len:
+            return "source_too_large"
+        try:
+            raw = base64.b64decode(b64, validate=True)
+        except Exception:
+            try:
+                raw = base64.b64decode(b64, validate=False)
+            except Exception:
+                return "invalid_base64"
+        if len(raw) > max_response_bytes:
+            return "source_too_large"
+        return None
+
+    if source_type == "webpage":
+        url = str(payload.get("source_url") or "").strip()
+        if not url:
+            return "missing_source_url"
+        parsed = urlparse(url)
+        if parsed.scheme not in ("http", "https") or not parsed.netloc:
+            return "invalid_source_url"
+        return None
+
+    return "unknown_source_type"
+
+
 def import_source(
     app: "DanmuApp", package_public_id: str, payload: dict[str, Any]
 ) -> dict[str, Any]:
@@ -168,6 +216,11 @@ def import_source(
     pkg = repo.get_package(package_public_id)
     if pkg is None:
         return {"error": "package_not_found"}
+
+    # 校验必须在 create_source 之前，避免无效 payload 留下空 source/job
+    validation_error = _validate_import_payload(payload or {})
+    if validation_error:
+        return {"error": validation_error}
 
     # 创建 source 行
     source_type = payload.get("source_type", "pasted_text")

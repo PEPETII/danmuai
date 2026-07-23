@@ -435,26 +435,38 @@ def chunk_source(
     source_type: str,
     normalized_text: str,
     content_kind: str = "auto",
+    document_kind: str = "auto",
     metadata: dict | None = None,
 ) -> list[Chunk]:
     """统一分块入口。
 
-    分派规则：
+    分派规则（任一命中即走直播分块）：
 
-    - ``content_kind == "livestream_chat"`` 或 ``source_type == "livestream"``
-      → :func:`chunk_livestream`
+    - ``content_kind`` 为 ``livestream`` / ``livestream_chat``（含历史别名）；
+    - ``source_type == "livestream"``；
+    - ``document_kind`` 为 ``livestream_log`` / ``livestream_chat``。
     - 其他 → :func:`chunk_article`
 
     Args:
         source_type: 来源类型（如 ``"pasted_text"`` / ``"txt"`` / ``"markdown"``
             / ``"webpage"`` / ``"livestream"``）。
         normalized_text: 已提取并清洗的文本。
-        content_kind: 内容类型（``"auto"`` / ``"article"`` / ``"livestream_chat"``）。
+        content_kind: 内容类型（``"auto"`` / ``"article"`` / ``"livestream_chat"``
+            / 历史别名 ``"livestream"``）。
+        document_kind: 文档类型（``"auto"`` / ``"article"`` / ``"livestream_log"`` 等）。
         metadata: 可选元数据。
 
     Returns:
         ``Chunk`` 列表。
     """
-    if content_kind == "livestream_chat" or source_type == "livestream":
+    kind = str(content_kind or "auto").strip().lower()
+    doc_kind = str(document_kind or "auto").strip().lower()
+    src = str(source_type or "").strip().lower()
+    is_livestream = (
+        kind in ("livestream", "livestream_chat")
+        or src == "livestream"
+        or doc_kind in ("livestream_log", "livestream_chat")
+    )
+    if is_livestream:
         return chunk_livestream(normalized_text, metadata)
     return chunk_article(normalized_text, metadata)

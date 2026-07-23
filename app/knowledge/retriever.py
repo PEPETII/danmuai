@@ -2,14 +2,17 @@
 
 检索流程：
     1. 只检索启用包 + 启用条目（``WHERE p.enabled=1 AND i.enabled=1``）；
-    2. FTS5 优先（trigram → 普通 fts5 → LIKE 三级回退）；
-    3. 评分：``-bm25 + scope_match*2 + pkg.priority*0.5 + item.priority*0.3
+    2. 包 scope：``global`` 始终可检索；``tagged`` 仅当 ``scene_tags`` 与
+       ``package.scope_tags`` 有交集时入选（FTS 与 LIKE 路径均过滤）；
+    3. FTS5 优先（trigram → 普通 fts5 → LIKE 三级回退）；
+    4. 评分：``-bm25 + scope_match*2 + pkg.priority*0.5 + item.priority*0.3
        + confidence*1.0 - recent_use_penalty - dedup_penalty``（LIKE 路径
-       ``-bm25=0``，并附加触发词命中 ``+5`` 加分）；
-    4. 类型配额：``fact≤2 / reaction_pattern≤1 / meme≤1 / style_example≤2``，
+       ``-bm25=0``，并附加触发词命中 ``+5`` 加分）；global 包**不**因
+       scope_mode 额外加分；
+    5. 类型配额：``fact≤2 / reaction_pattern≤1 / meme≤1 / style_example≤2``，
        总数 ≤ ``max_items``（默认 4）；
-    5. 字符预算：``prompt_text`` ≤ ``max_chars``（默认 360，硬上限 600）；
-    6. 异常降级：捕获 ``sqlite3.Error``，返回空 ``RetrievalResult`` 不抛异常。
+    6. 字符预算：``prompt_text`` ≤ ``max_chars``（默认 360，硬上限 600）；
+    7. 异常降级：捕获 ``sqlite3.Error``，返回空 ``RetrievalResult`` 不抛异常。
 
 线程安全：
     - 检索只读，不持 ``_write_lock``；
@@ -49,8 +52,10 @@ _HARD_MAX_CHARS = 600
 _RECENT_USE_WINDOW_SEC_DEFAULT = 120
 _FTS_HIT_LIMIT = 50
 _DEDUP_THRESHOLD = 0.85
+_SCOPE_TAG_MAX_COUNT = 32
+_SCOPE_TAG_MAX_LEN = 48
 
-# Scope 推断关键词（spec §6.3 评分中的 scope 匹配）
+# Scope 推断关键词（spec §6.3 评分中的 item scopes 匹配，与 package scope 无关）
 _SCOPE_KEYWORDS: tuple[tuple[str, str], ...] = (
     ("游戏", "游戏"),
     ("直播", "直播"),
@@ -112,6 +117,7 @@ class KnowledgeRetriever:
         *,
         scene_brief: str = "",
         keywords: list[str] | None = None,
+        scene_tags: list[str] | None = None,
         max_items: int = _MAX_ITEMS_DEFAULT,
         max_chars: int = _MAX_CHARS_DEFAULT,
         recent_use_window_sec: int = _RECENT_USE_WINDOW_SEC_DEFAULT,
@@ -123,6 +129,7 @@ class KnowledgeRetriever:
         Args:
             scene_brief: 场景简述（来自 ``ParsedAiReply.scene_brief``）。
             keywords: 关键词列表（来自 ``ParsedAiReply.keywords``）。
+            scene_tags: 当前场景标签；用于 ``scope_mode=tagged`` 包过滤。
             max_items: 最大返回条目数（默认 4）。
             max_chars: 提示词字符预算（默认 360，硬上限 600）。
             recent_use_window_sec: 最近使用惩罚窗口（秒，默认 120）。
@@ -135,6 +142,7 @@ class KnowledgeRetriever:
         start = time.perf_counter()
         keywords = [str(k) for k in (keywords or []) if k]
         scene_brief = str(scene_brief or "")
+        scene_tag_set = set(normalize_scope_tags(scene_tags))
         max_items = max(1, min(int(max_items), _MAX_ITEMS_DEFAULT))
         max_chars = max(1, min(int(max_chars), _HARD_MAX_CHARS))
 
@@ -149,6 +157,8 @@ class KnowledgeRetriever:
                 retrieval_ms=0,
                 fts_backend=self._fts_backend,
             )
+
+        hits = self._filter_package_scope(hits, scene_tag_set)
 
         if not hits:
             return RetrievalResult(
@@ -217,6 +227,8 @@ class KnowledgeRetriever:
         """执行 FTS5 查询（``bm25`` 排序，LIMIT 50）。"""
         sql = (
             "SELECT i.*, p.priority AS pkg_priority, "
+            "p.scope_mode AS pkg_scope_mode, "
+            "p.scope_tags_json AS pkg_scope_tags_json, "
             "bm25(knowledge_items_fts) AS fts_score "
             "FROM knowledge_items_fts f "
             "JOIN knowledge_items i ON f.rowid = i.id "
@@ -256,7 +268,9 @@ class KnowledgeRetriever:
             params.append(term)
         where_clause = " OR ".join(conditions)
         sql = (
-            "SELECT i.*, p.priority AS pkg_priority "
+            "SELECT i.*, p.priority AS pkg_priority, "
+            "p.scope_mode AS pkg_scope_mode, "
+            "p.scope_tags_json AS pkg_scope_tags_json "
             "FROM knowledge_items i "
             "JOIN knowledge_packages p ON i.package_id = p.id "
             f"WHERE p.enabled=1 AND i.enabled=1 AND ({where_clause}) "
@@ -266,6 +280,18 @@ class KnowledgeRetriever:
             sql, [*params, _FTS_HIT_LIMIT]
         ).fetchall()
         return [_deserialize_item_row(row) for row in rows]
+
+    def _filter_package_scope(
+        self, hits: list[dict[str, Any]], scene_tag_set: set[str]
+    ) -> list[dict[str, Any]]:
+        """按 package.scope_mode 过滤命中（global 始终保留；tagged 需标签交集）。"""
+        if not hits:
+            return hits
+        kept: list[dict[str, Any]] = []
+        for item in hits:
+            if package_scope_allows(item, scene_tag_set):
+                kept.append(item)
+        return kept
 
     # ------------------------------------------------------------------
     # 评分
@@ -525,7 +551,77 @@ def _deserialize_item_row(row: sqlite3.Row) -> dict[str, Any]:
             d[list_key] = []
     if "enabled" in d:
         d["enabled"] = bool(d["enabled"])
+    # package scope（JOIN 列）
+    if "pkg_scope_tags_json" in d:
+        d["pkg_scope_tags"] = normalize_scope_tags(
+            _json_loads(d.pop("pkg_scope_tags_json"), default=[])
+        )
+    elif "pkg_scope_tags" not in d:
+        d["pkg_scope_tags"] = []
+    if "pkg_scope_mode" in d and d["pkg_scope_mode"] is not None:
+        d["pkg_scope_mode"] = str(d["pkg_scope_mode"] or "global").strip().lower()
+    else:
+        d.setdefault("pkg_scope_mode", "global")
     return d
 
 
-__all__ = ["KnowledgeRetriever", "RetrievalResult"]
+def normalize_scope_tags(tags: list[str] | tuple[str, ...] | None) -> list[str]:
+    """归一化 scope 标签：strip、casefold 比较键、去空、限长限量。
+
+    返回用于比较的 casefold 字符串列表（去重保序）。
+    """
+    if not tags:
+        return []
+    out: list[str] = []
+    seen: set[str] = set()
+    for raw in tags:
+        if raw is None:
+            continue
+        text = str(raw).strip()
+        if not text:
+            continue
+        if len(text) > _SCOPE_TAG_MAX_LEN:
+            text = text[:_SCOPE_TAG_MAX_LEN]
+        key = text.casefold()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        out.append(key)
+        if len(out) >= _SCOPE_TAG_MAX_COUNT:
+            break
+    return out
+
+
+def package_scope_allows(
+    item: dict[str, Any], scene_tag_set: set[str]
+) -> bool:
+    """判断条目所属包是否对当前 ``scene_tags`` 可见。
+
+    - ``global`` / 空 / 未知：始终 True；
+    - ``tagged``：``normalize_scope_tags(pkg_scope_tags)`` 与 scene 标签有交集。
+    """
+    mode = str(item.get("pkg_scope_mode") or "global").strip().lower()
+    if mode != "tagged":
+        return True
+    pkg_tags = item.get("pkg_scope_tags")
+    if not isinstance(pkg_tags, list):
+        pkg_tags = normalize_scope_tags(
+            _json_loads(item.get("pkg_scope_tags_json"), default=[])
+        )
+    else:
+        # 已是 list 时仍归一化（可能未 casefold）
+        pkg_tags = normalize_scope_tags(pkg_tags)
+    if not pkg_tags:
+        # tagged 但无标签：永不匹配
+        return False
+    if not scene_tag_set:
+        return False
+    return bool(scene_tag_set.intersection(pkg_tags))
+
+
+__all__ = [
+    "KnowledgeRetriever",
+    "RetrievalResult",
+    "normalize_scope_tags",
+    "package_scope_allows",
+]

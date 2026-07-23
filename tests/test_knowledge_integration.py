@@ -213,12 +213,15 @@ def test_database_lifecycle_and_migration_idempotency(tmp_path: Path, monkeypatc
         # fts_backend 应是 trigram / fts5 / fallback 之一
         assert db1.fts_backend in ("trigram", "fts5", "fallback")
 
-        # schema_meta 应存在且 schema_version = '1'
+        # schema_meta 应存在且 schema_version 为当前最新迁移版本
+        from app.knowledge.migrations import MIGRATIONS
+
+        latest = str(max(m[0] for m in MIGRATIONS))
         row = db1.conn.execute(
             "SELECT value FROM schema_meta WHERE key='schema_version'"
         ).fetchone()
         assert row is not None
-        assert row[0] == "1"
+        assert row[0] == latest
 
         # 5 张主表应存在
         for table in (
@@ -254,14 +257,17 @@ def test_database_lifecycle_and_migration_idempotency(tmp_path: Path, monkeypatc
     # 验证文件确实创建在重定向路径
     assert db_path.is_file()
 
-    # 第二次打开（幂等）：不应抛异常，schema_version 仍为 '1'
+    # 第二次打开（幂等）：不应抛异常，schema_version 仍为最新
     db2 = KnowledgeDatabase.open()
     try:
+        from app.knowledge.migrations import MIGRATIONS
+
+        latest = str(max(m[0] for m in MIGRATIONS))
         row = db2.conn.execute(
             "SELECT value FROM schema_meta WHERE key='schema_version'"
         ).fetchone()
         assert row is not None
-        assert row[0] == "1"
+        assert row[0] == latest
     finally:
         db2.close()
 

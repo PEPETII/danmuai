@@ -62,9 +62,13 @@ class _FakeRepoExceptional:
 class _FakeRuntime:
     """Fake KnowledgeRuntimeService。"""
 
-    def __init__(self, repo):
+    def __init__(self, repo, *, last_injection=None):
         self.retriever = _FakeRetriever()
         self.repository = repo
+        self._last_injection = last_injection
+
+    def get_last_injection(self):
+        return self._last_injection
 
 
 # ---------------------------------------------------------------------------
@@ -81,15 +85,16 @@ def test_knowledge_summary_degraded_when_no_runtime():
     snapshot = DiagnosticSnapshotBuilder(app).build()
 
     knowledge = snapshot["knowledge"]
-    assert knowledge == {
-        "enabled": False,
-        "fts_backend": "",
-        "packages_count": 0,
-        "enabled_packages_count": 0,
-        "items_count": 0,
-        "enabled_items_count": 0,
-        "last_injected_count": 0,
-    }
+    assert knowledge["enabled"] is False
+    assert knowledge["fts_backend"] == ""
+    assert knowledge["packages_count"] == 0
+    assert knowledge["enabled_packages_count"] == 0
+    assert knowledge["items_count"] == 0
+    assert knowledge["enabled_items_count"] == 0
+    assert knowledge["last_injected_count"] == 0
+    # Wave 1 可选诊断字段（空态）
+    assert knowledge.get("last_injected_public_ids", []) == []
+    assert knowledge.get("last_query_brief", "") == ""
 
 
 def test_knowledge_summary_with_runtime_mounted():
@@ -111,6 +116,9 @@ def test_knowledge_summary_with_runtime_mounted():
     assert knowledge["enabled_items_count"] == 3
     # _FakeRetriever._last_injected_contents 长度 2
     assert knowledge["last_injected_count"] == 2
+    # 无 last_injection → 可选字段为空
+    assert knowledge.get("last_injected_public_ids", []) == []
+    assert knowledge.get("last_query_brief", "") == ""
 
 
 def test_knowledge_summary_exception_isolated():
@@ -159,3 +167,23 @@ def test_diagnostic_report_contains_knowledge_section():
     assert "items_count: 7" in report
     assert "enabled_items_count: 3" in report
     assert "last_injected_count: 2" in report
+
+
+def test_knowledge_summary_reads_last_injection_fields():
+    """get_last_injection 有结果时投影 public_ids 与 query brief。"""
+    from types import SimpleNamespace
+
+    app = make_diagnostic_app()
+    inj = SimpleNamespace(
+        public_ids=("kid_a", "kid_b"),
+        scene_brief="葛瑞克",
+        item_ids=(1, 2),
+    )
+    app.__dict__["knowledge_runtime"] = _FakeRuntime(_FakeRepo(), last_injection=inj)
+
+    knowledge = DiagnosticSnapshotBuilder(app).build()["knowledge"]
+    assert knowledge["enabled"] is True
+    assert knowledge["last_injected_public_ids"] == ["kid_a", "kid_b"]
+    assert knowledge["last_query_brief"] == "葛瑞克"
+    # contents 长度优先；仍为 2
+    assert knowledge["last_injected_count"] == 2

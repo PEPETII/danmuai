@@ -91,6 +91,22 @@ def test_style_generator_module_uses_api_fetch_and_config_put():
     assert "export function initStyleGeneratorPage" in mod
 
 
+def test_style_generator_preview_matches_web_panel_structure():
+    """Preview must mirror real floating_panel: column-reverse, card DOM, 2-line clamp, maxCards."""
+    mod = (_static() / "modules" / "app-style-generator-page.js").read_text(encoding="utf-8")
+    css = (_static() / "warm-tokens-pages.css").read_text(encoding="utf-8")
+    panel_css = (_static() / "floating_panel" / "style.css").read_text(encoding="utf-8")
+    assert "sg-preview-card" in mod
+    assert "column-reverse" in css
+    assert "column-reverse" in panel_css
+    assert "line-clamp: 2" in css or "-webkit-line-clamp: 2" in css
+    assert "-webkit-line-clamp: 2" in panel_css
+    assert "removeOldestIfNeeded" in mod
+    assert "scheduleCardExit" in mod
+    assert "applyCardStyleVars" in mod
+    assert "is-bubble" in css and "is-bubble" in panel_css
+
+
 def test_settings_danmu_preview_no_longer_implements_floating_stack():
     mod = (_static() / "modules" / "settings-danmu-preview.js").read_text(encoding="utf-8")
     assert "function renderFloatingPreview" not in mod

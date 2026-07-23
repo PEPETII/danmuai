@@ -717,7 +717,7 @@
                 <option value="auto" data-i18n="dynamic.appKnowledgePage.optContentAuto">自动</option>
                 <option value="fact" data-i18n="dynamic.appKnowledgePage.optContentFact">事实</option>
                 <option value="meme" data-i18n="dynamic.appKnowledgePage.optContentMeme">梗</option>
-                <option value="livestream" data-i18n="dynamic.appKnowledgePage.optContentLivestream">直播</option>
+                <option value="livestream_chat" data-i18n="dynamic.appKnowledgePage.optContentLivestream">直播</option>
                 <option value="persona" data-i18n="dynamic.appKnowledgePage.optContentPersona">人格</option>
               </select>
             </div>
@@ -775,6 +775,11 @@
           <div id="knowledgePastedTextWrap" class="settings-field">
             <label for="knowledgePastedText" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.pastedText">粘贴文本</label>
             <textarea id="knowledgePastedText" rows="6" class="settings-field-control"></textarea>
+          </div>
+          <div id="knowledgeSourceFileWrap" class="settings-field hidden">
+            <label for="knowledgeSourceFile" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.selectFile">选择文件</label>
+            <input type="file" id="knowledgeSourceFile" accept=".txt,.md,.markdown,text/plain,text/markdown">
+            <p id="knowledgeSourceFileName" class="settings-section-hint"></p>
           </div>
           <div class="settings-field">
             <label for="knowledgeDocumentKind" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.documentKind">文档类型</label>

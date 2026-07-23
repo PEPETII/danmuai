@@ -378,6 +378,99 @@ def test_import_markdown_base64(client, repo):
     assert body["job_id"].startswith("kj_")
 
 
+def test_import_txt_base64(client, repo):
+    """txt 类型：content_base64 创建 job。"""
+    pid = client.post(
+        "/api/knowledge/packages", json={"name": "TXT 导入"}
+    ).json()["package_id"]
+
+    text = "这是 TXT 文件内容\n第二行"
+    b64 = base64.b64encode(text.encode("utf-8")).decode("ascii")
+    with patch(
+        "app.knowledge.import_service.organize_chunk",
+        return_value=_ok_result(items=[]),
+    ):
+        resp = client.post(
+            f"/api/knowledge/packages/{pid}/imports",
+            json={
+                "source_type": "txt",
+                "display_name": "notes.txt",
+                "content_base64": b64,
+            },
+        )
+        body = resp.json()
+        _wait_for_job_done(repo, body["job_id"])
+    assert resp.status_code == 200
+    assert body["ok"] is True
+    assert body["job_id"].startswith("kj_")
+    assert body["source_id"]
+
+
+def test_import_invalid_payload_creates_no_source_or_job(client, repo):
+    """无效 payload 不得创建 source / job（Wave 2 跨字段校验）。"""
+    pid = client.post(
+        "/api/knowledge/packages", json={"name": "无效导入"}
+    ).json()["package_id"]
+
+    cases = [
+        {"source_type": "pasted_text"},  # missing pasted_text
+        {"source_type": "pasted_text", "pasted_text": "   "},
+        {"source_type": "txt"},  # missing content_base64
+        {"source_type": "markdown", "content_base64": ""},
+        {"source_type": "webpage"},  # missing source_url
+        {"source_type": "webpage", "source_url": "ftp://example.com/x"},
+        {"source_type": "webpage", "source_url": "not-a-url"},
+    ]
+    for payload in cases:
+        resp = client.post(
+            f"/api/knowledge/packages/{pid}/imports",
+            json=payload,
+        )
+        # Pydantic model_validator → 422；服务层兜底 → 200 + error
+        assert resp.status_code in (200, 422), payload
+        if resp.status_code == 200:
+            body = resp.json()
+            assert "error" in body, payload
+            assert "job_id" not in body or not body.get("ok")
+
+    jobs = client.get(f"/api/knowledge/jobs?package_id={pid}").json()
+    assert jobs.get("total", 0) == 0
+    assert jobs.get("jobs") == []
+
+    pkg = client.get(f"/api/knowledge/packages/{pid}").json()
+    assert pkg.get("sources") == []
+
+
+def test_import_source_service_rejects_before_create(knowledge_runtime, config, repo):
+    """直接调用 import_source：校验失败不得 create_source / submit_import。"""
+    from app.web_api import knowledge as knowledge_api
+
+    created = repo.create_package(name="service-validate")
+    pkg = repo.get_package(created["public_id"])
+    assert pkg is not None
+    package_id = pkg["id"]
+    app = SimpleNamespace(knowledge_runtime=knowledge_runtime, config=config)
+    before_sources = repo.list_sources(package_id)
+    before_jobs = repo.list_jobs(package_id=package_id)
+
+    result = knowledge_api.import_source(
+        app,
+        pkg["public_id"],
+        {"source_type": "txt", "display_name": "x"},
+    )
+    assert result == {"error": "missing_content_base64"}
+    assert repo.list_sources(package_id) == before_sources
+    assert repo.list_jobs(package_id=package_id) == before_jobs
+
+    result2 = knowledge_api.import_source(
+        app,
+        pkg["public_id"],
+        {"source_type": "webpage", "source_url": "javascript:alert(1)"},
+    )
+    assert result2 == {"error": "invalid_source_url"}
+    assert repo.list_sources(package_id) == before_sources
+
+
 def test_import_webpage_with_mocked_extractor(client, repo):
     """webpage 类型：mock 源提取避免真实 HTTP。"""
     pid = client.post(

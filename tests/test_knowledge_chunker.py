@@ -454,6 +454,29 @@ class TestChunkSourceDispatch:
         assert len(chunks) == 1
         assert chunks[0].heading == ""
 
+    def test_legacy_livestream_content_kind_dispatches(self):
+        """历史 content_kind='livestream' → chunk_livestream。"""
+        lines = [f"弹幕{i}" for i in range(200)]
+        text = "\n".join(lines)
+        chunks = chunk_source("pasted_text", text, content_kind="livestream")
+        for c in chunks:
+            assert c.heading == ""
+        assert len(chunks) >= 1
+
+    def test_document_kind_livestream_log_dispatches(self):
+        """document_kind='livestream_log' + content_kind=auto → chunk_livestream。"""
+        lines = [f"弹幕{i}" for i in range(200)]
+        text = "\n".join(lines)
+        chunks = chunk_source(
+            "pasted_text",
+            text,
+            content_kind="auto",
+            document_kind="livestream_log",
+        )
+        for c in chunks:
+            assert c.heading == ""
+        assert len(chunks) >= 1
+
 
 # ---------------------------------------------------------------------------
 # 额外：Chunk dataclass 不可变性

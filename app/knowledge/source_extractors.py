@@ -69,6 +69,34 @@ MAX_REDIRECTS = 5
 # User-Agent（spec §7.3 "User-Agent 明确标识 DanmuAI"）
 USER_AGENT = "DanmuAI/1.0"
 
+# Base64 字符串长度粗估上限（解码后 ≤ MAX_RESPONSE_BYTES）
+_MAX_BASE64_LEN = (MAX_RESPONSE_BYTES * 4) // 3 + 8
+
+
+def _decode_content_base64(b64: str) -> tuple[bytes | None, str]:
+    """解码 ``content_base64``：先 size guard，再 prefer ``validate=True`` 并 fallback。
+
+    Returns:
+        ``(data, error)``；成功时 ``error=""``，失败时 ``data is None`` 且 error 为
+        ``empty_content`` / ``source_too_large`` / ``decode_failed``。
+    """
+    if not b64:
+        return None, "empty_content"
+    if len(b64) > _MAX_BASE64_LEN:
+        return None, "source_too_large"
+    try:
+        data = base64.b64decode(b64, validate=True)
+    except Exception:
+        try:
+            data = base64.b64decode(b64, validate=False)
+        except Exception:
+            return None, "decode_failed"
+    if not data:
+        return None, "empty_content"
+    if len(data) > MAX_RESPONSE_BYTES:
+        return None, "source_too_large"
+    return data, ""
+
 
 # ---------------------------------------------------------------------------
 # ExtractionResult
@@ -130,14 +158,10 @@ class TxtExtractor:
 
     def extract(self, payload: dict) -> ExtractionResult:
         b64 = payload.get("content_base64") or ""
-        if not b64:
-            return ExtractionResult("", {"source_type": "txt"}, error="empty_content")
-        try:
-            data = base64.b64decode(b64, validate=False)
-        except ValueError:
-            return ExtractionResult("", {"source_type": "txt"}, error="decode_failed")
-        if not data:
-            return ExtractionResult("", {"source_type": "txt"}, error="empty_content")
+        data, err = _decode_content_base64(b64)
+        if err:
+            return ExtractionResult("", {"source_type": "txt"}, error=err)
+        assert data is not None
         try:
             text, encoding = decode_bytes(data)
         except ValueError:
@@ -212,14 +236,10 @@ class MarkdownExtractor:
 
     def extract(self, payload: dict) -> ExtractionResult:
         b64 = payload.get("content_base64") or ""
-        if not b64:
-            return ExtractionResult("", {"source_type": "markdown"}, error="empty_content")
-        try:
-            data = base64.b64decode(b64, validate=False)
-        except ValueError:
-            return ExtractionResult("", {"source_type": "markdown"}, error="decode_failed")
-        if not data:
-            return ExtractionResult("", {"source_type": "markdown"}, error="empty_content")
+        data, err = _decode_content_base64(b64)
+        if err:
+            return ExtractionResult("", {"source_type": "markdown"}, error=err)
+        assert data is not None
         try:
             text, encoding = decode_bytes(data)
         except ValueError:

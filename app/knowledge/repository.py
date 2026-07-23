@@ -137,6 +137,7 @@ def create_package_for_db(
     """创建知识包；返回新行字典（含 public_id）。"""
     public_id = _new_public_id()
     now = _now_iso()
+    content_kind = _normalize_package_content_kind(content_kind)
     scope_tags = scope_tags or []
     scope_tags_json = json.dumps(scope_tags, ensure_ascii=False)
     with db.with_write_lock():
@@ -196,7 +197,7 @@ def update_package_for_db(
         params.append(description)
     if content_kind is not None:
         sets.append("content_kind=?")
-        params.append(content_kind)
+        params.append(_normalize_package_content_kind(content_kind))
     if scope_mode is not None:
         sets.append("scope_mode=?")
         params.append(scope_mode)
@@ -284,11 +285,22 @@ def _delete_fts_rows_for_package_locked(
         pass
 
 
+def _normalize_package_content_kind(content_kind: Any) -> str:
+    """归一化 package content_kind；历史 ``livestream`` → ``livestream_chat``。"""
+    kind = str(content_kind or "auto").strip()
+    if not kind:
+        return "auto"
+    if kind.lower() == "livestream":
+        return "livestream_chat"
+    return kind
+
+
 def _deserialize_package_row(row: sqlite3.Row) -> dict[str, Any]:
     """sqlite3.Row → dict，scope_tags_json 反序列化为 scope_tags 列表。"""
     d = dict(row)
     d["scope_tags"] = _json_loads(d.pop("scope_tags_json", "[]"), default=[])
     d["enabled"] = bool(d.get("enabled", 0))
+    d["content_kind"] = _normalize_package_content_kind(d.get("content_kind", "auto"))
     return d
 
 
@@ -664,6 +676,33 @@ def get_item_by_id_for_db(
         (item_id,),
     ).fetchone()
     return _deserialize_item_row(row) if row else None
+
+
+def list_item_dedupe_keys_for_db(
+    db: "KnowledgeDatabase", package_id: int
+) -> list[dict[str, Any]]:
+    """列出包内条目的去重键（仅 kind / content_hash / normalized content / public_id）。
+
+    供 ``KnowledgeDeduplicator.seed_existing`` 跨导入预载；不拉 examples 等大字段。
+    """
+    rows = db.conn.execute(
+        "SELECT kind, content_hash, content, public_id "
+        "FROM knowledge_items WHERE package_id=? ORDER BY id ASC",
+        (int(package_id),),
+    ).fetchall()
+    result: list[dict[str, Any]] = []
+    for row in rows:
+        content = str(row["content"] or "")
+        result.append(
+            {
+                "kind": str(row["kind"] or ""),
+                "content_hash": str(row["content_hash"] or ""),
+                "normalized_content": content.strip().lower(),
+                "content": content,
+                "public_id": str(row["public_id"] or ""),
+            }
+        )
+    return result
 
 
 def list_items_for_db(
@@ -1172,6 +1211,9 @@ class KnowledgeRepository:
     def list_items(self, **kwargs: Any) -> dict[str, Any]:
         return list_items_for_db(self.db, **kwargs)
 
+    def list_item_dedupe_keys(self, package_id: int) -> list[dict[str, Any]]:
+        return list_item_dedupe_keys_for_db(self.db, package_id)
+
     def update_item(self, public_id: str, **kwargs: Any) -> dict[str, Any] | None:
         return update_item_for_db(self.db, public_id, **kwargs)
 
@@ -1216,6 +1258,7 @@ __all__ = [
     "get_item_for_db",
     "get_item_by_id_for_db",
     "list_items_for_db",
+    "list_item_dedupe_keys_for_db",
     "update_item_for_db",
     "delete_item_for_db",
     "mark_items_used_for_db",

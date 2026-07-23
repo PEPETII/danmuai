@@ -1,9 +1,10 @@
 /**
- * 样式生成器页（W-FP-STYLEGEN-WEB-001）
+ * 样式生成器页（W-FP-STYLEGEN-WEB-001 / W-FP-STYLEGEN-PREVIEW-PARITY）
  *
  * - 并行 GET /api/config + /api/floating-panel/style-presets
  * - 表单 name 与 ConfigStore 扁平字段同名；仅保存时 PUT /api/config 子集
- * - Web 预览模拟底锚堆积：底入、顶推、空闲静止、左对齐、严格裁剪
+ * - 预览与默认真实路径 web/static/floating_panel 同构：
+ *   column-reverse 底锚、max_items 顶出、2 行 clamp、卡片/气泡尾巴、入场 slideUp / 退出 fadeOut
  */
 
 import { apiFetch } from './transport.js';
@@ -87,10 +88,12 @@ let handlersBound = false;
 let presetsPayload = null;
 let suppressCustomMark = false;
 let styleIndexSeq = 0;
+/** @type {{el: HTMLElement, styleIndex: number, cardColor: string, textColor: string, text: string}[]} */
 let previewItems = [];
-let previewRaf = null;
-let lastPreviewTs = 0;
 let previewTextIndex = 0;
+let maxCardsCached = 12;
+let panelWidthCached = 360;
+let exitDurationMsCached = 200;
 
 function showToast(message, isError = false) {
   toast(message, isError);
@@ -139,7 +142,7 @@ function parseWeights(raw) {
   }
 }
 
-/** equal: colors[i % n]；weighted: styleIndex 哈希映射到累计权重（无全局 random） */
+/** equal: colors[i % n]；weighted: 与 Qt overlay 相同 32-bit 槽位（无全局 random） */
 export function pickStyleColor(colors, mode, weights, styleIndex) {
   const list = Array.isArray(colors) ? colors.filter(Boolean) : [];
   if (!list.length) return '#FFFFFF';
@@ -148,9 +151,9 @@ export function pickStyleColor(colors, mode, weights, styleIndex) {
     const pairs = list.map((c) => [c, Number(wmap[c]) > 0 ? Number(wmap[c]) : 0]);
     const total = pairs.reduce((s, [, w]) => s + w, 0);
     if (total > 0) {
-      let h = (Number(styleIndex) || 0) * 2654435761;
-      h = Math.abs(h >>> 0) % 10000;
-      let r = (h / 10000) * total;
+      // Match floating_panel_overlay._pick_palette_color: (style_index * 2654435761) & 0xFFFFFFFF / 2^32
+      let h = ((Number(styleIndex) || 0) * 2654435761) >>> 0;
+      let r = (h / 4294967296) * total;
       for (const [c, w] of pairs) {
         r -= w;
         if (r <= 0) return c;
@@ -331,13 +334,6 @@ function applyPreset(presetId) {
   showToast(t('dynamic.appStyleGenerator.已应用预设_preset', { preset: presetId }));
 }
 
-function restyleVisiblePreviewItems() {
-  // 颜色在创建时固定；仅同步字号/形态等非颜色字段到已有 DOM（颜色保持 dataset 原值）
-  previewItems.forEach((item) => {
-    if (item.el) applyItemDomStyle(item.el, item, readPreviewStyle(), false);
-  });
-}
-
 function readPreviewStyle() {
   return {
     shape: readStr('floating_panel_shape', 'bubble'),
@@ -347,7 +343,7 @@ function readPreviewStyle() {
     textColors: parsePalette(readStr('floating_panel_text_colors', '[]')),
     textMode: readStr('floating_panel_text_color_mode', 'equal'),
     textWeights: parseWeights(readStr('floating_panel_text_color_weights', '{}')),
-    cardOpacity: Math.max(0, Math.min(100, readInt('floating_panel_card_opacity', 78))) / 100,
+    cardOpacity: Math.max(0, Math.min(100, readInt('floating_panel_card_opacity', 88))) / 100,
     panelOpacity: Math.max(0, Math.min(100, readInt('floating_panel_opacity', 85))) / 100,
     outlineEnabled: readBool('floating_panel_outline_enabled'),
     outlineColor: readStr('floating_panel_outline_color', '#FFFFFFC8'),
@@ -369,7 +365,6 @@ function readPreviewStyle() {
     tailStyle: readStr('floating_panel_tail_style', 'round'),
     tailWidth: readInt('floating_panel_tail_width', 8),
     tailHeight: readInt('floating_panel_tail_height', 10),
-    tailSize: readInt('floating_panel_tail_size', 10),
     tailOffsetY: readInt('floating_panel_tail_offset_y', 38),
     usernameEnabled: readBool('floating_panel_username_enabled'),
     usernameText: readStr('floating_panel_username_text', '弹幕'),
@@ -379,246 +374,170 @@ function readPreviewStyle() {
     usernameSeparator: readStr('floating_panel_username_separator', '：'),
     contentSize: readInt('floating_panel_content_size', 16),
     contentWeight: readInt('floating_panel_content_weight', 400),
-    contentLineHeight: readInt('floating_panel_content_line_height', 140),
+    contentLineHeight: Math.max(1, readInt('floating_panel_content_line_height', 140) / 100),
     gapUsernameContent: readInt('floating_panel_gap_username_content', 4),
-    entryAnim: readStr('floating_panel_entry_animation', 'fade'),
     entryMs: Math.max(0, readInt('floating_panel_entry_duration_ms', 200)),
-    pushMs: Math.max(0, readInt('floating_panel_push_duration_ms', 180)),
-    exitAnim: readStr('floating_panel_exit_animation', 'fade'),
     exitMs: Math.max(0, readInt('floating_panel_exit_duration_ms', 200)),
     stackGap: Math.max(0, readInt('floating_panel_stack_gap', 8)),
     fontFamily: readStr('floating_panel_font_family', 'Microsoft YaHei'),
-    fontSize: readInt('floating_panel_font_size', 20),
     fontBold: readBool('floating_panel_font_bold'),
+    maxItems: maxCardsCached,
+    panelWidth: panelWidthCached,
   };
 }
 
-function applyItemDomStyle(el, item, style, useFixedColors) {
-  const cardColor = useFixedColors ? item.cardColor : item.cardColor;
-  const textColor = useFixedColors ? item.textColor : item.textColor;
-  const isBubble = style.shape === 'bubble' && style.tailEnabled;
-  el.classList.toggle('sg-item-bubble', isBubble);
-  el.classList.toggle('sg-item-card', !isBubble);
-  el.style.background = hexToRgba(cardColor, style.cardOpacity);
-  el.style.color = textColor;
-  el.style.fontFamily = style.fontFamily || 'inherit';
-  el.style.fontSize = `${style.contentSize}px`;
-  el.style.fontWeight = String(style.contentWeight);
-  el.style.lineHeight = `${style.contentLineHeight}%`;
-  el.style.padding = `${style.paddingY}px ${style.paddingX}px`;
-  el.style.borderRadius = `${style.radius}px`;
-  if (style.outlineEnabled && style.outlineWidth > 0) {
-    const oc = hexToRgba(style.outlineColor);
-    el.style.textShadow = [
-      `-${style.outlineWidth}px 0 ${oc}`,
-      `${style.outlineWidth}px 0 ${oc}`,
-      `0 -${style.outlineWidth}px ${oc}`,
-      `0 ${style.outlineWidth}px ${oc}`,
-    ].join(', ');
-  } else {
-    el.style.textShadow = 'none';
-  }
-  if (style.borderEnabled && style.borderWidth > 0) {
-    el.style.border = `${style.borderWidth}px solid ${hexToRgba(style.borderColor, style.borderOpacity)}`;
-  } else {
-    el.style.border = 'none';
-  }
-  if (style.shadowEnabled) {
-    el.style.boxShadow = `${style.shadowOffsetX}px ${style.shadowOffsetY}px ${style.shadowBlur}px ${hexToRgba(style.shadowColor, style.shadowOpacity)}`;
-  } else {
-    el.style.boxShadow = 'none';
-  }
-  if (isBubble) {
-    el.style.setProperty('--sg-tail-w', `${style.tailWidth}px`);
-    el.style.setProperty('--sg-tail-h', `${style.tailHeight}px`);
-    el.style.setProperty('--sg-tail-color', hexToRgba(cardColor, style.cardOpacity));
-    el.style.setProperty('--sg-tail-style', style.tailStyle);
-    el.style.setProperty('--sg-tail-offset-y', `${style.tailOffsetY}%`);
-    el.style.marginLeft = `${Math.max(style.tailWidth, 0)}px`;
-    el.dataset.tailStyle = style.tailStyle;
-  } else {
-    el.style.marginLeft = '0';
-    delete el.dataset.tailStyle;
-  }
-
-  // 用户名与内容分离（参考 blivechat author-name / message 层级）
-  let usernameEl = el.querySelector('.sg-item-username');
-  let contentEl = el.querySelector('.sg-item-content');
-  if (!usernameEl) {
-    usernameEl = document.createElement('span');
-    usernameEl.className = 'sg-item-username';
-    el.appendChild(usernameEl);
-  }
-  if (!contentEl) {
-    contentEl = document.createElement('span');
-    contentEl.className = 'sg-item-content';
-    el.appendChild(contentEl);
-  }
-  if (style.usernameEnabled) {
-    usernameEl.style.display = '';
-    usernameEl.textContent = style.usernameText + style.usernameSeparator;
-    usernameEl.style.color = style.usernameColor;
-    usernameEl.style.fontSize = `${style.usernameSize}px`;
-    usernameEl.style.fontWeight = String(style.usernameWeight);
-    usernameEl.style.marginRight = `${style.gapUsernameContent}px`;
-  } else {
-    usernameEl.style.display = 'none';
-  }
-  contentEl.textContent = item.text;
-}
-
-function ensurePreviewTick() {
-  if (previewRaf) return;
-  lastPreviewTs = performance.now();
-  const loop = (ts) => {
-    const dt = Math.min(50, ts - lastPreviewTs);
-    lastPreviewTs = ts;
-    const animating = updatePreviewLayout(dt);
-    if (animating) {
-      previewRaf = requestAnimationFrame(loop);
-    } else {
-      previewRaf = null;
-    }
-  };
-  previewRaf = requestAnimationFrame(loop);
-}
-
-function updatePreviewLayout(dt) {
+/** 同步舞台级 CSS 变量（与 floating_panel applyConfig 对齐） */
+function applyStageConfig(style) {
   const stage = document.getElementById('styleGeneratorPreview');
-  const stack = document.getElementById('styleGeneratorPreviewStack');
-  if (!stage || !stack) return false;
+  if (!stage) return;
+  stage.style.setProperty('--stack-gap', `${style.stackGap}px`);
+  stage.style.setProperty('--panel-padding', '16px');
+  stage.style.setProperty('--entry-duration', `${style.entryMs}ms`);
+  stage.style.setProperty('--exit-duration', `${style.exitMs}ms`);
+  stage.style.setProperty('--panel-opacity', String(style.panelOpacity));
+  stage.style.setProperty('--font-family', style.fontFamily || 'Microsoft YaHei, PingFang SC, sans-serif');
+  const maxW = Math.max(120, style.panelWidth - 40);
+  stage.style.setProperty('--card-max-width', `${maxW}px`);
+  maxCardsCached = style.maxItems;
+  exitDurationMsCached = style.exitMs || 200;
+}
 
-  const style = readPreviewStyle();
-  const stageH = stage.clientHeight || 360;
-  stage.style.opacity = String(style.panelOpacity);
-
-  // measure heights
-  previewItems.forEach((item) => {
-    if (item.el) item.height = item.el.offsetHeight || item.height || 36;
-  });
-
-  // bottom-anchored stack: newest at bottom
-  let yFromBottom = 0;
-  for (let i = previewItems.length - 1; i >= 0; i--) {
-    const item = previewItems[i];
-    const targetY = stageH - yFromBottom - item.height;
-    item.targetY = targetY;
-    yFromBottom += item.height + style.stackGap;
+/** 与 floating_panel/app.js applyCardStyleVars 同语义（写在卡片元素上） */
+function applyCardStyleVars(cardEl, style, cardColor, textColor) {
+  if (!cardEl) return;
+  const s = cardEl.style;
+  const bg = hexToRgba(cardColor, style.cardOpacity);
+  s.setProperty('--card-bg', bg);
+  s.setProperty('--tail-color', bg);
+  s.setProperty('--card-border', hexToRgba(style.borderColor, style.borderOpacity));
+  s.setProperty('--username-color', style.usernameColor);
+  s.setProperty('--content-color', textColor);
+  s.setProperty('--outline-color', hexToRgba(style.outlineColor));
+  s.setProperty('--font-family', style.fontFamily || 'inherit');
+  s.setProperty('--font-size-username', `${style.usernameSize}px`);
+  s.setProperty('--font-size-content', `${style.contentSize}px`);
+  s.setProperty('--card-radius', `${style.radius}px`);
+  s.setProperty('--card-max-width', `${Math.max(120, style.panelWidth - 40)}px`);
+  s.setProperty('--padding-x', `${style.paddingX}px`);
+  s.setProperty('--padding-y', `${style.paddingY}px`);
+  s.setProperty('--border-width', `${style.borderWidth}px`);
+  s.setProperty('--font-weight-username', String(style.usernameWeight));
+  s.setProperty('--font-weight-content', String(style.contentWeight));
+  s.setProperty('--content-line-height', String(style.contentLineHeight));
+  s.setProperty('--gap-username-content', `${style.gapUsernameContent}px`);
+  s.setProperty('--outline-w', `${style.outlineWidth}px`);
+  s.setProperty('--tail-w', `${style.tailWidth}px`);
+  s.setProperty('--tail-h', `${style.tailHeight}px`);
+  s.setProperty('--tail-offset-y', `${style.tailOffsetY}%`);
+  if (style.shadowEnabled) {
+    s.setProperty(
+      '--card-shadow',
+      `${style.shadowOffsetX}px ${style.shadowOffsetY}px ${style.shadowBlur}px ${hexToRgba(style.shadowColor, style.shadowOpacity)}`,
+    );
+  } else {
+    s.setProperty('--card-shadow', 'none');
   }
 
-  // mark exit when fully above top
+  cardEl.classList.toggle('no-border', !(style.borderEnabled && style.borderWidth > 0));
+  cardEl.classList.toggle('has-outline', Boolean(style.outlineEnabled && style.outlineWidth > 0));
+  cardEl.classList.toggle('is-bold', Boolean(style.fontBold));
+  const isBubble = style.shape === 'bubble' && style.tailEnabled;
+  cardEl.classList.toggle('is-bubble', isBubble);
+  if (isBubble) {
+    cardEl.dataset.tailStyle = style.tailStyle || 'round';
+  } else {
+    delete cardEl.dataset.tailStyle;
+  }
+}
+
+function restyleVisiblePreviewItems() {
+  const style = readPreviewStyle();
+  applyStageConfig(style);
   previewItems.forEach((item) => {
-    if (item.exiting) return;
-    if (item.targetY + item.height <= 0) {
-      item.exiting = true;
-      item.exitProgress = 0;
+    if (!item.el) return;
+    applyCardStyleVars(item.el, style, item.cardColor, item.textColor);
+    const usernameEl = item.el.querySelector('.username');
+    if (usernameEl) {
+      if (style.usernameEnabled) {
+        usernameEl.classList.remove('is-hidden');
+        usernameEl.textContent = `${style.usernameText}${style.usernameSeparator}`;
+      } else {
+        usernameEl.classList.add('is-hidden');
+        usernameEl.textContent = '';
+      }
     }
   });
+  removeOldestIfNeeded();
+}
 
-  let anyAnimating = false;
-  const pushMs = Math.max(1, style.pushMs || 1);
-  const entryMs = Math.max(1, style.entryMs || 1);
-  const exitMs = Math.max(1, style.exitMs || 1);
-
-  previewItems.forEach((item) => {
-    if (item.currentY == null) {
-      // enter from bottom
-      item.currentY = stageH + 8;
-      item.entryProgress = 0;
+function scheduleCardExit(node) {
+  if (!node || node.classList.contains('exiting')) return;
+  node.classList.add('exiting');
+  const id = node.dataset?.cardId;
+  setTimeout(() => {
+    if (node.parentNode) node.parentNode.removeChild(node);
+    previewItems = previewItems.filter((it) => it.el !== node);
+    if (id) {
+      /* card id cleanup not needed beyond filter */
     }
+  }, exitDurationMsCached || 200);
+}
 
-    // push toward target
-    const dy = item.targetY - item.currentY;
-    if (Math.abs(dy) > 0.5) {
-      const step = (Math.abs(dy) / pushMs) * dt;
-      const move = Math.sign(dy) * Math.min(Math.abs(dy), Math.max(step, 0.5));
-      item.currentY += move;
-      anyAnimating = true;
-    } else {
-      item.currentY = item.targetY;
-    }
-
-    // entry animation
-    if (item.entryProgress < 1) {
-      item.entryProgress = Math.min(1, item.entryProgress + dt / entryMs);
-      anyAnimating = true;
-    }
-
-    if (item.exiting) {
-      item.exitProgress = Math.min(1, (item.exitProgress || 0) + dt / exitMs);
-      anyAnimating = true;
-    }
-
-    let opacity = 1;
-    if (style.entryAnim === 'fade') {
-      opacity *= item.entryProgress;
-    } else if (style.entryAnim === 'none') {
-      opacity *= item.entryProgress >= 1 ? 1 : 1;
-    }
-    if (item.exiting && style.exitAnim === 'fade') {
-      opacity *= 1 - item.exitProgress;
-    }
-
-    let y = item.currentY;
-    if (style.entryAnim === 'slide_up' && item.entryProgress < 1) {
-      y = item.currentY + (1 - item.entryProgress) * 16;
-    }
-
-    if (item.el) {
-      item.el.style.transform = `translate3d(0, ${y}px, 0)`;
-      item.el.style.opacity = String(Math.max(0, Math.min(1, opacity)));
-    }
-  });
-
-  // remove fully exited or fully past top after exit anim
-  const remain = [];
-  previewItems.forEach((item) => {
-    const fullyPast = item.currentY + item.height <= 0;
-    const exitDone = item.exiting && item.exitProgress >= 1;
-    if ((fullyPast && (!item.exiting || exitDone)) || exitDone) {
-      item.el?.remove();
-    } else {
-      remain.push(item);
-    }
-  });
-  previewItems = remain;
-
-  return anyAnimating;
+function removeOldestIfNeeded() {
+  const stack = document.getElementById('styleGeneratorPreviewStack');
+  if (!stack) return;
+  const maxCards = maxCardsCached || 12;
+  let active = 0;
+  for (let i = 0; i < stack.children.length; i++) {
+    if (!stack.children[i].classList.contains('exiting')) active += 1;
+  }
+  let needExit = active - maxCards;
+  for (let i = 0; i < stack.children.length && needExit > 0; i++) {
+    if (stack.children[i].classList.contains('exiting')) continue;
+    scheduleCardExit(stack.children[i]);
+    needExit -= 1;
+  }
 }
 
 function addPreviewMessage(text) {
   const stack = document.getElementById('styleGeneratorPreviewStack');
   if (!stack) return;
   const style = readPreviewStyle();
+  applyStageConfig(style);
   const idx = styleIndexSeq++ % 1024;
   const cardColor = pickStyleColor(style.cardColors, style.cardMode, style.cardWeights, idx);
   const textColor = pickStyleColor(style.textColors, style.textMode, style.textWeights, idx);
 
   const el = document.createElement('div');
-  el.className = 'sg-preview-item';
+  el.className = 'sg-preview-card';
   el.dataset.styleIndex = String(idx);
+  el.dataset.cardId = `sg-${idx}-${Date.now()}`;
   el.dataset.cardColor = cardColor;
   el.dataset.textColor = textColor;
 
-  const item = {
+  const usernameLabel = style.usernameEnabled
+    ? `${style.usernameText}${style.usernameSeparator}`
+    : '';
+  el.innerHTML =
+    `<div class="username${style.usernameEnabled ? '' : ' is-hidden'}">${escapePreviewHtml(usernameLabel)}</div>` +
+    `<div class="content">${escapePreviewHtml(text)}</div>`;
+
+  applyCardStyleVars(el, style, cardColor, textColor);
+  stack.appendChild(el);
+  previewItems.push({
     el,
     text,
     styleIndex: idx,
     cardColor,
     textColor,
-    height: 36,
-    currentY: null,
-    targetY: 0,
-    entryProgress: 0,
-    exiting: false,
-    exitProgress: 0,
-  };
-  applyItemDomStyle(el, item, style, true);
-  stack.appendChild(el);
-  // measure after mount
-  item.height = el.offsetHeight || 36;
-  previewItems.push(item);
-  ensurePreviewTick();
+  });
+  removeOldestIfNeeded();
+}
+
+function escapePreviewHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
+  );
 }
 
 function clearPreview() {
@@ -626,10 +545,6 @@ function clearPreview() {
   previewItems = [];
   const stack = document.getElementById('styleGeneratorPreviewStack');
   if (stack) stack.innerHTML = '';
-  if (previewRaf) {
-    cancelAnimationFrame(previewRaf);
-    previewRaf = null;
-  }
 }
 
 function seedPreview() {
@@ -660,7 +575,6 @@ function onFormChange(event) {
   }
 
   restyleVisiblePreviewItems();
-  ensurePreviewTick();
 }
 
 function onColorListClick(event) {
@@ -761,6 +675,11 @@ export async function loadStyleGeneratorPage() {
       values.floating_panel_style_preset = presets.default_preset || 'wechat';
     }
     applyValuesToForm(values);
+    // max_items / width 在设置页，不在样式表单；预览与真实 Web 面板对齐时需缓存
+    const maxRaw = parseInt(String(cfg.floating_panel_max_items ?? '12'), 10);
+    maxCardsCached = Math.max(1, Math.min(50, Number.isFinite(maxRaw) ? maxRaw : 12));
+    const widthRaw = parseInt(String(cfg.floating_panel_width ?? '360'), 10);
+    panelWidthCached = Math.max(200, Math.min(800, Number.isFinite(widthRaw) ? widthRaw : 360));
     seedPreview();
   } catch (error) {
     showToast(error.message || t('dynamic.appStyleGenerator.加载失败'), true);

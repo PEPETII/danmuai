@@ -10,8 +10,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Annotated, Literal
+from urllib.parse import urlparse
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 # 知识条目 kind 枚举（spec §4.1）
 KnowledgeItemKind = Literal["fact", "style_example", "reaction_pattern", "meme"]
@@ -110,6 +111,31 @@ class ImportPayload(BaseModel):
 
     model_config = {"extra": "ignore"}
 
+    @model_validator(mode="after")
+    def validate_source_fields(self) -> "ImportPayload":
+        """跨字段必填校验（失败时 ValueError 消息为稳定 error code）。"""
+        st = self.source_type
+        if st == "pasted_text":
+            if not (self.pasted_text or "").strip():
+                raise ValueError("missing_pasted_text")
+        elif st in ("txt", "markdown"):
+            b64 = (self.content_base64 or "").strip()
+            if not b64:
+                raise ValueError("missing_content_base64")
+            # 粗估解码后字节：base64 约 4/3 膨胀；超过 10 MiB 原始上限则拒绝
+            # （与 source_extractors.MAX_RESPONSE_BYTES 同量级）
+            max_b64_len = (10 * 1024 * 1024 * 4) // 3 + 8
+            if len(b64) > max_b64_len:
+                raise ValueError("source_too_large")
+        elif st == "webpage":
+            url = (self.source_url or "").strip()
+            if not url:
+                raise ValueError("missing_source_url")
+            parsed = urlparse(url)
+            if parsed.scheme not in ("http", "https") or not parsed.netloc:
+                raise ValueError("invalid_source_url")
+        return self
+
 
 class ItemUpdatePayload(BaseModel):
     """PATCH /api/knowledge/items/{id} 请求体（部分更新）。"""
@@ -139,13 +165,53 @@ class RetrievalPreviewPayload(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# 运行时快照（B2 任务使用；本任务先建类型）
+# 运行时场景上下文与注入结果
 # ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
+class KnowledgeSceneContext:
+    """当前轮检索可用的真实场景语义（不可变）。
+
+    来源优先级由 ``build_knowledge_scene_context`` 组装：
+    live_topic → 最近弹幕关键词 → 麦文本 → 昵称/附加 brief；
+    全空时不得用 ``round=… screenshot=…`` 占位查询。
+    """
+
+    scene_brief: str
+    keywords: tuple[str, ...]
+    scene_tags: tuple[str, ...] = ()
+    source_request_round: int = 0
+    source_screenshot_id: int = 0
+    scene_generation: int = 0
+    updated_at: float = 0.0
+
+    @property
+    def has_semantic_query(self) -> bool:
+        return bool((self.scene_brief or "").strip() or self.keywords)
+
+
+@dataclass(frozen=True)
+class KnowledgeInjectionResult:
+    """程序侧注入结果（方案 A：不依赖模型 knowledge_used 才更新使用记录）。
+
+    use_count / last_used_at 语义：被注入次数（注入成功即 mark）。
+    """
+
+    prompt_text: str
+    item_ids: tuple[int, ...]
+    public_ids: tuple[str, ...]
+    request_round: int
+    screenshot_id: int
+    hit_count: int
+    retrieval_ms: int
+    scene_brief: str = ""
+    keywords: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class KnowledgeContextSnapshot:
-    """运行时检索快照（不可变；主线程只读）。
+    """运行时检索快照（不可变；主线程只读；兼容历史测试与诊断）。
 
     字段：
         prompt_text: 已构建的提示词片段（空字符串表示无知识命中）。
@@ -175,5 +241,7 @@ __all__ = [
     "ImportPayload",
     "ItemUpdatePayload",
     "RetrievalPreviewPayload",
+    "KnowledgeSceneContext",
+    "KnowledgeInjectionResult",
     "KnowledgeContextSnapshot",
 ]

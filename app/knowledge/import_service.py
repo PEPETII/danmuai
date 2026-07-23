@@ -266,11 +266,27 @@ class ImportOrchestrator:
                 source_id, normalized_text=normalized_text, status="extracted"
             )
 
-            # 5. 分块
+            # 5. 分块（传 document_kind，使 livestream_log 在 content_kind=auto 时仍走直播分块）
             self._repository.update_job_progress(job_public_id, stage="chunking")
-            chunks = chunk_source(source_type, normalized_text, content_kind)
+            chunks = chunk_source(
+                source_type,
+                normalized_text,
+                content_kind=content_kind,
+                document_kind=document_kind,
+            )
 
-            # 7. 插入 chunks 行
+            # 5.1 无 chunk：立即失败（不进入 AI 整理）
+            if not chunks:
+                self._fail_job(
+                    job_public_id,
+                    "no_chunks_generated",
+                    source_id=source_id,
+                    source_status="failed",
+                    source_error="no_chunks_generated",
+                )
+                return
+
+            # 6. 插入 chunks 行
             chunk_dicts: list[dict[str, Any]] = [
                 {
                     "sequence_no": c.sequence_no,
@@ -283,7 +299,8 @@ class ImportOrchestrator:
                 source_id=source_id, chunks=chunk_dicts
             )
 
-            # 8. 更新 job.total_chunks + stage='organizing'
+            # 7. 更新 job.total_chunks + stage='organizing'；source=processing
+            self._update_source(source_id, status="processing")
             self._repository.update_job_progress(
                 job_public_id,
                 stage="organizing",
@@ -291,8 +308,16 @@ class ImportOrchestrator:
                 processed_chunks=0,
             )
 
-            # 9-11. 逐 chunk 处理
+            # 9-11. 逐 chunk 处理（预载包内已有条目，跨导入去重）
             deduplicator = KnowledgeDeduplicator(package_id=package_id, threshold=0.85)
+            try:
+                existing_rows = self._repository.list_item_dedupe_keys(package_id)
+                deduplicator.seed_existing(existing_rows)
+            except Exception as exc:
+                logger.warning(
+                    "knowledge import seed_existing failed (non-fatal): %r",
+                    exc,
+                )
             total_input_tokens = 0
             total_output_tokens = 0
             total_kept = 0
@@ -422,23 +447,33 @@ class ImportOrchestrator:
                     output_tokens=total_output_tokens,
                 )
 
-            # 12. 确定最终 status
+            # 12. 确定最终 job/source status
+            # source 映射：
+            #   cancelled → cancelled
+            #   completed → processed
+            #   completed_with_errors → processed_with_errors
+            #   failed / zero items → failed (+ no_items_generated)
             if cancelled:
                 final_status = "cancelled"
                 final_stage = "cancelled"
+                source_final_status = "cancelled"
             elif total_failed == 0 and total_kept > 0:
                 final_status = "completed"
                 final_stage = "finished"
+                source_final_status = "processed"
             elif total_failed > 0 and total_kept > 0:
                 final_status = "completed_with_errors"
                 final_stage = "finished"
+                source_final_status = "processed_with_errors"
             elif total_failed > 0 and total_kept == 0:
                 final_status = "failed"
                 final_stage = "finished"
+                source_final_status = "failed"
             else:
                 # total_failed == 0 and total_kept == 0：AI 未生成任何条目
                 final_status = "failed"
                 final_stage = "finished"
+                source_final_status = "failed"
 
             # 13. 更新 job 最终状态
             error_message = self._format_errors(all_errors)
@@ -456,25 +491,50 @@ class ImportOrchestrator:
                 finished_at=_now_iso(),
             )
 
-            # 14. 更新 source.status='processed'（即使有错误，source 已处理）
-            self._update_source(source_id, status="processed")
+            # 14. 按终态同步 source（禁止无条件 processed）
+            if source_final_status == "failed":
+                source_error = error_message or "no_items_generated"
+            elif source_final_status == "processed_with_errors":
+                source_error = error_message or ""
+            elif source_final_status == "cancelled":
+                source_error = error_message or "cancelled"
+            else:
+                # processed：清空错误
+                source_error = ""
+            self._update_source(
+                source_id,
+                status=source_final_status,
+                error_message=source_error,
+            )
 
         except Exception as exc:
-            # 15. 异常处理：捕获 Exception，更新 job.status='failed'
+            # 15. 异常处理：更新 job + source 均为 failed
             logger.exception(
                 "knowledge import job %s failed unexpectedly", job_public_id
             )
+            err_text = str(exc)[:500]
             try:
                 self._repository.update_job_progress(
                     job_public_id,
                     status="failed",
                     stage="failed",
-                    error_message=str(exc)[:500],
+                    error_message=err_text,
                     finished_at=_now_iso(),
                 )
             except Exception:
                 logger.exception(
                     "knowledge import job %s: failed to update job status after exception",
+                    job_public_id,
+                )
+            try:
+                self._update_source(
+                    source_id,
+                    status="failed",
+                    error_message=err_text,
+                )
+            except Exception:
+                logger.exception(
+                    "knowledge import job %s: failed to update source status after exception",
                     job_public_id,
                 )
         finally:

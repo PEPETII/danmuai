@@ -8,14 +8,15 @@
     - ``KnowledgeRuntimeService`` 用 ``KnowledgeDatabase.open()`` 工厂装配
       （经 monkeypatch 重定向 ``KNOWLEDGE_DB_PATH``）。
 
-覆盖 5 个场景：
+覆盖场景：
     1. 生命周期：mount + close；DB 打开失败时进入降级模式（所有属性 None）
-    2. ``build_visual_prompt_injection``：有命中返回 prompt_text；无命中返回 None
+    2. ``build_visual_prompt_injection``：有命中返回 ``KnowledgeInjectionResult``；
+       无命中 / 空语义查询返回 None；注入即 ``use_count+1``
     3. ``on_reply_consumed``：valid public_id → use_count 递增；invalid → 静默跳过
-    4. 降级模式 no-op：``knowledge_runtime=None`` 时 ``_inject_knowledge_prompt``
-       原样返回 system_pt
-    5. 全链路：DanmuApp + knowledge_runtime → ``_inject_knowledge_prompt`` 追加
-       prompt + ``handle_reply_parsed`` 调用 ``on_reply_consumed`` 更新 use_count
+    4. ``_inject_knowledge_prompt``：runtime None / 无语义 / 无命中 no-op；
+       scene_brief_extra 或 live_topic 命中时追加 prompt；注入即 use_count+1
+    5. 全链路：``handle_reply_parsed`` 的 knowledge_used 诊断路径；
+       ``_build_visual_prompts`` 经 live_topic 命中知识
 
 约定（AGENTS.md §A.4.1）：
     - 使用 ``tmp_path`` fixture（已重定向到 ``.pytest_tmp/``）。
@@ -23,11 +24,13 @@
 """
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from collections import deque
+from unittest.mock import MagicMock, Mock
 
 import pytest
 
 from app.application.generation_pipeline import GenerationPipeline
+from app.knowledge.models import KnowledgeInjectionResult
 from app.knowledge.runtime_service import KnowledgeRuntimeService
 from tests.conftest import make_minimal_danmu_app
 
@@ -94,6 +97,21 @@ def seeded_runtime(knowledge_runtime):
     return public_ids, internal_ids
 
 
+def _use_count(db, item_id: int) -> int:
+    row = db.conn.execute(
+        "SELECT use_count FROM knowledge_items WHERE id=?",
+        (item_id,),
+    ).fetchone()
+    return int(row[0])
+
+
+def _stub_personae(app, *, persona: str = "persona-1") -> None:
+    app.personae = Mock(
+        pick_random=Mock(return_value=persona),
+        get_prompt=Mock(return_value=("system_prompt_base", "user_prompt_base")),
+    )
+
+
 # ---------------------------------------------------------------------------
 # 1. 生命周期 + 降级模式
 # ---------------------------------------------------------------------------
@@ -148,8 +166,13 @@ def test_knowledge_runtime_degraded_mode_when_db_open_fails(monkeypatch):
 def test_build_visual_prompt_injection_with_hits_returns_prompt(
     knowledge_runtime, seeded_runtime
 ):
-    """有命中条目时 ``build_visual_prompt_injection`` 返回非空 prompt_text。"""
-    _public_ids, _internal_ids = seeded_runtime
+    """有命中 → ``KnowledgeInjectionResult``；注入后 use_count 递增（无需 on_reply_consumed）。"""
+    _public_ids, internal_ids = seeded_runtime
+    db = knowledge_runtime._db
+
+    assert _use_count(db, internal_ids[0]) == 0
+    assert _use_count(db, internal_ids[1]) == 0
+
     injection = knowledge_runtime.build_visual_prompt_injection(
         scene_brief="葛瑞克战斗",
         keywords=["葛瑞克"],
@@ -157,8 +180,15 @@ def test_build_visual_prompt_injection_with_hits_returns_prompt(
         screenshot_id=10,
     )
     assert injection is not None
-    assert isinstance(injection, str)
-    assert injection != ""
+    assert isinstance(injection, KnowledgeInjectionResult)
+    assert isinstance(injection.prompt_text, str) and injection.prompt_text != ""
+    assert injection.item_ids  # non-empty
+    assert injection.hit_count > 0
+    assert "葛瑞克" in injection.prompt_text
+
+    # 方案 A：注入即 mark_items_used，不依赖 knowledge_used
+    for item_id in injection.item_ids:
+        assert _use_count(db, item_id) >= 1
 
 
 def test_build_visual_prompt_injection_returns_none_when_no_hits(knowledge_runtime):
@@ -173,7 +203,7 @@ def test_build_visual_prompt_injection_returns_none_when_no_hits(knowledge_runti
 
 
 def test_build_visual_prompt_injection_returns_none_for_empty_query(knowledge_runtime):
-    """空 scene_brief + 空 keywords → 检索器返回 hit_count=0 → None。"""
+    """空 scene_brief + 空 keywords → 不发起检索，直接返回 None。"""
     injection = knowledge_runtime.build_visual_prompt_injection(
         scene_brief="",
         keywords=[],
@@ -181,6 +211,29 @@ def test_build_visual_prompt_injection_returns_none_for_empty_query(knowledge_ru
         screenshot_id=10,
     )
     assert injection is None
+
+
+def test_build_visual_prompt_injection_increments_use_count_without_knowledge_used(
+    knowledge_runtime, seeded_runtime
+):
+    """注入命中 → use_count +1，无需 knowledge_used / on_reply_consumed。"""
+    _public_ids, internal_ids = seeded_runtime
+    db = knowledge_runtime._db
+
+    before = [_use_count(db, iid) for iid in internal_ids]
+    assert before == [0, 0]
+
+    injection = knowledge_runtime.build_visual_prompt_injection(
+        scene_brief="葛瑞克",
+        keywords=["葛瑞克"],
+        request_round=2,
+        screenshot_id=20,
+    )
+    assert isinstance(injection, KnowledgeInjectionResult)
+    assert injection.item_ids
+
+    for item_id in injection.item_ids:
+        assert _use_count(db, item_id) == 1
 
 
 # ---------------------------------------------------------------------------
@@ -241,7 +294,7 @@ def test_on_reply_consumed_empty_list_is_noop(knowledge_runtime):
 
 
 # ---------------------------------------------------------------------------
-# 4. 降级模式：_inject_knowledge_prompt no-op
+# 4. _inject_knowledge_prompt
 # ---------------------------------------------------------------------------
 
 
@@ -261,6 +314,28 @@ def test_inject_knowledge_prompt_noop_when_runtime_none():
     assert result == original_pt
 
 
+def test_inject_knowledge_prompt_skips_without_semantic_query(
+    knowledge_runtime, seeded_runtime
+):
+    """无 live_topic / scene_brief_extra / recent / mic → 无语义查询，不注入（禁止 round 占位）。"""
+    app = make_minimal_danmu_app()
+    object.__setattr__(app, "knowledge_runtime", knowledge_runtime)
+    # FakeConfig 默认 live_topic 空；engine.recent 空
+    app.engine.recent = deque()
+
+    original_pt = "你是一名弹幕主播。"
+    result = app._inject_knowledge_prompt(
+        original_pt,
+        request_round=99,
+        screenshot_id=88,
+    )
+    assert result == original_pt
+    # 未注入 → use_count 仍为 0
+    _public_ids, internal_ids = seeded_runtime
+    db = knowledge_runtime._db
+    assert _use_count(db, internal_ids[0]) == 0
+
+
 def test_inject_knowledge_prompt_noop_when_runtime_returns_none(
     knowledge_runtime, seeded_runtime
 ):
@@ -269,7 +344,7 @@ def test_inject_knowledge_prompt_noop_when_runtime_returns_none(
     object.__setattr__(app, "knowledge_runtime", knowledge_runtime)
 
     original_pt = "你是一名弹幕主播。"
-    # 用空查询确保检索无命中（fixture 插入的条目含 "keyword_shared"）
+    # 有语义但与 seed 无关 → 检索无命中
     result = app._inject_knowledge_prompt(
         original_pt,
         request_round=1,
@@ -282,28 +357,70 @@ def test_inject_knowledge_prompt_noop_when_runtime_returns_none(
 def test_inject_knowledge_prompt_appends_when_runtime_returns_prompt(
     knowledge_runtime, seeded_runtime
 ):
-    """``knowledge_runtime`` 检索命中 → ``_inject_knowledge_prompt`` 追加 prompt。"""
+    """scene_brief_extra=葛瑞克 → 检索命中 → 追加 prompt。"""
     app = make_minimal_danmu_app()
     object.__setattr__(app, "knowledge_runtime", knowledge_runtime)
 
     original_pt = "你是一名弹幕主播。"
-    # 用 "葛瑞克"（恰好一个 trigram）作为 scene_brief，确保 FTS 命中
     result = app._inject_knowledge_prompt(
         original_pt,
         request_round=1,
         screenshot_id=10,
         scene_brief_extra="葛瑞克",
     )
-    # 应在原 system_pt 后追加 \n\n + 注入文本
     assert result.startswith(original_pt)
     assert result != original_pt
     assert "\n\n" in result
-    # 注入的 prompt 应包含命中条目的内容
     assert "葛瑞克" in result
 
 
+def test_inject_knowledge_prompt_hits_with_live_topic(
+    knowledge_runtime, seeded_runtime
+):
+    """config live_topic 含命中词 → 注入成功。"""
+    app = make_minimal_danmu_app()
+    object.__setattr__(app, "knowledge_runtime", knowledge_runtime)
+    # 与 seed content「葛瑞克事实…」对齐的短主题词（整句「…攻略」可能整段成词导致 FTS 不命中）
+    app.config.set("live_topic", "葛瑞克")
+
+    original_pt = "你是一名弹幕主播。"
+    result = app._inject_knowledge_prompt(
+        original_pt,
+        request_round=3,
+        screenshot_id=30,
+    )
+    assert result != original_pt
+    assert "葛瑞克" in result
+
+
+def test_inject_with_hits_increments_use_count_without_knowledge_used(
+    knowledge_runtime, seeded_runtime
+):
+    """inject 命中 → use_count +1，无需 knowledge_used。"""
+    _public_ids, internal_ids = seeded_runtime
+    db = knowledge_runtime._db
+    assert _use_count(db, internal_ids[0]) == 0
+
+    app = make_minimal_danmu_app()
+    object.__setattr__(app, "knowledge_runtime", knowledge_runtime)
+
+    result = app._inject_knowledge_prompt(
+        "system_base",
+        request_round=1,
+        screenshot_id=10,
+        scene_brief_extra="葛瑞克",
+    )
+    assert result != "system_base"
+
+    injection = knowledge_runtime.get_last_injection()
+    assert isinstance(injection, KnowledgeInjectionResult)
+    assert injection.item_ids
+    for item_id in injection.item_ids:
+        assert _use_count(db, item_id) >= 1
+
+
 # ---------------------------------------------------------------------------
-# 5. 全链路：handle_reply_parsed → on_reply_consumed
+# 5. 全链路：handle_reply_parsed / _build_visual_prompts
 # ---------------------------------------------------------------------------
 
 
@@ -447,3 +564,28 @@ def test_handle_reply_parsed_isolates_knowledge_runtime_exception(
         "on_reply_consumed" in msg or "knowledge" in msg.lower()
         for msg in app.logger.debug_messages
     )
+
+
+def test_build_visual_prompts_with_live_topic_hits_knowledge(
+    knowledge_runtime, seeded_runtime
+):
+    """生产路径 ``_build_visual_prompts`` + live_topic → system_pt 含知识注入。"""
+    app = make_minimal_danmu_app()
+    _stub_personae(app)
+    object.__setattr__(app, "knowledge_runtime", knowledge_runtime)
+    app.config.set("live_topic", "葛瑞克")
+    app.engine.recent = deque()
+
+    result = app._build_visual_prompts(request_round=1, screenshot_id=1, batch_id=1)
+
+    assert result is not None
+    system_pt, _user_pt, _persona = result
+    assert system_pt.startswith("system_prompt_base")
+    assert "葛瑞克" in system_pt
+    # 注入即 use_count 更新
+    injection = knowledge_runtime.get_last_injection()
+    assert isinstance(injection, KnowledgeInjectionResult)
+    assert injection.item_ids
+    db = knowledge_runtime._db
+    for item_id in injection.item_ids:
+        assert _use_count(db, item_id) >= 1

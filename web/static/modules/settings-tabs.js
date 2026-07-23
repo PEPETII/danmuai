@@ -13,12 +13,12 @@ export function getActiveSettingsTabId() {
 
 export function switchSettingsTab(tabId) {
   activeSettingsTabId = tabId;
-  document.querySelectorAll('.settings-tab').forEach((tab) => {
+  document.querySelectorAll('#settingsForm .settings-tab').forEach((tab) => {
     const active = tab.dataset.settingsTab === tabId;
     tab.classList.toggle('active', active);
     tab.setAttribute('aria-selected', active ? 'true' : 'false');
   });
-  document.querySelectorAll('.settings-tab-panel').forEach((panel) => {
+  document.querySelectorAll('#settingsForm .settings-tab-panel').forEach((panel) => {
     const active = panel.dataset.settingsPanel === tabId;
     panel.classList.toggle('active', active);
     panel.hidden = !active;
