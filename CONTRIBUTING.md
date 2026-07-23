@@ -4,7 +4,7 @@
 
 - 默认 UI 为 **Web 控制台**（`web/static/` + `app/web_console.py` + `app/web_api/`），PyQt6 仅用于 Overlay/托盘。
 - 优先修复稳定性、隐私和发布质量问题，再考虑新功能。
-- 修改 Web UI 前对照 [`prototype/Qwen_html_20260524_481u8vlmv.html`](prototype/Qwen_html_20260524_481u8vlmv.html) 与 `web/static/warm-tokens.css`。
+- 修改 Web UI 前对照 [docs/ui/DESIGN_SYSTEM.md](docs/ui/DESIGN_SYSTEM.md)、[docs/ui/UI_CHANGE_CHECKLIST.md](docs/ui/UI_CHANGE_CHECKLIST.md)，以及 [`prototype/Qwen_html_20260524_481u8vlmv.html`](prototype/Qwen_html_20260524_481u8vlmv.html)；Token 以 `web/static/warm-tokens-base.css` 为准（入口 `warm-tokens.css`）。
 
 ## 本地开发
 
@@ -18,7 +18,9 @@ python main.py
 
 ## 提交前检查
 
-本地 **不要** 跑全量 `python -m pytest tests/`：套件 700+ 条，内存占用高，易导致机器卡顿。请按改动范围 **分批** 执行（每批 `-q -x`）；全量仅 CI 或资源充足的维护者环境执行。细则见 `.local-ai/prompts/IDE_AGENT_RULES.md` §10。
+本地 **不要** 跑全量 `python -m pytest tests/`：套件 700+ 条，内存占用高，易导致机器卡顿。请按改动范围 **分批** 执行（每批 `-q -x`）；全量仅 CI 或资源充足的维护者环境执行。
+
+分批策略与 Agent 边界以根目录 [AGENTS.md](AGENTS.md) §7 / §10 为准。可选本地补充：`.local-ai/prompts/IDE_AGENT_RULES.md` §10（该路径可能被 gitignore，克隆后不一定存在；**勿**依赖根级 `IDE_AGENT_RULES.md`）。Web UI 另见 [docs/ui/DESIGN_SYSTEM.md](docs/ui/DESIGN_SYSTEM.md)。
 
 ```bash
 pip install -r requirements-dev.txt

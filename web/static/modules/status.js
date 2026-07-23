@@ -223,19 +223,23 @@ function applyRunningUi(st, running) {
   const liveMessage = st.live_message || '';
 
   if (running) {
-    if (dot) dot.className = 'w-3 h-3 bg-green-400 rounded-full animate-pulse';
+    if (dot) {
+      dot.className = 'overview-status-dot w-3 h-3 bg-green-400 rounded-full animate-pulse';
+    }
     updateTextIfChanged(pill, t('common.generating'));
     updateTextIfChanged(sub, liveMessage || t('dynamic.status.小助手正在为你生成暖心弹幕'));
     updateTextIfChanged(btn, t('common.stopDanmu'));
-    btn?.classList.remove('btn-primary', 'text-white');
-    btn?.classList.add('bg-white', 'border', 'border-gray-200', 'text-warmText');
+    btn?.classList.remove('btn-primary', 'ui-button--primary', 'text-white');
+    btn?.classList.add('ui-button--secondary');
   } else {
-    if (dot) dot.className = 'w-3 h-3 bg-gray-300 rounded-full';
+    if (dot) {
+      dot.className = 'overview-status-dot w-3 h-3 bg-gray-300 rounded-full';
+    }
     updateTextIfChanged(pill, t('common.standby'));
     updateTextIfChanged(sub, t('dynamic.status.小助手正在待命_随时为你生成暖心弹幕'));
     updateTextIfChanged(btn, t('common.startDanmu'));
-    btn?.classList.remove('bg-white', 'border', 'border-gray-200', 'text-warmText');
-    btn?.classList.add('btn-primary', 'text-white');
+    btn?.classList.remove('ui-button--secondary', 'bg-white', 'border', 'border-gray-200', 'text-warmText');
+    btn?.classList.add('btn-primary', 'ui-button--primary', 'text-white');
   }
 }
 
@@ -342,7 +346,8 @@ export function applyStatus(st) {
     if (bannerMessage) updateTextIfChanged(bannerMessage, st.error_message);
     else if (banner) updateTextIfChanged(banner, st.error_message);
     banner?.classList.remove('hidden');
-    banner?.classList.toggle('text-red-700', st.is_error);
+    banner?.classList.add('ui-status-banner--danger');
+    banner?.classList.toggle('text-red-700', !!st.is_error);
   } else {
     banner?.classList.add('hidden');
   }

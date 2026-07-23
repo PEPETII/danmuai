@@ -92,6 +92,10 @@ import {
   initAppUpdateModal,
   initAppVersionAndUpdateCheck,
 } from './modules/app-update-banner.js';
+import {
+  closeShellNavIfDrawer,
+  initResponsiveShell,
+} from './modules/responsive-shell.js';
 
 let danmuReadConfigCache = null;
 let danmuReadCatalog = null;
@@ -488,6 +492,7 @@ function navigate(page) {
   } catch {
     /* ignore */
   }
+  closeShellNavIfDrawer();
 
   if (page === 'settings') {
     reloadConfigFromServer().catch(console.error);
@@ -682,6 +687,7 @@ async function init() {
       navigate(el.dataset.page);
     });
   });
+  initResponsiveShell();
   const hash = (location.hash || '').replace('#', '');
   if (hash) navigate(hash);
 

@@ -29,6 +29,9 @@
     "checkUpdate": "检查更新",
     "downloadRestart": "下载并重启",
     "settingsHelpAria": "弹幕设置说明",
-    "newAnnouncementBadge": "有新公告"
+    "newAnnouncementBadge": "有新公告",
+    "openMenu": "打开导航",
+    "closeMenu": "关闭导航",
+    "sidebarAria": "主导航"
   }
 }

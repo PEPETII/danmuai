@@ -39,6 +39,11 @@ def test_style_generator_form_names_match_contract_keys():
         "floating_panel_opacity",
     ):
         assert f'name="{key}"' in text, f"missing form name for {key}"
+    assert 'data-preset="blivechat_line"' in text
+    assert 'id="sgBtnPresetBlivechatLine"' in text
+    assert 'value="line_like"' in text
+    assert 'value="stacked"' in text
+    assert 'value="inline"' in text
     assert set(STYLE_PRESET_APPLY_KEYS)
 
 
@@ -67,6 +72,11 @@ def test_built_index_html_contains_style_generator_once():
     assert 'name="floating_panel_style_preset"' in html
     assert 'name="floating_panel_card_colors"' in html
     assert 'name="floating_panel_shape"' in html
+    assert 'name="floating_panel_layout"' in html
+    assert 'name="floating_panel_tail_border"' in html
+    assert 'name="floating_panel_tail_long_side"' in html
+    assert 'name="floating_panel_tail_rotate_deg"' in html
+    assert 'data-preset="blivechat_line"' in html
     assert 'btnOpenStyleGeneratorFromSettings' in html
 
 
@@ -94,7 +104,7 @@ def test_style_generator_module_uses_api_fetch_and_config_put():
 def test_style_generator_preview_matches_web_panel_structure():
     """Preview must mirror real floating_panel: column-reverse, card DOM, 2-line clamp, maxCards."""
     mod = (_static() / "modules" / "app-style-generator-page.js").read_text(encoding="utf-8")
-    css = (_static() / "warm-tokens-pages.css").read_text(encoding="utf-8")
+    css = (_static() / "warm-tokens-pages-stylegen.css").read_text(encoding="utf-8")
     panel_css = (_static() / "floating_panel" / "style.css").read_text(encoding="utf-8")
     assert "sg-preview-card" in mod
     assert "column-reverse" in css
@@ -105,6 +115,20 @@ def test_style_generator_preview_matches_web_panel_structure():
     assert "scheduleCardExit" in mod
     assert "applyCardStyleVars" in mod
     assert "is-bubble" in css and "is-bubble" in panel_css
+    # LineLike stacked DOM + CSS vars (W-FP-LINELIKE-STYLEGEN-001)
+    assert "layout-stacked" in mod
+    assert "buildPreviewCardInnerHtml" in mod
+    assert "class=\"bubble\"" in mod or "class='bubble'" in mod or 'class="bubble"' in mod
+    assert "floating_panel_layout" in mod
+    assert "floating_panel_tail_border" in mod
+    assert "floating_panel_tail_long_side" in mod
+    assert "floating_panel_tail_rotate_deg" in mod
+    assert "applyPreset('blivechat_line')" in mod or 'applyPreset("blivechat_line")' in mod
+    assert "layout-stacked" in css
+    assert "--tail-border" in css
+    assert "--tail-long-side" in css
+    assert "--tail-rotate" in css
+    assert 'data-tail-style="line_like"' in css or "[data-tail-style=\"line_like\"]" in css
 
 
 def test_settings_danmu_preview_no_longer_implements_floating_stack():
@@ -134,3 +158,7 @@ def test_i18n_keys_for_style_generator():
     assert "样式生成器" in zh_content
     assert "Style Generator" in en_content
     assert "appStyleGenerator" in zh_dyn and "appStyleGenerator" in en_dyn
+    assert "预设LineLike" in zh_content and "预设LineLike" in en_content
+    assert "布局" in zh_content and '"布局"' in en_content
+    assert "Line尾巴边框" in zh_content and "Line尾巴边框" in en_content
+    assert "尾巴LineLike" in zh_content and "尾巴LineLike" in en_content

@@ -22,6 +22,8 @@ from app.floating_panel_web.panel_protocol import (
 
 
 def test_card_message_fields():
+    from app.floating_panel_web.panel_protocol import CardStyle
+
     msg = CardMessage(
         id="c1",
         username="AI 管家",
@@ -44,6 +46,48 @@ def test_card_message_fields():
     assert "tail_enabled" in style_dict
     assert "username_enabled" in style_dict
     assert "padding_x" in style_dict
+    # LineLike layout / tail geometry defaults (W-FP-LINELIKE-PROTOCOL-QT-001)
+    assert style_dict["layout"] == "inline"
+    assert style_dict["tail_border"] == 8
+    assert style_dict["tail_long_side"] == 18
+    assert style_dict["tail_rotate_deg"] == 35
+
+
+def test_card_style_layout_line_like_fields_round_trip():
+    from app.floating_panel_web.panel_protocol import CardStyle
+
+    style = CardStyle(
+        layout="stacked",
+        tail_style="line_like",
+        tail_border=8,
+        tail_long_side=18,
+        tail_rotate_deg=35,
+        username_separator="",
+    )
+    data = style.to_dict()
+    assert data["layout"] == "stacked"
+    assert data["tail_border"] == 8
+    assert data["tail_long_side"] == 18
+    assert data["tail_rotate_deg"] == 35
+    assert data["username_separator"] == ""
+    back = CardStyle.from_mapping(data)
+    assert back.layout == "stacked"
+    assert back.tail_border == 8
+    assert back.tail_long_side == 18
+    assert back.tail_rotate_deg == 35
+    assert back.username_separator == ""
+
+
+def test_card_style_missing_layout_fields_default():
+    """旧客户端缺 layout / tail_* 字段不炸，回落默认。"""
+    from app.floating_panel_web.panel_protocol import CardStyle
+
+    legacy = {"card_bg": "#ffffff", "shape": "bubble"}
+    style = CardStyle.from_mapping(legacy)
+    assert style.layout == "inline"
+    assert style.tail_border == 8
+    assert style.tail_long_side == 18
+    assert style.tail_rotate_deg == 35
 
 
 def test_config_message_fields():

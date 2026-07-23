@@ -8,7 +8,7 @@ from web.static.build_index_html import build_index_html
 STATIC_ROOT = Path(__file__).resolve().parents[1] / "web" / "static"
 SETTINGS_HTML = STATIC_ROOT / "partials" / "settings.html"
 CONTENT_PAGES_HTML = STATIC_ROOT / "partials" / "content-pages.html"
-PAGES_CSS = STATIC_ROOT / "warm-tokens-pages.css"
+PAGES_CSS = STATIC_ROOT / "warm-tokens-settings.css"
 INDEX_HTML = STATIC_ROOT / "index.html"
 
 ROW_LAYOUT_PANELS = (

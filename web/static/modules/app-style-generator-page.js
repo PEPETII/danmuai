@@ -14,6 +14,7 @@ import { t } from './i18n.js';
 const STYLE_SAVE_KEYS = [
   'floating_panel_style_preset',
   'floating_panel_shape',
+  'floating_panel_layout',
   'floating_panel_card_colors',
   'floating_panel_card_color_mode',
   'floating_panel_card_color_weights',
@@ -43,6 +44,9 @@ const STYLE_SAVE_KEYS = [
   'floating_panel_tail_height',
   'floating_panel_tail_size',
   'floating_panel_tail_offset_y',
+  'floating_panel_tail_border',
+  'floating_panel_tail_long_side',
+  'floating_panel_tail_rotate_deg',
   'floating_panel_username_enabled',
   'floating_panel_username_text',
   'floating_panel_username_color',
@@ -335,8 +339,10 @@ function applyPreset(presetId) {
 }
 
 function readPreviewStyle() {
+  const layoutRaw = readStr('floating_panel_layout', 'inline');
   return {
     shape: readStr('floating_panel_shape', 'bubble'),
+    layout: layoutRaw === 'stacked' ? 'stacked' : 'inline',
     cardColors: parsePalette(readStr('floating_panel_card_colors', '[]')),
     cardMode: readStr('floating_panel_card_color_mode', 'equal'),
     cardWeights: parseWeights(readStr('floating_panel_card_color_weights', '{}')),
@@ -366,6 +372,9 @@ function readPreviewStyle() {
     tailWidth: readInt('floating_panel_tail_width', 8),
     tailHeight: readInt('floating_panel_tail_height', 10),
     tailOffsetY: readInt('floating_panel_tail_offset_y', 38),
+    tailBorder: readInt('floating_panel_tail_border', 8),
+    tailLongSide: readInt('floating_panel_tail_long_side', 18),
+    tailRotateDeg: readInt('floating_panel_tail_rotate_deg', 35),
     usernameEnabled: readBool('floating_panel_username_enabled'),
     usernameText: readStr('floating_panel_username_text', '弹幕'),
     usernameColor: readStr('floating_panel_username_color', '#281C12'),
@@ -429,6 +438,9 @@ function applyCardStyleVars(cardEl, style, cardColor, textColor) {
   s.setProperty('--tail-w', `${style.tailWidth}px`);
   s.setProperty('--tail-h', `${style.tailHeight}px`);
   s.setProperty('--tail-offset-y', `${style.tailOffsetY}%`);
+  s.setProperty('--tail-border', `${style.tailBorder}px`);
+  s.setProperty('--tail-long-side', `${style.tailLongSide}px`);
+  s.setProperty('--tail-rotate', `${style.tailRotateDeg}deg`);
   if (style.shadowEnabled) {
     s.setProperty(
       '--card-shadow',
@@ -438,6 +450,9 @@ function applyCardStyleVars(cardEl, style, cardColor, textColor) {
     s.setProperty('--card-shadow', 'none');
   }
 
+  const isStacked = style.layout === 'stacked';
+  cardEl.classList.toggle('layout-stacked', isStacked);
+  cardEl.classList.toggle('layout-inline', !isStacked);
   cardEl.classList.toggle('no-border', !(style.borderEnabled && style.borderWidth > 0));
   cardEl.classList.toggle('has-outline', Boolean(style.outlineEnabled && style.outlineWidth > 0));
   cardEl.classList.toggle('is-bold', Boolean(style.fontBold));
@@ -450,22 +465,59 @@ function applyCardStyleVars(cardEl, style, cardColor, textColor) {
   }
 }
 
+/** 与 floating_panel addCard 同构：stacked → .username + .bubble > .content */
+function buildPreviewCardInnerHtml(style, text) {
+  const usernameLabel = style.usernameEnabled
+    ? `${style.usernameText}${style.usernameSeparator}`
+    : '';
+  const usernameHtml = style.usernameEnabled
+    ? `<div class="username">${escapePreviewHtml(usernameLabel)}</div>`
+    : '<div class="username is-hidden"></div>';
+  if (style.layout === 'stacked') {
+    return (
+      `${usernameHtml}` +
+      `<div class="bubble"><div class="content">${escapePreviewHtml(text)}</div></div>`
+    );
+  }
+  return (
+    `${usernameHtml}` +
+    `<div class="content">${escapePreviewHtml(text)}</div>`
+  );
+}
+
+function syncPreviewCardDom(cardEl, style, text) {
+  if (!cardEl) return;
+  const wantStacked = style.layout === 'stacked';
+  const hasBubble = Boolean(cardEl.querySelector(':scope > .bubble'));
+  if (wantStacked !== hasBubble) {
+    cardEl.innerHTML = buildPreviewCardInnerHtml(style, text);
+    return;
+  }
+  const usernameEl = cardEl.querySelector(':scope > .username');
+  if (usernameEl) {
+    if (style.usernameEnabled) {
+      usernameEl.classList.remove('is-hidden');
+      usernameEl.textContent = `${style.usernameText}${style.usernameSeparator}`;
+    } else {
+      usernameEl.classList.add('is-hidden');
+      usernameEl.textContent = '';
+    }
+  }
+  const contentEl = wantStacked
+    ? cardEl.querySelector(':scope > .bubble > .content')
+    : cardEl.querySelector(':scope > .content');
+  if (contentEl && text != null) {
+    contentEl.textContent = text;
+  }
+}
+
 function restyleVisiblePreviewItems() {
   const style = readPreviewStyle();
   applyStageConfig(style);
   previewItems.forEach((item) => {
     if (!item.el) return;
+    syncPreviewCardDom(item.el, style, item.text);
     applyCardStyleVars(item.el, style, item.cardColor, item.textColor);
-    const usernameEl = item.el.querySelector('.username');
-    if (usernameEl) {
-      if (style.usernameEnabled) {
-        usernameEl.classList.remove('is-hidden');
-        usernameEl.textContent = `${style.usernameText}${style.usernameSeparator}`;
-      } else {
-        usernameEl.classList.add('is-hidden');
-        usernameEl.textContent = '';
-      }
-    }
   });
   removeOldestIfNeeded();
 }
@@ -514,13 +566,7 @@ function addPreviewMessage(text) {
   el.dataset.cardId = `sg-${idx}-${Date.now()}`;
   el.dataset.cardColor = cardColor;
   el.dataset.textColor = textColor;
-
-  const usernameLabel = style.usernameEnabled
-    ? `${style.usernameText}${style.usernameSeparator}`
-    : '';
-  el.innerHTML =
-    `<div class="username${style.usernameEnabled ? '' : ' is-hidden'}">${escapePreviewHtml(usernameLabel)}</div>` +
-    `<div class="content">${escapePreviewHtml(text)}</div>`;
+  el.innerHTML = buildPreviewCardInnerHtml(style, text);
 
   applyCardStyleVars(el, style, cardColor, textColor);
   stack.appendChild(el);
@@ -700,6 +746,7 @@ export function initStyleGeneratorPage(deps = {}) {
 
   document.getElementById('sgBtnPresetClassic')?.addEventListener('click', () => applyPreset('classic'));
   document.getElementById('sgBtnPresetWechat')?.addEventListener('click', () => applyPreset('wechat'));
+  document.getElementById('sgBtnPresetBlivechatLine')?.addEventListener('click', () => applyPreset('blivechat_line'));
   document.getElementById('sgBtnRestoreDefault')?.addEventListener('click', () => {
     restoreDefaultAndSave().catch((error) => showToast(error.message, true));
   });

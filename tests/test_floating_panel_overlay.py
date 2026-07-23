@@ -319,6 +319,18 @@ def test_paint_uses_clip_rect(fp_v2_setup, qapp, monkeypatch):
     assert clips, "paintEvent must establish a clip rect"
 
 
+def _content_font_metrics(overlay: FloatingPanelOverlay):
+    """Match overlay measure/render: content_size font, not panel font_size."""
+    from PyQt6.QtGui import QFont, QFontMetrics
+
+    st = overlay.current_style()
+    cf = QFont(overlay._font)
+    cf.setPointSize(max(6, min(72, int(st.content_size))))
+    cf.setBold(int(st.content_weight) >= 600)
+    cf.setWeight(max(1, min(99, int(st.content_weight))))
+    return cf, QFontMetrics(cf)
+
+
 def test_short_text_stays_single_line_height(fp_v2_setup, qapp):
     """短句仍约 1 行高，宽度可小于面板。"""
     from app.floating_panel_overlay import FLOATING_PANEL_TEXT_MAX_LINES
@@ -329,8 +341,9 @@ def test_short_text_stays_single_line_height(fp_v2_setup, qapp):
     qapp.processEvents()
     item = overlay.add_danmu_text("短句", skip_dedup=True)
     assert item is not None
-    assert overlay._font_metrics is not None
-    line_h = float(overlay._font_metrics.height())
+    assert overlay._font is not None
+    _cf, cm = _content_font_metrics(overlay)
+    line_h = float(cm.height())
     pad_y = float(overlay._style.padding_y)
     one_line_total = line_h + pad_y * 2.0 + overlay._extra_height()
     two_line_total = line_h * FLOATING_PANEL_TEXT_MAX_LINES + pad_y * 2.0 + overlay._extra_height()
@@ -352,8 +365,9 @@ def test_long_cjk_wraps_to_two_lines(fp_v2_setup, qapp):
     long_text = "这是一句没有空格的中文长弹幕用来验证自动折成两行高度是否正确"
     item = overlay.add_danmu_text(long_text, skip_dedup=True)
     assert item is not None
-    assert overlay._font is not None and overlay._font_metrics is not None
-    line_h = float(overlay._font_metrics.height())
+    assert overlay._font is not None
+    content_font, content_metrics = _content_font_metrics(overlay)
+    line_h = float(content_metrics.height())
     pad_y = float(overlay._style.padding_y)
     one_line_total = line_h + pad_y * 2.0 + overlay._extra_height()
     two_line_cap = line_h * FLOATING_PANEL_TEXT_MAX_LINES + pad_y * 2.0 + overlay._extra_height()
@@ -364,8 +378,19 @@ def test_long_cjk_wraps_to_two_lines(fp_v2_setup, qapp):
     max_total_w = max(1.0, panel_w - 4.0 * 2.0)
     max_content_w = max(1.0, max_total_w - overlay._extra_width())
     max_text_w = max(1.0, max_content_w - pad_x * 2.0)
+    # inline username shares first line width
+    st = overlay.current_style()
+    if st.username_enabled and st.layout != "stacked":
+        from PyQt6.QtGui import QFont, QFontMetrics
+
+        uf = QFont(overlay._font)
+        uf.setPointSize(max(6, min(72, int(st.username_size))))
+        um = QFontMetrics(uf)
+        sep = "" if st.username_separator is None else str(st.username_separator)
+        uw = float(um.horizontalAdvance(str(st.username_text or "弹幕") + sep))
+        max_text_w = max(1.0, max_text_w - uw - float(st.gap_username_content))
     lines, _w, text_h = fit_floating_panel_text(
-        long_text, overlay._font, overlay._font_metrics, max_text_w
+        long_text, content_font, content_metrics, max_text_w
     )
     assert 1 < len(lines) <= FLOATING_PANEL_TEXT_MAX_LINES
     assert text_h <= line_h * FLOATING_PANEL_TEXT_MAX_LINES + 0.5
@@ -383,8 +408,9 @@ def test_overlong_text_capped_at_two_lines_with_elide(fp_v2_setup, qapp):
     item = overlay.add_danmu_text(overlong, skip_dedup=True)
     assert item is not None
     assert item.pixmap is not None
-    assert overlay._font is not None and overlay._font_metrics is not None
-    line_h = float(overlay._font_metrics.height())
+    assert overlay._font is not None
+    content_font, content_metrics = _content_font_metrics(overlay)
+    line_h = float(content_metrics.height())
     pad_y = float(overlay._style.padding_y)
     two_line_cap = line_h * FLOATING_PANEL_TEXT_MAX_LINES + pad_y * 2.0 + overlay._extra_height()
     assert item.height <= two_line_cap + 1.5
@@ -393,8 +419,18 @@ def test_overlong_text_capped_at_two_lines_with_elide(fp_v2_setup, qapp):
     max_total_w = max(1.0, panel_w - 4.0 * 2.0)
     max_content_w = max(1.0, max_total_w - overlay._extra_width())
     max_text_w = max(1.0, max_content_w - pad_x * 2.0)
+    st = overlay.current_style()
+    if st.username_enabled and st.layout != "stacked":
+        from PyQt6.QtGui import QFont, QFontMetrics
+
+        uf = QFont(overlay._font)
+        uf.setPointSize(max(6, min(72, int(st.username_size))))
+        um = QFontMetrics(uf)
+        sep = "" if st.username_separator is None else str(st.username_separator)
+        uw = float(um.horizontalAdvance(str(st.username_text or "弹幕") + sep))
+        max_text_w = max(1.0, max_text_w - uw - float(st.gap_username_content))
     lines, _w, text_h = fit_floating_panel_text(
-        overlong, overlay._font, overlay._font_metrics, max_text_w
+        overlong, content_font, content_metrics, max_text_w
     )
     assert len(lines) == FLOATING_PANEL_TEXT_MAX_LINES
     assert any(("…" in line) or ("..." in line) for line in lines)
@@ -402,3 +438,66 @@ def test_overlong_text_capped_at_two_lines_with_elide(fp_v2_setup, qapp):
     dpr = item.pixmap.devicePixelRatio() or 1.0
     pm_w = item.pixmap.width() / dpr
     assert pm_w <= panel_w + 1.0
+
+
+def test_stacked_layout_username_outside_bubble_height(fp_v2_setup, qapp):
+    """layout=stacked：总高度含 username 行 + gap；用户名块在 bubble 顶之上。"""
+    from app.floating_panel_style import blivechat_line_factory_defaults
+
+    store, engine, _old = fp_v2_setup
+    for k, v in blivechat_line_factory_defaults().items():
+        store.set(k, v)
+    overlay = FloatingPanelOverlay(store, engine)
+    overlay.resize(360, 400)
+    qapp.processEvents()
+    st = overlay.current_style()
+    assert st.layout == "stacked"
+    assert st.tail_style == "line_like"
+    assert st.username_separator == ""
+
+    username_block = overlay._username_block_height()
+    assert username_block > 0.0
+    assert overlay._is_stacked_layout() is True
+
+    item = overlay.add_danmu_text("stacked hi", skip_dedup=True)
+    assert item is not None
+    assert item.pixmap is not None
+
+    # stacked item taller than pure bubble body estimate without username
+    content_only_est = float(overlay._font_metrics.height()) + float(st.padding_y) * 2
+    assert item.height > content_only_est + username_block * 0.5
+
+    # body top sits below username band
+    pad_left, pad_top, _pr, _pb = overlay._shadow_pads()
+    space_above = overlay._space_above_body()
+    assert space_above >= username_block - 0.5
+    body_top = pad_top + space_above
+    # username baseline must be strictly above body top
+    uf_h = username_block - float(st.gap_username_content)
+    assert uf_h > 0
+    assert body_top > pad_top + uf_h * 0.3
+
+    # pixmap height includes space_above
+    dpr = item.pixmap.devicePixelRatio() or 1.0
+    logical_h = item.pixmap.height() / dpr
+    assert logical_h >= item.height - 1.5
+
+
+def test_line_like_tail_not_mid_height_side_tail(fp_v2_setup, qapp):
+    """tail_style=line_like：_tail_h 不走侧中高度尾巴；_body_path 仍含尾巴几何。"""
+    from app.floating_panel_style import blivechat_line_factory_defaults
+    from PyQt6.QtCore import QRectF
+
+    store, engine, _old = fp_v2_setup
+    for k, v in blivechat_line_factory_defaults().items():
+        store.set(k, v)
+    overlay = FloatingPanelOverlay(store, engine)
+    qapp.processEvents()
+    assert overlay._is_line_like_tail() is True
+    assert overlay._tail_h() == 0.0
+    assert overlay._tail_w() > 0.0
+    body = QRectF(40.0, 30.0, 120.0, 40.0)
+    path = overlay._body_path(body)
+    # united path larger than plain rounded rect
+    plain = path.boundingRect()
+    assert plain.width() > body.width() - 0.5 or plain.left() < body.left() - 1.0

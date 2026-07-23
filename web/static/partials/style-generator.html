@@ -12,11 +12,12 @@
             <div class="flex flex-wrap gap-2" role="group" aria-label="样式预设">
               <button type="button" id="sgBtnPresetClassic" class="sg-preset-btn px-4 py-2 rounded-xl border border-gray-200 font-semibold text-sm" data-preset="classic" data-i18n="content.text.预设经典">经典</button>
               <button type="button" id="sgBtnPresetWechat" class="sg-preset-btn px-4 py-2 rounded-xl border border-gray-200 font-semibold text-sm" data-preset="wechat" data-i18n="content.text.预设微信">微信风格</button>
+              <button type="button" id="sgBtnPresetBlivechatLine" class="sg-preset-btn px-4 py-2 rounded-xl border border-gray-200 font-semibold text-sm" data-preset="blivechat_line" data-i18n="content.text.预设LineLike">Line 风格</button>
               <button type="button" id="sgBtnPresetCustom" class="sg-preset-btn px-4 py-2 rounded-xl border border-gray-200 font-semibold text-sm" data-preset="custom" disabled data-i18n="content.text.自定义">自定义</button>
             </div>
             <input type="hidden" name="floating_panel_style_preset" id="sg-floating_panel_style_preset" value="wechat">
             <p class="settings-section-hint" data-i18n="content.text.选择_classic_或_wechat_立即填充表单并刷新预览_手动修改任意字段会标为自定义">
-              选择 classic 或 wechat 立即填充表单并刷新预览；手动修改任意字段会标为自定义。
+              选择 classic / wechat / Line 风格立即填充表单并刷新预览；手动修改任意字段会标为自定义。
             </p>
           </div>
 
@@ -26,6 +27,13 @@
               <select name="floating_panel_shape" id="sg-floating_panel_shape" class="settings-field-control text-left">
                 <option value="card" data-i18n="content.text.卡片">卡片</option>
                 <option value="bubble" data-i18n="content.text.气泡">气泡</option>
+              </select>
+            </div>
+            <div class="settings-field">
+              <label for="sg-floating_panel_layout" class="settings-field-label" data-i18n="content.text.布局">布局</label>
+              <select name="floating_panel_layout" id="sg-floating_panel_layout" class="settings-field-control text-left">
+                <option value="inline" data-i18n="content.text.布局内联">内联（用户名在气泡内）</option>
+                <option value="stacked" data-i18n="content.text.布局堆叠">堆叠（用户名在气泡外）</option>
               </select>
             </div>
             <div class="settings-field">
@@ -265,6 +273,7 @@
                 <select name="floating_panel_tail_style" id="sg-floating_panel_tail_style" class="settings-field-control text-left">
                   <option value="round" data-i18n="content.text.尾巴圆润">圆润</option>
                   <option value="sharp" data-i18n="content.text.尾巴锐利">锐利</option>
+                  <option value="line_like" data-i18n="content.text.尾巴LineLike">Line 风格</option>
                   <option value="none" data-i18n="content.text.尾巴无">无</option>
                 </select>
               </div>
@@ -283,6 +292,18 @@
               <div class="settings-field">
                 <label for="sg-floating_panel_tail_offset_y" class="settings-field-label" data-i18n="content.text.尾巴垂直位置">尾巴垂直位置 (%)</label>
                 <input type="number" name="floating_panel_tail_offset_y" id="sg-floating_panel_tail_offset_y" min="0" max="100" class="settings-field-control" value="38">
+              </div>
+              <div class="settings-field">
+                <label for="sg-floating_panel_tail_border" class="settings-field-label" data-i18n="content.text.Line尾巴边框">Line 尾巴边框</label>
+                <input type="number" name="floating_panel_tail_border" id="sg-floating_panel_tail_border" min="0" max="32" class="settings-field-control" value="8">
+              </div>
+              <div class="settings-field">
+                <label for="sg-floating_panel_tail_long_side" class="settings-field-label" data-i18n="content.text.Line尾巴长边">Line 尾巴长边</label>
+                <input type="number" name="floating_panel_tail_long_side" id="sg-floating_panel_tail_long_side" min="0" max="64" class="settings-field-control" value="18">
+              </div>
+              <div class="settings-field">
+                <label for="sg-floating_panel_tail_rotate_deg" class="settings-field-label" data-i18n="content.text.Line尾巴旋转">Line 尾巴旋转 (°)</label>
+                <input type="number" name="floating_panel_tail_rotate_deg" id="sg-floating_panel_tail_rotate_deg" min="-180" max="180" class="settings-field-control" value="35">
               </div>
             </div>
           </div>

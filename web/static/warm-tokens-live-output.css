@@ -1,0 +1,116 @@
+/* Split — live overlay setup assistant block 1 (W-UI-CSS-SPLIT-001). */
+
+.live-overlay-setup-state {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 1.8rem;
+  padding: 0.28rem 0.7rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(var(--color-primary-rgb), 0.24);
+  background: rgba(var(--color-primary-rgb), 0.08);
+  color: var(--color-text-muted, #6b7280);
+  font-size: 0.78rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.live-overlay-setup-state.is-waiting {
+  border-color: rgba(245, 158, 11, 0.38);
+  background: rgba(245, 158, 11, 0.1);
+  color: #92400e;
+}
+
+.live-overlay-setup-state.is-connected {
+  border-color: rgba(34, 197, 94, 0.34);
+  background: rgba(34, 197, 94, 0.1);
+  color: #166534;
+}
+
+.live-overlay-setup-state.is-error {
+  border-color: rgba(239, 68, 68, 0.34);
+  background: rgba(239, 68, 68, 0.1);
+  color: #b91c1c;
+}
+
+.live-overlay-setup {
+  margin: 0 0 1rem;
+  padding: 0.8rem 0.9rem;
+  border-radius: var(--radius-md);
+  border: 1px dashed rgba(var(--color-primary-rgb), 0.28);
+  background: var(--color-bg-subtle);
+}
+
+.live-overlay-setup-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+  gap: 0.5rem;
+  margin: 0 0 0.65rem;
+  padding: 0;
+  list-style: none;
+}
+
+.live-overlay-setup-step {
+  min-height: 2rem;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.55rem;
+  border-radius: calc(var(--radius-md) - 2px);
+  color: var(--color-text-muted, #6b7280);
+  font-size: 0.8rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.live-overlay-step-dot {
+  flex: 0 0 auto;
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 9999px;
+  background: rgba(148, 163, 184, 0.48);
+}
+
+.live-overlay-setup-step.is-done {
+  color: #166534;
+}
+
+.live-overlay-setup-step.is-done .live-overlay-step-dot {
+  background: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.16);
+}
+
+.live-overlay-setup-hint {
+  min-height: 1.25rem;
+  margin: 0;
+  color: var(--color-text-muted, #6b7280);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+[data-theme="dark"] .live-overlay-setup-state.is-waiting {
+  color: #fbbf24;
+}
+
+[data-theme="dark"] .live-overlay-setup-state.is-connected,
+[data-theme="dark"] .live-overlay-setup-step.is-done {
+  color: #86efac;
+}
+
+[data-theme="dark"] .live-overlay-setup-state.is-error {
+  color: #fca5a5;
+}
+
+.preview-slot img:not(.hidden) + p {
+  display: none;
+}
+
+.pool-min-on-screen.is-disabled label {
+  opacity: 0.55;
+}
+
+.pool-min-on-screen.is-disabled input {
+  opacity: 0.55;
+  pointer-events: none;
+}
+

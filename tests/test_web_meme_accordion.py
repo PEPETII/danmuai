@@ -25,8 +25,19 @@ def test_meme_accordion_wraps_only_target_sections():
     assert 'id="memeBarrageEnabled"' in section
     assert 'id="memeTagGrid"' in section
     assert 'id="btnSaveMemeBarrageSettings"' in section
-    assert section.index('data-settings-rhythm-accordion') < section.index('id="memeTagGrid"')
-    assert section.index('id="memeTagGrid"') < section.index('id="btnSaveMemeBarrageSettings"')
+    assert section.index('id="memeTagGrid"') < section.index('data-settings-rhythm-accordion')
+    assert section.index('data-settings-rhythm-accordion') < section.index('id="btnSaveMemeBarrageSettings"')
+    # 分类模式含标签选择；采集/展示为独立分区
+    assert 'id="hintMemeCategoryTitle"' in section
+    assert '分类模式' in section
+    assert 'meme-category-settings' in section
+    assert 'meme-category-tag-block' in section
+    assert 'id="hintMemeTagTitle"' in section
+    assert 'meme-advanced-settings' in section
+    assert '采集与展示' in section
+    assert section.index('id="hintMemeCategoryTitle"') < section.index('id="memeTagGrid"')
+    assert section.index('id="memeTagGrid"') < section.index('meme-advanced-settings')
+    assert section.index('meme-advanced-settings') < section.index('data-settings-rhythm-accordion')
 
 
 def test_meme_accordion_preserves_field_ids_and_aria():

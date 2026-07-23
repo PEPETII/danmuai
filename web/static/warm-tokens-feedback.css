@@ -1,0 +1,251 @@
+/* Split from warm-tokens-pages.css — feedback/announcements/logs (W-UI-CSS-SPLIT-001). Rules unchanged. */
+
+.feedback-page {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-height: min(72vh, 640px);
+}
+
+.feedback-notice {
+  line-height: 1.75;
+  font-size: 15px;
+  padding: 1rem 1.25rem;
+  border-radius: var(--radius-md);
+  background: rgba(var(--color-primary-rgb), 0.06);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.2);
+}
+
+.feedback-qr-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+}
+
+.feedback-qr-img {
+  max-width: min(320px, 100%);
+  height: auto;
+  border-radius: 1rem;
+  box-shadow: var(--shadow-warm, 0 4px 15px -3px rgba(255, 165, 165, 0.2));
+}
+
+.feedback-form .feedback-textarea,
+.feedback-form .feedback-input {
+  resize: vertical;
+  min-height: 2.5rem;
+  background: var(--input-bg);
+  color: var(--color-text);
+  border-color: var(--border);
+}
+
+.feedback-form .feedback-textarea:focus,
+.feedback-form .feedback-input:focus {
+  outline: 2px solid rgba(var(--color-primary-rgb), 0.35);
+  outline-offset: 1px;
+}
+
+.feedback-quota-hint {
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-md);
+  background: rgba(var(--color-primary-rgb), 0.05);
+  border: 1px dashed rgba(var(--color-primary-rgb), 0.25);
+}
+
+.announcements-list .announcements-empty,
+.announcements-list .announcements-error {
+  padding: 2rem;
+  text-align: center;
+  color: var(--color-text-muted, #6b7280);
+  font-size: 0.9375rem;
+}
+
+.announcement-card {
+  padding: 1.25rem 1.5rem;
+  border-radius: var(--radius-lg, 1rem);
+  background: var(--color-surface);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.15);
+  box-shadow: var(--shadow-warm, 0 4px 15px -3px rgba(255, 165, 165, 0.15));
+}
+
+.announcement-card.announcement-level-warning {
+  border-color: rgba(245, 158, 11, 0.45);
+  background: rgba(255, 251, 235, 0.9);
+}
+
+.announcement-card.announcement-level-critical {
+  border-color: rgba(239, 68, 68, 0.45);
+  background: rgba(254, 242, 242, 0.95);
+}
+
+.announcement-card-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.announcement-card-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--color-text, #5d5757);
+  margin: 0;
+}
+
+.announcement-pinned-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: 9999px;
+  background: rgba(var(--color-primary-rgb), 0.15);
+  color: var(--color-primary-hover, #ff6b6b);
+}
+
+.announcement-card-meta {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted, #9ca3af);
+  margin-left: auto;
+}
+
+.announcement-card-body {
+  line-height: 1.75;
+  white-space: pre-wrap;
+  color: var(--color-text, #5d5757);
+  font-size: 0.9375rem;
+}
+
+.overview-announcement-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-lg, 1rem);
+  background: var(--color-surface);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.2);
+  box-shadow: var(--shadow-warm, 0 4px 15px -3px rgba(255, 165, 165, 0.12));
+}
+
+.overview-announcement-banner.hidden {
+  display: none;
+}
+
+.overview-announcement-banner.announcement-level-warning {
+  border-color: rgba(245, 158, 11, 0.45);
+  background: rgba(255, 251, 235, 0.95);
+}
+
+.overview-announcement-banner.announcement-level-critical {
+  border-color: rgba(239, 68, 68, 0.45);
+  background: rgba(254, 242, 242, 0.95);
+}
+
+.overview-announcement-banner-text {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--color-text, #5d5757);
+}
+
+.overview-announcement-banner-title {
+  font-weight: 700;
+  color: #dc2626;
+}
+
+.overview-announcement-banner-dismiss {
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 9999px;
+  background: transparent;
+  color: var(--color-text-muted, #9ca3af);
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.overview-announcement-banner-dismiss:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--color-text, #5d5757);
+}
+
+.reward-modal-panel {
+  max-height: min(90vh, 720px);
+  overflow-y: auto;
+}
+
+.reward-modal-intro,
+.reward-modal-ways {
+  text-align: left;
+}
+
+.reward-modal-ways {
+  list-style: disc;
+  padding-left: 1.25rem;
+  margin-bottom: 0;
+}
+
+.reward-modal-benefits-list {
+  margin: 0;
+}
+
+.reward-qr-img {
+  display: block;
+  max-width: min(240px, 100%);
+  height: auto;
+}
+
+.log-panel {
+  position: relative;
+  min-height: 320px;
+  border: 1px solid rgba(var(--color-primary-rgb), 0.35);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-subtle);
+  overflow: hidden;
+}
+
+.log-view {
+  min-height: 320px;
+  padding: 12px;
+}
+
+.log-view-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  margin: 0;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--color-text-dim);
+  pointer-events: none;
+}
+
+.log-panel.has-logs .log-view-empty {
+  display: none;
+}
+
+.log-line {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.log-line.DEBUG { color: var(--color-text-dim); }
+.log-line.INFO { color: var(--color-text); }
+.log-line.WARNING { color: var(--color-primary-hover); background: rgba(var(--color-primary-rgb), 0.12); }
+.log-line.ERROR { color: #fca5a5; background: rgba(180, 35, 24, 0.18); }
+

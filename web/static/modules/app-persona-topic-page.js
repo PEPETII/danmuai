@@ -93,7 +93,7 @@ async function loadPersonaeCheckboxes(containerId) {
     // 模型下拉：未绑定则跟随全局 default_model_id；绑定即独立
     const select = document.createElement('select');
     select.className =
-      'shrink-0 max-w-[9rem] px-2 py-1 bg-white border border-gray-200 rounded-lg text-xs font-normal';
+      'shrink-0 max-w-[9rem] px-2 py-1 bg-white border border-gray-200 rounded-lg text-xs font-normal ui-control ui-select';
     select.title = t('dynamic.appPersonaTopicPage.为该人格选择模型_默认跟随全局_使用_模型');
     const defaultOpt = document.createElement('option');
     defaultOpt.value = '';
@@ -138,7 +138,7 @@ async function loadPersonaeCheckboxes(containerId) {
       const delBtn = document.createElement('button');
       delBtn.type = 'button';
       delBtn.className =
-        'shrink-0 px-2 py-1 border border-red-200 rounded-lg text-xs text-red-600 hover:bg-red-50';
+        'shrink-0 px-2 py-1 border border-red-200 rounded-lg text-xs text-red-600 hover:bg-red-50 ui-button ui-button--secondary ui-button--sm';
       delBtn.textContent = t('common.delete');
       delBtn.title = t('dynamic.appPersonaTopicPage.删除人格_item_label', { label: item.label });
       delBtn.addEventListener('click', (event) => {

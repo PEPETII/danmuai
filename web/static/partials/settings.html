@@ -1,6 +1,4 @@
-    <!-- W-SETTINGS-RESTRUCT-A-006：旧顶栏 API 字段软隐藏（DOM 保留，仅 display:none；删除下方 CSS 规则即可一行回滚） -->
-    <style>.legacy-api-fields{display:none !important;}</style>
-
+    <!-- W-SETTINGS-RESTRUCT-A-006：旧顶栏 API 字段软隐藏（DOM 保留；规则已迁 warm-tokens-compat.css，删该规则即可回滚） -->
     <!-- ========== 区域：弹幕设置 ========== -->
     <!-- section: 弹幕设置（PUT /api/config → ConfigService，主线程落库） -->
     <!-- 6 个设置 tab（顺序固定，由 modules/settings.js initSettingsTabs 渲染） -->
@@ -13,12 +11,12 @@
         <div class="theme-toggle-wrap shrink-0">
           <label class="lang-select-wrap" data-i18n-aria-label="settings.aria.界面语言" aria-label="界面语言">
             <span class="lang-select-label" aria-hidden="true">language:</span>
-            <select id="languageSelect" class="lang-select" data-i18n-aria-label="settings.aria.界面语言" aria-label="界面语言">
+            <select id="languageSelect" class="lang-select ui-control ui-select" data-i18n-aria-label="settings.aria.界面语言" aria-label="界面语言">
               <option value="zh" data-i18n="common.langZh">中文</option>
               <option value="en" data-i18n="common.langEn">英语</option>
             </select>
           </label>
-          <button type="button" id="themeToggle" class="theme-toggle-btn" aria-pressed="false" data-i18n-aria-label="common.toggleDarkMode" aria-label="切换黑夜模式">
+          <button type="button" id="themeToggle" class="theme-toggle-btn ui-button ui-button--secondary ui-button--md" aria-pressed="false" data-i18n-aria-label="common.toggleDarkMode" aria-label="切换黑夜模式">
             <svg class="ui-icon theme-toggle-icon theme-toggle-icon-moon" aria-hidden="true"><use href="#i-moon"></use></svg>
             <svg class="ui-icon theme-toggle-icon theme-toggle-icon-sun" aria-hidden="true"><use href="#i-sun"></use></svg>
             <span class="theme-toggle-label" data-i18n="common.darkMode">黑夜模式</span>
@@ -53,23 +51,23 @@
 
             <div class="legacy-api-fields">
               <label class="block text-sm font-semibold mb-2 text-warmText"><svg class="ui-icon field-label-icon" aria-hidden="true"><use href="#i-cloud"></use></svg>API 地址</label>
-              <input type="text" name="api_endpoint" id="api_endpoint" class="w-full px-4 py-3 bg-cream border border-transparent rounded-xl text-warmText" placeholder="https://ark.cn-beijing.volces.com/api/v3">
+              <input type="text" name="api_endpoint" id="api_endpoint" class="settings-field-control w-full ui-control ui-input" placeholder="https://ark.cn-beijing.volces.com/api/v3">
             </div>
             <div class="legacy-api-fields">
               <label class="block text-sm font-semibold mb-2 text-warmText"><svg class="ui-icon field-label-icon" aria-hidden="true"><use href="#i-plug"></use></svg>API 模式</label>
-              <select name="api_mode" id="api_mode" class="w-full px-4 py-3 bg-cream border border-transparent rounded-xl text-warmText">
+              <select name="api_mode" id="api_mode" class="settings-field-control w-full ui-control ui-select">
                 <option value="doubao">豆包（火山方舟）</option>
                 <option value="openai">OpenAI 兼容接口</option>
               </select>
             </div>
             <div>
               <label class="block text-sm font-semibold mb-2 text-warmText"><svg class="ui-icon field-label-icon" aria-hidden="true"><use href="#i-monitor"></use></svg>识图显示器</label>
-              <select name="screen_index" id="screen_index" class="w-full px-4 py-3 bg-cream border border-transparent rounded-xl text-warmText"></select>
+              <select name="screen_index" id="screen_index" class="settings-field-control w-full ui-control ui-select"></select>
             </div>
             <div class="legacy-api-fields">
               <label class="block text-sm font-semibold mb-2 text-warmText"><svg class="ui-icon field-label-icon" aria-hidden="true"><use href="#i-key"></use></svg>API 密钥 <span class="text-xs text-gray-400 font-normal">（保存在本机并加密）</span></label>
               <div class="relative">
-                <input type="password" name="api_key" id="api_key" autocomplete="current-password" placeholder="sk-..." class="w-full px-4 py-3 bg-cream border border-transparent rounded-xl pr-12 text-warmText">
+                <input type="password" name="api_key" id="api_key" autocomplete="current-password" placeholder="sk-..." class="settings-field-control w-full pr-12 ui-control ui-input">
                 <button type="button" id="toggleKey" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-warmPinkHover">
                   <svg class="ui-icon" aria-hidden="true"><use href="#i-eye"></use></svg>
                 </button>
@@ -82,17 +80,17 @@
                 <p id="modelActiveSourceBanner" class="hidden text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2 mb-2" role="status"></p>
                 <div id="visionModelPicker" class="vision-model-picker" role="radiogroup" data-i18n-aria-label="settings.text.视觉模型" aria-label="视觉模型"></div>
                 <div id="visionModelCustom" class="vision-model-custom hidden">
-                  <input type="text" id="modelCustom" class="w-full px-4 py-3 bg-cream border border-transparent rounded-xl text-warmText" data-i18n-placeholder="settings.placeholder.输入模型_ID" placeholder="输入模型 ID" autocomplete="off">
+                  <input type="text" id="modelCustom" class="settings-field-control w-full ui-control ui-input" data-i18n-placeholder="settings.placeholder.输入模型_ID" placeholder="输入模型 ID" autocomplete="off">
                 </div>
               </div>
             </div>
             <div>
               <label class="block text-sm font-semibold mb-2 text-warmText"><svg class="ui-icon field-label-icon" aria-hidden="true"><use href="#i-thermo"></use></svg>温度</label>
-              <input type="number" name="temperature" id="temperature" min="0" max="2" step="0.1" class="w-full px-4 py-3 bg-cream border border-transparent rounded-xl text-warmText">
+              <input type="number" name="temperature" id="temperature" min="0" max="2" step="0.1" class="settings-field-control w-full ui-control ui-input">
             </div>
             <div class="legacy-api-fields">
               <label class="block text-sm font-semibold mb-2 text-warmText"><svg class="ui-icon field-label-icon" aria-hidden="true"><use href="#i-ruler"></use></svg>最大输出 Token</label>
-              <input type="number" name="max_tokens" id="max_tokens" min="10" max="2000" class="w-full px-4 py-3 bg-cream border border-transparent rounded-xl text-warmText">
+              <input type="number" name="max_tokens" id="max_tokens" min="10" max="2000" class="settings-field-control w-full ui-control ui-input">
             </div>
           </div>
           <div class="mt-2">
@@ -106,7 +104,7 @@
           <div id="customModelsSection" class="space-y-3">
             <div class="flex flex-wrap items-center justify-between gap-3">
               <h4 class="text-md font-bold text-warmText">AI 模型</h4>
-              <button type="button" id="btnAddCustomModel" class="px-4 py-2 rounded-xl text-sm font-bold border border-warmPink/40 text-warmPink hover:bg-warmPink/10 transition">+ 添加模型</button>
+              <button type="button" id="btnAddCustomModel" class="ui-button ui-button--secondary ui-button--sm">+ 添加模型</button>
             </div>
             <div id="customModelsList" class="space-y-2"></div>
           </div>
@@ -137,17 +135,17 @@
             <div id="micIndependentSection" class="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 hidden">
               <div class="md:col-span-2">
                 <label class="block text-sm font-semibold mb-2 text-warmText"><svg class="ui-icon field-label-icon" aria-hidden="true"><use href="#i-tag"></use></svg>麦克风服务商预设</label>
-                <select id="micProviderPreset" class="w-full px-4 py-3 bg-cream border border-transparent rounded-xl text-warmText">
+                <select id="micProviderPreset" class="settings-field-control w-full ui-control ui-select">
                   <option value="">手动填写</option>
                 </select>
               </div>
               <div>
                 <label class="block text-sm font-semibold mb-2 text-warmText"><svg class="ui-icon field-label-icon" aria-hidden="true"><use href="#i-cloud"></use></svg>麦克风 API 地址</label>
-                <input type="text" name="mic_api_endpoint" id="mic_api_endpoint" class="w-full px-4 py-3 bg-cream border border-transparent rounded-xl text-warmText" placeholder="https://ark.cn-beijing.volces.com/api/v3">
+                <input type="text" name="mic_api_endpoint" id="mic_api_endpoint" class="settings-field-control w-full ui-control ui-input" placeholder="https://ark.cn-beijing.volces.com/api/v3">
               </div>
               <div>
                 <label class="block text-sm font-semibold mb-2 text-warmText"><svg class="ui-icon field-label-icon" aria-hidden="true"><use href="#i-plug"></use></svg>麦克风 API 模式</label>
-                <select name="mic_api_mode" id="mic_api_mode" class="w-full px-4 py-3 bg-cream border border-transparent rounded-xl text-warmText">
+                <select name="mic_api_mode" id="mic_api_mode" class="settings-field-control w-full ui-control ui-select">
                   <option value="doubao">豆包（火山方舟）</option>
                   <option value="openai">OpenAI 兼容接口</option>
                 </select>
@@ -155,7 +153,7 @@
               <div class="md:col-span-2">
                 <label class="block text-sm font-semibold mb-2 text-warmText"><svg class="ui-icon field-label-icon" aria-hidden="true"><use href="#i-key"></use></svg>麦克风 API 密钥 <span class="text-xs text-gray-400 font-normal">（保存在本机并加密，与识图密钥分开）</span></label>
                 <div class="relative">
-                  <input type="password" name="mic_api_key" id="mic_api_key" autocomplete="off" placeholder="sk-..." class="w-full px-4 py-3 bg-cream border border-transparent rounded-xl pr-12 text-warmText">
+                  <input type="password" name="mic_api_key" id="mic_api_key" autocomplete="off" placeholder="sk-..." class="settings-field-control w-full pr-12 ui-control ui-input">
                   <button type="button" id="toggleMicKey" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-warmPinkHover">
                     <svg class="ui-icon" aria-hidden="true"><use href="#i-eye"></use></svg>
                   </button>
@@ -167,7 +165,7 @@
                   <input type="hidden" name="mic_model" id="mic_model" value="">
                   <div id="micModelPicker" class="vision-model-picker" role="radiogroup" data-i18n-aria-label="settings.text.麦克风模型" aria-label="麦克风模型"></div>
                   <div id="micModelCustom" class="vision-model-custom hidden">
-                    <input type="text" id="micModelCustomInput" class="w-full px-4 py-3 bg-cream border border-transparent rounded-xl text-warmText" data-i18n-placeholder="settings.placeholder.输入模型_ID_须支持麦克风" placeholder="输入模型 ID（须支持麦克风）" autocomplete="off">
+                    <input type="text" id="micModelCustomInput" class="settings-field-control w-full ui-control ui-input" data-i18n-placeholder="settings.placeholder.输入模型_ID_须支持麦克风" placeholder="输入模型 ID（须支持麦克风）" autocomplete="off">
                   </div>
                 </div>
                 <p class="text-xs text-gray-400 mt-1">仅列出目录中带「支持麦克风」标识的模型；豆包全模态或小米 MiMo 的 mimo-v2.5。</p>
@@ -175,20 +173,20 @@
             </div>
             <div>
               <label class="block text-sm font-semibold mb-2 text-warmText"><svg class="ui-icon field-label-icon" aria-hidden="true"><use href="#i-message"></use></svg>麦克风窗口（秒）</label>
-              <input type="number" name="mic_window_sec" id="mic_window_sec" min="1" max="30" step="1" value="5" class="w-full px-4 py-3 bg-cream border border-transparent rounded-xl text-warmText">
+              <input type="number" name="mic_window_sec" id="mic_window_sec" min="1" max="30" step="1" value="5" class="settings-field-control w-full ui-control ui-input">
             </div>
             <div>
               <label class="block text-sm font-semibold mb-2 text-warmText"><svg class="ui-icon field-label-icon" aria-hidden="true"><use href="#i-mic"></use></svg>输入设备</label>
-              <select name="mic_input_device_id" id="mic_input_device_id" class="w-full px-4 py-3 bg-cream border border-transparent rounded-xl text-warmText">
+              <select name="mic_input_device_id" id="mic_input_device_id" class="settings-field-control w-full ui-control ui-select">
                 <option value="">跟随系统默认</option>
               </select>
               <p id="micInputDeviceHint" class="text-xs text-gray-400 mt-1">默认跟随 Windows 当前默认录音设备；也可以手动固定到某一只麦克风。</p>
             </div>
             <div class="md:col-span-2 flex flex-wrap items-center gap-3">
-              <button type="button" id="btnMicTest" class="px-4 py-2 rounded-xl text-sm font-bold border border-softPeach text-warmText hover:bg-softPeach/40 transition">
+              <button type="button" id="btnMicTest" class="ui-button ui-button--secondary ui-button--sm">
                 测试麦克风
               </button>
-              <button type="button" id="btnMicTestSend" class="px-4 py-2 rounded-xl text-sm font-bold border border-warmPink/40 text-warmPink hover:bg-warmPink/10 transition">
+              <button type="button" id="btnMicTestSend" class="ui-button ui-button--secondary ui-button--sm">
                 测试发送
               </button>
               <span id="micTestStatus" class="text-xs text-gray-400">「测试麦克风」只检查有没有声音，不会联网；「测试发送」会录音并请求 AI。请先点「保存配置」再测。用蓝牙耳机时，请在 Windows「设置 → 系统 → 声音 → 输入」里把耳机设为默认麦克风。</span>
@@ -214,7 +212,7 @@
             </label>
             <div class="settings-field max-w-xs">
               <label for="danmuReadInterval" class="settings-field-label">朗读间隔（秒）</label>
-              <input type="number" id="danmuReadInterval" min="3" max="120" value="10" class="settings-field-control w-full px-4 py-3 bg-cream rounded-xl text-warmText border border-transparent">
+              <input type="number" id="danmuReadInterval" min="3" max="120" value="10" class="settings-field-control w-full ui-control ui-input">
               <p class="settings-section-hint mt-1">每隔若干秒随机选一条当前屏上可见弹幕合成语音（3–120 秒）。间隔过短会在上一句<strong>播完之前</strong>无法开始下一句；合成约需 10–20 秒，建议间隔 ≥15 秒。</p>
             </div>
             <div class="p-4 bg-cream/60 rounded-xl border border-softPeach space-y-3">
@@ -222,34 +220,34 @@
               <p class="settings-section-hint -mt-1">读弹幕是<strong>语音合成（TTS）</strong>链路，与弹幕设置中的<strong>聊天/视觉模型</strong>不同。OpenRouter、One API 等普通聊天模型通常<strong>无法</strong>返回音频，请勿直接复用弹幕生成模型。</p>
               <div>
                 <label for="danmuReadProvider" class="block text-sm font-semibold mb-2 text-warmText">AI 平台</label>
-                <select id="danmuReadProvider" class="w-full px-4 py-3 bg-cream border border-transparent rounded-xl text-warmText">
+                <select id="danmuReadProvider" class="settings-field-control w-full ui-control ui-select">
                   <option value="">小米 MiMo（默认）</option>
                   <option value="dashscope_qwen">阿里百炼 Qwen3</option>
                 </select>
               </div>
               <div id="danmuReadModelSelectWrap">
                 <label for="danmuReadModelSelect" class="block text-sm font-semibold mb-2 text-warmText">TTS 模型</label>
-                <select id="danmuReadModelSelect" class="w-full px-4 py-3 bg-cream border border-transparent rounded-xl text-warmText"></select>
+                <select id="danmuReadModelSelect" class="settings-field-control w-full ui-control ui-select"></select>
               </div>
               <p class="settings-section-hint">选择「默认」时不保存平台字段，朗读使用 MiMo 出厂配置。百炼须选择 TTS 模型。</p>
             </div>
             <div>
               <label for="danmuReadApiKey" class="block text-sm font-semibold mb-2 text-warmText">TTS API Key</label>
-              <input type="password" id="danmuReadApiKey" autocomplete="off" class="w-full px-4 py-3 bg-cream border border-transparent rounded-xl text-warmText" placeholder="TTS API Key">
+              <input type="password" id="danmuReadApiKey" autocomplete="off" class="settings-field-control w-full ui-control ui-input" placeholder="TTS API Key">
             </div>
             <div>
               <label for="danmuReadVoice" class="block text-sm font-semibold mb-2 text-warmText">预置音色</label>
-              <select id="danmuReadVoice" class="w-full px-4 py-3 bg-cream border border-transparent rounded-xl text-warmText"></select>
+              <select id="danmuReadVoice" class="settings-field-control w-full ui-control ui-select"></select>
             </div>
             <div>
               <label for="danmuReadStylePrompt" class="block text-sm font-semibold mb-2 text-warmText">风格指令（可选）</label>
-              <textarea id="danmuReadStylePrompt" rows="4" class="w-full px-4 py-3 bg-cream rounded-xl text-warmText border border-softPeach" data-i18n-placeholder="settings.placeholder.温柔微颤语气_1_0倍速_温暖音色_独白式表达_句尾轻收配合自然呼吸停顿_情绪克" placeholder="温柔微颤语气，1.0倍速，温暖音色，独白式表达，句尾轻收配合自然呼吸停顿，情绪克制有层次，适配泪目治愈类弹幕"></textarea>
+              <textarea id="danmuReadStylePrompt" rows="4" class="settings-field-control w-full ui-control ui-textarea" data-i18n-placeholder="settings.placeholder.温柔微颤语气_1_0倍速_温暖音色_独白式表达_句尾轻收配合自然呼吸停顿_情绪克" placeholder="温柔微颤语气，1.0倍速，温暖音色，独白式表达，句尾轻收配合自然呼吸停顿，情绪克制有层次，适配泪目治愈类弹幕"></textarea>
               <p id="danmuReadStyleHint" class="settings-section-hint mt-1">对应 API 中 role 为 user 的消息，用于控制语气与风格；新装默认已填泪目治愈向指令，留空则仅朗读弹幕正文。</p>
             </div>
             <p id="danmuReadModelHint" class="text-xs text-gray-500">模型：<span id="danmuReadModelLabel">mimo-v2.5-tts</span> · 接口：<span id="danmuReadEndpointLabel">—</span></p>
           </div>
           <div class="flex flex-wrap items-center gap-3">
-            <button type="button" id="btnDanmuReadProbe" class="px-6 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50">试听</button>
+            <button type="button" id="btnDanmuReadProbe" class="ui-button ui-button--secondary ui-button--md">试听</button>
             <span id="danmuReadStatus" class="text-xs text-gray-400" aria-live="polite">试听可使用上方输入框中的 Key，无需先保存；定时朗读须保存并「开始生成」。</span>
           </div>
         </div>
@@ -261,7 +259,7 @@
           <p class="settings-section-title">弹幕显示模式</p>
           <div class="settings-field">
             <label for="danmu_render_mode" class="settings-field-label">显示模式</label>
-            <select name="danmu_render_mode" id="danmu_render_mode" class="settings-field-control text-left">
+            <select name="danmu_render_mode" id="danmu_render_mode" class="settings-field-control text-left ui-control ui-select">
               <option value="scrolling">横向弹幕</option>
               <option value="floating_panel">从下到上</option>
             </select>
@@ -272,31 +270,31 @@
             <div class="settings-params-grid cols-2">
               <div class="settings-field">
                 <label for="floating_panel_width" class="settings-field-label">窗口宽度 (px)</label>
-                <input type="number" name="floating_panel_width" id="floating_panel_width" min="200" max="800" class="settings-field-control">
+                <input type="number" name="floating_panel_width" id="floating_panel_width" min="200" max="800" class="settings-field-control ui-control ui-input">
               </div>
               <div class="settings-field">
                 <label for="floating_panel_max_items" class="settings-field-label">最多条数</label>
-                <input type="number" name="floating_panel_max_items" id="floating_panel_max_items" min="1" max="50" class="settings-field-control">
+                <input type="number" name="floating_panel_max_items" id="floating_panel_max_items" min="1" max="50" class="settings-field-control ui-control ui-input">
               </div>
               <div class="settings-field">
                 <label for="floating_panel_speed" class="settings-field-label">滚动速度</label>
-                <input type="number" name="floating_panel_speed" id="floating_panel_speed" min="0.5" max="5" step="0.1" class="settings-field-control">
+                <input type="number" name="floating_panel_speed" id="floating_panel_speed" min="0.5" max="5" step="0.1" class="settings-field-control ui-control ui-input">
               </div>
               <div class="settings-field">
                 <label for="floating_panel_opacity" class="settings-field-label">不透明度 (%)</label>
-                <input type="number" name="floating_panel_opacity" id="floating_panel_opacity" min="0" max="100" class="settings-field-control">
+                <input type="number" name="floating_panel_opacity" id="floating_panel_opacity" min="0" max="100" class="settings-field-control ui-control ui-input">
               </div>
               <div class="settings-field">
                 <label for="floating_panel_font_size" class="settings-field-label">字号 (px)</label>
-                <input type="number" name="floating_panel_font_size" id="floating_panel_font_size" min="12" max="48" class="settings-field-control">
+                <input type="number" name="floating_panel_font_size" id="floating_panel_font_size" min="12" max="48" class="settings-field-control ui-control ui-input">
               </div>
               <div class="settings-field">
                 <label for="floating_panel_x_offset" class="settings-field-label">右边距 (px)</label>
-                <input type="number" name="floating_panel_x_offset" id="floating_panel_x_offset" min="0" max="400" class="settings-field-control">
+                <input type="number" name="floating_panel_x_offset" id="floating_panel_x_offset" min="0" max="400" class="settings-field-control ui-control ui-input">
               </div>
               <div class="settings-field">
                 <label for="floating_panel_y_offset" class="settings-field-label">上下边距 (px)</label>
-                <input type="number" name="floating_panel_y_offset" id="floating_panel_y_offset" min="0" max="400" class="settings-field-control">
+                <input type="number" name="floating_panel_y_offset" id="floating_panel_y_offset" min="0" max="400" class="settings-field-control ui-control ui-input">
               </div>
             </div>
           </div>
@@ -313,11 +311,11 @@
                   <div class="settings-rhythm-accordion-fields">
                     <div class="settings-rhythm-accordion-field">
                       <label for="normal_recognition_interval_sec" class="settings-field-label">识别间隔（秒）</label>
-                      <input type="number" name="normal_recognition_interval_sec" id="normal_recognition_interval_sec" min="1" max="60" step="1" class="settings-field-control">
+                      <input type="number" name="normal_recognition_interval_sec" id="normal_recognition_interval_sec" min="1" max="60" step="1" class="settings-field-control ui-control ui-input">
                     </div>
                     <div class="settings-rhythm-accordion-field">
                       <label for="normal_reply_count" class="settings-field-label">每次生成弹幕数</label>
-                      <input type="number" name="normal_reply_count" id="normal_reply_count" min="1" max="50" step="1" class="settings-field-control">
+                      <input type="number" name="normal_reply_count" id="normal_reply_count" min="1" max="50" step="1" class="settings-field-control ui-control ui-input">
                     </div>
                   </div>
                   <p id="normalBatchTotalHint" class="settings-section-hint">每次固定 5 条 · 保存后会同步到人格工坊的「输出契约」</p>
@@ -336,15 +334,15 @@
                 <div class="settings-rhythm-accordion-fields">
                   <div class="settings-rhythm-accordion-field">
                     <label for="danmu_max_chars" class="settings-field-label">最大弹幕字数</label>
-                    <input type="number" name="danmu_max_chars" id="danmu_max_chars" min="5" max="80" step="1" class="settings-field-control" placeholder="15">
+                    <input type="number" name="danmu_max_chars" id="danmu_max_chars" min="5" max="80" step="1" class="settings-field-control ui-control ui-input" placeholder="15">
                   </div>
                   <div class="settings-rhythm-accordion-field">
                     <label for="dedup_threshold" class="settings-field-label">去重阈值</label>
-                    <input type="number" name="dedup_threshold" id="dedup_threshold" min="0" max="1" step="0.05" class="settings-field-control">
+                    <input type="number" name="dedup_threshold" id="dedup_threshold" min="0" max="1" step="0.05" class="settings-field-control ui-control ui-input">
                   </div>
                   <div class="settings-rhythm-accordion-field">
                     <label for="reply_queue_max_items" class="settings-field-label">回复队列上限</label>
-                    <input type="number" name="reply_queue_max_items" id="reply_queue_max_items" min="0" max="9999" step="1" class="settings-field-control" data-i18n-placeholder="settings.placeholder.k_0_无限制" placeholder="0=无限制">
+                    <input type="number" name="reply_queue_max_items" id="reply_queue_max_items" min="0" max="9999" step="1" class="settings-field-control ui-control ui-input" data-i18n-placeholder="settings.placeholder.k_0_无限制" placeholder="0=无限制">
                   </div>
                 </div>
               </div>
@@ -361,33 +359,33 @@
                   <div class="settings-rhythm-accordion-fields">
                     <div class="settings-rhythm-accordion-field">
                       <label for="danmu_speed" class="settings-field-label">弹幕速度</label>
-                      <input type="number" name="danmu_speed" id="danmu_speed" min="0.5" max="5" step="0.1" class="settings-field-control">
+                      <input type="number" name="danmu_speed" id="danmu_speed" min="0.5" max="5" step="0.1" class="settings-field-control ui-control ui-input">
                     </div>
                     <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--stacked">
                       <label for="opacity" class="settings-field-label">不透明度 (%)</label>
                       <div class="settings-rhythm-accordion-control-stack">
-                        <input type="number" name="opacity" id="opacity" min="0" max="100" class="settings-field-control">
+                        <input type="number" name="opacity" id="opacity" min="0" max="100" class="settings-field-control ui-control ui-input">
                         <div id="opacity-warning" class="text-xs text-amber-600 mt-1 hidden" role="alert">透明度过低可能导致弹幕完全不可见</div>
                       </div>
                     </div>
                     <div class="settings-rhythm-accordion-field">
                       <label for="hotkey" class="settings-field-label">全局快捷键</label>
-                      <input type="text" name="hotkey" id="hotkey" class="settings-field-control" placeholder="Ctrl+Shift+B">
+                      <input type="text" name="hotkey" id="hotkey" class="settings-field-control ui-control ui-input" placeholder="Ctrl+Shift+B">
                     </div>
                     <div class="settings-rhythm-accordion-field">
                       <label for="eviction_mode" class="settings-field-label">退场模式</label>
-                      <select name="eviction_mode" id="eviction_mode" class="settings-field-control text-left">
+                      <select name="eviction_mode" id="eviction_mode" class="settings-field-control text-left ui-control ui-select">
                         <option value="natural">自然</option>
                         <option value="accelerate">加速</option>
                       </select>
                     </div>
                     <div class="settings-rhythm-accordion-field">
                       <label for="danmu_pending_entry_cap" class="settings-field-label">入口区 pending 上限</label>
-                      <input type="number" name="danmu_pending_entry_cap" id="danmu_pending_entry_cap" min="0" max="9999" step="1" class="settings-field-control" data-i18n-placeholder="settings.placeholder.默认_300_0_无限制" placeholder="默认 300，0=无限制">
+                      <input type="number" name="danmu_pending_entry_cap" id="danmu_pending_entry_cap" min="0" max="9999" step="1" class="settings-field-control ui-control ui-input" data-i18n-placeholder="settings.placeholder.默认_300_0_无限制" placeholder="默认 300，0=无限制">
                     </div>
                     <div class="settings-rhythm-accordion-field">
                       <label for="danmu_track_retention_cap" class="settings-field-label">轨道总保留上限</label>
-                      <input type="number" name="danmu_track_retention_cap" id="danmu_track_retention_cap" min="0" max="9999" step="1" class="settings-field-control" data-i18n-placeholder="settings.placeholder.默认_600_0_无限制" placeholder="默认 600，0=无限制">
+                      <input type="number" name="danmu_track_retention_cap" id="danmu_track_retention_cap" min="0" max="9999" step="1" class="settings-field-control ui-control ui-input" data-i18n-placeholder="settings.placeholder.默认_600_0_无限制" placeholder="默认 600，0=无限制">
                     </div>
                     <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--toggle">
                       <span class="settings-field-label">空轨道时加速补位</span>
@@ -418,8 +416,8 @@
             <p id="captureRegionCoords" class="text-xs text-gray-500 hidden" aria-live="polite"></p>
             <p id="captureRegionHint" class="text-xs text-gray-400">框选时按 Esc 或右键取消；区域过小（小于 10×10 像素）将视为无效。</p>
             <div class="flex flex-wrap gap-3">
-              <button type="button" id="btnCaptureRegionSelect" class="btn-primary px-5 py-2.5 text-white rounded-xl text-sm font-bold">鼠标框选识图范围</button>
-              <button type="button" id="btnCaptureRegionReset" class="px-5 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-warmText hidden">恢复全屏识图</button>
+              <button type="button" id="btnCaptureRegionSelect" class="btn-primary ui-button ui-button--primary ui-button--md">鼠标框选识图范围</button>
+              <button type="button" id="btnCaptureRegionReset" class="ui-button ui-button--secondary ui-button--md hidden">恢复全屏识图</button>
             </div>
           </div>
           <div class="settings-rhythm-accordion" data-settings-rhythm-accordion>
@@ -434,11 +432,11 @@
                 <div class="settings-rhythm-accordion-fields">
                   <div class="settings-rhythm-accordion-field">
                     <label for="image_max_width" class="settings-field-label">最大宽度 (px)</label>
-                    <input type="number" name="image_max_width" id="image_max_width" min="256" max="4096" step="128" class="settings-field-control">
+                    <input type="number" name="image_max_width" id="image_max_width" min="256" max="4096" step="128" class="settings-field-control ui-control ui-input">
                   </div>
                   <div class="settings-rhythm-accordion-field">
                     <label for="image_quality" class="settings-field-label">JPEG 质量 (%)</label>
-                    <input type="number" name="image_quality" id="image_quality" min="1" max="100" value="85" class="settings-field-control">
+                    <input type="number" name="image_quality" id="image_quality" min="1" max="100" value="85" class="settings-field-control ui-control ui-input">
                   </div>
                 </div>
               </div>
@@ -462,21 +460,21 @@
                 <div class="settings-rhythm-accordion-fields">
                   <div class="settings-rhythm-accordion-field">
                     <label for="danmu_font_family" class="settings-field-label">字体名</label>
-                    <select id="danmu_font_family" name="danmu_font_family" class="settings-field-control text-left">
+                    <select id="danmu_font_family" name="danmu_font_family" class="settings-field-control text-left ui-control ui-select">
                       <option value="">— 系统默认 —</option>
                     </select>
                   </div>
                   <div class="settings-rhythm-accordion-field">
                     <label for="font_size" class="settings-field-label">字号 (px)</label>
-                    <input type="number" name="font_size" id="font_size" min="12" max="72" class="settings-field-control">
+                    <input type="number" name="font_size" id="font_size" min="12" max="72" class="settings-field-control ui-control ui-input">
                   </div>
                   <div class="settings-rhythm-accordion-field">
                     <label for="danmu_lines" class="settings-field-label">轨道行数</label>
-                    <input type="number" name="danmu_lines" id="danmu_lines" min="12" max="20" value="20" class="settings-field-control">
+                    <input type="number" name="danmu_lines" id="danmu_lines" min="12" max="20" value="20" class="settings-field-control ui-control ui-input">
                   </div>
                   <div class="settings-rhythm-accordion-field">
                     <label for="layout_mode" class="settings-field-label">布局</label>
-                    <select name="layout_mode" id="layout_mode" class="settings-field-control text-left">
+                    <select name="layout_mode" id="layout_mode" class="settings-field-control text-left ui-control ui-select">
                       <option value="fullscreen" data-i18n="settings.text.全屏">全屏</option>
                       <option value="3/4" data-i18n="settings.text.占比四分之三">四分之三</option>
                       <option value="1/2" data-i18n="settings.text.占比二分之一">二分之一</option>
@@ -531,13 +529,13 @@
                 <div class="settings-rhythm-accordion-fields">
                   <div class="settings-rhythm-accordion-field">
                     <label for="floating_panel_font_family" class="settings-field-label">字体名</label>
-                    <select id="floating_panel_font_family" name="floating_panel_font_family" class="settings-field-control text-left">
+                    <select id="floating_panel_font_family" name="floating_panel_font_family" class="settings-field-control text-left ui-control ui-select">
                       <option value="">— 系统默认 —</option>
                     </select>
                   </div>
                   <div class="settings-rhythm-accordion-field">
                     <label for="floating_panel_font_size" class="settings-field-label">字号 (px)</label>
-                    <input type="number" name="floating_panel_font_size" id="floating_panel_font_size" min="12" max="48" class="settings-field-control">
+                    <input type="number" name="floating_panel_font_size" id="floating_panel_font_size" min="12" max="48" class="settings-field-control ui-control ui-input">
                   </div>
                   <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--toggle">
                     <span class="settings-field-label">悬浮窗加粗</span>
@@ -565,12 +563,12 @@
                   <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--stacked">
                     <label for="font_file_input" class="settings-field-label">选择字体文件</label>
                     <div class="settings-rhythm-accordion-control-stack">
-                      <input type="file" id="font_file_input" accept=".ttf,.otf" class="settings-field-control">
+                      <input type="file" id="font_file_input" accept=".ttf,.otf" class="settings-field-control ui-control ui-input">
                     </div>
                   </div>
                   <div class="settings-rhythm-accordion-field">
                     <span class="settings-field-label" aria-hidden="true">&nbsp;</span>
-                    <button type="button" id="btnImportFont" class="settings-action-btn">导入字体</button>
+                    <button type="button" id="btnImportFont" class="settings-action-btn ui-button ui-button--secondary ui-button--sm">导入字体</button>
                   </div>
                 </div>
                 <div id="importedFontsList" class="settings-imported-fonts-list"></div>
@@ -578,7 +576,7 @@
                   <div class="settings-imported-font-row">
                     <span class="font-family"></span>
                     <span class="font-meta"></span>
-                    <button type="button" class="settings-action-btn-sm btn-delete-font">删除</button>
+                    <button type="button" class="settings-action-btn-sm btn-delete-font ui-button ui-button--ghost ui-button--sm">删除</button>
                   </div>
                 </template>
               </div>
@@ -607,13 +605,13 @@
           </div>
         </div>
         <div class="settings-form-footer flex flex-wrap justify-end gap-4">
-          <button type="button" id="btnProbe" class="px-6 py-3 bg-white border border-gray-200 rounded-xl font-semibold hover:bg-gray-50 transition text-warmText">
+          <button type="button" id="btnProbe" class="ui-button ui-button--secondary ui-button--lg">
             测试连接
           </button>
-          <button type="button" id="btnRestoreSettingsDefaults" class="px-6 py-3 bg-white border border-gray-200 rounded-xl font-semibold hover:bg-gray-50 transition text-warmText">
+          <button type="button" id="btnRestoreSettingsDefaults" class="ui-button ui-button--secondary ui-button--lg">
             恢复默认
           </button>
-          <button type="submit" class="btn-primary px-8 py-3 text-white rounded-xl font-bold shadow-warm flex items-center gap-2">
+          <button type="submit" class="btn-primary ui-button ui-button--primary ui-button--lg">
             保存配置 <svg class="ui-icon" aria-hidden="true"><use href="#i-sparkles"></use></svg>
           </button>
         </div>

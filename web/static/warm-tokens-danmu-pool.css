@@ -1,0 +1,180 @@
+/* Split — danmu-pool + scrollbar (W-UI-CSS-SPLIT-001). */
+
+.danmu-pool-page .danmu-pool-section + .danmu-pool-section {
+  padding-top: 0.25rem;
+  border-top: 1px dashed rgba(93, 87, 87, 0.12);
+}
+
+/* 标签选择从属于分类模式（自选时生效） */
+.danmu-pool-page .meme-category-tag-block {
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-soft, rgba(93, 87, 87, 0.12));
+}
+
+.danmu-pool-page .meme-category-subheading {
+  margin: 0 0 var(--space-2);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-secondary, var(--color-text-muted));
+}
+
+[data-theme="dark"] .danmu-pool-page .meme-category-tag-block {
+  border-top-color: var(--border-soft, rgba(255, 255, 255, 0.1));
+}
+
+/* 分类模式（单选）与采集/展示（折叠配置）分层：配置组包在卡片容器内 */
+.danmu-pool-page .meme-advanced-settings .meme-advanced-accordion {
+  margin-top: var(--space-1);
+  border: 1px solid var(--border-soft, rgba(93, 87, 87, 0.12));
+  border-radius: var(--radius-md);
+  background: var(--surface-subtle, var(--color-bg-subtle));
+  overflow: hidden;
+}
+
+.danmu-pool-page .meme-advanced-settings .settings-rhythm-accordion-trigger {
+  align-items: flex-start;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  min-height: 2.75rem;
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+  color: var(--text-secondary, var(--color-text-muted));
+}
+
+.danmu-pool-page .meme-advanced-settings .settings-rhythm-accordion-trigger .settings-rhythm-accordion-chevron {
+  margin-top: 0.35rem;
+  flex-shrink: 0;
+}
+
+.danmu-pool-page .meme-advanced-settings .settings-rhythm-accordion-item.is-open .settings-rhythm-accordion-trigger {
+  color: var(--color-primary-hover);
+}
+
+.danmu-pool-page .meme-advanced-settings .settings-rhythm-accordion-trigger-title {
+  color: inherit;
+}
+
+.danmu-pool-page .meme-advanced-settings .settings-rhythm-accordion-trigger-hint {
+  color: var(--text-muted, var(--color-text-dim));
+}
+
+[data-theme="dark"] .danmu-pool-page .meme-advanced-settings .meme-advanced-accordion {
+  border-color: var(--border-soft, rgba(255, 255, 255, 0.1));
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.meme-source-credit {
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius-md);
+  background: rgba(255, 218, 185, 0.35);
+  border: 1px solid rgba(255, 182, 193, 0.45);
+}
+
+.meme-source-credit-text {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.meme-source-credit-link {
+  font-weight: 700;
+  color: var(--color-primary-hover, #e879a9);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.meme-source-credit-link:hover {
+  color: var(--color-primary, #ff8fab);
+}
+
+.danmu-pool-textarea {
+  resize: vertical;
+  min-height: 8rem;
+}
+
+.danmu-pool-custom-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 20rem;
+  overflow-y: auto;
+}
+
+.danmu-pool-custom-item {
+  padding: 0.65rem 0.85rem;
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  border: 1px solid var(--border);
+}
+
+.meme-tag-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.meme-tag-grid.is-disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.meme-tag-btn {
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--color-surface);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.meme-tag-btn.active {
+  border-color: var(--color-primary);
+  background: rgba(255, 182, 193, 0.2);
+  color: var(--color-primary-dark, var(--color-text));
+}
+
+.meme-tag-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.danmu-pool-tabs {
+  margin-bottom: 0;
+}
+
+.danmu-pool-tab {
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text-muted, #6b7280);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.danmu-pool-tab:hover {
+  background: var(--color-accent);
+  color: var(--color-text);
+}
+
+.danmu-pool-tab.active {
+  background: var(--color-accent);
+  color: var(--color-primary-hover);
+}
+
+.danmu-pool-tab-panel {
+  display: none;
+}
+
+.danmu-pool-tab-panel.active {
+  display: block;
+}
+
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: var(--color-bg); }
+::-webkit-scrollbar-thumb { background: var(--color-secondary); border-radius: 4px; }
+

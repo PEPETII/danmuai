@@ -114,29 +114,6 @@ const PERSONA_FIELD_TIPS = {
     'dynamic.settingsHints.追加到该人格系统提示词的风格与人格要求_点_保存',
 };
 
-const DANMU_POOL_FIELD_TIPS = {
-  memeBarrageEnabled:
-    'dynamic.settingsHints.开启后按下方配置独立采集与展示烂梗弹幕_不与_A',
-  memeCollectInterval:
-    'dynamic.settingsHints.烂梗采集间隔_1_60_秒_每隔该秒数从源拉取',
-  memeCollectBatch:
-    'dynamic.settingsHints.每次采集拉取的弹幕数量_1_100_条',
-  memeDisplayInterval:
-    'dynamic.settingsHints.烂梗展示间隔_1_60_秒_每隔该秒数从待展示',
-  memeDisplayBatch:
-    'dynamic.settingsHints.每次展示取出的弹幕条数_1_50_条',
-  btnMemeBarrageClear:
-    'dynamic.settingsHints.清空本地烂梗库与待展示队列_不影响已上屏弹幕',
-  poolCustomEnabled:
-    'dynamic.settingsHints.启用后_系统会从你保存的自定义弹幕句中抽取短句',
-  poolMinOnScreen:
-    'dynamic.settingsHints.当屏幕上的弹幕少于该数量时_从自定义公式化弹幕库',
-  poolCustomTextarea:
-    'dynamic.settingsHints.一行一条短句_保存后上屏时完整展示_不截断_重复',
-  poolCustomSelectAll:
-    'dynamic.settingsHints.勾选后可选中列表全部自定义句_便于批量删除',
-};
-
 const PET_FIELD_TIPS = {
   petEnabled:
     'dynamic.settingsHints.开启后桌宠显示在桌面_临时隐藏请使用桌宠右键菜单',
@@ -168,16 +145,6 @@ const SETTINGS_HEADING_TIPS = {
 };
 
 const CONTENT_PAGE_SECTION_TIPS = {
-  hintMemeCategoryTitle:
-    'dynamic.settingsHints.随机_从全库抽取_自选_限选最多_3_个标签_本',
-  hintMemeDisplayModeTitle:
-    'dynamic.settingsHints.全展示_采集结果全部进入展示队列_AI识别展示',
-  hintMemeTagTitle:
-    'dynamic.settingsHints.仅_自选_分类时可选择标签_最多_3_个',
-  hintMemeCollectTitle:
-    'dynamic.settingsHints.控制烂梗弹幕的采集节奏_间隔秒数与每批采集条数',
-  hintMemeDisplayTitle:
-    'dynamic.settingsHints.控制烂梗弹幕的上屏节奏_间隔秒数与每批展示条数',
   hintPersonaActiveTitle:
     'dynamic.settingsHints.勾选多个人格后_运行时每轮随机选一个生成弹幕_点',
 };
@@ -185,13 +152,8 @@ const CONTENT_PAGE_SECTION_TIPS = {
 const SETTINGS_CONTROL_HINT_IDS = new Set(['btnMicTest', 'btnMicTestSend', 'btnProbe']);
 
 const CONTENT_PAGE_CONTROL_HINT_IDS = new Set([
-  'btnMemeBarrageClear',
   'btnPetImportFolder',
   'btnPetResetAsset',
-  'memeCollectInterval',
-  'memeCollectBatch',
-  'memeDisplayInterval',
-  'memeDisplayBatch',
 ]);
 
 function createFieldHintWrap(tipText, tipId) {
@@ -344,12 +306,10 @@ export function initSettingsFieldHints() {
 export function initContentPageFieldHints() {
   const overviewRoot = document.getElementById('page-overview');
   const personaRoot = document.getElementById('page-persona');
-  const danmuPoolRoot = document.getElementById('page-danmu-pool');
   const petRoot = document.getElementById('page-pet');
 
   attachFieldHintsInRoot(overviewRoot, OVERVIEW_FIELD_TIPS);
   attachFieldHintsInRoot(personaRoot, PERSONA_FIELD_TIPS);
-  attachFieldHintsInRoot(danmuPoolRoot, DANMU_POOL_FIELD_TIPS, CONTENT_PAGE_CONTROL_HINT_IDS);
   attachFieldHintsInRoot(petRoot, PET_FIELD_TIPS, CONTENT_PAGE_CONTROL_HINT_IDS);
 
   Object.entries(CONTENT_PAGE_SECTION_TIPS).forEach(([elementId, tipKey]) => {

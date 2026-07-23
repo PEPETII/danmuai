@@ -165,7 +165,13 @@ def test_live_overlay_setup_assistant_in_overview():
     overlay_js = (root / "web" / "static" / "modules" / "app-live-overlay-panel.js").read_text(
         encoding="utf-8"
     )
-    css = (root / "web" / "static" / "warm-tokens-pages.css").read_text(encoding="utf-8")
+    css_live = (root / "web" / "static" / "warm-tokens-live-output.css").read_text(
+        encoding="utf-8"
+    )
+    css_live_preview = (
+        root / "web" / "static" / "warm-tokens-live-output-preview.css"
+    ).read_text(encoding="utf-8")
+    css = css_live + "\n" + css_live_preview
 
     for marker in (
         'id="liveOverlaySetupState"',

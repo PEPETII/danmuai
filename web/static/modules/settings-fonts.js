@@ -193,7 +193,7 @@ function renderWeightInputs() {
       <div class="w-6 h-6 rounded-md border border-gray-300 shrink-0" style="background-color:${color}"></div>
       <span class="text-sm text-warmText font-mono w-16">${color}</span>
       <input type="number" min="0" max="100" step="0.1" value="${existing[color] ?? '1'}"
-        class="weight-input settings-field-control w-20 px-2 py-1 text-sm" data-color="${color}">
+        class="weight-input settings-field-control w-20 ui-control ui-input" data-color="${color}">
       <span class="weight-percent text-xs text-gray-500 w-12"></span>
     `;
     container.appendChild(row);

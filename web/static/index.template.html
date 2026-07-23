@@ -4,17 +4,28 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title data-i18n="common.meta.title">DanmuAI - 你的温馨弹幕小助手</title>
+  <script>
+    window.DANMU_DEFAULT_THEME = 'dark';
+    (function () {
+      /* 与 modules/theme.js normalizeTheme 同一规则：
+         显式 light → light；其余（缺失/非法/dark）→ DANMU_DEFAULT_THEME
+         须在 warm-tokens.css 之前执行，避免 FOUC */
+      var def = window.DANMU_DEFAULT_THEME === 'light' ? 'light' : 'dark';
+      var t = def;
+      try {
+        var raw = localStorage.getItem('danmu_console_theme');
+        t = raw === 'light' ? 'light' : def;
+      } catch (e) { /* ignore → def */ }
+      if (t === 'dark') {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      } else {
+        document.documentElement.removeAttribute('data-theme');
+      }
+    })();
+  </script>
   <link rel="stylesheet" href="/static/warm-tokens.css?v=20260717-number-stepper-v2">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <script>
-    (function () {
-      try {
-        var t = localStorage.getItem('danmu_console_theme');
-        if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
-      } catch (e) { /* ignore */ }
-    })();
-  </script>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
   <script>
     window.tailwind = window.tailwind || {};
@@ -36,7 +47,21 @@
     };
   </script>
 </head>
-<body class="font-sans flex h-screen overflow-hidden">
+<body class="font-sans flex h-screen overflow-hidden ui-shell">
+  <button
+    type="button"
+    id="btnShellNavToggle"
+    class="ui-shell-nav-toggle"
+    aria-controls="consoleSidebar"
+    aria-expanded="false"
+    data-i18n-aria-label="nav.openMenu"
+    aria-label="打开导航"
+  >
+    <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+      <path d="M4 7h16M4 12h16M4 17h16"/>
+    </svg>
+  </button>
+  <div id="shellNavBackdrop" class="ui-shell-backdrop" hidden></div>
   <svg width="0" height="0" class="absolute" aria-hidden="true" focusable="false">
     <defs>
       <symbol id="i-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></symbol>
@@ -80,7 +105,7 @@
 
   {{sidebar}}
 
-  <main class="flex-1 overflow-y-auto p-8 bg-cream relative">
+  <main class="ui-main flex-1 overflow-y-auto bg-cream relative min-w-0">
     <div id="toast" class="toast text-warmText text-sm font-semibold"></div>
 
     {{overview}}

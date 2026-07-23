@@ -1,0 +1,123 @@
+/* Split — overview + session log + page-settings shell start (W-UI-CSS-SPLIT-001). */
+
+/* Overview: group titles (本场 / 累计), status pill, stats, session log */
+.overview-group-title {
+  margin: 0 0 var(--space-3);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  line-height: 1.4;
+  color: var(--text-primary);
+  letter-spacing: 0.02em;
+}
+
+.overview-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-full);
+  background: var(--surface-card);
+  border: 1px solid var(--border-brand);
+  box-shadow: var(--shadow-warm);
+  min-width: 0;
+}
+
+.overview-status-dot {
+  flex-shrink: 0;
+}
+
+.overview-realtime-conn {
+  min-width: 0;
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.overview-stat-value {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+#page-overview {
+  min-width: 0;
+}
+
+#page-overview .ui-page-header {
+  margin-bottom: var(--space-8);
+}
+
+#page-overview .card.ui-card:not(.ui-card--interactive):hover {
+  transform: none;
+}
+
+.session-run-log {
+  max-height: min(220px, 32vh);
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-subtle);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.2);
+  min-width: 0;
+}
+
+@media (max-height: 720px) {
+  .session-run-log {
+    max-height: min(160px, 28vh);
+  }
+}
+
+@media (max-height: 600px) {
+  .session-run-log {
+    max-height: min(120px, 24vh);
+  }
+}
+
+.session-run-log-empty.hidden {
+  display: none;
+}
+
+.session-run-line {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--color-text-dim);
+  margin: 0 0 6px;
+  word-break: break-word;
+  min-width: 0;
+}
+
+.session-run-line:last-child {
+  margin-bottom: 0;
+}
+
+.toast {
+  position: fixed;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-20px);
+  z-index: 100;
+  padding: 12px 20px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-warm-hover);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+  pointer-events: auto;
+}
+
+.toast.toast-exit {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-20px);
+}

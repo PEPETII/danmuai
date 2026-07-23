@@ -1,0 +1,382 @@
+/* Split — style generator page (W-UI-CSS-SPLIT-001). Rules unchanged. */
+
+/* =========================================================================
+   样式生成器（W-FP-STYLEGEN-WEB-001）
+   - 左侧控制 / 右侧堆积预览
+   - 底入、顶推、严格裁剪、左对齐
+   ========================================================================= */
+
+.style-generator-layout {
+  display: grid;
+  grid-template-columns: minmax(320px, 1.1fr) minmax(280px, 0.9fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .style-generator-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.style-generator-controls {
+  max-height: calc(100vh - 10rem);
+  overflow-y: auto;
+}
+
+.style-generator-preview-pane {
+  position: sticky;
+  top: 1rem;
+}
+
+.sg-preset-btn.is-active {
+  background: rgba(var(--color-primary-rgb), 0.15);
+  border-color: rgba(var(--color-primary-rgb), 0.45);
+  color: var(--color-text, #5d5757);
+  box-shadow: var(--shadow-warm, 0 4px 15px -3px rgba(255, 165, 165, 0.2));
+}
+
+.sg-color-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.sg-color-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--border, #e5d3c0);
+  background: var(--color-surface, #fff);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.sg-color-swatch {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  flex-shrink: 0;
+}
+
+.sg-color-hex {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.sg-color-remove {
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted, #6b7280);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 0.15rem;
+}
+
+.sg-color-picker {
+  width: 2.5rem;
+  height: 2rem;
+  padding: 0;
+  border: 1px solid var(--border, #e5d3c0);
+  border-radius: 0.5rem;
+  background: transparent;
+}
+
+.sg-weight-row {
+  display: grid;
+  grid-template-columns: auto 1fr minmax(4rem, 5.5rem);
+  gap: 0.5rem;
+  align-items: center;
+}
+
+/* 预览舞台：与真实 web/static/floating_panel 同一布局语义（column-reverse + card） */
+.sg-preview-stage {
+  --card-bg: #fff7ed;
+  --card-border: #fbbf24;
+  --username-color: #f59e0b;
+  --content-color: #1f2937;
+  --outline-color: #ffffff;
+  --card-radius: 12px;
+  --card-max-width: 280px;
+  --font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+  --font-size-username: 12px;
+  --font-size-content: 14px;
+  --font-weight-username: 600;
+  --font-weight-content: 400;
+  --content-line-height: 1.4;
+  --gap-username-content: 4px;
+  --padding-x: 12px;
+  --padding-y: 8px;
+  --border-width: 1px;
+  --panel-padding: 16px;
+  --stack-gap: 8px;
+  --entry-duration: 250ms;
+  --exit-duration: 250ms;
+  --panel-opacity: 1;
+  --card-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.10),
+    0 4px 8px rgba(0, 0, 0, 0.08),
+    0 8px 16px rgba(0, 0, 0, 0.06);
+  --tail-w: 8px;
+  --tail-h: 10px;
+  --tail-offset-y: 38%;
+  --tail-color: var(--card-bg);
+  --tail-border: 8px;
+  --tail-long-side: 18px;
+  --tail-rotate: 35deg;
+  --outline-w: 1px;
+
+  position: relative;
+  width: 100%;
+  height: min(62vh, 520px);
+  min-height: 320px;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(26, 26, 46, 0.96) 0%, rgba(22, 33, 62, 0.98) 100%);
+  border: 1px solid var(--color-border, #e5d3c0);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.sg-preview-stack {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column-reverse;
+  justify-content: flex-start;
+  align-items: flex-start;
+  padding: var(--panel-padding);
+  box-sizing: border-box;
+  gap: var(--stack-gap);
+  overflow: hidden;
+  pointer-events: none;
+  opacity: var(--panel-opacity);
+  font-family: var(--font-family);
+}
+
+/* 与 floating_panel/.card 同构（类名 .sg-preview-card 避免污染控制台） */
+.sg-preview-card {
+  position: relative;
+  background: var(--card-bg);
+  border: var(--border-width) solid var(--card-border);
+  border-radius: var(--card-radius);
+  padding: var(--padding-y) var(--padding-x);
+  max-width: var(--card-max-width);
+  box-shadow: var(--card-shadow);
+  animation: sg-fp-slideUp var(--entry-duration) ease-out;
+  will-change: transform, opacity;
+  box-sizing: border-box;
+  text-align: left;
+  font-family: var(--font-family);
+}
+
+.sg-preview-card.no-border {
+  border-color: transparent;
+  border-width: 0;
+}
+
+.sg-preview-card.exiting {
+  animation: sg-fp-fadeOut var(--exit-duration) ease-in forwards;
+}
+
+/* stacked：背景/边框/阴影只在 .bubble；用户名在气泡外（与 WEB-001 同构） */
+.sg-preview-card.layout-stacked {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
+  margin-left: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--gap-username-content);
+  max-width: var(--card-max-width);
+}
+
+.sg-preview-card.layout-stacked > .username {
+  margin-bottom: 0;
+}
+
+.sg-preview-card.layout-stacked > .bubble {
+  position: relative;
+  width: fit-content;
+  max-width: 100%;
+  overflow: visible;
+  background: var(--card-bg);
+  border: var(--border-width) solid var(--card-border);
+  border-radius: var(--card-radius);
+  padding: var(--padding-y) var(--padding-x);
+  box-shadow: var(--card-shadow);
+  box-sizing: border-box;
+}
+
+.sg-preview-card.layout-stacked.no-border > .bubble {
+  border-color: transparent;
+  border-width: 0;
+}
+
+.sg-preview-card.is-bubble:not(.layout-stacked) {
+  margin-left: var(--tail-w);
+}
+
+/* inline / 旧 wechat·classic 侧三角尾巴（卡片级 ::before） */
+.sg-preview-card.is-bubble:not(.layout-stacked)::before {
+  content: "";
+  position: absolute;
+  left: calc(-1 * var(--tail-w));
+  top: var(--tail-offset-y);
+  width: 0;
+  height: 0;
+  margin-top: calc(var(--tail-h) / -2);
+  border-style: solid;
+  border-width: calc(var(--tail-h) / 2) var(--tail-w) calc(var(--tail-h) / 2) 0;
+  border-color: transparent var(--tail-color) transparent transparent;
+  pointer-events: none;
+}
+
+.sg-preview-card.is-bubble:not(.layout-stacked)[data-tail-style="round"]::before {
+  width: var(--tail-w);
+  height: var(--tail-h);
+  margin-top: calc(var(--tail-h) / -2);
+  border: 0;
+  border-radius: 100% 0 100% 100%;
+  background: var(--tail-color);
+}
+
+.sg-preview-card.is-bubble:not(.layout-stacked)[data-tail-style="none"]::before,
+.sg-preview-card:not(.is-bubble)::before {
+  display: none;
+}
+
+/* LineLike 尾巴：border 三角 + rotate（几何语义对齐 WEB-001 / blivechat LineLike） */
+.sg-preview-card.layout-stacked.is-bubble[data-tail-style="line_like"] > .bubble::before {
+  content: "";
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  border: var(--tail-border, 8px) solid transparent;
+  border-left-width: var(--tail-long-side, 18px);
+  border-right: var(--tail-long-side, 18px) solid var(--card-bg);
+  transform: translate(-50%, -50%) rotate(var(--tail-rotate, 35deg));
+  pointer-events: none;
+  z-index: 0;
+}
+
+.sg-preview-card.layout-stacked.is-bubble[data-tail-style="line_like"] > .bubble > .content {
+  position: relative;
+  z-index: 1;
+}
+
+/* stacked 上非 line_like 时仍可在 bubble 上画侧三角（兼容） */
+.sg-preview-card.layout-stacked.is-bubble:not([data-tail-style="line_like"]):not([data-tail-style="none"]) > .bubble {
+  margin-left: var(--tail-w);
+}
+
+.sg-preview-card.layout-stacked.is-bubble:not([data-tail-style="line_like"]):not([data-tail-style="none"]) > .bubble::before {
+  content: "";
+  position: absolute;
+  left: calc(-1 * var(--tail-w));
+  top: var(--tail-offset-y);
+  width: 0;
+  height: 0;
+  margin-top: calc(var(--tail-h) / -2);
+  border-style: solid;
+  border-width: calc(var(--tail-h) / 2) var(--tail-w) calc(var(--tail-h) / 2) 0;
+  border-color: transparent var(--tail-color) transparent transparent;
+  pointer-events: none;
+}
+
+.sg-preview-card.layout-stacked.is-bubble[data-tail-style="round"] > .bubble::before {
+  width: var(--tail-w);
+  height: var(--tail-h);
+  margin-top: calc(var(--tail-h) / -2);
+  border: 0;
+  border-radius: 100% 0 100% 100%;
+  background: var(--tail-color);
+}
+
+.sg-preview-card .username {
+  display: block;
+  font-size: var(--font-size-username);
+  color: var(--username-color);
+  font-weight: var(--font-weight-username);
+  margin-bottom: var(--gap-username-content);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sg-preview-card .username.is-hidden {
+  display: none;
+}
+
+.sg-preview-card.has-outline .username {
+  text-shadow:
+    calc(-1 * var(--outline-w)) 0 0 var(--outline-color),
+    var(--outline-w) 0 0 var(--outline-color),
+    0 calc(-1 * var(--outline-w)) 0 var(--outline-color),
+    0 var(--outline-w) 0 var(--outline-color);
+}
+
+.sg-preview-card .content {
+  font-size: var(--font-size-content);
+  color: var(--content-color);
+  font-weight: var(--font-weight-content);
+  line-height: var(--content-line-height);
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sg-preview-card.has-outline .content {
+  text-shadow:
+    calc(-1 * var(--outline-w)) 0 0 var(--outline-color),
+    var(--outline-w) 0 0 var(--outline-color),
+    0 calc(-1 * var(--outline-w)) 0 var(--outline-color),
+    0 var(--outline-w) 0 var(--outline-color);
+}
+
+.sg-preview-card.is-bold .content,
+.sg-preview-card.is-bold .username {
+  font-weight: 700;
+}
+
+@keyframes sg-fp-slideUp {
+  0% {
+    transform: translateY(40%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes sg-fp-fadeOut {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+}
+
+.sg-settings-floating-entry {
+  width: 100%;
+}
+

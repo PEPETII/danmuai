@@ -9,147 +9,149 @@
         <p class="overview-announcement-banner-text" id="overviewAnnouncementBannerText"></p>
         <button type="button" id="btnOverviewAnnouncementDismiss" class="overview-announcement-banner-dismiss" data-i18n-aria-label="overview.aria.关闭公告提示" aria-label="关闭公告提示">×</button>
       </div>
-      <header class="flex flex-wrap justify-between items-center gap-4 mb-8">
-        <div>
-          <p class="text-gray-500" id="statusSub">小助手正在待命，随时为你生成暖心弹幕~</p>
+      <header class="ui-page-header flex flex-wrap justify-between items-center gap-4 mb-8">
+        <div class="ui-page-header__copy min-w-0 flex-1">
+          <p class="ui-page-description text-gray-500" id="statusSub">小助手正在待命，随时为你生成暖心弹幕~</p>
         </div>
-        <div class="flex items-center gap-3 flex-wrap">
-          <div class="flex items-center gap-2 bg-white px-4 py-2 rounded-full shadow-warm border border-softPeach">
-            <div id="statusDot" class="w-3 h-3 bg-gray-300 rounded-full"></div>
+        <div class="ui-page-header__actions flex items-center gap-3 flex-wrap shrink-0">
+          <div class="overview-status-pill flex items-center gap-2">
+            <div id="statusDot" class="overview-status-dot w-3 h-3 bg-gray-300 rounded-full"></div>
             <span class="text-sm font-semibold text-warmText" id="statusPill">待命</span>
-            <span id="realtimeConnStatus" data-realtime-conn class="text-xs font-normal border-l border-gray-200 pl-2 ml-0.5 conn-connecting" aria-live="polite">连接中</span>
+            <span id="realtimeConnStatus" data-realtime-conn class="overview-realtime-conn text-xs font-normal border-l border-gray-200 pl-2 ml-0.5 conn-connecting" aria-live="polite">连接中</span>
           </div>
-          <button type="button" id="btnToggle" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm">
+          <button type="button" id="btnToggle" class="btn-primary ui-button ui-button--primary ui-button--md">
             生成弹幕
           </button>
         </div>
       </header>
 
-      <div id="errorBanner" class="hidden mb-6 p-4 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-sm flex flex-wrap items-start justify-between gap-3">
+      <div id="errorBanner" class="ui-status-banner ui-status-banner--danger hidden mb-6 flex flex-wrap items-start justify-between gap-3">
         <span id="errorBannerMessage" class="flex-1 min-w-0 whitespace-pre-wrap break-words"></span>
-        <button type="button" id="btnErrorBannerDismiss" class="shrink-0 px-2 py-1.5 text-red-800 hover:bg-red-100/80 text-lg leading-none" data-i18n-aria-label="overview.aria.关闭错误提示" aria-label="关闭错误提示">×</button>
-        <button type="button" id="btnErrorReportFromBanner" class="shrink-0 px-4 py-1.5 border border-red-200 rounded-xl text-sm font-semibold text-red-800 hover:bg-red-100/80">反馈此问题</button>
+        <button type="button" id="btnErrorBannerDismiss" class="ui-button ui-button--ghost ui-button--sm shrink-0" data-i18n-aria-label="overview.aria.关闭错误提示" aria-label="关闭错误提示">×</button>
+        <button type="button" id="btnErrorReportFromBanner" class="ui-button ui-button--secondary ui-button--sm shrink-0">反馈此问题</button>
       </div>
 
-      <p id="overlayCompatBanner" class="hidden text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2 mb-6" role="status"></p>
+      <p id="overlayCompatBanner" class="ui-status-banner ui-status-banner--warning hidden mb-6" role="status"></p>
 
+      <h3 class="overview-group-title">本场</h3>
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
-        <div class="card p-6">
-          <div class="flex items-center gap-4">
-            <div class="w-12 h-12 bg-softPeach rounded-2xl flex items-center justify-center text-2xl icon-badge"><svg class="ui-icon ui-icon-lg" aria-hidden="true"><use href="#i-message"></use></svg></div>
-            <div>
+        <div class="card ui-card ui-card--interactive p-6 min-w-0">
+          <div class="flex items-center gap-4 min-w-0">
+            <div class="w-12 h-12 bg-softPeach rounded-2xl flex items-center justify-center text-2xl icon-badge shrink-0"><svg class="ui-icon ui-icon-lg" aria-hidden="true"><use href="#i-message"></use></svg></div>
+            <div class="min-w-0">
               <p class="text-gray-400 text-sm">本次生成弹幕</p>
-              <p class="text-2xl font-bold text-warmText" id="statDanmu">0</p>
+              <p class="overview-stat-value text-2xl font-bold text-warmText truncate" id="statDanmu">0</p>
             </div>
           </div>
         </div>
-        <div class="card p-6">
-          <div class="flex items-center gap-4">
-            <div class="w-12 h-12 bg-pastelYellow rounded-2xl flex items-center justify-center text-2xl icon-badge"><svg class="ui-icon ui-icon-lg" aria-hidden="true"><use href="#i-box"></use></svg></div>
-            <div>
+        <div class="card ui-card ui-card--interactive p-6 min-w-0">
+          <div class="flex items-center gap-4 min-w-0">
+            <div class="w-12 h-12 bg-pastelYellow rounded-2xl flex items-center justify-center text-2xl icon-badge shrink-0"><svg class="ui-icon ui-icon-lg" aria-hidden="true"><use href="#i-box"></use></svg></div>
+            <div class="min-w-0">
               <p class="text-gray-400 text-sm">待播队列</p>
-              <p class="text-2xl font-bold text-warmText" id="statQueue">0</p>
+              <p class="overview-stat-value text-2xl font-bold text-warmText truncate" id="statQueue">0</p>
             </div>
           </div>
         </div>
-        <div class="card p-6">
-          <div class="flex items-center gap-4">
-            <div class="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-2xl icon-badge"><svg class="ui-icon ui-icon-lg" aria-hidden="true"><use href="#i-timer"></use></svg></div>
-            <div>
+        <div class="card ui-card ui-card--interactive p-6 min-w-0">
+          <div class="flex items-center gap-4 min-w-0">
+            <div class="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-2xl icon-badge shrink-0"><svg class="ui-icon ui-icon-lg" aria-hidden="true"><use href="#i-timer"></use></svg></div>
+            <div class="min-w-0">
               <p class="text-gray-400 text-sm">运行时长</p>
-              <p class="text-2xl font-bold text-warmText" id="statRuntime">0:00</p>
+              <p class="overview-stat-value text-2xl font-bold text-warmText truncate" id="statRuntime">0:00</p>
             </div>
           </div>
         </div>
-        <div class="card p-6">
-          <div class="flex items-center gap-4">
-            <div class="w-12 h-12 bg-softPeach rounded-2xl flex items-center justify-center text-2xl icon-badge"><svg class="ui-icon ui-icon-lg" aria-hidden="true"><use href="#i-film"></use></svg></div>
-            <div>
+        <div class="card ui-card ui-card--interactive p-6 min-w-0">
+          <div class="flex items-center gap-4 min-w-0">
+            <div class="w-12 h-12 bg-softPeach rounded-2xl flex items-center justify-center text-2xl icon-badge shrink-0"><svg class="ui-icon ui-icon-lg" aria-hidden="true"><use href="#i-film"></use></svg></div>
+            <div class="min-w-0">
               <p class="text-gray-400 text-sm">屏上弹幕</p>
-              <p class="text-2xl font-bold text-warmText" id="statDisplay">0</p>
+              <p class="overview-stat-value text-2xl font-bold text-warmText truncate" id="statDisplay">0</p>
             </div>
           </div>
         </div>
       </div>
 
+      <h3 class="overview-group-title">累计</h3>
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <div class="card p-6 border border-softPeach/60 bg-white/80">
-          <div class="flex items-center gap-4">
-            <div class="w-12 h-12 bg-softPeach/80 rounded-2xl flex items-center justify-center text-2xl icon-badge"><svg class="ui-icon ui-icon-lg" aria-hidden="true"><use href="#i-message"></use></svg></div>
-            <div>
+        <div class="card ui-card ui-card--interactive p-6 min-w-0">
+          <div class="flex items-center gap-4 min-w-0">
+            <div class="w-12 h-12 bg-softPeach/80 rounded-2xl flex items-center justify-center text-2xl icon-badge shrink-0"><svg class="ui-icon ui-icon-lg" aria-hidden="true"><use href="#i-message"></use></svg></div>
+            <div class="min-w-0">
               <p class="text-gray-400 text-sm">生成总弹幕</p>
-              <p class="text-2xl font-bold text-warmText" id="statLifetimeDanmu">0</p>
+              <p class="overview-stat-value text-2xl font-bold text-warmText truncate" id="statLifetimeDanmu">0</p>
             </div>
           </div>
         </div>
-        <div class="card p-6 border border-softPeach/60 bg-white/80">
-          <div class="flex items-center gap-4">
-            <div class="w-12 h-12 bg-blue-50/90 rounded-2xl flex items-center justify-center text-2xl icon-badge"><svg class="ui-icon ui-icon-lg" aria-hidden="true"><use href="#i-timer"></use></svg></div>
-            <div>
+        <div class="card ui-card ui-card--interactive p-6 min-w-0">
+          <div class="flex items-center gap-4 min-w-0">
+            <div class="w-12 h-12 bg-blue-50/90 rounded-2xl flex items-center justify-center text-2xl icon-badge shrink-0"><svg class="ui-icon ui-icon-lg" aria-hidden="true"><use href="#i-timer"></use></svg></div>
+            <div class="min-w-0">
               <p class="text-gray-400 text-sm">运行总时长</p>
-              <p class="text-2xl font-bold text-warmText" id="statLifetimeRuntime">0:00</p>
+              <p class="overview-stat-value text-2xl font-bold text-warmText truncate" id="statLifetimeRuntime">0:00</p>
             </div>
           </div>
         </div>
-        <div class="card p-6 border border-softPeach/60 bg-white/80">
-          <div class="flex items-center gap-4">
-            <div class="w-12 h-12 bg-pastelYellow/90 rounded-2xl flex items-center justify-center text-2xl icon-badge"><svg class="ui-icon ui-icon-lg" aria-hidden="true"><use href="#i-hash"></use></svg></div>
+        <div class="card ui-card ui-card--interactive p-6 min-w-0">
+          <div class="flex items-center gap-4 min-w-0">
+            <div class="w-12 h-12 bg-pastelYellow/90 rounded-2xl flex items-center justify-center text-2xl icon-badge shrink-0"><svg class="ui-icon ui-icon-lg" aria-hidden="true"><use href="#i-hash"></use></svg></div>
             <div class="min-w-0">
               <p class="text-gray-400 text-sm" data-i18n="overview.text.输入总_Token">输入总 Token</p>
-              <p class="text-2xl font-bold text-warmText" id="statLifetimeInputTokens">0</p>
+              <p class="overview-stat-value text-2xl font-bold text-warmText truncate" id="statLifetimeInputTokens">0</p>
             </div>
           </div>
         </div>
-        <div class="card p-6 border border-softPeach/60 bg-white/80">
-          <div class="flex items-center gap-4">
-            <div class="w-12 h-12 bg-blue-50/90 rounded-2xl flex items-center justify-center text-2xl icon-badge"><svg class="ui-icon ui-icon-lg" aria-hidden="true"><use href="#i-hash"></use></svg></div>
+        <div class="card ui-card ui-card--interactive p-6 min-w-0">
+          <div class="flex items-center gap-4 min-w-0">
+            <div class="w-12 h-12 bg-blue-50/90 rounded-2xl flex items-center justify-center text-2xl icon-badge shrink-0"><svg class="ui-icon ui-icon-lg" aria-hidden="true"><use href="#i-hash"></use></svg></div>
             <div class="min-w-0">
               <p class="text-gray-400 text-sm" data-i18n="overview.text.输出总_Token">输出总 Token</p>
-              <p class="text-2xl font-bold text-warmText" id="statLifetimeOutputTokens">0</p>
+              <p class="overview-stat-value text-2xl font-bold text-warmText truncate" id="statLifetimeOutputTokens">0</p>
             </div>
           </div>
         </div>
       </div>
       <p id="statLifetimeTokenNote" class="text-xs text-gray-400 -mt-4 mb-8 hidden" role="note"></p>
 
-      <div class="card p-8 mb-6 space-y-4">
+      <div class="card ui-card p-8 mb-6 space-y-4">
         <div class="flex flex-wrap gap-3 items-end">
-          <div class="flex-1 min-w-[220px]">
-            <label for="liveTopicInput" class="block text-sm font-semibold mb-2 text-warmText">提示内容</label>
+          <div class="ui-field flex-1 min-w-[220px]">
+            <label for="liveTopicInput" class="ui-field__label">提示内容</label>
             <textarea
               id="liveTopicInput"
               rows="2"
               maxlength="200"
               autocomplete="off"
-              class="w-full px-4 py-3 bg-cream rounded-xl text-warmText"
+              class="ui-control ui-textarea"
               data-i18n-placeholder="overview.placeholder.描述本次你要玩的游戏或者直播主题等_以便_AI_更好地生成弹幕_文字尽量在_50" placeholder="描述本次你要玩的游戏或者直播主题等，以便 AI 更好地生成弹幕，文字尽量在 50 字内效果最佳"
             ></textarea>
           </div>
-          <button type="button" id="btnSaveLiveTopic" class="px-4 py-3 bg-white border border-gray-200 rounded-xl font-semibold text-warmText">保存主题</button>
+          <button type="button" id="btnSaveLiveTopic" class="ui-button ui-button--secondary ui-button--md shrink-0">保存主题</button>
         </div>
         <div class="flex flex-wrap gap-3 items-end">
-          <div class="flex-1 min-w-[220px]">
-            <label for="userNicknameInput" class="block text-sm font-semibold mb-2 text-warmText">昵称</label>
+          <div class="ui-field flex-1 min-w-[220px]">
+            <label for="userNicknameInput" class="ui-field__label">昵称</label>
             <input
               id="userNicknameInput"
               type="text"
               maxlength="20"
               autocomplete="off"
-              class="w-full px-4 py-3 bg-cream rounded-xl text-warmText"
+              class="ui-control ui-input"
               data-i18n-placeholder="overview.placeholder.请输入你的昵称_AI_可在合适时自然称呼你" placeholder="请输入你的昵称（AI 可在合适时自然称呼你）"
             />
           </div>
-          <button type="button" id="btnSaveUserNickname" class="px-4 py-3 bg-white border border-gray-200 rounded-xl font-semibold text-warmText">保存昵称</button>
+          <button type="button" id="btnSaveUserNickname" class="ui-button ui-button--secondary ui-button--md shrink-0">保存昵称</button>
         </div>
       </div>
 
-      <div class="card p-8">
+      <div class="card ui-card p-8">
         <h3 class="text-lg font-bold text-warmText mb-4">当前人格</h3>
-        <p class="text-warmText" id="activePersonae">—</p>
-        <p class="text-sm text-gray-400 mt-4" id="liveStatusLine"></p>
+        <p class="text-warmText min-w-0 break-words" id="activePersonae">—</p>
+        <p class="text-sm text-gray-400 mt-4 min-w-0 break-words" id="liveStatusLine"></p>
       </div>
 
-      <div class="card p-6 mt-6">
+      <div class="card ui-card p-6 mt-6">
         <h3 class="text-lg font-bold text-warmText mb-2" data-i18n="overview.text.弹幕场次记录">弹幕场次记录</h3>
         <p class="text-sm text-gray-400 mb-4" data-i18n="overview.text.每次_生成弹幕_至_停止弹幕_为一轮_保存在本机配置库_重启后仍可查看最近_10">每次「生成弹幕」至「停止弹幕」为一轮；保存在本机配置库，重启后仍可查看最近 100 条</p>
         <div id="sessionRunLog" class="session-run-log" role="log" aria-live="polite">

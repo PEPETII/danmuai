@@ -1,3 +1,7 @@
+/*
+ * Floating panel card styles.
+ * LineLike bubble tail geometry adapted from blivechat (xfgryujk/blivechat), MIT License.
+ */
 :root {
   --card-bg: #fff7ed;
   --card-border: #fbbf24;
@@ -26,6 +30,10 @@
   --tail-h: 0px;
   --tail-offset-y: 38%;
   --tail-color: var(--card-bg);
+  /* LineLike tail geometry defaults (blivechat LineLike) */
+  --tail-border: 8px;
+  --tail-long-side: 18px;
+  --tail-rotate: 35deg;
   --font-weight-username: 700;
   --font-weight-content: 400;
   --content-line-height: 1.4;
@@ -62,7 +70,7 @@ body {
   opacity: var(--panel-opacity);
 }
 
-/* ===== 卡片基础 ===== */
+/* ===== 卡片基础（inline / classic / wechat） ===== */
 .card {
   background: var(--card-bg);
   border: var(--border-width) solid var(--card-border);
@@ -101,7 +109,7 @@ body {
   font-weight: bold;
 }
 
-/* ===== 气泡尾巴 ===== */
+/* ===== 气泡尾巴（inline side triangle: round / sharp / none） ===== */
 .card.is-bubble {
   margin-left: calc(var(--tail-w) + 4px);
 }
@@ -127,6 +135,96 @@ body {
 }
 
 .card.is-bubble[data-tail-style="none"]::before {
+  display: none;
+}
+
+/* ===== stacked 布局（LineLike / blivechat_line）：背景只在 .bubble ===== */
+.card.layout-stacked {
+  background: transparent;
+  border: none;
+  border-width: 0;
+  box-shadow: none;
+  padding: 0;
+  backdrop-filter: none;
+  margin-left: 0;
+  max-width: var(--card-max-width);
+  overflow: visible;
+}
+
+.card.layout-stacked .username {
+  margin-bottom: var(--gap-username-content);
+}
+
+.card.layout-stacked .bubble {
+  display: block;
+  position: relative;
+  width: fit-content;
+  max-width: 100%;
+  overflow: visible;
+  padding: var(--padding-y) var(--padding-x);
+  border-radius: var(--card-radius);
+  background: var(--card-bg);
+  border: var(--border-width) solid var(--card-border);
+  box-shadow: var(--card-shadow);
+  box-sizing: border-box;
+}
+
+.card.layout-stacked.no-border .bubble {
+  border-color: transparent;
+  border-width: 0;
+}
+
+/* stacked 时禁用 card 级 side-tail，改用 bubble 级几何 */
+.card.layout-stacked.is-bubble {
+  margin-left: 0;
+}
+
+.card.layout-stacked.is-bubble::before {
+  display: none;
+}
+
+/* LineLike 左上旋转三角尾巴（border triangle + rotate） */
+.card.layout-stacked.is-bubble[data-tail-style="line_like"] .bubble::before {
+  content: "";
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  border: var(--tail-border, 8px) solid transparent;
+  border-left-width: var(--tail-long-side, 18px);
+  border-right: var(--tail-long-side, 18px) solid var(--card-bg);
+  transform: translate(-50%, -50%) rotate(var(--tail-rotate, 35deg));
+  pointer-events: none;
+}
+
+/* stacked + 非 line_like 的 round/sharp 尾巴挂在 bubble 左侧 */
+.card.layout-stacked.is-bubble[data-tail-style="round"] .bubble,
+.card.layout-stacked.is-bubble[data-tail-style="sharp"] .bubble {
+  margin-left: calc(var(--tail-w) + 4px);
+}
+
+.card.layout-stacked.is-bubble[data-tail-style="round"] .bubble::before,
+.card.layout-stacked.is-bubble[data-tail-style="sharp"] .bubble::before {
+  content: "";
+  position: absolute;
+  left: calc(-1 * var(--tail-w) - 1px);
+  top: var(--tail-offset-y);
+  width: var(--tail-w);
+  height: var(--tail-h);
+  background: var(--tail-color);
+  pointer-events: none;
+}
+
+.card.layout-stacked.is-bubble[data-tail-style="round"] .bubble::before {
+  border-radius: 0 0 0 50%;
+  clip-path: polygon(100% 0, 100% 100%, 0 100%);
+}
+
+.card.layout-stacked.is-bubble[data-tail-style="sharp"] .bubble::before {
+  clip-path: polygon(100% 0, 0 50%, 100% 100%);
+}
+
+.card.layout-stacked.is-bubble[data-tail-style="none"] .bubble::before {
   display: none;
 }
 

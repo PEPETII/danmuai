@@ -587,16 +587,22 @@ def test_settings_html_has_legacy_api_fields_class():
     html = SETTINGS_HTML.read_text(encoding="utf-8")
     # 5 个旧字段 wrapper 应各带一个 legacy-api-fields class
     assert html.count('class="legacy-api-fields"') + html.count(' legacy-api-fields"') + html.count(' legacy-api-fields ') >= 5
-    # CSS 规则存在于 settings.html
-    assert ".legacy-api-fields" in html
-    assert "display:none !important" in html
+    # 内联 <style> 已迁出（W-UI-SETTINGS-MIGRATE-001）；DOM class 仍保留
+    assert "<style>" not in html
+    assert "legacy-api-fields" in html
 
 
 def test_index_html_has_legacy_api_fields_css_rule():
-    """W-SETTINGS-RESTRUCT-A-006：index.html 经 build 重建后含 .legacy-api-fields CSS 规则。"""
+    """W-SETTINGS-RESTRUCT-A-006 / E：.legacy-api-fields 软隐藏规则在 compat CSS，DOM 仍在 index。"""
     html = INDEX_HTML.read_text(encoding="utf-8")
-    assert ".legacy-api-fields" in html
-    assert "display:none !important" in html
+    assert "legacy-api-fields" in html
+    # 规则迁入 warm-tokens-compat.css（由 warm-tokens.css @import）
+    static = SETTINGS_HTML.parent.parent
+    compat = (static / "warm-tokens-compat.css").read_text(encoding="utf-8")
+    entry = (static / "warm-tokens.css").read_text(encoding="utf-8")
+    assert ".legacy-api-fields" in compat
+    assert "display: none !important" in compat or "display:none !important" in compat
+    assert "warm-tokens-compat.css" in entry
 
 
 def test_legacy_field_dom_ids_still_present_in_settings_html():

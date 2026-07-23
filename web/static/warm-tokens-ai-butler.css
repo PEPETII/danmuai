@@ -1,0 +1,243 @@
+/* Split — AI butler (W-UI-CSS-SPLIT-001). Rules unchanged. */
+
+/* =========================================================================
+   AI 管家对话页（W-AIBUTLER-003）
+   - 全部引用 token，颜色随 [data-theme="dark"] 自动翻转
+   - 唯二例外：.ai-butler-btn-confirm.is-success (#4ade80) / is-failed (#ef4444)
+     —— spec §5.1 明确允许（token 系统无成功/失败色）
+   ========================================================================= */
+
+/* 消息区容器 —— 复用 .card 视觉，加最小/最大高度 */
+.ai-butler-messages {
+  min-height: 12rem;
+  max-height: 32rem;
+  overflow-y: auto;
+}
+
+/* 单条消息外层（控制左右对齐 + 间距） */
+.ai-butler-msg {
+  display: flex;
+  margin-bottom: 0.75rem;
+}
+.ai-butler-msg.is-user {
+  justify-content: flex-end;
+}
+.ai-butler-msg.is-ai {
+  justify-content: flex-start;
+}
+
+/* 气泡基础（最大宽度 80%、圆角、内边距、自动换行） */
+.ai-butler-chat-bubble {
+  max-width: 80%;
+  padding: 0.625rem 1rem;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+/* 用户气泡：靠右，粉色背景 */
+.ai-butler-msg-user {
+  background: var(--color-primary-light);
+  color: var(--color-text);
+}
+
+/* AI 气泡：靠左，白底带边框 */
+.ai-butler-msg-ai {
+  background: var(--color-surface);
+  border: 1px solid var(--border);
+  color: var(--color-text);
+}
+
+/* 「思考中」气泡：复用 AI 气泡样式 + 斜体淡化 */
+.ai-butler-msg-ai.is-thinking {
+  font-style: italic;
+  opacity: 0.7;
+}
+
+/* 系统消息（取消/成功/失败提示） */
+.ai-butler-system-msg {
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  font-style: italic;
+  padding: 0.5rem 0.75rem;
+  margin: 0.5rem 0;
+}
+
+/* 空对话提示 */
+.ai-butler-empty-hint {
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  padding: 2rem 0;
+}
+
+/* 工具调用提示（W-002 兼容占位，W-003 已用确认卡片替代） */
+.ai-butler-toolcall-hint {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px dashed var(--border);
+}
+
+/* ---- 确认卡片（spec §3.1 / §5.1） ---- */
+
+.ai-butler-confirm-card {
+  margin-top: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-warm);
+  transition: opacity 0.3s ease;
+}
+.ai-butler-confirm-card.is-fading {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ai-butler-confirm-title {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin-bottom: 0.75rem;
+}
+
+/* 变更预览行 —— 复用 .settings-field 视觉 */
+.ai-butler-change-row {
+  padding: 0.65rem 0.75rem;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(93, 87, 87, 0.1);
+  font-size: 0.875rem;
+  color: var(--color-text);
+  margin-bottom: 0.4rem;
+}
+[data-theme="dark"] .ai-butler-change-row {
+  background: rgba(41, 37, 36, 0.65);
+  border-color: rgba(245, 240, 235, 0.1);
+}
+
+.ai-butler-change-row::before {
+  content: "• ";
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
+/* 按钮容器 */
+.ai-butler-btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+/* 「确认执行」按钮 —— 默认态复用 .btn-primary 视觉 */
+.ai-butler-btn-confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1.5rem;
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s ease, opacity 0.2s ease;
+}
+.ai-butler-btn-confirm:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+.ai-butler-btn-confirm:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* 成功态：绿色（spec §5.1 例外） */
+.ai-butler-btn-confirm.is-success {
+  background: #4ade80;
+  color: #fff;
+}
+.ai-butler-btn-confirm.is-success:hover:not(:disabled) {
+  background: #22c55e;
+}
+
+/* 失败态：红色（spec §5.1 例外） */
+.ai-butler-btn-confirm.is-failed {
+  background: #ef4444;
+  color: #fff;
+}
+.ai-butler-btn-confirm.is-failed:hover:not(:disabled) {
+  background: #dc2626;
+}
+
+/* 加载态：disabled + spinner */
+.ai-butler-btn-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1.5rem;
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  border: none;
+  cursor: not-allowed;
+  opacity: 0.85;
+}
+.ai-butler-btn-loading .ai-butler-spinner {
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: ai-butler-spin 0.8s linear infinite;
+}
+@keyframes ai-butler-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 「取消」按钮 —— 次级样式 */
+.ai-butler-btn-cancel {
+  padding: 0.55rem 1.5rem;
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  border: 1px solid var(--border);
+  color: var(--color-text);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+.ai-butler-btn-cancel:hover:not(:disabled) {
+  background: rgba(var(--color-primary-rgb), 0.08);
+}
+.ai-butler-btn-cancel:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* 错误信息（卡片底部） */
+.ai-butler-error-text {
+  margin-top: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-md);
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #b91c1c;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+[data-theme="dark"] .ai-butler-error-text {
+  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.12);
+}
+

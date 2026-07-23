@@ -1,0 +1,18 @@
+/*
+ * Compatibility / temporary CSS (UI governance).
+ *
+ * Load after components, before pages (or after pages for hide rules).
+ * Marked for eventual removal when legacy DOM is fully retired.
+ */
+
+/*
+ * DELETE WHEN: legacy top-bar API fields (api_endpoint / api_mode / api_key /
+ * model picker / max_tokens wrappers with .legacy-api-fields) are confirmed
+ * unused by CONFIG_FIELDS, settings.js, tests, and can be removed from
+ * partials/settings.html. Until then: soft-hide only (DOM kept).
+ * Origin: W-SETTINGS-RESTRUCT-A-006 inline <style> in settings.html →
+ * W-UI-SETTINGS-MIGRATE-001 moved here (UI-010).
+ */
+.legacy-api-fields {
+  display: none !important;
+}

@@ -98,6 +98,10 @@
     if (style.tail_width != null) s.setProperty("--tail-w", Number(style.tail_width) + "px");
     if (style.tail_height != null) s.setProperty("--tail-h", Number(style.tail_height) + "px");
     if (style.tail_offset_y != null) s.setProperty("--tail-offset-y", Number(style.tail_offset_y) + "%");
+    // LineLike tail geometry (blivechat LineLike)
+    if (style.tail_border != null) s.setProperty("--tail-border", Number(style.tail_border) + "px");
+    if (style.tail_long_side != null) s.setProperty("--tail-long-side", Number(style.tail_long_side) + "px");
+    if (style.tail_rotate_deg != null) s.setProperty("--tail-rotate", Number(style.tail_rotate_deg) + "deg");
     // card_bg / tail with card_opacity (0-100)
     (function applyCardBg() {
       var bg = String(style.card_bg || "#fff7ed");
@@ -118,6 +122,9 @@
     if (style.gap_username_content != null) s.setProperty("--gap-username-content", Number(style.gap_username_content) + "px");
 
     // Classes
+    var layout = String(style.layout || "inline");
+    cardEl.classList.toggle("layout-stacked", layout === "stacked");
+    cardEl.classList.toggle("layout-inline", layout !== "stacked");
     cardEl.classList.toggle("no-border", style.border_enabled === false || style.border_width === 0);
     cardEl.classList.toggle("has-outline", style.outline_enabled === true && style.outline_width > 0);
     cardEl.classList.toggle("is-bold", style.font_bold === true);
@@ -201,17 +208,24 @@
     var content = escapeHtml(msg.content || "");
     // Apply per-card style (not via document root)
     if (msg.style) applyCardStyleVars(card, msg.style);
-    // Build inner HTML
+    // Build inner HTML (dual DOM: stacked wraps content in .bubble)
     var usernameEnabled = msg.style ? msg.style.username_enabled !== false : true;
-    var usernameSeparator = (msg.style && msg.style.username_separator) || "：";
-    if (usernameEnabled) {
+    var usernameSeparator =
+      msg.style && msg.style.username_separator != null
+        ? String(msg.style.username_separator)
+        : "：";
+    var layout = msg.style && msg.style.layout === "stacked" ? "stacked" : "inline";
+    var usernameHtml = usernameEnabled
+      ? '<div class="username">' + username + usernameSeparator + "</div>"
+      : '<div class="username is-hidden"></div>';
+    if (layout === "stacked") {
       card.innerHTML =
-        '<div class="username">' + username + usernameSeparator + '</div>' +
-        '<div class="content">' + content + '</div>';
+        usernameHtml +
+        '<div class="bubble"><div class="content">' + content + "</div></div>";
     } else {
       card.innerHTML =
-        '<div class="username is-hidden"></div>' +
-        '<div class="content">' + content + '</div>';
+        usernameHtml +
+        '<div class="content">' + content + "</div>";
     }
     panel.appendChild(card);
     removeOldestIfNeeded();

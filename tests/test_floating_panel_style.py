@@ -13,12 +13,20 @@ from app.application.config_service import WEB_CONFIG_KEYS, apply_web_config_pat
 from app.config_defaults import CONFIG_DEFAULTS, export_web_config_defaults
 from app.config_store import ConfigStore
 from app.floating_panel_style import (
+    BLIVECHAT_LINE_CARD_COLOR,
+    BLIVECHAT_LINE_FONT_FAMILY,
+    BLIVECHAT_LINE_TEXT_COLOR,
+    BLIVECHAT_LINE_USERNAME_COLOR,
     CLASSIC_CARD_COLORS,
     DEFAULT_STYLE_PRESET,
+    LAYOUT_CHOICES,
     STYLE_FIELD_KEYS,
+    STYLE_INT_RANGES,
     STYLE_PRESET_APPLY_KEYS,
+    STYLE_PRESET_IDS,
     STYLE_PRESETS,
     STYLE_RESTORE_KEYS,
+    TAIL_STYLE_CHOICES,
     WECHAT_CARD_COLORS,
     WECHAT_TEXT_COLOR,
     normalize_bool01,
@@ -57,6 +65,7 @@ def test_module_imports_without_qt():
     assert mod.DEFAULT_STYLE_PRESET == "wechat"
     assert "classic" in mod.STYLE_PRESETS
     assert "wechat" in mod.STYLE_PRESETS
+    assert "blivechat_line" in mod.STYLE_PRESETS
     # 不得依赖 Qt
     assert "PyQt" not in open(mod.__file__, encoding="utf-8").read()
 
@@ -67,6 +76,7 @@ def test_classic_card_colors_locked():
     colors = json.loads(classic["floating_panel_card_colors"])
     assert colors == list(CLASSIC_CARD_COLORS)
     assert classic["floating_panel_shape"] == "card"
+    assert classic["floating_panel_layout"] == "inline"
     assert classic["floating_panel_tail_enabled"] == "0"
     assert classic["floating_panel_text_colors"] == '["#000000"]'
 
@@ -79,26 +89,63 @@ def test_wechat_first_color_and_text_locked():
     assert colors[0] == "#FFECD2"
     assert set(colors) >= {"#FFECD2", "#DDF5D7", "#DDEBFF", "#FFDDE8"}
     assert wechat["floating_panel_shape"] == "bubble"
+    assert wechat["floating_panel_layout"] == "inline"
     assert wechat["floating_panel_tail_enabled"] == "1"
     assert json.loads(wechat["floating_panel_text_colors"]) == ["#281C12"]
+
+
+def test_blivechat_line_defaults_locked():
+    assert "blivechat_line" in STYLE_PRESET_IDS
+    line = STYLE_PRESETS["blivechat_line"]
+    assert line["floating_panel_style_preset"] == "blivechat_line"
+    assert line["floating_panel_shape"] == "bubble"
+    assert line["floating_panel_layout"] == "stacked"
+    assert line["floating_panel_tail_enabled"] == "1"
+    assert line["floating_panel_tail_style"] == "line_like"
+    assert json.loads(line["floating_panel_card_colors"]) == [BLIVECHAT_LINE_CARD_COLOR]
+    assert json.loads(line["floating_panel_text_colors"]) == [BLIVECHAT_LINE_TEXT_COLOR]
+    assert line["floating_panel_username_color"] == BLIVECHAT_LINE_USERNAME_COLOR
+    assert line["floating_panel_username_size"] == "18"
+    assert line["floating_panel_username_weight"] == "700"
+    assert line["floating_panel_content_size"] == "20"
+    assert line["floating_panel_content_weight"] == "700"
+    assert line["floating_panel_padding_x"] == "20"
+    assert line["floating_panel_padding_y"] == "12"
+    assert line["floating_panel_radius"] == "24"
+    assert line["floating_panel_gap_username_content"] == "5"
+    assert line["floating_panel_entry_animation"] == "slide_up"
+    assert line["floating_panel_entry_duration_ms"] == "200"
+    assert line["floating_panel_username_enabled"] == "1"
+    assert line["floating_panel_username_separator"] == ""
+    assert line["floating_panel_font_family"] == BLIVECHAT_LINE_FONT_FAMILY
+    assert line["floating_panel_outline_enabled"] == "0"
+    assert line["floating_panel_border_enabled"] == "0"
+    assert line["floating_panel_shadow_enabled"] == "0"
+    assert line["floating_panel_tail_border"] == "8"
+    assert line["floating_panel_tail_long_side"] == "18"
+    assert line["floating_panel_tail_rotate_deg"] == "35"
 
 
 def test_default_preset_is_wechat():
     assert DEFAULT_STYLE_PRESET == "wechat"
     payload = style_presets_api_payload()
     assert payload["default_preset"] == "wechat"
-    assert set(payload["presets"].keys()) == {"classic", "wechat"}
+    assert set(payload["presets"].keys()) == {"classic", "wechat", "blivechat_line"}
     assert "custom" not in payload["presets"]
+    assert "line_like" in payload["tail_style_choices"]
+    assert set(payload["layout_choices"]) == set(LAYOUT_CHOICES)
 
 
 def test_preset_patch_does_not_touch_render_mode_or_scrolling():
-    for pid in ("classic", "wechat"):
+    for pid in ("classic", "wechat", "blivechat_line"):
         patch = preset_style_patch(pid)
         assert "danmu_render_mode" not in patch
         assert "danmu_speed" not in patch
         assert "danmu_lines" not in patch
         assert "floating_panel_style_preset" in patch
         assert set(STYLE_PRESET_APPLY_KEYS).issuperset(patch.keys())
+        assert "floating_panel_layout" in patch
+        assert "floating_panel_tail_border" in patch
 
 
 # ---------------------------------------------------------------------------
@@ -182,18 +229,65 @@ def test_classic_expand_sets_card_no_tail():
     items = {"floating_panel_style_preset": "classic"}
     normalize_floating_panel_style_items(items)
     assert items["floating_panel_shape"] == "card"
+    assert items["floating_panel_layout"] == "inline"
     assert items["floating_panel_tail_enabled"] == "0"
     assert json.loads(items["floating_panel_card_colors"]) == list(CLASSIC_CARD_COLORS)
     assert "danmu_render_mode" not in items
+
+
+def test_blivechat_line_expand_sets_stacked_line_like():
+    items = {"floating_panel_style_preset": "blivechat_line"}
+    normalize_floating_panel_style_items(items)
+    assert items["floating_panel_style_preset"] == "blivechat_line"
+    assert items["floating_panel_layout"] == "stacked"
+    assert items["floating_panel_tail_style"] == "line_like"
+    assert items["floating_panel_username_separator"] == ""
+    assert items["floating_panel_padding_x"] == "20"
+    assert items["floating_panel_radius"] == "24"
+    assert "danmu_render_mode" not in items
+
+
+def test_layout_and_tail_geometry_normalize():
+    items = {
+        "floating_panel_style_preset": "custom",
+        "floating_panel_layout": "stacked",
+        "floating_panel_tail_style": "line_like",
+        "floating_panel_tail_border": "99",
+        "floating_panel_tail_long_side": "-1",
+        "floating_panel_tail_rotate_deg": "200",
+    }
+    normalize_floating_panel_style_items(items)
+    assert items["floating_panel_layout"] == "stacked"
+    assert items["floating_panel_tail_style"] == "line_like"
+    assert items["floating_panel_tail_border"] == "32"
+    assert items["floating_panel_tail_long_side"] == "0"
+    assert items["floating_panel_tail_rotate_deg"] == "180"
+
+    bad = {
+        "floating_panel_style_preset": "custom",
+        "floating_panel_layout": "grid",
+        "floating_panel_tail_style": "zigzag",
+    }
+    normalize_floating_panel_style_items(bad)
+    assert bad["floating_panel_layout"] == "inline"
+    assert bad["floating_panel_tail_style"] == "round"
+    assert "line_like" in TAIL_STYLE_CHOICES
+    assert STYLE_INT_RANGES["floating_panel_tail_border"] == (0, 32, 8)
+    assert STYLE_INT_RANGES["floating_panel_tail_long_side"] == (0, 64, 18)
+    assert STYLE_INT_RANGES["floating_panel_tail_rotate_deg"] == (-180, 180, 35)
 
 
 def test_snapshot_deterministic_and_typed():
     snap = style_snapshot_from_mapping({})
     assert snap.style_preset == "wechat"
     assert snap.shape == "bubble"
+    assert snap.layout == "inline"
     assert snap.card_colors[0] == "#FFECD2"
     assert snap.text_colors == (WECHAT_TEXT_COLOR,)
     assert snap.tail_enabled is True
+    assert snap.tail_border == 8
+    assert snap.tail_long_side == 18
+    assert snap.tail_rotate_deg == 35
     assert isinstance(snap.card_opacity, int)
     assert snap.card_colors  # 非空
 
@@ -201,14 +295,24 @@ def test_snapshot_deterministic_and_typed():
         {
             "floating_panel_style_preset": "classic",
             "floating_panel_shape": "card",
+            "floating_panel_layout": "inline",
             "floating_panel_card_colors": json.dumps(list(CLASSIC_CARD_COLORS)),
             "floating_panel_text_colors": '["#000000"]',
             "floating_panel_tail_enabled": "0",
         }
     )
     assert snap2.shape == "card"
+    assert snap2.layout == "inline"
     assert snap2.card_colors == CLASSIC_CARD_COLORS
     assert snap2.tail_enabled is False
+
+    snap3 = style_snapshot_from_mapping(STYLE_PRESETS["blivechat_line"])
+    assert snap3.style_preset == "blivechat_line"
+    assert snap3.layout == "stacked"
+    assert snap3.tail_style == "line_like"
+    assert snap3.username_separator == ""
+    assert snap3.username_size == 18
+    assert snap3.content_size == 20
 
 
 # ---------------------------------------------------------------------------
@@ -322,8 +426,11 @@ def test_style_presets_api_readonly_no_auth():
     assert body["default_preset"] == "wechat"
     assert "classic" in body["presets"]
     assert "wechat" in body["presets"]
+    assert "blivechat_line" in body["presets"]
     assert body["presets"]["classic"]["floating_panel_shape"] == "card"
     assert json.loads(body["presets"]["wechat"]["floating_panel_card_colors"])[0] == "#FFECD2"
+    assert body["presets"]["blivechat_line"]["floating_panel_layout"] == "stacked"
+    assert body["presets"]["blivechat_line"]["floating_panel_tail_style"] == "line_like"
     assert "custom" not in body["presets"]
     for key in STYLE_FIELD_KEYS:
         assert key in body["fields"]
@@ -333,11 +440,13 @@ def test_style_presets_api_readonly_no_auth():
 def test_style_presets_payload_matches_module():
     assert style_presets_api_payload()["version"] >= 1
     assert style_presets_api_payload()["presets"]["wechat"]["floating_panel_tail_enabled"] == "1"
+    assert style_presets_api_payload()["presets"]["blivechat_line"]["floating_panel_tail_border"] == "8"
 
 
 def test_wechat_preset_has_bubble_tail_and_username_fields():
     w = STYLE_PRESETS["wechat"]
     assert w["floating_panel_shape"] == "bubble"
+    assert w["floating_panel_layout"] == "inline"
     assert w["floating_panel_tail_enabled"] == "1"
     assert w["floating_panel_tail_style"] == "round"
     assert w["floating_panel_tail_width"] == "8"
@@ -353,6 +462,7 @@ def test_wechat_preset_has_bubble_tail_and_username_fields():
 def test_classic_preset_has_no_tail_and_username_fields():
     c = STYLE_PRESETS["classic"]
     assert c["floating_panel_shape"] == "card"
+    assert c["floating_panel_layout"] == "inline"
     assert c["floating_panel_tail_enabled"] == "0"
     assert c["floating_panel_tail_style"] == "round"
     assert c["floating_panel_username_enabled"] == "0"
@@ -365,6 +475,10 @@ def test_snapshot_exposes_new_style_fields():
     assert snap.tail_style == "round"
     assert snap.tail_enabled is True
     assert snap.tail_width == 8
+    assert snap.layout == "inline"
+    assert snap.tail_border == 8
+    assert snap.tail_long_side == 18
+    assert snap.tail_rotate_deg == 35
     assert snap.shadow_opacity == 25
     assert snap.border_enabled is True
     assert snap.border_width == 1
@@ -394,3 +508,12 @@ def test_normalize_tail_style_border_and_username_fields():
     assert items["floating_panel_username_enabled"] == "1"
     assert items["floating_panel_content_size"] == "24"
     assert items["floating_panel_gap_username_content"] == "12"
+
+
+def test_illegal_preset_still_falls_back_wechat_not_blivechat_line():
+    items = {"floating_panel_style_preset": "neon"}
+    normalize_floating_panel_style_items(items)
+    assert items["floating_panel_style_preset"] == "wechat"
+    assert items["floating_panel_layout"] == "inline"
+    assert items["floating_panel_tail_style"] == "round"
+    assert items["floating_panel_shape"] == "bubble"

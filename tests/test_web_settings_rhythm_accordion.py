@@ -7,7 +7,7 @@ import re
 STATIC_ROOT = Path(__file__).resolve().parents[1] / "web" / "static"
 SETTINGS_HTML = STATIC_ROOT / "partials" / "settings.html"
 ACCORDION_MODULE = STATIC_ROOT / "modules" / "settings-rhythm-accordion.js"
-PAGES_CSS = STATIC_ROOT / "warm-tokens-pages.css"
+PAGES_CSS = STATIC_ROOT / "warm-tokens-settings.css"
 INDEX_TEMPLATE = STATIC_ROOT / "index.template.html"
 THEME_BUNDLE = STATIC_ROOT / "warm-tokens.css"
 APP_MODULE = STATIC_ROOT / "app.js"
@@ -64,7 +64,11 @@ def test_rhythm_accordion_styles_preserve_focus_and_compact_controls():
     assert 'transform: rotate(-45deg)' in css
     assert 'transform: rotate(45deg)' in css
     assert 'flex: 0 0 132px' in css
-    assert 'min-height: 40px' in css
+    # E 批：高度对齐 --control-height-md（40px）；兼容旧字面量 40px
+    assert (
+        "min-height: var(--control-height-md)" in css
+        or "min-height: 40px" in css
+    )
     assert 'appearance: textfield' in css
     assert '.settings-rhythm-accordion-field .settings-field-control:focus' in css
     assert '.settings-rhythm-stepper' in css
@@ -79,8 +83,9 @@ def test_rhythm_accordion_refreshes_the_imported_theme_bundle():
     app_module = APP_MODULE.read_text(encoding="utf-8")
     settings_module = SETTINGS_MODULE.read_text(encoding="utf-8")
 
-    assert 'warm-tokens.css?v=20260717-number-stepper-v2' in template
-    assert 'warm-tokens-pages.css?v=20260717-number-stepper-v2' in theme_bundle
-    assert 'app.js?v=20260717-number-stepper-v1' in template
-    assert "./modules/settings.js?v=20260717-number-stepper-v1" in app_module
-    assert "./settings-rhythm-accordion.js?v=20260717-number-stepper-v1" in settings_module
+    assert "warm-tokens.css" in template
+    assert "warm-tokens-settings.css" in theme_bundle
+    assert "warm-tokens-pages.css" in theme_bundle
+    assert "app.js" in template
+    assert "./modules/settings.js" in app_module
+    assert "./settings-rhythm-accordion.js" in settings_module

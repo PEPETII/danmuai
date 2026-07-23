@@ -29,6 +29,9 @@
     "checkUpdate": "Check for updates",
     "downloadRestart": "Download & restart",
     "settingsHelpAria": "Danmu settings help",
-    "newAnnouncementBadge": "New announcement"
+    "newAnnouncementBadge": "New announcement",
+    "openMenu": "Open navigation",
+    "closeMenu": "Close navigation",
+    "sidebarAria": "Main navigation"
   }
 }

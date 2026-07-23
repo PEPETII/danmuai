@@ -3,10 +3,12 @@
 W-FP-V3-002：历史运动学为持续向上滚动。
 W-FP-BUBBLE-001：暖色圆角气泡试做（固定常量）。
 W-FP-STYLE-QT-001：从 FloatingPanelStyle 读取规范化样式；左对齐堆积；严格 clip。
+W-FP-LINELIKE-PROTOCOL-QT-001：stacked 用户名在气泡外；line_like 左上旋转三角尾巴。
 """
 from __future__ import annotations
 
 import logging
+import math
 import sys
 import time
 from typing import TYPE_CHECKING
@@ -222,17 +224,68 @@ class FloatingPanelOverlay(QWidget):
     def current_style(self) -> FloatingPanelStyleSnapshot:
         return self._style
 
+    def _is_line_like_tail(self) -> bool:
+        st = self._style
+        return (
+            st.shape == "bubble"
+            and bool(st.tail_enabled)
+            and str(st.tail_style or "").strip().lower() == "line_like"
+        )
+
+    def _is_stacked_layout(self) -> bool:
+        return str(self._style.layout or "inline").strip().lower() == "stacked"
+
     def _tail_w(self) -> float:
         st = self._style
-        if st.shape == "bubble" and st.tail_enabled and st.tail_width > 0:
+        if st.shape != "bubble" or not st.tail_enabled:
+            return 0.0
+        if self._is_line_like_tail():
+            # Rotated CSS-style triangle AABB (long_side ≈ tip length; border ≈ thickness)
+            long_side = float(max(0, int(st.tail_long_side or 0)))
+            border = float(max(0, int(st.tail_border or 0)))
+            if long_side <= 0.0 and border <= 0.0:
+                return 0.0
+            rot = abs(math.radians(float(st.tail_rotate_deg or 35)))
+            # horizontal extent of rotated tip + base thickness
+            return long_side * abs(math.cos(rot)) + border * abs(math.sin(rot)) + 2.0
+        if st.tail_width > 0:
             return float(st.tail_width)
         return 0.0
 
     def _tail_h(self) -> float:
         st = self._style
         if st.shape == "bubble" and st.tail_enabled and st.tail_height > 0:
+            if self._is_line_like_tail():
+                return 0.0  # line_like uses dedicated path, not mid-height side tail
             return float(st.tail_height)
         return 0.0
+
+    def _line_like_top_extra(self) -> float:
+        """Extra top pad so rotated line_like triangle is not clipped above body."""
+        if not self._is_line_like_tail():
+            return 0.0
+        st = self._style
+        long_side = float(max(0, int(st.tail_long_side or 0)))
+        border = float(max(0, int(st.tail_border or 0)))
+        rot = abs(math.radians(float(st.tail_rotate_deg or 35)))
+        return long_side * abs(math.sin(rot)) + border * abs(math.cos(rot)) + 2.0
+
+    def _username_block_height(self) -> float:
+        """Stacked layout: username line + gap above bubble (0 when inline / disabled)."""
+        st = self._style
+        if not self._is_stacked_layout() or not st.username_enabled:
+            return 0.0
+        # Match render fallback: empty username_text → "弹幕"
+        if self._font is None:
+            return float(max(8, int(st.username_size))) + float(
+                max(0, int(st.gap_username_content))
+            )
+        uf = QFont(self._font)
+        uf.setPointSize(max(6, min(72, int(st.username_size))))
+        uf.setBold(int(st.username_weight) >= 600)
+        uf.setWeight(max(1, min(99, int(st.username_weight))))
+        um = QFontMetrics(uf)
+        return float(um.height()) + float(max(0, int(st.gap_username_content)))
 
     def _shadow_pads(self) -> tuple[float, float, float, float]:
         """Return (pad_left_beyond_tail, pad_top, pad_right, pad_bottom) for shadow extent."""
@@ -250,30 +303,74 @@ class FloatingPanelOverlay(QWidget):
         pad_bottom = max(0.0, dy) + soft + 1.0
         return (pad_left, max(1.0, pad_top), pad_right, max(1.0, pad_bottom))
 
+    def _space_above_body(self) -> float:
+        """Pixels above bubble body for stacked username and/or line_like triangle AABB."""
+        return max(self._username_block_height(), self._line_like_top_extra())
+
     def _extra_width(self) -> float:
         """Horizontal extent beyond content body: left tail + shadow pads."""
         pad_left, _pt, pad_right, _pb = self._shadow_pads()
         return self._tail_w() + pad_left + pad_right
 
     def _extra_height(self) -> float:
-        """Vertical extent beyond content body: top/bottom shadow pads."""
+        """Vertical extent beyond content body: shadow pads + space above bubble."""
         _pl, pad_top, _pr, pad_bottom = self._shadow_pads()
-        return pad_top + pad_bottom
+        return pad_top + pad_bottom + self._space_above_body()
 
     def _body_path(self, body: QRectF) -> QPainterPath:
         """Rounded body; bubble + tail_enabled → left-pointing tail.
 
-        支持 round（平滑水滴尾巴）与 sharp（锐利三角），位置由 tail_offset_y 控制。
+        round / sharp：侧中高度尾巴；line_like：左上 CSS border 三角 + 旋转（近似）。
         """
         st = self._style
         radius = float(max(0, st.radius))
         path = QPainterPath()
         path.addRoundedRect(body, radius, radius)
-        tail_w = self._tail_w()
-        tail_h = self._tail_h()
-        if st.shape != "bubble" or tail_w <= 0.0 or tail_h <= 0.0:
+        if st.shape != "bubble" or not st.tail_enabled:
             return path
         tail_style = str(st.tail_style or "round").strip().lower()
+        if tail_style == "none":
+            return path
+        if tail_style == "line_like":
+            # Mirrors CSS border-triangle semantics (border + long_side + rotate).
+            # long_side ≈ tip length (CSS horizontal border); border ≈ thickness (vertical borders).
+            long_side = float(max(0, int(st.tail_long_side or 0)))
+            border = float(max(0, int(st.tail_border or 0)))
+            if long_side <= 0.0 or border <= 0.0:
+                return path
+            rot = math.radians(float(st.tail_rotate_deg or 35))
+            # Attach near top-left of bubble (not mid-height side tail)
+            attach_x = body.left()
+            attach_y = body.top() + max(border, 4.0)
+            # Local unrotated triangle: tip left, base on bubble edge
+            # half base ≈ long_side mapping note: border is short legs, long_side is tip length
+            half_base = border  # thickness as half of vertical base
+            local = (
+                QPointF(-long_side, 0.0),
+                QPointF(1.0, -half_base),
+                QPointF(1.0, half_base),
+            )
+            cos_r = math.cos(rot)
+            sin_r = math.sin(rot)
+
+            def _rot(p: QPointF) -> QPointF:
+                return QPointF(
+                    attach_x + p.x() * cos_r - p.y() * sin_r,
+                    attach_y + p.x() * sin_r + p.y() * cos_r,
+                )
+
+            r0, r1, r2 = _rot(local[0]), _rot(local[1]), _rot(local[2])
+            tail = QPainterPath()
+            tail.moveTo(r0)
+            tail.lineTo(r1)
+            tail.lineTo(r2)
+            tail.closeSubpath()
+            return path.united(tail)
+
+        tail_w = self._tail_w()
+        tail_h = self._tail_h()
+        if tail_w <= 0.0 or tail_h <= 0.0:
+            return path
         offset_pct = max(0, min(100, int(st.tail_offset_y))) / 100.0
         cy = body.top() + body.height() * offset_pct
         tip = QPointF(body.left() - tail_w, cy)
@@ -384,6 +481,7 @@ class FloatingPanelOverlay(QWidget):
         content_font.setPointSize(max(6, min(72, int(st.content_size))))
         content_metrics = QFontMetrics(content_font)
         line_spacing = max(1.0, float(st.content_line_height) / 100.0)
+        # Bubble body only (≤2 lines content); stacked username is in _extra_height
         content_h = float(content_metrics.height()) * line_spacing + float(st.padding_y) * 2
         return content_h + self._extra_height()
 
@@ -427,17 +525,56 @@ class FloatingPanelOverlay(QWidget):
         pad_x = float(st.padding_x)
         pad_y = float(st.padding_y)
         max_text_w = max(1.0, max_content_w - pad_x * 2.0)
+        # Measure with content font (matches render path)
+        content_font = QFont(self._font)
+        content_font.setPointSize(max(6, min(72, int(st.content_size))))
+        content_font.setBold(int(st.content_weight) >= 600)
+        content_font.setWeight(max(1, min(99, int(st.content_weight))))
+        content_metrics = QFontMetrics(content_font)
+        # stacked: full width for content; inline: username may share first line
+        if self._is_stacked_layout() or not st.username_enabled:
+            measure_max_w = max_text_w
+        else:
+            username_text = str(st.username_text or "弹幕")
+            username_sep = (
+                "" if st.username_separator is None else str(st.username_separator)
+            )
+            uf = QFont(self._font)
+            uf.setPointSize(max(6, min(72, int(st.username_size))))
+            uf.setBold(int(st.username_weight) >= 600)
+            uf.setWeight(max(1, min(99, int(st.username_weight))))
+            um = QFontMetrics(uf)
+            username_w = float(um.horizontalAdvance(username_text + username_sep))
+            measure_max_w = max(1.0, max_text_w - username_w - float(st.gap_username_content))
         lines, text_w, text_h = fit_floating_panel_text(
             item.content,
-            self._font,
-            self._font_metrics,
-            max_text_w,
+            content_font,
+            content_metrics,
+            measure_max_w,
         )
         # 多行时铺满可用内容宽，保证 _render 用同一 max_text_w 再 fit
         if len(lines) > 1:
             content_w = max_content_w
         else:
-            content_w = min(max_content_w, text_w + pad_x * 2.0)
+            # inline: username shares first line → reserve width in content body
+            if self._is_stacked_layout() or not st.username_enabled:
+                content_w = min(max_content_w, text_w + pad_x * 2.0)
+            else:
+                username_text = str(st.username_text or "弹幕")
+                username_sep = (
+                    "" if st.username_separator is None else str(st.username_separator)
+                )
+                uf = QFont(self._font)
+                uf.setPointSize(max(6, min(72, int(st.username_size))))
+                uf.setBold(int(st.username_weight) >= 600)
+                uf.setWeight(max(1, min(99, int(st.username_weight))))
+                um = QFontMetrics(uf)
+                username_w = float(um.horizontalAdvance(username_text + username_sep))
+                content_w = min(
+                    max_content_w,
+                    text_w + username_w + float(st.gap_username_content) + pad_x * 2.0,
+                )
+        # Bubble body height = content lines + padding only (username outside when stacked)
         content_h = float(text_h) + pad_y * 2.0
         total_h = content_h + self._extra_height()
         self.engine.update_item_height(item, total_h)
@@ -466,10 +603,12 @@ class FloatingPanelOverlay(QWidget):
         content_w = max(1, int(width))
         content_h = max(1, int(height))
         pad_left_shadow, pad_top, pad_right, pad_bottom = self._shadow_pads()
+        space_above = self._space_above_body()
+        stacked = self._is_stacked_layout()
         tail_w = self._tail_w()
         left_origin = tail_w + pad_left_shadow
         total_w = content_w + int(self._extra_width())
-        total_h = content_h + int(pad_top + pad_bottom)
+        total_h = content_h + int(pad_top + pad_bottom + space_above)
         dpr = self.devicePixelRatio() or 1.0
         w_px = max(1, int(total_w * dpr))
         h_px = max(1, int(total_h * dpr))
@@ -481,9 +620,10 @@ class FloatingPanelOverlay(QWidget):
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
             painter.setRenderHint(QPainter.RenderHint.TextAntialiasing)
 
+            # Body (bubble fill) sits below stacked username / line_like top pad
             body = QRectF(
                 left_origin,
-                pad_top,
+                pad_top + space_above,
                 float(content_w),
                 float(content_h),
             )
@@ -555,9 +695,15 @@ class FloatingPanelOverlay(QWidget):
             painter.setFont(self._font)
 
             # 用户名与内容分离（参考 blivechat 的 author-name / message 层级）
+            # layout=stacked：用户名在气泡外上方；layout=inline：用户名与首行内容同基线（wechat）
             username_on = bool(st.username_enabled)
             username_text = str(st.username_text or "弹幕") if username_on else ""
-            username_sep = str(st.username_separator or "：") if username_on else ""
+            # Preserve empty separator (blivechat_line); do not coerce "" → "："
+            username_sep = (
+                ("" if st.username_separator is None else str(st.username_separator))
+                if username_on
+                else ""
+            )
             full_text = text
             username_w = 0.0
             username_font = None
@@ -568,7 +714,9 @@ class FloatingPanelOverlay(QWidget):
                 username_font.setBold(int(st.username_weight) >= 600)
                 username_font.setWeight(max(1, min(99, int(st.username_weight))))
                 username_metrics = QFontMetrics(username_font)
-                username_w = float(username_metrics.horizontalAdvance(username_text + username_sep))
+                username_w = float(
+                    username_metrics.horizontalAdvance(username_text + username_sep)
+                )
 
             content_font = QFont(self._font)
             content_font.setPointSize(max(6, min(72, int(st.content_size))))
@@ -579,7 +727,12 @@ class FloatingPanelOverlay(QWidget):
 
             text_x = body.left() + pad_x
             max_text_w = max(1.0, float(content_w) - pad_x * 2.0)
-            content_max_w = max(1.0, max_text_w - username_w - float(st.gap_username_content))
+            if stacked or not username_text:
+                content_max_w = max_text_w
+            else:
+                content_max_w = max(
+                    1.0, max_text_w - username_w - float(st.gap_username_content)
+                )
             lines, _used_w, _text_h = fit_floating_panel_text(
                 full_text,
                 content_font,
@@ -597,7 +750,6 @@ class FloatingPanelOverlay(QWidget):
             outline_color = _hex_to_qcolor(st.outline_color)
             outline_w = max(1, int(st.outline_width)) if outline_on else 0
 
-            # 单行且开启用户名时，将用户名与首行内容在同一基线绘制
             def _draw_text_line(
                 painter_: QPainter,
                 font_: QFont,
@@ -618,32 +770,96 @@ class FloatingPanelOverlay(QWidget):
                 painter_.setPen(QPen(fill_))
                 painter_.drawText(int(x), int(baseline_y), line_text)
 
+            # stacked: username ABOVE bubble fill (outside shape_path), then content only inside
+            if stacked and username_text and username_font is not None and username_metrics is not None:
+                u_ascent = float(username_metrics.ascent())
+                # Username baseline sits in the band [pad_top, body.top())
+                u_baseline = pad_top + u_ascent
+                # Keep username baseline strictly above body.top()
+                if u_baseline >= body.top() - 1.0:
+                    u_baseline = max(pad_top + 1.0, body.top() - float(st.gap_username_content) - 1.0)
+                label = username_text + username_sep
+                if _use_fast_danmu_render(label):
+                    _draw_text_line(
+                        painter,
+                        username_font,
+                        username_metrics,
+                        label,
+                        text_x,
+                        u_baseline,
+                        username_color,
+                        outline_on,
+                    )
+                else:
+                    up = QPainterPath()
+                    up.addText(text_x, u_baseline, username_font, label)
+                    if outline_on:
+                        pen = QPen(outline_color)
+                        pen.setWidth(outline_w)
+                        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+                        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+                        painter.setPen(pen)
+                        painter.drawPath(up)
+                    painter.setPen(Qt.PenStyle.NoPen)
+                    painter.setBrush(username_color)
+                    painter.drawPath(up)
+
             if _use_fast_danmu_render(joined):
                 for i, line_text in enumerate(lines):
                     baseline_y = body.top() + pad_y + ascent + i * line_h
-                    if i == 0 and username_text:
+                    if (
+                        not stacked
+                        and i == 0
+                        and username_text
+                        and username_font is not None
+                    ):
                         ux = text_x
                         _draw_text_line(
-                            painter, username_font, username_metrics,
-                            username_text + username_sep, ux, baseline_y, username_color, outline_on,
+                            painter,
+                            username_font,
+                            username_metrics,
+                            username_text + username_sep,
+                            ux,
+                            baseline_y,
+                            username_color,
+                            outline_on,
                         )
                         cx = ux + username_w + float(st.gap_username_content)
                         _draw_text_line(
-                            painter, content_font, content_metrics,
-                            line_text, cx, baseline_y, text_fill, outline_on,
+                            painter,
+                            content_font,
+                            content_metrics,
+                            line_text,
+                            cx,
+                            baseline_y,
+                            text_fill,
+                            outline_on,
                         )
                     else:
                         _draw_text_line(
-                            painter, content_font, content_metrics,
-                            line_text, text_x, baseline_y, text_fill, outline_on,
+                            painter,
+                            content_font,
+                            content_metrics,
+                            line_text,
+                            text_x,
+                            baseline_y,
+                            text_fill,
+                            outline_on,
                         )
             else:
                 for i, line_text in enumerate(lines):
                     baseline_y = body.top() + pad_y + ascent + i * line_h
-                    if i == 0 and username_text:
+                    if (
+                        not stacked
+                        and i == 0
+                        and username_text
+                        and username_font is not None
+                    ):
                         ux = text_x
                         up = QPainterPath()
-                        up.addText(ux, baseline_y, username_font, username_text + username_sep)
+                        up.addText(
+                            ux, baseline_y, username_font, username_text + username_sep
+                        )
                         if outline_on:
                             pen = QPen(outline_color)
                             pen.setWidth(outline_w)
@@ -656,7 +872,12 @@ class FloatingPanelOverlay(QWidget):
                         painter.drawPath(up)
 
                         cp = QPainterPath()
-                        cp.addText(ux + username_w + float(st.gap_username_content), baseline_y, content_font, line_text)
+                        cp.addText(
+                            ux + username_w + float(st.gap_username_content),
+                            baseline_y,
+                            content_font,
+                            line_text,
+                        )
                         if outline_on:
                             pen = QPen(outline_color)
                             pen.setWidth(outline_w)

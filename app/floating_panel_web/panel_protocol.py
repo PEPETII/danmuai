@@ -54,6 +54,11 @@ class CardStyle:
     content_line_height: int = 140
     gap_username_content: int = 4
     font_bold: bool = False
+    # LineLike / layout (W-FP-LINELIKE-PROTOCOL-QT-001)
+    layout: str = "inline"
+    tail_border: int = 8
+    tail_long_side: int = 18
+    tail_rotate_deg: int = 35
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

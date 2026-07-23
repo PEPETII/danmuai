@@ -230,11 +230,22 @@ class DanmuAppFloatingPanelMixin:
             tail_offset_y=int(snap.tail_offset_y or 38),
             username_enabled=bool(snap.username_enabled),
             username_weight=int(snap.username_weight or 700),
-            username_separator=str(snap.username_separator or "："),
+            # Preserve empty separator (blivechat_line); only default when missing/None
+            username_separator=(
+                "" if snap.username_separator is None else str(snap.username_separator)
+            ),
             content_weight=int(snap.content_weight or 400),
             content_line_height=int(snap.content_line_height or 140),
             gap_username_content=int(snap.gap_username_content or 4),
             font_bold=bool(snap.font_bold),
+            layout=str(snap.layout or "inline"),
+            tail_border=int(snap.tail_border if snap.tail_border is not None else 8),
+            tail_long_side=int(
+                snap.tail_long_side if snap.tail_long_side is not None else 18
+            ),
+            tail_rotate_deg=int(
+                snap.tail_rotate_deg if snap.tail_rotate_deg is not None else 35
+            ),
         )
         msg = CardMessage(
             id=str(uuid.uuid4()),

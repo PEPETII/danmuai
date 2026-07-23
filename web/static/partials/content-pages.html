@@ -1,9 +1,6 @@
     <section id="page-danmu-pool" class="page-panel">
-      <header class="mb-8">
-        <h2 class="text-2xl font-bold text-warmText">公式化弹幕库</h2>
-        <p class="text-gray-500 mt-1">烂梗公式化与自定义公式化弹幕，可独立配置采集与展示</p>
-      </header>
-      <div class="card p-8 danmu-pool-page">
+      <header class="mb-8 ui-page-header"><div class="ui-page-header__copy min-w-0"><h2 class="text-2xl font-bold text-warmText ui-page-title">公式化弹幕库</h2><p class="text-gray-500 mt-1 ui-page-description">烂梗公式化与自定义公式化弹幕，可独立配置采集与展示</p></div></header>
+      <div class="card p-8 danmu-pool-page ui-card">
         <div class="settings-tabs-bar mb-6">
           <div class="settings-tabs danmu-pool-tabs" role="tablist" data-i18n-aria-label="content.aria.公式化弹幕库分类" aria-label="公式化弹幕库分类">
             <button type="button" role="tab" id="danmuPoolTabBtn-meme" class="danmu-pool-tab active" data-danmu-pool-tab="meme" aria-selected="true">烂梗公式化</button>
@@ -32,8 +29,9 @@
             </label>
             <p class="settings-section-hint">开启后按下方配置独立采集与展示烂梗弹幕，不与 AI 生成弹幕共用展示额度。</p>
           </div>
-          <div class="danmu-pool-section">
-            <p id="hintMemeCategoryTitle" class="settings-section-title">分类</p>
+          <div class="danmu-pool-section meme-category-settings">
+            <p id="hintMemeCategoryTitle" class="settings-section-title">分类模式</p>
+            <p class="settings-section-hint mb-3">随机：从全库抽取。自选：限选最多 3 个标签。本地库：仅使用本地导入的烂梗句。</p>
             <div class="flex flex-wrap gap-4 meme-category-group" role="radiogroup" data-i18n-aria-label="content.aria.烂梗分类" aria-label="烂梗分类">
               <label class="flex items-center gap-2 font-semibold text-warmText">
                 <input type="radio" name="memeCategory" value="random" class="accent-warmPink" checked>
@@ -48,77 +46,90 @@
                 本地库<span id="memeLocalCountInline" class="text-gray-500 font-normal">【0】</span>
               </label>
             </div>
+            <div class="meme-category-tag-block">
+              <p id="hintMemeTagTitle" class="meme-category-subheading">标签选择</p>
+              <p class="settings-section-hint mb-3">仅「自选」分类时可选择标签，最多 3 个。</p>
+              <div id="memeTagGrid" class="meme-tag-grid"></div>
+            </div>
           </div>
-          <div class="settings-rhythm-accordion" data-settings-rhythm-accordion>
-            <section class="settings-rhythm-accordion-item">
-              <h4 class="settings-rhythm-accordion-heading">
-                <button type="button" id="memeDisplayModeAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="memeDisplayModeAccordionPanel">
-                  <span id="hintMemeDisplayModeTitle">显示形式</span>
-                  <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
-                </button>
-              </h4>
-              <div id="memeDisplayModeAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="memeDisplayModeAccordionTrigger" hidden>
-                <div class="flex flex-wrap gap-4" role="radiogroup" data-i18n-aria-label="content.text.显示形式" aria-label="显示形式">
-                  <label class="flex items-center gap-2 font-semibold text-warmText">
-                    <input type="radio" name="memeDisplayMode" value="full" class="accent-warmPink" checked>
-                    全展示
-                  </label>
-                  <label class="flex items-center gap-2 font-semibold text-warmText">
-                    <input type="radio" name="memeDisplayMode" value="ai" class="accent-warmPink">
-                    AI识别展示
-                  </label>
+          <div class="danmu-pool-section meme-advanced-settings">
+            <p class="settings-section-title">采集与展示</p>
+            <p class="settings-section-hint mb-3">显示形式、采集节奏与上屏节奏；点开下方条目展开详细选项。</p>
+            <div class="settings-rhythm-accordion meme-advanced-accordion" data-settings-rhythm-accordion>
+              <section class="settings-rhythm-accordion-item">
+                <h4 class="settings-rhythm-accordion-heading">
+                  <button type="button" id="memeDisplayModeAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="memeDisplayModeAccordionPanel">
+                    <span class="settings-rhythm-accordion-trigger-copy">
+                      <span id="hintMemeDisplayModeTitle" class="settings-rhythm-accordion-trigger-title" data-i18n="content.text.显示形式">显示形式</span>
+                      <span class="settings-section-hint settings-rhythm-accordion-trigger-hint" data-i18n="content.text.全展示_采集结果全部进入展示队列_AI识别展示_由_AI_根据当前画面从候选中筛">全展示：采集结果全部进入展示队列。AI识别展示：由 AI 根据当前画面从候选中筛选。</span>
+                    </span>
+                    <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
+                  </button>
+                </h4>
+                <div id="memeDisplayModeAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="memeDisplayModeAccordionTrigger" hidden>
+                  <div class="flex flex-wrap gap-4" role="radiogroup" data-i18n-aria-label="content.text.显示形式" aria-label="显示形式">
+                    <label class="flex items-center gap-2 font-semibold text-warmText">
+                      <input type="radio" name="memeDisplayMode" value="full" class="accent-warmPink" checked>
+                      全展示
+                    </label>
+                    <label class="flex items-center gap-2 font-semibold text-warmText">
+                      <input type="radio" name="memeDisplayMode" value="ai" class="accent-warmPink">
+                      AI识别展示
+                    </label>
+                  </div>
                 </div>
-                <p class="settings-section-hint mt-2">全展示：采集结果全部进入展示队列。AI识别展示：由 AI 根据当前画面从候选中筛选。</p>
-              </div>
-            </section>
-            <section class="settings-rhythm-accordion-item">
-              <h4 class="settings-rhythm-accordion-heading">
-                <button type="button" id="memeCollectAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="memeCollectAccordionPanel">
-                  <span id="hintMemeCollectTitle">采集配置</span>
-                  <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
-                </button>
-              </h4>
-              <div id="memeCollectAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="memeCollectAccordionTrigger" hidden>
-                <div class="settings-rhythm-accordion-inline-row">
-                  <span>每</span>
-                  <input type="number" id="memeCollectInterval" min="1" max="60" value="5" class="settings-field-control">
-                  <span>秒采集一次，每次采集</span>
-                  <input type="number" id="memeCollectBatch" min="1" max="100" value="2" class="settings-field-control">
-                  <span>个弹幕</span>
+              </section>
+              <section class="settings-rhythm-accordion-item">
+                <h4 class="settings-rhythm-accordion-heading">
+                  <button type="button" id="memeCollectAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="memeCollectAccordionPanel">
+                    <span class="settings-rhythm-accordion-trigger-copy">
+                      <span id="hintMemeCollectTitle" class="settings-rhythm-accordion-trigger-title" data-i18n="content.text.采集配置">采集配置</span>
+                      <span class="settings-section-hint settings-rhythm-accordion-trigger-hint" data-i18n="content.text.控制烂梗弹幕的采集节奏_间隔秒数与每批采集条数_采集间隔_1_60_秒_每次采集_1_100_条">控制烂梗弹幕的采集节奏：间隔秒数与每批采集条数。采集间隔 1–60 秒；每次采集 1–100 条。</span>
+                    </span>
+                    <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
+                  </button>
+                </h4>
+                <div id="memeCollectAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="memeCollectAccordionTrigger" hidden>
+                  <div class="settings-rhythm-accordion-inline-row">
+                    <span>每</span>
+                    <input type="number" id="memeCollectInterval" min="1" max="60" value="5" class="settings-field-control ui-control ui-input">
+                    <span>秒采集一次，每次采集</span>
+                    <input type="number" id="memeCollectBatch" min="1" max="100" value="2" class="settings-field-control ui-control ui-input">
+                    <span>个弹幕</span>
+                  </div>
                 </div>
-              </div>
-            </section>
-            <section class="settings-rhythm-accordion-item">
-              <h4 class="settings-rhythm-accordion-heading">
-                <button type="button" id="memeDisplayAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="memeDisplayAccordionPanel">
-                  <span id="hintMemeDisplayTitle">展示配置</span>
-                  <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
-                </button>
-              </h4>
-              <div id="memeDisplayAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="memeDisplayAccordionTrigger" hidden>
-                <div class="settings-rhythm-accordion-inline-row">
-                  <span>每</span>
-                  <input type="number" id="memeDisplayInterval" min="1" max="60" value="5" class="settings-field-control">
-                  <span>秒展示</span>
-                  <input type="number" id="memeDisplayBatch" min="1" max="50" value="2" class="settings-field-control">
-                  <span>个弹幕</span>
+              </section>
+              <section class="settings-rhythm-accordion-item">
+                <h4 class="settings-rhythm-accordion-heading">
+                  <button type="button" id="memeDisplayAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="memeDisplayAccordionPanel">
+                    <span class="settings-rhythm-accordion-trigger-copy">
+                      <span id="hintMemeDisplayTitle" class="settings-rhythm-accordion-trigger-title" data-i18n="content.text.展示配置">展示配置</span>
+                      <span class="settings-section-hint settings-rhythm-accordion-trigger-hint" data-i18n="content.text.控制烂梗弹幕的上屏节奏_间隔秒数与每批展示条数_展示间隔_1_60_秒_每次展示_1_50_条">控制烂梗弹幕的上屏节奏：间隔秒数与每批展示条数。展示间隔 1–60 秒；每次展示 1–50 条。</span>
+                    </span>
+                    <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
+                  </button>
+                </h4>
+                <div id="memeDisplayAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="memeDisplayAccordionTrigger" hidden>
+                  <div class="settings-rhythm-accordion-inline-row">
+                    <span>每</span>
+                    <input type="number" id="memeDisplayInterval" min="1" max="60" value="5" class="settings-field-control ui-control ui-input">
+                    <span>秒展示</span>
+                    <input type="number" id="memeDisplayBatch" min="1" max="50" value="2" class="settings-field-control ui-control ui-input">
+                    <span>个弹幕</span>
+                  </div>
                 </div>
-              </div>
-            </section>
-          </div>
-          <div class="danmu-pool-section">
-            <p id="hintMemeTagTitle" class="settings-section-title">标签选择</p>
-            <p class="settings-section-hint mb-3">仅「自选」分类时可选择标签，最多 3 个。</p>
-            <div id="memeTagGrid" class="meme-tag-grid"></div>
+              </section>
+            </div>
           </div>
           <div class="flex flex-wrap gap-3">
-            <button type="button" id="btnSaveMemeBarrageSettings" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm">保存设置</button>
+            <button type="button" id="btnSaveMemeBarrageSettings" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm ui-button ui-button--primary ui-button--md">保存设置</button>
           </div>
           <div class="danmu-pool-section">
             <p class="settings-section-title">本地库</p>
             <p class="text-warmText font-semibold">当前本地库弹幕数量：<span id="memeLibraryCount">0</span></p>
             <p class="settings-section-hint">待展示队列：<span id="memeQueueCount">0</span> 条</p>
-            <button type="button" id="btnMemeBarrageClear" class="mt-3 px-6 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50">清除</button>
+            <button type="button" id="btnMemeBarrageClear" class="mt-3 px-6 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--md">清除</button>
+            <p class="settings-section-hint mt-2">清空本地烂梗库与待展示队列；不影响已上屏弹幕。</p>
           </div>
         </div>
 
@@ -126,7 +137,7 @@
           <div class="danmu-pool-section">
             <p class="settings-section-title">导入弹幕句库</p>
             <p class="settings-section-hint">选择 TXT 文件（一行一条），最多同时导入 5 个文件，每个文件最多 1000 行，内容将追加到已有弹幕库。</p>
-            <button type="button" id="btnPoolImportTxt" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm">导入 TXT</button>
+            <button type="button" id="btnPoolImportTxt" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm ui-button ui-button--primary ui-button--md">导入 TXT</button>
             <input type="file" id="poolImportTxtInput" accept=".txt" multiple hidden>
           </div>
           <div class="danmu-pool-section">
@@ -143,19 +154,19 @@
             <p class="settings-section-title">补足规则</p>
             <div id="poolMinOnScreenWrap" class="settings-field pool-min-on-screen max-w-xs">
               <label for="poolMinOnScreen" class="settings-field-label">最小同屏条数</label>
-              <input type="number" id="poolMinOnScreen" min="0" max="50" value="5" class="settings-field-control">
+              <input type="number" id="poolMinOnScreen" min="0" max="50" value="5" class="settings-field-control ui-control ui-input">
             </div>
-            <p class="settings-section-hint">当屏幕上的弹幕少于该数量时，会从自定义公式化弹幕库中抽取短句补足。</p>
+            <p class="settings-section-hint">当屏幕上的弹幕少于该数量时，从自定义公式化弹幕库抽取短句补足。设为 0 则关闭补足。</p>
             <p id="poolBothOffHint" class="settings-section-hint hidden">关闭自定义公式化弹幕库后，不会进行公式化弹幕补足。</p>
-            <button type="button" id="btnSavePoolSettings" class="btn-primary mt-4 px-6 py-2 text-white rounded-xl font-bold shadow-warm">保存设置</button>
+            <button type="button" id="btnSavePoolSettings" class="btn-primary mt-4 px-6 py-2 text-white rounded-xl font-bold shadow-warm ui-button ui-button--primary ui-button--md">保存设置</button>
           </div>
           <div class="danmu-pool-section">
             <p class="settings-section-title">追加自定义句</p>
-            <p class="settings-section-hint mb-2">一行一条，保存后上屏时完整展示，无字数限制。</p>
-            <textarea id="poolCustomTextarea" rows="6" class="danmu-pool-textarea w-full px-4 py-3 bg-cream rounded-xl text-warmText border border-softPeach" data-i18n-placeholder="content.placeholder.太真实了_10_这也行" placeholder="太真实了&#10;这也行？"></textarea>
+            <p class="settings-section-hint mb-2">一行一条短句，保存后上屏时完整展示、不截断。重复句会自动跳过。</p>
+            <textarea id="poolCustomTextarea" rows="6" class="danmu-pool-textarea w-full px-4 py-3 bg-cream rounded-xl text-warmText border border-softPeach ui-control ui-textarea" data-i18n-placeholder="content.placeholder.太真实了_10_这也行" placeholder="太真实了&#10;这也行？"></textarea>
             <div class="flex flex-wrap gap-3 mt-3">
-              <button type="button" id="btnPoolCustomAppend" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm">保存 / 追加</button>
-              <button type="button" id="btnPoolCustomClearInput" class="px-6 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50">清空输入</button>
+              <button type="button" id="btnPoolCustomAppend" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm ui-button ui-button--primary ui-button--md">保存 / 追加</button>
+              <button type="button" id="btnPoolCustomClearInput" class="px-6 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--md">清空输入</button>
             </div>
           </div>
           <div class="danmu-pool-section">
@@ -165,18 +176,19 @@
             </div>
             <p id="poolCustomListHint" class="settings-section-hint mb-2">当前展示：手动添加条目。txt 导入内容已入库参与抽取，但不在此列表逐条展示。</p>
             <div class="flex flex-wrap items-center gap-3 mb-3">
-              <input type="search" id="poolCustomSearch" class="settings-field-control max-w-xs px-3 py-2 bg-cream rounded-xl text-warmText border border-softPeach" data-i18n-placeholder="content.placeholder.搜索手动条目" placeholder="搜索手动条目" data-i18n-aria-label="content.placeholder.搜索手动条目" aria-label="搜索手动条目">
+              <input type="search" id="poolCustomSearch" class="settings-field-control max-w-xs px-3 py-2 bg-cream rounded-xl text-warmText border border-softPeach ui-control ui-input" data-i18n-placeholder="content.placeholder.搜索手动条目" placeholder="搜索手动条目" data-i18n-aria-label="content.placeholder.搜索手动条目" aria-label="搜索手动条目">
               <label class="toggle-switch text-sm font-semibold text-warmText">
                 <input type="checkbox" id="poolCustomSelectAll" role="switch">
                 <span>全选本页</span>
               </label>
-              <button type="button" id="btnPoolCustomDelete" class="px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50">删除选中</button>
+              <button type="button" id="btnPoolCustomDelete" class="px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--sm">删除选中</button>
             </div>
+            <p class="settings-section-hint mb-2">勾选「全选本页」后可选中列表全部自定义句，便于批量删除。</p>
             <ul id="poolCustomList" class="danmu-pool-custom-list space-y-2"></ul>
             <div id="poolCustomPager" class="flex flex-wrap items-center gap-3 mt-4 text-sm text-warmText">
-              <button type="button" id="btnPoolCustomPrev" class="px-3 py-1.5 bg-white border border-gray-200 rounded-lg font-semibold hover:bg-gray-50">上一页</button>
+              <button type="button" id="btnPoolCustomPrev" class="px-3 py-1.5 bg-white border border-gray-200 rounded-lg font-semibold hover:bg-gray-50 ui-button ui-button--secondary ui-button--sm">上一页</button>
               <span id="poolCustomPageInfo" class="text-gray-500">第 1 页</span>
-              <button type="button" id="btnPoolCustomNext" class="px-3 py-1.5 bg-white border border-gray-200 rounded-lg font-semibold hover:bg-gray-50">下一页</button>
+              <button type="button" id="btnPoolCustomNext" class="px-3 py-1.5 bg-white border border-gray-200 rounded-lg font-semibold hover:bg-gray-50 ui-button ui-button--secondary ui-button--sm">下一页</button>
             </div>
           </div>
         </div>
@@ -185,17 +197,15 @@
 
     <!-- ========== 区域：桌宠 ========== -->
         <section id="page-pet" class="page-panel" data-i18n-aria-label="content.text.桌宠" aria-label="桌宠">
-      <header class="mb-8">
-        <h2 class="text-2xl font-bold text-warmText">桌宠</h2>
-        <p class="text-gray-500 mt-1">桌面互动宠物与弹幕指令入口；复用助手模型，不单独请求 AI</p>
+      <header class="mb-8 ui-page-header"><div class="ui-page-header__copy min-w-0"><h2 class="text-2xl font-bold text-warmText ui-page-title">桌宠</h2><p class="text-gray-500 mt-1 ui-page-description">桌面互动宠物与弹幕指令入口；复用助手模型，不单独请求 AI</p></div>
         <div class="mt-4 flex justify-center">
-          <a href="https://petdex.dev/zh" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center px-5 py-2 rounded-full bg-softPeach text-warmText font-semibold shadow-warm hover:bg-softPeach/80 transition">去 PetDex 查找更多桌宠</a>
+          <a href="https://petdex.dev/zh" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center px-5 py-2 rounded-full bg-softPeach text-warmText font-semibold shadow-warm hover:bg-softPeach/80 transition ui-button ui-button--secondary ui-button--md">去 PetDex 查找更多桌宠</a>
         </div>
       </header>
-      <div class="card p-8 space-y-8 pet-page">
+      <div class="card p-8 space-y-8 pet-page ui-card">
         <div>
           <p class="settings-section-title">状态</p>
-          <p id="petStatusText" class="text-warmText font-semibold">未启用</p>
+          <p id="petStatusText" class="text-warmText font-semibold min-w-0 break-words">未启用</p>
           <p class="settings-section-hint mt-2">当前桌宠：<span id="petAssetText">默认桌宠</span></p>
         </div>
         <div class="space-y-4">
@@ -226,11 +236,11 @@
               <div class="settings-rhythm-accordion-fields">
                 <div class="settings-rhythm-accordion-field">
                   <label for="petScale" class="settings-field-label">大小倍率</label>
-                  <input type="number" id="petScale" min="0.5" max="2" step="0.1" value="0.5" class="settings-field-control">
+                  <input type="number" id="petScale" min="0.5" max="2" step="0.1" value="0.5" class="settings-field-control ui-control ui-input">
                 </div>
                 <div class="settings-rhythm-accordion-field">
                   <label for="petOpacity" class="settings-field-label">透明度</label>
-                  <input type="number" id="petOpacity" min="0.2" max="1" step="0.1" value="1" class="settings-field-control">
+                  <input type="number" id="petOpacity" min="0.2" max="1" step="0.1" value="1" class="settings-field-control ui-control ui-input">
                 </div>
                 <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--toggle">
                   <span class="settings-field-label">窗口置顶</span>
@@ -267,17 +277,17 @@
                 </div>
                 <div class="settings-rhythm-accordion-field">
                   <label for="petCommandTtl" class="settings-field-label">指令有效期（秒）</label>
-                  <input type="number" id="petCommandTtl" min="5" max="300" value="30" class="settings-field-control">
+                  <input type="number" id="petCommandTtl" min="5" max="300" value="30" class="settings-field-control ui-control ui-input">
                 </div>
                 <div class="settings-rhythm-accordion-field">
                   <label for="petCommandApplyCount" class="settings-field-label">生效次数</label>
-                  <input type="number" id="petCommandApplyCount" min="1" max="5" value="1" class="settings-field-control">
+                  <input type="number" id="petCommandApplyCount" min="1" max="5" value="1" class="settings-field-control ui-control ui-input">
                 </div>
                 <div class="settings-rhythm-accordion-field">
                   <label for="petCommandInput" class="settings-field-label">Web 调试指令</label>
                   <div class="settings-rhythm-accordion-control-group">
-                    <input type="text" id="petCommandInput" maxlength="200" data-i18n-placeholder="content.placeholder.例如_接下来弹幕偏搞笑一点" placeholder="例如：接下来弹幕偏搞笑一点" class="settings-field-control">
-                    <button type="button" id="btnPetCommandSubmit" class="btn-primary px-5 py-2 text-white rounded-xl font-bold shadow-warm">提交指令</button>
+                    <input type="text" id="petCommandInput" maxlength="200" data-i18n-placeholder="content.placeholder.例如_接下来弹幕偏搞笑一点" placeholder="例如：接下来弹幕偏搞笑一点" class="settings-field-control ui-control ui-input">
+                    <button type="button" id="btnPetCommandSubmit" class="btn-primary px-5 py-2 text-white rounded-xl font-bold shadow-warm ui-button ui-button--primary ui-button--md">提交指令</button>
                   </div>
                 </div>
               </div>
@@ -297,13 +307,13 @@
               <div class="settings-rhythm-accordion-fields">
                 <div class="settings-rhythm-accordion-field">
                   <span class="settings-field-label">素材来源</span>
-                  <p id="petAssetSourceText" class="settings-field-control min-h-[48px] flex items-center break-all">使用默认桌宠</p>
+                  <p id="petAssetSourceText" class="settings-field-control min-h-[48px] flex items-center break-all min-w-0 break-words">使用默认桌宠</p>
                 </div>
               </div>
-              <p id="petAssetErrorText" class="hidden text-sm font-semibold text-red-600 mt-2"></p>
+              <p id="petAssetErrorText" class="hidden text-sm font-semibold text-red-600 mt-2 min-w-0 break-words"></p>
               <div class="flex flex-wrap gap-3 mt-3">
-                <button type="button" id="btnPetImportFolder" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm">导入文件夹</button>
-                <button type="button" id="btnPetResetAsset" class="px-6 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50">恢复默认桌宠</button>
+                <button type="button" id="btnPetImportFolder" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm ui-button ui-button--primary ui-button--md">导入文件夹</button>
+                <button type="button" id="btnPetResetAsset" class="px-6 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--md">恢复默认桌宠</button>
               </div>
             </div>
           </section>
@@ -315,16 +325,13 @@
           </div>
           <div id="petBarrageSlots" class="grid grid-cols-1 xl:grid-cols-2 gap-4"></div>
         </div>
-        <button type="button" id="btnPetSave" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm">保存设置</button>
+        <button type="button" id="btnPetSave" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm ui-button ui-button--primary ui-button--md">保存设置</button>
       </div>
     </section>
 <section id="page-persona" class="page-panel">
-      <header class="mb-8">
-        <h2 class="text-2xl font-bold text-warmText">弹幕人格</h2>
-        <p class="text-gray-500 mt-1">激活运行时人格，或编辑管理人格提示与契约</p>
-      </header>
-      <div class="card p-8 space-y-4">
-        <div id="personaSaveStatusBanner" class="hidden mb-4 px-4 py-2 rounded-xl bg-green-50 border border-green-200 text-sm text-green-700 font-semibold" role="status" aria-live="polite"></div>
+      <header class="mb-8 ui-page-header"><div class="ui-page-header__copy min-w-0"><h2 class="text-2xl font-bold text-warmText ui-page-title">弹幕人格</h2><p class="text-gray-500 mt-1 ui-page-description">激活运行时人格，或编辑管理人格提示与契约</p></div></header>
+      <div class="card p-8 space-y-4 ui-card">
+        <div id="personaSaveStatusBanner" class="hidden mb-4 px-4 py-2 rounded-xl bg-green-50 border border-green-200 text-sm text-green-700 font-semibold min-w-0 break-words" role="status" aria-live="polite"></div>
         <div class="settings-tabs-bar mb-6">
           <div class="settings-tabs persona-tabs" role="tablist" aria-label="弹幕人格分类">
             <button type="button" role="tab" id="personaTabBtn-active" class="settings-tab active" data-persona-tab="active" aria-selected="true">激活人格</button>
@@ -345,7 +352,7 @@
               <span class="block text-sm font-semibold mb-2 text-warmText flex-1 min-w-0 mb-0" id="hintPersonaActiveTitle">激活人格（运行时随机）</span>
             </div>
             <div id="personaActiveList" class="grid grid-cols-1 sm:grid-cols-2 gap-2"></div>
-            <button type="button" id="btnSavePersonaActive" class="mt-3 px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold">保存激活列表</button>
+            <button type="button" id="btnSavePersonaActive" class="mt-3 px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold ui-button ui-button--secondary ui-button--sm">保存激活列表</button>
           </div>
         </div>
 
@@ -353,22 +360,22 @@
           <div class="flex flex-wrap gap-3 items-end">
             <div class="flex-1 min-w-[200px]">
               <label for="personaSelect" class="block text-sm font-semibold mb-2 text-warmText">选择人格</label>
-              <select id="personaSelect" class="w-full px-4 py-3 bg-cream rounded-xl text-warmText"></select>
+              <select id="personaSelect" class="w-full px-4 py-3 bg-cream rounded-xl text-warmText ui-control ui-select"></select>
             </div>
-            <button type="button" id="btnNewPersona" class="px-4 py-3 bg-white border border-gray-200 rounded-xl font-semibold text-warmText">新建人格</button>
-            <button type="button" id="btnDeletePersona" class="px-4 py-3 bg-red-50 border border-red-200 rounded-xl font-semibold text-red-600">删除</button>
+            <button type="button" id="btnNewPersona" class="px-4 py-3 bg-white border border-gray-200 rounded-xl font-semibold text-warmText ui-button ui-button--secondary ui-button--md">新建人格</button>
+            <button type="button" id="btnDeletePersona" class="px-4 py-3 bg-red-50 border border-red-200 rounded-xl font-semibold text-red-600 ui-button ui-button--secondary ui-button--md">删除</button>
           </div>
           <div>
             <label for="personaContract" class="block text-sm font-semibold mb-2 text-warmText">输出契约（只读）</label>
-            <textarea id="personaContract" readonly rows="4" class="w-full px-4 py-3 bg-cream rounded-xl text-sm text-gray-500"></textarea>
+            <textarea id="personaContract" readonly rows="4" class="w-full px-4 py-3 bg-cream rounded-xl text-sm text-gray-500 ui-control ui-textarea"></textarea>
           </div>
           <div>
             <label for="personaSystemCustom" class="block text-sm font-semibold mb-2 text-warmText">系统提示补充</label>
-            <textarea id="personaSystemCustom" rows="4" class="w-full px-4 py-3 bg-cream rounded-xl text-warmText" data-i18n-placeholder="content.placeholder.例如_语气温柔治愈_像闺蜜一样吐槽主播操作_偶尔玩梗" placeholder="例如：语气温柔治愈，像闺蜜一样吐槽主播操作，偶尔玩梗"></textarea>
+            <textarea id="personaSystemCustom" rows="4" class="w-full px-4 py-3 bg-cream rounded-xl text-warmText ui-control ui-textarea" data-i18n-placeholder="content.placeholder.例如_语气温柔治愈_像闺蜜一样吐槽主播操作_偶尔玩梗" placeholder="例如：语气温柔治愈，像闺蜜一样吐槽主播操作，偶尔玩梗"></textarea>
           </div>
           <div class="flex flex-wrap gap-3">
-            <button type="button" id="btnSavePersona" class="btn-primary px-6 py-2 text-white rounded-xl font-bold">保存人格</button>
-            <button type="button" id="btnRestorePersona" class="px-6 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText">恢复默认</button>
+            <button type="button" id="btnSavePersona" class="btn-primary px-6 py-2 text-white rounded-xl font-bold ui-button ui-button--primary ui-button--md">保存人格</button>
+            <button type="button" id="btnRestorePersona" class="px-6 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText ui-button ui-button--secondary ui-button--md">恢复默认</button>
           </div>
         </div>
       </div>
@@ -376,10 +383,7 @@
 
     <!-- ========== 区域：直播设置（直播输出） ========== -->
     <section id="page-live-settings" class="page-panel" data-i18n-aria-label="content.text.直播设置" aria-label="直播设置">
-      <header class="mb-8">
-        <h2 class="text-2xl font-bold text-warmText">直播设置</h2>
-        <p class="text-gray-500 mt-1">直播输出配置</p>
-      </header>
+      <header class="mb-8 ui-page-header"><div class="ui-page-header__copy min-w-0"><h2 class="text-2xl font-bold text-warmText ui-page-title">直播设置</h2><p class="text-gray-500 mt-1 ui-page-description">直播输出配置</p></div></header>
       <div class="settings-tabs-bar">
         <div class="settings-tabs" role="tablist" data-i18n-aria-label="content.aria.直播设置分类" aria-label="直播设置分类">
           <button type="button" role="tab" class="settings-tab active" data-live-settings-tab="live-output" aria-selected="true">直播输出</button>
@@ -390,20 +394,20 @@
 
     <!-- ========== 区域：直播输出（DOM 源，由 live-settings-tabs.js 搬入 #page-live-settings） ========== -->
     <section id="page-live-output-source" class="page-panel" data-live-settings-panel="live-output-source" hidden data-i18n-aria-label="content.aria.直播输出源" aria-label="直播输出源">
-      <div class="card p-8" id="liveOverlayPanel" data-live-settings-move="live-output">
+      <div class="card p-8 ui-card" id="liveOverlayPanel" data-live-settings-move="live-output">
         <div class="flex flex-wrap items-start justify-between gap-3 mb-2">
           <div>
             <h3 class="text-lg font-bold text-warmText">直播输出</h3>
-            <p class="text-sm text-gray-400 mt-1">供 OBS、抖音直播伴侣等添加「浏览器源 / 网页源」，采集透明背景 AI 弹幕（本机 127.0.0.1）。</p>
+            <p class="text-sm text-gray-400 mt-1 min-w-0 break-words">供 OBS、抖音直播伴侣等添加「浏览器源 / 网页源」，采集透明背景 AI 弹幕（本机 127.0.0.1）。</p>
           </div>
           <span id="liveOverlaySetupState" class="live-overlay-setup-state" aria-live="polite">待接入</span>
         </div>
         <label class="text-sm text-gray-400 block mb-1" for="liveOverlayUrl">网页弹幕地址</label>
         <div class="flex flex-wrap gap-2 mb-4">
-          <input type="text" id="liveOverlayUrl" readonly class="flex-1 min-w-[200px] px-3 py-2 rounded-xl border border-gray-200 bg-cream text-sm text-warmText" value="http://127.0.0.1:18765/live-overlay" />
-          <button type="button" id="btnCopyLiveOverlayUrl" class="px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50">复制地址</button>
-          <button type="button" id="btnOpenLiveOverlayUrl" class="px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50">打开预览</button>
-          <button type="button" id="btnRefreshLiveOverlayStatus" class="px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50">刷新状态</button>
+          <input type="text" id="liveOverlayUrl" readonly class="flex-1 min-w-[200px] px-3 py-2 rounded-xl border border-gray-200 bg-cream text-sm text-warmText ui-control ui-input" value="http://127.0.0.1:18765/live-overlay" />
+          <button type="button" id="btnCopyLiveOverlayUrl" class="px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--sm">复制地址</button>
+          <button type="button" id="btnOpenLiveOverlayUrl" class="px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--sm">打开预览</button>
+          <button type="button" id="btnRefreshLiveOverlayStatus" class="px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--sm">刷新状态</button>
         </div>
         <div class="flex flex-wrap items-center gap-4 text-sm mb-4">
           <span class="text-gray-400">SSE 连接数：<strong class="text-warmText" id="liveOverlayConnections">0</strong></span>
@@ -424,18 +428,15 @@
               <span>发送测试</span>
             </li>
           </ol>
-          <p id="liveOverlaySetupHint" class="live-overlay-setup-hint">先复制地址，粘贴到直播软件的浏览器源 / 网页源。</p>
+          <p id="liveOverlaySetupHint" class="live-overlay-setup-hint min-w-0 break-words">先复制地址，粘贴到直播软件的浏览器源 / 网页源。</p>
         </div>
-        <button type="button" id="btnLiveOverlayTest" class="px-4 py-2 bg-accent text-white rounded-xl text-sm font-semibold hover:opacity-90">发送测试弹幕</button>
+        <button type="button" id="btnLiveOverlayTest" class="px-4 py-2 bg-accent text-white rounded-xl text-sm font-semibold hover:opacity-90 ui-button ui-button--primary ui-button--md">发送测试弹幕</button>
       </div>
     </section>
 
     <!-- ========== 区域：教程|日志|反馈|公告（合并四 Tab） ========== -->
     <section id="page-guide" class="page-panel" data-i18n-aria-label="content.text.教程_日志_反馈_公告" aria-label="教程|日志|反馈|公告|群聊">
-      <header class="mb-8">
-        <h2 class="text-2xl font-bold text-warmText">教程|日志|反馈|公告|群聊</h2>
-        <p class="text-gray-500 mt-1">教程、弹幕日志、公告、问题反馈与群聊</p>
-      </header>
+      <header class="mb-8 ui-page-header"><div class="ui-page-header__copy min-w-0"><h2 class="text-2xl font-bold text-warmText ui-page-title">教程|日志|反馈|公告|群聊</h2><p class="text-gray-500 mt-1 ui-page-description">教程、弹幕日志、公告、问题反馈与群聊</p></div></header>
       <div class="settings-tabs-bar">
         <div class="settings-tabs" role="tablist" data-i18n-aria-label="content.text.教程_日志_反馈_公告" aria-label="教程|日志|反馈|公告|群聊">
           <button type="button" role="tab" class="settings-tab active" data-guide-tab="tutorial" aria-selected="true">教程</button>
@@ -453,11 +454,8 @@
     <!-- ========== 区域：教程（DOM 源，header 与 card 内容由 guide-tabs.js 搬入 #page-guide） ========== -->
     <!-- section: 使用教程（图文飞书链接 + Supabase 视频链接） -->
     <section id="page-tutorial" class="page-panel" data-guide-panel="tutorial-source" hidden data-i18n-aria-label="content.aria.使用教程" aria-label="使用教程">
-      <header class="mb-8" data-guide-move="tutorial">
-        <h2 class="text-2xl font-bold text-warmText">教程</h2>
-        <p class="text-gray-500 mt-1">选择下方教程查看使用说明</p>
-      </header>
-      <div class="card p-8 space-y-6" data-guide-move="tutorial">
+      <header class="mb-8 ui-page-header" data-guide-move="tutorial"><div class="ui-page-header__copy min-w-0"><h2 class="text-2xl font-bold text-warmText ui-page-title">教程</h2><p class="text-gray-500 mt-1 ui-page-description">选择下方教程查看使用说明</p></div></header>
+      <div class="card p-8 space-y-6 ui-card" data-guide-move="tutorial">
         <div class="tutorial-item">
           <h3 class="tutorial-item-title">图文教程（暂时不完整）</h3>
           <a
@@ -485,12 +483,12 @@
     <!-- ========== 区域：公告（DOM 源，header 与 card 内容由 guide-tabs.js 搬入 #page-guide） ========== -->
     <!-- section: 公告（Supabase announcements 表 + 本机已读 state） -->
     <section id="page-announcements" class="page-panel" data-guide-panel="announcements-source" hidden data-i18n-aria-label="content.text.公告" aria-label="公告">
-      <header class="mb-8 flex flex-wrap justify-between items-start gap-4" data-guide-move="announcements">
-        <div>
-          <h2 class="text-2xl font-bold text-warmText">公告</h2>
-          <p class="text-gray-500 mt-1">官方通知与更新说明</p>
+      <header class="mb-8 flex flex-wrap justify-between items-start gap-4 ui-page-header" data-guide-move="announcements">
+        <div class="ui-page-header__copy min-w-0">
+          <h2 class="text-2xl font-bold text-warmText ui-page-title">公告</h2>
+          <p class="text-gray-500 mt-1 ui-page-description">官方通知与更新说明</p>
         </div>
-        <button type="button" id="btnAnnouncementsRefresh" class="shrink-0 px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50">刷新</button>
+        <div class="ui-page-header__actions flex items-center gap-2 flex-wrap shrink-0"><button type="button" id="btnAnnouncementsRefresh" class="shrink-0 px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--sm">刷新</button></div>
       </header>
       <div id="announcementsList" class="announcements-list space-y-4" aria-live="polite" data-guide-move="announcements">
         <p class="text-gray-500 text-sm">正在加载公告…</p>
@@ -500,13 +498,10 @@
     <!-- ========== 区域：问题反馈与群聊（DOM 源，header 与 card 内容由 guide-tabs.js 搬入 #page-guide） ========== -->
     <!-- section: 问题反馈与群聊（社群入口 + 错误反馈已分发给 W-ERROR-REPORT-*） -->
     <section id="page-feedback" class="page-panel" data-guide-panel="feedback-source" hidden data-i18n-aria-label="content.text.问题反馈与群聊" aria-label="问题反馈与群聊">
-      <header class="mb-8" data-guide-move="feedback">
-        <h2 class="text-2xl font-bold text-warmText">问题反馈与群聊</h2>
-        <p class="text-gray-500 mt-1">加入社群或在群内 @ 我，比私信更不容易触发平台限制</p>
-      </header>
-      <div class="card feedback-page p-8 space-y-6" data-guide-move="feedback">
+      <header class="mb-8 ui-page-header" data-guide-move="feedback"><div class="ui-page-header__copy min-w-0"><h2 class="text-2xl font-bold text-warmText ui-page-title">问题反馈与群聊</h2><p class="text-gray-500 mt-1 ui-page-description">加入社群或在群内 @ 我，比私信更不容易触发平台限制</p></div></header>
+      <div class="card feedback-page p-8 space-y-6 ui-card" data-guide-move="feedback">
         <form id="feedbackForm" class="feedback-form space-y-4">
-          <p id="feedbackQuotaHint" class="feedback-quota-hint text-sm text-gray-500">正在查询提交额度…</p>
+          <p id="feedbackQuotaHint" class="feedback-quota-hint text-sm text-gray-500 min-w-0 break-words">正在查询提交额度…</p>
           <label class="toggle-switch text-sm text-gray-600 cursor-pointer select-none">
             <input type="checkbox" id="feedbackIncludeRuntimeInfo" role="switch" checked>
             <span>附带当前运行信息（推荐）</span>
@@ -516,7 +511,7 @@
             <label for="feedbackContent" class="block text-sm font-semibold mb-2 text-warmText">反馈内容</label>
             <textarea
               id="feedbackContent"
-              class="feedback-textarea w-full rounded-xl border border-softPeach px-4 py-3 text-warmText"
+              class="feedback-textarea w-full rounded-xl border border-softPeach px-4 py-3 text-warmText ui-control ui-textarea"
               rows="5"
               maxlength="2000"
               data-i18n-placeholder="content.placeholder.请描述问题或建议_请勿填写_API_Key_密码或截图中的敏感信息" placeholder="请描述问题或建议（请勿填写 API Key、密码或截图中的敏感信息）"
@@ -528,15 +523,15 @@
             <input
               id="feedbackContact"
               type="text"
-              class="feedback-input w-full rounded-xl border border-softPeach px-4 py-2 text-warmText"
+              class="feedback-input w-full rounded-xl border border-softPeach px-4 py-2 text-warmText ui-control ui-input"
               maxlength="200"
               data-i18n-placeholder="content.placeholder.QQ_邮箱等_方便回访" placeholder="QQ、邮箱等，方便回访"
             >
           </div>
-          <button type="submit" id="btnFeedbackSubmit" class="px-6 py-2.5 bg-warmPink hover:bg-warmPinkHover text-white rounded-xl font-semibold shadow-warm">提交反馈</button>
+          <button type="submit" id="btnFeedbackSubmit" class="px-6 py-2.5 bg-warmPink hover:bg-warmPinkHover text-white rounded-xl font-semibold shadow-warm ui-button ui-button--primary ui-button--md">提交反馈</button>
         </form>
         <div id="feedbackCommunityQq" class="feedback-community-qq space-y-4">
-          <p class="feedback-notice text-warmText">
+          <p class="feedback-notice text-warmText min-w-0 break-words">
             有任何问题可以在qq群/抖音群/小红书群内@我，因为最近很多人私信我，我一一回答后系统警告我，说我在做不好的事情，谢谢大家理解，邮箱：utar00701233@163.com
           </p>
           <div class="feedback-qr-wrap">
@@ -550,7 +545,7 @@
           </div>
         </div>
         <div id="feedbackCommunityDiscord" class="feedback-community-discord space-y-3 hidden">
-          <p class="feedback-notice text-warmText" data-i18n="content.text.加入_Discord_社区">加入 Discord 社区</p>
+          <p class="feedback-notice text-warmText min-w-0 break-words" data-i18n="content.text.加入_Discord_社区">加入 Discord 社区</p>
           <a
             id="feedbackDiscordLink"
             href="https://discord.gg/danmuai-mock"
@@ -567,17 +562,17 @@
     <!-- ========== 区域：弹幕日志（DOM 源，header 与 card 内容由 guide-tabs.js 搬入 #page-guide） ========== -->
     <!-- section: 实时日志（/api/logs/recent + WebSocket logs 通道，等级过滤/自动滚动） -->
     <section id="page-logs" class="page-panel" data-guide-panel="logs-source" hidden>
-      <header class="mb-8 flex flex-wrap justify-between items-start gap-4" data-guide-move="logs">
-        <div>
-          <h2 class="text-2xl font-bold text-warmText">弹幕日志</h2>
-          <p class="text-gray-500 mt-1">运行日志实时同步（WebSocket 优先，失败时自动 HTTP 轮询），已脱敏，不会展示 API Key</p>
+      <header class="mb-8 flex flex-wrap justify-between items-start gap-4 ui-page-header" data-guide-move="logs">
+        <div class="ui-page-header__copy min-w-0">
+          <h2 class="text-2xl font-bold text-warmText ui-page-title">弹幕日志</h2>
+          <p class="text-gray-500 mt-1 ui-page-description">运行日志实时同步（WebSocket 优先，失败时自动 HTTP 轮询），已脱敏，不会展示 API Key</p>
         </div>
-        <div class="flex items-center gap-2 bg-white px-4 py-2 rounded-full shadow-warm border border-softPeach text-sm">
+        <div class="flex items-center gap-2 bg-white px-4 py-2 rounded-full shadow-warm border border-softPeach text-sm ui-page-header__actions shrink-0">
           <span class="text-gray-500">日志通道</span>
           <span data-realtime-conn class="text-xs font-normal border-l border-gray-200 pl-2 conn-connecting" aria-live="polite">连接中</span>
         </div>
       </header>
-      <div class="card p-4 space-y-3" data-guide-move="logs">
+      <div class="card p-4 space-y-3 ui-card" data-guide-move="logs">
         <div class="flex flex-wrap gap-3 items-center">
           <span class="text-sm font-semibold text-warmText">级别</span>
           <label class="toggle-switch text-xs">
@@ -600,9 +595,9 @@
             <input type="checkbox" id="logAutoScroll" role="switch" checked>
             <span>自动滚动</span>
           </label>
-          <button type="button" id="btnCopyLogs" class="px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50">复制可见</button>
-          <button type="button" id="btnClearLogs" class="px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50">清空视图</button>
-          <button type="button" id="btnCloseLogs" class="px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50">关闭日志</button>
+          <button type="button" id="btnCopyLogs" class="px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--sm">复制可见</button>
+          <button type="button" id="btnClearLogs" class="px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--sm">清空视图</button>
+          <button type="button" id="btnCloseLogs" class="px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--sm">关闭日志</button>
         </div>
         <div class="log-panel" role="region" data-i18n-aria-label="content.aria.运行日志" aria-label="运行日志">
           <p id="logViewEmpty" class="log-view-empty">等待日志… 点击「生成弹幕」后，截图、AI 请求与弹幕事件会在此实时显示。</p>
@@ -613,13 +608,10 @@
 
     <!-- ========== 区域：AI管家（纯对话助手，W-AIBUTLER-CHAT-ONLY-001） ========== -->
     <section id="page-ai-butler" class="page-panel" data-i18n-aria-label="content.text.AI管家" aria-label="AI管家">
-      <header class="mb-8">
-        <h2 class="text-2xl font-bold text-warmText">AI管家</h2>
-        <p class="text-gray-500 mt-1" data-i18n="content.text.用自然语言提问_我来解答与指引">用自然语言提问，我来解答使用问题并指引设置页</p>
-      </header>
+      <header class="mb-8 ui-page-header"><div class="ui-page-header__copy min-w-0"><h2 class="text-2xl font-bold text-warmText ui-page-title">AI管家</h2><p class="text-gray-500 mt-1 ui-page-description" data-i18n="content.text.用自然语言提问_我来解答与指引">用自然语言提问，我来解答使用问题并指引设置页</p></div></header>
 
       <!-- 能力说明卡片（静态） -->
-      <div class="card p-6 mb-6 ai-butler-capability-card">
+      <div class="card p-6 mb-6 ai-butler-capability-card ui-card">
         <p class="settings-section-title mb-3" data-i18n="content.text.我可以帮你做">我可以帮你做</p>
         <ul class="text-sm text-warmText space-y-1.5 list-disc list-inside">
           <li data-i18n="content.text.解答功能怎么用">解答功能怎么用</li>
@@ -631,25 +623,25 @@
       </div>
 
       <!-- 当前使用模型 + 下拉 -->
-      <div class="card p-5 mb-6">
+      <div class="card p-5 mb-6 ui-card">
         <div class="flex flex-wrap items-center gap-3">
           <label for="aiButlerModelSelect" class="text-sm font-semibold text-warmText whitespace-nowrap">当前使用模型</label>
           <select
             id="aiButlerModelSelect"
-            class="settings-field-control flex-1 min-w-[200px]"
+            class="settings-field-control flex-1 min-w-[200px] ui-control ui-select"
             data-i18n-aria-label="content.aria.切换当前使用模型" aria-label="切换当前使用模型"
             aria-describedby="aiButlerModelHint"
           >
             <option value="">加载中…</option>
           </select>
         </div>
-        <p id="aiButlerModelHint" class="text-xs text-gray-400 mt-2">切换后，后续对话自动使用新模型；当前对话历史保留。</p>
+        <p id="aiButlerModelHint" class="text-xs text-gray-400 mt-2 min-w-0 break-words">切换后，后续对话自动使用新模型；当前对话历史保留。</p>
       </div>
 
       <!-- 对话消息区 -->
       <div
         id="aiButlerMessages"
-        class="card p-5 mb-6 ai-butler-messages"
+        class="card p-5 mb-6 ai-butler-messages ui-card"
         role="log"
         data-i18n-aria-label="content.aria.AI管家对话" aria-label="AI管家对话"
         aria-live="polite"
@@ -658,12 +650,12 @@
       </div>
 
       <!-- 输入区 -->
-      <div class="card p-4">
+      <div class="card p-4 ui-card">
         <div class="flex flex-wrap items-end gap-3">
           <label for="aiButlerInput" class="sr-only" data-i18n="content.text.和_AI_管家对话">和 AI 管家对话</label>
           <textarea
             id="aiButlerInput"
-            class="settings-field-control flex-1 min-w-[280px] resize-none"
+            class="settings-field-control flex-1 min-w-[280px] resize-none ui-control ui-textarea"
             rows="2"
             data-i18n-placeholder="content.placeholder.有什么想问的_Enter_发送_Shift_Enter_换行" placeholder="有什么想问的... (Enter 发送，Shift+Enter 换行)"
             data-i18n-aria-label="content.aria.AI管家输入框" aria-label="AI管家输入框"
@@ -671,8 +663,8 @@
           <button
             type="button"
             id="btnAiButlerSend"
-            class="btn-primary text-white font-semibold px-6 py-2.5 rounded-xl whitespace-nowrap"
-          >
+            class="btn-primary text-white font-semibold px-6 py-2.5 rounded-xl whitespace-nowrap ui-button ui-button--primary ui-button--md">
+          
             发送
           </button>
         </div>
@@ -681,17 +673,14 @@
 
     <!-- ========== 区域：知识包（Wave 5 A9） ========== -->
     <section id="page-knowledge" class="page-panel" data-i18n-aria-label="nav.knowledge" aria-label="知识包">
-      <header class="mb-8">
-        <h2 class="text-2xl font-bold text-warmText" data-i18n="dynamic.appKnowledgePage.title">知识包</h2>
-        <p class="text-gray-500 mt-1" data-i18n="dynamic.appKnowledgePage.subtitle">导入游戏 / 主播梗 / 表达参考 / 直播弹幕日志，由 AI 整理为可检索的短知识</p>
-      </header>
+      <header class="mb-8 ui-page-header"><div class="ui-page-header__copy min-w-0"><h2 class="text-2xl font-bold text-warmText ui-page-title" data-i18n="dynamic.appKnowledgePage.title">知识包</h2><p class="text-gray-500 mt-1 ui-page-description" data-i18n="dynamic.appKnowledgePage.subtitle">导入游戏 / 主播梗 / 表达参考 / 直播弹幕日志，由 AI 整理为可检索的短知识</p></div></header>
 
       <!-- 视图 1：知识包列表 -->
       <div id="knowledgeListView" class="knowledge-view">
         <div class="flex flex-wrap items-center gap-3 mb-6">
-          <button type="button" id="btnKnowledgeNewPackage" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm" data-i18n="dynamic.appKnowledgePage.newPackage">新建知识包</button>
-          <button type="button" id="btnKnowledgeRefresh" class="px-6 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50" data-i18n="dynamic.appKnowledgePage.refresh">刷新</button>
-          <button type="button" id="btnKnowledgeRetrievalPreview" class="px-6 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50" data-i18n="dynamic.appKnowledgePage.retrievalPreview">检索预览</button>
+          <button type="button" id="btnKnowledgeNewPackage" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm ui-button ui-button--primary ui-button--md" data-i18n="dynamic.appKnowledgePage.newPackage">新建知识包</button>
+          <button type="button" id="btnKnowledgeRefresh" class="px-6 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--md" data-i18n="dynamic.appKnowledgePage.refresh">刷新</button>
+          <button type="button" id="btnKnowledgeRetrievalPreview" class="px-6 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--md" data-i18n="dynamic.appKnowledgePage.retrievalPreview">检索预览</button>
         </div>
         <div id="knowledgePackageList" class="space-y-4"></div>
         <p id="knowledgePackageEmpty" class="text-gray-500 text-sm hidden" data-i18n="dynamic.appKnowledgePage.empty">暂无知识包，点「新建」开始导入第一份知识</p>
@@ -699,21 +688,21 @@
 
       <!-- 视图 2：知识包详情 -->
       <div id="knowledgePackageDetail" class="knowledge-view hidden space-y-6">
-        <button type="button" id="btnKnowledgeBackToList" class="px-4 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50" data-i18n="dynamic.appKnowledgePage.backToList">← 返回列表</button>
+        <button type="button" id="btnKnowledgeBackToList" class="px-4 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--md" data-i18n="dynamic.appKnowledgePage.backToList">← 返回列表</button>
 
-        <div class="card p-8 space-y-4">
+        <div class="card p-8 space-y-4 ui-card">
           <div class="settings-field">
             <label for="knowledgePackageName" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.name">名称</label>
-            <input type="text" id="knowledgePackageName" class="settings-field-control">
+            <input type="text" id="knowledgePackageName" class="settings-field-control ui-control ui-input">
           </div>
           <div class="settings-field">
             <label for="knowledgePackageDescription" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.description">描述</label>
-            <textarea id="knowledgePackageDescription" rows="3" class="settings-field-control"></textarea>
+            <textarea id="knowledgePackageDescription" rows="3" class="settings-field-control ui-control ui-textarea"></textarea>
           </div>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="settings-field">
               <label for="knowledgePackageContentKind" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.contentKind">内容类型</label>
-              <select id="knowledgePackageContentKind" class="settings-field-control">
+              <select id="knowledgePackageContentKind" class="settings-field-control ui-control ui-select">
                 <option value="auto" data-i18n="dynamic.appKnowledgePage.optContentAuto">自动</option>
                 <option value="fact" data-i18n="dynamic.appKnowledgePage.optContentFact">事实</option>
                 <option value="meme" data-i18n="dynamic.appKnowledgePage.optContentMeme">梗</option>
@@ -723,7 +712,7 @@
             </div>
             <div class="settings-field">
               <label for="knowledgePackageScopeMode" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.scopeMode">作用范围</label>
-              <select id="knowledgePackageScopeMode" class="settings-field-control">
+              <select id="knowledgePackageScopeMode" class="settings-field-control ui-control ui-select">
                 <option value="global" data-i18n="dynamic.appKnowledgePage.optScopeGlobal">全局</option>
                 <option value="tagged" data-i18n="dynamic.appKnowledgePage.optScopeTagged">按标签</option>
               </select>
@@ -731,12 +720,12 @@
           </div>
           <div class="settings-field">
             <label for="knowledgePackageScopeTags" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.scopeTags">作用标签（逗号分隔）</label>
-            <input type="text" id="knowledgePackageScopeTags" class="settings-field-control">
+            <input type="text" id="knowledgePackageScopeTags" class="settings-field-control ui-control ui-input">
           </div>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="settings-field">
               <label for="knowledgePackagePriority" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.priority">优先级</label>
-              <input type="number" id="knowledgePackagePriority" min="0" max="100" value="0" class="settings-field-control">
+              <input type="number" id="knowledgePackagePriority" min="0" max="100" value="0" class="settings-field-control ui-control ui-input">
             </div>
             <div class="settings-field">
               <span class="settings-field-label" data-i18n="dynamic.appKnowledgePage.enabled">启用</span>
@@ -747,17 +736,17 @@
             </div>
           </div>
           <div class="flex flex-wrap gap-3">
-            <button type="button" id="btnKnowledgeSavePackage" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm" data-i18n="dynamic.appKnowledgePage.save">保存设置</button>
-            <button type="button" id="btnKnowledgeDeletePackage" class="px-6 py-2 bg-red-50 border border-red-200 rounded-xl font-semibold text-red-600" data-i18n="dynamic.appKnowledgePage.delete">删除包</button>
+            <button type="button" id="btnKnowledgeSavePackage" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm ui-button ui-button--primary ui-button--md" data-i18n="dynamic.appKnowledgePage.save">保存设置</button>
+            <button type="button" id="btnKnowledgeDeletePackage" class="px-6 py-2 bg-red-50 border border-red-200 rounded-xl font-semibold text-red-600 ui-button ui-button--secondary ui-button--md" data-i18n="dynamic.appKnowledgePage.delete">删除包</button>
           </div>
         </div>
 
         <!-- 来源与导入任务 -->
-        <div class="card p-8 space-y-4">
+        <div class="card p-8 space-y-4 ui-card">
           <p class="settings-section-title" data-i18n="dynamic.appKnowledgePage.sources">来源与导入任务</p>
           <div class="settings-field">
             <label for="knowledgeSourceType" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.sourceType">来源类型</label>
-            <select id="knowledgeSourceType" class="settings-field-control">
+            <select id="knowledgeSourceType" class="settings-field-control ui-control ui-select">
               <option value="pasted_text" data-i18n="dynamic.appKnowledgePage.optSourcePastedText">粘贴文本</option>
               <option value="txt" data-i18n="dynamic.appKnowledgePage.optSourceTxt">文本文件 (.txt)</option>
               <option value="markdown" data-i18n="dynamic.appKnowledgePage.optSourceMarkdown">Markdown 文档</option>
@@ -766,15 +755,15 @@
           </div>
           <div class="settings-field">
             <label for="knowledgeDisplayName" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.displayName">显示名称</label>
-            <input type="text" id="knowledgeDisplayName" class="settings-field-control">
+            <input type="text" id="knowledgeDisplayName" class="settings-field-control ui-control ui-input">
           </div>
           <div id="knowledgeSourceUrlWrap" class="settings-field hidden">
             <label for="knowledgeSourceUrl" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.sourceUrl">网页 URL</label>
-            <input type="text" id="knowledgeSourceUrl" class="settings-field-control">
+            <input type="text" id="knowledgeSourceUrl" class="settings-field-control ui-control ui-input">
           </div>
           <div id="knowledgePastedTextWrap" class="settings-field">
             <label for="knowledgePastedText" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.pastedText">粘贴文本</label>
-            <textarea id="knowledgePastedText" rows="6" class="settings-field-control"></textarea>
+            <textarea id="knowledgePastedText" rows="6" class="settings-field-control ui-control ui-textarea"></textarea>
           </div>
           <div id="knowledgeSourceFileWrap" class="settings-field hidden">
             <label for="knowledgeSourceFile" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.selectFile">选择文件</label>
@@ -783,14 +772,14 @@
           </div>
           <div class="settings-field">
             <label for="knowledgeDocumentKind" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.documentKind">文档类型</label>
-            <select id="knowledgeDocumentKind" class="settings-field-control">
+            <select id="knowledgeDocumentKind" class="settings-field-control ui-control ui-select">
               <option value="auto" data-i18n="dynamic.appKnowledgePage.optDocAuto">自动</option>
               <option value="article" data-i18n="dynamic.appKnowledgePage.optDocArticle">文章</option>
               <option value="livestream_log" data-i18n="dynamic.appKnowledgePage.optDocLivestreamLog">直播日志</option>
               <option value="faq" data-i18n="dynamic.appKnowledgePage.optDocFaq">常见问答</option>
             </select>
           </div>
-          <button type="button" id="btnKnowledgeStartImport" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm" data-i18n="dynamic.appKnowledgePage.startImport">开始导入</button>
+          <button type="button" id="btnKnowledgeStartImport" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm ui-button ui-button--primary ui-button--md" data-i18n="dynamic.appKnowledgePage.startImport">开始导入</button>
 
           <p class="settings-section-title mt-6" data-i18n="dynamic.appKnowledgePage.jobs">任务列表</p>
           <div id="knowledgeJobList" class="space-y-2"></div>
@@ -798,60 +787,60 @@
         </div>
 
         <!-- 知识条目 -->
-        <div class="card p-8 space-y-4">
+        <div class="card p-8 space-y-4 ui-card">
           <p class="settings-section-title" data-i18n="dynamic.appKnowledgePage.items">知识条目</p>
           <div class="flex flex-wrap items-center gap-3">
-            <select id="knowledgeItemKindFilter" class="settings-field-control max-w-[160px]">
+            <select id="knowledgeItemKindFilter" class="settings-field-control max-w-[160px] ui-control ui-select">
               <option value="" data-i18n="dynamic.appKnowledgePage.all">全部</option>
               <option value="fact" data-i18n="dynamic.appKnowledgePage.kindFact">事实</option>
               <option value="reaction_pattern" data-i18n="dynamic.appKnowledgePage.kindReaction">反应方式</option>
               <option value="meme" data-i18n="dynamic.appKnowledgePage.kindMeme">梗</option>
               <option value="style_example" data-i18n="dynamic.appKnowledgePage.kindStyle">表达参考</option>
             </select>
-            <select id="knowledgeItemEnabledFilter" class="settings-field-control max-w-[160px]">
+            <select id="knowledgeItemEnabledFilter" class="settings-field-control max-w-[160px] ui-control ui-select">
               <option value="" data-i18n="dynamic.appKnowledgePage.all">全部</option>
               <option value="true" data-i18n="dynamic.appKnowledgePage.enabled">启用</option>
               <option value="false" data-i18n="dynamic.appKnowledgePage.disabled">未启用</option>
             </select>
-            <input type="search" id="knowledgeItemSearch" class="settings-field-control max-w-[240px]" data-i18n-placeholder="dynamic.appKnowledgePage.search" placeholder="搜索">
-            <button type="button" id="btnKnowledgeSearchItems" class="px-4 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50" data-i18n="dynamic.appKnowledgePage.search">搜索</button>
+            <input type="search" id="knowledgeItemSearch" class="settings-field-control max-w-[240px] ui-control ui-input" data-i18n-placeholder="dynamic.appKnowledgePage.search" placeholder="搜索">
+            <button type="button" id="btnKnowledgeSearchItems" class="px-4 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--md" data-i18n="dynamic.appKnowledgePage.search">搜索</button>
           </div>
           <div id="knowledgeItemList" class="space-y-2"></div>
           <p id="knowledgeItemEmpty" class="text-gray-500 text-sm hidden" data-i18n="dynamic.appKnowledgePage.noItems">暂无条目</p>
           <div class="flex flex-wrap items-center gap-3 mt-3 text-sm text-warmText">
-            <button type="button" id="btnKnowledgeItemPrev" class="px-3 py-1.5 bg-white border border-gray-200 rounded-lg font-semibold hover:bg-gray-50" data-i18n="dynamic.appKnowledgePage.prev">上一页</button>
+            <button type="button" id="btnKnowledgeItemPrev" class="px-3 py-1.5 bg-white border border-gray-200 rounded-lg font-semibold hover:bg-gray-50 ui-button ui-button--secondary ui-button--sm" data-i18n="dynamic.appKnowledgePage.prev">上一页</button>
             <span id="knowledgeItemPageInfo" class="text-gray-500"></span>
-            <button type="button" id="btnKnowledgeItemNext" class="px-3 py-1.5 bg-white border border-gray-200 rounded-lg font-semibold hover:bg-gray-50" data-i18n="dynamic.appKnowledgePage.next">下一页</button>
+            <button type="button" id="btnKnowledgeItemNext" class="px-3 py-1.5 bg-white border border-gray-200 rounded-lg font-semibold hover:bg-gray-50 ui-button ui-button--secondary ui-button--sm" data-i18n="dynamic.appKnowledgePage.next">下一页</button>
           </div>
         </div>
       </div>
 
       <!-- 视图 3：检索预览 -->
       <div id="knowledgeRetrievalPreview" class="knowledge-view hidden space-y-6">
-        <button type="button" id="btnKnowledgePreviewBack" class="px-4 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50" data-i18n="dynamic.appKnowledgePage.backToList">← 返回列表</button>
-        <div class="card p-8 space-y-4">
+        <button type="button" id="btnKnowledgePreviewBack" class="px-4 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--md" data-i18n="dynamic.appKnowledgePage.backToList">← 返回列表</button>
+        <div class="card p-8 space-y-4 ui-card">
           <p class="settings-section-title" data-i18n="dynamic.appKnowledgePage.retrievalTitle">检索预览（沙盒，不写入运行时）</p>
           <div class="settings-field">
             <label for="knowledgeSceneBrief" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.sceneBrief">场景简述</label>
-            <textarea id="knowledgeSceneBrief" rows="3" class="settings-field-control"></textarea>
+            <textarea id="knowledgeSceneBrief" rows="3" class="settings-field-control ui-control ui-textarea"></textarea>
           </div>
           <div class="settings-field">
             <label for="knowledgeKeywords" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.keywords">关键词（逗号分隔）</label>
-            <input type="text" id="knowledgeKeywords" class="settings-field-control">
+            <input type="text" id="knowledgeKeywords" class="settings-field-control ui-control ui-input">
           </div>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="settings-field">
               <label for="knowledgeMaxItems" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.maxItems">最大条目</label>
-              <input type="number" id="knowledgeMaxItems" min="1" max="50" value="4" class="settings-field-control">
+              <input type="number" id="knowledgeMaxItems" min="1" max="50" value="4" class="settings-field-control ui-control ui-input">
             </div>
             <div class="settings-field">
               <label for="knowledgeMaxChars" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.maxChars">字符上限</label>
-              <input type="number" id="knowledgeMaxChars" min="100" max="5000" value="360" class="settings-field-control">
+              <input type="number" id="knowledgeMaxChars" min="100" max="5000" value="360" class="settings-field-control ui-control ui-input">
             </div>
           </div>
-          <button type="button" id="btnKnowledgeStartPreview" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm" data-i18n="dynamic.appKnowledgePage.startPreview">开始预览</button>
+          <button type="button" id="btnKnowledgeStartPreview" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm ui-button ui-button--primary ui-button--md" data-i18n="dynamic.appKnowledgePage.startPreview">开始预览</button>
         </div>
-        <div id="knowledgeRetrievalResult" class="card p-8 space-y-4 hidden">
+        <div id="knowledgeRetrievalResult" class="card p-8 space-y-4 hidden ui-card">
           <div class="flex flex-wrap items-center gap-4 text-sm text-warmText">
             <span id="knowledgeRetrievalHitCount" class="font-semibold"></span>
             <span id="knowledgeRetrievalMs" class="text-gray-500"></span>

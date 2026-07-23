@@ -1,8 +1,13 @@
-  <aside class="w-64 bg-white p-6 flex flex-col border-r border-pastelYellow shrink-0">
-    <div class="flex items-center gap-3 mb-10">
-      <div class="w-10 h-10 bg-softPeach rounded-full flex items-center justify-center text-xl shadow-sm icon-badge"><svg class="ui-icon ui-icon-lg" aria-hidden="true"><use href="#i-paw"></use></svg></div>
-      <div class="flex flex-col min-w-0">
-        <h1 class="text-xl font-bold text-warmText">DanmuAI</h1>
+  <aside
+    id="consoleSidebar"
+    class="ui-sidebar bg-white p-6 flex flex-col border-r border-pastelYellow shrink-0"
+    data-i18n-aria-label="nav.sidebarAria"
+    aria-label="主导航"
+  >
+    <div class="ui-sidebar-brand flex items-center gap-3 mb-10 min-w-0">
+      <div class="w-10 h-10 bg-softPeach rounded-full flex items-center justify-center text-xl shadow-sm icon-badge shrink-0"><svg class="ui-icon ui-icon-lg" aria-hidden="true"><use href="#i-paw"></use></svg></div>
+      <div class="ui-sidebar-brand-text flex flex-col min-w-0 flex-1">
+        <h1 class="text-xl font-bold text-warmText truncate">DanmuAI</h1>
         <a
           href="https://danmuai.xyz/"
           target="_blank"
@@ -12,32 +17,43 @@
           data-i18n-aria-label="nav.officialSiteAria"
         >官网</a>
       </div>
+      <button
+        type="button"
+        id="btnShellNavClose"
+        class="ui-shell-nav-close"
+        data-i18n-aria-label="nav.closeMenu"
+        aria-label="关闭导航"
+      >
+        <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M6 6l12 12M18 6L6 18"/>
+        </svg>
+      </button>
     </div>
-    <nav class="flex-1 space-y-2" id="nav">
+    <nav class="flex-1 space-y-2 min-h-0 overflow-y-auto" id="nav" aria-label="页面">
       <a href="#overview" data-page="overview" class="sidebar-item active w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-left">
-        <svg class="ui-icon w-5" aria-hidden="true"><use href="#i-home"></use></svg> <span data-i18n="nav.overview">温馨控制台</span>
+        <svg class="ui-icon w-5 shrink-0" aria-hidden="true"><use href="#i-home"></use></svg> <span class="sidebar-item-label" data-i18n="nav.overview">温馨控制台</span>
       </a>
       <a href="#persona" data-page="persona" class="sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-left">
-        <svg class="ui-icon w-5" aria-hidden="true"><use href="#i-magic"></use></svg> <span data-i18n="nav.persona">弹幕人格</span>
+        <svg class="ui-icon w-5 shrink-0" aria-hidden="true"><use href="#i-magic"></use></svg> <span class="sidebar-item-label" data-i18n="nav.persona">弹幕人格</span>
       </a>
       <a href="#ai-butler" data-page="ai-butler" class="sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-left">
-        <svg class="ui-icon w-5" aria-hidden="true"><use href="#i-sparkles"></use></svg> <span data-i18n="nav.aiButler">AI管家</span>
+        <svg class="ui-icon w-5 shrink-0" aria-hidden="true"><use href="#i-sparkles"></use></svg> <span class="sidebar-item-label" data-i18n="nav.aiButler">AI管家</span>
       </a>
       <a href="#knowledge" data-page="knowledge" class="sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-left">
-        <svg class="ui-icon w-5" aria-hidden="true"><use href="#i-book"></use></svg> <span data-i18n="nav.knowledge">知识包</span>
+        <svg class="ui-icon w-5 shrink-0" aria-hidden="true"><use href="#i-book"></use></svg> <span class="sidebar-item-label" data-i18n="nav.knowledge">知识包</span>
       </a>
       <a href="#danmu-pool" data-page="danmu-pool" class="sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-left">
-        <svg class="ui-icon w-5" aria-hidden="true"><use href="#i-hash"></use></svg> <span data-i18n="nav.danmuPool">公式化弹幕库</span>
+        <svg class="ui-icon w-5 shrink-0" aria-hidden="true"><use href="#i-hash"></use></svg> <span class="sidebar-item-label" data-i18n="nav.danmuPool">公式化弹幕库</span>
       </a>
       <a href="#pet" data-page="pet" class="sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-left">
-        <svg class="ui-icon w-5" aria-hidden="true"><use href="#i-paw"></use></svg> <span data-i18n="nav.pet">桌宠</span>
+        <svg class="ui-icon w-5 shrink-0" aria-hidden="true"><use href="#i-paw"></use></svg> <span class="sidebar-item-label" data-i18n="nav.pet">桌宠</span>
       </a>
       <a href="#style-generator" data-page="style-generator" class="sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-left">
-        <svg class="ui-icon w-5" aria-hidden="true"><use href="#i-star"></use></svg> <span data-i18n="nav.styleGenerator">样式生成器</span>
+        <svg class="ui-icon w-5 shrink-0" aria-hidden="true"><use href="#i-star"></use></svg> <span class="sidebar-item-label" data-i18n="nav.styleGenerator">样式生成器</span>
       </a>
       <div class="sidebar-item-row flex items-center gap-1 min-w-0">
         <a href="#settings" data-page="settings" class="sidebar-item flex-1 min-w-0 flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-left">
-          <svg class="ui-icon w-5" aria-hidden="true"><use href="#i-sliders"></use></svg> <span data-i18n="nav.settings">弹幕设置</span>
+          <svg class="ui-icon w-5 shrink-0" aria-hidden="true"><use href="#i-sliders"></use></svg> <span class="sidebar-item-label" data-i18n="nav.settings">弹幕设置</span>
         </a>
         <span class="sidebar-nav-hint-wrap relative shrink-0">
           <button type="button" class="sidebar-nav-hint" data-i18n-aria-label="nav.settingsHelpAria" aria-describedby="nav-tip-settings">
@@ -51,10 +67,10 @@
         </span>
       </div>
       <a href="#live-settings" data-page="live-settings" class="sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-left">
-        <svg class="ui-icon w-5" aria-hidden="true"><use href="#i-film"></use></svg> <span data-i18n="nav.liveSettings">直播设置</span>
+        <svg class="ui-icon w-5 shrink-0" aria-hidden="true"><use href="#i-film"></use></svg> <span class="sidebar-item-label" data-i18n="nav.liveSettings">直播设置</span>
       </a>
       <a href="#guide" data-page="guide" class="sidebar-item sidebar-item-with-badge w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-left">
-        <svg class="ui-icon w-5" aria-hidden="true"><use href="#i-graduation"></use></svg> <span data-i18n="nav.guide">教程|日志|反馈|公告|群聊</span>
+        <svg class="ui-icon w-5 shrink-0" aria-hidden="true"><use href="#i-graduation"></use></svg> <span class="sidebar-item-label" data-i18n="nav.guide">教程|日志|反馈|公告|群聊</span>
         <span id="announcementsNavBadge" class="sidebar-nav-badge hidden" data-i18n-aria-label="nav.newAnnouncementBadge"></span>
       </a>
     </nav>
@@ -67,7 +83,7 @@
         aria-controls="rewardModal"
       >
         <svg class="ui-icon sidebar-reward-icon" aria-hidden="true"><use href="#i-reward"></use></svg>
-        <span data-i18n="nav.reward">赞赏</span>
+        <span class="sidebar-item-label" data-i18n="nav.reward">赞赏</span>
       </button>
       <div id="sidebarVersionFooter" class="sidebar-version-footer" aria-live="polite">
         <p class="sidebar-version-line"><span data-i18n="nav.versionCurrent">当前版本：</span><span id="appVersionCurrent">—</span></p>

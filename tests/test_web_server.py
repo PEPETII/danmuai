@@ -362,11 +362,17 @@ def test_web_content_page_field_hints_wired():
     assert "liveTopicInput" in hints_js
     assert "page-overview" in hints_js
     assert "loadOverviewGlobalFields" in app_js
-    assert "memeBarrageEnabled" in hints_js
+    assert "DANMU_POOL_FIELD_TIPS" not in hints_js
     assert "petScale" in hints_js
     assert "initContentPageFieldHints()" in app_js
     assert "initContentPageFieldHints" in settings_js
     assert 'id="hintMemeCategoryTitle"' in html
+    assert "随机：从全库抽取。自选：限选最多 3 个标签。" in html
+    assert "控制烂梗弹幕的采集节奏" in html
+    assert "控制烂梗弹幕的上屏节奏" in html
+    assert "清空本地烂梗库与待展示队列" in html
+    assert "设为 0 则关闭补足" in html
+    assert "勾选「全选本页」后可选中列表全部自定义句" in html
     assert 'for="personaSelect"' in html
     assert 'id="hintPersonaActiveTitle"' in html
 

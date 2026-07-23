@@ -97,12 +97,25 @@ def test_theme_static_assets_present():
 
     assert 'id="themeToggle"' in html
     assert "danmu_console_theme" in html
+    assert "window.DANMU_DEFAULT_THEME = 'dark'" in html
     assert '[data-theme="dark"]' in css
     assert "color-scheme: dark" in base_css
     assert "--tooltip-bg" in base_css
     assert "--tooltip-fg" in base_css
+    assert "--surface-page" in base_css
+    assert "--text-primary" in base_css
+    assert "--border-default" in base_css
     assert "background-color: var(--tooltip-bg)" in components_css
     assert "color: var(--tooltip-fg)" in components_css
     assert "export function initTheme" in theme_js
+    assert "export const DEFAULT_THEME" in theme_js
     assert "from './modules/theme.js'" in app_js
     assert "initTheme()" in app_js
+
+
+def test_theme_js_normalize_defaults_non_light_to_dark():
+    """Source contract: only exact 'light' is light; else default dark (matches server)."""
+    root = project_root()
+    theme_js = (root / "web" / "static" / "modules" / "theme.js").read_text(encoding="utf-8")
+    assert "value === 'light' ? 'light' : DEFAULT_THEME" in theme_js
+    assert "DEFAULT_THEME" in theme_js

@@ -11,20 +11,28 @@ CONTENT_PAGES_HTML = STATIC_ROOT / "partials" / "content-pages.html"
 def _pet_page_html() -> str:
     html = CONTENT_PAGES_HTML.read_text(encoding="utf-8")
     start = html.index('id="page-pet"')
-    end = html.index('id="page-live-overlay"', start) if 'id="page-live-overlay"' in html[start:] else len(html)
+    # Next sibling page after pet in content-pages.html (live-overlay page removed)
+    for marker in ('id="page-persona"', 'id="page-live-settings"', 'id="page-live-overlay"'):
+        if marker in html[start:]:
+            end = html.index(marker, start)
+            break
+    else:
+        end = len(html)
     return html[start:end]
 
 
 def test_pet_accordion_wraps_only_target_sections():
     section = _pet_page_html()
 
-    assert section.count('data-settings-rhythm-accordion') == 1
+    # Display+command group + asset import group (two rhythm accordions on pet page)
+    assert section.count('data-settings-rhythm-accordion') == 2
     assert 'id="petDisplayAccordionTrigger"' in section
     assert 'id="petCommandAccordionTrigger"' in section
+    assert 'id="petAssetAccordionTrigger"' in section
     assert 'id="petEnabled"' in section
     assert 'id="petBarrageModeEnabled"' in section
     assert 'id="btnPetCommandSubmit"' in section
-    assert '宠物素材' in section
+    assert '导入新桌宠图片' in section
 
 
 def test_pet_accordion_preserves_field_ids_and_aria():

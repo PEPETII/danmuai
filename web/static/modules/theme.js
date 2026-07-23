@@ -5,9 +5,10 @@
  *   - localStorage[THEME_STORAGE_KEY] = 'light' | 'dark'（主源；首屏闪屏预防由
  *     index.html 内联 early script 在 <link> 之前读 localStorage 设置
  *     data-theme 属性，避免 FOUC）
- *   - normalizeTheme() 容错：非 'dark' 全部归一为 'light'
+ *   - normalizeTheme() 与 early script 同一规则：显式 'light' → light；
+ *     其余（含缺失 / 非法 / 'dark'）→ DANMU_DEFAULT_THEME（'dark'）
  *   - initTheme() 由 app.js init() 第一步调用，避免首屏闪烁
- *   - 主题选择也经 PUT /api/config 写入 config.db（控制台与本机偏好同步）
+ *   - 主题选择也经 PUT /api/console-theme 写入 config.db（控制台与本机偏好同步）
  *
  * 不变量：data-theme 属性挂在 <html> 元素；CSS 通过 [data-theme="dark"] 选择器
  * 覆盖浅色 token（见 warm-tokens.css）。
@@ -18,8 +19,18 @@ import { t } from './i18n.js';
 
 export const THEME_STORAGE_KEY = 'danmu_console_theme';
 
+/** 与 index early script、服务端 DEFAULT_CONSOLE_THEME 一致 */
+export const DEFAULT_THEME =
+  (typeof window !== 'undefined' && window.DANMU_DEFAULT_THEME === 'light')
+    ? 'light'
+    : 'dark';
+
+if (typeof window !== 'undefined' && window.DANMU_DEFAULT_THEME == null) {
+  window.DANMU_DEFAULT_THEME = DEFAULT_THEME;
+}
+
 export function normalizeTheme(value) {
-  return value === 'light' ? 'light' : 'dark';
+  return value === 'light' ? 'light' : DEFAULT_THEME;
 }
 
 export function getStoredTheme() {
@@ -27,7 +38,7 @@ export function getStoredTheme() {
     const value = localStorage.getItem(THEME_STORAGE_KEY);
     return normalizeTheme(value);
   } catch {
-    return 'dark';
+    return DEFAULT_THEME;
   }
 }
 

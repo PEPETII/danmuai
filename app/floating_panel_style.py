@@ -31,11 +31,13 @@ from typing import Any, Mapping
 
 STYLE_CONTRACT_VERSION = 1
 
-STYLE_PRESET_IDS: tuple[str, ...] = ("classic", "wechat")
-STYLE_PRESET_CHOICES: tuple[str, ...] = ("classic", "wechat", "custom")
+STYLE_PRESET_IDS: tuple[str, ...] = ("classic", "wechat", "blivechat_line")
+STYLE_PRESET_CHOICES: tuple[str, ...] = ("classic", "wechat", "blivechat_line", "custom")
 DEFAULT_STYLE_PRESET = "wechat"
 
 SHAPE_CHOICES: tuple[str, ...] = ("card", "bubble")
+LAYOUT_CHOICES: tuple[str, ...] = ("inline", "stacked")
+DEFAULT_LAYOUT = "inline"
 COLOR_MODE_CHOICES: tuple[str, ...] = ("equal", "weighted")
 DEFAULT_COLOR_MODE = "equal"
 
@@ -44,8 +46,15 @@ EXIT_ANIMATION_CHOICES: tuple[str, ...] = ("none", "fade")
 DEFAULT_ENTRY_ANIMATION = "fade"
 DEFAULT_EXIT_ANIMATION = "fade"
 
-TAIL_STYLE_CHOICES: tuple[str, ...] = ("round", "sharp", "none")
+TAIL_STYLE_CHOICES: tuple[str, ...] = ("round", "sharp", "none", "line_like")
 DEFAULT_TAIL_STYLE = "round"
+
+BLIVECHAT_LINE_FONT_FAMILY = (
+    '"Noto Sans SC", "Microsoft YaHei", "PingFang SC", sans-serif'
+)
+BLIVECHAT_LINE_CARD_COLOR = "#FFFFFF"
+BLIVECHAT_LINE_TEXT_COLOR = "#000000"
+BLIVECHAT_LINE_USERNAME_COLOR = "#CCCCCC"
 
 _HEX_COLOR_RE = re.compile(r"^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$")
 
@@ -73,6 +82,9 @@ STYLE_INT_RANGES: dict[str, tuple[int, int, int]] = {
     "floating_panel_tail_height": (0, 32, 10),
     "floating_panel_tail_size": (0, 32, 10),
     "floating_panel_tail_offset_y": (0, 100, 38),
+    "floating_panel_tail_border": (0, 32, 8),
+    "floating_panel_tail_long_side": (0, 64, 18),
+    "floating_panel_tail_rotate_deg": (-180, 180, 35),
     "floating_panel_username_size": (8, 32, 14),
     "floating_panel_username_weight": (100, 900, 700),
     "floating_panel_content_size": (8, 32, 16),
@@ -101,6 +113,7 @@ BASE_INT_RANGES: dict[str, tuple[int, int, int]] = {
 STYLE_FIELD_KEYS: tuple[str, ...] = (
     "floating_panel_style_preset",
     "floating_panel_shape",
+    "floating_panel_layout",
     "floating_panel_card_colors",
     "floating_panel_card_color_mode",
     "floating_panel_card_color_weights",
@@ -130,6 +143,9 @@ STYLE_FIELD_KEYS: tuple[str, ...] = (
     "floating_panel_tail_height",
     "floating_panel_tail_size",
     "floating_panel_tail_offset_y",
+    "floating_panel_tail_border",
+    "floating_panel_tail_long_side",
+    "floating_panel_tail_rotate_deg",
     "floating_panel_username_enabled",
     "floating_panel_username_text",
     "floating_panel_username_color",
@@ -209,6 +225,7 @@ CLASSIC_TEXT_COLOR = "#000000"
 _CLASSIC_FLAT: dict[str, str] = {
     "floating_panel_style_preset": "classic",
     "floating_panel_shape": "card",
+    "floating_panel_layout": DEFAULT_LAYOUT,
     "floating_panel_card_colors": json.dumps(list(CLASSIC_CARD_COLORS), ensure_ascii=False),
     "floating_panel_card_color_mode": "equal",
     "floating_panel_card_color_weights": "{}",
@@ -238,6 +255,9 @@ _CLASSIC_FLAT: dict[str, str] = {
     "floating_panel_tail_height": "0",
     "floating_panel_tail_size": "0",
     "floating_panel_tail_offset_y": "38",
+    "floating_panel_tail_border": "8",
+    "floating_panel_tail_long_side": "18",
+    "floating_panel_tail_rotate_deg": "35",
     "floating_panel_username_enabled": "0",
     "floating_panel_username_text": "弹幕",
     "floating_panel_username_color": CLASSIC_TEXT_COLOR,
@@ -264,6 +284,7 @@ _CLASSIC_FLAT: dict[str, str] = {
 _WECHAT_FLAT: dict[str, str] = {
     "floating_panel_style_preset": "wechat",
     "floating_panel_shape": "bubble",
+    "floating_panel_layout": DEFAULT_LAYOUT,
     "floating_panel_card_colors": json.dumps(list(WECHAT_CARD_COLORS), ensure_ascii=False),
     "floating_panel_card_color_mode": "equal",
     "floating_panel_card_color_weights": "{}",
@@ -293,6 +314,9 @@ _WECHAT_FLAT: dict[str, str] = {
     "floating_panel_tail_height": "10",
     "floating_panel_tail_size": "10",
     "floating_panel_tail_offset_y": "38",
+    "floating_panel_tail_border": "8",
+    "floating_panel_tail_long_side": "18",
+    "floating_panel_tail_rotate_deg": "35",
     "floating_panel_username_enabled": "1",
     "floating_panel_username_text": "弹幕",
     "floating_panel_username_color": WECHAT_TEXT_COLOR,
@@ -315,6 +339,65 @@ _WECHAT_FLAT: dict[str, str] = {
     "floating_panel_opacity": "85",
 }
 
+# blivechat_line：LineLike 堆叠布局；用户名在气泡外；左上旋转三角尾巴
+_BLIVECHAT_LINE_FLAT: dict[str, str] = {
+    "floating_panel_style_preset": "blivechat_line",
+    "floating_panel_shape": "bubble",
+    "floating_panel_layout": "stacked",
+    "floating_panel_card_colors": json.dumps([BLIVECHAT_LINE_CARD_COLOR], ensure_ascii=False),
+    "floating_panel_card_color_mode": "equal",
+    "floating_panel_card_color_weights": "{}",
+    "floating_panel_text_colors": json.dumps([BLIVECHAT_LINE_TEXT_COLOR], ensure_ascii=False),
+    "floating_panel_text_color_mode": "equal",
+    "floating_panel_text_color_weights": "{}",
+    "floating_panel_card_opacity": "100",
+    "floating_panel_outline_enabled": "0",
+    "floating_panel_outline_color": "#FFFFFF",
+    "floating_panel_outline_width": "0",
+    "floating_panel_shadow_enabled": "0",
+    "floating_panel_shadow_color": "#000000",
+    "floating_panel_shadow_opacity": "0",
+    "floating_panel_shadow_blur": "0",
+    "floating_panel_shadow_offset_x": "0",
+    "floating_panel_shadow_offset_y": "0",
+    "floating_panel_border_enabled": "0",
+    "floating_panel_border_color": "#FFFFFF",
+    "floating_panel_border_width": "0",
+    "floating_panel_border_opacity": "0",
+    "floating_panel_padding_x": "20",
+    "floating_panel_padding_y": "12",
+    "floating_panel_radius": "24",
+    "floating_panel_tail_enabled": "1",
+    "floating_panel_tail_style": "line_like",
+    "floating_panel_tail_width": "8",
+    "floating_panel_tail_height": "18",
+    "floating_panel_tail_size": "18",
+    "floating_panel_tail_offset_y": "0",
+    "floating_panel_tail_border": "8",
+    "floating_panel_tail_long_side": "18",
+    "floating_panel_tail_rotate_deg": "35",
+    "floating_panel_username_enabled": "1",
+    "floating_panel_username_text": "弹幕",
+    "floating_panel_username_color": BLIVECHAT_LINE_USERNAME_COLOR,
+    "floating_panel_username_size": "18",
+    "floating_panel_username_weight": "700",
+    "floating_panel_username_separator": "",
+    "floating_panel_content_size": "20",
+    "floating_panel_content_weight": "700",
+    "floating_panel_content_line_height": "140",
+    "floating_panel_gap_username_content": "5",
+    "floating_panel_entry_animation": "slide_up",
+    "floating_panel_entry_duration_ms": "200",
+    "floating_panel_push_duration_ms": "180",
+    "floating_panel_exit_animation": DEFAULT_EXIT_ANIMATION,
+    "floating_panel_exit_duration_ms": "200",
+    "floating_panel_stack_gap": "8",
+    "floating_panel_font_family": BLIVECHAT_LINE_FONT_FAMILY,
+    "floating_panel_font_size": "20",
+    "floating_panel_font_bold": "1",
+    "floating_panel_opacity": "100",
+}
+
 
 def _copy_preset(src: dict[str, str]) -> dict[str, str]:
     return {k: str(v) for k, v in src.items()}
@@ -323,6 +406,7 @@ def _copy_preset(src: dict[str, str]) -> dict[str, str]:
 STYLE_PRESETS: dict[str, dict[str, str]] = {
     "classic": _copy_preset(_CLASSIC_FLAT),
     "wechat": _copy_preset(_WECHAT_FLAT),
+    "blivechat_line": _copy_preset(_BLIVECHAT_LINE_FLAT),
 }
 
 
@@ -333,6 +417,10 @@ def wechat_factory_defaults() -> dict[str, str]:
 
 def classic_factory_defaults() -> dict[str, str]:
     return _copy_preset(_CLASSIC_FLAT)
+
+
+def blivechat_line_factory_defaults() -> dict[str, str]:
+    return _copy_preset(_BLIVECHAT_LINE_FLAT)
 
 
 def style_defaults_for_config() -> dict[str, str]:
@@ -531,6 +619,8 @@ def _normalize_style_values(
             items[key] = _choice(raw, STYLE_PRESET_CHOICES, DEFAULT_STYLE_PRESET)
         elif key == "floating_panel_shape":
             items[key] = _choice(raw, SHAPE_CHOICES, factory.get(key, "bubble"))
+        elif key == "floating_panel_layout":
+            items[key] = _choice(raw, LAYOUT_CHOICES, factory.get(key, DEFAULT_LAYOUT))
         elif key == "floating_panel_tail_style":
             items[key] = _choice(raw, TAIL_STYLE_CHOICES, factory.get(key, DEFAULT_TAIL_STYLE))
         elif key in ("floating_panel_card_color_mode", "floating_panel_text_color_mode"):
@@ -573,8 +663,11 @@ def _normalize_style_values(
             v = str(raw if raw is not None else "").strip()
             items[key] = v if v else (fb or "弹幕")
         elif key == "floating_panel_username_separator":
-            v = str(raw if raw is not None else "").strip()
-            items[key] = v if v else (fb or "：")
+            # 空串合法（LineLike 无冒号）；仅缺失/None 时回退工厂
+            if raw is None:
+                items[key] = str(fb) if fb is not None else "："
+            else:
+                items[key] = str(raw)
         elif key == "floating_panel_font_family":
             v = str(raw or "").strip()
             items[key] = v if v else (fb or "Microsoft YaHei")
@@ -598,6 +691,7 @@ class FloatingPanelStyleSnapshot:
 
     style_preset: str
     shape: str
+    layout: str
     card_colors: tuple[str, ...]
     card_color_mode: str
     card_color_weights: dict[str, float]
@@ -627,6 +721,9 @@ class FloatingPanelStyleSnapshot:
     tail_height: int
     tail_size: int
     tail_offset_y: int
+    tail_border: int
+    tail_long_side: int
+    tail_rotate_deg: int
     username_enabled: bool
     username_text: str
     username_color: str
@@ -669,6 +766,26 @@ def _get_map(mapping: Mapping[str, Any], key: str, default: str = "") -> str:
     return str(val)
 
 
+def _mapping_has_key(mapping: Mapping[str, Any] | Any, key: str) -> bool:
+    """ConfigStore 无 __contains__；优先读 _cache 判断键是否真实存在。"""
+    cache = getattr(mapping, "_cache", None)
+    if isinstance(cache, dict):
+        return key in cache
+    try:
+        return key in mapping  # type: ignore[operator]
+    except TypeError:
+        return False
+
+
+def _mapping_raw(mapping: Mapping[str, Any] | Any, key: str) -> Any:
+    cache = getattr(mapping, "_cache", None)
+    if isinstance(cache, dict) and key in cache:
+        return cache[key]
+    if hasattr(mapping, "get"):
+        return mapping.get(key)  # type: ignore[call-arg]
+    return None
+
+
 def style_snapshot_from_mapping(mapping: Mapping[str, Any] | None) -> FloatingPanelStyleSnapshot:
     """将扁平 ConfigStore / dict 映射为类型明确快照。
 
@@ -679,8 +796,17 @@ def style_snapshot_from_mapping(mapping: Mapping[str, Any] | None) -> FloatingPa
     mapping = mapping or {}
 
     for key in STYLE_PRESET_APPLY_KEYS:
-        stored = _get_map(mapping, key, "")
-        src[key] = stored if stored != "" else factory.get(key, "")
+        if _mapping_has_key(mapping, key):
+            raw_val = _mapping_raw(mapping, key)
+            if key == "floating_panel_username_separator":
+                # 空串合法（LineLike）；仅键缺失时才回退工厂
+                src[key] = "" if raw_val is None else str(raw_val)
+            elif raw_val is None or str(raw_val) == "":
+                src[key] = factory.get(key, "")
+            else:
+                src[key] = str(raw_val)
+        else:
+            src[key] = factory.get(key, "")
 
     # 基础尺寸
     for key in (
@@ -741,9 +867,16 @@ def style_snapshot_from_mapping(mapping: Mapping[str, Any] | None) -> FloatingPa
     except (TypeError, ValueError):
         max_items = 12
 
+    sep_raw = src.get("floating_panel_username_separator")
+    if sep_raw is None:
+        username_separator = "："
+    else:
+        username_separator = str(sep_raw)
+
     return FloatingPanelStyleSnapshot(
         style_preset=_choice(src.get("floating_panel_style_preset"), STYLE_PRESET_CHOICES, DEFAULT_STYLE_PRESET),
         shape=_choice(src.get("floating_panel_shape"), SHAPE_CHOICES, "bubble"),
+        layout=_choice(src.get("floating_panel_layout"), LAYOUT_CHOICES, DEFAULT_LAYOUT),
         card_colors=_palette("floating_panel_card_colors", WECHAT_CARD_COLORS),
         card_color_mode=_choice(
             src.get("floating_panel_card_color_mode"), COLOR_MODE_CHOICES, DEFAULT_COLOR_MODE
@@ -783,6 +916,9 @@ def style_snapshot_from_mapping(mapping: Mapping[str, Any] | None) -> FloatingPa
         tail_height=_int("floating_panel_tail_height", 10),
         tail_size=_int("floating_panel_tail_size", 10),
         tail_offset_y=_int("floating_panel_tail_offset_y", 38),
+        tail_border=_int("floating_panel_tail_border", 8),
+        tail_long_side=_int("floating_panel_tail_long_side", 18),
+        tail_rotate_deg=_int("floating_panel_tail_rotate_deg", 35),
         username_enabled=_bool("floating_panel_username_enabled"),
         username_text=str(src.get("floating_panel_username_text") or "弹幕"),
         username_color=normalize_hex_color(
@@ -790,7 +926,7 @@ def style_snapshot_from_mapping(mapping: Mapping[str, Any] | None) -> FloatingPa
         ),
         username_size=_int("floating_panel_username_size", 14),
         username_weight=_int("floating_panel_username_weight", 700),
-        username_separator=str(src.get("floating_panel_username_separator") or "："),
+        username_separator=username_separator,
         content_size=_int("floating_panel_content_size", 16),
         content_weight=_int("floating_panel_content_weight", 400),
         content_line_height=_int("floating_panel_content_line_height", 140),
@@ -833,6 +969,7 @@ def style_presets_api_payload() -> dict[str, Any]:
         "fields": list(STYLE_FIELD_KEYS),
         "restore_keys": list(STYLE_RESTORE_KEYS),
         "shape_choices": list(SHAPE_CHOICES),
+        "layout_choices": list(LAYOUT_CHOICES),
         "tail_style_choices": list(TAIL_STYLE_CHOICES),
         "color_mode_choices": list(COLOR_MODE_CHOICES),
         "entry_animation_choices": list(ENTRY_ANIMATION_CHOICES),
@@ -894,6 +1031,8 @@ __all__ = [
     "STYLE_PRESET_CHOICES",
     "DEFAULT_STYLE_PRESET",
     "SHAPE_CHOICES",
+    "LAYOUT_CHOICES",
+    "DEFAULT_LAYOUT",
     "COLOR_MODE_CHOICES",
     "TAIL_STYLE_CHOICES",
     "DEFAULT_TAIL_STYLE",
@@ -905,9 +1044,14 @@ __all__ = [
     "CLASSIC_CARD_COLORS",
     "WECHAT_CARD_COLORS",
     "WECHAT_TEXT_COLOR",
+    "BLIVECHAT_LINE_CARD_COLOR",
+    "BLIVECHAT_LINE_TEXT_COLOR",
+    "BLIVECHAT_LINE_USERNAME_COLOR",
+    "BLIVECHAT_LINE_FONT_FAMILY",
     "FloatingPanelStyleSnapshot",
     "wechat_factory_defaults",
     "classic_factory_defaults",
+    "blivechat_line_factory_defaults",
     "style_defaults_for_config",
     "preset_style_patch",
     "normalize_floating_panel_style_items",

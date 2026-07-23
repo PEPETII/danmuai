@@ -9,7 +9,7 @@ NUMBER_STEPPER_MODULE = STATIC_ROOT / "modules" / "number-stepper.js"
 SETTINGS_HTML = STATIC_ROOT / "partials" / "settings.html"
 CONTENT_PAGES_HTML = STATIC_ROOT / "partials" / "content-pages.html"
 MODALS_HTML = STATIC_ROOT / "partials" / "modals.html"
-PAGES_CSS = STATIC_ROOT / "warm-tokens-pages.css"
+PAGES_CSS = STATIC_ROOT / "warm-tokens-settings.css"
 APP_MODULE = STATIC_ROOT / "app.js"
 SETTINGS_FONTS_MODULE = STATIC_ROOT / "modules" / "settings-fonts.js"
 

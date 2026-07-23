@@ -379,3 +379,475 @@ textarea:focus {
   cursor: not-allowed;
   opacity: 0.6;
 }
+
+/* -------------------------------------------------------------------------- */
+/* Semantic button + form controls (UI 治理 D / W-UI-BUTTON-FORM-001)         */
+/* Visual values only from semantic tokens (surface/text/border + B motion).  */
+/* -------------------------------------------------------------------------- */
+
+.ui-button {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0 var(--space-4);
+  min-width: var(--control-height-md);
+  height: var(--control-height-md);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  vertical-align: middle;
+  color: var(--text-primary);
+  background: var(--surface-control);
+  box-shadow: none;
+  transition:
+    background-color var(--motion-normal) var(--ease-standard),
+    border-color var(--motion-normal) var(--ease-standard),
+    color var(--motion-normal) var(--ease-standard),
+    box-shadow var(--motion-normal) var(--ease-standard),
+    opacity var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
+}
+
+.ui-button:focus {
+  outline: none;
+}
+
+.ui-button:focus-visible {
+  outline: 2px solid var(--color-primary-hover);
+  outline-offset: 2px;
+}
+
+.ui-button:active:not(:disabled):not(.is-loading):not([aria-busy="true"]) {
+  transform: scale(0.98);
+}
+
+.ui-button--sm {
+  min-width: var(--control-height-sm);
+  height: var(--control-height-sm);
+  padding: 0 var(--space-3);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.ui-button--md {
+  min-width: var(--control-height-md);
+  height: var(--control-height-md);
+  padding: 0 var(--space-4);
+}
+
+.ui-button--lg {
+  min-width: var(--control-height-lg);
+  height: var(--control-height-lg);
+  padding: 0 var(--space-6);
+}
+
+.ui-button--primary {
+  color: var(--text-on-brand);
+  background: var(--color-primary);
+  border-color: transparent;
+  box-shadow: var(--shadow-btn);
+}
+
+.ui-button--primary:hover:not(:disabled):not(.is-loading):not([aria-busy="true"]) {
+  background: var(--color-primary-hover);
+  box-shadow: var(--shadow-btn);
+}
+
+.ui-button--secondary {
+  color: var(--text-primary);
+  background: var(--surface-card);
+  border-color: var(--border-default);
+  box-shadow: none;
+}
+
+.ui-button--secondary:hover:not(:disabled):not(.is-loading):not([aria-busy="true"]) {
+  background: var(--surface-subtle);
+  border-color: var(--border-brand);
+}
+
+.ui-button--danger {
+  color: var(--text-on-brand);
+  background: var(--color-danger);
+  border-color: transparent;
+}
+
+.ui-button--danger:hover:not(:disabled):not(.is-loading):not([aria-busy="true"]) {
+  filter: brightness(0.95);
+  box-shadow: 0 4px 15px rgba(220, 38, 38, 0.28);
+}
+
+.ui-button--ghost {
+  color: var(--text-primary);
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.ui-button--ghost:hover:not(:disabled):not(.is-loading):not([aria-busy="true"]) {
+  background: var(--surface-subtle);
+  color: var(--color-primary-hover);
+}
+
+.ui-button--link {
+  height: auto;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--color-primary-hover);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.ui-button--link:hover:not(:disabled):not(.is-loading):not([aria-busy="true"]) {
+  color: var(--color-primary);
+  transform: none;
+}
+
+.ui-button:disabled,
+.ui-button.is-disabled,
+.ui-button[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+  pointer-events: none;
+}
+
+.ui-button.is-loading,
+.ui-button[aria-busy="true"] {
+  position: relative;
+  cursor: wait;
+  pointer-events: none;
+}
+
+.ui-button.is-loading > *,
+.ui-button[aria-busy="true"] > * {
+  opacity: 0;
+}
+
+.ui-button.is-loading::after,
+.ui-button[aria-busy="true"]::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 1rem;
+  height: 1rem;
+  margin: -0.5rem 0 0 -0.5rem;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: var(--radius-full);
+  animation: ui-button-spin var(--motion-slow) linear infinite;
+}
+
+.ui-button--primary.is-loading,
+.ui-button--primary[aria-busy="true"],
+.ui-button--danger.is-loading,
+.ui-button--danger[aria-busy="true"] {
+  color: var(--text-on-brand);
+}
+
+@keyframes ui-button-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-button.is-loading::after,
+  .ui-button[aria-busy="true"]::after {
+    animation-duration: 1ms;
+  }
+}
+
+/* Page header (semantic shell; layout utilities may still wrap) */
+.ui-page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-8);
+}
+
+.ui-page-header__copy {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.ui-page-header__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  flex-shrink: 0;
+}
+
+.ui-page-title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--text-primary);
+}
+
+.ui-page-description {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+/* Status banners (danger / warning / info / success) */
+.ui-status-banner {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-default);
+  background: var(--surface-subtle);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  min-width: 0;
+}
+
+.ui-status-banner--danger {
+  background: var(--status-danger-bg);
+  border-color: rgba(220, 38, 38, 0.28);
+  color: var(--status-danger);
+}
+
+.ui-status-banner--warning {
+  background: var(--status-warning-bg);
+  border-color: rgba(217, 119, 6, 0.35);
+  color: var(--status-warning);
+}
+
+.ui-status-banner--info {
+  background: var(--status-info-bg);
+  border-color: rgba(37, 99, 235, 0.28);
+  color: var(--status-info);
+}
+
+.ui-status-banner--success {
+  background: var(--status-success-bg);
+  border-color: rgba(22, 163, 74, 0.28);
+  color: var(--status-success);
+}
+
+/* Field layout */
+.ui-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.ui-field__label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text-primary);
+}
+
+.ui-field__hint {
+  display: block;
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.ui-field.is-error .ui-field__hint,
+.ui-field__hint.is-error {
+  color: var(--color-danger);
+}
+
+/* Shared control skin */
+.ui-control,
+.ui-input,
+.ui-select,
+.ui-textarea {
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0;
+  min-height: var(--control-height-md);
+  padding: 0 var(--space-4);
+  font-family: inherit;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text-primary);
+  background: var(--surface-control);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  box-shadow: inset 0 1px 2px var(--border-soft);
+  transition:
+    border-color var(--motion-normal) var(--ease-standard),
+    box-shadow var(--motion-normal) var(--ease-standard),
+    background-color var(--motion-normal) var(--ease-standard),
+    color var(--motion-normal) var(--ease-standard);
+}
+
+.ui-textarea {
+  min-height: calc(var(--control-height-lg) + var(--space-4));
+  padding: var(--space-3) var(--space-4);
+  resize: vertical;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.ui-select {
+  appearance: auto;
+  cursor: pointer;
+}
+
+.ui-control::placeholder,
+.ui-input::placeholder,
+.ui-textarea::placeholder {
+  color: var(--text-muted);
+  font-weight: 400;
+  opacity: 1;
+}
+
+.ui-control:hover:not(:disabled):not([readonly]):not(.is-disabled):not(.is-readonly),
+.ui-input:hover:not(:disabled):not([readonly]):not(.is-disabled):not(.is-readonly),
+.ui-select:hover:not(:disabled):not(.is-disabled),
+.ui-textarea:hover:not(:disabled):not([readonly]):not(.is-disabled):not(.is-readonly) {
+  border-color: var(--border-brand);
+}
+
+.ui-control:focus,
+.ui-input:focus,
+.ui-select:focus,
+.ui-textarea:focus {
+  outline: none;
+}
+
+.ui-control:focus-visible,
+.ui-input:focus-visible,
+.ui-select:focus-visible,
+.ui-textarea:focus-visible {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.2);
+}
+
+.ui-control:disabled,
+.ui-input:disabled,
+.ui-select:disabled,
+.ui-textarea:disabled,
+.ui-control.is-disabled,
+.ui-input.is-disabled,
+.ui-select.is-disabled,
+.ui-textarea.is-disabled,
+.ui-field.is-disabled .ui-control,
+.ui-field.is-disabled .ui-input,
+.ui-field.is-disabled .ui-select,
+.ui-field.is-disabled .ui-textarea {
+  opacity: 0.55;
+  cursor: not-allowed;
+  background: var(--surface-subtle);
+  color: var(--text-muted);
+}
+
+.ui-control[readonly],
+.ui-input[readonly],
+.ui-textarea[readonly],
+.ui-control.is-readonly,
+.ui-input.is-readonly,
+.ui-textarea.is-readonly,
+.ui-field.is-readonly .ui-control,
+.ui-field.is-readonly .ui-input,
+.ui-field.is-readonly .ui-textarea {
+  cursor: default;
+  background: var(--surface-subtle);
+  color: var(--text-secondary);
+  border-style: dashed;
+  opacity: 1;
+}
+
+.ui-control.is-error,
+.ui-input.is-error,
+.ui-select.is-error,
+.ui-textarea.is-error,
+.ui-control[aria-invalid="true"],
+.ui-input[aria-invalid="true"],
+.ui-select[aria-invalid="true"],
+.ui-textarea[aria-invalid="true"],
+.ui-field.is-error .ui-control,
+.ui-field.is-error .ui-input,
+.ui-field.is-error .ui-select,
+.ui-field.is-error .ui-textarea {
+  border-color: var(--color-danger);
+  box-shadow: 0 0 0 2px var(--status-danger-bg);
+}
+
+/*
+ * Compat mapping strategy:
+ * - .btn-primary (warm-tokens-base.css): keep class name; dual-class with
+ *   .ui-button.ui-button--primary for size/focus contract; alone still paints primary fill.
+ * - .settings-field-control (warm-tokens-pages.css): dual-class with
+ *   .ui-control / .ui-input / .ui-select / .ui-textarea after W-UI-SETTINGS-MIGRATE-001;
+ *   accordion density overrides in pages.css remain authoritative for compact rows.
+ */
+.btn-primary.ui-button,
+.btn-primary.ui-button--primary {
+  color: var(--text-on-brand);
+  background: var(--color-primary);
+  border-color: transparent;
+  box-shadow: var(--shadow-btn);
+}
+
+.btn-primary.ui-button:hover:not(:disabled):not(.is-loading):not([aria-busy="true"]),
+.btn-primary.ui-button--primary:hover:not(:disabled):not(.is-loading):not([aria-busy="true"]) {
+  background: var(--color-primary-hover);
+  box-shadow: var(--shadow-btn);
+}
+
+/* Dual-class settings controls: prefer ui-control skin, keep accordion overrides */
+.settings-field-control.ui-control,
+.settings-field-control.ui-input,
+.settings-field-control.ui-select,
+.settings-field-control.ui-textarea {
+  min-height: var(--control-height-md);
+  border-radius: var(--radius-md);
+  background: var(--surface-control);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  box-shadow: inset 0 1px 2px var(--border-soft);
+  text-align: left;
+}
+
+/* Number fields stay centered (legacy .settings-field-control; meme 采集/展示 inline 行) */
+input[type="number"].settings-field-control.ui-control,
+input[type="number"].settings-field-control.ui-input {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.settings-field-control.ui-control:focus-visible,
+.settings-field-control.ui-input:focus-visible,
+.settings-field-control.ui-select:focus-visible,
+.settings-field-control.ui-textarea:focus-visible {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.2);
+}

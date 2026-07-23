@@ -197,7 +197,7 @@ function renderPackageList(packages) {
 
   packages.forEach((pkg) => {
     const card = document.createElement('div');
-    card.className = 'card p-6 space-y-3';
+    card.className = 'card ui-card p-6 space-y-3 min-w-0';
 
     const header = document.createElement('div');
     header.className = 'flex flex-wrap items-center gap-3';
@@ -259,7 +259,8 @@ function renderPackageList(packages) {
 
     const enterBtn = document.createElement('button');
     enterBtn.type = 'button';
-    enterBtn.className = 'btn-primary px-5 py-2 text-white rounded-xl font-bold shadow-warm text-sm';
+    enterBtn.className =
+      'btn-primary px-5 py-2 text-white rounded-xl font-bold shadow-warm text-sm ui-button ui-button--primary ui-button--sm';
     enterBtn.textContent = t('dynamic.appKnowledgePage.preview');
     enterBtn.addEventListener('click', () => {
       openPackageDetail(pkg.public_id).catch((error) =>
@@ -271,7 +272,7 @@ function renderPackageList(packages) {
     const deleteBtn = document.createElement('button');
     deleteBtn.type = 'button';
     deleteBtn.className =
-      'px-5 py-2 bg-red-50 border border-red-200 rounded-xl text-sm font-semibold text-red-600 hover:bg-red-100';
+      'px-5 py-2 bg-red-50 border border-red-200 rounded-xl text-sm font-semibold text-red-600 hover:bg-red-100 ui-button ui-button--secondary ui-button--sm';
     deleteBtn.textContent = t('dynamic.appKnowledgePage.delete');
     deleteBtn.addEventListener('click', () => {
       void deletePackageFromList(pkg.public_id);
@@ -417,7 +418,7 @@ function renderJobs(jobs) {
       const cancelBtn = document.createElement('button');
       cancelBtn.type = 'button';
       cancelBtn.className =
-        'px-3 py-1 bg-white border border-gray-200 rounded-lg text-xs font-semibold text-warmText hover:bg-gray-50';
+        'px-3 py-1 bg-white border border-gray-200 rounded-lg text-xs font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--sm';
       cancelBtn.textContent = t('dynamic.appKnowledgePage.cancelJob');
       cancelBtn.addEventListener('click', () => {
         void cancelJobById(job.public_id);
@@ -648,7 +649,7 @@ function renderItems(items, total, page, pageSize) {
     const deleteBtn = document.createElement('button');
     deleteBtn.type = 'button';
     deleteBtn.className =
-      'px-3 py-1 bg-white border border-gray-200 rounded-lg text-xs font-semibold text-red-600 hover:bg-red-50';
+      'px-3 py-1 bg-white border border-gray-200 rounded-lg text-xs font-semibold text-red-600 hover:bg-red-50 ui-button ui-button--secondary ui-button--sm';
     deleteBtn.textContent = t('dynamic.appKnowledgePage.deleteItem');
     deleteBtn.addEventListener('click', () => {
       void deleteItemById(item.public_id);
@@ -706,7 +707,7 @@ function renderItems(items, total, page, pageSize) {
       const expandBtn = document.createElement('button');
       expandBtn.type = 'button';
       expandBtn.className =
-        'px-3 py-1 bg-white border border-gray-200 rounded-lg text-xs font-semibold text-warmText hover:bg-gray-50';
+        'px-3 py-1 bg-white border border-gray-200 rounded-lg text-xs font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--sm';
       expandBtn.textContent = t('dynamic.appKnowledgePage.preview');
       let expanded = false;
       expandBtn.addEventListener('click', () => {

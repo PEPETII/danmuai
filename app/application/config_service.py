@@ -58,6 +58,7 @@ WEB_CONFIG_KEYS = (
     # W-FP-STYLE-CONTRACT-001：从下到上样式扁平字段（无单一 JSON 档）
     "floating_panel_style_preset",
     "floating_panel_shape",
+    "floating_panel_layout",
     "floating_panel_card_colors",
     "floating_panel_card_color_mode",
     "floating_panel_card_color_weights",
@@ -87,6 +88,9 @@ WEB_CONFIG_KEYS = (
     "floating_panel_tail_height",
     "floating_panel_tail_size",
     "floating_panel_tail_offset_y",
+    "floating_panel_tail_border",
+    "floating_panel_tail_long_side",
+    "floating_panel_tail_rotate_deg",
     "floating_panel_username_enabled",
     "floating_panel_username_text",
     "floating_panel_username_color",
