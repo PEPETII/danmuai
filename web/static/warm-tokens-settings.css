@@ -90,10 +90,21 @@
   display: block;
 }
 
+/* 设置表单滚动主体（W-UI-SETTINGS-STICKY-ACTION-001） */
+.settings-form-body {
+  padding-bottom: 0.5rem;
+}
+
+/* Sticky Bottom Action Bar（W-UI-SETTINGS-STICKY-ACTION-001） */
 .settings-form-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
   margin-top: 1.5rem;
   padding-top: 1.5rem;
+  padding-bottom: 0.75rem;
   border-top: 1px dashed var(--color-secondary);
+  background: var(--color-surface);
 }
 
 /* 弹幕/节奏等 Tab：可调控件与说明文字分层，避免标签与输入融进背景 */
@@ -509,6 +520,16 @@
   background: transparent !important;
   box-shadow: none !important;
   text-align: center;
+}
+
+/* 当 settings-rhythm-accordion-inline-row 内的数字输入框被 number-stepper 包裹后，
+   .settings-rhythm-accordion-inline-row input[type="number"].settings-field-control.ui-input { width: 5rem }
+   会与步进器 grid 布局冲突（输入框 80px > grid 单元 32px），导致数值视觉偏右。
+   此规则用更高特异性覆盖，让输入框填满 grid 单元，数值正确居中。 */
+.settings-rhythm-accordion-inline-row .settings-rhythm-stepper .settings-field-control.ui-input {
+  width: 100%;
+  padding: 0 6px;
+  background: transparent !important;
 }
 
 .settings-rhythm-stepper .settings-field-control:focus,
