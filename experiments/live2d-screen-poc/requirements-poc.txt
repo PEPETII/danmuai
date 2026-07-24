@@ -1,0 +1,9 @@
+# POC-only deps. Do NOT merge into repo-root requirements.txt.
+# Install: pip install -r experiments/live2d-screen-poc/requirements-poc.txt
+live2d-py==0.7.0.4
+PyOpenGL>=3.1.0,<4
+PyOpenGL-accelerate>=3.1.0,<4; platform_system=="Windows"
+numpy>=1.24,<3
+Pillow>=10.0,<12
+# Window host: reuse project PyQt6 if already installed (DanmuAI uses PyQt6).
+# PyQt6>=6.6,<7

@@ -930,3 +930,35 @@ def test_invoke_main_unexpected_error_returns_500():
     assert res.status_code == 500
     assert res.json()["detail"] == "internal error"
 
+
+def test_ai_butler_chat_route_removed_returns_404():
+    """W-AIBUTLER-REMOVE-001: POST /api/ai-butler/chat is unregistered."""
+    from app.web_api.routes import register_web_routes
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    app = FastAPI()
+    bridge = MagicMock()
+    bridge.invoke_on_main.side_effect = lambda fn, *args, **kwargs: fn(*args, **kwargs)
+    bridge.danmu_app.list_providers.return_value = []
+
+    def _check_token(_authorization: str | None = None) -> None:
+        return None
+
+    register_web_routes(app, bridge, _check_token)
+    client = TestClient(app, raise_server_exceptions=False)
+
+    res = client.post(
+        "/api/ai-butler/chat",
+        json={"messages": [{"role": "user", "content": "hi"}]},
+        headers={"Authorization": "Bearer x"},
+    )
+    assert res.status_code == 404
+
+    paths = {getattr(r, "path", None) for r in app.routes}
+    assert "/api/ai-butler/chat" not in paths
+    assert "/api/custom-models" in paths
+    assert "/api/probe" in paths
+    assert "/api/personae" in paths
+    assert "/api/diagnostics" in paths
+

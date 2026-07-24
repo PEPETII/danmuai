@@ -8,14 +8,15 @@
       <div class="w-10 h-10 bg-softPeach rounded-full flex items-center justify-center text-xl shadow-sm icon-badge shrink-0"><svg class="ui-icon ui-icon-lg" aria-hidden="true"><use href="#i-paw"></use></svg></div>
       <div class="ui-sidebar-brand-text flex flex-col min-w-0 flex-1">
         <h1 class="text-xl font-bold text-warmText truncate">DanmuAI</h1>
-        <a
-          href="https://danmuai.xyz/"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="sidebar-official-site-btn"
+        <button
+          type="button"
+          id="btnOfficialSiteExpand"
+          class="sidebar-official-site-btn official-site-expand-btn"
           data-i18n="nav.officialSite"
           data-i18n-aria-label="nav.officialSiteAria"
-        >官网</a>
+          aria-haspopup="dialog"
+          aria-controls="officialSiteModal"
+        >点击：官网与群聊</button>
       </div>
       <button
         type="button"
@@ -35,9 +36,6 @@
       </a>
       <a href="#persona" data-page="persona" class="sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-left">
         <svg class="ui-icon w-5 shrink-0" aria-hidden="true"><use href="#i-magic"></use></svg> <span class="sidebar-item-label" data-i18n="nav.persona">弹幕人格</span>
-      </a>
-      <a href="#ai-butler" data-page="ai-butler" class="sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-left">
-        <svg class="ui-icon w-5 shrink-0" aria-hidden="true"><use href="#i-sparkles"></use></svg> <span class="sidebar-item-label" data-i18n="nav.aiButler">AI管家</span>
       </a>
       <a href="#knowledge" data-page="knowledge" class="sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-left">
         <svg class="ui-icon w-5 shrink-0" aria-hidden="true"><use href="#i-book"></use></svg> <span class="sidebar-item-label" data-i18n="nav.knowledge">知识包</span>

@@ -19,7 +19,6 @@ _WARM_CSS_REQUIRED = (
     "warm-tokens-danmu-pool.css",
     "warm-tokens-live-output-preview.css",
     "warm-tokens-pages-stylegen.css",
-    "warm-tokens-ai-butler.css",
     "warm-tokens-pages.css",
     "warm-tokens-dark.css",
 )

@@ -94,7 +94,14 @@ def list_versions(app: "DanmuApp", name: str) -> list[dict[str, Any]]:
     return app.templates.versions(name)
 
 
-def save_template(app: "DanmuApp", name: str, system_custom: str, user_pt: str, label: str = "") -> None:
+def save_template(
+    app: "DanmuApp",
+    name: str,
+    system_custom: str,
+    user_pt: str,
+    label: str = "",
+    update_label: bool = True,
+) -> None:
     from app.persona_builtin import normalize_persona_name
 
     name = normalize_persona_name(name)
@@ -116,7 +123,8 @@ def save_template(app: "DanmuApp", name: str, system_custom: str, user_pt: str, 
         full_system = ensure_reply_contract("", app.config)
 
     app.personae.save_custom(name, full_system, user_pt)
-    app.personae.save_display_name(name, label)
+    if update_label:
+        app.personae.save_display_name(name, label or "")
     app.templates.save(name, full_system, user_pt)
     app.config_changed.emit()
 
@@ -144,6 +152,24 @@ def create_persona(app: "DanmuApp", name: str) -> dict[str, Any]:
     full_system = ensure_reply_contract("", app.config)
     app.personae.save_custom(name, full_system, user_pt)
     app.templates.save(name, full_system, user_pt)
+    app.config_changed.emit()
+    return {"id": name, "label": app.personae.get_display_name(name)}
+
+
+def save_persona_label(app: "DanmuApp", name: str, label: str) -> dict[str, Any]:
+    """W-PERSONA-RENAME-DISPLAY-001：仅更新展示名，不改存储 id / 模板正文。"""
+    from app.persona_builtin import normalize_persona_name, validate_persona_name
+
+    name = normalize_persona_name(name)
+    if name not in app.personae.list():
+        raise ValueError(tr("persona.notFound"))
+
+    cleaned = (label or "").strip()
+    if cleaned:
+        # 展示名与新建人格共用非法字符规则（URL 路径保留字）
+        validate_persona_name(cleaned)
+
+    app.personae.save_display_name(name, cleaned)
     app.config_changed.emit()
     return {"id": name, "label": app.personae.get_display_name(name)}
 

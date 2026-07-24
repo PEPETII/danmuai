@@ -2,7 +2,6 @@
   "nav": {
     "overview": "温馨控制台",
     "persona": "弹幕人格",
-    "aiButler": "AI管家",
     "knowledge": "知识包",
     "danmuPool": "公式化弹幕库",
     "pet": "桌宠",
@@ -21,8 +20,8 @@
     "tooltipNoticeTitle": "使用前注意",
     "liveSettings": "直播设置",
     "guide": "教程|日志|反馈|公告|群聊",
-    "officialSite": "官网",
-    "officialSiteAria": "打开 DanmuAI 官网",
+    "officialSite": "点击：官网与群聊",
+    "officialSiteAria": "打开官网与 QQ 群聊浮层",
     "reward": "赞赏",
     "versionCurrent": "当前版本：",
     "versionLatest": "最新版本：",

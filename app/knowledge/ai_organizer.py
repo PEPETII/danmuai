@@ -9,9 +9,9 @@
 设计依据：
     - spec §ADDED Requirements / AI Organizer
     - 实现说明 §9.3（系统提示词 10 条）+ §9.4（JSON 解析与重试）
-    - 仿 ``app/application/ai_butler_service.py:_AiButlerWorker`` + ``_stream_llm``
+    - duck-typed worker + ``stream_openai`` / ``stream_doubao``（与共享 LLM 请求路径一致）
 
-不修改 ``ai_butler_service.py`` / ``ai_client_*.py`` / ``providers/``；
+不修改 ``ai_client_*.py`` / ``providers/``；
 不新增第二套 API Key 设置；不依赖视觉输入；不占用 ``ai_in_flight``。
 """
 from __future__ import annotations
@@ -101,7 +101,7 @@ def _build_system_prompt() -> str:
 
 
 # ---------------------------------------------------------------------------
-# duck-typed worker（仿 ai_butler_service._AiButlerWorker）
+# duck-typed worker（非 QObject，供 stream_openai / stream_doubao）
 # ---------------------------------------------------------------------------
 
 
@@ -112,7 +112,7 @@ class _KnowledgeOrganizerWorker:
     ``_request_started_at`` / ``_resolve_request_credentials`` / ``_get_http_client``。
     不实例化 ``AiWorker``，不触 Qt / 主链路。
 
-    与 ``ai_butler_service._AiButlerWorker`` 的差别：
+    特点：
         - 超时 180s（知识整理生成比纯对话长）
         - 不组装对话上下文，只做单批整理
     """
@@ -167,8 +167,7 @@ def _build_user_content(document_kind: str, chunk_text: str) -> str:
 def _build_doubao_input(messages: list[dict]) -> list[dict]:
     """转换通用 messages 为 doubao Responses input 格式。
 
-    doubao content 项：user/system 用 input_text，assistant 用 output_text
-    （仿 ``ai_butler_service._build_doubao_input``）。
+    doubao content 项：user/system 用 input_text，assistant 用 output_text。
     """
     out: list[dict] = []
     for msg in messages:
@@ -200,7 +199,7 @@ def _call_llm(
 ) -> tuple[str, int, int]:
     """按 transport 选 doubao 或 openai 路径，返回 ``(text, input_tokens, output_tokens)``。
 
-    仿 ``ai_butler_service._stream_llm`` 行 311-363，差别：
+    与主链路 LLM 请求差别：
         - ``max_output_tokens`` / ``max_tokens`` = 4096（知识整理需要更大输出空间）
         - doubao input 只含 user message（system 经 ``instructions`` 传递）
     """
@@ -264,7 +263,6 @@ def _call_llm(
 def _strip_markdown_fence(text: str) -> str:
     """移除 Markdown 代码围栏（```json ... ``` 或 ``` ... ```）。
 
-    仿 ``ai_butler_service._strip_markdown_fence``。
     """
     if not text.startswith("```"):
         return text

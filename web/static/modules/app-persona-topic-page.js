@@ -334,12 +334,17 @@ export function initPersonaTopicPage(deps = {}) {
     try {
       await window.withLoadingState(btn, btn.textContent, async () => {
         const name = document.getElementById('personaSelect')?.value;
+        // 仅当存在 #personaDisplayName 时才随模板提交 label，避免缺失 DOM 时误清空展示名
+        const displayNameEl = document.getElementById('personaDisplayName');
+        const payload = {
+          system_custom: document.getElementById('personaSystemCustom').value,
+        };
+        if (displayNameEl) {
+          payload.label = displayNameEl.value?.trim() || '';
+        }
         await apiFetch(`/api/personae/${enc(name)}/template`, {
           method: 'PUT',
-          body: JSON.stringify({
-            system_custom: document.getElementById('personaSystemCustom').value,
-            label: document.getElementById('personaDisplayName')?.value?.trim() || '',
-          }),
+          body: JSON.stringify(payload),
         });
         loadPersonaTemplate().catch(console.error);
       }, t('dynamic.appPersonaTopicPage.已保存'));
@@ -384,6 +389,42 @@ export function initPersonaTopicPage(deps = {}) {
         showToast(error.message, true);
       }
     });
+  });
+  document.getElementById('btnRenamePersona')?.addEventListener('click', async (e) => {
+    const name = document.getElementById('personaSelect')?.value;
+    if (!name) return;
+    const select = document.getElementById('personaSelect');
+    const currentLabel =
+      select?.selectedOptions?.[0]?.textContent?.trim() ||
+      document.getElementById('personaDisplayName')?.value?.trim() ||
+      name;
+    const nextLabel = prompt(t('dynamic.appPersonaTopicPage.新显示名称'), currentLabel);
+    if (nextLabel === null) return;
+    const cleaned = (nextLabel || '').trim();
+    if (!cleaned) {
+      showToast(t('dynamic.appPersonaTopicPage.显示名称不能为空'), true);
+      return;
+    }
+    if (/[/\\%#?]/.test(cleaned)) {
+      showToast(t('dynamic.appPersonaTopicPage.人格名称不能包含_等特殊字'), true);
+      return;
+    }
+    const btn = e.currentTarget;
+    try {
+      await window.withLoadingState(btn, btn.textContent, async () => {
+        await apiFetch(`/api/personae/${enc(name)}/label`, {
+          method: 'PUT',
+          body: JSON.stringify({ label: cleaned }),
+        });
+        currentPersonaId = name;
+        await loadPersonaEditor();
+      }, t('dynamic.appPersonaTopicPage.已保存'));
+      showToast(t('dynamic.appPersonaTopicPage.显示名称已更新'));
+      showPersonaPageStatus(t('dynamic.appPersonaTopicPage.显示名称已更新_下一次生成会使用新内容'));
+    } catch (error) {
+      showToast(error.message, true);
+      showPersonaPageStatus(error.message, true);
+    }
   });
   document.getElementById('btnDeletePersona')?.addEventListener('click', async (e) => {
     const btn = e.currentTarget;

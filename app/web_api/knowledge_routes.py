@@ -6,9 +6,8 @@
 - Pydantic 模型直接复用 ``app/knowledge/models.py`` 已定义的
   ``PackageCreatePayload`` / ``PackageUpdatePayload`` / ``ImportPayload`` /
   ``ItemUpdatePayload`` / ``RetrievalPreviewPayload``，获得自动校验。
-- 长任务（import_source）用 ``async def`` + ``loop.run_in_executor`` 仿
-  ``app/web_api/ai_butler.py``；实际执行已在 ``ImportOrchestrator`` 内异步派发，
-  路由层只创建 source/job 行后立即返回。
+- 长任务（import_source）用 ``async def`` + ``loop.run_in_executor``；
+  实际执行已在 ``ImportOrchestrator`` 内异步派发，路由层只创建 source/job 行后立即返回。
 
 边界约束（AGENTS.md §9.4 / §A.5.3）：
 - 不在 HTTP 线程读 DanmuApp 私有字段（``_<private>``）；

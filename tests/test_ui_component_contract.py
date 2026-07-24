@@ -288,7 +288,6 @@ def test_content_pages_f2_semantic_shell():
 
     for page_id in (
         "page-knowledge",
-        "page-ai-butler",
         "page-persona",
         "page-danmu-pool",
         "page-pet",
@@ -299,10 +298,11 @@ def test_content_pages_f2_semantic_shell():
         "page-announcements",
     ):
         assert f'id="{page_id}"' in content
+    assert 'id="page-ai-butler"' not in content
 
-    assert content.count("ui-page-header") >= 10
-    assert content.count("ui-page-header__copy") >= 10
-    assert content.count("ui-page-title") >= 10
+    assert content.count("ui-page-header") >= 9
+    assert content.count("ui-page-header__copy") >= 9
+    assert content.count("ui-page-title") >= 9
     assert content.count("ui-card") >= 10
     assert "ui-button--primary" in content
     assert "ui-button--secondary" in content
@@ -317,7 +317,6 @@ def test_content_pages_f2_semantic_shell():
         "btnSaveMemeBarrageSettings",
         "btnPetSave",
         "btnSavePersona",
-        "btnAiButlerSend",
         "btnKnowledgeNewPackage",
         "btnFeedbackSubmit",
         "btnLiveOverlayTest",
@@ -326,12 +325,12 @@ def test_content_pages_f2_semantic_shell():
             rf'id="{bid}"[^>]*class="[^"]*ui-button',
             content,
         ), f"missing ui-button on {bid}"
+    assert 'id="btnAiButlerSend"' not in content
 
     for iid in (
         "memeCollectInterval",
         "poolMinOnScreen",
         "personaSelect",
-        "aiButlerModelSelect",
         "knowledgePackageName",
         "petScale",
     ):
@@ -339,6 +338,7 @@ def test_content_pages_f2_semantic_shell():
             rf'id="{iid}"[^>]*class="[^"]*ui-control',
             content,
         ), f"missing ui-control on {iid}"
+    assert 'id="aiButlerModelSelect"' not in content
 
     # Critical IDs / data hooks preserved
     for sid in (
@@ -347,13 +347,13 @@ def test_content_pages_f2_semantic_shell():
         "petEnabled",
         "personaSelect",
         "liveOverlayUrl",
-        "aiButlerMessages",
         "knowledgePackageList",
         "feedbackForm",
         "logView",
         "btnAnnouncementsRefresh",
     ):
         assert f'id="{sid}"' in content
+    assert 'id="aiButlerMessages"' not in content
 
     assert 'id="modelModal"' in modals
     assert "ui-button--primary" in modals
@@ -375,4 +375,4 @@ def test_content_pages_f2_semantic_shell():
 
     assert "W-UI-PAGES-CONTENT-001" in pages or "#page-knowledge" in pages
     assert "#page-danmu-pool" in pages
-    assert "#page-ai-butler" in pages
+    assert "#page-ai-butler" not in pages

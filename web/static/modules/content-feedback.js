@@ -4,7 +4,7 @@ import { getLanguage, onLanguageChanged, t } from './i18n.js';
 function formatSupabaseUserMessage(err, { rateLimitMsg, fallback }) {
   if (err?.kind === 'rate_limit' || err?.message === rateLimitMsg) return rateLimitMsg;
   if (err?.kind === 'timeout' || err?.kind === 'network_error') {
-    return t('dynamic.appAiButlerPage.网络开小差了_请重试');
+    return t('dynamic.transport.网络开小差了_请重试');
   }
   return window.DanmuSupabase?.formatSupabaseError?.(err, fallback) || err?.message || fallback;
 }

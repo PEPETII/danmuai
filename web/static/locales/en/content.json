@@ -228,7 +228,6 @@
       "清空视图": "Clear view",
       "关闭日志": "Close logs",
       "等待日志_点击_生成弹幕_后_截图_AI_请求与弹幕事件会在此实时显示": "Waiting for logs… After Start danmu, capture, AI requests, and danmu events appear here in real time.",
-      "AI管家": "AI Butler",
       "用自然语言告诉我你想调整什么_我来帮你改设置": "Ask in natural language—I will explain and guide you to settings pages",
       "用自然语言提问_我来解答与指引": "Ask in natural language—I will explain and guide you to settings pages",
       "我可以帮你做": "I can help you with",
@@ -244,9 +243,7 @@
       "说明_我不会代你改任何设置_所有设置请在对应页面手动修改": "Note: I will not change settings for you; edit them yourself on the matching settings pages.",
       "当前使用模型": "Active model",
       "切换后_后续对话自动使用新模型_当前对话历史保留": "After switching, new chats use the new model; current history is kept.",
-      "告诉我你想调整什么设置_例如_把弹幕速度调快": "Ask anything, e.g.「where do I change danmu speed」",
-      "告诉_AI_管家想调整什么": "Chat with AI Butler",
-      "和_AI_管家对话": "Chat with AI Butler"
+      "告诉我你想调整什么设置_例如_把弹幕速度调快": "Ask anything, e.g.「where do I change danmu speed」"
     },
     "placeholder": {
       "太真实了_10_这也行": "So real&#10;How is this allowed?",
@@ -273,11 +270,8 @@
       "公告_2": "Announcements",
       "问题反馈与群聊_2": "Feedback & community",
       "运行日志": "Runtime log",
-      "AI管家_2": "AI Butler",
       "切换当前使用模型": "Switch active model",
-      "AI管家对话": "AI Butler chat",
-      "浮动面板样式预览": "Floating panel style preview",
-      "AI管家输入框": "AI Butler input"
+      "浮动面板样式预览": "Floating panel style preview"
     }
   }
 }
