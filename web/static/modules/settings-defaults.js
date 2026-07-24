@@ -87,7 +87,7 @@ export const SETTINGS_RESTORE_CHECKBOXES = {
   api: ['use_thinking'],
   mic: ['mic_mode_enabled', 'mic_use_visual_model'],
   capture: [],
-  danmu: ['empty_accel'],
+  danmu: ['empty_accel', 'floating_panel_click_through'],
   font: ['danmu_font_bold', 'floating_panel_font_bold'],
 };
 

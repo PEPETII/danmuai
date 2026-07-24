@@ -53,7 +53,25 @@ class DanmuAppFloatingPanelMixin:
         return flag == "1"
 
     def _panel_click_through_enabled(self) -> bool:
-        return str(self.config.get("floating_panel_click_through", "0") or "0").strip() == "1"
+        return str(self.config.get("floating_panel_click_through", "1") or "1").strip() == "1"
+
+    def _sync_web_panel_click_through(self) -> None:
+        """Sync click-through to live Web panel (restart child when flag changes)."""
+        if not self.__dict__.get("_panel_web_active"):
+            return
+        process = self.__dict__.get("_panel_process")
+        if process is None or not process.is_alive():
+            return
+        try:
+            process.set_click_through(self._panel_click_through_enabled())
+            # Restart may clear WS state; re-push config (includes click_through for CSS).
+            if process.is_alive():
+                self._panel_web_active = True
+                self._push_panel_config()
+            else:
+                self._panel_web_active = False
+        except Exception as exc:
+            self.logger.debug(f"web panel click_through sync skipped: {exc!r}")
 
     def _panel_html_url(self) -> str | None:
         server = getattr(self, "web_server", None)
@@ -63,9 +81,15 @@ class DanmuAppFloatingPanelMixin:
         token = str(getattr(server, "token", "") or "")
         if not base:
             return None
-        query = urlencode({"ws_token": token}) if token else ""
+        params: dict[str, str] = {
+            # Boot before WS config: page can set pointer-events / interactive class
+            "click_through": "1" if self._panel_click_through_enabled() else "0",
+        }
+        if token:
+            params["ws_token"] = token
+        query = urlencode(params)
         path = f"{base}/static/floating_panel/index.html"
-        return f"{path}?{query}" if query else path
+        return f"{path}?{query}"
 
     def _panel_geometry(self) -> tuple[int, int, int, int]:
         """Return (width, height, x, y) in screen coordinates."""
@@ -152,6 +176,7 @@ class DanmuAppFloatingPanelMixin:
                 panel_width=int(width),
                 panel_height=int(height),
                 panel_opacity=int(snap.panel_opacity or 85),
+                click_through=self._panel_click_through_enabled(),
             )
             bridge.enqueue_message(msg.to_dict())
         except Exception as exc:

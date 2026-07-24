@@ -5,8 +5,10 @@ from __future__ import annotations
 import logging
 import multiprocessing
 import sys
+import threading
 import time
 from typing import Any, Callable
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +17,25 @@ _LOAD_TIMEOUT_SEC = 25.0
 _STOP_JOIN_SEC = 3.0
 _KILL_JOIN_SEC = 1.0
 MAX_RESTARTS = 3
+
+
+def _configure_webview_drag_region(webview_module: Any) -> None:
+    """Use the panel root as pywebview's native drag region."""
+    webview_module.DRAG_REGION_SELECTOR = "#panel"
+
+
+def _panel_url_with_click_through(html_url: str, enabled: bool) -> str:
+    """Keep the page's boot mode in sync when the child process is restarted."""
+    parts = urlsplit(str(html_url))
+    query = [
+        (key, value)
+        for key, value in parse_qsl(parts.query, keep_blank_values=True)
+        if key != "click_through"
+    ]
+    query.append(("click_through", "1" if enabled else "0"))
+    return urlunsplit(
+        (parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment)
+    )
 
 
 class PanelProcessError(RuntimeError):
@@ -42,6 +63,11 @@ def _webview_worker(
             pass
         return
 
+    # pywebview 5.4 emits easy_drag="true" but its injected customize.js
+    # compares that value with "True". Register the stable selector path so
+    # the panel still gets the native drag handler when it is interactive.
+    _configure_webview_drag_region(webview)
+
     create_kwargs: dict[str, Any] = dict(
         title="DanmuAI Floating Panel",
         url=html_url,
@@ -50,7 +76,7 @@ def _webview_worker(
         x=int(x),
         y=int(y),
         frameless=True,
-        easy_drag=False,
+        easy_drag=True,
         on_top=True,
         transparent=True,
         hidden=False,
@@ -64,24 +90,84 @@ def _webview_worker(
     hwnd_holder: dict[str, int] = {"hwnd": 0}
 
     def get_hwnd() -> int:
+        """Resolve top-level HWND (BrowserView.Handle may be a child control)."""
+        raw = 0
         try:
             from webview.platforms.winforms import BrowserView
 
             bv = BrowserView.instances.get(window.uid)
             if bv is not None:
-                return int(bv.Handle.ToInt32())
+                raw = int(bv.Handle.ToInt32())
         except Exception:
-            pass
+            raw = 0
         if sys.platform == "win32":
             try:
                 import ctypes
 
-                hwnd = ctypes.windll.user32.FindWindowW(None, "DanmuAI Floating Panel")
+                user32 = ctypes.windll.user32
+                if raw:
+                    # GA_ROOT = 2
+                    root = int(user32.GetAncestor(int(raw), 2) or 0)
+                    if root:
+                        return root
+                    return int(raw)
+                hwnd = int(user32.FindWindowW(None, "DanmuAI Floating Panel") or 0)
                 if hwnd:
-                    return int(hwnd)
+                    return hwnd
             except Exception:
                 pass
-        return 0
+        return int(raw or 0)
+
+    def _reassert_pywebview_transparent_form() -> None:
+        """Restore WinForms red TransparencyKey + WebView2 transparent bg.
+
+        pywebview sets these at create; later exstyle tweaks or WebView2 first
+        paint can leave an opaque white host. Safe no-op if APIs missing.
+        """
+        try:
+            from System.Drawing import Color
+            from webview.platforms.winforms import BrowserView
+        except Exception:
+            return
+        try:
+            bv = BrowserView.instances.get(window.uid)
+        except Exception:
+            bv = None
+        if bv is None:
+            return
+        red = Color.FromArgb(255, 255, 0, 0)
+        try:
+            bv.BackColor = red
+            bv.TransparencyKey = red
+        except Exception:
+            pass
+        try:
+            web = getattr(getattr(bv, "browser", None), "webview", None) or getattr(
+                bv, "webview", None
+            )
+            if web is not None:
+                web.DefaultBackgroundColor = Color.Transparent
+        except Exception:
+            pass
+
+    def _apply_win32_panel_styles(hwnd: int) -> None:
+        """LAYERED + optional click-through + reassert pywebview red chroma key.
+
+        apply_overlay_exstyles alone clears TransparencyKey and leaves a white
+        window on EdgeChromium; must call apply_webview_panel_exstyles.
+        """
+        from app.win32_overlay_zorder import (
+            apply_webview_panel_exstyles,
+            reassert_hwnd_topmost,
+            reassert_webview_panel_colorkey,
+        )
+
+        _reassert_pywebview_transparent_form()
+        apply_webview_panel_exstyles(hwnd, click_through=bool(click_through))
+        reassert_hwnd_topmost(hwnd)
+        # WebView2 may finish composition after loaded; reassert color key once more.
+        reassert_webview_panel_colorkey(hwnd)
+        _reassert_pywebview_transparent_form()
 
     def on_loaded() -> None:
         hwnd = get_hwnd()
@@ -93,24 +179,48 @@ def _webview_worker(
             pass
         if hwnd and sys.platform == "win32":
             try:
-                from app.win32_overlay_zorder import (
-                    apply_overlay_exstyles,
-                    reassert_hwnd_topmost,
-                )
-
-                apply_overlay_exstyles(hwnd, click_through=bool(click_through))
-                reassert_hwnd_topmost(hwnd)
+                _apply_win32_panel_styles(hwnd)
             except Exception as exc:
                 try:
                     ready_queue.put(f"exstyle-failed: {exc}")
                 except (OSError, RuntimeError):
                     pass
 
+            # Delayed reassert: WebView2 first paint may reset exstyle/chroma key.
+            def _delayed_styles() -> None:
+                time.sleep(0.35)
+                h = hwnd_holder.get("hwnd") or get_hwnd()
+                if h and sys.platform == "win32":
+                    try:
+                        _apply_win32_panel_styles(int(h))
+                    except Exception:
+                        pass
+
+            threading.Thread(
+                target=_delayed_styles,
+                name="fp-panel-styles",
+                daemon=True,
+            ).start()
+
+    def on_shown() -> None:
+        hwnd = hwnd_holder.get("hwnd") or get_hwnd()
+        if hwnd and sys.platform == "win32":
+            try:
+                _apply_win32_panel_styles(int(hwnd))
+            except Exception:
+                pass
+
     def on_closing() -> bool:
         return True
 
     window.events.loaded += on_loaded
     window.events.closing += on_closing
+    try:
+        # shown fires after first paint; reassert color key if available
+        if hasattr(window.events, "shown"):
+            window.events.shown += on_shown
+    except Exception:
+        pass
     try:
         webview.start(gui="edgechromium")
     except Exception as exc:
@@ -255,6 +365,33 @@ class PanelProcess:
             self._restart_count = 0
             self._fallback_to_qpainter_called = False
         return ok
+
+    def set_click_through(self, enabled: bool) -> None:
+        """Apply click-through by restarting the child process.
+
+        Cross-process SetWindowLong on the panel HWND is unreliable; the child
+        owns the HWND and applies WS_EX_TRANSPARENT only in on_loaded/on_shown.
+        """
+        enabled = bool(enabled)
+        if enabled == bool(self._last_click_through) and self.is_alive():
+            return
+        self._last_click_through = enabled
+        if not self._last_html_url or not self.is_alive():
+            return
+        try:
+            html_url = _panel_url_with_click_through(self._last_html_url, enabled)
+            ok = self.start(
+                html_url,
+                *self._last_geometry,
+                click_through=enabled,
+            )
+            if not ok:
+                self._logger.warning(
+                    "panel set_click_through restart failed click_through=%s",
+                    enabled,
+                )
+        except Exception as exc:
+            self._logger.debug("panel set_click_through failed: %r", exc)
 
     def note_child_died(self) -> bool:
         """Called by host when child exits unexpectedly. Returns True if restarting."""

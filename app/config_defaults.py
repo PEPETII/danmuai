@@ -119,6 +119,7 @@ CONFIG_DEFAULTS: dict[str, str] = {
     "floating_panel_opacity": "85",
     "floating_panel_font_size": "20",
     "floating_panel_speed": DEFAULT_FLOATING_PANEL_SPEED,
+    "floating_panel_click_through": "1",
     "imported_fonts": "[]",  # W-FONT-002：[{sha256, family, original_name, size, imported_at}, ...]
     # PET-003：桌宠显示与指令注入（无独立模型配置）
     "pet_enabled": "0",

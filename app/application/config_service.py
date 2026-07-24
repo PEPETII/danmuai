@@ -112,6 +112,7 @@ WEB_CONFIG_KEYS = (
     "danmu_font_bold",
     "floating_panel_font_family",
     "floating_panel_font_bold",
+    "floating_panel_click_through",
     # PET-003：桌宠
     "pet_enabled",
     "pet_visible",
@@ -418,6 +419,11 @@ class ConfigService:
             if _key in items:
                 _v = str(items[_key]).strip().lower()
                 items[_key] = "1" if _v in ("1", "true", "yes", "on") else "0"
+        if "floating_panel_click_through" in items:
+            _v = str(items["floating_panel_click_through"]).strip().lower()
+            items["floating_panel_click_through"] = (
+                "1" if _v in ("1", "true", "yes", "on") else "0"
+            )
         for _key in ("danmu_font_family", "floating_panel_font_family"):
             if _key in items:
                 _v = str(items[_key]).strip()

@@ -90,6 +90,8 @@ const SETTINGS_FIELD_TIPS = {
     'dynamic.settingsHints.悬浮窗内每条弹幕的字号_12_48_px',
   floating_panel_max_items:
     'dynamic.settingsHints.悬浮窗同时显示的最多条数_超过时按_FIFO_丢',
+  floating_panel_click_through:
+    'dynamic.settingsHints.开启后鼠标穿透悬浮窗_关闭后可拖动窗口',
   image_max_width:
     'dynamic.settingsHints.发给_AI_前把截图缩到多宽_越小越省流量和费用',
   image_quality:

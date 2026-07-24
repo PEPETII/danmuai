@@ -92,7 +92,7 @@ export function initFloatingPanelV2Controls() {
 
 function applyDefaultToField(key, rawValue) {
   const value = rawValue === undefined || rawValue === null ? '' : String(rawValue);
-  if (key === 'mic_mode_enabled' || key === 'mic_use_visual_model' || key === 'empty_accel' || key === 'danmu_font_bold' || key === 'floating_panel_font_bold') {
+  if (key === 'mic_mode_enabled' || key === 'mic_use_visual_model' || key === 'empty_accel' || key === 'danmu_font_bold' || key === 'floating_panel_font_bold' || key === 'floating_panel_click_through') {
     const el = document.getElementById(key);
     if (el) el.checked = value === '1';
     return;
@@ -215,6 +215,7 @@ export function collectFormData({ usesCustomCredentials = false } = {}) {
     if (el) data[name] = el.value;
   });
   data.empty_accel = document.getElementById('empty_accel')?.checked ? '1' : '0';
+  data.floating_panel_click_through = document.getElementById('floating_panel_click_through')?.checked ? '1' : '0';
   data.mic_mode_enabled = document.getElementById('mic_mode_enabled')?.checked ? '1' : '0';
   data.mic_use_visual_model = document.getElementById('mic_use_visual_model')?.checked ? '1' : '0';
   data.danmu_font_bold = document.getElementById('danmu_font_bold')?.checked ? '1' : '0';
@@ -271,6 +272,13 @@ export async function fillForm(cfg) {
   }
   const emptyAccel = document.getElementById('empty_accel');
   if (emptyAccel) emptyAccel.checked = cfg.empty_accel !== '0';
+  const fpClickThrough = document.getElementById('floating_panel_click_through');
+  if (fpClickThrough) {
+    const v = cfg.floating_panel_click_through;
+    if (v === '0' || v === 'false') fpClickThrough.checked = false;
+    else if (v === '1' || v === 'true') fpClickThrough.checked = true;
+    else fpClickThrough.checked = true;
+  }
   coreDeps.setMicAudioLikelySupported(cfg.mic_audio_likely_supported !== false);
   const micMode = document.getElementById('mic_mode_enabled');
   if (micMode) micMode.checked = cfg.mic_mode_enabled === '1';

@@ -154,10 +154,11 @@ def test_floating_panel_speed_default_is_one():
 
 
 def test_removed_dead_floating_panel_keys_not_in_defaults_or_web():
-    """W-CONFIG-UI-LINK-001：废弃键不再出现在默认值或 Web 白名单。"""
-    for key in ("floating_panel_click_through", "floating_panel_lifetime_sec"):
-        assert key not in CONFIG_DEFAULTS
-        assert key not in WEB_CONFIG_KEYS
+    """W-CONFIG-UI-LINK-001：lifetime_sec 仍废弃；click_through 已复活（W-FP-WEB-DRAG-001）。"""
+    assert "floating_panel_lifetime_sec" not in CONFIG_DEFAULTS
+    assert "floating_panel_lifetime_sec" not in WEB_CONFIG_KEYS
+    assert CONFIG_DEFAULTS.get("floating_panel_click_through") == "1"
+    assert "floating_panel_click_through" in WEB_CONFIG_KEYS
 
 
 def test_default_normal_reply_count_differs_by_render_mode():

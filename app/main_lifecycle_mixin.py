@@ -410,6 +410,12 @@ class DanmuAppLifecycleMixin:
             self.overlay.apply_display_settings()
         self._sync_overlay_visibility()
         self._sync_floating_panel_visibility()
+        sync_web_ct = getattr(self, "_sync_web_panel_click_through", None)
+        if callable(sync_web_ct):
+            try:
+                sync_web_ct()
+            except Exception as exc:
+                self.logger.debug(f"web panel click_through sync skipped: {exc!r}")
         self._sync_pet_window_visibility()
         self._sync_mic_service()
         fp_overlay = self.__dict__.get("floating_panel_overlay")

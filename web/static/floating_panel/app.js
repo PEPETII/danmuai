@@ -137,6 +137,17 @@
     }
   }
 
+  function applyClickThroughMode(clickThrough) {
+    // click_through true (default) → pass-through; false → interactive/draggable
+    var passThrough = true;
+    if (clickThrough === false || clickThrough === 0 || clickThrough === "0") {
+      passThrough = false;
+    } else if (clickThrough === true || clickThrough === 1 || clickThrough === "1") {
+      passThrough = true;
+    }
+    document.body.classList.toggle("panel-interactive", !passThrough);
+  }
+
   function applyConfig(msg) {
     if (msg.max_cards != null) maxCards = Math.max(1, Number(msg.max_cards) || 6);
     if (msg.stack_gap != null) {
@@ -154,6 +165,9 @@
     }
     if (msg.panel_opacity != null) {
       document.documentElement.style.setProperty("--panel-opacity", Math.max(0, Math.min(100, Number(msg.panel_opacity))) / 100);
+    }
+    if (Object.prototype.hasOwnProperty.call(msg, "click_through")) {
+      applyClickThroughMode(msg.click_through);
     }
     // Converge to maxCards after config change
     removeOldestIfNeeded();
@@ -383,6 +397,16 @@
     applyConfig: applyConfig,
     sendStateReport: sendStateReport,
   };
+
+  // Boot from query before WS config (click_through=0 → interactive/drag)
+  try {
+    var bootCt = new URLSearchParams(window.location.search).get("click_through");
+    if (bootCt != null && bootCt !== "") {
+      applyClickThroughMode(bootCt);
+    }
+  } catch (_e) {
+    /* ignore */
+  }
 
   connectWS();
 })();

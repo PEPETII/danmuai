@@ -65,9 +65,21 @@ body {
   padding: var(--panel-padding);
   box-sizing: border-box;
   gap: var(--stack-gap);
+  /* Default: pass mouse through HTML layer while Win32 may also be click-through */
   pointer-events: none;
   background: transparent;
   opacity: var(--panel-opacity);
+}
+
+/* click_through=false: receive mouse so pywebview easy_drag can move the window */
+body.panel-interactive,
+body.panel-interactive #panel {
+  pointer-events: auto;
+  cursor: move;
+}
+
+body.panel-interactive .card {
+  cursor: move;
 }
 
 /* ===== 卡片基础（inline / classic / wechat） ===== */
