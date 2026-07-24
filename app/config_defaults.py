@@ -118,6 +118,8 @@ CONFIG_DEFAULTS: dict[str, str] = {
     "floating_panel_y_offset": "80",
     "floating_panel_opacity": "85",
     "floating_panel_font_size": "20",
+    # W-FP-WEB-DRAG-001：默认穿透；关闭后允许鼠标拖动 Web 浮动面板
+    "floating_panel_click_through": "1",
     "floating_panel_speed": DEFAULT_FLOATING_PANEL_SPEED,
     "imported_fonts": "[]",  # W-FONT-002：[{sha256, family, original_name, size, imported_at}, ...]
     # PET-003：桌宠显示与指令注入（无独立模型配置）

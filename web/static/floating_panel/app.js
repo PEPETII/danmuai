@@ -13,6 +13,17 @@
   var animationFrame = 0;
   var cardIds = new Set();
 
+  function applyClickThroughFromUrl() {
+    var params = new URLSearchParams(window.location.search);
+    var raw = params.get("click_through");
+    // Default to through=on when query missing (matches config default "1").
+    var through = raw == null || raw === "" ? true : raw === "1" || raw === "true";
+    if (panel) {
+      panel.classList.toggle("is-interactive", !through);
+    }
+  }
+  applyClickThroughFromUrl();
+
   function tickAnimation() {
     animationFrame += 1;
     requestAnimationFrame(tickAnimation);

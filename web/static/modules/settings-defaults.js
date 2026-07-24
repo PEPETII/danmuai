@@ -51,6 +51,7 @@ export const CONFIG_FIELDS = [
   'floating_panel_y_offset',
   'floating_panel_opacity',
   'floating_panel_font_size',
+  'floating_panel_click_through',
   'danmu_font_family',
   'floating_panel_font_family',
   'use_thinking',
@@ -73,7 +74,7 @@ export const SETTINGS_RESTORE_GROUPS = {
     'eviction_mode', 'danmu_pending_entry_cap', 'danmu_track_retention_cap', 'reply_queue_max_items',
     'danmu_render_mode', 'floating_panel_width', 'floating_panel_max_items',
     'floating_panel_speed', 'floating_panel_x_offset', 'floating_panel_y_offset',
-    'floating_panel_opacity', 'floating_panel_font_size',
+    'floating_panel_opacity', 'floating_panel_font_size', 'floating_panel_click_through',
   ],
   font: [
     'danmu_font_family', 'floating_panel_font_family',
@@ -87,7 +88,7 @@ export const SETTINGS_RESTORE_CHECKBOXES = {
   api: ['use_thinking'],
   mic: ['mic_mode_enabled', 'mic_use_visual_model'],
   capture: [],
-  danmu: ['empty_accel'],
+  danmu: ['empty_accel', 'floating_panel_click_through'],
   font: ['danmu_font_bold', 'floating_panel_font_bold'],
 };
 

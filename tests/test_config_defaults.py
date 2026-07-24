@@ -38,6 +38,7 @@ FP_KEYS = (
     "floating_panel_y_offset",
     "floating_panel_opacity",
     "floating_panel_font_size",
+    "floating_panel_click_through",
 )
 
 
@@ -153,11 +154,14 @@ def test_floating_panel_speed_default_is_one():
     assert CONFIG_DEFAULTS["floating_panel_speed"] == DEFAULT_FLOATING_PANEL_SPEED == "1"
 
 
-def test_removed_dead_floating_panel_keys_not_in_defaults_or_web():
-    """W-CONFIG-UI-LINK-001：废弃键不再出现在默认值或 Web 白名单。"""
-    for key in ("floating_panel_click_through", "floating_panel_lifetime_sec"):
-        assert key not in CONFIG_DEFAULTS
-        assert key not in WEB_CONFIG_KEYS
+def test_floating_panel_click_through_defaults_to_enabled():
+    assert CONFIG_DEFAULTS["floating_panel_click_through"] == "1"
+    assert "floating_panel_click_through" in WEB_CONFIG_KEYS
+
+
+def test_removed_dead_floating_panel_lifetime_key_not_in_defaults_or_web():
+    assert "floating_panel_lifetime_sec" not in CONFIG_DEFAULTS
+    assert "floating_panel_lifetime_sec" not in WEB_CONFIG_KEYS
 
 
 def test_default_normal_reply_count_differs_by_render_mode():

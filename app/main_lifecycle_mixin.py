@@ -410,6 +410,7 @@ class DanmuAppLifecycleMixin:
             self.overlay.apply_display_settings()
         self._sync_overlay_visibility()
         self._sync_floating_panel_visibility()
+        self._sync_web_panel_click_through()
         self._sync_pet_window_visibility()
         self._sync_mic_service()
         fp_overlay = self.__dict__.get("floating_panel_overlay")

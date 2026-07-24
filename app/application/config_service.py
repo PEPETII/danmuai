@@ -55,6 +55,7 @@ WEB_CONFIG_KEYS = (
     "floating_panel_y_offset",
     "floating_panel_opacity",
     "floating_panel_font_size",
+    "floating_panel_click_through",
     # W-FP-STYLE-CONTRACT-001：从下到上样式扁平字段（无单一 JSON 档）
     "floating_panel_style_preset",
     "floating_panel_shape",
@@ -418,6 +419,13 @@ class ConfigService:
             if _key in items:
                 _v = str(items[_key]).strip().lower()
                 items[_key] = "1" if _v in ("1", "true", "yes", "on") else "0"
+
+        # W-FP-WEB-DRAG-001：Web 浮动面板穿透开关
+        if "floating_panel_click_through" in items:
+            _v = str(items["floating_panel_click_through"]).strip().lower()
+            items["floating_panel_click_through"] = (
+                "1" if _v in ("1", "true", "yes", "on") else "0"
+            )
         for _key in ("danmu_font_family", "floating_panel_font_family"):
             if _key in items:
                 _v = str(items[_key]).strip()

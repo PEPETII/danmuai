@@ -7,6 +7,7 @@ import multiprocessing
 import sys
 import time
 from typing import Any, Callable
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +16,14 @@ _LOAD_TIMEOUT_SEC = 25.0
 _STOP_JOIN_SEC = 3.0
 _KILL_JOIN_SEC = 1.0
 MAX_RESTARTS = 3
+
+
+def _with_click_through_query(html_url: str, enabled: bool) -> str:
+    """Return html_url with the authoritative click-through state in its query."""
+    parts = urlsplit(str(html_url))
+    query = dict(parse_qsl(parts.query, keep_blank_values=True))
+    query["click_through"] = "1" if enabled else "0"
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
 
 
 class PanelProcessError(RuntimeError):
@@ -50,11 +59,19 @@ def _webview_worker(
         x=int(x),
         y=int(y),
         frameless=True,
+        # Official drag path: easy_drag off + HTML .pywebview-drag-region.
+        # pywebview 5.4 also emits the flag as lowercase ``true`` while
+        # customize.js compares against ``True``, so the built-in easy-drag
+        # path is unreliable on edgechromium; use the explicit region only.
         easy_drag=False,
         on_top=True,
-        transparent=True,
         hidden=False,
     )
+    # pywebview 5.4 transparent EdgeChromium windows do not reliably deliver
+    # mouse input. Keep transparency for click-through mode, but create a
+    # normal hit-testable window when dragging is enabled.
+    if click_through:
+        create_kwargs["transparent"] = True
     try:
         window = webview.create_window(**create_kwargs)
     except (TypeError, ValueError):
@@ -64,23 +81,41 @@ def _webview_worker(
     hwnd_holder: dict[str, int] = {"hwnd": 0}
 
     def get_hwnd() -> int:
+        """Resolve the top-level HWND used for WS_EX_* and HWND_TOPMOST."""
+        from app.win32_overlay_zorder import resolve_root_hwnd
+
+        candidates: list[int] = []
+        # Official pywebview surface: window.native (BrowserView Form).
+        try:
+            native = getattr(window, "native", None)
+            handle = getattr(native, "Handle", None) if native is not None else None
+            if handle is not None:
+                candidates.append(int(handle.ToInt32()))
+        except Exception:
+            pass
         try:
             from webview.platforms.winforms import BrowserView
 
             bv = BrowserView.instances.get(window.uid)
             if bv is not None:
-                return int(bv.Handle.ToInt32())
+                candidates.append(int(bv.Handle.ToInt32()))
         except Exception:
             pass
         if sys.platform == "win32":
             try:
                 import ctypes
 
-                hwnd = ctypes.windll.user32.FindWindowW(None, "DanmuAI Floating Panel")
-                if hwnd:
-                    return int(hwnd)
+                found = ctypes.windll.user32.FindWindowW(None, "DanmuAI Floating Panel")
+                if found:
+                    candidates.append(int(found))
             except Exception:
                 pass
+        for raw in candidates:
+            if not raw:
+                continue
+            root = resolve_root_hwnd(raw)
+            if root:
+                return int(root)
         return 0
 
     def on_loaded() -> None:
@@ -96,10 +131,12 @@ def _webview_worker(
                 from app.win32_overlay_zorder import (
                     apply_overlay_exstyles,
                     reassert_hwnd_topmost,
+                    resolve_root_hwnd,
                 )
 
-                apply_overlay_exstyles(hwnd, click_through=bool(click_through))
-                reassert_hwnd_topmost(hwnd)
+                root = resolve_root_hwnd(hwnd)
+                apply_overlay_exstyles(root, click_through=bool(click_through))
+                reassert_hwnd_topmost(root)
             except Exception as exc:
                 try:
                     ready_queue.put(f"exstyle-failed: {exc}")
@@ -161,7 +198,7 @@ class PanelProcess:
         self._fallback_to_qpainter_called = False
         self._last_html_url = ""
         self._last_geometry: tuple[int, int, int, int] = (360, 600, 20, 80)
-        self._last_click_through = False
+        self._last_click_through = True
         self._hwnd = 0
 
     @property
@@ -176,6 +213,45 @@ class PanelProcess:
         proc = self._process
         return proc is not None and bool(getattr(proc, "is_alive", lambda: False)())
 
+    @property
+    def hwnd(self) -> int:
+        """当前 WebView 窗口 HWND；子进程尚未 ready 时为 0。"""
+        return int(self._hwnd or 0)
+
+    def set_click_through(self, enabled: bool) -> bool:
+        """同步穿透状态；透明属性变化时重建 WebView 子进程。"""
+        enabled = bool(enabled)
+        previous = self._last_click_through
+        self._last_click_through = enabled
+        self._last_html_url = _with_click_through_query(
+            self._last_html_url,
+            self._last_click_through,
+        )
+        hwnd = self.hwnd
+        if not hwnd or not self.is_alive():
+            return False
+        if previous != enabled:
+            self._logger.info(
+                "panel click-through changed, restarting WebView transparent=%s",
+                enabled,
+            )
+            return self.restart()
+        try:
+            from app.win32_overlay_zorder import (
+                apply_overlay_exstyles,
+                reassert_hwnd_topmost,
+                resolve_root_hwnd,
+            )
+
+            root = resolve_root_hwnd(hwnd)
+            apply_overlay_exstyles(root, click_through=self._last_click_through)
+            reassert_hwnd_topmost(root)
+            self._hwnd = int(root or hwnd)
+            return True
+        except Exception as exc:
+            self._logger.warning("panel click-through hot update failed: %r", exc)
+            return False
+
     def start(
         self,
         html_url: str,
@@ -184,7 +260,7 @@ class PanelProcess:
         x: int = 20,
         y: int = 80,
         *,
-        click_through: bool = False,
+        click_through: bool = True,
     ) -> bool:
         """Spawn child and wait for loaded signal. Returns False on failure."""
         checker = self._webview2_checker
@@ -197,7 +273,7 @@ class PanelProcess:
             return False
 
         self.stop()
-        self._last_html_url = str(html_url)
+        self._last_html_url = _with_click_through_query(html_url, bool(click_through))
         self._last_geometry = (int(width), int(height), int(x), int(y))
         self._last_click_through = bool(click_through)
         self._hwnd = 0

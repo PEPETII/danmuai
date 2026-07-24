@@ -53,7 +53,17 @@ class DanmuAppFloatingPanelMixin:
         return flag == "1"
 
     def _panel_click_through_enabled(self) -> bool:
-        return str(self.config.get("floating_panel_click_through", "0") or "0").strip() == "1"
+        return str(self.config.get("floating_panel_click_through", "1") or "1").strip() == "1"
+
+    def _sync_web_panel_click_through(self) -> None:
+        """配置热变更时同步 WebView 穿透状态，必要时重建窗口。"""
+        process = self.__dict__.get("_panel_process")
+        if not self.__dict__.get("_panel_web_active") or process is None:
+            return
+        try:
+            process.set_click_through(self._panel_click_through_enabled())
+        except Exception as exc:
+            self.logger.debug(f"panel click-through sync skipped: {exc!r}")
 
     def _panel_html_url(self) -> str | None:
         server = getattr(self, "web_server", None)
@@ -63,9 +73,14 @@ class DanmuAppFloatingPanelMixin:
         token = str(getattr(server, "token", "") or "")
         if not base:
             return None
-        query = urlencode({"ws_token": token}) if token else ""
+        query = urlencode(
+            {
+                **({"ws_token": token} if token else {}),
+                "click_through": "1" if self._panel_click_through_enabled() else "0",
+            }
+        )
         path = f"{base}/static/floating_panel/index.html"
-        return f"{path}?{query}" if query else path
+        return f"{path}?{query}"
 
     def _panel_geometry(self) -> tuple[int, int, int, int]:
         """Return (width, height, x, y) in screen coordinates."""

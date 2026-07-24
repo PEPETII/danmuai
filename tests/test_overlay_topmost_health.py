@@ -345,12 +345,19 @@ def test_apply_overlay_exstyles_sets_layered_and_transparent_bits(monkeypatch):
         pytest.skip("win32 only")
 
     stored: dict[int, int] = {mod._GWL_EXSTYLE: 0}
+    setpos_calls: list[tuple] = []
 
     monkeypatch.setattr(mod, "_GetWindowLong", lambda hwnd, idx: stored.get(idx, 0))
     monkeypatch.setattr(
         mod,
         "_SetWindowLong",
         lambda hwnd, idx, value: stored.__setitem__(idx, value),
+    )
+    monkeypatch.setattr(mod, "resolve_root_hwnd", lambda hwnd: int(hwnd))
+    monkeypatch.setattr(
+        mod,
+        "_SetWindowPos",
+        lambda *args: setpos_calls.append(args) or 1,
     )
 
     mod.apply_overlay_exstyles(12345, click_through=True)
@@ -360,6 +367,23 @@ def test_apply_overlay_exstyles_sets_layered_and_transparent_bits(monkeypatch):
     mod.apply_overlay_exstyles(12345, click_through=False)
     assert stored[mod._GWL_EXSTYLE] & mod._WS_EX_LAYERED
     assert not (stored[mod._GWL_EXSTYLE] & mod._WS_EX_TRANSPARENT)
+    assert setpos_calls
+    flags = setpos_calls[-1][-1]
+    assert flags & mod._SWP_FRAMECHANGED
+    assert flags & mod._SWP_NOZORDER
+
+
+def test_resolve_root_hwnd_uses_ga_root(monkeypatch):
+    import app.win32_overlay_zorder as mod
+
+    if mod.sys.platform != "win32":
+        pytest.skip("win32 only")
+
+    monkeypatch.setattr(mod, "_GetAncestor", lambda hwnd, flag: 999 if flag == mod._GA_ROOT else 0)
+    assert mod.resolve_root_hwnd(111) == 999
+    monkeypatch.setattr(mod, "_GetAncestor", lambda hwnd, flag: 0)
+    assert mod.resolve_root_hwnd(111) == 111
+    assert mod.resolve_root_hwnd(0) == 0
 
 
 def test_reassert_hwnd_topmost_noop_on_zero(monkeypatch):

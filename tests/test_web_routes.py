@@ -491,6 +491,7 @@ def test_floating_panel_v2_config_keys_round_trip(tmp_path):
         "floating_panel_speed": "2.5",
         "floating_panel_x_offset": "25",
         "floating_panel_y_offset": "70",
+        "floating_panel_click_through": "0",
     }
     apply_web_config_patch(app, payload)
     for key, expected in payload.items():

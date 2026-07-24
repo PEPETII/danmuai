@@ -137,6 +137,7 @@ Fable5.md
 # ── Irrelevant directories (local clones, prototypes, AI prompts, internal reports) ──
 output/
 prototype/
+experiments/
 project-prompts/
 reports/
 website/

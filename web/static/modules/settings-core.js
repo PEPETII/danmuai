@@ -219,6 +219,7 @@ export function collectFormData({ usesCustomCredentials = false } = {}) {
   data.mic_use_visual_model = document.getElementById('mic_use_visual_model')?.checked ? '1' : '0';
   data.danmu_font_bold = document.getElementById('danmu_font_bold')?.checked ? '1' : '0';
   data.floating_panel_font_bold = document.getElementById('floating_panel_font_bold')?.checked ? '1' : '0';
+  data.floating_panel_click_through = document.getElementById('floating_panel_click_through')?.checked ? '1' : '0';
   data.use_thinking = document.getElementById('use_thinking')?.checked ? '1' : '0';
   // W-GLOBAL-VISUAL-APIKEY-REMOVE-001: 视觉全局 api_key 已下线，不再收集；mic/tts 独立 key 不受影响
   const micKey = (document.getElementById('mic_api_key')?.value || '').trim();
@@ -248,7 +249,7 @@ export async function fillForm(cfg) {
     'danmu_render_mode', 'floating_panel_width', 'floating_panel_max_items',
     'floating_panel_speed', 'floating_panel_x_offset', 'floating_panel_y_offset',
     'floating_panel_opacity', 'floating_panel_font_size', 'danmu_font_family',
-    'floating_panel_font_family',
+    'floating_panel_font_family', 'floating_panel_click_through',
   ].forEach(setIfEmpty);
   syncFloatingPanelV2FieldsVisibility();
   const danmuBold = document.getElementById('danmu_font_bold');
@@ -264,6 +265,13 @@ export async function fillForm(cfg) {
     if (v === '0' || v === 'false') fpBold.checked = false;
     else if (v === '1' || v === 'true') fpBold.checked = true;
     else fpBold.checked = configDefaultValue('floating_panel_font_bold') !== '0';
+  }
+  const fpClickThrough = document.getElementById('floating_panel_click_through');
+  if (fpClickThrough) {
+    const v = cfg.floating_panel_click_through;
+    if (v === '0' || v === 'false') fpClickThrough.checked = false;
+    else if (v === '1' || v === 'true') fpClickThrough.checked = true;
+    else fpClickThrough.checked = configDefaultValue('floating_panel_click_through') !== '0';
   }
   const evictionMode = document.getElementById('eviction_mode');
   if (evictionMode && !cfg.eviction_mode) {

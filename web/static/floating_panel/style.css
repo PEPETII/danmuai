@@ -65,9 +65,21 @@ body {
   padding: var(--panel-padding);
   box-sizing: border-box;
   gap: var(--stack-gap);
+  /* Default: do not steal hits while Win32 click-through is on.
+     app.js flips to auto when ?click_through=0 so .pywebview-drag-region works. */
   pointer-events: none;
   background: transparent;
   opacity: var(--panel-opacity);
+}
+
+/* Interactive / draggable mode (click_through=0): whole panel is the drag region. */
+#panel.is-interactive {
+  pointer-events: auto;
+  cursor: move;
+}
+
+#panel.is-interactive .card {
+  cursor: move;
 }
 
 /* ===== 卡片基础（inline / classic / wechat） ===== */
