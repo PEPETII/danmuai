@@ -80,7 +80,7 @@ def _platform_by_id(platforms, platform_id):
 
 def test_list_platform_catalogs_has_vision_platforms():
     platforms = list_platform_catalogs()
-    assert len(platforms) == 18
+    assert len(platforms) == 19
     international = {
         "openai",
         "google_gemini",
@@ -362,7 +362,7 @@ def test_default_catalog_model_id_uses_cheapest():
 
 
 def test_default_catalog_model_id_unknown_provider():
-    assert default_catalog_model_id("zhipu") == ""
+    assert default_catalog_model_id("nonexistent_provider_xyz") == ""
     assert default_catalog_model_id("") == ""
 
 

@@ -23,6 +23,14 @@ if sys.platform == "win32":
     _GA_ROOT = 2
     _SetWindowPos = ctypes.windll.user32.SetWindowPos
     _GetAncestor = ctypes.windll.user32.GetAncestor
+    _SetLayeredWindowAttributes = ctypes.windll.user32.SetLayeredWindowAttributes
+    _SetLayeredWindowAttributes.restype = wintypes.BOOL
+    _SetLayeredWindowAttributes.argtypes = [
+        wintypes.HWND,
+        wintypes.COLORREF,
+        wintypes.BYTE,
+        wintypes.DWORD,
+    ]
     _GWL_STYLE = -16
     _WS_CAPTION = 0x00C00000
     _GetForegroundWindow = ctypes.windll.user32.GetForegroundWindow

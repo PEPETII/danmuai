@@ -640,8 +640,7 @@
       "小助手已休息": "Assistant is resting",
       "弹幕生成已开启": "Danmu generation started",
       "小助手遇到了一点问题": "Assistant hit a small snag",
-      "无法连接小助手_请确认_DanmuAI_已启动": "Cannot connect; confirm DanmuAI is running",
-      "网络开小差了_请重试": "Network hiccup; please retry"
+      "无法连接小助手_请确认_DanmuAI_已启动": "Cannot connect; confirm DanmuAI is running"
     }
   },
   "settingsHints": {}
