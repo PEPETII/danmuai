@@ -386,6 +386,52 @@ def test_resolve_root_hwnd_uses_ga_root(monkeypatch):
     assert mod.resolve_root_hwnd(0) == 0
 
 
+def test_apply_webview_panel_exstyles_restores_colorkey(monkeypatch):
+    """Web panel must reassert LWA_COLORKEY after rewriting WS_EX_LAYERED."""
+    import app.win32_overlay_zorder as mod
+
+    if mod.sys.platform != "win32":
+        pytest.skip("win32 only")
+
+    stored: dict[int, int] = {mod._GWL_EXSTYLE: 0}
+    layered_calls: list[tuple[int, int, int, int]] = []
+
+    monkeypatch.setattr(mod, "_GetWindowLong", lambda hwnd, idx: stored.get(idx, 0))
+    monkeypatch.setattr(
+        mod,
+        "_SetWindowLong",
+        lambda hwnd, idx, value: stored.__setitem__(idx, value),
+    )
+
+    def fake_set_layered(hwnd, color, alpha, flags):
+        layered_calls.append((int(hwnd), int(color), int(alpha), int(flags)))
+        return True
+
+    monkeypatch.setattr(mod, "_SetLayeredWindowAttributes", fake_set_layered)
+
+    mod.apply_webview_panel_exstyles(4242, click_through=True)
+    assert stored[mod._GWL_EXSTYLE] & mod._WS_EX_LAYERED
+    assert stored[mod._GWL_EXSTYLE] & mod._WS_EX_TRANSPARENT
+    assert layered_calls
+    hwnd, color, alpha, flags = layered_calls[-1]
+    assert hwnd == 4242
+    assert color == mod._PYWEBVIEW_TRANSPARENT_COLORREF == 0x000000FF
+    assert alpha == 0
+    assert flags == mod._LWA_COLORKEY
+
+    layered_calls.clear()
+    mod.apply_webview_panel_exstyles(4242, click_through=False)
+    assert stored[mod._GWL_EXSTYLE] & mod._WS_EX_LAYERED
+    assert not (stored[mod._GWL_EXSTYLE] & mod._WS_EX_TRANSPARENT)
+    assert layered_calls and layered_calls[-1][3] == mod._LWA_COLORKEY
+
+
+def test_reassert_webview_panel_colorkey_noop_on_zero():
+    import app.win32_overlay_zorder as mod
+
+    assert mod.reassert_webview_panel_colorkey(0) is False
+
+
 def test_reassert_hwnd_topmost_noop_on_zero(monkeypatch):
     import app.win32_overlay_zorder as mod
 

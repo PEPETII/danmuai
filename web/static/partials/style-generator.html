@@ -54,7 +54,10 @@
             <p class="settings-section-title" data-i18n="content.text.卡片颜色">卡片颜色</p>
             <div id="sgCardColorList" class="sg-color-list" aria-label="卡片调色板"></div>
             <div class="flex flex-wrap gap-2 items-center">
-              <input type="color" id="sgCardColorPicker" value="#FFECD2" class="sg-color-picker" aria-label="添加卡片颜色">
+              <div class="sg-color-input" data-sg-add-color="card">
+                <input type="color" id="sgCardColorPicker" value="#FFECD2" class="sg-color-picker" aria-label="添加卡片颜色">
+                <input type="text" id="sgCardColorHex" value="#FFECD2" class="sg-color-hex-input settings-field-control" maxlength="9" spellcheck="false" placeholder="#RRGGBB" aria-label="卡片颜色高级输入" data-sg-hex-for="sgCardColorPicker">
+              </div>
               <button type="button" id="sgBtnAddCardColor" class="px-3 py-1.5 rounded-lg border border-gray-200 text-sm font-semibold" data-i18n="content.text.添加颜色">添加颜色</button>
             </div>
             <input type="hidden" name="floating_panel_card_colors" id="sg-floating_panel_card_colors" value="[]">
@@ -75,7 +78,10 @@
             <p class="settings-section-title" data-i18n="content.text.文字颜色">文字颜色</p>
             <div id="sgTextColorList" class="sg-color-list" aria-label="文字调色板"></div>
             <div class="flex flex-wrap gap-2 items-center">
-              <input type="color" id="sgTextColorPicker" value="#281C12" class="sg-color-picker" aria-label="添加文字颜色">
+              <div class="sg-color-input" data-sg-add-color="text">
+                <input type="color" id="sgTextColorPicker" value="#281C12" class="sg-color-picker" aria-label="添加文字颜色">
+                <input type="text" id="sgTextColorHex" value="#281C12" class="sg-color-hex-input settings-field-control" maxlength="9" spellcheck="false" placeholder="#RRGGBB" aria-label="文字颜色高级输入" data-sg-hex-for="sgTextColorPicker">
+              </div>
               <button type="button" id="sgBtnAddTextColor" class="px-3 py-1.5 rounded-lg border border-gray-200 text-sm font-semibold" data-i18n="content.text.添加颜色">添加颜色</button>
             </div>
             <input type="hidden" name="floating_panel_text_colors" id="sg-floating_panel_text_colors" value="[]">
@@ -104,7 +110,10 @@
               </div>
               <div class="settings-field">
                 <label for="sg-floating_panel_outline_color" class="settings-field-label" data-i18n="content.text.描边颜色">描边颜色</label>
-                <input type="text" name="floating_panel_outline_color" id="sg-floating_panel_outline_color" class="settings-field-control" placeholder="#FFFFFFC8">
+                <div class="sg-color-input">
+                  <input type="color" id="sg-floating_panel_outline_color_picker" class="sg-color-picker" value="#FFFFFF" data-sg-color-for="floating_panel_outline_color" aria-label="描边颜色选择器">
+                  <input type="text" name="floating_panel_outline_color" id="sg-floating_panel_outline_color" class="sg-color-hex-input settings-field-control" placeholder="#FFFFFFC8" maxlength="9" spellcheck="false" data-sg-color-field="floating_panel_outline_color">
+                </div>
               </div>
               <div class="settings-field">
                 <label for="sg-floating_panel_outline_width" class="settings-field-label" data-i18n="content.text.描边宽度">描边宽度</label>
@@ -125,7 +134,10 @@
               </div>
               <div class="settings-field">
                 <label for="sg-floating_panel_shadow_color" class="settings-field-label" data-i18n="content.text.阴影颜色">阴影颜色</label>
-                <input type="text" name="floating_panel_shadow_color" id="sg-floating_panel_shadow_color" class="settings-field-control" placeholder="#000000">
+                <div class="sg-color-input">
+                  <input type="color" id="sg-floating_panel_shadow_color_picker" class="sg-color-picker" value="#000000" data-sg-color-for="floating_panel_shadow_color" aria-label="阴影颜色选择器">
+                  <input type="text" name="floating_panel_shadow_color" id="sg-floating_panel_shadow_color" class="sg-color-hex-input settings-field-control" placeholder="#000000" maxlength="9" spellcheck="false" data-sg-color-field="floating_panel_shadow_color">
+                </div>
               </div>
               <div class="settings-field">
                 <label for="sg-floating_panel_shadow_opacity" class="settings-field-label" data-i18n="content.text.阴影不透明度">阴影不透明度 (%)</label>
@@ -158,7 +170,10 @@
               </div>
               <div class="settings-field">
                 <label for="sg-floating_panel_border_color" class="settings-field-label" data-i18n="content.text.边框颜色">边框颜色</label>
-                <input type="text" name="floating_panel_border_color" id="sg-floating_panel_border_color" class="settings-field-control" placeholder="#FFFFFF">
+                <div class="sg-color-input">
+                  <input type="color" id="sg-floating_panel_border_color_picker" class="sg-color-picker" value="#FFFFFF" data-sg-color-for="floating_panel_border_color" aria-label="边框颜色选择器">
+                  <input type="text" name="floating_panel_border_color" id="sg-floating_panel_border_color" class="sg-color-hex-input settings-field-control" placeholder="#FFFFFF" maxlength="9" spellcheck="false" data-sg-color-field="floating_panel_border_color">
+                </div>
               </div>
               <div class="settings-field">
                 <label for="sg-floating_panel_border_width" class="settings-field-label" data-i18n="content.text.边框宽度">边框宽度</label>
@@ -187,7 +202,10 @@
               </div>
               <div class="settings-field">
                 <label for="sg-floating_panel_username_color" class="settings-field-label" data-i18n="content.text.用户名颜色">用户名颜色</label>
-                <input type="text" name="floating_panel_username_color" id="sg-floating_panel_username_color" class="settings-field-control" placeholder="#281C12">
+                <div class="sg-color-input">
+                  <input type="color" id="sg-floating_panel_username_color_picker" class="sg-color-picker" value="#281C12" data-sg-color-for="floating_panel_username_color" aria-label="用户名颜色选择器">
+                  <input type="text" name="floating_panel_username_color" id="sg-floating_panel_username_color" class="sg-color-hex-input settings-field-control" placeholder="#281C12" maxlength="9" spellcheck="false" data-sg-color-field="floating_panel_username_color">
+                </div>
               </div>
               <div class="settings-field">
                 <label for="sg-floating_panel_username_size" class="settings-field-label" data-i18n="content.text.用户名字号">用户名字号 (px)</label>

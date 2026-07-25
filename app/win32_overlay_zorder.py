@@ -9,6 +9,10 @@ if sys.platform == "win32":
     _GWL_EXSTYLE = -20
     _WS_EX_LAYERED = 0x00080000
     _WS_EX_TRANSPARENT = 0x00000020
+    _LWA_COLORKEY = 0x00000001
+    # pywebview winforms transparent: BackColor/TransparencyKey = RGB(255,0,0)
+    # COLORREF layout is 0x00BBGGRR → pure red = 0x000000FF
+    _PYWEBVIEW_TRANSPARENT_COLORREF = 0x000000FF
     _HWND_TOPMOST = wintypes.HWND(-1)
     _SWP_NOMOVE = 0x0002
     _SWP_NOSIZE = 0x0001
@@ -79,6 +83,38 @@ def apply_overlay_exstyles(hwnd: int, *, click_through: bool = True) -> None:
         0,
         _SWP_NOMOVE | _SWP_NOSIZE | _SWP_NOZORDER | _SWP_NOACTIVATE | _SWP_FRAMECHANGED,
     )
+
+
+def reassert_webview_panel_colorkey(hwnd: int) -> bool:
+    """恢复 pywebview EdgeChromium 透明色键（纯红 chroma key）。
+
+    pywebview 在 transparent=True 时设置 TransparencyKey=RGB(255,0,0)。
+    仅 SetWindowLong(WS_EX_LAYERED) 而不重设 LWA_COLORKEY 时，Windows 常把
+    窗口填成不透明白底。返回 True 表示 API 调用成功。
+    """
+    if sys.platform != "win32" or not hwnd:
+        return False
+    try:
+        # Pass plain int; wrapping HWND() makes some ctypes arg paths awkward
+        # and unit tests that monkeypatch the API expect int-like hwnd.
+        return bool(
+            _SetLayeredWindowAttributes(
+                int(hwnd),
+                int(_PYWEBVIEW_TRANSPARENT_COLORREF),
+                0,
+                int(_LWA_COLORKEY),
+            )
+        )
+    except Exception:
+        return False
+
+
+def apply_webview_panel_exstyles(hwnd: int, *, click_through: bool = True) -> None:
+    """WebView2/pywebview 浮动面板：LAYERED + 可选点击穿透 + 恢复 chroma key。"""
+    if sys.platform != "win32" or not hwnd:
+        return
+    apply_overlay_exstyles(hwnd, click_through=click_through)
+    reassert_webview_panel_colorkey(hwnd)
 
 
 def stack_hwnd_above(hwnd: int, above_hwnd: int) -> None:

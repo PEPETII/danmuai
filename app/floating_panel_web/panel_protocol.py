@@ -119,6 +119,8 @@ class ConfigMessage:
     panel_width: int = 360
     panel_height: int = 600
     panel_opacity: int = 85
+    # True = mouse pass-through (default); False = interactive / draggable
+    click_through: bool = True
     type: Literal["config"] = "config"
 
     def to_dict(self) -> dict[str, Any]:
@@ -133,6 +135,7 @@ class ConfigMessage:
             "panel_width": int(self.panel_width),
             "panel_height": int(self.panel_height),
             "panel_opacity": int(self.panel_opacity),
+            "click_through": bool(self.click_through),
         }
 
     @classmethod
@@ -153,6 +156,11 @@ class ConfigMessage:
         )
         if data.get("type") != "config":
             raise ValueError("type must be 'config'")
+        raw_ct = data.get("click_through", True)
+        if isinstance(raw_ct, str):
+            click_through = raw_ct.strip().lower() in ("1", "true", "yes", "on")
+        else:
+            click_through = bool(raw_ct)
         return cls(
             max_cards=int(data["max_cards"]),
             stack_gap=int(data["stack_gap"]),
@@ -163,6 +171,7 @@ class ConfigMessage:
             panel_width=int(data["panel_width"]),
             panel_height=int(data["panel_height"]),
             panel_opacity=int(data.get("panel_opacity", 85)),
+            click_through=click_through,
         )
 
 

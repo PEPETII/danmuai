@@ -497,6 +497,29 @@ ZAI_MODELS: tuple[CatalogModel, ...] = (
     ),
 )
 
+# 智谱 AI（open.bigmodel.cn）— 视觉模型，无音频；定价来自智谱 AI 开放平台官网（CNY/百万 token）。
+# glm-4v-flash 免费额度；glm-4v-plus 0.005元/千 token。
+ZHIPU_MODELS: tuple[CatalogModel, ...] = (
+    CatalogModel(
+        "GLM-4V-Flash",
+        "glm-4v-flash",
+        ModelPrice(input=0.0, output=0.0),
+        thinking_mode="off",
+    ),
+    CatalogModel(
+        "GLM-4V-Plus",
+        "glm-4v-plus",
+        ModelPrice(input=5.0, output=5.0),
+        thinking_mode="off",
+    ),
+    CatalogModel(
+        "GLM-4.5V",
+        "glm-4.5v",
+        ModelPrice(input=1.0, output=6.0),
+        thinking_mode="hybrid",
+    ),
+)
+
 # Moonshot (Kimi) — 视觉模型，无音频；定价来自 Moonshot 官网（CNY/百万 token）。
 MOONSHOT_MODELS: tuple[CatalogModel, ...] = (
     CatalogModel(
@@ -730,6 +753,12 @@ PLATFORM_CATALOGS: tuple[PlatformCatalog, ...] = (
         platform_label="Z.AI / 智谱",
         provider_id="zai",
         models=ZAI_MODELS,
+    ),
+    PlatformCatalog(
+        platform_id="zhipu",
+        platform_label="智谱 AI",
+        provider_id="zhipu",
+        models=ZHIPU_MODELS,
     ),
     PlatformCatalog(
         platform_id="moonshot",

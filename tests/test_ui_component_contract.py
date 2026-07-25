@@ -301,9 +301,9 @@ def test_content_pages_f2_semantic_shell():
     # AI 管家已移除 (W-AIBUTLER-REMOVE-REPLAN-001)
     assert 'id="page-ai-butler"' not in content
 
-    assert content.count("ui-page-header") >= 10
-    assert content.count("ui-page-header__copy") >= 10
-    assert content.count("ui-page-title") >= 10
+    assert content.count("ui-page-header") >= 9
+    assert content.count("ui-page-header__copy") >= 9
+    assert content.count("ui-page-title") >= 9
     assert content.count("ui-card") >= 10
     assert "ui-button--primary" in content
     assert "ui-button--secondary" in content
@@ -326,6 +326,7 @@ def test_content_pages_f2_semantic_shell():
             rf'id="{bid}"[^>]*class="[^"]*ui-button',
             content,
         ), f"missing ui-button on {bid}"
+    assert 'id="btnAiButlerSend"' not in content
 
     for iid in (
         "memeCollectInterval",
@@ -338,6 +339,7 @@ def test_content_pages_f2_semantic_shell():
             rf'id="{iid}"[^>]*class="[^"]*ui-control',
             content,
         ), f"missing ui-control on {iid}"
+    assert 'id="aiButlerModelSelect"' not in content
 
     # Critical IDs / data hooks preserved
     for sid in (
@@ -352,6 +354,7 @@ def test_content_pages_f2_semantic_shell():
         "btnAnnouncementsRefresh",
     ):
         assert f'id="{sid}"' in content
+    assert 'id="aiButlerMessages"' not in content
 
     assert 'id="modelModal"' in modals
     assert "ui-button--primary" in modals

@@ -103,15 +103,21 @@ def test_config_message_fields():
         "panel_width",
         "panel_height",
         "panel_opacity",
+        "click_through",
     ):
         assert key in data
     assert ConfigMessage.from_mapping(data).max_cards == 6
     assert data["panel_opacity"] == 85
+    assert data["click_through"] is True
     # 旧消息缺 panel_opacity 应默认
     old = dict(data)
     del old["panel_opacity"]
+    del old["click_through"]
     parsed = ConfigMessage.from_mapping(old)
     assert parsed.panel_opacity == 85
+    assert parsed.click_through is True
+    off = ConfigMessage.from_mapping({**data, "click_through": False})
+    assert off.click_through is False
 
 
 def test_clear_message_reason_enum():

@@ -64,6 +64,8 @@ def test_sidebar_shell_structure_and_preserved_ids():
     ):
         assert f'data-page="{page}"' in html
         assert f'href="#{page}"' in html
+    assert 'data-page="ai-butler"' not in html
+    assert 'href="#ai-butler"' not in html
 
 
 def test_template_shell_toggle_and_ui_main():

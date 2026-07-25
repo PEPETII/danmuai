@@ -4,6 +4,7 @@
 - ``GET/PUT /api/personae/{name}/template``：模板读写
 - ``GET /api/personae/{name}/versions`` / ``POST .../rollback``：版本与回滚预览
 - ``POST /api/personae`` / ``DELETE /api/personae/{name}`` / ``POST .../restore``：创建、删除、恢复内置
+- ``PUT /api/personae/{name}/label``：仅更新展示名（W-PERSONA-RENAME-DISPLAY-001）
 - ``PUT /api/personae/active``：活跃人格列表
 - ``PUT /api/personae/{name}/model``：人格 → 模型档案绑定
 
@@ -34,7 +35,8 @@ class PersonaCreatePayload(BaseModel):
 class PersonaSavePayload(BaseModel):
     system_custom: str = ""
     user_pt: str = ""
-    label: str = ""
+    # None = 不改展示名；"" = 清除自定义 label（W-PERSONA-RENAME-DISPLAY-001）
+    label: str | None = None
 
 
 class PersonaRollbackPayload(BaseModel):
@@ -48,6 +50,11 @@ class ActivePersonaePayload(BaseModel):
 class PersonaModelBindingPayload(BaseModel):
     # W-PERSONA-MODEL-BIND-001：人格 → 模型档案绑定（空串 = 清除，回退全局）
     model_id: str = ""
+
+
+class PersonaLabelPayload(BaseModel):
+    # W-PERSONA-RENAME-DISPLAY-001：展示名（空串 = 清除自定义 label，回退默认显示名）
+    label: str = ""
 
 
 def register_persona_routes(
@@ -78,6 +85,7 @@ def register_persona_routes(
             body.system_custom,
             body.user_pt,
             body.label,
+            body.label is not None,
         )
         return {"ok": True}
 
@@ -94,6 +102,20 @@ def register_persona_routes(
     @require_auth(check_token)
     def post_persona(body: PersonaCreatePayload, authorization: str | None = Header(default=None)):
         return invoke_main(persona_api.create_persona, bridge.danmu_app, body.name)
+
+    @app.put("/api/personae/{name}/label")
+    @require_auth(check_token)
+    def put_persona_label(
+        name: str,
+        body: PersonaLabelPayload,
+        authorization: str | None = Header(default=None),
+    ):
+        return invoke_main(
+            persona_api.save_persona_label,
+            bridge.danmu_app,
+            unquote(name),
+            body.label or "",
+        )
 
     @app.delete("/api/personae/{name}")
     @require_auth(check_token)

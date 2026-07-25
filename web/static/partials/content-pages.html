@@ -92,9 +92,9 @@
                 <div id="memeCollectAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="memeCollectAccordionTrigger" hidden>
                   <div class="settings-rhythm-accordion-inline-row">
                     <span>每</span>
-                    <input type="number" id="memeCollectInterval" min="1" max="60" value="5" class="settings-field-control ui-control ui-input">
+                    <input type="number" id="memeCollectInterval" min="1" max="60" value="5" class="settings-field-control ui-control ui-input" data-no-stepper>
                     <span>秒采集一次，每次采集</span>
-                    <input type="number" id="memeCollectBatch" min="1" max="100" value="2" class="settings-field-control ui-control ui-input">
+                    <input type="number" id="memeCollectBatch" min="1" max="100" value="2" class="settings-field-control ui-control ui-input" data-no-stepper>
                     <span>个弹幕</span>
                   </div>
                 </div>
@@ -112,9 +112,9 @@
                 <div id="memeDisplayAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="memeDisplayAccordionTrigger" hidden>
                   <div class="settings-rhythm-accordion-inline-row">
                     <span>每</span>
-                    <input type="number" id="memeDisplayInterval" min="1" max="60" value="5" class="settings-field-control ui-control ui-input">
+                    <input type="number" id="memeDisplayInterval" min="1" max="60" value="5" class="settings-field-control ui-control ui-input" data-no-stepper>
                     <span>秒展示</span>
-                    <input type="number" id="memeDisplayBatch" min="1" max="50" value="2" class="settings-field-control ui-control ui-input">
+                    <input type="number" id="memeDisplayBatch" min="1" max="50" value="2" class="settings-field-control ui-control ui-input" data-no-stepper>
                     <span>个弹幕</span>
                   </div>
                 </div>
@@ -363,6 +363,7 @@
               <select id="personaSelect" class="w-full px-4 py-3 bg-cream rounded-xl text-warmText ui-control ui-select"></select>
             </div>
             <button type="button" id="btnNewPersona" class="px-4 py-3 bg-white border border-gray-200 rounded-xl font-semibold text-warmText ui-button ui-button--secondary ui-button--md">新建人格</button>
+            <button type="button" id="btnRenamePersona" class="px-4 py-3 bg-white border border-gray-200 rounded-xl font-semibold text-warmText ui-button ui-button--secondary ui-button--md">更名</button>
             <button type="button" id="btnDeletePersona" class="px-4 py-3 bg-red-50 border border-red-200 rounded-xl font-semibold text-red-600 ui-button ui-button--secondary ui-button--md">删除</button>
           </div>
           <div>

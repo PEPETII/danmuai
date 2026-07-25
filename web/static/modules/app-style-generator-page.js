@@ -120,6 +120,62 @@ function normalizeHex(raw) {
   return null;
 }
 
+/** native <input type="color"> only accepts #RRGGBB */
+function hexToColorInputValue(raw, fallback = '#FFFFFF') {
+  const h = normalizeHex(raw);
+  if (!h) {
+    const fb = normalizeHex(fallback) || '#FFFFFF';
+    return fb.slice(0, 7);
+  }
+  return h.slice(0, 7);
+}
+
+function mergePickerRgbPreserveAlpha(pickerRgb, previousHex) {
+  const rgb = hexToColorInputValue(pickerRgb, '#FFFFFF');
+  const prev = normalizeHex(previousHex);
+  if (prev && prev.length === 9) return `${rgb}${prev.slice(7, 9)}`;
+  return rgb;
+}
+
+const SG_SINGLE_COLOR_FIELDS = [
+  'floating_panel_outline_color',
+  'floating_panel_shadow_color',
+  'floating_panel_border_color',
+  'floating_panel_username_color',
+];
+
+function syncSingleColorPickersFromText() {
+  SG_SINGLE_COLOR_FIELDS.forEach((name) => {
+    const textEl = field(name);
+    const picker = document.querySelector(`[data-sg-color-for="${name}"]`);
+    if (!textEl || !picker) return;
+    picker.value = hexToColorInputValue(textEl.value, picker.value || '#FFFFFF');
+  });
+}
+
+function syncAddColorHexFromPicker(kind) {
+  const pickerId = kind === 'card' ? 'sgCardColorPicker' : 'sgTextColorPicker';
+  const hexId = kind === 'card' ? 'sgCardColorHex' : 'sgTextColorHex';
+  const picker = document.getElementById(pickerId);
+  const hexEl = document.getElementById(hexId);
+  if (!picker || !hexEl) return;
+  const next = hexToColorInputValue(picker.value, '#FFFFFF');
+  picker.value = next;
+  hexEl.value = next;
+}
+
+function syncAddColorPickerFromHex(kind) {
+  const pickerId = kind === 'card' ? 'sgCardColorPicker' : 'sgTextColorPicker';
+  const hexId = kind === 'card' ? 'sgCardColorHex' : 'sgTextColorHex';
+  const picker = document.getElementById(pickerId);
+  const hexEl = document.getElementById(hexId);
+  if (!picker || !hexEl) return;
+  const normalized = normalizeHex(hexEl.value);
+  if (!normalized) return;
+  picker.value = normalized.slice(0, 7);
+  hexEl.value = normalized;
+}
+
 function parsePalette(raw) {
   try {
     const arr = typeof raw === 'string' ? JSON.parse(raw || '[]') : raw;
@@ -207,6 +263,10 @@ function setFieldValue(name, value) {
   el.value = value == null ? '' : String(value);
   if (el.type === 'number' && el.closest('.settings-rhythm-stepper')) {
     el.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+  if (SG_SINGLE_COLOR_FIELDS.includes(name)) {
+    const picker = document.querySelector(`[data-sg-color-for="${name}"]`);
+    if (picker) picker.value = hexToColorInputValue(el.value, picker.value || '#FFFFFF');
   }
 }
 
@@ -643,10 +703,14 @@ function onColorListClick(event) {
 
 function addColor(kind) {
   const pickerId = kind === 'card' ? 'sgCardColorPicker' : 'sgTextColorPicker';
+  const hexId = kind === 'card' ? 'sgCardColorHex' : 'sgTextColorHex';
   const picker = document.getElementById(pickerId);
+  const hexEl = document.getElementById(hexId);
   const listId = kind === 'card' ? 'sgCardColorList' : 'sgTextColorList';
-  const color = normalizeHex(picker?.value || '#FFFFFF');
+  const color = normalizeHex(hexEl?.value) || normalizeHex(picker?.value || '#FFFFFF');
   if (!color) return;
+  if (hexEl) hexEl.value = color;
+  if (picker) picker.value = color.slice(0, 7);
   const colors = Array.from(document.querySelectorAll(`#${listId} .sg-color-chip`))
     .map((chip) => chip.dataset.color);
   if (colors.includes(color)) return;
@@ -658,6 +722,44 @@ function addColor(kind) {
   renderColorList(kind, colors);
   markCustomIfNeeded();
   restyleVisiblePreviewItems();
+}
+
+function onSingleColorPickerInput(event) {
+  const picker = event.target;
+  if (!(picker instanceof HTMLInputElement) || picker.type !== 'color') return;
+  const name = picker.dataset.sgColorFor;
+  if (!name) return;
+  const textEl = field(name);
+  if (!textEl) return;
+  textEl.value = mergePickerRgbPreserveAlpha(picker.value, textEl.value);
+  markCustomIfNeeded();
+  restyleVisiblePreviewItems();
+}
+
+function onSingleColorTextInput(event) {
+  const textEl = event.target;
+  if (!(textEl instanceof HTMLInputElement)) return;
+  const name = textEl.dataset.sgColorField || textEl.name;
+  if (!SG_SINGLE_COLOR_FIELDS.includes(name)) return;
+  const normalized = normalizeHex(textEl.value);
+  const picker = document.querySelector(`[data-sg-color-for="${name}"]`);
+  if (normalized && picker) {
+    picker.value = normalized.slice(0, 7);
+  }
+}
+
+function onAddColorPickerInput(event) {
+  const picker = event.target;
+  if (!(picker instanceof HTMLInputElement) || picker.type !== 'color') return;
+  if (picker.id === 'sgCardColorPicker') syncAddColorHexFromPicker('card');
+  if (picker.id === 'sgTextColorPicker') syncAddColorHexFromPicker('text');
+}
+
+function onAddColorHexInput(event) {
+  const hexEl = event.target;
+  if (!(hexEl instanceof HTMLInputElement)) return;
+  if (hexEl.id === 'sgCardColorHex') syncAddColorPickerFromHex('card');
+  if (hexEl.id === 'sgTextColorHex') syncAddColorPickerFromHex('text');
 }
 
 async function saveStyle(event) {
@@ -721,6 +823,9 @@ export async function loadStyleGeneratorPage() {
       values.floating_panel_style_preset = presets.default_preset || 'wechat';
     }
     applyValuesToForm(values);
+    syncSingleColorPickersFromText();
+    syncAddColorHexFromPicker('card');
+    syncAddColorHexFromPicker('text');
     // max_items / width 在设置页，不在样式表单；预览与真实 Web 面板对齐时需缓存
     const maxRaw = parseInt(String(cfg.floating_panel_max_items ?? '12'), 10);
     maxCardsCached = Math.max(1, Math.min(50, Number.isFinite(maxRaw) ? maxRaw : 12));
@@ -754,6 +859,24 @@ export function initStyleGeneratorPage(deps = {}) {
   document.getElementById('sgBtnAddTextColor')?.addEventListener('click', () => addColor('text'));
   document.getElementById('sgCardColorList')?.addEventListener('click', onColorListClick);
   document.getElementById('sgTextColorList')?.addEventListener('click', onColorListClick);
+
+  form.querySelectorAll('[data-sg-color-for]').forEach((picker) => {
+    picker.addEventListener('input', onSingleColorPickerInput);
+  });
+  form.querySelectorAll('[data-sg-color-field]').forEach((textEl) => {
+    textEl.addEventListener('input', onSingleColorTextInput);
+    textEl.addEventListener('change', onSingleColorTextInput);
+  });
+  document.getElementById('sgCardColorPicker')?.addEventListener('input', onAddColorPickerInput);
+  document.getElementById('sgTextColorPicker')?.addEventListener('input', onAddColorPickerInput);
+  document.getElementById('sgCardColorHex')?.addEventListener('input', onAddColorHexInput);
+  document.getElementById('sgCardColorHex')?.addEventListener('change', onAddColorHexInput);
+  document.getElementById('sgTextColorHex')?.addEventListener('input', onAddColorHexInput);
+  document.getElementById('sgTextColorHex')?.addEventListener('change', onAddColorHexInput);
+
+  syncSingleColorPickersFromText();
+  syncAddColorHexFromPicker('card');
+  syncAddColorHexFromPicker('text');
   document.getElementById('sgBtnAddPreview')?.addEventListener('click', () => {
     const fn = PREVIEW_TEXTS[previewTextIndex % PREVIEW_TEXTS.length];
     previewTextIndex += 1;

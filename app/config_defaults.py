@@ -121,6 +121,7 @@ CONFIG_DEFAULTS: dict[str, str] = {
     # W-FP-WEB-DRAG-001：默认穿透；关闭后允许鼠标拖动 Web 浮动面板
     "floating_panel_click_through": "1",
     "floating_panel_speed": DEFAULT_FLOATING_PANEL_SPEED,
+    "floating_panel_click_through": "1",
     "imported_fonts": "[]",  # W-FONT-002：[{sha256, family, original_name, size, imported_at}, ...]
     # PET-003：桌宠显示与指令注入（无独立模型配置）
     "pet_enabled": "0",

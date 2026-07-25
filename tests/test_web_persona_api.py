@@ -164,6 +164,76 @@ def test_delete_custom_persona(persona_app):
         persona_api.get_template_detail(persona_app, "待删人格")
 
 
+def test_save_persona_label_custom_and_builtin(persona_app):
+    persona_api.create_persona(persona_app, "更名测试人格")
+    result = persona_api.save_persona_label(persona_app, "更名测试人格", "我的昵称")
+    assert result["id"] == "更名测试人格"
+    assert result["label"] == "我的昵称"
+    assert persona_app.personae.get_display_name("更名测试人格") == "我的昵称"
+
+    builtin = next(iter(BUILTIN_PERSONAE))
+    renamed = persona_api.save_persona_label(persona_app, builtin, "内置别名")
+    assert renamed["id"] == builtin
+    assert renamed["label"] == "内置别名"
+    assert persona_app.personae.get_display_name(builtin) == "内置别名"
+
+
+def test_save_persona_label_empty_clears_to_default(persona_app):
+    persona_api.create_persona(persona_app, "清空标签人格")
+    persona_api.save_persona_label(persona_app, "清空标签人格", "临时名")
+    cleared = persona_api.save_persona_label(persona_app, "清空标签人格", "")
+    assert cleared["id"] == "清空标签人格"
+    assert cleared["label"] == "清空标签人格"
+
+
+def test_save_persona_label_missing_raises(persona_app):
+    with pytest.raises(ValueError, match="人格不存在"):
+        persona_api.save_persona_label(persona_app, "不存在的测试人格", "x")
+
+
+def test_save_persona_label_rejects_reserved_chars(persona_app):
+    persona_api.create_persona(persona_app, "标签校验人格")
+    with pytest.raises(ValueError, match="不能包含"):
+        persona_api.save_persona_label(persona_app, "标签校验人格", "坏/名")
+
+
+def test_save_template_without_label_preserves_display_name(persona_app):
+    persona_api.create_persona(persona_app, "保标签人格")
+    persona_api.save_persona_label(persona_app, "保标签人格", "保留名")
+    persona_api.save_template(
+        persona_app,
+        "保标签人格",
+        "新风格",
+        "请生成弹幕：",
+        update_label=False,
+    )
+    assert persona_app.personae.get_display_name("保标签人格") == "保留名"
+
+
+def test_put_persona_label_route(persona_app):
+    from app.web_api.routes import register_web_routes
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    persona_api.create_persona(persona_app, "路由更名人格")
+    app = FastAPI()
+    bridge = MagicMock()
+    bridge.danmu_app = persona_app
+    bridge.invoke_on_main.side_effect = lambda fn, *args, **kwargs: fn(*args, **kwargs)
+    register_web_routes(app, bridge, lambda _authorization=None: None)
+    client = TestClient(app)
+    res = client.put(
+        "/api/personae/路由更名人格/label",
+        json={"label": "路由显示名"},
+        headers={"Authorization": "Bearer test"},
+    )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["id"] == "路由更名人格"
+    assert body["label"] == "路由显示名"
+    assert persona_app.personae.get_display_name("路由更名人格") == "路由显示名"
+
+
 _NEW_STYLE_PERSONAE = (
     "阴阳锐评型",
     "抽象玩梗型",

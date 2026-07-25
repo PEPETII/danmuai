@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import multiprocessing
 import sys
+import threading
 import time
 from typing import Any, Callable
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
@@ -50,6 +51,11 @@ def _webview_worker(
         except (OSError, RuntimeError):
             pass
         return
+
+    # pywebview 5.4 emits easy_drag="true" but its injected customize.js
+    # compares that value with "True". Register the stable selector path so
+    # the panel still gets the native drag handler when it is interactive.
+    _configure_webview_drag_region(webview)
 
     create_kwargs: dict[str, Any] = dict(
         title="DanmuAI Floating Panel",
@@ -100,7 +106,7 @@ def _webview_worker(
             if bv is not None:
                 candidates.append(int(bv.Handle.ToInt32()))
         except Exception:
-            pass
+            raw = 0
         if sys.platform == "win32":
             try:
                 import ctypes
@@ -143,11 +149,41 @@ def _webview_worker(
                 except (OSError, RuntimeError):
                     pass
 
+            # Delayed reassert: WebView2 first paint may reset exstyle/chroma key.
+            def _delayed_styles() -> None:
+                time.sleep(0.35)
+                h = hwnd_holder.get("hwnd") or get_hwnd()
+                if h and sys.platform == "win32":
+                    try:
+                        _apply_win32_panel_styles(int(h))
+                    except Exception:
+                        pass
+
+            threading.Thread(
+                target=_delayed_styles,
+                name="fp-panel-styles",
+                daemon=True,
+            ).start()
+
+    def on_shown() -> None:
+        hwnd = hwnd_holder.get("hwnd") or get_hwnd()
+        if hwnd and sys.platform == "win32":
+            try:
+                _apply_win32_panel_styles(int(hwnd))
+            except Exception:
+                pass
+
     def on_closing() -> bool:
         return True
 
     window.events.loaded += on_loaded
     window.events.closing += on_closing
+    try:
+        # shown fires after first paint; reassert color key if available
+        if hasattr(window.events, "shown"):
+            window.events.shown += on_shown
+    except Exception:
+        pass
     try:
         webview.start(gui="edgechromium")
     except Exception as exc:
@@ -331,6 +367,33 @@ class PanelProcess:
             self._restart_count = 0
             self._fallback_to_qpainter_called = False
         return ok
+
+    def set_click_through(self, enabled: bool) -> None:
+        """Apply click-through by restarting the child process.
+
+        Cross-process SetWindowLong on the panel HWND is unreliable; the child
+        owns the HWND and applies WS_EX_TRANSPARENT only in on_loaded/on_shown.
+        """
+        enabled = bool(enabled)
+        if enabled == bool(self._last_click_through) and self.is_alive():
+            return
+        self._last_click_through = enabled
+        if not self._last_html_url or not self.is_alive():
+            return
+        try:
+            html_url = _panel_url_with_click_through(self._last_html_url, enabled)
+            ok = self.start(
+                html_url,
+                *self._last_geometry,
+                click_through=enabled,
+            )
+            if not ok:
+                self._logger.warning(
+                    "panel set_click_through restart failed click_through=%s",
+                    enabled,
+                )
+        except Exception as exc:
+            self._logger.debug("panel set_click_through failed: %r", exc)
 
     def note_child_died(self) -> bool:
         """Called by host when child exits unexpectedly. Returns True if restarting."""

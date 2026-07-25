@@ -8,14 +8,15 @@
       <div class="w-10 h-10 bg-softPeach rounded-full flex items-center justify-center text-xl shadow-sm icon-badge shrink-0"><svg class="ui-icon ui-icon-lg" aria-hidden="true"><use href="#i-paw"></use></svg></div>
       <div class="ui-sidebar-brand-text flex flex-col min-w-0 flex-1">
         <h1 class="text-xl font-bold text-warmText truncate">DanmuAI</h1>
-        <a
-          href="https://danmuai.xyz/"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="sidebar-official-site-btn"
+        <button
+          type="button"
+          id="btnOfficialSiteExpand"
+          class="sidebar-official-site-btn official-site-expand-btn"
           data-i18n="nav.officialSite"
           data-i18n-aria-label="nav.officialSiteAria"
-        >官网</a>
+          aria-haspopup="dialog"
+          aria-controls="officialSiteModal"
+        >点击：官网与群聊</button>
       </div>
       <button
         type="button"

@@ -47,6 +47,35 @@ def test_style_generator_form_names_match_contract_keys():
     assert set(STYLE_PRESET_APPLY_KEYS)
 
 
+def test_style_generator_color_fields_use_picker_plus_hex():
+    """颜色字段应为 type=color 色盘 + hex 高级输入，而非仅文本框。"""
+    text = (_static() / "partials" / "style-generator.html").read_text(encoding="utf-8")
+    mod = (_static() / "modules" / "app-style-generator-page.js").read_text(encoding="utf-8")
+    css = (_static() / "warm-tokens-pages-stylegen.css").read_text(encoding="utf-8")
+
+    for field in (
+        "floating_panel_outline_color",
+        "floating_panel_shadow_color",
+        "floating_panel_border_color",
+        "floating_panel_username_color",
+    ):
+        assert f'data-sg-color-for="{field}"' in text, f"missing color picker for {field}"
+        assert f'name="{field}"' in text
+        assert f'data-sg-color-field="{field}"' in text
+        # 不得再是单独的纯文本 type=text 而无配套 picker 容器
+        assert 'class="sg-color-input"' in text
+
+    assert 'id="sgCardColorPicker"' in text and 'type="color"' in text
+    assert 'id="sgCardColorHex"' in text
+    assert 'id="sgTextColorPicker"' in text
+    assert 'id="sgTextColorHex"' in text
+    assert "sg-color-input" in css
+    assert "sg-color-hex-input" in css
+    assert "syncSingleColorPickersFromText" in mod
+    assert "mergePickerRgbPreserveAlpha" in mod
+    assert "onSingleColorPickerInput" in mod
+
+
 def test_sidebar_has_style_generator_nav():
     sidebar = (_static() / "partials" / "sidebar.html").read_text(encoding="utf-8")
     assert 'data-page="style-generator"' in sidebar

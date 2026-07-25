@@ -8,8 +8,6 @@ import time
 from pathlib import Path
 from types import SimpleNamespace
 
-import pytest
-
 from app.floating_panel_web import panel_process as panel_process_mod
 from app.floating_panel_web.panel_process import MAX_RESTARTS, PanelProcess
 
@@ -298,11 +296,75 @@ def test_web_panel_interactive_css_and_js_for_drag():
     assert 'classList.toggle("is-interactive"' in js
 
 
-@pytest.mark.skip(reason="可选功能")
 def test_click_through_enabled_when_config_on():
+    captured: dict[str, bool] = {}
+
+    def factory(html_url, width, height, x, y, click_through):
+        del html_url, width, height, x, y
+        captured["click_through"] = click_through
+        rq: queue.Queue = queue.Queue()
+        rq.put("loaded")
+        rq.put("hwnd:12345")
+        return rq, _FakeProcess()
+
     panel = PanelProcess(
         webview2_checker=lambda: True,
-        process_factory=_factory_loaded,
+        process_factory=factory,
         load_timeout_sec=2.0,
     )
     assert panel.start("http://example", click_through=True) is True
+    assert captured["click_through"] is True
+    assert panel._last_click_through is True
+
+
+def test_set_click_through_restarts_with_new_flag():
+    """Flag change restarts child so on_loaded applies WS_EX_TRANSPARENT in-process."""
+    starts: list[bool] = []
+    urls: list[str] = []
+
+    def factory(html_url, width, height, x, y, click_through):
+        del width, height, x, y
+        urls.append(html_url)
+        starts.append(bool(click_through))
+        rq: queue.Queue = queue.Queue()
+        rq.put("loaded")
+        rq.put("hwnd:12345")
+        return rq, _FakeProcess()
+
+    panel = PanelProcess(
+        webview2_checker=lambda: True,
+        process_factory=factory,
+        load_timeout_sec=2.0,
+    )
+    assert panel.start("http://example?ws_token=abc&click_through=1", click_through=True) is True
+    assert starts == [True]
+
+    panel.set_click_through(False)
+    assert panel._last_click_through is False
+    assert starts == [True, False]
+    assert urls[1] == "http://example?ws_token=abc&click_through=0"
+    assert panel.is_alive() is True
+
+    panel.set_click_through(False)
+    assert starts == [True, False]
+
+    panel.set_click_through(True)
+    assert panel._last_click_through is True
+    assert starts == [True, False, True]
+
+
+def test_set_click_through_without_alive_process_only_stores_state():
+    panel = PanelProcess(webview2_checker=lambda: True)
+    panel._last_html_url = "http://example"
+    panel._hwnd = 0
+    panel.set_click_through(True)
+    assert panel._last_click_through is True
+    assert panel.is_alive() is False
+
+
+def test_webview_drag_region_targets_panel():
+    fake_webview = SimpleNamespace(DRAG_REGION_SELECTOR=".pywebview-drag-region")
+
+    panel_process_mod._configure_webview_drag_region(fake_webview)
+
+    assert fake_webview.DRAG_REGION_SELECTOR == "#panel"

@@ -61,6 +61,22 @@ function closeRewardModal() {
   modal.classList.remove('flex');
 }
 
+function openOfficialSiteModal() {
+  const modal = document.getElementById('officialSiteModal');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+  activateFocusTrap(modal, closeOfficialSiteModal);
+}
+
+function closeOfficialSiteModal() {
+  deactivateFocusTrap();
+  const modal = document.getElementById('officialSiteModal');
+  if (!modal) return;
+  modal.classList.add('hidden');
+  modal.classList.remove('flex');
+}
+
 function buildAnnouncementSnippet(...args) {
   return buildAnnouncementSnippetImpl(...args);
 }
@@ -101,6 +117,11 @@ export function bindContentPageControls(deps = {}) {
   document.getElementById('btnRewardClose')?.addEventListener('click', closeRewardModal);
   document.getElementById('rewardModal')?.addEventListener('click', (event) => {
     if (event.target.id === 'rewardModal') closeRewardModal();
+  });
+  document.getElementById('btnOfficialSiteExpand')?.addEventListener('click', openOfficialSiteModal);
+  document.getElementById('btnOfficialSiteClose')?.addEventListener('click', closeOfficialSiteModal);
+  document.getElementById('officialSiteModal')?.addEventListener('click', (event) => {
+    if (event.target.id === 'officialSiteModal') closeOfficialSiteModal();
   });
   document.getElementById('btnOverviewAnnouncementDismiss')?.addEventListener('click', () => {
     dismissOverviewAnnouncementBannerImpl(getOverviewBannerLatestId());

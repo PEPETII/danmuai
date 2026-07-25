@@ -42,6 +42,7 @@
 
         </div>
 
+        <div class="settings-form-body">
         <!-- API 与模型 -->
         <div id="settingsTab-api" class="settings-tab-panel active space-y-6" data-settings-panel="api" role="tabpanel">
           <h3 class="text-lg font-bold text-warmText flex items-center gap-2">
@@ -304,6 +305,13 @@
                 </label>
                 <p class="settings-section-hint">开启时鼠标可穿过面板；关闭后可拖动面板。</p>
               </div>
+            </div>
+            <div class="settings-field settings-field--toggle">
+              <span class="settings-field-label">鼠标穿透（开启后不可拖动）</span>
+              <label class="toggle-switch">
+                <input type="checkbox" name="floating_panel_click_through" id="floating_panel_click_through" role="switch" value="1">
+                <span aria-hidden="true"></span>
+              </label>
             </div>
           </div>
           <div class="settings-rhythm-accordion" data-settings-rhythm-accordion>
@@ -611,6 +619,7 @@
               </div>
             </div>
           </div>
+        </div>
         </div>
         <div class="settings-form-footer flex flex-wrap justify-end gap-4">
           <button type="button" id="btnProbe" class="ui-button ui-button--secondary ui-button--lg">

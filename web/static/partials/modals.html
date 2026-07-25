@@ -179,6 +179,49 @@
     </div>
   </div>
 
+  <!-- 官网与群聊浮层 -->
+  <div id="officialSiteModal" class="fixed inset-0 bg-black/20 backdrop-blur-sm hidden items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="officialSiteModalTitle">
+    <div class="official-site-modal-panel bg-white rounded-3xl shadow-warm max-w-md w-full p-6">
+      <div class="official-site-modal-header flex items-center justify-between gap-3 mb-4 min-w-0">
+        <h3 id="officialSiteModalTitle" class="text-lg font-bold text-warmText min-w-0 truncate" data-i18n="modals.text.官网与群聊">官网与群聊</h3>
+        <button
+          type="button"
+          id="btnOfficialSiteClose"
+          class="ui-shell-nav-close shrink-0"
+          data-i18n-aria-label="modals.text.关闭"
+          aria-label="关闭"
+        >
+          <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M6 6l12 12M18 6L6 18"/>
+          </svg>
+        </button>
+      </div>
+      <div class="official-site-modal-link-row flex flex-wrap items-center gap-2 mb-5 min-w-0">
+        <span class="text-sm font-semibold text-warmText shrink-0" data-i18n="modals.text.官网链接">官网链接</span>
+        <a
+          id="officialSiteJumpLink"
+          href="https://danmuai.xyz/"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="ui-button ui-button--primary ui-button--sm px-3 py-1.5 rounded-xl text-sm font-semibold text-white"
+          data-i18n="modals.text.一键跳转"
+        >一键跳转</a>
+      </div>
+      <div class="official-site-modal-qr text-center">
+        <div class="feedback-qr-wrap official-site-qr-wrap">
+          <img
+            src="/static/image/qrcode_1779738450536.jpg"
+            alt="DanmuAI QQ 群二维码，群号 677218917"
+            class="feedback-qr-img"
+            width="320"
+            height="320"
+          >
+        </div>
+        <p class="text-sm font-semibold text-warmText mt-3" data-i18n="modals.text.QQ群号">QQ 群：677218917</p>
+      </div>
+    </div>
+  </div>
+
   <!-- 赞赏码模态框 -->
   <div id="rewardModal" class="fixed inset-0 bg-black/20 backdrop-blur-sm hidden items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="rewardModalTitle">
     <div class="reward-modal-panel bg-white rounded-3xl shadow-warm max-w-md w-full p-8">

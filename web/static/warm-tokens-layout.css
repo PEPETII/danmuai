@@ -115,7 +115,7 @@ a.sidebar-item {
   display: none;
 }
 
-/* 侧栏品牌区：官网链接 */
+/* 侧栏品牌区：官网与群聊入口 */
 .sidebar-official-site-btn {
   display: inline-flex;
   align-items: center;
@@ -130,6 +130,11 @@ a.sidebar-item {
   border: 1px solid rgba(255, 133, 133, 0.35);
   border-radius: 9999px;
   text-decoration: none;
+  cursor: pointer;
+  font-family: inherit;
+  max-width: 100%;
+  white-space: normal;
+  text-align: left;
   transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
 }
 
@@ -137,6 +142,11 @@ a.sidebar-item {
   color: #fff;
   background: var(--color-primary, #ff8585);
   border-color: var(--color-primary, #ff8585);
+}
+
+.official-site-qr-wrap {
+  flex: 0 0 auto;
+  padding: 0.5rem 0;
 }
 
 /* 侧栏左下角：赞赏 + 版本信息 */

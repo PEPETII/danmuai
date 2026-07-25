@@ -167,6 +167,7 @@ class DanmuAppFloatingPanelMixin:
                 panel_width=int(width),
                 panel_height=int(height),
                 panel_opacity=int(snap.panel_opacity or 85),
+                click_through=self._panel_click_through_enabled(),
             )
             bridge.enqueue_message(msg.to_dict())
         except Exception as exc:
