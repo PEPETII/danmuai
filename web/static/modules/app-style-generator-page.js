@@ -7,8 +7,9 @@
  *   column-reverse 底锚、max_items 顶出、2 行 clamp、卡片/气泡尾巴、入场 slideUp / 退出 fadeOut
  */
 
-import { apiFetch } from './transport.js';
+import { API, apiFetch, apiFormFetch } from './transport.js';
 import { t } from './i18n.js';
+import { initSettingsRhythmAccordion } from './settings-rhythm-accordion.js?v=20260717-number-stepper-v1';
 
 /** 保存/应用预设时提交的键（与 STYLE_PRESET_APPLY_KEYS 对齐） */
 const STYLE_SAVE_KEYS = [
@@ -67,6 +68,12 @@ const STYLE_SAVE_KEYS = [
   'floating_panel_font_size',
   'floating_panel_font_bold',
   'floating_panel_opacity',
+  'floating_panel_width',
+  'floating_panel_max_items',
+  'floating_panel_speed',
+  'floating_panel_x_offset',
+  'floating_panel_y_offset',
+  'floating_panel_click_through',
 ];
 
 const BOOL_KEYS = new Set([
@@ -76,6 +83,7 @@ const BOOL_KEYS = new Set([
   'floating_panel_border_enabled',
   'floating_panel_username_enabled',
   'floating_panel_font_bold',
+  'floating_panel_click_through',
 ]);
 
 const PREVIEW_TEXTS = [
@@ -784,9 +792,7 @@ async function saveStyle(event) {
 function mirrorToSettingsForm(payload) {
   const mirrorKeys = [
     'floating_panel_font_family',
-    'floating_panel_font_size',
     'floating_panel_font_bold',
-    'floating_panel_opacity',
   ];
   mirrorKeys.forEach((key) => {
     const el = document.getElementById(key);
@@ -802,6 +808,84 @@ function mirrorToSettingsForm(payload) {
 async function restoreDefaultAndSave() {
   applyPreset('wechat');
   await saveStyle();
+}
+
+/* ---- 字体加载与导入 ---- */
+
+async function loadStyleGeneratorFontFamilies() {
+  try {
+    if (!API.token) return;
+    const data = await apiFetch('/api/fonts');
+    refreshStyleGeneratorFontSelect(data.families || []);
+    renderStyleGeneratorImportedFontsList(data.imported || []);
+  } catch (error) {
+    console.warn('loadStyleGeneratorFontFamilies failed:', error);
+  }
+}
+
+function refreshStyleGeneratorFontSelect(families) {
+  const builtin = ['Microsoft YaHei', 'SimHei', 'SimSun', 'KaiTi', 'DengXian', 'Arial', 'Segoe UI'];
+  const sel = document.getElementById('sg-floating_panel_font_family');
+  if (!sel) return;
+  const current = sel.value;
+  const merged = Array.from(new Set([...builtin, ...families]));
+  let html = '<option value="">— 系统默认 —</option>';
+  merged.forEach((family) => {
+    const safe = String(family).replace(/"/g, '&quot;');
+    html += `<option value="${safe}">${safe}</option>`;
+  });
+  if (current && !merged.includes(current)) {
+    const safe = String(current).replace(/"/g, '&quot;');
+    html += `<option value="${safe}">${safe}</option>`;
+  }
+  sel.innerHTML = html;
+  sel.value = current || '';
+}
+
+function renderStyleGeneratorImportedFontsList(imported) {
+  const list = document.getElementById('sg-importedFontsList');
+  const tmpl = document.getElementById('sg-fontRowTemplate');
+  if (!list || !tmpl) return;
+  list.innerHTML = '';
+  imported.forEach((item) => {
+    const node = tmpl.content.firstElementChild.cloneNode(true);
+    node.querySelector('.font-family').textContent = item.family;
+    node.querySelector('.font-meta').textContent =
+      `（${item.original_name} · ${(item.size / 1024).toFixed(1)} KB）`;
+    node.querySelector('.btn-delete-font').addEventListener('click', async () => {
+      if (!confirm(`确认删除已导入字体「${item.family}」？`)) return;
+      try {
+        await apiFetch(`/api/fonts/${item.sha256}`, { method: 'DELETE' });
+        showToast(`已删除字体「${item.family}」`);
+        const sgSel = document.getElementById('sg-floating_panel_font_family');
+        if (sgSel && sgSel.value === item.family) sgSel.value = '';
+        await loadStyleGeneratorFontFamilies();
+      } catch (error) {
+        showToast(error.message || '删除失败', true);
+      }
+    });
+    list.appendChild(node);
+  });
+}
+
+async function uploadStyleGeneratorFont() {
+  const input = document.getElementById('sg-font_file_input');
+  const file = input?.files?.[0];
+  if (!file) {
+    showToast('请先选择一个 .ttf 或 .otf 文件', true);
+    return;
+  }
+  const form = new FormData();
+  form.append('file', file, file.name);
+  try {
+    if (!API.token) throw new Error('未获取会话令牌，请刷新页面或重启 DanmuAI');
+    const data = await apiFormFetch('/api/fonts/import', form);
+    showToast(`已导入字体「${data.family}」`);
+    await loadStyleGeneratorFontFamilies();
+    if (input) input.value = '';
+  } catch (error) {
+    showToast(error.message || '导入失败', true);
+  }
 }
 
 export async function loadStyleGeneratorPage() {
@@ -831,6 +915,7 @@ export async function loadStyleGeneratorPage() {
     maxCardsCached = Math.max(1, Math.min(50, Number.isFinite(maxRaw) ? maxRaw : 12));
     const widthRaw = parseInt(String(cfg.floating_panel_width ?? '360'), 10);
     panelWidthCached = Math.max(200, Math.min(800, Number.isFinite(widthRaw) ? widthRaw : 360));
+    await loadStyleGeneratorFontFamilies();
     seedPreview();
   } catch (error) {
     showToast(error.message || t('dynamic.appStyleGenerator.加载失败'), true);
@@ -874,6 +959,7 @@ export function initStyleGeneratorPage(deps = {}) {
   document.getElementById('sgTextColorHex')?.addEventListener('input', onAddColorHexInput);
   document.getElementById('sgTextColorHex')?.addEventListener('change', onAddColorHexInput);
 
+  initSettingsRhythmAccordion();
   syncSingleColorPickersFromText();
   syncAddColorHexFromPicker('card');
   syncAddColorHexFromPicker('text');
@@ -883,6 +969,9 @@ export function initStyleGeneratorPage(deps = {}) {
     addPreviewMessage(typeof fn === 'function' ? fn() : fn);
   });
   document.getElementById('sgBtnClearPreview')?.addEventListener('click', clearPreview);
+
+  // 字体导入
+  document.getElementById('sg-btnImportFont')?.addEventListener('click', uploadStyleGeneratorFont);
 
   // 设置页入口
   document.getElementById('btnOpenStyleGeneratorFromSettings')?.addEventListener('click', (event) => {

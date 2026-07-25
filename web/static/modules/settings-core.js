@@ -215,12 +215,10 @@ export function collectFormData({ usesCustomCredentials = false } = {}) {
     if (el) data[name] = el.value;
   });
   data.empty_accel = document.getElementById('empty_accel')?.checked ? '1' : '0';
-  data.floating_panel_click_through = document.getElementById('floating_panel_click_through')?.checked ? '1' : '0';
   data.mic_mode_enabled = document.getElementById('mic_mode_enabled')?.checked ? '1' : '0';
   data.mic_use_visual_model = document.getElementById('mic_use_visual_model')?.checked ? '1' : '0';
   data.danmu_font_bold = document.getElementById('danmu_font_bold')?.checked ? '1' : '0';
   data.floating_panel_font_bold = document.getElementById('floating_panel_font_bold')?.checked ? '1' : '0';
-  data.floating_panel_click_through = document.getElementById('floating_panel_click_through')?.checked ? '1' : '0';
   data.use_thinking = document.getElementById('use_thinking')?.checked ? '1' : '0';
   // W-GLOBAL-VISUAL-APIKEY-REMOVE-001: 视觉全局 api_key 已下线，不再收集；mic/tts 独立 key 不受影响
   const micKey = (document.getElementById('mic_api_key')?.value || '').trim();

@@ -6,8 +6,8 @@
         </p>
       </header>
       <div class="style-generator-layout">
-        <form id="styleGeneratorForm" class="style-generator-controls card p-6 space-y-5" autocomplete="off">
-          <div class="space-y-2">
+        <form id="styleGeneratorForm" class="style-generator-controls card p-6" autocomplete="off">
+          <div class="px-1 pb-3 space-y-2">
             <p class="settings-section-title" data-i18n="content.text.样式预设">样式预设</p>
             <div class="flex flex-wrap gap-2" role="group" aria-label="样式预设">
               <button type="button" id="sgBtnPresetClassic" class="sg-preset-btn px-4 py-2 rounded-xl border border-gray-200 font-semibold text-sm" data-preset="classic" data-i18n="content.text.预设经典">经典</button>
@@ -21,351 +21,528 @@
             </p>
           </div>
 
-          <div class="settings-params-grid cols-2">
-            <div class="settings-field">
-              <label for="sg-floating_panel_shape" class="settings-field-label" data-i18n="content.text.形态">形态</label>
-              <select name="floating_panel_shape" id="sg-floating_panel_shape" class="settings-field-control text-left">
-                <option value="card" data-i18n="content.text.卡片">卡片</option>
-                <option value="bubble" data-i18n="content.text.气泡">气泡</option>
-              </select>
-            </div>
-            <div class="settings-field">
-              <label for="sg-floating_panel_layout" class="settings-field-label" data-i18n="content.text.布局">布局</label>
-              <select name="floating_panel_layout" id="sg-floating_panel_layout" class="settings-field-control text-left">
-                <option value="inline" data-i18n="content.text.布局内联">内联（用户名在气泡内）</option>
-                <option value="stacked" data-i18n="content.text.布局堆叠">堆叠（用户名在气泡外）</option>
-              </select>
-            </div>
-            <div class="settings-field">
-              <label for="sg-floating_panel_stack_gap" class="settings-field-label" data-i18n="content.text.堆积间距">堆积间距</label>
-              <input type="number" name="floating_panel_stack_gap" id="sg-floating_panel_stack_gap" min="0" max="48" class="settings-field-control" value="8">
-            </div>
-            <div class="settings-field">
-              <label for="sg-floating_panel_card_opacity" class="settings-field-label" data-i18n="content.text.卡片不透明度">卡片不透明度 (%)</label>
-              <input type="number" name="floating_panel_card_opacity" id="sg-floating_panel_card_opacity" min="0" max="100" class="settings-field-control" value="78">
-            </div>
-            <div class="settings-field">
-              <label for="sg-floating_panel_opacity" class="settings-field-label" data-i18n="content.text.整体不透明度">整体不透明度 (%)</label>
-              <input type="number" name="floating_panel_opacity" id="sg-floating_panel_opacity" min="0" max="100" class="settings-field-control" value="85">
-            </div>
-          </div>
-
-          <div class="space-y-3">
-            <p class="settings-section-title" data-i18n="content.text.卡片颜色">卡片颜色</p>
-            <div id="sgCardColorList" class="sg-color-list" aria-label="卡片调色板"></div>
-            <div class="flex flex-wrap gap-2 items-center">
-              <div class="sg-color-input" data-sg-add-color="card">
-                <input type="color" id="sgCardColorPicker" value="#FFECD2" class="sg-color-picker" aria-label="添加卡片颜色">
-                <input type="text" id="sgCardColorHex" value="#FFECD2" class="sg-color-hex-input settings-field-control" maxlength="9" spellcheck="false" placeholder="#RRGGBB" aria-label="卡片颜色高级输入" data-sg-hex-for="sgCardColorPicker">
-              </div>
-              <button type="button" id="sgBtnAddCardColor" class="px-3 py-1.5 rounded-lg border border-gray-200 text-sm font-semibold" data-i18n="content.text.添加颜色">添加颜色</button>
-            </div>
-            <input type="hidden" name="floating_panel_card_colors" id="sg-floating_panel_card_colors" value="[]">
-            <div class="settings-params-grid cols-2">
-              <div class="settings-field">
-                <label for="sg-floating_panel_card_color_mode" class="settings-field-label" data-i18n="content.text.卡片选色模式">卡片选色模式</label>
-                <select name="floating_panel_card_color_mode" id="sg-floating_panel_card_color_mode" class="settings-field-control text-left">
-                  <option value="equal" data-i18n="content.text.等概率">等概率</option>
-                  <option value="weighted" data-i18n="content.text.按权重">按权重</option>
-                </select>
-              </div>
-            </div>
-            <div id="sgCardWeightsPanel" class="sg-weights-panel hidden space-y-2"></div>
-            <input type="hidden" name="floating_panel_card_color_weights" id="sg-floating_panel_card_color_weights" value="{}">
-          </div>
-
-          <div class="space-y-3">
-            <p class="settings-section-title" data-i18n="content.text.文字颜色">文字颜色</p>
-            <div id="sgTextColorList" class="sg-color-list" aria-label="文字调色板"></div>
-            <div class="flex flex-wrap gap-2 items-center">
-              <div class="sg-color-input" data-sg-add-color="text">
-                <input type="color" id="sgTextColorPicker" value="#281C12" class="sg-color-picker" aria-label="添加文字颜色">
-                <input type="text" id="sgTextColorHex" value="#281C12" class="sg-color-hex-input settings-field-control" maxlength="9" spellcheck="false" placeholder="#RRGGBB" aria-label="文字颜色高级输入" data-sg-hex-for="sgTextColorPicker">
-              </div>
-              <button type="button" id="sgBtnAddTextColor" class="px-3 py-1.5 rounded-lg border border-gray-200 text-sm font-semibold" data-i18n="content.text.添加颜色">添加颜色</button>
-            </div>
-            <input type="hidden" name="floating_panel_text_colors" id="sg-floating_panel_text_colors" value="[]">
-            <div class="settings-params-grid cols-2">
-              <div class="settings-field">
-                <label for="sg-floating_panel_text_color_mode" class="settings-field-label" data-i18n="content.text.文字选色模式">文字选色模式</label>
-                <select name="floating_panel_text_color_mode" id="sg-floating_panel_text_color_mode" class="settings-field-control text-left">
-                  <option value="equal" data-i18n="content.text.等概率">等概率</option>
-                  <option value="weighted" data-i18n="content.text.按权重">按权重</option>
-                </select>
-              </div>
-            </div>
-            <div id="sgTextWeightsPanel" class="sg-weights-panel hidden space-y-2"></div>
-            <input type="hidden" name="floating_panel_text_color_weights" id="sg-floating_panel_text_color_weights" value="{}">
-          </div>
-
-          <div class="space-y-3">
-            <p class="settings-section-title" data-i18n="content.text.描边">描边</p>
-            <div class="settings-params-grid cols-2">
-              <div class="settings-field settings-field--toggle">
-                <span class="settings-field-label" data-i18n="content.text.描边">描边</span>
-                <label class="toggle-switch">
-                  <input type="checkbox" name="floating_panel_outline_enabled" id="sg-floating_panel_outline_enabled" role="switch" value="1">
-                  <span aria-hidden="true"></span>
-                </label>
-              </div>
-              <div class="settings-field">
-                <label for="sg-floating_panel_outline_color" class="settings-field-label" data-i18n="content.text.描边颜色">描边颜色</label>
-                <div class="sg-color-input">
-                  <input type="color" id="sg-floating_panel_outline_color_picker" class="sg-color-picker" value="#FFFFFF" data-sg-color-for="floating_panel_outline_color" aria-label="描边颜色选择器">
-                  <input type="text" name="floating_panel_outline_color" id="sg-floating_panel_outline_color" class="sg-color-hex-input settings-field-control" placeholder="#FFFFFFC8" maxlength="9" spellcheck="false" data-sg-color-field="floating_panel_outline_color">
+          <div class="settings-rhythm-accordion sg-accordion" data-settings-rhythm-accordion>
+            <section class="settings-rhythm-accordion-item">
+              <h4 class="settings-rhythm-accordion-heading">
+                <button type="button" id="sgBasicAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="sgBasicAccordionPanel">
+                  <span class="settings-rhythm-accordion-trigger-copy">
+                    <span class="settings-rhythm-accordion-trigger-title">基础形态</span>
+                    <span class="settings-section-hint settings-rhythm-accordion-trigger-hint">形态、布局、间距与不透明度</span>
+                  </span>
+                  <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
+                </button>
+              </h4>
+              <div id="sgBasicAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="sgBasicAccordionTrigger" hidden>
+                <div class="settings-params-grid cols-2">
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_shape" class="settings-field-label" data-i18n="content.text.形态">形态</label>
+                    <select name="floating_panel_shape" id="sg-floating_panel_shape" class="settings-field-control text-left">
+                      <option value="card" data-i18n="content.text.卡片">卡片</option>
+                      <option value="bubble" data-i18n="content.text.气泡">气泡</option>
+                    </select>
+                  </div>
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_layout" class="settings-field-label" data-i18n="content.text.布局">布局</label>
+                    <select name="floating_panel_layout" id="sg-floating_panel_layout" class="settings-field-control text-left">
+                      <option value="inline" data-i18n="content.text.布局内联">内联（用户名在气泡内）</option>
+                      <option value="stacked" data-i18n="content.text.布局堆叠">堆叠（用户名在气泡外）</option>
+                    </select>
+                  </div>
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_stack_gap" class="settings-field-label" data-i18n="content.text.堆积间距">堆积间距</label>
+                    <input type="number" name="floating_panel_stack_gap" id="sg-floating_panel_stack_gap" min="0" max="48" class="settings-field-control" value="8">
+                  </div>
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_card_opacity" class="settings-field-label" data-i18n="content.text.卡片不透明度">卡片不透明度 (%)</label>
+                    <input type="number" name="floating_panel_card_opacity" id="sg-floating_panel_card_opacity" min="0" max="100" class="settings-field-control" value="78">
+                  </div>
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_opacity" class="settings-field-label" data-i18n="content.text.整体不透明度">整体不透明度 (%)</label>
+                    <input type="number" name="floating_panel_opacity" id="sg-floating_panel_opacity" min="0" max="100" class="settings-field-control" value="85">
+                  </div>
                 </div>
               </div>
-              <div class="settings-field">
-                <label for="sg-floating_panel_outline_width" class="settings-field-label" data-i18n="content.text.描边宽度">描边宽度</label>
-                <input type="number" name="floating_panel_outline_width" id="sg-floating_panel_outline_width" min="0" max="8" class="settings-field-control" value="2">
-              </div>
-            </div>
-          </div>
+            </section>
 
-          <div class="space-y-3">
-            <p class="settings-section-title" data-i18n="content.text.阴影">阴影</p>
-            <div class="settings-params-grid cols-2">
-              <div class="settings-field settings-field--toggle">
-                <span class="settings-field-label" data-i18n="content.text.启用阴影">启用阴影</span>
-                <label class="toggle-switch">
-                  <input type="checkbox" name="floating_panel_shadow_enabled" id="sg-floating_panel_shadow_enabled" role="switch" value="1">
-                  <span aria-hidden="true"></span>
-                </label>
-              </div>
-              <div class="settings-field">
-                <label for="sg-floating_panel_shadow_color" class="settings-field-label" data-i18n="content.text.阴影颜色">阴影颜色</label>
-                <div class="sg-color-input">
-                  <input type="color" id="sg-floating_panel_shadow_color_picker" class="sg-color-picker" value="#000000" data-sg-color-for="floating_panel_shadow_color" aria-label="阴影颜色选择器">
-                  <input type="text" name="floating_panel_shadow_color" id="sg-floating_panel_shadow_color" class="sg-color-hex-input settings-field-control" placeholder="#000000" maxlength="9" spellcheck="false" data-sg-color-field="floating_panel_shadow_color">
+            <section class="settings-rhythm-accordion-item">
+              <h4 class="settings-rhythm-accordion-heading">
+                <button type="button" id="sgLayoutAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="sgLayoutAccordionPanel">
+                  <span class="settings-rhythm-accordion-trigger-copy">
+                    <span class="settings-rhythm-accordion-trigger-title" data-i18n="content.text.布局与偏移">布局与偏移</span>
+                    <span class="settings-section-hint settings-rhythm-accordion-trigger-hint">窗口尺寸、条数、边距与穿透</span>
+                  </span>
+                  <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
+                </button>
+              </h4>
+              <div id="sgLayoutAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="sgLayoutAccordionTrigger" hidden>
+                <div class="settings-params-grid cols-2">
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_width" class="settings-field-label">窗口宽度 (px)</label>
+                    <input type="number" name="floating_panel_width" id="sg-floating_panel_width" min="200" max="800" class="settings-field-control" value="360">
+                  </div>
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_max_items" class="settings-field-label">最多条数</label>
+                    <input type="number" name="floating_panel_max_items" id="sg-floating_panel_max_items" min="1" max="50" class="settings-field-control" value="12">
+                  </div>
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_speed" class="settings-field-label">滚动速度</label>
+                    <input type="number" name="floating_panel_speed" id="sg-floating_panel_speed" min="0.5" max="5" step="0.1" class="settings-field-control" value="2.0">
+                  </div>
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_x_offset" class="settings-field-label">右边距 (px)</label>
+                    <input type="number" name="floating_panel_x_offset" id="sg-floating_panel_x_offset" min="0" max="400" class="settings-field-control" value="20">
+                  </div>
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_y_offset" class="settings-field-label">上下边距 (px)</label>
+                    <input type="number" name="floating_panel_y_offset" id="sg-floating_panel_y_offset" min="0" max="400" class="settings-field-control" value="80">
+                  </div>
+                  <div class="settings-field settings-field--toggle">
+                    <span class="settings-field-label">鼠标穿透</span>
+                    <label class="toggle-switch">
+                      <input type="checkbox" name="floating_panel_click_through" id="sg-floating_panel_click_through" role="switch" value="1">
+                      <span aria-hidden="true"></span>
+                    </label>
+                    <p class="settings-section-hint">开启时鼠标可穿过面板；关闭后可拖动面板。</p>
+                  </div>
                 </div>
               </div>
-              <div class="settings-field">
-                <label for="sg-floating_panel_shadow_opacity" class="settings-field-label" data-i18n="content.text.阴影不透明度">阴影不透明度 (%)</label>
-                <input type="number" name="floating_panel_shadow_opacity" id="sg-floating_panel_shadow_opacity" min="0" max="100" class="settings-field-control" value="25">
-              </div>
-              <div class="settings-field">
-                <label for="sg-floating_panel_shadow_blur" class="settings-field-label" data-i18n="content.text.阴影模糊">阴影模糊</label>
-                <input type="number" name="floating_panel_shadow_blur" id="sg-floating_panel_shadow_blur" min="0" max="32" class="settings-field-control" value="12">
-              </div>
-              <div class="settings-field">
-                <label for="sg-floating_panel_shadow_offset_x" class="settings-field-label" data-i18n="content.text.阴影偏移_X">阴影偏移 X</label>
-                <input type="number" name="floating_panel_shadow_offset_x" id="sg-floating_panel_shadow_offset_x" min="-20" max="20" class="settings-field-control" value="2">
-              </div>
-              <div class="settings-field">
-                <label for="sg-floating_panel_shadow_offset_y" class="settings-field-label" data-i18n="content.text.阴影偏移_Y">阴影偏移 Y</label>
-                <input type="number" name="floating_panel_shadow_offset_y" id="sg-floating_panel_shadow_offset_y" min="-20" max="20" class="settings-field-control" value="2">
-              </div>
-            </div>
-          </div>
+            </section>
 
-          <div class="space-y-3">
-            <p class="settings-section-title" data-i18n="content.text.边框">边框</p>
-            <div class="settings-params-grid cols-2">
-              <div class="settings-field settings-field--toggle">
-                <span class="settings-field-label" data-i18n="content.text.启用边框">启用边框</span>
-                <label class="toggle-switch">
-                  <input type="checkbox" name="floating_panel_border_enabled" id="sg-floating_panel_border_enabled" role="switch" value="1">
-                  <span aria-hidden="true"></span>
-                </label>
+            <section class="settings-rhythm-accordion-item">
+              <h4 class="settings-rhythm-accordion-heading">
+                <button type="button" id="sgCardColorsAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="sgCardColorsAccordionPanel">
+                  <span class="settings-rhythm-accordion-trigger-copy">
+                    <span class="settings-rhythm-accordion-trigger-title" data-i18n="content.text.卡片颜色">卡片颜色</span>
+                    <span class="settings-section-hint settings-rhythm-accordion-trigger-hint">色盘管理、选色模式与权重</span>
+                  </span>
+                  <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
+                </button>
+              </h4>
+              <div id="sgCardColorsAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="sgCardColorsAccordionTrigger" hidden>
+                <div id="sgCardColorList" class="sg-color-list" aria-label="卡片调色板"></div>
+                <div class="flex flex-wrap gap-2 items-center">
+                  <div class="sg-color-input" data-sg-add-color="card">
+                    <input type="color" id="sgCardColorPicker" value="#FFECD2" class="sg-color-picker" aria-label="添加卡片颜色">
+                    <input type="text" id="sgCardColorHex" value="#FFECD2" class="sg-color-hex-input settings-field-control" maxlength="9" spellcheck="false" placeholder="#RRGGBB" aria-label="卡片颜色高级输入" data-sg-hex-for="sgCardColorPicker">
+                  </div>
+                  <button type="button" id="sgBtnAddCardColor" class="px-3 py-1.5 rounded-lg border border-gray-200 text-sm font-semibold" data-i18n="content.text.添加颜色">添加颜色</button>
+                </div>
+                <input type="hidden" name="floating_panel_card_colors" id="sg-floating_panel_card_colors" value="[]">
+                <div class="settings-params-grid cols-2 mt-3">
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_card_color_mode" class="settings-field-label" data-i18n="content.text.卡片选色模式">卡片选色模式</label>
+                    <select name="floating_panel_card_color_mode" id="sg-floating_panel_card_color_mode" class="settings-field-control text-left">
+                      <option value="equal" data-i18n="content.text.等概率">等概率</option>
+                      <option value="weighted" data-i18n="content.text.按权重">按权重</option>
+                    </select>
+                  </div>
+                </div>
+                <div id="sgCardWeightsPanel" class="sg-weights-panel hidden space-y-2 mt-2"></div>
+                <input type="hidden" name="floating_panel_card_color_weights" id="sg-floating_panel_card_color_weights" value="{}">
               </div>
-              <div class="settings-field">
-                <label for="sg-floating_panel_border_color" class="settings-field-label" data-i18n="content.text.边框颜色">边框颜色</label>
-                <div class="sg-color-input">
-                  <input type="color" id="sg-floating_panel_border_color_picker" class="sg-color-picker" value="#FFFFFF" data-sg-color-for="floating_panel_border_color" aria-label="边框颜色选择器">
-                  <input type="text" name="floating_panel_border_color" id="sg-floating_panel_border_color" class="sg-color-hex-input settings-field-control" placeholder="#FFFFFF" maxlength="9" spellcheck="false" data-sg-color-field="floating_panel_border_color">
+            </section>
+
+            <section class="settings-rhythm-accordion-item">
+              <h4 class="settings-rhythm-accordion-heading">
+                <button type="button" id="sgTextColorsAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="sgTextColorsAccordionPanel">
+                  <span class="settings-rhythm-accordion-trigger-copy">
+                    <span class="settings-rhythm-accordion-trigger-title" data-i18n="content.text.文字颜色">文字颜色</span>
+                    <span class="settings-section-hint settings-rhythm-accordion-trigger-hint">色盘管理、选色模式与权重</span>
+                  </span>
+                  <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
+                </button>
+              </h4>
+              <div id="sgTextColorsAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="sgTextColorsAccordionTrigger" hidden>
+                <div id="sgTextColorList" class="sg-color-list" aria-label="文字调色板"></div>
+                <div class="flex flex-wrap gap-2 items-center">
+                  <div class="sg-color-input" data-sg-add-color="text">
+                    <input type="color" id="sgTextColorPicker" value="#281C12" class="sg-color-picker" aria-label="添加文字颜色">
+                    <input type="text" id="sgTextColorHex" value="#281C12" class="sg-color-hex-input settings-field-control" maxlength="9" spellcheck="false" placeholder="#RRGGBB" aria-label="文字颜色高级输入" data-sg-hex-for="sgTextColorPicker">
+                  </div>
+                  <button type="button" id="sgBtnAddTextColor" class="px-3 py-1.5 rounded-lg border border-gray-200 text-sm font-semibold" data-i18n="content.text.添加颜色">添加颜色</button>
+                </div>
+                <input type="hidden" name="floating_panel_text_colors" id="sg-floating_panel_text_colors" value="[]">
+                <div class="settings-params-grid cols-2 mt-3">
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_text_color_mode" class="settings-field-label" data-i18n="content.text.文字选色模式">文字选色模式</label>
+                    <select name="floating_panel_text_color_mode" id="sg-floating_panel_text_color_mode" class="settings-field-control text-left">
+                      <option value="equal" data-i18n="content.text.等概率">等概率</option>
+                      <option value="weighted" data-i18n="content.text.按权重">按权重</option>
+                    </select>
+                  </div>
+                </div>
+                <div id="sgTextWeightsPanel" class="sg-weights-panel hidden space-y-2 mt-2"></div>
+                <input type="hidden" name="floating_panel_text_color_weights" id="sg-floating_panel_text_color_weights" value="{}">
+              </div>
+            </section>
+
+            <section class="settings-rhythm-accordion-item">
+              <h4 class="settings-rhythm-accordion-heading">
+                <button type="button" id="sgOutlineAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="sgOutlineAccordionPanel">
+                  <span class="settings-rhythm-accordion-trigger-copy">
+                    <span class="settings-rhythm-accordion-trigger-title" data-i18n="content.text.描边">描边</span>
+                    <span class="settings-section-hint settings-rhythm-accordion-trigger-hint">描边开关、颜色与宽度</span>
+                  </span>
+                  <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
+                </button>
+              </h4>
+              <div id="sgOutlineAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="sgOutlineAccordionTrigger" hidden>
+                <div class="settings-params-grid cols-2">
+                  <div class="settings-field settings-field--toggle">
+                    <span class="settings-field-label" data-i18n="content.text.描边">描边</span>
+                    <label class="toggle-switch">
+                      <input type="checkbox" name="floating_panel_outline_enabled" id="sg-floating_panel_outline_enabled" role="switch" value="1">
+                      <span aria-hidden="true"></span>
+                    </label>
+                  </div>
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_outline_color" class="settings-field-label" data-i18n="content.text.描边颜色">描边颜色</label>
+                    <div class="sg-color-input">
+                      <input type="color" id="sg-floating_panel_outline_color_picker" class="sg-color-picker" value="#FFFFFF" data-sg-color-for="floating_panel_outline_color" aria-label="描边颜色选择器">
+                      <input type="text" name="floating_panel_outline_color" id="sg-floating_panel_outline_color" class="sg-color-hex-input settings-field-control" placeholder="#FFFFFFC8" maxlength="9" spellcheck="false" data-sg-color-field="floating_panel_outline_color">
+                    </div>
+                  </div>
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_outline_width" class="settings-field-label" data-i18n="content.text.描边宽度">描边宽度</label>
+                    <input type="number" name="floating_panel_outline_width" id="sg-floating_panel_outline_width" min="0" max="8" class="settings-field-control" value="2">
+                  </div>
                 </div>
               </div>
-              <div class="settings-field">
-                <label for="sg-floating_panel_border_width" class="settings-field-label" data-i18n="content.text.边框宽度">边框宽度</label>
-                <input type="number" name="floating_panel_border_width" id="sg-floating_panel_border_width" min="0" max="8" class="settings-field-control" value="1">
-              </div>
-              <div class="settings-field">
-                <label for="sg-floating_panel_border_opacity" class="settings-field-label" data-i18n="content.text.边框不透明度">边框不透明度 (%)</label>
-                <input type="number" name="floating_panel_border_opacity" id="sg-floating_panel_border_opacity" min="0" max="100" class="settings-field-control" value="45">
-              </div>
-            </div>
-          </div>
+            </section>
 
-          <div class="space-y-3">
-            <p class="settings-section-title" data-i18n="content.text.用户名与内容">用户名与内容</p>
-            <div class="settings-params-grid cols-2">
-              <div class="settings-field settings-field--toggle">
-                <span class="settings-field-label" data-i18n="content.text.显示用户名">显示用户名</span>
-                <label class="toggle-switch">
-                  <input type="checkbox" name="floating_panel_username_enabled" id="sg-floating_panel_username_enabled" role="switch" value="1">
-                  <span aria-hidden="true"></span>
-                </label>
-              </div>
-              <div class="settings-field">
-                <label for="sg-floating_panel_username_text" class="settings-field-label" data-i18n="content.text.用户名文本">用户名文本</label>
-                <input type="text" name="floating_panel_username_text" id="sg-floating_panel_username_text" class="settings-field-control" value="弹幕">
-              </div>
-              <div class="settings-field">
-                <label for="sg-floating_panel_username_color" class="settings-field-label" data-i18n="content.text.用户名颜色">用户名颜色</label>
-                <div class="sg-color-input">
-                  <input type="color" id="sg-floating_panel_username_color_picker" class="sg-color-picker" value="#281C12" data-sg-color-for="floating_panel_username_color" aria-label="用户名颜色选择器">
-                  <input type="text" name="floating_panel_username_color" id="sg-floating_panel_username_color" class="sg-color-hex-input settings-field-control" placeholder="#281C12" maxlength="9" spellcheck="false" data-sg-color-field="floating_panel_username_color">
+            <section class="settings-rhythm-accordion-item">
+              <h4 class="settings-rhythm-accordion-heading">
+                <button type="button" id="sgShadowAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="sgShadowAccordionPanel">
+                  <span class="settings-rhythm-accordion-trigger-copy">
+                    <span class="settings-rhythm-accordion-trigger-title" data-i18n="content.text.阴影">阴影</span>
+                    <span class="settings-section-hint settings-rhythm-accordion-trigger-hint">阴影开关、颜色、不透明度与偏移</span>
+                  </span>
+                  <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
+                </button>
+              </h4>
+              <div id="sgShadowAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="sgShadowAccordionTrigger" hidden>
+                <div class="settings-params-grid cols-2">
+                  <div class="settings-field settings-field--toggle">
+                    <span class="settings-field-label" data-i18n="content.text.启用阴影">启用阴影</span>
+                    <label class="toggle-switch">
+                      <input type="checkbox" name="floating_panel_shadow_enabled" id="sg-floating_panel_shadow_enabled" role="switch" value="1">
+                      <span aria-hidden="true"></span>
+                    </label>
+                  </div>
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_shadow_color" class="settings-field-label" data-i18n="content.text.阴影颜色">阴影颜色</label>
+                    <div class="sg-color-input">
+                      <input type="color" id="sg-floating_panel_shadow_color_picker" class="sg-color-picker" value="#000000" data-sg-color-for="floating_panel_shadow_color" aria-label="阴影颜色选择器">
+                      <input type="text" name="floating_panel_shadow_color" id="sg-floating_panel_shadow_color" class="sg-color-hex-input settings-field-control" placeholder="#000000" maxlength="9" spellcheck="false" data-sg-color-field="floating_panel_shadow_color">
+                    </div>
+                  </div>
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_shadow_opacity" class="settings-field-label" data-i18n="content.text.阴影不透明度">阴影不透明度 (%)</label>
+                    <input type="number" name="floating_panel_shadow_opacity" id="sg-floating_panel_shadow_opacity" min="0" max="100" class="settings-field-control" value="25">
+                  </div>
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_shadow_blur" class="settings-field-label" data-i18n="content.text.阴影模糊">阴影模糊</label>
+                    <input type="number" name="floating_panel_shadow_blur" id="sg-floating_panel_shadow_blur" min="0" max="32" class="settings-field-control" value="12">
+                  </div>
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_shadow_offset_x" class="settings-field-label" data-i18n="content.text.阴影偏移_X">阴影偏移 X</label>
+                    <input type="number" name="floating_panel_shadow_offset_x" id="sg-floating_panel_shadow_offset_x" min="-20" max="20" class="settings-field-control" value="2">
+                  </div>
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_shadow_offset_y" class="settings-field-label" data-i18n="content.text.阴影偏移_Y">阴影偏移 Y</label>
+                    <input type="number" name="floating_panel_shadow_offset_y" id="sg-floating_panel_shadow_offset_y" min="-20" max="20" class="settings-field-control" value="2">
+                  </div>
                 </div>
               </div>
-              <div class="settings-field">
-                <label for="sg-floating_panel_username_size" class="settings-field-label" data-i18n="content.text.用户名字号">用户名字号 (px)</label>
-                <input type="number" name="floating_panel_username_size" id="sg-floating_panel_username_size" min="8" max="32" class="settings-field-control" value="14">
+            </section>
+
+            <section class="settings-rhythm-accordion-item">
+              <h4 class="settings-rhythm-accordion-heading">
+                <button type="button" id="sgBorderAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="sgBorderAccordionPanel">
+                  <span class="settings-rhythm-accordion-trigger-copy">
+                    <span class="settings-rhythm-accordion-trigger-title" data-i18n="content.text.边框">边框</span>
+                    <span class="settings-section-hint settings-rhythm-accordion-trigger-hint">边框开关、颜色、宽度与不透明度</span>
+                  </span>
+                  <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
+                </button>
+              </h4>
+              <div id="sgBorderAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="sgBorderAccordionTrigger" hidden>
+                <div class="settings-params-grid cols-2">
+                  <div class="settings-field settings-field--toggle">
+                    <span class="settings-field-label" data-i18n="content.text.启用边框">启用边框</span>
+                    <label class="toggle-switch">
+                      <input type="checkbox" name="floating_panel_border_enabled" id="sg-floating_panel_border_enabled" role="switch" value="1">
+                      <span aria-hidden="true"></span>
+                    </label>
+                  </div>
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_border_color" class="settings-field-label" data-i18n="content.text.边框颜色">边框颜色</label>
+                    <div class="sg-color-input">
+                      <input type="color" id="sg-floating_panel_border_color_picker" class="sg-color-picker" value="#FFFFFF" data-sg-color-for="floating_panel_border_color" aria-label="边框颜色选择器">
+                      <input type="text" name="floating_panel_border_color" id="sg-floating_panel_border_color" class="sg-color-hex-input settings-field-control" placeholder="#FFFFFF" maxlength="9" spellcheck="false" data-sg-color-field="floating_panel_border_color">
+                    </div>
+                  </div>
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_border_width" class="settings-field-label" data-i18n="content.text.边框宽度">边框宽度</label>
+                    <input type="number" name="floating_panel_border_width" id="sg-floating_panel_border_width" min="0" max="8" class="settings-field-control" value="1">
+                  </div>
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_border_opacity" class="settings-field-label" data-i18n="content.text.边框不透明度">边框不透明度 (%)</label>
+                    <input type="number" name="floating_panel_border_opacity" id="sg-floating_panel_border_opacity" min="0" max="100" class="settings-field-control" value="45">
+                  </div>
+                </div>
               </div>
-              <div class="settings-field">
-                <label for="sg-floating_panel_username_weight" class="settings-field-label" data-i18n="content.text.用户名字重">用户名字重</label>
-                <input type="number" name="floating_panel_username_weight" id="sg-floating_panel_username_weight" min="100" max="900" class="settings-field-control" value="700">
+            </section>
+
+            <section class="settings-rhythm-accordion-item">
+              <h4 class="settings-rhythm-accordion-heading">
+                <button type="button" id="sgUsernameAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="sgUsernameAccordionPanel">
+                  <span class="settings-rhythm-accordion-trigger-copy">
+                    <span class="settings-rhythm-accordion-trigger-title" data-i18n="content.text.用户名与内容">用户名与内容</span>
+                    <span class="settings-section-hint settings-rhythm-accordion-trigger-hint">用户名显示、颜色、字号与内容格式</span>
+                  </span>
+                  <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
+                </button>
+              </h4>
+              <div id="sgUsernameAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="sgUsernameAccordionTrigger" hidden>
+                <div class="settings-params-grid cols-2">
+                  <div class="settings-field settings-field--toggle">
+                    <span class="settings-field-label" data-i18n="content.text.显示用户名">显示用户名</span>
+                    <label class="toggle-switch">
+                      <input type="checkbox" name="floating_panel_username_enabled" id="sg-floating_panel_username_enabled" role="switch" value="1">
+                      <span aria-hidden="true"></span>
+                    </label>
+                  </div>
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_username_text" class="settings-field-label" data-i18n="content.text.用户名文本">用户名文本</label>
+                    <input type="text" name="floating_panel_username_text" id="sg-floating_panel_username_text" class="settings-field-control" value="弹幕">
+                  </div>
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_username_color" class="settings-field-label" data-i18n="content.text.用户名颜色">用户名颜色</label>
+                    <div class="sg-color-input">
+                      <input type="color" id="sg-floating_panel_username_color_picker" class="sg-color-picker" value="#281C12" data-sg-color-for="floating_panel_username_color" aria-label="用户名颜色选择器">
+                      <input type="text" name="floating_panel_username_color" id="sg-floating_panel_username_color" class="sg-color-hex-input settings-field-control" placeholder="#281C12" maxlength="9" spellcheck="false" data-sg-color-field="floating_panel_username_color">
+                    </div>
+                  </div>
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_username_size" class="settings-field-label" data-i18n="content.text.用户名字号">用户名字号 (px)</label>
+                    <input type="number" name="floating_panel_username_size" id="sg-floating_panel_username_size" min="8" max="32" class="settings-field-control" value="14">
+                  </div>
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_username_weight" class="settings-field-label" data-i18n="content.text.用户名字重">用户名字重</label>
+                    <input type="number" name="floating_panel_username_weight" id="sg-floating_panel_username_weight" min="100" max="900" class="settings-field-control" value="700">
+                  </div>
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_username_separator" class="settings-field-label" data-i18n="content.text.用户名分隔符">用户名分隔符</label>
+                    <input type="text" name="floating_panel_username_separator" id="sg-floating_panel_username_separator" class="settings-field-control" value="：">
+                  </div>
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_content_size" class="settings-field-label" data-i18n="content.text.内容字号">内容字号 (px)</label>
+                    <input type="number" name="floating_panel_content_size" id="sg-floating_panel_content_size" min="8" max="32" class="settings-field-control" value="16">
+                  </div>
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_content_weight" class="settings-field-label" data-i18n="content.text.内容字重">内容字重</label>
+                    <input type="number" name="floating_panel_content_weight" id="sg-floating_panel_content_weight" min="100" max="900" class="settings-field-control" value="400">
+                  </div>
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_content_line_height" class="settings-field-label" data-i18n="content.text.内容行高">内容行高 (%)</label>
+                    <input type="number" name="floating_panel_content_line_height" id="sg-floating_panel_content_line_height" min="100" max="200" class="settings-field-control" value="140">
+                  </div>
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_gap_username_content" class="settings-field-label" data-i18n="content.text.用户名与内容间距">用户名与内容间距 (px)</label>
+                    <input type="number" name="floating_panel_gap_username_content" id="sg-floating_panel_gap_username_content" min="0" max="24" class="settings-field-control" value="4">
+                  </div>
+                </div>
               </div>
-              <div class="settings-field">
-                <label for="sg-floating_panel_username_separator" class="settings-field-label" data-i18n="content.text.用户名分隔符">用户名分隔符</label>
-                <input type="text" name="floating_panel_username_separator" id="sg-floating_panel_username_separator" class="settings-field-control" value="：">
+            </section>
+
+            <section class="settings-rhythm-accordion-item">
+              <h4 class="settings-rhythm-accordion-heading">
+                <button type="button" id="sgFontAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="sgFontAccordionPanel">
+                  <span class="settings-rhythm-accordion-trigger-copy">
+                    <span class="settings-rhythm-accordion-trigger-title" data-i18n="content.text.字体与内边距">字体与内边距</span>
+                    <span class="settings-section-hint settings-rhythm-accordion-trigger-hint">字体、字号、加粗、圆角与内边距</span>
+                  </span>
+                  <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
+                </button>
+              </h4>
+              <div id="sgFontAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="sgFontAccordionTrigger" hidden>
+                <div class="settings-params-grid cols-2">
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_font_family" class="settings-field-label" data-i18n="content.text.字体">字体</label>
+                    <select name="floating_panel_font_family" id="sg-floating_panel_font_family" class="settings-field-control text-left ui-control ui-select">
+                      <option value="">— 系统默认 —</option>
+                    </select>
+                  </div>
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_font_size" class="settings-field-label" data-i18n="content.text.字号">字号 (px)</label>
+                    <input type="number" name="floating_panel_font_size" id="sg-floating_panel_font_size" min="12" max="48" class="settings-field-control" value="20">
+                  </div>
+                  <div class="settings-field settings-field--toggle">
+                    <span class="settings-field-label" data-i18n="content.text.加粗">加粗</span>
+                    <label class="toggle-switch">
+                      <input type="checkbox" name="floating_panel_font_bold" id="sg-floating_panel_font_bold" role="switch" value="1">
+                      <span aria-hidden="true"></span>
+                    </label>
+                  </div>
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_radius" class="settings-field-label" data-i18n="content.text.圆角">圆角</label>
+                    <input type="number" name="floating_panel_radius" id="sg-floating_panel_radius" min="0" max="48" class="settings-field-control" value="16">
+                  </div>
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_padding_x" class="settings-field-label" data-i18n="content.text.水平内边距">水平内边距</label>
+                    <input type="number" name="floating_panel_padding_x" id="sg-floating_panel_padding_x" min="0" max="48" class="settings-field-control" value="14">
+                  </div>
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_padding_y" class="settings-field-label" data-i18n="content.text.垂直内边距">垂直内边距</label>
+                    <input type="number" name="floating_panel_padding_y" id="sg-floating_panel_padding_y" min="0" max="48" class="settings-field-control" value="10">
+                  </div>
+                </div>
               </div>
-              <div class="settings-field">
-                <label for="sg-floating_panel_content_size" class="settings-field-label" data-i18n="content.text.内容字号">内容字号 (px)</label>
-                <input type="number" name="floating_panel_content_size" id="sg-floating_panel_content_size" min="8" max="32" class="settings-field-control" value="16">
+            </section>
+
+            <section class="settings-rhythm-accordion-item">
+              <h4 class="settings-rhythm-accordion-heading">
+                <button type="button" id="sgTailAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="sgTailAccordionPanel">
+                  <span class="settings-rhythm-accordion-trigger-copy">
+                    <span class="settings-rhythm-accordion-trigger-title" data-i18n="content.text.气泡尾巴">气泡尾巴</span>
+                    <span class="settings-section-hint settings-rhythm-accordion-trigger-hint">尾巴开关、样式、尺寸与位置</span>
+                  </span>
+                  <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
+                </button>
+              </h4>
+              <div id="sgTailAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="sgTailAccordionTrigger" hidden>
+                <div class="settings-params-grid cols-2">
+                  <div class="settings-field settings-field--toggle">
+                    <span class="settings-field-label" data-i18n="content.text.启用尾巴">启用尾巴</span>
+                    <label class="toggle-switch">
+                      <input type="checkbox" name="floating_panel_tail_enabled" id="sg-floating_panel_tail_enabled" role="switch" value="1">
+                      <span aria-hidden="true"></span>
+                    </label>
+                  </div>
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_tail_style" class="settings-field-label" data-i18n="content.text.尾巴样式">尾巴样式</label>
+                    <select name="floating_panel_tail_style" id="sg-floating_panel_tail_style" class="settings-field-control text-left">
+                      <option value="round" data-i18n="content.text.尾巴圆润">圆润</option>
+                      <option value="sharp" data-i18n="content.text.尾巴锐利">锐利</option>
+                      <option value="line_like" data-i18n="content.text.尾巴LineLike">Line 风格</option>
+                      <option value="none" data-i18n="content.text.尾巴无">无</option>
+                    </select>
+                  </div>
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_tail_width" class="settings-field-label" data-i18n="content.text.尾巴宽度">尾巴宽度</label>
+                    <input type="number" name="floating_panel_tail_width" id="sg-floating_panel_tail_width" min="0" max="32" class="settings-field-control" value="8">
+                  </div>
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_tail_height" class="settings-field-label" data-i18n="content.text.尾巴高度">尾巴高度</label>
+                    <input type="number" name="floating_panel_tail_height" id="sg-floating_panel_tail_height" min="0" max="32" class="settings-field-control" value="10">
+                  </div>
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_tail_size" class="settings-field-label" data-i18n="content.text.尾巴大小">尾巴大小</label>
+                    <input type="number" name="floating_panel_tail_size" id="sg-floating_panel_tail_size" min="0" max="32" class="settings-field-control" value="10">
+                  </div>
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_tail_offset_y" class="settings-field-label" data-i18n="content.text.尾巴垂直位置">尾巴垂直位置 (%)</label>
+                    <input type="number" name="floating_panel_tail_offset_y" id="sg-floating_panel_tail_offset_y" min="0" max="100" class="settings-field-control" value="38">
+                  </div>
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_tail_border" class="settings-field-label" data-i18n="content.text.Line尾巴边框">Line 尾巴边框</label>
+                    <input type="number" name="floating_panel_tail_border" id="sg-floating_panel_tail_border" min="0" max="32" class="settings-field-control" value="8">
+                  </div>
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_tail_long_side" class="settings-field-label" data-i18n="content.text.Line尾巴长边">Line 尾巴长边</label>
+                    <input type="number" name="floating_panel_tail_long_side" id="sg-floating_panel_tail_long_side" min="0" max="64" class="settings-field-control" value="18">
+                  </div>
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_tail_rotate_deg" class="settings-field-label" data-i18n="content.text.Line尾巴旋转">Line 尾巴旋转 (°)</label>
+                    <input type="number" name="floating_panel_tail_rotate_deg" id="sg-floating_panel_tail_rotate_deg" min="-180" max="180" class="settings-field-control" value="35">
+                  </div>
+                </div>
               </div>
-              <div class="settings-field">
-                <label for="sg-floating_panel_content_weight" class="settings-field-label" data-i18n="content.text.内容字重">内容字重</label>
-                <input type="number" name="floating_panel_content_weight" id="sg-floating_panel_content_weight" min="100" max="900" class="settings-field-control" value="400">
+            </section>
+
+            <section class="settings-rhythm-accordion-item">
+              <h4 class="settings-rhythm-accordion-heading">
+                <button type="button" id="sgAnimationAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="sgAnimationAccordionPanel">
+                  <span class="settings-rhythm-accordion-trigger-copy">
+                    <span class="settings-rhythm-accordion-trigger-title" data-i18n="content.text.动画">动画</span>
+                    <span class="settings-section-hint settings-rhythm-accordion-trigger-hint">入场/退出动画类型与时长</span>
+                  </span>
+                  <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
+                </button>
+              </h4>
+              <div id="sgAnimationAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="sgAnimationAccordionTrigger" hidden>
+                <div class="settings-params-grid cols-2">
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_entry_animation" class="settings-field-label" data-i18n="content.text.入场动画">入场动画</label>
+                    <select name="floating_panel_entry_animation" id="sg-floating_panel_entry_animation" class="settings-field-control text-left">
+                      <option value="none" data-i18n="content.text.动画无">无</option>
+                      <option value="fade" data-i18n="content.text.动画淡入淡出">淡入淡出</option>
+                      <option value="slide_up" data-i18n="content.text.动画上滑">上滑进入</option>
+                    </select>
+                  </div>
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_entry_duration_ms" class="settings-field-label" data-i18n="content.text.入场时长_ms">入场时长 (ms)</label>
+                    <input type="number" name="floating_panel_entry_duration_ms" id="sg-floating_panel_entry_duration_ms" min="0" max="2000" class="settings-field-control" value="200">
+                  </div>
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_push_duration_ms" class="settings-field-label" data-i18n="content.text.顶推时长_ms">顶推时长 (ms)</label>
+                    <input type="number" name="floating_panel_push_duration_ms" id="sg-floating_panel_push_duration_ms" min="0" max="2000" class="settings-field-control" value="180">
+                  </div>
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_exit_animation" class="settings-field-label" data-i18n="content.text.退出动画">退出动画</label>
+                    <select name="floating_panel_exit_animation" id="sg-floating_panel_exit_animation" class="settings-field-control text-left">
+                      <option value="none" data-i18n="content.text.动画无">无</option>
+                      <option value="fade" data-i18n="content.text.动画淡入淡出">淡入淡出</option>
+                    </select>
+                  </div>
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_exit_duration_ms" class="settings-field-label" data-i18n="content.text.退出时长_ms">退出时长 (ms)</label>
+                    <input type="number" name="floating_panel_exit_duration_ms" id="sg-floating_panel_exit_duration_ms" min="0" max="2000" class="settings-field-control" value="200">
+                  </div>
+                </div>
               </div>
-              <div class="settings-field">
-                <label for="sg-floating_panel_content_line_height" class="settings-field-label" data-i18n="content.text.内容行高">内容行高 (%)</label>
-                <input type="number" name="floating_panel_content_line_height" id="sg-floating_panel_content_line_height" min="100" max="200" class="settings-field-control" value="140">
+            </section>
+            <section class="settings-rhythm-accordion-item">
+              <h4 class="settings-rhythm-accordion-heading">
+                <button type="button" id="sgFontImportAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="sgFontImportAccordionPanel">
+                  <span class="settings-rhythm-accordion-trigger-copy">
+                    <span class="settings-rhythm-accordion-trigger-title" data-i18n="content.text.导入本地字体">导入本地字体</span>
+                    <span class="settings-section-hint settings-rhythm-accordion-trigger-hint">支持 .ttf / .otf，单文件最大 25MB</span>
+                  </span>
+                  <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
+                </button>
+              </h4>
+              <div id="sgFontImportAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="sgFontImportAccordionTrigger" hidden>
+                <div class="settings-params-grid cols-2">
+                  <div class="settings-field">
+                    <label for="sg-font_file_input" class="settings-field-label">选择字体文件</label>
+                    <input type="file" id="sg-font_file_input" accept=".ttf,.otf" class="settings-field-control ui-control ui-input">
+                  </div>
+                  <div class="settings-field">
+                    <span class="settings-field-label" aria-hidden="true">&nbsp;</span>
+                    <button type="button" id="sg-btnImportFont" class="px-3 py-1.5 rounded-lg border border-gray-200 text-sm font-semibold">导入字体</button>
+                  </div>
+                </div>
+                <div id="sg-importedFontsList" class="mt-3 space-y-2"></div>
+                <template id="sg-fontRowTemplate">
+                  <div class="flex items-center gap-2 text-sm">
+                    <span class="font-family"></span>
+                    <span class="font-meta text-gray-500"></span>
+                    <button type="button" class="btn-delete-font ml-auto px-2 py-1 rounded border border-gray-200 text-xs">删除</button>
+                  </div>
+                </template>
               </div>
-              <div class="settings-field">
-                <label for="sg-floating_panel_gap_username_content" class="settings-field-label" data-i18n="content.text.用户名与内容间距">用户名与内容间距 (px)</label>
-                <input type="number" name="floating_panel_gap_username_content" id="sg-floating_panel_gap_username_content" min="0" max="24" class="settings-field-control" value="4">
-              </div>
-            </div>
+            </section>
           </div>
 
-          <div class="space-y-3">
-            <p class="settings-section-title" data-i18n="content.text.字体与内边距">字体与内边距</p>
-            <div class="settings-params-grid cols-2">
-              <div class="settings-field">
-                <label for="sg-floating_panel_font_family" class="settings-field-label" data-i18n="content.text.字体">字体</label>
-                <input type="text" name="floating_panel_font_family" id="sg-floating_panel_font_family" class="settings-field-control" list="sgFontFamilyList">
-                <datalist id="sgFontFamilyList">
-                  <option value="Microsoft YaHei"></option>
-                  <option value="Segoe UI"></option>
-                  <option value="sans-serif"></option>
-                </datalist>
-              </div>
-              <div class="settings-field">
-                <label for="sg-floating_panel_font_size" class="settings-field-label" data-i18n="content.text.字号">字号 (px)</label>
-                <input type="number" name="floating_panel_font_size" id="sg-floating_panel_font_size" min="12" max="48" class="settings-field-control" value="20">
-              </div>
-              <div class="settings-field settings-field--toggle">
-                <span class="settings-field-label" data-i18n="content.text.加粗">加粗</span>
-                <label class="toggle-switch">
-                  <input type="checkbox" name="floating_panel_font_bold" id="sg-floating_panel_font_bold" role="switch" value="1">
-                  <span aria-hidden="true"></span>
-                </label>
-              </div>
-              <div class="settings-field">
-                <label for="sg-floating_panel_radius" class="settings-field-label" data-i18n="content.text.圆角">圆角</label>
-                <input type="number" name="floating_panel_radius" id="sg-floating_panel_radius" min="0" max="48" class="settings-field-control" value="16">
-              </div>
-              <div class="settings-field">
-                <label for="sg-floating_panel_padding_x" class="settings-field-label" data-i18n="content.text.水平内边距">水平内边距</label>
-                <input type="number" name="floating_panel_padding_x" id="sg-floating_panel_padding_x" min="0" max="48" class="settings-field-control" value="14">
-              </div>
-              <div class="settings-field">
-                <label for="sg-floating_panel_padding_y" class="settings-field-label" data-i18n="content.text.垂直内边距">垂直内边距</label>
-                <input type="number" name="floating_panel_padding_y" id="sg-floating_panel_padding_y" min="0" max="48" class="settings-field-control" value="10">
-              </div>
-            </div>
-          </div>
-
-          <div class="space-y-3">
-            <p class="settings-section-title" data-i18n="content.text.气泡尾巴">气泡尾巴</p>
-            <div class="settings-params-grid cols-2">
-              <div class="settings-field settings-field--toggle">
-                <span class="settings-field-label" data-i18n="content.text.启用尾巴">启用尾巴</span>
-                <label class="toggle-switch">
-                  <input type="checkbox" name="floating_panel_tail_enabled" id="sg-floating_panel_tail_enabled" role="switch" value="1">
-                  <span aria-hidden="true"></span>
-                </label>
-              </div>
-              <div class="settings-field">
-                <label for="sg-floating_panel_tail_style" class="settings-field-label" data-i18n="content.text.尾巴样式">尾巴样式</label>
-                <select name="floating_panel_tail_style" id="sg-floating_panel_tail_style" class="settings-field-control text-left">
-                  <option value="round" data-i18n="content.text.尾巴圆润">圆润</option>
-                  <option value="sharp" data-i18n="content.text.尾巴锐利">锐利</option>
-                  <option value="line_like" data-i18n="content.text.尾巴LineLike">Line 风格</option>
-                  <option value="none" data-i18n="content.text.尾巴无">无</option>
-                </select>
-              </div>
-              <div class="settings-field">
-                <label for="sg-floating_panel_tail_width" class="settings-field-label" data-i18n="content.text.尾巴宽度">尾巴宽度</label>
-                <input type="number" name="floating_panel_tail_width" id="sg-floating_panel_tail_width" min="0" max="32" class="settings-field-control" value="8">
-              </div>
-              <div class="settings-field">
-                <label for="sg-floating_panel_tail_height" class="settings-field-label" data-i18n="content.text.尾巴高度">尾巴高度</label>
-                <input type="number" name="floating_panel_tail_height" id="sg-floating_panel_tail_height" min="0" max="32" class="settings-field-control" value="10">
-              </div>
-              <div class="settings-field">
-                <label for="sg-floating_panel_tail_size" class="settings-field-label" data-i18n="content.text.尾巴大小">尾巴大小</label>
-                <input type="number" name="floating_panel_tail_size" id="sg-floating_panel_tail_size" min="0" max="32" class="settings-field-control" value="10">
-              </div>
-              <div class="settings-field">
-                <label for="sg-floating_panel_tail_offset_y" class="settings-field-label" data-i18n="content.text.尾巴垂直位置">尾巴垂直位置 (%)</label>
-                <input type="number" name="floating_panel_tail_offset_y" id="sg-floating_panel_tail_offset_y" min="0" max="100" class="settings-field-control" value="38">
-              </div>
-              <div class="settings-field">
-                <label for="sg-floating_panel_tail_border" class="settings-field-label" data-i18n="content.text.Line尾巴边框">Line 尾巴边框</label>
-                <input type="number" name="floating_panel_tail_border" id="sg-floating_panel_tail_border" min="0" max="32" class="settings-field-control" value="8">
-              </div>
-              <div class="settings-field">
-                <label for="sg-floating_panel_tail_long_side" class="settings-field-label" data-i18n="content.text.Line尾巴长边">Line 尾巴长边</label>
-                <input type="number" name="floating_panel_tail_long_side" id="sg-floating_panel_tail_long_side" min="0" max="64" class="settings-field-control" value="18">
-              </div>
-              <div class="settings-field">
-                <label for="sg-floating_panel_tail_rotate_deg" class="settings-field-label" data-i18n="content.text.Line尾巴旋转">Line 尾巴旋转 (°)</label>
-                <input type="number" name="floating_panel_tail_rotate_deg" id="sg-floating_panel_tail_rotate_deg" min="-180" max="180" class="settings-field-control" value="35">
-              </div>
-            </div>
-          </div>
-
-          <div class="space-y-3">
-            <p class="settings-section-title" data-i18n="content.text.动画">动画</p>
-            <div class="settings-params-grid cols-2">
-              <div class="settings-field">
-                <label for="sg-floating_panel_entry_animation" class="settings-field-label" data-i18n="content.text.入场动画">入场动画</label>
-                <select name="floating_panel_entry_animation" id="sg-floating_panel_entry_animation" class="settings-field-control text-left">
-                  <option value="none" data-i18n="content.text.动画无">无</option>
-                  <option value="fade" data-i18n="content.text.动画淡入淡出">淡入淡出</option>
-                  <option value="slide_up" data-i18n="content.text.动画上滑">上滑进入</option>
-                </select>
-              </div>
-              <div class="settings-field">
-                <label for="sg-floating_panel_entry_duration_ms" class="settings-field-label" data-i18n="content.text.入场时长_ms">入场时长 (ms)</label>
-                <input type="number" name="floating_panel_entry_duration_ms" id="sg-floating_panel_entry_duration_ms" min="0" max="2000" class="settings-field-control" value="200">
-              </div>
-              <div class="settings-field">
-                <label for="sg-floating_panel_push_duration_ms" class="settings-field-label" data-i18n="content.text.顶推时长_ms">顶推时长 (ms)</label>
-                <input type="number" name="floating_panel_push_duration_ms" id="sg-floating_panel_push_duration_ms" min="0" max="2000" class="settings-field-control" value="180">
-              </div>
-              <div class="settings-field">
-                <label for="sg-floating_panel_exit_animation" class="settings-field-label" data-i18n="content.text.退出动画">退出动画</label>
-                <select name="floating_panel_exit_animation" id="sg-floating_panel_exit_animation" class="settings-field-control text-left">
-                  <option value="none" data-i18n="content.text.动画无">无</option>
-                  <option value="fade" data-i18n="content.text.动画淡入淡出">淡入淡出</option>
-                </select>
-              </div>
-              <div class="settings-field">
-                <label for="sg-floating_panel_exit_duration_ms" class="settings-field-label" data-i18n="content.text.退出时长_ms">退出时长 (ms)</label>
-                <input type="number" name="floating_panel_exit_duration_ms" id="sg-floating_panel_exit_duration_ms" min="0" max="2000" class="settings-field-control" value="200">
-              </div>
-            </div>
-          </div>
-
-          <div class="flex flex-wrap gap-3 pt-2">
+          <div class="flex flex-wrap gap-3 pt-4 px-1">
             <button type="submit" id="sgBtnSave" class="btn-primary px-6 py-3 text-white rounded-xl font-bold shadow-warm" data-i18n="content.text.保存样式">保存样式</button>
             <button type="button" id="sgBtnRestoreDefault" class="px-6 py-3 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50" data-i18n="content.text.恢复默认_WeChat">恢复默认 (WeChat)</button>
             <button type="button" id="sgBtnAddPreview" class="px-6 py-3 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50" data-i18n="content.text.添加测试消息">添加测试消息</button>
             <button type="button" id="sgBtnClearPreview" class="px-6 py-3 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50" data-i18n="content.text.清空预览">清空预览</button>
           </div>
-          <p id="sgSaveStatus" class="text-sm text-gray-500" aria-live="polite"></p>
+          <p id="sgSaveStatus" class="text-sm text-gray-500 px-1" aria-live="polite"></p>
         </form>
 
         <div class="style-generator-preview-pane card p-6 space-y-3">

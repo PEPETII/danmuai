@@ -1,6 +1,50 @@
 /* Split — style generator page (W-UI-CSS-SPLIT-001). Rules unchanged. */
 
 /* =========================================================================
+   样式生成器折叠面板（W-SG-ACCORDION-001）
+   ========================================================================= */
+
+.sg-accordion {
+  margin: 0.5rem 0;
+  border: 1px solid var(--border-soft, rgba(93, 87, 87, 0.12));
+  border-radius: var(--radius-md);
+  background: var(--surface-subtle, var(--color-bg-subtle));
+  overflow: hidden;
+}
+
+.sg-accordion .settings-rhythm-accordion-trigger {
+  align-items: flex-start;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  min-height: 2.75rem;
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+  color: var(--text-secondary, var(--color-text-muted));
+}
+
+.sg-accordion .settings-rhythm-accordion-trigger .settings-rhythm-accordion-chevron {
+  margin-top: 0.35rem;
+  flex-shrink: 0;
+}
+
+.sg-accordion .settings-rhythm-accordion-item.is-open .settings-rhythm-accordion-trigger {
+  color: var(--color-primary-hover);
+}
+
+.sg-accordion .settings-rhythm-accordion-trigger-title {
+  color: inherit;
+}
+
+.sg-accordion .settings-rhythm-accordion-trigger-hint {
+  color: var(--text-muted, var(--color-text-dim));
+}
+
+[data-theme="dark"] .sg-accordion {
+  border-color: var(--border-soft, rgba(255, 255, 255, 0.1));
+  background: rgba(0, 0, 0, 0.18);
+}
+
+/* =========================================================================
    样式生成器（W-FP-STYLEGEN-WEB-001）
    - 左侧控制 / 右侧堆积预览
    - 底入、顶推、严格裁剪、左对齐
