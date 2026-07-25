@@ -44,8 +44,6 @@ from typing import TYPE_CHECKING, Callable
 
 
 
-from app.web_api import ai_butler as ai_butler_api
-
 from app.web_api import font_registry as font_registry_api
 
 from app.web_api import providers as providers_api
@@ -99,8 +97,6 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
 
 
     providers_api.register_provider_routes(app)
-
-    ai_butler_api.register_ai_butler_route(app, bridge, check_token)
 
 
 

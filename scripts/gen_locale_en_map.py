@@ -162,7 +162,6 @@ PHRASES: list[tuple[str, str]] = [
      "Multiple checked personas: one random per round; Save active list to apply."),
     ("温馨控制台", "Dashboard"),
     ("人格工坊", "Persona Studio"),
-    ("AI管家", "AI Butler"),
     ("公式化弹幕库", "Formula Danmu Pool"),
     ("桌宠", "Desktop Pet"),
     ("弹幕设置", "Danmu Settings"),

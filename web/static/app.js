@@ -102,7 +102,6 @@ let danmuReadCatalog = null;
 let danmuPoolPagesReady = false;
 let petPageReady = false;
 let styleGeneratorPageReady = false;
-let aiButlerPageReady = false;
 let knowledgePageReady = false;
 
 async function ensureDanmuPoolPages() {
@@ -123,15 +122,6 @@ async function ensurePetPage() {
   if (!petPageReady) {
     mod.initPetPage({ showToast });
     petPageReady = true;
-  }
-  return mod;
-}
-
-async function ensureAiButlerPage() {
-  const mod = await import('./modules/app-ai-butler-page.js');
-  if (!aiButlerPageReady) {
-    mod.initAiButlerPage({ showToast });
-    aiButlerPageReady = true;
   }
   return mod;
 }
@@ -525,11 +515,6 @@ function navigate(page) {
   if (page === 'style-generator') {
     ensureStyleGeneratorPage()
       .then((mod) => mod.loadStyleGeneratorPage())
-      .catch((error) => showToast(error.message, true));
-  }
-  if (page === 'ai-butler') {
-    ensureAiButlerPage()
-      .then((mod) => mod.loadAiButlerPage())
       .catch((error) => showToast(error.message, true));
   }
   if (page === 'knowledge') {

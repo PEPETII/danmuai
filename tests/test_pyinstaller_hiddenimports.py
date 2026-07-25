@@ -61,12 +61,10 @@ def test_spec_lists_live_overlay_and_uninstall(spec_text: str) -> None:
     assert '"app.font_registry"' in spec_text
 
 
-def test_spec_lists_ai_butler_lazy_modules(spec_text: str) -> None:
-    for name in (
-        "app.application.ai_butler_service",
-        "app.web_api.ai_butler",
-    ):
-        assert f'"{name}"' in spec_text, f"DanmuAI.spec must include {name}"
+def test_spec_does_not_include_ai_butler_modules(spec_text: str) -> None:
+    # AI 管家已移除 (W-AIBUTLER-REMOVE-REPLAN-001)
+    assert '"app.application.ai_butler_service"' not in spec_text
+    assert '"app.web_api.ai_butler"' not in spec_text
     # bililive_dm removed (W-BILILIVE-DM-REMOVE-001)
     assert "bililive_dm" not in spec_text
 

@@ -54,7 +54,6 @@ def test_sidebar_shell_structure_and_preserved_ids():
     for page in (
         "overview",
         "persona",
-        "ai-butler",
         "knowledge",
         "danmu-pool",
         "pet",

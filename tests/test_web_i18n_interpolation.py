@@ -13,7 +13,6 @@ I18N_JS = MODULES / "i18n.js"
 
 ALLOWED_MODULES = {
     "app.js",
-    "app-ai-butler-page.js",
     "app-danmu-pool-page.js",
     "app-error-reporting.js",
     "app-live-overlay-panel.js",
@@ -244,11 +243,7 @@ def test_active_dynamic_param_names_match_locale_templates():
 
 
 def test_error_path_interpolation():
-    zh = _load_dynamic("zh")
     en = _load_dynamic("en")
-    assert _interpolate(zh["dynamic.appAiButlerPage.AI_管家请求失败_error"], {"error": "timeout"}) == (
-        "AI 管家请求失败：timeout"
-    )
     assert _interpolate(en["dynamic.transport.无法获取控制台会话_HTTP_res_sta"], {
         "status": "503",
         "detail": "unavailable",

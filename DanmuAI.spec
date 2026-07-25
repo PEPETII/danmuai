@@ -267,7 +267,6 @@ hiddenimports: list[str] = [
     "app.worker_pools",
     # ── app.application.* ────────────────────────────────────────
     "app.application",
-    "app.application.ai_butler_service",
     "app.application.config_service",
     "app.application.danmu_diagnostics",
     "app.application.diagnostic_snapshot",
@@ -308,7 +307,6 @@ hiddenimports: list[str] = [
     "app.providers.registry",
     # ── app.web_api.* ────────────────────────────────────────────
     "app.web_api",
-    "app.web_api.ai_butler",
     "app.web_api.announcements_state",
     "app.web_api.app_update_state",
     "app.web_api.capture_region",

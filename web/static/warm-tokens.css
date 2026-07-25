@@ -5,7 +5,7 @@
  *   base -> layout -> components -> compat
  *   -> feedback -> pages-overview -> settings
  *   -> live-output -> danmu-pool -> live-output-preview
- *   -> pages-stylegen -> ai-butler -> pages (content shell)
+ *   -> pages-stylegen -> pages (content shell)
  *   -> dark
  *
  * Runtime still keeps one stable entry:
@@ -26,6 +26,5 @@
 @import url('/static/warm-tokens-danmu-pool.css');
 @import url('/static/warm-tokens-live-output-preview.css');
 @import url('/static/warm-tokens-pages-stylegen.css');
-@import url('/static/warm-tokens-ai-butler.css');
 @import url('/static/warm-tokens-pages.css?v=20260723-css-split-001');
 @import url('/static/warm-tokens-dark.css');

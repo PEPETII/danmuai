@@ -909,6 +909,36 @@ def test_invoke_main_maps_value_error_and_runtime_error_to_400():
     assert res2.json()["detail"] == "engine not running"
 
 
+# W-AIBUTLER-REMOVE-REPLAN-001：AI 管家路由已删除，预期 404
+
+
+def test_ai_butler_chat_route_returns_404():
+    """旧 POST /api/ai-butler/chat 必须返回 404（路由未注册）。"""
+    from app.web_api.routes import register_web_routes
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    app = FastAPI()
+    bridge = MagicMock()
+
+    def _check_token(authorization: str | None = None) -> None:
+        return None
+
+    register_web_routes(app, bridge, _check_token)
+    client = TestClient(app, raise_server_exceptions=False)
+
+    res = client.post(
+        "/api/ai-butler/chat",
+        json={"message": "hello"},
+        headers={"Authorization": "Bearer any"},
+    )
+    assert res.status_code == 404, (
+        f"expected 404 for removed AI butler route, got {res.status_code}"
+    )
+    # 确认不是兼容桩（路由未注册时 detail 含 "Not Found"）
+    assert "Not Found" in res.json().get("detail", "")
+
+
 def test_invoke_main_unexpected_error_returns_500():
     from app.web_api.routes import register_web_routes
     from fastapi import FastAPI

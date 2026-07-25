@@ -288,7 +288,6 @@ def test_content_pages_f2_semantic_shell():
 
     for page_id in (
         "page-knowledge",
-        "page-ai-butler",
         "page-persona",
         "page-danmu-pool",
         "page-pet",
@@ -299,6 +298,8 @@ def test_content_pages_f2_semantic_shell():
         "page-announcements",
     ):
         assert f'id="{page_id}"' in content
+    # AI 管家已移除 (W-AIBUTLER-REMOVE-REPLAN-001)
+    assert 'id="page-ai-butler"' not in content
 
     assert content.count("ui-page-header") >= 10
     assert content.count("ui-page-header__copy") >= 10
@@ -317,7 +318,6 @@ def test_content_pages_f2_semantic_shell():
         "btnSaveMemeBarrageSettings",
         "btnPetSave",
         "btnSavePersona",
-        "btnAiButlerSend",
         "btnKnowledgeNewPackage",
         "btnFeedbackSubmit",
         "btnLiveOverlayTest",
@@ -331,7 +331,6 @@ def test_content_pages_f2_semantic_shell():
         "memeCollectInterval",
         "poolMinOnScreen",
         "personaSelect",
-        "aiButlerModelSelect",
         "knowledgePackageName",
         "petScale",
     ):
@@ -347,7 +346,6 @@ def test_content_pages_f2_semantic_shell():
         "petEnabled",
         "personaSelect",
         "liveOverlayUrl",
-        "aiButlerMessages",
         "knowledgePackageList",
         "feedbackForm",
         "logView",
@@ -375,4 +373,5 @@ def test_content_pages_f2_semantic_shell():
 
     assert "W-UI-PAGES-CONTENT-001" in pages or "#page-knowledge" in pages
     assert "#page-danmu-pool" in pages
-    assert "#page-ai-butler" in pages
+    # AI 管家已移除 (W-AIBUTLER-REMOVE-REPLAN-001)
+    assert "#page-ai-butler" not in pages

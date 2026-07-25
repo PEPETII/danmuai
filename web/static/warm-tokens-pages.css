@@ -15,7 +15,6 @@
 #page-announcements,
 #page-feedback,
 #page-logs,
-#page-ai-butler,
 #page-knowledge {
   min-width: 0;
 }
@@ -29,7 +28,6 @@
 #page-announcements .ui-page-header,
 #page-feedback .ui-page-header,
 #page-logs .ui-page-header,
-#page-ai-butler .ui-page-header,
 #page-knowledge .ui-page-header {
   margin-bottom: var(--space-8);
 }
@@ -44,7 +42,6 @@
 #page-announcements .card.ui-card:not(.ui-card--interactive):hover,
 #page-feedback .card.ui-card:not(.ui-card--interactive):hover,
 #page-logs .card.ui-card:not(.ui-card--interactive):hover,
-#page-ai-butler .card.ui-card:not(.ui-card--interactive):hover,
 #page-knowledge .card.ui-card:not(.ui-card--interactive):hover {
   transform: none;
 }
@@ -56,8 +53,7 @@
 #page-knowledge .flex.flex-wrap.items-center.gap-3,
 #page-knowledge .flex.flex-wrap.gap-3,
 #page-logs .flex.flex-wrap.gap-3,
-#page-live-output-source .flex.flex-wrap.gap-2,
-#page-ai-butler .flex.flex-wrap.items-end.gap-3 {
+#page-live-output-source .flex.flex-wrap.gap-2 {
   min-width: 0;
 }
 
@@ -69,7 +65,6 @@
 }
 
 #page-knowledge pre,
-#page-ai-butler .ai-butler-messages,
 #page-logs .log-view,
 .meme-source-credit-text,
 .feedback-notice {

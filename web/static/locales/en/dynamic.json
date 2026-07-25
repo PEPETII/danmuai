@@ -1,45 +1,5 @@
 {
   "dynamic": {
-    "appAiButlerPage": {
-      "网络开小差了_请重试": "Network hiccup; please retry",
-      "未配置模型_请先到_弹幕设置_API_与模型": "No model configured; set up in Danmu Settings → API & model first",
-      "凭证缺失_请检查_API_Key_与端点配置": "Credentials missing; check API Key and endpoint settings",
-      "AI_服务返回错误_error_请稍后再": "AI service returned an error ({error}); please try again later",
-      "AI_管家内部错误_请重试": "AI Butler internal error; please retry",
-      "请输入内容后再发送": "Enter content before sending",
-      "AI_管家请求失败_error": "AI Butler request failed: {error}",
-      "未知错误": "Unknown error",
-      "应用设置超时_请重试": "❌ Apply settings timed out, please retry",
-      "配置存储异常_请重启应用": "❌ Config storage error, please restart",
-      "设置保存失败_msg": "❌ Save settings failed: ${msg}",
-      "暂无模型档案_请到_弹幕设置_API_与模": "(no model profiles—add in Danmu Settings → API & model)",
-      "未命名": "Unnamed",
-      "加载失败_请刷新页面重试": "Load failed; refresh the page and retry",
-      "加载模型列表失败": "Failed to load model list",
-      "已切换为默认模型_res_default_m": "Switched to default model: ${res.default_model_id ||",
-      "切换模型失败": "Model switch failed",
-      "switchedDefaultModel": "Switched to default model: {modelId}",
-      "思考中": "Thinking…",
-      "变更预览_共_count_项": "📋 Change preview (${count} items)",
-      "变更预览": "📋 Change preview",
-      "确认执行": "Confirm",
-      "执行异常_err_message_er": "Execution error: ${err.message || err}",
-      "取消": "Cancel",
-      "应用中": "Applying...",
-      "已取消": "Cancelled",
-      "重试": "Retry",
-      "第_i_1_项失败_error_m": "Item ${i + 1} failed: ${error.message || error}",
-      "完成": "Done",
-      "等_successLabels_len": ")} and ${successLabels.length} more",
-      "labelText_已应用": "✅ ${labelText} applied",
-      "changes_为空": "changes is empty",
-      "model_index_非法": "model index invalid",
-      "未知工具_toolName": "Unknown tool: ${toolName}",
-      "我目前可以帮您调整弹幕设置_您可以试试说_把弹幕": "I can answer usage questions or guide you to settings pages",
-      "告诉我你想调整什么设置_例如_把弹幕速度调快": "Ask anything, e.g.「where do I change danmu speed」",
-      "有什么想问的_例如_弹幕速度在哪改": "Ask anything, e.g.「where do I change danmu speed」",
-      "我没听清_请换个说法再试试": "I didn't catch that—please try rephrasing"
-    },
     "appKnowledgePage": {
       "title": "Knowledge Packages",
       "subtitle": "Import game / streamer memes / expression references / live danmu logs; AI structures them into searchable short knowledge.",
@@ -675,7 +635,8 @@
       "小助手已休息": "Assistant is resting",
       "弹幕生成已开启": "Danmu generation started",
       "小助手遇到了一点问题": "Assistant hit a small snag",
-      "无法连接小助手_请确认_DanmuAI_已启动": "Cannot connect; confirm DanmuAI is running"
+      "无法连接小助手_请确认_DanmuAI_已启动": "Cannot connect; confirm DanmuAI is running",
+      "网络开小差了_请重试": "Network hiccup; please retry"
     }
   },
   "settingsHints": {}
