@@ -280,13 +280,6 @@ export async function fillForm(cfg) {
   }
   const emptyAccel = document.getElementById('empty_accel');
   if (emptyAccel) emptyAccel.checked = cfg.empty_accel !== '0';
-  const fpClickThrough = document.getElementById('floating_panel_click_through');
-  if (fpClickThrough) {
-    const v = cfg.floating_panel_click_through;
-    if (v === '0' || v === 'false') fpClickThrough.checked = false;
-    else if (v === '1' || v === 'true') fpClickThrough.checked = true;
-    else fpClickThrough.checked = true;
-  }
   coreDeps.setMicAudioLikelySupported(cfg.mic_audio_likely_supported !== false);
   const micMode = document.getElementById('mic_mode_enabled');
   if (micMode) micMode.checked = cfg.mic_mode_enabled === '1';
