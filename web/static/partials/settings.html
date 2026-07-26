@@ -63,6 +63,13 @@
               </select>
             </div>
             <div>
+              <label class="block text-sm font-semibold mb-2 text-warmText"><svg class="ui-icon field-label-icon" aria-hidden="true"><use href="#i-message"></use></svg>弹幕显示模式</label>
+              <select name="danmu_render_mode" id="danmu_render_mode" class="settings-field-control w-full ui-control ui-select">
+                <option value="scrolling">横向弹幕</option>
+                <option value="floating_panel">从下到上</option>
+              </select>
+            </div>
+            <div>
               <label class="block text-sm font-semibold mb-2 text-warmText"><svg class="ui-icon field-label-icon" aria-hidden="true"><use href="#i-monitor"></use></svg>识图显示器</label>
               <select name="screen_index" id="screen_index" class="settings-field-control w-full ui-control ui-select"></select>
             </div>
@@ -258,13 +265,6 @@
           <h3 class="text-lg font-bold text-warmText flex items-center gap-2">
             <svg class="ui-icon text-warmPink" aria-hidden="true"><use href="#i-message"></use></svg> 弹幕与显示
           </h3>
-          <div class="settings-field">
-            <label for="danmu_render_mode" class="settings-field-label">显示模式</label>
-            <select name="danmu_render_mode" id="danmu_render_mode" class="settings-field-control text-left ui-control ui-select">
-              <option value="scrolling">横向弹幕</option>
-              <option value="floating_panel">从下到上</option>
-            </select>
-          </div>
           <p id="petBarrageSettingsLockHint" class="settings-section-hint hidden">桌宠弹幕模式已开启，请先在桌宠界面关闭后再修改。</p>
 
           <div class="settings-rhythm-accordion" data-settings-rhythm-accordion>

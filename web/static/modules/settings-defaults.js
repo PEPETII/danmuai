@@ -62,7 +62,7 @@ export const CONFIG_FIELDS = [
 
 export const SETTINGS_RESTORE_GROUPS = {
   api: [
-    'api_endpoint', 'api_mode', 'screen_index', 'model', 'temperature', 'max_tokens',
+    'api_endpoint', 'api_mode', 'screen_index', 'model', 'temperature', 'max_tokens', 'danmu_render_mode',
   ],
   mic: [
     'mic_window_sec', 'mic_input_device_id', 'mic_api_endpoint', 'mic_api_mode', 'mic_model',
@@ -72,7 +72,7 @@ export const SETTINGS_RESTORE_GROUPS = {
     'normal_recognition_interval_sec', 'normal_reply_count', 'danmu_speed', 'danmu_lines',
     'danmu_max_chars', 'opacity', 'dedup_threshold', 'layout_mode', 'hotkey',
     'eviction_mode', 'danmu_pending_entry_cap', 'danmu_track_retention_cap', 'reply_queue_max_items',
-    'danmu_render_mode', 'floating_panel_width', 'floating_panel_max_items',
+    'floating_panel_width', 'floating_panel_max_items',
     'floating_panel_speed', 'floating_panel_x_offset', 'floating_panel_y_offset',
     'floating_panel_opacity', 'floating_panel_font_size', 'floating_panel_click_through',
   ],
