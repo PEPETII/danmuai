@@ -235,22 +235,34 @@
             <div id="petDisplayAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="petDisplayAccordionTrigger" hidden>
               <div class="settings-rhythm-accordion-fields">
                 <div class="settings-rhythm-accordion-field">
-                  <label for="petScale" class="settings-field-label">大小倍率</label>
+                  <div class="flex-1 min-w-0">
+                    <label for="petScale" class="settings-field-label">大小倍率</label>
+                    <p class="text-xs text-gray-500 mt-1">桌宠显示大小倍率（0.5–2.0）。1 为默认尺寸。</p>
+                  </div>
                   <input type="number" id="petScale" min="0.5" max="2" step="0.1" value="0.5" class="settings-field-control ui-control ui-input">
                 </div>
                 <div class="settings-rhythm-accordion-field">
-                  <label for="petOpacity" class="settings-field-label">透明度</label>
+                  <div class="flex-1 min-w-0">
+                    <label for="petOpacity" class="settings-field-label">透明度</label>
+                    <p class="text-xs text-gray-500 mt-1">桌宠窗口不透明度（0.2–1.0）。1 为完全不透明。</p>
+                  </div>
                   <input type="number" id="petOpacity" min="0.2" max="1" step="0.1" value="1" class="settings-field-control ui-control ui-input">
                 </div>
                 <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--toggle">
-                  <span class="settings-field-label">窗口置顶</span>
+                  <div class="flex-1 min-w-0">
+                    <span class="settings-field-label">窗口置顶</span>
+                    <p class="text-xs text-gray-500 mt-1">开启后桌宠窗口始终置顶，不会被其它窗口遮挡。</p>
+                  </div>
                   <label class="toggle-switch">
                     <input type="checkbox" id="petAlwaysOnTop" role="switch" checked>
                     <span aria-hidden="true"></span>
                   </label>
                 </div>
                 <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--toggle">
-                  <span class="settings-field-label">鼠标穿透（开启后不可拖动）</span>
+                  <div class="flex-1 min-w-0">
+                    <span class="settings-field-label">鼠标穿透（开启后不可拖动）</span>
+                    <p class="text-xs text-gray-500 mt-1">开启后鼠标可穿透桌宠，但将无法拖动桌宠位置。</p>
+                  </div>
                   <label class="toggle-switch">
                     <input type="checkbox" id="petClickThrough" role="switch">
                     <span aria-hidden="true"></span>
@@ -269,22 +281,34 @@
             <div id="petCommandAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="petCommandAccordionTrigger" hidden>
               <div class="settings-rhythm-accordion-fields">
                 <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--toggle">
-                  <span class="settings-field-label">双击桌宠弹出指令框</span>
+                  <div class="flex-1 min-w-0">
+                    <span class="settings-field-label">双击桌宠弹出指令框</span>
+                    <p class="text-xs text-gray-500 mt-1">开启后双击桌宠可弹出弹幕指令输入框。</p>
+                  </div>
                   <label class="toggle-switch">
                     <input type="checkbox" id="petCommandBoxEnabled" role="switch" checked>
                     <span aria-hidden="true"></span>
                   </label>
                 </div>
                 <div class="settings-rhythm-accordion-field">
-                  <label for="petCommandTtl" class="settings-field-label">指令有效期（秒）</label>
+                  <div class="flex-1 min-w-0">
+                    <label for="petCommandTtl" class="settings-field-label">指令有效期（秒）</label>
+                    <p class="text-xs text-gray-500 mt-1">指令提交后在此秒数内有效（5–300 秒），超时自动失效。</p>
+                  </div>
                   <input type="number" id="petCommandTtl" min="5" max="300" value="30" class="settings-field-control ui-control ui-input">
                 </div>
                 <div class="settings-rhythm-accordion-field">
-                  <label for="petCommandApplyCount" class="settings-field-label">生效次数</label>
+                  <div class="flex-1 min-w-0">
+                    <label for="petCommandApplyCount" class="settings-field-label">生效次数</label>
+                    <p class="text-xs text-gray-500 mt-1">一条指令最多影响几次截图弹幕生成（1–5 次）。</p>
+                  </div>
                   <input type="number" id="petCommandApplyCount" min="1" max="5" value="1" class="settings-field-control ui-control ui-input">
                 </div>
                 <div class="settings-rhythm-accordion-field">
-                  <label for="petCommandInput" class="settings-field-label">Web 调试指令</label>
+                  <div class="flex-1 min-w-0">
+                    <label for="petCommandInput" class="settings-field-label">Web 调试指令</label>
+                    <p class="text-xs text-gray-500 mt-1">在 Web 页调试注入弹幕指令；不会立即请求 AI，而是并入下一次正常截图生成。</p>
+                  </div>
                   <div class="settings-rhythm-accordion-control-group">
                     <input type="text" id="petCommandInput" maxlength="200" data-i18n-placeholder="content.placeholder.例如_接下来弹幕偏搞笑一点" placeholder="例如：接下来弹幕偏搞笑一点" class="settings-field-control ui-control ui-input">
                     <button type="button" id="btnPetCommandSubmit" class="btn-primary px-5 py-2 text-white rounded-xl font-bold shadow-warm ui-button ui-button--primary ui-button--md">提交指令</button>
@@ -312,8 +336,14 @@
               </div>
               <p id="petAssetErrorText" class="hidden text-sm font-semibold text-red-600 mt-2 min-w-0 break-words"></p>
               <div class="flex flex-wrap gap-3 mt-3">
-                <button type="button" id="btnPetImportFolder" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm ui-button ui-button--primary ui-button--md">导入文件夹</button>
-                <button type="button" id="btnPetResetAsset" class="px-6 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--md">恢复默认桌宠</button>
+                <div>
+                  <button type="button" id="btnPetImportFolder" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm ui-button ui-button--primary ui-button--md">导入文件夹</button>
+                  <p class="text-xs text-gray-500 mt-1">从本地文件夹导入桌宠素材。目录需包含 pet.json 与 spritesheet.webp 或 spritesheet.png。</p>
+                </div>
+                <div>
+                  <button type="button" id="btnPetResetAsset" class="px-6 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--md">恢复默认桌宠</button>
+                  <p class="text-xs text-gray-500 mt-1">恢复为内置默认桌宠，不会删除你原来的本地素材文件。</p>
+                </div>
               </div>
             </div>
           </section>
@@ -348,30 +378,34 @@
             <p class="text-xs text-gray-500 mt-1">开启后，弹幕上屏为「人格名称：弹幕内容」</p>
           </div>
           <div>
-            <div class="field-label-row flex items-center gap-1 mb-4">
-              <span class="block text-sm font-semibold mb-2 text-warmText flex-1 min-w-0 mb-0" id="hintPersonaActiveTitle">激活人格（运行时随机）</span>
-            </div>
+            <p class="text-sm font-semibold text-warmText" id="hintPersonaActiveTitle">激活人格（运行时随机）</p>
+            <p class="text-xs text-gray-500 mt-1 mb-4">勾选多个人格后，运行时每轮随机选一个生成弹幕；点「保存激活列表」生效。</p>
             <div id="personaActiveList" class="grid grid-cols-1 sm:grid-cols-2 gap-2"></div>
             <button type="button" id="btnSavePersonaActive" class="mt-3 px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold ui-button ui-button--secondary ui-button--sm">保存激活列表</button>
           </div>
         </div>
 
         <div id="personaTab-manage" class="settings-tab-panel space-y-4" data-persona-panel="manage" role="tabpanel" hidden>
-          <div class="flex flex-wrap gap-3 items-end">
-            <div class="flex-1 min-w-[200px]">
-              <label for="personaSelect" class="block text-sm font-semibold mb-2 text-warmText">选择人格</label>
-              <select id="personaSelect" class="w-full px-4 py-3 bg-cream rounded-xl text-warmText ui-control ui-select"></select>
+          <div>
+            <div class="flex flex-wrap gap-3 items-end">
+              <div class="flex-1 min-w-[200px]">
+                <label for="personaSelect" class="block text-sm font-semibold mb-2 text-warmText">选择人格</label>
+                <p class="text-xs text-gray-500 mb-2">选择要编辑的人格模板。内置人格可覆盖保存，也可点「恢复默认」还原。</p>
+                <select id="personaSelect" class="w-full px-4 py-3 bg-cream rounded-xl text-warmText ui-control ui-select"></select>
+              </div>
+              <button type="button" id="btnNewPersona" class="px-4 py-3 bg-white border border-gray-200 rounded-xl font-semibold text-warmText ui-button ui-button--secondary ui-button--md">新建人格</button>
+              <button type="button" id="btnRenamePersona" class="px-4 py-3 bg-white border border-gray-200 rounded-xl font-semibold text-warmText ui-button ui-button--secondary ui-button--md">更名</button>
+              <button type="button" id="btnDeletePersona" class="px-4 py-3 bg-red-50 border border-red-200 rounded-xl font-semibold text-red-600 ui-button ui-button--secondary ui-button--md">删除</button>
             </div>
-            <button type="button" id="btnNewPersona" class="px-4 py-3 bg-white border border-gray-200 rounded-xl font-semibold text-warmText ui-button ui-button--secondary ui-button--md">新建人格</button>
-            <button type="button" id="btnRenamePersona" class="px-4 py-3 bg-white border border-gray-200 rounded-xl font-semibold text-warmText ui-button ui-button--secondary ui-button--md">更名</button>
-            <button type="button" id="btnDeletePersona" class="px-4 py-3 bg-red-50 border border-red-200 rounded-xl font-semibold text-red-600 ui-button ui-button--secondary ui-button--md">删除</button>
           </div>
           <div>
             <label for="personaContract" class="block text-sm font-semibold mb-2 text-warmText">输出契约（只读）</label>
+            <p class="text-xs text-gray-500 mb-2">只读的 JSON 输出格式要求。每次生成条数与弹幕设置「弹幕显示」中的条数同步；改条数请去弹幕设置。</p>
             <textarea id="personaContract" readonly rows="4" class="w-full px-4 py-3 bg-cream rounded-xl text-sm text-gray-500 ui-control ui-textarea"></textarea>
           </div>
           <div>
             <label for="personaSystemCustom" class="block text-sm font-semibold mb-2 text-warmText">系统提示补充</label>
+            <p class="text-xs text-gray-500 mb-2">追加到该人格系统提示词的风格与人格要求；点「保存人格」后生效。</p>
             <textarea id="personaSystemCustom" rows="4" class="w-full px-4 py-3 bg-cream rounded-xl text-warmText ui-control ui-textarea" data-i18n-placeholder="content.placeholder.例如_语气温柔治愈_像闺蜜一样吐槽主播操作_偶尔玩梗" placeholder="例如：语气温柔治愈，像闺蜜一样吐槽主播操作，偶尔玩梗"></textarea>
           </div>
           <div class="flex flex-wrap gap-3">

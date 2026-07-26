@@ -108,37 +108,9 @@ const OVERVIEW_FIELD_TIPS = {
 };
 
 const PERSONA_FIELD_TIPS = {
-  personaSelect:
-    'dynamic.settingsHints.选择要编辑的人格模板_内置人格可覆盖保存_也可点',
-  personaContract:
-    'dynamic.settingsHints.只读的_JSON_输出格式要求_每次生成条数与弹',
-  personaSystemCustom:
-    'dynamic.settingsHints.追加到该人格系统提示词的风格与人格要求_点_保存',
 };
 
 const PET_FIELD_TIPS = {
-  petEnabled:
-    'dynamic.settingsHints.开启后桌宠显示在桌面_临时隐藏请使用桌宠右键菜单',
-  petScale:
-    'dynamic.settingsHints.桌宠显示大小倍率_0_5_2_0_1_为默认尺',
-  petOpacity:
-    'dynamic.settingsHints.桌宠窗口不透明度_0_2_1_0_1_为完全不',
-  petAlwaysOnTop:
-    'dynamic.settingsHints.开启后桌宠窗口始终置顶_不会被其它窗口遮挡',
-  petClickThrough:
-    'dynamic.settingsHints.开启后鼠标可穿透桌宠_但将无法拖动桌宠位置',
-  petCommandBoxEnabled:
-    'dynamic.settingsHints.开启后双击桌宠可弹出弹幕指令输入框',
-  petCommandTtl:
-    'dynamic.settingsHints.指令提交后在此秒数内有效_5_300_秒_超时',
-  petCommandApplyCount:
-    'dynamic.settingsHints.一条指令最多影响几次截图弹幕生成_1_5_次',
-  petCommandInput:
-    'dynamic.settingsHints.在_Web_页调试注入弹幕指令_不会立即请求_A',
-  btnPetImportFolder:
-    'dynamic.settingsHints.从本地文件夹导入桌宠素材_目录需包含_pet_j',
-  btnPetResetAsset:
-    'dynamic.settingsHints.恢复为内置默认桌宠_不会删除你原来的本地素材文件',
 };
 
 const SETTINGS_HEADING_TIPS = {
@@ -147,15 +119,11 @@ const SETTINGS_HEADING_TIPS = {
 };
 
 const CONTENT_PAGE_SECTION_TIPS = {
-  hintPersonaActiveTitle:
-    'dynamic.settingsHints.勾选多个人格后_运行时每轮随机选一个生成弹幕_点',
 };
 
 const SETTINGS_CONTROL_HINT_IDS = new Set(['btnMicTest', 'btnMicTestSend', 'btnProbe']);
 
 const CONTENT_PAGE_CONTROL_HINT_IDS = new Set([
-  'btnPetImportFolder',
-  'btnPetResetAsset',
 ]);
 
 function createFieldHintWrap(tipText, tipId) {
