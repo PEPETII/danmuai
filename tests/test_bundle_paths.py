@@ -417,18 +417,15 @@ def test_pet_page_in_index_html():
 
 
 def test_style_generator_page_in_index_html():
-    """W-FP-STYLEGEN-WEB-001: 构建产物含样式生成器页且无重复。"""
+    """W-UI-SETTINGS-STYLEGEN-TAB-001: 构建产物只含一个样式生成器设置 Tab。"""
     root = project_root()
     html = (root / "web" / "static" / "index.html").read_text(encoding="utf-8")
-    partial = (root / "web" / "static" / "partials" / "style-generator.html").read_text(
-        encoding="utf-8"
-    )
-    assert 'data-page="style-generator"' in html
-    assert 'id="page-style-generator"' in html
-    assert html.count('id="page-style-generator"') == 1
-    assert 'id="styleGeneratorForm"' in html
-    assert 'id="styleGeneratorPreview"' in html
-    assert 'id="page-style-generator"' in partial
+    assert 'data-settings-tab="stylegen"' in html
+    assert 'id="settingsTab-stylegen"' in html
+    assert 'id="page-style-generator"' not in html
+    assert html.count('id="styleGeneratorForm"') == 1
+    assert html.count('id="styleGeneratorPreview"') == 1
+    assert html.count('<form') == html.count('</form>')
     app_js = (root / "web" / "static" / "app.js").read_text(encoding="utf-8")
     assert "ensureStyleGeneratorPage" in app_js
     assert "app-style-generator-page.js" in app_js

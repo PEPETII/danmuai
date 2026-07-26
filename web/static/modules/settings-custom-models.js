@@ -33,12 +33,40 @@ export function configureSettingsCustomModels(deps) {
   customModelDeps = { ...customModelDeps, ...deps };
 }
 
+/** 激活人格实际会用到的 model_id 集合（显式绑定 + 未绑定则用全局默认）。 */
+function collectActivePersonaModelIds(personaeItems, globalDefaultModelId) {
+  const used = new Set();
+  const globalId = (globalDefaultModelId || '').trim();
+  const items = Array.isArray(personaeItems) ? personaeItems : [];
+  for (const item of items) {
+    if (!item?.active) continue;
+    const bound = (item.model_id || '').trim();
+    if (bound) used.add(bound);
+    else if (globalId) used.add(globalId);
+  }
+  return used;
+}
+
+function profileUsesAnyModelId(model, usedModelIds) {
+  if (!usedModelIds || usedModelIds.size === 0) return false;
+  const def = (model.default_model_id || '').trim();
+  if (def && usedModelIds.has(def)) return true;
+  const ids = Array.isArray(model.model_ids) ? model.model_ids : [];
+  return ids.some((id) => {
+    const mid = String(id || '').trim();
+    return mid && usedModelIds.has(mid);
+  });
+}
+
 export async function loadCustomModels() {
   if (!modelModalBindingsWired) {
     modelModalBindingsWired = true;
     try { initModelModalBindings(); } catch (_e) { /* DOM not ready yet */ }
   }
-  const data = await apiFetch('/api/custom-models');
+  const [data, personaeData] = await Promise.all([
+    apiFetch('/api/custom-models'),
+    apiFetch('/api/personae').catch(() => ({ items: [] })),
+  ]);
   cachedCustomModels = data.items || [];
   const list = document.getElementById('customModelsList');
   if (!list) return;
@@ -47,9 +75,14 @@ export async function loadCustomModels() {
     list.innerHTML = t('dynamic.settingsCustomModels.p_class_text_sm_text_g');
     return;
   }
+  const usedByActivePersonae = collectActivePersonaModelIds(
+    personaeData?.items,
+    data.default_model_id,
+  );
   data.items.forEach((model, index) => {
     const row = document.createElement('div');
     row.className = 'custom-model-row flex flex-wrap items-center gap-3 p-3 bg-cream rounded-xl text-sm';
+    const inUseByPersona = profileUsesAnyModelId(model, usedByActivePersonae);
     const isDefault = model.default_model_id === data.default_model_id;
 
     // 列 1：模型名 + provider chip
@@ -97,38 +130,17 @@ export async function loadCustomModels() {
       colModelId.appendChild(extraSpan);
     }
 
-    // 列 3：使用下拉（select：当前 default 选中；切换 → POST /api/custom-models/{index}/default）
-    const colDefault = document.createElement('div');
-    colDefault.className = 'custom-model-default-col';
-    const defaultSelect = document.createElement('select');
-    defaultSelect.className = 'px-2 py-1 bg-white border border-gray-200 rounded-lg text-xs';
-    defaultSelect.setAttribute('aria-label', t('dynamic.settingsCustomModels.使用'));
-    if (isDefault) {
-      const opt = document.createElement('option');
-      opt.value = '1';
-      opt.selected = true;
-      opt.textContent = t('dynamic.settingsCustomModels.使用_2');
-      defaultSelect.appendChild(opt);
-      defaultSelect.disabled = true;
-    } else {
-      const placeholder = document.createElement('option');
-      placeholder.value = '';
-      placeholder.textContent = t('dynamic.settingsCustomModels.不使用');
-      defaultSelect.appendChild(placeholder);
-      const setOpt = document.createElement('option');
-      setOpt.value = 'set';
-      setOpt.textContent = t('dynamic.settingsCustomModels.设为使用');
-      defaultSelect.appendChild(setOpt);
-      defaultSelect.addEventListener('change', async () => {
-        if (defaultSelect.value === 'set') {
-          await setProfileAsDefault(index, model);
-        }
-        defaultSelect.value = '';
-      });
+    // 列 3：全局默认档案或有激活人格正在使用时显示非交互「使用中」徽章
+    const colStatus = document.createElement('div');
+    colStatus.className = 'custom-model-status-col';
+    if (isDefault || inUseByPersona) {
+      const badge = document.createElement('span');
+      badge.className = 'custom-model-in-use-badge px-2 py-0.5 rounded-full bg-softPeach text-warmText text-xs font-bold';
+      badge.textContent = t('dynamic.settingsCustomModels.使用_2');
+      colStatus.appendChild(badge);
     }
-    colDefault.appendChild(defaultSelect);
 
-    // 列 4：操作按钮组（编辑 / 删除 / 设默认）
+    // 列 4：操作按钮组（编辑 / 删除）
     const colActions = document.createElement('div');
     colActions.className = 'custom-model-actions flex items-center gap-2';
     const editBtn = document.createElement('button');
@@ -143,37 +155,13 @@ export async function loadCustomModels() {
     delBtn.onclick = () => openDeleteModelConfirm(model, index);
     colActions.appendChild(editBtn);
     colActions.appendChild(delBtn);
-    if (!isDefault) {
-      const defBtn = document.createElement('button');
-      defBtn.type = 'button';
-      defBtn.className = 'px-3 py-1 border border-gray-200 rounded-lg text-xs';
-      defBtn.textContent = t('dynamic.settingsCustomModels.设默认');
-      defBtn.onclick = async () => { await setProfileAsDefault(index, model); };
-      colActions.appendChild(defBtn);
-    }
 
     row.appendChild(colName);
     row.appendChild(colModelId);
-    row.appendChild(colDefault);
+    row.appendChild(colStatus);
     row.appendChild(colActions);
     list.appendChild(row);
   });
-}
-
-/** W-SETTINGS-RESTRUCT-A-006：将指定 profile 设为系统默认（列 3 下拉 / 列 4 设默认按钮共用）。 */
-async function setProfileAsDefault(index, model) {
-  const res = await apiFetch(`/api/custom-models/${index}/default`, { method: 'POST' });
-  const modelEl = document.getElementById('model');
-  if (modelEl && res.default_model_id) {
-    modelEl.value = res.default_model_id;
-    customModelDeps.syncVisionModelPickerFromForm(res.default_model_id);
-  }
-  const cfg = await customModelDeps.reloadConfigFromServer();
-  customModelDeps.updateModelActiveSourceBanner(cfg);
-  customModelDeps.showToast(t('dynamic.settingsCustomModels.已设为默认模型_res_default_mo', {
-    modelId: res.default_model_id || model.modelId,
-  }));
-  loadCustomModels();
 }
 
 import { activateFocusTrap, deactivateFocusTrap } from './modal-focus-trap.js';

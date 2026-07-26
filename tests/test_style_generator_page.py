@@ -1,4 +1,4 @@
-"""W-FP-STYLEGEN-WEB-001: 样式生成器页 partial / 构建产物 / 模块契约静态检查。"""
+"""W-UI-SETTINGS-STYLEGEN-TAB-001: 样式生成器设置 Tab / 构建产物契约检查。"""
 
 from __future__ import annotations
 
@@ -16,19 +16,22 @@ def _static() -> Path:
     return _root() / "web" / "static"
 
 
-def test_style_generator_partial_exists_and_has_page_id():
+def test_style_generator_partial_is_settings_tab_fragment():
     partial = _static() / "partials" / "style-generator.html"
     assert partial.is_file()
     text = partial.read_text(encoding="utf-8")
-    assert 'id="page-style-generator"' in text
+    assert 'id="settingsTab-stylegen"' in text
+    assert 'data-settings-panel="stylegen"' in text
     assert 'id="styleGeneratorForm"' in text
     assert 'id="styleGeneratorPreview"' in text
     assert 'id="styleGeneratorPreviewStack"' in text
-    assert text.count('id="page-style-generator"') == 1
+    assert 'id="page-style-generator"' not in text
+    settings = (_static() / "partials" / "settings.html").read_text(encoding="utf-8")
+    assert settings.count("{{style_generator}}") == 1
 
 
 def test_style_generator_form_names_match_contract_keys():
-    text = (_static() / "partials" / "style-generator.html").read_text(encoding="utf-8")
+    text = (_static() / "index.html").read_text(encoding="utf-8")
     for key in STYLE_FIELD_KEYS:
         assert f'name="{key}"' in text, f"missing form name for {key}"
     # 预设应用键中的基础字体/不透明度也必须可编辑
@@ -49,7 +52,7 @@ def test_style_generator_form_names_match_contract_keys():
 
 def test_style_generator_color_fields_use_picker_plus_hex():
     """颜色字段应为 type=color 色盘 + hex 高级输入，而非仅文本框。"""
-    text = (_static() / "partials" / "style-generator.html").read_text(encoding="utf-8")
+    text = (_static() / "index.html").read_text(encoding="utf-8")
     mod = (_static() / "modules" / "app-style-generator-page.js").read_text(encoding="utf-8")
     css = (_static() / "warm-tokens-pages-stylegen.css").read_text(encoding="utf-8")
 
@@ -76,26 +79,25 @@ def test_style_generator_color_fields_use_picker_plus_hex():
     assert "onSingleColorPickerInput" in mod
 
 
-def test_sidebar_has_style_generator_nav():
+def test_sidebar_routes_style_generator_into_settings_tab():
     sidebar = (_static() / "partials" / "sidebar.html").read_text(encoding="utf-8")
-    assert 'data-page="style-generator"' in sidebar
-    assert 'href="#style-generator"' in sidebar
-    assert 'data-i18n="nav.styleGenerator"' in sidebar
+    assert 'data-page="style-generator"' not in sidebar
+    assert 'href="#style-generator"' not in sidebar
 
 
-def test_build_registers_style_generator_partial():
+def test_build_registers_style_generator_fragment():
     build = (_static() / "build_index_html.py").read_text(encoding="utf-8")
     template = (_static() / "index.template.html").read_text(encoding="utf-8")
     assert '"{{style_generator}}"' in build or "'{{style_generator}}'" in build
     assert "style-generator.html" in build
-    assert "{{style_generator}}" in template
+    assert "{{style_generator}}" not in template
 
 
-def test_built_index_html_contains_style_generator_once():
+def test_built_index_html_contains_style_generator_tab_once():
     html = (_static() / "index.html").read_text(encoding="utf-8")
-    assert 'data-page="style-generator"' in html
-    assert 'id="page-style-generator"' in html
-    assert html.count('id="page-style-generator"') == 1
+    assert 'data-settings-tab="stylegen"' in html
+    assert 'id="settingsTab-stylegen"' in html
+    assert 'id="page-style-generator"' not in html
     assert html.count('id="styleGeneratorForm"') == 1
     assert html.count('id="styleGeneratorPreview"') == 1
     assert 'name="floating_panel_style_preset"' in html

@@ -578,7 +578,7 @@ def test_format_delete_model_message_python_equivalent():
 #   5. settings.js 给旧字段 wrapper 同步 hidden=true（DOM 属性双保险）
 #   6. settings-custom-models.js 列表行重排 4 列结构
 #   7. "AI 模型" 标题 + "+ 添加模型" 按钮（btnAddCustomModel）→ openModelModal(-1)
-#   8. 系统默认下拉调 POST /api/custom-models/{index}/default
+#   8. 列表行含 custom-model-status-col + custom-model-in-use-badge（列 3：使用中状态徽章）
 # ---------------------------------------------------------------------------
 
 
@@ -638,21 +638,25 @@ def test_settings_js_sets_hidden_on_legacy_field_wrappers():
         assert f"'{field_id}'" in src
 
 
-def test_settings_custom_models_js_has_4_column_row_structure():
-    """W-SETTINGS-RESTRUCT-A-006：列表行重排 4 列（模型名+provider / 默认 modelId+数组长度 / 系统默认下拉 / 操作按钮组）。"""
+def test_settings_custom_models_js_has_row_structure_without_default_controls():
+    """W-UI-MODEL-DEFAULT-CONTROLS-REMOVE-001：列表保留名称/modelId/使用中徽章/编辑删除。"""
     src = SETTINGS_CUSTOM_MODELS_JS.read_text(encoding="utf-8")
-    # 行容器 class
     assert "custom-model-row" in src
-    # 列 1：模型名 + provider chip
     assert "custom-model-provider-chip" in src
-    # 列 2：默认 modelId + 数组长度（+N）
     assert "custom-model-id-col" in src
     assert "(+${extra})" in src
-    # 列 3：系统默认下拉
-    assert "custom-model-default-col" in src
-    assert "设为系统默认" in src
-    # 列 4：操作按钮组
+    assert "custom-model-status-col" in src
+    assert "custom-model-in-use-badge" in src
     assert "custom-model-actions" in src
+    assert "collectActivePersonaModelIds" in src
+    assert "profileUsesAnyModelId" in src
+    assert "/api/personae" in src
+    assert "inUseByPersona" in src
+    assert "custom-model-default-col" not in src
+    assert "setProfileAsDefault" not in src
+    assert "设为使用" not in src
+    assert "设默认" not in src
+    assert "/api/custom-models/${index}/default" not in src
 
 
 def test_add_custom_model_button_wired_to_open_model_modal():
@@ -667,15 +671,6 @@ def test_settings_html_has_add_custom_model_button_and_ai_models_title():
     html = SETTINGS_HTML.read_text(encoding="utf-8")
     assert "AI 模型" in html
     assert 'id="btnAddCustomModel"' in html
-
-
-def test_default_select_calls_post_default_api():
-    """W-SETTINGS-RESTRUCT-A-006：系统默认下拉 / 设默认按钮调 POST /api/custom-models/{index}/default。"""
-    src = SETTINGS_CUSTOM_MODELS_JS.read_text(encoding="utf-8")
-    assert "/api/custom-models/${index}/default" in src
-    assert "method: 'POST'" in src
-    # 共用 setProfileAsDefault helper
-    assert "async function setProfileAsDefault(index, model)" in src
 
 
 def test_edit_button_still_calls_open_model_modal():

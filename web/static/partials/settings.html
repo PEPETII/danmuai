@@ -24,7 +24,7 @@
         </div>
       </header>
 
-      <!-- 设置 tab 列表：api / mic / danmu-read / danmu / capture / font -->
+      <!-- 设置 tab 列表：api / mic / danmu-read / danmu / capture / font / stylegen -->
       <form id="settingsForm" class="card p-8 space-y-0">
         <div class="settings-tabs-bar">
           <div class="settings-tabs" role="tablist" data-i18n-aria-label="settings.aria.弹幕设置分类" aria-label="弹幕设置分类">
@@ -38,6 +38,7 @@
             <!-- tab: AI识图相关 — 鼠标框选子区域 + 压缩质量/最大宽度（POST /api/capture-region） -->
             <button type="button" role="tab" class="settings-tab" data-settings-tab="capture" aria-selected="false" data-i18n="settings.text.AI识图相关">AI识图相关</button>
             <button type="button" role="tab" class="settings-tab" data-settings-tab="font" aria-selected="false" data-i18n="settings.text.字体设置">字体设置</button>
+            <button type="button" id="settingsTabStylegen" role="tab" class="settings-tab" data-settings-tab="stylegen" aria-selected="false" data-i18n="content.text.样式生成器">样式生成器</button>
           </div>
 
         </div>
@@ -257,7 +258,6 @@
           <h3 class="text-lg font-bold text-warmText flex items-center gap-2">
             <svg class="ui-icon text-warmPink" aria-hidden="true"><use href="#i-message"></use></svg> 弹幕与显示
           </h3>
-          <p class="settings-section-title">弹幕显示模式</p>
           <div class="settings-field">
             <label for="danmu_render_mode" class="settings-field-label">显示模式</label>
             <select name="danmu_render_mode" id="danmu_render_mode" class="settings-field-control text-left ui-control ui-select">
@@ -367,6 +367,27 @@
                 </div>
               </div>
             </section>
+          </div>
+          <div class="settings-section space-y-3">
+            <p class="settings-section-title" data-i18n="settings.text.样式预览">样式预览</p>
+            <p class="settings-section-hint" data-i18n="settings.text.根据当前表单值实时预览弹幕效果_不会保存或发送到_overlay_轨道带可视化反映轨道行数与布局">
+              根据当前表单值实时预览弹幕效果，不会保存或发送到 overlay。轨道带可视化反映「轨道行数」与「布局」对应的实际可绘制范围与安全边距。
+            </p>
+            <div id="danmuStylePreview" class="danmu-style-preview">
+              <div id="danmuPreviewScrolling" class="danmu-preview-scrolling">
+                <div id="danmuTrackBands" class="danmu-track-bands hidden"></div>
+                <div class="danmu-preview-track" id="danmuPreviewTrack"></div>
+              </div>
+              <div id="danmuPreviewFloating" class="danmu-preview-floating hidden">
+                <div class="sg-settings-floating-entry p-4 space-y-3 text-left">
+                  <p class="text-sm font-semibold text-white" data-i18n="settings.text.从下到上样式请使用样式生成器">从下到上样式请使用样式生成器</p>
+                  <p class="text-xs text-white/80" data-i18n="settings.text.旧简化浮动预览已停用_完整堆积_卡片气泡_透明度与动画请在样式生成器中编辑与预览">
+                    旧简化浮动预览已停用。完整堆积、卡片/气泡、透明度与动画请在样式生成器中编辑与预览。
+                  </p>
+                  <a href="#style-generator" id="btnOpenStyleGeneratorFromSettings" class="inline-flex items-center px-4 py-2 rounded-xl bg-softPeach text-warmText font-semibold text-sm shadow-warm hover:opacity-90" data-page-link="style-generator" data-i18n="settings.text.打开样式生成器">打开样式生成器</a>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
         <!-- AI识图相关：识图区域 + 识图清晰度（原 capture / rhythm 合并） -->
@@ -551,27 +572,6 @@
               </div>
             </section>
           </div>
-          <div class="settings-section space-y-3">
-            <p class="settings-section-title" data-i18n="settings.text.样式预览">样式预览</p>
-            <p class="settings-section-hint" data-i18n="settings.text.根据当前表单值实时预览弹幕效果_不会保存或发送到_overlay_轨道带可视化反映轨道行数与布局">
-              根据当前表单值实时预览弹幕效果，不会保存或发送到 overlay。轨道带可视化反映「轨道行数」与「布局」对应的实际可绘制范围与安全边距。
-            </p>
-            <div id="danmuStylePreview" class="danmu-style-preview">
-              <div id="danmuPreviewScrolling" class="danmu-preview-scrolling">
-                <div id="danmuTrackBands" class="danmu-track-bands hidden"></div>
-                <div class="danmu-preview-track" id="danmuPreviewTrack"></div>
-              </div>
-              <div id="danmuPreviewFloating" class="danmu-preview-floating hidden">
-                <div class="sg-settings-floating-entry p-4 space-y-3 text-left">
-                  <p class="text-sm font-semibold text-white" data-i18n="settings.text.从下到上样式请使用样式生成器">从下到上样式请使用样式生成器</p>
-                  <p class="text-xs text-white/80" data-i18n="settings.text.旧简化浮动预览已停用_完整堆积_卡片气泡_透明度与动画请在样式生成器中编辑与预览">
-                    旧简化浮动预览已停用。完整堆积、卡片/气泡、透明度与动画请在样式生成器中编辑与预览。
-                  </p>
-                  <a href="#style-generator" id="btnOpenStyleGeneratorFromSettings" class="inline-flex items-center px-4 py-2 rounded-xl bg-softPeach text-warmText font-semibold text-sm shadow-warm hover:opacity-90" data-page-link="style-generator" data-i18n="settings.text.打开样式生成器">打开样式生成器</a>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
         </div>
         <div class="settings-form-footer flex flex-wrap justify-end gap-4">
@@ -586,6 +586,7 @@
           </button>
         </div>
       </form>
+      {{style_generator}}
     </section>
 
     <!-- ========== 区域：公式化弹幕库 ========== -->

@@ -102,6 +102,7 @@ let danmuReadCatalog = null;
 let danmuPoolPagesReady = false;
 let petPageReady = false;
 let styleGeneratorPageReady = false;
+let styleGeneratorTabLoaded = false;
 let knowledgePageReady = false;
 
 async function ensureDanmuPoolPages() {
@@ -142,6 +143,14 @@ async function ensureStyleGeneratorPage() {
     styleGeneratorPageReady = true;
   }
   return mod;
+}
+
+async function loadStyleGeneratorTab() {
+  const mod = await ensureStyleGeneratorPage();
+  if (!styleGeneratorTabLoaded) {
+    await mod.loadStyleGeneratorPage();
+    styleGeneratorTabLoaded = true;
+  }
 }
 
 
@@ -449,6 +458,10 @@ function initDanmuReadPage() {
 }
 
 function navigate(page) {
+  if (page === 'style-generator') {
+    switchSettingsTab('stylegen');
+    page = 'settings';
+  }
   if (page === 'danmu-read') {
     page = 'settings';
     switchSettingsTab('danmu-read');
@@ -491,6 +504,9 @@ function navigate(page) {
     if (getActiveSettingsTabId() === 'danmu-read') {
       loadDanmuReadPage().catch(() => {});
     }
+    if (getActiveSettingsTabId() === 'stylegen') {
+      loadStyleGeneratorTab().catch((error) => showToast(error.message, true));
+    }
   }
   if (page === 'overview') loadOverviewGlobalFields().catch(console.error);
   if (page === 'persona') loadPersonaEditor().catch(console.error);
@@ -510,11 +526,6 @@ function navigate(page) {
   if (page === 'pet') {
     ensurePetPage()
       .then((mod) => mod.loadPetPage())
-      .catch((error) => showToast(error.message, true));
-  }
-  if (page === 'style-generator') {
-    ensureStyleGeneratorPage()
-      .then((mod) => mod.loadStyleGeneratorPage())
       .catch((error) => showToast(error.message, true));
   }
   if (page === 'knowledge') {
@@ -635,6 +646,8 @@ async function init() {
     onSettingsTabSwitch: (tabId) => {
       if (tabId === 'danmu-read') {
         loadDanmuReadPage().catch(() => {});
+      } else if (tabId === 'stylegen') {
+        loadStyleGeneratorTab().catch((error) => showToast(error.message, true));
       }
     },
   });
