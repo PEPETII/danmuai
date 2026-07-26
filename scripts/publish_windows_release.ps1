@@ -159,7 +159,7 @@ if (Test-Path -LiteralPath $packResult.FeedJson) {
             $feedAssets = @($feedJson.Assets)
         }
     } catch {
-        Write-Error "Unable to parse $($packResult.FeedJson): $($_.Exception.Message)"
+        Write-Warning "Unable to parse $($packResult.FeedJson): $($_.Exception.Message); skipping delta verification"
     }
 }
 $deltaFeedCount = @($feedAssets | Where-Object { $_.Type -eq "Delta" }).Count

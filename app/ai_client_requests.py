@@ -240,6 +240,11 @@ def request_doubao(
         temperature,
         http_client,
     ) = ctx
+    if not image_data_uri or not image_data_uri.startswith("data:"):
+        return AiProbeResult(
+            signal="error",
+            message=tr("ai.error_request_failed").format(error="empty or invalid image"),
+        )
     user_content: list[dict] = [
         {"type": "input_image", "image_url": image_data_uri},
         {"type": "input_text", "text": user_pt},

@@ -24,13 +24,13 @@ def compress_image_bytes(
     max_width: int = DEFAULT_IMAGE_MAX_WIDTH,
     quality: int = 85,
 ) -> dict[str, Any]:
-    pil_image = Image.open(io.BytesIO(data))
-    orig_width, orig_height = pil_image.size
-    _, jpeg_bytes, final_width, final_height = resize_rgb_to_jpeg_bytes(
-        pil_image,
-        max_width=max_width,
-        quality=quality,
-    )
+    with Image.open(io.BytesIO(data)) as pil_image:
+        orig_width, orig_height = pil_image.size
+        _, jpeg_bytes, final_width, final_height = resize_rgb_to_jpeg_bytes(
+            pil_image,
+            max_width=max_width,
+            quality=quality,
+        )
     preview_data_url = jpeg_bytes_to_data_uri(jpeg_bytes)
     b64_len = len(preview_data_url) - len(JPEG_DATA_URI_PREFIX)
 

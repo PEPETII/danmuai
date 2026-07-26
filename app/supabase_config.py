@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from app.bundle_paths import resource_path
+from app.bundle_paths import is_frozen, resource_path
 from app.env_config import get as get_env
 
 _URL_RE = re.compile(r"""url:\s*['"]([^'"]+)['"]""")
@@ -39,6 +39,9 @@ def get_supabase_credentials() -> SupabaseCredentials | None:
     if env_url and env_key and "YOUR_PROJECT" not in env_url:
         return SupabaseCredentials(url=env_url, anon_key=env_key)
 
+    if is_frozen():
+        # 生产环境强制使用环境变量，禁止从打包文件读取凭据
+        return None
     config_path = resource_path("web", "static", "supabase-config.js")
     if not config_path.is_file():
         return None
