@@ -102,7 +102,6 @@ let danmuReadCatalog = null;
 let danmuPoolPagesReady = false;
 let petPageReady = false;
 let styleGeneratorPageReady = false;
-let styleGeneratorTabLoaded = false;
 let knowledgePageReady = false;
 
 async function ensureDanmuPoolPages() {
@@ -144,16 +143,6 @@ async function ensureStyleGeneratorPage() {
   }
   return mod;
 }
-
-async function loadStyleGeneratorTab() {
-  const mod = await ensureStyleGeneratorPage();
-  if (!styleGeneratorTabLoaded) {
-    await mod.loadStyleGeneratorPage();
-    styleGeneratorTabLoaded = true;
-  }
-}
-
-
 
 function invalidateDanmuReadCache() {
   danmuReadConfigCache = null;
@@ -458,10 +447,6 @@ function initDanmuReadPage() {
 }
 
 function navigate(page) {
-  if (page === 'style-generator') {
-    switchSettingsTab('stylegen');
-    page = 'settings';
-  }
   if (page === 'danmu-read') {
     page = 'settings';
     switchSettingsTab('danmu-read');
@@ -504,9 +489,6 @@ function navigate(page) {
     if (getActiveSettingsTabId() === 'danmu-read') {
       loadDanmuReadPage().catch(() => {});
     }
-    if (getActiveSettingsTabId() === 'stylegen') {
-      loadStyleGeneratorTab().catch((error) => showToast(error.message, true));
-    }
   }
   if (page === 'overview') loadOverviewGlobalFields().catch(console.error);
   if (page === 'persona') loadPersonaEditor().catch(console.error);
@@ -536,6 +518,11 @@ function navigate(page) {
     import('./modules/app-knowledge-page.js')
       .then((mod) => mod.stopKnowledgeJobPolling())
       .catch(() => {});
+  }
+  if (page === 'style-generator') {
+    ensureStyleGeneratorPage()
+      .then((mod) => mod.loadStyleGeneratorPage())
+      .catch((error) => showToast(error.message, true));
   }
   if (page === 'live-settings') {
     const activeTab = getActiveLiveSettingsTabId();
@@ -646,8 +633,6 @@ async function init() {
     onSettingsTabSwitch: (tabId) => {
       if (tabId === 'danmu-read') {
         loadDanmuReadPage().catch(() => {});
-      } else if (tabId === 'stylegen') {
-        loadStyleGeneratorTab().catch((error) => showToast(error.message, true));
       }
     },
   });

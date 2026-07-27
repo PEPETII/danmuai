@@ -24,7 +24,7 @@
         </div>
       </header>
 
-      <!-- 设置 tab 列表：api / mic / danmu-read / danmu / capture / font / stylegen -->
+      <!-- 设置 tab 列表：api / mic / danmu-read / danmu / capture / font -->
       <form id="settingsForm" class="card p-8 space-y-0">
         <div class="settings-tabs-bar">
           <div class="settings-tabs" role="tablist" data-i18n-aria-label="settings.aria.弹幕设置分类" aria-label="弹幕设置分类">
@@ -38,7 +38,6 @@
             <!-- tab: AI识图相关 — 鼠标框选子区域 + 压缩质量/最大宽度（POST /api/capture-region） -->
             <button type="button" role="tab" class="settings-tab" data-settings-tab="capture" aria-selected="false" data-i18n="settings.text.AI识图相关">AI识图相关</button>
             <button type="button" role="tab" class="settings-tab" data-settings-tab="font" aria-selected="false" data-i18n="settings.text.字体设置">字体设置</button>
-            <button type="button" id="settingsTabStylegen" role="tab" class="settings-tab" data-settings-tab="stylegen" aria-selected="false" data-i18n="content.text.样式生成器">样式生成器</button>
           </div>
 
         </div>
@@ -601,7 +600,6 @@
           </button>
         </div>
       </form>
-      {{style_generator}}
     </section>
 
     <!-- ========== 区域：公式化弹幕库 ========== -->

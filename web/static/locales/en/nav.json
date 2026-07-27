@@ -2,10 +2,10 @@
   "nav": {
     "overview": "Dashboard",
     "persona": "Danmu Persona",
-    "knowledge": "Knowledge",
+    "knowledge": "Danmu Knowledge Base",
     "danmuPool": "Formula Danmu Pool",
-    "pet": "Desktop Pet",
-    "styleGenerator": "Style Generator",
+    "pet": "Vtuber & Desktop Pet",
+    "styleGenerator": "Danmaku Style",
     "settings": "Danmu Settings",
     "tooltipCanDoTitle": "What you can do",
     "tooltip": {

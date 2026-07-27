@@ -43,6 +43,30 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* 累计统计卡片：在窄容器内自动缩小数值字号，防止运行总时长 / Token 被截断 */
+.stat-card {
+  container-type: inline-size;
+  container-name: stat-card;
+}
+
+@container stat-card (max-width: 220px) {
+  .stat-card .overview-stat-value {
+    font-size: 1rem;
+  }
+}
+
+@container stat-card (min-width: 221px) and (max-width: 280px) {
+  .stat-card .overview-stat-value {
+    font-size: 1.125rem;
+  }
+}
+
+@container stat-card (min-width: 281px) {
+  .stat-card .overview-stat-value {
+    font-size: 1.5rem;
+  }
+}
+
 #page-overview {
   min-width: 0;
 }

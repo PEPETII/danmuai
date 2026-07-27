@@ -417,12 +417,12 @@ def test_pet_page_in_index_html():
 
 
 def test_style_generator_page_in_index_html():
-    """W-UI-SETTINGS-STYLEGEN-TAB-001: 构建产物只含一个样式生成器设置 Tab。"""
+    """W-UI-SETTINGS-STYLEGEN-TAB-001: 构建产物只含一个独立的样式生成器页面。"""
     root = project_root()
     html = (root / "web" / "static" / "index.html").read_text(encoding="utf-8")
-    assert 'data-settings-tab="stylegen"' in html
-    assert 'id="settingsTab-stylegen"' in html
-    assert 'id="page-style-generator"' not in html
+    assert 'id="page-style-generator"' in html
+    assert 'data-settings-tab="stylegen"' not in html
+    assert 'id="settingsTab-stylegen"' not in html
     assert html.count('id="styleGeneratorForm"') == 1
     assert html.count('id="styleGeneratorPreview"') == 1
     assert html.count('<form') == html.count('</form>')

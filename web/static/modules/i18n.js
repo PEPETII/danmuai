@@ -143,11 +143,20 @@ export function isI18nReady() {
 /**
  * @param {string} key dot-separated key
  * @param {Record<string, string|number>|undefined} params
+ * @param {string|undefined} defaultValue fallback text when key is missing
  */
-export function t(key, params) {
+export function t(key, params, defaultValue) {
   let text = _dict[key];
   if (text == null || text === '') {
-    text = key;
+    if (defaultValue !== undefined) {
+      text = defaultValue;
+    } else {
+      const lastDot = key.lastIndexOf('.');
+      text = lastDot >= 0 ? key.slice(lastDot + 1) : key;
+    }
+    if (typeof location !== 'undefined' && (location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+      console.warn('[i18n] missing key:', key);
+    }
   }
   if (params) {
     for (const [k, v] of Object.entries(params)) {

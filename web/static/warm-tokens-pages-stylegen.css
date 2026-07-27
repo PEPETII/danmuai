@@ -450,3 +450,55 @@
   width: 100%;
 }
 
+/* =========================================================================
+   弹幕样式 Tab 切换（W-SG-TAB-001）
+   ========================================================================= */
+
+.sg-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 1.25rem;
+  border-bottom: 2px solid var(--border-soft, rgba(93, 87, 87, 0.12));
+}
+
+.sg-tab {
+  position: relative;
+  padding: 0.625rem 1.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-muted, #6b7280);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+  outline: none;
+}
+
+.sg-tab:hover {
+  color: var(--text-primary, var(--color-warmText));
+}
+
+.sg-tab:focus-visible {
+  border-radius: 4px;
+  box-shadow: 0 0 0 2px var(--color-primary, #f59e0b);
+}
+
+.sg-tab.is-active {
+  color: var(--color-primary, #f59e0b);
+  border-bottom-color: var(--color-primary, #f59e0b);
+}
+
+.sg-tab-panel:not(.is-active) {
+  display: none;
+}
+
+.sg-placeholder {
+  min-height: 300px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+

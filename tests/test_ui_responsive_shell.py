@@ -50,21 +50,20 @@ def test_sidebar_shell_structure_and_preserved_ids():
     assert 'id="btnSidebarReward"' in html
     assert 'id="btnShellNavClose"' in html
     assert "sidebar-item-label" in html
-    # 样式生成器已整合到弹幕设置 Tab，不再作为独立侧栏入口
+    # 样式生成器已迁移为独立侧栏页面
     for page in (
         "overview",
+        "settings",
+        "style-generator",
         "persona",
         "knowledge",
         "danmu-pool",
         "pet",
-        "settings",
         "live-settings",
         "guide",
     ):
         assert f'data-page="{page}"' in html
         assert f'href="#{page}"' in html
-    assert 'data-page="style-generator"' not in html
-    assert 'href="#style-generator"' not in html
     assert 'data-page="ai-butler"' not in html
     assert 'href="#ai-butler"' not in html
 

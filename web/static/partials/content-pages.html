@@ -1,5 +1,5 @@
     <section id="page-danmu-pool" class="page-panel">
-      <header class="mb-8 ui-page-header"><div class="ui-page-header__copy min-w-0"><h2 class="text-2xl font-bold text-warmText ui-page-title">公式化弹幕库</h2><p class="text-gray-500 mt-1 ui-page-description">烂梗公式化与自定义公式化弹幕，可独立配置采集与展示</p></div></header>
+      <header class="mb-8 ui-page-header"><div class="ui-page-header__copy min-w-0"><h2 class="text-2xl font-bold text-warmText ui-page-title">公式化弹幕库</h2><p class="text-gray-500 mt-1 ui-page-description">提供现成的「烂梗」和自定义弹幕句子，可单独设置采集和显示方式</p></div></header>
       <div class="card p-8 danmu-pool-page ui-card">
         <div class="settings-tabs-bar mb-6">
           <div class="settings-tabs danmu-pool-tabs" role="tablist" data-i18n-aria-label="content.aria.公式化弹幕库分类" aria-label="公式化弹幕库分类">
@@ -27,11 +27,11 @@
               <input type="checkbox" id="memeBarrageEnabled" role="switch">
               <span>启用烂梗公式化</span>
             </label>
-            <p class="settings-section-hint">开启后按下方配置独立采集与展示烂梗弹幕，不与 AI 生成弹幕共用展示额度。</p>
+            <p class="settings-section-hint">开启后，烂梗弹幕会按下面的设置单独采集和显示，不会占用 AI 生成弹幕的名额。</p>
           </div>
           <div class="danmu-pool-section meme-category-settings">
             <p id="hintMemeCategoryTitle" class="settings-section-title">分类模式</p>
-            <p class="settings-section-hint mb-3">随机：从全库抽取。自选：限选最多 3 个标签。本地库：仅使用本地导入的烂梗句。</p>
+            <p class="settings-section-hint mb-3">随机：从全部烂梗里随机挑。自选：自己选最多 3 个标签类型。本地库：只用你自己导入的句子。</p>
             <div class="flex flex-wrap gap-4 meme-category-group" role="radiogroup" data-i18n-aria-label="content.aria.烂梗分类" aria-label="烂梗分类">
               <label class="flex items-center gap-2 font-semibold text-warmText">
                 <input type="radio" name="memeCategory" value="random" class="accent-warmPink" checked>
@@ -48,20 +48,20 @@
             </div>
             <div class="meme-category-tag-block">
               <p id="hintMemeTagTitle" class="meme-category-subheading">标签选择</p>
-              <p class="settings-section-hint mb-3">仅「自选」分类时可选择标签，最多 3 个。</p>
+              <p class="settings-section-hint mb-3">只有选了「自选」模式才能挑标签，最多选 3 个。</p>
               <div id="memeTagGrid" class="meme-tag-grid"></div>
             </div>
           </div>
           <div class="danmu-pool-section meme-advanced-settings">
             <p class="settings-section-title">采集与展示</p>
-            <p class="settings-section-hint mb-3">显示形式、采集节奏与上屏节奏；点开下方条目展开详细选项。</p>
+            <p class="settings-section-hint mb-3">设置弹幕怎么显示、多久采一次、多久上一次屏。点下面的条目展开详细设置。</p>
             <div class="settings-rhythm-accordion meme-advanced-accordion" data-settings-rhythm-accordion>
               <section class="settings-rhythm-accordion-item">
                 <h4 class="settings-rhythm-accordion-heading">
                   <button type="button" id="memeDisplayModeAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="memeDisplayModeAccordionPanel">
                     <span class="settings-rhythm-accordion-trigger-copy">
                       <span id="hintMemeDisplayModeTitle" class="settings-rhythm-accordion-trigger-title" data-i18n="content.text.显示形式">显示形式</span>
-                      <span class="settings-section-hint settings-rhythm-accordion-trigger-hint" data-i18n="content.text.全展示_采集结果全部进入展示队列_AI识别展示_由_AI_根据当前画面从候选中筛">全展示：采集结果全部进入展示队列。AI识别展示：由 AI 根据当前画面从候选中筛选。</span>
+                      <span class="settings-section-hint settings-rhythm-accordion-trigger-hint" data-i18n="content.text.全展示_采集结果全部进入展示队列_AI识别展示_由_AI_根据当前画面从候选中筛">全展示：采集到的弹幕都会显示出来。AI识别展示：让 AI 看当前画面，自动挑合适的弹幕显示。</span>
                     </span>
                     <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
                   </button>
@@ -84,7 +84,7 @@
                   <button type="button" id="memeCollectAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="memeCollectAccordionPanel">
                     <span class="settings-rhythm-accordion-trigger-copy">
                       <span id="hintMemeCollectTitle" class="settings-rhythm-accordion-trigger-title" data-i18n="content.text.采集配置">采集配置</span>
-                      <span class="settings-section-hint settings-rhythm-accordion-trigger-hint" data-i18n="content.text.控制烂梗弹幕的采集节奏_间隔秒数与每批采集条数_采集间隔_1_60_秒_每次采集_1_100_条">控制烂梗弹幕的采集节奏：间隔秒数与每批采集条数。采集间隔 1–60 秒；每次采集 1–100 条。</span>
+                      <span class="settings-section-hint settings-rhythm-accordion-trigger-hint" data-i18n="content.text.控制烂梗弹幕的采集节奏_间隔秒数与每批采集条数_采集间隔_1_60_秒_每次采集_1_100_条">设置多久采一次烂梗弹幕、每次采多少条。间隔 1–60 秒，每次 1–100 条。</span>
                     </span>
                     <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
                   </button>
@@ -104,7 +104,7 @@
                   <button type="button" id="memeDisplayAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="memeDisplayAccordionPanel">
                     <span class="settings-rhythm-accordion-trigger-copy">
                       <span id="hintMemeDisplayTitle" class="settings-rhythm-accordion-trigger-title" data-i18n="content.text.展示配置">展示配置</span>
-                      <span class="settings-section-hint settings-rhythm-accordion-trigger-hint" data-i18n="content.text.控制烂梗弹幕的上屏节奏_间隔秒数与每批展示条数_展示间隔_1_60_秒_每次展示_1_50_条">控制烂梗弹幕的上屏节奏：间隔秒数与每批展示条数。展示间隔 1–60 秒；每次展示 1–50 条。</span>
+                      <span class="settings-section-hint settings-rhythm-accordion-trigger-hint" data-i18n="content.text.控制烂梗弹幕的上屏节奏_间隔秒数与每批展示条数_展示间隔_1_60_秒_每次展示_1_50_条">设置多久上一次屏、每次上几条。间隔 1–60 秒，每次 1–50 条。</span>
                     </span>
                     <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
                   </button>
@@ -129,14 +129,14 @@
             <p class="text-warmText font-semibold">当前本地库弹幕数量：<span id="memeLibraryCount">0</span></p>
             <p class="settings-section-hint">待展示队列：<span id="memeQueueCount">0</span> 条</p>
             <button type="button" id="btnMemeBarrageClear" class="mt-3 px-6 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--md">清除</button>
-            <p class="settings-section-hint mt-2">清空本地烂梗库与待展示队列；不影响已上屏弹幕。</p>
+            <p class="settings-section-hint mt-2">清空你自己导入的烂梗和还没显示的队列；已经显示在屏幕上的不会消失。</p>
           </div>
         </div>
 
         <div id="danmuPoolTab-custom" class="danmu-pool-tab-panel space-y-8" data-danmu-pool-panel="custom" role="tabpanel" hidden>
           <div class="danmu-pool-section">
             <p class="settings-section-title">导入弹幕句库</p>
-            <p class="settings-section-hint">选择 TXT 文件（一行一条），最多同时导入 5 个文件，每个文件最多 1000 行，内容将追加到已有弹幕库。</p>
+            <p class="settings-section-hint">选择 TXT 文件导入，每行一句弹幕。一次最多选 5 个文件，每个文件最多 1000 行，会追加到现有弹幕库。</p>
             <button type="button" id="btnPoolImportTxt" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm ui-button ui-button--primary ui-button--md">导入 TXT</button>
             <input type="file" id="poolImportTxtInput" accept=".txt" multiple hidden>
           </div>
@@ -147,7 +147,7 @@
                 <input type="checkbox" id="poolCustomEnabled" role="switch">
                 <span>自定义公式化弹幕库</span>
               </label>
-              <p class="settings-section-hint">启用后，系统会从你保存的自定义弹幕句中抽取短句，用于弹幕不足时补足。</p>
+              <p class="settings-section-hint">开启后，当 AI 生成的弹幕不够时，会自动从你保存的句子里挑来补上。</p>
             </div>
           </div>
           <div class="danmu-pool-section">
@@ -156,13 +156,13 @@
               <label for="poolMinOnScreen" class="settings-field-label">最小同屏条数</label>
               <input type="number" id="poolMinOnScreen" min="0" max="50" value="5" class="settings-field-control ui-control ui-input">
             </div>
-            <p class="settings-section-hint">当屏幕上的弹幕少于该数量时，从自定义公式化弹幕库抽取短句补足。设为 0 则关闭补足。</p>
+            <p class="settings-section-hint">当屏幕上弹幕数量少于这个数时，自动从自定义句库里抽句子补上。设成 0 就关闭补足功能。</p>
             <p id="poolBothOffHint" class="settings-section-hint hidden">关闭自定义公式化弹幕库后，不会进行公式化弹幕补足。</p>
             <button type="button" id="btnSavePoolSettings" class="btn-primary mt-4 px-6 py-2 text-white rounded-xl font-bold shadow-warm ui-button ui-button--primary ui-button--md">保存设置</button>
           </div>
           <div class="danmu-pool-section">
             <p class="settings-section-title">追加自定义句</p>
-            <p class="settings-section-hint mb-2">一行一条短句，保存后上屏时完整展示、不截断。重复句会自动跳过。</p>
+            <p class="settings-section-hint mb-2">每行写一句弹幕，保存后显示时不会截断。重复的句子会自动去重。</p>
             <textarea id="poolCustomTextarea" rows="6" class="danmu-pool-textarea w-full px-4 py-3 bg-cream rounded-xl text-warmText border border-softPeach ui-control ui-textarea" data-i18n-placeholder="content.placeholder.太真实了_10_这也行" placeholder="太真实了&#10;这也行？"></textarea>
             <div class="flex flex-wrap gap-3 mt-3">
               <button type="button" id="btnPoolCustomAppend" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm ui-button ui-button--primary ui-button--md">保存 / 追加</button>
@@ -174,7 +174,7 @@
               <p class="settings-section-title mb-0">已保存自定义句</p>
               <span id="poolCustomCount" class="text-sm text-gray-500">自定义库：0 / 20000</span>
             </div>
-            <p id="poolCustomListHint" class="settings-section-hint mb-2">当前展示：手动添加条目。txt 导入内容已入库参与抽取，但不在此列表逐条展示。</p>
+            <p id="poolCustomListHint" class="settings-section-hint mb-2">这里只显示你手动添加的句子。TXT 导入的内容已经入库参与抽取，但不在此列表里逐条显示。</p>
             <div class="flex flex-wrap items-center gap-3 mb-3">
               <input type="search" id="poolCustomSearch" class="settings-field-control max-w-xs px-3 py-2 bg-cream rounded-xl text-warmText border border-softPeach ui-control ui-input" data-i18n-placeholder="content.placeholder.搜索手动条目" placeholder="搜索手动条目" data-i18n-aria-label="content.placeholder.搜索手动条目" aria-label="搜索手动条目">
               <label class="toggle-switch text-sm font-semibold text-warmText">
@@ -183,7 +183,7 @@
               </label>
               <button type="button" id="btnPoolCustomDelete" class="px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--sm">删除选中</button>
             </div>
-            <p class="settings-section-hint mb-2">勾选「全选本页」后可选中列表全部自定义句，便于批量删除。</p>
+            <p class="settings-section-hint mb-2">勾选后可一次性选中本页所有句子，方便批量删除。</p>
             <ul id="poolCustomList" class="danmu-pool-custom-list space-y-2"></ul>
             <div id="poolCustomPager" class="flex flex-wrap items-center gap-3 mt-4 text-sm text-warmText">
               <button type="button" id="btnPoolCustomPrev" class="px-3 py-1.5 bg-white border border-gray-200 rounded-lg font-semibold hover:bg-gray-50 ui-button ui-button--secondary ui-button--sm">上一页</button>
@@ -390,7 +390,7 @@
             <div class="flex flex-wrap gap-3 items-end">
               <div class="flex-1 min-w-[200px]">
                 <label for="personaSelect" class="block text-sm font-semibold mb-2 text-warmText">选择人格</label>
-                <p class="text-xs text-gray-500 mb-2">选择要编辑的人格模板。内置人格可覆盖保存，也可点「恢复默认」还原。</p>
+                <p class="text-xs text-gray-500 mb-2">先选择一个人格进行编辑。系统自带的人格可以修改后保存，想还原就点「恢复默认」。</p>
                 <select id="personaSelect" class="w-full px-4 py-3 bg-cream rounded-xl text-warmText ui-control ui-select"></select>
               </div>
               <button type="button" id="btnNewPersona" class="px-4 py-3 bg-white border border-gray-200 rounded-xl font-semibold text-warmText ui-button ui-button--secondary ui-button--md">新建人格</button>
@@ -400,12 +400,12 @@
           </div>
           <div>
             <label for="personaContract" class="block text-sm font-semibold mb-2 text-warmText">输出契约（只读）</label>
-            <p class="text-xs text-gray-500 mb-2">只读的 JSON 输出格式要求。每次生成条数与弹幕设置「弹幕显示」中的条数同步；改条数请去弹幕设置。</p>
+            <p class="text-xs text-gray-500 mb-2">这里显示的是 AI 输出弹幕的固定格式，无法修改。如果想改每次生成多少条弹幕，请到「弹幕设置」→「弹幕显示」里调整。</p>
             <textarea id="personaContract" readonly rows="4" class="w-full px-4 py-3 bg-cream rounded-xl text-sm text-gray-500 ui-control ui-textarea"></textarea>
           </div>
           <div>
             <label for="personaSystemCustom" class="block text-sm font-semibold mb-2 text-warmText">系统提示补充</label>
-            <p class="text-xs text-gray-500 mb-2">追加到该人格系统提示词的风格与人格要求；点「保存人格」后生效。</p>
+            <p class="text-xs text-gray-500 mb-2">在这里填写你想让 AI 以什么风格说话，比如「毒舌吐槽」「温柔鼓励」等。写好后记得点「保存人格」才会生效。</p>
             <textarea id="personaSystemCustom" rows="4" class="w-full px-4 py-3 bg-cream rounded-xl text-warmText ui-control ui-textarea" data-i18n-placeholder="content.placeholder.例如_语气温柔治愈_像闺蜜一样吐槽主播操作_偶尔玩梗" placeholder="例如：语气温柔治愈，像闺蜜一样吐槽主播操作，偶尔玩梗"></textarea>
           </div>
           <div class="flex flex-wrap gap-3">

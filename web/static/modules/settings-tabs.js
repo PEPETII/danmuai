@@ -24,7 +24,6 @@ export function switchSettingsTab(tabId) {
     panel.hidden = !active;
   });
   const footer = document.querySelector('#settingsForm .settings-form-footer');
-  if (footer) footer.classList.toggle('hidden', tabId === 'stylegen');
   switchDeps.onSettingsTabSwitch?.(tabId);
 }
 

@@ -51,8 +51,8 @@
       "自定义库_0_20000": "Custom pool: 0 / 20000",
       "当前展示_手动添加条目_txt_导入内容已入库参与抽取_但不在此列表逐条展示": "Showing: manual entries. TXT imports are in the pool but not listed here.",
       "第_1_页": "Page 1",
-      "桌宠": "Desktop Pet",
-      "样式生成器": "Style Generator",
+      "桌宠": "Vtuber & Desktop Pet",
+      "样式生成器": "Danmaku Style",
       "编辑从下到上浮动面板样式_实时预览堆积效果_保存后经现有配置接口持久化": "Edit bottom-to-top floating panel style with live stack preview; save persists via the existing config API.",
       "样式预设": "Style preset",
       "自定义": "Custom",
@@ -243,7 +243,13 @@
       "说明_我不会代你改任何设置_所有设置请在对应页面手动修改": "Note: I will not change settings for you; edit them yourself on the matching settings pages.",
       "当前使用模型": "Active model",
       "切换后_后续对话自动使用新模型_当前对话历史保留": "After switching, new chats use the new model; current history is kept.",
-      "告诉我你想调整什么设置_例如_把弹幕速度调快": "Ask anything, e.g.「where do I change danmu speed」"
+      "告诉我你想调整什么设置_例如_把弹幕速度调快": "Ask anything, e.g.「where do I change danmu speed」",
+      "弹幕样式": "Danmaku Style",
+      "从下到上模式": "Bottom-to-Top Mode",
+      "横向模式": "Horizontal Mode",
+      "横向模式即将推出_敬请期待": "Horizontal mode is coming soon. Stay tuned!",
+      "布局与偏移": "Layout & Offset",
+      "导入本地字体": "Import Local Font"
     },
     "placeholder": {
       "太真实了_10_这也行": "So real&#10;How is this allowed?",
@@ -260,7 +266,7 @@
       "烂梗分类": "Meme category",
       "显示形式_2": "Display form",
       "搜索手动条目_2": "Search manual entries",
-      "桌宠_2": "Desktop Pet",
+      "桌宠_2": "Vtuber & Desktop Pet",
       "直播设置_2": "Live Settings",
       "直播设置分类": "Live settings category",
       "直播输出源": "Live output source",
@@ -271,7 +277,11 @@
       "问题反馈与群聊_2": "Feedback & community",
       "运行日志": "Runtime log",
       "切换当前使用模型": "Switch active model",
-      "浮动面板样式预览": "Floating panel style preview"
+      "浮动面板样式预览": "Floating panel style preview",
+      "弹幕样式": "Danmaku Style",
+      "从下到上模式": "Bottom-to-Top Mode",
+      "横向模式": "Horizontal Mode",
+      "横向模式即将推出_敬请期待": "Horizontal mode is coming soon. Stay tuned!"
     }
   }
 }

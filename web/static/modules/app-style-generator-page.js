@@ -973,6 +973,29 @@ export function initStyleGeneratorPage(deps = {}) {
   // 字体导入
   document.getElementById('sg-btnImportFont')?.addEventListener('click', uploadStyleGeneratorFont);
 
+  // 弹幕样式 Tab 切换
+  const sgTabs = document.querySelectorAll('#page-style-generator .sg-tab');
+  sgTabs.forEach((tab) => {
+    tab.addEventListener('click', () => {
+      const tabName = tab.dataset.sgTab;
+      sgTabs.forEach((t) => {
+        t.classList.remove('is-active');
+        t.setAttribute('aria-selected', 'false');
+      });
+      tab.classList.add('is-active');
+      tab.setAttribute('aria-selected', 'true');
+      document.querySelectorAll('#page-style-generator .sg-tab-panel').forEach((panel) => {
+        panel.classList.remove('is-active');
+        panel.hidden = true;
+      });
+      const activePanel = document.querySelector(`#page-style-generator .sg-tab-panel[data-sg-tab-panel="${tabName}"]`);
+      if (activePanel) {
+        activePanel.classList.add('is-active');
+        activePanel.hidden = false;
+      }
+    });
+  });
+
   // 设置页入口
   document.getElementById('btnOpenStyleGeneratorFromSettings')?.addEventListener('click', (event) => {
     event.preventDefault();

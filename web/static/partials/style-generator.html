@@ -1,10 +1,15 @@
-    <div id="settingsTab-stylegen" class="settings-tab-panel space-y-6" data-settings-panel="stylegen" role="tabpanel" aria-labelledby="settingsTabStylegen" hidden data-i18n-aria-label="content.text.样式生成器" aria-label="样式生成器">
+    <section id="page-style-generator" class="page-panel">
       <header class="mb-6">
-        <h2 class="text-2xl font-bold text-warmText" data-i18n="content.text.样式生成器">样式生成器</h2>
+        <h2 class="text-2xl font-bold text-warmText" data-i18n="content.text.弹幕样式">弹幕样式</h2>
         <p class="text-gray-500 mt-1" data-i18n="content.text.编辑从下到上浮动面板样式_实时预览堆积效果_保存后经现有配置接口持久化">
           编辑从下到上浮动面板样式，实时预览堆积效果；保存后经现有配置接口持久化。
         </p>
       </header>
+      <div class="sg-tabs" role="tablist" aria-label="弹幕样式模式">
+        <button type="button" class="sg-tab is-active" role="tab" aria-selected="true" data-sg-tab="bottom-up" data-i18n="content.text.从下到上模式">从下到上模式</button>
+        <button type="button" class="sg-tab" role="tab" aria-selected="false" data-sg-tab="horizontal" data-i18n="content.text.横向模式">横向模式</button>
+      </div>
+      <div class="sg-tab-panel is-active" role="tabpanel" data-sg-tab-panel="bottom-up">
       <div class="style-generator-layout">
         <form id="styleGeneratorForm" class="style-generator-controls card p-6" autocomplete="off">
           <div class="px-1 pb-3 space-y-2">
@@ -561,4 +566,12 @@
           </div>
         </div>
       </div>
-    </div>
+      </div>
+      <div class="sg-tab-panel" role="tabpanel" data-sg-tab-panel="horizontal" hidden>
+        <div class="sg-placeholder card p-12 text-center">
+          <svg class="ui-icon w-16 h-16 mx-auto mb-4 text-gray-300" aria-hidden="true"><use href="#i-sparkles"></use></svg>
+          <p class="text-lg font-semibold text-warmText mb-2" data-i18n="content.text.横向模式">横向模式</p>
+          <p class="text-gray-500" data-i18n="content.text.横向模式即将推出_敬请期待">横向模式即将推出，敬请期待。</p>
+        </div>
+      </div>
+    </section>

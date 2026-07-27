@@ -16,18 +16,18 @@ def _static() -> Path:
     return _root() / "web" / "static"
 
 
-def test_style_generator_partial_is_settings_tab_fragment():
+def test_style_generator_partial_is_independent_page_fragment():
     partial = _static() / "partials" / "style-generator.html"
     assert partial.is_file()
     text = partial.read_text(encoding="utf-8")
-    assert 'id="settingsTab-stylegen"' in text
-    assert 'data-settings-panel="stylegen"' in text
+    assert 'id="page-style-generator"' in text
     assert 'id="styleGeneratorForm"' in text
     assert 'id="styleGeneratorPreview"' in text
     assert 'id="styleGeneratorPreviewStack"' in text
-    assert 'id="page-style-generator"' not in text
+    assert 'id="settingsTab-stylegen"' not in text
+    assert 'data-settings-panel="stylegen"' not in text
     settings = (_static() / "partials" / "settings.html").read_text(encoding="utf-8")
-    assert settings.count("{{style_generator}}") == 1
+    assert "{{style_generator}}" not in settings
 
 
 def test_style_generator_form_names_match_contract_keys():
@@ -79,10 +79,10 @@ def test_style_generator_color_fields_use_picker_plus_hex():
     assert "onSingleColorPickerInput" in mod
 
 
-def test_sidebar_routes_style_generator_into_settings_tab():
+def test_sidebar_has_independent_style_generator_entry():
     sidebar = (_static() / "partials" / "sidebar.html").read_text(encoding="utf-8")
-    assert 'data-page="style-generator"' not in sidebar
-    assert 'href="#style-generator"' not in sidebar
+    assert 'data-page="style-generator"' in sidebar
+    assert 'href="#style-generator"' in sidebar
 
 
 def test_build_registers_style_generator_fragment():
@@ -90,14 +90,15 @@ def test_build_registers_style_generator_fragment():
     template = (_static() / "index.template.html").read_text(encoding="utf-8")
     assert '"{{style_generator}}"' in build or "'{{style_generator}}'" in build
     assert "style-generator.html" in build
-    assert "{{style_generator}}" not in template
+    # index.template.html 中保留 {{style_generator}} 注入点，由 build 脚本替换为独立页面片段
+    assert "{{style_generator}}" in template
 
 
-def test_built_index_html_contains_style_generator_tab_once():
+def test_built_index_html_contains_style_generator_page_once():
     html = (_static() / "index.html").read_text(encoding="utf-8")
-    assert 'data-settings-tab="stylegen"' in html
-    assert 'id="settingsTab-stylegen"' in html
-    assert 'id="page-style-generator"' not in html
+    assert 'id="page-style-generator"' in html
+    assert 'data-settings-tab="stylegen"' not in html
+    assert 'id="settingsTab-stylegen"' not in html
     assert html.count('id="styleGeneratorForm"') == 1
     assert html.count('id="styleGeneratorPreview"') == 1
     assert 'name="floating_panel_style_preset"' in html
@@ -187,7 +188,7 @@ def test_i18n_keys_for_style_generator():
     en_dyn = (_static() / "locales" / "en" / "dynamic.json").read_text(encoding="utf-8")
     assert '"styleGenerator"' in zh_nav and '"styleGenerator"' in en_nav
     assert "样式生成器" in zh_content
-    assert "Style Generator" in en_content
+    assert "Danmaku Style" in en_content
     assert "appStyleGenerator" in zh_dyn and "appStyleGenerator" in en_dyn
     assert "预设LineLike" in zh_content and "预设LineLike" in en_content
     assert "布局" in zh_content and '"布局"' in en_content
