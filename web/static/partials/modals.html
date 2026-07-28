@@ -105,6 +105,45 @@
     </div>
   </div>
 
+  <!-- 问题说明弹窗（与反馈弹窗独立） -->
+  <div id="problemDetailModal" class="problem-detail-modal fixed inset-0 bg-black/20 backdrop-blur-sm hidden items-center justify-center z-[65] p-4" role="dialog" aria-modal="true" aria-labelledby="problemDetailTitle" aria-describedby="problemDetailSummary">
+    <div class="problem-detail-panel bg-white rounded-3xl shadow-warm max-w-lg w-full p-8 max-h-[90vh] overflow-y-auto min-w-0">
+      <div class="problem-detail-header flex items-start gap-3 mb-4">
+        <span id="problemDetailSeverity" class="problem-detail-severity problem-detail-severity--error shrink-0" aria-hidden="true"></span>
+        <div class="min-w-0 flex-1">
+          <h3 id="problemDetailTitle" class="text-lg font-bold text-warmText break-words"></h3>
+          <p id="problemDetailMeta" class="text-xs text-gray-500 mt-1 break-words"></p>
+          <p id="problemDetailOccurrence" class="text-xs text-amber-700 mt-1 hidden" aria-live="polite"></p>
+        </div>
+        <button type="button" id="btnProblemDetailClose" class="ui-button ui-button--ghost ui-button--sm shrink-0" data-i18n-aria-label="dynamic.problem.action.close" aria-label="关闭">×</button>
+      </div>
+      <section class="problem-detail-section mb-3">
+        <h4 class="problem-detail-section-title" data-i18n="dynamic.problem.section.what">这是什么问题</h4>
+        <p id="problemDetailSummary" class="problem-detail-body text-sm text-gray-700 whitespace-pre-wrap break-words"></p>
+      </section>
+      <section class="problem-detail-section mb-3">
+        <h4 class="problem-detail-section-title" data-i18n="dynamic.problem.section.cause">可能原因</h4>
+        <p id="problemDetailCause" class="problem-detail-body text-sm text-gray-700 whitespace-pre-wrap break-words"></p>
+      </section>
+      <section class="problem-detail-section mb-3">
+        <h4 class="problem-detail-section-title" data-i18n="dynamic.problem.section.impact">影响范围</h4>
+        <p id="problemDetailImpact" class="problem-detail-body text-sm text-gray-700 whitespace-pre-wrap break-words"></p>
+      </section>
+      <section class="problem-detail-section mb-3">
+        <h4 class="problem-detail-section-title" data-i18n="dynamic.problem.section.suggestions">建议操作</h4>
+        <ul id="problemDetailSuggestions" class="problem-detail-suggestions text-sm text-gray-700 list-disc pl-5 space-y-1"></ul>
+      </section>
+      <details id="problemDetailTechnicalWrap" class="problem-detail-technical mb-4 hidden">
+        <summary class="text-sm font-semibold text-warmText cursor-pointer" data-i18n="dynamic.problem.section.technical">技术详情</summary>
+        <pre id="problemTechnicalDetail" class="problem-detail-technical-pre text-xs mt-2"></pre>
+      </details>
+      <div id="problemDetailActions" class="flex flex-wrap gap-2 mb-4"></div>
+      <div class="flex flex-wrap gap-3 justify-end border-t border-gray-100 pt-4">
+        <button type="button" id="btnProblemReportFromModal" class="ui-button ui-button--secondary ui-button--sm" data-i18n="dynamic.problem.action.report">反馈此问题</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 错误自动反馈确认 -->
   <div id="errorReportModal" class="fixed inset-0 bg-black/20 backdrop-blur-sm hidden items-center justify-center z-[60] p-4" role="dialog" aria-modal="true" aria-labelledby="errorReportModalTitle">
     <div class="bg-white rounded-3xl shadow-warm max-w-lg w-full p-8 max-h-[90vh] overflow-y-auto min-w-0">

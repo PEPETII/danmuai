@@ -170,6 +170,45 @@
       "错误反馈已发送_感谢": "Error report sent—thank you",
       "发送失败": "Send failed"
     },
+    "problem": {
+      "action": {
+        "view": "View problem",
+        "report": "Report this issue",
+        "close": "Close",
+        "retry": "Retry"
+      },
+      "section": {
+        "what": "What happened",
+        "cause": "Possible cause",
+        "impact": "Impact",
+        "suggestions": "Suggested actions",
+        "technical": "Technical details"
+      },
+      "occurrenceCount": "This issue occurred {count} times in a row",
+      "feedbackUnavailable": "Online feedback is not configured",
+      "legacyTitle": "Runtime notice",
+      "internalTitle": "Console error",
+      "internalSummary": "The web console hit an unhandled error.",
+      "internalCause": "This may be a browser script error or temporary state mismatch.",
+      "internalImpact": "Some page features may be temporarily unavailable.",
+      "internalSuggestionReload": "Try refreshing the page or restarting the app.",
+      "category": {
+        "configuration": "Configuration",
+        "authentication": "Authentication",
+        "account": "Account & billing",
+        "rate_limit": "Rate limit",
+        "model": "Model",
+        "timeout": "Timeout",
+        "network": "Network",
+        "capture": "Capture",
+        "display": "Display",
+        "runtime": "Runtime",
+        "storage": "Storage",
+        "knowledge": "Knowledge",
+        "tts": "Text-to-speech",
+        "internal": "Internal error"
+      }
+    },
     "appLiveOverlayPanel": {
       "状态未知": "Status unknown",
       "已连接": "Connected",

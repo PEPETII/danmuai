@@ -69,9 +69,15 @@ import {
 } from './modules/content-pages.js';
 import {
   initErrorReporting,
-  maybePromptErrorReport as maybePromptErrorReportImpl,
   openErrorReportModal as openErrorReportModalImpl,
+  openErrorReportModalFromProblem,
 } from './modules/app-error-reporting.js';
+import {
+  initProblemDialog,
+  maybeShowProblem,
+  updateVisibleProblemOccurrence,
+  buildFrontendInternalProblem,
+} from './modules/app-problem-dialog.js';
 import {
   initLiveOverlayPanel,
   refreshLiveOverlayStatus,
@@ -199,25 +205,37 @@ async function withLoadingState(btn, originalText, asyncFn, successText = null, 
 }
 window.withLoadingState = withLoadingState;
 
-function maybePromptErrorReport(status) {
-  return maybePromptErrorReportImpl(status);
+function maybePromptErrorReport(_status) {
+  return Promise.resolve();
 }
 
-/*
- * Compatibility anchors for static bundle tests:
- * function collectErrorReportContext
- * function extractErrorReportSearchTerms
- * function findErrorLogAnchorIndex
- * function openErrorReportModal
- * localStorage.setItem(ERROR_REPORT_DISMISS_STORAGE
- * submitErrorReport
- */
+let frontendProblemReporting = false;
 
 window.addEventListener('unhandledrejection', (event) => {
+  if (frontendProblemReporting) return;
   const reason = event.reason;
   const message = reason instanceof Error ? reason.message : String(reason ?? 'unknown');
   console.warn('[app] unhandled promise rejection:', reason);
-  showToast(t('dynamic.app.操作失败_message'), true);
+  frontendProblemReporting = true;
+  try {
+    maybeShowProblem(buildFrontendInternalProblem(message));
+  } finally {
+    frontendProblemReporting = false;
+  }
+});
+
+window.addEventListener('error', (event) => {
+  if (frontendProblemReporting) return;
+  const message = String(event.message || '');
+  if (!message || message === 'Script error.') return;
+  if (message.includes('ResizeObserver')) return;
+  console.warn('[app] window error:', event);
+  frontendProblemReporting = true;
+  try {
+    maybeShowProblem(buildFrontendInternalProblem(message));
+  } finally {
+    frontendProblemReporting = false;
+  }
 });
 
 function getDanmuReadCatalogProvider(providerId) {
@@ -581,6 +599,25 @@ async function init() {
   }
 
   initErrorReporting({ showToast, getLastStatus: getLastAppliedStatus });
+  initProblemDialog({
+    showToast,
+    navigate,
+    switchSettingsTab,
+    openErrorReport: (problem, options) =>
+      openErrorReportModalFromProblem(problem, {
+        ...options,
+        statusSnapshot: getLastAppliedStatus(),
+      }),
+    retryProblemAction: async () => {
+      showToast(t('dynamic.problem.action.retry'), false);
+    },
+    getLastStatus: getLastAppliedStatus,
+    isFeedbackSubmitting: () => false,
+    probeConnection: async () => {
+      navigate('settings');
+      switchSettingsTab('api');
+    },
+  });
   initLiveOverlayPanel({ showToast });
   configureLiveSettingsTabs({ showToast });
   initLiveSettingsTabs();
@@ -590,8 +627,8 @@ async function init() {
 
   configureStatus({
     applyCaptureRegion: applyCaptureRegionFromPayload,
-    onErrorPrompt: maybePromptErrorReport,
-    onErrorReportManual: (status) => openErrorReportModalImpl(status, { force: true }),
+    onProblemShow: maybeShowProblem,
+    onProblemOccurrenceUpdate: updateVisibleProblemOccurrence,
   });
   setRealtimeHandlers({
     onStatus: (status) => {

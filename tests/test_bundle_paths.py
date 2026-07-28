@@ -117,6 +117,7 @@ def test_overview_announcement_banner_in_content_pages_js():
 def test_error_report_modal_in_index_html():
     html = (project_root() / "web" / "static" / "index.html").read_text(encoding="utf-8")
     assert 'id="errorReportModal"' in html
+    assert 'id="problemDetailModal"' in html
     assert 'id="btnErrorReportSubmit"' in html
     assert 'id="btnErrorReportDismiss"' in html
     assert 'id="errorReportUserNote"' in html

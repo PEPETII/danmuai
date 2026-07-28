@@ -67,6 +67,9 @@ class RuntimeState:
     app_session_runtime_sec: float
     error_message: str
     is_error: bool
+    active_problem: dict[str, object] | None
+    problem_event_id: str
+    recent_problems: list[dict[str, object]]
     cached_danmu_lines: int
     cached_layout_mode: str
     live_snapshot: Any | None
@@ -168,6 +171,21 @@ class RuntimeState:
                 web_runtime_state.is_error
                 if web_runtime_state is not None
                 else getattr(app, "web_is_error", False)
+            ),
+            active_problem=(
+                web_runtime_state.active_problem
+                if web_runtime_state is not None
+                else None
+            ),
+            problem_event_id=str(
+                web_runtime_state.problem_event_id
+                if web_runtime_state is not None
+                else ""
+            ),
+            recent_problems=list(
+                web_runtime_state.recent_problems
+                if web_runtime_state is not None
+                else []
             ),
             cached_danmu_lines=int(
                 web_runtime_state.cached_danmu_lines

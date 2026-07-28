@@ -88,6 +88,91 @@
 #modelModal select.ui-control,
 #modelModal textarea.ui-control,
 #errorReportModal input.ui-control,
-#errorReportModal textarea.ui-control {
+#errorReportModal textarea.ui-control,
+#problemDetailModal input.ui-control,
+#problemDetailModal textarea.ui-control {
   max-width: 100%;
+}
+
+/* Problem detail modal (W-PROBLEM-DISPLAY-001) */
+.problem-detail-panel {
+  min-width: 0;
+}
+
+.problem-detail-section-title {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--warm-text, #3d3429);
+  margin-bottom: 0.25rem;
+}
+
+.problem-detail-body,
+.problem-detail-suggestions {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.problem-detail-technical-pre {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 10rem;
+  overflow-y: auto;
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.problem-detail-severity {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.5rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.problem-detail-severity--warning {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.problem-detail-severity--error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.problem-detail-severity--fatal {
+  background: #fecaca;
+  color: #7f1d1d;
+}
+
+.problem-detail-severity--info {
+  background: #e0f2fe;
+  color: #075985;
+}
+
+html[data-theme='dark'] .problem-detail-technical-pre {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+html[data-theme='dark'] .problem-detail-severity--warning {
+  background: rgba(251, 191, 36, 0.2);
+  color: #fcd34d;
+}
+
+html[data-theme='dark'] .problem-detail-severity--error,
+html[data-theme='dark'] .problem-detail-severity--fatal {
+  background: rgba(248, 113, 113, 0.18);
+  color: #fca5a5;
+}
+
+#problemDetailModal .flex.flex-wrap,
+#problemDetailActions {
+  min-width: 0;
 }

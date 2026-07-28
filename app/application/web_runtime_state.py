@@ -4,7 +4,8 @@
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Any
 
 
 @dataclass
@@ -13,6 +14,9 @@ class WebRuntimeState:
 
     error_message: str = ""
     is_error: bool = False
+    active_problem: dict[str, Any] | None = None
+    problem_event_id: str = ""
+    recent_problems: list[dict[str, Any]] = field(default_factory=list)
     overlay_compat_warning: str = ""
     screen_index_fallback_warning: str = ""
     cached_danmu_lines: int = 0

@@ -170,6 +170,45 @@
       "错误反馈已发送_感谢": "错误反馈已发送，感谢",
       "发送失败": "发送失败"
     },
+    "problem": {
+      "action": {
+        "view": "查看问题",
+        "report": "反馈此问题",
+        "close": "关闭",
+        "retry": "重试"
+      },
+      "section": {
+        "what": "这是什么问题",
+        "cause": "可能原因",
+        "impact": "影响范围",
+        "suggestions": "建议操作",
+        "technical": "技术详情"
+      },
+      "occurrenceCount": "该问题已连续发生 {count} 次",
+      "feedbackUnavailable": "当前未配置在线反馈服务",
+      "legacyTitle": "运行提示",
+      "internalTitle": "控制台发生异常",
+      "internalSummary": "Web 控制台遇到未处理的错误。",
+      "internalCause": "可能是浏览器脚本异常或临时状态不一致。",
+      "internalImpact": "部分页面功能可能暂时不可用。",
+      "internalSuggestionReload": "可尝试刷新页面或重启应用。",
+      "category": {
+        "configuration": "配置问题",
+        "authentication": "账号与鉴权问题",
+        "account": "账户与额度",
+        "rate_limit": "请求限流",
+        "model": "模型问题",
+        "timeout": "响应超时",
+        "network": "网络连接",
+        "capture": "截图问题",
+        "display": "显示器问题",
+        "runtime": "运行环境",
+        "storage": "存储问题",
+        "knowledge": "知识库问题",
+        "tts": "语音服务",
+        "internal": "内部错误"
+      }
+    },
     "appLiveOverlayPanel": {
       "状态未知": "状态未知",
       "已连接": "已连接",

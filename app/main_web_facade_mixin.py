@@ -26,6 +26,8 @@ from app.application.request_timing_service import RequestTimingService
 from app.application.status_snapshot import StatusSnapshotBuilder
 from app.config_defaults import CONFIG_DEFAULTS
 from app.main_helpers import CAPTURE_FAIL_WARN_THRESHOLD
+from app.problems.serializer import serialize_problem_descriptor, serialize_problem_summary
+from app.problems.service import ProblemService
 from app.translations import tr
 from app.web_api.custom_models import MASKED_KEY
 
@@ -43,6 +45,114 @@ class DanmuAppWebFacadeMixin:
         if bridge:
             bridge.publish_status()
 
+    def _ensure_problem_service(self) -> ProblemService:
+        try:
+            service = object.__getattribute__(self, "_problem_service")
+        except AttributeError:
+            service = None
+        if service is None:
+            service = ProblemService()
+            object.__setattr__(self, "_problem_service", service)
+        return service
+
+    def _sync_problem_runtime_state(self, *, publish: bool = True) -> None:
+        service = self._ensure_problem_service()
+        runtime = self._ensure_web_runtime_state()
+        active = service.active_problem()
+        if active is None:
+            runtime.active_problem = None
+            runtime.problem_event_id = ""
+            runtime.recent_problems = [
+                serialize_problem_summary(item) for item in service.recent_problems(limit=5)
+            ]
+            return
+        serialized = serialize_problem_descriptor(active)
+        runtime.active_problem = serialized
+        runtime.problem_event_id = active.event_id
+        runtime.recent_problems = [
+            serialize_problem_summary(item) for item in service.recent_problems(limit=5)
+        ]
+        runtime.error_message = serialized.get("summary", "")
+        runtime.is_error = active.severity in ("warning", "error", "fatal")
+        if publish:
+            bridge = getattr(self, "web_bridge", None)
+            if bridge:
+                bridge.publish_status()
+
+    def report_problem(
+        self,
+        code: str,
+        *,
+        technical_detail: str = "",
+        context: dict | None = None,
+        force_new_event: bool = False,
+    ) -> dict:
+        service = self._ensure_problem_service()
+        previous = service.active_problem()
+        problem = service.report(
+            code,
+            technical_detail=technical_detail,
+            context=context,
+            force_new_event=force_new_event,
+        )
+        self._sync_problem_runtime_state(publish=False)
+        try:
+            logger = object.__getattribute__(self, "logger")
+        except AttributeError:
+            logger = None
+        if logger is not None:
+            if (
+                previous is not None
+                and previous.event_id == problem.event_id
+                and problem.occurrence_count > previous.occurrence_count
+            ):
+                logger.warning(
+                    "problem.repeated code=%s event_id=%s count=%s",
+                    problem.code,
+                    problem.event_id,
+                    problem.occurrence_count,
+                )
+            else:
+                logger.warning(
+                    "problem.reported code=%s event_id=%s count=%s",
+                    problem.code,
+                    problem.event_id,
+                    problem.occurrence_count,
+                )
+        bridge = getattr(self, "web_bridge", None)
+        if bridge:
+            bridge.publish_status()
+        return serialize_problem_descriptor(problem)
+
+    def clear_problem(self, *, code: str | None = None) -> None:
+        service = self._ensure_problem_service()
+        active = service.active_problem()
+        service.clear(code=code)
+        runtime = self._ensure_web_runtime_state()
+        if code is None or (active is not None and active.code == code):
+            runtime.error_message = ""
+            runtime.is_error = False
+        self._sync_problem_runtime_state(publish=False)
+        try:
+            logger = object.__getattribute__(self, "logger")
+        except AttributeError:
+            logger = None
+        if logger is not None and active is not None and (code is None or active.code == code):
+            logger.info(
+                "problem.cleared code=%s event_id=%s",
+                active.code,
+                active.event_id,
+            )
+        bridge = getattr(self, "web_bridge", None)
+        if bridge:
+            bridge.publish_status()
+
+    def get_active_problem(self) -> dict | None:
+        active = self._ensure_problem_service().active_problem()
+        if active is None:
+            return None
+        return serialize_problem_descriptor(active)
+
     def set_web_error_status(self, message: str, *, is_error: bool) -> None:
         self._set_error_status_safe(message, is_error=is_error)
 
@@ -54,13 +164,16 @@ class DanmuAppWebFacadeMixin:
             and not self._capture_error_active
         ):
             self._capture_error_active = True
-            self._set_error_status_safe(tr("app.capture_failed_repeated"), is_error=True)
+            self.report_problem(
+                "CAPTURE-001",
+                technical_detail=tr("app.capture_failed_repeated"),
+            )
 
     def _note_capture_success(self) -> None:
         self._capture_fail_streak = 0
         if self._capture_error_active:
             self._capture_error_active = False
-            self._set_error_status_safe("", is_error=False)
+            self.clear_problem(code="CAPTURE-001")
 
     def build_status_snapshot(self) -> dict[str, object]:
         return StatusSnapshotBuilder(self).build()

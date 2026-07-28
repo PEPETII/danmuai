@@ -20,19 +20,21 @@
 import { getLanguage, t } from './i18n.js';
 
 let statusHadError = false;
+let lastProblemEventId = '';
+let lastProblemOccurrenceCount = 0;
 let lastAppliedStatus = null;
 let lastRunning = null;
 let lastLiveMessage = null;
 let lastSessionRunsKey = '';
 let lastCaptureRegionKey = '';
 let applyCaptureRegionFromPayload = () => {};
-let maybePromptErrorReport = async () => {};
-let openErrorReportModal = async () => {};
+let maybeShowProblem = () => {};
+let updateVisibleProblemOccurrence = () => {};
 
-export function configureStatus({ applyCaptureRegion, onErrorPrompt, onErrorReportManual }) {
+export function configureStatus({ applyCaptureRegion, onProblemShow, onProblemOccurrenceUpdate }) {
   if (applyCaptureRegion) applyCaptureRegionFromPayload = applyCaptureRegion;
-  if (onErrorPrompt) maybePromptErrorReport = onErrorPrompt;
-  if (onErrorReportManual) openErrorReportModal = onErrorReportManual;
+  if (onProblemShow) maybeShowProblem = onProblemShow;
+  if (onProblemOccurrenceUpdate) updateVisibleProblemOccurrence = onProblemOccurrenceUpdate;
 }
 
 export function getStatusHadError() {
@@ -341,19 +343,37 @@ export function applyStatus(st) {
 
   const banner = document.getElementById('errorBanner');
   const bannerMessage = document.getElementById('errorBannerMessage');
-  if (st.error_message) {
-    if (bannerMessage) updateTextIfChanged(bannerMessage, st.error_message);
-    else if (banner) updateTextIfChanged(banner, st.error_message);
+  const problem = st.active_problem || null;
+  const bannerText = problem
+    ? [problem.title, problem.summary].filter(Boolean).join(' — ')
+    : String(st.error_message || '');
+  if (bannerText) {
+    if (bannerMessage) updateTextIfChanged(bannerMessage, bannerText);
+    else if (banner) updateTextIfChanged(banner, bannerText);
     banner?.classList.remove('hidden');
     banner?.classList.add('ui-status-banner--danger');
-    banner?.classList.toggle('text-red-700', !!st.is_error);
+    banner?.classList.toggle('text-red-700', !!(st.is_error || problem));
   } else {
     banner?.classList.add('hidden');
   }
 
-  const isError = !!st.is_error;
-  if (isError && !statusHadError) {
-    maybePromptErrorReport(st).catch((e) => console.warn('[error-report] prompt failed', e));
+  if (problem?.event_id) {
+    const isNewEvent = problem.event_id !== lastProblemEventId;
+    const countChanged =
+      problem.event_id === lastProblemEventId &&
+      Number(problem.occurrence_count || 1) !== lastProblemOccurrenceCount;
+    if (isNewEvent) {
+      maybeShowProblem(problem);
+    } else if (countChanged) {
+      updateVisibleProblemOccurrence(problem);
+    }
+    lastProblemEventId = problem.event_id;
+    lastProblemOccurrenceCount = Number(problem.occurrence_count || 1);
+  } else if (!st.error_message) {
+    lastProblemEventId = '';
+    lastProblemOccurrenceCount = 0;
   }
+
+  const isError = !!(st.is_error || problem);
   statusHadError = isError;
 }

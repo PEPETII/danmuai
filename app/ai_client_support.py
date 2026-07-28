@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import json
-import logging
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -140,6 +139,34 @@ def format_http_status_error(exc: httpx.HTTPStatusError) -> str:
 
 def format_openai_http_error(exc: httpx.HTTPStatusError) -> str:
     return format_http_status_error(exc)
+
+
+def problem_code_for_http_error(exc: httpx.HTTPStatusError) -> str:
+    from app.problems.classifier import problem_code_for_http_error as _classify_code
+
+    return _classify_code(exc)
+
+
+def classify_http_status_error(
+    exc: httpx.HTTPStatusError,
+    *,
+    provider_id: str = "",
+    model_id: str = "",
+):
+    from app.problems.classifier import classify_http_status_error as _classify
+
+    return _classify(exc, provider_id=provider_id, model_id=model_id)
+
+
+def classify_network_error(
+    exc: Exception,
+    *,
+    provider_id: str = "",
+    model_id: str = "",
+):
+    from app.problems.classifier import classify_network_error as _classify
+
+    return _classify(exc, provider_id=provider_id, model_id=model_id)
 
 
 def resolve_danmu_max_output_tokens(configured: int, *, use_thinking: bool = False) -> int:

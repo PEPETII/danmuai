@@ -9,21 +9,21 @@ from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import QApplication, QMessageBox
 
 from app.ai_client import AiWorker
+from app.application.application_stats_state import ApplicationStatsState
 from app.application.config_service import scene_version_fingerprint
 from app.application.request_scheduler import RequestScheduler
 from app.application.request_timing_service import RequestTimingService
-from app.application.application_stats_state import ApplicationStatsState
 from app.application.stats_state import StatsState
 from app.application.web_runtime_state import WebRuntimeState
 from app.config_defaults import config_value_with_default
 from app.config_store import ConfigStore
 from app.danmu_engine import DanmuEngine
-from app.main_helpers import TOPMOST_HEALTH_INTERVAL_MS
 from app.danmu_read_service import DanmuReadService
 from app.history_writer import HistoryWriter
 from app.hotkey import HotkeyManager
 from app.lifetime_stats import LifetimeStats
 from app.logger import SanitizedLogger, sanitize_sensitive_text
+from app.main_helpers import TOPMOST_HEALTH_INTERVAL_MS
 from app.main_launch import show_startup_notice_if_needed
 from app.main_mic_mixin import MIC_POLL_MS
 from app.mic_orchestrator import MicOrchestrator
@@ -31,6 +31,7 @@ from app.mic_service import MicService
 from app.model_providers import resolve_active_model_id
 from app.overlay import DanmuOverlay
 from app.persona_manager import PersonaManager
+from app.problems.classifier import problem_code_from_error_message
 from app.reply_queue import AIReplyFIFOBuffer
 from app.snipper import ScreenCapturer, resolve_screen_index
 from app.templates import TemplateManager
@@ -499,7 +500,15 @@ class DanmuAppLifecycleMixin:
             or "balance" in lower_msg
             or "欠费" in msg
         )
-        self._set_error_status_safe(msg, is_error=True)
+        classification = problem_code_from_error_message(msg)
+        self.report_problem(
+            classification.code,
+            technical_detail=classification.technical_detail or msg,
+            context={
+                "model_id": resolve_active_model_id(self.config),
+                **(classification.context or {}),
+            },
+        )
 
         if is_fatal:
             self.logger.warning(tr("app.fatal_error_pause").format(message=msg))
@@ -518,12 +527,14 @@ class DanmuAppLifecycleMixin:
         )
         self._failure_backoff_paused = True
         self.screenshot_timer.stop()
-        self._set_error_status_safe(
-            tr("app.failure_paused").format(
-                count=self.MAX_CONSECUTIVE_FAILURES,
-                message=msg,
-            ),
-            is_error=True,
+        paused_msg = tr("app.failure_paused").format(
+            count=self.MAX_CONSECUTIVE_FAILURES,
+            message=msg,
+        )
+        self.report_problem(
+            "INTERNAL-001",
+            technical_detail=paused_msg,
+            force_new_event=True,
         )
 
     def _update_stats(self, *, success: bool = True, count: int = 1) -> None:
@@ -540,7 +551,7 @@ class DanmuAppLifecycleMixin:
         if not visual_credentials_ready(self.config):
             msg = format_credential_error(self.config)
             self.logger.warning(msg)
-            self._set_error_status_safe(msg, is_error=True)
+            self.report_problem("CONFIG-001", technical_detail=msg)
             self.tray.show_api_key_missing_hint()
             if self.web_server:
                 self._open_web_console("/#settings")
@@ -552,7 +563,7 @@ class DanmuAppLifecycleMixin:
         endpoint_issue = visual_api_endpoint_issue(self.config)
         if endpoint_issue:
             self.logger.warning(endpoint_issue)
-            self._set_error_status_safe(endpoint_issue, is_error=True)
+            self.report_problem("CONFIG-001", technical_detail=endpoint_issue)
             if self.web_server:
                 self._open_web_console("/#settings")
             self.tray.update_state(running=False)
@@ -615,7 +626,7 @@ class DanmuAppLifecycleMixin:
         self._start_meme_barrage_timers()
         self.tray.update_state(running=True)
         self.state_changed.emit(True)
-        self._set_error_status_safe("", is_error=False)
+        self.clear_problem()
         self.logger.info(tr("app.started"))
         self._sync_mic_service()
 

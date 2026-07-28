@@ -22,6 +22,22 @@ def _safe_app_attr(app: object, name: str, default: object = None) -> object:
         return default
 
 
+def serialize_problem_summary_from_dict(item: dict[str, object]) -> dict[str, object]:
+    if not isinstance(item, dict):
+        return {}
+    return {
+        "event_id": item.get("event_id", ""),
+        "code": item.get("code", ""),
+        "severity": item.get("severity", ""),
+        "category": item.get("category", ""),
+        "title": item.get("title", ""),
+        "summary": item.get("summary", ""),
+        "occurrence_count": item.get("occurrence_count", 1),
+        "fingerprint": item.get("fingerprint", ""),
+        "last_occurred_at": item.get("last_occurred_at", 0.0),
+    }
+
+
 def _build_track_layout(app: object) -> dict[str, object]:
     """W-TRACK-VIS-002: 只读投影 engine 轨道几何,供前端轨道可视化预览。
 
@@ -127,6 +143,12 @@ class StatusSnapshotBuilder:
             "app_session_runtime_sec": state.app_session_runtime_sec,
             "error_message": state.error_message,
             "is_error": state.is_error,
+            "active_problem": state.active_problem,
+            "problem_event_id": state.problem_event_id,
+            "recent_problems": [
+                serialize_problem_summary_from_dict(item)
+                for item in (state.recent_problems or [])[:5]
+            ],
             "overlay_compat_warning": overlay_compat_warning,
             "screen_index_fallback_warning": screen_index_fallback_warning,
             "live_analyzing": bool(live_snapshot.analyzing) if live_snapshot else False,

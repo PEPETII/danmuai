@@ -793,7 +793,13 @@ class DanmuApp(
         if not self._failure_backoff_paused:
             return
         self._failure_backoff_paused = False
-        self._set_error_status_safe("", is_error=False)
+        active = self.get_active_problem() if hasattr(self, "get_active_problem") else None
+        if active and str(active.get("code", "")).startswith(("AI-", "NETWORK-")):
+            self.clear_problem(code=str(active.get("code")))
+        elif hasattr(self, "clear_problem"):
+            self.clear_problem()
+        else:
+            self._set_error_status_safe("", is_error=False)
         if self.engine.running and not self.screenshot_timer.isActive():
             self.screenshot_timer.start()
 

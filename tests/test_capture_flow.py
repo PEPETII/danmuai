@@ -280,19 +280,18 @@ def test_null_pixmap_does_not_increment_screenshot_id():
 
 
 def test_repeated_capture_failure_sets_web_error_status():
-    """S-009: third consecutive capture failure surfaces Web status bar error."""
+    """S-009: third consecutive capture failure surfaces structured capture problem."""
     app = make_minimal_danmu_app()
     app.engine.running = True
     app.capturer = FakeCapturer(None)
-    errors: list[tuple[str, bool]] = []
-    app._set_error_status_safe = lambda msg, is_error: errors.append((msg, is_error))
+    reported: list[str] = []
+    app.report_problem = lambda code, **kwargs: reported.append(code) or {}
 
     for _ in range(3):
         app._capture_screenshot()
 
     assert app._capture_fail_streak == 3
-    assert errors
-    assert errors[-1][1] is True
+    assert reported == ["CAPTURE-001"]
 
 
 def test_capture_success_clears_capture_error_status():
@@ -300,15 +299,15 @@ def test_capture_success_clears_capture_error_status():
     app.engine.running = True
     app._capture_fail_streak = 3
     app._capture_error_active = True
-    errors: list[tuple[str, bool]] = []
-    app._set_error_status_safe = lambda msg, is_error: errors.append((msg, is_error))
+    cleared: list[str | None] = []
+    app.clear_problem = lambda *, code=None: cleared.append(code)
     app.capturer = FakeCapturer(FakePixmap(0b1))
 
     app._capture_screenshot()
 
     assert app._capture_fail_streak == 0
     assert app._capture_error_active is False
-    assert ("", False) in errors
+    assert cleared == ["CAPTURE-001"]
 
 
 def test_capture_failure_reschedules_next_screenshot():

@@ -362,7 +362,30 @@ function closeErrorReportModal() {
   modal.classList.remove('flex');
 }
 
+function buildErrorReportAnchorFromProblem(problem, status) {
+  if (!problem) return null;
+  const summary = String(problem.summary || problem.title || '').trim();
+  if (!summary) return null;
+  return {
+    problem,
+    errorMessage: summary,
+    eventId: problem.event_id,
+    code: problem.code,
+    fingerprint: problem.fingerprint || null,
+    ts: problem.last_occurred_at || problem.occurred_at || Date.now() / 1000,
+    statusSnapshot: {
+      active_model_id: status?.active_model_id,
+      persona_names: status?.persona_names,
+      active_problem: problem,
+    },
+  };
+}
+
 function buildErrorReportAnchor(status) {
+  const problem = status?.active_problem;
+  if (problem?.event_id) {
+    return buildErrorReportAnchorFromProblem(problem, status);
+  }
   const message = String(status?.error_message || '').trim();
   if (!message) return null;
   return {
@@ -377,11 +400,32 @@ function buildErrorReportAnchor(status) {
 }
 
 /**
+ * Open error report modal from structured problem (user-initiated only).
+ */
+export async function openErrorReportModalFromProblem(problem, options = {}) {
+  if (!problem) return;
+  const anchor = buildErrorReportAnchorFromProblem(problem, options.statusSnapshot || {});
+  if (!anchor) return;
+  anchor.fingerprint = await hashErrorFingerprint(
+    `${anchor.code || ''}|${anchor.eventId || ''}|${anchor.errorMessage}`,
+  );
+  if (!options.force && isErrorReportSuppressed(anchor.fingerprint)) return;
+  errorReportAnchor = anchor;
+  showErrorReportModal(errorReportAnchor);
+}
+
+/**
  * Open error report modal. force=true skips 24h fingerprint dedup (manual banner entry).
  */
-export async function openErrorReportModal(status, { force = false } = {}) {
+export async function openErrorReportModal(statusOrProblem, { force = false, fromProblemDialog = false } = {}) {
+  if (statusOrProblem?.event_id && statusOrProblem?.code) {
+    return openErrorReportModalFromProblem(statusOrProblem, {
+      force,
+      statusSnapshot: fromProblemDialog ? {} : statusOrProblem,
+    });
+  }
   if (!window.DanmuSupabase?.isConfigured?.()) return;
-  const anchor = buildErrorReportAnchor(status);
+  const anchor = buildErrorReportAnchor(statusOrProblem);
   if (!anchor) return;
   anchor.fingerprint = await hashErrorFingerprint(anchor.errorMessage);
   if (!force && isErrorReportSuppressed(anchor.fingerprint)) return;
@@ -389,8 +433,9 @@ export async function openErrorReportModal(status, { force = false } = {}) {
   showErrorReportModal(errorReportAnchor);
 }
 
-export async function maybePromptErrorReport(status) {
-  return openErrorReportModal(status, { force: false });
+/** @deprecated Auto prompt removed — problem dialog handles display. */
+export async function maybePromptErrorReport(_status) {
+  return undefined;
 }
 
 async function submitErrorReportFromModal() {
@@ -447,6 +492,15 @@ export function initErrorReporting(deps = {}) {
   handlersBound = true;
   document.getElementById('btnErrorReportFromBanner')?.addEventListener('click', () => {
     const st = getLastStatus();
+    if (st?.active_problem?.event_id) {
+      openErrorReportModalFromProblem(st.active_problem, {
+        force: true,
+        statusSnapshot: st,
+      }).catch((error) => {
+        console.warn('[error-report] manual open failed', error);
+      });
+      return;
+    }
     if (!st?.error_message) return;
     openErrorReportModal(st, { force: true }).catch((error) => {
       console.warn('[error-report] manual open failed', error);

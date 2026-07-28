@@ -12,8 +12,8 @@ from typing import TYPE_CHECKING, Any
 
 from app.application.config_service import MASKED_API_KEY, WEB_CONFIG_KEYS, apply_web_config_patch
 from app.errors import AppError
-from app.translations import tr
 from app.logger import sanitize_sensitive_text
+from app.translations import tr
 
 if TYPE_CHECKING:
     from app.web_console import WebConsoleBridge
@@ -26,6 +26,16 @@ _STATUS_DIFF_SKIP_KEYS = frozenset({
 })
 
 
+def _problem_occurrence_count(payload: dict[str, Any] | None) -> int | None:
+    if not isinstance(payload, dict):
+        return None
+    active = payload.get("active_problem")
+    if not isinstance(active, dict):
+        return None
+    value = active.get("occurrence_count")
+    return int(value) if isinstance(value, int) else None
+
+
 def status_payloads_semantically_equal(
     a: dict[str, Any] | None,
     b: dict[str, Any] | None,
@@ -33,6 +43,10 @@ def status_payloads_semantically_equal(
     """比较 status payload，忽略单调递增时间字段（前端 RUNTIME_CLOCK 本地推进）。"""
     if a is None or b is None:
         return a is b
+    if a.get("problem_event_id") != b.get("problem_event_id"):
+        return False
+    if _problem_occurrence_count(a) != _problem_occurrence_count(b):
+        return False
     a_cmp = {k: v for k, v in a.items() if k not in _STATUS_DIFF_SKIP_KEYS}
     b_cmp = {k: v for k, v in b.items() if k not in _STATUS_DIFF_SKIP_KEYS}
     return a_cmp == b_cmp

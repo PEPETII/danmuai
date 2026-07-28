@@ -27,8 +27,11 @@
 
       <div id="errorBanner" class="ui-status-banner ui-status-banner--danger hidden mb-6 flex flex-wrap items-start justify-between gap-3">
         <span id="errorBannerMessage" class="flex-1 min-w-0 whitespace-pre-wrap break-words"></span>
-        <button type="button" id="btnErrorBannerDismiss" class="ui-button ui-button--ghost ui-button--sm shrink-0" data-i18n-aria-label="overview.aria.关闭错误提示" aria-label="关闭错误提示">×</button>
-        <button type="button" id="btnErrorReportFromBanner" class="ui-button ui-button--secondary ui-button--sm shrink-0">反馈此问题</button>
+        <div class="flex flex-wrap gap-2 shrink-0">
+          <button type="button" id="btnProblemViewFromBanner" class="ui-button ui-button--secondary ui-button--sm" data-i18n="dynamic.problem.action.view">查看问题</button>
+          <button type="button" id="btnErrorReportFromBanner" class="ui-button ui-button--secondary ui-button--sm" data-i18n="dynamic.problem.action.report">反馈此问题</button>
+          <button type="button" id="btnProblemBannerDismiss" class="ui-button ui-button--ghost ui-button--sm" data-i18n-aria-label="overview.aria.关闭错误提示" aria-label="关闭错误提示">×</button>
+        </div>
       </div>
 
       <p id="overlayCompatBanner" class="ui-status-banner ui-status-banner--warning hidden mb-6" role="status"></p>
