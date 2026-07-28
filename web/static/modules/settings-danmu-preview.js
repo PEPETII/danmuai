@@ -1,9 +1,8 @@
 /**
  * 弹幕样式预览 (W-PR-INTAKE-022 / W-FP-STYLEGEN-WEB-001)
  *
- * 纯前端预览：横向 scrolling 仍在本模块实时渲染。
- * 从下到上浮动面板的堆积预览已迁到 #style-generator（app-style-generator-page.js），
- * 本模块在 floating_panel 模式下仅切换入口提示，不再维护第二份简化堆积 DOM。
+ * 纯前端预览：横向 scrolling 在设置页与样式生成器横向模式实时渲染。
+ * 从下到上浮动面板的堆积预览已迁到 #style-generator（app-style-generator-page.js）。
  */
 
 import { t } from './i18n.js';
@@ -16,8 +15,31 @@ const PREVIEW_TEXTS = [
   'awsl',
 ];
 
+const PREVIEW_ROOTS = [
+  {
+    rootId: 'danmuStylePreview',
+    trackId: 'danmuPreviewTrack',
+    bandsId: 'danmuTrackBands',
+    scrollingId: 'danmuPreviewScrolling',
+    floatingId: 'danmuPreviewFloating',
+  },
+  {
+    rootId: 'horizontalDanmuStylePreview',
+    trackId: 'horizontalDanmuPreviewTrack',
+    bandsId: 'horizontalDanmuTrackBands',
+    scrollingId: 'horizontalDanmuPreviewScrolling',
+    floatingId: null,
+  },
+];
+
 let previewTimer = null;
-let previewIndex = 0;
+const previewIndices = new Map();
+let configSnapshot = {};
+
+export function updateDanmuPreviewSnapshot(cfg = {}) {
+  if (!cfg || typeof cfg !== 'object') return;
+  configSnapshot = { ...configSnapshot, ...cfg };
+}
 
 function getField(id) {
   return document.getElementById(id);
@@ -25,19 +47,33 @@ function getField(id) {
 
 function getNumber(id, fallback) {
   const el = getField(id);
-  if (!el || el.value === '') return fallback;
-  const num = Number(el.value);
-  return Number.isNaN(num) ? fallback : num;
+  if (el && el.value !== '') {
+    const num = Number(el.value);
+    if (!Number.isNaN(num)) return num;
+  }
+  const snap = configSnapshot[id];
+  if (snap !== undefined && snap !== '') {
+    const num = Number(snap);
+    if (!Number.isNaN(num)) return num;
+  }
+  return fallback;
 }
 
 function getSelect(id, fallback) {
   const el = getField(id);
-  return el ? el.value || fallback : fallback;
+  if (el && el.value) return el.value;
+  const snap = configSnapshot[id];
+  if (snap !== undefined && snap !== null && String(snap) !== '') return String(snap);
+  return fallback;
 }
 
 function getChecked(id) {
   const el = getField(id);
-  return el ? el.checked : false;
+  if (el) return el.checked;
+  const snap = configSnapshot[id];
+  if (snap === '1' || snap === 'true' || snap === true) return true;
+  if (snap === '0' || snap === 'false' || snap === false) return false;
+  return false;
 }
 
 function getRenderMode() {
@@ -46,24 +82,19 @@ function getRenderMode() {
 
 function buildScrollingStyle() {
   const speed = getNumber('danmu_speed', 3);
-  const fontSize = getNumber('danmu_font_size', 24);
-  const opacity = Math.max(0, Math.min(1, getNumber('danmu_opacity', 100) / 100));
+  const fontSize = getNumber('font_size', 24);
+  const opacity = Math.max(0, Math.min(1, getNumber('opacity', 100) / 100));
   const fontFamily = getSelect('danmu_font_family', '');
   const bold = getChecked('danmu_font_bold');
   const color = resolvePreviewColor();
 
-  return {
-    speed,
-    fontSize,
-    opacity,
-    fontFamily,
-    bold,
-    color,
-  };
+  return { speed, fontSize, opacity, fontFamily, bold, color };
 }
 
 function resolvePreviewColor() {
-  const rawSelected = getField('danmu_font_color_selected')?.value ?? '["#FFFFFF"]';
+  const rawSelected = getField('danmu_font_color_selected')?.value
+    ?? configSnapshot.danmu_font_color_selected
+    ?? '["#FFFFFF"]';
   let selected = [];
   try {
     selected = JSON.parse(rawSelected);
@@ -77,9 +108,13 @@ function resolvePreviewColor() {
   if (selected.length === 0) return '#FFFFFF';
   if (selected.length === 1) return selected[0];
 
-  const mode = getField('danmu_font_color_mode')?.value ?? 'equal';
+  const mode = getField('danmu_font_color_mode')?.value
+    ?? configSnapshot.danmu_font_color_mode
+    ?? 'equal';
   if (mode === 'weighted') {
-    const rawWeights = getField('danmu_font_color_weights')?.value ?? '{}';
+    const rawWeights = getField('danmu_font_color_weights')?.value
+      ?? configSnapshot.danmu_font_color_weights
+      ?? '{}';
     let weightsMap = {};
     try {
       weightsMap = JSON.parse(rawWeights);
@@ -105,15 +140,16 @@ function resolvePreviewColor() {
   return selected[Math.floor(Math.random() * selected.length)];
 }
 
-function renderScrollingPreview() {
-  const track = document.getElementById('danmuPreviewTrack');
+function renderScrollingPreviewForRoot(root) {
+  const track = document.getElementById(root.trackId);
   if (!track) return;
 
   const style = buildScrollingStyle();
   track.innerHTML = '';
 
-  const text = PREVIEW_TEXTS[previewIndex % PREVIEW_TEXTS.length];
-  previewIndex++;
+  const idx = previewIndices.get(root.rootId) ?? 0;
+  const text = PREVIEW_TEXTS[idx % PREVIEW_TEXTS.length];
+  previewIndices.set(root.rootId, idx + 1);
 
   const item = document.createElement('span');
   item.textContent = text;
@@ -136,17 +172,15 @@ function renderScrollingPreview() {
   });
 }
 
-function switchPreviewMode() {
+function switchPreviewModeForRoot(root) {
+  if (!root.floatingId) return;
   const mode = getRenderMode();
-  const scrolling = document.getElementById('danmuPreviewScrolling');
-  const floating = document.getElementById('danmuPreviewFloating');
+  const scrolling = document.getElementById(root.scrollingId);
+  const floating = document.getElementById(root.floatingId);
   if (scrolling) scrolling.classList.toggle('hidden', mode !== 'scrolling');
   if (floating) floating.classList.toggle('hidden', mode !== 'floating_panel');
 }
 
-// W-TRACK-VIS-002: 轨道几何可视化。基于表单值与 engine 常量(top_margin=50,
-// bottom_margin=80, line_height=40)在预览容器内按比例绘制轨道分隔线与
-// 顶/底安全边距带。预览容器高度固定(CSS 7.5rem),按屏幕高度比例缩放。
 const TRACK_TOP_MARGIN = 50;
 const TRACK_BOTTOM_MARGIN = 80;
 const TRACK_LINE_HEIGHT = 40;
@@ -157,8 +191,8 @@ const LAYOUT_MODE_RATIOS = {
   '1/4': 0.25,
 };
 
-function renderTrackBands() {
-  const bandsEl = document.getElementById('danmuTrackBands');
+function renderTrackBandsForRoot(root) {
+  const bandsEl = document.getElementById(root.bandsId);
   if (!bandsEl) return;
   const mode = getRenderMode();
   if (mode !== 'scrolling') {
@@ -171,14 +205,11 @@ function renderTrackBands() {
 
   const layoutMode = getSelect('layout_mode', 'fullscreen');
   const ratio = LAYOUT_MODE_RATIOS[layoutMode] ?? 1.0;
-  // 预览容器高度(与 CSS .danmu-preview-scrolling height: 7.5rem 对齐)
   const previewH = 120;
-  // 用一个虚拟屏幕高度作为比例参考(与 engine 默认 1080 一致)
   const refScreenH = 1080;
   const drawableH = refScreenH * ratio;
   const scale = previewH / refScreenH;
 
-  // 顶部安全边距带
   const topBand = document.createElement('div');
   topBand.className = 'danmu-track-band danmu-track-band-top';
   topBand.style.top = '0px';
@@ -186,7 +217,6 @@ function renderTrackBands() {
   topBand.title = t('dynamic.settingsDanmuPreview.顶部安全边距_TRACK_TOP_MARGI', { margin: TRACK_TOP_MARGIN });
   bandsEl.appendChild(topBand);
 
-  // 底部安全边距带(在 drawable 底部)
   const bottomBandTop = drawableH - TRACK_BOTTOM_MARGIN;
   if (bottomBandTop > TRACK_TOP_MARGIN) {
     const bottomBand = document.createElement('div');
@@ -197,7 +227,6 @@ function renderTrackBands() {
     bandsEl.appendChild(bottomBand);
   }
 
-  // 轨道分隔线
   const linesRequested = getNumber('danmu_lines', 20);
   let y = TRACK_TOP_MARGIN;
   let drawn = 0;
@@ -212,7 +241,6 @@ function renderTrackBands() {
     drawn += 1;
   }
 
-  // 可绘制区边界标记
   const drawableMarker = document.createElement('div');
   drawableMarker.className = 'danmu-track-drawable-marker';
   drawableMarker.style.top = `${drawableH * scale}px`;
@@ -220,31 +248,29 @@ function renderTrackBands() {
   bandsEl.appendChild(drawableMarker);
 }
 
+function tickRoot(root) {
+  const previewEl = document.getElementById(root.rootId);
+  if (!previewEl || previewEl.closest('[hidden]')) return;
+  if (getRenderMode() !== 'scrolling') return;
+  renderTrackBandsForRoot(root);
+  renderScrollingPreviewForRoot(root);
+}
+
 function tick() {
-  const mode = getRenderMode();
-  if (mode === 'scrolling') {
-    renderTrackBands();
-    renderScrollingPreview();
-  }
-  // floating_panel：仅展示入口（HTML 静态），不跑第二套堆积预览
+  PREVIEW_ROOTS.forEach((root) => tickRoot(root));
 }
 
 export function refreshDanmuPreview() {
-  switchPreviewMode();
+  PREVIEW_ROOTS.forEach((root) => switchPreviewModeForRoot(root));
   tick();
 }
 
-export function initDanmuPreview() {
-  const preview = document.getElementById('danmuStylePreview');
-  if (!preview) return;
-
-  switchPreviewMode();
-
+function bindPreviewFieldListeners() {
   const fields = [
     'danmu_render_mode',
     'danmu_speed',
-    'danmu_font_size',
-    'danmu_opacity',
+    'font_size',
+    'opacity',
     'danmu_font_family',
     'danmu_font_bold',
     'danmu_font_color_selected',
@@ -252,7 +278,6 @@ export function initDanmuPreview() {
     'danmu_font_color_mode',
     'danmu_lines',
     'layout_mode',
-    // 基础字体镜像字段仍监听（影响设置页展示；浮动堆积预览不在此实现）
     'floating_panel_width',
     'floating_panel_max_items',
     'floating_panel_speed',
@@ -281,12 +306,15 @@ export function initDanmuPreview() {
   if (weightContainer) {
     weightContainer.addEventListener('input', refreshDanmuPreview);
   }
+}
+
+export function initDanmuPreview() {
+  const hasAnyRoot = PREVIEW_ROOTS.some((root) => document.getElementById(root.rootId));
+  if (!hasAnyRoot) return;
+
+  PREVIEW_ROOTS.forEach((root) => switchPreviewModeForRoot(root));
+  bindPreviewFieldListeners();
 
   if (previewTimer) clearInterval(previewTimer);
-  previewTimer = setInterval(() => {
-    const previewEl = document.getElementById('danmuStylePreview');
-    if (!previewEl || previewEl.closest('[hidden]')) return;
-    if (getRenderMode() !== 'scrolling') return;
-    tick();
-  }, 2500);
+  previewTimer = setInterval(tick, 2500);
 }

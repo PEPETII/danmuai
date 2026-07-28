@@ -11,6 +11,7 @@ import {
   updateNormalBatchPreview,
 } from './settings-defaults.js';
 import { syncColorUIFromConfig } from './settings-fonts.js';
+import { updateDanmuPreviewSnapshot } from './settings-danmu-preview.js';
 import { getActiveSettingsTabId } from './settings-tabs.js';
 
 let coreDeps = {
@@ -217,8 +218,10 @@ export function collectFormData({ usesCustomCredentials = false } = {}) {
   data.empty_accel = document.getElementById('empty_accel')?.checked ? '1' : '0';
   data.mic_mode_enabled = document.getElementById('mic_mode_enabled')?.checked ? '1' : '0';
   data.mic_use_visual_model = document.getElementById('mic_use_visual_model')?.checked ? '1' : '0';
-  data.danmu_font_bold = document.getElementById('danmu_font_bold')?.checked ? '1' : '0';
-  data.floating_panel_font_bold = document.getElementById('floating_panel_font_bold')?.checked ? '1' : '0';
+  const danmuBold = document.getElementById('danmu_font_bold');
+  if (danmuBold) data.danmu_font_bold = danmuBold.checked ? '1' : '0';
+  const fpBold = document.getElementById('floating_panel_font_bold');
+  if (fpBold) data.floating_panel_font_bold = fpBold.checked ? '1' : '0';
   data.use_thinking = document.getElementById('use_thinking')?.checked ? '1' : '0';
   // W-GLOBAL-VISUAL-APIKEY-REMOVE-001: 视觉全局 api_key 已下线，不再收集；mic/tts 独立 key 不受影响
   const micKey = (document.getElementById('mic_api_key')?.value || '').trim();
@@ -330,6 +333,7 @@ export async function fillForm(cfg) {
     else useThinking.checked = configDefaultValue('use_thinking') !== '0';
   }
   syncColorUIFromConfig(cfg);
+  updateDanmuPreviewSnapshot(cfg);
   coreDeps.updateThinkingModeAvailability(cfg);
 }
 

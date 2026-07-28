@@ -568,10 +568,120 @@
       </div>
       </div>
       <div class="sg-tab-panel" role="tabpanel" data-sg-tab-panel="horizontal" hidden>
-        <div class="sg-placeholder card p-12 text-center">
-          <svg class="ui-icon w-16 h-16 mx-auto mb-4 text-gray-300" aria-hidden="true"><use href="#i-sparkles"></use></svg>
-          <p class="text-lg font-semibold text-warmText mb-2" data-i18n="content.text.横向模式">横向模式</p>
-          <p class="text-gray-500" data-i18n="content.text.横向模式即将推出_敬请期待">横向模式即将推出，敬请期待。</p>
+        <div class="style-generator-layout">
+          <form id="horizontalFontForm" class="style-generator-controls card p-6" autocomplete="off">
+            <div class="settings-rhythm-accordion sg-accordion" data-settings-rhythm-accordion>
+              <section class="settings-rhythm-accordion-item">
+                <h4 class="settings-rhythm-accordion-heading">
+                  <button type="button" id="sgHorizontalFontAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="sgHorizontalFontAccordionPanel">
+                    <span class="settings-rhythm-accordion-trigger-copy">
+                      <span class="settings-rhythm-accordion-trigger-title" data-i18n="content.text.字体设置">字体设置</span>
+                      <span class="settings-section-hint settings-rhythm-accordion-trigger-hint" data-i18n="content.text.横向字体设置提示">横向弹幕字体、颜色与本地导入</span>
+                    </span>
+                    <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
+                  </button>
+                </h4>
+                <div id="sgHorizontalFontAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="sgHorizontalFontAccordionTrigger" hidden>
+                  <p class="settings-section-title" data-i18n="settings.text.横向弹幕字体">横向弹幕字体</p>
+                  <div class="settings-rhythm-accordion-fields">
+                    <div class="settings-rhythm-accordion-field">
+                      <label for="danmu_font_family" class="settings-field-label" data-i18n="settings.text.字体名">字体名</label>
+                      <select id="danmu_font_family" name="danmu_font_family" class="settings-field-control text-left ui-control ui-select">
+                        <option value="">— 系统默认 —</option>
+                      </select>
+                    </div>
+                    <div class="settings-rhythm-accordion-field">
+                      <label for="font_size" class="settings-field-label">字号 (px)</label>
+                      <input type="number" name="font_size" id="font_size" min="12" max="72" class="settings-field-control ui-control ui-input">
+                    </div>
+                    <div class="settings-rhythm-accordion-field">
+                      <label for="danmu_lines" class="settings-field-label">轨道行数</label>
+                      <input type="number" name="danmu_lines" id="danmu_lines" min="12" max="20" value="20" class="settings-field-control ui-control ui-input">
+                    </div>
+                    <div class="settings-rhythm-accordion-field">
+                      <label for="layout_mode" class="settings-field-label" data-i18n="content.text.布局">布局</label>
+                      <select name="layout_mode" id="layout_mode" class="settings-field-control text-left ui-control ui-select">
+                        <option value="fullscreen" data-i18n="settings.text.全屏">全屏</option>
+                        <option value="3/4" data-i18n="settings.text.占比四分之三">四分之三</option>
+                        <option value="1/2" data-i18n="settings.text.占比二分之一">二分之一</option>
+                        <option value="1/4" data-i18n="settings.text.占比四分之一">四分之一</option>
+                      </select>
+                    </div>
+                    <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--toggle">
+                      <span class="settings-field-label" data-i18n="settings.text.横向弹幕加粗">横向弹幕加粗</span>
+                      <label class="toggle-switch">
+                        <input type="checkbox" id="danmu_font_bold" name="danmu_font_bold" role="switch">
+                        <span aria-hidden="true"></span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <p class="settings-section-title mt-4" data-i18n="settings.text.弹幕颜色">弹幕颜色</p>
+                  <div class="space-y-3">
+                    <div id="danmuFontColorSwatches" class="flex flex-wrap gap-3"></div>
+                    <div class="flex items-center gap-4 mt-2">
+                      <label class="flex items-center gap-2 text-sm font-semibold text-warmText cursor-pointer">
+                        <input type="radio" name="danmu_font_color_mode_radio" value="equal" id="danmuFontColorModeEqual" checked>
+                        <span data-i18n="settings.text.平均概率">平均概率</span>
+                      </label>
+                      <label class="flex items-center gap-2 text-sm font-semibold text-warmText cursor-pointer">
+                        <input type="radio" name="danmu_font_color_mode_radio" value="weighted" id="danmuFontColorModeWeighted">
+                        <span data-i18n="settings.text.自定义概率">自定义概率</span>
+                      </label>
+                    </div>
+                    <div id="danmuFontColorWeights" class="hidden space-y-2 mt-2"></div>
+                    <input type="hidden" name="danmu_font_color_selected" id="danmu_font_color_selected">
+                    <input type="hidden" name="danmu_font_color_weights" id="danmu_font_color_weights">
+                    <input type="hidden" name="danmu_font_color_mode" id="danmu_font_color_mode">
+                  </div>
+
+                  <p class="settings-section-title mt-4" data-i18n="settings.text.导入本地字体">导入本地字体</p>
+                  <p class="settings-section-hint" data-i18n="content.text.字体导入说明">
+                    支持 .ttf / .otf 格式，单文件最大 25MB。请确认字体授权允许个人使用；DanmuAI 只在本机加载字体，不会上传到外部服务。
+                  </p>
+                  <div class="settings-rhythm-accordion-fields">
+                    <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--stacked">
+                      <label for="font_file_input" class="settings-field-label" data-i18n="content.text.选择字体文件">选择字体文件</label>
+                      <div class="settings-rhythm-accordion-control-stack">
+                        <input type="file" id="font_file_input" accept=".ttf,.otf" class="settings-field-control ui-control ui-input">
+                      </div>
+                    </div>
+                    <div class="settings-rhythm-accordion-field">
+                      <span class="settings-field-label" aria-hidden="true">&nbsp;</span>
+                      <button type="button" id="btnImportFont" class="settings-action-btn ui-button ui-button--secondary ui-button--sm" data-i18n="settings.text.导入字体">导入字体</button>
+                    </div>
+                  </div>
+                  <div id="importedFontsList" class="settings-imported-fonts-list"></div>
+                  <template id="fontRowTemplate">
+                    <div class="settings-imported-font-row">
+                      <span class="font-family"></span>
+                      <span class="font-meta"></span>
+                      <button type="button" class="settings-action-btn-sm btn-delete-font ui-button ui-button--ghost ui-button--sm" data-i18n="common.delete">删除</button>
+                    </div>
+                  </template>
+                </div>
+              </section>
+            </div>
+
+            <div class="flex flex-wrap gap-3 pt-4 px-1">
+              <button type="submit" id="hfBtnSave" class="btn-primary px-6 py-3 text-white rounded-xl font-bold shadow-warm" data-i18n="content.text.保存字体设置">保存字体设置</button>
+              <button type="button" id="hfBtnRestoreDefault" class="px-6 py-3 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50" data-i18n="content.text.恢复字体默认">恢复默认</button>
+            </div>
+            <p id="hfSaveStatus" class="text-sm text-gray-500 px-1" aria-live="polite"></p>
+          </form>
+
+          <div class="style-generator-preview-pane card p-6 space-y-3">
+            <p class="settings-section-title" data-i18n="settings.text.样式预览">样式预览</p>
+            <p class="settings-section-hint" data-i18n="content.text.横向字体预览说明">
+              根据当前表单值实时预览横向弹幕效果；轨道带反映轨道行数与布局。速度与不透明度请在「弹幕设置 → 弹幕显示」中调整。
+            </p>
+            <div id="horizontalDanmuStylePreview" class="danmu-style-preview">
+              <div id="horizontalDanmuPreviewScrolling" class="danmu-preview-scrolling">
+                <div id="horizontalDanmuTrackBands" class="danmu-track-bands hidden"></div>
+                <div class="danmu-preview-track" id="horizontalDanmuPreviewTrack"></div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </section>

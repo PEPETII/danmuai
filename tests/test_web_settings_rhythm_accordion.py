@@ -21,8 +21,8 @@ def test_rhythm_accordion_keeps_existing_config_field_contracts():
     assert 'data-settings-tab="rhythm"' not in html
     assert 'id="settingsTab-rhythm"' not in html
     capture_start = html.index('id="settingsTab-capture"')
-    font_start = html.index('id="settingsTab-font"')
-    capture = html[capture_start:font_start]
+    footer_start = html.index('class="settings-form-footer')
+    capture = html[capture_start:footer_start]
     assert 'id="settingsRhythmAccordionTrigger"' in capture
     assert 'type="button"' in capture
     assert 'aria-expanded="false"' in capture

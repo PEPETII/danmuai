@@ -48,10 +48,9 @@ export async function loadFontFamilies() {
 function refreshFontSelect(families) {
   const builtin = ['Microsoft YaHei', 'SimHei', 'SimSun', 'KaiTi', 'DengXian', 'Arial', 'Segoe UI'];
   const danmuSel = document.getElementById('danmu_font_family');
-  const fltSel = document.getElementById('floating_panel_font_family');
-  if (!danmuSel || !fltSel) return;
-  const danmuCurrent = danmuSel.value;
-  const fltCurrent = fltSel.value;
+  const fltSel = document.getElementById('floating_panel_font_family')
+    || document.getElementById('sg-floating_panel_font_family');
+  if (!danmuSel && !fltSel) return;
   const merged = Array.from(new Set([...builtin, ...families]));
   const buildOptions = (current) => {
     const opts = [t('dynamic.settingsFonts.option_value_系统默认')];
@@ -65,10 +64,16 @@ function refreshFontSelect(families) {
     }
     return opts.join('');
   };
-  danmuSel.innerHTML = buildOptions(danmuCurrent);
-  fltSel.innerHTML = buildOptions(fltCurrent);
-  danmuSel.value = danmuCurrent;
-  fltSel.value = fltCurrent;
+  if (danmuSel) {
+    const danmuCurrent = danmuSel.value;
+    danmuSel.innerHTML = buildOptions(danmuCurrent);
+    danmuSel.value = danmuCurrent;
+  }
+  if (fltSel) {
+    const fltCurrent = fltSel.value;
+    fltSel.innerHTML = buildOptions(fltCurrent);
+    fltSel.value = fltCurrent;
+  }
 }
 
 function renderImportedFontsList(imported) {
@@ -87,7 +92,8 @@ function renderImportedFontsList(imported) {
         await apiFetch(`/api/fonts/${item.sha256}`, { method: 'DELETE' });
         fontDeps.showToast(t('dynamic.settingsFonts.已删除字体_item_family', { family: item.family }), false);
         const danmuSel = document.getElementById('danmu_font_family');
-        const fltSel = document.getElementById('floating_panel_font_family');
+        const fltSel = document.getElementById('floating_panel_font_family')
+          || document.getElementById('sg-floating_panel_font_family');
         if (danmuSel && danmuSel.value === item.family) danmuSel.value = '';
         if (fltSel && fltSel.value === item.family) fltSel.value = '';
         await loadFontFamilies();

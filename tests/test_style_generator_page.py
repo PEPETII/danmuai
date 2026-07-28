@@ -22,12 +22,15 @@ def test_style_generator_partial_is_independent_page_fragment():
     text = partial.read_text(encoding="utf-8")
     assert 'id="page-style-generator"' in text
     assert 'id="styleGeneratorForm"' in text
+    assert 'id="horizontalFontForm"' in text
     assert 'id="styleGeneratorPreview"' in text
     assert 'id="styleGeneratorPreviewStack"' in text
     assert 'id="settingsTab-stylegen"' not in text
     assert 'data-settings-panel="stylegen"' not in text
+    assert '横向模式即将推出' not in text
     settings = (_static() / "partials" / "settings.html").read_text(encoding="utf-8")
     assert "{{style_generator}}" not in settings
+    assert 'data-settings-tab="font"' not in settings
 
 
 def test_style_generator_form_names_match_contract_keys():

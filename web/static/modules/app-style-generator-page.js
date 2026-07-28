@@ -10,6 +10,7 @@
 import { API, apiFetch, apiFormFetch } from './transport.js';
 import { t } from './i18n.js';
 import { initSettingsRhythmAccordion } from './settings-rhythm-accordion.js?v=20260717-number-stepper-v1';
+import { loadHorizontalFontPage, initHorizontalFontPage } from './app-horizontal-font-page.js';
 
 /** 保存/应用预设时提交的键（与 STYLE_PRESET_APPLY_KEYS 对齐） */
 const STYLE_SAVE_KEYS = [
@@ -779,30 +780,13 @@ async function saveStyle(event) {
       method: 'PUT',
       body: JSON.stringify(payload),
     });
-    // 镜像设置页基础字体字段（同名字段，不写第二套状态）
-    mirrorToSettingsForm(payload);
+    // 样式已保存；字体字段由横向模式页独立维护
     if (status) status.textContent = t('dynamic.appStyleGenerator.样式已保存');
     showToast(t('dynamic.appStyleGenerator.样式已保存'));
   } catch (error) {
     if (status) status.textContent = '';
     showToast(error.message || t('dynamic.appStyleGenerator.保存失败'), true);
   }
-}
-
-function mirrorToSettingsForm(payload) {
-  const mirrorKeys = [
-    'floating_panel_font_family',
-    'floating_panel_font_bold',
-  ];
-  mirrorKeys.forEach((key) => {
-    const el = document.getElementById(key);
-    if (!el || payload[key] === undefined) return;
-    if (key === 'floating_panel_font_bold') {
-      el.checked = payload[key] === '1';
-    } else {
-      el.value = payload[key];
-    }
-  });
 }
 
 async function restoreDefaultAndSave() {
@@ -960,6 +944,7 @@ export function initStyleGeneratorPage(deps = {}) {
   document.getElementById('sgTextColorHex')?.addEventListener('change', onAddColorHexInput);
 
   initSettingsRhythmAccordion();
+  initHorizontalFontPage({ showToast: toast, navigate: deps.navigate });
   syncSingleColorPickersFromText();
   syncAddColorHexFromPicker('card');
   syncAddColorHexFromPicker('text');
@@ -992,6 +977,9 @@ export function initStyleGeneratorPage(deps = {}) {
       if (activePanel) {
         activePanel.classList.add('is-active');
         activePanel.hidden = false;
+      }
+      if (tabName === 'horizontal') {
+        loadHorizontalFontPage().catch((error) => showToast(error.message, true));
       }
     });
   });

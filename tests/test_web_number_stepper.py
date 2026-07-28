@@ -8,6 +8,7 @@ STATIC_ROOT = Path(__file__).resolve().parents[1] / "web" / "static"
 NUMBER_STEPPER_MODULE = STATIC_ROOT / "modules" / "number-stepper.js"
 SETTINGS_HTML = STATIC_ROOT / "partials" / "settings.html"
 CONTENT_PAGES_HTML = STATIC_ROOT / "partials" / "content-pages.html"
+STYLE_GEN_HTML = STATIC_ROOT / "partials" / "style-generator.html"
 MODALS_HTML = STATIC_ROOT / "partials" / "modals.html"
 PAGES_CSS = STATIC_ROOT / "warm-tokens-settings.css"
 APP_MODULE = STATIC_ROOT / "app.js"
@@ -35,10 +36,12 @@ def test_number_stepper_module_exports_enhancement_api():
 def test_partials_keep_bare_number_inputs_for_runtime_enhancement():
     settings_html = SETTINGS_HTML.read_text(encoding="utf-8")
     content_html = CONTENT_PAGES_HTML.read_text(encoding="utf-8")
+    style_html = STYLE_GEN_HTML.read_text(encoding="utf-8")
     modals_html = MODALS_HTML.read_text(encoding="utf-8")
 
     assert "data-rhythm-step" not in settings_html
-    assert _count_bare_number_inputs(settings_html) >= 20
+    combined_settings = settings_html + style_html
+    assert _count_bare_number_inputs(combined_settings) >= 20
     assert _count_bare_number_inputs(content_html) >= 8
     assert 'id="modelMaxTokens"' in modals_html
     assert 'type="number"' in modals_html
@@ -47,11 +50,13 @@ def test_partials_keep_bare_number_inputs_for_runtime_enhancement():
 def test_app_and_font_modules_initialize_number_steppers():
     app_source = APP_MODULE.read_text(encoding="utf-8")
     fonts_source = SETTINGS_FONTS_MODULE.read_text(encoding="utf-8")
+    horizontal_source = (STATIC_ROOT / "modules" / "app-horizontal-font-page.js").read_text(encoding="utf-8")
 
     assert "initNumberSteppers" in app_source
     assert "initNumberSteppers(document)" in app_source
     assert "./modules/number-stepper.js?v=20260717-number-stepper-v1" in app_source
     assert "initNumberSteppers(container)" in fonts_source
+    assert "initNumberSteppers(form)" in horizontal_source
 
 
 def test_number_stepper_css_covers_layout_variants():

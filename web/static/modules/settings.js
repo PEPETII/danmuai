@@ -64,7 +64,6 @@ import {
   saveModel,
 } from './settings-custom-models.js';
 import {
-  bindFontControls,
   configureSettingsFonts,
 } from './settings-fonts.js';
 import {
@@ -694,7 +693,6 @@ export function bindSettingsControls(deps = {}) {
     });
   });
 
-  bindFontControls();
   initDanmuPreview();
   initNumberFieldValidation();
 }

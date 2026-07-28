@@ -397,6 +397,13 @@
       "保存失败": "Save failed",
       "加载失败": "Failed to load Style Generator"
     },
+    "appHorizontalFont": {
+      "字体设置已保存": "Font settings saved",
+      "保存失败": "Save failed",
+      "加载失败": "Failed to load font settings",
+      "已恢复默认_请点击保存生效": "Defaults restored; click Save font settings to apply",
+      "恢复默认失败": "Failed to restore defaults"
+    },
     "settingsDefaults": {
       "弹幕_i_1": "Danmu {index}",
       "直播弹幕评论员_只输出_JSON_字符串数组_无": "Live danmu commentator. Output JSON string array only—no explanation or Markdown.",

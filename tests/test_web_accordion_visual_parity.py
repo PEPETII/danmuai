@@ -15,8 +15,7 @@ ROW_LAYOUT_PANELS = (
     "settingsDanmuBatchAccordionPanel",
     "settingsDanmuAppearanceAccordionPanel",
     "settingsDanmuScrollingAccordionPanel",
-    "settingsFontScrollingAccordionPanel",
-    "settingsFontFloatingAccordionPanel",
+    "sgHorizontalFontAccordionPanel",
     "petDisplayAccordionPanel",
     "petCommandAccordionPanel",
 )
@@ -47,6 +46,16 @@ def _extract_panel(html: str, panel_id: str) -> str:
     return html[start:pos]
 
 
+def _panel_source(panel_id: str) -> tuple[str, str]:
+    settings_html = SETTINGS_HTML.read_text(encoding="utf-8")
+    style_html = (STATIC_ROOT / "partials" / "style-generator.html").read_text(encoding="utf-8")
+    if panel_id.startswith("pet"):
+        return CONTENT_PAGES_HTML.read_text(encoding="utf-8"), panel_id
+    if panel_id == "sgHorizontalFontAccordionPanel":
+        return style_html, panel_id
+    return settings_html, panel_id
+
+
 def _accordion_root_css_block() -> str:
     css = PAGES_CSS.read_text(encoding="utf-8")
     start = css.index(".settings-rhythm-accordion {")
@@ -55,11 +64,12 @@ def _accordion_root_css_block() -> str:
 
 
 def test_target_panels_use_row_layout_without_grid_cards():
-    settings_html = SETTINGS_HTML.read_text(encoding="utf-8")
     content_html = CONTENT_PAGES_HTML.read_text(encoding="utf-8")
 
     for panel_id in ROW_LAYOUT_PANELS:
-        source = content_html if panel_id.startswith("pet") else settings_html
+        source, pid = _panel_source(panel_id)
+        if pid.startswith("pet"):
+            source = content_html
         panel = _extract_panel(source, panel_id)
         assert "settings-rhythm-accordion-fields" in panel, panel_id
         assert "settings-params-grid" not in panel, panel_id
