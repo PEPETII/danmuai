@@ -33,23 +33,23 @@
 
       <p id="overlayCompatBanner" class="ui-status-banner ui-status-banner--warning hidden mb-6" role="status"></p>
 
-      <h3 class="overview-group-title">本场</h3>
+      <h3 class="overview-group-title" data-i18n="overview.text.本场_从启动应用到关闭应用">本场（从启动应用到关闭应用）</h3>
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
         <div class="card ui-card ui-card--interactive p-6 min-w-0">
           <div class="flex items-center gap-4 min-w-0">
             <div class="w-12 h-12 bg-softPeach rounded-2xl flex items-center justify-center text-2xl icon-badge shrink-0"><svg class="ui-icon ui-icon-lg" aria-hidden="true"><use href="#i-message"></use></svg></div>
             <div class="min-w-0">
-              <p class="text-gray-400 text-sm">本次生成弹幕</p>
+              <p class="text-gray-400 text-sm" data-i18n="overview.text.本次生成弹幕">本次生成弹幕</p>
               <p class="overview-stat-value text-2xl font-bold text-warmText truncate" id="statDanmu">0</p>
             </div>
           </div>
         </div>
         <div class="card ui-card ui-card--interactive p-6 min-w-0">
           <div class="flex items-center gap-4 min-w-0">
-            <div class="w-12 h-12 bg-pastelYellow rounded-2xl flex items-center justify-center text-2xl icon-badge shrink-0"><svg class="ui-icon ui-icon-lg" aria-hidden="true"><use href="#i-box"></use></svg></div>
+            <div class="w-12 h-12 bg-pastelYellow rounded-2xl flex items-center justify-center text-2xl icon-badge shrink-0"><svg class="ui-icon ui-icon-lg" aria-hidden="true"><use href="#i-hash"></use></svg></div>
             <div class="min-w-0">
-              <p class="text-gray-400 text-sm">待播队列</p>
-              <p class="overview-stat-value text-2xl font-bold text-warmText truncate" id="statQueue">0</p>
+              <p class="text-gray-400 text-sm" data-i18n="overview.text.本次输入总_Token">本次输入总 token</p>
+              <p class="overview-stat-value text-2xl font-bold text-warmText truncate" id="statAppInputTokens">0</p>
             </div>
           </div>
         </div>
@@ -57,17 +57,17 @@
           <div class="flex items-center gap-4 min-w-0">
             <div class="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-2xl icon-badge shrink-0"><svg class="ui-icon ui-icon-lg" aria-hidden="true"><use href="#i-timer"></use></svg></div>
             <div class="min-w-0">
-              <p class="text-gray-400 text-sm">运行时长</p>
+              <p class="text-gray-400 text-sm" data-i18n="overview.text.运行时长">运行时长</p>
               <p class="overview-stat-value text-2xl font-bold text-warmText truncate" id="statRuntime">0:00</p>
             </div>
           </div>
         </div>
         <div class="card ui-card ui-card--interactive p-6 min-w-0">
           <div class="flex items-center gap-4 min-w-0">
-            <div class="w-12 h-12 bg-softPeach rounded-2xl flex items-center justify-center text-2xl icon-badge shrink-0"><svg class="ui-icon ui-icon-lg" aria-hidden="true"><use href="#i-film"></use></svg></div>
+            <div class="w-12 h-12 bg-softPeach rounded-2xl flex items-center justify-center text-2xl icon-badge shrink-0"><svg class="ui-icon ui-icon-lg" aria-hidden="true"><use href="#i-hash"></use></svg></div>
             <div class="min-w-0">
-              <p class="text-gray-400 text-sm">屏上弹幕</p>
-              <p class="overview-stat-value text-2xl font-bold text-warmText truncate" id="statDisplay">0</p>
+              <p class="text-gray-400 text-sm" data-i18n="overview.text.本次输出总_Token">本次输出总 token</p>
+              <p class="overview-stat-value text-2xl font-bold text-warmText truncate" id="statAppOutputTokens">0</p>
             </div>
           </div>
         </div>

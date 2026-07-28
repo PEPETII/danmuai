@@ -286,6 +286,42 @@ def test_build_status_snapshot_includes_model_projection():
     assert status["uses_custom_credentials"] is False
 
 
+def test_build_status_snapshot_includes_app_session_fields():
+    from app.application.application_stats_state import ApplicationStatsState
+
+    app_stats = ApplicationStatsState(start_time=time.monotonic() - 8.0)
+    app_stats.add_danmu(4)
+    app_stats.add_tokens(11, 7)
+
+    app = SimpleNamespace(
+        engine=SimpleNamespace(running=False),
+        reply_buffer=SimpleNamespace(size=lambda: 0),
+        visible_display_count=lambda: 0,
+        stats_state=StatsState(danmu_count=1, total_input_tokens=3, total_output_tokens=2),
+        application_stats_state=app_stats,
+        web_runtime_state=WebRuntimeState(),
+        personae=SimpleNamespace(get_active=lambda: []),
+        config=FakeConfig({"screen_index": "0", "_api_key": "sk-test", "danmu_render_mode": "scrolling"}),
+        lifetime_stats=SimpleNamespace(snapshot=lambda **_kwargs: {}),
+        session_run_log=SimpleNamespace(list_dicts_newest_first=lambda: []),
+        build_live_status_snapshot=lambda: None,
+        latest_displayed_round=0,
+        latest_requested_screenshot_id=0,
+        latest_queued_screenshot_id=0,
+        latest_displayed_screenshot_id=0,
+        _region_selection_state="idle",
+    )
+
+    status = DanmuApp.build_status_snapshot(app)
+
+    assert status["app_session_danmu_count"] == 4
+    assert status["app_session_input_tokens"] == 11
+    assert status["app_session_output_tokens"] == 7
+    assert status["app_session_runtime_sec"] >= 6.0
+    assert status["danmu_count"] == 1
+    assert status["input_tokens"] == 3
+
+
 def test_build_status_snapshot_includes_capture_region():
     app = SimpleNamespace(
         engine=SimpleNamespace(running=False, get_dedup_profile_snapshot=MagicMock()),

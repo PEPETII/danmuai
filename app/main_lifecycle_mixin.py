@@ -12,6 +12,7 @@ from app.ai_client import AiWorker
 from app.application.config_service import scene_version_fingerprint
 from app.application.request_scheduler import RequestScheduler
 from app.application.request_timing_service import RequestTimingService
+from app.application.application_stats_state import ApplicationStatsState
 from app.application.stats_state import StatsState
 from app.application.web_runtime_state import WebRuntimeState
 from app.config_defaults import config_value_with_default
@@ -198,6 +199,7 @@ class DanmuAppLifecycleMixin:
         )
         self._danmu_read_service = DanmuReadService(self)
         self.stats_state = StatsState()
+        self.application_stats_state = ApplicationStatsState(start_time=time.monotonic())
         self._consecutive_failures = 0
         self._capture_fail_streak = 0
         self._capture_error_active = False
@@ -528,6 +530,7 @@ class DanmuAppLifecycleMixin:
         if success:
             safe_count = max(1, int(count))
             self._ensure_stats_state().add_danmu(safe_count)
+            self._ensure_application_stats_state().add_danmu(safe_count)
             self.lifetime_stats.add_danmu(safe_count)
         self._maybe_log_dedup_profile()
 

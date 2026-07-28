@@ -77,9 +77,9 @@ def test_overview_stat_cards_have_interactive_class():
     assert count == 8, f"expected 8 ui-card--interactive on overview stats, got {count}"
     for sid in (
         "statDanmu",
-        "statQueue",
+        "statAppInputTokens",
         "statRuntime",
-        "statDisplay",
+        "statAppOutputTokens",
         "statLifetimeDanmu",
         "statLifetimeRuntime",
         "statLifetimeInputTokens",
@@ -254,7 +254,7 @@ def test_overview_f1_semantic_shell():
     assert "ui-status-banner--danger" in overview
     assert "ui-status-banner--warning" in overview
     assert "overview-group-title" in overview
-    assert "本场" in overview
+    assert "本场（从启动应用到关闭应用）" in overview
     assert "累计" in overview
     # Lifetime cards no longer rely only on opacity/softPeach wash for grouping
     assert "bg-white/80" not in overview

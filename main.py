@@ -774,6 +774,7 @@ class DanmuApp(
     def _account_reply_token_usage(self, input_tokens: int, output_tokens: int) -> None:
         stats_state = self._ensure_stats_state()
         stats_state.add_tokens(input_tokens, output_tokens)
+        self._ensure_application_stats_state().add_tokens(input_tokens, output_tokens)
         self.lifetime_stats.add_tokens(input_tokens, output_tokens)
         if input_tokens > 0 or output_tokens > 0:
             self.logger.debug(

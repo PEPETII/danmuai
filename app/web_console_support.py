@@ -22,6 +22,7 @@ _STATUS_DIFF_SKIP_KEYS = frozenset({
     "runtime_sec",
     "live_delay_sec",
     "lifetime_runtime_sec",
+    "app_session_runtime_sec",
 })
 
 
@@ -58,6 +59,10 @@ class WebStatusSnapshot:
     input_tokens: int = 0
     output_tokens: int = 0
     runtime_sec: float = 0.0
+    app_session_danmu_count: int = 0
+    app_session_input_tokens: int = 0
+    app_session_output_tokens: int = 0
+    app_session_runtime_sec: float = 0.0
     error_message: str = ""
     is_error: bool = False
     overlay_compat_warning: str = ""

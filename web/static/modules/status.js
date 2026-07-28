@@ -4,7 +4,7 @@
  * 职责：
  *   - applyStatus(st) 把 status 通道 / 轮询结果写到 DOM
  *     - 运行指示（药丸颜色 / 文字 / Realtime 连接状态）
- *     - 4 张本场统计卡（弹幕 / 待播 / 运行时长 / 屏上弹幕）
+ *     - 4 张本场统计卡（弹幕 / 输入 Token / 运行时长 / 输出 Token）
  *     - 4 张累计统计卡（总弹幕 / 总时长 / 输入 Token / 输出 Token）
  *     - 当前人格、live 状态行、is_error 横幅
  *   - 状态栏 tooltip 按 danmu_render_mode 区分（scrolling 模式 → "在屏条数"；
@@ -50,10 +50,10 @@ export function formatRuntime(sec) {
   return `${m}:${String(r).padStart(2, '0')}`;
 }
 
-/** Single 1s tick for session/lifetime runtime; avoids skip when status WS/poll is irregular. */
+/** Single 1s tick for app-session/lifetime runtime; app session always advances. */
 const RUNTIME_CLOCK = {
   tickTimer: null,
-  session: null,
+  appSession: null,
   lifetime: null,
 };
 
@@ -74,7 +74,7 @@ function currentAnchoredSec(anchor) {
 function paintRuntimeDisplays() {
   const runtimeEl = document.getElementById('statRuntime');
   if (runtimeEl) {
-    runtimeEl.textContent = formatRuntime(currentAnchoredSec(RUNTIME_CLOCK.session));
+    runtimeEl.textContent = formatRuntime(currentAnchoredSec(RUNTIME_CLOCK.appSession));
   }
   const lifetimeEl = document.getElementById('statLifetimeRuntime');
   if (lifetimeEl) {
@@ -86,37 +86,38 @@ function startRuntimeTick() {
   stopRuntimeTick();
   paintRuntimeDisplays();
   RUNTIME_CLOCK.tickTimer = setInterval(() => {
-    if (!RUNTIME_CLOCK.session?.running) {
-      stopRuntimeTick();
-      return;
-    }
     paintRuntimeDisplays();
   }, 1000);
 }
 
 /**
- * Anchor runtime to last server snapshot; while running, advance locally every 1s.
- * Re-anchors only on start/stop or when server drifts ahead by >1s (clock correction).
+ * Anchor runtime to last server snapshot.
+ * App-session clock always advances locally every 1s (independent of st.running).
+ * Lifetime clock re-anchors only on start/stop or when server drifts ahead by >1s.
  */
 function syncRuntimeClocks(st) {
   const running = !!st.running;
-  const serverSessionSec = Math.max(0, Math.floor(st.runtime_sec || 0));
+  const serverAppSessionSec = Math.max(0, Math.floor(st.app_session_runtime_sec || 0));
   const serverLifetimeSec = Math.max(0, Math.floor(st.lifetime_runtime_sec || 0));
   const now = Date.now();
-  const wasRunning = !!RUNTIME_CLOCK.session?.running;
+  const wasRunning = !!RUNTIME_CLOCK.lifetime?.running;
+
+  if (!RUNTIME_CLOCK.appSession) {
+    RUNTIME_CLOCK.appSession = { baseSec: serverAppSessionSec, anchorMs: now, running: true };
+  } else {
+    const localAppSession = currentAnchoredSec(RUNTIME_CLOCK.appSession);
+    if (serverAppSessionSec > localAppSession + 1) {
+      RUNTIME_CLOCK.appSession = { baseSec: serverAppSessionSec, anchorMs: now, running: true };
+    }
+  }
 
   if (running) {
     if (!wasRunning) {
-      RUNTIME_CLOCK.session = { baseSec: serverSessionSec, anchorMs: now, running: true };
       RUNTIME_CLOCK.lifetime = { baseSec: serverLifetimeSec, anchorMs: now, running: true };
       startRuntimeTick();
       return;
     }
-    const localSession = currentAnchoredSec(RUNTIME_CLOCK.session);
     const localLifetime = currentAnchoredSec(RUNTIME_CLOCK.lifetime);
-    if (serverSessionSec > localSession + 1) {
-      RUNTIME_CLOCK.session = { baseSec: serverSessionSec, anchorMs: now, running: true };
-    }
     if (serverLifetimeSec > localLifetime + 1) {
       RUNTIME_CLOCK.lifetime = { baseSec: serverLifetimeSec, anchorMs: now, running: true };
     }
@@ -124,9 +125,8 @@ function syncRuntimeClocks(st) {
     return;
   }
 
-  stopRuntimeTick();
-  RUNTIME_CLOCK.session = { baseSec: serverSessionSec, anchorMs: now, running: false };
   RUNTIME_CLOCK.lifetime = { baseSec: serverLifetimeSec, anchorMs: now, running: false };
+  if (!RUNTIME_CLOCK.tickTimer) startRuntimeTick();
   paintRuntimeDisplays();
 }
 
@@ -257,17 +257,16 @@ export function applyStatus(st) {
 
   lastAppliedStatus = st;
 
-  updateTextIfChanged(document.getElementById('statDanmu'), String(st.danmu_count ?? 0));
-  updateTextIfChanged(document.getElementById('statQueue'), String(st.queue_count ?? 0));
+  updateTextIfChanged(document.getElementById('statDanmu'), String(st.app_session_danmu_count ?? 0));
+  updateTextIfChanged(
+    document.getElementById('statAppInputTokens'),
+    formatTokenCount(st.app_session_input_tokens ?? 0),
+  );
   syncRuntimeClocks(st);
-
-  const displayEl = document.getElementById('statDisplay');
-  if (displayEl) {
-    updateTextIfChanged(displayEl, String(st.display_count ?? 0));
-    const mode = st.danmu_render_mode || 'scrolling';
-    const title = mode === 'floating_panel' ? t('dynamic.status.侧边悬浮窗在屏条数') : t('dynamic.status.横向弹幕在屏条数');
-    if (displayEl.title !== title) displayEl.title = title;
-  }
+  updateTextIfChanged(
+    document.getElementById('statAppOutputTokens'),
+    formatTokenCount(st.app_session_output_tokens ?? 0),
+  );
 
   const lifetimeDanmuEl = document.getElementById('statLifetimeDanmu');
   const lifetimeInputEl = document.getElementById('statLifetimeInputTokens');

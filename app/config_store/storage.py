@@ -669,7 +669,7 @@ class ConfigStore:
 
         return custom_danmu_contains_text_for_store(self, text)
 
-    def custom_danmu_existing_texts(self, texts: list[str]) -> set[str]:
+    def custom_danmu_existing_texts(self, texts: list[str]) -> "set[str]":
         """批量查询已存在的自定义弹幕文本（BUG-AUD-003 性能修复）。"""
         from app.danmu_pool import custom_danmu_existing_texts_for_store
 

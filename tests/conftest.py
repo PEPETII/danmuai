@@ -60,9 +60,12 @@ def _ensure_feedback_static_images() -> None:
 
 _ensure_feedback_static_images()
 
+import time
+
 import pytest
 from app.application.request_scheduler import RequestScheduler
 from app.application.request_timing_service import RequestTimingService
+from app.application.application_stats_state import ApplicationStatsState
 from app.application.stats_state import StatsState
 from app.application.web_runtime_state import WebRuntimeState
 from app.reply_queue import AIReplyFIFOBuffer
@@ -146,6 +149,7 @@ def bind_minimal_danmu_app(app, **overrides):
         "_reply_scene_count": 2,
         "_reply_filler_count": 3,
         "stats_state": StatsState(),
+        "application_stats_state": ApplicationStatsState(start_time=time.monotonic()),
         "screenshot_round": 0,
         "_latest_displayed_round": 0,
         "config": FakeConfig(),

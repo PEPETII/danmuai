@@ -61,6 +61,10 @@ class RuntimeState:
     input_tokens: int
     output_tokens: int
     runtime_sec: float
+    app_session_danmu_count: int
+    app_session_input_tokens: int
+    app_session_output_tokens: int
+    app_session_runtime_sec: float
     error_message: str
     is_error: bool
     cached_danmu_lines: int
@@ -103,6 +107,18 @@ class RuntimeState:
             danmu_count = int(getattr(app, "danmu_count", 0) or 0)
         runtime_sec = time.monotonic() - start_time if start_time > 0 else 0.0
 
+        application_stats = getattr(app, "application_stats_state", None)
+        if application_stats is not None:
+            app_session_danmu_count = int(application_stats.danmu_count or 0)
+            app_session_input_tokens = int(application_stats.total_input_tokens or 0)
+            app_session_output_tokens = int(application_stats.total_output_tokens or 0)
+            app_session_runtime_sec = float(application_stats.runtime_sec())
+        else:
+            app_session_danmu_count = 0
+            app_session_input_tokens = 0
+            app_session_output_tokens = 0
+            app_session_runtime_sec = 0.0
+
         if running:
             live_snapshot = (
                 app.build_live_status_snapshot()
@@ -138,6 +154,10 @@ class RuntimeState:
             input_tokens=input_tokens,
             output_tokens=output_tokens,
             runtime_sec=runtime_sec,
+            app_session_danmu_count=app_session_danmu_count,
+            app_session_input_tokens=app_session_input_tokens,
+            app_session_output_tokens=app_session_output_tokens,
+            app_session_runtime_sec=app_session_runtime_sec,
             error_message=str(
                 web_runtime_state.error_message
                 if web_runtime_state is not None

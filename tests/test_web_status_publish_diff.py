@@ -21,6 +21,7 @@ def _base_payload(**overrides):
         "runtime_sec": 10.0,
         "live_delay_sec": 1.5,
         "lifetime_runtime_sec": 100.0,
+        "app_session_runtime_sec": 50.0,
         "live_message": "ok",
     }
     payload.update(overrides)
@@ -28,8 +29,18 @@ def _base_payload(**overrides):
 
 
 def test_status_payloads_semantically_equal_ignores_time_fields():
-    a = _base_payload(runtime_sec=10.0, live_delay_sec=1.0, lifetime_runtime_sec=100.0)
-    b = _base_payload(runtime_sec=99.0, live_delay_sec=9.9, lifetime_runtime_sec=999.0)
+    a = _base_payload(
+        runtime_sec=10.0,
+        live_delay_sec=1.0,
+        lifetime_runtime_sec=100.0,
+        app_session_runtime_sec=50.0,
+    )
+    b = _base_payload(
+        runtime_sec=99.0,
+        live_delay_sec=9.9,
+        lifetime_runtime_sec=999.0,
+        app_session_runtime_sec=888.0,
+    )
     assert status_payloads_semantically_equal(a, b)
 
 
@@ -70,6 +81,7 @@ def test_publish_status_skips_runtime_only_drift():
     snap["runtime_sec"] = 999.0
     snap["live_delay_sec"] = 88.0
     snap["lifetime_runtime_sec"] = 8888.0
+    snap["app_session_runtime_sec"] = 7777.0
     app.build_status_snapshot.return_value = snap
     bridge.publish_status()
     assert bridge._broadcast_status.call_count == 1
