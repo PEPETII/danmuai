@@ -58,7 +58,7 @@ def ui_scale_factor() -> float:
         if screen is None:
             return 1.0
         return max(1.0, float(screen.devicePixelRatio()))
-    except Exception:
+    except (ImportError, AttributeError, OSError):
         return 1.0
 
 
