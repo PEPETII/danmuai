@@ -253,7 +253,7 @@
       "选择字体文件": "Select font file",
       "保存字体设置": "Save font settings",
       "恢复字体默认": "Restore defaults",
-      "横向字体预览说明": "Live preview of horizontal danmu from current form values; track bands reflect line count and layout. Adjust speed and opacity in Danmu Settings → Display.",
+      "横向字体预览说明": "Live preview of horizontal danmu from current form values; track bands reflect line count and layout. Adjust speed in Danmu Settings → Display; opacity and exit mode in Font Settings above.",
       "布局与偏移": "Layout & Offset",
       "导入本地字体": "Import Local Font"
     },
