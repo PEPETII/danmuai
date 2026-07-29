@@ -68,8 +68,14 @@ class MicOrchestrator:
             self._log(f"mic capture not running: {err}")
             self.stop_detector()
             return
-        if not mic_audio_supported_fn():
+        try:
+            supported = mic_audio_supported_fn()
             model_id = resolve_active_model_id_fn()
+        except Exception as exc:
+            supported = False
+            model_id = "?"
+            self._log(f"mic probe failed: {exc}")
+        if not supported:
             self._log(f"mic unsupported for model {model_id or '?'}")
             # BUG-014: 把错误推到 Web 状态栏（经 mixin 回调，保持编排器解耦）
             if self._on_unsupported_model_fn is not None:

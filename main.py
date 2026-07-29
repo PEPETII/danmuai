@@ -151,8 +151,16 @@ class DanmuApp(
             self._init_startup_services(log_startup)
             self._start_web_console_stack(log_startup)
             self._sync_reply_batch_config()
-        except Exception:
-            self.release_startup_failure()
+        except Exception as exc:
+            try:
+                self.release_startup_failure()
+            except Exception as release_exc:
+                import logging
+                logging.getLogger("danmu_app").warning(
+                    "release_startup_failure raised %s while handling %s",
+                    release_exc,
+                    exc,
+                )
             raise
         log_startup(
             "danmu_app.init.end",

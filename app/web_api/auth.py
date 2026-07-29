@@ -27,6 +27,7 @@ def require_auth(
                 check_token(kwargs.get(param))
                 return await func(*args, **kwargs)
 
+            async_wrapper.__signature__ = inspect.signature(func)
             return async_wrapper  # type: ignore[return-value]
 
         @wraps(func)
@@ -34,6 +35,7 @@ def require_auth(
             check_token(kwargs.get(param))
             return func(*args, **kwargs)
 
+        sync_wrapper.__signature__ = inspect.signature(func)
         return sync_wrapper  # type: ignore[return-value]
 
     return decorator

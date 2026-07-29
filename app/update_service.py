@@ -300,10 +300,12 @@ def _run_download_thread(info: Any) -> None:
             _state["download_phase"] = "ready"
             _state["download_progress"] = 100
             _state["last_error"] = None
+            _state["download_thread"] = None
     except Exception as exc:  # boundary: velopack download_updates
         with _lock:
             _state["download_phase"] = "error"
             _state["last_error"] = str(exc)
+            _state["download_thread"] = None
 
 
 def _read_phase_and_guard(

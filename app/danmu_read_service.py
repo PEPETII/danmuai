@@ -188,7 +188,9 @@ class DanmuReadService(QObject):
             self._timer.start()
             self._app.logger.info(
                 "danmu read: timer started every %ss",
-                config.get("danmu_read_interval_sec", "10"),
+                clamp_read_interval_sec(
+                    config.get("danmu_read_interval_sec", "10")
+                ),
             )
             # 首条略延迟，等弹幕滚入可见区
             QTimer.singleShot(800, self._on_tick)

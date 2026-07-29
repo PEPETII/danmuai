@@ -72,7 +72,7 @@ def _redact_config_value_for_log(key: str, value: str) -> str:
     return value
 
 
-CONFIG_DIR = Path(os.environ.get("APPDATA", ".")) / "DanmuAI"
+CONFIG_DIR = Path(os.environ.get("APPDATA", os.path.expanduser("~"))) / "DanmuAI"
 CONFIG_FILE = CONFIG_DIR / "config.db"
 _KEY_FILE = CONFIG_DIR / ".key"
 # Python 3.12 默认 cached_statements=128；显式放大以覆盖 meme/custom 池等高频查询变体。
@@ -331,6 +331,7 @@ class ConfigStore:
                 self.conn.execute("REPLACE INTO config (key, value) VALUES (?, ?)", (key, value))
                 self.conn.commit()
                 self._cache[key] = value
+                self._decrypted_secret_cache.pop(key, None)
             except sqlite3.DatabaseError as e:
                 self.conn.rollback()
                 safe_value = _redact_config_value_for_log(key, value)
@@ -375,6 +376,7 @@ class ConfigStore:
                 # Only update cache after successful commit
                 for k, v in changed.items():
                     self._cache[k] = v
+                    self._decrypted_secret_cache.pop(k, None)
             except sqlite3.DatabaseError as e:
                 self.conn.rollback()
                 logger.error(tr("config.batch_write_failed").format(error=type(e).__name__))
