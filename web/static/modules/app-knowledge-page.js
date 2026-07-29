@@ -135,31 +135,13 @@ function kindKey(kind) {
   return map[kind] || 'kindFact';
 }
 
-/** 知识包 content_kind 展示文案（API 值保持英文，UI 本地化）。 */
-function contentKindLabel(kind) {
-  const map = {
-    auto: 'optContentAuto',
-    fact: 'optContentFact',
-    meme: 'optContentMeme',
-    livestream_chat: 'optContentLivestream',
-    livestream: 'optContentLivestream', // 历史别名
-    persona: 'optContentPersona',
-  };
-  const key = map[kind];
-  return key ? t(`dynamic.appKnowledgePage.${key}`) : kind || '';
-}
-
-function parseScopeTags(text) {
+function parseCommaList(text) {
   if (!text) return [];
   return String(text)
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
 }
-
-// ---------------------------------------------------------------------------
-// 视图切换
-// ---------------------------------------------------------------------------
 
 function showListView() {
   document.getElementById('knowledgeListView')?.classList.remove('hidden');
@@ -207,14 +189,6 @@ function renderPackageList(packages) {
     name.textContent = pkg.name || '(unnamed)';
     header.append(name);
 
-    if (pkg.content_kind) {
-      const kindBadge = document.createElement('span');
-      kindBadge.className =
-        'px-2 py-0.5 text-xs font-semibold rounded-full bg-softPeach text-warmText';
-      kindBadge.textContent = contentKindLabel(pkg.content_kind);
-      header.append(kindBadge);
-    }
-
     const enabledBadge = document.createElement('span');
     enabledBadge.className = `px-2 py-0.5 text-xs font-semibold rounded-full ${
       pkg.enabled ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
@@ -241,18 +215,6 @@ function renderPackageList(packages) {
     parts.push(`${t('dynamic.appKnowledgePage.priority')} ${pkg.priority ?? 0}`);
     stats.textContent = parts.join(' · ');
     card.append(stats);
-
-    if (Array.isArray(pkg.scope_tags) && pkg.scope_tags.length > 0) {
-      const tags = document.createElement('div');
-      tags.className = 'flex flex-wrap gap-2';
-      pkg.scope_tags.forEach((tag) => {
-        const chip = document.createElement('span');
-        chip.className = 'px-2 py-0.5 text-xs rounded-full bg-cream border border-softPeach text-warmText';
-        chip.textContent = tag;
-        tags.append(chip);
-      });
-      card.append(tags);
-    }
 
     const actions = document.createElement('div');
     actions.className = 'flex flex-wrap gap-3 mt-2';
@@ -342,12 +304,6 @@ function fillPackageForm(pkg) {
   };
   set('knowledgePackageName', pkg.name);
   set('knowledgePackageDescription', pkg.description);
-  // 历史 content_kind=livestream 归一为 livestream_chat（与后端一致）
-  const contentKind =
-    pkg.content_kind === 'livestream' ? 'livestream_chat' : (pkg.content_kind || 'auto');
-  set('knowledgePackageContentKind', contentKind);
-  set('knowledgePackageScopeMode', pkg.scope_mode || 'global');
-  set('knowledgePackageScopeTags', Array.isArray(pkg.scope_tags) ? pkg.scope_tags.join(', ') : '');
   set('knowledgePackagePriority', pkg.priority ?? 0);
   const enabledEl = document.getElementById('knowledgePackageEnabled');
   if (enabledEl) enabledEl.checked = Boolean(pkg.enabled);
@@ -799,9 +755,6 @@ async function savePackageSettings() {
   const body = {
     name: document.getElementById('knowledgePackageName')?.value || '',
     description: document.getElementById('knowledgePackageDescription')?.value || '',
-    content_kind: document.getElementById('knowledgePackageContentKind')?.value || 'auto',
-    scope_mode: document.getElementById('knowledgePackageScopeMode')?.value || 'global',
-    scope_tags: parseScopeTags(document.getElementById('knowledgePackageScopeTags')?.value),
     enabled: Boolean(document.getElementById('knowledgePackageEnabled')?.checked),
     priority: parseInt(document.getElementById('knowledgePackagePriority')?.value, 10) || 0,
   };
@@ -932,7 +885,6 @@ async function startImport() {
   const body = {
     source_type: sourceType,
     display_name: displayName,
-    document_kind: document.getElementById('knowledgeDocumentKind')?.value || 'auto',
   };
 
   if (sourceType === 'pasted_text') {
@@ -1080,7 +1032,7 @@ async function startPreview() {
   const maxChars = parseInt(document.getElementById('knowledgeMaxChars')?.value, 10) || 360;
   const body = { max_items: maxItems, max_chars: maxChars };
   if (sceneBrief) body.scene_brief = sceneBrief;
-  const keywords = parseScopeTags(keywordsRaw);
+  const keywords = parseCommaList(keywordsRaw);
   if (keywords.length > 0) body.keywords = keywords;
   try {
     const result = await apiFetch('/api/knowledge/retrieval/preview', {

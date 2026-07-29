@@ -2,7 +2,8 @@
   "dynamic": {
     "appKnowledgePage": {
       "title": "知识包",
-      "subtitle": "导入游戏 / 主播梗 / 表达参考 / 直播弹幕日志，由 AI 整理为可检索的短知识",
+      "subtitle": "导入的资料会自动参与 AI 理解，系统会根据当前场景自动匹配相关内容",
+      "unifiedHint": "无需选择作用范围或标签，所有导入内容默认进入统一知识库，由 AI 根据游戏画面、直播上下文与人格设定自动检索。",
       "newPackage": "新建知识包",
       "refresh": "刷新",
       "retrievalPreview": "检索预览",

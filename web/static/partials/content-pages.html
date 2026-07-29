@@ -643,7 +643,9 @@
 
     <!-- ========== 区域：知识包（Wave 5 A9） ========== -->
     <section id="page-knowledge" class="page-panel" data-i18n-aria-label="nav.knowledge" aria-label="知识包">
-      <header class="mb-8 ui-page-header"><div class="ui-page-header__copy min-w-0"><h2 class="text-2xl font-bold text-warmText ui-page-title" data-i18n="dynamic.appKnowledgePage.title">知识包</h2><p class="text-gray-500 mt-1 ui-page-description" data-i18n="dynamic.appKnowledgePage.subtitle">导入游戏 / 主播梗 / 表达参考 / 直播弹幕日志，由 AI 整理为可检索的短知识</p></div></header>
+      <header class="mb-8 ui-page-header"><div class="ui-page-header__copy min-w-0"><h2 class="text-2xl font-bold text-warmText ui-page-title" data-i18n="dynamic.appKnowledgePage.title">知识包</h2><p class="text-gray-500 mt-1 ui-page-description" data-i18n="dynamic.appKnowledgePage.subtitle">导入的资料会自动参与 AI 理解，系统会根据当前场景自动匹配相关内容</p></div></header>
+
+      <p class="mb-6 text-sm text-gray-500 settings-section-hint" data-i18n="dynamic.appKnowledgePage.unifiedHint">无需选择作用范围或标签，所有导入内容默认进入统一知识库，由 AI 根据游戏画面、直播上下文与人格设定自动检索。</p>
 
       <!-- 视图 1：知识包列表 -->
       <div id="knowledgeListView" class="knowledge-view">
@@ -669,29 +671,7 @@
             <label for="knowledgePackageDescription" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.description">描述</label>
             <textarea id="knowledgePackageDescription" rows="3" class="settings-field-control ui-control ui-textarea"></textarea>
           </div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="settings-field">
-              <label for="knowledgePackageContentKind" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.contentKind">内容类型</label>
-              <select id="knowledgePackageContentKind" class="settings-field-control ui-control ui-select">
-                <option value="auto" data-i18n="dynamic.appKnowledgePage.optContentAuto">自动</option>
-                <option value="fact" data-i18n="dynamic.appKnowledgePage.optContentFact">事实</option>
-                <option value="meme" data-i18n="dynamic.appKnowledgePage.optContentMeme">梗</option>
-                <option value="livestream_chat" data-i18n="dynamic.appKnowledgePage.optContentLivestream">直播</option>
-                <option value="persona" data-i18n="dynamic.appKnowledgePage.optContentPersona">人格</option>
-              </select>
-            </div>
-            <div class="settings-field">
-              <label for="knowledgePackageScopeMode" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.scopeMode">作用范围</label>
-              <select id="knowledgePackageScopeMode" class="settings-field-control ui-control ui-select">
-                <option value="global" data-i18n="dynamic.appKnowledgePage.optScopeGlobal">全局</option>
-                <option value="tagged" data-i18n="dynamic.appKnowledgePage.optScopeTagged">按标签</option>
-              </select>
-            </div>
-          </div>
-          <div class="settings-field">
-            <label for="knowledgePackageScopeTags" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.scopeTags">作用标签（逗号分隔）</label>
-            <input type="text" id="knowledgePackageScopeTags" class="settings-field-control ui-control ui-input">
-          </div>
+          <p class="text-sm text-gray-500 settings-section-hint" data-i18n="dynamic.appKnowledgePage.unifiedHint">无需选择作用范围或标签，所有导入内容默认进入统一知识库，由 AI 根据游戏画面、直播上下文与人格设定自动检索。</p>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="settings-field">
               <label for="knowledgePackagePriority" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.priority">优先级</label>
@@ -739,15 +719,6 @@
             <label for="knowledgeSourceFile" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.selectFile">选择文件</label>
             <input type="file" id="knowledgeSourceFile" accept=".txt,.md,.markdown,text/plain,text/markdown">
             <p id="knowledgeSourceFileName" class="settings-section-hint"></p>
-          </div>
-          <div class="settings-field">
-            <label for="knowledgeDocumentKind" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.documentKind">文档类型</label>
-            <select id="knowledgeDocumentKind" class="settings-field-control ui-control ui-select">
-              <option value="auto" data-i18n="dynamic.appKnowledgePage.optDocAuto">自动</option>
-              <option value="article" data-i18n="dynamic.appKnowledgePage.optDocArticle">文章</option>
-              <option value="livestream_log" data-i18n="dynamic.appKnowledgePage.optDocLivestreamLog">直播日志</option>
-              <option value="faq" data-i18n="dynamic.appKnowledgePage.optDocFaq">常见问答</option>
-            </select>
           </div>
           <button type="button" id="btnKnowledgeStartImport" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm ui-button ui-button--primary ui-button--md" data-i18n="dynamic.appKnowledgePage.startImport">开始导入</button>
 

@@ -191,24 +191,24 @@ def test_e2e_empty_semantic_skips_retrieve_no_round_placeholder(
 
 
 # ---------------------------------------------------------------------------
-# 4. tagged package scope：不匹配不注入 / 匹配则注入
+# 4. 统一知识空间：历史 tagged 包在无标签交集时仍可注入
 # ---------------------------------------------------------------------------
 
 
-def test_e2e_tagged_package_scope_no_match_not_injected(knowledge_runtime):
-    """scope_mode=tagged 且 scene_tags 无交集 → ``_build_visual_prompts`` 不注入。"""
-    _seed_boss_item(
+def test_e2e_tagged_package_injected_without_scope_match(knowledge_runtime):
+    """历史 scope_mode=tagged 包在无 scene_tags 交集时仍可注入。"""
+    _public_id, internal_id, _pkg = _seed_boss_item(
         knowledge_runtime.repository,
         package_kwargs={
             "scope_mode": "tagged",
             "scope_tags": ["只看这个标签"],
         },
     )
+    db = knowledge_runtime._db
 
     app = make_minimal_danmu_app()
     _stub_personae(app)
     object.__setattr__(app, "knowledge_runtime", knowledge_runtime)
-    # live_topic 可命中 FTS，但 package scope 标签无交集
     app.config.set("live_topic", "葛瑞克")
     app.engine.recent = deque()
 
@@ -216,12 +216,15 @@ def test_e2e_tagged_package_scope_no_match_not_injected(knowledge_runtime):
 
     assert result is not None
     system_pt, _user_pt, _persona = result
-    assert "二阶段会飞天" not in system_pt
-    assert knowledge_runtime.get_last_injection() is None
+    assert "二阶段会飞天" in system_pt
+    injection = knowledge_runtime.get_last_injection()
+    assert isinstance(injection, KnowledgeInjectionResult)
+    assert internal_id in injection.item_ids
+    assert _use_count(db, internal_id) >= 1
 
 
-def test_e2e_tagged_package_scope_match_injected(knowledge_runtime):
-    """scope_mode=tagged 且 live_topic 词落入 scene_tags 与 scope_tags 交集 → 注入。"""
+def test_e2e_tagged_package_scope_match_still_injected(knowledge_runtime):
+    """scope_tags 与 live_topic 有交集时同样注入（行为与统一空间一致）。"""
     _public_id, internal_id, _pkg = _seed_boss_item(
         knowledge_runtime.repository,
         package_kwargs={

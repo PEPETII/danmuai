@@ -764,13 +764,17 @@ class TestRepositoryCrud:
         )
         public_id = pkg["public_id"]
         assert public_id
-        assert pkg["scope_tags"] == ["游戏", "艾尔登法环"]
+        assert pkg["scope_mode"] == "global"
+        assert pkg["scope_tags"] == []
+        assert pkg["content_kind"] == "auto"
 
         # get
         fetched = repo.get_package(public_id)
         assert fetched is not None
         assert fetched["name"] == "我的知识包"
-        assert fetched["scope_tags"] == ["游戏", "艾尔登法环"]
+        assert fetched["scope_tags"] == []
+        assert fetched["scope_mode"] == "global"
+        assert fetched["content_kind"] == "auto"
         assert fetched["enabled"] is True
         assert fetched["priority"] == 10
 
@@ -784,8 +788,9 @@ class TestRepositoryCrud:
         assert updated is not None
         assert updated["name"] == "改名"
         assert updated["enabled"] is False
-        # 未改的字段保留
-        assert updated["scope_tags"] == ["游戏", "艾尔登法环"]
+        # 未改的字段保留（统一知识空间字段始终归一）
+        assert updated["scope_tags"] == []
+        assert updated["scope_mode"] == "global"
 
         # delete
         assert repo.delete_package(public_id) is True

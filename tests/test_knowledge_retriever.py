@@ -832,12 +832,12 @@ class TestEmptyQuery:
 
 
 # ---------------------------------------------------------------------------
-# Wave 4：package scope_mode 过滤
+# 统一知识空间：package scope 不再过滤
 # ---------------------------------------------------------------------------
 
 
-class TestPackageScopeFilter:
-    """global 始终可检索；tagged 需 scene_tags 与 scope_tags 有交集。"""
+class TestUnifiedPackageRetrieval:
+    """所有启用包均参与检索，不再按 scope_mode/scope_tags 过滤。"""
 
     def _insert_scoped_item(
         self,
@@ -880,9 +880,10 @@ class TestPackageScopeFilter:
             confidence=0.9,
         )
 
-    def test_tagged_no_match_excluded(
+    def test_tagged_without_scene_tags_still_retrieved(
         self, knowledge_db: KnowledgeDatabase
     ) -> None:
+        """历史 tagged 包在无 scene_tags 时仍可检索。"""
         self._insert_scoped_item(
             knowledge_db,
             name="tagged-pkg",
@@ -892,13 +893,11 @@ class TestPackageScopeFilter:
             content="标签条目内容 测试关键词",
         )
         retriever = KnowledgeRetriever(knowledge_db)
-        result = retriever.retrieve(
-            keywords=["测试关键词"], scene_tags=["other-game"]
-        )
+        result = retriever.retrieve(keywords=["测试关键词"])
         titles = [it["title"] for it in result.items]
-        assert "标签条目" not in titles
+        assert "标签条目" in titles
 
-    def test_tagged_match_included(
+    def test_tagged_with_mismatched_scene_tags_still_retrieved(
         self, knowledge_db: KnowledgeDatabase
     ) -> None:
         self._insert_scoped_item(
@@ -910,9 +909,8 @@ class TestPackageScopeFilter:
             content="匹配条目内容 测试关键词",
         )
         retriever = KnowledgeRetriever(knowledge_db)
-        # casefold 比较
         result = retriever.retrieve(
-            keywords=["测试关键词"], scene_tags=["elden-ring"]
+            keywords=["测试关键词"], scene_tags=["other-game"]
         )
         titles = [it["title"] for it in result.items]
         assert "匹配条目" in titles
@@ -929,43 +927,39 @@ class TestPackageScopeFilter:
             content="全局条目内容 测试关键词",
         )
         retriever = KnowledgeRetriever(knowledge_db)
-        result = retriever.retrieve(
-            keywords=["测试关键词"], scene_tags=[]
-        )
+        result = retriever.retrieve(keywords=["测试关键词"])
         titles = [it["title"] for it in result.items]
         assert "全局条目" in titles
 
-    def test_priority_and_scope_together(
+    def test_priority_not_blocked_by_scope_mismatch(
         self, knowledge_db: KnowledgeDatabase
     ) -> None:
-        """tagged 不匹配的高优先级包不得挤掉匹配的低优先级包。"""
+        """高优先级 tagged 包在无标签交集时仍可检索。"""
         self._insert_scoped_item(
             knowledge_db,
-            name="high-tagged-wrong",
+            name="high-tagged",
             scope_mode="tagged",
             scope_tags=["wrong"],
-            title="高优先错标签",
-            content="高优先错标签 测试关键词",
+            title="高优先条目",
+            content="高优先条目 测试关键词",
             priority=100,
         )
         self._insert_scoped_item(
             knowledge_db,
-            name="low-tagged-ok",
+            name="low-tagged",
             scope_mode="tagged",
             scope_tags=["ok"],
-            title="低优先对标签",
-            content="低优先对标签 测试关键词",
+            title="低优先条目",
+            content="低优先条目 测试关键词",
             priority=1,
         )
         retriever = KnowledgeRetriever(knowledge_db)
-        result = retriever.retrieve(
-            keywords=["测试关键词"], scene_tags=["ok"]
-        )
+        result = retriever.retrieve(keywords=["测试关键词"])
         titles = [it["title"] for it in result.items]
-        assert "低优先对标签" in titles
-        assert "高优先错标签" not in titles
+        assert "高优先条目" in titles
+        assert "低优先条目" in titles
 
-    def test_like_path_respects_scope(
+    def test_like_path_ignores_scope(
         self, knowledge_db: KnowledgeDatabase
     ) -> None:
         self._insert_scoped_item(
@@ -978,14 +972,8 @@ class TestPackageScopeFilter:
         )
         object.__setattr__(knowledge_db, "fts_backend", "fallback")
         retriever = KnowledgeRetriever(knowledge_db)
-        miss = retriever.retrieve(
-            keywords=["测试关键词"], scene_tags=["other"]
-        )
-        assert "LIKE标签条目" not in [it["title"] for it in miss.items]
-        hit = retriever.retrieve(
-            keywords=["测试关键词"], scene_tags=["only-me"]
-        )
-        assert "LIKE标签条目" in [it["title"] for it in hit.items]
+        result = retriever.retrieve(keywords=["测试关键词"])
+        assert "LIKE标签条目" in [it["title"] for it in result.items]
 
 
 class TestNormalizeScopeTags:

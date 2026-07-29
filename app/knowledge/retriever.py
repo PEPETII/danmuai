@@ -2,13 +2,12 @@
 
 检索流程：
     1. 只检索启用包 + 启用条目（``WHERE p.enabled=1 AND i.enabled=1``）；
-    2. 包 scope：``global`` 始终可检索；``tagged`` 仅当 ``scene_tags`` 与
-       ``package.scope_tags`` 有交集时入选（FTS 与 LIKE 路径均过滤）；
+    2. 所有启用包均参与检索（不再按 package scope_mode/scope_tags 过滤）；
     3. FTS5 优先（trigram → 普通 fts5 → LIKE 三级回退）；
     4. 评分：``-bm25 + scope_match*2 + pkg.priority*0.5 + item.priority*0.3
        + confidence*1.0 - recent_use_penalty - dedup_penalty``（LIKE 路径
-       ``-bm25=0``，并附加触发词命中 ``+5`` 加分）；global 包**不**因
-       scope_mode 额外加分；
+       ``-bm25=0``，并附加触发词命中 ``+5`` 加分）；``scope_match`` 仅基于
+       条目 ``scopes`` 与场景简述推断，与用户配置的包级标签无关；
     5. 类型配额：``fact≤2 / reaction_pattern≤1 / meme≤1 / style_example≤2``，
        总数 ≤ ``max_items``（默认 4）；
     6. 字符预算：``prompt_text`` ≤ ``max_chars``（默认 360，硬上限 600）；
@@ -129,7 +128,7 @@ class KnowledgeRetriever:
         Args:
             scene_brief: 场景简述（来自 ``ParsedAiReply.scene_brief``）。
             keywords: 关键词列表（来自 ``ParsedAiReply.keywords``）。
-            scene_tags: 当前场景标签；用于 ``scope_mode=tagged`` 包过滤。
+            scene_tags: 已弃用；保留参数以兼容旧调用方，检索不再按包级标签过滤。
             max_items: 最大返回条目数（默认 4）。
             max_chars: 提示词字符预算（默认 360，硬上限 600）。
             recent_use_window_sec: 最近使用惩罚窗口（秒，默认 120）。
@@ -142,7 +141,7 @@ class KnowledgeRetriever:
         start = time.perf_counter()
         keywords = [str(k) for k in (keywords or []) if k]
         scene_brief = str(scene_brief or "")
-        scene_tag_set = set(normalize_scope_tags(scene_tags))
+        del scene_tags  # 统一知识空间：不再用于包级过滤
         max_items = max(1, min(int(max_items), _MAX_ITEMS_DEFAULT))
         max_chars = max(1, min(int(max_chars), _HARD_MAX_CHARS))
 
@@ -157,8 +156,6 @@ class KnowledgeRetriever:
                 retrieval_ms=0,
                 fts_backend=self._fts_backend,
             )
-
-        hits = self._filter_package_scope(hits, scene_tag_set)
 
         if not hits:
             return RetrievalResult(
@@ -280,18 +277,6 @@ class KnowledgeRetriever:
             sql, [*params, _FTS_HIT_LIMIT]
         ).fetchall()
         return [_deserialize_item_row(row) for row in rows]
-
-    def _filter_package_scope(
-        self, hits: list[dict[str, Any]], scene_tag_set: set[str]
-    ) -> list[dict[str, Any]]:
-        """按 package.scope_mode 过滤命中（global 始终保留；tagged 需标签交集）。"""
-        if not hits:
-            return hits
-        kept: list[dict[str, Any]] = []
-        for item in hits:
-            if package_scope_allows(item, scene_tag_set):
-                kept.append(item)
-        return kept
 
     # ------------------------------------------------------------------
     # 评分
@@ -592,36 +577,8 @@ def normalize_scope_tags(tags: list[str] | tuple[str, ...] | None) -> list[str]:
     return out
 
 
-def package_scope_allows(
-    item: dict[str, Any], scene_tag_set: set[str]
-) -> bool:
-    """判断条目所属包是否对当前 ``scene_tags`` 可见。
-
-    - ``global`` / 空 / 未知：始终 True；
-    - ``tagged``：``normalize_scope_tags(pkg_scope_tags)`` 与 scene 标签有交集。
-    """
-    mode = str(item.get("pkg_scope_mode") or "global").strip().lower()
-    if mode != "tagged":
-        return True
-    pkg_tags = item.get("pkg_scope_tags")
-    if not isinstance(pkg_tags, list):
-        pkg_tags = normalize_scope_tags(
-            _json_loads(item.get("pkg_scope_tags_json"), default=[])
-        )
-    else:
-        # 已是 list 时仍归一化（可能未 casefold）
-        pkg_tags = normalize_scope_tags(pkg_tags)
-    if not pkg_tags:
-        # tagged 但无标签：永不匹配
-        return False
-    if not scene_tag_set:
-        return False
-    return bool(scene_tag_set.intersection(pkg_tags))
-
-
 __all__ = [
     "KnowledgeRetriever",
     "RetrievalResult",
     "normalize_scope_tags",
-    "package_scope_allows",
 ]

@@ -2,7 +2,8 @@
   "dynamic": {
     "appKnowledgePage": {
       "title": "Knowledge Packages",
-      "subtitle": "Import game / streamer memes / expression references / live danmu logs; AI structures them into searchable short knowledge.",
+      "subtitle": "Imported materials automatically participate in AI understanding; the system matches relevant content based on the current scene.",
+      "unifiedHint": "No scope or tag selection needed. All imported content enters a unified knowledge base; AI retrieves based on game screen, live context, and persona settings.",
       "newPackage": "New Package",
       "refresh": "Refresh",
       "retrievalPreview": "Retrieval Preview",

@@ -134,11 +134,16 @@ def create_package_for_db(
     enabled: bool = True,
     priority: int = 0,
 ) -> dict[str, Any]:
-    """创建知识包；返回新行字典（含 public_id）。"""
+    """创建知识包；返回新行字典（含 public_id）。
+
+    统一知识空间：忽略调用方传入的 content_kind/scope_mode/scope_tags，
+    始终写入 ``auto`` / ``global`` / ``[]``。
+    """
     public_id = _new_public_id()
     now = _now_iso()
-    content_kind = _normalize_package_content_kind(content_kind)
-    scope_tags = scope_tags or []
+    content_kind = "auto"
+    scope_mode = "global"
+    scope_tags: list[str] = []
     scope_tags_json = json.dumps(scope_tags, ensure_ascii=False)
     with db.with_write_lock():
         db.conn.execute(
@@ -186,7 +191,10 @@ def update_package_for_db(
     enabled: bool | None = None,
     priority: int | None = None,
 ) -> dict[str, Any] | None:
-    """部分更新知识包；返回更新后的行字典，包不存在返回 None。"""
+    """部分更新知识包；返回更新后的行字典，包不存在返回 None。
+
+    统一知识空间：忽略 content_kind/scope_mode/scope_tags 更新请求。
+    """
     sets: list[str] = []
     params: list[Any] = []
     if name is not None:
@@ -195,15 +203,7 @@ def update_package_for_db(
     if description is not None:
         sets.append("description=?")
         params.append(description)
-    if content_kind is not None:
-        sets.append("content_kind=?")
-        params.append(_normalize_package_content_kind(content_kind))
-    if scope_mode is not None:
-        sets.append("scope_mode=?")
-        params.append(scope_mode)
-    if scope_tags is not None:
-        sets.append("scope_tags_json=?")
-        params.append(json.dumps(scope_tags, ensure_ascii=False))
+    # content_kind / scope_mode / scope_tags 不再接受用户写入
     if enabled is not None:
         sets.append("enabled=?")
         params.append(1 if enabled else 0)
@@ -296,11 +296,13 @@ def _normalize_package_content_kind(content_kind: Any) -> str:
 
 
 def _deserialize_package_row(row: sqlite3.Row) -> dict[str, Any]:
-    """sqlite3.Row → dict，scope_tags_json 反序列化为 scope_tags 列表。"""
+    """sqlite3.Row → dict；API 读取时归一为统一知识空间。"""
     d = dict(row)
-    d["scope_tags"] = _json_loads(d.pop("scope_tags_json", "[]"), default=[])
+    d.pop("scope_tags_json", None)
+    d["scope_tags"] = []
+    d["scope_mode"] = "global"
+    d["content_kind"] = "auto"
     d["enabled"] = bool(d.get("enabled", 0))
-    d["content_kind"] = _normalize_package_content_kind(d.get("content_kind", "auto"))
     return d
 
 

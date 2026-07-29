@@ -261,6 +261,24 @@ def _migrate_v2_items_dedupe_index(
     )
 
 
+@register(3, "unify_package_scope_and_kind")
+def _migrate_v3_unify_package_scope_and_kind(
+    conn: sqlite3.Connection, fts_backend: str
+) -> None:
+    """v3：将历史包归一为统一知识空间（global/auto，清空 scope_tags）。
+
+    保留 DB 列以兼容旧客户端；运行时检索与 API 读取均忽略旧值。
+  """
+    del fts_backend  # noqa: ARG001 — 本迁移不依赖 FTS
+    conn.execute(
+        "UPDATE knowledge_packages SET "
+        "scope_mode='global', scope_tags_json='[]', content_kind='auto' "
+        "WHERE scope_mode != 'global' "
+        "OR scope_tags_json != '[]' "
+        "OR content_kind != 'auto'"
+    )
+
+
 __all__ = [
     "MIGRATIONS",
     "register",

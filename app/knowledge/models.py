@@ -70,9 +70,6 @@ class PackageCreatePayload(BaseModel):
 
     name: str = Field(..., min_length=1, max_length=80)
     description: str = Field(default="", max_length=500)
-    content_kind: str = "auto"
-    scope_mode: str = "global"
-    scope_tags: list[str] = Field(default_factory=list, max_length=20)
     enabled: bool = True
     priority: int = 0
 
@@ -84,9 +81,6 @@ class PackageUpdatePayload(BaseModel):
 
     name: str | None = Field(default=None, min_length=1, max_length=80)
     description: str | None = Field(default=None, max_length=500)
-    content_kind: str | None = None
-    scope_mode: str | None = None
-    scope_tags: list[str] | None = Field(default=None, max_length=20)
     enabled: bool | None = None
     priority: int | None = None
 
@@ -107,7 +101,6 @@ class ImportPayload(BaseModel):
     source_url: str | None = None
     pasted_text: str | None = None
     content_base64: str | None = None
-    document_kind: str = "auto"
 
     model_config = {"extra": "ignore"}
 

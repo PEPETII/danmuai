@@ -106,9 +106,6 @@ def create_package(app: "DanmuApp", payload: dict[str, Any]) -> dict[str, Any]:
     pkg = repo.create_package(
         name=payload.get("name", ""),
         description=payload.get("description", ""),
-        content_kind=payload.get("content_kind", "auto"),
-        scope_mode=payload.get("scope_mode", "global"),
-        scope_tags=payload.get("scope_tags", []),
         enabled=payload.get("enabled", True),
         priority=payload.get("priority", 0),
     )
@@ -238,8 +235,8 @@ def import_source(
         source_id=source["id"],
         source_type=source_type,
         payload=payload,
-        document_kind=payload.get("document_kind", "auto"),
-        content_kind=pkg.get("content_kind", "auto"),
+        document_kind="auto",
+        content_kind="auto",
     )
     return {"ok": True, "job_id": job_public_id, "source_id": source["public_id"]}
 
