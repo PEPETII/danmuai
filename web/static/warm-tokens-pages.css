@@ -176,3 +176,136 @@ html[data-theme='dark'] .problem-detail-severity--fatal {
 #problemDetailActions {
   min-width: 0;
 }
+
+/* Knowledge package page (UI rework) */
+.knowledge-quick-start-steps {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.knowledge-source-type-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--space-3, 0.75rem);
+}
+
+.knowledge-source-type-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border-soft, #f5e6d3);
+  border-radius: 0.75rem;
+  background: var(--cream, #fdfbf7);
+  text-align: left;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.knowledge-source-type-card.is-active {
+  border-color: var(--soft-peach, #ffd4b8);
+  background: #fff8f2;
+  box-shadow: 0 0 0 1px var(--soft-peach, #ffd4b8);
+}
+
+.knowledge-status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.knowledge-status-badge--success {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.knowledge-status-badge--running {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.knowledge-status-badge--warn {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.knowledge-status-badge--error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.knowledge-status-badge--muted {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.knowledge-card-more-menu {
+  position: absolute;
+  z-index: 5;
+  margin-top: 0.25rem;
+  min-width: 8rem;
+  padding: 0.25rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+.knowledge-package-card {
+  position: relative;
+}
+
+.knowledge-card-actions {
+  position: relative;
+}
+
+.knowledge-card-more-item {
+  width: 100%;
+  text-align: left;
+}
+
+.knowledge-card-more-item--danger {
+  color: #dc2626;
+}
+
+.knowledge-progress-bar {
+  width: 100%;
+  height: 0.5rem;
+  accent-color: var(--soft-peach, #ffd4b8);
+}
+
+.knowledge-progress-indeterminate {
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #fde8d8 0%, #ffd4b8 50%, #fde8d8 100%);
+  background-size: 200% 100%;
+  animation: knowledge-progress-slide 1.2s ease-in-out infinite;
+}
+
+@keyframes knowledge-progress-slide {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
+.knowledge-organize-modal-panel,
+.knowledge-empty-state,
+.knowledge-item-card,
+.knowledge-job-row {
+  min-width: 0;
+}
+
+.knowledge-empty-examples {
+  list-style: none;
+  padding: 0;
+}
+
+#knowledgeOrganizeModal .flex.flex-wrap,
+#knowledgeCreatePackageModal .flex.flex-wrap,
+#knowledgeConfirmModal .flex.flex-wrap {
+  min-width: 0;
+}

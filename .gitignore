@@ -103,8 +103,16 @@ docs/archive/qt6_ui_redesign_plan.md
 # Local community subproject (not published on GitHub)
 community/
 
-# Entire docs/ directory removed from repo (local only)
-docs/
+# Local AI prompts, workorders, and planning documents only
+docs/architecture-workorders/
+docs/danmuai_gepa_prompt_training_docs/
+docs/danmuai_knowledge_fix_prompts/
+docs/danmuai_live2d_plan_md/
+docs/danmuai_problem_display_workorders/
+docs/danmuai_ui_repair_docs/
+docs/floating_panel_web/NEXT_CODEX_PROMPT.md
+docs/superpowers/
+docs/workorders/
 
 # ── Local AI / IDE working documents (never publish) ──
 .local-ai/

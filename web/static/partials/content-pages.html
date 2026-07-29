@@ -643,107 +643,192 @@
 
     <!-- ========== 区域：知识包（Wave 5 A9） ========== -->
     <section id="page-knowledge" class="page-panel" data-i18n-aria-label="nav.knowledge" aria-label="知识包">
-      <header class="mb-8 ui-page-header"><div class="ui-page-header__copy min-w-0"><h2 class="text-2xl font-bold text-warmText ui-page-title" data-i18n="dynamic.appKnowledgePage.title">知识包</h2><p class="text-gray-500 mt-1 ui-page-description" data-i18n="dynamic.appKnowledgePage.subtitle">导入的资料会自动参与 AI 理解，系统会根据当前场景自动匹配相关内容</p></div></header>
+      <header class="mb-6 ui-page-header">
+        <div class="ui-page-header__copy min-w-0">
+          <h2 class="text-2xl font-bold text-warmText ui-page-title" data-i18n="dynamic.appKnowledgePage.title">知识包</h2>
+          <p class="text-gray-500 mt-1 ui-page-description" data-i18n="dynamic.appKnowledgePage.subtitle">把游戏资料、角色设定、直播背景、梗等内容放入知识包。系统会自动整理资料，并在生成弹幕时匹配当前画面需要的内容。</p>
+        </div>
+      </header>
 
-      <p class="mb-6 text-sm text-gray-500 settings-section-hint" data-i18n="dynamic.appKnowledgePage.unifiedHint">无需选择作用范围或标签，所有导入内容默认进入统一知识库，由 AI 根据游戏画面、直播上下文与人格设定自动检索。</p>
+      <div id="knowledgeQuickStart" class="knowledge-quick-start card ui-card p-6 mb-6">
+        <p class="settings-section-title mb-3" data-i18n="dynamic.appKnowledgePage.quickStart.title">如何使用知识包？</p>
+        <ol class="knowledge-quick-start-steps text-sm text-warmText space-y-2">
+          <li data-i18n="dynamic.appKnowledgePage.quickStart.step1">1. 创建知识包</li>
+          <li data-i18n="dynamic.appKnowledgePage.quickStart.step2">2. 添加网页、文本或文档</li>
+          <li data-i18n="dynamic.appKnowledgePage.quickStart.step3">3. 等待系统整理内容</li>
+          <li data-i18n="dynamic.appKnowledgePage.quickStart.step4">4. 检查生成的知识条目</li>
+          <li data-i18n="dynamic.appKnowledgePage.quickStart.step5">5. 启用后自动参与弹幕生成</li>
+        </ol>
+      </div>
 
       <!-- 视图 1：知识包列表 -->
       <div id="knowledgeListView" class="knowledge-view">
-        <div class="flex flex-wrap items-center gap-3 mb-6">
+        <div class="flex flex-wrap items-center gap-3 mb-6 content-page-actions">
           <button type="button" id="btnKnowledgeNewPackage" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm ui-button ui-button--primary ui-button--md" data-i18n="dynamic.appKnowledgePage.newPackage">新建知识包</button>
-          <button type="button" id="btnKnowledgeRefresh" class="px-6 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--md" data-i18n="dynamic.appKnowledgePage.refresh">刷新</button>
-          <button type="button" id="btnKnowledgeRetrievalPreview" class="px-6 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--md" data-i18n="dynamic.appKnowledgePage.retrievalPreview">检索预览</button>
+          <button type="button" id="btnKnowledgeRefresh" class="px-4 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--md" data-i18n="dynamic.appKnowledgePage.refresh" data-i18n-aria-label="dynamic.appKnowledgePage.refresh" aria-label="刷新">刷新</button>
         </div>
         <div id="knowledgePackageList" class="space-y-4"></div>
-        <p id="knowledgePackageEmpty" class="text-gray-500 text-sm hidden" data-i18n="dynamic.appKnowledgePage.empty">暂无知识包，点「新建」开始导入第一份知识</p>
+        <div id="knowledgePackageEmpty" class="knowledge-empty-state card ui-card p-8 text-center hidden">
+          <h3 class="text-lg font-bold text-warmText mb-2" data-i18n="dynamic.appKnowledgePage.emptyTitle">还没有知识包</h3>
+          <p class="text-sm text-gray-500 mb-4" data-i18n="dynamic.appKnowledgePage.emptyDesc">创建一个知识包，再导入游戏资料、角色设定、梗或直播背景。</p>
+          <button type="button" id="btnKnowledgeCreateFirstPackage" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm ui-button ui-button--primary ui-button--md" data-i18n="dynamic.appKnowledgePage.createFirst">创建第一个知识包</button>
+          <ul class="knowledge-empty-examples text-sm text-gray-500 mt-6 space-y-1">
+            <li data-i18n="dynamic.appKnowledgePage.emptyExample1">《黑神话：悟空》剧情与角色</li>
+            <li data-i18n="dynamic.appKnowledgePage.emptyExample2">主播常用梗与直播背景</li>
+            <li data-i18n="dynamic.appKnowledgePage.emptyExample3">游戏术语与玩法说明</li>
+          </ul>
+        </div>
       </div>
 
       <!-- 视图 2：知识包详情 -->
       <div id="knowledgePackageDetail" class="knowledge-view hidden space-y-6">
         <button type="button" id="btnKnowledgeBackToList" class="px-4 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--md" data-i18n="dynamic.appKnowledgePage.backToList">← 返回列表</button>
 
+        <div id="knowledgeDetailOverview" class="card p-8 space-y-4 ui-card">
+          <div class="flex flex-wrap items-start justify-between gap-4 min-w-0">
+            <div class="min-w-0 flex-1">
+              <h3 id="knowledgeOverviewName" class="text-xl font-bold text-warmText break-words"></h3>
+              <div class="flex flex-wrap items-center gap-2 mt-2">
+                <span id="knowledgeOverviewStatusBadge" class="knowledge-status-badge"></span>
+                <span id="knowledgeOverviewStats" class="text-sm text-gray-500"></span>
+              </div>
+              <p id="knowledgeOverviewSaveStatus" class="text-xs text-gray-500 mt-2"></p>
+            </div>
+            <div class="flex flex-wrap items-center gap-3 shrink-0">
+              <label class="toggle-switch font-semibold text-warmText text-sm">
+                <input type="checkbox" id="knowledgePackageEnabled" role="switch">
+                <span></span>
+                <span class="ml-2" data-i18n="dynamic.appKnowledgePage.enabled">启用</span>
+              </label>
+              <button type="button" id="btnKnowledgeSavePackage" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm ui-button ui-button--primary ui-button--md" data-i18n="dynamic.appKnowledgePage.save">保存更改</button>
+            </div>
+          </div>
+          <div id="knowledgeBackgroundJobBanner" class="knowledge-background-banner hidden flex flex-wrap items-center gap-3 p-3 bg-cream border border-softPeach rounded-xl">
+            <span id="knowledgeBackgroundJobText" class="text-sm text-warmText"></span>
+            <button type="button" id="btnKnowledgeViewProgress" class="px-4 py-1.5 bg-white border border-gray-200 rounded-lg text-sm font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--sm" data-i18n="dynamic.appKnowledgePage.viewProgress">查看进度</button>
+          </div>
+        </div>
+
         <div class="card p-8 space-y-4 ui-card">
+          <p class="settings-section-title" data-i18n="dynamic.appKnowledgePage.basicInfo">基础信息</p>
           <div class="settings-field">
             <label for="knowledgePackageName" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.name">名称</label>
+            <p class="settings-section-hint" data-i18n="dynamic.appKnowledgePage.nameHint">只用于识别这个知识包，不会直接写入弹幕提示词。</p>
             <input type="text" id="knowledgePackageName" class="settings-field-control ui-control ui-input">
           </div>
           <div class="settings-field">
             <label for="knowledgePackageDescription" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.description">描述</label>
+            <p class="settings-section-hint" data-i18n="dynamic.appKnowledgePage.descriptionHint">说明资料主题，方便后续管理多个知识包。</p>
             <textarea id="knowledgePackageDescription" rows="3" class="settings-field-control ui-control ui-textarea"></textarea>
           </div>
-          <p class="text-sm text-gray-500 settings-section-hint" data-i18n="dynamic.appKnowledgePage.unifiedHint">无需选择作用范围或标签，所有导入内容默认进入统一知识库，由 AI 根据游戏画面、直播上下文与人格设定自动检索。</p>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="settings-field">
-              <label for="knowledgePackagePriority" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.priority">优先级</label>
-              <input type="number" id="knowledgePackagePriority" min="0" max="100" value="0" class="settings-field-control ui-control ui-input">
-            </div>
-            <div class="settings-field">
-              <span class="settings-field-label" data-i18n="dynamic.appKnowledgePage.enabled">启用</span>
-              <label class="toggle-switch font-semibold text-warmText">
-                <input type="checkbox" id="knowledgePackageEnabled" role="switch">
-                <span></span>
-              </label>
-            </div>
-          </div>
-          <div class="flex flex-wrap gap-3">
-            <button type="button" id="btnKnowledgeSavePackage" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm ui-button ui-button--primary ui-button--md" data-i18n="dynamic.appKnowledgePage.save">保存设置</button>
-            <button type="button" id="btnKnowledgeDeletePackage" class="px-6 py-2 bg-red-50 border border-red-200 rounded-xl font-semibold text-red-600 ui-button ui-button--secondary ui-button--md" data-i18n="dynamic.appKnowledgePage.delete">删除包</button>
+          <div class="settings-rhythm-accordion" data-settings-rhythm-accordion>
+            <section class="settings-rhythm-accordion-item">
+              <h4 class="settings-rhythm-accordion-heading">
+                <button type="button" id="knowledgeDangerAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="knowledgeDangerAccordionPanel">
+                  <span class="settings-rhythm-accordion-trigger-copy">
+                    <span class="settings-rhythm-accordion-trigger-title" data-i18n="dynamic.appKnowledgePage.dangerZone">危险操作</span>
+                    <span class="settings-section-hint settings-rhythm-accordion-trigger-hint" data-i18n="dynamic.appKnowledgePage.dangerHint">删除知识包及所有资料与条目</span>
+                  </span>
+                  <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
+                </button>
+              </h4>
+              <div id="knowledgeDangerAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="knowledgeDangerAccordionTrigger" hidden>
+                <button type="button" id="btnKnowledgeDeletePackage" class="px-6 py-2 bg-red-50 border border-red-200 rounded-xl font-semibold text-red-600 ui-button ui-button--secondary ui-button--md" data-i18n="dynamic.appKnowledgePage.delete">删除知识包</button>
+              </div>
+            </section>
           </div>
         </div>
 
-        <!-- 来源与导入任务 -->
-        <div class="card p-8 space-y-4 ui-card">
-          <p class="settings-section-title" data-i18n="dynamic.appKnowledgePage.sources">来源与导入任务</p>
-          <div class="settings-field">
-            <label for="knowledgeSourceType" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.sourceType">来源类型</label>
-            <select id="knowledgeSourceType" class="settings-field-control ui-control ui-select">
-              <option value="pasted_text" data-i18n="dynamic.appKnowledgePage.optSourcePastedText">粘贴文本</option>
-              <option value="txt" data-i18n="dynamic.appKnowledgePage.optSourceTxt">文本文件 (.txt)</option>
-              <option value="markdown" data-i18n="dynamic.appKnowledgePage.optSourceMarkdown">Markdown 文档</option>
-              <option value="webpage" data-i18n="dynamic.appKnowledgePage.optSourceWebpage">网页</option>
-            </select>
+        <div id="knowledgeAddSource" class="card p-8 space-y-4 ui-card">
+          <p class="settings-section-title" data-i18n="dynamic.appKnowledgePage.addSource">添加资料</p>
+          <p class="settings-section-hint" data-i18n="dynamic.appKnowledgePage.addSourceHint">选择资料来源并导入，系统会自动读取、拆分并整理。</p>
+          <select id="knowledgeSourceType" class="hidden" aria-hidden="true">
+            <option value="pasted_text">pasted_text</option>
+            <option value="txt">txt</option>
+            <option value="markdown">markdown</option>
+            <option value="webpage">webpage</option>
+          </select>
+          <div class="knowledge-source-type-grid" role="group" aria-label="来源类型">
+            <button type="button" class="knowledge-source-type-card is-active" data-knowledge-source-type="pasted_text" aria-pressed="true">
+              <span class="font-semibold text-warmText" data-i18n="dynamic.appKnowledgePage.optSourcePastedText">粘贴文本</span>
+              <span class="text-xs text-gray-500" data-i18n="dynamic.appKnowledgePage.sourcePastedHint">适合临时资料、角色设定、规则说明和少量内容。</span>
+            </button>
+            <button type="button" class="knowledge-source-type-card" data-knowledge-source-type="txt" aria-pressed="false">
+              <span class="font-semibold text-warmText" data-i18n="dynamic.appKnowledgePage.optSourceTxt">文本文件 (.txt)</span>
+              <span class="text-xs text-gray-500" data-i18n="dynamic.appKnowledgePage.sourceTxtHint">适合大量纯文本资料，每行或每段均可。</span>
+            </button>
+            <button type="button" class="knowledge-source-type-card" data-knowledge-source-type="markdown" aria-pressed="false">
+              <span class="font-semibold text-warmText" data-i18n="dynamic.appKnowledgePage.optSourceMarkdown">Markdown 文档</span>
+              <span class="text-xs text-gray-500" data-i18n="dynamic.appKnowledgePage.sourceMarkdownHint">适合结构化攻略、人物资料和整理后的知识。</span>
+            </button>
+            <button type="button" class="knowledge-source-type-card" data-knowledge-source-type="webpage" aria-pressed="false">
+              <span class="font-semibold text-warmText" data-i18n="dynamic.appKnowledgePage.optSourceWebpage">网页</span>
+              <span class="text-xs text-gray-500" data-i18n="dynamic.appKnowledgePage.sourceWebpageHint">系统会读取网页正文并自动整理。</span>
+            </button>
           </div>
           <div class="settings-field">
             <label for="knowledgeDisplayName" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.displayName">显示名称</label>
+            <p class="settings-section-hint" data-i18n="dynamic.appKnowledgePage.displayNameHint">用于在任务和来源列表中识别这份资料，不影响原始内容。</p>
             <input type="text" id="knowledgeDisplayName" class="settings-field-control ui-control ui-input">
           </div>
           <div id="knowledgeSourceUrlWrap" class="settings-field hidden">
             <label for="knowledgeSourceUrl" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.sourceUrl">网页 URL</label>
+            <p class="settings-section-hint" data-i18n="dynamic.appKnowledgePage.sourceUrlHint">填写可公开访问的单个网页地址。</p>
             <input type="text" id="knowledgeSourceUrl" class="settings-field-control ui-control ui-input">
+            <p id="knowledgeSourceUrlError" class="text-xs text-red-600 mt-1 hidden" role="alert"></p>
           </div>
           <div id="knowledgePastedTextWrap" class="settings-field">
             <label for="knowledgePastedText" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.pastedText">粘贴文本</label>
+            <p class="settings-section-hint" data-i18n="dynamic.appKnowledgePage.pastedTextHint">可以直接粘贴攻略、角色设定、梗、直播背景等内容。</p>
             <textarea id="knowledgePastedText" rows="6" class="settings-field-control ui-control ui-textarea"></textarea>
+            <p id="knowledgePastedTextCount" class="text-xs text-gray-500 mt-1"></p>
+            <p id="knowledgePastedTextError" class="text-xs text-red-600 mt-1 hidden" role="alert"></p>
           </div>
           <div id="knowledgeSourceFileWrap" class="settings-field hidden">
             <label for="knowledgeSourceFile" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.selectFile">选择文件</label>
+            <p class="settings-section-hint" data-i18n="dynamic.appKnowledgePage.fileHint">支持 TXT、MD 和 Markdown 文件，单个文件最大 5 MB。</p>
             <input type="file" id="knowledgeSourceFile" accept=".txt,.md,.markdown,text/plain,text/markdown">
             <p id="knowledgeSourceFileName" class="settings-section-hint"></p>
+            <p id="knowledgeSourceFileError" class="text-xs text-red-600 mt-1 hidden" role="alert"></p>
           </div>
+          <p id="knowledgeImportActiveHint" class="text-sm text-amber-700 hidden"></p>
           <button type="button" id="btnKnowledgeStartImport" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm ui-button ui-button--primary ui-button--md" data-i18n="dynamic.appKnowledgePage.startImport">开始导入</button>
+          <p class="settings-section-hint" data-i18n="dynamic.appKnowledgePage.importFootnote">导入后，系统会自动读取、拆分并整理资料。</p>
+        </div>
 
-          <p class="settings-section-title mt-6" data-i18n="dynamic.appKnowledgePage.jobs">任务列表</p>
+        <div id="knowledgeJobProgress" class="card p-8 space-y-4 ui-card">
+          <p class="settings-section-title" data-i18n="dynamic.appKnowledgePage.jobProgress">处理进度</p>
+          <p class="settings-section-hint" data-i18n="dynamic.appKnowledgePage.jobProgressHint">导入后，系统会依次读取、切分并整理资料。处理完成后，生成的内容会出现在「知识条目」中。</p>
           <div id="knowledgeJobList" class="space-y-2"></div>
           <p id="knowledgeJobEmpty" class="text-gray-500 text-sm hidden" data-i18n="dynamic.appKnowledgePage.noJobs">暂无任务</p>
         </div>
 
-        <!-- 知识条目 -->
         <div class="card p-8 space-y-4 ui-card">
           <p class="settings-section-title" data-i18n="dynamic.appKnowledgePage.items">知识条目</p>
-          <div class="flex flex-wrap items-center gap-3">
-            <select id="knowledgeItemKindFilter" class="settings-field-control max-w-[160px] ui-control ui-select">
-              <option value="" data-i18n="dynamic.appKnowledgePage.all">全部</option>
-              <option value="fact" data-i18n="dynamic.appKnowledgePage.kindFact">事实</option>
-              <option value="reaction_pattern" data-i18n="dynamic.appKnowledgePage.kindReaction">反应方式</option>
-              <option value="meme" data-i18n="dynamic.appKnowledgePage.kindMeme">梗</option>
-              <option value="style_example" data-i18n="dynamic.appKnowledgePage.kindStyle">表达参考</option>
-            </select>
-            <select id="knowledgeItemEnabledFilter" class="settings-field-control max-w-[160px] ui-control ui-select">
-              <option value="" data-i18n="dynamic.appKnowledgePage.all">全部</option>
-              <option value="true" data-i18n="dynamic.appKnowledgePage.enabled">启用</option>
-              <option value="false" data-i18n="dynamic.appKnowledgePage.disabled">未启用</option>
-            </select>
-            <input type="search" id="knowledgeItemSearch" class="settings-field-control max-w-[240px] ui-control ui-input" data-i18n-placeholder="dynamic.appKnowledgePage.search" placeholder="搜索">
+          <p class="settings-section-hint" data-i18n="dynamic.appKnowledgePage.itemsHint">知识条目是系统从资料中整理出的可检索内容。启用的条目会在相关画面或语境出现时参与弹幕生成。</p>
+          <div class="flex flex-wrap items-end gap-3">
+            <div class="settings-field min-w-[140px]">
+              <label for="knowledgeItemKindFilter" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.filterKind">条目类型</label>
+              <select id="knowledgeItemKindFilter" class="settings-field-control ui-control ui-select">
+                <option value="" data-i18n="dynamic.appKnowledgePage.all">全部</option>
+                <option value="fact" data-i18n="dynamic.appKnowledgePage.kindFact">事实</option>
+                <option value="reaction_pattern" data-i18n="dynamic.appKnowledgePage.kindReaction">反应方式</option>
+                <option value="meme" data-i18n="dynamic.appKnowledgePage.kindMeme">梗</option>
+                <option value="style_example" data-i18n="dynamic.appKnowledgePage.kindStyle">表达参考</option>
+              </select>
+            </div>
+            <div class="settings-field min-w-[140px]">
+              <label for="knowledgeItemEnabledFilter" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.filterEnabled">启用状态</label>
+              <select id="knowledgeItemEnabledFilter" class="settings-field-control ui-control ui-select">
+                <option value="" data-i18n="dynamic.appKnowledgePage.all">全部</option>
+                <option value="true" data-i18n="dynamic.appKnowledgePage.enabled">启用</option>
+                <option value="false" data-i18n="dynamic.appKnowledgePage.disabled">未启用</option>
+              </select>
+            </div>
+            <div class="settings-field min-w-[180px] flex-1">
+              <label for="knowledgeItemSearch" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.searchKnowledge">搜索知识</label>
+              <input type="search" id="knowledgeItemSearch" class="settings-field-control ui-control ui-input" data-i18n-placeholder="dynamic.appKnowledgePage.searchPlaceholder" placeholder="输入关键词">
+            </div>
             <button type="button" id="btnKnowledgeSearchItems" class="px-4 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--md" data-i18n="dynamic.appKnowledgePage.search">搜索</button>
           </div>
           <div id="knowledgeItemList" class="space-y-2"></div>
@@ -754,28 +839,61 @@
             <button type="button" id="btnKnowledgeItemNext" class="px-3 py-1.5 bg-white border border-gray-200 rounded-lg font-semibold hover:bg-gray-50 ui-button ui-button--secondary ui-button--sm" data-i18n="dynamic.appKnowledgePage.next">下一页</button>
           </div>
         </div>
+
+        <div class="card p-8 ui-card">
+          <div class="settings-rhythm-accordion" data-settings-rhythm-accordion>
+            <section class="settings-rhythm-accordion-item">
+              <h4 class="settings-rhythm-accordion-heading">
+                <button type="button" id="knowledgeAdvancedAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="knowledgeAdvancedAccordionPanel">
+                  <span class="settings-rhythm-accordion-trigger-copy">
+                    <span class="settings-rhythm-accordion-trigger-title" data-i18n="dynamic.appKnowledgePage.advancedSettings">高级设置</span>
+                    <span class="settings-section-hint settings-rhythm-accordion-trigger-hint" data-i18n="dynamic.appKnowledgePage.advancedHint">优先级与知识检索测试</span>
+                  </span>
+                  <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
+                </button>
+              </h4>
+              <div id="knowledgeAdvancedAccordionPanel" class="settings-rhythm-accordion-panel space-y-4" role="region" aria-labelledby="knowledgeAdvancedAccordionTrigger" hidden>
+                <div class="settings-field">
+                  <label for="knowledgePackagePriority" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.priority">优先级</label>
+                  <p class="settings-section-hint" data-i18n="dynamic.appKnowledgePage.priorityHint">多个知识包同时匹配时，数值越高越优先。普通用户保持默认值即可。</p>
+                  <input type="number" id="knowledgePackagePriority" min="0" max="100" value="0" class="settings-field-control ui-control ui-input">
+                </div>
+                <div class="settings-field">
+                  <p class="settings-field-label" data-i18n="dynamic.appKnowledgePage.testRetrieval">测试知识检索</p>
+                  <p class="settings-section-hint" data-i18n="dynamic.appKnowledgePage.testRetrievalHint">模拟一个画面或直播场景，检查系统会使用哪些知识。</p>
+                  <button type="button" id="btnKnowledgeOpenRetrievalPreview" class="px-6 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--md" data-i18n="dynamic.appKnowledgePage.testRetrieval">测试知识检索</button>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
       </div>
 
       <!-- 视图 3：检索预览 -->
       <div id="knowledgeRetrievalPreview" class="knowledge-view hidden space-y-6">
-        <button type="button" id="btnKnowledgePreviewBack" class="px-4 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--md" data-i18n="dynamic.appKnowledgePage.backToList">← 返回列表</button>
+        <button type="button" id="btnKnowledgePreviewBack" class="px-4 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--md" data-i18n="dynamic.appKnowledgePage.backToDetail">← 返回知识包</button>
         <div class="card p-8 space-y-4 ui-card">
-          <p class="settings-section-title" data-i18n="dynamic.appKnowledgePage.retrievalTitle">检索预览（沙盒，不写入运行时）</p>
+          <p class="settings-section-title" data-i18n="dynamic.appKnowledgePage.advancedTool">高级工具</p>
+          <p class="settings-section-hint" data-i18n="dynamic.appKnowledgePage.retrievalSandboxHint">模拟某个画面或直播语境，查看系统会检索到哪些知识。这里只用于测试，不会影响实际运行。</p>
           <div class="settings-field">
             <label for="knowledgeSceneBrief" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.sceneBrief">场景简述</label>
-            <textarea id="knowledgeSceneBrief" rows="3" class="settings-field-control ui-control ui-textarea"></textarea>
+            <p class="settings-section-hint" data-i18n="dynamic.appKnowledgePage.sceneBriefHint">描述当前画面发生了什么。</p>
+            <textarea id="knowledgeSceneBrief" rows="3" class="settings-field-control ui-control ui-textarea" data-i18n-placeholder="dynamic.appKnowledgePage.sceneBriefPlaceholder" placeholder="例如：玩家正在挑战虎先锋，连续闪避后准备蓄力攻击"></textarea>
           </div>
           <div class="settings-field">
-            <label for="knowledgeKeywords" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.keywords">关键词（逗号分隔）</label>
-            <input type="text" id="knowledgeKeywords" class="settings-field-control ui-control ui-input">
+            <label for="knowledgeKeywords" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.keywords">关键词</label>
+            <p class="settings-section-hint" data-i18n="dynamic.appKnowledgePage.keywordsHint">补充角色名、地点、技能或梗，多个词用逗号分隔。</p>
+            <input type="text" id="knowledgeKeywords" class="settings-field-control ui-control ui-input" data-i18n-placeholder="dynamic.appKnowledgePage.keywordsPlaceholder" placeholder="虎先锋，黑神话悟空，蓄力攻击">
           </div>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="settings-field">
               <label for="knowledgeMaxItems" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.maxItems">最大条目</label>
+              <p class="settings-section-hint" data-i18n="dynamic.appKnowledgePage.maxItemsHint">限制本次测试最多返回多少条知识。</p>
               <input type="number" id="knowledgeMaxItems" min="1" max="50" value="4" class="settings-field-control ui-control ui-input">
             </div>
             <div class="settings-field">
               <label for="knowledgeMaxChars" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.maxChars">字符上限</label>
+              <p class="settings-section-hint" data-i18n="dynamic.appKnowledgePage.maxCharsHint">限制最终发送给 AI 的知识文本长度。</p>
               <input type="number" id="knowledgeMaxChars" min="100" max="5000" value="360" class="settings-field-control ui-control ui-input">
             </div>
           </div>
@@ -788,7 +906,8 @@
             <span id="knowledgeRetrievalFts" class="text-gray-500"></span>
           </div>
           <div>
-            <p class="settings-section-title" data-i18n="dynamic.appKnowledgePage.promptText">Prompt 文本</p>
+            <p class="settings-section-title" data-i18n="dynamic.appKnowledgePage.injectedKnowledgeText">实际注入的知识文本</p>
+            <p class="settings-section-hint mb-2" data-i18n="dynamic.appKnowledgePage.injectedKnowledgeHint">这是系统在当前测试场景下准备发送给 AI 的知识内容。</p>
             <pre id="knowledgePromptText" class="bg-cream border border-softPeach rounded-xl p-4 text-sm text-warmText whitespace-pre-wrap break-words max-h-[400px] overflow-y-auto"></pre>
           </div>
           <div>

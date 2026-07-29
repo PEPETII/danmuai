@@ -300,3 +300,70 @@
       </div>
     </div>
   </div>
+
+  <!-- 知识包：新建 -->
+  <div id="knowledgeCreatePackageModal" class="fixed inset-0 bg-black/20 backdrop-blur-sm hidden items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="knowledgeCreatePackageModalTitle">
+    <div class="bg-white rounded-3xl shadow-warm max-w-md w-full p-8 min-w-0">
+      <h3 id="knowledgeCreatePackageModalTitle" class="text-lg font-bold text-warmText mb-4" data-i18n="dynamic.appKnowledgePage.newPackage">新建知识包</h3>
+      <div class="settings-field mb-4">
+        <label for="knowledgeCreatePackageName" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.name">名称</label>
+        <p class="settings-section-hint" data-i18n="dynamic.appKnowledgePage.create.nameHint">用于区分不同资料集合，例如「原神角色资料」。</p>
+        <input type="text" id="knowledgeCreatePackageName" class="settings-field-control ui-control ui-input" data-i18n-placeholder="dynamic.appKnowledgePage.create.namePlaceholder" placeholder="例如：黑神话悟空角色与剧情">
+        <p id="knowledgeCreateNameError" class="text-xs text-red-600 mt-1 hidden" role="alert"></p>
+      </div>
+      <div class="settings-field mb-6">
+        <label for="knowledgeCreatePackageDescription" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.description">描述</label>
+        <p class="settings-section-hint" data-i18n="dynamic.appKnowledgePage.create.descHint">简单说明这个知识包包含什么内容。</p>
+        <textarea id="knowledgeCreatePackageDescription" rows="3" class="settings-field-control ui-control ui-textarea" data-i18n-placeholder="dynamic.appKnowledgePage.create.descPlaceholder" placeholder="例如：包含主要角色、剧情背景、Boss 和常用梗"></textarea>
+      </div>
+      <div class="flex flex-wrap gap-3 justify-end">
+        <button type="button" id="btnKnowledgeCreatePackageCancel" class="px-5 py-2 border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--sm" data-i18n="dynamic.appKnowledgePage.cancel">取消</button>
+        <button type="button" id="btnKnowledgeCreatePackageSubmit" class="btn-primary px-5 py-2 text-white rounded-xl text-sm font-bold ui-button ui-button--primary ui-button--md" data-i18n="dynamic.appKnowledgePage.create.submit">创建知识包</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 知识包：二次确认 -->
+  <div id="knowledgeConfirmModal" class="fixed inset-0 bg-black/20 backdrop-blur-sm hidden items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="knowledgeConfirmModalTitle">
+    <div class="bg-white rounded-3xl shadow-warm max-w-md w-full p-8 min-w-0">
+      <h3 id="knowledgeConfirmModalTitle" class="text-lg font-bold text-warmText mb-2"></h3>
+      <p id="knowledgeConfirmModalMessage" class="text-sm text-gray-600 mb-6 whitespace-pre-wrap break-words"></p>
+      <div class="flex flex-wrap gap-3 justify-end">
+        <button type="button" id="btnKnowledgeConfirmCancel" class="px-5 py-2 border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--sm" data-i18n="dynamic.appKnowledgePage.cancel">取消</button>
+        <button type="button" id="btnKnowledgeConfirmOk" class="px-5 py-2 bg-red-500 text-white rounded-xl text-sm font-bold hover:bg-red-600 ui-button ui-button--danger ui-button--md"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 知识包：AI 整理资料 -->
+  <div id="knowledgeOrganizeModal" class="fixed inset-0 bg-black/20 backdrop-blur-sm hidden items-center justify-center z-[52] p-4" role="dialog" aria-modal="true" aria-labelledby="knowledgeOrganizeModalTitle" aria-describedby="knowledgeOrganizeModalDesc">
+    <div class="bg-white rounded-3xl shadow-warm max-w-lg w-full p-8 min-w-0 knowledge-organize-modal-panel">
+      <h3 id="knowledgeOrganizeModalTitle" class="text-lg font-bold text-warmText mb-2 break-words" data-i18n="dynamic.appKnowledgePage.organizeModal.title">AI 正在整理资料</h3>
+      <p id="knowledgeOrganizeModalDesc" class="text-sm text-gray-600 mb-4 break-words" data-i18n="dynamic.appKnowledgePage.organizeModal.desc">正在将导入内容转换为可检索的知识条目。</p>
+      <p id="knowledgeOrganizeStage" class="text-sm font-semibold text-warmText mb-2"></p>
+      <div class="knowledge-organize-progress mb-2">
+        <progress id="knowledgeOrganizeProgressBar" class="knowledge-progress-bar hidden" max="100" value="0"></progress>
+        <div id="knowledgeOrganizeProgressIndeterminate" class="knowledge-progress-indeterminate hidden" aria-hidden="true"></div>
+        <p id="knowledgeOrganizeProgressText" class="text-xs text-gray-500 mt-1"></p>
+      </div>
+      <p id="knowledgeOrganizeElapsed" class="text-xs text-gray-500 mb-3"></p>
+      <div id="knowledgeOrganizeStatusLive" class="text-sm text-warmText mb-3" aria-live="polite"></div>
+      <p id="knowledgeOrganizeResult" class="text-sm text-warmText mb-3 break-words" role="status"></p>
+      <details id="knowledgeOrganizeTechnical" class="text-xs text-gray-500 mb-4 hidden">
+        <summary data-i18n="dynamic.appKnowledgePage.technicalDetails">查看技术详情</summary>
+        <pre id="knowledgeOrganizeTechnicalPre" class="mt-2 whitespace-pre-wrap break-all"></pre>
+      </details>
+      <div id="knowledgeOrganizeActionsActive" class="flex flex-wrap gap-3 justify-end">
+        <button type="button" id="btnKnowledgeOrganizeBackground" class="px-5 py-2 border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--sm" data-i18n="dynamic.appKnowledgePage.organizeModal.background">后台继续处理</button>
+        <button type="button" id="btnKnowledgeOrganizeCancel" class="px-5 py-2 bg-red-50 border border-red-200 rounded-xl text-sm font-semibold text-red-600 ui-button ui-button--secondary ui-button--sm" data-i18n="dynamic.appKnowledgePage.organizeModal.cancel">取消整理</button>
+      </div>
+      <div id="knowledgeOrganizeActionsDone" class="flex flex-wrap gap-3 justify-end hidden">
+        <button type="button" id="btnKnowledgeOrganizeViewItems" class="btn-primary px-5 py-2 text-white rounded-xl text-sm font-bold ui-button ui-button--primary ui-button--md" data-i18n="dynamic.appKnowledgePage.organizeModal.viewItems">查看知识条目</button>
+        <button type="button" id="btnKnowledgeOrganizeAddMore" class="px-5 py-2 border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--sm" data-i18n="dynamic.appKnowledgePage.organizeModal.addMore">继续添加资料</button>
+      </div>
+      <div id="knowledgeOrganizeActionsFailed" class="flex flex-wrap gap-3 justify-end hidden">
+        <button type="button" id="btnKnowledgeOrganizeRetry" class="btn-primary px-5 py-2 text-white rounded-xl text-sm font-bold ui-button ui-button--primary ui-button--md" data-i18n="dynamic.appKnowledgePage.organizeModal.retry">重新尝试</button>
+        <button type="button" id="btnKnowledgeOrganizeCloseFailed" class="px-5 py-2 border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--sm" data-i18n="dynamic.appKnowledgePage.organizeModal.close">关闭</button>
+      </div>
+    </div>
+  </div>

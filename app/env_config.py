@@ -27,6 +27,7 @@ REGISTRY: dict[str, EnvVar] = {
     "DANMU_DEDUP_PROFILE": EnvVar("DANMU_DEDUP_PROFILE", "", "去重统计 profile"),
     "DANMU_OVERLAY_PROFILE": EnvVar("DANMU_OVERLAY_PROFILE", "", "Overlay 渲染 profile 日志"),
     "DANMU_STARTUP_TRACE": EnvVar("DANMU_STARTUP_TRACE", "", "启动链路 trace 日志"),
+    "DANMU_MEME_API_KEY": EnvVar("DANMU_MEME_API_KEY", "", "烂梗远程 API 认证头覆盖"),
     "DANMU_SUPABASE_URL": EnvVar("DANMU_SUPABASE_URL", "", "Supabase URL 覆盖"),
     "DANMU_SUPABASE_ANON_KEY": EnvVar("DANMU_SUPABASE_ANON_KEY", "", "Supabase anon key 覆盖"),
     "DANMU_QT_UI": EnvVar("DANMU_QT_UI", "", "启动即拒绝（与 --qt-ui 同效）"),

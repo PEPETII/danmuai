@@ -44,6 +44,19 @@
   background: rgba(0, 0, 0, 0.18);
 }
 
+/* W-SG-FIELD-001: 弹幕样式页字段容器去卡片背景（保留折叠面板与子控件样式） */
+#page-style-generator .settings-rhythm-accordion-panel .settings-field {
+  background: transparent;
+  box-shadow: none;
+  border: none;
+}
+
+[data-theme="dark"] #page-style-generator .settings-rhythm-accordion-panel .settings-field {
+  background: transparent;
+  box-shadow: none;
+  border: none;
+}
+
 /* =========================================================================
    样式生成器（W-FP-STYLEGEN-WEB-001）
    - 左侧控制 / 右侧堆积预览

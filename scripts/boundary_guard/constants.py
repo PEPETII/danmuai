@@ -103,6 +103,9 @@ RUNTIME_FIELD_EXCLUDE = {
     "ai_worker",
     "floating_panel_overlay",  # W-FP-V2-001
     "floating_panel_engine",  # W-FP-V2-001
+    "_panel_process",  # pywebview 浮动面板子进程管理
+    "_panel_bridge",  # 浮动面板 WS 桥
+    "_panel_web_active",  # 当前是否走 Web 面板路径
     "font_registry",  # W-FONT-002
 }
 
