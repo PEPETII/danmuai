@@ -70,8 +70,8 @@ export const SETTINGS_RESTORE_GROUPS = {
   capture: ['image_max_width', 'image_quality'],
   danmu: [
     'normal_recognition_interval_sec', 'normal_reply_count', 'danmu_speed',
-    'danmu_max_chars', 'opacity', 'dedup_threshold', 'hotkey',
-    'eviction_mode', 'danmu_pending_entry_cap', 'danmu_track_retention_cap', 'reply_queue_max_items',
+    'danmu_max_chars', 'dedup_threshold', 'hotkey',
+    'danmu_pending_entry_cap', 'danmu_track_retention_cap', 'reply_queue_max_items',
     'floating_panel_width', 'floating_panel_max_items',
     'floating_panel_speed', 'floating_panel_x_offset', 'floating_panel_y_offset',
     'floating_panel_opacity', 'floating_panel_font_size', 'floating_panel_click_through',

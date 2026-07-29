@@ -273,6 +273,17 @@ export function initSettingsFieldHints() {
   );
 }
 
+const HORIZONTAL_FIELD_TIPS = {
+  opacity: SETTINGS_FIELD_TIPS.opacity,
+  eviction_mode: SETTINGS_FIELD_TIPS.eviction_mode,
+};
+
+export function initHorizontalFieldHints() {
+  const form = document.getElementById('horizontalFontForm');
+  if (!form) return;
+  attachFieldHintsInRoot(form, HORIZONTAL_FIELD_TIPS);
+}
+
 export function initContentPageFieldHints() {
   const overviewRoot = document.getElementById('page-overview');
   const personaRoot = document.getElementById('page-persona');

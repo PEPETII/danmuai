@@ -28,6 +28,12 @@ def test_danmu_accordion_wraps_only_target_sections():
     assert section.index('id="danmu_render_mode"') < section.index('data-settings-rhythm-accordion')
 
 
+def test_danmu_accordion_no_longer_has_opacity_or_eviction():
+    section = _danmu_tab_html()
+    assert 'id="opacity"' not in section
+    assert 'id="eviction_mode"' not in section
+
+
 def test_danmu_accordion_preserves_field_ids_and_aria():
     section = _danmu_tab_html()
 
@@ -38,9 +44,7 @@ def test_danmu_accordion_preserves_field_ids_and_aria():
         "dedup_threshold",
         "reply_queue_max_items",
         "danmu_speed",
-        "opacity",
         "hotkey",
-        "eviction_mode",
         "danmu_pending_entry_cap",
         "danmu_track_retention_cap",
         "empty_accel",

@@ -14,6 +14,8 @@ import {
 } from './settings-fonts.js';
 import { refreshDanmuPreview, updateDanmuPreviewSnapshot } from './settings-danmu-preview.js';
 import { initNumberSteppers } from './number-stepper.js?v=20260717-number-stepper-v1';
+import { initOpacityWarning, refreshOpacityWarning } from './settings-core.js';
+import { initHorizontalFieldHints } from './settings-hints.js';
 
 export const HORIZONTAL_FONT_SAVE_KEYS = [
   'danmu_font_family',
@@ -24,6 +26,8 @@ export const HORIZONTAL_FONT_SAVE_KEYS = [
   'danmu_font_color_selected',
   'danmu_font_color_mode',
   'danmu_font_color_weights',
+  'opacity',
+  'eviction_mode',
 ];
 
 const HORIZONTAL_FONT_CHECKBOX_KEYS = ['danmu_font_bold'];
@@ -34,6 +38,7 @@ let toast = (msg, isError = false) => {
 
 let handlersBound = false;
 let horizontalAccordionInited = false;
+let horizontalHintsInited = false;
 
 function formEl() {
   return document.getElementById('horizontalFontForm');
@@ -63,6 +68,10 @@ function applyValuesToForm(values) {
       el.value = allowed.includes(values[key]) ? values[key] : 'fullscreen';
       return;
     }
+    if (key === 'eviction_mode') {
+      el.value = values[key] === 'accelerate' ? 'accelerate' : 'natural';
+      return;
+    }
     el.value = String(values[key]);
   });
   const boldEl = document.getElementById('danmu_font_bold');
@@ -72,6 +81,7 @@ function applyValuesToForm(values) {
   }
   syncColorUIFromConfig(values);
   updateDanmuPreviewSnapshot(values);
+  refreshOpacityWarning();
 }
 
 export async function loadHorizontalFontPage() {
@@ -153,5 +163,11 @@ export function initHorizontalFontPage(deps = {}) {
   if (!horizontalAccordionInited) {
     initSettingsRhythmAccordion(form);
     horizontalAccordionInited = true;
+  }
+
+  if (!horizontalHintsInited) {
+    initHorizontalFieldHints();
+    initOpacityWarning();
+    horizontalHintsInited = true;
   }
 }

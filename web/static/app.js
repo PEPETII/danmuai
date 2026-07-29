@@ -31,7 +31,6 @@ import {
   initCaptureRegionControls,
   initNormalBatchControls,
   initFloatingPanelV2Controls,
-  initOpacityWarning,
   initRestoreDefaultsControls,
   initContentPageFieldHints,
   initSettingsFieldHints,
@@ -657,7 +656,6 @@ async function init() {
   initCaptureRegionControls();
   initRestoreDefaultsControls();
   initFloatingPanelV2Controls();
-  initOpacityWarning();
 
   bindSettingsControls({
     showToast,

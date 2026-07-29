@@ -635,6 +635,28 @@
                     <input type="hidden" name="danmu_font_color_mode" id="danmu_font_color_mode">
                   </div>
 
+                  <p class="settings-section-title mt-4" data-i18n="settings.text.不透明度">不透明度 (%)</p>
+                  <div class="settings-rhythm-accordion-fields">
+                    <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--stacked">
+                      <label for="opacity" class="settings-field-label" data-i18n="settings.text.不透明度">不透明度 (%)</label>
+                      <div class="settings-rhythm-accordion-control-stack">
+                        <input type="number" name="opacity" id="opacity" min="0" max="100" class="settings-field-control ui-control ui-input">
+                        <div id="opacity-warning" class="text-xs text-amber-600 mt-1 hidden" role="alert" data-i18n="settings.text.透明度过低可能导致弹幕完全不可见">透明度过低可能导致弹幕完全不可见</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <p class="settings-section-title mt-4" data-i18n="settings.text.退场模式">退场模式</p>
+                  <div class="settings-rhythm-accordion-fields">
+                    <div class="settings-rhythm-accordion-field">
+                      <label for="eviction_mode" class="settings-field-label" data-i18n="settings.text.退场模式">退场模式</label>
+                      <select name="eviction_mode" id="eviction_mode" class="settings-field-control text-left ui-control ui-select">
+                        <option value="natural" data-i18n="settings.text.自然">自然</option>
+                        <option value="accelerate" data-i18n="settings.text.加速">加速</option>
+                      </select>
+                    </div>
+                  </div>
+
                   <p class="settings-section-title mt-4" data-i18n="settings.text.导入本地字体">导入本地字体</p>
                   <p class="settings-section-hint" data-i18n="content.text.字体导入说明">
                     支持 .ttf / .otf 格式，单文件最大 25MB。请确认字体授权允许个人使用；DanmuAI 只在本机加载字体，不会上传到外部服务。
