@@ -176,27 +176,6 @@ async function saveLiveTopic() {
   input.value = value;
 }
 
-async function loadPersonaNamePrefix() {
-  const input = document.getElementById('personaNamePrefixEnabled');
-  if (!input) return;
-  try {
-    const cfg = await apiFetch('/api/config');
-    input.checked = String(cfg?.persona_name_prefix_enabled ?? '0') === '1';
-  } catch (error) {
-    console.warn('loadPersonaNamePrefix failed:', error);
-  }
-}
-
-async function savePersonaNamePrefix() {
-  const input = document.getElementById('personaNamePrefixEnabled');
-  if (!input) return;
-  const value = input.checked ? '1' : '0';
-  await apiFetch('/api/config', {
-    method: 'PUT',
-    body: JSON.stringify({ persona_name_prefix_enabled: value }),
-  });
-}
-
 async function loadUserNickname() {
   const input = document.getElementById('userNicknameInput');
   if (!input) return;
@@ -263,7 +242,6 @@ export async function loadPersonaEditor() {
     console.warn('loadPersonaTemplate failed:', e);
   }
   await loadPersonaeCheckboxes('personaActiveList');
-  await loadPersonaNamePrefix();
 }
 
 export async function loadOverviewGlobalFields() {
@@ -318,17 +296,6 @@ export function initPersonaTopicPage(deps = {}) {
     } catch (error) {
       showToast(error.message || t('dynamic.appPersonaTopicPage.昵称保存失败'), true);
       showPersonaPageStatus(error.message || t('dynamic.appPersonaTopicPage.昵称保存失败'), true);
-    }
-  });
-  document.getElementById('personaNamePrefixEnabled')?.addEventListener('change', async () => {
-    try {
-      await savePersonaNamePrefix();
-      const checked = document.getElementById('personaNamePrefixEnabled').checked;
-      showToast(checked ? t('dynamic.appPersonaTopicPage.名称显示已开启') : t('dynamic.appPersonaTopicPage.名称显示已关闭'));
-      showPersonaPageStatus(t('dynamic.appPersonaTopicPage.名称显示已更新_下一次生成会使用新内容'));
-    } catch (error) {
-      showToast(error.message || t('dynamic.appPersonaTopicPage.名称显示保存失败'), true);
-      showPersonaPageStatus(error.message || t('dynamic.appPersonaTopicPage.名称显示保存失败'), true);
     }
   });
   document.getElementById('btnSavePersona')?.addEventListener('click', async (e) => {

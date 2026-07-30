@@ -30,7 +30,7 @@ export const HORIZONTAL_FONT_SAVE_KEYS = [
   'eviction_mode',
 ];
 
-const HORIZONTAL_FONT_CHECKBOX_KEYS = ['danmu_font_bold'];
+const HORIZONTAL_FONT_CHECKBOX_KEYS = ['danmu_font_bold', 'persona_name_prefix_enabled'];
 
 let toast = (msg, isError = false) => {
   if (isError) console.error(msg);
@@ -74,11 +74,12 @@ function applyValuesToForm(values) {
     }
     el.value = String(values[key]);
   });
-  const boldEl = document.getElementById('danmu_font_bold');
-  if (boldEl && values.danmu_font_bold !== undefined) {
-    const v = values.danmu_font_bold;
-    boldEl.checked = v === '1' || v === 'true' || v === true;
-  }
+  HORIZONTAL_FONT_CHECKBOX_KEYS.forEach((key) => {
+    const el = document.getElementById(key);
+    if (!el || values[key] === undefined) return;
+    const v = values[key];
+    el.checked = v === '1' || v === 'true' || v === true;
+  });
   syncColorUIFromConfig(values);
   updateDanmuPreviewSnapshot(values);
   refreshOpacityWarning();
@@ -94,7 +95,9 @@ export async function loadHorizontalFontPage() {
     HORIZONTAL_FONT_SAVE_KEYS.forEach((key) => {
       if (cfg[key] !== undefined && cfg[key] !== null) values[key] = cfg[key];
     });
-    if (cfg.danmu_font_bold !== undefined) values.danmu_font_bold = cfg.danmu_font_bold;
+    HORIZONTAL_FONT_CHECKBOX_KEYS.forEach((key) => {
+      if (cfg[key] !== undefined) values[key] = cfg[key];
+    });
     applyValuesToForm(values);
     await loadFontFamilies();
     refreshDanmuPreview();
@@ -129,7 +132,9 @@ async function restoreHorizontalFontDefaults() {
     HORIZONTAL_FONT_SAVE_KEYS.forEach((key) => {
       if (defaults[key] !== undefined) values[key] = defaults[key];
     });
-    if (defaults.danmu_font_bold !== undefined) values.danmu_font_bold = defaults.danmu_font_bold;
+    HORIZONTAL_FONT_CHECKBOX_KEYS.forEach((key) => {
+      if (defaults[key] !== undefined) values[key] = defaults[key];
+    });
     applyValuesToForm(values);
     toast(t('dynamic.appHorizontalFont.已恢复默认_请点击保存生效'));
   } catch (error) {

@@ -84,22 +84,28 @@ def test_overview_global_fields_in_index_html():
     assert lifetime_idx < topic_idx < persona_idx
 
 
-def test_persona_name_prefix_toggle_in_built_index_html():
-    """W-PERSONA-NAME-DISPLAY-001: partial edits must be rebuilt into index.html."""
+def test_persona_name_prefix_migrated_to_horizontal_mode():
+    """名称显示开关自弹幕人格迁移至弹幕样式横向模式。"""
     root = project_root()
     html = (root / "web" / "static" / "index.html").read_text(encoding="utf-8")
     persona_html = (root / "web" / "static" / "partials" / "content-pages.html").read_text(
         encoding="utf-8"
     )
-    assert 'id="personaNamePrefixEnabled"' in persona_html
-    assert 'id="personaNamePrefixEnabled"' in html
+    style_html = (root / "web" / "static" / "partials" / "style-generator.html").read_text(
+        encoding="utf-8"
+    )
+    assert 'id="personaNamePrefixEnabled"' not in persona_html
+    assert 'data-i18n="content.text.需要展示人格名称请到弹幕样式界面"' in persona_html
+    assert 'data-i18n="content.text.名称显示"' in persona_html
+    assert 'id="persona_name_prefix_enabled"' in style_html
+    assert 'id="persona_name_prefix_enabled"' in html
     persona_start = html.index('id="page-persona"')
     tutorial_start = html.index('id="page-tutorial"')
     persona_slice = html[persona_start:tutorial_start]
-    save_idx = persona_slice.index('id="btnSavePersona"')
-    prefix_idx = persona_slice.index('id="personaNamePrefixEnabled"')
+    title_idx = persona_slice.index('data-i18n="content.text.名称显示"')
+    hint_idx = persona_slice.index('data-i18n="content.text.需要展示人格名称请到弹幕样式界面"')
     active_idx = persona_slice.index('id="hintPersonaActiveTitle"')
-    assert save_idx < prefix_idx < active_idx
+    assert title_idx < hint_idx < active_idx
 
 
 def test_overview_announcement_banner_in_content_pages_js():

@@ -17,10 +17,19 @@ def test_horizontal_font_module_exports():
     assert "export const HORIZONTAL_FONT_SAVE_KEYS" in mod
     assert "'opacity'" in mod
     assert "'eviction_mode'" in mod
+    assert "'persona_name_prefix_enabled'" in mod
     assert "export async function loadHorizontalFontPage" in mod
     assert "export function initHorizontalFontPage" in mod
     assert "/api/config" in mod
     assert "method: 'PUT'" in mod
+
+
+def test_style_generator_horizontal_has_persona_name_prefix_toggle():
+    partial = (STATIC_ROOT / "partials" / "style-generator.html").read_text(encoding="utf-8")
+    horizontal_start = partial.index('data-sg-tab-panel="horizontal"')
+    horizontal = partial[horizontal_start:]
+    assert 'id="persona_name_prefix_enabled"' in horizontal
+    assert horizontal.count('id="persona_name_prefix_enabled"') == 1
 
 
 def test_style_generator_horizontal_has_opacity_and_eviction():

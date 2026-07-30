@@ -274,10 +274,29 @@ function bindSlotActions() {
   });
 }
 
+function initPetTabs() {
+  document.querySelectorAll('.pet-tabs .settings-tab').forEach((tab) => {
+    tab.addEventListener('click', () => {
+      const tabId = tab.dataset.petTab;
+      document.querySelectorAll('.pet-tabs .settings-tab').forEach((t) => {
+        const active = t.dataset.petTab === tabId;
+        t.classList.toggle('active', active);
+        t.setAttribute('aria-selected', active ? 'true' : 'false');
+      });
+      document.querySelectorAll('[data-pet-panel]').forEach((panel) => {
+        const active = panel.dataset.petPanel === tabId;
+        panel.classList.toggle('active', active);
+        panel.hidden = !active;
+      });
+    });
+  });
+}
+
 export function initPetPage(deps = {}) {
   toast = deps.showToast || toast;
   if (handlersBound) return;
   handlersBound = true;
+  initPetTabs();
 
   document.getElementById('btnPetSave')?.addEventListener('click', () => {
     savePetSettings().catch((error) => showToast(error.message, true));

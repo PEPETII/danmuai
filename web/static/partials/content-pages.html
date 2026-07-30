@@ -203,6 +203,14 @@
         </div>
       </header>
       <div class="card p-8 space-y-8 pet-page ui-card">
+        <div class="settings-tabs-bar mb-6">
+          <div class="settings-tabs pet-tabs" role="tablist" aria-label="虚拟主播与桌宠分类">
+            <button type="button" role="tab" id="petTabBtn-pet" class="settings-tab active" data-pet-tab="pet" aria-selected="true">桌宠</button>
+            <button type="button" role="tab" class="settings-tab" data-pet-tab="vtuber" aria-selected="false">虚拟主播</button>
+          </div>
+        </div>
+
+        <div id="petTab-pet" class="settings-tab-panel active space-y-8" data-pet-panel="pet" role="tabpanel">
         <div>
           <p class="settings-section-title">状态</p>
           <p id="petStatusText" class="text-warmText font-semibold min-w-0 break-words">未启用</p>
@@ -356,6 +364,9 @@
           <div id="petBarrageSlots" class="grid grid-cols-1 xl:grid-cols-2 gap-4"></div>
         </div>
         <button type="button" id="btnPetSave" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm ui-button ui-button--primary ui-button--md">保存设置</button>
+        </div>
+
+        <div id="petTab-vtuber" class="settings-tab-panel" data-pet-panel="vtuber" role="tabpanel" hidden></div>
       </div>
     </section>
 <section id="page-persona" class="page-panel">
@@ -371,11 +382,8 @@
 
         <div id="personaTab-active" class="settings-tab-panel active space-y-4" data-persona-panel="active" role="tabpanel">
           <div>
-            <label class="toggle-switch text-sm font-semibold text-warmText">
-              <input type="checkbox" id="personaNamePrefixEnabled" role="switch">
-              <span>名称显示</span>
-            </label>
-            <p class="text-xs text-gray-500 mt-1">开启后，弹幕上屏为「人格名称：弹幕内容」</p>
+            <p class="text-sm font-semibold text-warmText" data-i18n="content.text.名称显示">名称显示</p>
+            <p class="text-xs text-gray-500 mt-1" data-i18n="content.text.需要展示人格名称请到弹幕样式界面">需要展示人格名称请到【弹幕样式】界面，开启后弹幕形式变为「人格名称:弹幕内容」</p>
           </div>
           <div>
             <p class="text-sm font-semibold text-warmText" id="hintPersonaActiveTitle">激活人格（运行时随机）</p>

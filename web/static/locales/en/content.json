@@ -178,6 +178,7 @@
       "系统提示补充": "System prompt supplement",
       "保存人格": "Save persona",
       "名称显示": "Show name prefix",
+      "需要展示人格名称请到弹幕样式界面": "To show persona names, go to Danmu Style → Horizontal mode. When enabled, danmu appear as「Persona name: content」.",
       "开启后_弹幕上屏为_人格名称_弹幕内容": "When on, danmu show as「Persona name: content」",
       "激活人格_运行时随机": "Active personas (random at runtime)",
       "保存激活列表": "Save active list",
