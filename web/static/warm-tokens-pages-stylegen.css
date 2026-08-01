@@ -60,17 +60,26 @@
 /* W-UI-STYLEGEN-ACCORDION-001：两个模式共用同一套字段行规范。
    普通字段统一为“左侧说明 + 右侧控件”；开关、提示和步进器只改变自身列位，
    不再因为所在 Tab 不同而切换成卡片网格或另一套控件宽度。 */
+#page-style-generator .sg-accordion {
+  --sg-control-col-width: minmax(9rem, 42%);
+}
+
 #page-style-generator .sg-accordion .settings-rhythm-accordion-panel {
   padding: var(--space-4) var(--space-5) var(--space-5);
 }
 
 #page-style-generator .sg-accordion .settings-params-grid,
-#page-style-generator .sg-accordion .settings-rhythm-accordion-fields {
+#page-style-generator .sg-accordion .settings-rhythm-accordion-fields,
+#page-style-generator .sg-accordion .sg-accordion-panel-fields {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: var(--space-2);
   min-width: 0;
   margin: 0;
+}
+
+#page-style-generator .sg-accordion .sg-color-list + .sg-accordion-panel-fields {
+  margin-top: var(--space-3);
 }
 
 #page-style-generator .sg-accordion .settings-params-grid.mt-3 {
@@ -80,7 +89,7 @@
 #page-style-generator .sg-accordion .settings-field,
 #page-style-generator .sg-accordion .settings-rhythm-accordion-field {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(9rem, 42%);
+  grid-template-columns: minmax(0, 1fr) var(--sg-control-col-width);
   align-items: center;
   gap: var(--space-4);
   min-width: 0;
@@ -99,8 +108,11 @@
   line-height: 1.4;
 }
 
-#page-style-generator .sg-accordion .settings-field-control,
-#page-style-generator .sg-accordion .settings-rhythm-accordion-field .settings-field-control {
+/* 仅字段行直系控件占右列，避免色盘 hex 输入在复合控件内被拉成全宽。 */
+#page-style-generator .sg-accordion .settings-field > .settings-field-control,
+#page-style-generator .sg-accordion .settings-rhythm-accordion-field > .settings-field-control,
+#page-style-generator .sg-accordion .settings-field > .ui-button,
+#page-style-generator .sg-accordion .settings-field > input[type="file"].settings-field-control {
   grid-column: 2;
   box-sizing: border-box;
   width: 100%;
@@ -119,14 +131,17 @@
   box-shadow: none !important;
 }
 
-#page-style-generator .sg-accordion .settings-field-control:focus,
-#page-style-generator .sg-accordion .settings-field-control:focus-visible {
+#page-style-generator .sg-accordion .settings-field > .settings-field-control:focus,
+#page-style-generator .sg-accordion .settings-field > .settings-field-control:focus-visible,
+#page-style-generator .sg-accordion .settings-rhythm-accordion-field > .settings-field-control:focus,
+#page-style-generator .sg-accordion .settings-rhythm-accordion-field > .settings-field-control:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.24) !important;
 }
 
 #page-style-generator .sg-accordion .settings-field > .sg-color-input,
 #page-style-generator .sg-accordion .settings-rhythm-accordion-field > .sg-color-input,
+#page-style-generator .sg-accordion .settings-field > .sg-toolbar-controls,
 #page-style-generator .sg-accordion .settings-rhythm-accordion-control-stack {
   grid-column: 2;
   width: 100%;
@@ -138,9 +153,70 @@
   width: 100%;
 }
 
+#page-style-generator .sg-accordion .settings-field > .sg-color-input .sg-color-hex-input,
+#page-style-generator .sg-accordion .settings-rhythm-accordion-field > .sg-color-input .sg-color-hex-input,
+#page-style-generator .sg-accordion .sg-toolbar-controls .sg-color-hex-input {
+  box-sizing: border-box;
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  min-height: var(--control-height-md);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+  border: 0 !important;
+  background: rgba(var(--color-primary-rgb), 0.08) !important;
+  box-shadow: none !important;
+}
+
+#page-style-generator .sg-accordion .settings-field > .sg-color-input .sg-color-hex-input:focus,
+#page-style-generator .sg-accordion .settings-field > .sg-color-input .sg-color-hex-input:focus-visible,
+#page-style-generator .sg-accordion .settings-rhythm-accordion-field > .sg-color-input .sg-color-hex-input:focus,
+#page-style-generator .sg-accordion .settings-rhythm-accordion-field > .sg-color-input .sg-color-hex-input:focus-visible,
+#page-style-generator .sg-accordion .sg-toolbar-controls .sg-color-hex-input:focus,
+#page-style-generator .sg-accordion .sg-toolbar-controls .sg-color-hex-input:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.24) !important;
+}
+
+#page-style-generator .sg-accordion .sg-toolbar-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+#page-style-generator .sg-accordion .sg-toolbar-controls .sg-color-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto;
+  margin: 0;
+}
+
+#page-style-generator .sg-accordion .sg-toolbar-controls .ui-button {
+  flex: 0 0 auto;
+  min-height: var(--control-height-md);
+}
+
+#page-style-generator .sg-accordion .sg-toolbar-controls .settings-field-control {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto;
+  min-height: var(--control-height-md);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  text-align: left;
+  border: 0 !important;
+  background: rgba(var(--color-primary-rgb), 0.08) !important;
+  box-shadow: none !important;
+}
+
 #page-style-generator .sg-accordion .settings-field--toggle,
 #page-style-generator .sg-accordion .settings-rhythm-accordion-field--toggle {
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) var(--sg-control-col-width);
 }
 
 #page-style-generator .sg-accordion .settings-field--toggle .toggle-switch,
@@ -160,7 +236,8 @@
   align-items: start;
 }
 
-#page-style-generator .sg-accordion .settings-rhythm-stepper {
+#page-style-generator .sg-accordion .settings-field > .settings-rhythm-stepper,
+#page-style-generator .sg-accordion .settings-rhythm-accordion-field > .settings-rhythm-stepper {
   grid-column: 2;
   width: 100%;
   max-width: none;
@@ -174,19 +251,6 @@
   background: transparent !important;
   box-shadow: none !important;
   text-align: center;
-}
-
-.sg-accordion-toolbar {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: var(--space-2);
-  min-width: 0;
-  margin-top: var(--space-3);
-}
-
-.sg-accordion-toolbar .sg-color-input {
-  margin: 0;
 }
 
 .sg-action-bar {
@@ -210,12 +274,14 @@
     align-items: start;
   }
 
-  #page-style-generator .sg-accordion .settings-field-control,
-  #page-style-generator .sg-accordion .settings-rhythm-accordion-field .settings-field-control,
+  #page-style-generator .sg-accordion .settings-field > .settings-field-control,
+  #page-style-generator .sg-accordion .settings-rhythm-accordion-field > .settings-field-control,
   #page-style-generator .sg-accordion .settings-field > .sg-color-input,
   #page-style-generator .sg-accordion .settings-rhythm-accordion-field > .sg-color-input,
+  #page-style-generator .sg-accordion .settings-field > .sg-toolbar-controls,
   #page-style-generator .sg-accordion .settings-rhythm-accordion-control-stack,
-  #page-style-generator .sg-accordion .settings-rhythm-stepper {
+  #page-style-generator .sg-accordion .settings-field > .settings-rhythm-stepper,
+  #page-style-generator .sg-accordion .settings-rhythm-accordion-field > .settings-rhythm-stepper {
     grid-column: 1;
   }
 
@@ -225,8 +291,8 @@
     align-items: center;
   }
 
-  .sg-accordion-toolbar {
-    grid-template-columns: minmax(0, 1fr);
+  #page-style-generator .sg-accordion .sg-toolbar-controls {
+    flex-wrap: wrap;
   }
 }
 

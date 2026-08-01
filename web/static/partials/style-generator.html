@@ -125,15 +125,17 @@
               </h4>
               <div id="sgCardColorsAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="sgCardColorsAccordionTrigger" hidden>
                 <div id="sgCardColorList" class="sg-color-list" aria-label="卡片调色板"></div>
-                <div class="sg-accordion-toolbar">
-                  <div class="sg-color-input" data-sg-add-color="card">
-                    <input type="color" id="sgCardColorPicker" value="#FFECD2" class="sg-color-picker" aria-label="添加卡片颜色">
-                    <input type="text" id="sgCardColorHex" value="#FFECD2" class="sg-color-hex-input settings-field-control" maxlength="9" spellcheck="false" placeholder="#RRGGBB" aria-label="卡片颜色高级输入" data-sg-hex-for="sgCardColorPicker">
+                <div class="sg-accordion-panel-fields">
+                  <div class="settings-field">
+                    <span class="settings-field-label" data-i18n="content.text.添加颜色">添加颜色</span>
+                    <div class="sg-toolbar-controls">
+                      <div class="sg-color-input" data-sg-add-color="card">
+                        <input type="color" id="sgCardColorPicker" value="#FFECD2" class="sg-color-picker" aria-label="添加卡片颜色">
+                        <input type="text" id="sgCardColorHex" value="#FFECD2" class="sg-color-hex-input settings-field-control" maxlength="9" spellcheck="false" placeholder="#RRGGBB" aria-label="卡片颜色高级输入" data-sg-hex-for="sgCardColorPicker">
+                      </div>
+                      <button type="button" id="sgBtnAddCardColor" class="ui-button ui-button--secondary ui-button--sm" data-i18n="content.text.添加颜色">添加颜色</button>
+                    </div>
                   </div>
-                  <button type="button" id="sgBtnAddCardColor" class="ui-button ui-button--secondary ui-button--sm" data-i18n="content.text.添加颜色">添加颜色</button>
-                </div>
-                <input type="hidden" name="floating_panel_card_colors" id="sg-floating_panel_card_colors" value="[]">
-                <div class="settings-params-grid cols-2 mt-3">
                   <div class="settings-field">
                     <label for="sg-floating_panel_card_color_mode" class="settings-field-label" data-i18n="content.text.卡片选色模式">卡片选色模式</label>
                     <select name="floating_panel_card_color_mode" id="sg-floating_panel_card_color_mode" class="settings-field-control text-left">
@@ -142,6 +144,7 @@
                     </select>
                   </div>
                 </div>
+                <input type="hidden" name="floating_panel_card_colors" id="sg-floating_panel_card_colors" value="[]">
                 <div id="sgCardWeightsPanel" class="sg-weights-panel hidden space-y-2 mt-2"></div>
                 <input type="hidden" name="floating_panel_card_color_weights" id="sg-floating_panel_card_color_weights" value="{}">
               </div>
@@ -159,15 +162,17 @@
               </h4>
               <div id="sgTextColorsAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="sgTextColorsAccordionTrigger" hidden>
                 <div id="sgTextColorList" class="sg-color-list" aria-label="文字调色板"></div>
-                <div class="sg-accordion-toolbar">
-                  <div class="sg-color-input" data-sg-add-color="text">
-                    <input type="color" id="sgTextColorPicker" value="#281C12" class="sg-color-picker" aria-label="添加文字颜色">
-                    <input type="text" id="sgTextColorHex" value="#281C12" class="sg-color-hex-input settings-field-control" maxlength="9" spellcheck="false" placeholder="#RRGGBB" aria-label="文字颜色高级输入" data-sg-hex-for="sgTextColorPicker">
+                <div class="sg-accordion-panel-fields">
+                  <div class="settings-field">
+                    <span class="settings-field-label" data-i18n="content.text.添加颜色">添加颜色</span>
+                    <div class="sg-toolbar-controls">
+                      <div class="sg-color-input" data-sg-add-color="text">
+                        <input type="color" id="sgTextColorPicker" value="#281C12" class="sg-color-picker" aria-label="添加文字颜色">
+                        <input type="text" id="sgTextColorHex" value="#281C12" class="sg-color-hex-input settings-field-control" maxlength="9" spellcheck="false" placeholder="#RRGGBB" aria-label="文字颜色高级输入" data-sg-hex-for="sgTextColorPicker">
+                      </div>
+                      <button type="button" id="sgBtnAddTextColor" class="ui-button ui-button--secondary ui-button--sm" data-i18n="content.text.添加颜色">添加颜色</button>
+                    </div>
                   </div>
-                  <button type="button" id="sgBtnAddTextColor" class="ui-button ui-button--secondary ui-button--sm" data-i18n="content.text.添加颜色">添加颜色</button>
-                </div>
-                <input type="hidden" name="floating_panel_text_colors" id="sg-floating_panel_text_colors" value="[]">
-                <div class="settings-params-grid cols-2 mt-3">
                   <div class="settings-field">
                     <label for="sg-floating_panel_text_color_mode" class="settings-field-label" data-i18n="content.text.文字选色模式">文字选色模式</label>
                     <select name="floating_panel_text_color_mode" id="sg-floating_panel_text_color_mode" class="settings-field-control text-left">
@@ -176,6 +181,7 @@
                     </select>
                   </div>
                 </div>
+                <input type="hidden" name="floating_panel_text_colors" id="sg-floating_panel_text_colors" value="[]">
                 <div id="sgTextWeightsPanel" class="sg-weights-panel hidden space-y-2 mt-2"></div>
                 <input type="hidden" name="floating_panel_text_color_weights" id="sg-floating_panel_text_color_weights" value="{}">
               </div>
@@ -522,11 +528,10 @@
                 <div class="settings-params-grid cols-2">
                   <div class="settings-field">
                     <label for="sg-font_file_input" class="settings-field-label">选择字体文件</label>
-                    <input type="file" id="sg-font_file_input" accept=".ttf,.otf" class="settings-field-control ui-control ui-input">
-                  </div>
-                  <div class="settings-field">
-                    <span class="settings-field-label" aria-hidden="true">&nbsp;</span>
-                    <button type="button" id="sg-btnImportFont" class="ui-button ui-button--secondary ui-button--sm">导入字体</button>
+                    <div class="sg-toolbar-controls">
+                      <input type="file" id="sg-font_file_input" accept=".ttf,.otf" class="settings-field-control ui-control ui-input">
+                      <button type="button" id="sg-btnImportFont" class="ui-button ui-button--secondary ui-button--sm">导入字体</button>
+                    </div>
                   </div>
                 </div>
                 <div id="sg-importedFontsList" class="mt-3 space-y-2"></div>
