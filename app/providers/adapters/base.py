@@ -40,3 +40,9 @@ class ProviderAdapter(Protocol):
 
     def normalize_usage(self, usage: dict | None, *, caps: ProviderCapabilities) -> tuple[int, int]:
         ...
+
+    def add_optional_fields(self, data: dict, *, request, caps: ProviderCapabilities) -> None:
+        ...
+
+    def supports_endpoint(self, endpoint: str) -> bool:
+        ...

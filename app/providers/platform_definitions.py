@@ -63,6 +63,9 @@ class EndpointProfile:
     exact_hosts: tuple[str, ...] = ()
     api_family: str | None = None
     path_prefix: str | None = None
+    path_join_policy: str = "preserve_base_path"
+    preserve_query: bool = False
+    preserve_fragment: bool = False
     region: Region | None = None
     status: str | None = None
 
@@ -290,6 +293,9 @@ class ProviderDefinition:
                 "exact_hosts": list(self.endpoint.exact_hosts),
                 "api_family": self.endpoint.api_family,
                 "path_prefix": self.endpoint.path_prefix,
+                "path_join_policy": self.endpoint.path_join_policy,
+                "preserve_query": self.endpoint.preserve_query,
+                "preserve_fragment": self.endpoint.preserve_fragment,
                 "region": self.endpoint.region,
                 "status": self.endpoint.status,
             },
@@ -362,6 +368,9 @@ def _endpoint_profile_to_dict(endpoint: EndpointProfile) -> dict[str, Any]:
         "exact_hosts": list(endpoint.exact_hosts),
         "api_family": endpoint.api_family,
         "path_prefix": endpoint.path_prefix,
+        "path_join_policy": endpoint.path_join_policy,
+        "preserve_query": endpoint.preserve_query,
+        "preserve_fragment": endpoint.preserve_fragment,
         "region": endpoint.region,
         "status": endpoint.status,
     }
@@ -406,6 +415,12 @@ def capability_profile_from_provider_capabilities(caps) -> CapabilityProfile:
         stream_usage_in_final_chunk=caps.stream_usage_in_final_chunk,
         max_tokens_field=caps.max_tokens_field,
         usage_token_style=caps.usage_token_style,
+        text_input=getattr(caps, "text_input", None),
+        image_input=getattr(caps, "image_input", None),
+        audio_input=getattr(caps, "audio_input", None),
+        video_input=getattr(caps, "video_input", None),
+        file_input=getattr(caps, "file_input", None),
+        structured_output=getattr(caps, "structured_output", None),
     )
 
 

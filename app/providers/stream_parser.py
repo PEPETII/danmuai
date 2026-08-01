@@ -11,7 +11,11 @@ from typing import Any
 import httpx
 
 from app.providers.capabilities import ProviderCapabilities
-from app.providers.endpoint_resolver import API_FAMILY_OPENAI_CHAT, API_FAMILY_OPENAI_RESPONSES
+from app.providers.endpoint_resolver import (
+    API_FAMILY_ANTHROPIC_MESSAGES,
+    API_FAMILY_OPENAI_CHAT,
+    API_FAMILY_OPENAI_RESPONSES,
+)
 
 
 def parser_id_for_api_family(api_family: str) -> str:
@@ -19,11 +23,30 @@ def parser_id_for_api_family(api_family: str) -> str:
         return "doubao_responses_sse"
     if api_family == API_FAMILY_OPENAI_CHAT:
         return "openai_chat_sse"
-    return "openai_chat_sse"
+    if api_family == API_FAMILY_ANTHROPIC_MESSAGES:
+        return "anthropic_messages_sse"
+    return "unknown_sse"
 
 
 def usage_normalizer_id_for_caps(caps: ProviderCapabilities) -> str:
     return caps.usage_token_style or "openai"
+
+
+def consume_stream(lines: Iterable[Any], *, api_family: str, adapter=None, caps=None, **kwargs):
+    parser_id = parser_id_for_api_family(api_family)
+    if parser_id == "openai_chat_sse":
+        if adapter is None or caps is None:
+            raise TypeError("adapter and caps are required for OpenAI Chat streams")
+        return consume_openai_chat_stream(lines, adapter=adapter, caps=caps, **kwargs)
+    if parser_id == "doubao_responses_sse":
+        return consume_doubao_responses_stream(lines, **kwargs)
+    raise ValueError(f"unsupported stream API family: {api_family}")
+
+
+def consume_doubao_responses_stream(lines: Iterable[Any], **kwargs):
+    from app.doubao_responses_stream import consume_doubao_sse_lines
+
+    return consume_doubao_sse_lines(lines, **kwargs)
 
 
 def consume_openai_chat_stream(

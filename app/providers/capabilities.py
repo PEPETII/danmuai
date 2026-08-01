@@ -38,16 +38,42 @@ _CAPABILITIES_BY_ID: dict[str, ProviderCapabilities] = {}
 
 @dataclass(frozen=True)
 class ProviderCapabilities:
-  transport: str = "openai"  # "doubao" | "openai"
-  vision: bool = True
-  mic_audio: bool = False
-  thinking_param: bool = False
-  thinking_param_style: ThinkingParamStyle = "none"
-  supports_thinking: bool = False
-  image_before_text: bool = False
-  stream_usage_in_final_chunk: bool = True
-  max_tokens_field: str = "max_tokens"
-  usage_token_style: str = "openai"  # "dashscope" uses input_tokens/output_tokens first
+    transport: str = "openai"  # "doubao" | "openai"
+    vision: bool = True
+    mic_audio: bool = False
+    thinking_param: bool = False
+    thinking_param_style: ThinkingParamStyle = "none"
+    supports_thinking: bool = False
+    image_before_text: bool = False
+    stream_usage_in_final_chunk: bool | None = True
+    max_tokens_field: str = "max_tokens"
+    usage_token_style: str = "openai"  # "dashscope" uses input_tokens/output_tokens first
+    text_input: bool | None = None
+    image_input: bool | None = None
+    audio_input: bool | None = None
+    video_input: bool | None = None
+    file_input: bool | None = None
+    structured_output: bool | None = None
+
+    @property
+    def text(self) -> bool | None:
+        return self.text_input
+
+    @property
+    def image(self) -> bool | None:
+        return self.image_input
+
+    @property
+    def audio(self) -> bool | None:
+        return self.audio_input
+
+    @property
+    def video(self) -> bool | None:
+        return self.video_input
+
+    @property
+    def file(self) -> bool | None:
+        return self.file_input
 
 
 def _register(

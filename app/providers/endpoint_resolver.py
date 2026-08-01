@@ -7,7 +7,7 @@ equality (plus optional controlled suffix rules). Business code should use
 
 from __future__ import annotations
 
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlsplit, urlunsplit
 
 from app.model_providers import normalize_endpoint
 
@@ -24,6 +24,7 @@ _API_FAMILY_SUFFIX: dict[str, str] = {
 
 # Controlled suffix rules: hostname must end with ``.<suffix>`` (leading dot required).
 _HOST_SUFFIX_RULES: tuple[tuple[str, str], ...] = ()
+DEFAULT_PATH_JOIN_POLICY = "preserve_base_path"
 
 
 def extract_hostname(endpoint: str) -> str | None:
@@ -56,18 +57,45 @@ def hostname_matches(entry_hostname: str, endpoint: str) -> bool:
     return False
 
 
-def resolve_api_family(*, transport: str) -> str:
-    """Map legacy transport label to API family."""
+def resolve_api_family(*, transport: str = "", endpoint: str | None = None,
+                       profile=None, api_family: str | None = None) -> str | None:
+    """Resolve the HTTP family, with explicit endpoint/profile metadata first."""
+    explicit = api_family or getattr(profile, "api_family", None)
+    if explicit:
+        return explicit if explicit in _API_FAMILY_SUFFIX else None
+    endpoint_family = getattr(profile, "endpoint_api_family", None)
+    if endpoint_family:
+        return endpoint_family if endpoint_family in _API_FAMILY_SUFFIX else None
     if transport == "doubao":
         return API_FAMILY_OPENAI_RESPONSES
-    return API_FAMILY_OPENAI_CHAT
+    if transport in ("openai", "openai-compatible", ""):
+        return API_FAMILY_OPENAI_CHAT
+    return None
 
 
-def join_api_path(base_url: str, api_family: str) -> str:
-    """Join normalized base URL with the API-family path segment."""
-    base = normalize_endpoint(base_url).rstrip("/")
-    suffix = _API_FAMILY_SUFFIX.get(api_family, "/chat/completions")
-    return f"{base}{suffix}"
+def join_api_path(base_url: str, api_family: str | None = None, *, profile=None,
+                  path_policy: str | None = None, preserve_query: bool | None = None,
+                  preserve_fragment: bool | None = None) -> str | None:
+    """Join a base URL without discarding meaningful path or URL metadata."""
+    family = resolve_api_family(transport="", profile=profile, api_family=api_family)
+    suffix = _API_FAMILY_SUFFIX.get(family or "")
+    if suffix is None:
+        return None
+    parsed = urlsplit(normalize_endpoint(base_url))
+    path = parsed.path.rstrip("/")
+    # Remove only a complete API suffix; '/messages-extra' must remain a base path.
+    for known_suffix in _API_FAMILY_SUFFIX.values():
+        if path.endswith(known_suffix):
+            path = path[:-len(known_suffix)].rstrip("/")
+            break
+    policy = path_policy or getattr(profile, "path_join_policy", DEFAULT_PATH_JOIN_POLICY)
+    if policy == "root_path":
+        path = ""
+    elif policy not in ("preserve_base_path", "root_path"):
+        return None
+    query = parsed.query if (preserve_query if preserve_query is not None else getattr(profile, "preserve_query", False)) else ""
+    fragment = parsed.fragment if (preserve_fragment if preserve_fragment is not None else getattr(profile, "preserve_fragment", False)) else ""
+    return urlunsplit((parsed.scheme, parsed.netloc, f"{path}/{suffix.lstrip('/')}" if path else suffix, query, fragment))
 
 
 def transport_for_api_family(api_family: str) -> str:

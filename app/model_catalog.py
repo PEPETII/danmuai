@@ -29,7 +29,7 @@ main_flow_recommended、thinking_mode（off/hybrid/always）。
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Literal
 
 ThinkingMode = Literal["off", "hybrid", "always"]
@@ -701,6 +701,42 @@ MODELSCOPE_MODELS: tuple[CatalogModel, ...] = (
     ),
 )
 
+
+def _curate_static_models(models: tuple[CatalogModel, ...]) -> tuple[CatalogModel, ...]:
+    """Materialize the curated catalog's known vision capability.
+
+    ``CatalogModel`` also represents dynamic/manual entries, whose omitted
+    ``supports_vision`` must remain ``None``.  Only entries explicitly marked
+    as curated by this static catalog receive the legacy ``True`` default.
+    """
+    return tuple(
+        replace(model, supports_vision=True)
+        if model.source_kind == "curated" and model.supports_vision is None
+        else model
+        for model in models
+    )
+
+
+DOUBAO_MODELS = _curate_static_models(DOUBAO_MODELS)
+DASHSCOPE_MODELS = _curate_static_models(DASHSCOPE_MODELS)
+OPENAI_MODELS = _curate_static_models(OPENAI_MODELS)
+GOOGLE_GEMINI_MODELS = _curate_static_models(GOOGLE_GEMINI_MODELS)
+XAI_MODELS = _curate_static_models(XAI_MODELS)
+MISTRAL_MODELS = _curate_static_models(MISTRAL_MODELS)
+TOGETHER_MODELS = _curate_static_models(TOGETHER_MODELS)
+FIREWORKS_MODELS = _curate_static_models(FIREWORKS_MODELS)
+DASHSCOPE_INTL_MODELS = _curate_static_models(DASHSCOPE_INTL_MODELS)
+SILICONFLOW_MODELS = _curate_static_models(SILICONFLOW_MODELS)
+MIMO_MODELS = _curate_static_models(MIMO_MODELS)
+ZAI_MODELS = _curate_static_models(ZAI_MODELS)
+ZHIPU_MODELS = _curate_static_models(ZHIPU_MODELS)
+MOONSHOT_MODELS = _curate_static_models(MOONSHOT_MODELS)
+HUNYUAN_MODELS = _curate_static_models(HUNYUAN_MODELS)
+STEPFUN_MODELS = _curate_static_models(STEPFUN_MODELS)
+BAIDU_CLOUD_MODELS = _curate_static_models(BAIDU_CLOUD_MODELS)
+OPENROUTER_MODELS = _curate_static_models(OPENROUTER_MODELS)
+MODELSCOPE_MODELS = _curate_static_models(MODELSCOPE_MODELS)
+
 PLATFORM_CATALOGS: tuple[PlatformCatalog, ...] = (
     PlatformCatalog(
         platform_id="doubao",
@@ -846,8 +882,6 @@ def enrich_platform_models(
     result: list[dict[str, Any]] = []
     for model in items:
         payload = model.to_dict()
-        if model.supports_vision is None and model.id in _CATALOG_BY_MODEL_ID:
-            payload["supports_vision"] = True
         payload["cheapest"] = model.id == cheapest_id
         result.append(payload)
     return result

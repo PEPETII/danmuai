@@ -70,6 +70,7 @@ def _endpoint_profile_for_spec(spec) -> EndpointProfile:
         exact_hosts=(hostname,) if hostname else (),
         api_family=family,
         path_prefix=(parsed.path.rstrip("/") or "/") if parsed else None,
+        path_join_policy="preserve_base_path",
         region=spec.region,
         status=status,
     )

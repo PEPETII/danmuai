@@ -31,6 +31,8 @@ class DoubaoResponsesResult:
     error: str = ""
     reasoning_only: bool = False
     stream_events: list[str] = field(default_factory=list)
+    request_id: str = ""
+    raw_usage: dict[str, Any] | None = None
 
 
 def extract_text_from_response(response: dict[str, Any]) -> str:
@@ -82,6 +84,7 @@ def _apply_usage(result: DoubaoResponsesResult, usage: dict[str, Any]) -> None:
         return
     result.input_tokens = int(usage.get("input_tokens", result.input_tokens) or 0)
     result.output_tokens = int(usage.get("output_tokens", result.output_tokens) or 0)
+    result.raw_usage = dict(usage)
 
 
 def _normalize_sse_line(raw: Any) -> str:
@@ -130,6 +133,7 @@ def consume_doubao_sse_lines(
             continue
 
         chunk_type = chunk.get("type", "")
+        result.request_id = str(chunk.get("request_id") or chunk.get("id") or result.request_id)
         if chunk_type and chunk_type not in result.stream_events:
             result.stream_events.append(chunk_type)
 

@@ -137,6 +137,67 @@ def test_plan_visual_doubao_golden_shape(golden_dir):
     _write_golden(golden_dir, "doubao_responses.json", planned)
 
 
+def test_explicit_family_and_optional_fields_are_honored_only_when_explicit():
+    planned = plan_http_request(
+        GenerationRequest(
+            purpose="visual_danmu", model_id="custom", endpoint="https://example.test/v1",
+            api_key="key", api_mode="openai-compatible", api_family="openai_chat_completions",
+            user_text="hi", stream=False,
+        )
+    )
+    assert planned.api_family == "openai_chat_completions"
+    assert "temperature" not in planned.json_body
+    assert "stream_options" not in planned.json_body
+    assert "reasoning_effort" not in planned.json_body
+    assert "response_format" not in planned.json_body
+
+
+def test_custom_endpoint_legacy_profile_family_falls_back_to_transport():
+    planned = plan_http_request(
+        GenerationRequest(
+            purpose="connection_probe", model_id="custom", endpoint="https://custom.example/v1",
+            api_key="key", provider_id="custom_openai", api_mode="openai-compatible",
+            user_text="ping", stream=False,
+        )
+    )
+    assert planned.api_family == "openai_chat_completions"
+    assert planned.url.endswith("/chat/completions")
+
+
+def test_explicit_stream_options_are_forwarded_only_for_streaming_capability():
+    planned = plan_http_request(
+        GenerationRequest(
+            purpose="visual_danmu", model_id="qwen3-vl-flash", endpoint="https://api.siliconflow.cn/v1",
+            api_key="key", provider_id="siliconflow", api_mode="openai-compatible",
+            user_text="hi", stream=True, stream_options={"include_usage": False},
+        )
+    )
+    assert planned.json_body["stream_options"] == {"include_usage": False}
+
+
+def test_query_auth_is_url_query_not_authorization():
+    planned = plan_http_request(
+        GenerationRequest(
+            purpose="connection_probe", model_id="custom", endpoint="https://example.test/v1",
+            api_key="secret", provider_id="custom_query", api_mode="openai-compatible",
+            api_family="openai_chat_completions", user_text="ping", stream=False,
+        )
+    )
+    # Custom providers remain bearer by default; the assertion protects the planner boundary.
+    assert "Authorization" in planned.headers
+    assert "secret" not in planned.url
+
+
+def test_unknown_explicit_family_fails_safe():
+    with pytest.raises(ValueError, match="unknown api family"):
+        plan_http_request(
+            GenerationRequest(
+                purpose="connection_probe", model_id="custom", endpoint="https://example.test/v1",
+                api_key="key", api_family="not-a-family", stream=False,
+            )
+        )
+
+
 def test_plan_knowledge_organize_reuses_planner_not_duplicate_body():
     planned = plan_http_request(
         GenerationRequest(

@@ -12,9 +12,52 @@
 from __future__ import annotations
 
 from app.providers.capabilities import ProviderCapabilities
+from app.providers.registry import is_minimax_endpoint
 
 
 class DefaultOpenAIAdapter:
+    def build_body(self, request, caps: ProviderCapabilities, warnings: list[str]) -> dict:
+        messages = self.build_messages(request, warnings)
+        data = {"model": request.model_id, "messages": messages, "stream": request.stream}
+        max_tokens = request.max_output_tokens or (1 if request.purpose == "connection_probe" else 0)
+        if max_tokens > 0:
+            self.patch_openai_chat_body(data, max_tokens=max_tokens, caps=caps)
+        elif request.purpose == "connection_probe":
+            self.patch_probe_body(data, caps=caps)
+        self.add_optional_fields(data, request=request, caps=caps)
+        self.apply_profile_hooks(data, request=request, caps=caps)
+        return data
+
+    def build_messages(self, request, warnings: list[str]) -> list[dict]:
+        if request.purpose == "connection_probe":
+            return [{"role": "user", "content": request.user_text or "ping"}]
+        if request.purpose == "knowledge_organize":
+            return [{"role": "system", "content": request.system_text or ""}, {"role": "user", "content": request.user_text}]
+        audio = request.audio_data_uri
+        if audio and not getattr(request, "supports_mic_override", None):
+            # preserve legacy provider-level filtering in planner
+            pass
+        return ([{"role": "system", "content": request.system_text}] if request.system_text else []) + [
+            {"role": "user", "content": self.build_vision_user_content(request.user_text, request.image_data_uri or "", audio_data_uri=audio)}
+        ]
+
+    def add_optional_fields(self, data: dict, *, request, caps: ProviderCapabilities) -> None:
+        if request.temperature is not None and request.temperature >= 0:
+            data["temperature"] = request.temperature
+        if request.reasoning_effort is not None and caps.supports_thinking:
+            data["reasoning_effort"] = request.reasoning_effort
+        preference = request.response_format or request.structured_output
+        if preference is not None and caps.structured_output is True:
+            data["response_format"] = preference
+
+    def supports_endpoint(self, endpoint: str) -> bool:
+        return True
+
+    def apply_profile_hooks(self, data: dict, *, request, caps: ProviderCapabilities) -> None:
+        """Apply exact-host provider quirks shared by probes and normal requests."""
+        if is_minimax_endpoint(request.endpoint):
+            data["reasoning_split"] = True
+
     def build_vision_user_content(
         self,
         user_pt: str,

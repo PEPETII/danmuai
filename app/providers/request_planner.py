@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Literal
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from app.model_catalog import catalog_model_supports_thinking_toggle
 from app.model_providers import (
@@ -12,15 +13,21 @@ from app.model_providers import (
     normalize_endpoint,
     resolve_api_transport,
 )
-from app.providers.auth_resolver import build_auth_headers
+from app.providers.adapters.default_openai import DefaultOpenAIAdapter
+from app.providers.adapters.mimo import MimoOpenAIAdapter
+from app.providers.adapters.responses import ResponsesAdapter
+from app.providers.auth_resolver import resolve_auth
 from app.providers.capabilities import ProviderCapabilities
 from app.providers.capability_resolver import resolve_capabilities
 from app.providers.constants import THINKING_DISABLED, THINKING_ENABLED
 from app.providers.endpoint_resolver import (
+    API_FAMILY_OPENAI_CHAT,
     API_FAMILY_OPENAI_RESPONSES,
+    extract_hostname,
     join_api_path,
     resolve_api_family,
 )
+from app.providers.platform_registry import auth_profile_for_provider, get_provider_definition
 from app.providers.registry import guess_provider_from_endpoint, is_minimax_endpoint
 from app.providers.stream_parser import parser_id_for_api_family, usage_normalizer_id_for_caps
 from app.providers.thinking import apply_thinking_disabled, apply_thinking_mode
@@ -53,6 +60,12 @@ class GenerationRequest:
     force_thinking_off: bool = False
     supports_vision_override: bool | None = None
     supports_mic_override: bool | None = None
+    api_family: str | None = None
+    reasoning_effort: str | None = None
+    response_format: dict | None = None
+    structured_output: dict | None = None
+    extra_user_headers: dict[str, str] | None = None
+    stream_options: dict | None = None
 
 
 @dataclass
@@ -75,7 +88,18 @@ def plan_http_request(req: GenerationRequest) -> PlannedHttpRequest:
     api_mode = req.api_mode or ""
     provider_id = (req.provider_id or guess_provider_from_endpoint(endpoint, api_mode)).strip()
     transport = resolve_api_transport(endpoint, api_mode)
-    api_family = resolve_api_family(transport=transport)
+    profile = get_provider_definition(provider_id)
+    profile_family = getattr(profile.endpoint, "api_family", None) if profile else None
+    valid_profile_family = profile_family if profile_family in (
+        API_FAMILY_OPENAI_CHAT, API_FAMILY_OPENAI_RESPONSES
+    ) else None
+    api_family = resolve_api_family(
+        transport=transport,
+        profile=replace(profile.endpoint, api_family=valid_profile_family) if profile and valid_profile_family else None,
+        api_family=req.api_family,
+    )
+    if not api_family:
+        raise ValueError(f"unknown api family: {req.api_family!r}")
     caps = resolve_capabilities(
         req.model_id,
         endpoint,
@@ -85,12 +109,29 @@ def plan_http_request(req: GenerationRequest) -> PlannedHttpRequest:
         supports_mic_override=req.supports_mic_override,
     )
     warnings: list[str] = []
-    headers = build_auth_headers(req.api_key, provider_id=provider_id, endpoint=endpoint)
-    if api_family == API_FAMILY_OPENAI_RESPONSES:
-        body = _plan_doubao_body(req, caps, warnings)
-    else:
-        body = _plan_openai_chat_body(req, endpoint, api_mode, caps, warnings)
+    auth_profile = profile.auth if profile else auth_profile_for_provider(provider_id, default_endpoint=endpoint)
+    if provider_id == "openrouter" and extract_hostname(endpoint) != "openrouter.ai":
+        auth_profile = replace(auth_profile, extra_headers=())
+    resolved_auth = resolve_auth(req.api_key, auth_profile, extra_user_headers=req.extra_user_headers)
+    headers = {"Content-Type": "application/json", **resolved_auth.headers}
     url = join_api_path(endpoint, api_family)
+    if url is None:
+        raise ValueError(f"unknown api family: {api_family!r}")
+    url = _merge_query(url, resolved_auth.query_params)
+    adapter = ResponsesAdapter() if api_family == API_FAMILY_OPENAI_RESPONSES else (
+        MimoOpenAIAdapter() if provider_id == "mimo" else DefaultOpenAIAdapter()
+    )
+    effective_req = req
+    if req.audio_data_uri and not model_supports_mic_audio(req.model_id, endpoint=endpoint, api_mode=api_mode):
+        warnings.append("mic_audio_stripped")
+        effective_req = replace(req, audio_data_uri=None)
+    body = adapter.build_body(effective_req, caps, warnings) if hasattr(adapter, "build_body") else _plan_openai_chat_body(effective_req, endpoint, api_mode, caps, warnings)
+    if not req.stream_options:
+        body.pop("stream_options", None)
+    elif caps.stream_usage_in_final_chunk and req.stream:
+        body["stream_options"] = dict(req.stream_options)
+    else:
+        body.pop("stream_options", None)
     return PlannedHttpRequest(
         provider_id=provider_id,
         model_id=req.model_id,
@@ -103,6 +144,15 @@ def plan_http_request(req: GenerationRequest) -> PlannedHttpRequest:
         warnings=warnings,
         applied_capabilities=caps,
     )
+
+
+def _merge_query(url: str, params: dict[str, str]) -> str:
+    if not params:
+        return url
+    parts = urlsplit(url)
+    merged = dict(parse_qsl(parts.query, keep_blank_values=True))
+    merged.update(params)
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(merged), parts.fragment))
 
 
 def _plan_doubao_body(
@@ -140,8 +190,6 @@ def _plan_doubao_body(
         data["thinking"] = dict(THINKING_DISABLED)
     elif req.reasoning_enabled is not None and caps.thinking_param_style == "thinking_type":
         data["thinking"] = dict(THINKING_ENABLED if req.reasoning_enabled else THINKING_DISABLED)
-    elif caps.thinking_param_style == "thinking_type":
-        data["thinking"] = dict(THINKING_DISABLED)
     return data
 
 

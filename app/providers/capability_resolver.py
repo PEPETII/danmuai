@@ -21,6 +21,12 @@ _UNKNOWN_CAPS = ProviderCapabilities(
     thinking_param_style="none",
     supports_thinking=False,
     stream_usage_in_final_chunk=False,
+    text_input=None,
+    image_input=None,
+    audio_input=None,
+    video_input=None,
+    file_input=None,
+    structured_output=None,
 )
 
 
@@ -32,6 +38,10 @@ def resolve_capabilities(
     supports_vision_override: bool | None = None,
     supports_mic_override: bool | None = None,
     provider_id: str | None = None,
+    supports_audio_override: bool | None = None,
+    supports_video_override: bool | None = None,
+    supports_file_override: bool | None = None,
+    supports_structured_output_override: bool | None = None,
 ) -> ProviderCapabilities:
     """Resolve effective capabilities for a model at an endpoint."""
     from app.model_catalog import catalog_model_supports_mic, lookup_catalog_model
@@ -39,15 +49,21 @@ def resolve_capabilities(
 
     pid = provider_id or resolve_openai_provider_id(model_id, endpoint, api_mode)
     base = get_capabilities_for_endpoint(endpoint, api_mode)
-    if pid == "mimo":
-        base = get_capabilities("mimo")
+    if pid in ("mimo", "custom_doubao", "custom_openai"):
+        base = get_capabilities(pid)
 
     catalog = lookup_catalog_model(model_id)
     if catalog is not None:
         base = replace(
             base,
             vision=catalog.supports_vision,
+            image_input=catalog.supports_vision,
+            audio_input=("audio" in catalog.input_modalities),
+            video_input=("video" in catalog.input_modalities),
+            file_input=("file" in catalog.input_modalities),
         )
+    else:
+        base = _merge_unknown_transport(base, endpoint, api_mode)
 
     if supports_vision_override is not None:
         base = replace(base, vision=supports_vision_override)
@@ -56,8 +72,14 @@ def resolve_capabilities(
     elif catalog is not None and catalog_model_supports_mic(model_id):
         base = replace(base, mic_audio=True)
 
-    if catalog is None and pid in ("custom_openai", "custom_doubao"):
-        return _merge_unknown_transport(base, endpoint, api_mode)
+    if supports_audio_override is not None:
+        base = replace(base, audio_input=supports_audio_override)
+    if supports_video_override is not None:
+        base = replace(base, video_input=supports_video_override)
+    if supports_file_override is not None:
+        base = replace(base, file_input=supports_file_override)
+    if supports_structured_output_override is not None:
+        base = replace(base, structured_output=supports_structured_output_override)
 
     return base
 
@@ -71,17 +93,23 @@ def _merge_unknown_transport(
     from app.providers.registry import guess_provider_from_endpoint, resolve_api_transport
 
     if guess_provider_from_endpoint(endpoint, api_mode) in ("custom_openai", "custom_doubao"):
-        transport = resolve_api_transport(endpoint, api_mode)
-        merged = replace(_UNKNOWN_CAPS, transport=transport)
-        if transport == "doubao":
-            return replace(
-                merged,
-                max_tokens_field="max_output_tokens",
-                thinking_param_style="thinking_type",
-                supports_thinking=True,
-            )
-        return merged
-    return base
+        transport = base.transport
+        if transport != "doubao":
+            transport = resolve_api_transport(endpoint, api_mode)
+        return replace(
+            _UNKNOWN_CAPS,
+            transport=transport,
+            max_tokens_field=base.max_tokens_field,
+            usage_token_style=base.usage_token_style,
+            image_before_text=base.image_before_text,
+        )
+    return replace(
+        _UNKNOWN_CAPS,
+        transport=base.transport,
+        max_tokens_field=base.max_tokens_field,
+        usage_token_style=base.usage_token_style,
+        image_before_text=base.image_before_text,
+    )
 
 
 def unknown_capabilities() -> ProviderCapabilities:

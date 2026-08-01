@@ -68,6 +68,13 @@ def test_enriched_catalog_includes_thinking_metadata():
     assert get_thinking_mode_for_model("unknown") == "off"
 
 
+def test_curated_static_models_restore_vision_default_without_expanding_unknowns():
+    from app.model_catalog import CatalogModel, ModelPrice
+
+    assert next(model for model in DASHSCOPE_MODELS if model.id == "qwen3-vl-flash").supports_vision is True
+    assert CatalogModel("Dynamic", "dynamic-model", ModelPrice(1, 2)).supports_vision is None
+
+
 def test_doubao_supports_mic_from_explicit_capability():
     enriched = enrich_platform_models(DOUBAO_MODELS)
     by_id = {m["id"]: m for m in enriched}
