@@ -84,6 +84,16 @@ export function catalogModelSupportsThinkingToggle(modelId) {
   return false;
 }
 
+export function catalogModelThinkingMode(modelId) {
+  const id = (modelId || '').trim();
+  if (!id) return null;
+  for (const platform of catalogCache.platforms || []) {
+    const hit = (platform.models || []).find((model) => model.id === id);
+    if (hit) return hit.thinking_mode ?? null;
+  }
+  return null;
+}
+
 export function pickDefaultCatalogModelId(providerId) {
   const platform = resolveCatalogPlatform(providerId);
   if (!platform?.models?.length) return '';
@@ -91,14 +101,14 @@ export function pickDefaultCatalogModelId(providerId) {
   if (preferred && platform.models.some((model) => model.id === preferred)) {
     return preferred;
   }
-  const cheapest = platform.models.find((model) => model.cheapest);
-  return (cheapest || platform.models[0]).id;
+  const recommended = platform.models.find((model) => model.main_flow_recommended);
+  return (recommended || platform.models[0]).id;
 }
 
 function formatTokenPrice(value, currency = 'CNY') {
-  if (value === null || value === undefined) return '-';
+  if (value === null || value === undefined) return t('dynamic.settingsModelCatalog.请查看平台');
   const num = Number(value);
-  if (Number.isNaN(num)) return '-';
+  if (Number.isNaN(num)) return t('dynamic.settingsModelCatalog.请查看平台');
   const isUsd = String(currency || 'CNY').toUpperCase() === 'USD';
   const unit = isUsd ? 'USD' : t('settings.text.modelCatalogCurrencyUnit');
   return `${Number.isInteger(num) ? String(num) : String(num)} ${unit} / M tokens`;
@@ -115,10 +125,20 @@ function buildModelRowBadges(model) {
   };
   if (model.cheapest && model.supports_mic) {
     add(t('dynamic.settingsModelCatalog.最便宜_麦克风'));
-    return wrap;
-  }
-  if (model.cheapest) add(t('dynamic.settingsModelCatalog.本平台最便宜'));
+  } else if (model.cheapest) add(t('dynamic.settingsModelCatalog.本平台最便宜'));
   if (model.supports_mic) add(t('dynamic.settingsCustomModels.支持麦克风'));
+  const capabilities = model.capabilities || {};
+  const modalities = [...(model.input_modalities || []), ...(model.output_modalities || [])];
+  ['image', 'audio', 'video', 'file'].forEach((kind) => {
+    if (modalities.includes(kind)) add(t(`dynamic.settingsModelCatalog.${kind}`));
+  });
+  const thinking = model.thinking_mode ?? (model.supports_thinking_toggle === true ? 'hybrid' : null);
+  add(['off', 'hybrid', 'always'].includes(thinking)
+    ? t(`dynamic.settingsModelCatalog.thinking_${thinking}`)
+    : t('dynamic.settingsModelCatalog.未验证'));
+  if (capabilities.json_schema === true) add(t('dynamic.settingsModelCatalog.jsonSchema'));
+  if (capabilities.stream_usage === true) add(t('dynamic.settingsModelCatalog.streamUsage'));
+  if (model.status) add(String(model.status));
   return wrap.childElementCount ? wrap : null;
 }
 
@@ -136,6 +156,10 @@ function buildModelTooltipHtml(model) {
     + t('dynamic.settingsModelCatalog.span_class_model_toolt_5', {
       outputPrice: formatTokenPrice(price.output, price.currency),
     })
+    + `<span class="model-tooltip-line">${t('dynamic.settingsModelCatalog.source')}: ${model.source_kind || t('dynamic.settingsModelCatalog.未验证')}</span>`
+    + `<span class="model-tooltip-line">${t('dynamic.settingsModelCatalog.sourceUrl')}: ${model.source_url || t('dynamic.settingsModelCatalog.未验证')}</span>`
+    + `<span class="model-tooltip-line">${t('dynamic.settingsModelCatalog.verifiedAt')}: ${model.verified_at || t('dynamic.settingsModelCatalog.未验证')}</span>`
+    + (model.replacement_model_id ? `<span class="model-tooltip-line">${t('dynamic.settingsModelCatalog.replacement')}: ${model.replacement_model_id}</span>` : '')
   );
 }
 

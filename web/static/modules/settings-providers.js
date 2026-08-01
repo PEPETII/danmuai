@@ -1,4 +1,4 @@
-import { API } from './transport.js';
+import { API, apiFetch, authHeaders } from './transport.js';
 import { getLanguage, t } from './i18n.js';
 
 const MANUAL_PROVIDER_LABEL = t('dynamic.settingsProviders.手动填写');
@@ -32,6 +32,7 @@ let hostEntriesCache = [];
 let defaultProviderIdCache = FALLBACK_DEFAULT_PROVIDER_ID;
 let editableApiModeProviderIds = new Set(FALLBACK_EDITABLE_API_MODE_PROVIDER_IDS);
 let thinkingSupportedProviderIds = new Set(['doubao', 'custom_doubao']);
+let providerStatusCache = [];
 
 function normalizeEndpointForMatch(endpoint) {
   return String(endpoint || '').trim().toLowerCase().replace(/\/+$/, '');
@@ -177,12 +178,34 @@ export function isThinkingSupportedForProvider(providerId) {
   return thinkingSupportedProviderIds.has((providerId || '').trim());
 }
 
+export function getProviderStatus(providerId) {
+  return providerStatusCache.find((provider) => provider.id === providerId) || null;
+}
+
+export function renderProviderStatus(providerId) {
+  const el = document.getElementById('providerStatus');
+  if (!el) return;
+  const provider = getProviderStatus(providerId);
+  if (!provider) { el.classList.add('hidden'); el.textContent = ''; return; }
+  const parts = [provider.lifecycle_status || provider.status, provider.notice, provider.source].filter(Boolean);
+  if (provider.migration_url) parts.push(provider.migration_url);
+  if (provider.sunset_date) parts.push(`${t('dynamic.settingsProviders.sunset')}: ${provider.sunset_date}`);
+  if (provider.id === 'tencent_hunyuan' || provider.id === 'hunyuan' || String(provider.label || '').includes('混元')) {
+    parts.unshift(t('dynamic.settingsProviders.hunyuanWarning'));
+    parts.push('2026-09-30');
+  }
+  el.textContent = parts.join(' · ');
+  el.classList.toggle('hidden', parts.length === 0);
+  el.classList.toggle('border-red-300', provider.id === 'tencent_hunyuan' || provider.id === 'hunyuan');
+}
+
 export async function loadProviders() {
   const [providers, rules] = await Promise.all([
     fetch(`${API.base}/api/providers`).then((r) => r.json()),
     fetch(`${API.base}/api/provider-rules`).then((r) => r.json()),
   ]);
   providersCache = providers;
+  providerStatusCache = Array.isArray(providers) ? providers : [];
   applyProviderRulesCache(rules);
   const sel = document.getElementById('providerPreset');
   if (sel) {
@@ -237,9 +260,30 @@ export function syncProviderPresetAfterEndpointEdit() {
   providersDeps.renderVisionModelPicker(resolveProviderIdForPicker(), document.getElementById('model')?.value || '');
 }
 
+export async function resolveProviderByEndpoint() {
+  const endpoint = document.getElementById('api_endpoint')?.value || '';
+  const apiMode = document.getElementById('api_mode')?.value || '';
+  try {
+    const data = await apiFetch('/api/model-api/resolve', {
+      method: 'POST', headers: authHeaders(),
+      body: JSON.stringify({ endpoint, api_mode: apiMode }),
+    });
+    const providerId = data.provider?.id || data.provider_id || '';
+    const sel = document.getElementById('providerPreset');
+    if (sel && providerId && Array.from(sel.options).some((option) => option.value === providerId)) sel.value = providerId;
+    renderProviderStatus(providerId || guessProviderIdFromEndpoint(endpoint, apiMode));
+    return data;
+  } catch (_error) {
+    syncProviderPresetFromEndpoint();
+    renderProviderStatus(resolveProviderIdForPicker());
+    return null;
+  }
+}
+
 export function applyProviderPreset(providerId) {
   const provider = providersCache.find((item) => item.id === providerId);
   if (!provider) return;
+  renderProviderStatus(providerId);
   document.getElementById('api_endpoint').value = provider.default_endpoint;
   applyApiModeValue(provider.mode === 'openai-compatible' ? 'openai' : provider.mode);
   syncApiModeLockState();

@@ -42,10 +42,57 @@ __all__ = ["organize_chunk"]
 _ORGANIZE_TIMEOUT_SEC = 180.0
 _ORGANIZE_MAX_OUTPUT_TOKENS = 8192
 
+# Kept deliberately in this module: it is a request preference, not provider
+# transport knowledge.  The planner/adapter decides whether it is emitted.
+_KNOWLEDGE_OUTPUT_SCHEMA = {
+    "type": "json_schema",
+    "json_schema": {
+        "name": "knowledge_organize_result",
+        "strict": True,
+        "schema": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "document_kind": {"type": "string"},
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {
+                            "kind": {"type": "string"},
+                            "title": {"type": "string"},
+                            "content": {"type": "string"},
+                            "evidence": {"type": "string"},
+                            "confidence": {"type": "number"},
+                            "examples": {"type": "array", "items": {"type": "string"}, "maxItems": 5},
+                            "triggers": {"type": "array", "items": {"type": "string"}, "maxItems": 10},
+                            "tones": {"type": "array", "items": {"type": "string"}, "maxItems": 5},
+                            "scopes": {"type": "array", "items": {"type": "string"}, "maxItems": 8},
+                            "entities": {"type": "array", "items": {"type": "string"}, "maxItems": 8},
+                        },
+                        "required": ["kind", "title", "content", "evidence", "confidence"],
+                    },
+                },
+            },
+            "required": ["document_kind", "items"],
+        },
+    },
+}
+
 # JSON 格式修复重试时追加到 system prompt 的提示
 _RETRY_FORMAT_HINT = (
     "\n\n上一个回复不是合法 JSON，请只输出严格 JSON 对象，无任何额外文字。"
 )
+
+
+def _sanitize_organizer_error(message: str) -> str:
+    """Return a short error without credentials or provider response bodies."""
+    safe = sanitize_provider_error_snippet(message)
+    safe = re.sub(r"(?i)(bearer\s+|api[_-]?key\s*=\s*)[^\s,;]+", r"\1[redacted]", safe)
+    safe = re.sub(r"(?i)\bsk-[A-Za-z0-9_-]+", "[redacted]", safe)
+    safe = re.sub(r"(?i)\braw[-_ ]?response\s*=\s*\S+", "raw-response=[redacted]", safe)
+    return safe
 
 
 # ---------------------------------------------------------------------------
@@ -192,7 +239,7 @@ def _call_llm(
     api_mode: str,
     system_pt: str,
     user_content: str,
-) -> tuple[str, int, int]:
+) -> tuple[str, int, int, int]:
     """按 transport 选 doubao 或 openai 路径，返回 ``(text, input_tokens, output_tokens)``。
 
     复用 AiWorker 的流式请求模式，差别：
@@ -211,8 +258,29 @@ def _call_llm(
             max_output_tokens=_ORGANIZE_MAX_OUTPUT_TOKENS,
             stream=True,
             force_thinking_off=True,
+            structured_output=_KNOWLEDGE_OUTPUT_SCHEMA,
         )
     )
+    # The shared stream parser is the only safe parser available to this
+    # worker, so structured-capable providers intentionally remain streaming.
+    # Do not infer a model limit from the catalog: only an explicit capability
+    # field is authoritative; unknown models keep the conservative suggestion.
+    caps = planned.applied_capabilities
+    known_limit = next(
+        (getattr(caps, name, None) for name in ("max_output_tokens", "max_output_tokens_limit")
+         if isinstance(getattr(caps, name, None), int) and getattr(caps, name) > 0),
+        None,
+    )
+    applied_max = min(_ORGANIZE_MAX_OUTPUT_TOKENS, known_limit) if known_limit else _ORGANIZE_MAX_OUTPUT_TOKENS
+    if applied_max != _ORGANIZE_MAX_OUTPUT_TOKENS:
+        planned = plan_http_request(
+            GenerationRequest(
+                purpose="knowledge_organize", model_id=model, endpoint=endpoint,
+                api_key=api_key, api_mode=api_mode, system_text=system_pt or None,
+                user_text=user_content, max_output_tokens=applied_max, stream=True,
+                force_thinking_off=True, structured_output=_KNOWLEDGE_OUTPUT_SCHEMA,
+            )
+        )
     url = planned.url
     headers = planned.headers
     data = planned.json_body
@@ -220,7 +288,7 @@ def _call_llm(
         text, input_tokens, output_tokens, _error = stream_doubao(
             worker, http_client, url, headers, data
         )
-        return text, input_tokens, output_tokens
+        return text, input_tokens, output_tokens, applied_max
 
     text, input_tokens, output_tokens = stream_openai(
         worker,
@@ -231,7 +299,7 @@ def _call_llm(
         endpoint=endpoint,
         api_mode=api_mode,
     )
-    return text, input_tokens, output_tokens
+    return text, input_tokens, output_tokens, applied_max
 
 
 # ---------------------------------------------------------------------------
@@ -367,6 +435,7 @@ def organize_chunk(
     worker = _KnowledgeOrganizerWorker(config)
     total_in = 0
     total_out = 0
+    applied_max_tokens = _ORGANIZE_MAX_OUTPUT_TOKENS
     try:
         resolved = worker._resolve_request_credentials()
         if resolved is None:
@@ -375,6 +444,7 @@ def organize_chunk(
                 "items": [],
                 "input_tokens": 0,
                 "output_tokens": 0,
+                "max_output_tokens": applied_max_tokens,
                 "error": "model_not_configured",
             }
 
@@ -386,7 +456,7 @@ def organize_chunk(
         user_content = _build_user_content(document_kind, chunk_text)
 
         # 第一次调用（可能抛 httpx 异常，由外层 except 捕获）
-        text, in_tok, out_tok = _call_llm(
+        text, in_tok, out_tok, applied_max_tokens = _call_llm(
             worker, http_client, transport, endpoint, api_key, model, api_mode,
             system_pt, user_content,
         )
@@ -402,6 +472,7 @@ def organize_chunk(
                 "items": items,
                 "input_tokens": total_in,
                 "output_tokens": total_out,
+                "max_output_tokens": applied_max_tokens,
                 "error": "",
             }
 
@@ -413,7 +484,7 @@ def organize_chunk(
             len(text or ""),
         )
         retry_system_pt = system_pt + _RETRY_FORMAT_HINT
-        text2, in_tok2, out_tok2 = _call_llm(
+        text2, in_tok2, out_tok2, applied_max_tokens = _call_llm(
             worker, http_client, transport, endpoint, api_key, model, api_mode,
             retry_system_pt, user_content,
         )
@@ -428,6 +499,7 @@ def organize_chunk(
                 "items": items,
                 "input_tokens": total_in,
                 "output_tokens": total_out,
+                "max_output_tokens": applied_max_tokens,
                 "error": "",
             }
 
@@ -436,6 +508,7 @@ def organize_chunk(
             "items": [],
             "input_tokens": total_in,
             "output_tokens": total_out,
+            "max_output_tokens": applied_max_tokens,
             "error": "json_parse_failed",
         }
 
@@ -450,7 +523,8 @@ def organize_chunk(
             "items": [],
             "input_tokens": total_in,
             "output_tokens": total_out,
-            "error": sanitize_provider_error_snippet(str(exc)),
+            "max_output_tokens": applied_max_tokens,
+            "error": _sanitize_organizer_error(str(exc)),
         }
     finally:
         worker.close()

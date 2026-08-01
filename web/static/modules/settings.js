@@ -74,6 +74,7 @@ import {
 import {
   catalogModelSupportsMic,
   catalogModelSupportsThinkingToggle,
+  catalogModelThinkingMode,
   configureSettingsModelCatalog,
   evaluateMicAudioSupported,
   loadModelCatalog,
@@ -94,6 +95,8 @@ import {
   guessProviderIdFromEndpoint,
   isThinkingSupportedForProvider,
   loadProviders,
+  renderProviderStatus,
+  resolveProviderByEndpoint,
   resolveProviderIdForPicker as resolveProviderIdForPickerImpl,
   syncApiModeLockState as syncApiModeLockStateImpl,
   syncMicProviderPresetFromEndpoint as syncMicProviderPresetFromEndpointImpl,
@@ -517,24 +520,41 @@ export async function loadScreens() {
 }
 
 
+function syncThinkingAdvancedControls(mode, known) {
+  const effort = document.getElementById('thinking_effort');
+  const always = document.getElementById('thinking_always_on');
+  const unknown = document.getElementById('thinkingUnknownBadge');
+  const effortApplicable = known && (mode === 'hybrid' || mode === 'always');
+  if (effort) effort.disabled = !effortApplicable;
+  if (always) {
+    always.disabled = !effortApplicable;
+    if (mode === 'always') always.checked = true;
+  }
+  if (unknown) unknown.classList.toggle('hidden', known);
+}
+
 export function updateThinkingModeAvailability(cfg) {
   const checkbox = document.getElementById('use_thinking');
   const hint = document.getElementById('thinkingModeHint');
-  const supported = !!cfg.thinking_supported;
+  const state = ['off', 'hybrid', 'always'].includes(cfg.thinking_mode) ? cfg.thinking_mode : null;
+  const supported = Boolean(state) && (state === 'hybrid' || state === 'always' || cfg.thinking_supported === true);
+  syncThinkingAdvancedControls(state, Boolean(state));
   if (checkbox) {
     checkbox.disabled = !supported;
     checkbox.classList.toggle('opacity-60', !supported);
     checkbox.classList.toggle('cursor-not-allowed', !supported);
   }
-  if (hint) hint.classList.toggle('hidden', supported);
+  if (hint) { hint.textContent = t(`dynamic.settingsModelCatalog.thinking_${state || 'unknown'}`); hint.classList.remove('hidden'); }
 }
 
 function updateThinkingModeFromForm() {
   const presetSel = document.getElementById('providerPreset');
   const providerId = (presetSel?.value || '').trim() || resolveProviderIdForPicker();
   const modelId = (document.getElementById('model')?.value || '').trim();
-  const supported =
-    isThinkingSupportedForProvider(providerId) && catalogModelSupportsThinkingToggle(modelId);
+  const declared = catalogModelSupportsThinkingToggle(modelId);
+  const mode = catalogModelThinkingMode(modelId);
+  const supported = isThinkingSupportedForProvider(providerId) && (declared || mode === 'hybrid' || mode === 'always');
+  syncThinkingAdvancedControls(mode, Boolean(mode));
   const checkbox = document.getElementById('use_thinking');
   const hint = document.getElementById('thinkingModeHint');
   if (checkbox) {
@@ -542,7 +562,8 @@ function updateThinkingModeFromForm() {
     checkbox.classList.toggle('opacity-60', !supported);
     checkbox.classList.toggle('cursor-not-allowed', !supported);
   }
-  if (hint) hint.classList.toggle('hidden', supported);
+  if (hint) { hint.textContent = t(`dynamic.settingsModelCatalog.thinking_${mode || (modelId ? 'unknown' : 'unavailable')}`); hint.classList.remove('hidden'); }
+  renderProviderStatus(providerId);
 }
 
 export function bindSettingsControls(deps = {}) {
@@ -663,10 +684,10 @@ export function bindSettingsControls(deps = {}) {
   });
 
   document.getElementById('api_endpoint')?.addEventListener('change', () => {
-    syncProviderPresetAfterEndpointEdit();
+    resolveProviderByEndpoint();
   });
   document.getElementById('api_mode')?.addEventListener('change', () => {
-    syncProviderPresetAfterEndpointEdit();
+    resolveProviderByEndpoint();
     updateMicModeHint();
     updateThinkingModeFromForm();
   });

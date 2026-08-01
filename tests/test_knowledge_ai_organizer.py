@@ -26,21 +26,24 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import httpx
 import pytest
-
 from app.knowledge.ai_organizer import (
-    _KnowledgeOrganizerWorker,
     _build_doubao_input,
     _build_system_prompt,
     _build_user_content,
     _extract_first_json,
+    _KnowledgeOrganizerWorker,
     _parse_json_response,
     _strip_markdown_fence,
     organize_chunk,
 )
+from app.providers.capabilities import ProviderCapabilities
+
 from tests.fakes import FakeConfig, ai_client_fake_config
 
 # ---------------------------------------------------------------------------
@@ -341,6 +344,7 @@ def test_organize_chunk_model_not_configured():
     assert result["items"] == []
     assert result["input_tokens"] == 0
     assert result["output_tokens"] == 0
+    assert result["max_output_tokens"] == 8192
 
 
 @patch("app.knowledge.ai_organizer.stream_doubao")
@@ -422,7 +426,7 @@ def test_organize_chunk_returns_five_keys_always(mock_cred, mock_stream):
     mock_cred.return_value = _CRED_OPENAI
     mock_stream.return_value = (_ok_payload([]), 0, 0)
     result = organize_chunk(_make_config(), "chunk", "game", "pkg-1", "src-1", "chunk-1")
-    assert set(result.keys()) == {"ok", "items", "input_tokens", "output_tokens", "error"}
+    assert set(result.keys()) == {"ok", "items", "input_tokens", "output_tokens", "max_output_tokens", "error"}
 
 
 @patch("app.knowledge.ai_organizer.stream_openai")
@@ -439,6 +443,56 @@ def test_organize_chunk_openai_injects_thinking_disabled(mock_cred, mock_stream)
         assert data["thinking"] != {"type": "enabled"}
     if "enable_thinking" in data:
         assert data["enable_thinking"] is False
+
+
+@patch("app.knowledge.ai_organizer.stream_openai")
+@patch("app.knowledge.ai_organizer.resolve_request_credentials")
+@patch("app.providers.request_planner.resolve_capabilities")
+def test_structured_output_true_sends_schema_and_records_tokens(
+    mock_caps, mock_cred, mock_stream
+):
+    """明确支持时由 adapter 发 schema；organizer 仍保留 stream parser。"""
+    mock_cred.return_value = _CRED_OPENAI
+    mock_caps.return_value = SimpleNamespace(
+        **replace(ProviderCapabilities(), structured_output=True).__dict__,
+        max_output_tokens=128,
+    )
+    mock_stream.return_value = (_ok_payload([]), 1, 2)
+    result = organize_chunk(_make_config(), "chunk", "game", "p", "s", "c")
+    data = mock_stream.call_args[0][4]
+    schema = data["response_format"]["json_schema"]["schema"]["properties"]["items"]["items"]
+    assert data["response_format"]["json_schema"]["strict"] is True
+    for field in ("examples", "triggers", "tones", "scopes", "entities"):
+        assert schema["properties"][field]["type"] == "array"
+        assert schema["properties"][field]["items"] == {"type": "string"}
+    assert data["stream"] is True  # shared stream parser is the safe transport
+    assert data["max_tokens"] == 128
+    assert result["max_output_tokens"] == 128
+
+
+@pytest.mark.parametrize("structured", [None, False])
+@patch("app.knowledge.ai_organizer.stream_openai")
+@patch("app.knowledge.ai_organizer.resolve_request_credentials")
+def test_unknown_or_false_structured_output_is_omitted(
+    mock_cred, mock_stream, structured
+):
+    mock_cred.return_value = _CRED_OPENAI
+    mock_stream.return_value = (_ok_payload([]), 0, 0)
+    result = organize_chunk(_make_config(), "chunk", "game", "p", "s", "c")
+    assert result["ok"] is True
+    data = mock_stream.call_args[0][4]
+    assert "response_format" not in data
+
+
+@patch("app.knowledge.ai_organizer.stream_openai")
+@patch("app.knowledge.ai_organizer.resolve_request_credentials")
+def test_retry_is_once_and_error_is_sanitized(mock_cred, mock_stream):
+    mock_cred.return_value = _CRED_OPENAI
+    mock_stream.side_effect = RuntimeError("Authorization Bearer sk-test-key raw-response=secret")
+    result = organize_chunk(_make_config(), "chunk", "game", "p", "s", "c")
+    assert mock_stream.call_count == 1  # transport failure does not trigger format retry
+    assert "sk-test-key" not in result["error"]
+    assert "secret" not in result["error"]
 
 
 # ---------------------------------------------------------------------------

@@ -37,6 +37,7 @@ class ProbePayload(BaseModel):
     api_key: str = ""
     model: str = ""
     api_mode: str = ""
+    stage: str = "text"
 
 
 def register_custom_models_routes(
@@ -94,6 +95,7 @@ def register_custom_models_routes(
             api_key=body.api_key or "",
             model=body.model or "",
             api_mode=body.api_mode or "",
+            stage=body.stage or "text",
         )
 
     @app.post("/api/custom-models/probe")
@@ -109,4 +111,5 @@ def register_custom_models_routes(
             api_key=str(resolved.get("apiKey") or ""),
             model=str(resolved.get("default_model_id") or ""),
             api_mode=str(resolved.get("mode") or ""),
+            stage=body.stage or "text",
         )

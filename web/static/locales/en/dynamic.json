@@ -664,6 +664,7 @@
       "span_class_model_toolt_5": "<span class=\"model-tooltip-line\">Output price: {outputPrice}</span>",
       "查看_model_id_的价格说明": "View pricing for {modelId}",
       "手动输入模型_ID": "Enter model ID manually"
+      ,"image":"Image","audio":"Audio","video":"Video","file":"File","thinking":"Thinking","thinking_off":"Thinking off","thinking_hybrid":"Thinking toggle supported","thinking_always":"Always on","jsonSchema":"JSON Schema","streamUsage":"Streaming usage","未验证":"Unverified","请查看平台":"View platform pricing","source":"Source","sourceUrl":"Source URL","verifiedAt":"Verified at","replacement":"Replacement model","thinking_supported":"Thinking supported","thinking_unknown":"Unverified; deep probe available","thinking_unavailable":"Unavailable for this model","sunset":"Sunset"
     },
     "settingsProviders": {
       "手动填写": "Enter manually",
@@ -674,6 +675,7 @@
       "需模型支持_input_audio": "(requires model input_audio support)",
       "已填入_provider_label_的默": "Filled default endpoint for {providerLabel}; please enter the API key~",
       "已填入_provider_label_的默_2": "Filled default mic endpoint for {providerLabel}; please enter the API key~"
+      ,"sunset":"Sunset","hunyuanWarning":"Tencent Hunyuan official migration warning: migrate to the replacement model"
     },
     "settings": {
       "模型目录加载失败_视觉模型列表可能为空_请刷新页": "Model catalog load failed; vision list may be empty—refresh and retry",

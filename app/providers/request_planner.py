@@ -122,7 +122,7 @@ def plan_http_request(req: GenerationRequest) -> PlannedHttpRequest:
         MimoOpenAIAdapter() if provider_id == "mimo" else DefaultOpenAIAdapter()
     )
     effective_req = req
-    if req.audio_data_uri and not model_supports_mic_audio(req.model_id, endpoint=endpoint, api_mode=api_mode):
+    if req.audio_data_uri and req.supports_mic_override is not True and not model_supports_mic_audio(req.model_id, endpoint=endpoint, api_mode=api_mode):
         warnings.append("mic_audio_stripped")
         effective_req = replace(req, audio_data_uri=None)
     body = adapter.build_body(effective_req, caps, warnings) if hasattr(adapter, "build_body") else _plan_openai_chat_body(effective_req, endpoint, api_mode, caps, warnings)
@@ -246,7 +246,7 @@ def _build_openai_messages(
         ]
     adapter = get_openai_adapter_for_model(req.model_id, endpoint, api_mode)
     mic_audio = req.audio_data_uri
-    if mic_audio and not model_supports_mic_audio(
+    if mic_audio and req.supports_mic_override is not True and not model_supports_mic_audio(
         req.model_id,
         endpoint=endpoint,
         api_mode=api_mode,

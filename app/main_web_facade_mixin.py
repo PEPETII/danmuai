@@ -206,6 +206,7 @@ class DanmuAppWebFacadeMixin:
         api_key: str = "",
         model: str = "",
         api_mode: str = "",
+        stage: str = "text",
     ) -> dict[str, object]:
         from app.ai_client_requests import resolve_request_credentials
 
@@ -235,17 +236,17 @@ class DanmuAppWebFacadeMixin:
         else:
             effective_mode = (cred_mode or "").strip() or default_mode
 
-        result = probe_connection(
+        probe_args = (
             (api_endpoint or cred_endpoint).strip(),
             resolved_key,
             (model or cred_model).strip(),
             effective_mode,
         )
-        return {
-            "ok": result.ok,
-            "message": result.message,
-            "status_code": result.status_code,
-        }
+        if stage == "text":
+            result = probe_connection(*probe_args)
+        else:
+            result = probe_connection(*probe_args, stage=stage)
+        return result.to_dict()
 
     def apply_web_config_payload(self, payload: dict[str, object]) -> None:
         apply_web_config_patch(self, payload)

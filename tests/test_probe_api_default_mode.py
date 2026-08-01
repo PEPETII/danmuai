@@ -3,7 +3,6 @@
 from unittest.mock import MagicMock, patch
 
 from app.main_web_facade_mixin import DanmuAppWebFacadeMixin
-
 from app.web_api.custom_models import MASKED_KEY
 
 from tests.fakes import FakeConfig
@@ -47,6 +46,21 @@ def test_probe_api_connection_uses_custom_model_key():
         "sk-profile-key",
         model_id,
         "openai-compatible",
+    )
+
+
+def test_probe_api_connection_passes_explicit_stage():
+    host = _ProbeHost(FakeConfig({}))
+    with patch("app.main_web_facade_mixin.probe_connection") as mock_probe:
+        mock_probe.return_value = MagicMock(ok=True, message="ok", status_code=200)
+        host.probe_api_connection(
+            api_endpoint="https://api.example.com/v1",
+            model="gpt-4o",
+            api_mode="openai",
+            stage="audio",
+        )
+    mock_probe.assert_called_once_with(
+        "https://api.example.com/v1", "", "gpt-4o", "openai", stage="audio"
     )
 
 
