@@ -239,6 +239,8 @@ def test_diagnostics_api_returns_independent_read_only_payload(monkeypatch: pyte
                 "items_count": 0,
                 "enabled_items_count": 0,
                 "last_injected_count": 0,
+                "last_injected_public_ids": [],
+                "last_query_brief": "",
             },
         },
     }
