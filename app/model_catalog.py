@@ -908,7 +908,7 @@ _MIMO_DEFAULT_MODEL_ID = "mimo-v2.5"
 
 
 def default_catalog_model_id(provider_id: str) -> str:
-    """Default vision model when switching provider: cheapest in catalog, else first.
+    """Default vision model when switching provider: curated recommendation, else first.
 
     MiMo catalog lists only ``mimo-v2.5``.
     """
@@ -918,10 +918,9 @@ def default_catalog_model_id(provider_id: str) -> str:
     platform = _CATALOG_BY_PROVIDER.get(pid)
     if platform is None or not platform.models:
         return ""
-    enriched = enrich_platform_models(platform.models, provider_id=pid)
-    for model in enriched:
-        if model.get("cheapest"):
-            return str(model["id"])
+    for model in platform.models:
+        if model.main_flow_recommended:
+            return model.id
     return platform.models[0].id
 
 

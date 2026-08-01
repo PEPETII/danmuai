@@ -66,6 +66,8 @@ from app.web_api.mic_routes import register_mic_routes
 
 from app.web_api.misc_config_routes import register_misc_config_routes
 
+from app.web_api.model_discovery_routes import register_model_discovery_routes
+
 from app.web_api.persona_routes import register_persona_routes
 
 from app.web_api.pet_routes import register_pet_routes
@@ -113,6 +115,8 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
     register_custom_models_routes(app, bridge, check_token, invoke_main)
 
     register_mic_routes(app, bridge, check_token, invoke_main)
+
+    register_model_discovery_routes(app, check_token)
 
     register_capture_region_routes(app, bridge, check_token)
 

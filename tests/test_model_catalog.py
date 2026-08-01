@@ -377,19 +377,43 @@ def test_catalog_model_ids_doubao():
     assert len(ids) == len(DOUBAO_MODELS)
 
 
-def test_default_catalog_model_id_uses_cheapest():
-    assert default_catalog_model_id("doubao") == "doubao-seed-1-6-flash-250828"
+def test_default_catalog_model_id_prefers_curated_catalog_order_over_cheapest():
+    assert default_catalog_model_id("doubao") == "doubao-seed-2-0-pro-260215"
     assert default_catalog_model_id("dashscope") == "qwen3-vl-flash"
-    assert default_catalog_model_id("openai") == "gpt-5-nano"
+    assert default_catalog_model_id("openai") == "gpt-5.1"
     assert default_catalog_model_id("google_gemini") == "gemini-3.5-flash"
-    assert default_catalog_model_id("xai") == "grok-build-0.1"
-    assert default_catalog_model_id("mistral") == "ministral-8b-2512"
+    assert default_catalog_model_id("xai") == "grok-4.3"
+    assert default_catalog_model_id("mistral") == "mistral-large-2512"
     assert default_catalog_model_id("together") == "Qwen/Qwen3.5-9B"
-    assert default_catalog_model_id("fireworks") == "accounts/fireworks/models/step-3p7-flash-nvfp4"
+    assert default_catalog_model_id("fireworks") == "accounts/fireworks/models/kimi-k2p6"
     assert default_catalog_model_id("dashscope_intl") == "qwen3-vl-flash"
     assert default_catalog_model_id("siliconflow") == "Qwen/Qwen3-VL-8B-Instruct"
     assert default_catalog_model_id("mimo") == "mimo-v2.5"
     assert default_catalog_model_id("zai") == "glm-4.6v"
+
+
+def test_default_catalog_model_id_does_not_change_when_prices_change(monkeypatch):
+    from dataclasses import replace
+
+    import app.model_catalog as catalog_module
+
+    for provider_id in ("openrouter", "dashscope", "doubao"):
+        platform = catalog_module._CATALOG_BY_PROVIDER[provider_id]
+        first, second, *rest = platform.models
+        expensive_first = replace(
+            first,
+            price=replace(first.price, input=999999.0, output=999999.0),
+        )
+        cheap_second = replace(
+            second,
+            price=replace(second.price, input=0.0, output=0.0),
+        )
+        monkeypatch.setitem(
+            catalog_module._CATALOG_BY_PROVIDER,
+            provider_id,
+            replace(platform, models=(expensive_first, cheap_second, *rest)),
+        )
+        assert default_catalog_model_id(provider_id) == first.id
 
 
 def test_default_catalog_model_id_unknown_provider():
