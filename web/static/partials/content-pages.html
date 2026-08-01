@@ -216,23 +216,39 @@
           <p id="petStatusText" class="text-warmText font-semibold min-w-0 break-words">未启用</p>
           <p class="settings-section-hint mt-2">当前桌宠：<span id="petAssetText">默认桌宠</span></p>
         </div>
-        <div class="space-y-4">
-          <p class="settings-section-title">总开关</p>
-          <label class="toggle-switch font-semibold text-warmText">
-            <input type="checkbox" id="petEnabled" role="switch">
-            <span>启用桌宠</span>
-          </label>
-          <p class="settings-section-hint">开启后桌宠将显示在桌面；临时隐藏请使用桌宠右键菜单。</p>
-        </div>
-        <div class="space-y-4">
-          <p class="settings-section-title">桌宠弹幕模式</p>
-          <label class="toggle-switch font-semibold text-warmText">
-            <input type="checkbox" id="petBarrageModeEnabled" role="switch">
-            <span>开启桌宠弹幕模式</span>
-          </label>
-          <p class="settings-section-hint">开启后固定展示 5 个桌宠，弹幕会以聊天气泡形式显示在桌宠头顶。</p>
-        </div>
         <div class="settings-rhythm-accordion" data-settings-rhythm-accordion>
+          <section class="settings-rhythm-accordion-item">
+            <h4 class="settings-rhythm-accordion-heading">
+              <button type="button" id="petEnableAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="petEnableAccordionPanel">
+                <span>启用桌宠</span>
+                <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
+              </button>
+            </h4>
+            <div id="petEnableAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="petEnableAccordionTrigger" hidden>
+              <div class="settings-rhythm-accordion-fields">
+                <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--toggle">
+                  <div class="flex-1 min-w-0">
+                    <span class="settings-field-label">启用桌宠</span>
+                    <p class="text-xs text-gray-500 mt-1">开启后桌宠将显示在桌面；临时隐藏请使用桌宠右键菜单。</p>
+                  </div>
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="petEnabled" role="switch">
+                    <span aria-hidden="true"></span>
+                  </label>
+                </div>
+                <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--toggle">
+                  <div class="flex-1 min-w-0">
+                    <span class="settings-field-label">开启桌宠弹幕模式</span>
+                    <p class="text-xs text-gray-500 mt-1">开启后固定展示 5 个桌宠，弹幕会以聊天气泡形式显示在桌宠头顶。</p>
+                  </div>
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="petBarrageModeEnabled" role="switch">
+                    <span aria-hidden="true"></span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </section>
           <section class="settings-rhythm-accordion-item">
             <h4 class="settings-rhythm-accordion-heading">
               <button type="button" id="petDisplayAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="petDisplayAccordionPanel">

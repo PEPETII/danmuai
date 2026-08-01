@@ -1,0 +1,6 @@
+- Prefers short, concise prompts — explicitly asks for "短提示词" (short prompt) when requesting instructions. Confidence: 0.95
+- When delegating tasks to other IDEs, wants a copy-paste-ready, self-contained prompt in Chinese that pins down the exact UI location, the change, and constraints (e.g. "仅改动相关 UI 结构，保持现有样式与行为不变") — not for the assistant to do the work itself. Confidence: 0.8
+- Wants delegation prompts and answers grounded in the actual project code ("结合项目实际情况"): verify real file paths, line ranges, existing reusable components (e.g. the existing `settings-rhythm-accordion` / `sg-accordion` collapse components), and ids referenced by JS (e.g. `persona_name_prefix_enabled`, `petEnabled`) before writing the prompt, rather than giving generic instructions. Repeated across multiple delegated UI tasks. Confidence: 0.85
+- Prefers incremental UI changes: wraps existing content into a tab and adds new empty placeholder tabs, rather than building all content at once. Confidence: 0.8
+- Communicates in Simplified Chinese and expects responses in Chinese. Confidence: 0.8
+- When asking questions marked "仅作询问" (just asking/inquiry only), wants an explanation of the root cause without any code changes. Confidence: 0.6
