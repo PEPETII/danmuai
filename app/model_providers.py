@@ -51,6 +51,11 @@ class ProviderSpec:
     lock_mode: bool = True
     lock_endpoint: bool = False
     website: str | None = None
+    lifecycle_status: str | None = None
+    sunset_date: str | None = None
+    migration_url: str | None = None
+    notice_zh: str | None = None
+    notice_en: str | None = None
 
 
 PROVIDERS: tuple[ProviderSpec, ...] = (
@@ -212,18 +217,29 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         id="hunyuan",
         label_zh="腾讯混元",
         label_en="Tencent Hunyuan",
-        default_endpoint="https://api.hunyuan.cloud.tencent.com",
+        default_endpoint="https://api.hunyuan.cloud.tencent.com/v1",
         mode="openai-compatible",
         model_id_hint_zh="截图弹幕：hunyuan-turbos-vision / hunyuan-t1-vision",
         model_id_hint_en="Vision danmu: hunyuan-turbos-vision / hunyuan-t1-vision",
         region="china",
         website="https://cloud.tencent.com/product/hunyuan",
+        lifecycle_status="migrating",
+        sunset_date="2026-09-30",
+        migration_url="https://cloud.tencent.com/document/product/1729/111007",
+        notice_zh=(
+            "腾讯混元 Open API 平台计划于 2026-09-30 全面停服，请尽快迁移至 TokenHub。"
+            "详见官方公告。"
+        ),
+        notice_en=(
+            "Tencent Hunyuan Open API is scheduled for full shutdown on 2026-09-30. "
+            "Please migrate to TokenHub. See the official notice."
+        ),
     ),
     ProviderSpec(
         id="stepfun",
         label_zh="阶跃星辰",
         label_en="StepFun",
-        default_endpoint="https://api.stepfun.com",
+        default_endpoint="https://api.stepfun.com/v1",
         mode="openai-compatible",
         model_id_hint_zh="截图弹幕：step-3 / step-3-7-flash",
         model_id_hint_en="Vision danmu: step-3 / step-3-7-flash",
@@ -298,6 +314,20 @@ def get_provider(provider_id: str) -> ProviderSpec | None:
     return _PROVIDER_BY_ID.get(provider_id)
 
 
+def get_provider_definition(provider_id: str):
+    """V2 provider preset (Batch 2); maps from legacy ``ProviderSpec`` + capabilities."""
+    from app.providers.platform_registry import get_provider_definition as _get
+
+    return _get(provider_id)
+
+
+def list_provider_definitions():
+    """All v2 provider presets in legacy ``PROVIDERS`` order."""
+    from app.providers.platform_registry import list_provider_definitions as _list
+
+    return _list()
+
+
 def provider_region(provider_id: str) -> Region:
     spec = get_provider(provider_id)
     return spec.region if spec is not None else "china"
@@ -308,6 +338,29 @@ def provider_label(provider_id: str, lang: str = "zh") -> str:
     if spec is None:
         return provider_id
     return spec.label_zh if lang == "zh" else spec.label_en
+
+
+def provider_for_api(spec: ProviderSpec, lang: str = "zh") -> dict:
+    """Serialize a provider preset for GET /api/providers."""
+    notice = spec.notice_zh if lang == "zh" else spec.notice_en
+    payload: dict[str, object] = {
+        "id": spec.id,
+        "label": provider_label(spec.id, lang),
+        "default_endpoint": spec.default_endpoint,
+        "mode": spec.mode,
+        "hint": spec.model_id_hint_en if lang == "en" else spec.model_id_hint_zh,
+        "website": spec.website,
+        "region": spec.region,
+    }
+    if spec.lifecycle_status:
+        payload["lifecycle_status"] = spec.lifecycle_status
+    if spec.sunset_date:
+        payload["sunset_date"] = spec.sunset_date
+    if spec.migration_url:
+        payload["migration_url"] = spec.migration_url
+    if notice:
+        payload["notice"] = notice
+    return payload
 
 
 def apply_provider_to_form(provider_id: str) -> dict:
@@ -458,11 +511,9 @@ def resolve_openai_provider_id(model_id: str, endpoint: str, api_mode: str = "")
 
 
 def get_capabilities_for_model(model_id: str, endpoint: str, api_mode: str = ""):
-    from app.providers.capabilities import get_capabilities, get_capabilities_for_endpoint
+    from app.providers.capability_resolver import resolve_capabilities
 
-    if resolve_openai_provider_id(model_id, endpoint, api_mode) == "mimo":
-        return get_capabilities("mimo")
-    return get_capabilities_for_endpoint(endpoint, api_mode)
+    return resolve_capabilities(model_id, endpoint, api_mode)
 
 
 def get_openai_adapter_for_model(model_id: str, endpoint: str, api_mode: str = ""):

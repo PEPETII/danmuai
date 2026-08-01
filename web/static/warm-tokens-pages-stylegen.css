@@ -57,6 +57,174 @@
   border: none;
 }
 
+/* W-UI-STYLEGEN-ACCORDION-001：两个模式共用同一套字段行规范。
+   普通字段统一为“左侧说明 + 右侧控件”；开关、提示和步进器只改变自身列位，
+   不再因为所在 Tab 不同而切换成卡片网格或另一套控件宽度。 */
+#page-style-generator .sg-accordion .settings-rhythm-accordion-panel {
+  padding: var(--space-4) var(--space-5) var(--space-5);
+}
+
+#page-style-generator .sg-accordion .settings-params-grid,
+#page-style-generator .sg-accordion .settings-rhythm-accordion-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+}
+
+#page-style-generator .sg-accordion .settings-params-grid.mt-3 {
+  margin-top: var(--space-3);
+}
+
+#page-style-generator .sg-accordion .settings-field,
+#page-style-generator .sg-accordion .settings-rhythm-accordion-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(9rem, 42%);
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
+  min-height: var(--control-height-md);
+  margin: 0;
+  padding: var(--space-1) 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+#page-style-generator .sg-accordion .settings-field-label {
+  min-width: 0;
+  margin: 0;
+  line-height: 1.4;
+}
+
+#page-style-generator .sg-accordion .settings-field-control,
+#page-style-generator .sg-accordion .settings-rhythm-accordion-field .settings-field-control {
+  grid-column: 2;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  flex: none;
+  min-height: var(--control-height-md);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+  /* 与设置页已有的紧凑折叠控件保持一致，覆盖通用控件的边框与阴影。 */
+  border: 0 !important;
+  background: rgba(var(--color-primary-rgb), 0.08) !important;
+  box-shadow: none !important;
+}
+
+#page-style-generator .sg-accordion input[type="number"].settings-field-control {
+  text-align: right;
+}
+
+#page-style-generator .sg-accordion .settings-field-control:focus,
+#page-style-generator .sg-accordion .settings-field-control:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.24) !important;
+}
+
+#page-style-generator .sg-accordion .settings-field > .sg-color-input,
+#page-style-generator .sg-accordion .settings-rhythm-accordion-field > .sg-color-input,
+#page-style-generator .sg-accordion .settings-rhythm-accordion-control-stack {
+  grid-column: 2;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+}
+
+#page-style-generator .sg-accordion .settings-rhythm-accordion-control-stack .settings-field-control {
+  width: 100%;
+}
+
+#page-style-generator .sg-accordion .settings-field--toggle,
+#page-style-generator .sg-accordion .settings-rhythm-accordion-field--toggle {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+#page-style-generator .sg-accordion .settings-field--toggle .toggle-switch,
+#page-style-generator .sg-accordion .settings-rhythm-accordion-field--toggle .toggle-switch {
+  grid-column: 2;
+  justify-self: end;
+  margin: 0;
+}
+
+#page-style-generator .sg-accordion .settings-field--toggle > .settings-section-hint,
+#page-style-generator .sg-accordion .settings-rhythm-accordion-field--toggle > .settings-section-hint {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+#page-style-generator .sg-accordion .settings-rhythm-accordion-field--stacked {
+  align-items: start;
+}
+
+#page-style-generator .sg-accordion .settings-rhythm-stepper {
+  grid-column: 2;
+  width: 100%;
+  max-width: none;
+  flex: none;
+}
+
+.sg-accordion-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  margin-top: var(--space-3);
+}
+
+.sg-accordion-toolbar .sg-color-input {
+  margin: 0;
+}
+
+.sg-action-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-soft);
+}
+
+.sg-action-bar .ui-button {
+  min-height: var(--control-height-md);
+}
+
+@media (max-width: 600px) {
+  #page-style-generator .sg-accordion .settings-field,
+  #page-style-generator .sg-accordion .settings-rhythm-accordion-field {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+
+  #page-style-generator .sg-accordion .settings-field-control,
+  #page-style-generator .sg-accordion .settings-rhythm-accordion-field .settings-field-control,
+  #page-style-generator .sg-accordion .settings-field > .sg-color-input,
+  #page-style-generator .sg-accordion .settings-rhythm-accordion-field > .sg-color-input,
+  #page-style-generator .sg-accordion .settings-rhythm-accordion-control-stack,
+  #page-style-generator .sg-accordion .settings-rhythm-stepper {
+    grid-column: 1;
+  }
+
+  #page-style-generator .sg-accordion .settings-field--toggle,
+  #page-style-generator .sg-accordion .settings-rhythm-accordion-field--toggle {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+
+  .sg-accordion-toolbar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 /* =========================================================================
    样式生成器（W-FP-STYLEGEN-WEB-001）
    - 左侧控制 / 右侧堆积预览

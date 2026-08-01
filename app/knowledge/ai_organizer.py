@@ -21,20 +21,13 @@ import logging
 import re
 import threading
 import time
-from typing import Any
 
 import httpx
 
 from app.ai_client_requests import resolve_request_credentials, stream_doubao, stream_openai
 from app.ai_client_support import sanitize_provider_error_snippet
 from app.model_providers import resolve_api_transport
-from app.providers import (
-    get_capabilities_for_endpoint,
-    get_openai_adapter,
-    provider_extra_headers,
-)
-from app.providers.constants import THINKING_DISABLED
-from app.providers.thinking import apply_thinking_disabled
+from app.providers.request_planner import GenerationRequest, plan_http_request
 
 logger = logging.getLogger(__name__)
 
@@ -206,46 +199,29 @@ def _call_llm(
         - ``max_output_tokens`` / ``max_tokens`` = 4096（知识整理需要更大输出空间）
         - doubao input 只含 user message（system 经 ``instructions`` 传递）
     """
+    planned = plan_http_request(
+        GenerationRequest(
+            purpose="knowledge_organize",
+            model_id=model,
+            endpoint=endpoint,
+            api_key=api_key,
+            api_mode=api_mode,
+            system_text=system_pt or None,
+            user_text=user_content,
+            max_output_tokens=_ORGANIZE_MAX_OUTPUT_TOKENS,
+            stream=True,
+            force_thinking_off=True,
+        )
+    )
+    url = planned.url
+    headers = planned.headers
+    data = planned.json_body
     if transport == "doubao":
-        data: dict[str, Any] = {
-            "model": model,
-            "input": _build_doubao_input([
-                {"role": "user", "content": user_content},
-            ]),
-            "stream": True,
-            "thinking": dict(THINKING_DISABLED),
-            "max_output_tokens": _ORGANIZE_MAX_OUTPUT_TOKENS,
-        }
-        if system_pt:
-            data["instructions"] = system_pt
-        url = f"{endpoint}/responses"
-        headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        }
         text, input_tokens, output_tokens, _error = stream_doubao(
             worker, http_client, url, headers, data
         )
         return text, input_tokens, output_tokens
 
-    caps = get_capabilities_for_endpoint(endpoint, api_mode)
-    adapter = get_openai_adapter(endpoint, api_mode)
-    data = {
-        "model": model,
-        "messages": [
-            {"role": "system", "content": system_pt},
-            {"role": "user", "content": user_content},
-        ],
-        "stream": True,
-    }
-    adapter.patch_openai_chat_body(data, max_tokens=_ORGANIZE_MAX_OUTPUT_TOKENS, caps=caps)
-    apply_thinking_disabled(data, caps=caps)
-    url = f"{endpoint}/chat/completions"
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-    }
-    headers.update(provider_extra_headers(endpoint))
     text, input_tokens, output_tokens = stream_openai(
         worker,
         http_client,

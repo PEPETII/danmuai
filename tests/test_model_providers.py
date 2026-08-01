@@ -484,6 +484,39 @@ def test_get_openai_adapter_for_model_mimo_v25_requires_official_host():
     assert isinstance(official_adapter, MimoOpenAIAdapter)
 
 
+def test_apply_provider_to_form_stepfun_and_hunyuan_endpoints():
+    stepfun = apply_provider_to_form("stepfun")
+    assert stepfun["endpoint"] == "https://api.stepfun.com/v1"
+    hunyuan = apply_provider_to_form("hunyuan")
+    assert hunyuan["endpoint"] == "https://api.hunyuan.cloud.tencent.com/v1"
+
+
+def test_hunyuan_lifecycle_metadata():
+    from app.model_providers import get_provider
+
+    spec = get_provider("hunyuan")
+    assert spec is not None
+    assert spec.lifecycle_status == "migrating"
+    assert spec.sunset_date == "2026-09-30"
+    assert spec.migration_url == "https://cloud.tencent.com/document/product/1729/111007"
+    assert spec.notice_zh
+    assert spec.notice_en
+
+
+def test_provider_for_api_includes_hunyuan_lifecycle_fields():
+    from app.model_providers import get_provider, provider_for_api
+
+    spec = get_provider("hunyuan")
+    assert spec is not None
+    payload = provider_for_api(spec, "zh")
+    assert payload["lifecycle_status"] == "migrating"
+    assert payload["sunset_date"] == "2026-09-30"
+    assert payload["migration_url"] == spec.migration_url
+    assert payload["notice"] == spec.notice_zh
+    en_payload = provider_for_api(spec, "en")
+    assert en_payload["notice"] == spec.notice_en
+
+
 def test_providers_website_field_present_on_all_built_in_presets():
     # 21 个内置预设均含 website 字段（dataclass asdict 序列化键存在）
     from dataclasses import asdict
@@ -559,3 +592,79 @@ def test_canonical_profile_uses_default_model_id_not_first_model_ids_entry():
     assert status["uses_custom_credentials"] is True
 
     assert mic_audio_supported_for_config(cfg) is False
+
+
+def test_v2_provider_definition_maps_to_legacy_provider_spec():
+    from dataclasses import asdict
+
+    from app.model_providers import get_provider, get_provider_definition, list_provider_definitions
+
+    definitions = list_provider_definitions()
+    assert len(definitions) == len(PROVIDERS)
+    for legacy, definition in zip(PROVIDERS, definitions, strict=True):
+        assert definition.id == legacy.id
+        round_trip = definition.to_provider_spec()
+        assert asdict(round_trip) == asdict(legacy)
+        assert get_provider_definition(legacy.id) is definition
+        assert get_provider(legacy.id) is legacy
+
+
+def test_v2_hunyuan_lifecycle_and_endpoint_fields():
+    from app.model_providers import get_provider_definition
+
+    definition = get_provider_definition("hunyuan")
+    assert definition is not None
+    assert definition.lifecycle_status == "migrating"
+    assert definition.sunset_date == "2026-09-30"
+    assert definition.official_source.migration_url == (
+        "https://cloud.tencent.com/document/product/1729/111007"
+    )
+    assert definition.endpoint.default_url == "https://api.hunyuan.cloud.tencent.com/v1"
+    assert definition.endpoint.host_match_fragment == "api.hunyuan.cloud.tencent.com"
+    assert definition.notice_zh
+    assert definition.notice_en
+
+
+def test_v2_capability_profile_matches_capabilities_module():
+    from app.model_providers import get_provider_definition
+    from app.providers.capabilities import get_capabilities
+
+    for spec in PROVIDERS:
+        definition = get_provider_definition(spec.id)
+        assert definition is not None
+        caps = get_capabilities(spec.id)
+        profile = definition.capabilities
+        assert profile.transport == caps.transport
+        assert profile.mic_audio == caps.mic_audio
+        assert profile.thinking_param_style == caps.thinking_param_style
+        assert profile.max_tokens_field == caps.max_tokens_field
+
+
+def test_v2_openrouter_auth_extra_headers():
+    from app.model_providers import get_provider_definition
+
+    definition = get_provider_definition("openrouter")
+    assert definition is not None
+    headers = dict(definition.auth.extra_headers)
+    assert headers["HTTP-Referer"] == "https://github.com/PEPETII/danmuai"
+    assert headers["X-Title"] == "DanmuAI"
+
+
+def test_v2_provider_api_dict_matches_provider_for_api():
+    from app.model_providers import get_provider, get_provider_definition, provider_for_api
+
+    for spec in PROVIDERS:
+        definition = get_provider_definition(spec.id)
+        assert definition is not None
+        assert definition.to_api_dict("zh") == provider_for_api(get_provider(spec.id), "zh")
+        assert definition.to_api_dict("en") == provider_for_api(get_provider(spec.id), "en")
+
+
+def test_v2_stepfun_endpoint_profile():
+    from app.model_providers import get_provider_definition
+
+    definition = get_provider_definition("stepfun")
+    assert definition is not None
+    assert definition.endpoint.default_url == "https://api.stepfun.com/v1"
+    assert definition.endpoint.api_mode == "openai-compatible"
+    assert definition.capabilities.transport == "openai"

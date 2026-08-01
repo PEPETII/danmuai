@@ -177,11 +177,9 @@ def resolve_danmu_max_output_tokens(configured: int, *, use_thinking: bool = Fal
 
 
 def parse_stream_usage(usage: dict | None, *, usage_token_style: str = "openai") -> tuple[int, int]:
-    from app.providers.adapters.default_openai import DefaultOpenAIAdapter
-    from app.providers.capabilities import ProviderCapabilities
+    from app.providers.usage_normalizer import normalize_usage_by_style
 
-    caps = ProviderCapabilities(usage_token_style=usage_token_style)
-    return DefaultOpenAIAdapter().normalize_usage(usage, caps=caps)
+    return normalize_usage_by_style(usage, usage_token_style=usage_token_style)
 
 
 @dataclass(frozen=True)

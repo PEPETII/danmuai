@@ -125,6 +125,7 @@ workorders/local/
 reports/local/
 docs/工单列表/
 docs/reports/
+docs
 
 # AI-generated completion / review artifacts (Chinese + English names)
 **/*-完成报告.md

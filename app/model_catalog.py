@@ -637,27 +637,27 @@ BAIDU_CLOUD_MODELS: tuple[CatalogModel, ...] = (
 OPENROUTER_MODELS: tuple[CatalogModel, ...] = (
     CatalogModel(
         "Gemini-3.1-Flash-Lite",
-        "openrouter/google/gemini-3.1-flash-lite",
+        "google/gemini-3.1-flash-lite",
         ModelPrice(input=0.25, audio=0.25, output=1.5, currency="USD"),
     ),
     CatalogModel(
         "MiMo-V2.5",
-        "openrouter/xiaomi/mimo-v2.5",
+        "xiaomi/mimo-v2.5",
         ModelPrice(input=0.4, audio=0.4, output=2.0, currency="USD"),
     ),
     CatalogModel(
         "Gemini-3.1-Pro-Preview",
-        "openrouter/google/gemini-3.1-pro-preview",
+        "google/gemini-3.1-pro-preview",
         ModelPrice(input=2.0, audio=2.0, output=12.0, currency="USD"),
     ),
     CatalogModel(
         "Claude-Sonnet-4.5",
-        "openrouter/anthropic/claude-sonnet-4.5",
+        "anthropic/claude-sonnet-4.5",
         ModelPrice(input=3.0, output=15.0, currency="USD"),
     ),
     CatalogModel(
         "Claude-Sonnet-4.6",
-        "openrouter/anthropic/claude-sonnet-4.6",
+        "anthropic/claude-sonnet-4.6",
         ModelPrice(input=3.0, output=15.0, currency="USD"),
     ),
 )
@@ -901,6 +901,11 @@ def catalog_model_supports_mic(model_id: str) -> bool:
     return False
 
 
+def lookup_catalog_model(model_id: str) -> CatalogModel | None:
+    """Return catalog model entry when ``model_id`` is listed in a platform catalog."""
+    return _CATALOG_BY_MODEL_ID.get((model_id or "").strip())
+
+
 def get_thinking_mode_for_model(model_id: str) -> ThinkingMode:
     """Catalog thinking mode for ``model_id``; unknown models return ``off``."""
     mid = (model_id or "").strip()
@@ -915,3 +920,10 @@ def get_thinking_mode_for_model(model_id: str) -> ThinkingMode:
 def catalog_model_supports_thinking_toggle(model_id: str) -> bool:
     """True when settings may toggle thinking for a catalog-listed model."""
     return get_thinking_mode_for_model(model_id) == "hybrid"
+
+
+def list_model_definitions_for_provider(provider_id: str):
+    """V2 catalog models for a provider preset (Batch 2)."""
+    from app.providers.platform_registry import list_model_definitions_for_provider as _list
+
+    return _list(provider_id)

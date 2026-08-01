@@ -1,21 +1,18 @@
 """Single host registry: endpoint guess and API transport from PROVIDERS.
 
 职责：
-- ``HOST_ENTRIES`` 由 ``PROVIDERS`` 预设 default_endpoint 提取 netloc 片段并去重，
-  按片段长度降序排序（更长的优先匹配，例如 ``api.xiaomimimo.com`` 早于 ``xiaomimimo.com``）。
-- ``match_host_entry`` 在 endpoint 字符串中做子串匹配；``HOST_ENTRIES`` 顺序决定优先级。
+- ``HOST_ENTRIES`` 由 ``PROVIDERS`` 预设 default_endpoint 提取 hostname 并去重。
+- ``match_host_entry`` 使用 ``urlparse().hostname`` 精确匹配（禁止子串 includes）。
 - ``guess_provider_from_endpoint`` 先看 host 匹配；未命中时按 ``api_mode`` 返回
   ``custom_doubao``，否则回退 ``DEFAULT_PROVIDER_ID``。
 - ``resolve_api_transport`` 选择 ``doubao``（Responses）或 ``openai``（Chat Completions）。
 
-约束：与 ``app.model_providers.PROVIDERS`` 严格对齐；新增服务商需在 ``_build_host_entries``
-中可被自动收录（仅需 ``default_endpoint`` 非空）。
+约束：与 ``app.model_providers.PROVIDERS`` 严格对齐；新增服务商仅需 ``default_endpoint`` 非空。
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from urllib.parse import urlparse
 
 from app.model_providers import (
     DEFAULT_PROVIDER_ID,
@@ -24,11 +21,12 @@ from app.model_providers import (
     normalize_endpoint,
     normalize_mode,
 )
+from app.providers.endpoint_resolver import extract_hostname, hostname_matches
 
 
 @dataclass(frozen=True)
 class HostEntry:
-    fragment: str
+    fragment: str  # exact hostname key (legacy field name kept for API/JS parity)
     provider_id: str
     transport: str  # "doubao" | "openai"
 
@@ -37,9 +35,9 @@ def _mode_to_transport(mode: str) -> str:
     return "doubao" if mode == "doubao" else "openai"
 
 
-def _endpoint_netloc_fragment(url: str) -> str:
-    parsed = urlparse(normalize_endpoint(url))
-    return (parsed.netloc or "").lower()
+def _endpoint_hostname(url: str) -> str:
+    host = extract_hostname(url)
+    return host or ""
 
 
 def _build_host_entries() -> tuple[HostEntry, ...]:
@@ -48,13 +46,13 @@ def _build_host_entries() -> tuple[HostEntry, ...]:
     for spec in PROVIDERS:
         if not spec.default_endpoint:
             continue
-        fragment = _endpoint_netloc_fragment(spec.default_endpoint)
-        if not fragment or fragment in seen:
+        hostname = _endpoint_hostname(spec.default_endpoint)
+        if not hostname or hostname in seen:
             continue
-        seen.add(fragment)
+        seen.add(hostname)
         entries.append(
             HostEntry(
-                fragment=fragment,
+                fragment=hostname,
                 provider_id=spec.id,
                 transport=_mode_to_transport(spec.mode),
             )
@@ -64,13 +62,15 @@ def _build_host_entries() -> tuple[HostEntry, ...]:
 
 HOST_ENTRIES: tuple[HostEntry, ...] = _build_host_entries()
 
+_MINIMAX_HOSTS = frozenset({"api.minimax.chat", "api.minimaxi.com"})
+
 
 def match_host_entry(endpoint: str) -> HostEntry | None:
-    normalized = normalize_endpoint(endpoint).lower() if endpoint else ""
+    normalized = normalize_endpoint(endpoint) if endpoint else ""
     if not normalized:
         return None
     for entry in HOST_ENTRIES:
-        if entry.fragment in normalized:
+        if hostname_matches(entry.fragment, normalized):
             return entry
     return None
 
@@ -136,33 +136,15 @@ def resolve_provider_for_ui(endpoint: str, api_mode: str = "") -> dict:
     }
 
 
-# OpenRouter recommends Referer/Title for rate-limit priority; applied only when host matches.
-_OPENROUTER_REFERER = "https://github.com/PEPETII/danmuai"
-_OPENROUTER_APP_TITLE = "DanmuAI"
-
-
 def provider_extra_headers(endpoint: str) -> dict[str, str]:
     """Optional provider-specific HTTP headers (e.g. OpenRouter Referer/Title)."""
-    normalized = normalize_endpoint(endpoint).lower()
-    if "openrouter.ai" in normalized:
-        return {
-            "HTTP-Referer": _OPENROUTER_REFERER,
-            "X-Title": _OPENROUTER_APP_TITLE,
-        }
-    return {}
+    from app.providers.auth_resolver import _attribution_headers
+
+    provider_id = guess_provider_from_endpoint(endpoint)
+    return _attribution_headers(provider_id, endpoint)
 
 
 def is_minimax_endpoint(endpoint: str) -> bool:
-    """Detect official MiniMax Chat Completions endpoint by host.
-
-    MiniMax is not a registered ProviderSpec; users configure it via
-    ``custom_openai``. This helper enables ``reasoning_split: true``
-    injection only for MiniMax, avoiding pollution of other OpenAI-compat
-    providers.
-    """
-    normalized = normalize_endpoint(endpoint).lower() if endpoint else ""
-    if not normalized:
-        return False
-    parsed = urlparse(normalized)
-    netloc = (parsed.netloc or "").lower()
-    return "minimax" in netloc or "minimaxi" in netloc
+    """Detect official MiniMax Chat Completions endpoint by exact hostname."""
+    hostname = extract_hostname(endpoint or "")
+    return hostname in _MINIMAX_HOSTS

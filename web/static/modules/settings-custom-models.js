@@ -1,5 +1,5 @@
 import { apiFetch } from './transport.js';
-import { t } from './i18n.js';
+import { getLanguage, t } from './i18n.js';
 import { isMaskedApiKey } from './settings-defaults.js';
 import { findProvider, getProviderWebsite, isCustomProvider, getDefaultEndpoint } from './settings-providers.js';
 import { getModelCatalogModels, getModelNameFromCatalog, pickDefaultCatalogModelId } from './settings-model-catalog.js';
@@ -305,6 +305,7 @@ function updateProviderWebsiteDisplay(providerId) {
   const webRow = document.getElementById('modelProviderWebsite');
   const webLink = document.getElementById('modelProviderWebsiteLink');
   const openBtn = document.getElementById('modelOpenWebsite');
+  const migrationEl = document.getElementById('modelProviderMigrationWarning');
   const provider = findProvider(providerId);
   if (nameEl) {
     if (provider && provider.id) {
@@ -329,6 +330,35 @@ function updateProviderWebsiteDisplay(providerId) {
       webLink.href = '';
       delete openBtn.dataset.website;
       webRow.classList.add('hidden');
+    }
+  }
+  if (migrationEl) {
+    const status = String(provider?.lifecycle_status || '').trim().toLowerCase();
+    const notice = String(provider?.notice || '').trim();
+    const migrationUrl = String(provider?.migration_url || '').trim();
+    const sunsetDate = String(provider?.sunset_date || '').trim();
+    if (status === 'migrating' || status === 'legacy') {
+      const parts = [];
+      if (notice) {
+        parts.push(notice);
+      } else if (sunsetDate) {
+        parts.push(
+          getLanguage() === 'en'
+            ? `This provider is scheduled for shutdown on ${sunsetDate}.`
+            : `该服务商计划于 ${sunsetDate} 停服。`,
+        );
+      }
+      if (migrationUrl) {
+        const linkLabel = getLanguage() === 'en' ? 'View migration notice' : '查看迁移公告';
+        parts.push(
+          `<a class="underline text-amber-900" href="${migrationUrl}" target="_blank" rel="noopener noreferrer">${linkLabel}</a>`,
+        );
+      }
+      migrationEl.innerHTML = parts.join(' ');
+      migrationEl.classList.remove('hidden');
+    } else {
+      migrationEl.textContent = '';
+      migrationEl.classList.add('hidden');
     }
   }
 }

@@ -48,6 +48,14 @@ def test_match_host_entry_longest_fragment_wins():
     assert entry.transport == "doubao"
 
 
+def test_match_host_entry_rejects_suffix_attack():
+    assert match_host_entry("https://evil-openrouter.ai/api/v1") is None
+    assert match_host_entry("https://not-api.xiaomimimo.com/v1") is None
+    entry = match_host_entry("https://openrouter.ai/api/v1")
+    assert entry is not None
+    assert entry.provider_id == "openrouter"
+
+
 def test_get_capabilities_mimo():
     caps = get_capabilities("mimo")
     assert caps.thinking_param is True
@@ -177,6 +185,8 @@ def test_is_minimax_endpoint_rejects_non_minimax():
     assert is_minimax_endpoint("https://api.deepseek.com/v1") is False
     assert is_minimax_endpoint("https://ark.cn-beijing.volces.com/api/v3") is False
     assert is_minimax_endpoint("") is False
+    assert is_minimax_endpoint("https://not-minimax.example.com/v1") is False
+    assert is_minimax_endpoint("https://fake-minimaxi.evil.com/v1") is False
 
 
 def test_is_minimax_endpoint_case_insensitive():

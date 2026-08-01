@@ -6,17 +6,11 @@ from dataclasses import dataclass
 
 import httpx
 
-from app.ai_client import THINKING_DISABLED, format_http_status_error
+from app.ai_client import format_http_status_error
 from app.ai_client_support import sanitize_provider_error_snippet
 from app.errors import AppError
 from app.model_providers import normalize_endpoint, normalize_mode, resolve_api_transport
-from app.providers import (
-    get_capabilities_for_endpoint,
-    get_openai_adapter,
-    is_minimax_endpoint,
-    provider_extra_headers,
-)
-from app.providers.thinking import apply_thinking_disabled
+from app.providers.request_planner import GenerationRequest, plan_http_request
 from app.translations import tr
 
 
@@ -46,9 +40,22 @@ def probe_connection(
         return ProbeResult(False, tr("custom_model.error_model_id"))
 
     try:
+        planned = plan_http_request(
+            GenerationRequest(
+                purpose="connection_probe",
+                model_id=model_id,
+                endpoint=endpoint,
+                api_key=api_key,
+                api_mode=mode,
+                user_text="ping",
+                max_output_tokens=1,
+                stream=False,
+                force_thinking_off=True,
+            )
+        )
         if resolve_api_transport(endpoint, mode) == "doubao":
-            return _probe_doubao(endpoint, api_key, model_id)
-        return _probe_openai(endpoint, api_key, model_id, mode)
+            return _post_probe(planned.url, planned.headers, planned.json_body, allow_stream_fallback=True)
+        return _post_probe(planned.url, planned.headers, planned.json_body)
     except httpx.TimeoutException:
         return ProbeResult(False, tr("ai.error_timeout"))
     except httpx.HTTPStatusError as exc:
@@ -63,25 +70,13 @@ def probe_connection(
         return ProbeResult(False, tr("ai.error_request_failed").format(error=detail))
 
 
-def _probe_doubao(endpoint: str, api_key: str, model_id: str) -> ProbeResult:
-    url = f"{endpoint}/responses"
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-    }
-    data = {
-        "model": model_id,
-        "input": [
-            {
-                "type": "message",
-                "role": "user",
-                "content": [{"type": "input_text", "text": "ping"}],
-            }
-        ],
-        "stream": False,
-        "max_output_tokens": 1,
-        "thinking": dict(THINKING_DISABLED),
-    }
+def _post_probe(
+    url: str,
+    headers: dict,
+    data: dict,
+    *,
+    allow_stream_fallback: bool = False,
+) -> ProbeResult:
     with httpx.Client(timeout=httpx.Timeout(10.0, connect=5.0)) as client:
         try:
             resp = client.post(url, headers=headers, json=data)
@@ -90,6 +85,9 @@ def _probe_doubao(endpoint: str, api_key: str, model_id: str) -> ProbeResult:
         except httpx.HTTPStatusError:
             raise
         except (httpx.HTTPError, httpx.TimeoutException):
+            if not allow_stream_fallback:
+                raise
+            data = dict(data)
             data["stream"] = True
             with client.stream("POST", url, headers=headers, json=data) as resp:
                 resp.raise_for_status()
@@ -97,29 +95,3 @@ def _probe_doubao(endpoint: str, api_key: str, model_id: str) -> ProbeResult:
                     if line:
                         break
             return ProbeResult(True, tr("custom_model.test_ok"))
-
-
-def _probe_openai(endpoint: str, api_key: str, model_id: str, mode: str) -> ProbeResult:
-    url = f"{endpoint}/chat/completions"
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-    }
-    headers.update(provider_extra_headers(endpoint))
-    caps = get_capabilities_for_endpoint(endpoint, mode)
-    adapter = get_openai_adapter(endpoint, mode)
-    data = {
-        "model": model_id,
-        "messages": [{"role": "user", "content": "ping"}],
-        "max_tokens": 1,
-        "stream": False,
-    }
-    adapter.patch_probe_body(data, caps=caps)
-    if caps.thinking_param_style != "none" or caps.thinking_param:
-        apply_thinking_disabled(data, caps=caps)
-    if is_minimax_endpoint(endpoint):
-        data["reasoning_split"] = True
-    with httpx.Client(timeout=httpx.Timeout(10.0, connect=5.0)) as client:
-        resp = client.post(url, headers=headers, json=data)
-        resp.raise_for_status()
-        return ProbeResult(True, tr("custom_model.test_ok"), resp.status_code)

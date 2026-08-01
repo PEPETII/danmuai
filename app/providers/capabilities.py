@@ -21,7 +21,16 @@ from typing import Literal
 
 from app.model_providers import PROVIDERS
 
-ThinkingParamStyle = Literal["none", "thinking_type", "enable_thinking"]
+ThinkingParamStyle = Literal[
+    "none",
+    "thinking_type",
+    "enable_thinking",
+    "reasoning_effort_flat",
+    "reasoning_object",
+    "reasoning_enabled",
+    "chat_template_kwargs",
+    "always_on",
+]
 
 # Per preset provider_id; custom_* fall back to matched host or OpenAI defaults.
 _CAPABILITIES_BY_ID: dict[str, ProviderCapabilities] = {}

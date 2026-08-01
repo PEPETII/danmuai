@@ -1,0 +1,21 @@
+{
+  "provider_id": "openai",
+  "api_family": "openai_chat_completions",
+  "url": "https://api.openai.com/v1/chat/completions",
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "json_body": {
+    "model": "gpt-5",
+    "messages": [
+      {
+        "role": "user",
+        "content": "ping"
+      }
+    ],
+    "stream": false,
+    "max_tokens": 1
+  },
+  "parser_id": "openai_chat_sse",
+  "usage_normalizer_id": "openai"
+}

@@ -50,13 +50,24 @@ function isDoubaoMode(apiMode) {
   return normalizeModeInput(apiMode) === 'doubao';
 }
 
-function matchHostEntry(endpoint) {
-  const normalized = normalizeEndpointForMatch(endpoint);
-  if (!normalized) return null;
+def matchHostEntry(endpoint) {
+  const hostname = extractHostname(endpoint);
+  if (!hostname) return null;
   for (const entry of hostEntriesCache) {
-    if (normalized.includes(entry.fragment)) return entry;
+    if (hostname === String(entry.fragment || '').toLowerCase()) return entry;
   }
   return null;
+}
+
+function extractHostname(endpoint) {
+  const normalized = normalizeEndpointForMatch(endpoint);
+  if (!normalized) return '';
+  try {
+    const parsed = new URL(normalized.includes('://') ? normalized : `https://${normalized}`);
+    return (parsed.hostname || '').toLowerCase();
+  } catch {
+    return '';
+  }
 }
 
 export function resolveApiTransport(endpoint, apiMode) {

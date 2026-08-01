@@ -82,6 +82,30 @@ def test_style_generator_color_fields_use_picker_plus_hex():
     assert "onSingleColorPickerInput" in mod
 
 
+def test_style_generator_tabs_share_accordion_layout_contract():
+    """两个弹幕样式 Tab 的折叠面板共用字段行与操作栏规范。"""
+    partial = (_static() / "partials" / "style-generator.html").read_text(encoding="utf-8")
+    css = (_static() / "warm-tokens-pages-stylegen.css").read_text(encoding="utf-8")
+
+    assert "#page-style-generator .sg-accordion .settings-params-grid" in css
+    assert "#page-style-generator .sg-accordion .settings-rhythm-accordion-fields" in css
+    assert "#page-style-generator .sg-accordion .settings-field," in css
+    assert ".sg-action-bar .ui-button" in css
+    assert partial.count('class="sg-action-bar"') == 2
+
+    for button_id in (
+        "sgBtnSave",
+        "sgBtnRestoreDefault",
+        "sgBtnAddPreview",
+        "sgBtnClearPreview",
+        "hfBtnSave",
+        "hfBtnRestoreDefault",
+    ):
+        start = partial.index(f'id="{button_id}"')
+        button = partial[start : start + 220]
+        assert "ui-button" in button, button_id
+
+
 def test_sidebar_has_independent_style_generator_entry():
     sidebar = (_static() / "partials" / "sidebar.html").read_text(encoding="utf-8")
     assert 'data-page="style-generator"' in sidebar

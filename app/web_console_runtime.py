@@ -15,6 +15,7 @@ from typing import Any
 
 from app.bundle_paths import append_frozen_log, is_frozen
 from app.startup_trace import log_startup
+from app.translations import tr
 from app.web_console_session_auth import enforce_session_authorization
 from app.web_console_support import (
     export_config,
@@ -24,7 +25,6 @@ from app.web_console_support import (
 )
 from app.web_console_ws import register_websocket_routes
 from app.web_static_mime import ensure_web_static_mime_types
-from app.translations import tr
 
 
 def run_uvicorn_locked(server) -> None:
@@ -154,26 +154,11 @@ def run_uvicorn_locked(server) -> None:
 
     @app.get("/api/providers")
     def providers():
-        from app.model_providers import PROVIDERS, provider_label
+        from app.model_providers import PROVIDERS, provider_for_api
         from app.translations import Translator
 
         lang = Translator.get_language()
-        return [
-            {
-                "id": provider.id,
-                "label": provider_label(provider.id, lang),
-                "default_endpoint": provider.default_endpoint,
-                "mode": provider.mode,
-                "hint": (
-                    provider.model_id_hint_en
-                    if lang == "en"
-                    else provider.model_id_hint_zh
-                ),
-                "website": provider.website,
-                "region": provider.region,
-            }
-            for provider in PROVIDERS
-        ]
+        return [provider_for_api(provider, lang) for provider in PROVIDERS]
 
     @app.get("/api/model-catalog")
     def model_catalog():

@@ -4,3 +4,6 @@
 - Prefers incremental UI changes: wraps existing content into a tab and adds new empty placeholder tabs, rather than building all content at once. Confidence: 0.8
 - Communicates in Simplified Chinese and expects responses in Chinese. Confidence: 0.8
 - When asking questions marked "仅作询问" (just asking/inquiry only), wants an explanation of the root cause without any code changes. Confidence: 0.6
+- For inspection/audit tasks (检查/分析), expects a strictly read-only pass — no changes to code, config, dependencies, or files — ending in a written report that covers: problem location, trigger cause, impact scope, supporting evidence (concrete file paths + line numbers), and recommended fixes, without implementing them. Confidence: 0.9
+- In analysis reports, wants confirmed findings clearly separated from inferences (已确认 vs 推断), not guesses presented as facts. Confidence: 0.6
+- For web research / news requests, explicitly asks for source links (提供来源链接) so claims can be verified; expects the answer to cite the specific sources used. Confidence: 0.8

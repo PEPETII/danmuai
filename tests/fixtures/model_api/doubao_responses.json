@@ -1,0 +1,35 @@
+{
+  "provider_id": "doubao",
+  "api_family": "openai_responses",
+  "url": "https://ark.cn-beijing.volces.com/api/v3/responses",
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "json_body": {
+    "model": "doubao-seed-1-6-flash-250828",
+    "input": [
+      {
+        "type": "message",
+        "role": "user",
+        "content": [
+          {
+            "type": "input_image",
+            "image_url": "data:image/jpeg;base64,abc"
+          },
+          {
+            "type": "input_text",
+            "text": "hi"
+          }
+        ]
+      }
+    ],
+    "stream": true,
+    "max_output_tokens": 512,
+    "temperature": 0.8,
+    "thinking": {
+      "type": "disabled"
+    }
+  },
+  "parser_id": "doubao_responses_sse",
+  "usage_normalizer_id": "openai"
+}

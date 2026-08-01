@@ -1,14 +1,15 @@
 """Model catalog enrichment and Doubao data tests."""
 
 from app.model_catalog import (
-    DASHSCOPE_MODELS,
     DASHSCOPE_INTL_MODELS,
+    DASHSCOPE_MODELS,
     DOUBAO_MODELS,
     FIREWORKS_MODELS,
     GOOGLE_GEMINI_MODELS,
     MIMO_MODELS,
     MISTRAL_MODELS,
     OPENAI_MODELS,
+    OPENROUTER_MODELS,
     SILICONFLOW_MODELS,
     TOGETHER_MODELS,
     XAI_MODELS,
@@ -24,6 +25,21 @@ from app.model_catalog import (
     is_catalog_model_for_provider,
     list_platform_catalogs,
 )
+
+
+def test_openrouter_catalog_model_ids_without_openrouter_prefix():
+    ids = {m.id for m in OPENROUTER_MODELS}
+    assert ids == {
+        "google/gemini-3.1-flash-lite",
+        "xiaomi/mimo-v2.5",
+        "google/gemini-3.1-pro-preview",
+        "anthropic/claude-sonnet-4.5",
+        "anthropic/claude-sonnet-4.6",
+    }
+    assert all(not model_id.startswith("openrouter/") for model_id in ids)
+    catalog = get_catalog_for_provider("openrouter")
+    assert catalog is not None
+    assert catalog["default_model_id"] == "google/gemini-3.1-flash-lite"
 
 
 def test_doubao_cheapest_is_flash():
@@ -376,3 +392,24 @@ def test_catalog_provider_ids_for_model():
     assert catalog_provider_ids_for_model("glm-4.6v") == frozenset({"zai"})
     assert catalog_provider_ids_for_model("qwen3-vl-flash") == frozenset({"dashscope", "dashscope_intl"})
     assert catalog_provider_ids_for_model("ep-20260618-custom-vision") == frozenset()
+
+
+def test_v2_model_definitions_match_catalog_models():
+    from app.model_catalog import PLATFORM_CATALOGS, list_model_definitions_for_provider
+
+    for platform in PLATFORM_CATALOGS:
+        v2_models = list_model_definitions_for_provider(platform.provider_id)
+        assert len(v2_models) == len(platform.models)
+        for catalog_model, model_def in zip(platform.models, v2_models, strict=True):
+            assert model_def.id == catalog_model.id
+            assert model_def.display_name == catalog_model.name
+            assert model_def.price.input == catalog_model.price.input
+            assert model_def.price.output == catalog_model.price.output
+            assert model_def.thinking_mode == catalog_model.thinking_mode
+            assert model_def.provider_id == platform.provider_id
+            assert model_def.platform_id == platform.platform_id
+            legacy_dict = catalog_model.to_dict()
+            v2_dict = model_def.to_dict()
+            for key in ("name", "id", "modality", "supports_vision", "thinking_mode"):
+                assert v2_dict[key if key != "name" else "name"] == legacy_dict[key]
+            assert v2_dict["price"] == catalog_model.price.to_dict()

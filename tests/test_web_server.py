@@ -21,7 +21,7 @@ def test_model_catalog_api_payload():
     from app.model_catalog import list_platform_catalogs
 
     platforms = list_platform_catalogs()
-    assert len(platforms) == 18
+    assert len(platforms) == 19
     by_id = {p["platform_id"]: p for p in platforms}
 
     doubao = by_id["doubao"]
@@ -91,7 +91,7 @@ def test_providers_excludes_deepseek():
 
 
 def test_providers_api_labels_follow_translator_language():
-    from app.model_providers import PROVIDERS, provider_label
+    from app.model_providers import PROVIDERS, provider_for_api
     from app.translations import Translator
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
@@ -101,22 +101,7 @@ def test_providers_api_labels_follow_translator_language():
     @app.get("/api/providers")
     def providers():
         lang = Translator.get_language()
-        return [
-            {
-                "id": provider.id,
-                "label": provider_label(provider.id, lang),
-                "default_endpoint": provider.default_endpoint,
-                "mode": provider.mode,
-                "hint": (
-                    provider.model_id_hint_en
-                    if lang == "en"
-                    else provider.model_id_hint_zh
-                ),
-                "website": provider.website,
-                "region": provider.region,
-            }
-            for provider in PROVIDERS
-        ]
+        return [provider_for_api(provider, lang) for provider in PROVIDERS]
 
     client = TestClient(app)
     Translator.set_language("en")
@@ -128,6 +113,12 @@ def test_providers_api_labels_follow_translator_language():
         assert mimo["region"] == "global"
         openrouter = next(item for item in payload if item["id"] == "openrouter")
         assert openrouter["region"] == "international"
+        hunyuan = next(item for item in payload if item["id"] == "hunyuan")
+        assert hunyuan["default_endpoint"] == "https://api.hunyuan.cloud.tencent.com/v1"
+        assert hunyuan["lifecycle_status"] == "migrating"
+        assert hunyuan["sunset_date"] == "2026-09-30"
+        stepfun = next(item for item in payload if item["id"] == "stepfun")
+        assert stepfun["default_endpoint"] == "https://api.stepfun.com/v1"
         openai = next(item for item in payload if item["id"] == "openai")
         assert openai["region"] == "international"
         assert all("region" in item for item in payload)

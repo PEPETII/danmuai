@@ -5,37 +5,29 @@
 MiMo 特殊路径：mimo-v2.5 走 Chat Completions input_audio + input_audio.data（data URI）。
 """
 from __future__ import annotations
+
 import logging
+
 import httpx
+
 from app.ai_client_support import (
     DEFAULT_MAX_TOKENS,
     AiProbeResult,
     _StreamAttemptResult,
     execute_stream_request_with_retry,
     format_credential_error,
-    format_mic_credential_error,
-    get_model_config,
     resolve_danmu_max_output_tokens,
-    resolve_mic_request_credentials,
-    resolve_request_credentials,
-    resolve_request_credentials_for_persona,
-    visual_credentials_ready,
 )
 from app.main_helpers import STREAM_FIRST_CONTENT_TIMEOUT_SEC
+from app.model_catalog import catalog_model_supports_thinking_toggle
 from app.model_providers import (
     get_capabilities_for_model,
-    get_openai_adapter_for_model,
     model_supports_mic_audio,
     normalize_endpoint,
 )
-from app.providers import (
-    is_minimax_endpoint,
-    provider_extra_headers,
-)
-from app.model_catalog import catalog_model_supports_thinking_toggle
-from app.providers.constants import THINKING_DISABLED, THINKING_ENABLED
-from app.providers.thinking import apply_thinking_mode
+from app.providers.request_planner import GenerationRequest, plan_http_request
 from app.translations import tr
+
 logger = logging.getLogger(__name__)
 def _effective_use_thinking(caps, model_id: str, config_use_thinking: bool) -> bool:
     return (
@@ -245,37 +237,27 @@ def request_doubao(
             signal="error",
             message=tr("ai.error_request_failed").format(error="empty or invalid image"),
         )
-    user_content: list[dict] = [
-        {"type": "input_image", "image_url": image_data_uri},
-        {"type": "input_text", "text": user_pt},
-    ]
-    if audio_data_uri:
-        user_content.append({"type": "input_audio", "audio_url": audio_data_uri})
-    input_messages = [
-        {
-            "type": "message",
-            "role": "user",
-            "content": user_content,
-        }
-    ]
-    data = {
-        "model": model,
-        "input": input_messages,
-        "stream": True,
-    }
-    if system_pt:
-        data["instructions"] = system_pt
-    if temperature is not None and temperature >= 0:
-        data["temperature"] = temperature
-    data["thinking"] = (
-        dict(THINKING_ENABLED) if effective_use_thinking else dict(THINKING_DISABLED)
+    purpose = "mic_danmu" if audio_data_uri else "visual_danmu"
+    planned = plan_http_request(
+        GenerationRequest(
+            purpose=purpose,
+            model_id=model,
+            endpoint=endpoint,
+            api_key=api_key,
+            api_mode=api_mode,
+            system_text=system_pt or None,
+            user_text=user_pt,
+            image_data_uri=image_data_uri,
+            audio_data_uri=audio_data_uri,
+            max_output_tokens=max_output_tokens,
+            temperature=temperature,
+            reasoning_enabled=effective_use_thinking,
+            stream=True,
+        )
     )
-    data["max_output_tokens"] = max_output_tokens
-    url = f"{endpoint}/responses"
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-    }
+    url = planned.url
+    headers = planned.headers
+    data = planned.json_body
 
     def _attempt_stream(client: httpx.Client) -> _StreamAttemptResult:
         text, input_tokens, output_tokens, stream_error = stream_doubao(
@@ -396,36 +378,27 @@ def request_openai(
             mic_audio_unsupported_message(model),
         )
         mic_audio = None
-    adapter = get_openai_adapter_for_model(model, endpoint, api_mode)
-    data: dict[str, object] = {
-        "model": model,
-        "messages": [
-            {"role": "system", "content": system_pt},
-            {
-                "role": "user",
-                "content": adapter.build_vision_user_content(
-                    user_pt,
-                    image_data_uri,
-                    audio_data_uri=mic_audio,
-                ),
-            },
-        ],
-        "temperature": temperature,
-        "stream": True,
-    }
-    adapter.patch_openai_chat_body(data, max_tokens=max_tokens, caps=caps)
-    if catalog_model_supports_thinking_toggle(model) and caps.thinking_param_style != "none":
-        apply_thinking_mode(data, enabled=effective_use_thinking, caps=caps)
-    elif caps.thinking_param and caps.thinking_param_style != "none":
-        apply_thinking_mode(data, enabled=False, caps=caps)
-    if is_minimax_endpoint(endpoint):
-        data["reasoning_split"] = True
-    url = f"{endpoint}/chat/completions"
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-    }
-    headers.update(provider_extra_headers(endpoint))
+    purpose = "mic_danmu" if mic_audio else "visual_danmu"
+    planned = plan_http_request(
+        GenerationRequest(
+            purpose=purpose,
+            model_id=model,
+            endpoint=endpoint,
+            api_key=api_key,
+            api_mode=api_mode,
+            system_text=system_pt or None,
+            user_text=user_pt,
+            image_data_uri=image_data_uri,
+            audio_data_uri=mic_audio,
+            max_output_tokens=max_tokens,
+            temperature=temperature,
+            reasoning_enabled=effective_use_thinking,
+            stream=True,
+        )
+    )
+    url = planned.url
+    headers = planned.headers
+    data = planned.json_body
 
     def _attempt_stream(client: httpx.Client) -> _StreamAttemptResult:
         text, input_tokens, output_tokens = stream_openai(
@@ -493,3 +466,29 @@ def stream_openai(
             normalize_endpoint(endpoint) if endpoint else url,
         )
     return result.text, result.input_tokens, result.output_tokens
+
+
+# Re-export credential helpers for historical import paths (``app.ai_client`` façade).
+from app.ai_client_support import (  # noqa: E402
+    format_mic_credential_error,
+    get_model_config,
+    resolve_mic_request_credentials,
+    resolve_request_credentials,
+    resolve_request_credentials_for_persona,
+    visual_credentials_ready,
+)
+
+__all__ = [
+    "format_credential_error",
+    "format_mic_credential_error",
+    "get_model_config",
+    "request_doubao",
+    "request_openai",
+    "reset_worker_http_client",
+    "resolve_mic_request_credentials",
+    "resolve_request_credentials",
+    "resolve_request_credentials_for_persona",
+    "stream_doubao",
+    "stream_openai",
+    "visual_credentials_ready",
+]
