@@ -16,6 +16,8 @@
 
 ---
 
+> **迁移说明**：`prototype_floating_panel/` 原型目录已迁出源仓库，现位于 `E:\test\danmuai_external\prototype_floating_panel\`。本文档中的 `file:///` 链接和代码路径已同步更新。运行原型需设置 `$env:DANMUAI_SRC_ROOT='E:\test\danmu'`。
+
 ## 0. 关键修改说明（与测试相关）
 
 | # | 项目 | 测试关注点 |
@@ -394,7 +396,7 @@ python -m pytest tests/ -q
 1. 配置 `floating_panel_click_through="1"`，重启 `python main.py`
 2. 在浮动面板下方放置一个可点击窗口（如记事本）
 3. 用鼠标点击浮动面板覆盖区域
-4. 用 Win32 `WindowFromPoint` 工具（参考 `prototype_floating_panel/win32_probe.py:155-205`）在 5 个点验证命中窗口
+4. 用 Win32 `WindowFromPoint` 工具（参考 `danmuai_external/prototype_floating_panel/win32_probe.py:155-205`）在 5 个点验证命中窗口
 
 **通过标准**：
 - 5 个点的 `WindowFromPoint` 全部返回非浮动面板 HWND
@@ -559,8 +561,8 @@ python -m pytest tests/ -q
 - [PYWEBVIEW_FLOATING_PANEL_IMPLEMENTATION_GUIDE.md](PYWEBVIEW_FLOATING_PANEL_IMPLEMENTATION_GUIDE.md)
 
 ### 测试参考
-- [prototype_floating_panel/win32_probe.py](file:///e:/test/danmu/prototype_floating_panel/win32_probe.py) — Win32 探针函数
-- [prototype_floating_panel/TEST_RESULTS.md](file:///e:/test/danmu/prototype_floating_panel/TEST_RESULTS.md) — 原型测试结果（PASS 基线）
+- [prototype_floating_panel/win32_probe.py](file:///e:/test/danmuai_external/prototype_floating_panel/win32_probe.py) — Win32 探针函数
+- [prototype_floating_panel/TEST_RESULTS.md](file:///e:/test/danmuai_external/prototype_floating_panel/TEST_RESULTS.md) — 原型测试结果（PASS 基线）
 
 ### 生产代码
 - [app/floating_panel_overlay.py](file:///e:/test/danmu/app/floating_panel_overlay.py) — QPainter fallback

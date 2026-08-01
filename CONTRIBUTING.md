@@ -15,7 +15,7 @@
 
 - 默认 UI 为 **Web 控制台**（`web/static/` + `app/web_console.py` + `app/web_api/`），PyQt6 仅用于 Overlay/托盘。
 - 优先修复稳定性、隐私和发布质量问题，再考虑新功能。
-- 修改 Web UI 前对照 [docs/ui/DESIGN_SYSTEM.md](docs/ui/DESIGN_SYSTEM.md)、[docs/ui/UI_CHANGE_CHECKLIST.md](docs/ui/UI_CHANGE_CHECKLIST.md)，以及 [`prototype/Qwen_html_20260524_481u8vlmv.html`](prototype/Qwen_html_20260524_481u8vlmv.html)；Token 以 `web/static/warm-tokens-base.css` 为准（入口 `warm-tokens.css`）。
+- 修改 Web UI 前对照 [docs/ui/DESIGN_SYSTEM.md](docs/ui/DESIGN_SYSTEM.md)、[docs/ui/UI_CHANGE_CHECKLIST.md](docs/ui/UI_CHANGE_CHECKLIST.md)；Token 以 `web/static/warm-tokens-base.css` 为准（入口 `warm-tokens.css`）。Web 视觉原型（`Qwen_html_*.html`、`Qwen_markdown_*.md`）已迁至 `E:\test\danmuai_external\prototype\`，不再随仓库分发。
 
 ## 开工前检查
 

@@ -15,13 +15,15 @@
 
 ---
 
+> **迁移说明**：`prototype_floating_panel/` 原型目录已迁出源仓库，现位于 `E:\test\danmuai_external\prototype_floating_panel\`。本文档中的 `file:///` 链接和代码路径已同步更新。运行原型需设置 `$env:DANMUAI_SRC_ROOT='E:\test\danmu'`。
+
 ## 0. 关键修改说明（移植必读）
 
 本节列出移植 blivechat-dev 时**必须修改**的关键点，避免照搬照抄：
 
 | # | 项目 | 原项目做法 | 本项目做法 | 必须修改原因 |
 |---|------|------------|------------|--------------|
-| 1 | **从下到上（底锚堆积）模式** | `rotate: 180deg` + `backface-visibility: hidden`（`blivechat-dev/frontend/src/views/StyleGenerator/common.js:169-179`） | CSS `#panel { display: flex; flex-direction: column-reverse; }`（原型 `prototype_floating_panel/panel.html:14-18` 已验证） | `rotate: 180deg` 会把整个容器连同子元素一起翻转 180°，影响事件坐标与文本方向；DanmuAI 仅需"新条从底部进入、旧条上推"的视觉语义，`column-reverse` 即可实现且不翻转内容 |
+| 1 | **从下到上（底锚堆积）模式** | `rotate: 180deg` + `backface-visibility: hidden`（`blivechat-dev/frontend/src/views/StyleGenerator/common.js:169-179`） | CSS `#panel { display: flex; flex-direction: column-reverse; }`（原型 `danmuai_external/prototype_floating_panel/panel.html:14-18` 已验证） | `rotate: 180deg` 会把整个容器连同子元素一起翻转 180°，影响事件坐标与文本方向；DanmuAI 仅需"新条从底部进入、旧条上推"的视觉语义，`column-reverse` 即可实现且不翻转内容 |
 | 2 | **鼠标穿透（click-through）** | OBS 浏览器源模式下 OBS 宿主负责 | **不强求实现**，配置项 `floating_panel_click_through`（默认 `"0"` 关闭）控制是否应用 `WS_EX_TRANSPARENT` | 浮动面板作为辅助显示层，未来可能需要点击卡片交互；默认不应用穿透，保留鼠标接收能力 |
 | 3 | **数据通信** | blivechat-dev 前端 `ChatClientRelay.js` 用 `new WebSocket(url)` 直连 B站 | 同样用 WebSocket，但连接本地 FastAPI `/ws/panel`，消息格式由 `panel_protocol.py` 定义 | 不能复用 blivechat-dev 的 API 客户端（`api/chat/ChatClient*.js`、`api/chat/models.js`） |
 | 4 | **样式来源** | `StyleGenerator` 页面生成 CSS 字符串 | `app/floating_panel_style.py:style_snapshot_from_mapping` 从 ConfigStore 读取后通过 WS `config` 消息下发 | 不能复用 `views/StyleGenerator/*` |
@@ -149,7 +151,7 @@ python -m pytest tests/test_floating_panel_web_protocol.py -q -x
    - `flush_backfill_to_queue(queue)` — 连接建立时补推缓冲区
    - `shutdown()` — 清空缓冲区与队列
 
-2. 参考原型：`prototype_floating_panel/run_prototype.py:48-132`（WS 服务端逻辑）
+2. 参考原型：`danmuai_external/prototype_floating_panel/run_prototype.py:48-132`（WS 服务端逻辑）
 
 **验收标准**：
 - `python -c "from app.floating_panel_web.panel_bridge import PanelBridge"` 无 ImportError
@@ -181,7 +183,7 @@ python -m pytest tests/test_floating_panel_web_bridge.py -q -x
    - `restart()` — 停止后重新启动
    - `_launch_child_process(html_url, gui)` — 参考 `app/webview_shell.py:362-380`
 
-2. 子进程入口 `_webview_worker`，参考原型 `prototype_floating_panel/panel_window.py:16-315`：
+2. 子进程入口 `_webview_worker`，参考原型 `danmuai_external/prototype_floating_panel/panel_window.py:16-315`：
    - `webview.create_window(transparent=True, frameless=True, on_top=True, easy_drag=False)`
    - `webview.start(gui="edgechromium")`
    - HWND 获取：`webview.platforms.winforms.BrowserView.instances[window.uid].Handle.ToInt32()`
@@ -221,14 +223,14 @@ python -m pytest tests/test_floating_panel_web_process.py -q -x
    - `#panel { display: flex; flex-direction: column-reverse; pointer-events: none; }`（底锚堆积 + 鼠标穿透）
    - `.card { box-shadow: ...; animation: slideUp 0.25s ease-out; }`
    - `@keyframes slideUp / fadeOut`
-   - 参考 `prototype_floating_panel/panel.html:6-117`
+   - 参考 `danmuai_external/prototype_floating_panel/panel.html:6-117`
 3. 创建 `app.js`：
    - WS 客户端：连接 `ws://127.0.0.1:18765/ws/panel?ws_token=<token>`（token 从 query 或 cookie 取）
    - 消息处理：`card` → `addCard()`、`config` → `applyConfig()`、`clear` → `clearCards()`、`ping` → `sendPong()`、`get-state` → `sendStateReport()`
    - 重连：指数退避 1s → 30s，最大 10 次
    - 状态上报：`state-report` 含 `cardsCount`、`cardInfo`、`bodyBg`、`panelBg`、`animationFrame`、`wsReceived`、`wsOpen`
    - 错误上报：`window.onerror` → `sendError()`
-   - 参考 `prototype_floating_panel/panel.html:124-261`
+   - 参考 `danmuai_external/prototype_floating_panel/panel.html:124-261`
 
 **验收标准**：
 - `index.html` 在浏览器（Chrome/Edge）打开无 JS 错误
@@ -548,7 +550,7 @@ python scripts/boundary_guard.py
 
 ### 4.3 原型测试入口
 
-原型测试脚本保留在 `prototype_floating_panel/`，可作为回归参考：
+原型测试脚本保留在 `danmuai_external/prototype_floating_panel/`，可作为回归参考：
 ```bash
 python -m prototype_floating_panel.run_prototype --mode test
 ```
@@ -581,11 +583,11 @@ python -m prototype_floating_panel.run_prototype --mode test
 - [PYWEBVIEW_FLOATING_PANEL_TEST_PLAN.md](PYWEBVIEW_FLOATING_PANEL_TEST_PLAN.md)
 
 ### 原型参考
-- [prototype_floating_panel/panel.html](file:///e:/test/danmu/prototype_floating_panel/panel.html)
-- [prototype_floating_panel/panel_window.py](file:///e:/test/danmu/prototype_floating_panel/panel_window.py)
-- [prototype_floating_panel/run_prototype.py](file:///e:/test/danmu/prototype_floating_panel/run_prototype.py)
-- [prototype_floating_panel/win32_probe.py](file:///e:/test/danmu/prototype_floating_panel/win32_probe.py)
-- [prototype_floating_panel/TEST_RESULTS.md](file:///e:/test/danmu/prototype_floating_panel/TEST_RESULTS.md)
+- [prototype_floating_panel/panel.html](file:///e:/test/danmuai_external/prototype_floating_panel/panel.html)
+- [prototype_floating_panel/panel_window.py](file:///e:/test/danmuai_external/prototype_floating_panel/panel_window.py)
+- [prototype_floating_panel/run_prototype.py](file:///e:/test/danmuai_external/prototype_floating_panel/run_prototype.py)
+- [prototype_floating_panel/win32_probe.py](file:///e:/test/danmuai_external/prototype_floating_panel/win32_probe.py)
+- [prototype_floating_panel/TEST_RESULTS.md](file:///e:/test/danmuai_external/prototype_floating_panel/TEST_RESULTS.md)
 
 ### 生产代码（复用对象）
 - [app/floating_panel_overlay.py](file:///e:/test/danmu/app/floating_panel_overlay.py)

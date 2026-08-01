@@ -8,6 +8,8 @@
 
 ---
 
+> **迁移说明**：`prototype_floating_panel/` 原型目录已迁出源仓库，现位于 `E:\test\danmuai_external\prototype_floating_panel\`。本文档中的 `file:///` 链接和代码路径已同步更新。运行原型需设置 `$env:DANMUAI_SRC_ROOT='E:\test\danmu'`。
+
 ## 1. 当前 QPainter 架构（基线）
 
 ### 1.1 模块组成
@@ -707,9 +709,9 @@ app.router.routes.insert(0, websocket_route("/ws/panel", endpoint=_ws_panel_endp
 - [DanmuAI.spec](file:///e:/test/danmu/DanmuAI.spec)
 
 ### 原型参考
-- [prototype_floating_panel/panel.html](file:///e:/test/danmu/prototype_floating_panel/panel.html)
-- [prototype_floating_panel/panel_window.py](file:///e:/test/danmu/prototype_floating_panel/panel_window.py)
-- [prototype_floating_panel/run_prototype.py](file:///e:/test/danmu/prototype_floating_panel/run_prototype.py)
+- [prototype_floating_panel/panel.html](file:///e:/test/danmuai_external/prototype_floating_panel/panel.html)
+- [prototype_floating_panel/panel_window.py](file:///e:/test/danmuai_external/prototype_floating_panel/panel_window.py)
+- [prototype_floating_panel/run_prototype.py](file:///e:/test/danmuai_external/prototype_floating_panel/run_prototype.py)
 
 ### 配套文档
 - [PYWEBVIEW_FLOATING_PANEL_FEASIBILITY.md](PYWEBVIEW_FLOATING_PANEL_FEASIBILITY.md)

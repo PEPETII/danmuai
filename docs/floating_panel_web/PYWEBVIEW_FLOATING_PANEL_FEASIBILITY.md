@@ -1,10 +1,12 @@
 # pywebview + Edge WebView2 浮动面板可行性验证报告
 
-> 文档定位：本文档基于 `prototype_floating_panel/` 最小验证原型的**实际运行结果**编写，作为后续替换 `app/floating_panel_overlay.py` QPainter 渲染层的可行性依据。
+> 文档定位：本文档基于 `danmuai_external/prototype_floating_panel/` 最小验证原型的**实际运行结果**编写，作为后续替换 `app/floating_panel_overlay.py` QPainter 渲染层的可行性依据。
 >
 > 所有结论均可追溯到具体文件、行号、测试日志或截图。未实际验证的事项一律标注「待实施阶段验证」。
 
 ---
+
+> **迁移说明**：`prototype_floating_panel/` 原型目录已迁出源仓库，现位于 `E:\test\danmuai_external\prototype_floating_panel\`。本文档中的 `file:///` 链接和代码路径已同步更新。运行原型需设置 `$env:DANMUAI_SRC_ROOT='E:\test\danmu'`。
 
 ## 1. 验证环境
 
@@ -21,9 +23,9 @@
 | 主屏 DPI | 144（150% 缩放） |
 | 主屏分辨率 | 2560×1440（PyQt 报告 1707×960 logical） |
 | 验证日期 | 2026-07-21 |
-| 原型目录 | `e:\test\danmu\prototype_floating_panel\` |
+| 原型目录 | `e:\test\danmuai_external\prototype_floating_panel\` |
 | 测试入口 | `python -m prototype_floating_panel.run_prototype --mode test` |
-| 测试输出 | `prototype_floating_panel/TEST_RESULTS.md`（每次运行自动覆盖） |
+| 测试输出 | `danmuai_external/prototype_floating_panel/TEST_RESULTS.md`（每次运行自动覆盖） |
 
 ---
 
@@ -48,10 +50,10 @@
 
 | 文件 | 职责 |
 |------|------|
-| `prototype_floating_panel/panel.html` | Vue 风格浮动面板 HTML+CSS+JS，含 WS state-report 协议 |
-| `prototype_floating_panel/panel_window.py` | pywebview 子进程 + Win32 探针 |
-| `prototype_floating_panel/win32_probe.py` | Win32 探针函数集（exstyle / topmost / WindowFromPoint / DPI） |
-| `prototype_floating_panel/run_prototype.py` | 主进程：FastAPI + WS + 测试运行器 |
+| `danmuai_external/prototype_floating_panel/panel.html` | Vue 风格浮动面板 HTML+CSS+JS，含 WS state-report 协议 |
+| `danmuai_external/prototype_floating_panel/panel_window.py` | pywebview 子进程 + Win32 探针 |
+| `danmuai_external/prototype_floating_panel/win32_probe.py` | Win32 探针函数集（exstyle / topmost / WindowFromPoint / DPI） |
+| `danmuai_external/prototype_floating_panel/run_prototype.py` | 主进程：FastAPI + WS + 测试运行器 |
 
 ### 2.3 Win32 探针项目（全部实测）
 
@@ -90,10 +92,10 @@
 | exstyle 稳定性 | **PASS** | `exstyle-stable:10s` + `click-through-exstyle-stable:5s` |
 
 **关键代码位置**：
-- 窗口创建：`prototype_floating_panel/panel_window.py:40-59`（`transparent=True, frameless=True, on_top=True, easy_drag=False`）
-- exstyle 应用：`prototype_floating_panel/win32_probe.py:68-75`（`apply_click_through`）
-- topmost 设置：`prototype_floating_panel/win32_probe.py:88-94`（`set_topmost`）
-- click-through 验证：`prototype_floating_panel/panel_window.py:240-263`（5 点 WindowFromPoint）
+- 窗口创建：`danmuai_external/prototype_floating_panel/panel_window.py:40-59`（`transparent=True, frameless=True, on_top=True, easy_drag=False`）
+- exstyle 应用：`danmuai_external/prototype_floating_panel/win32_probe.py:68-75`（`apply_click_through`）
+- topmost 设置：`danmuai_external/prototype_floating_panel/win32_probe.py:88-94`（`set_topmost`）
+- click-through 验证：`danmuai_external/prototype_floating_panel/panel_window.py:240-263`（5 点 WindowFromPoint）
 
 **生产代码复用**：
 - [app/win32_overlay_zorder.py:38-50](file:///e:/test/danmu/app/win32_overlay_zorder.py#L38-L50) `apply_overlay_exstyles(hwnd, click_through=True)` 已实现等价逻辑，可直接复用
@@ -109,7 +111,7 @@
 
 | 子项 | 结果 | 证据 |
 |------|------|------|
-| FastAPI 复用 | **PASS** | `prototype_floating_panel/run_prototype.py:33-146` 用 `uvicorn.Config(app, ws="websockets")` 启动，与生产 [app/web_console_runtime.py](file:///e:/test/danmu/app/web_console_runtime.py) 一致 |
+| FastAPI 复用 | **PASS** | `danmuai_external/prototype_floating_panel/run_prototype.py:33-146` 用 `uvicorn.Config(app, ws="websockets")` 启动，与生产 [app/web_console_runtime.py](file:///e:/test/danmu/app/web_console_runtime.py) 一致 |
 | WebSocket 路由注册 | **PASS** | `run_prototype.py:134` 用 `app.router.routes.insert(0, WebSocketRoute(...))` 显式注册 |
 | WS 双向通信 | **PASS** | 服务端发送 21 条、接收 18 条；`state-report` 成功返回页面渲染状态 |
 | webview_shell 架构复用 | **PASS** | `panel_window.py` 用 `multiprocessing.get_context("spawn")` + `ready_queue` + `gui="edgechromium"`，与生产 [app/webview_shell.py:362-380](file:///e:/test/danmu/app/webview_shell.py#L362-L380) 同构 |
@@ -162,7 +164,7 @@ pywebview 在创建窗口时一次性设置 `WS_EX_LAYERED`（通过 `Form.Trans
 | 入场动画 | **PASS** | `slideUp` keyframes（`translateY(40%) → translateY(0)`）正常 |
 | 退场动画 | **PASS** | `fadeOut` keyframes（`opacity:1 → 0, translateY(0 → -20px)`）正常 |
 
-**关键 CSS**（`prototype_floating_panel/panel.html:6-117`）：
+**关键 CSS**（`danmuai_external/prototype_floating_panel/panel.html:6-117`）：
 ```css
 html, body {
   background: transparent !important;
@@ -356,11 +358,11 @@ state-report 正常返回卡片尺寸 147×55、阴影、圆角、透明度等�
 ## 8. 引用文件索引
 
 ### 原型文件
-- [prototype_floating_panel/panel.html](file:///e:/test/danmu/prototype_floating_panel/panel.html)
-- [prototype_floating_panel/panel_window.py](file:///e:/test/danmu/prototype_floating_panel/panel_window.py)
-- [prototype_floating_panel/win32_probe.py](file:///e:/test/danmu/prototype_floating_panel/win32_probe.py)
-- [prototype_floating_panel/run_prototype.py](file:///e:/test/danmu/prototype_floating_panel/run_prototype.py)
-- [prototype_floating_panel/TEST_RESULTS.md](file:///e:/test/danmu/prototype_floating_panel/TEST_RESULTS.md)
+- [prototype_floating_panel/panel.html](file:///e:/test/danmuai_external/prototype_floating_panel/panel.html)
+- [prototype_floating_panel/panel_window.py](file:///e:/test/danmuai_external/prototype_floating_panel/panel_window.py)
+- [prototype_floating_panel/win32_probe.py](file:///e:/test/danmuai_external/prototype_floating_panel/win32_probe.py)
+- [prototype_floating_panel/run_prototype.py](file:///e:/test/danmuai_external/prototype_floating_panel/run_prototype.py)
+- [prototype_floating_panel/TEST_RESULTS.md](file:///e:/test/danmuai_external/prototype_floating_panel/TEST_RESULTS.md)
 
 ### 生产代码（复用对象）
 - [app/floating_panel_overlay.py](file:///e:/test/danmu/app/floating_panel_overlay.py) — 现 QPainter 实现（待替换）
