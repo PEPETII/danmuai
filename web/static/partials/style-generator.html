@@ -193,13 +193,6 @@
               </h4>
               <div id="sgOutlineAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="sgOutlineAccordionTrigger" hidden>
                 <div class="settings-params-grid cols-2">
-                  <div class="settings-field settings-field--toggle">
-                    <span class="settings-field-label" data-i18n="content.text.描边">描边</span>
-                    <label class="toggle-switch">
-                      <input type="checkbox" name="floating_panel_outline_enabled" id="sg-floating_panel_outline_enabled" role="switch" value="1">
-                      <span aria-hidden="true"></span>
-                    </label>
-                  </div>
                   <div class="settings-field">
                     <label for="sg-floating_panel_outline_color" class="settings-field-label" data-i18n="content.text.描边颜色">描边颜色</label>
                     <div class="sg-color-input">
@@ -210,6 +203,13 @@
                   <div class="settings-field">
                     <label for="sg-floating_panel_outline_width" class="settings-field-label" data-i18n="content.text.描边宽度">描边宽度</label>
                     <input type="number" name="floating_panel_outline_width" id="sg-floating_panel_outline_width" min="0" max="8" class="settings-field-control" value="2">
+                  </div>
+                  <div class="settings-field settings-field--toggle">
+                    <span class="settings-field-label" data-i18n="content.text.描边">描边</span>
+                    <label class="toggle-switch">
+                      <input type="checkbox" name="floating_panel_outline_enabled" id="sg-floating_panel_outline_enabled" role="switch" value="1">
+                      <span aria-hidden="true"></span>
+                    </label>
                   </div>
                 </div>
               </div>
@@ -227,13 +227,6 @@
               </h4>
               <div id="sgShadowAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="sgShadowAccordionTrigger" hidden>
                 <div class="settings-params-grid cols-2">
-                  <div class="settings-field settings-field--toggle">
-                    <span class="settings-field-label" data-i18n="content.text.启用阴影">启用阴影</span>
-                    <label class="toggle-switch">
-                      <input type="checkbox" name="floating_panel_shadow_enabled" id="sg-floating_panel_shadow_enabled" role="switch" value="1">
-                      <span aria-hidden="true"></span>
-                    </label>
-                  </div>
                   <div class="settings-field">
                     <label for="sg-floating_panel_shadow_color" class="settings-field-label" data-i18n="content.text.阴影颜色">阴影颜色</label>
                     <div class="sg-color-input">
@@ -257,6 +250,13 @@
                     <label for="sg-floating_panel_shadow_offset_y" class="settings-field-label" data-i18n="content.text.阴影偏移_Y">阴影偏移 Y</label>
                     <input type="number" name="floating_panel_shadow_offset_y" id="sg-floating_panel_shadow_offset_y" min="-20" max="20" class="settings-field-control" value="2">
                   </div>
+                  <div class="settings-field settings-field--toggle">
+                    <span class="settings-field-label" data-i18n="content.text.启用阴影">启用阴影</span>
+                    <label class="toggle-switch">
+                      <input type="checkbox" name="floating_panel_shadow_enabled" id="sg-floating_panel_shadow_enabled" role="switch" value="1">
+                      <span aria-hidden="true"></span>
+                    </label>
+                  </div>
                 </div>
               </div>
             </section>
@@ -273,13 +273,6 @@
               </h4>
               <div id="sgBorderAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="sgBorderAccordionTrigger" hidden>
                 <div class="settings-params-grid cols-2">
-                  <div class="settings-field settings-field--toggle">
-                    <span class="settings-field-label" data-i18n="content.text.启用边框">启用边框</span>
-                    <label class="toggle-switch">
-                      <input type="checkbox" name="floating_panel_border_enabled" id="sg-floating_panel_border_enabled" role="switch" value="1">
-                      <span aria-hidden="true"></span>
-                    </label>
-                  </div>
                   <div class="settings-field">
                     <label for="sg-floating_panel_border_color" class="settings-field-label" data-i18n="content.text.边框颜色">边框颜色</label>
                     <div class="sg-color-input">
@@ -294,6 +287,13 @@
                   <div class="settings-field">
                     <label for="sg-floating_panel_border_opacity" class="settings-field-label" data-i18n="content.text.边框不透明度">边框不透明度 (%)</label>
                     <input type="number" name="floating_panel_border_opacity" id="sg-floating_panel_border_opacity" min="0" max="100" class="settings-field-control" value="45">
+                  </div>
+                  <div class="settings-field settings-field--toggle">
+                    <span class="settings-field-label" data-i18n="content.text.启用边框">启用边框</span>
+                    <label class="toggle-switch">
+                      <input type="checkbox" name="floating_panel_border_enabled" id="sg-floating_panel_border_enabled" role="switch" value="1">
+                      <span aria-hidden="true"></span>
+                    </label>
                   </div>
                 </div>
               </div>
@@ -311,13 +311,6 @@
               </h4>
               <div id="sgUsernameAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="sgUsernameAccordionTrigger" hidden>
                 <div class="settings-params-grid cols-2">
-                  <div class="settings-field settings-field--toggle">
-                    <span class="settings-field-label" data-i18n="content.text.显示用户名">显示用户名</span>
-                    <label class="toggle-switch">
-                      <input type="checkbox" name="floating_panel_username_enabled" id="sg-floating_panel_username_enabled" role="switch" value="1">
-                      <span aria-hidden="true"></span>
-                    </label>
-                  </div>
                   <div class="settings-field">
                     <label for="sg-floating_panel_username_text" class="settings-field-label" data-i18n="content.text.用户名文本">用户名文本</label>
                     <input type="text" name="floating_panel_username_text" id="sg-floating_panel_username_text" class="settings-field-control" value="弹幕">
@@ -357,6 +350,13 @@
                     <label for="sg-floating_panel_gap_username_content" class="settings-field-label" data-i18n="content.text.用户名与内容间距">用户名与内容间距 (px)</label>
                     <input type="number" name="floating_panel_gap_username_content" id="sg-floating_panel_gap_username_content" min="0" max="24" class="settings-field-control" value="4">
                   </div>
+                  <div class="settings-field settings-field--toggle">
+                    <span class="settings-field-label" data-i18n="content.text.显示用户名">显示用户名</span>
+                    <label class="toggle-switch">
+                      <input type="checkbox" name="floating_panel_username_enabled" id="sg-floating_panel_username_enabled" role="switch" value="1">
+                      <span aria-hidden="true"></span>
+                    </label>
+                  </div>
                 </div>
               </div>
             </section>
@@ -383,13 +383,6 @@
                     <label for="sg-floating_panel_font_size" class="settings-field-label" data-i18n="content.text.字号">字号 (px)</label>
                     <input type="number" name="floating_panel_font_size" id="sg-floating_panel_font_size" min="12" max="48" class="settings-field-control" value="20">
                   </div>
-                  <div class="settings-field settings-field--toggle">
-                    <span class="settings-field-label" data-i18n="content.text.加粗">加粗</span>
-                    <label class="toggle-switch">
-                      <input type="checkbox" name="floating_panel_font_bold" id="sg-floating_panel_font_bold" role="switch" value="1">
-                      <span aria-hidden="true"></span>
-                    </label>
-                  </div>
                   <div class="settings-field">
                     <label for="sg-floating_panel_radius" class="settings-field-label" data-i18n="content.text.圆角">圆角</label>
                     <input type="number" name="floating_panel_radius" id="sg-floating_panel_radius" min="0" max="48" class="settings-field-control" value="16">
@@ -401,6 +394,13 @@
                   <div class="settings-field">
                     <label for="sg-floating_panel_padding_y" class="settings-field-label" data-i18n="content.text.垂直内边距">垂直内边距</label>
                     <input type="number" name="floating_panel_padding_y" id="sg-floating_panel_padding_y" min="0" max="48" class="settings-field-control" value="10">
+                  </div>
+                  <div class="settings-field settings-field--toggle">
+                    <span class="settings-field-label" data-i18n="content.text.加粗">加粗</span>
+                    <label class="toggle-switch">
+                      <input type="checkbox" name="floating_panel_font_bold" id="sg-floating_panel_font_bold" role="switch" value="1">
+                      <span aria-hidden="true"></span>
+                    </label>
                   </div>
                 </div>
               </div>
@@ -418,13 +418,6 @@
               </h4>
               <div id="sgTailAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="sgTailAccordionTrigger" hidden>
                 <div class="settings-params-grid cols-2">
-                  <div class="settings-field settings-field--toggle">
-                    <span class="settings-field-label" data-i18n="content.text.启用尾巴">启用尾巴</span>
-                    <label class="toggle-switch">
-                      <input type="checkbox" name="floating_panel_tail_enabled" id="sg-floating_panel_tail_enabled" role="switch" value="1">
-                      <span aria-hidden="true"></span>
-                    </label>
-                  </div>
                   <div class="settings-field">
                     <label for="sg-floating_panel_tail_style" class="settings-field-label" data-i18n="content.text.尾巴样式">尾巴样式</label>
                     <select name="floating_panel_tail_style" id="sg-floating_panel_tail_style" class="settings-field-control text-left">
@@ -461,6 +454,13 @@
                   <div class="settings-field">
                     <label for="sg-floating_panel_tail_rotate_deg" class="settings-field-label" data-i18n="content.text.Line尾巴旋转">Line 尾巴旋转 (°)</label>
                     <input type="number" name="floating_panel_tail_rotate_deg" id="sg-floating_panel_tail_rotate_deg" min="-180" max="180" class="settings-field-control" value="35">
+                  </div>
+                  <div class="settings-field settings-field--toggle">
+                    <span class="settings-field-label" data-i18n="content.text.启用尾巴">启用尾巴</span>
+                    <label class="toggle-switch">
+                      <input type="checkbox" name="floating_panel_tail_enabled" id="sg-floating_panel_tail_enabled" role="switch" value="1">
+                      <span aria-hidden="true"></span>
+                    </label>
                   </div>
                 </div>
               </div>

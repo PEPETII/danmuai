@@ -50,7 +50,7 @@ function isDoubaoMode(apiMode) {
   return normalizeModeInput(apiMode) === 'doubao';
 }
 
-def matchHostEntry(endpoint) {
+function matchHostEntry(endpoint) {
   const hostname = extractHostname(endpoint);
   if (!hostname) return null;
   for (const entry of hostEntriesCache) {
