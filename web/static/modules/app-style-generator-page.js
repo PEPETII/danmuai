@@ -10,6 +10,7 @@
 import { API, apiFetch, apiFormFetch } from './transport.js';
 import { t } from './i18n.js';
 import { initSettingsRhythmAccordion } from './settings-rhythm-accordion.js?v=20260717-number-stepper-v1';
+import { initNumberSteppers } from './number-stepper.js?v=20260717-number-stepper-v1';
 import { loadHorizontalFontPage, initHorizontalFontPage } from './app-horizontal-font-page.js';
 
 /** 保存/应用预设时提交的键（与 STYLE_PRESET_APPLY_KEYS 对齐） */
@@ -355,10 +356,11 @@ function renderWeightsPanel(kind, colors) {
     row.innerHTML = `
       <span class="sg-color-swatch" style="background:${hexToRgba(color)}"></span>
       <span class="sg-color-hex">${color}</span>
-      <input type="number" min="0" step="0.1" value="${w}" data-weight-color="${color}" data-kind="${kind}" class="settings-field-control sg-weight-input">
+      <input type="number" min="0" step="0.1" value="${w}" data-weight-color="${color}" data-kind="${kind}" class="settings-field-control sg-weight-input ui-control ui-input">
     `;
     panel.appendChild(row);
   });
+  initNumberSteppers(panel);
   syncWeightsFromPanel(kind);
 }
 
@@ -944,6 +946,7 @@ export function initStyleGeneratorPage(deps = {}) {
   document.getElementById('sgTextColorHex')?.addEventListener('change', onAddColorHexInput);
 
   initSettingsRhythmAccordion();
+  initNumberSteppers(form);
   initHorizontalFontPage({ showToast: toast, navigate: deps.navigate });
   syncSingleColorPickersFromText();
   syncAddColorHexFromPicker('card');

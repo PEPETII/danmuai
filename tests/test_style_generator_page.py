@@ -106,6 +106,29 @@ def test_style_generator_tabs_share_accordion_layout_contract():
         assert "ui-button" in button, button_id
 
 
+def test_style_generator_accordion_number_stepper_inner_matches_reference():
+    """折叠面板内步进器内层 input 应与设置页步进器约定一致（居中、透明、6px padding）。"""
+    partial = (_static() / "partials" / "style-generator.html").read_text(encoding="utf-8")
+    css = (_static() / "warm-tokens-pages-stylegen.css").read_text(encoding="utf-8")
+    mod = (_static() / "modules" / "app-style-generator-page.js").read_text(encoding="utf-8")
+
+    assert (
+        "#page-style-generator .sg-accordion .settings-rhythm-stepper .settings-field-control"
+        in css
+    )
+    stepper_inner_start = css.index(
+        "#page-style-generator .sg-accordion .settings-rhythm-stepper .settings-field-control"
+    )
+    stepper_inner_block = css[stepper_inner_start : stepper_inner_start + 320]
+    assert "padding: 0 6px" in stepper_inner_block
+    assert "text-align: center" in stepper_inner_block
+    assert "background: transparent !important" in stepper_inner_block
+    assert 'input[type="number"].settings-field-control {\n  text-align: right' not in css
+    assert partial.count('type="number"') >= 35
+    assert 'class="settings-field-control ui-control ui-input"' in partial
+    assert "initNumberSteppers(form)" in mod
+
+
 def test_sidebar_has_independent_style_generator_entry():
     sidebar = (_static() / "partials" / "sidebar.html").read_text(encoding="utf-8")
     assert 'data-page="style-generator"' in sidebar

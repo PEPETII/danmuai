@@ -119,10 +119,6 @@
   box-shadow: none !important;
 }
 
-#page-style-generator .sg-accordion input[type="number"].settings-field-control {
-  text-align: right;
-}
-
 #page-style-generator .sg-accordion .settings-field-control:focus,
 #page-style-generator .sg-accordion .settings-field-control:focus-visible {
   outline: none;
@@ -169,6 +165,15 @@
   width: 100%;
   max-width: none;
   flex: none;
+}
+
+#page-style-generator .sg-accordion .settings-rhythm-stepper .settings-field-control {
+  width: 100%;
+  padding: 0 6px;
+  border-radius: 0;
+  background: transparent !important;
+  box-shadow: none !important;
+  text-align: center;
 }
 
 .sg-accordion-toolbar {
