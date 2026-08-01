@@ -311,7 +311,16 @@ DEFAULT_PROVIDER_ID = "custom_openai"
 
 
 def get_provider(provider_id: str) -> ProviderSpec | None:
-    return _PROVIDER_BY_ID.get(provider_id)
+    # The v2 registry is the compatibility facade's source of truth.  Keep
+    # returning the canonical legacy object when available so old callers that
+    # rely on ProviderSpec identity continue to work.
+    from app.providers.platform_registry import get_provider_definition as _get
+
+    definition = _get(provider_id)
+    if definition is None:
+        return None
+    legacy = definition.to_provider_spec()
+    return _PROVIDER_BY_ID.get(provider_id, legacy)
 
 
 def get_provider_definition(provider_id: str):
@@ -329,19 +338,26 @@ def list_provider_definitions():
 
 
 def provider_region(provider_id: str) -> Region:
-    spec = get_provider(provider_id)
-    return spec.region if spec is not None else "china"
+    from app.providers.platform_registry import get_provider_definition as _get
+
+    definition = _get(provider_id)
+    return definition.region if definition is not None else "china"
 
 
 def provider_label(provider_id: str, lang: str = "zh") -> str:
-    spec = get_provider(provider_id) or get_provider(DEFAULT_PROVIDER_ID)
-    if spec is None:
+    from app.providers.platform_registry import get_provider_definition as _get
+
+    definition = _get(provider_id) or _get(DEFAULT_PROVIDER_ID)
+    if definition is None:
         return provider_id
-    return spec.label_zh if lang == "zh" else spec.label_en
+    return definition.label_zh if lang == "zh" else definition.label_en
 
 
 def provider_for_api(spec: ProviderSpec, lang: str = "zh") -> dict:
     """Serialize a provider preset for GET /api/providers."""
+    from app.providers.platform_registry import get_provider_definition as _get
+
+    definition = _get(spec.id)
     notice = spec.notice_zh if lang == "zh" else spec.notice_en
     payload: dict[str, object] = {
         "id": spec.id,
@@ -360,11 +376,36 @@ def provider_for_api(spec: ProviderSpec, lang: str = "zh") -> dict:
         payload["migration_url"] = spec.migration_url
     if notice:
         payload["notice"] = notice
+    if definition is not None:
+        endpoint = definition.endpoint
+        source = definition.official_source
+        payload.update(
+            {
+                "status": definition.status,
+                "verified_at": definition.verified_at,
+                "exact_hosts": list(endpoint.exact_hosts),
+                "api_family": endpoint.api_family,
+                "source": {
+                    "website": source.website,
+                    "docs_url": source.docs_url,
+                    "source_kind": source.source_kind,
+                    "url": source.url,
+                    "verified_at": source.verified_at,
+                },
+                "migration": {
+                    "legacy_url": spec.migration_url,
+                    "official_url": source.migration_url,
+                },
+            }
+        )
     return payload
 
 
 def apply_provider_to_form(provider_id: str) -> dict:
-    spec = get_provider(provider_id) or get_provider(DEFAULT_PROVIDER_ID)
+    from app.providers.platform_registry import get_provider_definition as _get
+
+    definition = _get(provider_id) or _get(DEFAULT_PROVIDER_ID)
+    spec = definition.to_provider_spec() if definition is not None else None
     if spec is None:
         return {"endpoint": "", "mode": "openai-compatible", "lock_mode": False, "lock_endpoint": False}
     return {

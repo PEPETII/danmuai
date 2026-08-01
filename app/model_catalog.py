@@ -57,9 +57,17 @@ class CatalogModel:
     id: str
     price: ModelPrice
     modality: str = "图片输入 + 文本输入 → 文本输出"
-    supports_vision: bool = True
+    supports_vision: bool | None = None
     main_flow_recommended: bool = True
     thinking_mode: ThinkingMode = "off"
+    supports_mic: bool | None = False
+    status: str = "active"
+    replacement_model_id: str | None = None
+    source_kind: str = "curated"
+    source_url: str | None = None
+    verified_at: str | None = "2026-08-01"
+    input_modalities: tuple[str, ...] = ("text", "image")
+    output_modalities: tuple[str, ...] = ("text",)
 
     @property
     def supports_thinking_toggle(self) -> bool:
@@ -75,6 +83,14 @@ class CatalogModel:
             "main_flow_recommended": self.main_flow_recommended,
             "thinking_mode": self.thinking_mode,
             "supports_thinking_toggle": self.supports_thinking_toggle,
+            "supports_mic": self.supports_mic,
+            "status": self.status,
+            "replacement_model_id": self.replacement_model_id,
+            "source_kind": self.source_kind,
+            "source_url": self.source_url,
+            "verified_at": self.verified_at,
+            "input_modalities": list(self.input_modalities),
+            "output_modalities": list(self.output_modalities),
         }
 
 
@@ -104,18 +120,21 @@ DOUBAO_MODELS: tuple[CatalogModel, ...] = (
         "doubao-seed-2-0-pro-260215",
         ModelPrice(input=1.0, audio=15, output=9),
         thinking_mode="hybrid",
+        supports_mic=True,
     ),
     CatalogModel(
         "Doubao-Seed-2.0-lite",
         "doubao-seed-2-0-lite-260428",
         ModelPrice(input=0.6, audio=9, output=3.6),
         thinking_mode="hybrid",
+        supports_mic=True,
     ),
     CatalogModel(
         "Doubao-Seed-2.0-mini",
         "doubao-seed-2-0-mini-260428",
         ModelPrice(input=0.2, audio=3, output=2),
         thinking_mode="hybrid",
+        supports_mic=True,
     ),
     CatalogModel(
         "Doubao-Seed-1.8",
@@ -416,6 +435,7 @@ MIMO_MODELS: tuple[CatalogModel, ...] = (
         "mimo-v2.5",
         ModelPrice(input=1.0, audio=1.0, output=2.0),
         thinking_mode="hybrid",
+        supports_mic=True,
     ),
 )
 
@@ -826,7 +846,8 @@ def enrich_platform_models(
     result: list[dict[str, Any]] = []
     for model in items:
         payload = model.to_dict()
-        payload["supports_mic"] = model.price.audio is not None
+        if model.supports_vision is None and model.id in _CATALOG_BY_MODEL_ID:
+            payload["supports_vision"] = True
         payload["cheapest"] = model.id == cheapest_id
         result.append(payload)
     return result
@@ -890,14 +911,14 @@ def catalog_provider_ids_for_model(model_id: str) -> frozenset[str]:
 
 
 def catalog_model_supports_mic(model_id: str) -> bool:
-    """True when ``model_id`` is listed in a platform catalog with audio pricing."""
+    """Return explicit microphone capability; pricing is never a capability source."""
     mid = (model_id or "").strip()
     if not mid:
         return False
     for platform in PLATFORM_CATALOGS:
         for model in platform.models:
-            if model.id == mid and model.price.audio is not None:
-                return True
+            if model.id == mid:
+                return model.supports_mic is True
     return False
 
 

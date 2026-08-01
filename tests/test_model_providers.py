@@ -617,7 +617,7 @@ def test_v2_hunyuan_lifecycle_and_endpoint_fields():
     assert definition.lifecycle_status == "migrating"
     assert definition.sunset_date == "2026-09-30"
     assert definition.official_source.migration_url == (
-        "https://cloud.tencent.com/document/product/1729/111007"
+        "https://cloud.tencent.com/document/product/1729/131925"
     )
     assert definition.endpoint.default_url == "https://api.hunyuan.cloud.tencent.com/v1"
     assert definition.endpoint.host_match_fragment == "api.hunyuan.cloud.tencent.com"

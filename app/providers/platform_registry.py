@@ -8,7 +8,14 @@ for Batch 2; v2 is derived at first access.
 
 from __future__ import annotations
 
-from app.providers.endpoint_resolver import extract_hostname
+from dataclasses import replace
+from urllib.parse import urlparse
+
+from app.providers.endpoint_resolver import (
+    API_FAMILY_OPENAI_CHAT,
+    API_FAMILY_OPENAI_RESPONSES,
+    extract_hostname,
+)
 from app.providers.platform_definitions import (
     AuthProfile,
     EndpointProfile,
@@ -29,6 +36,62 @@ _OPENROUTER_EXTRA_HEADERS: tuple[tuple[str, str], ...] = (
 )
 
 _PROVIDER_PLATFORM_ID: dict[str, str] = {}
+_VERIFIED_AT = "2026-08-01"
+
+
+class _ProviderDefinitionCompat(ProviderDefinition):
+    """Keep the legacy migration field while exposing the corrected source URL."""
+
+    _legacy_migration_url: str | None = None
+
+    def to_provider_spec(self):
+        spec = super().to_provider_spec()
+        return replace(spec, migration_url=self._legacy_migration_url)
+
+
+def _endpoint_profile_for_spec(spec) -> EndpointProfile:
+    """Build the enriched profile without inventing endpoints for customs."""
+    url = spec.default_endpoint or ""
+    hostname = _endpoint_host_fragment(url) if url else None
+    parsed = urlparse(url) if url else None
+    family = (
+        API_FAMILY_OPENAI_RESPONSES
+        if spec.mode == "doubao"
+        else API_FAMILY_OPENAI_CHAT
+    )
+    status = getattr(spec, "lifecycle_status", None) or ("unknown" if not url else "active")
+    return EndpointProfile(
+        default_url=url,
+        api_mode=spec.mode,
+        lock_endpoint=spec.lock_endpoint,
+        host_match_fragment=hostname,
+        id=f"{spec.id}-default" if url else None,
+        base_url=url or None,
+        exact_hosts=(hostname,) if hostname else (),
+        api_family=family,
+        path_prefix=(parsed.path.rstrip("/") or "/") if parsed else None,
+        region=spec.region,
+        status=status,
+    )
+
+
+def _official_source_for_spec(spec) -> OfficialSource:
+    docs = {
+        "openrouter": "https://openrouter.ai/docs/quick-start",
+        "stepfun": "https://platform.stepfun.com/docs/zh/api-reference/chat/chat-completion-create",
+        "hunyuan": "https://cloud.tencent.com/document/product/1729/111007",
+    }.get(spec.id)
+    migration_url = getattr(spec, "migration_url", None)
+    if spec.id == "hunyuan":
+        migration_url = "https://cloud.tencent.com/document/product/1729/131925"
+    return OfficialSource(
+        website=spec.website,
+        docs_url=docs,
+        migration_url=migration_url,
+        source_kind="official" if (docs or migration_url) else "unknown",
+        url=docs or spec.website,
+        verified_at=_VERIFIED_AT if (docs or migration_url) else None,
+    )
 
 
 def _endpoint_host_fragment(url: str) -> str | None:
@@ -50,22 +113,15 @@ def provider_definition_from_spec(spec) -> ProviderDefinition:
     from app.providers.capabilities import get_capabilities
 
     caps = get_capabilities(spec.id)
-    host_fragment = _endpoint_host_fragment(spec.default_endpoint) if spec.default_endpoint else None
-    official = OfficialSource(
-        website=spec.website,
-        migration_url=getattr(spec, "migration_url", None),
-    )
-    return ProviderDefinition(
+    endpoint = _endpoint_profile_for_spec(spec)
+    official = _official_source_for_spec(spec)
+    api_family = endpoint.api_family
+    definition = _ProviderDefinitionCompat(
         id=spec.id,
         label_zh=spec.label_zh,
         label_en=spec.label_en,
         region=spec.region,
-        endpoint=EndpointProfile(
-            default_url=spec.default_endpoint,
-            api_mode=spec.mode,
-            lock_endpoint=spec.lock_endpoint,
-            host_match_fragment=host_fragment,
-        ),
+        endpoint=endpoint,
         auth=auth_profile_for_provider(spec.id, default_endpoint=spec.default_endpoint),
         capabilities=capability_profile_from_provider_capabilities(caps),
         official_source=official,
@@ -77,7 +133,16 @@ def provider_definition_from_spec(spec) -> ProviderDefinition:
         notice_zh=getattr(spec, "notice_zh", None),
         notice_en=getattr(spec, "notice_en", None),
         platform_id=_PROVIDER_PLATFORM_ID.get(spec.id),
+        endpoint_profiles=(endpoint,),
+        auth_profiles=(auth_profile_for_provider(spec.id, default_endpoint=spec.default_endpoint),),
+        api_families=(api_family,) if api_family else (),
+        preferred_api_family=api_family,
+        model_discovery="unknown",
+        status=getattr(spec, "lifecycle_status", None) or ("unknown" if not spec.default_endpoint else "active"),
+        verified_at=_VERIFIED_AT if spec.default_endpoint else None,
     )
+    object.__setattr__(definition, "_legacy_migration_url", getattr(spec, "migration_url", None))
+    return definition
 
 
 def _load_platform_id_map() -> None:

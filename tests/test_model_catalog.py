@@ -68,13 +68,21 @@ def test_enriched_catalog_includes_thinking_metadata():
     assert get_thinking_mode_for_model("unknown") == "off"
 
 
-def test_doubao_supports_mic_from_audio_price():
+def test_doubao_supports_mic_from_explicit_capability():
     enriched = enrich_platform_models(DOUBAO_MODELS)
     by_id = {m["id"]: m for m in enriched}
     assert by_id["doubao-seed-2-0-pro-260215"]["supports_mic"] is True
     assert by_id["doubao-seed-2-0-lite-260428"]["supports_mic"] is True
     assert by_id["doubao-seed-2-0-mini-260428"]["supports_mic"] is True
     assert by_id["doubao-seed-1-6-flash-250828"]["supports_mic"] is False
+
+
+def test_audio_price_does_not_imply_mic_support():
+    from app.model_catalog import CatalogModel, ModelPrice
+
+    model = CatalogModel("Audio-priced", "audio-priced", ModelPrice(1, 2, audio=3), supports_mic=False)
+    assert enrich_platform_models((model,))[0]["supports_mic"] is False
+    assert catalog_model_supports_mic("audio-priced") is False
 
 
 def test_cheapest_tie_break_first_in_catalog_order():

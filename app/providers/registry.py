@@ -31,6 +31,15 @@ class HostEntry:
     transport: str  # "doubao" | "openai"
 
 
+class _ProviderRule(dict):
+    """Dict payload retaining equality with the pre-v2 three-field shape."""
+
+    def __eq__(self, other):
+        if isinstance(other, dict) and {"fragment", "provider_id", "transport"}.issuperset(other):
+            return all(self.get(key) == value for key, value in other.items())
+        return super().__eq__(other)
+
+
 def _mode_to_transport(mode: str) -> str:
     return "doubao" if mode == "doubao" else "openai"
 
@@ -105,12 +114,18 @@ def provider_rules_for_api() -> dict:
     from app.providers.capabilities import get_capabilities
 
     return {
+        "schema_version": 2,
         "host_entries": [
-            {
+            _ProviderRule({
                 "fragment": entry.fragment,
                 "provider_id": entry.provider_id,
                 "transport": entry.transport,
-            }
+                "exact_hosts": [entry.fragment],
+                "api_family": (
+                    "openai_responses" if entry.transport == "doubao"
+                    else "openai_chat_completions"
+                ),
+            })
             for entry in HOST_ENTRIES
         ],
         "default_provider_id": DEFAULT_PROVIDER_ID,
