@@ -84,6 +84,79 @@
   min-width: 0;
 }
 
+.model-modal-panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.model-modal-header,
+.model-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-5) var(--space-6);
+}
+
+.model-modal-header {
+  border-bottom: 1px solid var(--border-soft);
+}
+.model-modal-footer {
+  justify-content: flex-end;
+  border-top: 1px solid var(--border-soft);
+}
+.model-modal-body {
+  overflow-y: auto;
+  min-width: 0;
+  padding: var(--space-6);
+}
+.model-modal-basic-section,
+.model-modal-advanced-section {
+  min-width: 0;
+}
+.model-modal-basic-section {
+  display: grid;
+  gap: var(--space-4);
+}
+.model-preset-meta {
+  margin-top: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-subtle);
+  overflow-wrap: anywhere;
+}
+.model-api-key-control {
+  min-width: 0;
+}
+.model-field-error {
+  min-height: 1.1rem;
+  margin-top: 0.25rem;
+  color: var(--color-danger);
+  font-size: 0.75rem;
+}
+.model-probe-result {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.model-probe-result--loading {
+  border-color: var(--color-info);
+  background: var(--status-info-bg);
+}
+.model-probe-result--success {
+  border-color: var(--color-success);
+  background: var(--status-success-bg);
+}
+.model-probe-result--error {
+  border-color: var(--color-danger);
+  background: var(--status-danger-bg);
+}
+
 #modelModal input.ui-control,
 #modelModal select.ui-control,
 #modelModal textarea.ui-control,
@@ -157,17 +230,17 @@
   color: #075985;
 }
 
-html[data-theme='dark'] .problem-detail-technical-pre {
+html[data-theme="dark"] .problem-detail-technical-pre {
   background: rgba(255, 255, 255, 0.06);
 }
 
-html[data-theme='dark'] .problem-detail-severity--warning {
+html[data-theme="dark"] .problem-detail-severity--warning {
   background: rgba(251, 191, 36, 0.2);
   color: #fcd34d;
 }
 
-html[data-theme='dark'] .problem-detail-severity--error,
-html[data-theme='dark'] .problem-detail-severity--fatal {
+html[data-theme="dark"] .problem-detail-severity--error,
+html[data-theme="dark"] .problem-detail-severity--fatal {
   background: rgba(248, 113, 113, 0.18);
   color: #fca5a5;
 }
@@ -288,8 +361,12 @@ html[data-theme='dark'] .problem-detail-severity--fatal {
 }
 
 @keyframes knowledge-progress-slide {
-  0% { background-position: 100% 0; }
-  100% { background-position: -100% 0; }
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
 }
 
 .knowledge-organize-modal-panel,

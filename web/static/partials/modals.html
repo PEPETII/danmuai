@@ -10,74 +10,68 @@
   </style>
   <!-- 模型配置档案模态框 -->
   <div id="modelModal" class="fixed inset-0 bg-black/20 backdrop-blur-sm hidden items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="modelModalTitle">
-    <div class="bg-white rounded-3xl shadow-warm max-w-lg w-full p-8 max-h-[90vh] overflow-y-auto min-w-0">
-      <h3 id="modelModalTitle" class="text-lg font-bold text-warmText mb-4">模型配置档案</h3>
-      <form id="modelModalForm" class="space-y-3">
-        <input type="hidden" id="modelEditIndex" value="-1">
-        <div>
-          <label class="text-sm font-semibold text-warmText">预设服务商</label>
-          <select id="modelProvider" class="w-full px-4 py-2 bg-cream rounded-xl mt-1 ui-control ui-select"></select>
-          <div id="modelProviderName" class="text-xs text-gray-500 mt-1 hidden"></div>
-          <div id="modelProviderWebsite" class="flex items-center gap-2 mt-1 hidden">
-            <span class="text-xs text-gray-400">官网：</span>
-            <a id="modelProviderWebsiteLink" class="text-xs text-sky-600 underline break-all" target="_blank" rel="noopener noreferrer"></a>
-            <button type="button" id="modelOpenWebsite" class="text-xs px-2 py-0.5 border border-sky-200 rounded-md text-sky-600 hover:bg-sky-50 ui-button ui-button--secondary ui-button--sm">打开官网</button>
-          </div>
-          <div id="modelProviderMigrationWarning" class="hidden mt-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="alert" aria-live="polite"></div>
+    <div class="model-modal-panel bg-white rounded-3xl shadow-warm max-w-2xl w-full max-h-[90vh] min-w-0">
+      <header class="model-modal-header">
+        <div class="min-w-0">
+          <h3 id="modelModalTitle" class="text-lg font-bold text-warmText break-words">模型配置档案</h3>
+          <p id="modelModalSubtitle" class="text-sm text-gray-500 mt-1"></p>
         </div>
-        <div>
-          <label class="text-sm font-semibold text-warmText">模型 ID</label>
-          <select id="modelIdPreset" class="w-full px-4 py-2 bg-cream rounded-xl mt-1 ui-control ui-select">
-            <option value="__custom__">自定义配置</option>
-          </select>
-        </div>
-        <div>
-          <label class="text-sm font-semibold text-warmText">显示名称 <span class="text-xs font-normal text-gray-400">（仅界面展示，不参与 API）</span></label>
-          <input id="modelName" class="w-full px-4 py-2 bg-cream rounded-xl mt-1 ui-control ui-input" data-i18n-placeholder="modals.placeholder.例如_豆包_Pro_32K" placeholder="例如：豆包 Pro 32K">
-        </div>
-        <div id="modelIdsTagsWrap">
-          <label class="text-sm font-semibold text-warmText">模型 ID 列表 <span class="text-xs font-normal text-gray-400">（回车或逗号添加，点击 chip 切换默认）</span></label>
-          <div id="modelIdsTags" class="tag-input-container mt-1">
-            <input id="modelIdsInput" class="tag-input" data-i18n-placeholder="dynamic.settingsCustomModels.例如_doubao_1_5_pro_32k_25" placeholder="例如：doubao-1-5-pro-32k-250115">
-          </div>
-          <p class="text-xs text-gray-400 mt-1">第一个 chip 自动设为默认；删除默认 chip 后剩余第一个自动成为默认。</p>
-        </div>
-        <div>
-          <label class="text-sm font-semibold text-warmText">API 模式</label>
-          <select id="modelMode" class="w-full px-4 py-2 bg-cream rounded-xl mt-1 ui-control ui-select">
-            <option value="doubao" data-i18n="settings.text.豆包_火山方舟">豆包（火山方舟）</option>
-            <option value="openai" data-i18n="settings.text.OpenAI_兼容接口">OpenAI 兼容接口</option>
-          </select>
-        </div>
-        <div>
-          <label class="text-sm font-semibold text-warmText">API地址</label>
-          <input id="modelEndpoint" type="url" autocomplete="url" class="w-full px-4 py-2 bg-cream rounded-xl mt-1 ui-control ui-input" placeholder="https://api.openai.com/v1">
-        </div>
-        <div>
-          <label class="text-sm font-semibold text-warmText">API Key</label>
-          <input id="modelApiKey" type="password" autocomplete="current-password" class="w-full px-4 py-2 bg-cream rounded-xl mt-1 ui-control ui-input" placeholder="sk-...">
-        </div>
-        <div>
-          <label class="text-sm font-semibold text-warmText">max_tokens <span class="text-xs font-normal text-gray-400">（输出 token 上限，下限 512）</span></label>
-          <input id="modelMaxTokens" type="number" min="512" value="512" class="w-full px-4 py-2 bg-cream rounded-xl mt-1 ui-control ui-input">
-        </div>
-        <div>
-          <label class="text-sm font-semibold text-warmText">备注</label>
-          <input id="modelDescription" class="w-full px-4 py-2 bg-cream rounded-xl mt-1 ui-control ui-input" data-i18n-placeholder="modals.placeholder.备注用途_如_识图主力模型" placeholder="备注用途，如“识图主力模型”">
-        </div>
-        <div>
-          <label class="toggle-switch text-sm font-semibold text-warmText">
-            <input type="checkbox" id="modelSupportsMic" role="switch">
-            <span>支持麦克风（input_audio）</span>
-          </label>
-          <p class="text-xs text-gray-400 mt-1">OpenRouter 等自定义 OpenAI 兼容网关：若模型文档声明支持音频理解，请勾选此项以允许开麦附加音频。</p>
-        </div>
-        <div class="flex flex-wrap gap-3 pt-2 justify-end">
-          <button type="button" id="btnModelCancel" class="px-4 py-2 border border-gray-200 rounded-xl ui-button ui-button--secondary ui-button--md">取消</button>
-          <button type="button" id="btnModelProbe" class="px-4 py-2 border border-gray-200 rounded-xl ui-button ui-button--secondary ui-button--md">测试连接</button>
-          <button type="submit" class="btn-primary px-6 py-2 text-white rounded-xl font-bold ui-button ui-button--primary ui-button--md">保存</button>
-        </div>
-      </form>
+        <button type="button" id="btnModelClose" class="ui-button ui-button--ghost ui-button--sm" aria-label="关闭">×</button>
+      </header>
+      <div class="model-modal-body">
+        <form id="modelModalForm" class="space-y-4">
+          <input type="hidden" id="modelEditIndex" value="-1">
+          <section class="model-modal-basic-section" aria-labelledby="modelModalBasicTitle">
+            <h4 id="modelModalBasicTitle" class="text-sm font-bold text-warmText">基础配置</h4>
+            <div>
+              <label class="text-sm font-semibold text-warmText" for="modelProvider">模型平台</label>
+              <select id="modelProvider" class="w-full px-4 py-2 bg-cream rounded-xl mt-1 ui-control ui-select"></select>
+              <div id="modelProviderName" class="text-xs text-gray-500 mt-1 hidden"></div>
+              <div id="modelProviderWebsite" class="flex items-center gap-2 mt-1 hidden">
+                <span class="text-xs text-gray-400">官网：</span>
+                <a id="modelProviderWebsiteLink" class="text-xs text-sky-600 underline break-all min-w-0" target="_blank" rel="noopener noreferrer"></a>
+                <button type="button" id="modelOpenWebsite" class="text-xs px-2 py-0.5 border border-sky-200 rounded-md text-sky-600 hover:bg-sky-50 ui-button ui-button--secondary ui-button--sm">打开官网</button>
+              </div>
+              <div id="modelProviderMigrationWarning" class="hidden mt-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="alert" aria-live="polite"></div>
+              <p id="modelProviderError" class="model-field-error" role="alert"></p>
+            </div>
+            <div>
+              <label class="text-sm font-semibold text-warmText" for="modelIdPreset">选择模型</label>
+              <select id="modelIdPreset" class="w-full px-4 py-2 bg-cream rounded-xl mt-1 ui-control ui-select"><option value="__custom__">自定义配置</option></select>
+              <div id="modelPresetMeta" class="model-preset-meta hidden" aria-live="polite"></div>
+              <p id="modelIdError" class="model-field-error" role="alert"></p>
+            </div>
+            <div class="model-api-key-control">
+              <label class="text-sm font-semibold text-warmText" for="modelApiKey">API Key</label>
+              <div class="flex gap-2 min-w-0">
+                <input id="modelApiKey" type="password" autocomplete="current-password" class="w-full px-4 py-2 bg-cream rounded-xl mt-1 ui-control ui-input min-w-0" placeholder="sk-...">
+                <button type="button" id="btnModelApiKeyVisibility" class="ui-button ui-button--secondary ui-button--sm self-end" aria-pressed="false" aria-label="显示 API Key">显示</button>
+              </div>
+              <p id="modelApiKeyError" class="model-field-error" role="alert"></p>
+            </div>
+          </section>
+          <section id="modelProbeResult" class="model-probe-result hidden" role="status" aria-live="polite" aria-atomic="true">
+            <div class="model-probe-result-icon" aria-hidden="true"></div>
+            <div class="min-w-0 flex-1"><h4 id="modelProbeResultTitle" class="font-semibold"></h4><p id="modelProbeResultMessage" class="text-sm break-words"></p><p id="modelProbeResultMeta" class="text-xs text-gray-500 break-all"></p></div>
+            <button type="button" id="btnModelProbeTechnicalDetail" class="ui-button ui-button--ghost ui-button--sm hidden">技术详情</button>
+          </section>
+          <section class="model-modal-advanced-section settings-rhythm-accordion" data-settings-rhythm-accordion>
+            <div class="settings-rhythm-accordion-item">
+              <h4 class="settings-rhythm-accordion-heading"><button type="button" class="settings-rhythm-accordion-trigger" aria-expanded="false"><span class="settings-rhythm-accordion-trigger-copy"><span class="settings-rhythm-accordion-trigger-title">高级配置</span><span class="settings-section-hint">接口协议、模型列表与能力</span></span><span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span></button></h4>
+              <div class="settings-rhythm-accordion-panel" hidden><div class="settings-rhythm-accordion-fields">
+                <div><label class="settings-field-label text-sm font-semibold text-warmText" for="modelName">配置名称</label><input id="modelName" class="w-full px-4 py-2 bg-cream rounded-xl mt-1 ui-control ui-input" data-i18n-placeholder="modals.placeholder.例如_豆包_Pro_32K" placeholder="例如：豆包 Pro 32K"></div>
+                <div id="modelIdsTagsWrap"><label class="text-sm font-semibold text-warmText">模型 ID 列表</label><div id="modelIdsTags" class="tag-input-container mt-1"><input id="modelIdsInput" class="tag-input" data-i18n-placeholder="dynamic.settingsCustomModels.例如_doubao_1_5_pro_32k_25" placeholder="例如：doubao-1-5-pro-32k-250115"></div><p class="text-xs text-gray-400 mt-1">点击 chip 切换默认模型。</p><select id="modelDefaultIdSelect" class="w-full px-4 py-2 bg-cream rounded-xl mt-2 ui-control ui-select hidden" aria-label="默认模型"></select><p id="modelIdListError" class="model-field-error" role="alert"></p></div>
+                <div><label class="text-sm font-semibold text-warmText" for="modelMode">接口协议</label><select id="modelMode" class="w-full px-4 py-2 bg-cream rounded-xl mt-1 ui-control ui-select"><option value="doubao" data-i18n="settings.text.豆包_火山方舟">豆包（火山方舟）</option><option value="openai" data-i18n="settings.text.OpenAI_兼容接口">OpenAI 兼容接口</option></select></div>
+                <div><label class="text-sm font-semibold text-warmText" for="modelEndpoint">接口地址</label><input id="modelEndpoint" type="url" autocomplete="url" class="w-full px-4 py-2 bg-cream rounded-xl mt-1 ui-control ui-input min-w-0" placeholder="https://api.openai.com/v1"><p id="modelEndpointError" class="model-field-error" role="alert"></p></div>
+                <div><label class="text-sm font-semibold text-warmText" for="modelMaxTokens">最大输出 tokens</label><input id="modelMaxTokens" type="number" min="512" value="512" class="w-full px-4 py-2 bg-cream rounded-xl mt-1 ui-control ui-input"><p id="modelMaxTokensError" class="model-field-error" role="alert"></p></div>
+                <div><label class="text-sm font-semibold text-warmText" for="modelDescription">备注</label><input id="modelDescription" class="w-full px-4 py-2 bg-cream rounded-xl mt-1 ui-control ui-input" data-i18n-placeholder="modals.placeholder.备注用途_如_识图主力模型" placeholder="备注用途，如“识图主力模型”"></div>
+                <label class="toggle-switch text-sm font-semibold text-warmText"><input type="checkbox" id="modelSupportsMic" role="switch"><span>音频输入能力（input_audio）</span></label>
+              </div></div>
+            </div>
+          </section>
+        </form>
+      </div>
+      <footer class="model-modal-footer"><button type="button" id="btnModelCancel" class="ui-button ui-button--secondary ui-button--md">取消</button><button type="button" id="btnModelProbe" class="ui-button ui-button--secondary ui-button--md">测试连接</button><button type="submit" id="btnModelSave" form="modelModalForm" class="btn-primary ui-button ui-button--primary ui-button--md">保存</button></footer>
     </div>
   </div>
 

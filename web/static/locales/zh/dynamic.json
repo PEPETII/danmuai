@@ -517,6 +517,8 @@
       "例如_doubao_1_5_pro_32k_25": "例如：doubao-1-5-pro-32k-250115",
       "编辑模型": "编辑模型",
       "新增模型": "新增模型",
+      "编辑模型说明": "更新已有模型配置；已保存的 API Key 会保留。",
+      "新增模型说明": "填写基础连接信息，可在高级配置中调整更多选项。",
       "这条模型档案": "这条模型档案",
       "确定删除模型_display_吗_该档案包": "确定删除模型「{display}」吗？该档案包含 {n} 个模型 ID，将一并删除。若该档案是当前默认，将自动切换到下一条。",
       "已删除_2": "已删除~",
@@ -675,8 +677,27 @@
       "span_class_model_toolt_4": "<span class=\"model-tooltip-line\">音频价格：{audioPrice}</span>",
       "span_class_model_toolt_5": "<span class=\"model-tooltip-line\">输出价格：{outputPrice}</span>",
       "查看_model_id_的价格说明": "查看 {modelId} 的价格说明",
-      "手动输入模型_ID": "手动输入模型 ID"
-      ,"image":"图片","audio":"音频","video":"视频","file":"文件","thinking":"支持思考","thinking_off":"思考关闭","thinking_hybrid":"支持切换思考","thinking_always":"始终开启","jsonSchema":"JSON Schema","streamUsage":"流式 usage","未验证":"未验证","请查看平台":"请查看平台","source":"来源","sourceUrl":"来源链接","verifiedAt":"验证时间","replacement":"替代模型","thinking_supported":"已确认支持思考","thinking_unknown":"未验证，可深度探活","thinking_unavailable":"当前模型不可用","sunset":"计划停服"
+      "手动输入模型_ID": "手动输入模型 ID",
+      "image": "图片",
+      "audio": "音频",
+      "video": "视频",
+      "file": "文件",
+      "thinking": "支持思考",
+      "thinking_off": "思考关闭",
+      "thinking_hybrid": "支持切换思考",
+      "thinking_always": "始终开启",
+      "jsonSchema": "JSON Schema",
+      "streamUsage": "流式 usage",
+      "未验证": "未验证",
+      "请查看平台": "请查看平台",
+      "source": "来源",
+      "sourceUrl": "来源链接",
+      "verifiedAt": "验证时间",
+      "replacement": "替代模型",
+      "thinking_supported": "已确认支持思考",
+      "thinking_unknown": "未验证，可深度探活",
+      "thinking_unavailable": "当前模型不可用",
+      "sunset": "计划停服"
     },
     "settingsProviders": {
       "手动填写": "手动填写",
@@ -686,8 +707,9 @@
       "需模型支持音频输入": "（需模型支持音频输入）",
       "需模型支持_input_audio": "（需模型支持 input_audio）",
       "已填入_provider_label_的默": "已填入 {providerLabel} 的默认地址，请填写对应 API 密钥~",
-      "已填入_provider_label_的默_2": "已填入 {providerLabel} 的默认麦克风地址，请填写对应 API 密钥~"
-      ,"sunset":"计划停服","hunyuanWarning":"腾讯混元官方迁移警告：请迁移至替代模型"
+      "已填入_provider_label_的默_2": "已填入 {providerLabel} 的默认麦克风地址，请填写对应 API 密钥~",
+      "sunset": "计划停服",
+      "hunyuanWarning": "腾讯混元官方迁移警告：请迁移至替代模型"
     },
     "settings": {
       "模型目录加载失败_视觉模型列表可能为空_请刷新页": "模型目录加载失败，视觉模型列表可能为空，请刷新页面重试",

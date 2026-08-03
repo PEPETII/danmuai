@@ -517,6 +517,8 @@
       "例如_doubao_1_5_pro_32k_25": "e.g. doubao-1-5-pro-32k-250115",
       "编辑模型": "Edit model",
       "新增模型": "Add model",
+      "编辑模型说明": "Update this model configuration; saved API keys are preserved.",
+      "新增模型说明": "Enter the connection details, then adjust advanced options if needed.",
       "这条模型档案": "this model profile",
       "确定删除模型_display_吗_该档案包": "Delete model profile「{display}」? It has {n} model IDs. If default, the next profile becomes default.",
       "已删除_2": "Deleted~",
@@ -675,8 +677,27 @@
       "span_class_model_toolt_4": "<span class=\"model-tooltip-line\">Audio price: {audioPrice}</span>",
       "span_class_model_toolt_5": "<span class=\"model-tooltip-line\">Output price: {outputPrice}</span>",
       "查看_model_id_的价格说明": "View pricing for {modelId}",
-      "手动输入模型_ID": "Enter model ID manually"
-      ,"image":"Image","audio":"Audio","video":"Video","file":"File","thinking":"Thinking","thinking_off":"Thinking off","thinking_hybrid":"Thinking toggle supported","thinking_always":"Always on","jsonSchema":"JSON Schema","streamUsage":"Streaming usage","未验证":"Unverified","请查看平台":"View platform pricing","source":"Source","sourceUrl":"Source URL","verifiedAt":"Verified at","replacement":"Replacement model","thinking_supported":"Thinking supported","thinking_unknown":"Unverified; deep probe available","thinking_unavailable":"Unavailable for this model","sunset":"Sunset"
+      "手动输入模型_ID": "Enter model ID manually",
+      "image": "Image",
+      "audio": "Audio",
+      "video": "Video",
+      "file": "File",
+      "thinking": "Thinking",
+      "thinking_off": "Thinking off",
+      "thinking_hybrid": "Thinking toggle supported",
+      "thinking_always": "Always on",
+      "jsonSchema": "JSON Schema",
+      "streamUsage": "Streaming usage",
+      "未验证": "Unverified",
+      "请查看平台": "View platform pricing",
+      "source": "Source",
+      "sourceUrl": "Source URL",
+      "verifiedAt": "Verified at",
+      "replacement": "Replacement model",
+      "thinking_supported": "Thinking supported",
+      "thinking_unknown": "Unverified; deep probe available",
+      "thinking_unavailable": "Unavailable for this model",
+      "sunset": "Sunset"
     },
     "settingsProviders": {
       "手动填写": "Enter manually",
@@ -686,8 +707,9 @@
       "需模型支持音频输入": "(requires model audio input)",
       "需模型支持_input_audio": "(requires model input_audio support)",
       "已填入_provider_label_的默": "Filled default endpoint for {providerLabel}; please enter the API key~",
-      "已填入_provider_label_的默_2": "Filled default mic endpoint for {providerLabel}; please enter the API key~"
-      ,"sunset":"Sunset","hunyuanWarning":"Tencent Hunyuan official migration warning: migrate to the replacement model"
+      "已填入_provider_label_的默_2": "Filled default mic endpoint for {providerLabel}; please enter the API key~",
+      "sunset": "Sunset",
+      "hunyuanWarning": "Tencent Hunyuan official migration warning: migrate to the replacement model"
     },
     "settings": {
       "模型目录加载失败_视觉模型列表可能为空_请刷新页": "Model catalog load failed; vision list may be empty—refresh and retry",
