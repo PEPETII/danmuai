@@ -33,6 +33,10 @@ def test_feedback_page_in_index_html():
     html = (project_root() / "web" / "static" / "index.html").read_text(encoding="utf-8")
     assert 'data-page="guide"' in html
     assert 'data-guide-tab="feedback"' in html
+    assert 'data-guide-tab="mic-logs"' in html
+    assert 'id="btnGoDanmuLogs"' in html
+    assert 'id="btnGoMicLogs"' in html
+    assert 'id="guideTab-mic-logs"' in html
     assert 'id="page-feedback"' in html
     assert 'id="feedbackForm"' in html
     assert 'id="feedbackContent"' in html

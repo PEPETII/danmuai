@@ -55,6 +55,14 @@ from app.web_console_ws import (
     _ws_token_valid,
     should_log_broadcast,
 )
+from app.web_console_mic_logs import (
+    clear_mic_logs as bridge_clear_mic_logs,
+    init_mic_log_state,
+    list_recent_mic_logs as bridge_list_recent_mic_logs,
+    on_mic_log_event,
+    register_mic_log_consumer,
+    unregister_mic_log_consumer,
+)
 
 WebConsoleStartupPhase = Literal["ready", "slow", "failed"]
 
@@ -142,6 +150,7 @@ class WebConsoleBridge(QObject):
         self.danmu_app = danmu_app
         self.status = WebStatusSnapshot()
         self._log_ring: deque[tuple[str, str, float]] = deque(maxlen=500)
+        init_mic_log_state(self)
         self._ws_log_queues: list[asyncio.Queue] = []
         self._ws_status_queues: list[asyncio.Queue] = []
         self._loop: asyncio.AbstractEventLoop | None = None
@@ -181,6 +190,12 @@ class WebConsoleBridge(QObject):
             self._on_log,
             Qt.ConnectionType.UniqueConnection,
         )
+        mic_log_store = getattr(danmu_app, "_mic_log_store", None)
+        if mic_log_store is not None:
+            mic_log_store.entry_emitted.connect(
+                lambda event: on_mic_log_event(self, event),
+                Qt.ConnectionType.UniqueConnection,
+            )
         danmu_app.state_changed.connect(self._on_state_changed)
 
     def invoke_on_main(
@@ -294,6 +309,18 @@ class WebConsoleBridge(QObject):
             for level, message, ts in self._log_ring
             if ts > cutoff
         ]
+
+    def list_recent_mic_logs(self, since_ts: float = 0.0) -> list[dict[str, Any]]:
+        return bridge_list_recent_mic_logs(self, since_ts)
+
+    def clear_mic_logs(self) -> None:
+        bridge_clear_mic_logs(self)
+
+    def register_mic_log_consumer(self, queue: asyncio.Queue) -> None:
+        register_mic_log_consumer(self, queue)
+
+    def unregister_mic_log_consumer(self, queue: asyncio.Queue) -> None:
+        unregister_mic_log_consumer(self, queue)
 
     def register_log_consumer(self, queue: asyncio.Queue) -> None:
         self._ws_log_queues.append(queue)

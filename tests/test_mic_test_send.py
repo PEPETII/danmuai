@@ -103,9 +103,12 @@ def test_send_mic_probe_allows_declared_custom_openai():
     app = MagicMock()
     app.ai_worker = MagicMock()
     app.config = MagicMock()
+    app.config.get.side_effect = lambda key, default="": (
+        "1" if key == "mic_use_visual_model" else default
+    )
     app.config.get_default_model_id.return_value = "or-audio"
     app.config.get_custom_models.return_value = [
-        {"modelId": "or-audio", "supportsMic": True},
+        {"default_model_id": "or-audio", "supportsMic": True},
     ]
     app.ai_worker.resolve_mic_request_credentials.return_value = (
         "https://openrouter.ai/api/v1",

@@ -432,7 +432,15 @@ def test_request_doubao_sends_effective_max_output_tokens():
 
 
 def test_request_doubao_includes_input_audio_when_provided():
-    worker = AiWorker(ai_client_fake_config())
+    worker = AiWorker(
+        ai_client_fake_config(
+            data={
+                "api_endpoint": "https://ark.cn-beijing.volces.com/api/v3",
+                "model": "doubao-seed-2-0-mini-260428",
+                "default_model_id": "doubao-seed-2-0-mini-260428",
+            }
+        )
+    )
     audio = "data:audio/wav;base64,QUJD"
     with patch("app.ai_client_requests.stream_doubao", return_value=("test", 100, 50, "")) as mock_stream:
         with patch.object(worker, "_emit_safe"):

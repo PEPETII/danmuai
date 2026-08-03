@@ -465,6 +465,18 @@
       "日志通道连接中_若超过数秒仍无内容_请点左侧": "Log channel connecting… If empty after seconds, check connection in Dashboard header or restart DanmuAI.",
       "语言切换后日志已清空": "Language switched; log view cleared. New logs after Start danmu will use the current language."
     },
+    "micLogs": {
+      "subtitle": "Speech-to-text from mic mode appears here (session memory, same as danmu logs).",
+      "channelLabel": "Log channel",
+      "clear": "Clear logs",
+      "empty": "No mic logs yet. Enable mic mode and speak; transcripts will appear here.",
+      "cleared": "Mic logs cleared",
+      "recognizing": "Recognizing…",
+      "statusPartial": "Recognizing",
+      "statusSuccess": "Recognized",
+      "statusFailed": "Recognition failed",
+      "failedWithReason": "Recognition failed: {reason}"
+    },
     "settingsCaptureRegion": {
       "正在框选": "Selecting region…",
       "鼠标框选识图范围": "Drag to select capture region",

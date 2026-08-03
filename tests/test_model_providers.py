@@ -434,6 +434,46 @@ def test_resolve_mic_model_id_prefers_mic_model_when_unlinked():
     assert resolve_mic_model_id(cfg) == "doubao-seed-2-0-mini-260428"
 
 
+def test_resolve_supports_mic_declared_reads_linked_custom_profile():
+    from app.model_providers import resolve_supports_mic_declared
+
+    cfg = _Cfg(
+        default_model_id="or-audio",
+        mic_use_visual_model="1",
+        custom_models=[
+            {
+                "default_model_id": "or-audio",
+                "endpoint": "https://openrouter.ai/api/v1",
+                "mode": "openai-compatible",
+                "apiKey": "sk",
+                "supportsMic": True,
+            }
+        ],
+    )
+    assert resolve_supports_mic_declared(cfg, "or-audio") is True
+    assert resolve_supports_mic_declared(cfg, "other-model") is None
+
+
+def test_mic_audio_supported_for_mic_config_independent_custom_profile():
+    cfg = _Cfg(
+        mic_use_visual_model="0",
+        mic_api_endpoint="https://openrouter.ai/api/v1",
+        mic_api_mode="openai-compatible",
+        mic_model="or-audio",
+        mic_api_key="sk-mic",
+        custom_models=[
+            {
+                "default_model_id": "or-audio",
+                "endpoint": "https://openrouter.ai/api/v1",
+                "mode": "openai-compatible",
+                "apiKey": "sk",
+                "supportsMic": True,
+            }
+        ],
+    )
+    assert mic_audio_supported_for_mic_config(cfg) is True
+
+
 def test_mic_audio_supported_for_config_custom_model_supports_mic_flag():
     cfg = _Cfg(
         default_model_id="or-audio",

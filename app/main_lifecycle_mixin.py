@@ -191,12 +191,24 @@ class DanmuAppLifecycleMixin:
         self._latest_queued_screenshot_id = 0
         self._latest_displayed_screenshot_id = 0
         self._mic_unsupported_error_active = False
+        self._mic_capture_error_active = False
+        self._active_mic_utterance_id = ""
+        from app.mic_log_store import MicLogStore
+        from app.mic_transcript_worker import MicTranscriptCoordinator
+
+        self._mic_log_store = MicLogStore()
+        self._mic_transcript_coordinator = MicTranscriptCoordinator(self)
+        self._mic_transcript_coordinator.finished.connect(self._on_mic_transcript_finished)
         self._mic_service = MicService(log_fn=lambda msg: self.logger.info(msg))
         self._mic_orchestrator = MicOrchestrator(
             mic_service=self._mic_service,
             on_utterance_end=self._on_mic_utterance_end,
+            on_speech_start=self._on_mic_speech_start,
+            on_utterance_discarded=self._on_mic_utterance_discarded,
             log_fn=lambda msg: self.logger.info(msg),
             on_unsupported_model_fn=self._on_mic_model_unsupported,
+            on_capture_failed_fn=self._on_mic_capture_failed,
+            on_incomplete_credentials_fn=self._on_mic_incomplete_credentials,
         )
         self._danmu_read_service = DanmuReadService(self)
         self.stats_state = StatsState()

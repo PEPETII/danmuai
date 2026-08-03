@@ -12,12 +12,13 @@ import sys
 import time
 from datetime import datetime
 
-from PyQt6.QtCore import QTimer
+from PyQt6.QtCore import QThreadPool, QTimer
 
 from app.main_helpers import MAX_MIC_IN_FLIGHT
 from app.mic_encode import pcm_to_wav_data_uri
 from app.mic_prompt import build_mic_insert_user_pt, mic_insert_reply_count
 from app.mic_service import mic_mode_enabled
+from app.mic_transcript_worker import MicTranscriptRunnable
 from app.model_providers import (
     mic_audio_supported_for_mic_config,
     mic_audio_unsupported_message,
@@ -53,6 +54,11 @@ class DanmuAppMicMixin:
         )
         return resolver(self.config)
 
+    def _mic_credentials_ready(self) -> bool:
+        from app.ai_client_requests import resolve_mic_request_credentials
+
+        return resolve_mic_request_credentials(self.config) is not None
+
     def _sync_mic_service(self) -> None:
         """按配置与运行状态启停 MicService / 端点检测器。"""
         self._mic_orchestrator.sync(
@@ -60,11 +66,12 @@ class DanmuAppMicMixin:
             config=self.config,
             mic_audio_supported_fn=self._mic_audio_supported,
             resolve_active_model_id_fn=lambda: resolve_mic_model_id(self.config),
+            mic_credentials_ready_fn=self._mic_credentials_ready,
         )
         if self.engine.running and self._mic_orchestrator.detector is not None:
-            # BUG-014: mic 已就绪（模型支持 + 采集运行中）→ 清掉之前的 unsupported 错误条
-            if self._mic_unsupported_error_active:
+            if self._mic_unsupported_error_active or self._mic_capture_error_active:
                 self._mic_unsupported_error_active = False
+                self._mic_capture_error_active = False
                 self.set_web_error_status("", is_error=False)
             self._mic_poll_timer.stop()
             self._mic_poll_timer.start(MIC_POLL_PHASE_MS)
@@ -75,8 +82,29 @@ class DanmuAppMicMixin:
     def _on_mic_model_unsupported(self, model_id: str) -> None:
         """BUG-014: mic 模型不支持时，把错误推到 Web 状态栏。"""
         self._mic_unsupported_error_active = True
+        self._mic_capture_error_active = False
         self.set_web_error_status(
             mic_audio_unsupported_message(model_id),
+            is_error=True,
+        )
+
+    def _on_mic_capture_failed(self, error: str) -> None:
+        """采集启动失败时展示可操作错误（权限/驱动/设备等）。"""
+        self._mic_capture_error_active = True
+        self._mic_unsupported_error_active = False
+        self.set_web_error_status(
+            f"麦克风采集未启动：{error}",
+            is_error=True,
+        )
+
+    def _on_mic_incomplete_credentials(self) -> None:
+        """麦克风凭证不完整时展示配置指引。"""
+        from app.ai_client_requests import format_mic_credential_error
+
+        self._mic_capture_error_active = False
+        self._mic_unsupported_error_active = False
+        self.set_web_error_status(
+            format_mic_credential_error(self.config),
             is_error=True,
         )
 
@@ -99,6 +127,50 @@ class DanmuAppMicMixin:
             ):
                 self._mic_poll_timer.start(self._mic_poll_ms)
 
+    def _on_mic_speech_start(self) -> None:
+        if not mic_mode_enabled(self.config) or not self.engine.running:
+            return
+        import uuid
+
+        self._active_mic_utterance_id = str(uuid.uuid4())
+        self._mic_log_store.begin_partial(utterance_id=self._active_mic_utterance_id)
+
+    def _on_mic_utterance_discarded(self) -> None:
+        if not self._active_mic_utterance_id:
+            return
+        self._mic_log_store.discard(self._active_mic_utterance_id)
+        self._active_mic_utterance_id = ""
+
+    def _schedule_mic_transcription_log(self, utterance_id: str, pcm: bytes) -> None:
+        if not utterance_id or not pcm:
+            return
+        runnable = MicTranscriptRunnable(
+            config=self.config,
+            pcm=pcm,
+            utterance_id=utterance_id,
+            coordinator=self._mic_transcript_coordinator,
+        )
+        QThreadPool.globalInstance().start(runnable)
+
+    def _on_mic_transcript_finished(self, utterance_id: str, result) -> None:
+        if not utterance_id:
+            return
+        if getattr(result, "ok", False):
+            self._mic_log_store.finalize(
+                utterance_id,
+                text=getattr(result, "text", "") or "",
+                status="success",
+            )
+        else:
+            self._mic_log_store.finalize(
+                utterance_id,
+                text="",
+                status="failed",
+                error=getattr(result, "error", "") or "transcription_failed",
+            )
+        if utterance_id == self._active_mic_utterance_id:
+            self._active_mic_utterance_id = ""
+
     def _on_mic_utterance_end(self) -> None:
         if not mic_mode_enabled(self.config) or not self.engine.running:
             return
@@ -109,7 +181,22 @@ class DanmuAppMicMixin:
             return
         pcm = self._mic_orchestrator.snapshot_pcm_for_utterance(self.config)
         if pcm is None:
+            if self._active_mic_utterance_id:
+                self._mic_log_store.finalize(
+                    self._active_mic_utterance_id,
+                    text="",
+                    status="failed",
+                    error="empty_buffer",
+                )
+                self._active_mic_utterance_id = ""
             return
+        utterance_id = self._active_mic_utterance_id
+        if not utterance_id:
+            import uuid
+
+            utterance_id = str(uuid.uuid4())
+            self._mic_log_store.begin_partial(utterance_id=utterance_id)
+        self._schedule_mic_transcription_log(utterance_id, pcm)
         rms, _ = self._mic_orchestrator.pcm_metrics(pcm)
         self.logger.info(f"mic utterance end: pcm_bytes={len(pcm)} rms={rms}")
         self._trigger_mic_api_call(pcm)
@@ -232,6 +319,17 @@ class DanmuAppMicMixin:
         else:
             self.reply_timer.stop()
             self._consume_reply_queue()
+
+    def list_mic_logs(self, since_ts: float = 0.0) -> list[dict]:
+        store = getattr(self, "_mic_log_store", None)
+        if store is None:
+            return []
+        return store.list_recent(since_ts)
+
+    def clear_mic_logs(self) -> None:
+        store = getattr(self, "_mic_log_store", None)
+        if store is not None:
+            store.clear()
 
     def apply_danmu_read_config(self, patch: dict) -> dict:
         """读弹幕配置（Web PUT /api/danmu-read/config）；须在主线程调用。"""

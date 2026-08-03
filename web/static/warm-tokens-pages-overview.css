@@ -22,6 +22,39 @@
   min-width: 0;
 }
 
+.overview-quick-log-actions {
+  min-width: 0;
+}
+
+.overview-log-shortcut {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.overview-log-shortcut .ui-icon {
+  flex-shrink: 0;
+}
+
+#page-overview .ui-page-header__actions {
+  justify-content: flex-end;
+}
+
+@media (max-width: 640px) {
+  #page-overview .ui-page-header__actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .overview-log-shortcut span {
+    max-width: 6.5rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
 .overview-status-dot {
   flex-shrink: 0;
 }

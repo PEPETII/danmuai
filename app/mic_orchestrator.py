@@ -34,13 +34,21 @@ class MicOrchestrator:
         *,
         mic_service: MicService,
         on_utterance_end: Callable[[], None],
+        on_speech_start: Callable[[], None] | None = None,
+        on_utterance_discarded: Callable[[], None] | None = None,
         log_fn: Callable[[str], None],
         on_unsupported_model_fn: Callable[[str], None] | None = None,
+        on_capture_failed_fn: Callable[[str], None] | None = None,
+        on_incomplete_credentials_fn: Callable[[], None] | None = None,
     ) -> None:
         self._mic_service = mic_service
         self._on_utterance_end = on_utterance_end
+        self._on_speech_start = on_speech_start
+        self._on_utterance_discarded = on_utterance_discarded
         self._log = log_fn
         self._on_unsupported_model_fn = on_unsupported_model_fn
+        self._on_capture_failed_fn = on_capture_failed_fn
+        self._on_incomplete_credentials_fn = on_incomplete_credentials_fn
         self._mic_utterance_detector: MicUtteranceDetector | None = None
         self._mic_poll_ms: int = MIC_POLL_MS
 
@@ -48,7 +56,15 @@ class MicOrchestrator:
     # 生命周期
     # ------------------------------------------------------------------ #
 
-    def sync(self, *, engine_running: bool, config, mic_audio_supported_fn: Callable[[], bool], resolve_active_model_id_fn: Callable[[], str]) -> None:
+    def sync(
+        self,
+        *,
+        engine_running: bool,
+        config,
+        mic_audio_supported_fn: Callable[[], bool],
+        resolve_active_model_id_fn: Callable[[], str],
+        mic_credentials_ready_fn: Callable[[], bool] | None = None,
+    ) -> None:
         """按配置与运行状态启停 MicService / 端点检测器。"""
         mic_on = mic_mode_enabled(config)
         if not mic_on:
@@ -66,6 +82,14 @@ class MicOrchestrator:
         if not self._mic_service.is_running():
             err = self._mic_service.last_error() or "unknown"
             self._log(f"mic capture not running: {err}")
+            if self._on_capture_failed_fn is not None:
+                self._on_capture_failed_fn(err)
+            self.stop_detector()
+            return
+        if mic_credentials_ready_fn is not None and not mic_credentials_ready_fn():
+            self._log("mic credentials incomplete")
+            if self._on_incomplete_credentials_fn is not None:
+                self._on_incomplete_credentials_fn()
             self.stop_detector()
             return
         try:
@@ -89,6 +113,8 @@ class MicOrchestrator:
         if self._mic_utterance_detector is None:
             self._mic_utterance_detector = MicUtteranceDetector(
                 on_utterance_end=self._on_utterance_end,
+                on_speech_start=self._on_speech_start,
+                on_utterance_discarded=self._on_utterance_discarded,
                 config=mic_utterance_config_from_store(config),
             )
         else:

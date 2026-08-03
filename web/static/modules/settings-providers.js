@@ -182,12 +182,55 @@ export function getProviderStatus(providerId) {
   return providerStatusCache.find((provider) => provider.id === providerId) || null;
 }
 
+function formatProviderStatusPart(value) {
+  if (value == null || value === '') return '';
+  if (typeof value === 'string') return value.trim();
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (typeof value === 'object') return formatProviderSourcePart(value);
+  return '';
+}
+
+function formatProviderSourcePart(source) {
+  if (!source || typeof source !== 'object') return '';
+  const kind = String(source.source_kind || '').trim().toLowerCase();
+  if (kind && kind !== 'unknown') return String(source.source_kind || '').trim();
+  return (
+    String(source.url || '').trim()
+    || String(source.website || '').trim()
+    || String(source.docs_url || '').trim()
+  );
+}
+
+function hasProviderWarningContext(provider) {
+  const lifecycle = provider.lifecycle_status || provider.status;
+  if (isActionableProviderStatus(lifecycle)) return true;
+  if (formatProviderStatusPart(provider.notice)) return true;
+  if (provider.migration_url) return true;
+  if (provider.sunset_date) return true;
+  if (provider.id === 'tencent_hunyuan' || provider.id === 'hunyuan') return true;
+  if (String(provider.label || '').includes('混元')) return true;
+  return false;
+}
+
+function isActionableProviderStatus(status) {
+  const normalized = String(status || '').trim().toLowerCase();
+  return Boolean(normalized) && normalized !== 'unknown' && normalized !== 'active';
+}
+
 export function renderProviderStatus(providerId) {
   const el = document.getElementById('providerStatus');
   if (!el) return;
   const provider = getProviderStatus(providerId);
   if (!provider) { el.classList.add('hidden'); el.textContent = ''; return; }
-  const parts = [provider.lifecycle_status || provider.status, provider.notice, provider.source].filter(Boolean);
+  const parts = [];
+  const lifecycle = provider.lifecycle_status || provider.status;
+  if (isActionableProviderStatus(lifecycle)) parts.push(formatProviderStatusPart(lifecycle));
+  const notice = formatProviderStatusPart(provider.notice);
+  if (notice) parts.push(notice);
+  if (hasProviderWarningContext(provider)) {
+    const sourcePart = formatProviderSourcePart(provider.source);
+    if (sourcePart) parts.push(sourcePart);
+  }
   if (provider.migration_url) parts.push(provider.migration_url);
   if (provider.sunset_date) parts.push(`${t('dynamic.settingsProviders.sunset')}: ${provider.sunset_date}`);
   if (provider.id === 'tencent_hunyuan' || provider.id === 'hunyuan' || String(provider.label || '').includes('混元')) {

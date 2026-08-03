@@ -6,7 +6,8 @@
 - 视觉 user content 顺序为 ``[text, image]``（部分 provider 期望文本先于图片）。
 - ``stream_options`` 注入条件：仅当 ``caps.stream_usage_in_final_chunk`` 为真
   且请求 ``stream: true`` 时注入 ``{"include_usage": True}``，避免百炼在非流式下 400（见 W-021）。
-- 麦克风音频（``audio_data_uri``）不直接附加到 user content；由麦克风专用路由处理。
+- 麦克风音频（``audio_data_uri``）：当请求规划器保留音频时，在 user content 末尾追加
+  ``input_audio`` + ``input_audio.data``（与 MiMo 内嵌 data URI 方式一致）。
 """
 
 from __future__ import annotations
@@ -34,11 +35,15 @@ class DefaultOpenAIAdapter:
         if request.purpose == "knowledge_organize":
             return [{"role": "system", "content": request.system_text or ""}, {"role": "user", "content": request.user_text}]
         audio = request.audio_data_uri
-        if audio and not getattr(request, "supports_mic_override", None):
-            # preserve legacy provider-level filtering in planner
-            pass
         return ([{"role": "system", "content": request.system_text}] if request.system_text else []) + [
-            {"role": "user", "content": self.build_vision_user_content(request.user_text, request.image_data_uri or "", audio_data_uri=audio)}
+            {
+                "role": "user",
+                "content": self.build_vision_user_content(
+                    request.user_text,
+                    request.image_data_uri or "",
+                    audio_data_uri=audio,
+                ),
+            }
         ]
 
     def add_optional_fields(self, data: dict, *, request, caps: ProviderCapabilities) -> None:
@@ -66,7 +71,15 @@ class DefaultOpenAIAdapter:
     ) -> list[dict]:
         image_part = {"type": "image_url", "image_url": {"url": image_data_uri}}
         text_part = {"type": "text", "text": user_pt}
-        return [text_part, image_part]
+        parts = [text_part, image_part]
+        if audio_data_uri:
+            parts.append(
+                {
+                    "type": "input_audio",
+                    "input_audio": {"data": audio_data_uri},
+                }
+            )
+        return parts
 
     def patch_openai_chat_body(
         self,

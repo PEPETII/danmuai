@@ -617,3 +617,8 @@
   border: 1px dashed var(--border);
 }
 
+#settingsTab-mic .settings-rhythm-accordion-panel .vision-model-picker {
+  width: 100%;
+  min-width: 0;
+}
+

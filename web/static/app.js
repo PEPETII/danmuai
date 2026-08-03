@@ -26,6 +26,12 @@ import {
   updateLogPanelState,
 } from './modules/logs.js';
 import {
+  initMicLogsPage,
+  navigateToDanmuLogs,
+  navigateToMicLogs,
+  onMicLogsTabActivated,
+} from './modules/mic-logs.js';
+import {
   applyCaptureRegionFromPayload,
   bindSettingsControls,
   initCaptureRegionControls,
@@ -468,7 +474,7 @@ function navigate(page) {
     page = 'settings';
     switchSettingsTab('danmu-read');
   }
-  if (page === 'tutorial' || page === 'logs' || page === 'announcements' || page === 'feedback') {
+  if (page === 'tutorial' || page === 'logs' || page === 'mic-logs' || page === 'announcements' || page === 'feedback') {
     switchGuideTab(page);
     page = 'guide';
   }
@@ -557,6 +563,8 @@ function navigate(page) {
           console.warn('[realtime] logs bootstrap on navigate failed', error);
         });
       }
+    } else if (activeTab === 'mic-logs') {
+      onMicLogsTabActivated();
     } else if (activeTab === 'tutorial') {
       import('./modules/content-tutorial.js')
         .then((mod) => mod.loadTutorialPage())
@@ -647,6 +655,7 @@ async function init() {
 
   initSettingsTabs();
   initGuideTabs();
+  initMicLogsPage({ showToast });
   initSettingsFieldHints();
   initContentPageFieldHints();
   initSidebarNavFloatingHints();
@@ -687,6 +696,8 @@ async function init() {
             console.warn('[realtime] logs bootstrap on tab switch failed', error);
           });
         }
+      } else if (tabId === 'mic-logs') {
+        onMicLogsTabActivated();
       } else if (tabId === 'tutorial') {
         import('./modules/content-tutorial.js')
           .then((mod) => mod.loadTutorialPage())
@@ -699,6 +710,13 @@ async function init() {
   document.querySelectorAll('.sidebar-nav-hint').forEach((btn) => {
     btn.addEventListener('click', (event) => event.stopPropagation());
   });
+  document.getElementById('btnGoDanmuLogs')?.addEventListener('click', () => {
+    navigateToDanmuLogs(navigate);
+  });
+  document.getElementById('btnGoMicLogs')?.addEventListener('click', () => {
+    navigateToMicLogs(navigate);
+  });
+
   document.querySelectorAll('#nav [data-page]').forEach((el) => {
     el.addEventListener('click', (event) => {
       event.preventDefault();

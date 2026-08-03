@@ -111,6 +111,15 @@ class ConfigStore:
         self._write_lock = threading.Lock()
         self._pool_write_lock = self._write_lock
         self._closed = False
+        self._key_regenerated = False
+        self._key_backup_path: Path | None = None
+        self._fernet = self._init_fernet()
+        # W-PERF-MED-001：解密明文与 custom_models 解析结果指纹缓存（进程内驻留至配置变更）
+        # 须在 set/set_batch 之前初始化：启动期迁移与 seed 会走写路径并 invalidate 缓存。
+        self._decrypted_secret_cache: dict[str, str] = {}
+        self._decrypted_secret_fp: dict[str, tuple[str, str]] = {}
+        self._custom_models_cache: list[dict] | None = None
+        self._custom_models_fp: str | None = None
         # W-FP-V2-002：须在 seed 之前写回，避免 seed 先落 danmu_render_mode=scrolling 盖掉遗留 display_mode
         self._migrate_legacy_display_mode_to_render_mode()
         self._migrate_legacy_image_max_width()
@@ -119,14 +128,6 @@ class ConfigStore:
 
             seed_config_defaults(self)
             self._load_cache()
-        self._key_regenerated = False
-        self._key_backup_path: Path | None = None
-        self._fernet = self._init_fernet()
-        # W-PERF-MED-001：解密明文与 custom_models 解析结果指纹缓存（进程内驻留至配置变更）
-        self._decrypted_secret_cache: dict[str, str] = {}
-        self._decrypted_secret_fp: dict[str, tuple[str, str]] = {}
-        self._custom_models_cache: list[dict] | None = None
-        self._custom_models_fp: str | None = None
         # W-PERF-STARTUP-001：非关键迁移延迟到主线程空闲时执行，减少启动阻塞
         self._pending_deferred_migrations = True
         # W-LEGACY-MIGRATE-003：启动期自动迁移 legacy API 配置到默认 custom_models 档案

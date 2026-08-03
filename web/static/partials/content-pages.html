@@ -500,12 +500,14 @@
         <div class="settings-tabs" role="tablist" data-i18n-aria-label="content.text.教程_日志_反馈_公告" aria-label="教程|日志|反馈|公告|群聊">
           <button type="button" role="tab" class="settings-tab active" data-guide-tab="tutorial" aria-selected="true">教程</button>
           <button type="button" role="tab" class="settings-tab" data-guide-tab="logs" aria-selected="false">弹幕日志</button>
+          <button type="button" role="tab" class="settings-tab" data-guide-tab="mic-logs" aria-selected="false" data-i18n="content.text.麦克风日志">麦克风日志</button>
           <button type="button" role="tab" class="settings-tab" data-guide-tab="announcements" aria-selected="false">公告</button>
           <button type="button" role="tab" class="settings-tab" data-guide-tab="feedback" aria-selected="false">问题反馈与群聊</button>
         </div>
       </div>
       <div id="guideTab-tutorial" class="settings-tab-panel active space-y-6" data-guide-panel="tutorial" role="tabpanel"></div>
       <div id="guideTab-logs" class="settings-tab-panel space-y-6" data-guide-panel="logs" role="tabpanel" hidden></div>
+      <div id="guideTab-mic-logs" class="settings-tab-panel space-y-6" data-guide-panel="mic-logs" role="tabpanel" hidden></div>
       <div id="guideTab-announcements" class="settings-tab-panel space-y-6" data-guide-panel="announcements" role="tabpanel" hidden></div>
       <div id="guideTab-feedback" class="settings-tab-panel space-y-6" data-guide-panel="feedback" role="tabpanel" hidden></div>
     </section>
@@ -661,6 +663,29 @@
         <div class="log-panel" role="region" data-i18n-aria-label="content.aria.运行日志" aria-label="运行日志">
           <p id="logViewEmpty" class="log-view-empty">等待日志… 点击「生成弹幕」后，截图、AI 请求与弹幕事件会在此实时显示。</p>
           <div id="logView" class="log-view max-h-[70vh] overflow-y-auto space-y-1" tabindex="0"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== 区域：麦克风日志（DOM 源，header 与 card 内容由 guide-tabs.js 搬入 #page-guide） ========== -->
+    <section id="page-mic-logs" class="page-panel" data-guide-panel="mic-logs-source" hidden>
+      <header class="mb-8 flex flex-wrap justify-between items-start gap-4 ui-page-header" data-guide-move="mic-logs">
+        <div class="ui-page-header__copy min-w-0">
+          <h2 class="text-2xl font-bold text-warmText ui-page-title" data-i18n="content.text.麦克风日志">麦克风日志</h2>
+          <p class="text-gray-500 mt-1 ui-page-description" data-i18n="dynamic.micLogs.subtitle">启用麦克风模式后，语音转文字记录会显示在这里（会话内保留，与弹幕日志一致）。</p>
+        </div>
+        <div class="flex items-center gap-2 bg-white px-4 py-2 rounded-full shadow-warm border border-softPeach text-sm ui-page-header__actions shrink-0">
+          <span class="text-gray-500" data-i18n="dynamic.micLogs.channelLabel">日志通道</span>
+          <span data-mic-log-conn class="text-xs font-normal border-l border-gray-200 pl-2 conn-connecting" aria-live="polite">连接中</span>
+        </div>
+      </header>
+      <div class="card p-4 space-y-3 ui-card" data-guide-move="mic-logs">
+        <div class="flex flex-wrap gap-3 items-center">
+          <button type="button" id="btnClearMicLogs" class="px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--sm" data-i18n="dynamic.micLogs.clear">清空日志</button>
+        </div>
+        <div class="mic-log-panel" role="region" data-i18n-aria-label="content.aria.麦克风日志" aria-label="麦克风日志">
+          <p id="micLogViewEmpty" class="mic-log-view-empty" data-i18n="dynamic.micLogs.empty">暂无麦克风日志。启用麦克风模式并开始说话后，语音转文字内容会显示在这里。</p>
+          <div id="micLogView" class="mic-log-view max-h-[70vh] overflow-y-auto space-y-2" tabindex="0"></div>
         </div>
       </div>
     </section>

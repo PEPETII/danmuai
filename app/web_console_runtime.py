@@ -107,6 +107,16 @@ def run_uvicorn_locked(server) -> None:
     def logs_recent(since_ts: float = 0.0):
         return {"items": bridge.list_recent_logs(since_ts)}
 
+    @app.get("/api/mic-logs/recent")
+    def mic_logs_recent(since_ts: float = 0.0):
+        return {"items": bridge.list_recent_mic_logs(since_ts)}
+
+    @app.post("/api/mic-logs/clear")
+    def mic_logs_clear(authorization: str | None = Header(default=None)):
+        _check_token(authorization)
+        bridge.clear_mic_logs()
+        return {"ok": True}
+
     @app.get("/api/config")
     def get_config():
         return export_config(bridge.danmu_app.config)

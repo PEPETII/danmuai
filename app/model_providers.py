@@ -628,6 +628,39 @@ def model_supports_mic_audio(
     return False
 
 
+def resolve_supports_mic_declared(
+    config,
+    model_id: str,
+    *,
+    endpoint: str = "",
+    api_mode: str = "",
+) -> bool | None:
+    """Read ``supportsMic`` from the active or independent mic custom profile."""
+    if config is None:
+        return None
+    get_models = getattr(config, "get_custom_models", None)
+    if not callable(get_models):
+        return None
+    mid = (model_id or "").strip()
+    if not mid:
+        return None
+    if config.get("mic_use_visual_model", "1") == "1":
+        default_id = (config.get_default_model_id() or "").strip()
+        if default_id != mid:
+            return None
+        entry = find_custom_model_profile(get_models(), default_id)
+        if entry is None:
+            return None
+        return entry.get("supportsMic")
+    mic_model = (config.get("mic_model") or "").strip()
+    if mic_model != mid:
+        return None
+    entry = find_custom_model_profile(get_models(), mic_model)
+    if entry is None:
+        return None
+    return entry.get("supportsMic")
+
+
 def mic_audio_unsupported_message(model_id: str) -> str:
     """User-facing reason when local gate rejects mic audio attachment."""
     mid = (model_id or "").strip() or "?"
@@ -667,7 +700,18 @@ def mic_audio_supported_for_mic_config(config) -> bool:
     api_mode = normalize_mode(config.get("mic_api_mode", "doubao"))
     if not endpoint or not api_key or not model_id:
         return False
-    return model_supports_mic_audio(model_id, endpoint=endpoint, api_mode=api_mode)
+    declared = resolve_supports_mic_declared(
+        config,
+        model_id,
+        endpoint=endpoint,
+        api_mode=api_mode,
+    )
+    return model_supports_mic_audio(
+        model_id,
+        endpoint=endpoint,
+        api_mode=api_mode,
+        supports_mic_declared=declared,
+    )
 
 
 def resolve_mic_model_id(config) -> str:

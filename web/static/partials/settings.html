@@ -143,82 +143,134 @@
           <h3 class="text-lg font-bold text-warmText flex items-center gap-2">
             <svg class="ui-icon text-warmPink" aria-hidden="true"><use href="#i-message"></use></svg> 麦克风模式
           </h3>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div class="md:col-span-2">
-              <label class="toggle-switch">
-                <input type="checkbox" id="mic_mode_enabled" role="switch">
-                <span>麦克风模式（实验）</span>
-              </label>
-              <p class="text-xs text-gray-400 mt-1">开启后，说完一句话会额外生成几条接话弹幕，并插队显示，不影响看屏识图的节奏。请<strong>说完后停顿约半秒</strong>；环境较吵时启动后会自动校准。录音只在内存里处理，不会保存到硬盘。</p>
-              <div id="micModeHint" class="hidden mt-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="alert" aria-live="polite"></div>
-              <p id="micActiveSourceBanner" class="text-xs text-sky-700 mt-2 hidden"></p>
-            </div>
-            <div class="md:col-span-2">
-              <label class="toggle-switch">
-                <input type="checkbox" id="mic_use_visual_model" role="switch" checked>
-                <span>与识图模型相同</span>
-              </label>
-              <p class="text-xs text-gray-400 mt-1">默认开启：开麦使用「API 与模型」里的接口与视觉模型。关闭后可单独配置支持麦克风的模型（识图仍用视觉模型）。</p>
-            </div>
-            <div id="micIndependentSection" class="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 hidden">
-              <div class="md:col-span-2">
-                <label class="block text-sm font-semibold mb-2 text-warmText"><svg class="ui-icon field-label-icon" aria-hidden="true"><use href="#i-tag"></use></svg>麦克风服务商预设</label>
-                <select id="micProviderPreset" class="settings-field-control w-full ui-control ui-select">
-                  <option value="">手动填写</option>
-                </select>
-              </div>
-              <div>
-                <label class="block text-sm font-semibold mb-2 text-warmText"><svg class="ui-icon field-label-icon" aria-hidden="true"><use href="#i-cloud"></use></svg>麦克风 API 地址</label>
-                <input type="text" name="mic_api_endpoint" id="mic_api_endpoint" class="settings-field-control w-full ui-control ui-input" placeholder="https://ark.cn-beijing.volces.com/api/v3">
-              </div>
-              <div>
-                <label class="block text-sm font-semibold mb-2 text-warmText"><svg class="ui-icon field-label-icon" aria-hidden="true"><use href="#i-plug"></use></svg>麦克风 API 模式</label>
-                <select name="mic_api_mode" id="mic_api_mode" class="settings-field-control w-full ui-control ui-select">
-                  <option value="doubao">豆包（火山方舟）</option>
-                  <option value="openai">OpenAI 兼容接口</option>
-                </select>
-              </div>
-              <div class="md:col-span-2">
-                <label class="block text-sm font-semibold mb-2 text-warmText"><svg class="ui-icon field-label-icon" aria-hidden="true"><use href="#i-key"></use></svg>麦克风 API 密钥 <span class="text-xs text-gray-400 font-normal">（保存在本机并加密，与识图密钥分开）</span></label>
-                <div class="relative">
-                  <input type="password" name="mic_api_key" id="mic_api_key" autocomplete="off" placeholder="sk-..." class="settings-field-control w-full pr-12 ui-control ui-input">
-                  <button type="button" id="toggleMicKey" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-warmPinkHover">
-                    <svg class="ui-icon" aria-hidden="true"><use href="#i-eye"></use></svg>
-                  </button>
+          <div class="settings-rhythm-accordion" data-settings-rhythm-accordion>
+            <section class="settings-rhythm-accordion-item">
+              <h4 class="settings-rhythm-accordion-heading">
+                <button type="button" id="settingsMicEnableAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="settingsMicEnableAccordionPanel">
+                  <span>启用与模型来源</span>
+                  <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
+                </button>
+              </h4>
+              <div id="settingsMicEnableAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="settingsMicEnableAccordionTrigger" hidden>
+                <div class="settings-rhythm-accordion-fields">
+                  <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--toggle">
+                    <span class="settings-field-label">麦克风模式（实验）</span>
+                    <label class="toggle-switch">
+                      <input type="checkbox" id="mic_mode_enabled" role="switch">
+                      <span aria-hidden="true"></span>
+                    </label>
+                  </div>
                 </div>
+                <p class="settings-section-hint">开启后，说完一句话会额外生成几条接话弹幕，并插队显示，不影响看屏识图的节奏。请<strong>说完后停顿约半秒</strong>；环境较吵时启动后会自动校准。录音只在内存里处理，不会保存到硬盘。</p>
+                <div id="micModeHint" class="hidden mt-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="alert" aria-live="polite"></div>
+                <p id="micActiveSourceBanner" class="text-xs text-sky-700 mt-2 hidden"></p>
+                <div class="settings-rhythm-accordion-fields mt-3">
+                  <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--toggle">
+                    <span class="settings-field-label">与识图模型相同</span>
+                    <label class="toggle-switch">
+                      <input type="checkbox" id="mic_use_visual_model" role="switch" checked>
+                      <span aria-hidden="true"></span>
+                    </label>
+                  </div>
+                </div>
+                <p class="settings-section-hint">默认开启：开麦使用「API 与模型」里的接口与视觉模型。关闭后可单独配置支持麦克风的模型（识图仍用视觉模型）。</p>
               </div>
-              <div class="md:col-span-2">
-                <label class="block text-sm font-semibold mb-2 text-warmText"><svg class="ui-icon field-label-icon" aria-hidden="true"><use href="#i-brain"></use></svg>麦克风模型</label>
+            </section>
+            <section id="micIndependentSection" class="settings-rhythm-accordion-item hidden">
+              <h4 class="settings-rhythm-accordion-heading">
+                <button type="button" id="settingsMicApiAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="settingsMicApiAccordionPanel">
+                  <span>独立麦克风接口</span>
+                  <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
+                </button>
+              </h4>
+              <div id="settingsMicApiAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="settingsMicApiAccordionTrigger" hidden>
+                <div class="settings-rhythm-accordion-fields">
+                  <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--stacked">
+                    <label for="micProviderPreset" class="settings-field-label">麦克风服务商预设</label>
+                    <div class="settings-rhythm-accordion-control-stack">
+                      <select id="micProviderPreset" class="settings-field-control ui-control ui-select">
+                        <option value="">手动填写</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="settings-rhythm-accordion-field">
+                    <label for="mic_api_endpoint" class="settings-field-label">麦克风 API 地址</label>
+                    <input type="text" name="mic_api_endpoint" id="mic_api_endpoint" class="settings-field-control ui-control ui-input" placeholder="https://ark.cn-beijing.volces.com/api/v3">
+                  </div>
+                  <div class="settings-rhythm-accordion-field">
+                    <label for="mic_api_mode" class="settings-field-label">麦克风 API 模式</label>
+                    <select name="mic_api_mode" id="mic_api_mode" class="settings-field-control ui-control ui-select">
+                      <option value="doubao">豆包（火山方舟）</option>
+                      <option value="openai">OpenAI 兼容接口</option>
+                    </select>
+                  </div>
+                  <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--stacked">
+                    <span class="settings-field-label">麦克风 API 密钥 <span class="text-xs text-gray-400 font-normal">（保存在本机并加密，与识图密钥分开）</span></span>
+                    <div class="settings-rhythm-accordion-control-stack">
+                      <div class="relative">
+                        <input type="password" name="mic_api_key" id="mic_api_key" autocomplete="off" placeholder="sk-..." class="settings-field-control pr-12 ui-control ui-input">
+                        <button type="button" id="toggleMicKey" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-warmPinkHover">
+                          <svg class="ui-icon" aria-hidden="true"><use href="#i-eye"></use></svg>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <p class="settings-section-title mt-3">麦克风模型</p>
                 <div id="micModelField">
                   <input type="hidden" name="mic_model" id="mic_model" value="">
                   <div id="micModelPicker" class="vision-model-picker" role="radiogroup" data-i18n-aria-label="settings.text.麦克风模型" aria-label="麦克风模型"></div>
                   <div id="micModelCustom" class="vision-model-custom hidden">
-                    <input type="text" id="micModelCustomInput" class="settings-field-control w-full ui-control ui-input" data-i18n-placeholder="settings.placeholder.输入模型_ID_须支持麦克风" placeholder="输入模型 ID（须支持麦克风）" autocomplete="off">
+                    <input type="text" id="micModelCustomInput" class="settings-field-control ui-control ui-input" data-i18n-placeholder="settings.placeholder.输入模型_ID_须支持麦克风" placeholder="输入模型 ID（须支持麦克风）" autocomplete="off">
                   </div>
                 </div>
-                <p class="text-xs text-gray-400 mt-1">仅列出目录中带「支持麦克风」标识的模型；豆包全模态或小米 MiMo 的 mimo-v2.5。</p>
+                <p class="settings-section-hint">仅列出目录中带「支持麦克风」标识的模型；豆包全模态或小米 MiMo 的 mimo-v2.5。</p>
               </div>
-            </div>
-            <div>
-              <label class="block text-sm font-semibold mb-2 text-warmText"><svg class="ui-icon field-label-icon" aria-hidden="true"><use href="#i-message"></use></svg>麦克风窗口（秒）</label>
-              <input type="number" name="mic_window_sec" id="mic_window_sec" min="1" max="30" step="1" value="5" class="settings-field-control w-full ui-control ui-input">
-            </div>
-            <div>
-              <label class="block text-sm font-semibold mb-2 text-warmText"><svg class="ui-icon field-label-icon" aria-hidden="true"><use href="#i-mic"></use></svg>输入设备</label>
-              <select name="mic_input_device_id" id="mic_input_device_id" class="settings-field-control w-full ui-control ui-select">
-                <option value="">跟随系统默认</option>
-              </select>
-              <p id="micInputDeviceHint" class="text-xs text-gray-400 mt-1">默认跟随 Windows 当前默认录音设备；也可以手动固定到某一只麦克风。</p>
-            </div>
-            <div class="md:col-span-2 flex flex-wrap items-center gap-3">
-              <button type="button" id="btnMicTest" class="ui-button ui-button--secondary ui-button--sm">
-                测试麦克风
-              </button>
-              <button type="button" id="btnMicTestSend" class="ui-button ui-button--secondary ui-button--sm">
-                测试发送
-              </button>
-              <span id="micTestStatus" class="text-xs text-gray-400">「测试麦克风」只检查有没有声音，不会联网；「测试发送」会录音并请求 AI。请先点「保存配置」再测。用蓝牙耳机时，请在 Windows「设置 → 系统 → 声音 → 输入」里把耳机设为默认麦克风。</span>
-            </div>
+            </section>
+            <section class="settings-rhythm-accordion-item">
+              <h4 class="settings-rhythm-accordion-heading">
+                <button type="button" id="settingsMicDeviceAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="settingsMicDeviceAccordionPanel">
+                  <span>录音与设备</span>
+                  <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
+                </button>
+              </h4>
+              <div id="settingsMicDeviceAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="settingsMicDeviceAccordionTrigger" hidden>
+                <div class="settings-rhythm-accordion-fields">
+                  <div class="settings-rhythm-accordion-field">
+                    <label for="mic_window_sec" class="settings-field-label">麦克风窗口（秒）</label>
+                    <input type="number" name="mic_window_sec" id="mic_window_sec" min="1" max="30" step="1" value="5" class="settings-field-control ui-control ui-input">
+                  </div>
+                  <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--stacked">
+                    <label for="mic_input_device_id" class="settings-field-label">输入设备</label>
+                    <div class="settings-rhythm-accordion-control-stack">
+                      <select name="mic_input_device_id" id="mic_input_device_id" class="settings-field-control ui-control ui-select">
+                        <option value="">跟随系统默认</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+                <p id="micInputDeviceHint" class="settings-section-hint">默认跟随 Windows 当前默认录音设备；也可以手动固定到某一只麦克风。</p>
+              </div>
+            </section>
+            <section class="settings-rhythm-accordion-item">
+              <h4 class="settings-rhythm-accordion-heading">
+                <button type="button" id="settingsMicTestAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="settingsMicTestAccordionPanel">
+                  <span>测试与诊断</span>
+                  <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
+                </button>
+              </h4>
+              <div id="settingsMicTestAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="settingsMicTestAccordionTrigger" hidden>
+                <div class="flex flex-wrap items-center gap-3">
+                  <button type="button" id="btnMicTest" class="ui-button ui-button--secondary ui-button--sm">
+                    测试麦克风
+                  </button>
+                  <button type="button" id="btnMicTestSend" class="ui-button ui-button--secondary ui-button--sm">
+                    测试发送
+                  </button>
+                </div>
+                <p id="micTestStatus" class="settings-section-hint">「测试麦克风」只检查有没有声音，不会联网；「测试发送」会录音并请求 AI。请先点「保存配置」再测。用蓝牙耳机时，请在 Windows「设置 → 系统 → 声音 → 输入」里把耳机设为默认麦克风。</p>
+              </div>
+            </section>
           </div>
         </div>
 

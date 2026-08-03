@@ -127,7 +127,7 @@ def maybe_migrate_legacy_api_to_custom_models_for_store(store: ConfigStore) -> b
                 "legacy cleanup incomplete: missing endpoint or model",
                 extra={"reason": "legacy_cleanup_incomplete"},
             )
-            set_flag_for_store(store, "legacy_api_migrated_v1", "true")
+            set_flag_for_store(store, "legacy_cleanup_incomplete", "true")
             return True
 
         api_mode = store.get("api_mode", "")
@@ -141,6 +141,8 @@ def maybe_migrate_legacy_api_to_custom_models_for_store(store: ConfigStore) -> b
         except (TypeError, ValueError):
             max_tokens_int = 512
 
+        from app.model_providers import model_likely_supports_mic_audio
+
         profile = {
             "name": "Default (imported)",
             "provider": provider,
@@ -150,7 +152,7 @@ def maybe_migrate_legacy_api_to_custom_models_for_store(store: ConfigStore) -> b
             "model_ids": model_ids,
             "default_model_id": default_model_id,
             "max_tokens": max_tokens_int,
-            "supportsMic": False,
+            "supportsMic": model_likely_supports_mic_audio(default_model_id),
             "description": "",
         }
 

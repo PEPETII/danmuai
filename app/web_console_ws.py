@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 _WS_BROADCAST_LOG_INTERVAL_SEC = 5.0
 _WS_MAX_STATUS_CONSUMERS = 10
 _WS_MAX_LOG_CONSUMERS = 10
+_WS_MAX_MIC_LOG_CONSUMERS = 10
 _WS_MAX_PANEL_CONSUMERS = 1
 _WS_SEND_TIMEOUT_SEC = 2.0
 _WS_AUTH_TIMEOUT_SEC = 1.0
@@ -184,6 +185,32 @@ def register_websocket_routes(app, bridge, token: str, websocket_route, websocke
         finally:
             bridge.unregister_log_consumer(queue)
 
+    async def _ws_mic_logs_endpoint(websocket):
+        await websocket.accept()
+        if not await _authenticate_websocket(websocket, token, timeout_sec=_WS_AUTH_TIMEOUT_SEC):
+            return
+        if len(bridge._ws_mic_log_queues) >= _WS_MAX_MIC_LOG_CONSUMERS:
+            await websocket.close(code=1008, reason="连接数已满")
+            return
+        client = websocket.client
+        peer = f"{client.host}:{client.port}" if client else "unknown"
+        bridge._ws_log_debug(f"WebSocket /ws/mic-logs accepted peer={peer}")
+        queue: asyncio.Queue = asyncio.Queue(maxsize=200)
+        try:
+            bridge.register_mic_log_consumer(queue)
+            while True:
+                item = await queue.get()
+                if not await _send_json_with_timeout(websocket, item):
+                    break
+        except websocket_disconnect:
+            bridge._ws_log_debug(f"WebSocket /ws/mic-logs disconnected peer={peer}")
+        except Exception as exc:  # boundary: send/queue errors after auth
+            bridge._ws_log_debug(
+                f"WebSocket /ws/mic-logs closed peer={peer} error={exc!r}"
+            )
+        finally:
+            bridge.unregister_mic_log_consumer(queue)
+
     async def _ws_panel_endpoint(websocket):
         await websocket.accept()
         if not await _authenticate_websocket(websocket, token, timeout_sec=_WS_AUTH_TIMEOUT_SEC):
@@ -263,4 +290,5 @@ def register_websocket_routes(app, bridge, token: str, websocket_route, websocke
 
     app.router.routes.insert(0, websocket_route("/ws/status", endpoint=_ws_status_endpoint))
     app.router.routes.insert(0, websocket_route("/ws/logs", endpoint=_ws_logs_endpoint))
+    app.router.routes.insert(0, websocket_route("/ws/mic-logs", endpoint=_ws_mic_logs_endpoint))
     app.router.routes.insert(0, websocket_route("/ws/panel", endpoint=_ws_panel_endpoint))

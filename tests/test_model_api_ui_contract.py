@@ -28,6 +28,25 @@ def test_provider_resolve_and_hunyuan_warning_contract():
     assert "response.ok" not in source
     assert "hunyuanWarning" in source
     assert "2026-09-30" in source
+    assert "formatProviderStatusPart" in source
+    assert "formatProviderSourcePart" in source
+    assert "hasProviderWarningContext" in source
+    assert "kind !== 'unknown'" in source
+    assert "formatProviderSourcePart(provider.source)" in source
+    assert "provider.source].filter" not in source
+
+
+def test_provider_status_hides_unknown_source_for_active_providers():
+    from app.model_providers import provider_for_api, get_provider
+
+    doubao = provider_for_api(get_provider("doubao"))
+    mimo = provider_for_api(get_provider("mimo"))
+    assert doubao.get("status") == "active"
+    assert mimo.get("status") == "active"
+    assert doubao["source"]["source_kind"] == "unknown"
+    assert mimo["source"]["source_kind"] == "unknown"
+    assert doubao["source"]["url"]
+    assert mimo["source"]["url"]
 
 
 def test_thinking_ui_keeps_legacy_dom_and_four_states():

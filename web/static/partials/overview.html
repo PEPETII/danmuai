@@ -14,6 +14,16 @@
           <p class="ui-page-description text-gray-500" id="statusSub">小助手正在待命，随时为你生成暖心弹幕~</p>
         </div>
         <div class="ui-page-header__actions flex items-center gap-3 flex-wrap shrink-0">
+          <div class="overview-quick-log-actions flex items-center gap-2 flex-wrap">
+            <button type="button" id="btnGoDanmuLogs" class="overview-log-shortcut ui-button ui-button--secondary ui-button--sm" data-i18n="overview.text.弹幕日志" data-i18n-aria-label="overview.aria.打开弹幕日志">
+              <svg class="ui-icon" aria-hidden="true"><use href="#i-book"></use></svg>
+              <span>弹幕日志</span>
+            </button>
+            <button type="button" id="btnGoMicLogs" class="overview-log-shortcut ui-button ui-button--secondary ui-button--sm" data-i18n="overview.text.麦克风日志" data-i18n-aria-label="overview.aria.打开麦克风日志">
+              <svg class="ui-icon" aria-hidden="true"><use href="#i-megaphone"></use></svg>
+              <span>麦克风日志</span>
+            </button>
+          </div>
           <div class="overview-status-pill flex items-center gap-2">
             <div id="statusDot" class="overview-status-dot w-3 h-3 bg-gray-300 rounded-full"></div>
             <span class="text-sm font-semibold text-warmText" id="statusPill">待命</span>

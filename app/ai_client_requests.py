@@ -22,13 +22,50 @@ from app.main_helpers import STREAM_FIRST_CONTENT_TIMEOUT_SEC
 from app.model_catalog import catalog_model_supports_thinking_toggle
 from app.model_providers import (
     get_capabilities_for_model,
+    mic_audio_unsupported_message,
     model_supports_mic_audio,
     normalize_endpoint,
+    resolve_supports_mic_declared,
 )
 from app.providers.request_planner import GenerationRequest, plan_http_request
 from app.translations import tr
 
 logger = logging.getLogger(__name__)
+
+
+def _apply_mic_audio_policy(
+    worker,
+    model: str,
+    endpoint: str,
+    api_mode: str,
+    audio_data_uri: str | None,
+) -> tuple[str | None, bool | None, bool | None]:
+    """Return (effective_audio_uri, supports_mic_override, supports_mic_declared)."""
+    if not audio_data_uri:
+        return None, None, None
+    declared = resolve_supports_mic_declared(
+        worker.config,
+        model,
+        endpoint=endpoint,
+        api_mode=api_mode,
+    )
+    if model_supports_mic_audio(
+        model,
+        endpoint=endpoint,
+        api_mode=api_mode,
+        supports_mic_declared=declared,
+    ):
+        logger.info("request contains audio: model=%s purpose=mic_danmu", model)
+        return audio_data_uri, True, declared
+    logger.info(
+        "mic audio stripped before request: model=%s endpoint=%s reason=%s",
+        model,
+        endpoint,
+        mic_audio_unsupported_message(model),
+    )
+    return None, None, declared
+
+
 def _effective_use_thinking(caps, model_id: str, config_use_thinking: bool) -> bool:
     return (
         config_use_thinking
@@ -237,7 +274,14 @@ def request_doubao(
             signal="error",
             message=tr("ai.error_request_failed").format(error="empty or invalid image"),
         )
-    purpose = "mic_danmu" if audio_data_uri else "visual_danmu"
+    mic_audio, mic_override, mic_declared = _apply_mic_audio_policy(
+        worker,
+        model,
+        endpoint,
+        api_mode,
+        audio_data_uri,
+    )
+    purpose = "mic_danmu" if mic_audio else "visual_danmu"
     planned = plan_http_request(
         GenerationRequest(
             purpose=purpose,
@@ -248,11 +292,13 @@ def request_doubao(
             system_text=system_pt or None,
             user_text=user_pt,
             image_data_uri=image_data_uri,
-            audio_data_uri=audio_data_uri,
+            audio_data_uri=mic_audio,
             max_output_tokens=max_output_tokens,
             temperature=temperature,
             reasoning_enabled=effective_use_thinking,
             stream=True,
+            supports_mic_override=mic_override,
+            supports_mic_declared=mic_declared,
         )
     )
     url = planned.url
@@ -367,17 +413,13 @@ def request_openai(
         temperature,
         http_client,
     ) = ctx
-    mic_audio = audio_data_uri
-    if mic_audio and not model_supports_mic_audio(model, endpoint=endpoint, api_mode=api_mode):
-        from app.model_providers import mic_audio_unsupported_message
-
-        logger.info(
-            "mic audio stripped before openai request: model=%s endpoint=%s reason=%s",
-            model,
-            endpoint,
-            mic_audio_unsupported_message(model),
-        )
-        mic_audio = None
+    mic_audio, mic_override, mic_declared = _apply_mic_audio_policy(
+        worker,
+        model,
+        endpoint,
+        api_mode,
+        audio_data_uri,
+    )
     purpose = "mic_danmu" if mic_audio else "visual_danmu"
     planned = plan_http_request(
         GenerationRequest(
@@ -394,6 +436,8 @@ def request_openai(
             temperature=temperature,
             reasoning_enabled=effective_use_thinking,
             stream=True,
+            supports_mic_override=mic_override,
+            supports_mic_declared=mic_declared,
         )
     )
     url = planned.url

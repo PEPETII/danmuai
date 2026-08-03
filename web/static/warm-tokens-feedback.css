@@ -249,3 +249,61 @@
 .log-line.WARNING { color: var(--color-primary-hover); background: rgba(var(--color-primary-rgb), 0.12); }
 .log-line.ERROR { color: #fca5a5; background: rgba(180, 35, 24, 0.18); }
 
+.mic-log-panel {
+  position: relative;
+  min-width: 0;
+}
+
+.mic-log-view {
+  min-width: 0;
+}
+
+.mic-log-view-empty {
+  margin: 0;
+  padding: var(--space-4);
+  text-align: center;
+  color: var(--color-text-dim);
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.mic-log-panel.has-logs .mic-log-view-empty {
+  display: none;
+}
+
+.mic-log-line {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.16);
+  background: var(--color-bg-subtle);
+  min-width: 0;
+}
+
+.mic-log-line__meta {
+  font-size: 0.75rem;
+  color: var(--color-text-dim);
+  margin-bottom: var(--space-2);
+}
+
+.mic-log-line__text {
+  font-size: 0.875rem;
+  color: var(--color-text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.mic-log-line--partial {
+  border-color: rgba(59, 130, 246, 0.35);
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.mic-log-line--failed {
+  border-color: rgba(220, 38, 38, 0.35);
+  background: rgba(220, 38, 38, 0.08);
+}
+
+.mic-log-line--success {
+  border-color: rgba(22, 163, 74, 0.28);
+}
+

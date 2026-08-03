@@ -87,7 +87,7 @@ def test_clean_migration_creates_default_profile(tmp_path):
     assert profile["model_ids"] == ["doubao-seed-1-6-vision-32k-250115"]
     assert profile["default_model_id"] == "doubao-seed-1-6-vision-32k-250115"
     assert profile["max_tokens"] == 512
-    assert profile["supportsMic"] is False
+    assert profile["supportsMic"] is True
     assert profile["description"] == ""
 
     # 验证：标志位已置 true
@@ -153,7 +153,8 @@ def test_clean_migration_empty_model_yields_empty_model_ids(tmp_path):
     models = store2.get_custom_models()
     # 分支 C：凭证不完整（缺 model）→ 不创建档案
     assert len(models) == 0, "分支 C：model 为空时不应创建档案"
-    assert store2.get_flag("legacy_api_migrated_v1") == "true"
+    assert store2.get_flag("legacy_cleanup_incomplete") == "true"
+    assert store2.get_flag("legacy_api_migrated_v1") is None
     # 分支 C：不清空全局 api_key
     assert store2.get_api_key() == "sk-empty-model-1234567890", (
         "分支 C：model 为空时不应清空 api_key"
@@ -507,7 +508,7 @@ def test_safety_net_branch_a_cleans_global_when_complete_profile_exists(tmp_path
 
 def test_safety_net_branch_c_incomplete_creds_does_not_clean(tmp_path):
     """W-GLOBAL-VISUAL-APIKEY-REMOVE-001 分支 C：
-    api_key 非空但 endpoint 缺失 → 不清空，置标志位，下次启动跳过。"""
+    api_key 非空但 endpoint 缺失 → 不清空，记 incomplete 标志，下次启动重试。"""
     db_path = tmp_path / "config.db"
     store1 = ConfigStore(db_path=db_path)
     # 只写 api_key，不写 endpoint/model（凭证不完整）
@@ -520,21 +521,23 @@ def test_safety_net_branch_c_incomplete_creds_does_not_clean(tmp_path):
     # 新建 store 触发安全网
     store2 = ConfigStore(db_path=db_path)
 
-    # 断言：分支 C → 不清空 api_key，置标志位
+    # 断言：分支 C → 不清空 api_key，记 incomplete 标志
     assert store2.get_api_key() == "sk-incomplete-creds-1234567890", (
         "分支 C：api_key 不应被清空"
     )
     assert store2.get("api_endpoint") == "", "分支 C：api_endpoint 原本就为空"
-    assert store2.get_flag("legacy_api_migrated_v1") == "true", "分支 C：应置标志位 true"
+    assert store2.get_flag("legacy_cleanup_incomplete") == "true", "分支 C：应置 incomplete 标志"
+    assert store2.get_flag("legacy_api_migrated_v1") is None
     assert len(store2.get_custom_models()) == 0, "分支 C：不应创建档案"
     store2.close()
 
-    # 再次重启：标志位已 true → 跳过，api_key 仍非空
+    # 再次重启：incomplete 标志存在 → 仍不清空 api_key，重试迁移
     store3 = ConfigStore(db_path=db_path)
     assert store3.get_api_key() == "sk-incomplete-creds-1234567890", (
-        "分支 C 重启后：api_key 应仍非空（标志位 true 跳过）"
+        "分支 C 重启后：api_key 应仍非空"
     )
-    assert store3.get_flag("legacy_api_migrated_v1") == "true"
+    assert store3.get_flag("legacy_cleanup_incomplete") == "true"
+    assert store3.get_flag("legacy_api_migrated_v1") is None
     store3.close()
 
 

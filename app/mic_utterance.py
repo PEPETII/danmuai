@@ -67,9 +67,13 @@ class MicUtteranceDetector:
         self,
         *,
         on_utterance_end: Callable[[], None],
+        on_speech_start: Callable[[], None] | None = None,
+        on_utterance_discarded: Callable[[], None] | None = None,
         config: MicUtteranceConfig | None = None,
     ) -> None:
         self._on_utterance_end = on_utterance_end
+        self._on_speech_start = on_speech_start
+        self._on_utterance_discarded = on_utterance_discarded
         self._config = config or MicUtteranceConfig()
         self._state = UtteranceState.IDLE
         self._speech_started_at = 0.0
@@ -142,6 +146,8 @@ class MicUtteranceDetector:
                 self._state = UtteranceState.SPEAKING
                 self._speech_started_at = now
                 self._peak_rms = rms
+                if self._on_speech_start is not None:
+                    self._on_speech_start()
             return
 
         exit_threshold = self._speech_exit_threshold()
@@ -172,6 +178,8 @@ class MicUtteranceDetector:
                 self._fire(now)  # 有效 utterance：进入 COOLDOWN 并回调
             else:
                 # 过短语音（咳嗽/按键声）丢弃，不触发 mic API
+                if self._on_utterance_discarded is not None:
+                    self._on_utterance_discarded()
                 self._state = UtteranceState.IDLE
                 self._peak_rms = 0
 

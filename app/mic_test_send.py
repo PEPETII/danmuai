@@ -15,7 +15,11 @@ from PIL import Image
 
 from app.ai_client import AiProbeResult
 from app.mic_encode import pcm_to_wav_data_uri
-from app.model_providers import mic_audio_unsupported_message, model_supports_mic_audio
+from app.model_providers import (
+    mic_audio_unsupported_message,
+    model_supports_mic_audio,
+    resolve_supports_mic_declared,
+)
 from app.translations import tr
 
 _TEST_USER_PT = tr("micTestSend.probePrompt")
@@ -61,24 +65,6 @@ def placeholder_image_data_uri() -> str:
     image.save(buf, format="JPEG", quality=85)
     encoded = base64.b64encode(buf.getvalue()).decode("utf-8")
     return f"data:image/jpeg;base64,{encoded}"
-
-
-def _resolve_supports_mic_declared(danmu_app, model_id: str):
-    from app.model_providers import custom_model_profile_id, find_custom_model_profile
-
-    try:
-        config = danmu_app.config
-    except (AttributeError, RuntimeError):
-        return None
-    if config is None or not hasattr(config, "get_custom_models"):
-        return None
-    default_id = (config.get_default_model_id() or "").strip()
-    if default_id != (model_id or "").strip():
-        return None
-    entry = find_custom_model_profile(config.get_custom_models(), default_id)
-    if entry is None:
-        return None
-    return entry.get("supportsMic")
 
 
 def _probe_result_from_ai(outcome: AiProbeResult) -> MicSendProbeResult:
@@ -130,7 +116,7 @@ def send_mic_probe(
         )
 
     endpoint, _, model_id, api_mode = resolved
-    supports_declared = _resolve_supports_mic_declared(danmu_app, model_id)
+    supports_declared = resolve_supports_mic_declared(danmu_app.config, model_id)
     if not model_supports_mic_audio(
         model_id,
         endpoint=endpoint,

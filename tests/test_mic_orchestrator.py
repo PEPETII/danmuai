@@ -15,6 +15,53 @@ def _orch(mic_service: MagicMock | None = None) -> MicOrchestrator:
     )
 
 
+def test_sync_invokes_capture_failed_callback(monkeypatch):
+    mic = MagicMock()
+    mic.is_running.return_value = False
+    mic.last_error.return_value = "sounddevice not installed"
+    on_capture_failed = Mock()
+    orch = MicOrchestrator(
+        mic_service=mic,
+        on_utterance_end=Mock(),
+        log_fn=Mock(),
+        on_capture_failed_fn=on_capture_failed,
+    )
+    monkeypatch.setattr("app.mic_orchestrator.mic_mode_enabled", lambda _cfg: True)
+
+    orch.sync(
+        engine_running=True,
+        config=MagicMock(),
+        mic_audio_supported_fn=lambda: True,
+        resolve_active_model_id_fn=lambda: "mimo",
+        mic_credentials_ready_fn=lambda: True,
+    )
+
+    on_capture_failed.assert_called_once_with("sounddevice not installed")
+
+
+def test_sync_invokes_incomplete_credentials_callback(monkeypatch):
+    mic = MagicMock()
+    mic.is_running.return_value = True
+    on_incomplete = Mock()
+    orch = MicOrchestrator(
+        mic_service=mic,
+        on_utterance_end=Mock(),
+        log_fn=Mock(),
+        on_incomplete_credentials_fn=on_incomplete,
+    )
+    monkeypatch.setattr("app.mic_orchestrator.mic_mode_enabled", lambda _cfg: True)
+
+    orch.sync(
+        engine_running=True,
+        config=MagicMock(),
+        mic_audio_supported_fn=lambda: True,
+        resolve_active_model_id_fn=lambda: "mimo",
+        mic_credentials_ready_fn=lambda: False,
+    )
+
+    on_incomplete.assert_called_once()
+
+
 def test_sync_stops_capture_when_engine_stops(monkeypatch):
     mic = MagicMock()
     mic.is_running.return_value = True

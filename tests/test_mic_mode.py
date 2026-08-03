@@ -13,6 +13,25 @@ from tests.conftest import bind_minimal_danmu_app
 from tests.fakes import FakeConfig, FakeTimer
 
 
+def _mic_ready_fake_config():
+    model_id = "doubao-seed-2-0-mini-260428"
+    return FakeConfig(
+        {
+            "mic_mode_enabled": "1",
+            "mic_use_visual_model": "1",
+            "default_model_id": model_id,
+            "custom_models": [
+                {
+                    "default_model_id": model_id,
+                    "endpoint": "https://ark.cn-beijing.volces.com/api/v3",
+                    "mode": "doubao",
+                    "apiKey": "sk-test",
+                }
+            ],
+        }
+    )
+
+
 def test_clamp_mic_window_sec():
     assert clamp_mic_window_sec(0) == 1
     assert clamp_mic_window_sec(5) == 5
@@ -371,7 +390,7 @@ def test_restart_after_stop_resumes_mic_poll(monkeypatch):
     app = DanmuApp.__new__(DanmuApp)
     bind_minimal_danmu_app(
         app,
-        config=FakeConfig({"mic_mode_enabled": "1"}),
+        config=_mic_ready_fake_config(),
     )
     running = [False]
 
@@ -392,6 +411,7 @@ def test_restart_after_stop_resumes_mic_poll(monkeypatch):
     app._mic_service = mic_service
     app._mic_orchestrator = mic_orchestrator
     app._mic_poll_timer = FakeTimer()
+    object.__setattr__(app, "_mic_capture_error_active", False)
     object.__setattr__(app, "_sync_mic_service", DanmuApp._sync_mic_service.__get__(app, DanmuApp))
 
     monkeypatch.setattr("main.mic_audio_supported_for_mic_config", lambda _cfg: True)
@@ -476,7 +496,7 @@ def test_sync_mic_service_sets_web_error_when_model_unsupported(monkeypatch):
     app = DanmuApp.__new__(DanmuApp)
     bind_minimal_danmu_app(
         app,
-        config=FakeConfig({"mic_mode_enabled": "1"}),
+        config=_mic_ready_fake_config(),
     )
     mic_service = SimpleNamespace(
         is_running=lambda: True,
@@ -512,7 +532,7 @@ def test_sync_mic_service_clears_error_when_model_supported(monkeypatch):
     app = DanmuApp.__new__(DanmuApp)
     bind_minimal_danmu_app(
         app,
-        config=FakeConfig({"mic_mode_enabled": "1"}),
+        config=_mic_ready_fake_config(),
     )
     mic_service = SimpleNamespace(
         is_running=lambda: True,
@@ -523,6 +543,7 @@ def test_sync_mic_service_clears_error_when_model_supported(monkeypatch):
 
     # 预置：上一轮已设置错误条
     object.__setattr__(app, "_mic_unsupported_error_active", True)
+    object.__setattr__(app, "_mic_capture_error_active", False)
 
     error_calls: list[tuple[str, bool]] = []
 
