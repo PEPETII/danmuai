@@ -235,9 +235,7 @@ def test_overview_f1_semantic_shell():
     """W-UI-PAGES-OVERVIEW-001: page header, group titles, status banners, IDs."""
     overview = (_static_dir() / "partials" / "overview.html").read_text(encoding="utf-8")
     components = _components_css()
-    pages = (_static_dir() / "warm-tokens-pages-overview.css").read_text(
-        encoding="utf-8"
-    )
+    pages = (_static_dir() / "warm-tokens-pages-overview.css").read_text(encoding="utf-8")
 
     assert "ui-page-header" in overview
     assert "ui-page-header__copy" in overview
@@ -361,6 +359,14 @@ def test_content_pages_f2_semantic_shell():
     assert "ui-button--secondary" in modals
     assert "ui-button--danger" in modals
     assert "ui-control" in modals
+    assert re.search(r'id="modelProbeResult"[^>]*role="status"[^>]*aria-live="polite"', modals)
+    for probe_id in (
+        "modelProbeResultTitle",
+        "modelProbeResultMessage",
+        "modelProbeResultMeta",
+        "btnModelProbeTechnicalDetail",
+    ):
+        assert modals.count(f'id="{probe_id}"') == 1
     assert re.search(
         r'id="btnDeleteModelConfirmOk"[^>]*class="[^"]*ui-button--danger',
         modals,

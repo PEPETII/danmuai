@@ -694,24 +694,10 @@ export function bindSettingsControls(deps = {}) {
 
   document.getElementById('modelModalForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const btn = e.submitter || document.activeElement;
-    await window.withLoadingState(btn, btn?.textContent, async () => {
-      try {
-        await saveModel();
-      } catch (err) {
-        showToast(err.message, true);
-      }
-    });
+    try { await saveModel(); } catch (err) { showToast(err.message, true); }
   });
   document.getElementById('btnModelProbe')?.addEventListener('click', async (e) => {
-    const btn = e.currentTarget;
-    await window.withLoadingState(btn, btn.textContent, async () => {
-      try {
-        await probe();
-      } catch (err) {
-        showToast(err.message, true);
-      }
-    });
+    try { await probe(); } catch (err) { showToast(err.message, true); }
   });
 
   initDanmuPreview();
