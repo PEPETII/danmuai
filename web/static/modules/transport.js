@@ -23,6 +23,52 @@ import { t } from './i18n.js';
 
 export const API = { token: null, base: '' };
 
+const SESSION_STORAGE_KEY = 'danmuai.web.session.v1';
+let bootstrapSecret = takeBootstrapSecretFromFragment();
+let sessionRefreshPromise = null;
+
+function takeBootstrapSecretFromFragment() {
+  if (typeof window === 'undefined' || !window.location) return '';
+  const hash = window.location.hash || '';
+  if (!hash.startsWith('#')) return '';
+  const params = new URLSearchParams(hash.slice(1));
+  const secret = params.get('bootstrap') || '';
+  if (!secret) return '';
+  const route = params.get('route');
+  const nextHash = route ? `#${route}` : '';
+  try {
+    window.history.replaceState(
+      null,
+      document.title,
+      `${window.location.pathname}${window.location.search}${nextHash}`,
+    );
+  } catch (_) {
+    // The secret is still sent once if history is unavailable in an embedded shell.
+  }
+  return secret;
+}
+
+function readStoredSession() {
+  try {
+    const raw = window.sessionStorage.getItem(SESSION_STORAGE_KEY);
+    const value = raw ? JSON.parse(raw) : null;
+    return value && typeof value.token === 'string' ? value : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function writeStoredSession(session) {
+  try {
+    window.sessionStorage.setItem(
+      SESSION_STORAGE_KEY,
+      JSON.stringify({ token: session.token, base_url: session.base_url }),
+    );
+  } catch (_) {
+    // Private browsing or an embedded shell may disable sessionStorage.
+  }
+}
+
 /** @typedef {'connecting'|'connected'|'reconnecting'|'polling'|'failed'} RealtimeConnMode */
 
 export const REALTIME = {
@@ -92,26 +138,43 @@ export function formatApiError(detail, fallback = t('common.requestFailed')) {
   return String(detail);
 }
 
-/** Re-fetch session token (required after each `python main.py` restart). */
-export async function refreshSession() {
-  const sessionUrl = new URL('/api/session', window.location.origin).href;
-  const res = await fetch(sessionUrl, { cache: 'no-store' });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: res.statusText }));
-    const detail = formatApiError(err.detail, res.statusText);
-    throw new Error(
-      t('dynamic.transport.无法获取控制台会话_HTTP_res_sta', { status: res.status, detail })
-      + t('dynamic.transport.请确认终端有_Web_控制台_HTTP_WS_已'),
-    );
-  }
-  const session = await res.json();
-  if (!session?.token) {
-    throw new Error(t('dynamic.transport.会话接口未返回_token_请重启_python'));
-  }
-  API.token = session.token;
-  API.base = (session.base_url || window.location.origin).replace(/\/$/, '');
-  REALTIME.lastLogsPollTs = 0;
-  return session;
+/** Exchange launcher bootstrap or the tab's cached Bearer for a console session. */
+export function refreshSession() {
+  if (sessionRefreshPromise) return sessionRefreshPromise;
+  sessionRefreshPromise = (async () => {
+    const sessionUrl = new URL('/api/session', window.location.origin).href;
+    const cached = readStoredSession();
+    const headers = {};
+    if (bootstrapSecret) {
+      headers['X-DanmuAI-Bootstrap'] = bootstrapSecret;
+    } else {
+      const cachedToken = API.token || cached?.token;
+      if (cachedToken) headers.Authorization = `Bearer ${cachedToken}`;
+    }
+    const res = await fetch(sessionUrl, { cache: 'no-store', headers });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }));
+      const detail = formatApiError(err.detail, res.statusText);
+      throw new Error(
+        t('dynamic.transport.无法获取控制台会话_HTTP_res_sta', { status: res.status, detail })
+        + t('dynamic.transport.请确认终端有_Web_控制台_HTTP_WS_已'),
+      );
+    }
+    const session = await res.json();
+    if (!session?.token) {
+      throw new Error(t('dynamic.transport.会话接口未返回_token_请重启_python'));
+    }
+    API.token = session.token;
+    API.base = (session.base_url || window.location.origin).replace(/\/$/, '');
+    writeStoredSession(session);
+    bootstrapSecret = '';
+    REALTIME.lastLogsPollTs = 0;
+    return session;
+  })();
+  sessionRefreshPromise = sessionRefreshPromise.finally(() => {
+    sessionRefreshPromise = null;
+  });
+  return sessionRefreshPromise;
 }
 
 export async function apiFetch(path, options = {}, retried = false) {
@@ -319,7 +382,7 @@ function detachWebSocket(ws) {
 }
 
 async function pollStatusOnce() {
-  const res = await fetch(`${API.base}/api/status`);
+  const res = await fetch(`${API.base}/api/status`, { headers: authHeaders() });
   if (!res.ok) throw new Error(res.statusText);
   handlers.onStatus(await res.json());
 }
@@ -374,7 +437,7 @@ function schedulePollingGraceCheck() {
 async function pollLogsOnce() {
   const res = await fetch(
     `${API.base}/api/logs/recent?since_ts=${encodeURIComponent(REALTIME.lastLogsPollTs)}`,
-    { cache: 'no-store' },
+    { cache: 'no-store', headers: authHeaders() },
   );
   if (!res.ok) throw new Error(res.statusText);
   const data = await res.json();

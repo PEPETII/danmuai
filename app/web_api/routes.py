@@ -38,47 +38,25 @@
 
 from __future__ import annotations
 
-
-
 from typing import TYPE_CHECKING, Callable
 
-
-
 from app.web_api import font_registry as font_registry_api
-
 from app.web_api import providers as providers_api
-
 from app.web_api.capture_region_routes import register_capture_region_routes
-
 from app.web_api.custom_models_routes import register_custom_models_routes
-
 from app.web_api.danmu_pool_routes import register_danmu_pool_routes
-
 from app.web_api.danmu_read_routes import register_danmu_read_routes
-
 from app.web_api.diagnostics_routes import register_diagnostics_routes
-
 from app.web_api.knowledge_routes import register_knowledge_routes
-
 from app.web_api.meme_barrage_routes import register_meme_barrage_routes
-
 from app.web_api.mic_routes import register_mic_routes
-
 from app.web_api.misc_config_routes import register_misc_config_routes
-
 from app.web_api.model_discovery_routes import register_model_discovery_routes
-
 from app.web_api.model_resolve_routes import register_model_resolve_routes
-
 from app.web_api.persona_routes import register_persona_routes
-
 from app.web_api.pet_routes import register_pet_routes
-
 from app.web_api.route_invoke import make_invoke_main
-
 from app.web_api.update_routes import register_update_routes
-
-
 
 if TYPE_CHECKING:
 

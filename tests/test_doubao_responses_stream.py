@@ -93,6 +93,31 @@ def test_consume_doubao_sse_lines_failed_event():
     assert result.text == ""
 
 
+def test_consume_doubao_sse_lines_partial_failed_keeps_error_priority():
+    secret = "sk-partial-failure-secret"
+    lines = [
+        'data: {"type":"response.output_text.delta","delta":"partial"}',
+        f'data:{{"type":"response.failed","response":{{"error":{{"message":"Authorization: Bearer {secret}"}}}}}}',
+        "data: [DONE]",
+    ]
+    result = consume_doubao_sse_lines(lines)
+    assert result.text == "partial"
+    assert result.error
+    assert secret not in result.error
+    assert "Authorization" in result.error
+
+
+def test_consume_doubao_sse_lines_partial_incomplete_sets_error_without_dropping_usage():
+    lines = [
+        'data: {"type":"response.output_text.delta","delta":"partial"}',
+        'data: {"type":"response.incomplete","response":{"usage":{"input_tokens":7,"output_tokens":3},"incomplete_details":{"reason":"max_output_tokens"}}}',
+    ]
+    result = consume_doubao_sse_lines(lines)
+    assert result.text == "partial"
+    assert result.error == "response incomplete: max_output_tokens"
+    assert (result.input_tokens, result.output_tokens) == (7, 3)
+
+
 def test_parse_doubao_json_body_top_level_error():
     body = {"error": {"message": "Invalid input_audio"}}
     result = parse_doubao_json_body(body)

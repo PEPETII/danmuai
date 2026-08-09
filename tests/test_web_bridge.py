@@ -478,7 +478,9 @@ def test_quit_stops_web_status_timer_before_server_shutdown(monkeypatch, qapp):
     app.config.close.side_effect = lambda: order.append("config_close")
     app.close_meme_barrage_client = lambda: order.append("close_meme_client")
 
-    DanmuApp.quit(app)
+    from app.main_lifecycle_mixin import DanmuAppLifecycleMixin
+
+    DanmuAppLifecycleMixin.quit(app)
 
     app.stop.assert_called_once_with()
     app.stop_web_status_timer.assert_called_once_with()
@@ -531,8 +533,12 @@ def test_quit_logs_warning_when_thread_pool_does_not_finish(monkeypatch, qapp):
         stop_web_status_timer=MagicMock(),
         _pool_topup_timer=FakeTimer(),
     )
+    meme_client_close = MagicMock()
+    app.close_meme_barrage_client = meme_client_close
 
-    DanmuApp.quit(app)
+    from app.main_lifecycle_mixin import DanmuAppLifecycleMixin
+
+    DanmuAppLifecycleMixin.quit(app)
 
     wait_mock.assert_called_once_with(2000)
     # global pool timeout — at least one warning
@@ -540,6 +546,9 @@ def test_quit_logs_warning_when_thread_pool_does_not_finish(monkeypatch, qapp):
     args = app.logger.warning.call_args[0]
     assert args[0] == "quit timed out waiting for %s active_threads=%s max_threads=%s"
     assert args[1] == "AI worker thread pool"
+    meme_client_close.assert_not_called()
+    app.ai_worker.close.assert_not_called()
+    app.config.close.assert_not_called()
 
 
 def test_quit_warns_when_web_console_shutdown_does_not_finish(monkeypatch, qapp):
@@ -592,7 +601,9 @@ def test_quit_warns_when_web_console_shutdown_does_not_finish(monkeypatch, qapp)
         _pool_topup_timer=FakeTimer(),
     )
 
-    DanmuApp.quit(app)
+    from app.main_lifecycle_mixin import DanmuAppLifecycleMixin
+
+    DanmuAppLifecycleMixin.quit(app)
 
     fake_thread.join.assert_called_once_with(timeout=0.5)
     warning_calls = app.logger.warning.call_args_list

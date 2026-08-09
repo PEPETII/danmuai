@@ -4,7 +4,6 @@ from pathlib import Path
 
 from web.static.build_index_html import build_index_html
 
-
 STATIC_ROOT = Path(__file__).resolve().parents[1] / "web" / "static"
 SETTINGS_HTML = STATIC_ROOT / "partials" / "settings.html"
 CONTENT_PAGES_HTML = STATIC_ROOT / "partials" / "content-pages.html"

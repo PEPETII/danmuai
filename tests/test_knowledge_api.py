@@ -40,16 +40,15 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
-
 from app.knowledge.database import KnowledgeDatabase
 from app.knowledge.import_service import ImportOrchestrator
 from app.knowledge.repository import KnowledgeRepository
 from app.knowledge.retriever import KnowledgeRetriever
 from app.web_api.routes import register_web_routes
-from tests.fakes import ai_client_fake_config
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
+from tests.fakes import ai_client_fake_config
 
 # ---------------------------------------------------------------------------
 # 辅助函数

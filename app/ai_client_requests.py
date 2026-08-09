@@ -270,9 +270,15 @@ def request_doubao(
         http_client,
     ) = ctx
     if not image_data_uri or not image_data_uri.startswith("data:"):
-        return AiProbeResult(
-            signal="error",
+        return _deliver_request_error(
+            worker,
+            emit=emit,
             message=tr("ai.error_request_failed").format(error="empty or invalid image"),
+            persona_id=persona_id,
+            request_round=request_round,
+            screenshot_id=screenshot_id,
+            captured_at=captured_at,
+            scene_generation=scene_generation,
         )
     mic_audio, mic_override, mic_declared = _apply_mic_audio_policy(
         worker,
@@ -445,7 +451,7 @@ def request_openai(
     data = planned.json_body
 
     def _attempt_stream(client: httpx.Client) -> _StreamAttemptResult:
-        text, input_tokens, output_tokens = stream_openai(
+        stream_result = stream_openai(
             worker,
             client,
             url,
@@ -456,8 +462,11 @@ def request_openai(
             first_content_timeout=STREAM_FIRST_CONTENT_TIMEOUT_SEC,
             deadline_at=deadline_at,
             started_at=started_at,
+            include_error=True,
         )
-        return _StreamAttemptResult(text, input_tokens, output_tokens)
+        text, input_tokens, output_tokens = stream_result[:3]
+        stream_error = stream_result[3] if len(stream_result) > 3 else ""
+        return _StreamAttemptResult(text, input_tokens, output_tokens, stream_error)
 
     return _run_visual_stream_request(
         worker,
@@ -470,7 +479,7 @@ def request_openai(
         captured_at=captured_at,
         scene_generation=scene_generation,
         attempt_stream=_attempt_stream,
-        empty_message=lambda _result: tr("ai.error_empty_response"),
+        empty_message=lambda result: result.stream_error or tr("ai.error_empty_response"),
     )
 
 def stream_openai(
@@ -485,7 +494,8 @@ def stream_openai(
     first_content_timeout: float | None = None,
     deadline_at: float | None = None,
     started_at: float | None = None,
-) -> tuple[str, int, int]:
+    include_error: bool = False,
+) -> tuple[str, int, int] | tuple[str, int, int, str]:
     from app.openai_chat_stream import stream_openai_chat
     deadline_at, started_at = _resolve_request_timing(
         worker, deadline_at=deadline_at, started_at=started_at
@@ -509,7 +519,10 @@ def stream_openai(
             result.output_tokens,
             normalize_endpoint(endpoint) if endpoint else url,
         )
-    return result.text, result.input_tokens, result.output_tokens
+    values = (result.text, result.input_tokens, result.output_tokens)
+    if include_error:
+        return (*values, result.error)
+    return values
 
 
 # Re-export credential helpers for historical import paths (``app.ai_client`` façade).

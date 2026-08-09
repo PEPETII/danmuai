@@ -26,7 +26,7 @@
   - render.py — 渲染常量 + 渲染/可见性方法（挂载到 DanmuEngine）
 """
 
-import json  # noqa: F401 — 保留 app.danmu_engine.json 属性路径（如有测试 patch 依赖）
+import json  # noqa: F401, I001 — 保留属性路径；下方导入顺序是模块初始化依赖
 import random  # noqa: F401 — 保留 app.danmu_engine.random 属性路径（测试 monkeypatch 依赖）
 
 # Step 1: 加载 screen 模块（模块级函数 + 常量，无 DanmuEngine 依赖）
@@ -44,12 +44,12 @@ screen._mount_methods(DanmuEngine)
 render._mount_methods(DanmuEngine)
 
 # Step 5: 重新导出全部公开+被外部引用的私有符号（保持向后兼容）
-from app.danmu_engine_models import (  # noqa: F401 — re-exported
+from app.danmu_engine_models import (  # noqa: E402, F401, I001 — re-exported after method mounting
     DanmuItem,
     Track,
     _DANMU_FALLBACK_CHAR_WIDTH,
 )
-from app.danmu_engine_dedup import (  # noqa: F401 — re-exported for app.danmu_engine callers
+from app.danmu_engine_dedup import (  # noqa: E402, F401 — re-exported for app.danmu_engine callers
     DedupProfileStats,
     dedup_profile_enabled,
     get_last_duplicate_observation,
@@ -58,12 +58,12 @@ from app.danmu_engine_dedup import (  # noqa: F401 — re-exported for app.danmu
     reset_dedup_profile_for_tests,
     snapshot_dedup_profile,
 )
-from .track import (  # noqa: F401 — re-exported
+from .track import (  # noqa: E402, F401 — re-exported after method mounting
     _LEVENSHTEIN_RATIO,
     _LEVENSHTEIN_UNAVAILABLE,
     _get_levenshtein_ratio,
 )
-from .screen import (
+from .screen import (  # noqa: E402 — re-exported after method mounting
     DEFAULT_DANMU_LINES,
     DEFAULT_DANMU_MAX_CHARS_EN,
     DEFAULT_DANMU_MAX_CHARS_ZH,
@@ -94,7 +94,7 @@ from .screen import (
     TRACK_TOP_MARGIN_BASE,
     ui_scale_factor,
 )
-from .render import (  # noqa: F401 — re-exported
+from .render import (  # noqa: E402, F401 — re-exported after method mounting
     ENTRY_ZONE_PX,
     FADE_IN_PX,
     FADE_OUT_PX,

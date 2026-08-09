@@ -7,7 +7,6 @@ import subprocess
 import sys
 
 import pytest
-
 from app import version as app_version
 from app.bundle_paths import project_root
 

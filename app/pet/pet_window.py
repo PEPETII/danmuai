@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
-from PyQt6.QtCore import QEvent, QPoint, QElapsedTimer, QRectF, Qt, QTimer
+from PyQt6.QtCore import QElapsedTimer, QEvent, QPoint, QRectF, Qt, QTimer
 from PyQt6.QtGui import (
     QAbstractTextDocumentLayout,
     QAction,
@@ -26,17 +26,17 @@ from PyQt6.QtGui import (
 from PyQt6.QtWidgets import QApplication, QLineEdit, QMenu, QWidget
 
 from app.pet.pet_animation_mapper import resolve_pet_animation_hint
-from app.pet.pet_render_loop import (
-    needs_animation_tick,
-    needs_high_frequency_tick,
-    ms_until_next_frame_tick,
-)
 from app.pet.pet_assets import (
     PET_FRAME_H,
     PET_FRAME_W,
     PetAssetPack,
     load_pet_assets,
     validate_pet_pack_dir,
+)
+from app.pet.pet_render_loop import (
+    ms_until_next_frame_tick,
+    needs_animation_tick,
+    needs_high_frequency_tick,
 )
 from app.pet.pet_state import PetSettings
 from app.translations import Translator, tr

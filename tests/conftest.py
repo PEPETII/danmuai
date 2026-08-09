@@ -63,9 +63,9 @@ _ensure_feedback_static_images()
 import time
 
 import pytest
+from app.application.application_stats_state import ApplicationStatsState
 from app.application.request_scheduler import RequestScheduler
 from app.application.request_timing_service import RequestTimingService
-from app.application.application_stats_state import ApplicationStatsState
 from app.application.stats_state import StatsState
 from app.application.web_runtime_state import WebRuntimeState
 from app.reply_queue import AIReplyFIFOBuffer
@@ -168,6 +168,7 @@ def bind_minimal_danmu_app(app, **overrides):
         "_scene_generation": 0,
         "_inflight_scene_generation": 0,
         "_latest_screenshot_id": 0,
+        "_capture_session_epoch": 0,
         "_latest_requested_screenshot_id": 0,
         "_latest_queued_screenshot_id": 0,
         "_latest_displayed_screenshot_id": 0,
@@ -357,6 +358,7 @@ def make_minimal_danmu_app():
     app._pending_api_trigger_source = None
     app._mic_orchestrator = None
     app._latest_screenshot_id = 0
+    app._capture_session_epoch = 0
     app._latest_requested_screenshot_id = 0
     app._latest_queued_screenshot_id = 0
     app._latest_displayed_screenshot_id = 0

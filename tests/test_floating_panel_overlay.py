@@ -2,11 +2,9 @@
 from __future__ import annotations
 
 import pytest
-from PyQt6.QtCore import Qt
-
 from app.config_store import ConfigStore
 from app.floating_panel_engine import FloatingPanelEngine
-from app.floating_panel_overlay import FloatingPanelOverlay, _PANEL_INSET
+from app.floating_panel_overlay import _PANEL_INSET, FloatingPanelOverlay
 from app.floating_panel_style import (
     CLASSIC_CARD_COLORS,
     WECHAT_CARD_COLORS,
@@ -14,6 +12,7 @@ from app.floating_panel_style import (
     classic_factory_defaults,
     wechat_factory_defaults,
 )
+from PyQt6.QtCore import Qt
 
 
 @pytest.fixture()

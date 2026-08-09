@@ -23,12 +23,10 @@
 """
 from __future__ import annotations
 
-import sqlite3
 import time
 from pathlib import Path
 
 import pytest
-
 from app.knowledge.database import KnowledgeDatabase
 from app.knowledge.repository import (
     create_package_for_db,
@@ -37,7 +35,6 @@ from app.knowledge.repository import (
     insert_item_for_db,
 )
 from app.knowledge.retriever import KnowledgeRetriever, RetrievalResult
-
 
 # ---------------------------------------------------------------------------
 # fixtures

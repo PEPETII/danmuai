@@ -17,9 +17,9 @@ from typing import TYPE_CHECKING, Any
 from PyQt6.QtCore import QObject, QRunnable, QThreadPool, QTimer, pyqtSignal
 
 from app.application.config_service import MASKED_API_KEY
-from app.translations import tr
 from app.danmu_tts_playback import DanmuTtsPlayback
 from app.model_providers import normalize_endpoint
+from app.translations import tr
 from app.tts_providers import (
     MIMO_TTS_MODEL,
     TTS_PROBE_TEXT,

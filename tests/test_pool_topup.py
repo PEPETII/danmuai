@@ -305,8 +305,9 @@ def test_maybe_pool_topup_floating_noop_when_fp_not_ready(tmp_path, monkeypatch)
 
 
 def test_maybe_duplicate_loss_topup_floating_panel(tmp_path, monkeypatch):
-    from app.floating_panel_engine import FloatingPanelEngine
     from types import SimpleNamespace
+
+    from app.floating_panel_engine import FloatingPanelEngine
 
     store = ConfigStore(db_path=tmp_path / "fp_dup_topup.db")
     store.set("danmu_render_mode", "floating_panel")

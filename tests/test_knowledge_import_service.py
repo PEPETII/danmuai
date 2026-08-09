@@ -30,11 +30,11 @@ import time
 from unittest.mock import patch
 
 import pytest
-
 from app.knowledge.database import KnowledgeDatabase
 from app.knowledge.import_service import ImportOrchestrator
 from app.knowledge.repository import KnowledgeRepository
 from app.knowledge.source_extractors import MAX_SOURCE_CHARS, ExtractionResult
+
 from tests.fakes import ai_client_fake_config
 
 # ---------------------------------------------------------------------------
@@ -790,6 +790,7 @@ class TestImportOrchestratorValidationErrors:
 
         # 校验全灭 → 0 items → job=failed
         assert job["status"] == "failed"
+        assert job["failed_chunks"] == 1
         assert job["generated_items"] == 0
         # error_message 含 validation 或校验相关线索
         assert "validation" in job["error_message"] or "item[" in job["error_message"]
@@ -798,6 +799,52 @@ class TestImportOrchestratorValidationErrors:
         chunks = repo.list_chunks(source_id)
         assert chunks[0]["status"] == "completed"  # chunk 本身处理成功，只是校验有错误
         assert chunks[0]["error_message"]  # 非空
+
+
+class TestImportOrchestratorMixedValidation:
+    """合法与非法条目同 chunk：保留合法项并报告部分失败。"""
+
+    def test_valid_and_invalid_items_same_chunk(self, orchestrator, db, repo, config):
+        package_id, source_id = _create_package_and_source(db, repo)
+        payload = {"pasted_text": "# Test\n\nThis is test content."}
+        valid_item = _ok_item(title="合法条目", content="合法内容")
+        invalid_item = _ok_item(
+            kind="invalid_kind", title="非法条目", content="非法内容"
+        )
+
+        with patch(
+            "app.knowledge.import_service.organize_chunk",
+            return_value=_ok_result(items=[valid_item, invalid_item]),
+        ):
+            job_id = orchestrator.submit_import(
+                config=config,
+                package_id=package_id,
+                source_id=source_id,
+                source_type="pasted_text",
+                payload=payload,
+            )
+            job = _wait_for_job_done(repo, job_id)
+
+        assert job["status"] == "completed_with_errors"
+        assert job["stage"] == "finished"
+        assert job["total_chunks"] == 1
+        assert job["processed_chunks"] == 1
+        assert job["failed_chunks"] == 1
+        assert job["generated_items"] == 1
+        assert "validation" in job["error_message"]
+
+        chunks = repo.list_chunks(source_id)
+        assert len(chunks) == 1
+        assert chunks[0]["status"] == "completed"
+        assert chunks[0]["error_message"]
+
+        sources = repo.list_sources(package_id)
+        assert sources[0]["status"] == "processed_with_errors"
+        assert "validation" in sources[0]["error_message"]
+
+        result = repo.list_items(package_id=package_id)
+        assert result["total"] == 1
+        assert result["items"][0]["title"] == "合法条目"
 
 
 class TestImportOrchestratorWebpageWithMockItems:

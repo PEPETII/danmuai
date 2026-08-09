@@ -4,7 +4,6 @@
 
 from unittest.mock import patch
 
-import pytest
 from PyQt6.QtCore import QObject, pyqtSignal
 from PyQt6.QtWidgets import QApplication
 

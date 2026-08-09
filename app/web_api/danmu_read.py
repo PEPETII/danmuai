@@ -17,8 +17,8 @@ from fastapi import HTTPException
 
 from app.application.config_service import MASKED_API_KEY
 from app.danmu_read_service import export_danmu_read_config
-from app.translations import tr
 from app.model_providers import normalize_endpoint
+from app.translations import tr
 from app.tts_catalog import list_catalog_for_api
 from app.tts_providers import (
     TTS_PROVIDER_DASHSCOPE_QWEN,

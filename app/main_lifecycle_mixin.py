@@ -46,6 +46,43 @@ def _resolve_runtime_symbol(name: str, fallback):
     return getattr(module, name, fallback)
 
 
+def _stop_and_wait_for_web_console(server, logger, *, context: str) -> bool:
+    """Stop Web first and return whether its bounded shutdown barrier completed."""
+    if server is None:
+        return True
+
+    server.stop()
+    web_thread = getattr(server, "_thread", None)
+    shutdown_done = False
+    wait_shutdown_complete = getattr(server, "wait_shutdown_complete", None)
+    if callable(wait_shutdown_complete):
+        shutdown_done = bool(wait_shutdown_complete())
+    if not shutdown_done and web_thread is not None and web_thread.is_alive():
+        web_thread.join(timeout=0.5)
+        shutdown_done = not web_thread.is_alive()
+    if not shutdown_done:
+        if logger is not None:
+            logger.warning(
+                f"{context} timed out waiting for Web console shutdown "
+                "startup_ok=%s bind_failed=%s shutdown_requested=%s shutdown_complete=%s",
+                getattr(server, "startup_ok", False),
+                bool(getattr(server, "_bind_failed", None) and server._bind_failed.is_set()),
+                bool(
+                    getattr(server, "_shutdown_requested", None)
+                    and server._shutdown_requested.is_set()
+                ),
+                bool(
+                    getattr(server, "_shutdown_complete", None)
+                    and server._shutdown_complete.is_set()
+                ),
+            )
+    bridge = getattr(server, "bridge", None)
+    if bridge is not None:
+        bridge.set_event_loop(None)
+    server._loop = None
+    return shutdown_done
+
+
 class DanmuAppLifecycleMixin:
     def _init_runtime_bridge_state(self, web_launch_mode: str) -> None:
         # FastAPI/uvicorn 在独立线程；Qt 对象修改必须回主线程。
@@ -142,6 +179,7 @@ class DanmuAppLifecycleMixin:
         self._capture_coordinator.completed.connect(self._on_capture_completed)
         self._capture_coordinator.failed.connect(self._on_capture_failed)
         self._capture_in_flight = False
+        self._capture_session_epoch = 0
 
         self._mic_poll_timer = QTimer(self)
         self._mic_poll_ms = MIC_POLL_MS
@@ -448,7 +486,7 @@ class DanmuAppLifecycleMixin:
         except RuntimeError as exc:
             self.logger.warning(f"floating panel overlay apply_config failed: {exc!r}")
 
-    def _on_ai_error(
+    def _handle_visual_ai_failure(
         self,
         msg: str,
         persona_id: str,
@@ -458,43 +496,57 @@ class DanmuAppLifecycleMixin:
         scene_generation: int,
         input_tokens: int = 0,
         output_tokens: int = 0,
+        *,
+        diagnostic_reason: str = "",
+        elapsed_ms: int | None = None,
+        popped_meta: list[tuple[int, int, int]] | None = None,
     ) -> None:
-        meta = self._pop_request_meta(request_round, screenshot_id, scene_generation)
-        if not meta:
-            self.logger.warning(
-                "stale_error_dropped: request_round=%s screenshot_id=%s scene_generation=%s",
-                request_round, screenshot_id, scene_generation,
-            )
-            return
-        msg = sanitize_sensitive_text(str(msg or ""))
-        source = meta.get("source") or "visual"
-        is_mic = source == "mic"
+        """Apply the shared visual-request failure contract.
 
-        self._release_inflight_for_source(source)
+        The caller must have consumed the request meta exactly once.  This
+        keeps ordinary error callbacks and watchdog recovery on the same
+        timing, failure-count, problem-reporting, and backoff path while late
+        callbacks remain rejected by the meta guard in ``_on_ai_error``.
+        """
+        msg = sanitize_sensitive_text(str(msg or ""))
+        self._release_inflight_for_source("visual")
         self._publish_live_status()
 
-        if is_mic:
-            self.logger.warning(
-                f"mic insert api error: {msg} "
-                f"[persona={persona_id}, round={request_round}, screenshot_id={screenshot_id}]"
-            )
-            self._consume_request_timing(request_round, screenshot_id, scene_generation)
-            return
-
-        self._get_request_timing_service().purge_stale(now=time.monotonic())
+        timing_service = self._get_request_timing_service()
         self._consume_request_timing(request_round, screenshot_id, scene_generation)
+        purged_timing = timing_service.purge_stale(now=time.monotonic())
         self._notify_pet_visual_error()
-        self.logger.error(
-            "%s [persona=%s, round=%s, screenshot_id=%s, scene_generation=%s, "
-            "input_tokens=%s, output_tokens=%s]",
-            msg,
-            persona_id,
-            request_round,
-            screenshot_id,
-            scene_generation,
-            input_tokens,
-            output_tokens,
-        )
+
+        if diagnostic_reason:
+            self.logger.error(
+                "视觉请求 in-flight 强制恢复: %s [persona=%s, round=%s, "
+                "screenshot_id=%s, scene_generation=%s, input_tokens=%s, "
+                "output_tokens=%s] elapsed_ms=%s popped_meta=%s "
+                "purged_timing=%s reason=%s",
+                msg,
+                persona_id,
+                request_round,
+                screenshot_id,
+                scene_generation,
+                input_tokens,
+                output_tokens,
+                elapsed_ms,
+                popped_meta or [],
+                purged_timing,
+                diagnostic_reason,
+            )
+        else:
+            self.logger.error(
+                "%s [persona=%s, round=%s, screenshot_id=%s, "
+                "scene_generation=%s, input_tokens=%s, output_tokens=%s]",
+                msg,
+                persona_id,
+                request_round,
+                screenshot_id,
+                scene_generation,
+                input_tokens,
+                output_tokens,
+            )
 
         self._consecutive_failures += 1
         self._capture_error_active = False
@@ -513,13 +565,16 @@ class DanmuAppLifecycleMixin:
             or "欠费" in msg
         )
         classification = problem_code_from_error_message(msg)
+        context = {
+            "model_id": resolve_active_model_id(self.config),
+            **(classification.context or {}),
+        }
+        if diagnostic_reason:
+            context["reason"] = diagnostic_reason
         self.report_problem(
             classification.code,
             technical_detail=classification.technical_detail or msg,
-            context={
-                "model_id": resolve_active_model_id(self.config),
-                **(classification.context or {}),
-            },
+            context=context,
         )
 
         if is_fatal:
@@ -547,6 +602,49 @@ class DanmuAppLifecycleMixin:
             "INTERNAL-001",
             technical_detail=paused_msg,
             force_new_event=True,
+        )
+
+    def _on_ai_error(
+        self,
+        msg: str,
+        persona_id: str,
+        request_round: int,
+        screenshot_id: int,
+        captured_at: float,
+        scene_generation: int,
+        input_tokens: int = 0,
+        output_tokens: int = 0,
+    ) -> None:
+        meta = self._pop_request_meta(request_round, screenshot_id, scene_generation)
+        if not meta:
+            self.logger.warning(
+                "stale_error_dropped: request_round=%s screenshot_id=%s scene_generation=%s",
+                request_round, screenshot_id, scene_generation,
+            )
+            return
+        msg = sanitize_sensitive_text(str(msg or ""))
+        source = meta.get("source") or "visual"
+        is_mic = source == "mic"
+
+        if is_mic:
+            self._release_inflight_for_source(source)
+            self._publish_live_status()
+            self.logger.warning(
+                f"mic insert api error: {msg} "
+                f"[persona={persona_id}, round={request_round}, screenshot_id={screenshot_id}]"
+            )
+            self._consume_request_timing(request_round, screenshot_id, scene_generation)
+            return
+
+        self._handle_visual_ai_failure(
+            msg,
+            persona_id,
+            request_round,
+            screenshot_id,
+            captured_at,
+            scene_generation,
+            input_tokens,
+            output_tokens,
         )
 
     def _update_stats(self, *, success: bool = True, count: int = 1) -> None:
@@ -581,6 +679,7 @@ class DanmuAppLifecycleMixin:
             self.tray.update_state(running=False)
             return
 
+        self._capture_session_epoch = getattr(self, "_capture_session_epoch", 0) + 1
         self.engine.start()
         self.engine.clear_dedup_window()
         recorder = self.__dict__.get("_danmu_diagnostics")
@@ -675,6 +774,7 @@ class DanmuAppLifecycleMixin:
         runtime.set_overlay_compat_warning("")
         runtime.set_screen_index_fallback_warning("")
         self._pending = False
+        self._capture_session_epoch = getattr(self, "_capture_session_epoch", 0) + 1
         self.ai_worker.mark_stopping()
         self.ai_in_flight = 0
         self.mic_in_flight = 0
@@ -784,8 +884,13 @@ class DanmuAppLifecycleMixin:
                     logger.debug(f"pet barrage close on startup failure skipped: {exc!r}")
 
         server = getattr(self, "web_server", None)
+        web_shutdown_done = True
         if server is not None:
-            server.stop()
+            web_shutdown_done = _stop_and_wait_for_web_console(
+                server,
+                getattr(self, "logger", None),
+                context="startup failure cleanup",
+            )
 
         history_writer = getattr(self, "history_writer", None)
         if history_writer is not None:
@@ -797,7 +902,14 @@ class DanmuAppLifecycleMixin:
 
         config = getattr(self, "config", None)
         if config is not None:
-            config.close()
+            if web_shutdown_done:
+                config.close()
+            else:
+                logger = getattr(self, "logger", None)
+                if logger is not None:
+                    logger.error(
+                        "startup failure cleanup deferred config close: Web console still running"
+                    )
 
     def quit(self) -> None:
         self.logger.info(tr("app.quitting"))
@@ -852,45 +964,44 @@ class DanmuAppLifecycleMixin:
 
             # W-TEARDOWN-RES-001 / BUG-G-008：等所有 worker pool 结束后再关闭 httpx 客户端，
             # 避免在途 MemeFetchRunnable 使用已关闭 client。
+            workers_drained = all(pool_results.values())
             close_meme_client = self.__dict__.get("close_meme_barrage_client")
             if callable(close_meme_client):
-                close_meme_client()
+                if workers_drained:
+                    close_meme_client()
+                else:
+                    self.logger.error(
+                        "quit deferred Meme client close: worker pool timeout may leave "
+                        "MemeFetchRunnable in flight"
+                    )
 
             # W-QUIT-TEARDOWN-001：先停 Web 控制台（含 meta 轮询），再关 config.db，
             # 避免 HTTP 线程在 conn.close() 后仍读 meme_barrage_library。
             self.stop_web_status_timer()
             server = getattr(self, "web_server", None)
-            if server:
-                server.stop()
-                web_thread = getattr(server, "_thread", None)
-                shutdown_done = False
-                wait_shutdown_complete = getattr(server, "wait_shutdown_complete", None)
-                if callable(wait_shutdown_complete):
-                    shutdown_done = bool(wait_shutdown_complete())
-                if not shutdown_done and web_thread is not None and web_thread.is_alive():
-                    web_thread.join(timeout=0.5)
-                    shutdown_done = not web_thread.is_alive()
-                if not shutdown_done:
-                    self.logger.warning(
-                        "quit timed out waiting for Web console shutdown "
-                        "startup_ok=%s bind_failed=%s shutdown_requested=%s shutdown_complete=%s",
-                        getattr(server, "startup_ok", False),
-                        bool(getattr(server, "_bind_failed", None) and server._bind_failed.is_set()),
-                        bool(getattr(server, "_shutdown_requested", None) and server._shutdown_requested.is_set()),
-                        bool(getattr(server, "_shutdown_complete", None) and server._shutdown_complete.is_set()),
-                    )
-                bridge = getattr(server, "bridge", None)
-                if bridge is not None:
-                    bridge.set_event_loop(None)
-                server._loop = None
+            web_shutdown_done = _stop_and_wait_for_web_console(
+                server,
+                self.logger,
+                context="quit",
+            )
 
             shell = getattr(self, "webview_shell", None)
             if shell:
                 shell.destroy()
 
             self.history_writer.stop()
-            self.ai_worker.close()
-            self.config.close()
+            if workers_drained:
+                self.ai_worker.close()
+            else:
+                self.logger.error(
+                    "quit deferred AI worker close: worker pool timeout leaves shared worker in use"
+                )
+            if workers_drained and web_shutdown_done:
+                self.config.close()
+            else:
+                self.logger.error(
+                    "quit deferred config close: Web/worker shutdown barrier incomplete"
+                )
 
             # 显式清理 pet 组件:停止 QTimer、释放 QPixmap,与 overlay 对称。
             pet_window = self.__dict__.get("pet_window")

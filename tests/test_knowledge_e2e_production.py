@@ -16,15 +16,14 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
-
 from app.knowledge.models import KnowledgeInjectionResult
 from app.knowledge.runtime_service import KnowledgeRuntimeService
 from app.web_api.routes import register_web_routes
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+
 from tests.conftest import make_minimal_danmu_app
 from tests.fakes import ai_client_fake_config
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

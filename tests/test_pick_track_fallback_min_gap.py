@@ -7,9 +7,8 @@ import heapq
 import random
 
 import pytest
-
-from app.danmu_engine import DanmuEngine, DanmuItem
 from app.config_store import ConfigStore
+from app.danmu_engine import DanmuEngine, DanmuItem
 from app.danmu_engine_models import Track
 
 

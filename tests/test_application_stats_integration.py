@@ -7,8 +7,8 @@ from app.application.application_stats_state import ApplicationStatsState
 from app.application.stats_state import StatsState
 from app.application.web_runtime_state import WebRuntimeState
 from app.lifetime_stats import STATS_LIFETIME_DANMU, LifetimeStats
-
 from main import DanmuApp
+
 from tests.conftest import bind_minimal_danmu_app
 from tests.fakes import FakeConfig
 

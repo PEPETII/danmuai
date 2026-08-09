@@ -20,6 +20,8 @@ from typing import Any, Iterable
 
 import httpx
 
+from app.ai_client_support import sanitize_provider_error_snippet
+
 logger = logging.getLogger(__name__)
 
 
@@ -60,22 +62,26 @@ def _extract_error_message(chunk: dict[str, Any]) -> str:
     if isinstance(err, dict):
         message = err.get("message") or err.get("code")
         if message:
-            return str(message)
+            return sanitize_provider_error_snippet(str(message))
+    elif isinstance(err, str) and err.strip():
+        return sanitize_provider_error_snippet(err)
     response = chunk.get("response")
     if isinstance(response, dict):
         nested = response.get("error")
         if isinstance(nested, dict):
             message = nested.get("message") or nested.get("code")
             if message:
-                return str(message)
+                return sanitize_provider_error_snippet(str(message))
+        elif isinstance(nested, str) and nested.strip():
+            return sanitize_provider_error_snippet(nested)
         incomplete = response.get("incomplete_details")
         if isinstance(incomplete, dict):
             reason = incomplete.get("reason")
             if reason:
-                return f"response incomplete: {reason}"
+                return sanitize_provider_error_snippet(f"response incomplete: {reason}")
     message = chunk.get("message")
     if message:
-        return str(message)
+        return sanitize_provider_error_snippet(str(message))
     return ""
 
 
@@ -91,6 +97,13 @@ def _normalize_sse_line(raw: Any) -> str:
     if isinstance(raw, bytes):
         raw = raw.decode("utf-8", errors="replace")
     return str(raw).strip()
+
+
+def _sse_payload(raw: Any) -> str | None:
+    line = _normalize_sse_line(raw)
+    if not line.startswith("data:"):
+        return None
+    return line[5:].lstrip()
 
 
 def consume_doubao_sse_lines(
@@ -120,10 +133,9 @@ def consume_doubao_sse_lines(
                     first_content_timeout,
                 )
                 break
-        line = _normalize_sse_line(raw)
-        if not line or not line.startswith("data: "):
+        payload = _sse_payload(raw)
+        if payload is None:
             continue
-        payload = line[6:]
         if payload.strip() == "[DONE]":
             # SSE 终止符；response.completed 应在 [DONE] 之前到达（见模块头注释）
             break
@@ -136,6 +148,10 @@ def consume_doubao_sse_lines(
         result.request_id = str(chunk.get("request_id") or chunk.get("id") or result.request_id)
         if chunk_type and chunk_type not in result.stream_events:
             result.stream_events.append(chunk_type)
+
+        if "error" in chunk:
+            result.error = result.error or _extract_error_message(chunk) or "provider stream error"
+            continue
 
         if chunk_type == "response.output_text.delta":
             delta = chunk.get("delta", "")
@@ -171,12 +187,10 @@ def consume_doubao_sse_lines(
                     collected.append(extract_text_from_response(response))
             if chunk_type in ("response.failed", "response.incomplete"):
                 message = _extract_error_message(chunk)
-                if message:
-                    result.error = message
+                result.error = result.error or message or f"response {chunk_type.rsplit('.', 1)[-1]}"
         elif chunk_type == "error":
             message = _extract_error_message(chunk)
-            if message:
-                result.error = message
+            result.error = result.error or message or "provider stream error"
 
     result.text = "".join(collected)
     result.reasoning_only = not result.text and bool(summary_parts)
@@ -185,11 +199,11 @@ def consume_doubao_sse_lines(
 
 def parse_doubao_json_body(body: dict[str, Any]) -> DoubaoResponsesResult:
     result = DoubaoResponsesResult()
-    if isinstance(body.get("error"), dict):
-        result.error = _extract_error_message(body)
+    if "error" in body and body.get("error") is not None:
+        result.error = _extract_error_message(body) or "provider error"
         return result
     if body.get("message") and (body.get("code") or body.get("error_code")):
-        result.error = str(body["message"])
+        result.error = sanitize_provider_error_snippet(str(body["message"])) or "provider error"
         return result
 
     response = body.get("response")
@@ -228,7 +242,7 @@ def stream_doubao_responses(
             try:
                 parsed = json.loads(body)
             except json.JSONDecodeError:
-                return DoubaoResponsesResult(error=str(body)[:500])
+                return DoubaoResponsesResult(error=sanitize_provider_error_snippet(str(body)))
             if isinstance(parsed, dict):
                 return parse_doubao_json_body(parsed)
             return DoubaoResponsesResult(error="invalid_json_response")

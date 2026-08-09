@@ -1,105 +1,98 @@
-"""`/api/session` 鉴权策略。
+"""Session bootstrap and Bearer authorization for the local Web console.
 
-bug-audit/bug-03.md 缺陷 1：`/api/session` 端点未鉴权即返回 Bearer Token，
-任意本机进程 `curl 127.0.0.1:18765/api/session` 即可拿到控制台写接口的 Token。
-
-设计（与 frontend transport.js::refreshSession() 启动握手兼容）：
-
-1. **强校验路径**：携带正确 `Authorization: Bearer <token>` 时直接放行；
-   任何 Origin / 来源均可 — 已掌握 token 的调用方属于已鉴权。
-2. **同源握手路径**：控制台页面同源 loopback fetch（Origin 与 Host 都是
-   127.0.0.1/localhost）启动时，前端 `refreshSession()` 尚未持有 token。
-   允许 `Origin` 头与 Host 头同为 loopback 域时免 token 返回 token。
-3. **其他情况**：缺头、Origin 不匹配、非 loopback、错误 token → 拒绝。
-
-无 Origin/Referer 头的调用（curl / 第三方进程）一律 401；非 loopback 来源
-即便有 Origin 也 401；正确 token 不受来源限制。
-
-调用方：`app/web_console_runtime.py::read_console_session`。
+Loopback binding limits the network surface, but ``Host``, ``Origin`` and
+``Referer`` are request headers and therefore are not an identity proof for a
+same-machine process.  The desktop launcher instead puts a short-lived,
+one-time secret in the URL fragment.  The browser exchanges it for the normal
+in-memory Bearer token over a request header; fragments are not sent in HTTP
+requests or server access logs.
 """
 
 from __future__ import annotations
 
 import secrets
+import threading
+import time
+from collections.abc import Callable
 
 from fastapi import HTTPException
 
-_LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
 
+class SessionBootstrapStore:
+    """Bounded, expiring, one-time secrets used by the desktop launcher."""
 
-def _normalize_host(value: str | None) -> str:
-    """Strip optional :port and lower-case for loopback comparison."""
-    if not value:
-        return ""
-    raw = value.strip().lower()
-    if raw.startswith("["):
-        # IPv6 form: [::1]:18765
-        end = raw.find("]")
-        if end != -1:
-            return raw[1:end]
-    # Strip port suffix if present
-    if ":" in raw and not raw.startswith(":"):
-        return raw.rsplit(":", 1)[0]
-    return raw
+    def __init__(self, *, ttl_sec: float = 60.0, max_entries: int = 8) -> None:
+        self._ttl_sec = max(1.0, float(ttl_sec))
+        self._max_entries = max(1, int(max_entries))
+        self._lock = threading.Lock()
+        self._secrets: dict[str, float] = {}
 
+    def _purge_expired(self, now: float) -> None:
+        expired = [value for value, expires_at in self._secrets.items() if expires_at <= now]
+        for value in expired:
+            self._secrets.pop(value, None)
 
-def is_loopback_host(host: str | None) -> bool:
-    """Return True if host header value refers to a loopback address."""
-    return _normalize_host(host) in _LOOPBACK_HOSTS
+    def issue(self) -> str:
+        value = secrets.token_urlsafe(32)
+        now = time.monotonic()
+        with self._lock:
+            self._purge_expired(now)
+            while len(self._secrets) >= self._max_entries:
+                oldest = next(iter(self._secrets))
+                self._secrets.pop(oldest, None)
+            self._secrets[value] = now + self._ttl_sec
+        return value
+
+    def consume(self, presented: str | None) -> bool:
+        candidate = (presented or "").strip()
+        if not candidate:
+            return False
+        now = time.monotonic()
+        with self._lock:
+            self._purge_expired(now)
+            matched: str | None = None
+            for value in self._secrets:
+                if secrets.compare_digest(candidate, value):
+                    matched = value
+                    break
+            if matched is None:
+                return False
+            del self._secrets[matched]
+            return True
 
 
 def enforce_session_authorization(
     *,
     authorization: str | None,
-    origin: str | None,
-    referer: str | None,
-    host: str | None,
     expected_token: str,
+    bootstrap: str | None = None,
+    consume_bootstrap_secret: Callable[[str], bool] | None = None,
+    # Kept as ignored compatibility parameters for older test/facade callers.
+    # They are deliberately never inspected as an identity signal.
+    origin: str | None = None,
+    referer: str | None = None,
+    host: str | None = None,
 ) -> None:
-    """校验 `/api/session` 的访问来源；命中拒绝条件抛 HTTPException。
+    """Authorize ``/api/session`` using Bearer or a one-time bootstrap secret.
 
-    - 携带正确 `Authorization: Bearer <token>`：放行
-    - 同源 loopback（Origin 或 Referer 与 Host 同为 loopback）：放行
-    - 其他：401（缺/格式错）或 403（来源不匹配 / token 错误）
+    A missing credential is 401.  A malformed/invalid credential is 403.
+    ``Host``/``Origin``/``Referer`` are intentionally ignored: callers cannot
+    turn spoofable HTTP headers into a session token.
     """
-    if expected_token:
-        auth = (authorization or "").strip()
-        if auth.startswith("Bearer "):
-            presented = auth[len("Bearer ") :].strip()
-            if secrets.compare_digest(presented, expected_token):
-                return
-            raise HTTPException(status_code=403, detail="令牌无效")
-        if auth:
-            # 头存在但非 Bearer → 视作错误 token 来源
+    del origin, referer, host
+
+    auth = (authorization or "").strip()
+    if auth:
+        if not auth.startswith("Bearer "):
             raise HTTPException(status_code=403, detail="令牌格式错误")
+        presented = auth[len("Bearer ") :].strip()
+        if expected_token and secrets.compare_digest(presented, expected_token):
+            return
+        raise HTTPException(status_code=403, detail="令牌无效")
 
-    # 走到这里说明未携带正确 token；仅在同源 loopback 时才放行
-    request_host = _normalize_host(host)
-    if not request_host or request_host not in _LOOPBACK_HOSTS:
-        # 非 loopback：必须带 token
-        raise HTTPException(status_code=401, detail="需要登录令牌")
+    if bootstrap is not None:
+        if consume_bootstrap_secret is not None and consume_bootstrap_secret(bootstrap):
+            return
+        raise HTTPException(status_code=403, detail="启动握手无效或已过期")
 
-    if not (origin or referer):
-        # curl/无头调用：拒绝
-        raise HTTPException(status_code=401, detail="需要登录令牌")
-
-    # 校验 Origin / Referer 是否与请求 host 同源 loopback（含端口，防止端口剥离绕过）
-    candidate = origin or referer or ""
-    candidate = candidate.strip().lower()
-    if not candidate.startswith(("http://", "https://")):
-        raise HTTPException(status_code=401, detail="来源不合法")
-
-    # 提取 Origin/Referer 中的完整 host[:port]（保留端口用于精确同源比较）
-    try:
-        rest = candidate.split("://", 1)[1]
-        origin_full = rest.split("/", 1)[0]
-        origin_full = origin_full.split("@")[-1]  # 处理 userinfo
-    except (IndexError, ValueError):
-        raise HTTPException(status_code=401, detail="来源不合法")
-
-    # 构造请求方的完整 host[:port]
-    request_full = (host or "").strip().lower()
-
-    # 同源校验必须包含端口：防止本机进程用任意端口 Origin 绕过
-    if origin_full != request_full:
-        raise HTTPException(status_code=403, detail="来源不匹配")
+    raise HTTPException(status_code=401, detail="需要登录令牌")

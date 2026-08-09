@@ -1,19 +1,16 @@
 """Pet render-loop idle-stop scheduling (overlay-style adaptive timer)."""
 
-import time
-
-import pytest
-from PyQt6.QtCore import QEvent, QPoint, QPointF, Qt
-from PyQt6.QtGui import QMouseEvent
 
 from app.pet.pet_render_loop import (
     BUBBLE_ALPHA_EPSILON,
+    ms_until_next_frame_tick,
     needs_animation_tick,
     needs_high_frequency_tick,
-    ms_until_next_frame_tick,
 )
 from app.pet.pet_window import PetWindow
 from main import DanmuApp
+from PyQt6.QtCore import QEvent, QPointF, Qt
+from PyQt6.QtGui import QMouseEvent
 
 from tests.conftest import bind_minimal_danmu_app
 from tests.fakes import FakeConfig

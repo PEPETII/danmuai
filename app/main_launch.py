@@ -28,6 +28,7 @@ from app.env_config import get as get_env
 from app.logger import SanitizedLogger
 from app.translations import tr
 
+
 def _deprecated_launch_msg() -> str:
     return tr("mainLaunch.deprecatedLaunchMsg")
 

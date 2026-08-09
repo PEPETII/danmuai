@@ -1,5 +1,8 @@
 """检查知识库内容（调试用）"""
-import sqlite3, os, shutil, tempfile
+import os
+import shutil
+import sqlite3
+import tempfile
 from pathlib import Path
 
 apd = os.environ.get("APPDATA", "")

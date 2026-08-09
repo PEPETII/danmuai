@@ -15,7 +15,6 @@ from functools import lru_cache
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
-
 from app.bundle_paths import project_root
 from app.packaging_constants import WINDOWS_EXE_NAME
 

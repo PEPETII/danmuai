@@ -3,10 +3,9 @@
 from unittest.mock import patch
 
 import pytest
-from fastapi import HTTPException
-
 from app.translations import Translator
 from app.web_api.app_update_state import validate_payload
+from fastapi import HTTPException
 
 
 def _with_language(lang: str):

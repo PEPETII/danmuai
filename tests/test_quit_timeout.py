@@ -163,9 +163,9 @@ def test_quit_uses_parallel_pool_wait(qapp, monkeypatch):
     app.config.close.side_effect = lambda: order.append("config_close")
     app.close_meme_barrage_client = lambda: order.append("close_meme_client")
 
-    from main import DanmuApp
+    from app.main_lifecycle_mixin import DanmuAppLifecycleMixin
 
-    DanmuApp.quit(app)
+    DanmuAppLifecycleMixin.quit(app)
 
     wait_mock.assert_called_once_with(2000)
     assert order.index("pool_wait:2000") < order.index("close_meme_client")

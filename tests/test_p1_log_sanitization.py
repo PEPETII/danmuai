@@ -5,7 +5,6 @@ import pytest
 from app.ai_client_support import format_http_status_error
 from app.logger import SanitizedLogger, sanitize_sensitive_text
 
-
 _FAKE_SHORT_HEAD_JWT = "fakeHead.fakePayload123456.fakeSignature789012"
 _FAKE_LONG_HEAD_JWT = (
     "fakeHeaderSegment1234567890.fakePayload456789.fakeSignature012345"

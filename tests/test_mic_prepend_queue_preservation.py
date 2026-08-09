@@ -1,6 +1,7 @@
 import logging
 
 from app.reply_queue import AIReplyFIFOBuffer, QueuedReply
+
 from tests.conftest import make_minimal_danmu_app
 
 

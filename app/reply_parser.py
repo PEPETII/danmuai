@@ -20,14 +20,13 @@ import re
 from dataclasses import dataclass, field
 
 from app.danmu_engine_dedup import texts_are_similar
-
-logger = logging.getLogger(__name__)
-
 from app.danmu_pool import (
     _sample_custom_pool_texts,
     custom_pool_size,
     pool_enabled,
 )
+
+logger = logging.getLogger(__name__)
 
 _COMMENT_KEYS = ("comments", "replies", "items", "data")
 _HEURISTIC_SKIP = frozenset({"comments", ":", ""})

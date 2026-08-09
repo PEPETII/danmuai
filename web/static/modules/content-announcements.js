@@ -1,4 +1,4 @@
-import { API, apiFetch } from './transport.js';
+import { API, apiFetch, authHeaders } from './transport.js';
 import { t } from './i18n.js';
 
 const ANNOUNCEMENTS_READ_IDS_KEY = 'danmu_announcements_read_ids';
@@ -128,6 +128,7 @@ export async function loadAnnouncementsReadState() {
     if (API.base) {
       remote = await fetch(`${API.base}/api/announcements-read-state`, {
         cache: 'no-store',
+        headers: authHeaders(),
       }).then((r) => (r.ok ? r.json() : null));
     }
   } catch {

@@ -17,9 +17,8 @@ from tests.fakes import FakeConfig
 
 @pytest.fixture(autouse=True)
 def _reset_stale_translator():
-    from PyQt6 import sip
-
     from app.translations import Translator
+    from PyQt6 import sip
 
     if Translator._instance is not None and sip.isdeleted(Translator._instance):
         Translator._instance = None

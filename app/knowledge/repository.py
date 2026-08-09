@@ -440,7 +440,6 @@ def insert_chunks_for_db(
     """
     if not chunks:
         return []
-    now = _now_iso()
     result: list[dict[str, Any]] = []
     with db.with_write_lock():
         for chunk in chunks:

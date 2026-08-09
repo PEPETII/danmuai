@@ -11,7 +11,6 @@
 import json
 
 import pytest
-
 from app.ai_client_requests import (
     resolve_request_credentials,
     resolve_request_credentials_for_persona,

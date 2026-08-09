@@ -5,16 +5,14 @@ from __future__ import annotations
 import io
 import json
 import re
-import sys
 import subprocess
+import sys
 import threading
 import zipfile
 from functools import lru_cache
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
 
 import pytest
-
 from app.bundle_paths import project_root
 
 ROOT = project_root()

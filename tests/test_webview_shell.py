@@ -38,8 +38,9 @@ def test_wait_for_http_server_success():
         def __exit__(self, *args):
             return False
 
-    with patch("urllib.request.urlopen", return_value=FakeResp()):
+    with patch("urllib.request.urlopen", return_value=FakeResp()) as open_url:
         assert wait_for_http_server("http://127.0.0.1:18765", timeout=1.0) is True
+    assert open_url.call_args.args[0].endswith("/api/health")
 
 
 def test_wait_for_http_server_rejects_invalid_json():
@@ -65,6 +66,23 @@ def test_webview_shell_url_hash_path():
     shell = WebViewShell(server)
     assert shell._url("/#settings") == "http://127.0.0.1:18765/#settings"
     assert shell._url("#settings") == "http://127.0.0.1:18765/#settings"
+
+
+def test_webview_initial_launch_uses_bootstrap_url(monkeypatch):
+    server = MagicMock()
+    server.base_url = "http://127.0.0.1:18765"
+    server.bootstrap_url.side_effect = lambda path: (
+        f"http://127.0.0.1:18765{path}#bootstrap=one-time"
+    )
+    shell = WebViewShell(server)
+    launched = []
+    monkeypatch.setattr("app.webview_shell._ensure_server_ready", lambda _server: True)
+    monkeypatch.setattr(shell, "_launch_child_process", lambda url, gui: launched.append(url))
+    monkeypatch.setattr(sys, "platform", "linux")
+
+    assert shell.begin_start("/#settings") is True
+    assert launched == ["http://127.0.0.1:18765/#settings#bootstrap=one-time"]
+    server.bootstrap_url.assert_called_once_with("/#settings")
 
 
 def test_webview_shell_open_delegates_to_start_when_not_running(monkeypatch):
@@ -702,7 +720,8 @@ def test_webview_shell_restore_window_when_not_running():
 
 def test_nav_poll_loop_restore_marker(monkeypatch):
     import threading
-    from app.webview_shell import _nav_poll_loop, _RESTORE_WINDOW_MARKER
+
+    from app.webview_shell import _RESTORE_WINDOW_MARKER, _nav_poll_loop
 
     window = MagicMock()
     nav_queue = MagicMock()

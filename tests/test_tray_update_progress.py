@@ -8,6 +8,7 @@ and must be cleaned up on download_ready / failure / cancel / retrigger.
 import gc
 
 from app.update_service import UpdateStatus
+
 from tests.conftest import make_minimal_danmu_app
 
 

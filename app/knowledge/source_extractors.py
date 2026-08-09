@@ -25,7 +25,7 @@ import logging
 import socket
 from dataclasses import dataclass, field
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import httpx
 import trafilatura
@@ -115,7 +115,7 @@ class ExtractionResult:
             ``source_too_large`` / ``ssrf_blocked`` / ``fetch_failed`` /
             ``http_error`` / ``unsupported_content_type`` / ``unsupported_scheme`` /
             ``empty_content`` / ``invalid_url`` / ``timeout`` / ``unknown_source_type`` /
-            ``extract_failed``。
+            ``extract_failed`` / ``redirect_limit_exceeded``。
         warning: 警告标识，空字符串表示无警告。常见值：``response_truncated``。
     """
 
@@ -360,6 +360,23 @@ def _is_allowed_scheme(scheme: str) -> bool:
     return scheme in ("http", "https")
 
 
+_REDIRECT_STATUS_CODES: frozenset[int] = frozenset({301, 302, 303, 307, 308})
+
+
+def _validate_url(url: str) -> str | None:
+    """校验一个待请求或响应 URL 的 scheme、hostname 和解析地址。"""
+    try:
+        parsed = urlparse(url)
+        hostname = parsed.hostname
+    except ValueError:
+        return "invalid_url"
+    if not _is_allowed_scheme(parsed.scheme):
+        return "unsupported_scheme"
+    if not hostname:
+        return "invalid_url"
+    return _check_ssrf(hostname)
+
+
 class WebpageExtractor:
     """网页提取器（spec §7.3）。
 
@@ -393,49 +410,133 @@ class WebpageExtractor:
                 error=ssrf_reason,
             )
 
+        def _metadata(**extra: Any) -> dict[str, Any]:
+            return {"source_type": "webpage", "url": url, **extra}
+
         headers = {"User-Agent": USER_AGENT}
+        current_url = url
+        redirect_count = 0
         try:
             with httpx.Client(
-                follow_redirects=True,
+                follow_redirects=False,
                 max_redirects=MAX_REDIRECTS,
                 timeout=HTTP_TIMEOUT_SEC,
                 headers=headers,
             ) as client:
-                with client.stream("GET", url) as resp:
-                    if resp.status_code >= 400:
-                        return ExtractionResult(
-                            "",
-                            {"source_type": "webpage", "url": url, "status_code": resp.status_code},
-                            error="http_error",
+                while True:
+                    # current_url 在本轮请求前已经通过 scheme/hostname/DNS 检查：
+                    # 初始 URL 在上方检查，后续 URL 在上一轮 Location 解析后检查。
+                    with client.stream("GET", current_url) as resp:
+                        response_url_value = getattr(resp, "url", None)
+                        response_url = (
+                            current_url
+                            if response_url_value is None
+                            else str(response_url_value)
                         )
-                    content_type = (resp.headers.get("content-type") or "").lower()
-                    if not (
-                        content_type.startswith("text/html")
-                        or content_type.startswith("text/plain")
-                    ):
-                        return ExtractionResult(
-                            "",
-                            {"source_type": "webpage", "url": url, "content_type": content_type},
-                            error="unsupported_content_type",
-                        )
-                    charset = resp.charset_encoding
-                    # 流式读取，严格控制响应大小
-                    total = 0
-                    chunks: list[bytes] = []
-                    truncated = False
-                    for chunk in resp.iter_bytes(chunk_size=8192):
-                        total += len(chunk)
-                        if total > MAX_RESPONSE_BYTES:
-                            truncated = True
-                            break
-                        chunks.append(chunk)
-                    raw_bytes = b"".join(chunks)
+                        response_ssrf_reason = _validate_url(response_url)
+                        if response_ssrf_reason is not None:
+                            return ExtractionResult(
+                                "",
+                                _metadata(
+                                    final_url=response_url,
+                                    redirect_count=redirect_count,
+                                ),
+                                error=response_ssrf_reason,
+                            )
+
+                        location = resp.headers.get("location")
+                        if location is None:
+                            location = resp.headers.get("Location")
+                        if (
+                            resp.status_code in _REDIRECT_STATUS_CODES
+                            and location is not None
+                        ):
+                            if redirect_count >= MAX_REDIRECTS:
+                                return ExtractionResult(
+                                    "",
+                                    _metadata(
+                                        final_url=response_url,
+                                        redirect_count=redirect_count,
+                                    ),
+                                    error="redirect_limit_exceeded",
+                                )
+                            if not location.strip():
+                                return ExtractionResult(
+                                    "",
+                                    _metadata(
+                                        final_url=response_url,
+                                        redirect_count=redirect_count,
+                                    ),
+                                    error="invalid_url",
+                                )
+                            try:
+                                next_url = urljoin(response_url, location)
+                            except ValueError:
+                                return ExtractionResult(
+                                    "",
+                                    _metadata(
+                                        final_url=response_url,
+                                        redirect_url=location,
+                                        redirect_count=redirect_count + 1,
+                                    ),
+                                    error="invalid_url",
+                                )
+                            next_ssrf_reason = _validate_url(next_url)
+                            if next_ssrf_reason is not None:
+                                return ExtractionResult(
+                                    "",
+                                    _metadata(
+                                        final_url=response_url,
+                                        redirect_url=next_url,
+                                        redirect_count=redirect_count + 1,
+                                    ),
+                                    error=next_ssrf_reason,
+                                )
+                            current_url = next_url
+                            redirect_count += 1
+                            continue
+
+                        if resp.status_code >= 400:
+                            return ExtractionResult(
+                                "",
+                                _metadata(
+                                    final_url=response_url,
+                                    status_code=resp.status_code,
+                                ),
+                                error="http_error",
+                            )
+                        content_type = (resp.headers.get("content-type") or "").lower()
+                        if not (
+                            content_type.startswith("text/html")
+                            or content_type.startswith("text/plain")
+                        ):
+                            return ExtractionResult(
+                                "",
+                                _metadata(
+                                    final_url=response_url,
+                                    content_type=content_type,
+                                ),
+                                error="unsupported_content_type",
+                            )
+                        charset = resp.charset_encoding
+                        # 流式读取，严格控制响应大小
+                        total = 0
+                        chunks: list[bytes] = []
+                        truncated = False
+                        for chunk in resp.iter_bytes(chunk_size=8192):
+                            total += len(chunk)
+                            if total > MAX_RESPONSE_BYTES:
+                                truncated = True
+                                break
+                            chunks.append(chunk)
+                        raw_bytes = b"".join(chunks)
+                        break
         except httpx.TimeoutException:
-            return ExtractionResult("", {"source_type": "webpage", "url": url}, error="timeout")
+            return ExtractionResult("", _metadata(), error="timeout")
         except httpx.HTTPError as exc:
             return ExtractionResult(
                 "",
-                {"source_type": "webpage", "url": url, "exception": str(exc)},
+                _metadata(exception=str(exc)),
                 error="fetch_failed",
             )
 
@@ -444,13 +545,13 @@ class WebpageExtractor:
         if text is None:
             return ExtractionResult(
                 "",
-                {"source_type": "webpage", "url": url, "content_type": content_type},
+                _metadata(final_url=response_url, content_type=content_type),
                 error="decode_failed",
             )
         if not text.strip():
             return ExtractionResult(
                 "",
-                {"source_type": "webpage", "url": url, "content_type": content_type},
+                _metadata(final_url=response_url, content_type=content_type),
                 error="empty_content",
             )
 
@@ -463,17 +564,17 @@ class WebpageExtractor:
                 include_images=False,
             )
         except Exception as exc:
-            logger.warning("trafilatura.extract failed for %s: %s", url, exc)
+            logger.warning("trafilatura.extract failed for %s: %s", response_url, exc)
             return ExtractionResult(
                 "",
-                {"source_type": "webpage", "url": url, "exception": str(exc)},
+                _metadata(final_url=response_url, exception=str(exc)),
                 error="extract_failed",
             )
 
         if not extracted or not extracted.strip():
             return ExtractionResult(
                 "",
-                {"source_type": "webpage", "url": url, "content_type": content_type},
+                _metadata(final_url=response_url, content_type=content_type),
                 error="empty_content",
             )
 
@@ -481,22 +582,21 @@ class WebpageExtractor:
         if not normalized:
             return ExtractionResult(
                 "",
-                {"source_type": "webpage", "url": url, "content_type": content_type},
+                _metadata(final_url=response_url, content_type=content_type),
                 error="empty_content",
             )
         if len(normalized) > MAX_SOURCE_CHARS:
             return ExtractionResult(
                 "",
-                {"source_type": "webpage", "url": url, "content_type": content_type},
+                _metadata(final_url=response_url, content_type=content_type),
                 error="source_too_large",
             )
 
-        metadata: dict[str, Any] = {
-            "source_type": "webpage",
-            "url": url,
-            "encoding": encoding,
-            "content_type": content_type,
-        }
+        metadata: dict[str, Any] = _metadata(
+            final_url=response_url,
+            encoding=encoding,
+            content_type=content_type,
+        )
         warning = ""
         if truncated:
             metadata["response_truncated"] = True

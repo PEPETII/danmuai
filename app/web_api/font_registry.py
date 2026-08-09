@@ -12,8 +12,8 @@ from __future__ import annotations
 
 from fastapi import File, Header, HTTPException, Path, UploadFile
 
-from app.web_api.auth import require_auth
 from app.translations import tr
+from app.web_api.auth import require_auth
 from app.web_console import MainThreadInvokeTimeout
 
 

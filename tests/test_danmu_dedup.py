@@ -433,8 +433,8 @@ def test_normalize_danmu_display_text_keeps_formula_meme_barrage(engine):
 
 
 def test_start_clears_dedup_window(monkeypatch, workspace_tmp):
-    from app.config_store import ConfigStore
     from app.application.stats_state import StatsState
+    from app.config_store import ConfigStore
 
     from tests.fakes import FakeConfig
 

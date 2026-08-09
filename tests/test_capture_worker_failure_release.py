@@ -2,9 +2,9 @@ import threading
 import time
 from unittest.mock import Mock
 
+from app.runnable import CaptureCoordinator, CaptureRunnable
 from PyQt6.QtCore import QObject, pyqtSlot
 
-from app.runnable import CaptureCoordinator, CaptureRunnable
 from tests.conftest import make_minimal_danmu_app
 from tests.fakes import FakeCapturer, FakePixmap
 
@@ -31,11 +31,13 @@ class _FailureReceiver(QObject):
     def __init__(self) -> None:
         super().__init__()
         self.messages: list[str] = []
+        self.epochs: list[int] = []
         self.thread_ids: list[int] = []
 
-    @pyqtSlot(str)
-    def on_failed(self, message: str) -> None:
+    @pyqtSlot(str, int)
+    def on_failed(self, message: str, epoch: int) -> None:
         self.messages.append(message)
+        self.epochs.append(epoch)
         self.thread_ids.append(threading.get_ident())
 
 
@@ -43,11 +45,11 @@ def test_capture_runnable_exception_emits_failed_without_completed(monkeypatch):
     coordinator = _CaptureCoordinatorStub()
     monkeypatch.setattr("app.runnable.execute_capture", _raise_capture_error)
 
-    runnable = CaptureRunnable(object(), coordinator, threading.Event())
+    runnable = CaptureRunnable(object(), coordinator, threading.Event(), session_epoch=7)
     runnable.run()
 
     assert coordinator.completed.calls == []
-    assert coordinator.failed.calls == [("RuntimeError: capture boom",)]
+    assert coordinator.failed.calls == [("RuntimeError: capture boom", 7)]
 
 
 def test_capture_failure_signal_is_delivered_on_main_thread(qapp, monkeypatch):
@@ -56,7 +58,7 @@ def test_capture_failure_signal_is_delivered_on_main_thread(qapp, monkeypatch):
     coordinator.failed.connect(receiver.on_failed)
     monkeypatch.setattr("app.runnable.execute_capture", _raise_capture_error)
     main_thread_id = threading.get_ident()
-    runnable = CaptureRunnable(object(), coordinator, threading.Event())
+    runnable = CaptureRunnable(object(), coordinator, threading.Event(), session_epoch=11)
 
     worker = threading.Thread(target=runnable.run)
     worker.start()
@@ -69,7 +71,25 @@ def test_capture_failure_signal_is_delivered_on_main_thread(qapp, monkeypatch):
         time.sleep(0.01)
 
     assert receiver.messages == ["RuntimeError: capture boom"]
+    assert receiver.epochs == [11]
     assert receiver.thread_ids == [main_thread_id]
+
+
+def test_capture_completed_signal_carries_session_epoch(monkeypatch):
+    coordinator = _CaptureCoordinatorStub()
+    pixmap = FakePixmap(1)
+    monkeypatch.setattr("app.runnable.execute_capture", lambda _plan: pixmap)
+
+    runnable = CaptureRunnable(
+        object(),
+        coordinator,
+        threading.Event(),
+        session_epoch=23,
+    )
+    runnable.run()
+
+    assert coordinator.completed.calls == [(pixmap, 23)]
+    assert coordinator.failed.calls == []
 
 
 def test_capture_failed_releases_slot_and_allows_next_schedule(monkeypatch):
@@ -132,7 +152,7 @@ def test_capture_runnable_stopping_emits_failed_without_completed():
     runnable.run()
 
     assert coordinator.completed.calls == []
-    assert coordinator.failed.calls == [("capture_aborted_stopping",)]
+    assert coordinator.failed.calls == [("capture_aborted_stopping", 0)]
 
 
 def test_capture_runnable_stopping_after_grab_emits_failed(monkeypatch):
@@ -149,7 +169,7 @@ def test_capture_runnable_stopping_after_grab_emits_failed(monkeypatch):
     runnable.run()
 
     assert coordinator.completed.calls == []
-    assert coordinator.failed.calls == [("capture_aborted_stopping",)]
+    assert coordinator.failed.calls == [("capture_aborted_stopping", 0)]
 
 
 def test_stopping_failed_releases_slot_without_failure_backoff():
@@ -174,16 +194,19 @@ def test_stopping_failed_releases_slot_without_failure_backoff():
 def test_stop_clears_capture_in_flight():
     """BUG-005: stop() 须显式清零 _capture_in_flight（不依赖 worker 迟到信号）。"""
     from main import DanmuApp
+
     from tests.fakes import FakeTimer
 
     app = make_minimal_danmu_app()
     app.engine.running = True
     app._capture_in_flight = True
     app.ai_in_flight = 1
+    initial_epoch = app._capture_session_epoch
     app._pool_topup_timer = FakeTimer()
     app._topmost_health_timer = FakeTimer()
     app._lifetime_flush_timer = FakeTimer()
     app._live_status_timer = FakeTimer()
+    app._mic_poll_timer = FakeTimer()
     app.screenshot_timer = FakeTimer()
     app.reply_timer = FakeTimer()
     app._mic_orchestrator = Mock(stop_detector=Mock())
@@ -201,3 +224,20 @@ def test_stop_clears_capture_in_flight():
     assert app._capture_in_flight is False
     assert app.ai_in_flight == 0
     assert app.ai_worker._stopping.is_set()
+    assert app._capture_session_epoch == initial_epoch + 1
+
+
+def test_capture_failed_from_previous_session_does_not_release_current_slot():
+    from main import DanmuApp
+
+    app = make_minimal_danmu_app()
+    app.engine.running = True
+    app._capture_session_epoch = 2
+    app._capture_in_flight = True
+    app._note_capture_failure = Mock()
+    app._on_capture_failed = DanmuApp._on_capture_failed.__get__(app, DanmuApp)
+
+    app._on_capture_failed("late capture boom", session_epoch=1)
+
+    assert app._capture_in_flight is True
+    app._note_capture_failure.assert_not_called()

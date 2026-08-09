@@ -6,12 +6,11 @@ Covers the two failure exit points where notify_web_console_failure must be call
 """
 
 import queue
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from app.webview_shell import (
     WebViewShell,
     attach_webview_shell,
-    notify_web_console_failure,
 )
 
 

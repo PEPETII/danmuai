@@ -13,9 +13,9 @@ import time
 from types import SimpleNamespace
 
 from app.application.stats_state import StatsState
+from app.application.status_snapshot import StatusSnapshotBuilder
 from app.application.web_runtime_state import WebRuntimeState
 from app.config_store import ConfigStore
-from app.application.status_snapshot import StatusSnapshotBuilder
 from app.danmu_engine_models import Track
 from app.web_console_support import WebStatusSnapshot
 

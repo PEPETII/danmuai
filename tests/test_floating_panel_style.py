@@ -5,10 +5,6 @@ from __future__ import annotations
 import json
 from unittest.mock import MagicMock
 
-import pytest
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
-
 from app.application.config_service import WEB_CONFIG_KEYS, apply_web_config_patch
 from app.config_defaults import CONFIG_DEFAULTS, export_web_config_defaults
 from app.config_store import ConfigStore
@@ -38,6 +34,8 @@ from app.floating_panel_style import (
     style_presets_api_payload,
     style_snapshot_from_mapping,
 )
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
 
 def _stub_app(store):

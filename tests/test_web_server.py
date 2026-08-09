@@ -827,37 +827,42 @@ def test_announcements_state_validate_payload_rejects_bad_uuid():
     assert exc.value.status_code == 400
 
 
-# -- W-SEC-001：/api/session 鉴权测试 -----------------------------------------
-# 覆盖 bug-audit/bug-03.md 缺陷 1：缺 / 错 token / 非 loopback 来源 / 无 Origin
-# 一律 401/403；同源 loopback 握手或正确 token 放行。
+# -- session bootstrap / Bearer 鉴权测试 -------------------------------------
+# 覆盖伪造来源头、错误凭据、一次性 bootstrap 与正确 Bearer 的矩阵。
 
-def _build_session_app(expected_token: str = "secret-token"):
-    """构造一个最小 FastAPI app，仅挂载 /api/session，模拟 web_console_runtime.py 的闭包逻辑。
-
-    通过 mock 复制其核心行为，避开构造完整 WebConsoleServer 的繁重 fixture。
-    """
-    from app.web_console_session_auth import enforce_session_authorization
+def _build_session_app(
+    expected_token: str = "secret-token",
+    bootstrap_secret: str = "bootstrap-secret",
+):
+    """构造最小 session app，覆盖 runtime 的 Bearer/bootstrap 契约。"""
+    from app.web_console_session_auth import (
+        SessionBootstrapStore,
+        enforce_session_authorization,
+    )
     from fastapi import FastAPI, Header
 
     app = FastAPI()
+    store = SessionBootstrapStore()
+    app.state.bootstrap_secret = bootstrap_secret
+    import time
+
+    store._secrets[bootstrap_secret] = time.monotonic() + 60.0
 
     @app.get("/api/session")
     def read_console_session(
-        host: str | None = Header(default=None),
-        origin: str | None = Header(default=None),
-        referer: str | None = Header(default=None),
         authorization: str | None = Header(default=None),
+        bootstrap: str | None = Header(
+            default=None,
+            alias="X-DanmuAI-Bootstrap",
+        ),
     ):
         enforce_session_authorization(
             authorization=authorization,
-            origin=origin,
-            referer=referer,
-            host=host,
             expected_token=expected_token,
+            bootstrap=bootstrap,
+            consume_bootstrap_secret=store.consume,
         )
-        host = (host or "").strip()
-        base_url = f"http://{host}" if host else "http://127.0.0.1:18765"
-        return {"token": expected_token, "base_url": base_url}
+        return {"token": expected_token, "base_url": "http://127.0.0.1:18765"}
 
     return app
 
@@ -919,8 +924,8 @@ def test_session_allows_correct_token_regardless_of_origin():
     assert body["base_url"] == "http://127.0.0.1:18765"
 
 
-def test_session_allows_loopback_origin_handshake():
-    """控制台同源 loopback fetch（无 token）→ 200；同源握手。"""
+def test_session_rejects_spoofed_loopback_origin_handshake():
+    """伪造 Host/Origin 头不能替代启动器 bootstrap。"""
     from fastapi.testclient import TestClient
 
     client = TestClient(_build_session_app(expected_token="right"))
@@ -931,9 +936,7 @@ def test_session_allows_loopback_origin_handshake():
             "Origin": "http://127.0.0.1:18765",
         },
     )
-    assert res.status_code == 200
-    body = res.json()
-    assert body["token"] == "right"
+    assert res.status_code == 401
 
 
 def test_session_rejects_mismatched_loopback_origin():
@@ -948,11 +951,11 @@ def test_session_rejects_mismatched_loopback_origin():
             "Origin": "http://localhost:9999",
         },
     )
-    assert res.status_code == 403
+    assert res.status_code == 401
 
 
 def test_session_rejects_non_loopback_host():
-    """非 loopback Host + 无 token → 401（不能从外部拿 token）。"""
+    """非 loopback Host + 无凭据 → 401（Host 不参与身份判断）。"""
     from fastapi.testclient import TestClient
 
     client = TestClient(_build_session_app(expected_token="right"))
@@ -967,11 +970,7 @@ def test_session_rejects_non_loopback_host():
 
 
 def test_session_rejects_port_mismatch_on_same_loopback():
-    """端口不一致的 loopback Origin 应被拒绝（防御端口剥离绕过）。
-
-    攻击场景：Host=127.0.0.1:18765, Origin=http://127.0.0.1:9999
-    两者主机名相同但端口不同，应 403。
-    """
+    """不同端口的伪造 Origin 不能成为 session 凭据。"""
     from fastapi.testclient import TestClient
 
     client = TestClient(_build_session_app(expected_token="right"))
@@ -982,11 +981,11 @@ def test_session_rejects_port_mismatch_on_same_loopback():
             "Origin": "http://127.0.0.1:9999",
         },
     )
-    assert res.status_code == 403
+    assert res.status_code == 401
 
 
 def test_session_allows_exact_same_port_loopback():
-    """端口完全一致的 loopback Origin 应放行（正常浏览器行为）。"""
+    """即使端口完全一致，也必须使用 bootstrap 或 Bearer。"""
     from fastapi.testclient import TestClient
 
     client = TestClient(_build_session_app(expected_token="right"))
@@ -997,11 +996,11 @@ def test_session_allows_exact_same_port_loopback():
             "Origin": "http://127.0.0.1:18765",
         },
     )
-    assert res.status_code == 200
+    assert res.status_code == 401
 
 
 def test_session_rejects_loopback_origin_without_request_port():
-    """Host 有端口但 Origin 无端口 → 应拒绝。"""
+    """Origin 没有端口也不能绕过 bootstrap。"""
     from fastapi.testclient import TestClient
 
     client = TestClient(_build_session_app(expected_token="right"))
@@ -1011,6 +1010,32 @@ def test_session_rejects_loopback_origin_without_request_port():
             "Host": "127.0.0.1:18765",
             "Origin": "http://127.0.0.1",
         },
+    )
+    assert res.status_code == 401
+
+
+def test_session_allows_one_time_bootstrap_and_consumes_it():
+    """合法启动器 secret 只可交换一次，且不依赖来源头。"""
+    from fastapi.testclient import TestClient
+
+    client = TestClient(_build_session_app(expected_token="right"))
+    headers = {"X-DanmuAI-Bootstrap": "bootstrap-secret", "Host": "evil.example"}
+    first = client.get("/api/session", headers=headers)
+    assert first.status_code == 200
+    assert first.json()["base_url"] == "http://127.0.0.1:18765"
+
+    second = client.get("/api/session", headers=headers)
+    assert second.status_code == 403
+
+
+def test_session_rejects_invalid_bootstrap():
+    """错误 bootstrap secret 不返回 Bearer token。"""
+    from fastapi.testclient import TestClient
+
+    client = TestClient(_build_session_app())
+    res = client.get(
+        "/api/session",
+        headers={"X-DanmuAI-Bootstrap": "wrong", "Origin": "http://127.0.0.1:18765"},
     )
     assert res.status_code == 403
 

@@ -22,8 +22,7 @@ from app.danmu_engine_dedup import (  # noqa: F401 — re-exported for app.danmu
     reset_dedup_profile_for_tests,
     snapshot_dedup_profile,
 )
-from app.danmu_engine_models import DanmuItem, Track  # noqa: F401
-from app.danmu_engine_models import _DANMU_FALLBACK_CHAR_WIDTH
+from app.danmu_engine_models import _DANMU_FALLBACK_CHAR_WIDTH, DanmuItem, Track  # noqa: F401
 
 from .render import ENTRY_ZONE_PX
 from .screen import (

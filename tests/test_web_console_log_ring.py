@@ -3,7 +3,6 @@
 from unittest.mock import MagicMock
 
 import pytest
-
 from app.web_console import WebConsoleBridge
 
 

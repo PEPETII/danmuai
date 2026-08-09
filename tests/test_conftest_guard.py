@@ -10,8 +10,8 @@ W-TEST-BINDING-GUARD-001：防止单测静默 AttributeError（conftest.py 模�
 import inspect
 
 from main import DanmuApp
-from tests.conftest import make_minimal_danmu_app
 
+from tests.conftest import make_minimal_danmu_app
 
 # 显式白名单：DanmuApp 上存在但 make_minimal_danmu_app 刻意不绑定的方法。
 # 这些方法属于 UI / 显示同步 / 生命周期编排 / 烂梗 / 麦 / TTS / Web façade，

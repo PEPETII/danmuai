@@ -5,9 +5,10 @@ from __future__ import annotations
 import mimetypes
 from typing import TYPE_CHECKING, Any
 
-from app.translations import tr
 from fastapi import HTTPException
 from fastapi.responses import FileResponse
+
+from app.translations import tr
 
 if TYPE_CHECKING:
     from main import DanmuApp

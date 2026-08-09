@@ -2,8 +2,6 @@
 
 from types import SimpleNamespace
 
-import pytest
-
 from app.mic_capture import (
     MicInputDeviceInfo,
     _classify_input_role,

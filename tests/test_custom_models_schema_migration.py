@@ -12,7 +12,11 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
-from app.config_store import ConfigStore, _migrate_custom_model_shape, canonicalize_custom_model_profile
+from app.config_store import (
+    ConfigStore,
+    _migrate_custom_model_shape,
+    canonicalize_custom_model_profile,
+)
 from app.web_api import custom_models as cm_api
 
 

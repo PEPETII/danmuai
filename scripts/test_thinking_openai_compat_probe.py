@@ -18,9 +18,9 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from app.model_providers import normalize_endpoint
-from app.providers import get_capabilities_for_endpoint
-from app.providers.thinking import apply_thinking_mode
+from app.model_providers import normalize_endpoint  # noqa: E402
+from app.providers import get_capabilities_for_endpoint  # noqa: E402
+from app.providers.thinking import apply_thinking_mode  # noqa: E402
 
 PRESETS = {
     "dashscope": {

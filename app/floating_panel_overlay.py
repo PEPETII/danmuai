@@ -29,9 +29,9 @@ from PyQt6.QtWidgets import QApplication, QWidget
 
 from app.floating_panel_engine import FloatingPanelEngine, FloatingPanelItem
 from app.floating_panel_style import (
-    FloatingPanelStyleSnapshot,
     WECHAT_CARD_COLORS,
     WECHAT_TEXT_COLOR,
+    FloatingPanelStyleSnapshot,
     pick_palette_color,
     style_snapshot_from_mapping,
 )

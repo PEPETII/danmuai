@@ -37,7 +37,7 @@ def test_provider_resolve_and_hunyuan_warning_contract():
 
 
 def test_provider_status_hides_unknown_source_for_active_providers():
-    from app.model_providers import provider_for_api, get_provider
+    from app.model_providers import get_provider, provider_for_api
 
     doubao = provider_for_api(get_provider("doubao"))
     mimo = provider_for_api(get_provider("mimo"))

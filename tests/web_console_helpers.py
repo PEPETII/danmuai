@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from unittest.mock import MagicMock
 
 from app.web_console import WebConsoleBridge, save_config_via_bridge

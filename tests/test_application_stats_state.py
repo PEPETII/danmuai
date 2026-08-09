@@ -2,8 +2,6 @@
 
 import time
 
-import pytest
-
 from app.application.application_stats_state import ApplicationStatsState
 
 

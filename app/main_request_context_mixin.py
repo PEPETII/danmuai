@@ -126,24 +126,17 @@ class DanmuAppRequestContextMixin:
             screenshot_id,
             scene_generation,
         )
-        timing_service = self._get_request_timing_service()
-        now = time.monotonic()
-        for key in popped_keys:
-            timing_service.consume_timing(request_id=key, now=now)
-        purged = timing_service.purge_stale(now=now)
-
-        self._release_inflight_for_source("visual")
-        self._consecutive_failures += 1
-        self.logger.error(
-            "视觉请求 in-flight 强制恢复: screenshot_id=%s scene_generation=%s "
-            "elapsed_ms=%s popped_meta=%s purged_timing=%s reason=inflight_watchdog_recover",
+        self._handle_visual_ai_failure(
+            tr("ai.error_timeout"),
+            self.__dict__.get("_current_persona", ""),
+            request_round,
             screenshot_id,
+            0.0,
             scene_generation,
-            int(elapsed * 1000),
-            popped_keys,
-            purged,
+            diagnostic_reason="inflight_watchdog_recover",
+            elapsed_ms=int(elapsed * 1000),
+            popped_meta=popped_keys,
         )
-        self._publish_live_status()
         return True
 
     def _api_schedule_block_reason(self, *, enforce_min_interval: bool) -> str:

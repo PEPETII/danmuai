@@ -9,7 +9,6 @@ import zipfile
 from pathlib import Path
 
 import pytest
-
 from app.bundle_paths import project_root
 from app.packaging_constants import VELOPACK_PACK_ID, WINDOWS_EXE_NAME
 

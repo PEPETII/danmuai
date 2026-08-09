@@ -64,7 +64,13 @@ def test_live_overlay_routes_status_and_page():
     def _check_token(_authorization: str | None = None) -> None:
         return None
 
-    register_live_overlay_routes(app, hub, "http://127.0.0.1:18765", _check_token)
+    register_live_overlay_routes(
+        app,
+        hub,
+        "http://127.0.0.1:18765",
+        _check_token,
+        font_size_provider=lambda: 44,
+    )
     client = TestClient(app)
 
     res = client.get("/api/live-overlay/status")
@@ -72,6 +78,10 @@ def test_live_overlay_routes_status_and_page():
     body = res.json()
     assert body["connections"] == 0
     assert body["overlay_url"] == "http://127.0.0.1:18765/live-overlay"
+
+    config = client.get("/api/live-overlay/config")
+    assert config.status_code == 200
+    assert config.json() == {"font_size": 44}
 
     page = client.get("/live-overlay")
     assert page.status_code == 200

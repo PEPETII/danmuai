@@ -5,7 +5,6 @@ from __future__ import annotations
 import subprocess
 
 import pytest
-
 from app.bundle_paths import project_root
 
 # Keep in sync with DanmuAI.spec:_should_exclude_supabase_config

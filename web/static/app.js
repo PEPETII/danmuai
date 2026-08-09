@@ -161,6 +161,8 @@ function invalidateDanmuReadCache() {
 }
 
 let _toastExitTimer = null;
+const BOOTSTRAP_TIMEOUT_MS = 10000;
+const bootstrapErrors = new Map();
 
 function showToast(message, isError = false) {
   const el = document.getElementById('toast');
@@ -179,6 +181,87 @@ function showToast(message, isError = false) {
       _toastExitTimer = null;
     }, 300);
   }, 3200);
+}
+
+function describeBootstrapError(error) {
+  if (error?.code === 'BOOTSTRAP_TIMEOUT') return t('dynamic.transport.请求失败');
+  if (error instanceof Error && error.message) return error.message;
+  const message = String(error ?? '').trim();
+  return message || t('dynamic.transport.请求失败');
+}
+
+function renderBootstrapErrors() {
+  const banner = document.getElementById('errorBanner');
+  const bannerMessage = document.getElementById('errorBannerMessage');
+  if (!banner) return;
+  const messages = [...bootstrapErrors.values()];
+  if (!messages.length) {
+    if (banner.dataset.bootstrapError === '1') {
+      banner.classList.add('hidden');
+      banner.classList.remove('ui-status-banner--danger', 'text-red-700');
+      delete banner.dataset.bootstrapError;
+    }
+    return;
+  }
+  const text = messages.join(' · ');
+  if (bannerMessage) bannerMessage.textContent = text;
+  else banner.textContent = text;
+  banner.dataset.bootstrapError = '1';
+  banner.classList.remove('hidden');
+  banner.classList.add('ui-status-banner--danger', 'text-red-700');
+}
+
+function recordBootstrapFailure(label, error) {
+  const detail = describeBootstrapError(error);
+  const message = `${label}: ${detail}`;
+  bootstrapErrors.set(label, message);
+  console.warn(`[bootstrap] ${message}`, error);
+  renderBootstrapErrors();
+  showToast(message, true);
+}
+
+function clearBootstrapFailure(label) {
+  if (bootstrapErrors.delete(label)) renderBootstrapErrors();
+}
+
+async function runBootstrapTask(label, task) {
+  try {
+    const value = await task();
+    clearBootstrapFailure(label);
+    return value;
+  } catch (error) {
+    recordBootstrapFailure(label, error);
+    return null;
+  }
+}
+
+function createBootstrapTimeout(path) {
+  const error = new Error(`Bootstrap request timed out: ${path}`);
+  error.code = 'BOOTSTRAP_TIMEOUT';
+  return error;
+}
+
+async function fetchBootstrapStatus() {
+  if (typeof AbortController === 'undefined') return apiFetch('/api/status');
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), BOOTSTRAP_TIMEOUT_MS);
+  try {
+    const status = await apiFetch('/api/status', { signal: controller.signal });
+    if (
+      status === null
+      || typeof status !== 'object'
+      || Array.isArray(status)
+      || typeof status.running !== 'boolean'
+    ) {
+      throw new Error('Invalid /api/status payload: running is missing');
+    }
+    return status;
+  } catch (error) {
+    if (controller.signal.aborted) throw createBootstrapTimeout('/api/status');
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 async function withLoadingState(btn, originalText, asyncFn, successText = null, successDurationMs = 2000) {
@@ -449,7 +532,7 @@ async function probeDanmuRead() {
 }
 
 function initDanmuReadPage() {
-  ensureDanmuReadCatalog().catch(() => {});
+  ensureDanmuReadCatalog().catch((error) => recordBootstrapFailure('danmu-read-catalog', error));
   document
     .getElementById('danmuReadProvider')
     ?.addEventListener('change', handleDanmuReadProviderChange);
@@ -506,14 +589,14 @@ function navigate(page) {
   closeShellNavIfDrawer();
 
   if (page === 'settings') {
-    reloadConfigFromServer().catch(console.error);
-    loadScreens().catch(console.error);
-    loadCustomModels().catch(console.error);
+    void runBootstrapTask('config', reloadConfigFromServer);
+    void runBootstrapTask('screens', loadScreens);
+    void runBootstrapTask('custom-models', loadCustomModels);
     if (getActiveSettingsTabId() === 'danmu-read') {
-      loadDanmuReadPage().catch(() => {});
+      void runBootstrapTask('danmu-read', loadDanmuReadPage);
     }
   }
-  if (page === 'overview') loadOverviewGlobalFields().catch(console.error);
+  if (page === 'overview') void runBootstrapTask('overview', loadOverviewGlobalFields);
   if (page === 'persona') loadPersonaEditor().catch(console.error);
   if (page === 'danmu-pool') {
     ensureDanmuPoolPages()
@@ -583,28 +666,7 @@ function navigate(page) {
   }
 }
 
-async function init() {
-  await bootstrapI18n();
-  initTheme();
-  initLanguage({ showToast });
-  await refreshSession();
-
-  await Promise.all([
-    loadAnnouncementsReadState(),
-    loadModelCatalog(),
-    loadProviders(),
-    loadConfigDefaults(),
-  ]);
-
-  const [cfg] = await Promise.all([
-    reloadConfigFromServer(),
-    loadScreens(),
-  ]);
-  window.__danmuaiConfig = cfg;
-  if (cfg.screen_index !== undefined) {
-    document.getElementById('screen_index').value = String(cfg.screen_index);
-  }
-
+function bindCoreInteractions() {
   initErrorReporting({ showToast, getLastStatus: getLastAppliedStatus });
   initProblemDialog({
     showToast,
@@ -629,8 +691,6 @@ async function init() {
   configureLiveSettingsTabs({ showToast });
   initLiveSettingsTabs();
   initPersonaTopicPage({ showToast });
-  loadOverviewGlobalFields().catch(console.error);
-  initAppUpdateModal({ showToast });
 
   configureStatus({
     applyCaptureRegion: applyCaptureRegionFromPayload,
@@ -647,11 +707,6 @@ async function init() {
     showToast,
     bootstrapLogs: bootstrapLogsFromServer,
   });
-  const statusPromise = fetch(`${API.base}/api/status`)
-    .then((response) => response.json())
-    .then(applyStatus);
-  startRealtimeTransport();
-  await statusPromise;
 
   initSettingsTabs();
   initGuideTabs();
@@ -660,9 +715,6 @@ async function init() {
   initContentPageFieldHints();
   initSidebarNavFloatingHints();
   initNormalBatchControls();
-  initDanmuReadPage();
-  loadDanmuReadPage().catch(console.error);
-  initCaptureRegionControls();
   initRestoreDefaultsControls();
   initFloatingPanelV2Controls();
 
@@ -671,12 +723,12 @@ async function init() {
     navigate,
     onConfigSaved: () => {
       if (document.getElementById('personaSelect')?.value) {
-        loadPersonaTemplate().catch(console.error);
+        void runBootstrapTask('persona-template', loadPersonaTemplate);
       }
     },
     onSettingsTabSwitch: (tabId) => {
       if (tabId === 'danmu-read') {
-        loadDanmuReadPage().catch(() => {});
+        void runBootstrapTask('danmu-read', loadDanmuReadPage);
       }
     },
   });
@@ -724,8 +776,6 @@ async function init() {
     });
   });
   initResponsiveShell();
-  const hash = (location.hash || '').replace('#', '');
-  if (hash) navigate(hash);
 
   document.getElementById('btnErrorBannerDismiss')?.addEventListener('click', () => {
     const banner = document.getElementById('errorBanner');
@@ -765,15 +815,7 @@ async function init() {
       showToast(t('dynamic.app.日志已关闭'));
     }
   });
-
   updateLogPanelState();
-
-  const onAnnouncements = document
-    .getElementById('page-announcements')
-    ?.classList.contains('active');
-  if (!onAnnouncements) {
-    startAnnouncementsBadgePolling();
-  }
 
   document.getElementById('btnToggle').addEventListener('click', async () => {
     try {
@@ -789,14 +831,81 @@ async function init() {
       showToast(error.message || t('dynamic.app.小助手遇到了一点问题'), true);
     }
   });
+}
+
+async function init() {
+  let i18nError = null;
+  try {
+    await bootstrapI18n();
+  } catch (error) {
+    i18nError = error;
+    console.warn('[bootstrap] i18n bootstrap failed; continuing with fallback text', error);
+  }
+
+  initTheme();
+  initLanguage({ showToast });
+  bindCoreInteractions();
+  if (i18nError) recordBootstrapFailure('i18n', i18nError);
+
+  try {
+    await refreshSession();
+  } catch (error) {
+    recordBootstrapFailure('session', error);
+    applyI18n();
+    return;
+  }
 
   await Promise.all([
-    refreshAnnouncementsUnreadBadge(),
-    initAppVersionAndUpdateCheck(),
+    ['announcements', loadAnnouncementsReadState],
+    ['model-catalog', loadModelCatalog],
+    ['providers', loadProviders],
+    ['config-defaults', loadConfigDefaults],
+  ].map(([label, task]) => runBootstrapTask(label, task)));
+
+  const [cfg] = await Promise.all([
+    runBootstrapTask('config', reloadConfigFromServer),
+    runBootstrapTask('screens', loadScreens),
+  ]);
+  if (cfg) {
+    window.__danmuaiConfig = cfg;
+    if (cfg.screen_index !== undefined) {
+      document.getElementById('screen_index').value = String(cfg.screen_index);
+    }
+  }
+
+  void runBootstrapTask('overview', loadOverviewGlobalFields);
+  initAppUpdateModal({ showToast });
+
+  const statusPromise = runBootstrapTask('status', async () => {
+    const status = await fetchBootstrapStatus();
+    applyStatus(status);
+    return status;
+  });
+  startRealtimeTransport();
+  await statusPromise;
+
+  initDanmuReadPage();
+  void runBootstrapTask('danmu-read', loadDanmuReadPage);
+  initCaptureRegionControls();
+
+  const hash = (location.hash || '').replace('#', '');
+  if (hash) navigate(hash);
+
+  const onAnnouncements = document
+    .getElementById('page-announcements')
+    ?.classList.contains('active');
+  if (!onAnnouncements) {
+    startAnnouncementsBadgePolling();
+  }
+
+  await Promise.all([
+    runBootstrapTask('announcement-badge', refreshAnnouncementsUnreadBadge),
+    runBootstrapTask('app-update', initAppVersionAndUpdateCheck),
   ]);
 
   // Re-apply after init* hooks that touch static DOM (hints, tabs, etc.)
   applyI18n();
+  renderBootstrapErrors();
 }
 
 document.addEventListener('visibilitychange', () => {
@@ -824,5 +933,5 @@ window.addEventListener('pagehide', () => {
 
 init().catch((error) => {
   console.error(error);
-  showToast(error.message || t('dynamic.app.无法连接小助手_请确认_DanmuAI_已启动'), true);
+  recordBootstrapFailure('init', error);
 });

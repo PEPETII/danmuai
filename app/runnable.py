@@ -24,8 +24,8 @@ from app.translations import tr
 class CaptureCoordinator(QObject):
     """Main-thread QObject; capture worker emits completed/failed signals."""
 
-    completed = pyqtSignal(object)
-    failed = pyqtSignal(str)
+    completed = pyqtSignal(object, int)
+    failed = pyqtSignal(str, int)
 
 
 class CaptureRunnable(QRunnable):
@@ -36,28 +36,39 @@ class CaptureRunnable(QRunnable):
         plan: CapturePlan,
         coordinator: CaptureCoordinator,
         stopping: threading.Event,
+        session_epoch: int = 0,
     ) -> None:
         super().__init__()
         self._plan = plan
         self._coordinator = coordinator
         self._stopping = stopping
+        self._session_epoch = session_epoch
         self.setAutoDelete(True)
 
     def run(self) -> None:
         # stopping 早退必须 failed 结算槽位；主线程 _on_capture_failed 清 _capture_in_flight
         #（worker 禁止直接写 DanmuApp；W-AUDIT-0714-CAPTURE-STOP-001 / BUG-005）
         if self._stopping.is_set():
-            self._coordinator.failed.emit("capture_aborted_stopping")
+            self._coordinator.failed.emit(
+                "capture_aborted_stopping",
+                self._session_epoch,
+            )
             return
         try:
             pixmap = execute_capture(self._plan)
         except Exception as exc:  # boundary: capture backend must settle the slot
-            self._coordinator.failed.emit(f"{type(exc).__name__}: {exc}")
+            self._coordinator.failed.emit(
+                f"{type(exc).__name__}: {exc}",
+                self._session_epoch,
+            )
             return
         if self._stopping.is_set():
-            self._coordinator.failed.emit("capture_aborted_stopping")
+            self._coordinator.failed.emit(
+                "capture_aborted_stopping",
+                self._session_epoch,
+            )
             return
-        self._coordinator.completed.emit(pixmap)
+        self._coordinator.completed.emit(pixmap, self._session_epoch)
 
 
 class AiRunnable(QRunnable):

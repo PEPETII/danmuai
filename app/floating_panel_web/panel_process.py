@@ -129,6 +129,18 @@ def _webview_worker(
                 return int(root)
         return 0
 
+    def _apply_win32_panel_styles(hwnd: int) -> None:
+        """Apply the same styles after WebView2 repaints or reports ``shown``."""
+        from app.win32_overlay_zorder import (
+            apply_overlay_exstyles,
+            reassert_hwnd_topmost,
+            resolve_root_hwnd,
+        )
+
+        root = resolve_root_hwnd(hwnd)
+        apply_overlay_exstyles(root, click_through=bool(click_through))
+        reassert_hwnd_topmost(root)
+
     def on_loaded() -> None:
         hwnd = get_hwnd()
         hwnd_holder["hwnd"] = hwnd
@@ -139,15 +151,7 @@ def _webview_worker(
             pass
         if hwnd and sys.platform == "win32":
             try:
-                from app.win32_overlay_zorder import (
-                    apply_overlay_exstyles,
-                    reassert_hwnd_topmost,
-                    resolve_root_hwnd,
-                )
-
-                root = resolve_root_hwnd(hwnd)
-                apply_overlay_exstyles(root, click_through=bool(click_through))
-                reassert_hwnd_topmost(root)
+                _apply_win32_panel_styles(hwnd)
             except Exception as exc:
                 try:
                     ready_queue.put(f"exstyle-failed: {exc}")

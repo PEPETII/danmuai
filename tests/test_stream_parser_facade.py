@@ -33,3 +33,18 @@ def test_chat_facade_preserves_empty_and_malformed_chunks():
     result = consume_stream(lines, api_family=API_FAMILY_OPENAI_CHAT,
                             adapter=DefaultOpenAIAdapter(), caps=ProviderCapabilities())
     assert result.text == "ok"
+
+
+def test_chat_facade_propagates_top_level_error_without_space_after_data():
+    lines = [
+        'data:{"error":{"message":"rate limited"}}',
+        "data: [DONE]",
+    ]
+    result = consume_stream(
+        lines,
+        api_family=API_FAMILY_OPENAI_CHAT,
+        adapter=DefaultOpenAIAdapter(),
+        caps=ProviderCapabilities(),
+    )
+    assert result.text == ""
+    assert result.error == "rate limited"

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sys
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -125,6 +125,32 @@ def test_release_startup_failure_releases_resources(qapp):
     config.close.assert_called_once()
     ai_worker.close.assert_called_once()
     history_writer.stop.assert_called_once()
+
+
+def test_release_startup_failure_waits_for_web_before_config_close():
+    from app.main_lifecycle_mixin import DanmuAppLifecycleMixin
+
+    fake_thread = MagicMock()
+    fake_thread.is_alive.return_value = True
+    web_server = MagicMock(
+        wait_shutdown_complete=MagicMock(return_value=False),
+        _thread=fake_thread,
+        bridge=MagicMock(),
+    )
+    config = MagicMock()
+    app = SimpleNamespace(
+        logger=MagicMock(),
+        web_server=web_server,
+        config=config,
+    )
+
+    DanmuAppLifecycleMixin.release_startup_failure(app)
+
+    web_server.stop.assert_called_once_with()
+    web_server.wait_shutdown_complete.assert_called_once_with()
+    fake_thread.join.assert_called_once_with(timeout=0.5)
+    config.close.assert_not_called()
+    app.logger.error.assert_called_once()
 
 
 def test_fatal_startup_error_releases_resources(monkeypatch, qapp):

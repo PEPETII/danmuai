@@ -1,8 +1,6 @@
 """Tests for tests/fakes.py — FakeConfig.get_json() error tolerance."""
 
-import json
 
-import pytest
 
 from tests.fakes import FakeConfig
 

@@ -7,9 +7,9 @@ import threading
 from dataclasses import dataclass
 from typing import Any
 
+from app.translations import tr
 from app.velopack_config import UPDATE_FEED_URL
 from app.velopack_runtime import is_velopack_install
-from app.translations import tr
 
 _lock = threading.Lock()
 _state: dict[str, Any] = {

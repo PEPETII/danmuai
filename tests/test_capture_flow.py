@@ -2,6 +2,7 @@
 
 from unittest.mock import MagicMock, Mock
 
+import pytest
 from app.reply_queue import QueuedReply
 from app.runnable import AiRunnable
 from main import compress_screenshot
@@ -68,6 +69,7 @@ def test_normal_tick_schedules_capture_without_main_thread_grab(monkeypatch):
     app._on_normal_capture_tick()
     assert grab_count == 0
     assert len(started) == 1
+    assert started[0]._session_epoch == app._capture_session_epoch
 
 
 def test_capture_in_flight_skips_second_schedule(monkeypatch):
@@ -97,6 +99,7 @@ def test_start_resets_capture_in_flight(monkeypatch):
     # 模拟 stop 前的状态：截图正在进行
     app._capture_in_flight = True
     app.engine.running = True
+    initial_epoch = app._capture_session_epoch
 
     # 设置 start() 所需的最小依赖
     app.config = FakeConfig({"api_key": "test-key"})
@@ -144,30 +147,63 @@ def test_start_resets_capture_in_flight(monkeypatch):
     assert app._capture_in_flight is False, (
         "start() 应将 _capture_in_flight 重置为 False"
     )
+    assert app._capture_session_epoch == initial_epoch + 1
 
 
-def test_capture_completed_failure_does_not_trigger_api():
+@pytest.mark.parametrize(
+    "invalid_pixmap",
+    [None, FakePixmap(0, width=0), FakePixmap(0, height=0)],
+)
+def test_capture_completed_invalid_frame_does_not_reuse_previous_frame(invalid_pixmap):
     app = make_minimal_danmu_app()
     app.engine.running = True
+    previous = FakePixmap(0b1)
+    app._latest_screenshot = previous
+    app._latest_screenshot_id = 5
+    app._capture_in_flight = True
     triggered = []
     app._trigger_api_call = lambda **kwargs: triggered.append(kwargs)
 
-    app._on_capture_completed(None)
+    app._on_capture_completed(invalid_pixmap, session_epoch=app._capture_session_epoch)
     assert app._capture_in_flight is False
-    assert app._latest_screenshot is None
+    assert app._latest_screenshot is previous
+    assert app._latest_screenshot_id == 5
     assert triggered == []
 
 
 def test_capture_completed_success_triggers_api():
     app = make_minimal_danmu_app()
     app.engine.running = True
+    app._capture_in_flight = True
     triggered = []
     app._trigger_api_call = lambda source="unknown", **kwargs: triggered.append(source)
 
-    app._on_capture_completed(FakePixmap(0b1))
+    app._on_capture_completed(
+        FakePixmap(0b1),
+        session_epoch=app._capture_session_epoch,
+    )
     assert app._capture_in_flight is False
     assert app._latest_screenshot is not None
     assert triggered == ["normal_interval"]
+
+
+def test_capture_completed_from_previous_session_is_ignored_after_restart():
+    app = make_minimal_danmu_app()
+    app.engine.running = True
+    app._capture_session_epoch = 2
+    previous = FakePixmap(0b1)
+    app._latest_screenshot = previous
+    app._latest_screenshot_id = 7
+    app._capture_in_flight = True
+    triggered = []
+    app._trigger_api_call = lambda **kwargs: triggered.append(kwargs)
+
+    app._on_capture_completed(FakePixmap(0b10), session_epoch=1)
+
+    assert app._capture_in_flight is True
+    assert app._latest_screenshot is previous
+    assert app._latest_screenshot_id == 7
+    assert triggered == []
 
 
 def test_stop_ignores_late_capture_completed():

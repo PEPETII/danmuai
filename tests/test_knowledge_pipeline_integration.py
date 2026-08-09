@@ -28,12 +28,11 @@ from collections import deque
 from unittest.mock import MagicMock, Mock
 
 import pytest
-
 from app.application.generation_pipeline import GenerationPipeline
 from app.knowledge.models import KnowledgeInjectionResult
 from app.knowledge.runtime_service import KnowledgeRuntimeService
-from tests.conftest import make_minimal_danmu_app
 
+from tests.conftest import make_minimal_danmu_app
 
 # ---------------------------------------------------------------------------
 # Fixtures

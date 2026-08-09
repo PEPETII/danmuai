@@ -236,6 +236,7 @@ def test_ws_logs_max_connections_capped():
 def test_ws_logs_dotted_token_replay_is_sanitized():
     from app.logger import SanitizedLogger
     from fastapi.testclient import TestClient
+
     from tests.web_console_helpers import make_status_app
 
     token = "ws-test-token-sanitized-log"

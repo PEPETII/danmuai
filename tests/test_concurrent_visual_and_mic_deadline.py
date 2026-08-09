@@ -8,7 +8,6 @@ from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
-
 from app.ai_client import AiWorker
 from app.ai_client_requests import request_openai, stream_openai
 

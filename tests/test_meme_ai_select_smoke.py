@@ -310,22 +310,24 @@ def test_meme_ai_select_accounts_usage_exactly_once(tmp_path, outcome):
     candidates = ["候选弹幕", "回退弹幕"]
 
     if outcome == "success":
-        invoke = lambda: danmu._on_meme_ai_select_done(
-            ["候选弹幕"],
-            fallback_candidates=candidates,
-            fallback_n=1,
-            request_id=1,
-            input_tokens=123,
-            output_tokens=45,
-        )
+        def invoke():
+            danmu._on_meme_ai_select_done(
+                ["候选弹幕"],
+                fallback_candidates=candidates,
+                fallback_n=1,
+                request_id=1,
+                input_tokens=123,
+                output_tokens=45,
+            )
     else:
-        invoke = lambda: danmu._on_meme_ai_select_failed(
-            candidates,
-            1,
-            request_id=1,
-            input_tokens=123,
-            output_tokens=45,
-        )
+        def invoke():
+            danmu._on_meme_ai_select_failed(
+                candidates,
+                1,
+                request_id=1,
+                input_tokens=123,
+                output_tokens=45,
+            )
 
     invoke()
     first_lifetime = danmu.lifetime_stats.snapshot()

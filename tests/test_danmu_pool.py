@@ -157,6 +157,7 @@ def test_is_stored_custom_pool_text_fallback_uses_sql_not_full_get(
 def test_is_stored_custom_pool_text_fake_config_uses_memory_getter():
     """BUG-017: in-memory FakeConfig without store still uses getter fallback."""
     from app.danmu_pool import is_stored_custom_pool_text
+
     from tests.fakes import FakeConfig
 
     config = FakeConfig({"custom_danmu_pool": ["句A"]})
@@ -331,8 +332,9 @@ def test_custom_pool_import_room_with_preexisting_duplicates(tmp_path, monkeypat
 
 def test_read_without_write_lock_no_deadlock(tmp_path):
     """BUG-A02: Read operations should not hold _write_lock, avoiding deadlock with writes."""
-    from app.config_store import ConfigStore
     import threading
+
+    from app.config_store import ConfigStore
 
     store = ConfigStore(tmp_path / "test_concurrency.db")
     store.custom_danmu_insert_many(["弹幕A", "弹幕B", "弹幕C"])
@@ -368,9 +370,10 @@ def test_read_without_write_lock_no_deadlock(tmp_path):
 
 def test_pool_write_lock_shares_config_write_lock(tmp_path):
     """W-AUDIT-V2-BUG-005: pool 与 config 共用写锁；并发写串行且均持久化。"""
-    from app.config_store import ConfigStore
     import sqlite3
     import threading
+
+    from app.config_store import ConfigStore
 
     db_path = tmp_path / "pool_lock_unified.db"
     store = ConfigStore(db_path)

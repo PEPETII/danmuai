@@ -22,7 +22,6 @@ from app.ai_client_requests import (
     request_doubao,
     request_openai,
     reset_worker_http_client,
-    stream_doubao,
     stream_openai,
 )
 from app.ai_client_support import (
@@ -118,7 +117,7 @@ def test_request_openai_dashscope_uses_enable_thinking_when_configured():
 
     with patch("app.ai_client_requests.stream_openai", side_effect=capture):
         with patch.object(worker, "_emit_safe"):
-            request_openai(worker, 
+            request_openai(worker,
                 "data:image/jpeg;base64,abc", "sys", "user", "p1", 1, 1, 1.0, 0
             )
 
@@ -147,7 +146,7 @@ def test_request_openai_siliconflow_instruct_omits_thinking_params():
 
     with patch("app.ai_client_requests.stream_openai", side_effect=capture):
         with patch.object(worker, "_emit_safe"):
-            request_openai(worker, 
+            request_openai(worker,
                 "data:image/jpeg;base64,abc", "sys", "user", "p1", 1, 1, 1.0, 0
             )
 
@@ -362,7 +361,7 @@ def test_stream_openai_ignores_reasoning_content():
 
     client = MagicMock()
     client.stream.side_effect = fake_stream
-    text, in_tok, out_tok = stream_openai(worker, 
+    text, in_tok, out_tok = stream_openai(worker,
         client,
         "https://api.xiaomimimo.com/v1/chat/completions",
         {},
@@ -396,7 +395,7 @@ def test_stream_openai_logs_mimo_reasoning_only(caplog):
     client = MagicMock()
     client.stream.side_effect = fake_stream
     with caplog.at_level(logging.WARNING):
-        stream_openai(worker, 
+        stream_openai(worker,
             client,
             "https://api.xiaomimimo.com/v1/chat/completions",
             {},
@@ -424,10 +423,142 @@ def test_resolve_danmu_max_output_tokens_thinking_floor():
 def test_request_doubao_sends_effective_max_output_tokens():
     worker = AiWorker(ai_client_fake_config(data={"max_tokens": "200", "use_thinking": "0"}))
     with patch("app.ai_client_requests.stream_doubao", return_value=("test", 100, 50, "")) as mock_stream:
-        with patch.object(worker, "_emit_safe"):
+        with patch.object(worker, "_emit_safe") as mock_emit:
             request_doubao(worker, "data:image/jpeg;base64,abc", "sys", "user", "p1", 1, 1, 1.0, 0)
     payload = mock_stream.call_args[0][4]
     assert payload["max_output_tokens"] == DANMU_MIN_OUTPUT_TOKENS
+    mock_emit.assert_called_once()
+    assert mock_emit.call_args.args[0] == "finished"
+    worker.close()
+
+
+def test_request_doubao_invalid_image_emits_error_once_in_production():
+    worker = AiWorker(ai_client_fake_config())
+
+    with patch.object(worker, "_emit_safe") as mock_emit:
+        worker._request("not-an-image", "sys", "user", "p1", 4, 8, 1.25, 3)
+
+    mock_emit.assert_called_once()
+    emitted = mock_emit.call_args.args
+    assert emitted[0] == "error"
+    assert "invalid image" in emitted[1]
+    assert emitted[2:7] == ("p1", 4, 8, 1.25, 3)
+    worker.close()
+
+
+def test_request_doubao_invalid_image_probe_keeps_emit_false_contract():
+    worker = AiWorker(ai_client_fake_config())
+
+    with patch.object(worker, "_emit_safe") as mock_emit:
+        result = request_doubao(
+            worker,
+            "not-an-image",
+            "sys",
+            "user",
+            "p1",
+            4,
+            8,
+            1.25,
+            3,
+            emit=False,
+        )
+
+    mock_emit.assert_not_called()
+    assert result is not None
+    assert result.signal == "error"
+    assert "invalid image" in result.message
+    worker.close()
+
+
+def test_request_doubao_partial_stream_error_uses_error_outcome_before_text():
+    worker = AiWorker(ai_client_fake_config())
+    secret = "sk-doubao-stream-secret"
+
+    with patch(
+        "app.ai_client_requests.stream_doubao",
+        return_value=("partial text", 11, 5, f"Authorization: Bearer {secret}"),
+    ):
+        result = request_doubao(
+            worker,
+            "data:image/jpeg;base64,abc",
+            "sys",
+            "user",
+            "p1",
+            1,
+            1,
+            1.0,
+            0,
+            emit=False,
+        )
+
+    assert result is not None
+    assert result.signal == "error"
+    assert result.message != "partial text"
+    assert secret not in result.message
+    assert result.input_tokens == 11
+    assert result.output_tokens == 5
+    worker.close()
+
+
+def test_request_openai_partial_stream_error_uses_error_outcome_before_text():
+    worker = AiWorker(ai_client_fake_config())
+    secret = "sk-openai-stream-secret"
+
+    with patch(
+        "app.ai_client_requests.stream_openai",
+        return_value=("partial text", 13, 7, f"api_key={secret}"),
+    ):
+        result = request_openai(
+            worker,
+            "data:image/jpeg;base64,abc",
+            "sys",
+            "user",
+            "p1",
+            1,
+            1,
+            1.0,
+            0,
+            emit=False,
+        )
+
+    assert result is not None
+    assert result.signal == "error"
+    assert result.message != "partial text"
+    assert secret not in result.message
+    assert result.input_tokens == 13
+    assert result.output_tokens == 7
+    worker.close()
+
+
+def test_stream_openai_include_error_preserves_parser_error_for_request_path():
+    worker = AiWorker(ai_client_fake_config())
+
+    class ErrorStream:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def iter_lines(self):
+            return iter(['data:{"error":{"message":"rate limited"}}', "data: [DONE]"])
+
+        def raise_for_status(self):
+            return None
+
+    client = MagicMock()
+    client.stream.return_value = ErrorStream()
+    result = stream_openai(
+        worker,
+        client,
+        "https://api.example/v1/chat/completions",
+        {},
+        {},
+        endpoint="https://api.example/v1",
+        include_error=True,
+    )
+
+    assert result == ("", 0, 0, "rate limited")
     worker.close()
 
 
@@ -444,7 +575,7 @@ def test_request_doubao_includes_input_audio_when_provided():
     audio = "data:audio/wav;base64,QUJD"
     with patch("app.ai_client_requests.stream_doubao", return_value=("test", 100, 50, "")) as mock_stream:
         with patch.object(worker, "_emit_safe"):
-            request_doubao(worker, 
+            request_doubao(worker,
                 "data:image/jpeg;base64,abc",
                 "sys",
                 "user",
@@ -474,7 +605,7 @@ def test_request_openai_mimo_includes_input_audio_when_provided():
     audio = "data:audio/wav;base64,QUJD"
     with patch("app.ai_client_requests.stream_openai", return_value=("test", 100, 50)) as mock_stream:
         with patch.object(worker, "_emit_safe"):
-            request_openai(worker, 
+            request_openai(worker,
                 "data:image/jpeg;base64,abc",
                 "sys",
                 "user",
@@ -540,7 +671,7 @@ def test_request_doubao_thinking_disabled_when_model_unsupported():
     ):
         with patch("app.ai_client_requests.stream_doubao", return_value=("test", 100, 50, "")) as mock_stream:
             with patch.object(worker, "_emit_safe"):
-                request_doubao(worker, 
+                request_doubao(worker,
                     "data:image/jpeg;base64,abc", "sys", "user", "p1", 1, 1, 1.0, 0
                 )
     payload = mock_stream.call_args[0][4]
@@ -635,7 +766,7 @@ def test_request_doubao_delivers_error_when_reset_fails():
 
     with patch("app.ai_client_requests.stream_doubao", side_effect=stream_side_effect):
         with patch("httpx.Client", side_effect=OSError("oom")):
-            result = request_doubao(worker, 
+            result = request_doubao(worker,
                 "data:image/jpeg;base64,abc",
                 "sys",
                 "user",
@@ -791,7 +922,7 @@ def test_request_openai_strips_unsupported_mic_audio_and_logs(caplog):
     with caplog.at_level(logging.INFO, logger="app.ai_client_requests"):
         with patch("app.ai_client_requests.stream_openai", side_effect=capture):
             with patch.object(worker, "_emit_safe"):
-                request_openai(worker, 
+                request_openai(worker,
                     "data:image/jpeg;base64,abc",
                     "sys",
                     "user",
@@ -925,7 +1056,7 @@ def test_stream_openai_malformed_json_chunk_returns_empty_with_error():
 
     client = MagicMock()
     client.stream.return_value = BrokenStream()
-    text, inp, out = stream_openai(worker, 
+    text, inp, out = stream_openai(worker,
         client,
         f"{resolved[0]}/chat/completions",
         {},
@@ -957,7 +1088,7 @@ def test_request_openai_http_429_surfaces_error_message():
 
     with patch("app.ai_client_requests.stream_openai", side_effect=err):
         with patch.object(worker, "_emit_safe") as mock_emit:
-            request_openai(worker, 
+            request_openai(worker,
                 "data:image/jpeg;base64,abc",
                 "sys",
                 "user",

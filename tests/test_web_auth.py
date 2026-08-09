@@ -453,10 +453,9 @@ def test_apply_config_patch_clamps_opacity():
 
 
 def test_require_auth_rejects_missing_token():
+    from app.web_api.auth import require_auth
     from fastapi import FastAPI, Header, HTTPException
     from fastapi.testclient import TestClient
-
-    from app.web_api.auth import require_auth
 
     app = FastAPI()
 
@@ -484,10 +483,9 @@ def test_require_auth_rejects_missing_token():
 
 
 def test_require_auth_query_uses_query_param():
+    from app.web_api.auth import require_auth_query
     from fastapi import FastAPI, HTTPException
     from fastapi.testclient import TestClient
-
-    from app.web_api.auth import require_auth_query
 
     app = FastAPI()
 
@@ -554,6 +552,81 @@ def test_web_console_runtime_uses_compare_digest_for_bearer():
     src = Path("app/web_console_runtime.py").read_text(encoding="utf-8")
     assert "compare_digest" in src
     assert '.strip() != token' not in src
+
+
+def test_private_api_middleware_requires_bearer_except_health():
+    from app.web_console_runtime import install_api_auth_middleware
+    from fastapi import FastAPI, HTTPException
+    from fastapi.testclient import TestClient
+
+    app = FastAPI()
+
+    def check_token(authorization):
+        if authorization == "Bearer right":
+            return
+        status = 401 if not authorization else 403
+        raise HTTPException(status_code=status, detail="auth")
+
+    install_api_auth_middleware(app, check_token)
+
+    @app.get("/api/health")
+    def health():
+        return {"ok": True}
+
+    @app.get("/api/status")
+    def status():
+        return {"ok": True}
+
+    @app.get("/api/live-overlay/status")
+    def overlay_status():
+        return {"connections": 0}
+
+    @app.get("/api/live-overlay/config")
+    def overlay_config():
+        return {"font_size": 28}
+
+    client = TestClient(app, raise_server_exceptions=False)
+    assert client.get("/api/health").status_code == 200
+    assert client.get("/api/status").status_code == 401
+    for private_path in (
+        "/api/logs/recent",
+        "/api/config",
+        "/api/personae",
+        "/api/knowledge/jobs",
+    ):
+        assert client.get(private_path).status_code == 401
+    assert client.get("/api/status", headers={"Authorization": "Bearer wrong"}).status_code == 403
+    assert client.get("/api/status", headers={"Authorization": "Bearer right"}).status_code == 200
+    assert client.get("/api/live-overlay/status").status_code == 200
+    assert client.get("/api/live-overlay/config").status_code == 200
+
+
+def test_session_bootstrap_store_is_one_time_and_bounded():
+    from app.web_console_session_auth import SessionBootstrapStore
+
+    store = SessionBootstrapStore(max_entries=1)
+    first = store.issue()
+    assert store.consume(first) is True
+    assert store.consume(first) is False
+
+    second = store.issue()
+    third = store.issue()
+    assert store.consume(second) is False
+    assert store.consume(third) is True
+
+
+def test_web_console_bootstrap_url_keeps_secret_in_fragment_only():
+    from urllib.parse import parse_qs, urlsplit
+
+    from app.web_console import WebConsoleServer
+
+    server = WebConsoleServer(MagicMock(), port=18765)
+    url = server.bootstrap_url("/#settings")
+    parsed = urlsplit(url)
+    assert parsed.query == ""
+    params = parse_qs(parsed.fragment)
+    assert params["route"] == ["settings"]
+    assert server.consume_bootstrap_secret(params["bootstrap"][0]) is True
 
 
 

@@ -1,6 +1,11 @@
 """证明 API 调用真实性的对照测试：有知识 vs 无知识"""
-import sys, json, os, httpx
+import json
+import os
+import sys
 from pathlib import Path
+
+import httpx
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.knowledge.database import KnowledgeDatabase
@@ -53,7 +58,7 @@ def call_api(system_pt, label):
     print(f"HTTP {resp.status_code}")
     if resp.status_code == 200:
         raw_content = resp.json()["choices"][0]["message"]["content"]
-        print(f"\n📄 AI 原始回复:")
+        print("\n📄 AI 原始回复:")
         print(repr(raw_content[:300]))
         print(f"... (共 {len(raw_content)} 字符)")
         # 智能解析：尝试取 JSON 块
@@ -62,16 +67,17 @@ def call_api(system_pt, label):
         except json.JSONDecodeError:
             # 可能包含 markdown 代码块包裹
             import re
+
             m = re.search(r"```(?:json)?\s*((?:.|\n)*?)```", raw_content)
             if m:
                 parsed = json.loads(m.group(1).strip())
             else:
-                print(f"\n⚠️ 非标准 JSON 格式，直接显示原始内容:")
+                print("\n⚠️ 非标准 JSON 格式，直接显示原始内容:")
                 print(raw_content[:500])
                 return None
         if "danmakus" not in parsed:
             parsed = {"danmakus": [{"text": d} if isinstance(d, str) else d for d in parsed.get("danmakus", [parsed.get("text", raw_content)[:200]])]}
-        print(f"\n弹幕输出:")
+        print("\n弹幕输出:")
         for d in parsed.get("danmakus", []):
             print(f"  💬 {d['text']}")
         return parsed
@@ -86,7 +92,7 @@ r2 = call_api(system_without_kb, "B - 无知识包（对照组）")
 
 if r1 and r2:
     print(f"\n{'='*60}")
-    print(f"🔍 两组结果对比（唯一变量：是否有知识注入）")
+    print("🔍 两组结果对比（唯一变量：是否有知识注入）")
     print(f"{'='*60}")
     for i, d1 in enumerate(r1.get("danmakus", [])):
         d2_text = r2["danmakus"][i]["text"] if i < len(r2["danmakus"]) else "(N/A)"

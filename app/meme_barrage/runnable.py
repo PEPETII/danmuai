@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Callable
 
-from PyQt6.QtCore import QRunnable, QThreadPool
-
 import httpx
+from PyQt6.QtCore import QRunnable
 
 from app.meme_barrage.ai_select import (
     build_meme_select_system_prompt,
@@ -14,7 +13,7 @@ from app.meme_barrage.ai_select import (
     parse_meme_ai_selection,
 )
 from app.meme_barrage.client import MemeBarrageApiClient
-from app.worker_pools import meme_fetch_pool
+from app.worker_pools import meme_fetch_pool  # noqa: F401 — re-exported for app.main_meme_mixin
 
 if TYPE_CHECKING:
     from app.ai_client import AiWorker

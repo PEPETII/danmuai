@@ -14,19 +14,14 @@
 from __future__ import annotations
 
 import pytest
-
 from app.knowledge.chunker import (
     HARD_CUT_OVERLAP,
-    LIVESTREAM_MAX_LINES,
     MAX_CHUNK_CHARS,
     TARGET_MAX_CHARS,
-    TARGET_MIN_CHARS,
-    Chunk,
     chunk_article,
     chunk_livestream,
     chunk_source,
 )
-
 
 # ---------------------------------------------------------------------------
 # 辅助

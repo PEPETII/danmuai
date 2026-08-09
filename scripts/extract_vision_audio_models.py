@@ -10,9 +10,7 @@ Outputs:
 
 import json
 import os
-import sys
 from datetime import date
-from urllib.parse import urlparse
 
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REF_CS = os.path.join(BASE, "references", "ai-platforms", "cherry-studio")
@@ -79,21 +77,33 @@ def infer_protocol(adapter_family):
     if not adapter_family:
         return "openai-compatible"
     af = adapter_family.lower()
-    if "anthropic" in af: return "anthropic"
-    if "google" in af or "gemini" in af: return "gemini"
-    if "azure" in af: return "azure"
-    if "ollama" in af: return "ollama"
-    if "bedrock" in af: return "aws-bedrock"
-    if "vertex" in af: return "vertex-ai"
-    if "openrouter" in af: return "openrouter"
+    if "anthropic" in af:
+        return "anthropic"
+    if "google" in af or "gemini" in af:
+        return "gemini"
+    if "azure" in af:
+        return "azure"
+    if "ollama" in af:
+        return "ollama"
+    if "bedrock" in af:
+        return "aws-bedrock"
+    if "vertex" in af:
+        return "vertex-ai"
+    if "openrouter" in af:
+        return "openrouter"
     return "openai-compatible"
 
 def infer_auth_style(provider_id):
-    if provider_id == "ollama": return "none"
-    if provider_id == "aws-bedrock": return "iam-aws"
-    if provider_id == "vertexai": return "iam-gcp"
-    if provider_id == "azure-openai": return "api-key-azure"
-    if provider_id == "copilot": return "oauth"
+    if provider_id == "ollama":
+        return "none"
+    if provider_id == "aws-bedrock":
+        return "iam-aws"
+    if provider_id == "vertexai":
+        return "iam-gcp"
+    if provider_id == "azure-openai":
+        return "api-key-azure"
+    if provider_id == "copilot":
+        return "oauth"
     return "bearer"
 
 # ── Step 1: Cherry Studio vision models ───────────────────────────────────────
@@ -654,7 +664,7 @@ for fname, data in [
 
 # ── Stats ─────────────────────────────────────────────────────────────────────
 
-print(f"\n=== Summary ===")
+print("\n=== Summary ===")
 print(f"Vision candidates: {len(vision_candidates)}")
 print(f"Vision needsReview: {len(vision_needs_review)}")
 print(f"Vision excluded: {len(vision_excluded)}")

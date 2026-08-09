@@ -18,7 +18,6 @@
 import sqlite3
 
 import pytest
-
 from app.application.config_service import MASKED_API_KEY, set_default_model_selection
 from app.config_store import ConfigStore
 

@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from pathlib import Path
 import re
-
+from pathlib import Path
 
 STATIC_ROOT = Path(__file__).resolve().parents[1] / "web" / "static"
 CONTENT_PAGES_HTML = STATIC_ROOT / "partials" / "content-pages.html"

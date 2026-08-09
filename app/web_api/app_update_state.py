@@ -10,8 +10,9 @@
 
 from __future__ import annotations
 
-from app.translations import tr
 from fastapi import HTTPException
+
+from app.translations import tr
 
 APP_UPDATE_STATE_KEY = "app_update_state"
 

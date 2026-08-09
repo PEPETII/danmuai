@@ -26,6 +26,48 @@ from app.web_console_support import (
 from app.web_console_ws import register_websocket_routes
 from app.web_static_mime import ensure_web_static_mime_types
 
+_PUBLIC_API_PATHS = frozenset(
+    {
+        "/api/health",
+        "/api/session",
+        # The overlay page is intentionally a narrow public SSE surface for OBS.
+        "/api/live-overlay/status",
+        "/api/live-overlay/events",
+        # Only the non-sensitive font-size field is exposed to the standalone page.
+        "/api/live-overlay/config",
+    }
+)
+
+
+def is_public_api_path(path: str) -> bool:
+    """Return whether an HTTP API path is explicitly public by contract."""
+    if path in _PUBLIC_API_PATHS:
+        return True
+    # The preview is a static image used by an ``<img>`` element, which cannot
+    # attach an Authorization header.  It contains no configuration payload.
+    return path.startswith("/api/pet/barrage-slots/") and path.endswith("/preview")
+
+
+def install_api_auth_middleware(app, check_token) -> None:
+    """Require Bearer auth for every API path outside the explicit allowlist."""
+
+    from fastapi import HTTPException
+    from fastapi.responses import JSONResponse
+
+    @app.middleware("http")
+    async def _private_api_auth(request, call_next):
+        path = request.url.path
+        if path.startswith("/api/") and not is_public_api_path(path):
+            try:
+                check_token(request.headers.get("authorization"))
+            except HTTPException as exc:
+                return JSONResponse(
+                    status_code=exc.status_code,
+                    content={"detail": exc.detail},
+                    headers=exc.headers,
+                )
+        return await call_next(request)
+
 
 def run_uvicorn_locked(server) -> None:
     bridge = server.bridge
@@ -79,25 +121,29 @@ def run_uvicorn_locked(server) -> None:
         if not secrets.compare_digest(authorization.removeprefix("Bearer ").strip(), token):
             raise HTTPException(status_code=403, detail=tr("webConsoleRuntime.tokenInvalid"))
 
+    install_api_auth_middleware(app, _check_token)
+
+    @app.get("/api/health")
+    def health():
+        return {"ok": True, "service": "web_console"}
+
     @app.get("/api/session")
     def read_console_session(
-        host: str | None = Header(default=None),
-        origin: str | None = Header(default=None),
-        referer: str | None = Header(default=None),
         authorization: str | None = Header(default=None),
+        bootstrap: str | None = Header(
+            default=None,
+            alias="X-DanmuAI-Bootstrap",
+        ),
     ):
-        # W-SEC-001：bug-audit/bug-03.md 缺陷 1 修复。
-        # 拒绝无同源 loopback 握手 / 无正确 token 的调用，避免任意本机进程零成本拿 Bearer Token。
+        # Host/Origin/Referer 不是身份信号；仅接受 Bearer 或启动器发出的
+        # 一次性 fragment bootstrap secret。
         enforce_session_authorization(
             authorization=authorization,
-            origin=origin,
-            referer=referer,
-            host=host,
             expected_token=token,
+            bootstrap=bootstrap,
+            consume_bootstrap_secret=server.consume_bootstrap_secret,
         )
-        host = (host or "").strip()
-        base_url = f"http://{host}" if host else server.base_url
-        return {"token": token, "base_url": base_url}
+        return {"token": token, "base_url": server.base_url}
 
     @app.get("/api/status")
     def status():
@@ -225,6 +271,7 @@ def run_uvicorn_locked(server) -> None:
         server.live_overlay_hub,
         server.base_url,
         _check_token,
+        font_size_provider=lambda: bridge.danmu_app.config.get_int("font_size", 28),
     )
     register_websocket_routes(app, bridge, token, WebSocketRoute, WebSocketDisconnect)
 

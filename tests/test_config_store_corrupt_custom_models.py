@@ -1,7 +1,6 @@
 import pytest
 from app.config_store import ConfigStore
 
-
 _CORRUPT_VALUES = [
     ("truncated_json", '{"name":"a"'),
     ("bom_prefix", "\ufeff[]"),

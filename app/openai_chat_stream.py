@@ -17,6 +17,7 @@ from typing import Any
 
 import httpx
 
+from app.ai_client_support import sanitize_provider_error_snippet
 from app.model_providers import normalize_endpoint
 from app.providers import get_capabilities_for_endpoint, get_openai_adapter
 
@@ -29,6 +30,7 @@ class OpenAIChatStreamResult:
     input_tokens: int = 0
     output_tokens: int = 0
     reasoning_only: bool = False
+    error: str = ""
 
 
 def _request_wall_clock_exceeded(*, deadline_at: float | None) -> bool:
@@ -40,6 +42,33 @@ def _request_wall_clock_exceeded(*, deadline_at: float | None) -> bool:
 def _raise_if_wall_clock_exceeded(*, deadline_at: float | None) -> None:
     if _request_wall_clock_exceeded(deadline_at=deadline_at):
         raise httpx.TimeoutException("request wall clock exceeded")
+
+
+def _normalize_sse_line(raw: Any) -> str:
+    if isinstance(raw, bytes):
+        raw = raw.decode("utf-8", errors="replace")
+    return str(raw).strip()
+
+
+def _sse_payload(raw: Any) -> str | None:
+    line = _normalize_sse_line(raw)
+    if not line.startswith("data:"):
+        return None
+    return line[5:].lstrip()
+
+
+def _extract_error_message(chunk: dict[str, Any]) -> str:
+    error = chunk.get("error")
+    if isinstance(error, dict):
+        message = error.get("message") or error.get("code") or error.get("type")
+        if message:
+            return sanitize_provider_error_snippet(str(message))
+    elif isinstance(error, str) and error.strip():
+        return sanitize_provider_error_snippet(error)
+    message = chunk.get("message")
+    if message:
+        return sanitize_provider_error_snippet(str(message))
+    return ""
 
 
 def consume_openai_sse_lines(
@@ -58,10 +87,11 @@ def consume_openai_sse_lines(
     reasoning_parts: list[str] = []
     input_tokens = 0
     output_tokens = 0
+    stream_error = ""
     got_first_content = False
     endpoint_label = normalize_endpoint(endpoint) if endpoint else url
 
-    for line in lines:
+    for raw in lines:
         if stopping is not None and stopping():
             break
         _raise_if_wall_clock_exceeded(deadline_at=deadline_at)
@@ -74,9 +104,9 @@ def consume_openai_sse_lines(
                     endpoint_label,
                 )
                 break
-        if not line or not line.startswith("data: "):
+        payload = _sse_payload(raw)
+        if payload is None:
             continue
-        payload = line[6:]
         if payload.strip() == "[DONE]":
             break
         try:
@@ -84,6 +114,9 @@ def consume_openai_sse_lines(
             usage = chunk.get("usage")
             if usage:
                 input_tokens, output_tokens = adapter.normalize_usage(usage, caps=caps)
+            if "error" in chunk:
+                stream_error = stream_error or _extract_error_message(chunk) or "provider stream error"
+                continue
             choice = chunk.get("choices", [{}])[0]
             delta = choice.get("delta", {})
             content = delta.get("content", "")
@@ -102,8 +135,9 @@ def consume_openai_sse_lines(
                 message_reasoning = message.get("reasoning_content", "")
                 if message_reasoning:
                     reasoning_parts.append(message_reasoning)
-        except (json.JSONDecodeError, IndexError, KeyError) as exc:
-            logger.debug("stream chunk parse skipped: %r payload=%.80s", exc, payload)
+        except (json.JSONDecodeError, IndexError, KeyError, TypeError, AttributeError) as exc:
+            safe_payload = sanitize_provider_error_snippet(payload, max_len=80)
+            logger.debug("stream chunk parse skipped: %r payload=%s", exc, safe_payload)
             continue
 
     text = "".join(collected)
@@ -124,6 +158,7 @@ def consume_openai_sse_lines(
         input_tokens=input_tokens,
         output_tokens=output_tokens,
         reasoning_only=reasoning_only,
+        error=stream_error,
     )
 
 

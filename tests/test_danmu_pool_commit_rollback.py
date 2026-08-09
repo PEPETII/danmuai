@@ -144,8 +144,8 @@ def test_delete_texts_commit_fail_rolls_back_and_isolates_next_write(tmp_path):
 
 
 def test_insert_commit_fail_does_not_invalidate_formula_cache(tmp_path, monkeypatch):
-    from app.config_store import ConfigStore
     from app import danmu_pool
+    from app.config_store import ConfigStore
 
     store = ConfigStore(db_path=tmp_path / "insert_no_invalidate.db")
     store.custom_danmu_insert_many(["seed"])

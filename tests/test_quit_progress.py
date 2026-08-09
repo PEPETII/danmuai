@@ -67,9 +67,9 @@ def test_quit_shows_and_closes_progress_dialog(qapp, monkeypatch):
         _mic_service=MagicMock(),
     )
 
-    from main import DanmuApp
+    from app.main_lifecycle_mixin import DanmuAppLifecycleMixin
 
-    DanmuApp.quit(app)
+    DanmuAppLifecycleMixin.quit(app)
 
     assert len(progress_instances) == 1
     progress = progress_instances[0]

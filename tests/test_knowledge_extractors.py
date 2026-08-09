@@ -18,11 +18,10 @@
 from __future__ import annotations
 
 import base64
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import httpx
 import pytest
-
 from app.knowledge.normalizer import (
     clean_livestream_log,
     decode_bytes,
@@ -31,14 +30,9 @@ from app.knowledge.normalizer import (
 from app.knowledge.source_extractors import (
     MAX_RESPONSE_BYTES,
     MAX_SOURCE_CHARS,
-    ExtractionResult,
-    MarkdownExtractor,
     TextExtractor,
-    TxtExtractor,
-    WebpageExtractor,
     extract,
 )
-
 
 # ---------------------------------------------------------------------------
 # 辅助：构造 mock httpx 流式响应

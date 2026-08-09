@@ -1,4 +1,4 @@
-import { API } from './transport.js';
+import { API, authHeaders } from './transport.js';
 import { getLanguage, t } from './i18n.js';
 import {
   guessProviderIdFromEndpoint,
@@ -26,7 +26,7 @@ export function configureSettingsModelCatalog(deps) {
 
 export async function loadModelCatalog() {
   try {
-    const res = await fetch(`${API.base}/api/model-catalog`);
+    const res = await fetch(`${API.base}/api/model-catalog`, { headers: authHeaders() });
     if (!res.ok) {
       throw new Error(`HTTP ${res.status}`);
     }

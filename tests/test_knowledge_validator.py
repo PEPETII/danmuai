@@ -26,10 +26,8 @@
 from __future__ import annotations
 
 import pytest
-from pydantic import ValidationError
-
 from app.knowledge.validator import validate_batch, validate_batch_strict
-
+from pydantic import ValidationError
 
 # ---------------------------------------------------------------------------
 # 辅助：构造合法 item / chunk

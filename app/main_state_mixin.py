@@ -15,9 +15,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from app.application.application_stats_state import ApplicationStatsState
 from app.application.request_scheduler import RequestScheduler
 from app.application.request_timing_service import RequestTimingService
-from app.application.application_stats_state import ApplicationStatsState
 from app.application.stats_state import StatsState
 from app.application.web_runtime_state import WebRuntimeState
 from app.persona_contract import normal_reply_count_from_config

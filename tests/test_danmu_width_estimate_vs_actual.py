@@ -5,14 +5,12 @@
 """
 
 import pytest
-
-from PyQt6.QtGui import QFont, QFontMetrics
-from PyQt6.QtWidgets import QApplication
-
 from app.config_store import ConfigStore
 from app.danmu_engine import DanmuEngine
 from app.danmu_engine_models import _DANMU_FALLBACK_CHAR_WIDTH, DanmuItem, Track
-from tests.conftest import bind_minimal_danmu_app
+from PyQt6.QtGui import QFont, QFontMetrics
+from PyQt6.QtWidgets import QApplication
+
 from tests.fakes import FakeConfig
 
 # ── fixtures ───────────────────────────────────────────────────────────────

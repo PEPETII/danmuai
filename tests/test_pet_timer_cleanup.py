@@ -1,8 +1,8 @@
 """Regression for BUG-003: PetWindow.hide_pet() must stop the animation timer."""
 
-from main import DanmuApp
 from app.pet.pet_window import PetWindow
 from app.translations import Translator
+from main import DanmuApp
 
 from tests.conftest import bind_minimal_danmu_app
 

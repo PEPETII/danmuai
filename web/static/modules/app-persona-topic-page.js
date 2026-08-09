@@ -1,4 +1,4 @@
-import { API, apiFetch, formatApiError, refreshSession } from './transport.js';
+import { apiFetch } from './transport.js';
 import { t } from './i18n.js';
 
 let currentPersonaId = '';
@@ -34,13 +34,7 @@ function enc(name) {
 }
 
 async function personaFetch(path) {
-  if (!API.base) await refreshSession();
-  const response = await fetch(`${API.base}${path}`, { cache: 'no-store' });
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: response.statusText }));
-    throw new Error(formatApiError(error.detail, response.statusText));
-  }
-  return response.json();
+  return apiFetch(path, { cache: 'no-store' });
 }
 
 async function deletePersonaByName(name) {

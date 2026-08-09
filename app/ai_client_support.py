@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+import re
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -93,7 +94,28 @@ def sanitize_provider_error_snippet(message: str, max_len: int = HTTP_ERROR_MESS
     text = str(message or "").strip()
     if not text:
         return ""
-    return sanitize_sensitive_text(text, max_len=max_len)
+    safe = sanitize_sensitive_text(text)
+    # Provider stream errors are untrusted input and may contain short test
+    # keys or headers that do not match the logger's length-based patterns.
+    safe = re.sub(
+        r"(?i)\bAuthorization['\"]?\s*[:=]\s*['\"]?(?!(?:Bearer\s+)?(?:\(hidden\)|\[redacted\]))(?:Bearer\s+)?[^\s,;}\"']+",
+        "Authorization: [redacted]",
+        safe,
+    )
+    safe = re.sub(
+        r"(?i)\bBearer\s+(?!(?:\(hidden\)|\[redacted\]))[^\s,;}\"']+",
+        "Bearer [redacted]",
+        safe,
+    )
+    safe = re.sub(
+        r"(?i)\b(?:api[_-]?key|apikey)['\"]?\s*[:=]\s*['\"]?(?!(?:\*+|\(hidden\)|\[redacted\]))[^\s,;}\"']+",
+        "api_key=[redacted]",
+        safe,
+    )
+    safe = re.sub(r"(?i)\bsk-[A-Za-z0-9._~+/-]{8,}=*", "[redacted]", safe)
+    if len(safe) > max_len:
+        return f"{safe[:max_len]}…"
+    return safe
 
 
 def _looks_like_model_not_found(status: int, code: object, message: str) -> bool:
@@ -232,6 +254,20 @@ def execute_stream_request_with_retry(
             )
         try:
             result = attempt_stream(http_client)
+            if result.stream_error:
+                message = sanitize_provider_error_snippet(result.stream_error)
+                return worker._deliver_outcome(
+                    emit=emit,
+                    signal_name="error",
+                    message=message or tr("ai.error_empty_response"),
+                    persona_id=persona_id,
+                    request_round=request_round,
+                    screenshot_id=screenshot_id,
+                    captured_at=captured_at,
+                    scene_generation=scene_generation,
+                    input_tokens=result.input_tokens,
+                    output_tokens=result.output_tokens,
+                )
             if result.text:
                 return worker._deliver_outcome(
                     emit=emit,
@@ -245,10 +281,11 @@ def execute_stream_request_with_retry(
                     input_tokens=result.input_tokens,
                     output_tokens=result.output_tokens,
                 )
+            message = sanitize_provider_error_snippet(empty_message(result))
             return worker._deliver_outcome(
                 emit=emit,
                 signal_name="error",
-                message=empty_message(result),
+                message=message or tr("ai.error_empty_response"),
                 persona_id=persona_id,
                 request_round=request_round,
                 screenshot_id=screenshot_id,

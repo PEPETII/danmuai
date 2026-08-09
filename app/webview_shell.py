@@ -46,9 +46,9 @@ def preferred_webview_gui() -> str | None:
         return "cocoa"
     return "gtk"
 def wait_for_http_server(base_url: str, timeout: float = _SERVER_POLL_SEC) -> bool:
-    """Probe public GET /api/status (W-SEC-001 locked down /api/session for curl)."""
+    """Probe the minimal public health endpoint before opening the UI."""
     deadline = time.monotonic() + timeout
-    probe = f"{base_url.rstrip('/')}/api/status"
+    probe = f"{base_url.rstrip('/')}/api/health"
     while time.monotonic() < deadline:
         try:
             with urllib.request.urlopen(probe, timeout=0.6) as resp:
@@ -127,7 +127,7 @@ def _ensure_server_ready(server: WebConsoleServer) -> bool:
     retries on a QTimer instead of blocking the Qt main thread for 12s.
     """
     probe = _server_ready_probe_sec()
-    # startup_ok can be set before HTTP answers; verify via GET /api/status (not /api/session).
+    # startup_ok can be set before HTTP answers; verify via the public health endpoint.
     http_probe = 1.0 if getattr(server, "startup_ok", False) else min(probe, 1.0)
     if getattr(server, "startup_ok", False):
         if wait_for_http_server(server.base_url, timeout=http_probe):
@@ -320,6 +320,7 @@ class WebViewShell:
         self._handshake_failed: bool = False
         self._spawn_attempt: int = 0
         self._last_launch_url: str = ""
+        self._last_launch_path: str = "/"
         self._last_launch_gui: str | None = None
         self._defer_browser_fallback: bool = False
         self._attach_started_at: float = 0.0
@@ -350,7 +351,9 @@ class WebViewShell:
                 self._nav_queue.put(self._url(path))
             except (OSError, RuntimeError):
                 pass
-    def _url(self, path: str = "/") -> str:
+    def _url(self, path: str = "/", *, bootstrap: bool = False) -> str:
+        if bootstrap:
+            return self.server.bootstrap_url(path)
         base = self.server.base_url.rstrip("/")
         if not path or path == "/":
             return f"{base}/"
@@ -375,7 +378,7 @@ class WebViewShell:
         log_startup(
             "webview.process.start",
             ms=(time.perf_counter() - proc_started) * 1000.0,
-            url=url,
+            base_url=self.server.base_url,
             spawn_attempt=self._spawn_attempt,
         )
 
@@ -394,6 +397,10 @@ class WebViewShell:
         self._load_deadline = 0.0
         self._handshake_deadline = time.monotonic() + _START_TIMEOUT_SEC
         try:
+            self._last_launch_url = self._url(
+                self._last_launch_path or self._resolve_path(initial_path),
+                bootstrap=True,
+            )
             self._launch_child_process(self._last_launch_url, self._last_launch_gui)
         except OSError as exc:
             if self._spawn_attempt >= _SPAWN_MAX_ATTEMPTS:
@@ -410,7 +417,8 @@ class WebViewShell:
         if not _ensure_server_ready(self.server):
             return False
         self._pending_path = initial_path
-        url = self._url(initial_path)
+        self._last_launch_path = self._resolve_path(initial_path)
+        url = self._url(self._last_launch_path, bootstrap=True)
         gui = preferred_webview_gui()
         self._last_launch_url = url
         self._last_launch_gui = gui
@@ -577,8 +585,9 @@ class WebViewShell:
     def _succeed_start(self, initial_path: str) -> bool:
         self._started = True
         self._handshake_failed = False
-        append_frozen_log(f"pywebview window ready url={self._url(initial_path)}")
-        log_startup("webview.handshake.ok", url=self._url(initial_path))
+        safe_url = self._url(initial_path)
+        append_frozen_log(f"pywebview window ready url={safe_url}")
+        log_startup("webview.handshake.ok", url=safe_url)
         if self._pending_path and self._pending_path != initial_path:
             self.request_navigate(self._pending_path)
         return True

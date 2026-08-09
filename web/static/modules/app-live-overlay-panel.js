@@ -1,4 +1,4 @@
-import { API, apiFetch } from './transport.js';
+import { API, apiFetch, authHeaders } from './transport.js';
 import { t } from './i18n.js';
 
 const URL_COPIED_KEY = 'danmu_live_overlay_url_copied_v1';
@@ -124,6 +124,7 @@ export async function refreshLiveOverlayStatus() {
   try {
     const status = await fetch(`${API.base}/api/live-overlay/status`, {
       cache: 'no-store',
+      headers: authHeaders(),
     }).then((response) => {
       if (!response.ok) throw new Error(String(response.status));
       return response.json();

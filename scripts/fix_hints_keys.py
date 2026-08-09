@@ -1,5 +1,5 @@
-from pathlib import Path
 import re
+from pathlib import Path
 
 p = Path("web/static/modules/settings-hints.js")
 text = p.read_text(encoding="utf-8")

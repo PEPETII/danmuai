@@ -207,6 +207,7 @@ function updateOrganizeModalFromJob(job) {
   const descEl = document.getElementById('knowledgeOrganizeModalDesc');
   const liveEl = document.getElementById('knowledgeOrganizeStatusLive');
   const resultEl = document.getElementById('knowledgeOrganizeResult');
+  const bar = document.getElementById('knowledgeOrganizeProgressBar');
   const stageKeyName = organizeStageKey(job.stage);
   const stageLabel = stageKeyName
     ? t(`dynamic.appKnowledgePage.${stageKeyName}`)

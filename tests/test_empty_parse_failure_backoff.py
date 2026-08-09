@@ -3,8 +3,8 @@
 import time
 
 import pytest
-
 from app.application import generation_pipeline as gen_pipeline_mod
+
 from tests.conftest import make_minimal_danmu_app
 
 

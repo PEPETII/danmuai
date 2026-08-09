@@ -18,10 +18,8 @@ import sqlite3
 from pathlib import Path
 
 import pytest
-
 from app.knowledge.database import KnowledgeDatabase
 from app.knowledge.retriever import KnowledgeRetriever
-
 
 # ---------------------------------------------------------------------------
 # 夹具：拷贝生产 knowledge.db 到临时目录
@@ -198,7 +196,7 @@ class TestPromptInjectionFormat:
         result = retriever.retrieve(keywords=["艾尔登法环"])
         assert result.prompt_text
         lines = result.prompt_text.split("\n")
-        item_lines = [l for l in lines if l.startswith("- ")]
+        item_lines = [line for line in lines if line.startswith("- ")]
         assert len(item_lines) >= 1
         for line in item_lines:
             assert "：" in line or ":" in line, f"条目行缺少冒号分隔: {line}"

@@ -1,9 +1,6 @@
 """Windows .key ACL hardening for ConfigStore."""
 
-from pathlib import Path
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 from app.config_store import _restrict_key_file_permissions
 

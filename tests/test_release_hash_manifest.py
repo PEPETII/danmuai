@@ -9,7 +9,6 @@ import sys
 from pathlib import Path
 
 import pytest
-
 from app.bundle_paths import project_root
 
 ROOT = project_root()

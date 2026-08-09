@@ -18,14 +18,13 @@ import threading
 from dataclasses import dataclass
 from typing import Callable, Iterable
 
-_MIC_DEVICE_ERRORS = (OSError, RuntimeError, ValueError, TypeError, AttributeError)
-
 from app.mic_buffer import (
-    BYTES_PER_SAMPLE,
     DEFAULT_MIC_SAMPLE_RATE,
     MicRingBuffer,
     clamp_mic_window_sec,
 )
+
+_MIC_DEVICE_ERRORS = (OSError, RuntimeError, ValueError, TypeError, AttributeError)
 
 try:
     import numpy as np

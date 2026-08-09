@@ -20,7 +20,6 @@ from __future__ import annotations
 
 from app.knowledge.deduplicator import KnowledgeDeduplicator
 
-
 # ---------------------------------------------------------------------------
 # 辅助：构造 item dict（validator 已校验后的形态）
 # ---------------------------------------------------------------------------

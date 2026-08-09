@@ -1,4 +1,4 @@
-﻿import { API, apiFetch } from './transport.js';
+﻿import { API, apiFetch, authHeaders } from './transport.js';
 import { t } from './i18n.js';
 import { activateFocusTrap, deactivateFocusTrap } from './modal-focus-trap.js';
 import { buildDiagnosticReportText } from './diagnostic-report-text.js';
@@ -201,7 +201,7 @@ async function collectErrorReportContext(anchor) {
     const base = API.base || window.location.origin.replace(/\/$/, '');
     const res = await fetch(
       `${base}/api/logs/recent?since_ts=${encodeURIComponent(sinceTs)}`,
-      { cache: 'no-store' },
+      { cache: 'no-store', headers: authHeaders() },
     );
     if (res.ok) {
       const data = await res.json();

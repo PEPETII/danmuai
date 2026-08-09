@@ -9,16 +9,13 @@
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from app.tray import TrayManager
 
 
 def _make_minimal_tray_manager(qapp):
     """构造一个绕过 __init__ 的 TrayManager，仅装测试所需属性。"""
-    from PyQt6.QtWidgets import QSystemTrayIcon
-
     from app.tray import _UpdateCheckBridge
+    from PyQt6.QtWidgets import QSystemTrayIcon
 
     mgr = TrayManager.__new__(TrayManager)
     mgr.app = MagicMock()

@@ -11,8 +11,6 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import base64
-import json
 import os
 import sys
 from pathlib import Path
@@ -23,8 +21,8 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from app.doubao_responses_stream import parse_doubao_json_body, stream_doubao_responses
-from app.providers.constants import THINKING_DISABLED
+from app.doubao_responses_stream import stream_doubao_responses  # noqa: E402
+from app.providers.constants import THINKING_DISABLED  # noqa: E402
 
 DEFAULT_ENDPOINT = "https://ark.cn-beijing.volces.com/api/v3"
 DEFAULT_MODEL = "doubao-seed-1-6-thinking-250715"
@@ -140,6 +138,8 @@ def run_case(
         print(f"ERROR: {exc}")
         return
     except Exception as exc:  # boundary: CLI probe unexpected failure
+        print(f"ERROR: {exc}")
+        return
 
     ok = bool(out["text"])
     print(f"ok={ok}")

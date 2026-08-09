@@ -18,7 +18,7 @@
  * /api/logs/recent 服务端近期 + 内存缓冲（见 app.js collectErrorReportContext）。
  */
 
-import { API, REALTIME } from './transport.js';
+import { API, REALTIME, authHeaders } from './transport.js';
 import { t } from './i18n.js';
 
 export const logBuffer = [];
@@ -216,7 +216,7 @@ export async function bootstrapLogsFromServer(sinceTs = 0) {
   const base = API.base || window.location.origin.replace(/\/$/, '');
   const res = await fetch(
     `${base}/api/logs/recent?since_ts=${encodeURIComponent(sinceTs)}`,
-    { cache: 'no-store' },
+    { cache: 'no-store', headers: authHeaders() },
   );
   if (!res.ok) throw new Error(res.statusText);
   const data = await res.json();

@@ -104,12 +104,17 @@
   }
 
   function loadFontSize() {
-    fetch('/api/config', { cache: 'no-store' })
-      .then((r) => r.json())
+    fetch('/api/live-overlay/config', { cache: 'no-store' })
+      .then((r) => {
+        if (!r.ok) {
+          throw new Error(`font config request failed: ${r.status}`);
+        }
+        return r.json();
+      })
       .then((cfg) => {
-        const fs = parseInt(cfg.font_size, 10);
-        if (fs > 0) {
-          fontSizePx = fs;
+        const fs = Number.parseInt(cfg && cfg.font_size, 10);
+        if (Number.isFinite(fs) && fs > 0) {
+          fontSizePx = Math.max(12, Math.min(72, fs));
         }
       })
       .catch(() => {});

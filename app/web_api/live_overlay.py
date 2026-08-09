@@ -4,6 +4,7 @@
 - ``GET /live-overlay.html``：返回透明背景的 HTML（OBS/直播伴侣作为网页源叠加）。
 - ``GET /api/live-overlay/events``：SSE 流（``text/event-stream``），由
   ``app.live_overlay_hub.LiveOverlayHub`` 推送实时弹幕。
+- ``GET /api/live-overlay/config``：公开的最小配置字段，仅返回 Overlay 字号。
 - ``POST /api/live-overlay/test``：发送测试弹幕（仅调试用）。
 
 注册方式：``app.web_api.routes`` 调用 ``register_live_overlay_routes(app, bridge, check_token)``。
@@ -38,6 +39,7 @@ def register_live_overlay_routes(
     hub: LiveOverlayHub,
     base_url: str,
     check_token: Callable,
+    font_size_provider: Callable[[], int] | None = None,
 ) -> None:
     @app.get("/live-overlay")
     def live_overlay_page():
@@ -53,6 +55,15 @@ def register_live_overlay_routes(
         out = hub.snapshot()
         out["overlay_url"] = f"{base_url.rstrip('/')}/live-overlay"
         return out
+
+    @app.get("/api/live-overlay/config")
+    def live_overlay_config():
+        try:
+            configured = font_size_provider() if font_size_provider else 28
+            font_size = int(configured)
+        except (TypeError, ValueError, RuntimeError):
+            font_size = 28
+        return {"font_size": max(12, min(72, font_size))}
 
     @app.post("/api/live-overlay/test")
     @require_auth(check_token)

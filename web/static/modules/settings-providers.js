@@ -1,9 +1,10 @@
-import { API, apiFetch, authHeaders } from './transport.js';
+import { apiFetch, authHeaders } from './transport.js';
 import { getLanguage, t } from './i18n.js';
 
 const MANUAL_PROVIDER_LABEL = t('dynamic.settingsProviders.手动填写');
 const FALLBACK_DEFAULT_PROVIDER_ID = 'custom_openai';
 const FALLBACK_EDITABLE_API_MODE_PROVIDER_IDS = new Set(['custom_openai', 'custom_doubao']);
+const PROVIDER_BOOTSTRAP_TIMEOUT_MS = 10000;
 
 export const API_MODE_OPTIONS = [
   { value: 'doubao', label: t('dynamic.settingsProviders.豆包_火山方舟') },
@@ -161,6 +162,86 @@ function fillProviderPresetSelect(sel, { mic = false } = {}) {
   appendManualProviderOption(sel);
 }
 
+function isRecord(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function createBootstrapTimeout(path) {
+  const error = new Error(`Bootstrap request timed out: ${path}`);
+  error.code = 'BOOTSTRAP_TIMEOUT';
+  return error;
+}
+
+async function fetchProviderBootstrap(path) {
+  if (typeof AbortController === 'undefined') return apiFetch(path);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), PROVIDER_BOOTSTRAP_TIMEOUT_MS);
+  try {
+    return await apiFetch(path, { signal: controller.signal });
+  } catch (error) {
+    if (controller.signal.aborted) throw createBootstrapTimeout(path);
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function validateProvidersPayload(payload) {
+  if (!Array.isArray(payload)) {
+    throw new Error('Invalid /api/providers payload: expected an array');
+  }
+  if (payload.some((provider) => !isRecord(provider) || typeof provider.id !== 'string')) {
+    throw new Error('Invalid /api/providers payload: provider id is missing');
+  }
+  return payload;
+}
+
+function validateProviderRulesPayload(payload) {
+  if (!isRecord(payload)) {
+    throw new Error('Invalid /api/provider-rules payload: expected an object');
+  }
+  return payload;
+}
+
+function renderProviderControls() {
+  const sel = document.getElementById('providerPreset');
+  if (sel) fillProviderPresetSelect(sel);
+
+  const modelProv = document.getElementById('modelProvider');
+  if (modelProv) {
+    modelProv.innerHTML = '';
+    getVisibleProviders().forEach((p) => {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = p.label;
+      modelProv.appendChild(opt);
+    });
+  }
+
+  const micSel = document.getElementById('micProviderPreset');
+  if (micSel) fillProviderPresetSelect(micSel, { mic: true });
+
+  initApiModeSelect();
+  syncProviderPresetFromEndpoint();
+  syncMicProviderPresetFromEndpoint();
+  providersDeps.renderVisionModelPicker(
+    resolveProviderIdForPicker(),
+    document.getElementById('model')?.value || '',
+  );
+  providersDeps.renderMicModelPicker(
+    resolveMicProviderIdForPicker(),
+    document.getElementById('mic_model')?.value || '',
+  );
+}
+
+function renderProviderEmptyFallback() {
+  providersCache = [];
+  providerStatusCache = [];
+  applyProviderRulesCache({});
+  renderProviderControls();
+  renderProviderStatus('');
+}
+
 function applyProviderRulesCache(rules) {
   hostEntriesCache = Array.isArray(rules?.host_entries) ? rules.host_entries : [];
   defaultProviderIdCache = rules?.default_provider_id || FALLBACK_DEFAULT_PROVIDER_ID;
@@ -243,42 +324,24 @@ export function renderProviderStatus(providerId) {
 }
 
 export async function loadProviders() {
-  const [providers, rules] = await Promise.all([
-    fetch(`${API.base}/api/providers`).then((r) => r.json()),
-    fetch(`${API.base}/api/provider-rules`).then((r) => r.json()),
-  ]);
-  providersCache = providers;
-  providerStatusCache = Array.isArray(providers) ? providers : [];
-  applyProviderRulesCache(rules);
-  const sel = document.getElementById('providerPreset');
-  if (sel) {
-    fillProviderPresetSelect(sel);
+  try {
+    const [providersPayload, rulesPayload] = await Promise.all([
+      fetchProviderBootstrap('/api/providers'),
+      fetchProviderBootstrap('/api/provider-rules'),
+    ]);
+    const providers = validateProvidersPayload(providersPayload);
+    const rules = validateProviderRulesPayload(rulesPayload);
+    providersCache = providers;
+    providerStatusCache = providers;
+    applyProviderRulesCache(rules);
+    renderProviderControls();
+    return { providers, rules };
+  } catch (error) {
+    // Keep the settings page usable when the first provider bootstrap fails.
+    // A later language switch/page reload can call loadProviders() again.
+    if (providersCache.length === 0) renderProviderEmptyFallback();
+    throw error;
   }
-  const modelProv = document.getElementById('modelProvider');
-  if (modelProv) {
-    modelProv.innerHTML = '';
-    getVisibleProviders().forEach((p) => {
-      const opt = document.createElement('option');
-      opt.value = p.id;
-      opt.textContent = p.label;
-      modelProv.appendChild(opt);
-    });
-  }
-  const micSel = document.getElementById('micProviderPreset');
-  if (micSel) {
-    fillProviderPresetSelect(micSel, { mic: true });
-  }
-  initApiModeSelect();
-  syncProviderPresetFromEndpoint();
-  syncMicProviderPresetFromEndpoint();
-  providersDeps.renderVisionModelPicker(
-    resolveProviderIdForPicker(),
-    document.getElementById('model')?.value || '',
-  );
-  providersDeps.renderMicModelPicker(
-    resolveMicProviderIdForPicker(),
-    document.getElementById('mic_model')?.value || '',
-  );
 }
 
 export function syncProviderPresetFromEndpoint() {

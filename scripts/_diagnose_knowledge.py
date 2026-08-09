@@ -1,5 +1,7 @@
 """诊断：真实数据 + 各环节分析"""
-import sqlite3, os, json
+import json
+import os
+import sqlite3
 
 db_path = os.path.join(os.environ.get('APPDATA', ''), 'DanmuAI', 'knowledge.db')
 conn = sqlite3.connect(db_path)
@@ -41,7 +43,7 @@ for it in items:
         tn = json.loads(it['tones_json']) if it['tones_json'] else []
         sc = json.loads(it['scopes_json']) if it['scopes_json'] else []
         en = json.loads(it['entities_json']) if it['entities_json'] else []
-    except:
+    except (TypeError, ValueError):
         ex = tr = tn = sc = en = []
     print(f"       examples={ex}  triggers={tr}  tones={tn}")
     print(f"       scopes={sc}  entities={en}  confidence={it['confidence']}")
@@ -76,7 +78,7 @@ for s in sources:
     print(f"\n  source id={s['id']} type={s['source_type']} status={s['status']} text_len={s['text_len']}")
     if s['normalized_text']:
         print(f"    first 500 chars: {s['normalized_text'][:500]}")
-        print(f"    ...")
+        print("    ...")
         print(f"    last 200 chars: {s['normalized_text'][-200:]}")
 
 conn.close()

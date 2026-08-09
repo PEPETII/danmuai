@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-
 from app.floating_panel_web.panel_protocol import (
     CLEAR_REASONS,
     AuthMessage,
@@ -22,7 +21,6 @@ from app.floating_panel_web.panel_protocol import (
 
 
 def test_card_message_fields():
-    from app.floating_panel_web.panel_protocol import CardStyle
 
     msg = CardMessage(
         id="c1",

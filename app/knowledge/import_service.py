@@ -26,7 +26,8 @@ from typing import TYPE_CHECKING, Any
 from app.knowledge.ai_organizer import organize_chunk
 from app.knowledge.chunker import chunk_source
 from app.knowledge.deduplicator import KnowledgeDeduplicator
-from app.knowledge.source_extractors import MAX_SOURCE_CHARS, extract as extract_source
+from app.knowledge.source_extractors import MAX_SOURCE_CHARS
+from app.knowledge.source_extractors import extract as extract_source
 from app.knowledge.validator import validate_batch
 
 if TYPE_CHECKING:
@@ -392,6 +393,10 @@ class ImportOrchestrator:
 
                 # 11.5.1 校验错误写入 chunk 和 all_errors
                 if validation_errors:
+                    # 该 chunk 的 AI 请求虽成功，但至少有一个条目被校验丢弃。
+                    # failed_chunks 是 chunk 级统计，因此同一 chunk 只计一次；
+                    # 具体条目错误仍通过 chunk/job error_message 暴露。
+                    total_failed += 1
                     val_msg = "; ".join(validation_errors[:5])
                     if len(validation_errors) > 5:
                         val_msg += f"; ... and {len(validation_errors) - 5} more"

@@ -21,26 +21,26 @@
 import os  # noqa: F401 — 重新导出以保留 app.config_store.os 属性路径（测试 monkeypatch 依赖）
 import subprocess  # noqa: F401 — 重新导出以保留 app.config_store.subprocess 属性路径（测试 patch 依赖）
 
-from .storage import (
-    CONFIG_DIR,
-    CONFIG_FILE,
-    _HAS_CRYPTO,
-    _KEY_FILE,
-    _SQLITE_CACHED_STATEMENTS,
-    _SENSITIVE_CONFIG_KEYS,
-    _redact_config_value_for_log,
-    ConfigStore,
-)
 from .crypto import (
     ConfigStoreCryptoUnavailableError,
-    _backup_corrupted_key_file,
+    _backup_corrupted_key_file,  # noqa: F401 — 保留旧 app.config_store._backup_corrupted_key_file 路径
     _migrate_custom_model_shape,
-    canonicalize_custom_model_profile,
     _restrict_key_file_permissions,
+    canonicalize_custom_model_profile,
 )
 from .pool import (
     get_custom_danmu_pool_for_store,
     set_custom_danmu_pool_for_store,
+)
+from .storage import (
+    _HAS_CRYPTO,
+    _KEY_FILE,  # noqa: F401 — 保留旧 app.config_store._KEY_FILE 路径
+    _SENSITIVE_CONFIG_KEYS,  # noqa: F401 — 保留旧 app.config_store._SENSITIVE_CONFIG_KEYS 路径
+    _SQLITE_CACHED_STATEMENTS,  # noqa: F401 — 保留旧 app.config_store._SQLITE_CACHED_STATEMENTS 路径
+    CONFIG_DIR,
+    CONFIG_FILE,
+    ConfigStore,
+    _redact_config_value_for_log,  # noqa: F401 — 保留旧 app.config_store._redact_config_value_for_log 路径
 )
 
 __all__ = [

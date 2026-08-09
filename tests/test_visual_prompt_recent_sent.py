@@ -21,10 +21,8 @@ from unittest.mock import Mock
 
 from app.config_store import ConfigStore
 from app.floating_panel_engine import FloatingPanelEngine
-from main import DanmuApp
 
 from tests.conftest import make_minimal_danmu_app
-
 
 # ---------------------------------------------------------------------------
 # 辅助工厂

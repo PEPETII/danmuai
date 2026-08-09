@@ -6,7 +6,6 @@ import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from app.main_launch import global_exception_hook, register_unhandled_exception_notifier
 
 

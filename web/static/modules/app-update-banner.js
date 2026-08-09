@@ -1,4 +1,4 @@
-import { API, apiFetch } from './transport.js';
+import { API, apiFetch, authHeaders } from './transport.js';
 import { t } from './i18n.js';
 import { activateFocusTrap, deactivateFocusTrap } from './modal-focus-trap.js';
 
@@ -249,7 +249,7 @@ async function loadAppUpdateDismissState() {
   let remote = null;
   try {
     if (API.base) {
-      remote = await fetch(`${API.base}/api/app-update-state`, { cache: 'no-store' }).then((r) =>
+      remote = await fetch(`${API.base}/api/app-update-state`, { cache: 'no-store', headers: authHeaders() }).then((r) =>
         r.ok ? r.json() : null,
       );
     }
@@ -305,7 +305,7 @@ function applyReleaseChannels(data) {
 
 async function loadUpdateMetadata() {
   if (!API.base) return null;
-  const res = await fetch(`${API.base}/api/update/channels`, { cache: 'no-store' });
+  const res = await fetch(`${API.base}/api/update/channels`, { cache: 'no-store', headers: authHeaders() });
   if (!res.ok) return null;
   return res.json();
 }
@@ -397,7 +397,7 @@ export async function initAppVersionAndUpdateCheck() {
       refreshAppVersionFooter();
       return;
     }
-    const versionRes = await fetch(`${API.base}/api/version`, { cache: 'no-store' });
+    const versionRes = await fetch(`${API.base}/api/version`, { cache: 'no-store', headers: authHeaders() });
     if (!versionRes.ok) throw new Error('version api failed');
     const versionData = await versionRes.json();
     const current = String(versionData.current_version || '').trim();

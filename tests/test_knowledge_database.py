@@ -21,7 +21,6 @@ import time
 from pathlib import Path
 
 import pytest
-
 from app.knowledge import (
     KnowledgeBatchResponse,
     KnowledgeContextSnapshot,
@@ -30,7 +29,6 @@ from app.knowledge import (
     KnowledgeRepository,
 )
 from app.knowledge.migrations import _detect_fts_backend, run_pending
-
 
 # ---------------------------------------------------------------------------
 # fixtures

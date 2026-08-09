@@ -23,8 +23,8 @@ from app.persona_contract import (
     strip_reply_contract,
     strip_system_style,
 )
-from app.persona_manager import PersonaManager
 from app.persona_display import default_user_prompt
+from app.persona_manager import PersonaManager
 from app.templates import TemplateManager
 from app.translations import Translator, tr
 
@@ -57,8 +57,6 @@ def get_template_detail(app: "DanmuApp", name: str) -> dict[str, Any]:
     personae: PersonaManager = app.personae
     templates: TemplateManager = app.templates
 
-    from app.persona_builtin import normalize_persona_name
-
     name = normalize_persona_name(name)
     if name not in personae.list():
         raise ValueError(tr("persona.notFound"))
@@ -88,8 +86,6 @@ def get_template_detail(app: "DanmuApp", name: str) -> dict[str, Any]:
 
 
 def list_versions(app: "DanmuApp", name: str) -> list[dict[str, Any]]:
-    from app.persona_builtin import normalize_persona_name
-
     name = normalize_persona_name(name)
     return app.templates.versions(name)
 
@@ -102,8 +98,6 @@ def save_template(
     label: str = "",
     update_label: bool = True,
 ) -> None:
-    from app.persona_builtin import normalize_persona_name
-
     name = normalize_persona_name(name)
 
     _, existing_user = app.templates.load(name)
@@ -130,8 +124,6 @@ def save_template(
 
 
 def rollback_preview(app: "DanmuApp", name: str, version: int) -> dict[str, Any]:
-    from app.persona_builtin import normalize_persona_name
-
     name = normalize_persona_name(name)
     system_pt, user_pt = app.templates.load(name, version)
     return {
@@ -142,8 +134,6 @@ def rollback_preview(app: "DanmuApp", name: str, version: int) -> dict[str, Any]
 
 
 def create_persona(app: "DanmuApp", name: str) -> dict[str, Any]:
-    from app.persona_builtin import normalize_persona_name, validate_persona_name
-
     name = normalize_persona_name(validate_persona_name(name))
     if name in app.personae.list():
         raise ValueError(tr("persona.alreadyExists"))
@@ -158,8 +148,6 @@ def create_persona(app: "DanmuApp", name: str) -> dict[str, Any]:
 
 def save_persona_label(app: "DanmuApp", name: str, label: str) -> dict[str, Any]:
     """W-PERSONA-RENAME-DISPLAY-001：仅更新展示名，不改存储 id / 模板正文。"""
-    from app.persona_builtin import normalize_persona_name, validate_persona_name
-
     name = normalize_persona_name(name)
     if name not in app.personae.list():
         raise ValueError(tr("persona.notFound"))
@@ -175,8 +163,6 @@ def save_persona_label(app: "DanmuApp", name: str, label: str) -> dict[str, Any]
 
 
 def delete_persona(app: "DanmuApp", name: str) -> None:
-    from app.persona_builtin import normalize_persona_name
-
     name = normalize_persona_name(name)
     if name in BUILTIN_PERSONAE:
         raise ValueError(tr("persona.builtinCannotDelete"))
@@ -185,8 +171,6 @@ def delete_persona(app: "DanmuApp", name: str) -> None:
 
 
 def restore_builtin_default(app: "DanmuApp", name: str) -> dict[str, Any]:
-    from app.persona_builtin import normalize_persona_name
-
     name = normalize_persona_name(name)
     if name not in BUILTIN_PERSONAE:
         raise ValueError(tr("persona.onlyBuiltinCanRestore"))

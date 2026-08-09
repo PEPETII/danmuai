@@ -38,18 +38,16 @@ except ImportError:
     InvalidToken = ValueError  # type: ignore[misc, assignment]
     _HAS_CRYPTO = False
 
-from app.config_migrations import run_pending
-from app.translations import Translator, tr
-
 # 通过包属性访问 _HAS_CRYPTO，使 patch("app.config_store._HAS_CRYPTO", ...) 生效。
 # 详见模块 docstring。
 import app.config_store as _cs_pkg
-
+from app.config_migrations import run_pending
 from app.config_store.crypto import (
     ConfigStoreCryptoUnavailableError,
     _backup_corrupted_key_file,
     _restrict_key_file_permissions,
 )
+from app.translations import Translator, tr
 
 logger = logging.getLogger(__name__)
 

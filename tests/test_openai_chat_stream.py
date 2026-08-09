@@ -49,6 +49,41 @@ def test_consume_openai_sse_lines_skips_malformed_json():
     assert result.output_tokens == 0
 
 
+def test_consume_openai_sse_lines_preserves_delta_usage_and_done():
+    lines = [
+        'data:{"choices":[{"delta":{"content":"hello"}}]}',
+        'data: {"usage":{"prompt_tokens":4,"completion_tokens":2},"choices":[]}',
+        "data:[DONE]",
+        'data: {"choices":[{"delta":{"content":"ignored"}}]}',
+    ]
+    result = consume_openai_sse_lines(
+        lines,
+        adapter=_FakeAdapter(),
+        caps=None,
+    )
+    assert result.text == "hello"
+    assert (result.input_tokens, result.output_tokens) == (4, 2)
+    assert result.error == ""
+
+
+def test_consume_openai_sse_lines_top_level_error_after_partial_is_not_empty_success():
+    secret = "sk-openai-stream-secret"
+    lines = [
+        'data: {"choices":[{"delta":{"content":"partial"}}]}',
+        f'data:{{"error":{{"message":"Authorization: Bearer {secret}"}}}}',
+        "data: [DONE]",
+    ]
+    result = consume_openai_sse_lines(
+        lines,
+        adapter=_FakeAdapter(),
+        caps=None,
+    )
+    assert result.text == "partial"
+    assert result.error
+    assert secret not in result.error
+    assert "Authorization" in result.error
+
+
 class _FakeAdapter:
     def normalize_usage(self, usage, *, caps=None):
         return int(usage.get("prompt_tokens", 0)), int(usage.get("completion_tokens", 0))

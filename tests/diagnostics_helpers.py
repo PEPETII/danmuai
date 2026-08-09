@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from app.application.diagnostic_snapshot import DiagnosticSnapshotBuilder, build_diagnostic_report
 from main import DanmuApp
 
 from tests.conftest import bind_minimal_danmu_app

@@ -20,8 +20,8 @@ from app.application.diagnostic_snapshot import (
     DiagnosticSnapshotBuilder,
     build_diagnostic_report,
 )
-from tests.diagnostics_helpers import make_diagnostic_app
 
+from tests.diagnostics_helpers import make_diagnostic_app
 
 # ---------------------------------------------------------------------------
 # fakes

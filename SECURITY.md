@@ -20,14 +20,22 @@
 ## 本地 Web API 威胁模型
 
 Web 控制台仅监听 **`127.0.0.1`**，面向**单用户本机**场景，不是多用户网络服务。
+loopback 绑定限制网络暴露面，但不提供进程级身份隔离；本机其他进程仍可
+访问端口，因此 `Host`、`Origin`、`Referer` 不作为 session 身份凭据。
+
+桌面启动器把短时、一次性的 bootstrap secret 放入 URL fragment（不会随 HTTP
+请求发送），页面立即用 `X-DanmuAI-Bootstrap` 换取本次进程的 Bearer token，随后
+移除 fragment 并仅在当前 tab 的内存/sessionStorage 中复用 token。bootstrap secret、
+Bearer token 都不得写入日志或 URL query。
 
 | 能力 | 鉴权 | 说明 |
 |------|------|------|
-| `GET /api/session` | 同源 loopback 或 Bearer | 返回当次启动的 Bearer token；拒绝无 Origin/Referer 的 curl/第三方进程调用，已持有 token 的调用方不受来源限制 |
-| `GET /api/config` | 无 | 配置快照；API Key 已掩码 |
-| `GET /api/status`、`/api/logs/recent`、`/api/screens`、`/api/meta`、`/api/providers`、`/api/model-catalog`、`/api/config/defaults` | 无 | 只读状态、日志回放、元数据与模型目录 |
-| `GET /api/personae` | 无 | 人格列表（含掩码后的绑定模型） |
-| `GET /api/update/channels` | 无 | 只读更新元数据：从 Supabase `app_updates` 读取 `latest_version` / `release_url` / `message`（镜像 URL 为静态目录）；**不**访问 Velopack feed |
+| `GET /api/health` | 无 | 最小健康检查，仅返回 `ok/service` |
+| `GET /api/session` | 一次性 bootstrap 或 Bearer | 返回当次启动的 Bearer token；不接受伪造的 Host/Origin/Referer |
+| `/api/*` 其余 HTTP API | Bearer | 状态、日志、配置、人格、知识包/任务/条目及其他控制台 API 默认私有 |
+| `GET /api/live-overlay/status`、`/api/live-overlay/events` | 无 | 明确允许的直播 overlay 连接状态/SSE；不返回配置或凭据 |
+| `GET /api/live-overlay/config` | 无 | 仅返回 Overlay 字号 `font_size`；不返回其他配置或凭据 |
+| `GET /api/pet/barrage-slots/{slot_id}/preview` | 无 | 明确允许的静态预览图，供 `<img>` 使用 |
 | `GET /api/update/status` | Bearer | Velopack 应用内更新状态 |
 | `POST /api/update/check`、`/download`、`/restart` | Bearer | 应用内检查、下载、重启更新 |
 | `PUT/POST /api/config`、`POST /api/start`、`/api/stop`、`/api/toggle` | Bearer | 全局配置保存与启停控制 |
@@ -45,7 +53,7 @@ Web 控制台仅监听 **`127.0.0.1`**，面向**单用户本机**场景，不�
 | 直播 overlay 写操作（`POST /api/live-overlay/test`） | Bearer | 测试弹幕推送 |
 | `WS /ws/logs`、`/ws/status`、`/ws/panel` | 首次消息认证或 Query `ws_token` | 需与 session token 一致（向后兼容） |
 
-**假设**：信任本机用户；本机其他进程或恶意软件若可访问 `127.0.0.1:18765`，可能读取 session token 或连接 WebSocket。请勿将控制台端口暴露到局域网或公网，勿在不可信的多用户环境中运行。
+**假设**：信任本机用户；本机其他进程或恶意软件若可访问 `127.0.0.1:18765`，仍可能尝试请求 API，但没有启动器 bootstrap 或当前 Bearer 不能通过私有 API 鉴权。请勿将控制台端口暴露到局域网或公网，勿在不可信的多用户环境中运行。
 
 DanmuAI **社区站**（注册守卫 CORS、Supabase 社区 Schema 等）已抽离为本地子项目 `community/`（不进本仓库 Git）；安全说明见该目录内 `README.md`。
 

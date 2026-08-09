@@ -29,22 +29,14 @@ import threading
 import time
 from datetime import datetime
 
-from app.api_schedule import pixels_per_second, time_to_anchor_boundary
+from app.api_schedule import pixels_per_second
 from app.application.config_service import ConfigService
 from app.application.status_snapshot import StatusSnapshotBuilder
-from app.danmu_engine import (
-    resolve_danmu_display_text,
-)
-from app.danmu_engine_dedup import get_last_duplicate_observation
 from app.live_freshness import (
     build_local_fallback_batch,
     is_model_slow,
 )
 from app.main_floating_panel_mixin import DanmuAppFloatingPanelMixin
-from app.main_overlay_mixin import DanmuAppOverlayMixin
-from app.main_pet_mixin import DanmuAppPetMixin
-from app.main_render_coordinator_mixin import DanmuAppRenderCoordinatorMixin
-from app.main_screen_topology_mixin import DanmuAppScreenTopologyMixin
 from app.main_helpers import (
     MAX_IN_FLIGHT,
     VISUAL_INFLIGHT_RECOVER_SEC,
@@ -64,10 +56,14 @@ from app.main_launch_mixin import DanmuAppLaunchMixin
 from app.main_lifecycle_mixin import DanmuAppLifecycleMixin
 from app.main_meme_mixin import DanmuAppMemeMixin
 from app.main_mic_mixin import MIC_POLL_MS, MIC_POLL_PHASE_MS, DanmuAppMicMixin  # noqa: F401
+from app.main_overlay_mixin import DanmuAppOverlayMixin
+from app.main_pet_mixin import DanmuAppPetMixin
+from app.main_render_coordinator_mixin import DanmuAppRenderCoordinatorMixin
 from app.main_request_context_mixin import (
     DanmuAppRequestContextMixin,
     format_reply_request_id,
 )
+from app.main_screen_topology_mixin import DanmuAppScreenTopologyMixin
 from app.main_state_mixin import DanmuAppStateMixin
 from app.main_web_facade_mixin import DanmuAppWebFacadeMixin
 from app.model_providers import (
@@ -331,7 +327,7 @@ class DanmuApp(
             self.logger.warning(tr("app.capture_failed"))
             self._note_capture_failure()
             self._record_undisplayed("capture_failure")
-            return
+            return False
         if pixmap.isNull() or pixmap.width() <= 0 or pixmap.height() <= 0:
             screen_index = self.config.get_int("screen_index", 0)
             region_x = self.config.get_int("region_x", 0)
@@ -352,7 +348,7 @@ class DanmuApp(
             )
             self._note_capture_failure()
             self._record_undisplayed("capture_failure")
-            return
+            return False
         self._note_capture_success()
         self._latest_screenshot = pixmap
         self._latest_screenshot_time = time.monotonic()
@@ -365,6 +361,7 @@ class DanmuApp(
                 height=pixmap.height(),
             )
         )
+        return True
 
     def _capture_screenshot(self):
         """同步截图（测试/脚本用）；生产主链路经 _schedule_capture 走 worker。"""
@@ -396,18 +393,34 @@ class DanmuApp(
             plan,
             self._capture_coordinator,
             self.ai_worker._stopping,
+            session_epoch=getattr(self, "_capture_session_epoch", 0),
         )
         capture_worker_pool().start(runnable)
 
-    def _on_capture_completed(self, pixmap) -> None:
+    def _capture_session_is_current(self, session_epoch) -> bool:
+        if session_epoch is None:
+            return True
+        current_epoch = getattr(self, "_capture_session_epoch", 0)
+        if session_epoch == current_epoch:
+            return True
+        self.logger.debug(
+            "忽略过期 capture 完成信号: worker_epoch=%s current_epoch=%s "
+            "reason=capture_session_stale",
+            session_epoch,
+            current_epoch,
+        )
+        return False
+
+    def _on_capture_completed(self, pixmap, session_epoch=None) -> None:
         """CaptureCoordinator.completed 主线程槽：应用截图结果并触发 API。"""
+        if not self._capture_session_is_current(session_epoch):
+            return
         self._capture_in_flight = False
         if not self.engine.running or self.ai_worker._stopping.is_set():
             return
         if self._failure_backoff_paused:
             return
-        self._apply_capture_result(pixmap)
-        if self._latest_screenshot is None:
+        if not self._apply_capture_result(pixmap):
             return
         source = self._pending_api_trigger_source or "normal_interval"
         self._pending_api_trigger_source = None
@@ -418,8 +431,10 @@ class DanmuApp(
         if self._scene_refresh_wanted and not self._has_visual_request_in_flight():
             self._try_scene_refresh()
 
-    def _on_capture_failed(self, error: str) -> None:
+    def _on_capture_failed(self, error: str, session_epoch=None) -> None:
         """CaptureCoordinator.failed 主线程槽：释放截图槽位并记录失败。"""
+        if not self._capture_session_is_current(session_epoch):
+            return
         self._capture_in_flight = False
         if not self.engine.running or self.ai_worker._stopping.is_set():
             return

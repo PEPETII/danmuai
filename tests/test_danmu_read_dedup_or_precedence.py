@@ -7,17 +7,15 @@ only picks from non-duplicate candidates.
 
 from unittest.mock import MagicMock
 
-import pytest
-
 from app.danmu_read_service import DanmuReadService
 from app.tts_providers import ResolvedTtsConfig
 
 
 def _make_service(qapp):
     """Construct a real DanmuReadService on a minimal DanmuApp shell."""
+    from main import DanmuApp
     from PyQt6.QtCore import QObject
 
-    from main import DanmuApp
     from tests.conftest import bind_minimal_danmu_app
     from tests.fakes import FakeConfig
 

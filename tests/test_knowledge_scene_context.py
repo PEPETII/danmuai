@@ -13,13 +13,11 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pytest
-
 from app.knowledge.models import KnowledgeSceneContext
 from app.knowledge.runtime_service import (
     KnowledgeRuntimeService,
     build_knowledge_scene_context,
 )
-
 
 # ---------------------------------------------------------------------------
 # build_knowledge_scene_context

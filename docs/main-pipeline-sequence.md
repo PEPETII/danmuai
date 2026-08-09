@@ -16,10 +16,19 @@ Qt main thread: capture tick
        -> GenerationPipeline.handle_reply_parsed
        -> parse_ai_reply_payload / normalize_reply_batch
        -> enqueue_reply_batch_for_pipeline
-  -> reply_timer.timeout
+       -> reply_timer.timeout
        -> GenerationPipeline.consume_reply_queue
        -> pet / floating_panel / overlay dispatch
 ```
+
+### Capture result freshness and session boundary
+
+Each scheduled `CaptureRunnable` carries the current `_capture_session_epoch`.
+The worker returns that epoch with both `completed` and `failed` signals; the
+Qt main-thread callback drops a stale epoch before changing `_capture_in_flight`
+or any screenshot state. `_apply_capture_result()` returns success only after
+the current pixmap passes the `None` / `isNull()` / zero-size checks, and only
+that successful result may trigger `_trigger_api_call()`.
 
 ### Terminal and retry paths
 

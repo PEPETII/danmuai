@@ -23,6 +23,7 @@ import time
 from collections import deque
 from dataclasses import asdict
 from typing import TYPE_CHECKING, Any, Literal
+from urllib.parse import quote
 
 from PyQt6.QtCore import QObject, Qt, QThread, QTimer, pyqtSignal, pyqtSlot
 
@@ -31,9 +32,20 @@ from app.bundle_paths import append_frozen_log, frozen_log_path, is_frozen, reso
 from app.live_overlay_hub import LiveOverlayHub
 from app.startup_trace import log_startup, web_console_ready_timeout
 from app.translations import tr
+from app.web_console_mic_logs import (
+    clear_mic_logs as bridge_clear_mic_logs,
+)
+from app.web_console_mic_logs import (
+    init_mic_log_state,
+    on_mic_log_event,
+    register_mic_log_consumer,
+    unregister_mic_log_consumer,
+)
+from app.web_console_mic_logs import (
+    list_recent_mic_logs as bridge_list_recent_mic_logs,
+)
 from app.web_console_runtime import run_uvicorn_locked
-from app.web_console_support import SAVE_DONE_EVENT_KEY as _SAVE_DONE_EVENT_KEY
-from app.web_console_support import SAVE_RESULT_KEY as _SAVE_RESULT_KEY
+from app.web_console_session_auth import SessionBootstrapStore
 from app.web_console_support import (
     WebStatusSnapshot,
     apply_config_patch,
@@ -45,23 +57,9 @@ from app.web_console_support import (
     schedule_screen_cache,
     status_payloads_semantically_equal,
 )
-from app.web_console_support import (
-    write_config_save_result as _write_config_save_result,
-)
 from app.web_console_ws import (
-    _WS_MAX_LOG_CONSUMERS,
-    _WS_MAX_STATUS_CONSUMERS,
     _enqueue_ws,
-    _ws_token_valid,
     should_log_broadcast,
-)
-from app.web_console_mic_logs import (
-    clear_mic_logs as bridge_clear_mic_logs,
-    init_mic_log_state,
-    list_recent_mic_logs as bridge_list_recent_mic_logs,
-    on_mic_log_event,
-    register_mic_log_consumer,
-    unregister_mic_log_consumer,
 )
 
 WebConsoleStartupPhase = Literal["ready", "slow", "failed"]
@@ -459,6 +457,7 @@ class WebConsoleServer:
         self.static_dir = STATIC_DIR
         self.live_overlay_hub = LiveOverlayHub()
         self.token = secrets.token_urlsafe(24)
+        self._session_bootstrap = SessionBootstrapStore()
         self._thread: threading.Thread | None = None
         self._server = None
         self._loop: asyncio.AbstractEventLoop | None = None
@@ -476,6 +475,32 @@ class WebConsoleServer:
     @property
     def base_url(self) -> str:
         return f"http://{self.host}:{self.port}"
+
+    def bootstrap_url(self, path: str = "/") -> str:
+        """Return a launch URL carrying a one-time secret in the fragment."""
+        raw_path = str(path or "/")
+        route = ""
+        if raw_path.startswith("#"):
+            route = raw_path[1:]
+            raw_path = "/"
+        elif "#" in raw_path:
+            raw_path, route = raw_path.split("#", 1)
+        if not raw_path:
+            raw_path = "/"
+        if not raw_path.startswith("/"):
+            raw_path = f"/{raw_path}"
+        target = f"{self.base_url.rstrip('/')}{raw_path}"
+        fragment = f"bootstrap={quote(self._session_bootstrap.issue(), safe='')}"
+        if route:
+            fragment += f"&route={quote(route, safe='')}"
+        return f"{target}#{fragment}"
+
+    def issue_bootstrap_secret(self) -> str:
+        """Issue a one-time launcher secret without exposing it to logs."""
+        return self._session_bootstrap.issue()
+
+    def consume_bootstrap_secret(self, value: str) -> bool:
+        return self._session_bootstrap.consume(value)
 
     def start(self) -> None:
         """启动 DanmuWebConsole 线程；就绪以 _on_uvicorn_started 置位（非 lifespan 开头）。"""
@@ -726,4 +751,4 @@ def try_recover_web_console_for_user_action(
 def open_web_console_browser(server: WebConsoleServer, path: str = "/") -> None:
     import webbrowser
 
-    webbrowser.open(f"{server.base_url}{path}")
+    webbrowser.open(server.bootstrap_url(path))

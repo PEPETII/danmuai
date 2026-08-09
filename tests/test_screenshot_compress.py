@@ -7,6 +7,7 @@ import io
 import statistics
 import time
 
+import pytest
 from app.image_compress import compress_image_bytes
 from app.jpeg_resize import JPEG_DATA_URI_PREFIX
 from app.screenshot_compress import (
@@ -16,7 +17,6 @@ from app.screenshot_compress import (
 )
 from PIL import Image
 from PyQt6.QtGui import QColor, QImage, QPixmap
-import pytest
 
 
 def _make_pixmap(width: int, height: int, *, color: QColor | None = None) -> QPixmap:

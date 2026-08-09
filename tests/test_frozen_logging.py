@@ -6,7 +6,6 @@ import logging
 import sys
 
 import pytest
-
 from app.logger import SanitizedLogger
 
 

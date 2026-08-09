@@ -31,7 +31,7 @@
 import { getLastAppliedStatus } from './status.js';
 import { t } from './i18n.js';
 import {
-  API, apiFetch
+  apiFetch
 } from './transport.js';
 import {
   applyCaptureRegionFromPayload,
@@ -42,6 +42,7 @@ import {
   CONFIG_FIELDS,
   initNormalBatchControls,
   MASKED_API_KEY,
+  setConfigDefaultsCache,
 } from './settings-defaults.js';
 import {
   collectFormData,
@@ -51,8 +52,7 @@ import {
   initNumberFieldValidation,
   initOpacityWarning,
   initRestoreDefaultsControls,
-  loadConfigDefaults,
-  reloadConfigFromServer,
+  reloadConfigFromServer as reloadConfigFromServerImpl,
 } from './settings-core.js';
 import {
   closeModelModal,
@@ -127,8 +127,6 @@ export {
   initOpacityWarning,
   initRestoreDefaultsControls,
   initNumberFieldValidation,
-  loadConfigDefaults,
-  reloadConfigFromServer,
 } from './settings-core.js';
 export { loadCustomModels } from './settings-custom-models.js';
 export { loadFontFamilies, uploadFontFile } from './settings-fonts.js';
@@ -144,6 +142,88 @@ export {
   initSettingsTabs,
   switchSettingsTab,
 } from './settings-tabs.js';
+
+const SETTINGS_BOOTSTRAP_TIMEOUT_MS = 10000;
+
+function isRecord(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function createBootstrapTimeout(path) {
+  const error = new Error(`Bootstrap request timed out: ${path}`);
+  error.code = 'BOOTSTRAP_TIMEOUT';
+  return error;
+}
+
+async function fetchSettingsBootstrap(path) {
+  if (typeof AbortController === 'undefined') return apiFetch(path);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), SETTINGS_BOOTSTRAP_TIMEOUT_MS);
+  try {
+    return await apiFetch(path, { signal: controller.signal });
+  } catch (error) {
+    if (controller.signal.aborted) throw createBootstrapTimeout(path);
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function awaitSettingsBootstrap(task, path) {
+  let timer = null;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(createBootstrapTimeout(path)), SETTINGS_BOOTSTRAP_TIMEOUT_MS);
+  });
+  try {
+    return await Promise.race([task, timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+function validateConfigPayload(payload) {
+  if (!isRecord(payload)) {
+    throw new Error('Invalid /api/config payload: expected an object');
+  }
+  return payload;
+}
+
+function validateConfigDefaultsPayload(payload) {
+  if (!isRecord(payload)) {
+    throw new Error('Invalid /api/config/defaults payload: expected an object');
+  }
+  return payload;
+}
+
+function validateScreensPayload(payload) {
+  if (!Array.isArray(payload)) {
+    throw new Error('Invalid /api/screens payload: expected an array');
+  }
+  if (payload.some((screen) => (
+    !isRecord(screen)
+    || !Number.isInteger(screen.index)
+    || typeof screen.label !== 'string'
+  ))) {
+    throw new Error('Invalid /api/screens payload: screen index or label is missing');
+  }
+  return payload;
+}
+
+export async function loadConfigDefaults() {
+  const defaults = validateConfigDefaultsPayload(
+    await fetchSettingsBootstrap('/api/config/defaults'),
+  );
+  setConfigDefaultsCache(defaults);
+  return defaults;
+}
+
+export async function reloadConfigFromServer() {
+  const config = validateConfigPayload(
+    await awaitSettingsBootstrap(reloadConfigFromServerImpl(), '/api/config'),
+  );
+  return config;
+}
+
 let bindDeps = {
   showToast: () => {},
   navigate: () => {},
@@ -504,9 +584,9 @@ export function updateModelActiveSourceBanner(cfg) {
 }
 
 export async function loadScreens() {
-  const screens = await fetch(`${API.base}/api/screens`).then((r) => r.json());
+  const screens = validateScreensPayload(await fetchSettingsBootstrap('/api/screens'));
   const sel = document.getElementById('screen_index');
-  if (!sel) return;
+  if (!sel) return screens;
   const current = sel.value;
   sel.innerHTML = '';
   screens.forEach((s) => {
@@ -517,6 +597,7 @@ export async function loadScreens() {
   });
   if (current !== '') sel.value = current;
   sel.disabled = screens.length <= 1;
+  return screens;
 }
 
 

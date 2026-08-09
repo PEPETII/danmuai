@@ -409,6 +409,29 @@ def test_on_ai_error_consumes_timing_on_error_path(monkeypatch):
     assert timing.rtt_history == pytest.approx([1.5])
 
 
+def test_duplicate_ai_error_does_not_release_or_consume_twice(monkeypatch):
+    app = _make_request_app()
+    app.ai_in_flight = 1
+    app._is_generating = True
+    request_id = app._reply_request_id(4, 8, 0)
+    timing = app.get_request_timing_service()
+    timing.request_started_at_by_id[request_id] = 20.0
+    app._register_request_meta(4, 8, 0, "visual")
+    monkeypatch.setattr(main.time, "monotonic", lambda: 21.5)
+
+    app._on_ai_error("boom", "p1", 4, 8, 20.0, 0)
+    failures_after_first = app._consecutive_failures
+    rtt_after_first = list(timing.rtt_history)
+
+    app._on_ai_error("late boom", "p1", 4, 8, 20.0, 0)
+
+    assert app.ai_in_flight == 0
+    assert app._consecutive_failures == failures_after_first
+    assert list(timing.rtt_history) == rtt_after_first == [1.5]
+    assert request_id not in timing.request_started_at_by_id
+    assert app._pending_request_meta == {}
+
+
 def test_max_in_flight_module_constant_gates_trigger(monkeypatch):
     """BUG-011: MAX_IN_FLIGHT is a module constant; at-cap visual requests do not fire again."""
     from tests.conftest import make_minimal_danmu_app

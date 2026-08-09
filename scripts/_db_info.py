@@ -1,4 +1,6 @@
-import sqlite3, os
+import os
+import sqlite3
+
 db_path = os.path.join(os.environ.get('APPDATA', ''), 'DanmuAI', 'knowledge.db')
 conn = sqlite3.connect(db_path)
 tables = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").fetchall()]

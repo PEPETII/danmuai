@@ -111,8 +111,6 @@ def test_runnable_request_uncaught_exception_emits_error():
 def test_request_doubao_wall_clock_skips_http_before_retry():
     """S-012：墙上时钟已过时不再发起流式请求。"""
     import time
-    from unittest.mock import MagicMock
-
     from unittest.mock import MagicMock, patch
 
     from app.ai_client_requests import request_doubao
