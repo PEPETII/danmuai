@@ -1,7 +1,14 @@
 {
   "permissions": {
     "allow": [
-      "Shell(git:*)"
+      "Shell(git:*)",
+      "Shell(python -c \" import re for path, lineno in [('web/static/index.html',113),('web/static/index.html',119)]: lines = open(path, encoding='utf-8').read().splitlines() line = lines[lineno-1] for m in re.finditer(r'.{120}思考.{120}', line): print(f'--- {path}:{lineno} ---') print(m.group(0)) print() for m in re.finditer(r'.{100}(use_thinking|thinking|reasoning).{160}', line): print(f'--- {path}:{lineno} (en) ---') print(m.group(0)) print() \")",
+      "Shell(python -c \" import io data = open('web/static/index.html', encoding='utf-8', errors='replace').read() for key in ['use_thinking', 'thinking', 'reasoning', '思考']: idx = data.find(key) print(key, '->', idx) \")",
+      "Shell(python -X utf8 -c \"data = open('web/static/index.html', encoding='utf-8', errors='replace').read(); print('use_thinking' in data, 'thinking' in data, 'reasoning' in data, '思考' in data)\")",
+      "Shell(python -X utf8 -c \" data = open('web/static/index.html', encoding='utf-8', errors='replace').read() for key in ['use_thinking', 'thinking', '思考']: start = 0 while True: idx = data.find(key, start) if idx == -1: break snippet = data[max(0,idx-150):idx+250] print('===', key, '@', idx, '===') print(snippet.replace(chr(10),' ')) print() start = idx + 1 if start > len(data): break \")",
+      "Shell(python -X utf8 -c \" data = open('web/static/index.html', encoding='utf-8', errors='replace').read() out = [] for key in ['use_thinking', 'thinking', '思考']: start = 0 while True: idx = data.find(key, start) if idx == -1: break snippet = data[max(0,idx-150):idx+250] out.append('=== %s @ %d ===\\n%s\\n' % (key, idx, snippet.replace(chr(10),' '))) start = idx + 1 open('out_tmp.txt','w',encoding='utf-8').write(''.join(out)) print('written') \")",
+      "Shell(python --version)",
+      "Shell(python -X utf8 \"C:\\Users\\KING\\AppData\\Local\\Temp\\commandcode\\E--test-danmu\\61810855-da4f-43be-809e-60d00e87a92a\\scratchpad\\find_modal_thinking.py\" > \"C:\\Users\\KING\\AppData\\Local\\Temp\\commandcode\\E--test-danmu\\61810855-da4f-43be-809e-60d00e87a92a\\scratchpad\\modal_snippets.txt\" 2>&1)"
     ],
     "deny": [],
     "defaultMode": "default"

@@ -70,6 +70,50 @@ def test_probe_route_accepts_json_body():
     assert body["message"] == "连接成功"
 
 
+def test_custom_model_probe_defaults_stage_to_text():
+    """Regression: custom model probe must not fail on a missing optional stage."""
+    from app.web_api.routes import register_web_routes
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    app = FastAPI()
+    bridge = MagicMock()
+    bridge.danmu_app.probe_api_connection.return_value = {
+        "ok": True,
+        "message": "连接成功",
+        "status_code": 200,
+    }
+
+    def _check_token(_authorization: str | None = None) -> None:
+        return None
+
+    register_web_routes(app, bridge, _check_token)
+    client = TestClient(app)
+    res = client.post(
+        "/api/custom-models/probe",
+        json={
+            "model_ids": ["probe-model"],
+            "default_model_id": "probe-model",
+            "mode": "openai",
+            "endpoint": "https://api.example.com/v1",
+            "apiKey": "sk-test",
+            "provider": "custom_openai",
+            "index": -1,
+            "model_id": "probe-model",
+        },
+    )
+
+    assert res.status_code == 200
+    assert res.json()["ok"] is True
+    bridge.danmu_app.probe_api_connection.assert_called_once_with(
+        api_endpoint="https://api.example.com/v1",
+        api_key="sk-test",
+        model="probe-model",
+        api_mode="openai-compatible",
+        stage="text",
+    )
+
+
 def test_test_danmu_route_uses_public_app_entry():
     from app.web_api.routes import register_web_routes
     from fastapi import FastAPI

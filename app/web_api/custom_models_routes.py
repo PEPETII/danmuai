@@ -30,6 +30,7 @@ class CustomModelProbePayload(CustomModelPayload):
     index: int = -1
     # W-CUSTOMMODEL-SCHEMA-002：probe 可指定具体 model_id；缺省取 default_model_id
     model_id: str = ""
+    stage: str = "text"
 
 
 class ProbePayload(BaseModel):
