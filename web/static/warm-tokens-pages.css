@@ -73,6 +73,136 @@
   word-break: break-word;
 }
 
+/* W-UI-PET-ACCORDION-STYLE：桌宠页折叠面板复用「弹幕样式」的面板视觉。 */
+#page-pet .settings-rhythm-accordion {
+  margin: 0.5rem 0;
+  overflow: hidden;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  background: var(--surface-subtle);
+}
+
+#page-pet .settings-rhythm-accordion-item + .settings-rhythm-accordion-item {
+  border-top: 1px solid var(--border-soft);
+}
+
+#page-pet .settings-rhythm-accordion-item.is-open {
+  background: rgba(var(--color-primary-rgb), 0.045);
+}
+
+#page-pet .settings-rhythm-accordion-trigger {
+  align-items: flex-start;
+  min-height: 2.75rem;
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+#page-pet .settings-rhythm-accordion-trigger > span:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+#page-pet .settings-rhythm-accordion-trigger .settings-rhythm-accordion-chevron {
+  flex-shrink: 0;
+  margin-top: 0.35rem;
+}
+
+#page-pet .settings-rhythm-accordion-item.is-open .settings-rhythm-accordion-trigger {
+  color: var(--color-primary-hover);
+}
+
+#page-pet .settings-rhythm-accordion-panel {
+  padding: var(--space-4) var(--space-5) var(--space-5);
+}
+
+#page-pet .settings-rhythm-accordion-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+}
+
+#page-pet .settings-rhythm-accordion-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(9rem, 42%);
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
+  min-height: var(--control-height-md);
+  margin: 0;
+  padding: var(--space-1) 0;
+}
+
+#page-pet .settings-rhythm-accordion-field > div:first-child {
+  min-width: 0;
+}
+
+#page-pet .settings-rhythm-accordion-field > .settings-field-control,
+#page-pet .settings-rhythm-accordion-field > .settings-rhythm-accordion-control-group,
+#page-pet .settings-rhythm-accordion-field > .toggle-switch {
+  grid-column: 2;
+}
+
+#page-pet .settings-rhythm-accordion-field > .settings-field-control {
+  width: 100%;
+  min-width: 0;
+  text-align: left;
+  border: 0 !important;
+  background: rgba(var(--color-primary-rgb), 0.08) !important;
+  box-shadow: none !important;
+}
+
+#page-pet .settings-rhythm-accordion-field--toggle .toggle-switch {
+  justify-self: end;
+  margin: 0;
+}
+
+#page-pet .settings-rhythm-accordion-control-group {
+  width: 100%;
+  max-width: none;
+}
+
+#page-pet .settings-rhythm-accordion-control-group .settings-field-control {
+  flex-basis: 10rem;
+}
+
+#page-pet .settings-rhythm-accordion-field > .settings-field-control:focus,
+#page-pet .settings-rhythm-accordion-field > .settings-field-control:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.24) !important;
+}
+
+[data-theme="dark"] #page-pet .settings-rhythm-accordion {
+  border-color: var(--border-soft);
+  background: rgba(0, 0, 0, 0.18);
+}
+
+@media (max-width: 600px) {
+  #page-pet .settings-rhythm-accordion-field {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+
+  #page-pet .settings-rhythm-accordion-field > .settings-field-control,
+  #page-pet .settings-rhythm-accordion-field > .settings-rhythm-accordion-control-group,
+  #page-pet .settings-rhythm-accordion-field > .toggle-switch {
+    grid-column: 1;
+  }
+
+  #page-pet .settings-rhythm-accordion-field--toggle {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+
+  #page-pet .settings-rhythm-accordion-field--toggle > .toggle-switch {
+    grid-column: 2;
+  }
+}
+
 /* Modal dialog shells: long text + action wrap (F2 modals) */
 #modelModal .flex.flex-wrap,
 #restoreDefaultsModal .flex.flex-col,
