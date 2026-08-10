@@ -87,6 +87,26 @@ function setAdvancedOpen(open) {
   panel.hidden = !open;
 }
 
+function syncModelThinkingEffort({ catalogModel = null } = {}) {
+  const select = document.getElementById("modelThinkingEffort");
+  const hint = document.getElementById("modelThinkingEffortHint");
+  if (!select) return;
+
+  const mode = String(catalogModel?.thinking_mode || "").trim().toLowerCase();
+  if (mode === "off") {
+    select.value = "off";
+    select.disabled = true;
+    if (hint) hint.textContent = t("dynamic.settingsCustomModels.该模型未声明思考能力");
+  } else if (mode === "always") {
+    select.value = "high";
+    select.disabled = true;
+    if (hint) hint.textContent = t("dynamic.settingsCustomModels.该模型始终开启思考");
+  } else {
+    select.disabled = false;
+    if (hint) hint.textContent = t("dynamic.settingsCustomModels.思考程度提示");
+  }
+}
+
 export function expandModelModalAdvanced() {
   setAdvancedOpen(true);
 }
@@ -131,6 +151,7 @@ export function syncModelModalUIState({
         ? null
         : null,
   );
+  syncModelThinkingEffort({ catalogModel: isCatalogPreset ? catalogModel : null });
   syncDefaultSelect();
   setAdvancedOpen(customIds || (isEdit && !isCatalogPreset));
   return { isCatalogPreset, customIds, catalogModel };

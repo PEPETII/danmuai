@@ -54,7 +54,6 @@ export const CONFIG_FIELDS = [
   'floating_panel_click_through',
   'danmu_font_family',
   'floating_panel_font_family',
-  'use_thinking',
   'danmu_font_color_selected',
   'danmu_font_color_mode',
   'danmu_font_color_weights',
@@ -80,7 +79,7 @@ export const SETTINGS_RESTORE_GROUPS = {
 };
 
 export const SETTINGS_RESTORE_CHECKBOXES = {
-  api: ['use_thinking'],
+  api: [],
   mic: ['mic_mode_enabled', 'mic_use_visual_model'],
   capture: [],
   danmu: ['empty_accel', 'floating_panel_click_through'],

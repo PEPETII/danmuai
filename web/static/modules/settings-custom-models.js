@@ -678,6 +678,13 @@ export function openModelModal(index, model = {}) {
   document.getElementById("modelDescription").value = model.description || "";
   const supportsMicEl = document.getElementById("modelSupportsMic");
   if (supportsMicEl) supportsMicEl.checked = Boolean(model.supportsMic);
+  const thinkingEffortEl = document.getElementById("modelThinkingEffort");
+  if (thinkingEffortEl) {
+    const value = String(model.thinking_effort || "off").trim().toLowerCase();
+    thinkingEffortEl.value = ["off", "low", "medium", "high"].includes(value)
+      ? value
+      : "off";
+  }
   const modal = document.getElementById("modelModal");
   modal.classList.remove("hidden");
   modal.classList.add("flex");
@@ -824,6 +831,7 @@ export function collectModelForm() {
     description: document.getElementById("modelDescription").value,
     provider: document.getElementById("modelProvider").value,
     supportsMic: Boolean(document.getElementById("modelSupportsMic")?.checked),
+    thinking_effort: document.getElementById("modelThinkingEffort")?.value || "off",
   };
 }
 

@@ -49,17 +49,17 @@ def test_provider_status_hides_unknown_source_for_active_providers():
     assert mimo["source"]["url"]
 
 
-def test_thinking_ui_keeps_legacy_dom_and_four_states():
-    settings = read("web/static/modules/settings.js")
-    partial = read("web/static/partials/settings.html")
-    locales = read("web/static/locales/zh/dynamic.json") + read("web/static/locales/en/dynamic.json")
-    assert 'id="use_thinking"' in partial
-    assert 'id="thinking_effort"' in partial
-    assert 'id="thinking_always_on"' in partial
-    for state in ("off", "hybrid", "always", "unknown"):
-        assert f"thinking_{state}" in settings or f"thinking_{state}" in partial or f"thinking_{state}" in locales
-    assert "thinkingUnknownBadge" in partial
-    assert "syncThinkingAdvancedControls" in settings
+def test_thinking_ui_is_per_model_advanced_configuration():
+    settings = read("web/static/partials/settings.html")
+    modal = read("web/static/partials/modals.html")
+    custom_models = read("web/static/modules/settings-custom-models.js")
+    assert 'id="use_thinking"' not in settings
+    assert 'id="thinking_effort"' not in settings
+    assert 'id="thinking_always_on"' not in settings
+    assert 'id="modelThinkingEffort"' in modal
+    for value in ("off", "low", "medium", "high"):
+        assert f'value="{value}"' in modal
+    assert "thinking_effort" in custom_models
 
 
 def test_locales_are_valid_json():

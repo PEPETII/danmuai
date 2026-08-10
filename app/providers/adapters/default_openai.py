@@ -49,7 +49,11 @@ class DefaultOpenAIAdapter:
     def add_optional_fields(self, data: dict, *, request, caps: ProviderCapabilities) -> None:
         if request.temperature is not None and request.temperature >= 0:
             data["temperature"] = request.temperature
-        if request.reasoning_effort is not None and caps.supports_thinking:
+        if request.reasoning_effort is not None and caps.thinking_param_style in (
+            "reasoning_effort_flat",
+            "reasoning_object",
+            "always_on",
+        ):
             data["reasoning_effort"] = request.reasoning_effort
         preference = request.response_format or request.structured_output
         if preference is not None and caps.structured_output is True:

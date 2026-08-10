@@ -33,7 +33,11 @@ class ResponsesAdapter(DefaultOpenAIAdapter):
     def add_optional_fields(self, data: dict, *, request, caps: ProviderCapabilities) -> None:
         if request.temperature is not None and request.temperature >= 0 and getattr(caps, "supports_temperature", True):
             data["temperature"] = request.temperature
-        if request.reasoning_effort is not None and caps.supports_thinking:
+        if request.reasoning_effort is not None and caps.thinking_param_style in (
+            "reasoning_effort_flat",
+            "reasoning_object",
+            "always_on",
+        ):
             data["reasoning"] = {"effort": request.reasoning_effort}
         if request.force_thinking_off or request.purpose in ("connection_probe", "knowledge_organize"):
             # This is an explicit request contract for Responses, not a model

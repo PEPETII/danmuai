@@ -67,11 +67,35 @@ def _apply_mic_audio_policy(
 
 
 def _effective_use_thinking(caps, model_id: str, config_use_thinking: bool) -> bool:
-    return (
-        config_use_thinking
-        and caps.thinking_param_style != "none"
-        and catalog_model_supports_thinking_toggle(model_id)
-    )
+    return _effective_thinking_effort(
+        caps,
+        model_id,
+        "medium" if config_use_thinking else "off",
+    ) is not None
+
+
+def _configured_thinking_effort(config, model_id: str) -> str:
+    """Read the model-profile selector, with legacy global fallback."""
+    from app.model_providers import find_custom_model_profile
+
+    profile = find_custom_model_profile(config.get_custom_models(), model_id)
+    if profile is not None and "thinking_effort" in profile:
+        value = str(profile.get("thinking_effort") or "off").strip().lower()
+    else:
+        # Old profiles have no per-model field. Preserve their previous global
+        # behavior until the profile is edited and saved in the new UI.
+        value = "medium" if config.get("use_thinking", "0") == "1" else "off"
+    return value if value in {"off", "low", "medium", "high"} else "off"
+
+
+def _effective_thinking_effort(caps, model_id: str, configured: str) -> str | None:
+    if (
+        configured == "off"
+        or caps.thinking_param_style == "none"
+        or not catalog_model_supports_thinking_toggle(model_id)
+    ):
+        return None
+    return configured
 def _resolve_request_timing(
     worker,
     *,
@@ -141,7 +165,7 @@ def _prepare_visual_request_context(
 
     Returns either an error AiProbeResult from _deliver_outcome, or a context
     tuple: (deadline_at, started_at, endpoint, api_key, model, api_mode, caps,
-    effective_use_thinking, max_tokens, temperature, http_client).
+    effective_use_thinking, thinking_effort, max_tokens, temperature, http_client).
     """
     deadline_at, started_at = _resolve_request_timing(
         worker, deadline_at=deadline_at, started_at=started_at
@@ -163,8 +187,13 @@ def _prepare_visual_request_context(
     temperature = worker.config.get_float("temperature", 0.8)
     configured_max = worker.config.get_int("max_tokens", DEFAULT_MAX_TOKENS)
     caps = get_capabilities_for_model(model, endpoint, api_mode)
-    config_use_thinking = worker.config.get("use_thinking", "0") == "1"
-    effective_use_thinking = _effective_use_thinking(caps, model, config_use_thinking)
+    configured_thinking_effort = _configured_thinking_effort(worker.config, model)
+    thinking_effort = _effective_thinking_effort(
+        caps,
+        model,
+        configured_thinking_effort,
+    )
+    effective_use_thinking = thinking_effort is not None
     max_tokens = resolve_danmu_max_output_tokens(
         configured_max,
         use_thinking=effective_use_thinking,
@@ -190,6 +219,7 @@ def _prepare_visual_request_context(
         api_mode,
         caps,
         effective_use_thinking,
+        thinking_effort,
         max_tokens,
         temperature,
         http_client,
@@ -265,6 +295,7 @@ def request_doubao(
         api_mode,
         caps,
         effective_use_thinking,
+        thinking_effort,
         max_output_tokens,
         temperature,
         http_client,
@@ -302,6 +333,7 @@ def request_doubao(
             max_output_tokens=max_output_tokens,
             temperature=temperature,
             reasoning_enabled=effective_use_thinking,
+            reasoning_effort=thinking_effort,
             stream=True,
             supports_mic_override=mic_override,
             supports_mic_declared=mic_declared,
@@ -415,6 +447,7 @@ def request_openai(
         api_mode,
         caps,
         effective_use_thinking,
+        thinking_effort,
         max_tokens,
         temperature,
         http_client,
@@ -441,6 +474,7 @@ def request_openai(
             max_output_tokens=max_tokens,
             temperature=temperature,
             reasoning_enabled=effective_use_thinking,
+            reasoning_effort=thinking_effort,
             stream=True,
             supports_mic_override=mic_override,
             supports_mic_declared=mic_declared,

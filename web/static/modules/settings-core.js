@@ -31,7 +31,6 @@ let coreDeps = {
   updateMicModeHint: () => {},
   updateModelActiveSourceBanner: () => {},
   updateMicActiveSourceBanner: () => {},
-  updateThinkingModeAvailability: () => {},
   setMicAudioLikelySupported: () => {},
   refreshDanmuPreview: () => {},
 };
@@ -222,7 +221,6 @@ export function collectFormData({ usesCustomCredentials = false } = {}) {
   if (danmuBold) data.danmu_font_bold = danmuBold.checked ? '1' : '0';
   const fpBold = document.getElementById('floating_panel_font_bold');
   if (fpBold) data.floating_panel_font_bold = fpBold.checked ? '1' : '0';
-  data.use_thinking = document.getElementById('use_thinking')?.checked ? '1' : '0';
   // W-GLOBAL-VISUAL-APIKEY-REMOVE-001: 视觉全局 api_key 已下线，不再收集；mic/tts 独立 key 不受影响
   const micKey = (document.getElementById('mic_api_key')?.value || '').trim();
   if (micKey && micKey !== MASKED_API_KEY) data.mic_api_key = micKey;
@@ -325,16 +323,8 @@ export async function fillForm(cfg) {
   coreDeps.updateModelActiveSourceBanner(cfg);
   coreDeps.updateMicActiveSourceBanner(cfg);
   // W-GLOBAL-VISUAL-APIKEY-REMOVE-001: 视觉全局 api_key 已下线，不再回填 hidden input
-  const useThinking = document.getElementById('use_thinking');
-  if (useThinking) {
-    const v = cfg.use_thinking;
-    if (v === '0' || v === 'false') useThinking.checked = false;
-    else if (v === '1' || v === 'true') useThinking.checked = true;
-    else useThinking.checked = configDefaultValue('use_thinking') !== '0';
-  }
   syncColorUIFromConfig(cfg);
   updateDanmuPreviewSnapshot(cfg);
-  coreDeps.updateThinkingModeAvailability(cfg);
 }
 
 export async function reloadConfigFromServer() {

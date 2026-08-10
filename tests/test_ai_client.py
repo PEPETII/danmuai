@@ -660,6 +660,29 @@ def test_request_doubao_thinking_enabled_when_configured():
     worker.close()
 
 
+def test_request_doubao_model_profile_thinking_effort_overrides_legacy_global():
+    worker = AiWorker(
+        ai_client_fake_config(
+            data={"max_tokens": "200", "use_thinking": "1"},
+            custom_models=[
+                {
+                    "name": "Profile",
+                    "default_model_id": "doubao-seed-1-6-flash-250828",
+                    "endpoint": "https://ark.cn-beijing.volces.com/api/v3",
+                    "apiKey": "sk-profile-key",
+                    "mode": "doubao",
+                    "thinking_effort": "off",
+                }
+            ],
+        )
+    )
+    with patch("app.ai_client_requests.stream_doubao", return_value=("test", 100, 50, "")) as mock_stream:
+        with patch.object(worker, "_emit_safe"):
+            request_doubao(worker, "data:image/jpeg;base64,abc", "sys", "user", "p1", 1, 1, 1.0, 0)
+    assert mock_stream.call_args[0][4]["thinking"] == {"type": "disabled"}
+    worker.close()
+
+
 def test_request_doubao_thinking_disabled_when_model_unsupported():
     from app.providers.capabilities import ProviderCapabilities
 

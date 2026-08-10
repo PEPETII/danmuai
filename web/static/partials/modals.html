@@ -66,6 +66,16 @@
                 <div><label class="text-sm font-semibold text-warmText" for="modelMaxTokens">最大输出 tokens</label><input id="modelMaxTokens" type="number" min="512" value="512" class="w-full px-4 py-2 bg-cream rounded-xl mt-1 ui-control ui-input"><p id="modelMaxTokensError" class="model-field-error" role="alert"></p></div>
                 <div><label class="text-sm font-semibold text-warmText" for="modelDescription">备注</label><input id="modelDescription" class="w-full px-4 py-2 bg-cream rounded-xl mt-1 ui-control ui-input" data-i18n-placeholder="modals.placeholder.备注用途_如_识图主力模型" placeholder="备注用途，如“识图主力模型”"></div>
                 <label class="toggle-switch text-sm font-semibold text-warmText"><input type="checkbox" id="modelSupportsMic" role="switch"><span>音频输入能力（input_audio）</span></label>
+                <div>
+                  <label class="settings-field-label text-sm font-semibold text-warmText" for="modelThinkingEffort" data-i18n="dynamic.settingsCustomModels.思考模式">思考模式</label>
+                  <select id="modelThinkingEffort" class="w-full px-4 py-2 bg-cream rounded-xl mt-1 ui-control ui-select">
+                    <option value="off" data-i18n="dynamic.settingsCustomModels.关闭思考">关</option>
+                    <option value="low" data-i18n="dynamic.settingsCustomModels.低">低</option>
+                    <option value="medium" data-i18n="dynamic.settingsCustomModels.中">中</option>
+                    <option value="high" data-i18n="dynamic.settingsCustomModels.高">高</option>
+                  </select>
+                  <p id="modelThinkingEffortHint" class="settings-section-hint mt-1" data-i18n="dynamic.settingsCustomModels.思考程度提示">按模型档案单独生效；平台不支持时不会注入思考参数。</p>
+                </div>
               </div></div>
             </div>
           </section>

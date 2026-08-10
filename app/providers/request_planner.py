@@ -144,6 +144,22 @@ def plan_http_request(req: GenerationRequest) -> PlannedHttpRequest:
         )
         effective_req = replace(req, audio_data_uri=None)
     body = adapter.build_body(effective_req, caps, warnings) if hasattr(adapter, "build_body") else _plan_openai_chat_body(effective_req, endpoint, api_mode, caps, warnings)
+    # Adapters own message/transport shape; thinking remains a shared
+    # capability contract so every adapter receives the same per-model level.
+    if req.force_thinking_off or req.purpose in ("connection_probe", "knowledge_organize"):
+        apply_thinking_disabled(body, caps=caps)
+    elif req.reasoning_enabled is not None:
+        if catalog_model_supports_thinking_toggle(req.model_id) and caps.thinking_param_style != "none":
+            apply_thinking_mode(
+                body,
+                enabled=bool(req.reasoning_enabled),
+                caps=caps,
+                effort=req.reasoning_effort,
+            )
+        elif caps.thinking_param and caps.thinking_param_style != "none":
+            apply_thinking_disabled(body, caps=caps)
+    elif caps.thinking_param and caps.thinking_param_style != "none" and req.purpose == "visual_danmu":
+        apply_thinking_disabled(body, caps=caps)
     if not req.stream_options:
         body.pop("stream_options", None)
     elif caps.stream_usage_in_final_chunk and req.stream:

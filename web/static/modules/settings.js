@@ -73,8 +73,6 @@ import {
 } from './settings-hints.js';
 import {
   catalogModelSupportsMic,
-  catalogModelSupportsThinkingToggle,
-  catalogModelThinkingMode,
   configureSettingsModelCatalog,
   evaluateMicAudioSupported,
   loadModelCatalog,
@@ -93,7 +91,6 @@ import {
   applyProviderPreset as applyProviderPresetImpl,
   configureSettingsProviders,
   guessProviderIdFromEndpoint,
-  isThinkingSupportedForProvider,
   loadProviders,
   renderProviderStatus,
   resolveProviderByEndpoint,
@@ -241,7 +238,6 @@ export function configureSettingsBindings(deps) {
   });
   configureSettingsModelCatalog({
     updateMicModeHint,
-    onVisionModelChanged: updateThinkingModeFromForm,
     onCatalogLoadFailed: () => {
       showToast(t('dynamic.settings.模型目录加载失败_视觉模型列表可能为空_请刷新页'), true);
     },
@@ -283,7 +279,6 @@ export function configureSettingsBindings(deps) {
     updateMicModeHint,
     updateModelActiveSourceBanner,
     updateMicActiveSourceBanner,
-    updateThinkingModeAvailability,
     setMicAudioLikelySupported: (value) => {
       micAudioLikelySupported = value;
     },
@@ -601,52 +596,6 @@ export async function loadScreens() {
 }
 
 
-function syncThinkingAdvancedControls(mode, known) {
-  const effort = document.getElementById('thinking_effort');
-  const always = document.getElementById('thinking_always_on');
-  const unknown = document.getElementById('thinkingUnknownBadge');
-  const effortApplicable = known && (mode === 'hybrid' || mode === 'always');
-  if (effort) effort.disabled = !effortApplicable;
-  if (always) {
-    always.disabled = !effortApplicable;
-    if (mode === 'always') always.checked = true;
-  }
-  if (unknown) unknown.classList.toggle('hidden', known);
-}
-
-export function updateThinkingModeAvailability(cfg) {
-  const checkbox = document.getElementById('use_thinking');
-  const hint = document.getElementById('thinkingModeHint');
-  const state = ['off', 'hybrid', 'always'].includes(cfg.thinking_mode) ? cfg.thinking_mode : null;
-  const supported = Boolean(state) && (state === 'hybrid' || state === 'always' || cfg.thinking_supported === true);
-  syncThinkingAdvancedControls(state, Boolean(state));
-  if (checkbox) {
-    checkbox.disabled = !supported;
-    checkbox.classList.toggle('opacity-60', !supported);
-    checkbox.classList.toggle('cursor-not-allowed', !supported);
-  }
-  if (hint) { hint.textContent = t(`dynamic.settingsModelCatalog.thinking_${state || 'unknown'}`); hint.classList.remove('hidden'); }
-}
-
-function updateThinkingModeFromForm() {
-  const presetSel = document.getElementById('providerPreset');
-  const providerId = (presetSel?.value || '').trim() || resolveProviderIdForPicker();
-  const modelId = (document.getElementById('model')?.value || '').trim();
-  const declared = catalogModelSupportsThinkingToggle(modelId);
-  const mode = catalogModelThinkingMode(modelId);
-  const supported = isThinkingSupportedForProvider(providerId) && (declared || mode === 'hybrid' || mode === 'always');
-  syncThinkingAdvancedControls(mode, Boolean(mode));
-  const checkbox = document.getElementById('use_thinking');
-  const hint = document.getElementById('thinkingModeHint');
-  if (checkbox) {
-    checkbox.disabled = !supported;
-    checkbox.classList.toggle('opacity-60', !supported);
-    checkbox.classList.toggle('cursor-not-allowed', !supported);
-  }
-  if (hint) { hint.textContent = t(`dynamic.settingsModelCatalog.thinking_${mode || (modelId ? 'unknown' : 'unavailable')}`); hint.classList.remove('hidden'); }
-  renderProviderStatus(providerId);
-}
-
 export function bindSettingsControls(deps = {}) {
   configureSettingsBindings(deps);
   initSettingsRhythmAccordion();
@@ -761,7 +710,6 @@ export function bindSettingsControls(deps = {}) {
   document.getElementById('providerPreset')?.addEventListener('change', (e) => {
     if (e.target.value) applyProviderPreset(e.target.value);
     else syncProviderPresetAfterEndpointEdit();
-    updateThinkingModeFromForm();
   });
 
   document.getElementById('api_endpoint')?.addEventListener('change', () => {
@@ -770,7 +718,6 @@ export function bindSettingsControls(deps = {}) {
   document.getElementById('api_mode')?.addEventListener('change', () => {
     resolveProviderByEndpoint();
     updateMicModeHint();
-    updateThinkingModeFromForm();
   });
 
   document.getElementById('modelModalForm')?.addEventListener('submit', async (e) => {

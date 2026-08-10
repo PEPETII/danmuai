@@ -33,6 +33,7 @@ if TYPE_CHECKING:
 
 # 掩码：前端拿到的 apiKey 都是这个常量；原始 key 只在写入时使用，不对外暴露
 MASKED_KEY = "********"
+THINKING_EFFORT_VALUES = ("off", "low", "medium", "high")
 
 
 def _mask_model(model: dict) -> dict:
@@ -87,6 +88,18 @@ def _normalize_supports_mic(payload: dict, existing: dict | None) -> bool:
     if existing is not None:
         return bool(existing.get("supportsMic"))
     return False
+
+
+def _normalize_thinking_effort(payload: dict, existing: dict | None) -> str:
+    """Normalize the per-model thinking selector to its four public values."""
+    if "thinking_effort" in payload:
+        raw = payload.get("thinking_effort")
+    elif existing is not None:
+        raw = existing.get("thinking_effort")
+    else:
+        raw = None
+    value = str(raw or "off").strip().lower()
+    return value if value in THINKING_EFFORT_VALUES else "off"
 
 
 def _assert_canonical_http_payload(payload: dict, existing: dict | None) -> None:
@@ -167,6 +180,7 @@ def _normalize_payload(payload: dict, existing: dict | None = None, app: "DanmuA
         "description": (payload.get("description") or "").strip(),
         "provider": (payload.get("provider") or "").strip(),
         "supportsMic": _normalize_supports_mic(payload, existing),
+        "thinking_effort": _normalize_thinking_effort(payload, existing),
     }
 
 

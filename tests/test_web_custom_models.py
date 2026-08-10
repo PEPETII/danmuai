@@ -44,11 +44,16 @@ def _model_payload(model_id: str, **kwargs) -> dict:
         payload["max_tokens"] = kwargs["max_tokens"]
     if "supportsMic" in kwargs:
         payload["supportsMic"] = kwargs["supportsMic"]
+    if "thinking_effort" in kwargs:
+        payload["thinking_effort"] = kwargs["thinking_effort"]
     return payload
 
 
 def test_custom_model_crud(model_app):
-    created = cm_api.create_custom_model(model_app, _model_payload("test-model"))
+    created = cm_api.create_custom_model(
+        model_app,
+        _model_payload("test-model", thinking_effort="high"),
+    )
     assert created["index"] == 0
 
     listing = cm_api.list_custom_models(model_app)
@@ -57,6 +62,7 @@ def test_custom_model_crud(model_app):
     assert listing["items"][0]["model_ids"] == ["test-model"]
     assert listing["items"][0]["default_model_id"] == "test-model"
     assert listing["items"][0]["max_tokens"] == 512
+    assert listing["items"][0]["thinking_effort"] == "high"
     assert "modelId" not in listing["items"][0]
 
     updated = cm_api.update_custom_model(
@@ -91,6 +97,18 @@ def test_custom_model_crud(model_app):
 
     cm_api.delete_custom_model(model_app, 0)
     assert model_app.config.get_custom_models() == []
+
+
+@pytest.mark.parametrize(
+    "value, expected",
+    [("off", "off"), ("low", "low"), ("medium", "medium"), ("high", "high"), ("invalid", "off")],
+)
+def test_custom_model_thinking_effort_is_normalized(model_app, value, expected):
+    created = cm_api.create_custom_model(
+        model_app,
+        _model_payload("thinking-model", thinking_effort=value),
+    )
+    assert created["item"]["thinking_effort"] == expected
 
 
 def test_create_custom_model_returns_readable_validation_error(model_app):
