@@ -5,13 +5,9 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-# Known historical debt: model tag chips styles still live in modals partial.
-# Do not expand this set; migrate to warm-tokens-*.css then remove.
-_ALLOW_STYLE_BLOCKS: frozenset[str] = frozenset(
-    {
-        "modals.html",
-    }
-)
+# No partial is allowed to own a bare <style> block; shared styles belong in
+# warm-tokens-*.css.
+_ALLOW_STYLE_BLOCKS: frozenset[str] = frozenset()
 
 # Inline style="" is discouraged; soft cap avoids one-off layout escapes failing CI.
 _MAX_INLINE_STYLE_ATTRS = 8

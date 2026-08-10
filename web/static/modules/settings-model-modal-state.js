@@ -122,6 +122,7 @@ export function syncModelModalUIState({
   const catalogModel = catalogModels.find((model) => model.id === selectedId);
   const isCatalogPreset = Boolean(catalogModel) && selectedId !== CUSTOM_VALUE;
   const endpoint = document.getElementById("modelEndpoint");
+  const modelIdsWrap = document.getElementById("modelIdsTagsWrap");
   const input = document.getElementById("modelIdsInput");
   const mic = document.getElementById("modelSupportsMic");
   const customIds =
@@ -134,11 +135,12 @@ export function syncModelModalUIState({
     endpoint.classList.toggle("bg-gray-100", !customProvider);
     endpoint.classList.toggle("cursor-not-allowed", !customProvider);
   }
+  if (modelIdsWrap) modelIdsWrap.classList.toggle("hidden", !customIds);
   if (input) {
-    input.disabled = isCatalogPreset;
-    input.placeholder = isCatalogPreset
-      ? ""
-      : t("dynamic.settingsCustomModels.例如_doubao_1_5_pro_32k_25");
+    input.disabled = !customIds;
+    input.placeholder = customIds
+      ? t("dynamic.settingsCustomModels.例如_doubao_1_5_pro_32k_25")
+      : "";
   }
   if (mic && isCatalogPreset) {
     mic.checked = Boolean(catalogModel.supports_mic);

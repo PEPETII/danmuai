@@ -500,10 +500,10 @@ function onModelIdPresetChange() {
     // 自定义配置：启用 chip 输入
     setChipInputState(true, false);
   } else {
-    // 普通模型：替换 chip 为选中模型，禁用 chip 输入
+    // 预设模型：保留选中 ID 供保存，但隐藏不可编辑的 chip 输入区
     clearTagChips();
     addTagChip(value);
-    setChipInputState(true, true);
+    setChipInputState(false, true);
 
     // 新增模式下同步显示名称
     const editIndex = parseInt(
@@ -581,7 +581,7 @@ function onProviderChangeInModal(providerId, options = {}) {
     // 替换 chip 为默认模型
     clearTagChips();
     if (defaultId) addTagChip(defaultId);
-    setChipInputState(true, true);
+    setChipInputState(false, true);
 
     // 同步显示名称
     const modelName = getModelNameFromCatalog(providerId, defaultId);
@@ -642,7 +642,7 @@ export function openModelModal(index, model = {}) {
     if (isCustomModel) {
       setChipInputState(true, false);
     } else {
-      setChipInputState(true, true);
+      setChipInputState(false, true);
     }
 
     // 显示名称：优先保留原名称
