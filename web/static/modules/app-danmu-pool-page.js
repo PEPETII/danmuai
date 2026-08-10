@@ -3,13 +3,8 @@ import { t } from './i18n.js';
 
 const MAX_IMPORT_FILES = 5;
 const MAX_LINES_PER_FILE = 1000;
-const PAGE_SIZE = 100;
 
 let danmuPoolMeta = null;
-let currentPage = 1;
-let listTotal = 0;
-let searchQuery = '';
-let searchTimer = null;
 let toast = () => {};
 let handlersBound = false;
 
@@ -29,78 +24,6 @@ function updatePoolMinOnScreenControl() {
   if (wrap) wrap.classList.toggle('is-disabled', !enabled);
   const hint = document.getElementById('poolBothOffHint');
   if (hint) hint.classList.toggle('hidden', Boolean(enabled));
-}
-
-function formatCustomPoolCount() {
-  const total = danmuPoolMeta?.custom_count ?? 0;
-  const max = danmuPoolMeta?.custom_max ?? 20000;
-  const manual = danmuPoolMeta?.manual_count;
-  const base = t('dynamic.appDanmuPoolPage.自定义库_total_max', { total, max });
-  return manual != null ? t('dynamic.appDanmuPoolPage.base_手动_manual_条', { base, manual }) : base;
-}
-
-function updatePoolCustomPager() {
-  const pageInfo = document.getElementById('poolCustomPageInfo');
-  const prevBtn = document.getElementById('btnPoolCustomPrev');
-  const nextBtn = document.getElementById('btnPoolCustomNext');
-  const totalPages = Math.max(1, Math.ceil(listTotal / PAGE_SIZE));
-  if (pageInfo) {
-    pageInfo.textContent = t('dynamic.appDanmuPoolPage.第_currentPage_tot', {
-      currentPage,
-      totalPages,
-      pageSize: PAGE_SIZE,
-    });
-  }
-  if (prevBtn) prevBtn.disabled = currentPage <= 1;
-  if (nextBtn) nextBtn.disabled = currentPage >= totalPages;
-}
-
-function renderCustomDanmuPoolList(payload) {
-  const items = payload?.items || [];
-  listTotal = payload?.total ?? items.length;
-  currentPage = payload?.page ?? currentPage;
-
-  const list = document.getElementById('poolCustomList');
-  const countEl = document.getElementById('poolCustomCount');
-  if (countEl) countEl.textContent = formatCustomPoolCount();
-  if (!list) return;
-  list.replaceChildren();
-  items.forEach((entry) => {
-    const text = typeof entry === 'string' ? entry : entry.text;
-    const id = typeof entry === 'object' && entry != null ? entry.id : null;
-    const li = document.createElement('li');
-    li.className = 'danmu-pool-custom-item';
-    const label = document.createElement('label');
-    label.className = 'toggle-switch flex items-start gap-2 text-warmText';
-    const cb = document.createElement('input');
-    cb.type = 'checkbox';
-    cb.setAttribute('role', 'switch');
-    cb.className = 'pool-custom-cb mt-1';
-    if (id != null) cb.dataset.id = String(id);
-    const span = document.createElement('span');
-    span.textContent = text;
-    label.append(cb, span);
-    li.append(label);
-    list.append(li);
-  });
-  const selectAll = document.getElementById('poolCustomSelectAll');
-  if (selectAll) selectAll.checked = false;
-  updatePoolCustomPager();
-}
-
-async function fetchCustomPage(page = currentPage, search = searchQuery) {
-  const params = new URLSearchParams({
-    page: String(page),
-    page_size: String(PAGE_SIZE),
-    source: 'manual',
-  });
-  if (search.trim()) params.set('search', search.trim());
-  return apiFetch(`/api/danmu-pool/custom?${params.toString()}`);
-}
-
-async function loadCustomPage(page = currentPage) {
-  const payload = await fetchCustomPage(page, searchQuery);
-  renderCustomDanmuPoolList(payload);
 }
 
 function readFileAsText(file, encoding) {
@@ -187,8 +110,6 @@ async function importCustomDanmuPoolTxtFiles(fileList) {
     });
 
     danmuPoolMeta = await apiFetch('/api/danmu-pool/meta');
-    const countEl = document.getElementById('poolCustomCount');
-    if (countEl) countEl.textContent = formatCustomPoolCount();
 
     const added = result.added || 0;
     const skipped = result.skipped || 0;
@@ -212,11 +133,6 @@ export async function loadDanmuPoolPage() {
   const minEl = document.getElementById('poolMinOnScreen');
   if (customEl) customEl.checked = Boolean(danmuPoolMeta.custom_enabled);
   if (minEl) minEl.value = String(danmuPoolMeta.min_on_screen ?? 5);
-  currentPage = 1;
-  searchQuery = '';
-  const searchEl = document.getElementById('poolCustomSearch');
-  if (searchEl) searchEl.value = '';
-  await loadCustomPage(1);
   updatePoolMinOnScreenControl();
 }
 
@@ -247,28 +163,7 @@ async function addCustomDanmuPoolItems() {
   });
   danmuPoolMeta = await apiFetch('/api/danmu-pool/meta');
   if (textarea) textarea.value = '';
-  currentPage = 1;
-  await loadCustomPage(1);
   showToast(t('dynamic.appDanmuPoolPage.已追加手动条目'));
-}
-
-async function deleteSelectedCustomDanmuPoolItems() {
-  const ids = [...document.querySelectorAll('#poolCustomList .pool-custom-cb:checked')]
-    .map((cb) => parseInt(cb.dataset.id, 10))
-    .filter((id) => Number.isFinite(id) && id > 0);
-  if (!ids.length) {
-    showToast(t('dynamic.appDanmuPoolPage.请先勾选要删除的句子'), true);
-    return;
-  }
-  const result = await apiFetch('/api/danmu-pool/custom', {
-    method: 'DELETE',
-    body: JSON.stringify({ ids }),
-  });
-  danmuPoolMeta = await apiFetch('/api/danmu-pool/meta');
-  const totalPages = Math.max(1, Math.ceil((danmuPoolMeta.custom_count || 0) / PAGE_SIZE));
-  if (currentPage > totalPages) currentPage = totalPages;
-  await loadCustomPage(currentPage);
-  showToast(t('dynamic.appDanmuPoolPage.已删除_result_removed_条', { removed: result.removed }));
 }
 
 export function initDanmuPoolPage(deps = {}) {
@@ -286,15 +181,6 @@ export function initDanmuPoolPage(deps = {}) {
     const textarea = document.getElementById('poolCustomTextarea');
     if (textarea) textarea.value = '';
   });
-  document.getElementById('btnPoolCustomDelete')?.addEventListener('click', () => {
-    deleteSelectedCustomDanmuPoolItems().catch((error) => showToast(error.message, true));
-  });
-  document.getElementById('poolCustomSelectAll')?.addEventListener('change', (event) => {
-    const checked = event.target.checked;
-    document.querySelectorAll('#poolCustomList .pool-custom-cb').forEach((cb) => {
-      cb.checked = checked;
-    });
-  });
   document.getElementById('poolCustomEnabled')?.addEventListener('change', () => {
     if (danmuPoolMeta) {
       danmuPoolMeta.effective_pool_enabled = poolEffectiveEnabledLocal();
@@ -308,24 +194,5 @@ export function initDanmuPoolPage(deps = {}) {
     importCustomDanmuPoolTxtFiles(event.target.files).catch((error) =>
       showToast(error.message || t('dynamic.appDanmuPoolPage.导入失败'), true),
     );
-  });
-  document.getElementById('btnPoolCustomPrev')?.addEventListener('click', () => {
-    if (currentPage <= 1) return;
-    currentPage -= 1;
-    loadCustomPage(currentPage).catch((error) => showToast(error.message, true));
-  });
-  document.getElementById('btnPoolCustomNext')?.addEventListener('click', () => {
-    const totalPages = Math.max(1, Math.ceil(listTotal / PAGE_SIZE));
-    if (currentPage >= totalPages) return;
-    currentPage += 1;
-    loadCustomPage(currentPage).catch((error) => showToast(error.message, true));
-  });
-  document.getElementById('poolCustomSearch')?.addEventListener('input', (event) => {
-    searchQuery = event.target.value || '';
-    if (searchTimer) clearTimeout(searchTimer);
-    searchTimer = setTimeout(() => {
-      currentPage = 1;
-      loadCustomPage(1).catch((error) => showToast(error.message, true));
-    }, 300);
   });
 }

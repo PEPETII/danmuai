@@ -65,14 +65,12 @@ def register_danmu_pool_routes(
     def get_danmu_pool_custom(
         page: int = 1,
         page_size: int = pool_api.DEFAULT_PAGE_SIZE,
-        search: str = "",
         source: str = "manual",
     ):
         return pool_api.list_custom(
             bridge.danmu_app,
             page=page,
             page_size=page_size,
-            search=search,
             source=source,
         )
 

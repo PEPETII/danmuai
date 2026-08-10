@@ -233,9 +233,6 @@
       }
     },
     "appDanmuPoolPage": {
-      "自定义库_total_max": "Custom pool: {total} / {max}",
-      "base_手动_manual_条": "{base} (manual {manual})",
-      "第_currentPage_tot": "Page {currentPage} / {totalPages} (up to {pageSize} per page)",
       "文件读取失败": "File read failed",
       "重复": "Duplicate",
       "空行": "Blank line",
@@ -248,9 +245,7 @@
       "导入失败": "Import failed",
       "公式化弹幕库设置已保存": "Formula danmu pool settings saved",
       "请先输入要追加的弹幕句子": "Enter danmu lines to append first",
-      "已追加手动条目": "Manual entry appended",
-      "请先勾选要删除的句子": "Select lines to delete first",
-      "已删除_result_removed_条": "Deleted {removed} items"
+      "已追加手动条目": "Manual entry appended"
     },
     "appErrorReporting": {
       "暂时无法查询提交额度": "Cannot query submit quota right now",

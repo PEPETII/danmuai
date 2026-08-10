@@ -419,7 +419,6 @@ def custom_danmu_list_for_store(
     store,
     page: int = 1,
     page_size: int = 100,
-    search: str = "",
     source: str | None = "manual",
 ) -> dict:
     if not store._conn_usable():
@@ -432,11 +431,6 @@ def custom_danmu_list_for_store(
     if source:
         clauses.append("source = ?")
         params.append(source)
-    query = str(search or "").strip()
-    if query:
-        escaped = query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-        clauses.append("text LIKE ? ESCAPE '\\'")
-        params.append(f"%{escaped}%")
     where = " AND ".join(clauses)
     total_row = store.conn.execute(
         f"SELECT COUNT(*) FROM custom_danmu_pool_entries WHERE {where}",

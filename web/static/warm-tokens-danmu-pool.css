@@ -94,21 +94,6 @@
   min-height: 8rem;
 }
 
-.danmu-pool-custom-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  max-height: 20rem;
-  overflow-y: auto;
-}
-
-.danmu-pool-custom-item {
-  padding: 0.65rem 0.85rem;
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-  border: 1px solid var(--border);
-}
-
 .meme-tag-grid {
   display: flex;
   flex-wrap: wrap;

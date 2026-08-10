@@ -253,49 +253,6 @@ def test_pool_topup_entry_zone_overloaded_non_callable_no_error(qapp, workspace_
     assert added >= 0
 
 
-def test_custom_danmu_list_search_like_escape_percent(tmp_path):
-    """F02: 搜索 '100%' 不匹配 '100X'。"""
-    from app.config_store import ConfigStore
-
-    store = ConfigStore(db_path=tmp_path / "like_escape.db")
-    store.set_custom_danmu_pool(["100%", "100X", "完成率100%", "测试句"])
-    found = store.custom_danmu_list(page=1, page_size=50, search="100%", source="manual")
-    assert found["total"] == 2
-    texts = [item["text"] for item in found["items"]]
-    assert "100%" in texts
-    assert "完成率100%" in texts
-    assert "100X" not in texts
-    store.close()
-
-
-def test_custom_danmu_list_search_like_escape_underscore(tmp_path):
-    """F02: 搜索 '_test' 不匹配 'atest'。"""
-    from app.config_store import ConfigStore
-
-    store = ConfigStore(db_path=tmp_path / "like_escape_us.db")
-    store.set_custom_danmu_pool(["_test", "atest", "b_test", "xtest"])
-    found = store.custom_danmu_list(page=1, page_size=50, search="_test", source="manual")
-    texts = [item["text"] for item in found["items"]]
-    assert "_test" in texts
-    assert "b_test" in texts
-    assert "atest" not in texts
-    assert "xtest" not in texts
-    store.close()
-
-
-def test_custom_danmu_list_search_like_escape_backslash(tmp_path):
-    """F02: 搜索含反斜杠的文本正确匹配。"""
-    from app.config_store import ConfigStore
-
-    store = ConfigStore(db_path=tmp_path / "like_escape_bs.db")
-    store.set_custom_danmu_pool([r"path\to\file", "pathXtoYfile", "normal"])
-    found = store.custom_danmu_list(page=1, page_size=50, search=r"path\to", source="manual")
-    texts = [item["text"] for item in found["items"]]
-    assert r"path\to\file" in texts
-    assert "pathXtoYfile" not in texts
-    store.close()
-
-
 def test_set_custom_danmu_pool_respects_max(tmp_path, monkeypatch):
     """F03: set_custom_danmu_pool 超过 CUSTOM_DANMU_POOL_MAX 时截断。"""
     from app.config_store import ConfigStore

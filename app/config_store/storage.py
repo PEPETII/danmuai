@@ -638,12 +638,11 @@ class ConfigStore:
         self,
         page: int = 1,
         page_size: int = 100,
-        search: str = "",
         source: str | None = "manual",
     ) -> dict:
         from app.danmu_pool import custom_danmu_list_for_store
 
-        return custom_danmu_list_for_store(self, page, page_size, search, source)
+        return custom_danmu_list_for_store(self, page, page_size, source)
 
     def custom_danmu_insert_many(self, texts: list[str], source: str = "manual") -> dict[str, int]:
         from app.danmu_pool import custom_danmu_insert_many_for_store

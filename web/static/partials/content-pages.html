@@ -169,28 +169,6 @@
               <button type="button" id="btnPoolCustomClearInput" class="px-6 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--md">清空输入</button>
             </div>
           </div>
-          <div class="danmu-pool-section">
-            <div class="flex flex-wrap items-center gap-4 mb-3">
-              <p class="settings-section-title mb-0">已保存自定义句</p>
-              <span id="poolCustomCount" class="text-sm text-gray-500">自定义库：0 / 20000</span>
-            </div>
-            <p id="poolCustomListHint" class="settings-section-hint mb-2">这里只显示你手动添加的句子。TXT 导入的内容已经入库参与抽取，但不在此列表里逐条显示。</p>
-            <div class="flex flex-wrap items-center gap-3 mb-3">
-              <input type="search" id="poolCustomSearch" class="settings-field-control max-w-xs px-3 py-2 bg-cream rounded-xl text-warmText border border-softPeach ui-control ui-input" data-i18n-placeholder="content.placeholder.搜索手动条目" placeholder="搜索手动条目" data-i18n-aria-label="content.placeholder.搜索手动条目" aria-label="搜索手动条目">
-              <label class="toggle-switch text-sm font-semibold text-warmText">
-                <input type="checkbox" id="poolCustomSelectAll" role="switch">
-                <span>全选本页</span>
-              </label>
-              <button type="button" id="btnPoolCustomDelete" class="px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--sm">删除选中</button>
-            </div>
-            <p class="settings-section-hint mb-2">勾选后可一次性选中本页所有句子，方便批量删除。</p>
-            <ul id="poolCustomList" class="danmu-pool-custom-list space-y-2"></ul>
-            <div id="poolCustomPager" class="flex flex-wrap items-center gap-3 mt-4 text-sm text-warmText">
-              <button type="button" id="btnPoolCustomPrev" class="px-3 py-1.5 bg-white border border-gray-200 rounded-lg font-semibold hover:bg-gray-50 ui-button ui-button--secondary ui-button--sm">上一页</button>
-              <span id="poolCustomPageInfo" class="text-gray-500">第 1 页</span>
-              <button type="button" id="btnPoolCustomNext" class="px-3 py-1.5 bg-white border border-gray-200 rounded-lg font-semibold hover:bg-gray-50 ui-button ui-button--secondary ui-button--sm">下一页</button>
-            </div>
-          </div>
         </div>
       </div>
     </section>

@@ -363,7 +363,6 @@ def test_web_content_page_field_hints_wired():
     assert "控制烂梗弹幕的上屏节奏" in html
     assert "清空本地烂梗库与待展示队列" in html
     assert "设为 0 则关闭补足" in html
-    assert "勾选「全选本页」后可选中列表全部自定义句" in html
     assert 'for="personaSelect"' in html
     assert 'id="hintPersonaActiveTitle"' in html
 

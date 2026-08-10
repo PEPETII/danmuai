@@ -767,17 +767,13 @@ def test_custom_danmu_pool_json_migration(tmp_path):
     store.close()
 
 
-def test_custom_danmu_pool_pagination_and_search(tmp_path):
+def test_custom_danmu_pool_pagination(tmp_path):
     store = ConfigStore(db_path=tmp_path / "pool_page.db")
     store.set_custom_danmu_pool([f"手动句{i}" for i in range(5)])
     page = store.custom_danmu_list(page=1, page_size=2, source="manual")
     assert page["total"] == 5
     assert len(page["items"]) == 2
     assert page["items"][0]["id"] > 0
-
-    found = store.custom_danmu_list(page=1, page_size=50, search="手动句3", source="manual")
-    assert found["total"] == 1
-    assert found["items"][0]["text"] == "手动句3"
     store.close()
 
 

@@ -61,7 +61,6 @@
     "poolCustomEnabled": "When on, pulls short lines from your custom pool when danmu count is low.",
     "poolMinOnScreen": "When on-screen danmu fall below this, pull from custom pool. 0 disables fill.",
     "poolCustomTextarea": "One short line per row; full display on screen. Duplicates skipped.",
-    "poolCustomSelectAll": "When checked, select all custom lines for batch delete.",
     "petEnabled": "Shows desktop pet; use pet context menu to hide temporarily.",
     "petScale": "Pet scale (0.5–2.0). 1 = default size.",
     "petOpacity": "Pet window opacity (0.2–1.0). 1 = opaque.",

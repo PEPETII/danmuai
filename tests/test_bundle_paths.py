@@ -472,7 +472,6 @@ def test_danmu_pool_txt_import_controls_in_content_pages():
         assert 'id="poolImportTxtInput"' in html
         assert "每个文件最多 1000 行" in html
     assert "importCustomDanmuPoolTxtFiles" in pool_js
-    assert "formatCustomPoolCount" in pool_js
 
 
 def test_resource_path_pet_default_pet_json_and_spritesheet():

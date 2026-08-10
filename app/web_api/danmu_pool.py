@@ -87,7 +87,6 @@ def list_custom(
     *,
     page: int = 1,
     page_size: int = DEFAULT_PAGE_SIZE,
-    search: str = "",
     source: str = "manual",
 ) -> dict[str, Any]:
     list_fn = getattr(app.config, "custom_danmu_list", None)
@@ -102,7 +101,6 @@ def list_custom(
     return list_fn(
         page=page,
         page_size=_clamp_page_size(page_size),
-        search=search,
         source=source or None,
     )
 
