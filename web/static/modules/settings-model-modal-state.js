@@ -43,36 +43,6 @@ function syncDefaultSelect() {
   select.value = current;
 }
 
-function renderPresetMeta(model) {
-  const meta = document.getElementById("modelPresetMeta");
-  if (!meta) return;
-  meta.replaceChildren();
-  if (!model) {
-    meta.textContent = t(
-      "dynamic.settingsCustomModels.暂未获取到该模型的能力信息",
-    );
-    meta.classList.remove("hidden");
-    return;
-  }
-  const title = document.createElement("strong");
-  title.textContent = `${model.name || model.id || ""}${model.main_flow_recommended ? ` · ${t("dynamic.settingsCustomModels.推荐")}` : ""}`;
-  const id = document.createElement("span");
-  id.textContent = model.id || "";
-  const badges = document.createElement("span");
-  badges.textContent = [
-    model.supports_mic ? t("dynamic.settingsCustomModels.支持麦克风") : "",
-    ...(model.input_modalities || []).filter((item) =>
-      ["image", "audio"].includes(item),
-    ),
-    model.thinking_mode ? String(model.thinking_mode) : "",
-    model.status ? String(model.status) : "",
-  ]
-    .filter(Boolean)
-    .join(" · ");
-  [title, id, badges].forEach((node) => meta.appendChild(node));
-  meta.classList.remove("hidden");
-}
-
 function setAdvancedOpen(open) {
   const root = document.querySelector(
     "#modelModal [data-settings-rhythm-accordion]",
@@ -146,13 +116,6 @@ export function syncModelModalUIState({
     mic.checked = Boolean(catalogModel.supports_mic);
     mic.disabled = true;
   } else if (mic) mic.disabled = false;
-  renderPresetMeta(
-    isCatalogPreset
-      ? catalogModel
-      : selectedId && selectedId !== CUSTOM_VALUE
-        ? null
-        : null,
-  );
   syncModelThinkingEffort({ catalogModel: isCatalogPreset ? catalogModel : null });
   syncDefaultSelect();
   setAdvancedOpen(customIds || (isEdit && !isCatalogPreset));

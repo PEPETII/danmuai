@@ -249,14 +249,6 @@
   display: grid;
   gap: var(--space-4);
 }
-.model-preset-meta {
-  margin-top: var(--space-2);
-  padding: var(--space-3);
-  border-radius: var(--radius-md);
-  background: var(--surface-subtle);
-  overflow-wrap: anywhere;
-}
-
 .tag-input-container {
   display: flex;
   flex-wrap: wrap;
@@ -474,6 +466,33 @@ html[data-theme="dark"] .problem-detail-severity--fatal {
 }
 
 /* Knowledge package page (UI rework) */
+#knowledgeAddSource {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+#knowledgeAddSource > .settings-section-title,
+#knowledgeAddSource > .settings-section-hint {
+  margin: 0;
+}
+
+#knowledgeAddSource .settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-5);
+}
+
+#knowledgeAddSource .settings-field.hidden {
+  display: none;
+}
+
+#knowledgeAddSource .settings-field-label,
+#knowledgeAddSource .settings-field .settings-section-hint {
+  margin: 0;
+}
+
 .knowledge-quick-start-steps {
   list-style: none;
   padding: 0;
@@ -483,26 +502,27 @@ html[data-theme="dark"] .problem-detail-severity--fatal {
 .knowledge-source-type-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
-  gap: var(--space-3, 0.75rem);
+  gap: var(--space-4);
 }
 
 .knowledge-source-type-card {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  padding: 0.75rem 1rem;
+  gap: var(--space-2);
+  min-height: 8rem;
+  padding: var(--space-4) var(--space-5);
   border: 1px solid var(--border-soft, #f5e6d3);
   border-radius: 0.75rem;
-  background: var(--cream, #fdfbf7);
+  background: var(--surface-card);
   text-align: left;
   cursor: pointer;
   min-width: 0;
 }
 
 .knowledge-source-type-card.is-active {
-  border-color: var(--soft-peach, #ffd4b8);
-  background: #fff8f2;
-  box-shadow: 0 0 0 1px var(--soft-peach, #ffd4b8);
+  border-color: var(--border-brand);
+  background: rgba(var(--color-primary-rgb), 0.1);
+  box-shadow: 0 0 0 1px var(--border-brand);
 }
 
 .knowledge-status-badge {
