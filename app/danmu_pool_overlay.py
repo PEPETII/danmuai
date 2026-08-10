@@ -123,3 +123,8 @@ def is_overlay_safe(text: str, *, max_chars: int | None = 15, min_chars: int = 2
     if unique_chars < 2 and len(text) > 4:
         return False
     return True
+
+
+def is_formula_pool_txt_line_valid(text: str) -> bool:
+    """TXT 句库行校验：允许单字/短句，仍过滤违禁词与 URL 等不安全内容。"""
+    return is_overlay_safe(text, max_chars=None, min_chars=1)

@@ -233,19 +233,14 @@
       }
     },
     "appDanmuPoolPage": {
-      "文件读取失败": "File read failed",
-      "重复": "Duplicate",
-      "空行": "Blank line",
-      "超限": "Over limit",
-      "不安全": "Insecure",
-      "最多同时导入_5_个文件": "Import at most 5 files at once",
-      "文件_files_i_name_超过": "File「{fileName}」exceeds {maxLines} line limit",
-      "导入成功_新增_added_条_跳过": "Import done: added {added}, skipped {skipped}{skipHint}",
-      "部分字符无法识别": "; some characters could not be recognized",
-      "导入失败": "Import failed",
       "公式化弹幕库设置已保存": "Formula danmu pool settings saved",
-      "请先输入要追加的弹幕句子": "Enter danmu lines to append first",
-      "已追加手动条目": "Manual entry appended"
+      "暂无_TXT_句库文件": "No TXT pool files yet",
+      "文件_file_name_共_line_count_条": "{fileName} ({lineCount} lines)",
+      "句库已刷新_共_txt_line_count_条": "Pool refreshed: {lineCount} lines loaded",
+      "刷新句库失败": "Failed to refresh pool",
+      "打开文件夹失败": "Failed to open folder",
+      "已跳过_skipped_total_行": "Skipped {skippedTotal} lines (unsafe {skippedUnsafe}, blank {skippedEmpty}, duplicate {skippedDuplicate})",
+      "跳过不安全_skipped_unsafe": ", skipped {skippedUnsafe} unsafe"
     },
     "appErrorReporting": {
       "暂时无法查询提交额度": "Cannot query submit quota right now",

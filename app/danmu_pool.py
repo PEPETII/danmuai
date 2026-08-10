@@ -63,11 +63,16 @@ def effective_min_on_screen(config) -> int:
 def load_custom_danmu_pool(config) -> list[str]:
     """Load all custom pool texts (compat / export only).
 
-    Production hot paths should prefer ``custom_danmu_count``, paginated
-    ``custom_danmu_list``, or id-based sampling instead of this full load.
+    Production hot paths should prefer TXT folder snapshot or id-based sampling
+    instead of this full load.
     """
     if config is None or not danmu_pool_use_custom_from_config(config):
         return []
+    from app.custom_formula_txt_pool import load_txt_pool_snapshot
+
+    snapshot = load_txt_pool_snapshot(config)
+    if snapshot.texts:
+        return list(snapshot.texts)
     getter = getattr(config, "get_custom_danmu_pool", None)
     if callable(getter):
         items = getter()
@@ -80,8 +85,7 @@ def load_custom_danmu_pool(config) -> list[str]:
 def load_danmu_pool_for_config(config) -> list[str]:
     if not pool_enabled(config):
         return []
-    count_fn = getattr(config, "custom_danmu_count", None)
-    if callable(count_fn) and count_fn() <= 0:
+    if custom_pool_size(config) <= 0:
         return []
     return _sample_custom_pool_texts(config, 200)
 
@@ -136,13 +140,18 @@ def _sample_custom_pool_texts(
     *,
     rng: random.Random | None = None,
 ) -> list[str]:
-    """Sample up to *count* texts via id cache + batch text fetch (no full-table text load)."""
+    """Sample up to *count* texts from TXT folder pool (fallback: SQL id cache)."""
     if not pool_enabled(config) or count <= 0:
         return []
-    count_fn = getattr(config, "custom_danmu_count", None)
-    if callable(count_fn) and count_fn() <= 0:
-        return []
+    from app.custom_formula_txt_pool import sample_txt_pool_texts
+
     rng = rng or random
+    txt_texts = sample_txt_pool_texts(config, count, rng=rng)
+    if txt_texts:
+        return txt_texts
+
+    if custom_pool_size(config) <= 0:
+        return []
 
     ids = _custom_pool_id_list(config)
     if ids:
@@ -179,6 +188,11 @@ def _dedupe_lines(lines) -> list[str]:
 
 
 def custom_pool_size(config) -> int:
+    from app.custom_formula_txt_pool import txt_pool_line_count
+
+    txt_count = txt_pool_line_count(config)
+    if txt_count > 0:
+        return txt_count
     counter = getattr(config, "custom_danmu_count", None)
     if callable(counter):
         return int(counter())
@@ -187,6 +201,9 @@ def custom_pool_size(config) -> int:
 
 def invalidate_formula_text_cache(config: Any | None = None) -> None:
     """Drop cached formula-text sets after custom pool or meme library writes."""
+    from app.custom_formula_txt_pool import invalidate_txt_pool_cache
+
+    invalidate_txt_pool_cache(config)
     if config is None:
         _formula_meme_sets.clear()
         _formula_custom_lists.clear()
@@ -227,6 +244,10 @@ def is_stored_custom_pool_text(config, content: str) -> bool:
     text = str(content).strip()
     if not text:
         return False
+    from app.custom_formula_txt_pool import txt_pool_contains_text
+
+    if txt_pool_contains_text(config, text):
+        return True
     contains = getattr(config, "custom_danmu_contains_text", None)
     if callable(contains):
         return bool(contains(text))

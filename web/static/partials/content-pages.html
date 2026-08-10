@@ -135,39 +135,39 @@
 
         <div id="danmuPoolTab-custom" class="danmu-pool-tab-panel space-y-8" data-danmu-pool-panel="custom" role="tabpanel" hidden>
           <div class="danmu-pool-section">
-            <p class="settings-section-title">导入弹幕句库</p>
-            <p class="settings-section-hint">选择 TXT 文件导入，每行一句弹幕。一次最多选 5 个文件，每个文件最多 1000 行，会追加到现有弹幕库。</p>
-            <button type="button" id="btnPoolImportTxt" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm ui-button ui-button--primary ui-button--md">导入 TXT</button>
-            <input type="file" id="poolImportTxtInput" accept=".txt" multiple hidden>
+            <p class="settings-section-title" data-i18n="content.text.自定义弹幕句库">自定义弹幕句库</p>
+            <p class="settings-section-hint" data-i18n="content.text.自定义弹幕通过_TXT_文件管理_每个_TXT_文件可作为一个独立句库_可直接在文件夹中新增_编辑或删除_修改后刷新即可生效">自定义弹幕通过 TXT 文件管理。每个 TXT 文件可作为一个独立句库，可直接在文件夹中新增、编辑或删除，修改后刷新即可生效。</p>
+            <div class="flex flex-wrap gap-3 mt-3">
+              <button type="button" id="btnPoolOpenTxtFolder" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm ui-button ui-button--primary ui-button--md" data-i18n="content.text.打开_TXT_文件夹">打开 TXT 文件夹</button>
+              <button type="button" id="btnPoolRefreshTxt" class="px-6 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--md" data-i18n="content.text.刷新句库">刷新句库</button>
+            </div>
+            <div id="poolTxtStatus" class="mt-4 space-y-2">
+              <p class="settings-section-hint"><span data-i18n="content.text.TXT_文件数量">TXT 文件数量</span>：<span id="poolTxtFileCount">0</span></p>
+              <p class="settings-section-hint"><span data-i18n="content.text.弹幕总条数">弹幕总条数</span>：<span id="poolTxtLineCount">0</span></p>
+              <p id="poolTxtSkipHint" class="settings-section-hint hidden"></p>
+              <p class="settings-section-hint hidden" id="poolTxtDirWrap"><span data-i18n="content.text.句库目录">句库目录</span>：<span id="poolTxtDir" class="break-all"></span></p>
+              <ul id="poolTxtFileList" class="settings-section-hint list-disc pl-5 space-y-1"></ul>
+            </div>
           </div>
           <div class="danmu-pool-section">
-            <p class="settings-section-title">弹幕库来源</p>
+            <p class="settings-section-title" data-i18n="content.text.弹幕库来源">弹幕库来源</p>
             <div class="space-y-4">
               <label class="toggle-switch font-semibold text-warmText">
                 <input type="checkbox" id="poolCustomEnabled" role="switch">
-                <span>自定义公式化弹幕库</span>
+                <span data-i18n="content.text.自定义公式化弹幕库">自定义公式化弹幕库</span>
               </label>
-              <p class="settings-section-hint">开启后，当 AI 生成的弹幕不够时，会自动从你保存的句子里挑来补上。</p>
+              <p class="settings-section-hint" data-i18n="content.text.启用后_系统会从你保存的自定义弹幕句中抽取短句_用于弹幕不足时补足">开启后，当 AI 生成的弹幕不够时，会自动从你保存的句子里挑来补上。</p>
             </div>
           </div>
           <div class="danmu-pool-section">
-            <p class="settings-section-title">补足规则</p>
+            <p class="settings-section-title" data-i18n="content.text.补足规则">补足规则</p>
             <div id="poolMinOnScreenWrap" class="settings-field pool-min-on-screen max-w-xs">
-              <label for="poolMinOnScreen" class="settings-field-label">最小同屏条数</label>
+              <label for="poolMinOnScreen" class="settings-field-label" data-i18n="content.text.最小同屏条数">最小同屏条数</label>
               <input type="number" id="poolMinOnScreen" min="0" max="50" value="5" class="settings-field-control ui-control ui-input">
             </div>
-            <p class="settings-section-hint">当屏幕上弹幕数量少于这个数时，自动从自定义句库里抽句子补上。设成 0 就关闭补足功能。</p>
-            <p id="poolBothOffHint" class="settings-section-hint hidden">关闭自定义公式化弹幕库后，不会进行公式化弹幕补足。</p>
-            <button type="button" id="btnSavePoolSettings" class="btn-primary mt-4 px-6 py-2 text-white rounded-xl font-bold shadow-warm ui-button ui-button--primary ui-button--md">保存设置</button>
-          </div>
-          <div class="danmu-pool-section">
-            <p class="settings-section-title">追加自定义句</p>
-            <p class="settings-section-hint mb-2">每行写一句弹幕，保存后显示时不会截断。重复的句子会自动去重。</p>
-            <textarea id="poolCustomTextarea" rows="6" class="danmu-pool-textarea w-full px-4 py-3 bg-cream rounded-xl text-warmText border border-softPeach ui-control ui-textarea" data-i18n-placeholder="content.placeholder.太真实了_10_这也行" placeholder="太真实了&#10;这也行？"></textarea>
-            <div class="flex flex-wrap gap-3 mt-3">
-              <button type="button" id="btnPoolCustomAppend" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm ui-button ui-button--primary ui-button--md">保存 / 追加</button>
-              <button type="button" id="btnPoolCustomClearInput" class="px-6 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--md">清空输入</button>
-            </div>
+            <p class="settings-section-hint" data-i18n="content.text.当屏幕上的弹幕少于该数量时_会从自定义公式化弹幕库中抽取短句补足">当屏幕上弹幕数量少于这个数时，自动从自定义句库里抽句子补上。设成 0 就关闭补足功能。</p>
+            <p id="poolBothOffHint" class="settings-section-hint hidden" data-i18n="content.text.关闭自定义公式化弹幕库后_不会进行公式化弹幕补足">关闭自定义公式化弹幕库后，不会进行公式化弹幕补足。</p>
+            <button type="button" id="btnSavePoolSettings" class="btn-primary mt-4 px-6 py-2 text-white rounded-xl font-bold shadow-warm ui-button ui-button--primary ui-button--md" data-i18n="content.text.保存设置">保存设置</button>
           </div>
         </div>
       </div>

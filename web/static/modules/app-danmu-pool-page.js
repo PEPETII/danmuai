@@ -1,9 +1,6 @@
 import { apiFetch } from './transport.js';
 import { t } from './i18n.js';
 
-const MAX_IMPORT_FILES = 5;
-const MAX_LINES_PER_FILE = 1000;
-
 let danmuPoolMeta = null;
 let toast = () => {};
 let handlersBound = false;
@@ -26,105 +23,64 @@ function updatePoolMinOnScreenControl() {
   if (hint) hint.classList.toggle('hidden', Boolean(enabled));
 }
 
-function readFileAsText(file, encoding) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result ?? ''));
-    reader.onerror = () => reject(reader.error || new Error(t('dynamic.appDanmuPoolPage.文件读取失败')));
-    reader.readAsText(file, encoding);
-  });
-}
+function renderTxtPoolStatus(meta = danmuPoolMeta) {
+  const fileCountEl = document.getElementById('poolTxtFileCount');
+  const lineCountEl = document.getElementById('poolTxtLineCount');
+  const dirEl = document.getElementById('poolTxtDir');
+  const dirWrap = document.getElementById('poolTxtDirWrap');
+  const listEl = document.getElementById('poolTxtFileList');
+  if (!meta) return;
 
-async function readPoolTxtFile(file) {
-  const utf8Text = await readFileAsText(file, 'utf-8');
-  if (!utf8Text.includes('\uFFFD')) {
-    return { text: utf8Text, encodingFallback: false, hasReplacement: false };
+  if (fileCountEl) fileCountEl.textContent = String(meta.txt_file_count ?? 0);
+  if (lineCountEl) lineCountEl.textContent = String(meta.txt_line_count ?? meta.custom_count ?? 0);
+  const skipHint = document.getElementById('poolTxtSkipHint');
+  if (skipHint) {
+    const skippedUnsafe = meta.txt_skipped_unsafe ?? 0;
+    const skippedEmpty = meta.txt_skipped_empty ?? 0;
+    const skippedDuplicate = meta.txt_skipped_duplicate ?? 0;
+    const skippedTotal = skippedUnsafe + skippedEmpty + skippedDuplicate;
+    if (skippedTotal > 0) {
+      skipHint.textContent = t('dynamic.appDanmuPoolPage.已跳过_skipped_total_行', {
+        skippedTotal,
+        skippedUnsafe,
+        skippedEmpty,
+        skippedDuplicate,
+      });
+      skipHint.classList.remove('hidden');
+    } else {
+      skipHint.textContent = '';
+      skipHint.classList.add('hidden');
+    }
   }
-  const gbkText = await readFileAsText(file, 'gbk');
-  return {
-    text: gbkText,
-    encodingFallback: true,
-    hasReplacement: gbkText.includes('\uFFFD'),
-  };
-}
+  if (dirEl && dirWrap) {
+    const dir = meta.txt_dir || '';
+    dirEl.textContent = dir;
+    dirWrap.classList.toggle('hidden', !dir);
+  }
+  if (!listEl) return;
 
-function countFileLines(text) {
-  if (!text) return 0;
-  return text.split(/\r?\n/).length;
-}
-
-function buildImportSkippedHint(result) {
-  const reasonLabels = {
-    duplicate: t('dynamic.appDanmuPoolPage.重复'),
-    empty: t('dynamic.appDanmuPoolPage.空行'),
-    limit_reached: t('dynamic.appDanmuPoolPage.超限'),
-    unsafe: t('dynamic.appDanmuPoolPage.不安全'),
-  };
-  const counts = {};
-  const skippedItems = result?.skipped_items || [];
-  skippedItems.forEach((item) => {
-    const label = reasonLabels[item.reason] || item.reason;
-    counts[label] = (counts[label] || 0) + 1;
-  });
-  if (result?.skipped_duplicate) counts[t('dynamic.appDanmuPoolPage.重复')] = (counts[t('dynamic.appDanmuPoolPage.重复')] || 0) + result.skipped_duplicate;
-  if (result?.skipped_empty) counts[t('dynamic.appDanmuPoolPage.空行')] = (counts[t('dynamic.appDanmuPoolPage.空行')] || 0) + result.skipped_empty;
-  if (result?.skipped_unsafe) counts[t('dynamic.appDanmuPoolPage.不安全')] = (counts[t('dynamic.appDanmuPoolPage.不安全')] || 0) + result.skipped_unsafe;
-  if (result?.skipped_limit) counts[t('dynamic.appDanmuPoolPage.超限')] = (counts[t('dynamic.appDanmuPoolPage.超限')] || 0) + result.skipped_limit;
-  const parts = Object.entries(counts).map(([label, n]) => `${label} ${n}`);
-  return parts.length ? `（${parts.join('，')}）` : '';
-}
-
-async function importCustomDanmuPoolTxtFiles(fileList) {
-  const files = [...(fileList || [])];
-  const btn = document.getElementById('btnPoolImportTxt');
-  const input = document.getElementById('poolImportTxtInput');
-
-  if (!files.length) return;
-
-  if (files.length > MAX_IMPORT_FILES) {
-    showToast(t('dynamic.appDanmuPoolPage.最多同时导入_5_个文件'), true);
-    if (input) input.value = '';
+  const files = meta.txt_files || [];
+  listEl.innerHTML = '';
+  if (!files.length) {
+    const empty = document.createElement('li');
+    empty.textContent = t('dynamic.appDanmuPoolPage.暂无_TXT_句库文件');
+    listEl.appendChild(empty);
     return;
   }
-
-  if (btn) btn.disabled = true;
-
-  try {
-    const readResults = await Promise.all(files.map((file) => readPoolTxtFile(file)));
-
-    for (let i = 0; i < files.length; i += 1) {
-      const lineCount = countFileLines(readResults[i].text);
-      if (lineCount > MAX_LINES_PER_FILE) {
-        showToast(t('dynamic.appDanmuPoolPage.文件_files_i_name_超过', {
-          fileName: files[i].name,
-          maxLines: MAX_LINES_PER_FILE,
-        }), true);
-        return;
-      }
-    }
-
-    const combinedText = readResults.map((r) => r.text).join('\n');
-    const result = await apiFetch('/api/danmu-pool/custom', {
-      method: 'POST',
-      body: JSON.stringify({ text: combinedText, source: 'import' }),
+  files.forEach((file) => {
+    const item = document.createElement('li');
+    const lineCount = file.line_count ?? 0;
+    const skippedUnsafe = file.skipped_unsafe ?? 0;
+    let label = t('dynamic.appDanmuPoolPage.文件_file_name_共_line_count_条', {
+      fileName: file.name || '',
+      lineCount,
     });
-
-    danmuPoolMeta = await apiFetch('/api/danmu-pool/meta');
-
-    const added = result.added || 0;
-    const skipped = result.skipped || 0;
-    const skipHint = buildImportSkippedHint(result);
-    let message = t('dynamic.appDanmuPoolPage.导入成功_新增_added_条_跳过', { added, skipped, skipHint });
-    if (readResults.some((r) => r.hasReplacement)) {
-      message += t('dynamic.appDanmuPoolPage.部分字符无法识别');
+    if (skippedUnsafe > 0) {
+      label += t('dynamic.appDanmuPoolPage.跳过不安全_skipped_unsafe', { skippedUnsafe });
     }
-    showToast(message, skipped > 0 && !added);
-  } catch (error) {
-    showToast(error.message || t('dynamic.appDanmuPoolPage.导入失败'), true);
-  } finally {
-    if (btn) btn.disabled = false;
-    if (input) input.value = '';
-  }
+    item.textContent = label;
+    listEl.appendChild(item);
+  });
 }
 
 export async function loadDanmuPoolPage() {
@@ -134,6 +90,7 @@ export async function loadDanmuPoolPage() {
   if (customEl) customEl.checked = Boolean(danmuPoolMeta.custom_enabled);
   if (minEl) minEl.value = String(danmuPoolMeta.min_on_screen ?? 5);
   updatePoolMinOnScreenControl();
+  renderTxtPoolStatus();
 }
 
 async function saveDanmuPoolSettings() {
@@ -147,23 +104,43 @@ async function saveDanmuPoolSettings() {
   });
   danmuPoolMeta = await apiFetch('/api/danmu-pool/meta');
   updatePoolMinOnScreenControl();
+  renderTxtPoolStatus();
   showToast(t('dynamic.appDanmuPoolPage.公式化弹幕库设置已保存'));
 }
 
-async function addCustomDanmuPoolItems() {
-  const textarea = document.getElementById('poolCustomTextarea');
-  const text = textarea?.value || '';
-  if (!text.trim()) {
-    showToast(t('dynamic.appDanmuPoolPage.请先输入要追加的弹幕句子'), true);
-    return;
+async function refreshTxtPool() {
+  const btn = document.getElementById('btnPoolRefreshTxt');
+  if (btn) btn.disabled = true;
+  try {
+    const result = await apiFetch('/api/danmu-pool/custom/refresh', { method: 'POST' });
+    danmuPoolMeta = { ...danmuPoolMeta, ...result };
+    renderTxtPoolStatus();
+    showToast(
+      t('dynamic.appDanmuPoolPage.句库已刷新_共_txt_line_count_条', {
+        lineCount: result.txt_line_count ?? 0,
+      }),
+    );
+  } catch (error) {
+    showToast(error.message || t('dynamic.appDanmuPoolPage.刷新句库失败'), true);
+  } finally {
+    if (btn) btn.disabled = false;
   }
-  await apiFetch('/api/danmu-pool/custom', {
-    method: 'POST',
-    body: JSON.stringify({ text, source: 'manual' }),
-  });
-  danmuPoolMeta = await apiFetch('/api/danmu-pool/meta');
-  if (textarea) textarea.value = '';
-  showToast(t('dynamic.appDanmuPoolPage.已追加手动条目'));
+}
+
+async function openTxtFolder() {
+  const btn = document.getElementById('btnPoolOpenTxtFolder');
+  if (btn) btn.disabled = true;
+  try {
+    const result = await apiFetch('/api/danmu-pool/custom/open-folder', { method: 'POST' });
+    if (result?.txt_dir) {
+      danmuPoolMeta = { ...danmuPoolMeta, txt_dir: result.txt_dir };
+      renderTxtPoolStatus();
+    }
+  } catch (error) {
+    showToast(error.message || t('dynamic.appDanmuPoolPage.打开文件夹失败'), true);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 }
 
 export function initDanmuPoolPage(deps = {}) {
@@ -174,25 +151,16 @@ export function initDanmuPoolPage(deps = {}) {
   document.getElementById('btnSavePoolSettings')?.addEventListener('click', () => {
     saveDanmuPoolSettings().catch((error) => showToast(error.message, true));
   });
-  document.getElementById('btnPoolCustomAppend')?.addEventListener('click', () => {
-    addCustomDanmuPoolItems().catch((error) => showToast(error.message, true));
-  });
-  document.getElementById('btnPoolCustomClearInput')?.addEventListener('click', () => {
-    const textarea = document.getElementById('poolCustomTextarea');
-    if (textarea) textarea.value = '';
-  });
   document.getElementById('poolCustomEnabled')?.addEventListener('change', () => {
     if (danmuPoolMeta) {
       danmuPoolMeta.effective_pool_enabled = poolEffectiveEnabledLocal();
     }
     updatePoolMinOnScreenControl();
   });
-  document.getElementById('btnPoolImportTxt')?.addEventListener('click', () => {
-    document.getElementById('poolImportTxtInput')?.click();
+  document.getElementById('btnPoolRefreshTxt')?.addEventListener('click', () => {
+    refreshTxtPool().catch((error) => showToast(error.message, true));
   });
-  document.getElementById('poolImportTxtInput')?.addEventListener('change', (event) => {
-    importCustomDanmuPoolTxtFiles(event.target.files).catch((error) =>
-      showToast(error.message || t('dynamic.appDanmuPoolPage.导入失败'), true),
-    );
+  document.getElementById('btnPoolOpenTxtFolder')?.addEventListener('click', () => {
+    openTxtFolder().catch((error) => showToast(error.message, true));
   });
 }

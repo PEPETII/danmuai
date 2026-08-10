@@ -2,7 +2,8 @@
 
 路由（由 ``app.web_api.routes`` 调用 ``register_danmu_pool_routes``）：
 - ``GET /api/danmu-pool/meta`` / ``PUT /api/danmu-pool/settings``：元信息与开关
-- ``GET/POST/DELETE /api/danmu-pool/custom``：自定义句库分页与增删
+- ``POST /api/danmu-pool/custom/refresh``：重新扫描 TXT 句库
+- ``POST /api/danmu-pool/custom/open-folder``：在资源管理器中打开 TXT 目录
 - ``POST /api/test/danmu``：测试弹幕注入
 
 写操作经 ``invoke_main``（``WebConsoleBridge.invoke_on_main`` 包装）回到主线程。
@@ -25,17 +26,6 @@ if TYPE_CHECKING:
 class DanmuPoolSettingsPayload(BaseModel):
     custom_enabled: bool | None = None
     min_on_screen: int | None = None
-
-
-class DanmuPoolCustomAppendPayload(BaseModel):
-    text: str = ""
-    items: list[str] | None = None
-    source: str = "manual"
-
-
-class DanmuPoolCustomDeletePayload(BaseModel):
-    ids: list[int] | None = None
-    texts: list[str] | None = None
 
 
 class TestDanmuPayload(BaseModel):
@@ -61,34 +51,15 @@ def register_danmu_pool_routes(
     ):
         return invoke_main(pool_api.save_settings, bridge.danmu_app, body.model_dump(exclude_none=True))
 
-    @app.get("/api/danmu-pool/custom")
-    def get_danmu_pool_custom(
-        page: int = 1,
-        page_size: int = pool_api.DEFAULT_PAGE_SIZE,
-        source: str = "manual",
-    ):
-        return pool_api.list_custom(
-            bridge.danmu_app,
-            page=page,
-            page_size=page_size,
-            source=source,
-        )
-
-    @app.post("/api/danmu-pool/custom")
+    @app.post("/api/danmu-pool/custom/refresh")
     @require_auth(check_token)
-    def post_danmu_pool_custom(
-        body: DanmuPoolCustomAppendPayload,
-        authorization: str | None = Header(default=None),
-    ):
-        return invoke_main(pool_api.append_custom, bridge.danmu_app, body.model_dump(exclude_none=True))
+    def post_danmu_pool_custom_refresh(authorization: str | None = Header(default=None)):
+        return invoke_main(pool_api.refresh_custom_txt_pool, bridge.danmu_app)
 
-    @app.delete("/api/danmu-pool/custom")
+    @app.post("/api/danmu-pool/custom/open-folder")
     @require_auth(check_token)
-    def delete_danmu_pool_custom(
-        body: DanmuPoolCustomDeletePayload,
-        authorization: str | None = Header(default=None),
-    ):
-        return invoke_main(pool_api.delete_custom, bridge.danmu_app, body.model_dump())
+    def post_danmu_pool_custom_open_folder(authorization: str | None = Header(default=None)):
+        return invoke_main(pool_api.open_custom_txt_folder, bridge.danmu_app)
 
     @app.post("/api/test/danmu")
     @require_auth(check_token)

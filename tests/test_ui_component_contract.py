@@ -342,7 +342,10 @@ def test_content_pages_f2_semantic_shell():
     # Critical IDs / data hooks preserved
     for sid in (
         "memeBarrageEnabled",
-        "poolCustomTextarea",
+        "poolTxtFileCount",
+        "poolTxtLineCount",
+        "btnPoolOpenTxtFolder",
+        "btnPoolRefreshTxt",
         "petEnabled",
         "personaSelect",
         "liveOverlayUrl",

@@ -233,19 +233,14 @@
       }
     },
     "appDanmuPoolPage": {
-      "文件读取失败": "文件读取失败",
-      "重复": "重复",
-      "空行": "空行",
-      "超限": "超限",
-      "不安全": "不安全",
-      "最多同时导入_5_个文件": "最多同时导入 5 个文件",
-      "文件_files_i_name_超过": "文件「{fileName}」超过 {maxLines} 行上限",
-      "导入成功_新增_added_条_跳过": "导入成功，新增 {added} 条，跳过 {skipped} 条{skipHint}",
-      "部分字符无法识别": "；部分字符无法识别",
-      "导入失败": "导入失败",
       "公式化弹幕库设置已保存": "公式化弹幕库设置已保存",
-      "请先输入要追加的弹幕句子": "请先输入要追加的弹幕句子",
-      "已追加手动条目": "已追加手动条目"
+      "暂无_TXT_句库文件": "暂无 TXT 句库文件",
+      "文件_file_name_共_line_count_条": "{fileName}（{lineCount} 条）",
+      "句库已刷新_共_txt_line_count_条": "句库已刷新，共 {lineCount} 条",
+      "刷新句库失败": "刷新句库失败",
+      "打开文件夹失败": "打开文件夹失败",
+      "已跳过_skipped_total_行": "已跳过 {skippedTotal} 行（不安全 {skippedUnsafe}，空行 {skippedEmpty}，重复 {skippedDuplicate}）",
+      "跳过不安全_skipped_unsafe": "，跳过不安全 {skippedUnsafe} 行"
     },
     "appErrorReporting": {
       "暂时无法查询提交额度": "暂时无法查询提交额度",

@@ -458,7 +458,7 @@ def test_tailwind_offline_bundle_packaged():
     assert "cdn.tailwindcss.com" not in html
 
 
-def test_danmu_pool_txt_import_controls_in_content_pages():
+def test_danmu_pool_txt_folder_controls_in_content_pages():
     root = project_root()
     content_html = (root / "web" / "static" / "partials" / "content-pages.html").read_text(
         encoding="utf-8"
@@ -468,10 +468,11 @@ def test_danmu_pool_txt_import_controls_in_content_pages():
         encoding="utf-8"
     )
     for html in (content_html, index_html):
-        assert 'id="btnPoolImportTxt"' in html
-        assert 'id="poolImportTxtInput"' in html
-        assert "每个文件最多 1000 行" in html
-    assert "importCustomDanmuPoolTxtFiles" in pool_js
+        assert 'id="btnPoolOpenTxtFolder"' in html
+        assert 'id="btnPoolRefreshTxt"' in html
+        assert "自定义弹幕通过 TXT 文件管理" in html
+    assert "openTxtFolder" in pool_js
+    assert "refreshTxtPool" in pool_js
 
 
 def test_resource_path_pet_default_pet_json_and_spritesheet():
