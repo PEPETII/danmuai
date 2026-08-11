@@ -48,6 +48,7 @@ class FloatingPanelItem:
     current_y: float
     height: float
     created_at: float
+    persona_id: str = ""
     opacity: float = 1.0
     batch_id: int = 0
     pixmap: object | None = None
@@ -412,7 +413,8 @@ class FloatingPanelEngine:
         now: float | None = None,
         style_index: int | None = None,
     ) -> FloatingPanelItem | None:
-        del persona, scene_generation  # API 对齐 DanmuEngine.add_text
+        del scene_generation  # API 对齐 DanmuEngine.add_text
+        persona_id = str(persona or "").strip()
 
         if pre_resolved:
             text = str(content).strip()
@@ -438,6 +440,7 @@ class FloatingPanelEngine:
             current_y=self._panel_height,
             height=height,
             created_at=ts,
+            persona_id=persona_id,
             batch_id=batch_id,
             target_y=self._panel_height - height,
             style_index=fixed_style,

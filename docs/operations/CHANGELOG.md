@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Removed `_Y_OFFSET` ghost offset so top danmu aligns to track origin.
+- Bottom-to-top floating-panel usernames now use each message's persona display name, matching horizontal mode; legacy no-persona calls retain their configured fallback.
 - Batch fixes for tray restore, bililive-dm plugin bridge, and engine bugs.
 - Security, threading safety, and test coverage improvements.
 - PyInstaller spec updated for PyInstaller 6.16 compatibility.

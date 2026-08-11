@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 from app.floating_panel_web.panel_protocol import (
     CLEAR_REASONS,
@@ -104,6 +106,21 @@ def test_classic_card_payload_preserves_transparent_zero_values():
     assert style["padding_y"] == 2
     assert style["username_enabled"] is True
     assert style["content_color"] == "#FFFFFF"
+
+
+def test_card_payload_uses_persona_display_name_for_username():
+    from app.floating_panel_style import STYLE_PRESETS
+    from app.main_floating_panel_mixin import DanmuAppFloatingPanelMixin
+
+    app = DanmuAppFloatingPanelMixin.__new__(DanmuAppFloatingPanelMixin)
+    app.config = {
+        **STYLE_PRESETS["classic"],
+        "persona_labels": json.dumps({"persona": "小助手"}, ensure_ascii=False),
+    }
+
+    data = app._build_web_panel_card_dict("hello", "persona")
+
+    assert data["username"] == "小助手"
 
 
 def test_config_message_fields():

@@ -40,9 +40,10 @@ def _settle(engine: FloatingPanelEngine, *, steps: int = 40, dt: float = 0.05) -
 
 def test_add_text_returns_item(workspace_tmp):
     engine = _engine(workspace_tmp)
-    item = engine.add_text("hello", item_height=32.0, now=0.0)
+    item = engine.add_text("hello", "persona-1", item_height=32.0, now=0.0)
     assert item is not None
     assert item.content == "hello"
+    assert item.persona_id == "persona-1"
     assert engine.visible_count() == 1
     assert hasattr(item, "style_index")
     assert hasattr(item, "target_y")

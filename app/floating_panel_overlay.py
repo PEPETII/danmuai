@@ -224,6 +224,17 @@ class FloatingPanelOverlay(QWidget):
     def current_style(self) -> FloatingPanelStyleSnapshot:
         return self._style
 
+    def _username_for_persona(self, persona_id: str) -> str:
+        """Resolve a per-message persona display name for the username row."""
+        normalized_id = str(persona_id or "").strip()
+        if normalized_id:
+            from app.persona_display import persona_display_name_with_config
+
+            resolved = persona_display_name_with_config(normalized_id, self.config).strip()
+            if resolved:
+                return resolved
+        return str(self._style.username_text or "弹幕")
+
     def _is_line_like_tail(self) -> bool:
         st = self._style
         return (
@@ -535,7 +546,7 @@ class FloatingPanelOverlay(QWidget):
         if self._is_stacked_layout() or not st.username_enabled:
             measure_max_w = max_text_w
         else:
-            username_text = str(st.username_text or "弹幕")
+            username_text = self._username_for_persona(item.persona_id)
             username_sep = (
                 "" if st.username_separator is None else str(st.username_separator)
             )
@@ -560,7 +571,7 @@ class FloatingPanelOverlay(QWidget):
             if self._is_stacked_layout() or not st.username_enabled:
                 content_w = min(max_content_w, text_w + pad_x * 2.0)
             else:
-                username_text = str(st.username_text or "弹幕")
+                username_text = self._username_for_persona(item.persona_id)
                 username_sep = (
                     "" if st.username_separator is None else str(st.username_separator)
                 )
@@ -582,6 +593,7 @@ class FloatingPanelOverlay(QWidget):
             item.content,
             int(content_w),
             int(content_h),
+            persona_id=item.persona_id,
             style_index=int(item.style_index),
         )
 
@@ -591,6 +603,7 @@ class FloatingPanelOverlay(QWidget):
         width: int,
         height: int,
         *,
+        persona_id: str = "",
         style_index: int = 0,
     ) -> QPixmap:
         """Render card/bubble pixmap from current style.
@@ -697,7 +710,7 @@ class FloatingPanelOverlay(QWidget):
             # 用户名与内容分离（参考 blivechat 的 author-name / message 层级）
             # layout=stacked：用户名在气泡外上方；layout=inline：用户名与首行内容同基线（wechat）
             username_on = bool(st.username_enabled)
-            username_text = str(st.username_text or "弹幕") if username_on else ""
+            username_text = self._username_for_persona(persona_id) if username_on else ""
             # Preserve empty separator (blivechat_line); do not coerce "" → "："
             username_sep = (
                 ("" if st.username_separator is None else str(st.username_separator))

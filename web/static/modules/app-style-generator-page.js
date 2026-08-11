@@ -108,6 +108,7 @@ let previewTextIndex = 0;
 let maxCardsCached = 12;
 let panelWidthCached = 360;
 let exitDurationMsCached = 200;
+let previewUsername = '高压吐槽型';
 
 function showToast(message, isError = false) {
   toast(message, isError);
@@ -564,7 +565,7 @@ export function refreshPreviewItemColors(item, style) {
 /** 与 floating_panel addCard 同构：stacked → .username + .bubble > .content */
 function buildPreviewCardInnerHtml(style, text) {
   const usernameLabel = style.usernameEnabled
-    ? `${style.usernameText}${style.usernameSeparator}`
+    ? `${previewUsername}${style.usernameSeparator}`
     : '';
   const usernameHtml = style.usernameEnabled
     ? `<div class="username">${escapePreviewHtml(usernameLabel)}</div>`
@@ -593,7 +594,7 @@ function syncPreviewCardDom(cardEl, style, text) {
   if (usernameEl) {
     if (style.usernameEnabled) {
       usernameEl.classList.remove('is-hidden');
-      usernameEl.textContent = `${style.usernameText}${style.usernameSeparator}`;
+      usernameEl.textContent = `${previewUsername}${style.usernameSeparator}`;
     } else {
       usernameEl.classList.add('is-hidden');
       usernameEl.textContent = '';
@@ -904,10 +905,15 @@ export async function loadStyleGeneratorPage() {
   const form = formEl();
   if (!form) return;
   try {
-    const [cfg, presets] = await Promise.all([
+    const [cfg, presets, personae] = await Promise.all([
       apiFetch('/api/config'),
       apiFetch('/api/floating-panel/style-presets'),
+      apiFetch('/api/personae').catch(() => ({ items: [] })),
     ]);
+    const activePersona = (personae?.items || []).find((item) => item.active)
+      || (personae?.items || [])[0];
+    previewUsername = String(activePersona?.label || activePersona?.id || '高压吐槽型').trim()
+      || '高压吐槽型';
     presetsPayload = presets;
     const values = {};
     STYLE_SAVE_KEYS.forEach((key) => {

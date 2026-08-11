@@ -193,7 +193,12 @@ class DanmuAppFloatingPanelMixin:
             snap.text_colors, snap.text_color_mode, snap.text_color_weights, idx,
             fallback="#1f2937",
         )
-        username = str(snap.username_text or "").strip() or (persona_id or "AI")
+        from app.persona_display import persona_display_name_with_config
+
+        username = ""
+        if str(persona_id or "").strip():
+            username = persona_display_name_with_config(persona_id, self.config).strip()
+        username = username or str(snap.username_text or "").strip() or "AI"
 
         # Build box_shadow string from snap shadow fields (respect shadow_color)
         if snap.shadow_enabled:

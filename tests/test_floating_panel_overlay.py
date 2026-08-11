@@ -52,6 +52,14 @@ def test_add_danmu_text_starts_render(fp_v2_setup, qapp):
     assert item.pixmap is not None
 
 
+def test_username_uses_persona_display_name(fp_v2_setup):
+    store, _engine, overlay = fp_v2_setup
+    store.set("persona_labels", '{"persona":"小助手"}')
+
+    assert overlay._username_for_persona("persona") == "小助手"
+    assert overlay._username_for_persona("") == "弹幕"
+
+
 def test_timer_stops_when_idle_settled(fp_v2_setup, qapp):
     """堆积引擎：条目静止后 needs_render_tick=False，timer 必须停止（条目可仍可见）。"""
     _, engine, overlay = fp_v2_setup
