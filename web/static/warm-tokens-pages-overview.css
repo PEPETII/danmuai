@@ -38,6 +38,35 @@
   flex-shrink: 0;
 }
 
+.overview-announcement-action {
+  position: relative;
+}
+
+.overview-announcement-badge {
+  position: absolute;
+  top: -0.45rem;
+  right: -0.45rem;
+  min-width: 1.125rem;
+  height: 1.125rem;
+  padding: 0 0.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--surface-card);
+  border-radius: var(--radius-full);
+  background: var(--color-danger);
+  color: var(--text-on-brand);
+  font-size: 0.625rem;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+.overview-announcement-badge.hidden {
+  display: none;
+}
+
 #page-overview .ui-page-header__actions {
   justify-content: flex-end;
 }

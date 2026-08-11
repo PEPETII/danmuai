@@ -188,9 +188,13 @@ function migrateLegacyAnnouncementsLastSeen(rows) {
   }
 }
 
-function hasUnreadAnnouncements(rows) {
-  if (!rows?.length) return false;
-  return rows.some((row) => row.id && !announcementsReadState.readIds.has(row.id));
+function getUnreadAnnouncementCount(rows) {
+  if (!Array.isArray(rows)) return 0;
+  return rows.reduce(
+    (count, row) =>
+      count + (row?.id && !announcementsReadState.readIds.has(row.id) ? 1 : 0),
+    0,
+  );
 }
 
 function markAnnouncementsRead(rows) {
@@ -209,11 +213,28 @@ function markAnnouncementsRead(rows) {
   persistAnnouncementsReadState().catch(console.error);
 }
 
-export function updateAnnouncementsNavBadge(show) {
-  const badge = document.getElementById('announcementsNavBadge');
-  if (!badge) return;
-  badge.classList.toggle('hidden', !show);
-  badge.setAttribute('aria-hidden', show ? 'false' : 'true');
+export function updateAnnouncementsNavBadge(show, unreadCount = 0) {
+  const navBadge = document.getElementById('announcementsNavBadge');
+  if (navBadge) {
+    navBadge.classList.toggle('hidden', !show);
+    navBadge.setAttribute('aria-hidden', show ? 'false' : 'true');
+  }
+
+  const overviewBadge = document.getElementById('overviewAnnouncementsBadge');
+  if (!overviewBadge) return;
+  const count = Number.isFinite(Number(unreadCount))
+    ? Math.max(0, Math.floor(Number(unreadCount)))
+    : 0;
+  const displayCount = count > 99 ? '99+' : String(count);
+  const visible = show && count > 0;
+  overviewBadge.textContent = visible ? displayCount : '';
+  overviewBadge.classList.toggle('hidden', !visible);
+  overviewBadge.setAttribute('aria-hidden', visible ? 'false' : 'true');
+  if (visible) {
+    overviewBadge.setAttribute('aria-label', `${t('nav.newAnnouncementBadge')}: ${displayCount}`);
+  } else {
+    overviewBadge.removeAttribute('aria-label');
+  }
 }
 
 function getOverviewBannerDismissedId() {
@@ -350,7 +371,7 @@ export async function refreshAnnouncementsUnreadBadge() {
     await loadAnnouncementsReadState();
   }
   if (!window.DanmuSupabase?.isConfigured?.()) {
-    updateAnnouncementsNavBadge(false);
+    updateAnnouncementsNavBadge(false, 0);
     hideOverviewAnnouncementBanner();
     return;
   }
@@ -364,10 +385,11 @@ export async function refreshAnnouncementsUnreadBadge() {
       ?.classList.contains('active');
     if (onAnnouncementsPage) {
       markAnnouncementsRead(list);
-      updateAnnouncementsNavBadge(false);
+      updateAnnouncementsNavBadge(false, 0);
       return;
     }
-    updateAnnouncementsNavBadge(hasUnreadAnnouncements(list));
+    const unreadCount = getUnreadAnnouncementCount(list);
+    updateAnnouncementsNavBadge(unreadCount > 0, unreadCount);
   } catch (err) {
     console.warn('[announcements] supabase fetch failed', err?.kind || err);
     hideOverviewAnnouncementBanner();
@@ -456,7 +478,7 @@ export async function loadAnnouncementsPage() {
     const items = Array.isArray(rows) ? rows : [];
     renderAnnouncementsList(items);
     markAnnouncementsRead(items);
-    updateAnnouncementsNavBadge(false);
+    updateAnnouncementsNavBadge(false, 0);
   } catch (err) {
     const message = formatAnnouncementsError(err);
     list.innerHTML = `<p class="announcements-error">${escapeHtml(message)} <button type="button" class="underline font-semibold" id="btnAnnouncementsRetry">重试</button></p>`;

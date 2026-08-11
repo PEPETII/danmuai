@@ -62,6 +62,8 @@ def test_announcements_page_in_index_html():
     assert 'id="page-announcements"' in html
     assert 'id="announcementsList"' in html
     assert 'id="announcementsNavBadge"' in html
+    assert 'id="btnGoAnnouncements"' in html
+    assert 'id="overviewAnnouncementsBadge"' in html
     assert 'id="overviewAnnouncementBanner"' in html
     assert 'id="btnOverviewAnnouncementDismiss"' in html
     assert "/static/supabase-client.js" in html
@@ -255,6 +257,30 @@ def test_announcements_badge_polling_stops_on_announcements_page_navigate():
     assert "page-announcements" in init_snippet
     assert "startAnnouncementsBadgePolling()" in init_snippet
     assert "onAnnouncements" in init_snippet or "page-announcements" in init_snippet
+
+
+def test_overview_announcements_button_uses_unread_count_badge():
+    root = project_root()
+    overview = (root / "web" / "static" / "partials" / "overview.html").read_text(
+        encoding="utf-8"
+    )
+    app_js = (root / "web" / "static" / "app.js").read_text(encoding="utf-8")
+    announcements_js = (
+        root / "web" / "static" / "modules" / "content-announcements.js"
+    ).read_text(encoding="utf-8")
+    overview_css = (
+        root / "web" / "static" / "warm-tokens-pages-overview.css"
+    ).read_text(encoding="utf-8")
+
+    button_start = overview.index('id="btnGoAnnouncements"')
+    logs_start = overview.index('id="btnGoDanmuLogs"')
+    assert button_start < logs_start
+    assert 'id="overviewAnnouncementsBadge"' in overview[button_start:logs_start]
+    assert "navigate('announcements')" in app_js
+    assert "getUnreadAnnouncementCount" in announcements_js
+    assert "overviewAnnouncementsBadge" in announcements_js
+    assert ".overview-announcement-badge" in overview_css
+    assert "var(--color-danger)" in overview_css
 
 
 def test_meme_barrage_meta_polling_stops_when_leaving_danmu_pool():

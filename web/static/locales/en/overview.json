@@ -20,6 +20,7 @@
       "弹幕场次记录": "Danmu session log",
       "每次_生成弹幕_至_停止弹幕_为一轮_保存在本机配置库_重启后仍可查看最近_10": "Each Start danmu to Stop danmu is one session; last 100 saved locally across restarts",
       "暂无记录_停止弹幕后会在此显示时间与_Token_用量": "No records yet; stop danmu to see time and token usage here",
+      "公告": "Announcements",
       "弹幕日志": "Danmu log",
       "麦克风日志": "Mic log"
     },
@@ -30,6 +31,7 @@
     "aria": {
       "关闭公告提示": "Dismiss announcement notice",
       "关闭错误提示": "Dismiss error notice",
+      "打开公告": "Open announcements",
       "打开弹幕日志": "Open danmu log",
       "打开麦克风日志": "Open mic log"
     }

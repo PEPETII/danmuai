@@ -15,6 +15,11 @@
         </div>
         <div class="ui-page-header__actions flex items-center gap-3 flex-wrap shrink-0">
           <div class="overview-quick-log-actions flex items-center gap-2 flex-wrap">
+            <button type="button" id="btnGoAnnouncements" class="overview-log-shortcut overview-announcement-action ui-button ui-button--secondary ui-button--sm" data-i18n="overview.text.公告" data-i18n-aria-label="overview.aria.打开公告" aria-label="打开公告" aria-describedby="overviewAnnouncementsBadge">
+              <svg class="ui-icon" aria-hidden="true"><use href="#i-megaphone"></use></svg>
+              <span>公告</span>
+              <span id="overviewAnnouncementsBadge" class="overview-announcement-badge hidden" aria-hidden="true"></span>
+            </button>
             <button type="button" id="btnGoDanmuLogs" class="overview-log-shortcut ui-button ui-button--secondary ui-button--sm" data-i18n="overview.text.弹幕日志" data-i18n-aria-label="overview.aria.打开弹幕日志">
               <svg class="ui-icon" aria-hidden="true"><use href="#i-book"></use></svg>
               <span>弹幕日志</span>

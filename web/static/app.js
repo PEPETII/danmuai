@@ -762,6 +762,9 @@ function bindCoreInteractions() {
   document.querySelectorAll('.sidebar-nav-hint').forEach((btn) => {
     btn.addEventListener('click', (event) => event.stopPropagation());
   });
+  document.getElementById('btnGoAnnouncements')?.addEventListener('click', () => {
+    navigate('announcements');
+  });
   document.getElementById('btnGoDanmuLogs')?.addEventListener('click', () => {
     navigateToDanmuLogs(navigate);
   });
