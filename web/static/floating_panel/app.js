@@ -137,6 +137,7 @@
     cardEl.classList.toggle("layout-stacked", layout === "stacked");
     cardEl.classList.toggle("layout-inline", layout !== "stacked");
     cardEl.classList.toggle("no-border", style.border_enabled === false || style.border_width === 0);
+    cardEl.classList.toggle("no-card-surface", style.card_opacity != null && Number(style.card_opacity) <= 0);
     cardEl.classList.toggle("has-outline", style.outline_enabled === true && style.outline_width > 0);
     cardEl.classList.toggle("is-bold", style.font_bold === true);
     var isBubble = style.shape === "bubble" && style.tail_enabled === true;

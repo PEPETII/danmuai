@@ -66,6 +66,7 @@ def test_apply_card_style_vars_supports_extended_style_fields():
         "has-outline",
         "no-border",
         "is-bold",
+        "no-card-surface",
     ):
         assert token in body
 
@@ -84,6 +85,8 @@ def test_panel_surfaces_are_transparent_without_changing_card_backgrounds():
     assert "background-color: transparent !important" in panel_css
     assert ".card {" in css
     assert "background: var(--card-bg)" in css
+    assert ".card.no-card-surface" in css
+    assert "backdrop-filter: none" in css
 
 
 def test_stacked_dom_has_bubble_username_outside():

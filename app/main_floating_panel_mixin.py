@@ -216,6 +216,11 @@ class DanmuAppFloatingPanelMixin:
         else:
             box_shadow = "none"
 
+        # Keep valid zero-valued style fields (transparent classic preset,
+        # zero radius/padding) instead of treating them as missing defaults.
+        def _style_int(value: int | None, fallback: int) -> int:
+            return fallback if value is None else int(value)
+
         style = CardStyle(
             card_bg=str(card_color),
             card_border=str(snap.border_color or "#fbbf24"),
@@ -225,25 +230,25 @@ class DanmuAppFloatingPanelMixin:
             font_family=str(snap.font_family or "Microsoft YaHei, PingFang SC, sans-serif"),
             font_size_username=int(snap.username_size or 12),
             font_size_content=int(snap.content_size or snap.font_size or 14),
-            border_radius=int(snap.radius or 12),
+            border_radius=_style_int(snap.radius, 12),
             max_width=max(120, int(snap.width or 280) - 40),
             box_shadow=box_shadow,
             # 新增扩展字段
             shape=str(snap.shape or "bubble"),
-            card_opacity=int(snap.card_opacity or 88),
+            card_opacity=_style_int(snap.card_opacity, 88),
             border_enabled=bool(snap.border_enabled),
-            border_width=int(snap.border_width or 1),
-            border_opacity=int(snap.border_opacity or 40),
+            border_width=_style_int(snap.border_width, 1),
+            border_opacity=_style_int(snap.border_opacity, 40),
             outline_enabled=bool(snap.outline_enabled),
-            outline_width=int(snap.outline_width or 2),
+            outline_width=_style_int(snap.outline_width, 2),
             shadow_enabled=bool(snap.shadow_enabled),
-            padding_x=int(snap.padding_x or 14),
-            padding_y=int(snap.padding_y or 10),
+            padding_x=_style_int(snap.padding_x, 14),
+            padding_y=_style_int(snap.padding_y, 10),
             tail_enabled=bool(snap.tail_enabled),
             tail_style=str(snap.tail_style or "round"),
-            tail_width=int(snap.tail_width or 8),
-            tail_height=int(snap.tail_height or 10),
-            tail_offset_y=int(snap.tail_offset_y or 38),
+            tail_width=_style_int(snap.tail_width, 8),
+            tail_height=_style_int(snap.tail_height, 10),
+            tail_offset_y=_style_int(snap.tail_offset_y, 38),
             username_enabled=bool(snap.username_enabled),
             username_weight=int(snap.username_weight or 700),
             # Preserve empty separator (blivechat_line); only default when missing/None

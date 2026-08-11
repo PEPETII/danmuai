@@ -99,6 +99,14 @@ body {
   box-sizing: border-box;
 }
 
+/* Transparent classic style must not blur the captured scene behind the card. */
+.card.no-card-surface {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
 .card.exiting {
   animation: fadeOut var(--exit-duration) ease-in forwards;
 }
@@ -111,6 +119,10 @@ body {
 .card.has-outline .username,
 .card.has-outline .content {
   text-shadow:
+    calc(-1 * var(--outline-w)) calc(-1 * var(--outline-w)) 0 var(--outline-color),
+    calc(-1 * var(--outline-w)) var(--outline-w) 0 var(--outline-color),
+    var(--outline-w) calc(-1 * var(--outline-w)) 0 var(--outline-color),
+    var(--outline-w) var(--outline-w) 0 var(--outline-color),
     calc(-1 * var(--outline-w)) 0 0 var(--outline-color),
     var(--outline-w) 0 0 var(--outline-color),
     0 calc(-1 * var(--outline-w)) 0 var(--outline-color),

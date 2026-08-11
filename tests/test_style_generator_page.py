@@ -220,7 +220,7 @@ def test_preview_recomputes_existing_card_colors_when_presets_change_round_trip(
     script = """
 import { refreshPreviewItemColors } from './web/static/modules/app-style-generator-page.js';
 const item = { styleIndex: 1, cardColor: '#OLDOLD', textColor: '#OLDOLD', el: { dataset: {} } };
-const classic = { cardColors: ['#FFFFFF', '#F5D401'], cardMode: 'equal', cardWeights: {}, textColors: ['#000000'], textMode: 'equal', textWeights: {} };
+const classic = { cardColors: ['#FFFFFF', '#F5D401'], cardMode: 'equal', cardWeights: {}, textColors: ['#FFFFFF'], textMode: 'equal', textWeights: {} };
 const wechat = { cardColors: ['#FFECD2', '#DDF5D7'], cardMode: 'equal', cardWeights: {}, textColors: ['#281C12'], textMode: 'equal', textWeights: {} };
 const first = refreshPreviewItemColors(item, classic);
 const second = refreshPreviewItemColors(item, wechat);
@@ -236,12 +236,12 @@ console.log(JSON.stringify({ first, second, third, item }));
     )
     assert result.returncode == 0, result.stderr
     payload = json.loads(result.stdout)
-    assert payload["first"] == {"cardColor": "#F5D401", "textColor": "#000000"}
+    assert payload["first"] == {"cardColor": "#F5D401", "textColor": "#FFFFFF"}
     assert payload["second"] == {"cardColor": "#DDF5D7", "textColor": "#281C12"}
     assert payload["third"] == payload["first"]
     assert payload["item"]["el"]["dataset"] == {
         "cardColor": "#F5D401",
-        "textColor": "#000000",
+        "textColor": "#FFFFFF",
     }
 
 

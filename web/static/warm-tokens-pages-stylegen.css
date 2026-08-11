@@ -497,6 +497,13 @@
   font-family: var(--font-family);
 }
 
+.sg-preview-card.no-card-surface {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
 .sg-preview-card.no-border {
   border-color: transparent;
   border-width: 0;
@@ -645,6 +652,10 @@
 
 .sg-preview-card.has-outline .username {
   text-shadow:
+    calc(-1 * var(--outline-w)) calc(-1 * var(--outline-w)) 0 var(--outline-color),
+    calc(-1 * var(--outline-w)) var(--outline-w) 0 var(--outline-color),
+    var(--outline-w) calc(-1 * var(--outline-w)) 0 var(--outline-color),
+    var(--outline-w) var(--outline-w) 0 var(--outline-color),
     calc(-1 * var(--outline-w)) 0 0 var(--outline-color),
     var(--outline-w) 0 0 var(--outline-color),
     0 calc(-1 * var(--outline-w)) 0 var(--outline-color),
@@ -667,6 +678,10 @@
 
 .sg-preview-card.has-outline .content {
   text-shadow:
+    calc(-1 * var(--outline-w)) calc(-1 * var(--outline-w)) 0 var(--outline-color),
+    calc(-1 * var(--outline-w)) var(--outline-w) 0 var(--outline-color),
+    var(--outline-w) calc(-1 * var(--outline-w)) 0 var(--outline-color),
+    var(--outline-w) var(--outline-w) 0 var(--outline-color),
     calc(-1 * var(--outline-w)) 0 0 var(--outline-color),
     var(--outline-w) 0 0 var(--outline-color),
     0 calc(-1 * var(--outline-w)) 0 var(--outline-color),

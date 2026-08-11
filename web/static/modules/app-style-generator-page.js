@@ -525,6 +525,7 @@ function applyCardStyleVars(cardEl, style, cardColor, textColor) {
   cardEl.classList.toggle('layout-stacked', isStacked);
   cardEl.classList.toggle('layout-inline', !isStacked);
   cardEl.classList.toggle('no-border', !(style.borderEnabled && style.borderWidth > 0));
+  cardEl.classList.toggle('no-card-surface', style.cardOpacity <= 0);
   cardEl.classList.toggle('has-outline', Boolean(style.outlineEnabled && style.outlineWidth > 0));
   cardEl.classList.toggle('is-bold', Boolean(style.fontBold));
   const isBubble = style.shape === 'bubble' && style.tailEnabled;

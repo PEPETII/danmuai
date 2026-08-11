@@ -76,7 +76,7 @@ def test_classic_card_colors_locked():
     assert classic["floating_panel_shape"] == "card"
     assert classic["floating_panel_layout"] == "inline"
     assert classic["floating_panel_tail_enabled"] == "0"
-    assert classic["floating_panel_text_colors"] == '["#000000"]'
+    assert classic["floating_panel_text_colors"] == '["#FFFFFF"]'
 
 
 def test_wechat_first_color_and_text_locked():
@@ -461,9 +461,17 @@ def test_classic_preset_has_no_tail_and_username_fields():
     c = STYLE_PRESETS["classic"]
     assert c["floating_panel_shape"] == "card"
     assert c["floating_panel_layout"] == "inline"
+    assert c["floating_panel_card_opacity"] == "0"
+    assert c["floating_panel_outline_color"] == "#000000"
+    assert c["floating_panel_outline_width"] == "2"
     assert c["floating_panel_tail_enabled"] == "0"
     assert c["floating_panel_tail_style"] == "round"
-    assert c["floating_panel_username_enabled"] == "0"
+    assert c["floating_panel_username_enabled"] == "1"
+    assert c["floating_panel_username_color"] == "#CCCCCC"
+    assert c["floating_panel_username_size"] == "20"
+    assert c["floating_panel_username_separator"] == ":"
+    assert c["floating_panel_content_size"] == "20"
+    assert c["floating_panel_content_weight"] == "700"
     assert c["floating_panel_shadow_enabled"] == "0"
     assert c["floating_panel_border_enabled"] == "0"
 

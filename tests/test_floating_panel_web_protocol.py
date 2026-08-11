@@ -88,6 +88,24 @@ def test_card_style_missing_layout_fields_default():
     assert style.tail_rotate_deg == 35
 
 
+def test_classic_card_payload_preserves_transparent_zero_values():
+    from app.floating_panel_style import STYLE_PRESETS
+    from app.main_floating_panel_mixin import DanmuAppFloatingPanelMixin
+
+    app = DanmuAppFloatingPanelMixin.__new__(DanmuAppFloatingPanelMixin)
+    app.config = dict(STYLE_PRESETS["classic"])
+
+    data = app._build_web_panel_card_dict("outlined text", "persona")
+    style = data["style"]
+
+    assert style["card_opacity"] == 0
+    assert style["border_radius"] == 0
+    assert style["padding_x"] == 4
+    assert style["padding_y"] == 2
+    assert style["username_enabled"] is True
+    assert style["content_color"] == "#FFFFFF"
+
+
 def test_config_message_fields():
     msg = ConfigMessage()
     data = msg.to_dict()

@@ -219,9 +219,10 @@ WECHAT_CARD_COLORS: tuple[str, ...] = (
     "#FFDDE8",
 )
 WECHAT_TEXT_COLOR = "#281C12"  # QColor(40, 28, 18)
-CLASSIC_TEXT_COLOR = "#000000"
+CLASSIC_TEXT_COLOR = "#FFFFFF"
+CLASSIC_USERNAME_COLOR = "#CCCCCC"
 
-# classic：shape=card、无尾巴；深色描边、轻阴影、黑字
+# classic：参考 blivechat Legacy：透明消息背景、白色粗体字、黑色描边
 _CLASSIC_FLAT: dict[str, str] = {
     "floating_panel_style_preset": "classic",
     "floating_panel_shape": "card",
@@ -232,10 +233,10 @@ _CLASSIC_FLAT: dict[str, str] = {
     "floating_panel_text_colors": json.dumps([CLASSIC_TEXT_COLOR], ensure_ascii=False),
     "floating_panel_text_color_mode": "equal",
     "floating_panel_text_color_weights": "{}",
-    "floating_panel_card_opacity": "95",
+    "floating_panel_card_opacity": "0",
     "floating_panel_outline_enabled": "1",
-    "floating_panel_outline_color": "#1A1A1A",
-    "floating_panel_outline_width": "1",
+    "floating_panel_outline_color": "#000000",
+    "floating_panel_outline_width": "2",
     "floating_panel_shadow_enabled": "0",
     "floating_panel_shadow_color": "#000000",
     "floating_panel_shadow_opacity": "20",
@@ -246,9 +247,9 @@ _CLASSIC_FLAT: dict[str, str] = {
     "floating_panel_border_color": "#FFFFFF",
     "floating_panel_border_width": "1",
     "floating_panel_border_opacity": "30",
-    "floating_panel_padding_x": "12",
-    "floating_panel_padding_y": "8",
-    "floating_panel_radius": "10",
+    "floating_panel_padding_x": "4",
+    "floating_panel_padding_y": "2",
+    "floating_panel_radius": "0",
     "floating_panel_tail_enabled": "0",
     "floating_panel_tail_style": DEFAULT_TAIL_STYLE,
     "floating_panel_tail_width": "0",
@@ -258,14 +259,14 @@ _CLASSIC_FLAT: dict[str, str] = {
     "floating_panel_tail_border": "8",
     "floating_panel_tail_long_side": "18",
     "floating_panel_tail_rotate_deg": "35",
-    "floating_panel_username_enabled": "0",
+    "floating_panel_username_enabled": "1",
     "floating_panel_username_text": "弹幕",
-    "floating_panel_username_color": CLASSIC_TEXT_COLOR,
-    "floating_panel_username_size": "14",
+    "floating_panel_username_color": CLASSIC_USERNAME_COLOR,
+    "floating_panel_username_size": "20",
     "floating_panel_username_weight": "700",
-    "floating_panel_username_separator": "：",
-    "floating_panel_content_size": "16",
-    "floating_panel_content_weight": "400",
+    "floating_panel_username_separator": ":",
+    "floating_panel_content_size": "20",
+    "floating_panel_content_weight": "700",
     "floating_panel_content_line_height": "140",
     "floating_panel_gap_username_content": "4",
     "floating_panel_entry_animation": DEFAULT_ENTRY_ANIMATION,
@@ -274,7 +275,7 @@ _CLASSIC_FLAT: dict[str, str] = {
     "floating_panel_exit_animation": DEFAULT_EXIT_ANIMATION,
     "floating_panel_exit_duration_ms": "200",
     "floating_panel_stack_gap": "8",
-    "floating_panel_font_family": "Microsoft YaHei",
+    "floating_panel_font_family": "Imprima, Noto Sans SC, Microsoft YaHei, sans-serif",
     "floating_panel_font_size": "20",
     "floating_panel_font_bold": "1",
     "floating_panel_opacity": "100",
