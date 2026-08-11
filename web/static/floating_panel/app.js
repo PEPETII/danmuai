@@ -156,7 +156,9 @@
     } else if (clickThrough === true || clickThrough === 1 || clickThrough === "1") {
       passThrough = true;
     }
-    document.body.classList.toggle("panel-interactive", !passThrough);
+    if (panel) {
+      panel.classList.toggle("is-interactive", !passThrough);
+    }
   }
 
   function applyConfig(msg) {

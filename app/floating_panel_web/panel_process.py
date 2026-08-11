@@ -75,6 +75,9 @@ def _webview_worker(
         # customize.js compares against ``True``, so the built-in easy-drag
         # path is unreliable on edgechromium; use the explicit region only.
         easy_drag=False,
+        # Match the verified transparent demo: DWM shadow/frame extension
+        # repaints the client area and defeats the WebView color-key surface.
+        shadow=False,
         on_top=True,
         hidden=False,
     )
@@ -82,10 +85,17 @@ def _webview_worker(
     # mouse input. Keep transparency for click-through mode, but create a
     # normal hit-testable window when dragging is enabled.
     if click_through:
+        # Match the verified transparent WebView2 demo. The WinForms backend
+        # replaces this initial color with its pure-red TransparencyKey.
+        create_kwargs["background_color"] = "#000000"
         create_kwargs["transparent"] = True
     try:
         window = webview.create_window(**create_kwargs)
     except (TypeError, ValueError):
+        if click_through:
+            # Never silently downgrade a pass-through panel to an opaque one.
+            # The caller will use the existing QPainter fallback on failure.
+            raise
         create_kwargs.pop("transparent", None)
         window = webview.create_window(**create_kwargs)
 
@@ -132,13 +142,13 @@ def _webview_worker(
     def _apply_win32_panel_styles(hwnd: int) -> None:
         """Apply the same styles after WebView2 repaints or reports ``shown``."""
         from app.win32_overlay_zorder import (
-            apply_overlay_exstyles,
+            apply_webview_panel_exstyles,
             reassert_hwnd_topmost,
             resolve_root_hwnd,
         )
 
         root = resolve_root_hwnd(hwnd)
-        apply_overlay_exstyles(root, click_through=bool(click_through))
+        apply_webview_panel_exstyles(root, click_through=bool(click_through))
         reassert_hwnd_topmost(root)
 
     def on_loaded() -> None:
@@ -283,13 +293,13 @@ class PanelProcess:
             return self.restart()
         try:
             from app.win32_overlay_zorder import (
-                apply_overlay_exstyles,
+                apply_webview_panel_exstyles,
                 reassert_hwnd_topmost,
                 resolve_root_hwnd,
             )
 
             root = resolve_root_hwnd(hwnd)
-            apply_overlay_exstyles(root, click_through=self._last_click_through)
+            apply_webview_panel_exstyles(root, click_through=self._last_click_through)
             reassert_hwnd_topmost(root)
             self._hwnd = int(root or hwnd)
             return True

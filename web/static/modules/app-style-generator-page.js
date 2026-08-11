@@ -946,7 +946,6 @@ export function initStyleGeneratorPage(deps = {}) {
   form.addEventListener('change', onFormChange);
 
   document.getElementById('sgBtnPresetClassic')?.addEventListener('click', () => applyPreset('classic'));
-  document.getElementById('sgBtnPresetWechat')?.addEventListener('click', () => applyPreset('wechat'));
   document.getElementById('sgBtnPresetBlivechatLine')?.addEventListener('click', () => applyPreset('blivechat_line'));
   document.getElementById('sgBtnRestoreDefault')?.addEventListener('click', () => {
     restoreDefaultAndSave().catch((error) => showToast(error.message, true));

@@ -169,7 +169,7 @@ def test_click_through_enabled_by_default(monkeypatch):
         calls.append(bool(click_through))
 
     monkeypatch.setattr(
-        "app.win32_overlay_zorder.apply_overlay_exstyles",
+        "app.win32_overlay_zorder.apply_webview_panel_exstyles",
         fake_apply,
         raising=False,
     )
@@ -219,7 +219,7 @@ def test_set_click_through_same_state_hot_updates_hwnd_without_restart(monkeypat
         calls.append((int(hwnd), bool(click_through)))
 
     monkeypatch.setattr(
-        "app.win32_overlay_zorder.apply_overlay_exstyles",
+        "app.win32_overlay_zorder.apply_webview_panel_exstyles",
         fake_apply,
         raising=False,
     )
@@ -275,7 +275,26 @@ def test_webview_worker_disables_easy_drag_uses_explicit_region():
     assert not re.search(r"easy_drag\s*=\s*True", source)
     assert "resolve_root_hwnd" in source
     assert "window.native" in source or 'getattr(window, "native"' in source
+    assert "shadow=False" in source
+    assert 'create_kwargs["background_color"] = "#000000"' in source
     assert 'create_kwargs["transparent"] = True' in source
+
+
+def test_transparent_webview_creation_does_not_downgrade_to_opaque_window():
+    import inspect
+
+    source = inspect.getsource(panel_process_mod._webview_worker)
+    transparent_failure = source.split('except (TypeError, ValueError):', 1)[1]
+    assert "if click_through:" in transparent_failure
+    assert "raise" in transparent_failure.split('create_kwargs.pop("transparent", None)', 1)[0]
+
+
+def test_webview_worker_uses_colorkey_restore_for_every_native_style_reassert():
+    import inspect
+
+    source = inspect.getsource(panel_process_mod._webview_worker)
+    assert "apply_webview_panel_exstyles" in source
+    assert "apply_overlay_exstyles" not in source
 
 
 def test_web_panel_marks_panel_as_pywebview_drag_region():
@@ -293,6 +312,7 @@ def test_web_panel_interactive_css_and_js_for_drag():
     assert "pointer-events: auto" in css
     assert "applyClickThroughFromUrl" in js
     assert 'classList.toggle("is-interactive"' in js
+    assert 'document.body.classList.toggle("panel-interactive"' not in js
 
 
 def test_click_through_enabled_when_config_on():

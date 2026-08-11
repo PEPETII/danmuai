@@ -68,7 +68,8 @@ body {
   /* Default: do not steal hits while Win32 click-through is on.
      app.js flips to auto when ?click_through=0 so .pywebview-drag-region works. */
   pointer-events: none;
-  background: transparent;
+  background: transparent !important;
+  background-color: transparent !important;
   opacity: var(--panel-opacity);
 }
 

@@ -77,6 +77,15 @@ def test_panel_css_two_line_clamp_and_bubble_tail():
     assert "column-reverse" in css
 
 
+def test_panel_surfaces_are_transparent_without_changing_card_backgrounds():
+    css = _style_css_text()
+    panel_css = css.split("#panel {", 1)[1].split("#panel.is-interactive", 1)[0]
+    assert "background: transparent !important" in panel_css
+    assert "background-color: transparent !important" in panel_css
+    assert ".card {" in css
+    assert "background: var(--card-bg)" in css
+
+
 def test_stacked_dom_has_bubble_username_outside():
     """layout=stacked → .username sibling of .bubble; content inside bubble."""
     src = _app_js_text()
