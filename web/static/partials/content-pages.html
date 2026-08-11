@@ -418,20 +418,9 @@
       </div>
     </section>
 
-    <!-- ========== 区域：直播设置（直播输出） ========== -->
-    <section id="page-live-settings" class="page-panel" data-i18n-aria-label="content.text.直播设置" aria-label="直播设置">
-      <header class="mb-8 ui-page-header"><div class="ui-page-header__copy min-w-0"><h2 class="text-2xl font-bold text-warmText ui-page-title">直播设置</h2><p class="text-gray-500 mt-1 ui-page-description">直播输出配置</p></div></header>
-      <div class="settings-tabs-bar">
-        <div class="settings-tabs" role="tablist" data-i18n-aria-label="content.aria.直播设置分类" aria-label="直播设置分类">
-          <button type="button" role="tab" class="settings-tab active" data-live-settings-tab="live-output" aria-selected="true">直播输出</button>
-        </div>
-      </div>
-      <div id="liveSettingsTab-live-output" class="settings-tab-panel active space-y-6" data-live-settings-panel="live-output" role="tabpanel"></div>
-    </section>
-
-    <!-- ========== 区域：直播输出（DOM 源，由 live-settings-tabs.js 搬入 #page-live-settings） ========== -->
-    <section id="page-live-output-source" class="page-panel" data-live-settings-panel="live-output-source" hidden data-i18n-aria-label="content.aria.直播输出源" aria-label="直播输出源">
-      <div class="card p-8 ui-card" id="liveOverlayPanel" data-live-settings-move="live-output">
+    <!-- ========== 区域：直播输出（DOM 源，由 guide-tabs.js 搬入 #page-guide） ========== -->
+    <section id="page-live-output-source" class="page-panel" data-guide-panel="live-output-source" hidden data-i18n-aria-label="content.aria.直播输出源" aria-label="直播输出源">
+      <div class="card p-8 ui-card" id="liveOverlayPanel" data-guide-move="live-output">
         <div class="flex flex-wrap items-start justify-between gap-3 mb-2">
           <div>
             <h3 class="text-lg font-bold text-warmText">直播输出</h3>
@@ -471,16 +460,17 @@
       </div>
     </section>
 
-    <!-- ========== 区域：教程|日志|反馈|公告（合并四 Tab） ========== -->
-    <section id="page-guide" class="page-panel" data-i18n-aria-label="content.text.教程_日志_反馈_公告" aria-label="教程|日志|反馈|公告|群聊">
-      <header class="mb-8 ui-page-header"><div class="ui-page-header__copy min-w-0"><h2 class="text-2xl font-bold text-warmText ui-page-title">教程|日志|反馈|公告|群聊</h2><p class="text-gray-500 mt-1 ui-page-description">教程、弹幕日志、公告、问题反馈与群聊</p></div></header>
+    <!-- ========== 区域：教程|日志|反馈|公告|群聊|直播（合并 Tab） ========== -->
+    <section id="page-guide" class="page-panel" data-i18n-aria-label="content.text.教程_日志_反馈_公告" aria-label="教程|日志|反馈|公告|群聊|直播">
+      <header class="mb-8 ui-page-header"><div class="ui-page-header__copy min-w-0"><h2 class="text-2xl font-bold text-warmText ui-page-title">教程|日志|反馈|公告|群聊|直播</h2><p class="text-gray-500 mt-1 ui-page-description" data-i18n="content.text.教程_弹幕日志_公告与问题反馈">教程、弹幕日志、公告、问题反馈、群聊与直播输出</p></div></header>
       <div class="settings-tabs-bar">
-        <div class="settings-tabs" role="tablist" data-i18n-aria-label="content.text.教程_日志_反馈_公告" aria-label="教程|日志|反馈|公告|群聊">
+        <div class="settings-tabs" role="tablist" data-i18n-aria-label="content.text.教程_日志_反馈_公告" aria-label="教程|日志|反馈|公告|群聊|直播">
           <button type="button" role="tab" class="settings-tab active" data-guide-tab="tutorial" aria-selected="true">教程</button>
           <button type="button" role="tab" class="settings-tab" data-guide-tab="logs" aria-selected="false">弹幕日志</button>
           <button type="button" role="tab" class="settings-tab" data-guide-tab="mic-logs" aria-selected="false" data-i18n="content.text.麦克风日志">麦克风日志</button>
           <button type="button" role="tab" class="settings-tab" data-guide-tab="announcements" aria-selected="false">公告</button>
           <button type="button" role="tab" class="settings-tab" data-guide-tab="feedback" aria-selected="false">问题反馈与群聊</button>
+          <button type="button" role="tab" class="settings-tab" data-guide-tab="live-output" aria-selected="false" data-i18n="content.text.直播输出">直播输出</button>
         </div>
       </div>
       <div id="guideTab-tutorial" class="settings-tab-panel active space-y-6" data-guide-panel="tutorial" role="tabpanel"></div>
@@ -488,6 +478,7 @@
       <div id="guideTab-mic-logs" class="settings-tab-panel space-y-6" data-guide-panel="mic-logs" role="tabpanel" hidden></div>
       <div id="guideTab-announcements" class="settings-tab-panel space-y-6" data-guide-panel="announcements" role="tabpanel" hidden></div>
       <div id="guideTab-feedback" class="settings-tab-panel space-y-6" data-guide-panel="feedback" role="tabpanel" hidden></div>
+      <div id="guideTab-live-output" class="settings-tab-panel space-y-6" data-guide-panel="live-output" role="tabpanel" hidden></div>
     </section>
 
     <!-- ========== 区域：教程（DOM 源，header 与 card 内容由 guide-tabs.js 搬入 #page-guide） ========== -->

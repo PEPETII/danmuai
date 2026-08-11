@@ -11,7 +11,7 @@ def _pet_page_html() -> str:
     html = CONTENT_PAGES_HTML.read_text(encoding="utf-8")
     start = html.index('id="page-pet"')
     # Next sibling page after pet in content-pages.html (live-overlay page removed)
-    for marker in ('id="page-persona"', 'id="page-live-settings"', 'id="page-live-overlay"'):
+    for marker in ('id="page-persona"', 'id="page-live-output-source"', 'id="page-live-overlay"'):
         if marker in html[start:]:
             end = html.index(marker, start)
             break

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import subprocess
 from pathlib import Path
 
 from app.bundle_paths import project_root
@@ -211,6 +213,58 @@ def test_style_generator_preview_matches_web_panel_structure():
     assert "--tail-long-side" in css
     assert "--tail-rotate" in css
     assert 'data-tail-style="line_like"' in css or "[data-tail-style=\"line_like\"]" in css
+
+
+def test_preview_recomputes_existing_card_colors_when_presets_change_round_trip():
+    """已有卡片必须按稳定 styleIndex 重算 classic -> wechat -> classic。"""
+    script = """
+import { refreshPreviewItemColors } from './web/static/modules/app-style-generator-page.js';
+const item = { styleIndex: 1, cardColor: '#OLDOLD', textColor: '#OLDOLD', el: { dataset: {} } };
+const classic = { cardColors: ['#FFFFFF', '#F5D401'], cardMode: 'equal', cardWeights: {}, textColors: ['#000000'], textMode: 'equal', textWeights: {} };
+const wechat = { cardColors: ['#FFECD2', '#DDF5D7'], cardMode: 'equal', cardWeights: {}, textColors: ['#281C12'], textMode: 'equal', textWeights: {} };
+const first = refreshPreviewItemColors(item, classic);
+const second = refreshPreviewItemColors(item, wechat);
+const third = refreshPreviewItemColors(item, classic);
+console.log(JSON.stringify({ first, second, third, item }));
+"""
+    result = subprocess.run(
+        ["node", "--input-type=module", "-e", script],
+        cwd=_root(),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["first"] == {"cardColor": "#F5D401", "textColor": "#000000"}
+    assert payload["second"] == {"cardColor": "#DDF5D7", "textColor": "#281C12"}
+    assert payload["third"] == payload["first"]
+    assert payload["item"]["el"]["dataset"] == {
+        "cardColor": "#F5D401",
+        "textColor": "#000000",
+    }
+
+
+def test_preview_tail_rules_match_floating_panel_round_sharp_none_geometry():
+    """预览的 inline/stacked round/sharp/none 尾巴应复用真实 card 几何。"""
+    css = (_static() / "warm-tokens-pages-stylegen.css").read_text(encoding="utf-8")
+    panel_css = (_static() / "floating_panel" / "style.css").read_text(encoding="utf-8")
+    for value in ("round", "sharp", "none"):
+        assert f'[data-tail-style="{value}"]' in css
+        assert f'[data-tail-style="{value}"]' in panel_css
+    for fragment in (
+        "margin-left: calc(var(--tail-w) + 4px)",
+        "left: calc(-1 * var(--tail-w) - 1px)",
+        "background: var(--tail-color)",
+        "border-radius: 0 0 0 50%",
+        "clip-path: polygon(100% 0, 100% 100%, 0 100%)",
+        "clip-path: polygon(100% 0, 0 50%, 100% 100%)",
+        "display: none",
+    ):
+        assert fragment in css
+        assert fragment in panel_css
+    assert "border-radius: 100% 0 100% 100%" not in css
+    assert "border-color: transparent var(--tail-color) transparent transparent" not in css
 
 
 def test_settings_danmu_preview_no_longer_implements_floating_stack():

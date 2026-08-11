@@ -88,12 +88,6 @@ import {
   refreshLiveOverlayStatus,
 } from './modules/app-live-overlay-panel.js';
 import {
-  configureLiveSettingsTabs,
-  getActiveLiveSettingsTabId,
-  initLiveSettingsTabs,
-  switchLiveSettingsTab,
-} from './modules/live-settings-tabs.js';
-import {
   initPersonaTopicPage,
   loadOverviewGlobalFields,
   loadPersonaEditor,
@@ -557,19 +551,23 @@ function navigate(page) {
     page = 'settings';
     switchSettingsTab('danmu-read');
   }
-  if (page === 'tutorial' || page === 'logs' || page === 'mic-logs' || page === 'announcements' || page === 'feedback') {
+  if (
+    page === 'tutorial' ||
+    page === 'logs' ||
+    page === 'mic-logs' ||
+    page === 'announcements' ||
+    page === 'feedback' ||
+    page === 'live-output' ||
+    page === 'live-settings'
+  ) {
+    if (page === 'live-settings') {
+      page = 'live-output';
+    }
     switchGuideTab(page);
     page = 'guide';
   }
   if (page === 'guide') {
     switchGuideTab(getActiveGuideTabId());
-  }
-  if (page === 'live-output') {
-    switchLiveSettingsTab(page);
-    page = 'live-settings';
-  }
-  if (page === 'live-settings') {
-    switchLiveSettingsTab(getActiveLiveSettingsTabId());
   }
   document.querySelectorAll('.page-panel').forEach((panel) => panel.classList.remove('active'));
   document.querySelectorAll('#nav .sidebar-item').forEach((item) => item.classList.remove('active'));
@@ -630,12 +628,6 @@ function navigate(page) {
       .then((mod) => mod.loadStyleGeneratorPage())
       .catch((error) => showToast(error.message, true));
   }
-  if (page === 'live-settings') {
-    const activeTab = getActiveLiveSettingsTabId();
-    if (activeTab === 'live-output') {
-      refreshLiveOverlayStatus();
-    }
-  }
   if (page === 'guide') {
     const activeTab = getActiveGuideTabId();
     if (activeTab === 'logs') {
@@ -660,6 +652,8 @@ function navigate(page) {
       import('./modules/content-feedback.js')
         .then((mod) => mod.initFeedbackPage())
         .catch(console.error);
+    } else if (activeTab === 'live-output') {
+      refreshLiveOverlayStatus();
     }
   } else {
     startAnnouncementsBadgePolling();
@@ -688,8 +682,6 @@ function bindCoreInteractions() {
     },
   });
   initLiveOverlayPanel({ showToast });
-  configureLiveSettingsTabs({ showToast });
-  initLiveSettingsTabs();
   initPersonaTopicPage({ showToast });
 
   configureStatus({
@@ -754,6 +746,8 @@ function bindCoreInteractions() {
         import('./modules/content-tutorial.js')
           .then((mod) => mod.loadTutorialPage())
           .catch(console.error);
+      } else if (tabId === 'live-output') {
+        refreshLiveOverlayStatus();
       }
     },
   });

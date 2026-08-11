@@ -427,13 +427,13 @@
   --font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
   --font-size-username: 12px;
   --font-size-content: 14px;
-  --font-weight-username: 600;
+  --font-weight-username: 700;
   --font-weight-content: 400;
   --content-line-height: 1.4;
   --gap-username-content: 4px;
   --padding-x: 12px;
   --padding-y: 8px;
-  --border-width: 1px;
+  --border-width: 0px;
   --panel-padding: 16px;
   --stack-gap: 8px;
   --entry-duration: 250ms;
@@ -443,14 +443,14 @@
     0 2px 4px rgba(0, 0, 0, 0.10),
     0 4px 8px rgba(0, 0, 0, 0.08),
     0 8px 16px rgba(0, 0, 0, 0.06);
-  --tail-w: 8px;
-  --tail-h: 10px;
+  --tail-w: 0px;
+  --tail-h: 0px;
   --tail-offset-y: 38%;
   --tail-color: var(--card-bg);
   --tail-border: 8px;
   --tail-long-side: 18px;
   --tail-rotate: 35deg;
-  --outline-w: 1px;
+  --outline-w: 0px;
 
   position: relative;
   width: 100%;
@@ -490,6 +490,7 @@
   max-width: var(--card-max-width);
   box-shadow: var(--card-shadow);
   animation: sg-fp-slideUp var(--entry-duration) ease-out;
+  backdrop-filter: blur(2px);
   will-change: transform, opacity;
   box-sizing: border-box;
   text-align: left;
@@ -508,23 +509,23 @@
 /* stacked：背景/边框/阴影只在 .bubble；用户名在气泡外（与 WEB-001 同构） */
 .sg-preview-card.layout-stacked {
   background: transparent;
-  border: 0;
+  border: none;
+  border-width: 0;
   border-radius: 0;
   padding: 0;
   box-shadow: none;
+  backdrop-filter: none;
   margin-left: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--gap-username-content);
   max-width: var(--card-max-width);
+  overflow: visible;
 }
 
 .sg-preview-card.layout-stacked > .username {
-  margin-bottom: 0;
+  margin-bottom: var(--gap-username-content);
 }
 
 .sg-preview-card.layout-stacked > .bubble {
+  display: block;
   position: relative;
   width: fit-content;
   max-width: 100%;
@@ -537,37 +538,38 @@
   box-sizing: border-box;
 }
 
+.sg-preview-card.layout-stacked.is-bubble::before {
+  display: none;
+}
+
 .sg-preview-card.layout-stacked.no-border > .bubble {
   border-color: transparent;
   border-width: 0;
 }
 
 .sg-preview-card.is-bubble:not(.layout-stacked) {
-  margin-left: var(--tail-w);
+  margin-left: calc(var(--tail-w) + 4px);
 }
 
-/* inline / 旧 wechat·classic 侧三角尾巴（卡片级 ::before） */
+/* inline / wechat 侧尾巴：保持与 floating_panel/style.css 的 card 规则一致。 */
 .sg-preview-card.is-bubble:not(.layout-stacked)::before {
   content: "";
   position: absolute;
-  left: calc(-1 * var(--tail-w));
+  left: calc(-1 * var(--tail-w) - 1px);
   top: var(--tail-offset-y);
-  width: 0;
-  height: 0;
-  margin-top: calc(var(--tail-h) / -2);
-  border-style: solid;
-  border-width: calc(var(--tail-h) / 2) var(--tail-w) calc(var(--tail-h) / 2) 0;
-  border-color: transparent var(--tail-color) transparent transparent;
+  width: var(--tail-w);
+  height: var(--tail-h);
+  background: var(--tail-color);
   pointer-events: none;
 }
 
 .sg-preview-card.is-bubble:not(.layout-stacked)[data-tail-style="round"]::before {
-  width: var(--tail-w);
-  height: var(--tail-h);
-  margin-top: calc(var(--tail-h) / -2);
-  border: 0;
-  border-radius: 100% 0 100% 100%;
-  background: var(--tail-color);
+  border-radius: 0 0 0 50%;
+  clip-path: polygon(100% 0, 100% 100%, 0 100%);
+}
+
+.sg-preview-card.is-bubble:not(.layout-stacked)[data-tail-style="sharp"]::before {
+  clip-path: polygon(100% 0, 0 50%, 100% 100%);
 }
 
 .sg-preview-card.is-bubble:not(.layout-stacked)[data-tail-style="none"]::before,
@@ -589,7 +591,6 @@
   border-right: var(--tail-long-side, 18px) solid var(--card-bg);
   transform: translate(-50%, -50%) rotate(var(--tail-rotate, 35deg));
   pointer-events: none;
-  z-index: 0;
 }
 
 .sg-preview-card.layout-stacked.is-bubble[data-tail-style="line_like"] > .bubble > .content {
@@ -599,30 +600,31 @@
 
 /* stacked 上非 line_like 时仍可在 bubble 上画侧三角（兼容） */
 .sg-preview-card.layout-stacked.is-bubble:not([data-tail-style="line_like"]):not([data-tail-style="none"]) > .bubble {
-  margin-left: var(--tail-w);
+  margin-left: calc(var(--tail-w) + 4px);
 }
 
 .sg-preview-card.layout-stacked.is-bubble:not([data-tail-style="line_like"]):not([data-tail-style="none"]) > .bubble::before {
   content: "";
   position: absolute;
-  left: calc(-1 * var(--tail-w));
+  left: calc(-1 * var(--tail-w) - 1px);
   top: var(--tail-offset-y);
-  width: 0;
-  height: 0;
-  margin-top: calc(var(--tail-h) / -2);
-  border-style: solid;
-  border-width: calc(var(--tail-h) / 2) var(--tail-w) calc(var(--tail-h) / 2) 0;
-  border-color: transparent var(--tail-color) transparent transparent;
+  width: var(--tail-w);
+  height: var(--tail-h);
+  background: var(--tail-color);
   pointer-events: none;
 }
 
 .sg-preview-card.layout-stacked.is-bubble[data-tail-style="round"] > .bubble::before {
-  width: var(--tail-w);
-  height: var(--tail-h);
-  margin-top: calc(var(--tail-h) / -2);
-  border: 0;
-  border-radius: 100% 0 100% 100%;
-  background: var(--tail-color);
+  border-radius: 0 0 0 50%;
+  clip-path: polygon(100% 0, 100% 100%, 0 100%);
+}
+
+.sg-preview-card.layout-stacked.is-bubble[data-tail-style="sharp"] > .bubble::before {
+  clip-path: polygon(100% 0, 0 50%, 100% 100%);
+}
+
+.sg-preview-card.layout-stacked.is-bubble[data-tail-style="none"] > .bubble::before {
+  display: none;
 }
 
 .sg-preview-card .username {
@@ -673,7 +675,7 @@
 
 .sg-preview-card.is-bold .content,
 .sg-preview-card.is-bold .username {
-  font-weight: 700;
+  font-weight: bold;
 }
 
 @keyframes sg-fp-slideUp {

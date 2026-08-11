@@ -492,7 +492,7 @@ function applyCardStyleVars(cardEl, style, cardColor, textColor) {
   s.setProperty('--card-border', hexToRgba(style.borderColor, style.borderOpacity));
   s.setProperty('--username-color', style.usernameColor);
   s.setProperty('--content-color', textColor);
-  s.setProperty('--outline-color', hexToRgba(style.outlineColor));
+  s.setProperty('--outline-color', style.outlineColor);
   s.setProperty('--font-family', style.fontFamily || 'inherit');
   s.setProperty('--font-size-username', `${style.usernameSize}px`);
   s.setProperty('--font-size-content', `${style.contentSize}px`);
@@ -534,6 +534,30 @@ function applyCardStyleVars(cardEl, style, cardColor, textColor) {
   } else {
     delete cardEl.dataset.tailStyle;
   }
+}
+
+/** Recompute palette colors for an existing preview item after a style change. */
+export function refreshPreviewItemColors(item, style) {
+  if (!item || !style) return { cardColor: '#FFFFFF', textColor: '#FFFFFF' };
+  const cardColor = pickStyleColor(
+    style.cardColors,
+    style.cardMode,
+    style.cardWeights,
+    item.styleIndex,
+  );
+  const textColor = pickStyleColor(
+    style.textColors,
+    style.textMode,
+    style.textWeights,
+    item.styleIndex,
+  );
+  item.cardColor = cardColor;
+  item.textColor = textColor;
+  if (item.el?.dataset) {
+    item.el.dataset.cardColor = cardColor;
+    item.el.dataset.textColor = textColor;
+  }
+  return { cardColor, textColor };
 }
 
 /** 与 floating_panel addCard 同构：stacked → .username + .bubble > .content */
@@ -588,7 +612,8 @@ function restyleVisiblePreviewItems() {
   previewItems.forEach((item) => {
     if (!item.el) return;
     syncPreviewCardDom(item.el, style, item.text);
-    applyCardStyleVars(item.el, style, item.cardColor, item.textColor);
+    const { cardColor, textColor } = refreshPreviewItemColors(item, style);
+    applyCardStyleVars(item.el, style, cardColor, textColor);
   });
   removeOldestIfNeeded();
 }

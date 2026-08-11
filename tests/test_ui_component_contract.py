@@ -289,7 +289,7 @@ def test_content_pages_f2_semantic_shell():
         "page-persona",
         "page-danmu-pool",
         "page-pet",
-        "page-live-settings",
+        "page-live-output-source",
         "page-guide",
         "page-logs",
         "page-feedback",

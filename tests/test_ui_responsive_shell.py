@@ -59,7 +59,6 @@ def test_sidebar_shell_structure_and_preserved_ids():
         "knowledge",
         "danmu-pool",
         "pet",
-        "live-settings",
         "guide",
     ):
         assert f'data-page="{page}"' in html
