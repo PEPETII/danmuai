@@ -50,6 +50,7 @@ WEB_CONFIG_KEYS = (
     "danmu_render_mode",
     "floating_panel_width",
     "floating_panel_max_items",
+    "floating_panel_danmu_per_second",
     "floating_panel_speed",
     "floating_panel_x_offset",
     "floating_panel_y_offset",
@@ -397,6 +398,7 @@ class ConfigService:
             )
         _clamp_int_key(items, "floating_panel_width", 360, 200, 800)
         _clamp_int_key(items, "floating_panel_max_items", 12, 1, 50)
+        _clamp_int_key(items, "floating_panel_danmu_per_second", 1, 1, 5)
         _clamp_int_key(items, "floating_panel_lifetime_sec", 7, 2, 60)
         if "floating_panel_speed" in items:
             try:

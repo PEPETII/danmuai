@@ -257,9 +257,19 @@
       "选择字体文件": "Select font file",
       "保存字体设置": "Save font settings",
       "恢复字体默认": "Restore defaults",
-      "横向字体预览说明": "Live preview of horizontal danmu from current form values; track bands reflect line count and layout. Adjust speed in Danmu Settings → Display; opacity and exit mode in Font Settings above.",
+      "横向字体预览说明": "Live preview of horizontal danmu from current form values; track bands reflect line count and layout. Adjust speed in Danmu Settings → Display; opacity and exit mode in Display & Exit above.",
       "布局与偏移": "Layout & Offset",
-      "导入本地字体": "Import Local Font"
+      "导入本地字体": "Import Local Font",
+      "全局外观": "Global Appearance",
+      "显示布局与频率": "Display Layout & Frequency",
+      "背景与透明度": "Background & Opacity",
+      "消息颜色": "Message Colors",
+      "消息内容": "Message Content",
+      "字体与间距": "Font & Spacing",
+      "字体资源": "Font Resources",
+      "用户名": "Username",
+      "消息样式": "Message Style",
+      "显示与退场": "Display & Exit"
     },
     "placeholder": {
       "太真实了_10_这也行": "So real&#10;How is this allowed?",

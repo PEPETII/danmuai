@@ -59,6 +59,12 @@ def density_right_target(min_n: int) -> int:
     return max(1, min_n // 3)
 
 
+def floating_panel_reply_gap_ms(danmu_per_second: int) -> int:
+    """从下到上模式：按每秒弹幕数换算 reply_timer 间隔（100–1000ms）。"""
+    per_sec = max(1, min(int(danmu_per_second), 5))
+    return max(100, min(1000, int(1000 / per_sec)))
+
+
 def config_flag_enabled(config, key: str, *, default: str = "0") -> bool:
     return str(config.get(key, default) or default).strip() == "1"
 

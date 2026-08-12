@@ -114,6 +114,7 @@ CONFIG_DEFAULTS: dict[str, str] = {
     "danmu_render_mode": "scrolling",
     "floating_panel_width": "360",
     "floating_panel_max_items": "12",
+    "floating_panel_danmu_per_second": "1",
     "floating_panel_x_offset": "20",
     "floating_panel_y_offset": "80",
     "floating_panel_opacity": "85",

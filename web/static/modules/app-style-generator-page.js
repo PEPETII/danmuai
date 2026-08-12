@@ -72,6 +72,7 @@ const STYLE_SAVE_KEYS = [
   'floating_panel_opacity',
   'floating_panel_width',
   'floating_panel_max_items',
+  'floating_panel_danmu_per_second',
   'floating_panel_speed',
   'floating_panel_x_offset',
   'floating_panel_y_offset',
@@ -919,6 +920,10 @@ export async function loadStyleGeneratorPage() {
     STYLE_SAVE_KEYS.forEach((key) => {
       if (cfg[key] !== undefined && cfg[key] !== null) values[key] = cfg[key];
     });
+    const perSecRaw = parseInt(String(values.floating_panel_danmu_per_second ?? cfg.floating_panel_danmu_per_second ?? '1'), 10);
+    values.floating_panel_danmu_per_second = String(
+      Math.max(1, Math.min(5, Number.isFinite(perSecRaw) ? perSecRaw : 1)),
+    );
     // 若服务端无样式键，用 wechat 预设补齐
     if (!values.floating_panel_style_preset && presets?.presets?.wechat) {
       Object.assign(values, presets.presets.wechat);

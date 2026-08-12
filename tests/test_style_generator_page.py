@@ -108,6 +108,46 @@ def test_style_generator_tabs_share_accordion_layout_contract():
         assert "ui-button" in button, button_id
 
 
+def test_style_generator_accordion_titles_follow_domain_grouping():
+    """标题按参考项目的领域语义分组，且被移动的字段只保留在新归属面板。"""
+    partial = (_static() / "partials" / "style-generator.html").read_text(encoding="utf-8")
+
+    for title_key in (
+        "全局外观",
+        "显示布局与频率",
+        "背景与透明度",
+        "消息颜色",
+        "消息内容",
+        "字体与间距",
+        "用户名",
+        "消息样式",
+        "显示与退场",
+        "字体资源",
+    ):
+        assert f'data-i18n="content.text.{title_key}"' in partial
+
+    layout_start = partial.index('id="sgLayoutAccordionPanel"')
+    card_start = partial.index('id="sgCardColorsAccordionPanel"')
+    assert layout_start < partial.index('id="floating_panel_danmu_per_second"') < card_start
+
+    card_start = partial.index('id="sgCardColorsAccordionPanel"')
+    text_colors_start = partial.index('id="sgTextColorsAccordionPanel"')
+    assert card_start < partial.index('id="sg-floating_panel_card_opacity"') < text_colors_start
+    assert card_start < partial.index('id="sg-floating_panel_opacity"') < text_colors_start
+
+    font_start = partial.index('id="sgFontAccordionPanel"')
+    tail_start = partial.index('id="sgTailAccordionPanel"')
+    assert font_start < partial.index('id="sg-font_file_input"') < tail_start
+    assert 'id="sgFontImportAccordionTrigger"' not in partial
+
+    horizontal_style_start = partial.index('id="sgHorizontalFontAccordionPanel"')
+    display_start = partial.index('id="sgHorizontalDisplayAccordionPanel"')
+    resource_start = partial.index('id="sgHorizontalFontImportAccordionPanel"')
+    assert horizontal_style_start < display_start < resource_start
+    assert display_start < partial.index('id="opacity"') < resource_start
+    assert resource_start < partial.index('id="font_file_input"')
+
+
 def test_style_generator_accordion_number_stepper_inner_matches_reference():
     """折叠面板内步进器内层 input 应与设置页步进器约定一致（居中、透明、6px padding）。"""
     partial = (_static() / "partials" / "style-generator.html").read_text(encoding="utf-8")

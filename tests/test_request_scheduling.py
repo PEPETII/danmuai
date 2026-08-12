@@ -12,7 +12,12 @@ import pytest
 from app.application import generation_pipeline as gen_pipeline_mod
 from app.application.request_scheduler import RequestScheduler
 from app.application.request_timing_service import RequestTimingService
-from app.main_helpers import MAX_IN_FLIGHT, density_right_target, reply_request_id
+from app.main_helpers import (
+    MAX_IN_FLIGHT,
+    density_right_target,
+    floating_panel_reply_gap_ms,
+    reply_request_id,
+)
 from main import DanmuApp
 from PyQt6.QtCore import QObject
 
@@ -272,6 +277,12 @@ def test_pending_meta_unique_keys_under_concurrent_calls():
 def test_density_right_target():
     assert density_right_target(0) == 2
     assert density_right_target(9) == 3
+
+
+def test_floating_panel_reply_gap_ms():
+    assert floating_panel_reply_gap_ms(1) == 1000
+    assert floating_panel_reply_gap_ms(5) == 200
+    assert floating_panel_reply_gap_ms(99) == 200
 
 
 def test_min_api_interval_blocks_and_then_allows(monkeypatch):

@@ -144,35 +144,46 @@ def test_consume_requeues_on_unexpected_display_failure(workspace_tmp, qapp, mon
     assert "floating_panel_render" in reasons
 
 
-def test_estimated_reply_gap_ms_floating_panel_uses_push_pace_not_spacing(
+def test_estimated_reply_gap_ms_floating_panel_uses_danmu_per_second(
     workspace_tmp, qapp
 ):
-    """floating gap 跟 push duration，不读 can_accept / 横向密度。"""
+    """floating_panel 出屏节奏由 floating_panel_danmu_per_second 控制。"""
     app, fp_engine, _overlay = _floating_panel_app(
         workspace_tmp,
         qapp,
-        floating_panel_push_duration_ms="180",
+        floating_panel_danmu_per_second="1",
     )
     app.engine.visibility_counts = lambda: (999, 999)
 
     gap = app._estimated_reply_gap_ms()
-    assert gap == 180
-    assert gap >= 100
-    assert gap <= 1000
+    assert gap == 1000
 
-    # 占位旧条后仍同一节奏，不切换到空间等待
+    # 旧条仍可见时节奏不变，不切换到空间等待
     fp_engine.add_text("blocker", item_height=40.0, skip_dedup=True)
     gap_after = app._estimated_reply_gap_ms()
     assert gap_after == gap
 
 
-def test_estimated_reply_gap_ms_floating_panel_floor_when_push_zero(workspace_tmp, qapp):
+def test_estimated_reply_gap_ms_floating_panel_danmu_per_second_five(
+    workspace_tmp, qapp
+):
     app, _fp_engine, _overlay = _floating_panel_app(
         workspace_tmp,
         qapp,
-        floating_panel_push_duration_ms="0",
+        floating_panel_danmu_per_second="5",
     )
-    assert app._estimated_reply_gap_ms() == 100
+    assert app._estimated_reply_gap_ms() == 200
+
+
+def test_estimated_reply_gap_ms_floating_panel_clamps_invalid_per_second(
+    workspace_tmp, qapp
+):
+    app, _fp_engine, _overlay = _floating_panel_app(
+        workspace_tmp,
+        qapp,
+        floating_panel_danmu_per_second="99",
+    )
+    assert app._estimated_reply_gap_ms() == 200
 
 
 def _pairwise_stack_gaps(engine: FloatingPanelEngine) -> list[float]:

@@ -30,8 +30,8 @@
               <h4 class="settings-rhythm-accordion-heading">
                 <button type="button" id="sgBasicAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="sgBasicAccordionPanel">
                   <span class="settings-rhythm-accordion-trigger-copy">
-                    <span class="settings-rhythm-accordion-trigger-title">基础形态</span>
-                    <span class="settings-section-hint settings-rhythm-accordion-trigger-hint">形态、布局、间距与不透明度</span>
+                    <span class="settings-rhythm-accordion-trigger-title" data-i18n="content.text.全局外观">全局外观</span>
+                    <span class="settings-section-hint settings-rhythm-accordion-trigger-hint">形态、布局与堆积间距</span>
                   </span>
                   <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
                 </button>
@@ -56,14 +56,6 @@
                     <label for="sg-floating_panel_stack_gap" class="settings-field-label" data-i18n="content.text.堆积间距">堆积间距</label>
                     <input type="number" name="floating_panel_stack_gap" id="sg-floating_panel_stack_gap" min="0" max="48" class="settings-field-control ui-control ui-input" value="8">
                   </div>
-                  <div class="settings-field">
-                    <label for="sg-floating_panel_card_opacity" class="settings-field-label" data-i18n="content.text.卡片不透明度">卡片不透明度 (%)</label>
-                    <input type="number" name="floating_panel_card_opacity" id="sg-floating_panel_card_opacity" min="0" max="100" class="settings-field-control ui-control ui-input" value="78">
-                  </div>
-                  <div class="settings-field">
-                    <label for="sg-floating_panel_opacity" class="settings-field-label" data-i18n="content.text.整体不透明度">整体不透明度 (%)</label>
-                    <input type="number" name="floating_panel_opacity" id="sg-floating_panel_opacity" min="0" max="100" class="settings-field-control ui-control ui-input" value="85">
-                  </div>
                 </div>
               </div>
             </section>
@@ -72,8 +64,8 @@
               <h4 class="settings-rhythm-accordion-heading">
                 <button type="button" id="sgLayoutAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="sgLayoutAccordionPanel">
                   <span class="settings-rhythm-accordion-trigger-copy">
-                    <span class="settings-rhythm-accordion-trigger-title" data-i18n="content.text.布局与偏移">布局与偏移</span>
-                    <span class="settings-section-hint settings-rhythm-accordion-trigger-hint">窗口尺寸、条数、边距与穿透</span>
+                    <span class="settings-rhythm-accordion-trigger-title" data-i18n="content.text.显示布局与频率">显示布局与频率</span>
+                    <span class="settings-section-hint settings-rhythm-accordion-trigger-hint">窗口尺寸、条数、速度、频率与位置行为</span>
                   </span>
                   <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
                 </button>
@@ -108,6 +100,11 @@
                     </label>
                     <p class="settings-section-hint">开启时鼠标可穿过面板；关闭后可拖动面板。</p>
                   </div>
+                  <div class="settings-field">
+                    <label for="floating_panel_danmu_per_second" class="settings-field-label">每秒弹幕数</label>
+                    <input type="number" name="floating_panel_danmu_per_second" id="floating_panel_danmu_per_second" min="1" max="5" step="1" class="settings-field-control ui-control ui-input" value="1">
+                    <p class="settings-section-hint">每秒出现在屏幕上的弹幕数量</p>
+                  </div>
                 </div>
               </div>
             </section>
@@ -116,8 +113,8 @@
               <h4 class="settings-rhythm-accordion-heading">
                 <button type="button" id="sgCardColorsAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="sgCardColorsAccordionPanel">
                   <span class="settings-rhythm-accordion-trigger-copy">
-                    <span class="settings-rhythm-accordion-trigger-title" data-i18n="content.text.卡片颜色">卡片颜色</span>
-                    <span class="settings-section-hint settings-rhythm-accordion-trigger-hint">色盘管理、选色模式与权重</span>
+                    <span class="settings-rhythm-accordion-trigger-title" data-i18n="content.text.背景与透明度">背景与透明度</span>
+                    <span class="settings-section-hint settings-rhythm-accordion-trigger-hint">卡片色盘、选色模式与透明度</span>
                   </span>
                   <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
                 </button>
@@ -146,6 +143,16 @@
                 <input type="hidden" name="floating_panel_card_colors" id="sg-floating_panel_card_colors" value="[]">
                 <div id="sgCardWeightsPanel" class="sg-weights-panel hidden space-y-2 mt-2"></div>
                 <input type="hidden" name="floating_panel_card_color_weights" id="sg-floating_panel_card_color_weights" value="{}">
+                <div class="settings-params-grid cols-2 mt-3">
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_card_opacity" class="settings-field-label" data-i18n="content.text.卡片不透明度">卡片不透明度 (%)</label>
+                    <input type="number" name="floating_panel_card_opacity" id="sg-floating_panel_card_opacity" min="0" max="100" class="settings-field-control ui-control ui-input" value="78">
+                  </div>
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_opacity" class="settings-field-label" data-i18n="content.text.整体不透明度">整体不透明度 (%)</label>
+                    <input type="number" name="floating_panel_opacity" id="sg-floating_panel_opacity" min="0" max="100" class="settings-field-control ui-control ui-input" value="85">
+                  </div>
+                </div>
               </div>
             </section>
 
@@ -153,7 +160,7 @@
               <h4 class="settings-rhythm-accordion-heading">
                 <button type="button" id="sgTextColorsAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="sgTextColorsAccordionPanel">
                   <span class="settings-rhythm-accordion-trigger-copy">
-                    <span class="settings-rhythm-accordion-trigger-title" data-i18n="content.text.文字颜色">文字颜色</span>
+                    <span class="settings-rhythm-accordion-trigger-title" data-i18n="content.text.消息颜色">消息颜色</span>
                     <span class="settings-section-hint settings-rhythm-accordion-trigger-hint">色盘管理、选色模式与权重</span>
                   </span>
                   <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
@@ -308,7 +315,7 @@
               <h4 class="settings-rhythm-accordion-heading">
                 <button type="button" id="sgUsernameAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="sgUsernameAccordionPanel">
                   <span class="settings-rhythm-accordion-trigger-copy">
-                    <span class="settings-rhythm-accordion-trigger-title" data-i18n="content.text.用户名与内容">用户名与内容</span>
+                    <span class="settings-rhythm-accordion-trigger-title" data-i18n="content.text.消息内容">消息内容</span>
                     <span class="settings-section-hint settings-rhythm-accordion-trigger-hint">用户名显示、颜色、字号与内容格式</span>
                   </span>
                   <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
@@ -370,8 +377,8 @@
               <h4 class="settings-rhythm-accordion-heading">
                 <button type="button" id="sgFontAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="sgFontAccordionPanel">
                   <span class="settings-rhythm-accordion-trigger-copy">
-                    <span class="settings-rhythm-accordion-trigger-title" data-i18n="content.text.字体与内边距">字体与内边距</span>
-                    <span class="settings-section-hint settings-rhythm-accordion-trigger-hint">字体、字号、加粗、圆角与内边距</span>
+                    <span class="settings-rhythm-accordion-trigger-title" data-i18n="content.text.字体与间距">字体与间距</span>
+                    <span class="settings-section-hint settings-rhythm-accordion-trigger-hint">字体、字号、加粗、圆角、内边距与本地字体</span>
                   </span>
                   <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
                 </button>
@@ -408,6 +415,31 @@
                     </label>
                   </div>
                 </div>
+                <div class="settings-section-divider mt-4"></div>
+                <p class="settings-section-title mt-4" data-i18n="content.text.字体资源">字体资源</p>
+                <p class="settings-section-hint" data-i18n="content.text.字体导入说明">
+                  支持 .ttf / .otf 格式，单文件最大 25MB。请确认字体授权允许个人使用；DanmuAI 只在本机加载字体，不会上传到外部服务。
+                </p>
+                <div class="settings-rhythm-accordion-fields">
+                  <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--stacked">
+                    <label for="sg-font_file_input" class="settings-field-label" data-i18n="content.text.选择字体文件">选择字体文件</label>
+                    <div class="settings-rhythm-accordion-control-stack">
+                      <input type="file" id="sg-font_file_input" accept=".ttf,.otf" class="settings-field-control ui-control ui-input">
+                    </div>
+                  </div>
+                  <div class="settings-rhythm-accordion-field">
+                    <span class="settings-field-label" aria-hidden="true">&nbsp;</span>
+                    <button type="button" id="sg-btnImportFont" class="settings-action-btn ui-button ui-button--secondary ui-button--sm" data-i18n="settings.text.导入字体">导入字体</button>
+                  </div>
+                </div>
+                <div id="sg-importedFontsList" class="settings-imported-fonts-list"></div>
+                <template id="sg-fontRowTemplate">
+                  <div class="settings-imported-font-row">
+                    <span class="font-family"></span>
+                    <span class="font-meta"></span>
+                    <button type="button" class="settings-action-btn-sm btn-delete-font ui-button ui-button--ghost ui-button--sm" data-i18n="common.delete">删除</button>
+                  </div>
+                </template>
               </div>
             </section>
 
@@ -513,36 +545,6 @@
                 </div>
               </div>
             </section>
-            <section class="settings-rhythm-accordion-item">
-              <h4 class="settings-rhythm-accordion-heading">
-                <button type="button" id="sgFontImportAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="sgFontImportAccordionPanel">
-                  <span class="settings-rhythm-accordion-trigger-copy">
-                    <span class="settings-rhythm-accordion-trigger-title" data-i18n="content.text.导入本地字体">导入本地字体</span>
-                    <span class="settings-section-hint settings-rhythm-accordion-trigger-hint">支持 .ttf / .otf，单文件最大 25MB</span>
-                  </span>
-                  <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
-                </button>
-              </h4>
-              <div id="sgFontImportAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="sgFontImportAccordionTrigger" hidden>
-                <div class="settings-params-grid cols-2">
-                  <div class="settings-field">
-                    <label for="sg-font_file_input" class="settings-field-label">选择字体文件</label>
-                    <div class="sg-toolbar-controls">
-                      <input type="file" id="sg-font_file_input" accept=".ttf,.otf" class="settings-field-control ui-control ui-input">
-                      <button type="button" id="sg-btnImportFont" class="ui-button ui-button--secondary ui-button--sm">导入字体</button>
-                    </div>
-                  </div>
-                </div>
-                <div id="sg-importedFontsList" class="mt-3 space-y-2"></div>
-                <template id="sg-fontRowTemplate">
-                  <div class="flex items-center gap-2 text-sm">
-                    <span class="font-family"></span>
-                    <span class="font-meta text-gray-500"></span>
-                    <button type="button" class="btn-delete-font ui-button ui-button--ghost ui-button--sm">删除</button>
-                  </div>
-                </template>
-              </div>
-            </section>
           </div>
 
           <div class="sg-action-bar">
@@ -579,7 +581,7 @@
                 <h4 class="settings-rhythm-accordion-heading">
                   <button type="button" id="sgHorizontalNameAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="sgHorizontalNameAccordionPanel">
                     <span class="settings-rhythm-accordion-trigger-copy">
-                      <span class="settings-rhythm-accordion-trigger-title">用户名显示</span>
+                      <span class="settings-rhythm-accordion-trigger-title" data-i18n="content.text.用户名">用户名</span>
                     </span>
                     <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
                   </button>
@@ -600,8 +602,8 @@
                 <h4 class="settings-rhythm-accordion-heading">
                   <button type="button" id="sgHorizontalFontAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="sgHorizontalFontAccordionPanel">
                     <span class="settings-rhythm-accordion-trigger-copy">
-                      <span class="settings-rhythm-accordion-trigger-title" data-i18n="content.text.字体设置">字体设置</span>
-                      <span class="settings-section-hint settings-rhythm-accordion-trigger-hint" data-i18n="content.text.横向字体设置提示">横向弹幕字体、颜色与本地导入</span>
+                      <span class="settings-rhythm-accordion-trigger-title" data-i18n="content.text.消息样式">消息样式</span>
+                      <span class="settings-section-hint settings-rhythm-accordion-trigger-hint">字体、颜色、轨道与布局</span>
                     </span>
                     <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
                   </button>
@@ -660,7 +662,20 @@
                     <input type="hidden" name="danmu_font_color_mode" id="danmu_font_color_mode">
                   </div>
 
-                  <p class="settings-section-title mt-4" data-i18n="settings.text.不透明度">不透明度 (%)</p>
+                </div>
+              </section>
+              <section class="settings-rhythm-accordion-item">
+                <h4 class="settings-rhythm-accordion-heading">
+                  <button type="button" id="sgHorizontalDisplayAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="sgHorizontalDisplayAccordionPanel">
+                    <span class="settings-rhythm-accordion-trigger-copy">
+                      <span class="settings-rhythm-accordion-trigger-title" data-i18n="content.text.显示与退场">显示与退场</span>
+                      <span class="settings-section-hint settings-rhythm-accordion-trigger-hint">不透明度与退场行为</span>
+                    </span>
+                    <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
+                  </button>
+                </h4>
+                <div id="sgHorizontalDisplayAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="sgHorizontalDisplayAccordionTrigger" hidden>
+                  <p class="settings-section-title" data-i18n="settings.text.不透明度">不透明度 (%)</p>
                   <div class="settings-rhythm-accordion-fields">
                     <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--stacked">
                       <label for="opacity" class="settings-field-label" data-i18n="settings.text.不透明度">不透明度 (%)</label>
@@ -670,7 +685,6 @@
                       </div>
                     </div>
                   </div>
-
                   <p class="settings-section-title mt-4" data-i18n="settings.text.退场模式">退场模式</p>
                   <div class="settings-rhythm-accordion-fields">
                     <div class="settings-rhythm-accordion-field">
@@ -681,8 +695,19 @@
                       </select>
                     </div>
                   </div>
-
-                  <p class="settings-section-title mt-4" data-i18n="settings.text.导入本地字体">导入本地字体</p>
+                </div>
+              </section>
+              <section class="settings-rhythm-accordion-item">
+                <h4 class="settings-rhythm-accordion-heading">
+                  <button type="button" id="sgHorizontalFontImportAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="sgHorizontalFontImportAccordionPanel">
+                    <span class="settings-rhythm-accordion-trigger-copy">
+                      <span class="settings-rhythm-accordion-trigger-title" data-i18n="content.text.字体资源">字体资源</span>
+                      <span class="settings-section-hint settings-rhythm-accordion-trigger-hint">本地字体导入与管理</span>
+                    </span>
+                    <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
+                  </button>
+                </h4>
+                <div id="sgHorizontalFontImportAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="sgHorizontalFontImportAccordionTrigger" hidden>
                   <p class="settings-section-hint" data-i18n="content.text.字体导入说明">
                     支持 .ttf / .otf 格式，单文件最大 25MB。请确认字体授权允许个人使用；DanmuAI 只在本机加载字体，不会上传到外部服务。
                   </p>

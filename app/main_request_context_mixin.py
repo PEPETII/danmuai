@@ -16,6 +16,7 @@ from app.env_config import get as get_env
 from app.main_helpers import (
     VISUAL_INFLIGHT_RECOVER_SEC,
     density_right_target,
+    floating_panel_reply_gap_ms,
     queue_capacity,
     reply_request_id,
 )
@@ -412,12 +413,9 @@ class DanmuAppRequestContextMixin:
                 return current_interval
 
         if self._danmu_render_mode() == "floating_panel":
-            # 堆积节奏：以 push 动画时长作消费节流，不再按底部空间/entry_delay 等待。
-            # 安全下限 100ms 防止 tight loop；上限 1000ms 与 reply 自适应区间对齐。
-            push_ms = self.config.get_int("floating_panel_push_duration_ms", 180)
-            if push_ms <= 0:
-                return 100
-            return max(100, min(int(push_ms), 1000))
+            # 堆积节奏：由「每秒弹幕数」换算消费间隔，不再用 push 动画时长节流。
+            per_sec = self.config.get_int("floating_panel_danmu_per_second", 1)
+            return floating_panel_reply_gap_ms(per_sec)
 
         if hasattr(self.engine, "visibility_counts"):
             visible_total, right_count = self.engine.visibility_counts()

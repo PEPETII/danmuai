@@ -95,6 +95,12 @@ def test_floating_panel_max_items_clamped():
     assert items["floating_panel_max_items"] == "50"
 
 
+def test_floating_panel_danmu_per_second_clamped():
+    items = {"floating_panel_danmu_per_second": "99"}
+    _clamp_int_key(items, "floating_panel_danmu_per_second", 1, 1, 5)
+    assert items["floating_panel_danmu_per_second"] == "5"
+
+
 def test_floating_panel_font_size_clamped_min():
     items = {"floating_panel_font_size": "1"}
     _clamp_int_key(items, "floating_panel_font_size", 20, 12, 48)
