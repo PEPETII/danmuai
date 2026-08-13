@@ -724,11 +724,6 @@ function bindCoreInteractions() {
       }
     },
   });
-  // 设置页「打开样式生成器」入口（不依赖样式页懒加载）
-  document.getElementById('btnOpenStyleGeneratorFromSettings')?.addEventListener('click', (event) => {
-    event.preventDefault();
-    navigate('style-generator');
-  });
   initNumberSteppers(document);
   configureGuideTabs({
     onGuideTabSwitch: (tabId) => {

@@ -1,8 +1,8 @@
 /**
  * 弹幕样式预览 (W-PR-INTAKE-022 / W-FP-STYLEGEN-WEB-001)
  *
- * 纯前端预览：横向 scrolling 在设置页与样式生成器横向模式实时渲染。
- * 从下到上浮动面板的堆积预览已迁到 #style-generator（app-style-generator-page.js）。
+ * 纯前端预览：横向 scrolling 在样式生成器「横向模式」实时渲染。
+ * 从下到上浮动面板的堆积预览见 app-style-generator-page.js。
  */
 
 import { t } from './i18n.js';
@@ -15,22 +15,12 @@ const PREVIEW_TEXTS = [
   'awsl',
 ];
 
-const PREVIEW_ROOTS = [
-  {
-    rootId: 'danmuStylePreview',
-    trackId: 'danmuPreviewTrack',
-    bandsId: 'danmuTrackBands',
-    scrollingId: 'danmuPreviewScrolling',
-    floatingId: 'danmuPreviewFloating',
-  },
-  {
-    rootId: 'horizontalDanmuStylePreview',
-    trackId: 'horizontalDanmuPreviewTrack',
-    bandsId: 'horizontalDanmuTrackBands',
-    scrollingId: 'horizontalDanmuPreviewScrolling',
-    floatingId: null,
-  },
-];
+const PREVIEW_ROOT = {
+  rootId: 'horizontalDanmuStylePreview',
+  trackId: 'horizontalDanmuPreviewTrack',
+  bandsId: 'horizontalDanmuTrackBands',
+  scrollingId: 'horizontalDanmuPreviewScrolling',
+};
 
 let previewTimer = null;
 const previewIndices = new Map();
@@ -172,15 +162,6 @@ function renderScrollingPreviewForRoot(root) {
   });
 }
 
-function switchPreviewModeForRoot(root) {
-  if (!root.floatingId) return;
-  const mode = getRenderMode();
-  const scrolling = document.getElementById(root.scrollingId);
-  const floating = document.getElementById(root.floatingId);
-  if (scrolling) scrolling.classList.toggle('hidden', mode !== 'scrolling');
-  if (floating) floating.classList.toggle('hidden', mode !== 'floating_panel');
-}
-
 const TRACK_TOP_MARGIN = 50;
 const TRACK_BOTTOM_MARGIN = 80;
 const TRACK_LINE_HEIGHT = 40;
@@ -257,11 +238,10 @@ function tickRoot(root) {
 }
 
 function tick() {
-  PREVIEW_ROOTS.forEach((root) => tickRoot(root));
+  tickRoot(PREVIEW_ROOT);
 }
 
 export function refreshDanmuPreview() {
-  PREVIEW_ROOTS.forEach((root) => switchPreviewModeForRoot(root));
   tick();
 }
 
@@ -278,13 +258,6 @@ function bindPreviewFieldListeners() {
     'danmu_font_color_mode',
     'danmu_lines',
     'layout_mode',
-    'floating_panel_width',
-    'floating_panel_max_items',
-    'floating_panel_speed',
-    'floating_panel_opacity',
-    'floating_panel_font_size',
-    'floating_panel_font_family',
-    'floating_panel_font_bold',
   ];
 
   fields.forEach((id) => {
@@ -309,10 +282,8 @@ function bindPreviewFieldListeners() {
 }
 
 export function initDanmuPreview() {
-  const hasAnyRoot = PREVIEW_ROOTS.some((root) => document.getElementById(root.rootId));
-  if (!hasAnyRoot) return;
+  if (!document.getElementById(PREVIEW_ROOT.rootId)) return;
 
-  PREVIEW_ROOTS.forEach((root) => switchPreviewModeForRoot(root));
   bindPreviewFieldListeners();
 
   if (previewTimer) clearInterval(previewTimer);

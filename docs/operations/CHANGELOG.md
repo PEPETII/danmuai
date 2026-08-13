@@ -10,11 +10,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.3.9] - 2026-07-07
 
 ### Changed
+- 样式生成器「消息内容」更名为「弹幕用户名」。
+- 样式生成器「背景与透明度」更名为「弹幕气泡背景」，辅助说明改为「弹幕气泡颜色、气泡透明度」；原「描边」「阴影」「边框」三个折叠面板合并为「描边、阴影、边框」。
+- 样式生成器「消息颜色」更名为「弹幕字体」，并将原「消息内容」中的弹幕字号/粗细/行间距，以及原「字体与间距」全部设置项合并入该面板；字段标签改为更易懂的「弹幕字号」「文字粗细」「行间距」。
 - Windows release package built from the current release-readiness branch state.
 
 ---
 
 ## [0.3.7] - Unreleased
+
+### Fixed
+- 样式生成器移除重复控件：面板字号改由「消息内容 → 内容字号」统一控制；加粗改由内容/用户名字重控制；尾巴大小由宽度/高度派生保存。遗留配置键仍在保存时自动写入以保持兼容。
 
 ### Added
 - AI platform reference data system with custom models schema and web UI model selector.
@@ -28,12 +34,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Track layout exposure in `/api/status` with font settings visualization.
 
 ### Changed
-- Updated core modules: pet system, meme barrage, AI client, danmu pool, tests and build scripts.
+- Web settings: removed the danmu style preview block from **Danmu display** tab; horizontal preview remains on **Danmu Style → Horizontal mode**.
+
 - Improved startup trace and stream performance.
 - Restructured web settings UI for mic, TTS, and persona panels.
 - Refined builtin persona prompts and reply contract wording.
 
 ### Fixed
+- Fixed microphone logs returning `http_404` with Doubao by using the existing Responses audio-input path instead of the OpenAI transcription route.
 - Removed `_Y_OFFSET` ghost offset so top danmu aligns to track origin.
 - Bottom-to-top floating-panel usernames now use each message's persona display name, matching horizontal mode; legacy no-persona calls retain their configured fallback.
 - Batch fixes for tray restore, bililive-dm plugin bridge, and engine bugs.

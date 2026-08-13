@@ -73,6 +73,44 @@ def test_transcribe_pcm_success():
     assert result == MicTranscriptionResult(ok=True, text="hello")
 
 
+def test_transcribe_pcm_doubao_uses_responses_audio_input():
+    pcm = _sample_pcm()
+    config = MagicMock()
+    response = MagicMock()
+    response.status_code = 200
+    response.json.return_value = {
+        "output": [
+            {
+                "type": "message",
+                "content": [{"type": "output_text", "text": "你好，世界"}],
+            }
+        ]
+    }
+    client = MagicMock()
+    client.post.return_value = response
+
+    with patch(
+        "app.mic_transcription.resolve_mic_request_credentials",
+        return_value=(
+            "https://ark.cn-beijing.volces.com/api/v3",
+            "sk-test",
+            "doubao-seed-2-0-mini-260428",
+            "doubao",
+        ),
+    ):
+        result = transcribe_pcm(config, pcm, http_client=client)
+
+    assert result == MicTranscriptionResult(ok=True, text="你好，世界")
+    call = client.post.call_args
+    assert call.args[0] == "https://ark.cn-beijing.volces.com/api/v3/responses"
+    body = call.kwargs["json"]
+    assert body["stream"] is False
+    content = body["input"][0]["content"]
+    audio_parts = [part for part in content if part["type"] == "input_audio"]
+    assert len(audio_parts) == 1
+    assert audio_parts[0]["audio_url"].startswith("data:audio/wav;base64,")
+
+
 def test_transcribe_pcm_empty_transcript_is_failed():
     pcm = _sample_pcm()
     config = MagicMock()

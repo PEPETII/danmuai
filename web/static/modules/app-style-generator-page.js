@@ -85,8 +85,14 @@ const BOOL_KEYS = new Set([
   'floating_panel_tail_enabled',
   'floating_panel_border_enabled',
   'floating_panel_username_enabled',
-  'floating_panel_font_bold',
   'floating_panel_click_through',
+]);
+
+/** 仅保存时写入、不在表单中暴露的遗留/派生键。 */
+const DERIVED_STYLE_SAVE_KEYS = new Set([
+  'floating_panel_font_size',
+  'floating_panel_font_bold',
+  'floating_panel_tail_size',
 ]);
 
 const PREVIEW_TEXTS = [
@@ -288,12 +294,38 @@ function setFieldValue(name, value) {
 function collectStylePayload() {
   const data = {};
   STYLE_SAVE_KEYS.forEach((key) => {
+    if (DERIVED_STYLE_SAVE_KEYS.has(key)) return;
     if (BOOL_KEYS.has(key)) {
       data[key] = readBool(key) ? '1' : '0';
       return;
     }
     data[key] = readStr(key, '');
   });
+  applyDerivedLegacyStyleFields(data);
+  return data;
+}
+
+function isStyleWeightBold(weight) {
+  const n = Number(weight);
+  return Number.isFinite(n) && n >= 600;
+}
+
+/** 保存时从权威字段派生遗留配置键，保持 API/预设兼容。 */
+export function applyDerivedLegacyStyleFields(data) {
+  if (!data || typeof data !== 'object') return data;
+  const contentSize = parseInt(String(data.floating_panel_content_size ?? ''), 10);
+  const size = Number.isFinite(contentSize) ? contentSize : 16;
+  data.floating_panel_font_size = String(Math.max(12, Math.min(48, size)));
+
+  const bold = isStyleWeightBold(data.floating_panel_content_weight)
+    || isStyleWeightBold(data.floating_panel_username_weight);
+  data.floating_panel_font_bold = bold ? '1' : '0';
+
+  const tailW = parseInt(String(data.floating_panel_tail_width ?? ''), 10);
+  const tailH = parseInt(String(data.floating_panel_tail_height ?? ''), 10);
+  const tw = Number.isFinite(tailW) ? tailW : 0;
+  const th = Number.isFinite(tailH) ? tailH : 0;
+  data.floating_panel_tail_size = String(Math.max(0, Math.min(32, Math.max(tw, th))));
   return data;
 }
 
@@ -468,7 +500,8 @@ function readPreviewStyle() {
     exitMs: Math.max(0, readInt('floating_panel_exit_duration_ms', 200)),
     stackGap: Math.max(0, readInt('floating_panel_stack_gap', 8)),
     fontFamily: readStr('floating_panel_font_family', 'Microsoft YaHei'),
-    fontBold: readBool('floating_panel_font_bold'),
+    fontBold: isStyleWeightBold(readInt('floating_panel_content_weight', 400))
+      || isStyleWeightBold(readInt('floating_panel_username_weight', 700)),
     maxItems: maxCardsCached,
     panelWidth: panelWidthCached,
   };
@@ -1079,12 +1112,5 @@ export function initStyleGeneratorPage(deps = {}) {
         loadHorizontalFontPage().catch((error) => showToast(error.message, true));
       }
     });
-  });
-
-  // 设置页入口
-  document.getElementById('btnOpenStyleGeneratorFromSettings')?.addEventListener('click', (event) => {
-    event.preventDefault();
-    if (typeof deps.navigate === 'function') deps.navigate('style-generator');
-    else window.location.hash = 'style-generator';
   });
 }

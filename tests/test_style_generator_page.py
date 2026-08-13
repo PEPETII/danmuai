@@ -37,16 +37,23 @@ def test_style_generator_partial_is_independent_page_fragment():
 
 def test_style_generator_form_names_match_contract_keys():
     text = (_static() / "index.html").read_text(encoding="utf-8")
+    derived_form_keys = {
+        "floating_panel_tail_size",
+    }
     for key in STYLE_FIELD_KEYS:
+        if key in derived_form_keys:
+            continue
         assert f'name="{key}"' in text, f"missing form name for {key}"
-    # 预设应用键中的基础字体/不透明度也必须可编辑
+    # 遗留键由保存时派生，不要求表单控件
     for key in (
         "floating_panel_font_family",
-        "floating_panel_font_size",
-        "floating_panel_font_bold",
         "floating_panel_opacity",
     ):
         assert f'name="{key}"' in text, f"missing form name for {key}"
+    mod = (_static() / "modules" / "app-style-generator-page.js").read_text(encoding="utf-8")
+    assert "applyDerivedLegacyStyleFields" in mod
+    assert 'name="floating_panel_font_size"' not in text
+    assert 'name="floating_panel_font_bold"' not in text
     assert 'data-preset="blivechat_line"' in text
     assert 'id="sgBtnPresetBlivechatLine"' in text
     assert 'value="line_like"' in text
@@ -115,10 +122,10 @@ def test_style_generator_accordion_titles_follow_domain_grouping():
     for title_key in (
         "全局外观",
         "显示布局与频率",
-        "背景与透明度",
-        "消息颜色",
-        "消息内容",
-        "字体与间距",
+        "弹幕气泡背景",
+        "描边、阴影、边框",
+        "弹幕字体",
+        "弹幕用户名",
         "用户名",
         "消息样式",
         "显示与退场",
@@ -135,9 +142,16 @@ def test_style_generator_accordion_titles_follow_domain_grouping():
     assert card_start < partial.index('id="sg-floating_panel_card_opacity"') < text_colors_start
     assert card_start < partial.index('id="sg-floating_panel_opacity"') < text_colors_start
 
-    font_start = partial.index('id="sgFontAccordionPanel"')
+    text_colors_start = partial.index('id="sgTextColorsAccordionPanel"')
+    username_start = partial.index('id="sgUsernameAccordionPanel"')
     tail_start = partial.index('id="sgTailAccordionPanel"')
-    assert font_start < partial.index('id="sg-font_file_input"') < tail_start
+    assert text_colors_start < partial.index('id="sg-floating_panel_font_family"') < username_start
+    assert text_colors_start < partial.index('id="sg-floating_panel_content_size"') < username_start
+    assert text_colors_start < partial.index('id="sg-font_file_input"') < tail_start
+    assert 'id="sgFontAccordionPanel"' not in partial
+    assert 'id="sg-floating_panel_content_size"' not in partial[
+        username_start : partial.index('id="sgTailAccordionPanel"')
+    ]
     assert 'id="sgFontImportAccordionTrigger"' not in partial
 
     horizontal_style_start = partial.index('id="sgHorizontalFontAccordionPanel"')
@@ -201,15 +215,14 @@ def test_built_index_html_contains_style_generator_page_once():
     assert 'name="floating_panel_tail_long_side"' in html
     assert 'name="floating_panel_tail_rotate_deg"' in html
     assert 'data-preset="blivechat_line"' in html
-    assert 'btnOpenStyleGeneratorFromSettings' in html
 
 
-def test_settings_floating_preview_is_entry_not_second_stack():
+def test_settings_danmu_tab_has_no_style_preview():
     settings = (_static() / "partials" / "settings.html").read_text(encoding="utf-8")
-    assert 'id="btnOpenStyleGeneratorFromSettings"' in settings
-    assert 'id="danmuPreviewFloatingPanel"' not in settings
-    assert 'id="danmuPreviewScrolling"' in settings
-    assert 'id="danmuPreviewTrack"' in settings
+    assert 'id="danmuStylePreview"' not in settings
+    assert 'id="btnOpenStyleGeneratorFromSettings"' not in settings
+    assert 'id="danmuPreviewScrolling"' not in settings
+    assert 'id="danmuPreviewTrack"' not in settings
 
 
 def test_style_generator_module_uses_api_fetch_and_config_put():
@@ -223,6 +236,37 @@ def test_style_generator_module_uses_api_fetch_and_config_put():
     assert "export function pickStyleColor" in mod
     assert "export async function loadStyleGeneratorPage" in mod
     assert "export function initStyleGeneratorPage" in mod
+
+
+def test_style_generator_derives_legacy_style_fields_on_save():
+    """遗留键 font_size/font_bold/tail_size 由权威字段派生，不再暴露重复控件。"""
+    mod = (_static() / "modules" / "app-style-generator-page.js").read_text(encoding="utf-8")
+    assert "export function applyDerivedLegacyStyleFields" in mod
+    assert "DERIVED_STYLE_SAVE_KEYS" in mod
+
+    script = """
+import { applyDerivedLegacyStyleFields } from './web/static/modules/app-style-generator-page.js';
+const payload = applyDerivedLegacyStyleFields({
+  floating_panel_content_size: '24',
+  floating_panel_content_weight: '400',
+  floating_panel_username_weight: '700',
+  floating_panel_tail_width: '8',
+  floating_panel_tail_height: '18',
+});
+console.log(JSON.stringify(payload));
+"""
+    result = subprocess.run(
+        ["node", "--input-type=module", "-e", script],
+        cwd=_root(),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["floating_panel_font_size"] == "24"
+    assert payload["floating_panel_font_bold"] == "1"
+    assert payload["floating_panel_tail_size"] == "18"
 
 
 def test_style_generator_preview_matches_web_panel_structure():
@@ -360,7 +404,6 @@ def test_app_js_wires_style_generator_navigate():
     assert "app-style-generator-page.js" in app_js
     assert "page === 'style-generator'" in app_js
     assert "loadStyleGeneratorPage" in app_js
-    assert "btnOpenStyleGeneratorFromSettings" in app_js
 
 
 def test_i18n_keys_for_style_generator():
