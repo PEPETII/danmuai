@@ -13,15 +13,14 @@
       <div class="style-generator-layout">
         <form id="styleGeneratorForm" class="style-generator-controls card p-6" autocomplete="off">
           <div class="px-1 pb-3 space-y-2">
-            <p class="settings-section-title" data-i18n="content.text.样式预设">样式预设</p>
-            <div class="flex flex-wrap gap-2" role="group" aria-label="样式预设">
-              <button type="button" id="sgBtnPresetClassic" class="sg-preset-btn ui-button ui-button--secondary ui-button--sm" data-preset="classic" data-i18n="content.text.预设经典">经典</button>
-              <button type="button" id="sgBtnPresetBlivechatLine" class="sg-preset-btn ui-button ui-button--secondary ui-button--sm" data-preset="blivechat_line" data-i18n="content.text.预设LineLike">Line 风格</button>
-              <button type="button" id="sgBtnPresetCustom" class="sg-preset-btn ui-button ui-button--secondary ui-button--sm" data-preset="custom" disabled data-i18n="content.text.自定义">自定义</button>
+            <p class="settings-section-title" data-i18n="content.text.样式预设">基础风格</p>
+            <div class="flex flex-wrap gap-2" role="group" data-i18n-aria-label="content.text.样式预设" aria-label="基础风格">
+              <button type="button" id="sgBtnPresetClassic" class="sg-preset-btn ui-button ui-button--secondary ui-button--sm" data-preset="classic" data-i18n="content.text.预设经典">仿 YouTube</button>
+              <button type="button" id="sgBtnPresetBlivechatLine" class="sg-preset-btn ui-button ui-button--secondary ui-button--sm" data-preset="blivechat_line" data-i18n="content.text.预设LineLike">仿微信</button>
             </div>
             <input type="hidden" name="floating_panel_style_preset" id="sg-floating_panel_style_preset" value="wechat">
             <p class="settings-section-hint" data-i18n="content.text.选择_classic_或_wechat_立即填充表单并刷新预览_手动修改任意字段会标为自定义">
-              选择 classic / Line 风格立即填充表单并刷新预览；手动修改任意字段会标为自定义。
+              直观来说，【仿 YouTube】和【仿微信】属于两种基础风格，其中【仿 YouTube】默认不使用气泡，【仿微信】则使用气泡；由于两种风格本身的视觉结构不同，因此选择不同的基础风格后，下方可调节的设置项也会有所不同。
             </p>
           </div>
 

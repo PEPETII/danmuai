@@ -339,9 +339,6 @@ function syncPresetButtons(preset) {
   document.querySelectorAll('.sg-preset-btn').forEach((btn) => {
     const active = btn.dataset.preset === preset;
     btn.classList.toggle('is-active', active);
-    if (btn.dataset.preset === 'custom') {
-      btn.disabled = preset !== 'custom';
-    }
   });
 }
 
