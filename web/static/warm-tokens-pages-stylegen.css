@@ -437,6 +437,7 @@
   --panel-padding: 16px;
   --stack-gap: 8px;
   --entry-duration: 250ms;
+  --push-duration: 180ms;
   --exit-duration: 250ms;
   --panel-opacity: 1;
   --card-shadow:
@@ -489,7 +490,6 @@
   padding: var(--padding-y) var(--padding-x);
   max-width: var(--card-max-width);
   box-shadow: var(--card-shadow);
-  animation: sg-fp-slideUp var(--entry-duration) ease-out;
   backdrop-filter: blur(2px);
   will-change: transform, opacity;
   box-sizing: border-box;
@@ -511,6 +511,18 @@
 
 .sg-preview-card.exiting {
   animation: sg-fp-fadeOut var(--exit-duration) ease-in forwards;
+}
+
+.sg-preview-card.entry-fade {
+  animation: sg-fp-fadeIn var(--entry-duration) ease-out both;
+}
+
+.sg-preview-card.entry-slide-up {
+  animation: sg-fp-slideUp var(--entry-duration) ease-out both;
+}
+
+.sg-preview-card.is-pushing {
+  animation: sg-fp-pushUp var(--push-duration) ease-out both;
 }
 
 /* stacked：背景/边框/阴影只在 .bubble；用户名在气泡外（与 WEB-001 同构） */
@@ -712,6 +724,24 @@
   100% {
     opacity: 0;
     transform: translateY(-20px);
+  }
+}
+
+@keyframes sg-fp-fadeIn {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes sg-fp-pushUp {
+  0% {
+    transform: translateY(var(--push-offset, 0px));
+  }
+  100% {
+    transform: translateY(0);
   }
 }
 

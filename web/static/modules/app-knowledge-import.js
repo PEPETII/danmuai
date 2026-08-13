@@ -14,11 +14,12 @@ import {
 } from './app-knowledge-jobs.js';
 
 const IMPORT_BTN_KEYS = {
-  pasted_text: 'importPastedText',
   txt: 'importTxt',
   markdown: 'importMarkdown',
   webpage: 'importWebpage',
 };
+
+const DEFAULT_SOURCE_TYPE = 'txt';
 
 function setFieldError(id, message) {
   const el = document.getElementById(id);
@@ -33,7 +34,6 @@ function setFieldError(id, message) {
 }
 
 function clearImportErrors() {
-  setFieldError('knowledgePastedTextError', '');
   setFieldError('knowledgeSourceUrlError', '');
   setFieldError('knowledgeSourceFileError', '');
 }
@@ -58,16 +58,13 @@ function updateSourceFileAccept(sourceType) {
 }
 
 export function syncSourceFormVisibility() {
-  const type = document.getElementById('knowledgeSourceType')?.value || 'pasted_text';
+  const type = document.getElementById('knowledgeSourceType')?.value || DEFAULT_SOURCE_TYPE;
   const urlWrap = document.getElementById('knowledgeSourceUrlWrap');
-  const textWrap = document.getElementById('knowledgePastedTextWrap');
   const fileWrap = document.getElementById('knowledgeSourceFileWrap');
   if (urlWrap) urlWrap.classList.toggle('hidden', type !== 'webpage');
-  if (textWrap) textWrap.classList.toggle('hidden', type !== 'pasted_text');
   if (fileWrap) fileWrap.classList.toggle('hidden', type !== 'txt' && type !== 'markdown');
   updateSourceFileAccept(type);
   updateImportButtonLabel(type);
-  updatePastedTextCount();
 }
 
 function updateImportButtonLabel(sourceType) {
@@ -77,19 +74,9 @@ function updateImportButtonLabel(sourceType) {
   btn.textContent = t(`dynamic.appKnowledgePage.${key}`);
 }
 
-export function updatePastedTextCount() {
-  const textEl = document.getElementById('knowledgePastedText');
-  const countEl = document.getElementById('knowledgePastedTextCount');
-  if (!countEl) return;
-  const len = (textEl?.value || '').length;
-  countEl.textContent = t('dynamic.appKnowledgePage.pastedTextCount', { count: len });
-}
-
 export function onSourceTypeChange() {
-  const type = document.getElementById('knowledgeSourceType')?.value || 'pasted_text';
-  const textEl = document.getElementById('knowledgePastedText');
+  const type = document.getElementById('knowledgeSourceType')?.value || DEFAULT_SOURCE_TYPE;
   const urlEl = document.getElementById('knowledgeSourceUrl');
-  if (type !== 'pasted_text' && textEl) textEl.value = '';
   if (type !== 'webpage' && urlEl) urlEl.value = '';
   if (type !== 'txt' && type !== 'markdown') clearFileInput();
   clearImportErrors();
@@ -147,14 +134,11 @@ async function readFileAsBase64(file) {
 }
 
 function clearImportInputs() {
-  const textEl = document.getElementById('knowledgePastedText');
   const urlEl = document.getElementById('knowledgeSourceUrl');
   const nameEl = document.getElementById('knowledgeDisplayName');
-  if (textEl) textEl.value = '';
   if (urlEl) urlEl.value = '';
   if (nameEl) nameEl.value = '';
   clearFileInput();
-  updatePastedTextCount();
 }
 
 export function syncImportFormState(activeJobs = []) {
@@ -173,28 +157,14 @@ export function syncImportFormState(activeJobs = []) {
 export async function startImport() {
   if (!currentPackageId) return;
   clearImportErrors();
-  const sourceType = document.getElementById('knowledgeSourceType')?.value || 'pasted_text';
+  const sourceType = document.getElementById('knowledgeSourceType')?.value || DEFAULT_SOURCE_TYPE;
   let displayName = (document.getElementById('knowledgeDisplayName')?.value || '').trim();
   const body = {
     source_type: sourceType,
     display_name: displayName,
   };
 
-  if (sourceType === 'pasted_text') {
-    const pasted = (document.getElementById('knowledgePastedText')?.value || '').trim();
-    if (!pasted) {
-      setFieldError(
-        'knowledgePastedTextError',
-        t('dynamic.appKnowledgePage.pastedTextRequired'),
-      );
-      return;
-    }
-    body.pasted_text = pasted;
-    if (!displayName) {
-      const stamp = new Date().toLocaleString();
-      body.display_name = t('dynamic.appKnowledgePage.pastedTextDefaultName', { time: stamp });
-    }
-  } else if (sourceType === 'webpage') {
+  if (sourceType === 'webpage') {
     const url = (document.getElementById('knowledgeSourceUrl')?.value || '').trim();
     if (!url) {
       setFieldError('knowledgeSourceUrlError', t('dynamic.appKnowledgePage.urlRequired'));
@@ -281,10 +251,6 @@ export function bindSourceTypeCards() {
   });
   document.getElementById('knowledgeSourceFile')?.addEventListener('change', () => {
     onSourceFileChange();
-  });
-  document.getElementById('knowledgePastedText')?.addEventListener('input', () => {
-    updatePastedTextCount();
-    setFieldError('knowledgePastedTextError', '');
   });
   document.getElementById('knowledgeSourceUrl')?.addEventListener('input', () => {
     setFieldError('knowledgeSourceUrlError', '');

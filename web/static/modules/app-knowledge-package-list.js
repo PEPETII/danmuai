@@ -109,13 +109,6 @@ export function renderPackageList(packages, jobsByPackage = new Map()) {
 
     card.append(header);
 
-    if (pkg.description) {
-      const desc = document.createElement('p');
-      desc.className = 'text-sm text-gray-500 break-words';
-      desc.textContent = pkg.description;
-      card.append(desc);
-    }
-
     const stats = document.createElement('p');
     stats.className = 'text-xs text-gray-500';
     stats.textContent = [

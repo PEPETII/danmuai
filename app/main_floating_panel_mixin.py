@@ -158,15 +158,18 @@ class DanmuAppFloatingPanelMixin:
             snap = style_snapshot_from_mapping(self.config)
             width, height, _x, _y = self._panel_geometry()
             msg = ConfigMessage(
-                max_cards=max(1, int(snap.max_items or 6)),
-                stack_gap=int(snap.stack_gap or 8),
+                max_cards=max(1, int(snap.max_items)),
+                stack_gap=max(0, int(snap.stack_gap)),
                 panel_padding=16,
-                entry_duration_ms=int(snap.entry_duration_ms or 250),
-                exit_duration_ms=int(snap.exit_duration_ms or 250),
+                entry_animation=str(snap.entry_animation or "fade"),
+                entry_duration_ms=max(0, int(snap.entry_duration_ms)),
+                push_duration_ms=max(0, int(snap.push_duration_ms)),
+                exit_animation=str(snap.exit_animation or "fade"),
+                exit_duration_ms=max(0, int(snap.exit_duration_ms)),
                 panel_position="bottom-left",
                 panel_width=int(width),
                 panel_height=int(height),
-                panel_opacity=int(snap.panel_opacity or 85),
+                panel_opacity=max(0, min(100, int(snap.panel_opacity))),
                 click_through=self._panel_click_through_enabled(),
             )
             bridge.enqueue_message(msg.to_dict())

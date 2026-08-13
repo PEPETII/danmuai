@@ -1,12 +1,11 @@
-"""Web floating panel card cap: no OOM loop when maxCards is exceeded.
+"""Web floating panel card cap: the DOM must never exceed maxCards.
 
-W-FP-WEB-CARD-LIMIT-OOM-001: removeOldestIfNeeded must count non-exiting cards,
-schedule exit once per node, and never while(children.length > maxCards).
+W-FP-WEB-CARD-LIMIT-002: max-card eviction is synchronous so an exiting node
+cannot remain in flex layout and expose maxCards + 1 during the next frame.
 """
 
 from __future__ import annotations
 
-import re
 import subprocess
 from pathlib import Path
 
@@ -21,55 +20,38 @@ def _app_js_text() -> str:
     return _APP_JS.read_text(encoding="utf-8")
 
 
-def test_remove_oldest_not_while_on_children_length():
-    """The OOM bug: while(panel.children.length > maxCards) never shrinks DOM."""
+def test_remove_oldest_loops_until_card_cap():
+    """The bounded loop removes one oldest node per iteration."""
     src = _app_js_text()
     body = src.split("function removeOldestIfNeeded")[1].split("function addCard")[0]
-    assert "while (panel.children.length > maxCards)" not in body
-    assert "while(panel.children.length > maxCards)" not in body
-    # Must not reintroduce length-based infinite while for the soft cap
-    assert re.search(r"while\s*\(\s*panel\.children\.length\s*>\s*maxCards\s*\)", body) is None
+    assert "while (panel.children.length > maxCards)" in body
+    assert "lastElementChild" in body
+    assert "removeChild" in body
 
 
-def test_remove_oldest_uses_exiting_guard_and_active_count():
+def test_remove_oldest_does_not_leave_exit_nodes_in_layout():
     src = _app_js_text()
-    assert "function scheduleCardExit(node)" in src
-    assert "classList.contains(\"exiting\")" in src
     remove_body = src.split("function removeOldestIfNeeded")[1].split("function addCard")[0]
-    assert "scheduleCardExit" in remove_body
-    assert "exiting" in remove_body
-    # Soft cap must consider non-exiting / active, not raw children only
-    assert "active" in remove_body or "needExit" in remove_body
-
-
-def test_schedule_card_exit_is_idempotent_source():
-    src = _app_js_text()
-    sched = src.split("function scheduleCardExit(node)")[1].split(
-        "function removeOldestIfNeeded"
-    )[0]
-    assert "contains(\"exiting\")" in sched
-    assert "classList.add(\"exiting\")" in sched
-    assert "setTimeout" in sched
+    assert "scheduleCardExit" not in remove_body
+    assert "exiting" not in remove_body
+    assert "cardIds.delete" in remove_body
 
 
 def test_apply_config_triggers_remove_after_max_cards():
     src = _app_js_text()
     config_body = src.split("function applyConfig(msg)")[1].split(
-        "function scheduleCardExit"
+        "function removeOldestIfNeeded"
     )[0]
     assert "removeOldestIfNeeded()" in config_body
 
 
-def test_exit_animation_path_preserved():
-    """Bottom-up stack still uses .exiting + delayed removeChild (fadeOut CSS)."""
+def test_exit_config_fields_remain_compatible():
+    """旧 exit 配置字段仍可接收；最大条数淘汰不再延迟占位。"""
     src = _app_js_text()
-    assert "classList.add(\"exiting\")" in src
     assert "exitDurationMs" in src
     css = (_ROOT / "web" / "static" / "floating_panel" / "style.css").read_text(
         encoding="utf-8"
     )
-    assert ".card.exiting" in css
-    assert "fadeOut" in css
     assert "slideUp" in css
 
 
@@ -93,43 +75,22 @@ def test_burst_add_keeps_active_cards_bounded_node_sim():
     # which needs WebSocket/document). Contract tests above lock the real source.
     script = r"""
 const maxCards = 6;
-const exitDurationMs = 10;
-let setTimeoutCalls = 0;
-const timers = [];
-
-function setTimeout(fn, ms) {
-  setTimeoutCalls += 1;
-  timers.push({ fn, ms, fired: false });
-  return setTimeoutCalls;
-}
-
-class ClassList {
-  constructor(el) { this.el = el; this._set = new Set(); }
-  add(c) { this._set.add(c); }
-  contains(c) { return this._set.has(c); }
-}
-
-class Node {
-  constructor() {
-    this.classList = new ClassList(this);
-    this.dataset = {};
-    this.parentNode = null;
-  }
-}
+let removeCalls = 0;
 
 class Panel {
   constructor() { this._kids = []; }
   get children() { return this._kids; }
-  get firstElementChild() { return this._kids[0] || null; }
-  appendChild(n) {
+  get lastElementChild() { return this._kids[this._kids.length - 1] || null; }
+  prepend(n) {
     n.parentNode = this;
-    this._kids.push(n);
+    this._kids.unshift(n);
     return n;
   }
   removeChild(n) {
     const i = this._kids.indexOf(n);
     if (i >= 0) this._kids.splice(i, 1);
     n.parentNode = null;
+    removeCalls += 1;
     return n;
   }
 }
@@ -137,60 +98,22 @@ class Panel {
 const panel = new Panel();
 const cardIds = new Set();
 
-function detachCard(node) {
-  if (!node) return;
-  const id = node.dataset && node.dataset.cardId;
-  if (node.parentNode) node.parentNode.removeChild(node);
-  if (id) cardIds.delete(id);
-}
-
-function scheduleCardExit(node) {
-  if (!node || !node.classList || node.classList.contains("exiting")) return;
-  node.classList.add("exiting");
-  const id = node.dataset && node.dataset.cardId;
-  setTimeout(function () {
-    if (node && node.parentNode) node.parentNode.removeChild(node);
-    if (id) cardIds.delete(id);
-  }, exitDurationMs);
-}
-
 function removeOldestIfNeeded() {
-  if (!panel) return;
-  const children = panel.children;
-  let i;
-  let active = 0;
-  for (i = 0; i < children.length; i++) {
-    if (!children[i].classList.contains("exiting")) active += 1;
-  }
-  let needExit = active - maxCards;
-  for (i = 0; i < children.length && needExit > 0; i++) {
-    if (children[i].classList.contains("exiting")) continue;
-    scheduleCardExit(children[i]);
-    needExit -= 1;
-  }
-  const hardLimit = Math.max(maxCards * 2, maxCards + 1);
-  while (panel.children.length > hardLimit) {
-    let drop = null;
-    for (i = 0; i < panel.children.length; i++) {
-      if (panel.children[i].classList.contains("exiting")) {
-        drop = panel.children[i];
-        break;
-      }
-    }
-    if (!drop) drop = panel.firstElementChild;
-    if (!drop) break;
-    detachCard(drop);
+  while (panel.children.length > maxCards) {
+    const oldest = panel.lastElementChild;
+    if (!oldest) break;
+    panel.removeChild(oldest);
+    if (oldest.id) cardIds.delete(oldest.id);
   }
 }
 
 function addCard(id) {
   if (id && cardIds.has(id)) return;
-  const card = new Node();
+  const card = { id, parentNode: null };
   if (id) {
-    card.dataset.cardId = id;
     cardIds.add(id);
   }
-  panel.appendChild(card);
+  panel.prepend(card);
   removeOldestIfNeeded();
 }
 
@@ -202,53 +125,20 @@ if (elapsed > 2000) {
   console.error("FAIL slow_or_loop elapsed=" + elapsed);
   process.exit(2);
 }
-
-function activeCount() {
-  let n = 0;
-  for (const c of panel.children) {
-    if (!c.classList.contains("exiting")) n += 1;
-  }
-  return n;
-}
-
-if (activeCount() > maxCards) {
-  console.error("FAIL active=" + activeCount());
+if (panel.children.length !== maxCards) {
+  console.error("FAIL children=" + panel.children.length);
   process.exit(3);
 }
-if (panel.children.length > maxCards * 2) {
-  console.error("FAIL children=" + panel.children.length);
+const callsBefore = removeCalls;
+removeOldestIfNeeded();
+if (removeCalls !== callsBefore) {
+  console.error("FAIL reentry removed=" + (removeCalls - callsBefore));
   process.exit(4);
-}
-// One timer per scheduled exit; must be finite and << N * N
-if (setTimeoutCalls > N + 10) {
-  console.error("FAIL timers=" + setTimeoutCalls);
-  process.exit(5);
-}
-// Re-calling remove on full panel must not stack more timers on same nodes
-const timersBefore = setTimeoutCalls;
-removeOldestIfNeeded();
-removeOldestIfNeeded();
-if (setTimeoutCalls !== timersBefore) {
-  console.error("FAIL reentry timers " + timersBefore + " -> " + setTimeoutCalls);
-  process.exit(6);
-}
-// Fire all exit timers
-for (const t of timers) {
-  if (!t.fired) { t.fn(); t.fired = true; }
-}
-if (panel.children.length > maxCards) {
-  console.error("FAIL after_exit children=" + panel.children.length);
-  process.exit(7);
-}
-if (activeCount() > maxCards) {
-  console.error("FAIL after_exit active=" + activeCount());
-  process.exit(8);
 }
 console.log(JSON.stringify({
   ok: true,
   children: panel.children.length,
-  active: activeCount(),
-  timers: setTimeoutCalls,
+  remove_calls: removeCalls,
   elapsed_ms: elapsed,
 }));
 """
@@ -268,12 +158,11 @@ console.log(JSON.stringify({
 
 
 def test_source_matches_node_sim_key_symbols():
-    """Keep Node harness and app.js algorithm symbols aligned."""
+    """Keep the source bounded-removal symbols visible to the Node smoke test."""
     src = _app_js_text()
     for token in (
-        "scheduleCardExit",
-        "needExit",
-        "hardLimit",
-        "maxCards * 2",
+        "removeOldestIfNeeded",
+        "lastElementChild",
+        "maxCards",
     ):
         assert token in src, f"missing {token} in app.js"

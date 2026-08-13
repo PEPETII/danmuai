@@ -29,7 +29,6 @@ export function fillPackageForm(pkg) {
     if (el) el.value = value ?? '';
   };
   set('knowledgePackageName', pkg.name);
-  set('knowledgePackageDescription', pkg.description);
   set('knowledgePackagePriority', pkg.priority ?? 0);
   const enabledEl = document.getElementById('knowledgePackageEnabled');
   if (enabledEl) enabledEl.checked = Boolean(pkg.enabled);
@@ -130,7 +129,6 @@ export async function savePackageSettings() {
   if (!currentPackageId) return;
   const body = {
     name: document.getElementById('knowledgePackageName')?.value || '',
-    description: document.getElementById('knowledgePackageDescription')?.value || '',
     enabled: Boolean(document.getElementById('knowledgePackageEnabled')?.checked),
     priority: parseInt(document.getElementById('knowledgePackagePriority')?.value, 10) || 0,
   };
@@ -175,7 +173,7 @@ export async function deleteCurrentPackage() {
 }
 
 export function bindDetailFieldWatchers() {
-  ['knowledgePackageName', 'knowledgePackageDescription', 'knowledgePackagePriority'].forEach(
+  ['knowledgePackageName', 'knowledgePackagePriority'].forEach(
     (id) => {
       document.getElementById(id)?.addEventListener('input', () => markOverviewDirty());
     },

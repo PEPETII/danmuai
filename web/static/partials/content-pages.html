@@ -734,11 +734,6 @@
             <p class="settings-section-hint" data-i18n="dynamic.appKnowledgePage.nameHint">只用于识别这个知识包，不会直接写入弹幕提示词。</p>
             <input type="text" id="knowledgePackageName" class="settings-field-control ui-control ui-input">
           </div>
-          <div class="settings-field">
-            <label for="knowledgePackageDescription" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.description">描述</label>
-            <p class="settings-section-hint" data-i18n="dynamic.appKnowledgePage.descriptionHint">说明资料主题，方便后续管理多个知识包。</p>
-            <textarea id="knowledgePackageDescription" rows="3" class="settings-field-control ui-control ui-textarea"></textarea>
-          </div>
           <div class="settings-rhythm-accordion" data-settings-rhythm-accordion>
             <section class="settings-rhythm-accordion-item">
               <h4 class="settings-rhythm-accordion-heading">
@@ -761,17 +756,12 @@
           <p class="settings-section-title" data-i18n="dynamic.appKnowledgePage.addSource">添加资料</p>
           <p class="settings-section-hint" data-i18n="dynamic.appKnowledgePage.addSourceHint">选择资料来源并导入，系统会自动读取、拆分并整理。</p>
           <select id="knowledgeSourceType" class="hidden" aria-hidden="true">
-            <option value="pasted_text">pasted_text</option>
-            <option value="txt">txt</option>
+            <option value="txt" selected>txt</option>
             <option value="markdown">markdown</option>
             <option value="webpage">webpage</option>
           </select>
           <div class="knowledge-source-type-grid" role="group" aria-label="来源类型">
-            <button type="button" class="knowledge-source-type-card is-active" data-knowledge-source-type="pasted_text" aria-pressed="true">
-              <span class="font-semibold text-warmText" data-i18n="dynamic.appKnowledgePage.optSourcePastedText">粘贴文本</span>
-              <span class="text-xs text-gray-500" data-i18n="dynamic.appKnowledgePage.sourcePastedHint">适合临时资料、角色设定、规则说明和少量内容。</span>
-            </button>
-            <button type="button" class="knowledge-source-type-card" data-knowledge-source-type="txt" aria-pressed="false">
+            <button type="button" class="knowledge-source-type-card is-active" data-knowledge-source-type="txt" aria-pressed="true">
               <span class="font-semibold text-warmText" data-i18n="dynamic.appKnowledgePage.optSourceTxt">文本文件 (.txt)</span>
               <span class="text-xs text-gray-500" data-i18n="dynamic.appKnowledgePage.sourceTxtHint">适合大量纯文本资料，每行或每段均可。</span>
             </button>
@@ -795,14 +785,7 @@
             <input type="text" id="knowledgeSourceUrl" class="settings-field-control ui-control ui-input">
             <p id="knowledgeSourceUrlError" class="text-xs text-red-600 mt-1 hidden" role="alert"></p>
           </div>
-          <div id="knowledgePastedTextWrap" class="settings-field">
-            <label for="knowledgePastedText" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.pastedText">粘贴文本</label>
-            <p class="settings-section-hint" data-i18n="dynamic.appKnowledgePage.pastedTextHint">可以直接粘贴攻略、角色设定、梗、直播背景等内容。</p>
-            <textarea id="knowledgePastedText" rows="6" class="settings-field-control ui-control ui-textarea"></textarea>
-            <p id="knowledgePastedTextCount" class="text-xs text-gray-500 mt-1"></p>
-            <p id="knowledgePastedTextError" class="text-xs text-red-600 mt-1 hidden" role="alert"></p>
-          </div>
-          <div id="knowledgeSourceFileWrap" class="settings-field hidden">
+          <div id="knowledgeSourceFileWrap" class="settings-field">
             <label for="knowledgeSourceFile" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.selectFile">选择文件</label>
             <p class="settings-section-hint" data-i18n="dynamic.appKnowledgePage.fileHint">支持 TXT、MD 和 Markdown 文件，单个文件最大 5 MB。</p>
             <input type="file" id="knowledgeSourceFile" accept=".txt,.md,.markdown,text/plain,text/markdown">

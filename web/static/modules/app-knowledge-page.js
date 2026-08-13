@@ -64,7 +64,6 @@ export function initKnowledgePage(deps = {}) {
   bindDetailFieldWatchers();
   bindSourceTypeCards();
   syncSourceFormVisibility();
-  import('./app-knowledge-import.js').then((m) => m.updatePastedTextCount());
 
   document.getElementById('btnKnowledgeNewPackage')?.addEventListener('click', () => {
     void createNewPackage();

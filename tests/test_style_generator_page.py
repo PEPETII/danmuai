@@ -255,6 +255,46 @@ def test_style_generator_preview_matches_web_panel_structure():
     assert 'data-tail-style="line_like"' in css or "[data-tail-style=\"line_like\"]" in css
 
 
+def test_style_generator_animation_controls_drive_preview_and_web_panel():
+    partial = (_static() / "partials" / "style-generator.html").read_text(encoding="utf-8")
+    mod = (_static() / "modules" / "app-style-generator-page.js").read_text(encoding="utf-8")
+    preview_css = (_static() / "warm-tokens-pages-stylegen.css").read_text(encoding="utf-8")
+    panel_js = (_static() / "floating_panel" / "app.js").read_text(encoding="utf-8")
+    panel_css = (_static() / "floating_panel" / "style.css").read_text(encoding="utf-8")
+
+    for key in (
+        "floating_panel_entry_animation",
+        "floating_panel_entry_duration_ms",
+        "floating_panel_push_duration_ms",
+        "floating_panel_exit_animation",
+        "floating_panel_exit_duration_ms",
+    ):
+        assert f'name="{key}"' in partial
+
+    for fragment in (
+        "entryAnimation",
+        "pushMs",
+        "exitAnimation",
+        "animatePushedPreviewCards",
+        "entry-slide-up",
+        "entry-fade",
+    ):
+        assert fragment in mod
+    for fragment in (
+        "entry-slide-up",
+        "entry-fade",
+        "is-pushing",
+        "sg-fp-pushUp",
+    ):
+        assert fragment in preview_css
+        assert fragment.replace("sg-fp-", "") in panel_css or fragment in panel_css
+    assert "stack.prepend(el)" in mod
+    assert "push_duration_ms" in panel_js
+    assert "panel.prepend(card)" in panel_js
+    assert "entry_animation" in panel_js
+    assert "exit_animation" in panel_js
+
+
 def test_preview_recomputes_existing_card_colors_when_presets_change_round_trip():
     """已有卡片必须按稳定 styleIndex 重算 classic -> wechat -> classic。"""
     script = """

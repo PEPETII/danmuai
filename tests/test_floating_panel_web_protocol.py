@@ -130,7 +130,10 @@ def test_config_message_fields():
         "max_cards",
         "stack_gap",
         "panel_padding",
+        "entry_animation",
         "entry_duration_ms",
+        "push_duration_ms",
+        "exit_animation",
         "exit_duration_ms",
         "panel_position",
         "panel_width",
@@ -140,6 +143,9 @@ def test_config_message_fields():
     ):
         assert key in data
     assert ConfigMessage.from_mapping(data).max_cards == 6
+    assert ConfigMessage.from_mapping(data).entry_animation == "fade"
+    assert ConfigMessage.from_mapping(data).push_duration_ms == 180
+    assert ConfigMessage.from_mapping(data).exit_animation == "fade"
     assert data["panel_opacity"] == 85
     assert data["click_through"] is True
     # 旧消息缺 panel_opacity 应默认
@@ -149,6 +155,9 @@ def test_config_message_fields():
     parsed = ConfigMessage.from_mapping(old)
     assert parsed.panel_opacity == 85
     assert parsed.click_through is True
+    assert parsed.entry_animation == "fade"
+    assert parsed.push_duration_ms == 180
+    assert parsed.exit_animation == "fade"
     off = ConfigMessage.from_mapping({**data, "click_through": False})
     assert off.click_through is False
 

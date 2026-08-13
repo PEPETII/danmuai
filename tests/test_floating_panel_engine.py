@@ -51,11 +51,41 @@ def test_add_text_returns_item(workspace_tmp):
 
 def test_new_item_starts_at_bottom(workspace_tmp):
     """新条从容器底部入场；目标底边贴面板底。"""
-    engine = _engine(workspace_tmp)
+    engine = _engine(workspace_tmp, floating_panel_entry_animation="slide_up")
     item = engine.add_text("bottom", item_height=40.0, now=0.0)
     assert item is not None
     assert item.current_y == 400.0  # 入场起点：顶边在面板底
     assert abs(item.target_y - (400.0 - 40.0)) < 0.01  # 目标底边 = 400
+
+
+def test_fade_entry_keeps_layout_position_and_animates_opacity(workspace_tmp):
+    engine = _engine(
+        workspace_tmp,
+        floating_panel_entry_animation="fade",
+        floating_panel_entry_duration_ms="200",
+    )
+    item = engine.add_text("fade entry", item_height=40.0, now=0.0)
+    assert item is not None
+    assert item.current_y == item.target_y
+    assert item.opacity == 0.0
+    assert engine.needs_render_tick() is True
+    engine.update(0.1)
+    assert 0.0 < item.opacity < 1.0
+    engine.update(0.1)
+    assert item.opacity == 1.0
+
+
+def test_entry_animation_none_skips_entry_motion(workspace_tmp):
+    engine = _engine(
+        workspace_tmp,
+        floating_panel_entry_animation="none",
+        floating_panel_entry_duration_ms="200",
+    )
+    item = engine.add_text("no entry animation", item_height=40.0, now=0.0)
+    assert item is not None
+    assert item.current_y == item.target_y
+    assert item.opacity == 1.0
+    assert engine.needs_render_tick() is False
 
 
 def test_can_accept_always_true_not_space_gated(workspace_tmp):
@@ -86,6 +116,56 @@ def test_second_item_joins_immediately_and_pushes_first(workspace_tmp):
     assert first.target_y < y1_before or first.target_y < second.target_y
     assert first.target_y + first.height + 8.0 <= second.target_y + 0.01
     assert engine.visible_count() == 2
+
+
+def test_rapid_arrivals_retarget_from_current_positions(workspace_tmp):
+    """连续到达时从当前坐标重定向，不把已有条目重置到旧布局。"""
+    engine = _engine(
+        workspace_tmp,
+        floating_panel_entry_animation="none",
+        floating_panel_push_duration_ms="200",
+        floating_panel_stack_gap="8",
+    )
+    first = engine.add_text("one", item_height=40.0, now=0.0, skip_dedup=True)
+    second = engine.add_text("two", item_height=72.0, now=0.1, skip_dedup=True)
+    assert first is not None and second is not None
+    engine.update(0.05)
+    first_before = first.current_y
+    third = engine.add_text("three", item_height=32.0, now=0.2, skip_dedup=True)
+    assert third is not None
+    assert abs(first.current_y - first_before) < 1e-6
+    assert first._anim_active is True
+    for _ in range(20):
+        engine.update(0.05)
+    assert abs(first.current_y - first.target_y) < 0.01
+    assert abs(second.current_y - second.target_y) < 0.01
+
+
+def test_max_items_with_different_heights_stays_cardinality_bounded(workspace_tmp):
+    """不同高度连续加入时，最大条数始终是可视状态机条数上限。"""
+    engine = _engine(
+        workspace_tmp,
+        floating_panel_max_items="2",
+        floating_panel_entry_animation="slide_up",
+        floating_panel_entry_duration_ms="180",
+        floating_panel_push_duration_ms="180",
+    )
+    heights = (40.0, 120.0, 56.0, 88.0, 32.0)
+    for index, height in enumerate(heights):
+        item = engine.add_text(
+            f"item-{index}",
+            item_height=height,
+            now=float(index),
+            skip_dedup=True,
+        )
+        assert item is not None
+        assert engine.active_count() <= 2
+        assert engine.visible_count() <= 2
+        engine.update(0.03)
+    for _ in range(30):
+        engine.update(0.05)
+    assert engine.active_count() <= 2
+    assert engine.visible_count() <= 2
 
 
 def test_estimate_entry_delay_never_queues_for_space(workspace_tmp):
@@ -158,8 +238,8 @@ def test_height_update_recomputes_targets_without_clear(workspace_tmp):
     assert abs(gap - 8.0) < 0.01
 
 
-def test_max_items_new_joins_oldest_exits(workspace_tmp):
-    """达到 max_items 后新消息仍进入，最旧条目进入顶部退出流程。"""
+def test_max_items_prunes_oldest_before_layout(workspace_tmp):
+    """达到 max_items 后最旧条目同步离开布局，不产生 max+1 可视条。"""
     engine = _engine(
         workspace_tmp,
         floating_panel_max_items="3",
@@ -171,22 +251,30 @@ def test_max_items_new_joins_oldest_exits(workspace_tmp):
     for i in range(4):
         item = engine.add_text(f"line-{i}", item_height=height, now=float(i))
         assert item is not None
-    # 新消息不被拒绝；最旧应处于退出或已进入退出动画
+    # 新消息不被拒绝；最旧条目不能作为退出中的布局节点残留。
     contents = [it.content for it in engine.visible_items()]
     assert "line-3" in contents
-    exiting = [it for it in engine.visible_items() if it.exiting]
     active = [it for it in engine.visible_items() if not it.exiting]
-    assert len(active) <= 3
-    # 推进退出直至最旧移除
-    for _ in range(40):
-        engine.update(0.05)
-    remaining = [it.content for it in engine.visible_items()]
-    assert "line-3" in remaining
-    assert "line-0" not in remaining or any(
-        it.exiting and it.content == "line-0" for it in engine.visible_items()
+    assert len(active) == 3
+    assert engine.visible_count() == 3
+    assert "line-0" not in contents
+
+
+def test_max_items_never_retains_exit_node(workspace_tmp):
+    engine = _engine(
+        workspace_tmp,
+        floating_panel_max_items="1",
+        floating_panel_entry_duration_ms="0",
+        floating_panel_push_duration_ms="0",
+        floating_panel_exit_animation="fade",
+        floating_panel_exit_duration_ms="200",
     )
-    # 最终活跃不超过 3
-    assert engine.active_count() <= 3
+    old = engine.add_text("old", item_height=30.0, now=0.0)
+    new = engine.add_text("new", item_height=30.0, now=1.0)
+    assert old is not None and new is not None
+    assert old not in engine.visible_items()
+    assert new in engine.visible_items()
+    assert engine.visible_count() == 1
 
 
 def test_overflow_height_exits_top_not_bottom_queue(workspace_tmp):
@@ -262,7 +350,7 @@ def test_style_index_fixed_at_creation(workspace_tmp):
     assert b.style_index == 7
 
 
-def test_exit_removes_only_when_fully_past_top(workspace_tmp):
+def test_max_item_replacement_does_not_animate_old_layout_node(workspace_tmp):
     engine = _engine(
         workspace_tmp,
         floating_panel_max_items="1",
@@ -273,15 +361,8 @@ def test_exit_removes_only_when_fully_past_top(workspace_tmp):
     first = engine.add_text("old", item_height=40.0, now=0.0)
     second = engine.add_text("new", item_height=40.0, now=1.0)
     assert first is not None and second is not None
-    assert first.exiting is True
-    # 退出动画中途：仍在列表中（未瞬删）
+    assert first not in engine.visible_items()
     engine.update(0.05)
-    assert first in engine.visible_items() or any(
-        it.content == "old" for it in engine.visible_items()
-    )
-    # 推完退出
-    for _ in range(20):
-        engine.update(0.05)
     assert all(it.content != "old" for it in engine.visible_items())
     assert any(it.content == "new" for it in engine.visible_items())
 

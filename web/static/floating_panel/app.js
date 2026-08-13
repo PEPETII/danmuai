@@ -4,7 +4,10 @@
   var MAX_RECONNECT_ATTEMPTS = 10;
   var panel = document.getElementById("panel");
   var maxCards = 6;
+  var entryAnimation = "fade";
   var exitDurationMs = 250;
+  var exitAnimation = "fade";
+  var pushDurationMs = 180;
   var ws = null;
   var reconnectAttempts = 0;
   var reconnectTimer = null;
@@ -162,19 +165,141 @@
     }
   }
 
+  function normalizeAnimation(raw, choices, fallback) {
+    var value = String(raw == null ? "" : raw).trim().toLowerCase();
+    return choices.indexOf(value) >= 0 ? value : fallback;
+  }
+
+  function readDuration(raw, fallback) {
+    var value = Number(raw);
+    if (!isFinite(value)) return fallback;
+    return Math.max(0, Math.min(2000, value));
+  }
+
+  function applyEntryAnimationClass(card) {
+    if (!card) return;
+    card.classList.remove("entry-fade", "entry-slide-up");
+    if (entryAnimation === "fade") card.classList.add("entry-fade");
+    if (entryAnimation === "slide_up") card.classList.add("entry-slide-up");
+  }
+
+  function parseTransformY(value) {
+    var raw = String(value || "");
+    if (!raw || raw === "none") return 0;
+    var match = raw.match(/^matrix3d\\(([^)]+)\\)$/);
+    if (match) {
+      var matrix3d = match[1].split(",");
+      return Number(matrix3d[13]) || 0;
+    }
+    match = raw.match(/^matrix\\(([^)]+)\\)$/);
+    if (match) {
+      var matrix = match[1].split(",");
+      return Number(matrix[5]) || 0;
+    }
+    return 0;
+  }
+
+  function freezeCardMotion(card) {
+    if (!card) return;
+    var computed = getComputedStyle(card);
+    var currentY = parseTransformY(computed.transform);
+    var currentOpacity = computed.opacity;
+    if (card.getAnimations) {
+      card.getAnimations().forEach(function (animation) {
+        try {
+          animation.cancel();
+        } catch (_e) {
+          /* ignore stale animation handles */
+        }
+      });
+    }
+    card.classList.remove("is-pushing", "entry-fade", "entry-slide-up", "exiting");
+    if (Math.abs(currentY) > 0.01) {
+      card.style.transform = "translateY(" + currentY + "px)";
+    } else {
+      card.style.removeProperty("transform");
+    }
+    if (currentOpacity !== "1") {
+      card.style.opacity = currentOpacity;
+    } else {
+      card.style.removeProperty("opacity");
+    }
+  }
+
+  function freezeAllCardMotions() {
+    if (!panel) return;
+    for (var i = 0; i < panel.children.length; i += 1) {
+      freezeCardMotion(panel.children[i]);
+    }
+  }
+
+  function snapshotCardTops() {
+    var tops = new Map();
+    if (!panel) return tops;
+    for (var i = 0; i < panel.children.length; i += 1) {
+      var card = panel.children[i];
+      tops.set(card, card.getBoundingClientRect().top);
+    }
+    return tops;
+  }
+
+  function animatePushedCards(previousTops) {
+    if (!panel || !previousTops) return;
+    previousTops.forEach(function (beforeTop, card) {
+      if (!card.parentNode) return;
+      var afterRect = card.getBoundingClientRect();
+      var frozenY = parseTransformY(getComputedStyle(card).transform);
+      var layoutTop = afterRect.top - frozenY;
+      var delta = beforeTop - layoutTop;
+      if (!isFinite(delta)) delta = 0;
+      card.style.opacity = "1";
+      card.classList.remove("is-pushing");
+      if (pushDurationMs <= 0 || Math.abs(delta) <= 0.01) {
+        card.style.removeProperty("transform");
+        return;
+      }
+      card.style.transform = "translateY(" + delta + "px)";
+      void card.offsetWidth;
+      card.classList.add("is-pushing");
+      card.style.removeProperty("transform");
+      card.addEventListener("transitionend", function (event) {
+        if (event.propertyName !== "transform") return;
+        card.classList.remove("is-pushing");
+        card.style.removeProperty("transform");
+      }, { once: true });
+    });
+  }
+
   function applyConfig(msg) {
-    if (msg.max_cards != null) maxCards = Math.max(1, Number(msg.max_cards) || 6);
+    freezeAllCardMotions();
+    var previousTops = snapshotCardTops();
+    if (msg.max_cards != null) {
+      var rawMaxCards = Number(msg.max_cards);
+      maxCards = isFinite(rawMaxCards)
+        ? Math.max(1, Math.min(50, Math.floor(rawMaxCards)))
+        : 6;
+    }
     if (msg.stack_gap != null) {
       document.documentElement.style.setProperty("--stack-gap", Number(msg.stack_gap) + "px");
     }
     if (msg.panel_padding != null) {
       document.documentElement.style.setProperty("--panel-padding", Number(msg.panel_padding) + "px");
     }
+    if (msg.entry_animation != null) {
+      entryAnimation = normalizeAnimation(msg.entry_animation, ["none", "fade", "slide_up"], "fade");
+    }
     if (msg.entry_duration_ms != null) {
-      document.documentElement.style.setProperty("--entry-duration", Number(msg.entry_duration_ms) + "ms");
+      document.documentElement.style.setProperty("--entry-duration", readDuration(msg.entry_duration_ms, 250) + "ms");
+    }
+    if (msg.push_duration_ms != null) {
+      pushDurationMs = readDuration(msg.push_duration_ms, 180);
+      document.documentElement.style.setProperty("--push-duration", pushDurationMs + "ms");
+    }
+    if (msg.exit_animation != null) {
+      exitAnimation = normalizeAnimation(msg.exit_animation, ["none", "fade"], "fade");
     }
     if (msg.exit_duration_ms != null) {
-      exitDurationMs = Number(msg.exit_duration_ms) || 250;
+      exitDurationMs = readDuration(msg.exit_duration_ms, 250);
       document.documentElement.style.setProperty("--exit-duration", exitDurationMs + "ms");
     }
     if (msg.panel_opacity != null) {
@@ -183,39 +308,17 @@
     if (Object.prototype.hasOwnProperty.call(msg, "click_through")) {
       applyClickThroughMode(msg.click_through);
     }
-    // Converge to maxCards after config change
+    // Converge to maxCards after config change. Evicted cards must leave the
+    // layout synchronously; an exit node in flex would expose maxCards + 1.
     removeOldestIfNeeded();
-  }
-
-  function scheduleCardExit(node) {
-    if (!node || node.classList.contains("exiting")) return;
-    var id = node.dataset.cardId;
-    node.classList.add("exiting");
-    setTimeout(function (n, cid) {
-      if (n && n.parentNode) n.parentNode.removeChild(n);
-      if (cid) cardIds.delete(cid);
-    }, exitDurationMs, node, id);
+    animatePushedCards(previousTops);
   }
 
   function removeOldestIfNeeded() {
-    // Count non-exiting cards
-    var active = 0;
-    var i;
-    for (i = 0; i < panel.children.length; i++) {
-      if (!panel.children[i].classList.contains("exiting")) active += 1;
-    }
-    var needExit = active - maxCards;
-    if (needExit <= 0) return;
-    // Schedule exit for oldest active cards (first children are oldest)
-    for (i = 0; i < panel.children.length && needExit > 0; i++) {
-      if (panel.children[i].classList.contains("exiting")) continue;
-      scheduleCardExit(panel.children[i]);
-      needExit -= 1;
-    }
-    // Hard limit: if somehow still > maxCards * 2, force remove
-    var hardLimit = maxCards * 2;
-    while (panel.children.length > hardLimit) {
-      var oldest = panel.firstElementChild;
+    // The last DOM child is the oldest because column-reverse puts the first
+    // child at the bottom. Remove it before the next layout is painted.
+    while (panel.children.length > maxCards) {
+      var oldest = panel.lastElementChild;
       if (!oldest) break;
       var cid = oldest.dataset.cardId;
       if (cid) cardIds.delete(cid);
@@ -226,6 +329,11 @@
   function addCard(msg) {
     var id = msg.id != null ? String(msg.id) : "";
     if (id && cardIds.has(id)) return;
+    // Freeze a possibly running push/entry animation before measuring. This
+    // makes rapid arrivals retarget from the current visual position instead
+    // of restarting a second CSS animation over a moving layout.
+    freezeAllCardMotions();
+    var previousTops = snapshotCardTops();
     var card = document.createElement("div");
     card.className = "card";
     if (id) {
@@ -255,8 +363,12 @@
         usernameHtml +
         '<div class="content">' + content + "</div>";
     }
-    panel.appendChild(card);
+    applyEntryAnimationClass(card);
+    // column-reverse places the first DOM child at the bottom. Prepending
+    // keeps the newest card at the bottom and physically pushes older cards up.
+    panel.prepend(card);
     removeOldestIfNeeded();
+    animatePushedCards(previousTops);
   }
 
   function clearCards() {

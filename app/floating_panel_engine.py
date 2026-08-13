@@ -16,6 +16,12 @@ from typing import TYPE_CHECKING
 
 from app.danmu_engine import normalize_danmu_display_text
 from app.danmu_engine_dedup import is_duplicate_in_recent
+from app.floating_panel_style import (
+    DEFAULT_ENTRY_ANIMATION,
+    DEFAULT_EXIT_ANIMATION,
+    ENTRY_ANIMATION_CHOICES,
+    EXIT_ANIMATION_CHOICES,
+)
 
 if TYPE_CHECKING:
     from app.config_store import ConfigStore
@@ -80,6 +86,8 @@ class FloatingPanelEngine:
         self._entry_duration_ms: float = float(_DEFAULT_ENTRY_DURATION_MS)
         self._push_duration_ms: float = float(_DEFAULT_PUSH_DURATION_MS)
         self._exit_duration_ms: float = float(_DEFAULT_EXIT_DURATION_MS)
+        self._entry_animation: str = DEFAULT_ENTRY_ANIMATION
+        self._exit_animation: str = DEFAULT_EXIT_ANIMATION
         self._next_style_index: int = 0
         self.apply_config()
 
@@ -124,6 +132,16 @@ class FloatingPanelEngine:
             lo=0.0,
             hi=2000.0,
         )
+        self._entry_animation = self._read_choice_config(
+            "floating_panel_entry_animation",
+            ENTRY_ANIMATION_CHOICES,
+            DEFAULT_ENTRY_ANIMATION,
+        )
+        self._exit_animation = self._read_choice_config(
+            "floating_panel_exit_animation",
+            EXIT_ANIMATION_CHOICES,
+            DEFAULT_EXIT_ANIMATION,
+        )
 
         # 配置变更后重算目标布局，不清空正常可见条；退出中条目保持退出态。
         if self._items:
@@ -138,6 +156,12 @@ class FloatingPanelEngine:
         except (TypeError, ValueError):
             value = default
         return max(lo, min(value, hi))
+
+    def _read_choice_config(
+        self, key: str, choices: tuple[str, ...], default: str
+    ) -> str:
+        value = str(self.config.get(key, default) or default).strip().lower()
+        return value if value in choices else default
 
     def set_panel_height(self, height: float) -> None:
         new_h = max(1.0, float(height))
@@ -259,13 +283,17 @@ class FloatingPanelEngine:
         target_y: float,
         duration_ms: float,
         is_entry: bool = False,
+        animate_when_static: bool = False,
     ) -> None:
         item.target_y = float(target_y)
         item.anim_from_y = float(item.current_y)
         item.anim_elapsed_ms = 0.0
         item.anim_duration_ms = max(0.0, float(duration_ms))
         item.is_entry = is_entry
-        if item.anim_duration_ms <= 0.0 or abs(item.anim_from_y - item.target_y) <= _POSITION_EPS:
+        if item.anim_duration_ms <= 0.0 or (
+            not animate_when_static
+            and abs(item.anim_from_y - item.target_y) <= _POSITION_EPS
+        ):
             item.current_y = item.target_y
             item._anim_active = False
             item.anim_elapsed_ms = item.anim_duration_ms
@@ -277,9 +305,12 @@ class FloatingPanelEngine:
             return
         item.exiting = True
         item.is_entry = False
+        if self._exit_animation == "none":
+            item.opacity = 1.0
         # 目标：主体完全越过顶部（底边 <= 0）
         off_top_y = -float(item.height)
-        self._start_anim(item, target_y=off_top_y, duration_ms=self._exit_duration_ms)
+        duration = self._exit_duration_ms if self._exit_animation != "none" else 0.0
+        self._start_anim(item, target_y=off_top_y, duration_ms=duration)
 
     def _active_items(self) -> list[FloatingPanelItem]:
         return [it for it in self._items if not it.exiting]
@@ -305,10 +336,12 @@ class FloatingPanelEngine:
         reason: str = "",
         entry_item: FloatingPanelItem | None = None,
     ) -> None:
-        """重算非退出条目目标；超高 / 超 max_items 时最旧条进入顶部退出。"""
+        """重算目标布局；超出显示边界的最旧条同步离开布局。"""
         del reason  # 诊断用占位，避免未使用参数
 
-        # 反复标记退出直到活跃集合可完整落在面板内且不超过 max_items
+        # 反复淘汰直到活跃集合可完整落在面板内且不超过 max_items。
+        # 退出条仍留在布局中会让可视条数短暂变成 max_items + 1，
+        # 也会把新消息触发的顶推与退出动画叠加成跳位。
         safety = 0
         while safety < 64:
             safety += 1
@@ -316,15 +349,15 @@ class FloatingPanelEngine:
             if not active:
                 return
 
-            # max_items：仅计非退出条目；超出则最旧进入退出
+            # max_items：最旧条同步移除，不能用仍占位的退出动画代替。
             if len(active) > self._max_items:
                 oldest = min(active, key=lambda it: (it.created_at, id(it)))
-                self._begin_exit(oldest)
+                self._items.remove(oldest)
                 continue
 
             targets = self._compute_targets_bottom_up(active)
-            # 总高度超出：最旧条目目标完全在顶边之上时进入退出
-            # （底边 target_y+height <= 0）；部分越顶仍保留（由 Overlay 裁剪）。
+            # 总高度超出：最旧条目目标完全在顶边之上时同步移除；
+            # Overlay 的 clip 负责动画中的边界像素，不保留隐藏等待项。
             overflow_victims = [
                 it
                 for it in active
@@ -332,21 +365,32 @@ class FloatingPanelEngine:
             ]
             if overflow_victims:
                 oldest = min(overflow_victims, key=lambda it: (it.created_at, id(it)))
-                self._begin_exit(oldest)
+                self._items.remove(oldest)
                 continue
 
             # 稳定：为活跃条目启动入场/顶推动画
             for item in active:
                 new_target = targets[id(item)]
                 if item is entry_item:
-                    # 新条：从面板底边外入场
+                    # 新条：slide_up 从面板底边外入场；fade 只改变透明度。
                     if not item._anim_active or abs(item.target_y - new_target) > _POSITION_EPS:
-                        item.current_y = self._panel_height
+                        starts_below = self._entry_animation == "slide_up"
+                        item.current_y = self._panel_height if starts_below else new_target
+                        duration = (
+                            self._entry_duration_ms
+                            if self._entry_animation != "none"
+                            else 0.0
+                        )
+                        if duration > 0.0:
+                            item.opacity = 0.0
                         self._start_anim(
                             item,
                             target_y=new_target,
-                            duration_ms=self._entry_duration_ms,
+                            duration_ms=duration,
                             is_entry=True,
+                            animate_when_static=(
+                                self._entry_animation == "fade"
+                            ),
                         )
                     else:
                         item.target_y = new_target
@@ -462,7 +506,13 @@ class FloatingPanelEngine:
             item.target_y = -item.height
             if not item._anim_active:
                 self._start_anim(
-                    item, target_y=item.target_y, duration_ms=self._exit_duration_ms
+                    item,
+                    target_y=item.target_y,
+                    duration_ms=(
+                        self._exit_duration_ms
+                        if self._exit_animation != "none"
+                        else 0.0
+                    ),
                 )
             return
         self._recompute_stack_layout(reason="update_item_height")
@@ -471,6 +521,9 @@ class FloatingPanelEngine:
         if not item.exiting:
             if not item.is_entry:
                 item.opacity = 1.0
+            return
+        if self._exit_animation == "none":
+            item.opacity = 1.0
             return
         if item.anim_duration_ms <= 0.0:
             item.opacity = 0.0

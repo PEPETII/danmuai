@@ -68,7 +68,6 @@ export function openKnowledgeConfirmModal({ title, message, confirmLabel, danger
 export function openCreatePackageModal() {
   const modal = document.getElementById('knowledgeCreatePackageModal');
   const nameInput = document.getElementById('knowledgeCreatePackageName');
-  const descInput = document.getElementById('knowledgeCreatePackageDescription');
   const nameError = document.getElementById('knowledgeCreateNameError');
   const submitBtn = document.getElementById('btnKnowledgeCreatePackageSubmit');
   const cancelBtn = document.getElementById('btnKnowledgeCreatePackageCancel');
@@ -77,7 +76,6 @@ export function openCreatePackageModal() {
   }
 
   nameInput.value = '';
-  if (descInput) descInput.value = '';
   if (nameError) {
     nameError.textContent = '';
     nameError.classList.add('hidden');
@@ -110,10 +108,7 @@ export function openCreatePackageModal() {
       try {
         const result = await apiFetch('/api/knowledge/packages', {
           method: 'POST',
-          body: JSON.stringify({
-            name,
-            description: descInput?.value?.trim() || '',
-          }),
+          body: JSON.stringify({ name }),
         });
         showKnowledgeToast(t('dynamic.appKnowledgePage.packageCreated'));
         close(result);

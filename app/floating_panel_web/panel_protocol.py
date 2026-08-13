@@ -113,7 +113,10 @@ class ConfigMessage:
     max_cards: int = 6
     stack_gap: int = 8
     panel_padding: int = 16
+    entry_animation: str = "fade"
     entry_duration_ms: int = 250
+    push_duration_ms: int = 180
+    exit_animation: str = "fade"
     exit_duration_ms: int = 250
     panel_position: str = "bottom-left"
     panel_width: int = 360
@@ -129,7 +132,10 @@ class ConfigMessage:
             "max_cards": int(self.max_cards),
             "stack_gap": int(self.stack_gap),
             "panel_padding": int(self.panel_padding),
+            "entry_animation": str(self.entry_animation),
             "entry_duration_ms": int(self.entry_duration_ms),
+            "push_duration_ms": int(self.push_duration_ms),
+            "exit_animation": str(self.exit_animation),
             "exit_duration_ms": int(self.exit_duration_ms),
             "panel_position": str(self.panel_position),
             "panel_width": int(self.panel_width),
@@ -165,7 +171,10 @@ class ConfigMessage:
             max_cards=int(data["max_cards"]),
             stack_gap=int(data["stack_gap"]),
             panel_padding=int(data["panel_padding"]),
+            entry_animation=str(data.get("entry_animation", "fade")),
             entry_duration_ms=int(data["entry_duration_ms"]),
+            push_duration_ms=int(data.get("push_duration_ms", 180)),
+            exit_animation=str(data.get("exit_animation", "fade")),
             exit_duration_ms=int(data["exit_duration_ms"]),
             panel_position=str(data["panel_position"]),
             panel_width=int(data["panel_width"]),

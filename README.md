@@ -49,3 +49,4 @@ See [AGENTS.md](AGENTS.md) Appendix A.3.10 (Web API / console), [.local-ai/worko
 - **Multi-monitor**: `screen_index` selects the screenshot and overlay target display (invalid indices fall back to 0)
 - Screenshots are compressed in memory before being sent to the AI and are **not written to disk by default**; only danmu text history is saved
 - **Web Console**: runtime overview (session stats + persistent totals: generated danmu count, total runtime, total token usage), assistant settings, persona workshop, danmu diary; custom model CRUD, image[...]
+- **Bottom-up floating-panel styles**: the style generator includes configurable entry fade/slide, stack push duration, and exit fade/none animation; the live preview and Web/Qt renderers share the same timing semantics.

@@ -109,6 +109,9 @@ let previewTextIndex = 0;
 let maxCardsCached = 12;
 let panelWidthCached = 360;
 let exitDurationMsCached = 200;
+let entryAnimationCached = 'fade';
+let exitAnimationCached = 'fade';
+let pushDurationMsCached = 180;
 let previewUsername = '高压吐槽型';
 
 function showToast(message, isError = false) {
@@ -458,7 +461,10 @@ function readPreviewStyle() {
     contentWeight: readInt('floating_panel_content_weight', 400),
     contentLineHeight: Math.max(1, readInt('floating_panel_content_line_height', 140) / 100),
     gapUsernameContent: readInt('floating_panel_gap_username_content', 4),
+    entryAnimation: readStr('floating_panel_entry_animation', 'fade'),
     entryMs: Math.max(0, readInt('floating_panel_entry_duration_ms', 200)),
+    pushMs: Math.max(0, readInt('floating_panel_push_duration_ms', 180)),
+    exitAnimation: readStr('floating_panel_exit_animation', 'fade'),
     exitMs: Math.max(0, readInt('floating_panel_exit_duration_ms', 200)),
     stackGap: Math.max(0, readInt('floating_panel_stack_gap', 8)),
     fontFamily: readStr('floating_panel_font_family', 'Microsoft YaHei'),
@@ -475,13 +481,19 @@ function applyStageConfig(style) {
   stage.style.setProperty('--stack-gap', `${style.stackGap}px`);
   stage.style.setProperty('--panel-padding', '16px');
   stage.style.setProperty('--entry-duration', `${style.entryMs}ms`);
+  stage.style.setProperty('--push-duration', `${style.pushMs}ms`);
   stage.style.setProperty('--exit-duration', `${style.exitMs}ms`);
   stage.style.setProperty('--panel-opacity', String(style.panelOpacity));
   stage.style.setProperty('--font-family', style.fontFamily || 'Microsoft YaHei, PingFang SC, sans-serif');
   const maxW = Math.max(120, style.panelWidth - 40);
   stage.style.setProperty('--card-max-width', `${maxW}px`);
   maxCardsCached = style.maxItems;
-  exitDurationMsCached = style.exitMs || 200;
+  entryAnimationCached = ['none', 'fade', 'slide_up'].includes(style.entryAnimation)
+    ? style.entryAnimation : 'fade';
+  pushDurationMsCached = style.pushMs;
+  exitAnimationCached = ['none', 'fade'].includes(style.exitAnimation)
+    ? style.exitAnimation : 'fade';
+  exitDurationMsCached = style.exitMs;
 }
 
 /** 与 floating_panel/app.js applyCardStyleVars 同语义（写在卡片元素上） */
@@ -621,8 +633,49 @@ function restyleVisiblePreviewItems() {
   removeOldestIfNeeded();
 }
 
+function applyPreviewEntryAnimation(card) {
+  if (!card) return;
+  card.classList.remove('entry-fade', 'entry-slide-up');
+  if (entryAnimationCached === 'fade') card.classList.add('entry-fade');
+  if (entryAnimationCached === 'slide_up') card.classList.add('entry-slide-up');
+}
+
+function snapshotPreviewCardTops() {
+  const stack = document.getElementById('styleGeneratorPreviewStack');
+  const tops = new Map();
+  if (!stack) return tops;
+  Array.from(stack.children).forEach((card) => {
+    if (!card.classList.contains('exiting')) tops.set(card, card.getBoundingClientRect().top);
+  });
+  return tops;
+}
+
+function animatePushedPreviewCards(previousTops) {
+  const stack = document.getElementById('styleGeneratorPreviewStack');
+  if (!stack || !previousTops || pushDurationMsCached <= 0) return;
+  previousTops.forEach((beforeTop, card) => {
+    if (!card.parentNode || card.classList.contains('exiting')) return;
+    const delta = beforeTop - card.getBoundingClientRect().top;
+    const offset = Number.isFinite(delta) ? delta : 0;
+    card.style.setProperty('--push-offset', `${offset}px`);
+    card.classList.remove('is-pushing');
+    void card.offsetWidth;
+    card.classList.add('is-pushing');
+    card.addEventListener('animationend', (event) => {
+      if (event.animationName !== 'sg-fp-pushUp') return;
+      card.classList.remove('is-pushing');
+      card.style.removeProperty('--push-offset');
+    }, { once: true });
+  });
+}
+
 function scheduleCardExit(node) {
   if (!node || node.classList.contains('exiting')) return;
+  if (exitAnimationCached === 'none' || exitDurationMsCached <= 0) {
+    if (node.parentNode) node.parentNode.removeChild(node);
+    previewItems = previewItems.filter((it) => it.el !== node);
+    return;
+  }
   node.classList.add('exiting');
   const id = node.dataset?.cardId;
   setTimeout(() => {
@@ -643,7 +696,7 @@ function removeOldestIfNeeded() {
     if (!stack.children[i].classList.contains('exiting')) active += 1;
   }
   let needExit = active - maxCards;
-  for (let i = 0; i < stack.children.length && needExit > 0; i++) {
+  for (let i = stack.children.length - 1; i >= 0 && needExit > 0; i -= 1) {
     if (stack.children[i].classList.contains('exiting')) continue;
     scheduleCardExit(stack.children[i]);
     needExit -= 1;
@@ -653,6 +706,7 @@ function removeOldestIfNeeded() {
 function addPreviewMessage(text) {
   const stack = document.getElementById('styleGeneratorPreviewStack');
   if (!stack) return;
+  const previousTops = snapshotPreviewCardTops();
   const style = readPreviewStyle();
   applyStageConfig(style);
   const idx = styleIndexSeq++ % 1024;
@@ -668,7 +722,10 @@ function addPreviewMessage(text) {
   el.innerHTML = buildPreviewCardInnerHtml(style, text);
 
   applyCardStyleVars(el, style, cardColor, textColor);
-  stack.appendChild(el);
+  applyPreviewEntryAnimation(el);
+  // column-reverse places the first DOM child at the bottom; prepend keeps
+  // the newest preview card at the bottom and pushes older cards upward.
+  stack.prepend(el);
   previewItems.push({
     el,
     text,
@@ -677,6 +734,7 @@ function addPreviewMessage(text) {
     textColor,
   });
   removeOldestIfNeeded();
+  animatePushedPreviewCards(previousTops);
 }
 
 function escapePreviewHtml(s) {

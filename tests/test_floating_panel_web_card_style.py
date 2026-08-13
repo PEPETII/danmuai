@@ -158,3 +158,27 @@ def test_empty_username_separator_does_not_force_colon():
     # Old force-colon pattern must not remain as sole assignment
     assert '(msg.style && msg.style.username_separator) || "："' not in add_card_body
     assert "(msg.style && msg.style.username_separator) || '：'" not in add_card_body
+
+
+def test_panel_stack_is_clipped_and_cards_do_not_shrink():
+    """可视窗口裁剪边界，卡片高度不被 flex 重排偷偷压缩。"""
+    css = _style_css_text()
+    panel_css = css.split("#panel {", 1)[1].split("#panel.is-interactive", 1)[0]
+    card_css = css.split(".card {", 1)[1].split(".card.no-card-surface", 1)[0]
+    assert "overflow: hidden" in panel_css
+    assert "flex: 0 0 auto" in card_css
+
+
+def test_push_relayout_freezes_existing_animation_and_uses_transition():
+    """顶推只在插入时重定向一次，避免 animation 与布局同时驱动。"""
+    src = _app_js_text()
+    assert "freezeAllCardMotions" in src
+    assert "card.getAnimations" in src
+    assert "transitionend" in src
+    assert "scheduleCardExit" not in src
+    assert "animationend" not in src.split("function animatePushedCards", 1)[1].split(
+        "function applyConfig", 1
+    )[0]
+    css = _style_css_text()
+    push_css = css.split(".card.is-pushing", 1)[1].split(".card.no-border", 1)[0]
+    assert "transition: transform" in push_css

@@ -16,6 +16,7 @@
   --panel-padding: 16px;
   --stack-gap: 8px;
   --entry-duration: 250ms;
+  --push-duration: 180ms;
   --exit-duration: 250ms;
   --panel-opacity: 1;
   --card-shadow: 0 2px 4px rgba(0, 0, 0, 0.10),
@@ -62,6 +63,7 @@ body {
   flex-direction: column-reverse;
   justify-content: flex-start;
   align-items: flex-start;
+  overflow: hidden;
   padding: var(--panel-padding);
   box-sizing: border-box;
   gap: var(--stack-gap);
@@ -90,8 +92,8 @@ body {
   border-radius: var(--card-radius);
   padding: var(--padding-y) var(--padding-x);
   max-width: var(--card-max-width);
+  flex: 0 0 auto;
   box-shadow: var(--card-shadow);
-  animation: slideUp var(--entry-duration) ease-out;
   backdrop-filter: blur(2px);
   will-change: transform, opacity;
   position: relative;
@@ -109,6 +111,19 @@ body {
 
 .card.exiting {
   animation: fadeOut var(--exit-duration) ease-in forwards;
+}
+
+.card.entry-fade {
+  animation: fadeIn var(--entry-duration) ease-out both;
+}
+
+.card.entry-slide-up {
+  animation: slideUp var(--entry-duration) ease-out both;
+}
+
+.card.is-pushing {
+  transition: transform var(--push-duration) ease-out;
+  transform: translateY(0);
 }
 
 .card.no-border {
@@ -285,7 +300,7 @@ body {
 /* ===== 动画 ===== */
 @keyframes slideUp {
   0% {
-    transform: translateY(40%);
+    transform: translateY(100%);
     opacity: 0;
   }
   100% {
@@ -302,5 +317,14 @@ body {
   100% {
     opacity: 0;
     transform: translateY(-20px);
+  }
+}
+
+@keyframes fadeIn {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
   }
 }
