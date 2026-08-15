@@ -21,6 +21,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING
 
 from app.persona_contract import DEFAULT_NORMAL_REPLY_COUNT
@@ -270,6 +271,46 @@ def migrate_legacy_display_mode_to_render_mode(config) -> bool:
     legacy = str(config.get("display_mode", "") or "").strip().lower()
     mapped = "floating_panel" if legacy == "floating_panel" else "scrolling"
     config.set("danmu_render_mode", mapped)
+    return True
+
+
+def migrate_legacy_floating_panel_style(config) -> bool:
+    """将旧版无气泡工厂样式恢复为当前可见的仿微信预设。
+
+    早期样式生成器可能把工厂样式保存成 ``custom``，但实际字段仍是
+    透明卡片、描边文字、无用户名的旧样式。当前页面已不再提供这个
+    隐藏的基础风格来源，冷启动时会出现按钮显示仿微信而预览没有气泡。
+    只匹配这组明确的旧版指纹；普通 custom 样式不改动。
+    """
+    if str(config.get("floating_panel_style_preset", "") or "").strip().lower() != "custom":
+        return False
+
+    legacy_values = {
+        "floating_panel_shape": "card",
+        "floating_panel_layout": "inline",
+        "floating_panel_card_opacity": "0",
+        "floating_panel_outline_enabled": "1",
+        "floating_panel_outline_color": "#000000",
+        "floating_panel_shadow_enabled": "0",
+        "floating_panel_border_enabled": "0",
+        "floating_panel_tail_enabled": "0",
+        "floating_panel_username_enabled": "0",
+        "floating_panel_font_family": "Microsoft YaHei",
+    }
+    for key, expected in legacy_values.items():
+        if str(config.get(key, "") or "").strip().lower() != expected.lower():
+            return False
+
+    try:
+        text_colors = json.loads(config.get("floating_panel_text_colors", ""))
+    except (TypeError, json.JSONDecodeError):
+        return False
+    if not isinstance(text_colors, list) or [str(color).strip().upper() for color in text_colors] != ["#FFFFFF"]:
+        return False
+
+    from app.floating_panel_style import preset_style_patch
+
+    config.set_batch(preset_style_patch("blivechat_line"))
     return True
 
 

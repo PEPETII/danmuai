@@ -333,14 +333,6 @@ class TrayManager:
 
     def show(self):
         self.tray.show()
-        if not QSystemTrayIcon.isSystemTrayAvailable():
-            return
-        self.tray.showMessage(
-            "DanmuAI",
-            tr("tray.started_message"),
-            QSystemTrayIcon.MessageIcon.Information,
-            3000,
-        )
 
     def hide(self):
         self.tray.hide()

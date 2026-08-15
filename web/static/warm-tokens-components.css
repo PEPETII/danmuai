@@ -64,7 +64,39 @@
 }
 
 .field-label-row {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 0.25rem;
   min-width: 0;
+  max-width: 100%;
+  vertical-align: top;
+}
+
+.field-label-row--spaced {
+  margin-bottom: 0.5rem;
+}
+
+.field-label-row--tight {
+  margin-bottom: 0.25rem;
+}
+
+.field-label-row--heading {
+  margin-bottom: 1rem;
+}
+
+.field-label-row .settings-field-label,
+.field-label-row > label {
+  display: inline;
+  flex: none;
+  margin-bottom: 0;
+}
+
+.settings-rhythm-accordion-field > .field-label-row {
+  display: inline-flex;
+  flex: 0 1 auto;
+  align-self: center;
 }
 
 .field-hint-btn {

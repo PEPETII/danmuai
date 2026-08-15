@@ -11,6 +11,8 @@ INDEX_TEMPLATE = STATIC_ROOT / "index.template.html"
 THEME_BUNDLE = STATIC_ROOT / "warm-tokens.css"
 APP_MODULE = STATIC_ROOT / "app.js"
 SETTINGS_MODULE = STATIC_ROOT / "modules" / "settings.js"
+SETTINGS_HINTS_MODULE = STATIC_ROOT / "modules" / "settings-hints.js"
+COMPONENTS_CSS = STATIC_ROOT / "warm-tokens-components.css"
 
 
 def test_rhythm_accordion_keeps_existing_config_field_contracts():
@@ -74,6 +76,27 @@ def test_rhythm_accordion_styles_preserve_focus_and_compact_controls():
     assert '.settings-rhythm-step-button' in css
     assert '.settings-rhythm-accordion-item + .settings-rhythm-accordion-item' in css
     assert 'border-top: 1px solid var(--border)' in css
+
+
+def test_hint_icons_stay_inline_with_titles_in_all_settings_rows():
+    hints = SETTINGS_HINTS_MODULE.read_text(encoding="utf-8")
+    components = COMPONENTS_CSS.read_text(encoding="utf-8")
+
+    # 标题行自身承载标题与 hint，不能再把标题设为可增长列。
+    assert "row.className = 'field-label-row';" in hints
+    assert "label.classList.add('flex-1', 'min-w-0')" not in hints
+    assert ".field-label-row > label" in components
+    assert "gap: 0.25rem" in components
+
+    # 折叠面板的字段行仍可与右侧控件并排，但标题行只按内容宽度布局，
+    # 避免 field-hint-wrap 被 flex: 1 推到容器末端。
+    accordion_rule = components[components.index(
+        ".settings-rhythm-accordion-field > .field-label-row"
+    ):]
+    accordion_rule = accordion_rule[:accordion_rule.index("}")]
+    assert "display: inline-flex" in accordion_rule
+    assert "flex: 0 1 auto" in accordion_rule
+    assert "flex: 1 1 auto" not in accordion_rule
 
 
 def test_rhythm_accordion_refreshes_the_imported_theme_bundle():

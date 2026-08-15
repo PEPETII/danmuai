@@ -121,6 +121,7 @@ class ConfigStore:
         # W-FP-V2-002：须在 seed 之前写回，避免 seed 先落 danmu_render_mode=scrolling 盖掉遗留 display_mode
         self._migrate_legacy_display_mode_to_render_mode()
         self._migrate_legacy_image_max_width()
+        self._migrate_legacy_floating_panel_style()
         if self.is_first_run or not self.get("danmu_speed"):
             from app.config_defaults import seed_config_defaults
 
@@ -148,6 +149,11 @@ class ConfigStore:
         from app.config_defaults import migrate_legacy_display_mode_to_render_mode
 
         migrate_legacy_display_mode_to_render_mode(self)
+
+    def _migrate_legacy_floating_panel_style(self) -> None:
+        from app.config_defaults import migrate_legacy_floating_panel_style
+
+        migrate_legacy_floating_panel_style(self)
 
     def _normalize_legacy_display_mode(self) -> None:
         from app.application.config_service import normalize_legacy_display_mode

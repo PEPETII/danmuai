@@ -1,10 +1,9 @@
-"""WebView2 慢启动反馈：验证模态 QMessageBox 已替换为非阻塞 tray.showMessage 气泡。
+"""WebView2 慢启动反馈：慢启动托盘气泡已禁用，保留阈值常量与守卫逻辑测试。
 
 验证：
-- _SLOW_START_PROMPT_SEC = 3.0（从 5.0 下调）
-- _DISABLE_SLOW_START_PROMPT = False（不再禁用）
-- _maybe_prompt_slow_webview_start 调用 tray.showMessage（非 QMessageBox.exec）
-- 气泡不阻塞 poll_handshake
+- _SLOW_START_PROMPT_SEC = 3.0
+- _DISABLE_SLOW_START_PROMPT = True（不弹出慢启动气泡）
+- _maybe_prompt_slow_webview_start 不调用 tray.showMessage
 """
 
 import time
@@ -18,9 +17,9 @@ def test_slow_start_prompt_sec_is_3():
     assert wv_mod._SLOW_START_PROMPT_SEC == 3.0
 
 
-def test_disable_slow_start_prompt_is_false():
-    """_DISABLE_SLOW_START_PROMPT 应为 False（不再禁用中间提示）。"""
-    assert wv_mod._DISABLE_SLOW_START_PROMPT is False
+def test_disable_slow_start_prompt_is_true():
+    """_DISABLE_SLOW_START_PROMPT 应为 True（不弹出慢启动气泡）。"""
+    assert wv_mod._DISABLE_SLOW_START_PROMPT is True
 
 
 def _make_mock_shell(attach_started_at=None, started=False, server_ok=True):
@@ -54,8 +53,8 @@ def _make_mock_shell(attach_started_at=None, started=False, server_ok=True):
     return shell, tray_icon
 
 
-def test_slow_start_uses_tray_balloon_not_messagebox(qapp):
-    """慢启动提示应调用 tray.showMessage，不使用模态 QMessageBox。"""
+def test_slow_start_does_not_show_tray_balloon(qapp):
+    """慢启动提示已禁用，不应调用 tray.showMessage。"""
     from PyQt6.QtWidgets import QSystemTrayIcon
 
     shell, tray_icon = _make_mock_shell()
@@ -64,13 +63,9 @@ def test_slow_start_uses_tray_balloon_not_messagebox(qapp):
         with patch("app.webview_shell.QMessageBox", create=True) as mock_box:
             wv_mod._maybe_prompt_slow_webview_start(shell, "/")
 
-    # tray.showMessage 应被调用
-    tray_icon.showMessage.assert_called_once()
-    # QMessageBox.exec 不应被调用
+    tray_icon.showMessage.assert_not_called()
     mock_box.assert_not_called()
-
-    # server._slow_webview_prompt_shown 应被标记
-    assert shell.server._slow_webview_prompt_shown is True
+    assert shell.server._slow_webview_prompt_shown is False
 
 
 def test_slow_start_skipped_when_already_started(qapp):

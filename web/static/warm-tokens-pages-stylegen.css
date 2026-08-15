@@ -64,6 +64,11 @@
   --sg-control-col-width: minmax(9rem, 42%);
 }
 
+#page-style-generator .sg-accordion .settings-rhythm-accordion-item[hidden],
+#page-style-generator .sg-accordion .settings-field[hidden] {
+  display: none;
+}
+
 #page-style-generator .sg-accordion .settings-rhythm-accordion-panel {
   padding: var(--space-4) var(--space-5) var(--space-5);
 }
@@ -323,13 +328,6 @@
 .style-generator-preview-pane {
   position: sticky;
   top: 1rem;
-}
-
-.sg-preset-btn.is-active {
-  background: rgba(var(--color-primary-rgb), 0.15);
-  border-color: rgba(var(--color-primary-rgb), 0.45);
-  color: var(--color-text, #5d5757);
-  box-shadow: var(--shadow-warm, 0 4px 15px -3px rgba(255, 165, 165, 0.2));
 }
 
 .sg-color-list {

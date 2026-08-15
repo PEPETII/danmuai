@@ -19,8 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.3.7] - Unreleased
 
-### Fixed
-- 样式生成器移除重复控件：面板字号改由「消息内容 → 内容字号」统一控制；加粗改由内容/用户名字重控制；尾巴大小由宽度/高度派生保存。遗留配置键仍在保存时自动写入以保持兼容。
+### Changed
+- 弹幕样式「从下到上模式」基础风格由按钮组改为下拉菜单，默认选中「仿微信」。
+- 修复弹幕样式页冷启动读取旧版无气泡配置时，预览与「仿微信」基础风格按钮不一致；启动时自动恢复为气泡堆叠预设。
 
 ### Added
 - AI platform reference data system with custom models schema and web UI model selector.

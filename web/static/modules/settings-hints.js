@@ -151,30 +151,29 @@ function attachHintToLabel(label, tipText, tipId) {
     return;
   }
 
-  const row = document.createElement('div');
-  row.className = 'field-label-row flex items-center gap-1';
+  const row = document.createElement('span');
+  row.className = 'field-label-row';
   const useBlockSpacing =
     label.classList.contains('block')
     || label.classList.contains('settings-field-label');
   if (useBlockSpacing) {
-    row.classList.add('mb-2');
+    row.classList.add('field-label-row--spaced');
     label.classList.remove('block', 'mb-2');
   }
   if (label.classList.contains('mb-1')) {
-    row.classList.add('mb-1');
+    row.classList.add('field-label-row--tight');
     label.classList.remove('mb-1');
   }
-  label.classList.add('flex-1', 'min-w-0');
   label.parentNode.insertBefore(row, label);
   row.append(label, wrap);
 }
 
 function attachHintToHeading(heading, tipText, tipId) {
   if (!heading || heading.querySelector('.field-hint-wrap')) return;
-  const row = document.createElement('div');
-  row.className = 'field-label-row flex items-center gap-1 mb-4';
+  const row = document.createElement('span');
+  row.className = 'field-label-row field-label-row--heading';
   const title = document.createElement('span');
-  title.className = `${heading.className} flex-1 min-w-0 mb-0`;
+  title.className = heading.className.replace(/\b(flex-1|min-w-0|mb-\d+)\b/g, '').trim();
   title.innerHTML = heading.innerHTML;
   if (heading.id) title.id = heading.id;
   heading.replaceWith(row);

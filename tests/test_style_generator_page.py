@@ -55,7 +55,7 @@ def test_style_generator_form_names_match_contract_keys():
     assert 'name="floating_panel_font_size"' not in text
     assert 'name="floating_panel_font_bold"' not in text
     assert 'data-preset="blivechat_line"' in text
-    assert 'id="sgBtnPresetBlivechatLine"' in text
+    assert 'id="sgPresetSelect"' in text
     assert 'value="line_like"' in text
     assert 'value="stacked"' in text
     assert 'value="inline"' in text
@@ -127,7 +127,7 @@ def test_style_generator_accordion_titles_follow_domain_grouping():
         "弹幕字体",
         "弹幕用户名",
         "用户名",
-        "消息样式",
+        "弹幕布局",
         "显示与退场",
         "字体资源",
     ):
@@ -140,11 +140,13 @@ def test_style_generator_accordion_titles_follow_domain_grouping():
     card_start = partial.index('id="sgCardColorsAccordionPanel"')
     text_colors_start = partial.index('id="sgTextColorsAccordionPanel"')
     assert card_start < partial.index('id="sg-floating_panel_card_opacity"') < text_colors_start
-    assert card_start < partial.index('id="sg-floating_panel_opacity"') < text_colors_start
+    assert 'data-i18n="content.text.弹幕字体透明度"' in partial
+    assert 'data-i18n="content.text.弹幕字体设置提示"' in partial
 
     text_colors_start = partial.index('id="sgTextColorsAccordionPanel"')
     username_start = partial.index('id="sgUsernameAccordionPanel"')
     tail_start = partial.index('id="sgTailAccordionPanel"')
+    assert text_colors_start < partial.index('id="sg-floating_panel_opacity"') < username_start
     assert text_colors_start < partial.index('id="sg-floating_panel_font_family"') < username_start
     assert text_colors_start < partial.index('id="sg-floating_panel_content_size"') < username_start
     assert text_colors_start < partial.index('id="sg-font_file_input"') < tail_start
@@ -155,9 +157,14 @@ def test_style_generator_accordion_titles_follow_domain_grouping():
     assert 'id="sgFontImportAccordionTrigger"' not in partial
 
     horizontal_style_start = partial.index('id="sgHorizontalFontAccordionPanel"')
+    horizontal_layout_start = partial.index('id="sgHorizontalLayoutAccordionPanel"')
     display_start = partial.index('id="sgHorizontalDisplayAccordionPanel"')
     resource_start = partial.index('id="sgHorizontalFontImportAccordionPanel"')
-    assert horizontal_style_start < display_start < resource_start
+    assert horizontal_style_start < horizontal_layout_start < display_start < resource_start
+    assert horizontal_style_start < partial.index('id="danmu_font_family"') < horizontal_layout_start
+    assert horizontal_layout_start < partial.index('id="danmu_lines"') < display_start
+    assert horizontal_layout_start < partial.index('id="layout_mode"') < display_start
+    assert 'data-i18n="content.text.横向弹幕字体设置提示"' in partial
     assert display_start < partial.index('id="opacity"') < resource_start
     assert resource_start < partial.index('id="font_file_input"')
 
@@ -292,11 +299,38 @@ def test_style_generator_preview_matches_web_panel_structure():
     assert "floating_panel_tail_long_side" in mod
     assert "floating_panel_tail_rotate_deg" in mod
     assert "applyPreset('blivechat_line')" in mod or 'applyPreset("blivechat_line")' in mod
+    assert "syncPresetVisibility" in mod
+    assert "normalizeVisiblePreset" in mod
+    assert "let activePresetId = 'blivechat_line';" in mod
+    assert "syncPresetSelect" in mod
+    assert "select.value = activePresetId" in mod
+    assert "values.floating_panel_style_preset = visiblePreset" in mod
+    assert "cardSection.hidden = isClassic" in mod
+    assert "tailSection.hidden = isClassic" in mod
+    assert "shapeField.hidden = isClassic" in mod
+    assert "layoutField.hidden = isClassic" in mod
+    assert ".settings-rhythm-accordion-item[hidden]" in css
+    assert ".settings-field[hidden]" in css
     assert "layout-stacked" in css
     assert "--tail-border" in css
     assert "--tail-long-side" in css
     assert "--tail-rotate" in css
     assert 'data-tail-style="line_like"' in css or "[data-tail-style=\"line_like\"]" in css
+
+
+def test_style_generator_preserves_unsaved_preview_when_navigating_back():
+    """切页返回不应重新用旧服务端配置覆盖未保存的预览状态。"""
+    mod = (_static() / "modules" / "app-style-generator-page.js").read_text(encoding="utf-8")
+    load_body = mod.split("export async function loadStyleGeneratorPage()")[1].split(
+        "export function initStyleGeneratorPage", 1
+    )[0]
+    assert "let styleGeneratorLoaded = false;" in mod
+    assert "let styleGeneratorDirty = false;" in mod
+    assert "let styleGeneratorLoadPromise = null;" in mod
+    assert "if (styleGeneratorLoaded && styleGeneratorDirty) return;" in load_body
+    assert "styleGeneratorDirty = true;" in mod
+    assert "styleGeneratorDirty = false;" in mod
+    assert "styleGeneratorLoadPromise" in load_body
 
 
 def test_style_generator_animation_controls_drive_preview_and_web_panel():
@@ -337,6 +371,35 @@ def test_style_generator_animation_controls_drive_preview_and_web_panel():
     assert "panel.prepend(card)" in panel_js
     assert "entry_animation" in panel_js
     assert "exit_animation" in panel_js
+
+
+def test_restore_default_uses_visible_wechat_style_preset():
+    """恢复默认必须与当前可见的“仿微信”基础风格保持一致。"""
+    mod = (_static() / "modules" / "app-style-generator-page.js").read_text(encoding="utf-8")
+    restore_body = mod.split("async function restoreDefaultAndSave()")[1].split(
+        "/* ---- 字体加载与导入 ---- */", 1
+    )[0]
+    assert "applyPreset('blivechat_line')" in restore_body
+    assert "applyPreset('wechat')" not in restore_body
+
+
+def test_manual_edits_mark_custom_but_preset_select_stays_on_base_style():
+    """手动编辑后隐藏字段标为 custom，下拉仍保持当前基础风格（不展示自定义项）。"""
+    mod = (_static() / "modules" / "app-style-generator-page.js").read_text(encoding="utf-8")
+    partial = (_static() / "partials" / "style-generator.html").read_text(encoding="utf-8")
+    assert "setFieldValue('floating_panel_style_preset', 'custom')" in mod
+    assert "syncPresetSelect('custom')" in mod
+    assert "let activePresetId = 'blivechat_line';" in mod
+    assert "select.value = activePresetId" in mod
+    assert 'value="custom"' not in partial
+
+
+def test_style_generator_has_a_default_visible_preset_select():
+    """页面异步加载配置前下拉默认选中仿微信基础风格。"""
+    partial = (_static() / "partials" / "style-generator.html").read_text(encoding="utf-8")
+    assert 'id="sgPresetSelect"' in partial
+    assert 'value="blivechat_line"' in partial
+    assert 'selected data-i18n="content.text.预设LineLike"' in partial
 
 
 def test_preview_recomputes_existing_card_colors_when_presets_change_round_trip():
@@ -395,7 +458,8 @@ def test_settings_danmu_preview_no_longer_implements_floating_stack():
     mod = (_static() / "modules" / "settings-danmu-preview.js").read_text(encoding="utf-8")
     assert "function renderFloatingPreview" not in mod
     assert "danmuPreviewFloatingPanel" not in mod
-    assert "renderScrollingPreview" in mod
+    assert "renderStaticPreviewForRoot" in mod
+    assert "我喜欢你" in mod
 
 
 def test_app_js_wires_style_generator_navigate():

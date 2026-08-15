@@ -108,6 +108,14 @@ let toast = () => {};
 let handlersBound = false;
 let presetsPayload = null;
 let suppressCustomMark = false;
+// 导航回到本页时，保留用户尚未保存的表单与预览；服务端配置只用于首次加载
+// 或当前没有未保存编辑时的重新同步。
+let styleGeneratorLoaded = false;
+let styleGeneratorDirty = false;
+let styleGeneratorLoadPromise = null;
+// 基础风格下拉表示当前自定义样式的来源；它与保存用的 custom preset 字段独立。
+// 页面首次加载无法从 custom 配置可靠推断来源时，按产品默认显示仿微信。
+let activePresetId = 'blivechat_line';
 let styleIndexSeq = 0;
 /** @type {{el: HTMLElement, styleIndex: number, cardColor: string, textColor: string, text: string}[]} */
 let previewItems = [];
@@ -331,15 +339,50 @@ export function applyDerivedLegacyStyleFields(data) {
 
 function markCustomIfNeeded() {
   if (suppressCustomMark) return;
+  styleGeneratorDirty = true;
   setFieldValue('floating_panel_style_preset', 'custom');
-  syncPresetButtons('custom');
+  syncPresetSelect('custom');
+  syncPresetVisibility('custom');
 }
 
-function syncPresetButtons(preset) {
-  document.querySelectorAll('.sg-preset-btn').forEach((btn) => {
-    const active = btn.dataset.preset === preset;
-    btn.classList.toggle('is-active', active);
-  });
+function syncPresetSelect(preset) {
+  if (preset === 'classic' || preset === 'blivechat_line') {
+    activePresetId = preset;
+  }
+  const select = document.getElementById('sgPresetSelect');
+  if (!select) return;
+  // custom 仅写入隐藏字段；下拉始终展示当前基础风格（默认仿微信）。
+  select.value = activePresetId;
+}
+
+function normalizeVisiblePreset(values, presets) {
+  const configuredPreset = String(values.floating_panel_style_preset || '').trim();
+  const visiblePreset = configuredPreset === 'classic'
+    ? 'classic'
+    : configuredPreset === 'blivechat_line'
+      ? 'blivechat_line'
+      : configuredPreset === 'custom'
+        ? 'custom'
+        : presets?.presets?.blivechat_line
+          ? 'blivechat_line'
+          : 'classic';
+  if (visiblePreset !== configuredPreset && presets?.presets?.[visiblePreset]) {
+    Object.assign(values, presets.presets[visiblePreset]);
+  }
+  values.floating_panel_style_preset = visiblePreset;
+}
+
+/** 仿 YouTube 只隐藏不适用的设置，切回仿微信/自定义时恢复可见并保留字段值。 */
+function syncPresetVisibility(preset) {
+  const isClassic = preset === 'classic';
+  const shapeField = document.getElementById('sg-floating_panel_shape')?.closest('.settings-field');
+  const layoutField = document.getElementById('sg-floating_panel_layout')?.closest('.settings-field');
+  const cardSection = document.getElementById('sgCardColorsAccordionTrigger')?.closest('.settings-rhythm-accordion-item');
+  const tailSection = document.getElementById('sgTailAccordionTrigger')?.closest('.settings-rhythm-accordion-item');
+  if (shapeField) shapeField.hidden = isClassic;
+  if (layoutField) layoutField.hidden = isClassic;
+  if (cardSection) cardSection.hidden = isClassic;
+  if (tailSection) tailSection.hidden = isClassic;
 }
 
 function writePaletteHidden(kind) {
@@ -426,7 +469,8 @@ function applyValuesToForm(values) {
     renderColorList('card', cardColors.length ? cardColors : ['#FFECD2']);
     renderColorList('text', textColors.length ? textColors : ['#281C12']);
     const preset = values.floating_panel_style_preset || 'custom';
-    syncPresetButtons(preset);
+    syncPresetSelect(preset);
+    syncPresetVisibility(preset);
   } finally {
     suppressCustomMark = false;
   }
@@ -439,6 +483,7 @@ function applyPreset(presetId) {
     return;
   }
   applyValuesToForm({ ...patch, floating_panel_style_preset: presetId });
+  styleGeneratorDirty = true;
   restyleVisiblePreviewItems();
   showToast(t('dynamic.appStyleGenerator.已应用预设_preset', { preset: presetId }));
 }
@@ -899,6 +944,7 @@ async function saveStyle(event) {
       body: JSON.stringify(payload),
     });
     // 样式已保存；字体字段由横向模式页独立维护
+    styleGeneratorDirty = false;
     if (status) status.textContent = t('dynamic.appStyleGenerator.样式已保存');
     showToast(t('dynamic.appStyleGenerator.样式已保存'));
   } catch (error) {
@@ -908,7 +954,9 @@ async function saveStyle(event) {
 }
 
 async function restoreDefaultAndSave() {
-  applyPreset('wechat');
+  // 页面当前的“仿微信”基础风格对应 LineLike 预设；不要恢复到
+  // 不再展示为按钮的旧 wechat 预设，否则不会有任何基础风格处于选中状态。
+  applyPreset('blivechat_line');
   await saveStyle();
 }
 
@@ -993,43 +1041,55 @@ async function uploadStyleGeneratorFont() {
 export async function loadStyleGeneratorPage() {
   const form = formEl();
   if (!form) return;
-  try {
-    const [cfg, presets, personae] = await Promise.all([
-      apiFetch('/api/config'),
-      apiFetch('/api/floating-panel/style-presets'),
-      apiFetch('/api/personae').catch(() => ({ items: [] })),
-    ]);
-    const activePersona = (personae?.items || []).find((item) => item.active)
-      || (personae?.items || [])[0];
-    previewUsername = String(activePersona?.label || activePersona?.id || '高压吐槽型').trim()
-      || '高压吐槽型';
-    presetsPayload = presets;
-    const values = {};
-    STYLE_SAVE_KEYS.forEach((key) => {
-      if (cfg[key] !== undefined && cfg[key] !== null) values[key] = cfg[key];
-    });
-    const perSecRaw = parseInt(String(values.floating_panel_danmu_per_second ?? cfg.floating_panel_danmu_per_second ?? '1'), 10);
-    values.floating_panel_danmu_per_second = String(
-      Math.max(1, Math.min(5, Number.isFinite(perSecRaw) ? perSecRaw : 1)),
-    );
-    // 若服务端无样式键，用 wechat 预设补齐
-    if (!values.floating_panel_style_preset && presets?.presets?.wechat) {
-      Object.assign(values, presets.presets.wechat);
-      values.floating_panel_style_preset = presets.default_preset || 'wechat';
+  if (styleGeneratorLoaded && styleGeneratorDirty) return;
+  if (styleGeneratorLoadPromise) return styleGeneratorLoadPromise;
+
+  styleGeneratorLoadPromise = (async () => {
+    try {
+      const [cfg, presets, personae] = await Promise.all([
+        apiFetch('/api/config'),
+        apiFetch('/api/floating-panel/style-presets'),
+        apiFetch('/api/personae').catch(() => ({ items: [] })),
+      ]);
+      const activePersona = (personae?.items || []).find((item) => item.active)
+        || (personae?.items || [])[0];
+      previewUsername = String(activePersona?.label || activePersona?.id || '高压吐槽型').trim()
+        || '高压吐槽型';
+      presetsPayload = presets;
+      const values = {};
+      STYLE_SAVE_KEYS.forEach((key) => {
+        if (cfg[key] !== undefined && cfg[key] !== null) values[key] = cfg[key];
+      });
+      const perSecRaw = parseInt(String(values.floating_panel_danmu_per_second ?? cfg.floating_panel_danmu_per_second ?? '1'), 10);
+      values.floating_panel_danmu_per_second = String(
+        Math.max(1, Math.min(5, Number.isFinite(perSecRaw) ? perSecRaw : 1)),
+      );
+      // 服务端仍以旧的 wechat 作为工厂默认；页面当前可见的仿微信按钮对应 blivechat_line。
+      if (!values.floating_panel_style_preset && presets?.presets?.blivechat_line) {
+        Object.assign(values, presets.presets.blivechat_line);
+      }
+      normalizeVisiblePreset(values, presets);
+      applyValuesToForm(values);
+      syncSingleColorPickersFromText();
+      syncAddColorHexFromPicker('card');
+      syncAddColorHexFromPicker('text');
+      // max_items / width 在设置页，不在样式表单；预览与真实 Web 面板对齐时需缓存
+      const maxRaw = parseInt(String(cfg.floating_panel_max_items ?? '12'), 10);
+      maxCardsCached = Math.max(1, Math.min(50, Number.isFinite(maxRaw) ? maxRaw : 12));
+      const widthRaw = parseInt(String(cfg.floating_panel_width ?? '360'), 10);
+      panelWidthCached = Math.max(200, Math.min(800, Number.isFinite(widthRaw) ? widthRaw : 360));
+      await loadStyleGeneratorFontFamilies();
+      seedPreview();
+      styleGeneratorLoaded = true;
+    } catch (error) {
+      showToast(error.message || t('dynamic.appStyleGenerator.加载失败'), true);
     }
-    applyValuesToForm(values);
-    syncSingleColorPickersFromText();
-    syncAddColorHexFromPicker('card');
-    syncAddColorHexFromPicker('text');
-    // max_items / width 在设置页，不在样式表单；预览与真实 Web 面板对齐时需缓存
-    const maxRaw = parseInt(String(cfg.floating_panel_max_items ?? '12'), 10);
-    maxCardsCached = Math.max(1, Math.min(50, Number.isFinite(maxRaw) ? maxRaw : 12));
-    const widthRaw = parseInt(String(cfg.floating_panel_width ?? '360'), 10);
-    panelWidthCached = Math.max(200, Math.min(800, Number.isFinite(widthRaw) ? widthRaw : 360));
-    await loadStyleGeneratorFontFamilies();
-    seedPreview();
-  } catch (error) {
-    showToast(error.message || t('dynamic.appStyleGenerator.加载失败'), true);
+  })();
+
+  try {
+    await styleGeneratorLoadPromise;
+  } finally {
+    styleGeneratorLoadPromise = null;
   }
 }
 
@@ -1045,8 +1105,12 @@ export function initStyleGeneratorPage(deps = {}) {
   form.addEventListener('input', onFormChange);
   form.addEventListener('change', onFormChange);
 
-  document.getElementById('sgBtnPresetClassic')?.addEventListener('click', () => applyPreset('classic'));
-  document.getElementById('sgBtnPresetBlivechatLine')?.addEventListener('click', () => applyPreset('blivechat_line'));
+  document.getElementById('sgPresetSelect')?.addEventListener('change', (event) => {
+    const preset = String(event.target?.value || '').trim();
+    if (preset === 'classic' || preset === 'blivechat_line') {
+      applyPreset(preset);
+    }
+  });
   document.getElementById('sgBtnRestoreDefault')?.addEventListener('click', () => {
     restoreDefaultAndSave().catch((error) => showToast(error.message, true));
   });

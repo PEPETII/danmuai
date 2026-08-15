@@ -92,6 +92,36 @@ def test_first_run_seeds_config_defaults(tmp_path):
     store.close()
 
 
+def test_legacy_custom_classic_style_migrates_to_blivechat_line(tmp_path):
+    """旧版 custom 无气泡工厂值应在重启加载时恢复为仿微信预设。"""
+    db = tmp_path / "legacy_style.db"
+    store = ConfigStore(db_path=db)
+    store.set_batch(
+        {
+            "floating_panel_style_preset": "custom",
+            "floating_panel_shape": "card",
+            "floating_panel_layout": "inline",
+            "floating_panel_card_opacity": "0",
+            "floating_panel_outline_enabled": "1",
+            "floating_panel_outline_color": "#000000",
+            "floating_panel_shadow_enabled": "0",
+            "floating_panel_border_enabled": "0",
+            "floating_panel_tail_enabled": "0",
+            "floating_panel_username_enabled": "0",
+            "floating_panel_font_family": "Microsoft YaHei",
+            "floating_panel_text_colors": '["#FFFFFF"]',
+        }
+    )
+    store.close()
+
+    migrated = ConfigStore(db_path=db)
+    assert migrated.get("floating_panel_style_preset") == "blivechat_line"
+    assert migrated.get("floating_panel_shape") == "bubble"
+    assert migrated.get("floating_panel_layout") == "stacked"
+    assert migrated.get("floating_panel_username_enabled") == "1"
+    migrated.close()
+
+
 def test_set_batch_single_commit(tmp_path):
     store = ConfigStore(db_path=tmp_path / "config.db")
     items = {f"key_{i}": f"value_{i}" for i in range(25)}

@@ -14,10 +14,15 @@
         <form id="styleGeneratorForm" class="style-generator-controls card p-6" autocomplete="off">
           <div class="px-1 pb-3 space-y-2">
             <p class="settings-section-title" data-i18n="content.text.样式预设">基础风格</p>
-            <div class="flex flex-wrap gap-2" role="group" data-i18n-aria-label="content.text.样式预设" aria-label="基础风格">
-              <button type="button" id="sgBtnPresetClassic" class="sg-preset-btn ui-button ui-button--secondary ui-button--sm" data-preset="classic" data-i18n="content.text.预设经典">仿 YouTube</button>
-              <button type="button" id="sgBtnPresetBlivechatLine" class="sg-preset-btn ui-button ui-button--secondary ui-button--sm" data-preset="blivechat_line" data-i18n="content.text.预设LineLike">仿微信</button>
-            </div>
+            <select
+              id="sgPresetSelect"
+              class="settings-field-control text-left ui-control ui-select w-full max-w-md"
+              data-i18n-aria-label="content.text.样式预设"
+              aria-label="基础风格"
+            >
+              <option value="classic" data-preset="classic" data-i18n="content.text.预设经典">仿 YouTube</option>
+              <option value="blivechat_line" data-preset="blivechat_line" selected data-i18n="content.text.预设LineLike">仿微信</option>
+            </select>
             <input type="hidden" name="floating_panel_style_preset" id="sg-floating_panel_style_preset" value="wechat">
             <p class="settings-section-hint" data-i18n="content.text.选择_classic_或_wechat_立即填充表单并刷新预览_手动修改任意字段会标为自定义">
               直观来说，【仿 YouTube】和【仿微信】属于两种基础风格，其中【仿 YouTube】默认不使用气泡，【仿微信】则使用气泡；由于两种风格本身的视觉结构不同，因此选择不同的基础风格后，下方可调节的设置项也会有所不同。
@@ -147,10 +152,6 @@
                     <label for="sg-floating_panel_card_opacity" class="settings-field-label" data-i18n="content.text.卡片不透明度">卡片不透明度 (%)</label>
                     <input type="number" name="floating_panel_card_opacity" id="sg-floating_panel_card_opacity" min="0" max="100" class="settings-field-control ui-control ui-input" value="78">
                   </div>
-                  <div class="settings-field">
-                    <label for="sg-floating_panel_opacity" class="settings-field-label" data-i18n="content.text.整体不透明度">整体不透明度 (%)</label>
-                    <input type="number" name="floating_panel_opacity" id="sg-floating_panel_opacity" min="0" max="100" class="settings-field-control ui-control ui-input" value="85">
-                  </div>
                 </div>
               </div>
             </section>
@@ -160,7 +161,7 @@
                 <button type="button" id="sgTextColorsAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="sgTextColorsAccordionPanel">
                   <span class="settings-rhythm-accordion-trigger-copy">
                     <span class="settings-rhythm-accordion-trigger-title" data-i18n="content.text.弹幕字体">弹幕字体</span>
-                    <span class="settings-section-hint settings-rhythm-accordion-trigger-hint">字体、字号、颜色、圆角与本地导入</span>
+                    <span class="settings-section-hint settings-rhythm-accordion-trigger-hint" data-i18n="content.text.弹幕字体设置提示">字体、字号、颜色、字体透明度、导入字体</span>
                   </span>
                   <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
                 </button>
@@ -196,6 +197,10 @@
                   <div class="settings-field">
                     <label for="sg-floating_panel_padding_y" class="settings-field-label" data-i18n="content.text.垂直内边距">垂直内边距</label>
                     <input type="number" name="floating_panel_padding_y" id="sg-floating_panel_padding_y" min="0" max="48" class="settings-field-control ui-control ui-input" value="10">
+                  </div>
+                  <div class="settings-field">
+                    <label for="sg-floating_panel_opacity" class="settings-field-label" data-i18n="content.text.弹幕字体透明度">弹幕字体透明度 (%)</label>
+                    <input type="number" name="floating_panel_opacity" id="sg-floating_panel_opacity" min="0" max="100" class="settings-field-control ui-control ui-input" value="85">
                   </div>
                 </div>
                 <div class="settings-section-divider mt-4"></div>
@@ -551,8 +556,8 @@
                 <h4 class="settings-rhythm-accordion-heading">
                   <button type="button" id="sgHorizontalFontAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="sgHorizontalFontAccordionPanel">
                     <span class="settings-rhythm-accordion-trigger-copy">
-                      <span class="settings-rhythm-accordion-trigger-title" data-i18n="content.text.消息样式">消息样式</span>
-                      <span class="settings-section-hint settings-rhythm-accordion-trigger-hint">字体、颜色、轨道与布局</span>
+                      <span class="settings-rhythm-accordion-trigger-title" data-i18n="content.text.弹幕字体">弹幕字体</span>
+                      <span class="settings-section-hint settings-rhythm-accordion-trigger-hint" data-i18n="content.text.横向弹幕字体设置提示">弹幕字体、颜色、加粗</span>
                     </span>
                     <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
                   </button>
@@ -569,19 +574,6 @@
                     <div class="settings-rhythm-accordion-field">
                       <label for="font_size" class="settings-field-label">字号 (px)</label>
                       <input type="number" name="font_size" id="font_size" min="12" max="72" class="settings-field-control ui-control ui-input">
-                    </div>
-                    <div class="settings-rhythm-accordion-field">
-                      <label for="danmu_lines" class="settings-field-label">轨道行数</label>
-                      <input type="number" name="danmu_lines" id="danmu_lines" min="12" max="20" value="20" class="settings-field-control ui-control ui-input">
-                    </div>
-                    <div class="settings-rhythm-accordion-field">
-                      <label for="layout_mode" class="settings-field-label" data-i18n="content.text.布局">布局</label>
-                      <select name="layout_mode" id="layout_mode" class="settings-field-control text-left ui-control ui-select">
-                        <option value="fullscreen" data-i18n="settings.text.全屏">全屏</option>
-                        <option value="3/4" data-i18n="settings.text.占比四分之三">四分之三</option>
-                        <option value="1/2" data-i18n="settings.text.占比二分之一">二分之一</option>
-                        <option value="1/4" data-i18n="settings.text.占比四分之一">四分之一</option>
-                      </select>
                     </div>
                     <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--toggle">
                       <span class="settings-field-label" data-i18n="settings.text.横向弹幕加粗">横向弹幕加粗</span>
@@ -611,6 +603,34 @@
                     <input type="hidden" name="danmu_font_color_mode" id="danmu_font_color_mode">
                   </div>
 
+                </div>
+              </section>
+              <section class="settings-rhythm-accordion-item">
+                <h4 class="settings-rhythm-accordion-heading">
+                  <button type="button" id="sgHorizontalLayoutAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="sgHorizontalLayoutAccordionPanel">
+                    <span class="settings-rhythm-accordion-trigger-copy">
+                      <span class="settings-rhythm-accordion-trigger-title" data-i18n="content.text.弹幕布局">弹幕布局</span>
+                      <span class="settings-section-hint settings-rhythm-accordion-trigger-hint" data-i18n="content.text.弹幕布局设置提示">轨道行数、布局比例</span>
+                    </span>
+                    <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
+                  </button>
+                </h4>
+                <div id="sgHorizontalLayoutAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="sgHorizontalLayoutAccordionTrigger" hidden>
+                  <div class="settings-rhythm-accordion-fields">
+                    <div class="settings-rhythm-accordion-field">
+                      <label for="danmu_lines" class="settings-field-label">轨道行数</label>
+                      <input type="number" name="danmu_lines" id="danmu_lines" min="12" max="20" value="20" class="settings-field-control ui-control ui-input">
+                    </div>
+                    <div class="settings-rhythm-accordion-field">
+                      <label for="layout_mode" class="settings-field-label" data-i18n="content.text.布局">布局</label>
+                      <select name="layout_mode" id="layout_mode" class="settings-field-control text-left ui-control ui-select">
+                        <option value="fullscreen" data-i18n="settings.text.全屏">全屏</option>
+                        <option value="3/4" data-i18n="settings.text.占比四分之三">四分之三</option>
+                        <option value="1/2" data-i18n="settings.text.占比二分之一">二分之一</option>
+                        <option value="1/4" data-i18n="settings.text.占比四分之一">四分之一</option>
+                      </select>
+                    </div>
+                  </div>
                 </div>
               </section>
               <section class="settings-rhythm-accordion-item">
@@ -694,12 +714,11 @@
           <div class="style-generator-preview-pane card p-6 space-y-3">
             <p class="settings-section-title" data-i18n="settings.text.样式预览">样式预览</p>
             <p class="settings-section-hint" data-i18n="content.text.横向字体预览说明">
-              根据当前表单值实时预览横向弹幕效果；轨道带反映轨道行数与布局。速度与不透明度请在「弹幕设置 → 弹幕显示」中调整。
+              根据当前表单值居中预览弹幕样式；速度请在「弹幕设置 → 弹幕显示」中调整。
             </p>
             <div id="horizontalDanmuStylePreview" class="danmu-style-preview">
-              <div id="horizontalDanmuPreviewScrolling" class="danmu-preview-scrolling">
-                <div id="horizontalDanmuTrackBands" class="danmu-track-bands hidden"></div>
-                <div class="danmu-preview-track" id="horizontalDanmuPreviewTrack"></div>
+              <div id="horizontalDanmuPreviewStatic" class="danmu-preview-static">
+                <span id="horizontalDanmuPreviewSample" class="danmu-preview-sample">我喜欢你</span>
               </div>
             </div>
           </div>
