@@ -293,6 +293,111 @@
   min-height: var(--control-height-md);
 }
 
+/* W-FP-CUSTOM-CSS-001：受管 CSS 文件选择器与只读模板预览。 */
+#page-style-generator .sg-custom-css-section[hidden],
+#page-style-generator .sg-custom-css-modal[hidden] {
+  display: none;
+}
+
+#page-style-generator .sg-custom-css-section {
+  margin-top: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--border-soft, rgba(93, 87, 87, 0.14));
+  border-radius: var(--radius-md);
+  background: var(--surface-subtle, rgba(255, 255, 255, 0.45));
+}
+
+#page-style-generator .sg-custom-css-actions,
+#page-style-generator .sg-custom-css-modal-actions,
+#page-style-generator .sg-custom-css-modal-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+#page-style-generator .sg-custom-css-actions {
+  margin: var(--space-3) 0;
+}
+
+#page-style-generator .sg-custom-css-file-list {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+#page-style-generator .sg-custom-css-file-option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border-soft, rgba(93, 87, 87, 0.14));
+  border-radius: var(--radius-sm, 0.5rem);
+  color: var(--text-primary, var(--color-warmText));
+  cursor: pointer;
+}
+
+#page-style-generator .sg-custom-css-file-option:has(input:checked) {
+  border-color: var(--color-primary, #f59e0b);
+  box-shadow: 0 0 0 1px var(--color-primary, #f59e0b);
+}
+
+#page-style-generator .sg-custom-css-file-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.8125rem;
+}
+
+#page-style-generator .sg-custom-css-template-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+#page-style-generator .sg-custom-css-modal {
+  position: fixed;
+  z-index: 60;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+  background: rgba(0, 0, 0, 0.42);
+}
+
+#page-style-generator .sg-custom-css-modal-card {
+  width: min(760px, 100%);
+  max-height: min(86vh, 720px);
+  overflow: auto;
+  padding: var(--space-5);
+  border: 1px solid var(--border-soft, rgba(93, 87, 87, 0.18));
+  border-radius: var(--radius-lg, 0.75rem);
+  background: var(--surface-card, var(--color-bg));
+  box-shadow: var(--shadow-lg, 0 16px 40px rgba(0, 0, 0, 0.2));
+}
+
+#page-style-generator .sg-custom-css-modal-header {
+  justify-content: space-between;
+}
+
+#page-style-generator .sg-custom-css-template-text {
+  width: 100%;
+  min-height: 18rem;
+  margin: var(--space-3) 0;
+  resize: vertical;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+[data-theme="dark"] #page-style-generator .sg-custom-css-section {
+  background: rgba(0, 0, 0, 0.18);
+}
+
 @media (max-width: 600px) {
   #page-style-generator .sg-accordion .settings-field,
   #page-style-generator .sg-accordion .settings-rhythm-accordion-field {

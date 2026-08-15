@@ -13,7 +13,8 @@ W-FP-STYLE-CONTRACT-001：字段键、预设、归一化与只读预设快照。
 - 选色 ``equal`` / ``weighted``：``equal`` 等概率，**不得**依赖全局随机状态
   做契约测试；实际抽样由下游 Qt 层在创建条目时固定样式索引。
 
-默认预设为 ``wechat``；``custom`` 非法值回退 wechat 工厂默认，不写空值。
+默认预设为 ``wechat``；``custom`` 表示手动编辑的视觉字段，``custom_css`` 表示
+由浮动面板 CSS 文件接管视觉样式；两者均不展开工厂预设。
 预设展开 patch **不得**改 ``danmu_render_mode`` 或横向 scrolling 字段。
 本模块不导入 Qt / FastAPI / Web 对象。
 """
@@ -32,7 +33,13 @@ from typing import Any, Mapping
 STYLE_CONTRACT_VERSION = 1
 
 STYLE_PRESET_IDS: tuple[str, ...] = ("classic", "wechat", "blivechat_line")
-STYLE_PRESET_CHOICES: tuple[str, ...] = ("classic", "wechat", "blivechat_line", "custom")
+STYLE_PRESET_CHOICES: tuple[str, ...] = (
+    "classic",
+    "wechat",
+    "blivechat_line",
+    "custom",
+    "custom_css",
+)
 DEFAULT_STYLE_PRESET = "wechat"
 
 SHAPE_CHOICES: tuple[str, ...] = ("card", "bubble")
@@ -166,6 +173,7 @@ STYLE_FIELD_KEYS: tuple[str, ...] = (
 
 # 样式恢复默认分组：新字段 + 与外观相关的既有基础字段
 STYLE_RESTORE_KEYS: tuple[str, ...] = STYLE_FIELD_KEYS + (
+    "floating_panel_custom_css_file",
     "floating_panel_width",
     "floating_panel_max_items",
     "floating_panel_speed",
@@ -563,9 +571,9 @@ def _choice(value: Any, allowed: tuple[str, ...], default: str) -> str:
 def normalize_floating_panel_style_items(items: dict[str, str]) -> None:
     """就地归一化 Web/Config 样式 patch。
 
-    - ``style_preset`` ∈ classic|wechat|custom；非法 → wechat
+    - ``style_preset`` ∈ classic|wechat|blivechat_line|custom|custom_css；非法 → wechat
     - classic/wechat：展开完整 STYLE_PRESET_APPLY_KEYS（覆盖同批样式字段）
-    - custom / 部分提交：非法值以 wechat 工厂默认兜底，不写空
+    - custom/custom_css 或部分提交：只规范化出现的样式字段，不写空
     - **不**写入 ``danmu_render_mode`` 或横向 scrolling 键
     """
     factory = wechat_factory_defaults()
@@ -589,6 +597,8 @@ def normalize_floating_panel_style_items(items: dict[str, str]) -> None:
             items[key] = val
         # 展开后仍再走一遍规范化，保证输出稳定
         _normalize_style_values(items, factory, keys=STYLE_PRESET_APPLY_KEYS)
+        # 离开 CSS 文件模式时清除文件选择，避免旧文件在下一次切换时残留。
+        items["floating_panel_custom_css_file"] = ""
         return
 
     # custom 或未声明 preset：只规范化出现的键

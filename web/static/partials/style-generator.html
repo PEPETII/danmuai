@@ -22,11 +22,25 @@
             >
               <option value="classic" data-preset="classic" data-i18n="content.text.预设经典">仿 YouTube</option>
               <option value="blivechat_line" data-preset="blivechat_line" selected data-i18n="content.text.预设LineLike">仿微信</option>
+              <option value="custom_css" data-preset="custom_css" data-i18n="content.text.预设自定义CSS">自定义（慎选，通过 CSS 编辑器修改样式）</option>
             </select>
             <input type="hidden" name="floating_panel_style_preset" id="sg-floating_panel_style_preset" value="wechat">
+            <input type="hidden" name="floating_panel_custom_css_file" id="sg-floating_panel_custom_css_file" value="">
             <p class="settings-section-hint" data-i18n="content.text.选择_classic_或_wechat_立即填充表单并刷新预览_手动修改任意字段会标为自定义">
               直观来说，【仿 YouTube】和【仿微信】属于两种基础风格，其中【仿 YouTube】默认不使用气泡，【仿微信】则使用气泡；由于两种风格本身的视觉结构不同，因此选择不同的基础风格后，下方可调节的设置项也会有所不同。
             </p>
+            <section id="sgCustomCssSection" class="sg-custom-css-section" hidden aria-labelledby="sgCustomCssTitle">
+              <p id="sgCustomCssTitle" class="settings-section-title" data-i18n="content.text.自定义CSS文件">自定义 CSS 文件</p>
+              <p class="settings-section-hint" data-i18n="content.text.自定义CSS文件提示">CSS 只作用于浮动面板 WebView 和这里的预览；文件会复制到 DanmuAI 用户数据目录，不保存原始路径。</p>
+              <div class="sg-custom-css-actions">
+                <button type="button" id="sgBtnOpenCustomCssFolder" class="ui-button ui-button--secondary ui-button--sm" data-i18n="content.text.打开CSS文件夹">打开文件夹</button>
+                <input type="file" id="sgCustomCssFileInput" accept=".css,text/css" hidden>
+                <button type="button" id="sgBtnImportCustomCss" class="ui-button ui-button--secondary ui-button--sm" data-i18n="content.text.导入CSS文件">导入 .css</button>
+              </div>
+              <div id="sgCustomCssFileList" class="sg-custom-css-file-list" role="radiogroup" aria-labelledby="sgCustomCssTitle"></div>
+              <p id="sgCustomCssFileEmpty" class="settings-section-hint" data-i18n="content.text.暂无自定义CSS文件">还没有受管的 CSS 文件，请先导入一个文件。</p>
+              <div id="sgCustomCssTemplateButtons" class="sg-custom-css-template-buttons"></div>
+            </section>
           </div>
 
           <div class="settings-field settings-field--toggle sg-adjust-display-area">
@@ -512,6 +526,21 @@
           </div>
           <p id="sgSaveStatus" class="text-sm text-gray-500 px-1" aria-live="polite"></p>
         </form>
+
+        <div id="sgCustomCssTemplateModal" class="sg-custom-css-modal" hidden role="dialog" aria-modal="true" aria-labelledby="sgCustomCssTemplateModalTitle">
+          <div class="sg-custom-css-modal-card">
+            <div class="sg-custom-css-modal-header">
+              <p id="sgCustomCssTemplateModalTitle" class="settings-section-title">CSS 模板</p>
+              <button type="button" id="sgBtnCloseCustomCssTemplate" class="ui-button ui-button--secondary ui-button--sm" aria-label="关闭">×</button>
+            </div>
+            <p id="sgCustomCssTemplateDescription" class="settings-section-hint"></p>
+            <textarea id="sgCustomCssTemplateText" class="settings-field-control ui-control ui-textarea sg-custom-css-template-text" rows="16" readonly spellcheck="false"></textarea>
+            <div class="sg-custom-css-modal-actions">
+              <button type="button" id="sgBtnCopyCustomCssTemplate" class="ui-button ui-button--primary ui-button--sm" data-i18n="content.text.复制CSS模板">复制 CSS</button>
+              <button type="button" id="sgBtnCloseCustomCssTemplateBottom" class="ui-button ui-button--secondary ui-button--sm" data-i18n="content.text.关闭">关闭</button>
+            </div>
+          </div>
+        </div>
 
         <div class="style-generator-preview-pane card p-6 space-y-3">
           <p class="settings-section-title" data-i18n="content.text.堆积预览">堆积预览</p>

@@ -3,6 +3,7 @@
 
   var MAX_RECONNECT_ATTEMPTS = 10;
   var panel = document.getElementById("panel");
+  var customCssStyle = document.getElementById("customCssOverride");
   var maxCards = 6;
   var entryAnimation = "fade";
   var exitDurationMs = 250;
@@ -211,6 +212,18 @@
     pushTransitionHandlers.delete(slot);
   }
 
+  function applyCustomCss(rawCss) {
+    if (!customCssStyle) return;
+    try {
+      // CSS is kept as text. The server validates managed files and this node
+      // is the only override node, so replacing it also clears old CSS when
+      // switching back to a built-in preset.
+      customCssStyle.textContent = typeof rawCss === "string" ? rawCss : "";
+    } catch (_e) {
+      // A malformed message must not take down the panel runtime.
+    }
+  }
+
   /**
    * Freeze only the slot's push transition.
    *
@@ -356,6 +369,9 @@
     }
     if (Object.prototype.hasOwnProperty.call(msg, "click_through")) {
       applyClickThroughMode(msg.click_through);
+    }
+    if (Object.prototype.hasOwnProperty.call(msg, "custom_css")) {
+      applyCustomCss(msg.custom_css);
     }
     // Converge to maxCards after config change. Evicted cards must leave the
     // layout synchronously; an exit node in flex would expose maxCards + 1.
@@ -578,6 +594,7 @@
     addCard: addCard,
     clearCards: clearCards,
     applyConfig: applyConfig,
+    applyCustomCss: applyCustomCss,
     sendStateReport: sendStateReport,
   };
 

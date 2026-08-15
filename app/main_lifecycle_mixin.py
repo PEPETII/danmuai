@@ -487,6 +487,14 @@ class DanmuAppLifecycleMixin:
                 pet_barrage_ctrl.apply_config()
             except RuntimeError as exc:
                 self.logger.warning(f"pet barrage controller apply_config failed: {exc!r}")
+        # Keep an already-running WebView converged with config changes,
+        # including replacement/clearing of the managed custom CSS text.
+        push_panel_config = getattr(self, "_push_panel_config", None)
+        if callable(push_panel_config):
+            try:
+                push_panel_config()
+            except RuntimeError as exc:
+                self.logger.debug(f"floating panel web config push skipped: {exc!r}")
         if fp_overlay is None:
             return
         try:

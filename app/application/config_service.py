@@ -61,6 +61,7 @@ WEB_CONFIG_KEYS = (
     "floating_panel_click_through",
     # W-FP-STYLE-CONTRACT-001：从下到上样式扁平字段（无单一 JSON 档）
     "floating_panel_style_preset",
+    "floating_panel_custom_css_file",
     "floating_panel_shape",
     "floating_panel_layout",
     "floating_panel_card_colors",
@@ -456,6 +457,14 @@ class ConfigService:
         from app.floating_panel_style import normalize_floating_panel_style_items
 
         normalize_floating_panel_style_items(items)
+
+        # CSS 文件模式只允许保存受管目录内的单层 .css 文件名，不接受绝对路径。
+        if "floating_panel_custom_css_file" in items:
+            from app.floating_panel_custom_css import normalize_custom_css_file_name
+
+            items["floating_panel_custom_css_file"] = normalize_custom_css_file_name(
+                items["floating_panel_custom_css_file"]
+            )
 
         # PET-003：桌宠配置归一化
         if "pet_asset_source" in items:

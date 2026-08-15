@@ -275,6 +275,7 @@ class DanmuAppFloatingPanelMixin:
         if bridge is None:
             return
         try:
+            from app.floating_panel_custom_css import selected_custom_css_text
             from app.floating_panel_style import style_snapshot_from_mapping
             from app.floating_panel_web.panel_protocol import ConfigMessage
 
@@ -294,6 +295,7 @@ class DanmuAppFloatingPanelMixin:
                 panel_height=int(height),
                 panel_opacity=max(0, min(100, int(snap.panel_opacity))),
                 click_through=self._panel_click_through_enabled(),
+                custom_css=selected_custom_css_text(self.config),
             )
             bridge.enqueue_message(msg.to_dict())
         except Exception as exc:

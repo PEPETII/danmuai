@@ -43,6 +43,7 @@ from typing import TYPE_CHECKING, Callable
 from app.web_api import font_registry as font_registry_api
 from app.web_api import providers as providers_api
 from app.web_api.capture_region_routes import register_capture_region_routes
+from app.web_api.custom_css_routes import register_custom_css_routes
 from app.web_api.custom_models_routes import register_custom_models_routes
 from app.web_api.danmu_pool_routes import register_danmu_pool_routes
 from app.web_api.danmu_read_routes import register_danmu_read_routes
@@ -85,6 +86,7 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
     register_diagnostics_routes(app, bridge, check_token)
 
     register_misc_config_routes(app, bridge, check_token, invoke_main)
+    register_custom_css_routes(app, bridge, check_token, invoke_main)
 
     register_update_routes(app, check_token)
 

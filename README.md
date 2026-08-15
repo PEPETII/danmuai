@@ -50,3 +50,4 @@ See [AGENTS.md](AGENTS.md) Appendix A.3.10 (Web API / console), [.local-ai/worko
 - Screenshots are compressed in memory before being sent to the AI and are **not written to disk by default**; only danmu text history is saved
 - **Web Console**: runtime overview (session stats + persistent totals: generated danmu count, total runtime, total token usage), assistant settings, persona workshop, danmu diary; custom model CRUD, image[...]
 - **Bottom-up floating-panel styles**: the style generator includes configurable entry fade/slide, stack push duration, and exit fade/none animation; the live preview and Web/Qt renderers share the same timing semantics.
+- **Bottom-up custom CSS styles**: the style generator can manage one selected `.css` theme under `%APPDATA%/DanmuAI/custom_css/`; the raw, validated CSS is shared by the isolated preview and the floating-panel WebView. The Qt fallback keeps its built-in renderer because it does not parse arbitrary CSS.

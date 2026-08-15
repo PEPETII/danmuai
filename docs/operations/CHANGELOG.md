@@ -24,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 修复弹幕样式页冷启动读取旧版无气泡配置时，预览与「仿微信」基础风格按钮不一致；启动时自动恢复为气泡堆叠预设。
 
 ### Added
+- Bottom-up floating-panel custom CSS mode (`custom_css`) with managed `.css` import/list/read/open-folder APIs, built-in bubble/no-bubble templates, isolated live preview, and the same validated CSS payload applied to the WebView panel.
+- Custom CSS files are stored by filename under the local `%APPDATA%/DanmuAI/custom_css/` directory; path traversal, non-CSS files, `@import`, `javascript:`, and remote HTTP(S) URLs are rejected. The legacy `custom` manual-style state remains separate.
 - AI platform reference data system with custom models schema and web UI model selector.
 - Per-model thinking level selector in advanced model configuration (off/low/medium/high).
 - Equivalent bottom-up floating-panel animation controls and live preview: entry fade/slide, stack push timing, and exit fade/none behavior are now carried through the WebView and Qt fallback renderers.

@@ -70,6 +70,7 @@ const STYLE_SAVE_KEYS = [
   'floating_panel_font_size',
   'floating_panel_font_bold',
   'floating_panel_opacity',
+  'floating_panel_custom_css_file',
   'floating_panel_width',
   'floating_panel_max_items',
   'floating_panel_danmu_per_second',
@@ -113,6 +114,10 @@ const PREVIEW_TEXTS = [
 let toast = () => {};
 let handlersBound = false;
 let presetsPayload = null;
+let customCssFiles = [];
+let customCssTemplates = [];
+let customCssText = '';
+let customCssTemplateActive = null;
 let suppressCustomMark = false;
 // 导航回到本页时，保留用户尚未保存的表单与预览；服务端配置只用于首次加载
 // 或当前没有未保存编辑时的重新同步。
@@ -135,6 +140,66 @@ let exitAnimationCached = 'fade';
 let pushDurationMsCached = 180;
 const previewPushTransitionHandlers = new WeakMap();
 let previewUsername = '高压吐槽型';
+
+function previewStageEl() {
+  return document.getElementById('styleGeneratorPreview');
+}
+
+/**
+ * Keep user CSS inside a shadow root. The real panel receives the same raw
+ * selectors, while .card/#panel rules cannot leak into the settings page.
+ */
+function ensurePreviewShadowDom() {
+  const stage = previewStageEl();
+  if (!stage) return null;
+  if (stage.shadowRoot) return stage.shadowRoot;
+  const root = stage.attachShadow({ mode: 'open' });
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = new URL('/static/warm-tokens-pages-stylegen.css', document.baseURI).href;
+  root.appendChild(link);
+
+  const base = document.createElement('style');
+  base.textContent = `
+    :host { display: block; position: relative; }
+    #page-style-generator { width: 100%; height: 100%; }
+    #panel { width: 100%; height: 100%; min-height: 320px; position: relative; overflow: hidden; }
+  `;
+  root.appendChild(base);
+
+  const page = document.createElement('div');
+  page.id = 'page-style-generator';
+  const panel = document.createElement('div');
+  panel.id = 'panel';
+  panel.className = 'sg-preview-stage';
+  const stack = document.createElement('div');
+  stack.id = 'styleGeneratorPreviewStack';
+  stack.className = 'sg-preview-stack';
+  panel.appendChild(stack);
+  page.appendChild(panel);
+  root.appendChild(page);
+
+  const customStyle = document.createElement('style');
+  customStyle.id = 'sgCustomCssOverride';
+  customStyle.dataset.purpose = 'managed-custom-css';
+  root.appendChild(customStyle);
+  return root;
+}
+
+function previewStackEl() {
+  return ensurePreviewShadowDom()?.getElementById('styleGeneratorPreviewStack') || null;
+}
+
+function setPreviewCustomCss(css) {
+  const root = ensurePreviewShadowDom();
+  const style = root?.getElementById('sgCustomCssOverride');
+  if (!style) return;
+  try {
+    style.textContent = typeof css === 'string' ? css : '';
+  } catch (error) {
+    console.warn('setPreviewCustomCss failed:', error);
+  }
+}
 
 function showToast(message, isError = false) {
   toast(message, isError);
@@ -354,6 +419,11 @@ export function applyDerivedLegacyStyleFields(data) {
 function markCustomIfNeeded() {
   if (suppressCustomMark) return;
   styleGeneratorDirty = true;
+  if (readStr('floating_panel_style_preset', '') === 'custom_css') {
+    syncPresetSelect('custom_css');
+    syncPresetVisibility('custom_css');
+    return;
+  }
   setFieldValue('floating_panel_style_preset', 'custom');
   syncPresetSelect();
   syncPresetVisibility(activePresetId);
@@ -367,12 +437,17 @@ function resolveBasePresetId(configuredPreset, presets) {
 }
 
 function syncPresetSelect(basePresetId) {
+  if (basePresetId === 'custom_css') {
+    const select = document.getElementById('sgPresetSelect');
+    if (select) select.value = 'custom_css';
+    return;
+  }
   if (basePresetId === 'classic' || basePresetId === 'blivechat_line') {
     activePresetId = basePresetId;
   }
   const select = document.getElementById('sgPresetSelect');
   if (!select) return;
-  // custom 仅写入隐藏字段；下拉始终展示当前基础风格（默认仿微信）。
+  // custom 仅写入隐藏字段；custom_css 是独立模式，不能点亮基础风格。
   select.value = activePresetId;
 }
 
@@ -389,6 +464,10 @@ function normalizeVisiblePreset(values, presets) {
     values.floating_panel_style_preset = 'custom';
     return;
   }
+  if (configuredPreset === 'custom_css') {
+    values.floating_panel_style_preset = 'custom_css';
+    return;
+  }
   if (presets?.presets?.[basePresetId]) {
     Object.assign(values, presets.presets[basePresetId]);
   }
@@ -398,14 +477,31 @@ function normalizeVisiblePreset(values, presets) {
 /** 仿 YouTube 只隐藏不适用的设置，切回仿微信/自定义时恢复可见并保留字段值。 */
 function syncPresetVisibility(preset) {
   const isClassic = preset === 'classic';
+  const isCustomCss = preset === 'custom_css';
+  const customCssSection = document.getElementById('sgCustomCssSection');
+  if (customCssSection) customCssSection.hidden = !isCustomCss;
   const shapeField = document.getElementById('sg-floating_panel_shape')?.closest('.settings-field');
   const layoutField = document.getElementById('sg-floating_panel_layout')?.closest('.settings-field');
   const cardSection = document.getElementById('sgCardColorsAccordionTrigger')?.closest('.settings-rhythm-accordion-item');
   const tailSection = document.getElementById('sgTailAccordionTrigger')?.closest('.settings-rhythm-accordion-item');
-  if (shapeField) shapeField.hidden = isClassic;
-  if (layoutField) layoutField.hidden = isClassic;
-  if (cardSection) cardSection.hidden = isClassic;
-  if (tailSection) tailSection.hidden = isClassic;
+  if (shapeField) shapeField.hidden = isClassic || isCustomCss;
+  if (layoutField) layoutField.hidden = isClassic || isCustomCss;
+  if (cardSection) cardSection.hidden = isClassic || isCustomCss;
+  if (tailSection) tailSection.hidden = isClassic || isCustomCss;
+  const customCssVisualTriggers = [
+    'sgBasicAccordionTrigger',
+    'sgCardColorsAccordionTrigger',
+    'sgTextColorsAccordionTrigger',
+    'sgStrokeShadowBorderAccordionTrigger',
+    'sgUsernameAccordionTrigger',
+    'sgTailAccordionTrigger',
+    'sgAnimationAccordionTrigger',
+  ];
+  customCssVisualTriggers.forEach((id) => {
+    const item = document.getElementById(id)?.closest('.settings-rhythm-accordion-item');
+    if (item && isCustomCss) item.hidden = true;
+    else if (item) item.hidden = false;
+  });
 }
 
 function writePaletteHidden(kind) {
@@ -495,20 +591,35 @@ function applyValuesToForm(values) {
     if (savedPreset === 'classic' || savedPreset === 'blivechat_line') {
       activePresetId = savedPreset;
     }
-    syncPresetSelect();
-    syncPresetVisibility(activePresetId);
+    syncPresetSelect(savedPreset === 'custom_css' ? 'custom_css' : undefined);
+    syncPresetVisibility(savedPreset === 'custom_css' ? 'custom_css' : activePresetId);
   } finally {
     suppressCustomMark = false;
   }
 }
 
 function applyPreset(presetId) {
+  if (presetId === 'custom_css') {
+    setFieldValue('floating_panel_style_preset', 'custom_css');
+    syncPresetSelect('custom_css');
+    syncPresetVisibility('custom_css');
+    setPreviewCustomCss(customCssText);
+    styleGeneratorDirty = true;
+    showToast(t('dynamic.appStyleGenerator.已切换自定义CSS'));
+    return;
+  }
   const patch = presetsPayload?.presets?.[presetId];
   if (!patch) {
     showToast(t('dynamic.appStyleGenerator.预设不可用'), true);
     return;
   }
-  applyValuesToForm({ ...patch, floating_panel_style_preset: presetId });
+  applyValuesToForm({
+    ...patch,
+    floating_panel_style_preset: presetId,
+    floating_panel_custom_css_file: '',
+  });
+  customCssText = '';
+  setPreviewCustomCss('');
   styleGeneratorDirty = true;
   restyleVisiblePreviewItems();
   showToast(t('dynamic.appStyleGenerator.已应用预设_preset', { preset: presetId }));
@@ -785,7 +896,7 @@ function freezePreviewCardMotion(slot, currentY) {
 }
 
 function freezeAllPreviewCardMotions() {
-  const stack = document.getElementById('styleGeneratorPreviewStack');
+  const stack = previewStackEl();
   if (!stack) return;
   const motions = Array.from(stack.children).map((slot) => ({
     slot,
@@ -795,7 +906,7 @@ function freezeAllPreviewCardMotions() {
 }
 
 function snapshotPreviewCardTops() {
-  const stack = document.getElementById('styleGeneratorPreviewStack');
+  const stack = previewStackEl();
   const tops = new Map();
   if (!stack) return tops;
   Array.from(stack.children).forEach((slot) => tops.set(slot, slot.getBoundingClientRect().top));
@@ -803,7 +914,7 @@ function snapshotPreviewCardTops() {
 }
 
 function animatePushedPreviewCards(previousTops) {
-  const stack = document.getElementById('styleGeneratorPreviewStack');
+  const stack = previewStackEl();
   if (!stack || !previousTops) return;
   const motions = [];
 
@@ -866,7 +977,7 @@ function scheduleCardExit(node) {
 }
 
 function removeOldestIfNeeded() {
-  const stack = document.getElementById('styleGeneratorPreviewStack');
+  const stack = previewStackEl();
   if (!stack) return;
   const maxCards = maxCardsCached || 12;
   while (stack.children.length > maxCards) {
@@ -875,7 +986,7 @@ function removeOldestIfNeeded() {
 }
 
 function addPreviewMessage(text) {
-  const stack = document.getElementById('styleGeneratorPreviewStack');
+  const stack = previewStackEl();
   if (!stack) return;
   freezeAllPreviewCardMotions();
   const previousTops = snapshotPreviewCardTops();
@@ -888,7 +999,7 @@ function addPreviewMessage(text) {
   const slot = document.createElement('div');
   slot.className = 'sg-preview-card-slot';
   const el = document.createElement('div');
-  el.className = 'sg-preview-card';
+  el.className = 'sg-preview-card card';
   el.dataset.styleIndex = String(idx);
   el.dataset.cardId = `sg-${idx}-${Date.now()}`;
   el.dataset.cardColor = cardColor;
@@ -920,7 +1031,7 @@ function escapePreviewHtml(s) {
 
 function clearPreview() {
   previewItems = [];
-  const stack = document.getElementById('styleGeneratorPreviewStack');
+  const stack = previewStackEl();
   if (stack) {
     Array.from(stack.children).forEach((slot) => forgetPreviewPushTransition(slot));
     stack.innerHTML = '';
@@ -1169,6 +1280,184 @@ async function uploadStyleGeneratorFont() {
   }
 }
 
+function customCssTemplateById(id) {
+  return customCssTemplates.find((item) => String(item.id) === String(id)) || null;
+}
+
+function showCustomCssTemplate(template) {
+  if (!template) return;
+  customCssTemplateActive = template;
+  const modal = document.getElementById('sgCustomCssTemplateModal');
+  const title = document.getElementById('sgCustomCssTemplateModalTitle');
+  const description = document.getElementById('sgCustomCssTemplateDescription');
+  const text = document.getElementById('sgCustomCssTemplateText');
+  if (title) title.textContent = template.name || 'CSS 模板';
+  if (description) description.textContent = template.description || '';
+  if (text) text.value = template.css || '';
+  if (modal) modal.hidden = false;
+}
+
+function closeCustomCssTemplate() {
+  const modal = document.getElementById('sgCustomCssTemplateModal');
+  if (modal) modal.hidden = true;
+  customCssTemplateActive = null;
+}
+
+async function copyCustomCssText(text) {
+  const value = String(text || '');
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(value);
+    } else {
+      const helper = document.createElement('textarea');
+      helper.value = value;
+      helper.style.position = 'fixed';
+      helper.style.opacity = '0';
+      document.body.appendChild(helper);
+      helper.select();
+      document.execCommand('copy');
+      helper.remove();
+    }
+    showToast(t('dynamic.appStyleGenerator.CSS模板已复制'));
+  } catch (error) {
+    showToast(error.message || t('dynamic.appStyleGenerator.复制失败'), true);
+  }
+}
+
+function renderCustomCssTemplateButtons() {
+  const wrap = document.getElementById('sgCustomCssTemplateButtons');
+  if (!wrap) return;
+  wrap.textContent = '';
+  customCssTemplates.forEach((template) => {
+    const view = document.createElement('button');
+    view.type = 'button';
+    view.className = 'ui-button ui-button--secondary ui-button--sm';
+    view.textContent = `查看${template.name || 'CSS 模板'}`;
+    view.addEventListener('click', () => showCustomCssTemplate(template));
+    wrap.appendChild(view);
+
+    const copy = document.createElement('button');
+    copy.type = 'button';
+    copy.className = 'ui-button ui-button--secondary ui-button--sm';
+    copy.textContent = `复制${template.name || 'CSS 模板'}`;
+    copy.addEventListener('click', () => copyCustomCssText(template.css));
+    wrap.appendChild(copy);
+  });
+}
+
+function renderCustomCssFiles(files) {
+  const list = document.getElementById('sgCustomCssFileList');
+  const empty = document.getElementById('sgCustomCssFileEmpty');
+  if (!list) return;
+  list.textContent = '';
+  const selected = readStr('floating_panel_custom_css_file', '');
+  const entries = Array.isArray(files) ? files : [];
+  if (empty) empty.hidden = entries.length > 0;
+  entries.forEach((item) => {
+    const fileName = String(item.file_name || item.name || '').trim();
+    if (!fileName) return;
+    const label = document.createElement('label');
+    label.className = 'sg-custom-css-file-option';
+    const input = document.createElement('input');
+    input.type = 'radio';
+    input.name = 'sgCustomCssFileChoice';
+    input.value = fileName;
+    input.checked = fileName === selected;
+    input.addEventListener('change', () => {
+      if (!input.checked) return;
+      setFieldValue('floating_panel_custom_css_file', fileName);
+      setFieldValue('floating_panel_style_preset', 'custom_css');
+      syncPresetSelect('custom_css');
+      syncPresetVisibility('custom_css');
+      styleGeneratorDirty = true;
+      loadCustomCssFile(fileName).catch((error) => showToast(error.message, true));
+    });
+    const name = document.createElement('span');
+    name.className = 'sg-custom-css-file-name';
+    name.textContent = fileName;
+    label.append(input, name);
+    list.appendChild(label);
+  });
+}
+
+async function loadCustomCssFile(fileName) {
+  const name = String(fileName || '').trim();
+  if (!name) {
+    customCssText = '';
+    setPreviewCustomCss('');
+    return;
+  }
+  const data = await apiFetch(`/api/floating-panel/custom-css/${encodeURIComponent(name)}`);
+  customCssText = String(data.css || '');
+  if (readStr('floating_panel_style_preset', '') === 'custom_css'
+      && readStr('floating_panel_custom_css_file', '') === name) {
+    setPreviewCustomCss(customCssText);
+  }
+}
+
+async function loadStyleGeneratorCustomCssResources(selectedFile = '') {
+  try {
+    const [files, templates] = await Promise.all([
+      apiFetch('/api/floating-panel/custom-css'),
+      apiFetch('/api/floating-panel/custom-css/templates'),
+    ]);
+    customCssFiles = Array.isArray(files?.files) ? files.files : [];
+    customCssTemplates = Array.isArray(templates?.templates) ? templates.templates : [];
+    renderCustomCssFiles(customCssFiles);
+    renderCustomCssTemplateButtons();
+    const selected = String(selectedFile || readStr('floating_panel_custom_css_file', '')).trim();
+    if (selected) {
+      await loadCustomCssFile(selected);
+    } else {
+      customCssText = '';
+      setPreviewCustomCss('');
+    }
+  } catch (error) {
+    customCssFiles = [];
+    customCssTemplates = [];
+    renderCustomCssFiles([]);
+    renderCustomCssTemplateButtons();
+    customCssText = '';
+    setPreviewCustomCss('');
+    console.warn('loadStyleGeneratorCustomCssResources failed:', error);
+  }
+}
+
+async function importCustomCssFile() {
+  const input = document.getElementById('sgCustomCssFileInput');
+  const file = input?.files?.[0];
+  if (!file) {
+    showToast(t('dynamic.appStyleGenerator.请先选择CSS文件'), true);
+    return;
+  }
+  const form = new FormData();
+  form.append('file', file, file.name);
+  try {
+    const data = await apiFormFetch('/api/floating-panel/custom-css/import', form);
+    const fileName = String(data.file_name || '');
+    setFieldValue('floating_panel_style_preset', 'custom_css');
+    setFieldValue('floating_panel_custom_css_file', fileName);
+    syncPresetSelect('custom_css');
+    syncPresetVisibility('custom_css');
+    styleGeneratorDirty = true;
+    await loadStyleGeneratorCustomCssResources(fileName);
+    renderCustomCssFiles(customCssFiles);
+    showToast(t('dynamic.appStyleGenerator.CSS文件已导入'));
+  } catch (error) {
+    showToast(error.message || t('dynamic.appStyleGenerator.导入失败'), true);
+  } finally {
+    if (input) input.value = '';
+  }
+}
+
+async function openCustomCssFolder() {
+  try {
+    await apiFetch('/api/floating-panel/custom-css/open-folder', { method: 'POST' });
+  } catch (error) {
+    showToast(error.message || t('dynamic.appStyleGenerator.打开文件夹失败'), true);
+  }
+}
+
 export async function loadStyleGeneratorPage() {
   const form = formEl();
   if (!form) return;
@@ -1210,6 +1499,11 @@ export async function loadStyleGeneratorPage() {
       const widthRaw = parseInt(String(cfg.floating_panel_width ?? '360'), 10);
       panelWidthCached = Math.max(200, Math.min(800, Number.isFinite(widthRaw) ? widthRaw : 360));
       await loadStyleGeneratorFontFamilies();
+      ensurePreviewShadowDom();
+      await loadStyleGeneratorCustomCssResources(values.floating_panel_custom_css_file || '');
+      if (String(values.floating_panel_style_preset || '') === 'custom_css') {
+        setPreviewCustomCss(customCssText);
+      }
       seedPreview();
       styleGeneratorLoaded = true;
     } catch (error) {
@@ -1238,7 +1532,7 @@ export function initStyleGeneratorPage(deps = {}) {
 
   document.getElementById('sgPresetSelect')?.addEventListener('change', (event) => {
     const preset = String(event.target?.value || '').trim();
-    if (preset === 'classic' || preset === 'blivechat_line') {
+    if (preset === 'classic' || preset === 'blivechat_line' || preset === 'custom_css') {
       applyPreset(preset);
     }
   });
@@ -1281,6 +1575,18 @@ export function initStyleGeneratorPage(deps = {}) {
 
   // 字体导入
   document.getElementById('sg-btnImportFont')?.addEventListener('click', uploadStyleGeneratorFont);
+
+  // 自定义 CSS 文件与内置模板
+  document.getElementById('sgBtnOpenCustomCssFolder')?.addEventListener('click', openCustomCssFolder);
+  document.getElementById('sgBtnImportCustomCss')?.addEventListener('click', () => {
+    document.getElementById('sgCustomCssFileInput')?.click();
+  });
+  document.getElementById('sgCustomCssFileInput')?.addEventListener('change', importCustomCssFile);
+  document.getElementById('sgBtnCloseCustomCssTemplate')?.addEventListener('click', closeCustomCssTemplate);
+  document.getElementById('sgBtnCloseCustomCssTemplateBottom')?.addEventListener('click', closeCustomCssTemplate);
+  document.getElementById('sgBtnCopyCustomCssTemplate')?.addEventListener('click', () => {
+    copyCustomCssText(customCssTemplateActive?.css || '');
+  });
 
   // 弹幕样式 Tab 切换
   const sgTabs = document.querySelectorAll('#page-style-generator .sg-tab');

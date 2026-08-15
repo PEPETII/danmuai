@@ -561,7 +561,14 @@
       "最多十六种颜色": "At most 16 colors",
       "样式已保存": "Style saved",
       "保存失败": "Save failed",
-      "加载失败": "Failed to load Style Generator"
+      "加载失败": "Failed to load Style Generator",
+      "已切换自定义CSS": "Switched to custom CSS; choose a file and save",
+      "CSS模板已复制": "CSS template copied",
+      "复制失败": "Copy failed",
+      "请先选择CSS文件": "Choose a .css file first",
+      "CSS文件已导入": "CSS file imported; save the style to apply it",
+      "导入失败": "CSS import failed",
+      "打开文件夹失败": "Failed to open CSS folder"
     },
     "appHorizontalFont": {
       "字体设置已保存": "Font settings saved",

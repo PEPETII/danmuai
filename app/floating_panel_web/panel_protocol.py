@@ -124,6 +124,8 @@ class ConfigMessage:
     panel_opacity: int = 85
     # True = mouse pass-through (default); False = interactive / draggable
     click_through: bool = True
+    # Raw, validated managed CSS text. Empty text clears the previous override.
+    custom_css: str = ""
     type: Literal["config"] = "config"
 
     def to_dict(self) -> dict[str, Any]:
@@ -142,6 +144,7 @@ class ConfigMessage:
             "panel_height": int(self.panel_height),
             "panel_opacity": int(self.panel_opacity),
             "click_through": bool(self.click_through),
+            "custom_css": str(self.custom_css or ""),
         }
 
     @classmethod
@@ -181,6 +184,7 @@ class ConfigMessage:
             panel_height=int(data["panel_height"]),
             panel_opacity=int(data.get("panel_opacity", 85)),
             click_through=click_through,
+            custom_css=str(data.get("custom_css") or ""),
         )
 
 
