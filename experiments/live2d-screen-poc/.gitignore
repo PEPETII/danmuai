@@ -1,9 +1,0 @@
-# Local-only runtime outputs and private config (models never live here)
-config.local.json
-artifacts/*.log
-artifacts/*_stdout.txt
-artifacts/*_stderr.txt
-artifacts/screenshots/
-__pycache__/
-*.pyc
-.pytest_cache/
