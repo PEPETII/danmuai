@@ -122,8 +122,7 @@ export function applyApiModeValue(mode) {
 export function syncApiModeLockState() {
   const sel = document.getElementById('api_mode');
   if (!sel) return;
-  const presetSel = document.getElementById('providerPreset');
-  const presetId = (presetSel?.value || '').trim() || resolveProviderIdForPicker();
+  const presetId = resolveProviderIdForPicker();
   const locked = Boolean(presetId && !editableApiModeProviderIds.has(presetId));
   sel.disabled = locked;
 }
@@ -204,9 +203,6 @@ function validateProviderRulesPayload(payload) {
 }
 
 function renderProviderControls() {
-  const sel = document.getElementById('providerPreset');
-  if (sel) fillProviderPresetSelect(sel);
-
   const modelProv = document.getElementById('modelProvider');
   if (modelProv) {
     modelProv.innerHTML = '';
@@ -222,7 +218,6 @@ function renderProviderControls() {
   if (micSel) fillProviderPresetSelect(micSel, { mic: true });
 
   initApiModeSelect();
-  syncProviderPresetFromEndpoint();
   syncMicProviderPresetFromEndpoint();
   providersDeps.renderVisionModelPicker(
     resolveProviderIdForPicker(),
@@ -344,28 +339,6 @@ export async function loadProviders() {
   }
 }
 
-export function syncProviderPresetFromEndpoint() {
-  const sel = document.getElementById('providerPreset');
-  if (!sel) return;
-  const endpoint = document.getElementById('api_endpoint')?.value || '';
-  const apiMode = document.getElementById('api_mode')?.value || '';
-  const guessed = guessProviderIdFromEndpoint(endpoint, apiMode);
-  if (!guessed) {
-    sel.value = '';
-    syncApiModeLockState();
-    return;
-  }
-  const hasOption = Array.from(sel.options).some((opt) => opt.value === guessed);
-  sel.value = hasOption ? guessed : '';
-  syncApiModeLockState();
-}
-
-export function syncProviderPresetAfterEndpointEdit() {
-  syncProviderPresetFromEndpoint();
-  applyApiModeValue(document.getElementById('api_mode')?.value || '');
-  providersDeps.renderVisionModelPicker(resolveProviderIdForPicker(), document.getElementById('model')?.value || '');
-}
-
 export async function resolveProviderByEndpoint() {
   const endpoint = document.getElementById('api_endpoint')?.value || '';
   const apiMode = document.getElementById('api_mode')?.value || '';
@@ -375,31 +348,12 @@ export async function resolveProviderByEndpoint() {
       body: JSON.stringify({ endpoint, api_mode: apiMode }),
     });
     const providerId = data.provider?.id || data.provider_id || '';
-    const sel = document.getElementById('providerPreset');
-    if (sel && providerId && Array.from(sel.options).some((option) => option.value === providerId)) sel.value = providerId;
     renderProviderStatus(providerId || guessProviderIdFromEndpoint(endpoint, apiMode));
     return data;
   } catch (_error) {
-    syncProviderPresetFromEndpoint();
     renderProviderStatus(resolveProviderIdForPicker());
     return null;
   }
-}
-
-export function applyProviderPreset(providerId) {
-  const provider = providersCache.find((item) => item.id === providerId);
-  if (!provider) return;
-  renderProviderStatus(providerId);
-  document.getElementById('api_endpoint').value = provider.default_endpoint;
-  applyApiModeValue(provider.mode === 'openai-compatible' ? 'openai' : provider.mode);
-  syncApiModeLockState();
-  const apiKeyEl = document.getElementById('api_key');
-  if (apiKeyEl) apiKeyEl.value = '';
-  const defaultModelId = providersDeps.pickDefaultCatalogModelId(providerId);
-  providersDeps.renderVisionModelPicker(providerId, defaultModelId, { providerSwitch: true });
-  providersDeps.showToast(t('dynamic.settingsProviders.已填入_provider_label_的默', {
-    providerLabel: provider.label,
-  }));
 }
 
 export function resolveProviderIdForPicker() {

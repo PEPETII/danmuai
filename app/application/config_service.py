@@ -117,7 +117,6 @@ WEB_CONFIG_KEYS = (
     "danmu_font_bold",
     "floating_panel_font_family",
     "floating_panel_font_bold",
-    "floating_panel_click_through",
     # PET-003：桌宠
     "pet_enabled",
     "pet_visible",

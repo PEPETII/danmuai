@@ -48,7 +48,7 @@ import {
   collectFormData,
   configureSettingsCore,
   fillForm,
-  initFloatingPanelV2Controls,
+  initRenderModeControls,
   initNumberFieldValidation,
   initOpacityWarning,
   initRestoreDefaultsControls,
@@ -88,7 +88,6 @@ import {
 import {
   applyApiModeValue as applyApiModeValueImpl,
   applyMicProviderPreset as applyMicProviderPresetImpl,
-  applyProviderPreset as applyProviderPresetImpl,
   configureSettingsProviders,
   guessProviderIdFromEndpoint,
   loadProviders,
@@ -97,7 +96,6 @@ import {
   resolveProviderIdForPicker as resolveProviderIdForPickerImpl,
   syncApiModeLockState as syncApiModeLockStateImpl,
   syncMicProviderPresetFromEndpoint as syncMicProviderPresetFromEndpointImpl,
-  syncProviderPresetFromEndpoint as syncProviderPresetFromEndpointImpl,
 } from './settings-providers.js';
 import {
   bindMicTestControls,
@@ -120,7 +118,7 @@ export {
 export {
   collectFormData,
   fillForm,
-  initFloatingPanelV2Controls,
+  initRenderModeControls,
   initOpacityWarning,
   initRestoreDefaultsControls,
   initNumberFieldValidation,
@@ -268,7 +266,6 @@ export function configureSettingsBindings(deps) {
     applyCaptureRegionFromPayload,
     syncVisionModelToHidden,
     syncMicModelToHidden,
-    syncProviderPresetFromEndpoint,
     applyApiModeValue,
     syncApiModeLockState,
     syncVisionModelPickerFromForm,
@@ -327,10 +324,6 @@ function syncMicModelPickerFromForm(selectedModelId) {
   return syncMicModelPickerFromFormImpl(selectedModelId);
 }
 
-function syncProviderPresetFromEndpoint() {
-  return syncProviderPresetFromEndpointImpl();
-}
-
 function applyApiModeValue(mode) {
   return applyApiModeValueImpl(mode);
 }
@@ -343,19 +336,8 @@ function resolveProviderIdForPicker() {
   return resolveProviderIdForPickerImpl();
 }
 
-export function syncProviderPresetAfterEndpointEdit() {
-  syncProviderPresetFromEndpoint();
-  renderVisionModelPicker(resolveProviderIdForPicker(), document.getElementById('model')?.value || '');
-}
-
 function syncMicProviderPresetFromEndpoint() {
   return syncMicProviderPresetFromEndpointImpl();
-}
-
-export function applyProviderPreset(providerId) {
-  // 兼容锚点：旧文件曾在此清空 api_key，并调用 renderVisionModelPicker(providerId, defaultModelId, { providerSwitch: true })。
-  // apiKeyEl.value = '';
-  return applyProviderPresetImpl(providerId);
 }
 
 function applyMicProviderPreset(providerId) {
@@ -706,11 +688,6 @@ export function bindSettingsControls(deps = {}) {
   });
 
   document.getElementById('btnModelCancel')?.addEventListener('click', closeModelModal);
-
-  document.getElementById('providerPreset')?.addEventListener('change', (e) => {
-    if (e.target.value) applyProviderPreset(e.target.value);
-    else syncProviderPresetAfterEndpointEdit();
-  });
 
   document.getElementById('api_endpoint')?.addEventListener('change', () => {
     resolveProviderByEndpoint();

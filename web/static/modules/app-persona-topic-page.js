@@ -201,10 +201,6 @@ export async function loadPersonaTemplate() {
   if (personaContract) personaContract.value = tpl.reply_contract || '';
   const personaSystemCustom = document.getElementById('personaSystemCustom');
   if (personaSystemCustom) personaSystemCustom.value = tpl.system_custom || '';
-  const personaSystemPtFull = document.getElementById('personaSystemPtFull');
-  if (personaSystemPtFull) personaSystemPtFull.value = tpl.system_pt_full || '';
-  const displayNameInput = document.getElementById('personaDisplayName');
-  if (displayNameInput) displayNameInput.value = tpl.label || '';
   const systemEditable = tpl.system_editable ?? tpl.editable;
   if (personaSystemCustom) personaSystemCustom.readOnly = !systemEditable;
   const btnSavePersona = document.getElementById('btnSavePersona');
@@ -297,14 +293,9 @@ export function initPersonaTopicPage(deps = {}) {
     try {
       await window.withLoadingState(btn, btn.textContent, async () => {
         const name = document.getElementById('personaSelect')?.value;
-        // 仅当存在 #personaDisplayName 时才随模板提交 label，避免缺失 DOM 时误清空展示名
-        const displayNameEl = document.getElementById('personaDisplayName');
         const payload = {
           system_custom: document.getElementById('personaSystemCustom').value,
         };
-        if (displayNameEl) {
-          payload.label = displayNameEl.value?.trim() || '';
-        }
         await apiFetch(`/api/personae/${enc(name)}/template`, {
           method: 'PUT',
           body: JSON.stringify(payload),
@@ -359,7 +350,6 @@ export function initPersonaTopicPage(deps = {}) {
     const select = document.getElementById('personaSelect');
     const currentLabel =
       select?.selectedOptions?.[0]?.textContent?.trim() ||
-      document.getElementById('personaDisplayName')?.value?.trim() ||
       name;
     const nextLabel = prompt(t('dynamic.appPersonaTopicPage.新显示名称'), currentLabel);
     if (nextLabel === null) return;

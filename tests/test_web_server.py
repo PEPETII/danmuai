@@ -390,21 +390,25 @@ def test_web_api_mode_select_initialized():
     assert 'option value="doubao"' in html
 
 
-def test_web_app_js_provider_switch_resets_vision_model():
+def test_web_app_js_removes_orphaned_visual_provider_preset():
     from app.bundle_paths import project_root
 
+    root = project_root()
     settings_js = (
-        project_root() / "web" / "static" / "modules" / "settings.js"
+        root / "web" / "static" / "modules" / "settings.js"
+    ).read_text(encoding="utf-8")
+    providers_js = (
+        root / "web" / "static" / "modules" / "settings-providers.js"
     ).read_text(encoding="utf-8")
     assert "function pickDefaultCatalogModelId" in settings_js
     assert "platform.default_model_id" in settings_js
-    assert "providerSwitch: true" in settings_js
-    assert "function syncProviderPresetFromEndpoint" in settings_js
     assert "function resolveProviderIdForPicker" in settings_js
-    assert "renderVisionModelPicker(resolveProviderIdForPicker()" in settings_js
-    assert "syncProviderPresetAfterEndpointEdit" in settings_js
-    assert "renderVisionModelPicker(providerId, defaultModelId, { providerSwitch: true })" in settings_js
-    assert "apiKeyEl.value = ''" in settings_js
+    assert "renderVisionModelPicker(" in providers_js
+    assert "renderMicModelPicker(providerId, defaultModelId, { providerSwitch: true })" in providers_js
+    assert "getElementById('providerPreset')" not in settings_js
+    assert "getElementById('providerPreset')" not in providers_js
+    assert "syncProviderPresetFromEndpoint" not in settings_js
+    assert "syncProviderPresetAfterEndpointEdit" not in settings_js
 
 
 def test_list_recent_logs_filters_by_since_ts():

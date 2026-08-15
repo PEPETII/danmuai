@@ -36,7 +36,7 @@ import {
   bindSettingsControls,
   initCaptureRegionControls,
   initNormalBatchControls,
-  initFloatingPanelV2Controls,
+  initRenderModeControls,
   initRestoreDefaultsControls,
   initContentPageFieldHints,
   initSettingsFieldHints,
@@ -708,7 +708,7 @@ function bindCoreInteractions() {
   initSidebarNavFloatingHints();
   initNormalBatchControls();
   initRestoreDefaultsControls();
-  initFloatingPanelV2Controls();
+  initRenderModeControls();
 
   bindSettingsControls({
     showToast,
@@ -768,11 +768,6 @@ function bindCoreInteractions() {
     });
   });
   initResponsiveShell();
-
-  document.getElementById('btnErrorBannerDismiss')?.addEventListener('click', () => {
-    const banner = document.getElementById('errorBanner');
-    if (banner) banner.classList.add('hidden');
-  });
 
   document.querySelectorAll('.log-level-cb').forEach((cb) => {
     cb.addEventListener('change', () => {

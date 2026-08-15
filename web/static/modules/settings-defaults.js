@@ -5,19 +5,15 @@ const NORMAL_REPLY_COUNT_MAX = 50;
 const DEFAULT_NORMAL_REPLY_COUNT = 5;
 const FLOATING_PANEL_NORMAL_REPLY_COUNT = 10;
 const NORMAL_RECOGNITION_INTERVAL_SEC = 5;
-const DEFAULT_FLOATING_PANEL_SPEED = '1';
-
-/** 按 danmu_render_mode 回落的节奏/速度默认值（与 app/config_defaults.py 对齐） */
+/** 按 danmu_render_mode 回落的节奏默认值（与 app/config_defaults.py 对齐） */
 export const RENDER_MODE_DEFAULT_OVERRIDES = {
   scrolling: {
     normal_recognition_interval_sec: String(NORMAL_RECOGNITION_INTERVAL_SEC),
     normal_reply_count: String(DEFAULT_NORMAL_REPLY_COUNT),
-    floating_panel_speed: DEFAULT_FLOATING_PANEL_SPEED,
   },
   floating_panel: {
     normal_recognition_interval_sec: String(NORMAL_RECOGNITION_INTERVAL_SEC),
     normal_reply_count: String(FLOATING_PANEL_NORMAL_REPLY_COUNT),
-    floating_panel_speed: DEFAULT_FLOATING_PANEL_SPEED,
   },
 };
 
@@ -44,16 +40,7 @@ export const CONFIG_FIELDS = [
   'mic_window_sec', 'mic_input_device_id', 'mic_api_endpoint', 'mic_api_mode', 'mic_model',
   'normal_recognition_interval_sec', 'normal_reply_count',
   'danmu_render_mode',
-  'floating_panel_width',
-  'floating_panel_max_items',
-  'floating_panel_speed',
-  'floating_panel_x_offset',
-  'floating_panel_y_offset',
-  'floating_panel_opacity',
-  'floating_panel_font_size',
-  'floating_panel_click_through',
   'danmu_font_family',
-  'floating_panel_font_family',
   'danmu_font_color_selected',
   'danmu_font_color_mode',
   'danmu_font_color_weights',
@@ -71,9 +58,6 @@ export const SETTINGS_RESTORE_GROUPS = {
     'normal_recognition_interval_sec', 'normal_reply_count', 'danmu_speed',
     'danmu_max_chars', 'dedup_threshold', 'hotkey',
     'danmu_pending_entry_cap', 'danmu_track_retention_cap', 'reply_queue_max_items',
-    'floating_panel_width', 'floating_panel_max_items',
-    'floating_panel_speed', 'floating_panel_x_offset', 'floating_panel_y_offset',
-    'floating_panel_opacity', 'floating_panel_font_size', 'floating_panel_click_through',
   ],
   'danmu-read': [],
 };
@@ -82,7 +66,7 @@ export const SETTINGS_RESTORE_CHECKBOXES = {
   api: [],
   mic: ['mic_mode_enabled', 'mic_use_visual_model'],
   capture: [],
-  danmu: ['empty_accel', 'floating_panel_click_through'],
+  danmu: ['empty_accel'],
 };
 
 let configDefaultsCache = null;

@@ -20,7 +20,6 @@ let coreDeps = {
   applyCaptureRegionFromPayload: () => {},
   syncVisionModelToHidden: () => {},
   syncMicModelToHidden: () => {},
-  syncProviderPresetFromEndpoint: () => {},
   applyApiModeValue: () => {},
   syncApiModeLockState: () => {},
   syncVisionModelPickerFromForm: () => {},
@@ -74,25 +73,23 @@ export function syncPetBarrageSettingsLock(cfg = null) {
   }
 }
 
-export function syncFloatingPanelV2FieldsVisibility() {
+export function syncRenderModeFieldsVisibility() {
   const modeEl = document.getElementById('danmu_render_mode');
   const mode = modeEl?.value || 'scrolling';
-  const floatingBox = document.getElementById('floatingPanelV2Fields');
   const scrollingBox = document.getElementById('scrollingModeFields');
-  if (floatingBox) floatingBox.classList.toggle('hidden', mode !== 'floating_panel');
   if (scrollingBox) scrollingBox.classList.toggle('hidden', mode !== 'scrolling');
 }
 
-export function initFloatingPanelV2Controls() {
+export function initRenderModeControls() {
   const modeEl = document.getElementById('danmu_render_mode');
   if (!modeEl) return;
-  modeEl.addEventListener('change', syncFloatingPanelV2FieldsVisibility);
-  syncFloatingPanelV2FieldsVisibility();
+  modeEl.addEventListener('change', syncRenderModeFieldsVisibility);
+  syncRenderModeFieldsVisibility();
 }
 
 function applyDefaultToField(key, rawValue) {
   const value = rawValue === undefined || rawValue === null ? '' : String(rawValue);
-  if (key === 'mic_mode_enabled' || key === 'mic_use_visual_model' || key === 'empty_accel' || key === 'danmu_font_bold' || key === 'floating_panel_font_bold' || key === 'floating_panel_click_through') {
+  if (key === 'mic_mode_enabled' || key === 'mic_use_visual_model' || key === 'empty_accel' || key === 'danmu_font_bold') {
     const el = document.getElementById(key);
     if (el) el.checked = value === '1';
     return;
@@ -158,7 +155,6 @@ function applySettingsDefaults(scope) {
   });
   if (apiKeyEl) apiKeyEl.value = apiKeySnapshot;
   if (micKeyEl) micKeyEl.value = micKeySnapshot;
-  coreDeps.syncProviderPresetFromEndpoint();
   coreDeps.applyApiModeValue(
     document.getElementById('api_mode')?.value || configDefaultsCache.api_mode || '',
   );
@@ -219,8 +215,6 @@ export function collectFormData({ usesCustomCredentials = false } = {}) {
   data.mic_use_visual_model = document.getElementById('mic_use_visual_model')?.checked ? '1' : '0';
   const danmuBold = document.getElementById('danmu_font_bold');
   if (danmuBold) data.danmu_font_bold = danmuBold.checked ? '1' : '0';
-  const fpBold = document.getElementById('floating_panel_font_bold');
-  if (fpBold) data.floating_panel_font_bold = fpBold.checked ? '1' : '0';
   // W-GLOBAL-VISUAL-APIKEY-REMOVE-001: 视觉全局 api_key 已下线，不再收集；mic/tts 独立 key 不受影响
   const micKey = (document.getElementById('mic_api_key')?.value || '').trim();
   if (micKey && micKey !== MASKED_API_KEY) data.mic_api_key = micKey;
@@ -246,32 +240,15 @@ export async function fillForm(cfg) {
     'danmu_speed', 'danmu_lines', 'font_size', 'opacity', 'dedup_threshold', 'hotkey',
     'image_max_width', 'temperature', 'max_tokens', 'image_quality', 'danmu_max_chars',
     'danmu_pending_entry_cap', 'danmu_track_retention_cap', 'reply_queue_max_items',
-    'danmu_render_mode', 'floating_panel_width', 'floating_panel_max_items',
-    'floating_panel_speed', 'floating_panel_x_offset', 'floating_panel_y_offset',
-    'floating_panel_opacity', 'floating_panel_font_size', 'danmu_font_family',
-    'floating_panel_font_family', 'floating_panel_click_through',
+    'danmu_render_mode', 'danmu_font_family',
   ].forEach(setIfEmpty);
-  syncFloatingPanelV2FieldsVisibility();
+  syncRenderModeFieldsVisibility();
   const danmuBold = document.getElementById('danmu_font_bold');
   if (danmuBold) {
     const v = cfg.danmu_font_bold;
     if (v === '0' || v === 'false') danmuBold.checked = false;
     else if (v === '1' || v === 'true') danmuBold.checked = true;
     else danmuBold.checked = configDefaultValue('danmu_font_bold') !== '0';
-  }
-  const fpBold = document.getElementById('floating_panel_font_bold');
-  if (fpBold) {
-    const v = cfg.floating_panel_font_bold;
-    if (v === '0' || v === 'false') fpBold.checked = false;
-    else if (v === '1' || v === 'true') fpBold.checked = true;
-    else fpBold.checked = configDefaultValue('floating_panel_font_bold') !== '0';
-  }
-  const fpClickThrough = document.getElementById('floating_panel_click_through');
-  if (fpClickThrough) {
-    const v = cfg.floating_panel_click_through;
-    if (v === '0' || v === 'false') fpClickThrough.checked = false;
-    else if (v === '1' || v === 'true') fpClickThrough.checked = true;
-    else fpClickThrough.checked = configDefaultValue('floating_panel_click_through') !== '0';
   }
   const evictionMode = document.getElementById('eviction_mode');
   if (evictionMode && !cfg.eviction_mode) {
@@ -313,7 +290,6 @@ export async function fillForm(cfg) {
   syncPetBarrageSettingsLock(cfg);
   updateNormalBatchPreview();
   refreshOpacityWarning();
-  coreDeps.syncProviderPresetFromEndpoint();
   coreDeps.applyApiModeValue(cfg.api_mode);
   coreDeps.syncApiModeLockState();
   const modelId = cfg.active_model_id || cfg.default_model_id || cfg.model || '';
@@ -331,7 +307,6 @@ export async function reloadConfigFromServer() {
   const cfg = await apiFetch('/api/config');
   await fillForm(cfg);
   coreDeps.refreshDanmuPreview();
-  coreDeps.syncProviderPresetFromEndpoint();
   const modelId = cfg.active_model_id || cfg.default_model_id || cfg.model || '';
   coreDeps.syncVisionModelPickerFromForm(modelId);
   coreDeps.updateModelActiveSourceBanner(cfg);

@@ -89,11 +89,6 @@
   color: var(--color-primary, #ff8fab);
 }
 
-.danmu-pool-textarea {
-  resize: vertical;
-  min-height: 8rem;
-}
-
 .meme-tag-grid {
   display: flex;
   flex-wrap: wrap;
@@ -162,4 +157,3 @@
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-track { background: var(--color-bg); }
 ::-webkit-scrollbar-thumb { background: var(--color-secondary); border-radius: 4px; }
-

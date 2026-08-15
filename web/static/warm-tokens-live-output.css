@@ -101,10 +101,6 @@
   color: #fca5a5;
 }
 
-.preview-slot img:not(.hidden) + p {
-  display: none;
-}
-
 .pool-min-on-screen.is-disabled label {
   opacity: 0.55;
 }
@@ -113,4 +109,3 @@
   opacity: 0.55;
   pointer-events: none;
 }
-
