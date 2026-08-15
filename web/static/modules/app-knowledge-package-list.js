@@ -29,6 +29,7 @@ function groupJobsByPackageId(jobs, packages) {
 }
 
 let documentClickBound = false;
+let packageLoadRequestId = 0;
 
 function bindDocumentCloseMenus() {
   if (documentClickBound) return;
@@ -179,21 +180,28 @@ async function deletePackageFromList(packageId) {
 }
 
 export async function loadKnowledgePage() {
+  const requestId = ++packageLoadRequestId;
   const { showListView } = await import('./app-knowledge-page.js');
   const { stopKnowledgeJobPolling } = await import('./app-knowledge-jobs.js');
   showListView();
   stopKnowledgeJobPolling();
   resetPackageContext();
+  document.getElementById('knowledgePackageEmpty')?.classList.add('hidden');
 
   try {
     const [pkgData, jobsData] = await Promise.all([
       apiFetch('/api/knowledge/packages'),
       apiFetch('/api/knowledge/jobs').catch(() => ({ jobs: [] })),
     ]);
+    if (requestId !== packageLoadRequestId) return;
+    if (pkgData?.error) {
+      throw new Error(pkgData.error);
+    }
     const packages = pkgData.packages || [];
     const jobsByPackage = groupJobsByPackageId(jobsData.jobs || [], packages);
     renderPackageList(packages, jobsByPackage);
   } catch (error) {
+    if (requestId !== packageLoadRequestId) return;
     showKnowledgeToast(t('dynamic.appKnowledgePage.loadFailed'), true);
     console.warn('[knowledge] loadPackages failed', error);
   }

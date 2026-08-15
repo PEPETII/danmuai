@@ -295,6 +295,23 @@
     </div>
   </div>
 
+  <!-- 知识包：使用说明 -->
+  <div id="knowledgeQuickStartModal" class="fixed inset-0 bg-black/20 backdrop-blur-sm hidden items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="knowledgeQuickStartModalTitle">
+    <div class="bg-white rounded-3xl shadow-warm max-w-md w-full p-8 min-w-0">
+      <h3 id="knowledgeQuickStartModalTitle" class="text-lg font-bold text-warmText mb-4" data-i18n="dynamic.appKnowledgePage.quickStart.title">如何使用知识包？</h3>
+      <ol class="knowledge-quick-start-steps text-sm text-warmText space-y-2">
+        <li data-i18n="dynamic.appKnowledgePage.quickStart.step1">1. 创建知识包</li>
+        <li data-i18n="dynamic.appKnowledgePage.quickStart.step2">2. 添加网页、文本或文档</li>
+        <li data-i18n="dynamic.appKnowledgePage.quickStart.step3">3. 等待系统整理内容</li>
+        <li data-i18n="dynamic.appKnowledgePage.quickStart.step4">4. 检查生成的知识条目</li>
+        <li data-i18n="dynamic.appKnowledgePage.quickStart.step5">5. 启用后自动参与弹幕生成</li>
+      </ol>
+      <div class="flex flex-wrap gap-3 justify-end mt-6">
+        <button type="button" id="btnKnowledgeQuickStartClose" class="px-5 py-2 border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--sm" data-i18n="dynamic.appKnowledgePage.organizeModal.close">关闭</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 知识包：新建 -->
   <div id="knowledgeCreatePackageModal" class="fixed inset-0 bg-black/20 backdrop-blur-sm hidden items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="knowledgeCreatePackageModalTitle">
     <div class="bg-white rounded-3xl shadow-warm max-w-md w-full p-8 min-w-0">

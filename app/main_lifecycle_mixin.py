@@ -331,6 +331,25 @@ class DanmuAppLifecycleMixin:
         self._pending_api_trigger_source = "scene_refresh"
         self._on_normal_capture_tick()
 
+    def _ensure_knowledge_runtime(self) -> bool:
+        """确保知识包运行时在启动或重新启动后可用。"""
+        runtime = self.__dict__.get("knowledge_runtime")
+        try:
+            if runtime is None:
+                from app.knowledge.runtime_service import KnowledgeRuntimeService
+
+                runtime = KnowledgeRuntimeService(self)
+                self.knowledge_runtime = runtime
+            else:
+                mount = getattr(runtime, "mount", None)
+                if callable(mount):
+                    mount()
+        except Exception as exc:
+            self.logger.warning(f"knowledge_runtime mount failed: {exc!r}")
+            self.knowledge_runtime = None
+            return False
+        return getattr(runtime, "repository", None) is not None
+
     def _init_startup_services(self, log_startup) -> None:
         self.tray.show()
         qt_app = QApplication.instance()
@@ -364,14 +383,8 @@ class DanmuAppLifecycleMixin:
         self._lifetime_flush_timer.timeout.connect(self.lifetime_stats.flush_pending)
 
         # Phase B / Wave 7（B2）：挂载知识包运行时服务。
-        # 异常隔离：装配失败 → knowledge_runtime=None，主链路调用全部 no-op。
-        try:
-            from app.knowledge.runtime_service import KnowledgeRuntimeService
-
-            self.knowledge_runtime = KnowledgeRuntimeService(self)
-        except Exception as exc:
-            self.logger.warning(f"knowledge_runtime mount failed: {exc!r}")
-            self.knowledge_runtime = None
+        # 异常隔离：装配失败时主链路调用 no-op；start() 会再次尝试恢复。
+        self._ensure_knowledge_runtime()
 
         # PET-009 / W-PET-LAZY-INIT-VISIBILITY-001：启动期按需初始化并同步桌宠显隐。
         # config_changed 信号在 _start_web_console_stack 才连接，启动期收不到；
@@ -674,6 +687,9 @@ class DanmuAppLifecycleMixin:
     def start(self) -> None:
         from app.ai_client_requests import format_credential_error, visual_credentials_ready
 
+        # stop() 会关闭知识库连接；重新启动前必须恢复同一运行时对象的挂载。
+        self._ensure_knowledge_runtime()
+
         if not visual_credentials_ready(self.config):
             msg = format_credential_error(self.config)
             self.logger.warning(msg)
@@ -916,6 +932,15 @@ class DanmuAppLifecycleMixin:
         ai_worker = getattr(self, "ai_worker", None)
         if ai_worker is not None:
             ai_worker.close()
+
+        knowledge_runtime = self.__dict__.get("knowledge_runtime")
+        if knowledge_runtime is not None:
+            try:
+                knowledge_runtime.close()
+            except Exception as exc:
+                logger = getattr(self, "logger", None)
+                if logger is not None:
+                    logger.warning(f"knowledge_runtime close failed: {exc!r}")
 
         config = getattr(self, "config", None)
         if config is not None:

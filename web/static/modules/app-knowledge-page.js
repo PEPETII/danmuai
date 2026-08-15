@@ -28,7 +28,7 @@ import {
 } from './app-knowledge-jobs.js';
 import { loadItems } from './app-knowledge-items.js';
 import { startPreview } from './app-knowledge-retrieval.js';
-import { bindCreatePackageModalStatic } from './app-knowledge-modals.js';
+import { bindCreatePackageModalStatic, bindKnowledgeQuickStartModalStatic } from './app-knowledge-modals.js';
 
 export { loadKnowledgePage, createNewPackage } from './app-knowledge-package-list.js';
 export { startKnowledgeJobPolling, stopKnowledgeJobPolling } from './app-knowledge-jobs.js';
@@ -61,6 +61,7 @@ export function initKnowledgePage(deps = {}) {
 
   initSettingsRhythmAccordion(document.getElementById('page-knowledge') || document);
   bindCreatePackageModalStatic();
+  bindKnowledgeQuickStartModalStatic();
   bindDetailFieldWatchers();
   bindSourceTypeCards();
   syncSourceFormVisibility();

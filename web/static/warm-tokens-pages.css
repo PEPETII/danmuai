@@ -621,6 +621,7 @@ html[data-theme="dark"] .problem-detail-severity--fatal {
   padding: 0;
 }
 
+#knowledgeQuickStartModal .flex.flex-wrap,
 #knowledgeOrganizeModal .flex.flex-wrap,
 #knowledgeCreatePackageModal .flex.flex-wrap,
 #knowledgeConfirmModal .flex.flex-wrap {

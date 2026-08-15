@@ -23,13 +23,14 @@ PAGE_IDS = [
     "knowledgeItemKindFilter",
     "knowledgeItemEnabledFilter",
     "knowledgeItemSearch",
-    "knowledgeQuickStart",
+    "btnKnowledgeQuickStart",
     "knowledgeDetailOverview",
     "knowledgeAddSource",
     "knowledgeJobProgress",
 ]
 
 MODAL_IDS = [
+    "knowledgeQuickStartModal",
     "knowledgeCreatePackageModal",
     "knowledgeOrganizeModal",
     "knowledgeConfirmModal",
@@ -57,7 +58,11 @@ def test_required_dom_ids_unique():
 
 def test_quick_start_and_empty_state():
     section = _knowledge_section_html()
-    assert "id=\"knowledgeQuickStart\"" in section
+    assert "id=\"btnKnowledgeQuickStart\"" in section
+    assert "aria-controls=\"knowledgeQuickStartModal\"" in section
+    modals = MODALS.read_text(encoding="utf-8")
+    assert "id=\"knowledgeQuickStartModal\"" in modals
+    assert "id=\"btnKnowledgeQuickStartClose\"" in modals
     assert "id=\"knowledgePackageEmpty\"" in section
     assert "id=\"btnKnowledgeCreateFirstPackage\"" in section
 
@@ -80,6 +85,15 @@ def test_no_native_prompt_or_confirm_in_js():
     combined = "\n".join(p.read_text(encoding="utf-8") for p in JS_MODULES)
     assert "window.prompt" not in combined
     assert "window.confirm" not in combined
+
+
+def test_package_list_does_not_render_runtime_error_as_empty_state():
+    package_list = (
+        STATIC_ROOT / "modules" / "app-knowledge-package-list.js"
+    ).read_text(encoding="utf-8")
+    assert "let packageLoadRequestId = 0;" in package_list
+    assert "if (pkgData?.error)" in package_list
+    assert "knowledgePackageEmpty')?.classList.add('hidden')" in package_list
 
 
 def test_compute_package_card_state_and_transition():

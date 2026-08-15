@@ -248,6 +248,27 @@ class KnowledgeRuntimeService:
         self._last_injection: KnowledgeInjectionResult | None = None
         self._last_scene_context: KnowledgeSceneContext | None = None
         self._cached_scene_generation: int | None = None
+        self.mount()
+
+    def mount(self) -> bool:
+        """挂载或重新挂载知识库运行时。
+
+        ``stop()`` 会关闭当前数据库连接与导入执行器，但应用对象本身会
+        保留 ``knowledge_runtime`` 引用，以便下一次 ``start()`` 重新打开。
+        挂载失败时保留降级模式，并由调用方决定是否继续启动主链路。
+        """
+        if (
+            self._db is not None
+            and self.repository is not None
+            and self.import_orchestrator is not None
+            and self.retriever is not None
+        ):
+            return True
+
+        # 清理上一次失败或已关闭的部分状态；close() 本身是幂等的。
+        self.close()
+        db = None
+        orch = None
         try:
             from app.knowledge.database import KnowledgeDatabase
             from app.knowledge.import_service import ImportOrchestrator
@@ -269,12 +290,29 @@ class KnowledgeRuntimeService:
             self.repository = repo
             self.import_orchestrator = orch
             self.retriever = retriever
+            return True
         except Exception as exc:
+            if orch is not None:
+                try:
+                    orch.close()
+                except Exception as close_exc:
+                    logger.warning(
+                        "knowledge_runtime import_orchestrator cleanup failed: %r",
+                        close_exc,
+                    )
+            if db is not None:
+                try:
+                    db.close()
+                except Exception as close_exc:
+                    logger.warning(
+                        "knowledge_runtime db cleanup failed: %r", close_exc
+                    )
             logger.warning("knowledge_runtime mount failed: %r", exc)
             self._db = None
             self.repository = None
             self.import_orchestrator = None
             self.retriever = None
+            return False
 
     # ------------------------------------------------------------------
     # 场景上下文

@@ -6,6 +6,7 @@ import { showKnowledgeToast } from './app-knowledge-state.js';
 let confirmResolve = null;
 let confirmCleanup = null;
 let createCleanup = null;
+let quickStartCleanup = null;
 
 function showModal(modal) {
   if (!modal) return;
@@ -129,6 +130,36 @@ export function openCreatePackageModal() {
     showModal(modal);
     activateFocusTrap(modal, onCancel);
     nameInput.focus();
+  });
+}
+
+export function openKnowledgeQuickStartModal() {
+  const modal = document.getElementById('knowledgeQuickStartModal');
+  const closeBtn = document.getElementById('btnKnowledgeQuickStartClose');
+  if (!modal || !closeBtn) return;
+
+  if (typeof quickStartCleanup === 'function') quickStartCleanup();
+
+  const close = () => {
+    hideModal(modal);
+    deactivateFocusTrap();
+    if (typeof quickStartCleanup === 'function') quickStartCleanup();
+    quickStartCleanup = null;
+  };
+
+  const onClose = () => close();
+  closeBtn.addEventListener('click', onClose);
+  quickStartCleanup = () => {
+    closeBtn.removeEventListener('click', onClose);
+  };
+
+  showModal(modal);
+  activateFocusTrap(modal, onClose);
+}
+
+export function bindKnowledgeQuickStartModalStatic() {
+  document.getElementById('btnKnowledgeQuickStart')?.addEventListener('click', () => {
+    openKnowledgeQuickStartModal();
   });
 }
 

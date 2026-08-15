@@ -25,6 +25,7 @@
 from __future__ import annotations
 
 from collections import deque
+from types import SimpleNamespace
 from unittest.mock import MagicMock, Mock
 
 import pytest
@@ -130,6 +131,41 @@ def test_knowledge_runtime_lifecycle_mount_and_close(isolated_db_path):
     assert svc.repository is None
     assert svc.import_orchestrator is None
     assert svc.retriever is None
+
+
+def test_knowledge_runtime_remount_preserves_packages_after_close(isolated_db_path):
+    """stop 后再次挂载必须读取同一 knowledge.db 中已有的知识包。"""
+    app_stub = MagicMock()
+    svc = KnowledgeRuntimeService(app_stub)
+    package = svc.repository.create_package(name="重启后仍存在")
+
+    svc.close()
+    assert svc.repository is None
+    assert svc.mount() is True
+
+    packages = svc.repository.list_packages()
+    assert [pkg["public_id"] for pkg in packages] == [package["public_id"]]
+    svc.close()
+
+
+def test_lifecycle_ensure_knowledge_runtime_reopens_closed_service(isolated_db_path):
+    """生命周期恢复入口必须重新挂载 stop() 关闭的运行时。"""
+    from app.main_lifecycle_mixin import DanmuAppLifecycleMixin
+
+    runtime_app = MagicMock()
+    svc = KnowledgeRuntimeService(runtime_app)
+    package = svc.repository.create_package(name="生命周期恢复包")
+    svc.close()
+
+    lifecycle_app = SimpleNamespace(
+        knowledge_runtime=svc,
+        logger=MagicMock(),
+    )
+    assert DanmuAppLifecycleMixin._ensure_knowledge_runtime(lifecycle_app) is True
+    assert lifecycle_app.knowledge_runtime.repository.get_package(
+        package["public_id"]
+    )["public_id"] == package["public_id"]
+    svc.close()
 
 
 def test_knowledge_runtime_degraded_mode_when_db_open_fails(monkeypatch):

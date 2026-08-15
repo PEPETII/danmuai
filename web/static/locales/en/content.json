@@ -56,6 +56,8 @@
       "桌宠": "Vtuber & Desktop Pet",
       "样式生成器": "Danmaku Style",
       "编辑从下到上浮动面板样式_实时预览堆积效果_保存后经现有配置接口持久化": "Edit bottom-to-top floating panel style with live stack preview; save persists via the existing config API.",
+      "从下到上模式的设计参考开源项目": "The bottom-to-top mode design references the open-source project ",
+      "非常感谢作者无私奉献": ", with sincere thanks to the author for their selfless contribution",
       "样式预设": "Basic style",
       "自定义": "Custom",
       "选择_classic_或_wechat_立即填充表单并刷新预览_手动修改任意字段会标为自定义": "In short, YouTube-like and WeChat-like are two basic styles: YouTube-like does not use bubbles by default, while WeChat-like does. Because their visual structures differ, the adjustable settings below change when you pick a different basic style.",
