@@ -96,12 +96,16 @@ const DERIVED_STYLE_SAVE_KEYS = new Set([
 ]);
 
 const PREVIEW_TEXTS = [
-  () => t('dynamic.settingsDanmuPreview.这波操作666'),
-  () => t('dynamic.settingsDanmuPreview.哈哈哈哈哈太搞了'),
-  () => t('dynamic.settingsDanmuPreview.主播好强'),
-  () => t('dynamic.settingsDanmuPreview.前方高能预警'),
-  () => 'awsl',
-  () => t('dynamic.appStyleGenerator.预览消息_精彩操作'),
+  '呵 生活终于对我下手了吗',
+  '我的口水占领了整个枕头',
+  '安排的明明白白的',
+  '白内障看不清，需要一串猪眼睛',
+  '这个慢镜头犯规啊！停下来咽口水',
+  '你现在吃的是老子',
+  '一个从来没有差评的宝贝',
+  '第一次看见有人把手残说的这么秀气的',
+  '偷完小孩就偷狗，世风日下啊！',
+  '他可能对我们的能力也有点误解',
 ];
 
 let toast = () => {};
@@ -126,6 +130,7 @@ let exitDurationMsCached = 200;
 let entryAnimationCached = 'fade';
 let exitAnimationCached = 'fade';
 let pushDurationMsCached = 180;
+const previewPushTransitionHandlers = new WeakMap();
 let previewUsername = '高压吐槽型';
 
 function showToast(message, isError = false) {
@@ -341,13 +346,20 @@ function markCustomIfNeeded() {
   if (suppressCustomMark) return;
   styleGeneratorDirty = true;
   setFieldValue('floating_panel_style_preset', 'custom');
-  syncPresetSelect('custom');
-  syncPresetVisibility('custom');
+  syncPresetSelect();
+  syncPresetVisibility(activePresetId);
 }
 
-function syncPresetSelect(preset) {
-  if (preset === 'classic' || preset === 'blivechat_line') {
-    activePresetId = preset;
+/** 可见下拉仅表示基础风格地基；custom/wechat 等回退到产品默认仿微信。 */
+function resolveBasePresetId(configuredPreset, presets) {
+  if (configuredPreset === 'classic') return 'classic';
+  if (configuredPreset === 'blivechat_line') return 'blivechat_line';
+  return presets?.presets?.blivechat_line ? 'blivechat_line' : 'classic';
+}
+
+function syncPresetSelect(basePresetId) {
+  if (basePresetId === 'classic' || basePresetId === 'blivechat_line') {
+    activePresetId = basePresetId;
   }
   const select = document.getElementById('sgPresetSelect');
   if (!select) return;
@@ -357,19 +369,21 @@ function syncPresetSelect(preset) {
 
 function normalizeVisiblePreset(values, presets) {
   const configuredPreset = String(values.floating_panel_style_preset || '').trim();
-  const visiblePreset = configuredPreset === 'classic'
-    ? 'classic'
-    : configuredPreset === 'blivechat_line'
-      ? 'blivechat_line'
-      : configuredPreset === 'custom'
-        ? 'custom'
-        : presets?.presets?.blivechat_line
-          ? 'blivechat_line'
-          : 'classic';
-  if (visiblePreset !== configuredPreset && presets?.presets?.[visiblePreset]) {
-    Object.assign(values, presets.presets[visiblePreset]);
+  const basePresetId = resolveBasePresetId(configuredPreset, presets);
+  activePresetId = basePresetId;
+
+  if (configuredPreset === 'classic' || configuredPreset === 'blivechat_line') {
+    values.floating_panel_style_preset = configuredPreset;
+    return;
   }
-  values.floating_panel_style_preset = visiblePreset;
+  if (configuredPreset === 'custom') {
+    values.floating_panel_style_preset = 'custom';
+    return;
+  }
+  if (presets?.presets?.[basePresetId]) {
+    Object.assign(values, presets.presets[basePresetId]);
+  }
+  values.floating_panel_style_preset = basePresetId;
 }
 
 /** 仿 YouTube 只隐藏不适用的设置，切回仿微信/自定义时恢复可见并保留字段值。 */
@@ -468,9 +482,12 @@ function applyValuesToForm(values) {
     const textColors = parsePalette(values.floating_panel_text_colors);
     renderColorList('card', cardColors.length ? cardColors : ['#FFECD2']);
     renderColorList('text', textColors.length ? textColors : ['#281C12']);
-    const preset = values.floating_panel_style_preset || 'custom';
-    syncPresetSelect(preset);
-    syncPresetVisibility(preset);
+    const savedPreset = String(values.floating_panel_style_preset || '').trim();
+    if (savedPreset === 'classic' || savedPreset === 'blivechat_line') {
+      activePresetId = savedPreset;
+    }
+    syncPresetSelect();
+    syncPresetVisibility(activePresetId);
   } finally {
     suppressCustomMark = false;
   }
@@ -615,6 +632,7 @@ function applyCardStyleVars(cardEl, style, cardColor, textColor) {
   cardEl.classList.toggle('layout-inline', !isStacked);
   cardEl.classList.toggle('no-border', !(style.borderEnabled && style.borderWidth > 0));
   cardEl.classList.toggle('no-card-surface', style.cardOpacity <= 0);
+  cardEl.classList.toggle('uses-backdrop', style.cardOpacity > 0 && style.cardOpacity < 100);
   cardEl.classList.toggle('has-outline', Boolean(style.outlineEnabled && style.outlineWidth > 0));
   cardEl.classList.toggle('is-bold', Boolean(style.fontBold));
   const isBubble = style.shape === 'bubble' && style.tailEnabled;
@@ -715,72 +733,142 @@ function applyPreviewEntryAnimation(card) {
   if (entryAnimationCached === 'slide_up') card.classList.add('entry-slide-up');
 }
 
+function parseTransformY(value) {
+  const raw = String(value || '');
+  if (!raw || raw === 'none') return 0;
+  let match = raw.match(/^matrix3d\(([^)]+)\)$/);
+  if (match) {
+    const matrix3d = match[1].split(',');
+    return Number(matrix3d[13]) || 0;
+  }
+  match = raw.match(/^matrix\(([^)]+)\)$/);
+  if (match) {
+    const matrix = match[1].split(',');
+    return Number(matrix[5]) || 0;
+  }
+  return 0;
+}
+
+function forgetPreviewPushTransition(slot) {
+  if (!slot) return;
+  const handler = previewPushTransitionHandlers.get(slot);
+  if (!handler) return;
+  slot.removeEventListener('transitionend', handler);
+  slot.removeEventListener('transitioncancel', handler);
+  previewPushTransitionHandlers.delete(slot);
+}
+
+/** Freeze only the preview slot; leave the child card's entry animation alive. */
+function freezePreviewCardMotion(slot, currentY) {
+  if (!slot) return;
+  if (currentY == null) currentY = parseTransformY(getComputedStyle(slot).transform);
+  const isPushing = slot.classList.contains('is-pushing');
+  if (!isPushing && Math.abs(currentY) <= 0.01) return;
+  forgetPreviewPushTransition(slot);
+  slot.classList.remove('is-pushing');
+  slot.style.setProperty('transition', 'none');
+  if (Math.abs(currentY) > 0.01) {
+    slot.style.transform = `translateY(${currentY}px)`;
+  } else {
+    slot.style.removeProperty('transform');
+  }
+  slot.style.removeProperty('transition');
+}
+
+function freezeAllPreviewCardMotions() {
+  const stack = document.getElementById('styleGeneratorPreviewStack');
+  if (!stack) return;
+  const motions = Array.from(stack.children).map((slot) => ({
+    slot,
+    currentY: parseTransformY(getComputedStyle(slot).transform),
+  }));
+  motions.forEach(({ slot, currentY }) => freezePreviewCardMotion(slot, currentY));
+}
+
 function snapshotPreviewCardTops() {
   const stack = document.getElementById('styleGeneratorPreviewStack');
   const tops = new Map();
   if (!stack) return tops;
-  Array.from(stack.children).forEach((card) => {
-    if (!card.classList.contains('exiting')) tops.set(card, card.getBoundingClientRect().top);
-  });
+  Array.from(stack.children).forEach((slot) => tops.set(slot, slot.getBoundingClientRect().top));
   return tops;
 }
 
 function animatePushedPreviewCards(previousTops) {
   const stack = document.getElementById('styleGeneratorPreviewStack');
-  if (!stack || !previousTops || pushDurationMsCached <= 0) return;
-  previousTops.forEach((beforeTop, card) => {
-    if (!card.parentNode || card.classList.contains('exiting')) return;
-    const delta = beforeTop - card.getBoundingClientRect().top;
-    const offset = Number.isFinite(delta) ? delta : 0;
-    card.style.setProperty('--push-offset', `${offset}px`);
-    card.classList.remove('is-pushing');
-    void card.offsetWidth;
-    card.classList.add('is-pushing');
-    card.addEventListener('animationend', (event) => {
-      if (event.animationName !== 'sg-fp-pushUp') return;
-      card.classList.remove('is-pushing');
-      card.style.removeProperty('--push-offset');
-    }, { once: true });
+  if (!stack || !previousTops) return;
+  const motions = [];
+
+  // Read every post-layout slot position before writing any inverse transform.
+  previousTops.forEach((beforeTop, slot) => {
+    if (!slot.parentNode) return;
+    const frozenY = parseTransformY(getComputedStyle(slot).transform);
+    const afterRect = slot.getBoundingClientRect();
+    const layoutTop = afterRect.top - frozenY;
+    const delta = Number.isFinite(beforeTop - layoutTop) ? beforeTop - layoutTop : 0;
+    if (Math.abs(delta) > 0.01) motions.push({ slot, delta });
+  });
+
+  if (pushDurationMsCached <= 0) {
+    motions.forEach(({ slot }) => slot.style.removeProperty('transform'));
+    return;
+  }
+  if (!motions.length) return;
+
+  // FLIP write phase, followed by one layout read for the complete batch.
+  motions.forEach(({ slot, delta }) => {
+    forgetPreviewPushTransition(slot);
+    slot.classList.remove('is-pushing');
+    slot.style.setProperty('transition', 'none');
+    slot.style.transform = `translateY(${delta}px)`;
+    slot.style.removeProperty('transition');
+  });
+  void stack.offsetHeight;
+
+  // FLIP play phase; only the slot moves, so entry fade/slide stays on .card.
+  motions.forEach(({ slot }) => {
+    const handler = (event) => {
+      if (event.target !== slot || event.propertyName !== 'transform') return;
+      if (previewPushTransitionHandlers.get(slot) !== handler) return;
+      forgetPreviewPushTransition(slot);
+      slot.classList.remove('is-pushing');
+      slot.style.removeProperty('transform');
+    };
+    previewPushTransitionHandlers.set(slot, handler);
+    slot.addEventListener('transitionend', handler);
+    slot.addEventListener('transitioncancel', handler);
+    slot.classList.add('is-pushing');
+    slot.style.removeProperty('transform');
   });
 }
 
+function removePreviewSlot(slot) {
+  if (!slot) return;
+  forgetPreviewPushTransition(slot);
+  const card = slot.querySelector(':scope > .sg-preview-card');
+  if (card) previewItems = previewItems.filter((item) => item.el !== card);
+  if (slot.parentNode) slot.parentNode.removeChild(slot);
+}
+
 function scheduleCardExit(node) {
-  if (!node || node.classList.contains('exiting')) return;
-  if (exitAnimationCached === 'none' || exitDurationMsCached <= 0) {
-    if (node.parentNode) node.parentNode.removeChild(node);
-    previewItems = previewItems.filter((it) => it.el !== node);
-    return;
-  }
-  node.classList.add('exiting');
-  const id = node.dataset?.cardId;
-  setTimeout(() => {
-    if (node.parentNode) node.parentNode.removeChild(node);
-    previewItems = previewItems.filter((it) => it.el !== node);
-    if (id) {
-      /* card id cleanup not needed beyond filter */
-    }
-  }, exitDurationMsCached || 200);
+  // Strict max-card parity with the real WebView panel: an evicted slot leaves
+  // flex layout synchronously, so an exit animation cannot expose max + 1.
+  const slot = node?.classList?.contains('sg-preview-card-slot') ? node : node?.parentNode;
+  removePreviewSlot(slot || node);
 }
 
 function removeOldestIfNeeded() {
   const stack = document.getElementById('styleGeneratorPreviewStack');
   if (!stack) return;
   const maxCards = maxCardsCached || 12;
-  let active = 0;
-  for (let i = 0; i < stack.children.length; i++) {
-    if (!stack.children[i].classList.contains('exiting')) active += 1;
-  }
-  let needExit = active - maxCards;
-  for (let i = stack.children.length - 1; i >= 0 && needExit > 0; i -= 1) {
-    if (stack.children[i].classList.contains('exiting')) continue;
-    scheduleCardExit(stack.children[i]);
-    needExit -= 1;
+  while (stack.children.length > maxCards) {
+    scheduleCardExit(stack.lastElementChild);
   }
 }
 
 function addPreviewMessage(text) {
   const stack = document.getElementById('styleGeneratorPreviewStack');
   if (!stack) return;
+  freezeAllPreviewCardMotions();
   const previousTops = snapshotPreviewCardTops();
   const style = readPreviewStyle();
   applyStageConfig(style);
@@ -788,6 +876,8 @@ function addPreviewMessage(text) {
   const cardColor = pickStyleColor(style.cardColors, style.cardMode, style.cardWeights, idx);
   const textColor = pickStyleColor(style.textColors, style.textMode, style.textWeights, idx);
 
+  const slot = document.createElement('div');
+  slot.className = 'sg-preview-card-slot';
   const el = document.createElement('div');
   el.className = 'sg-preview-card';
   el.dataset.styleIndex = String(idx);
@@ -798,9 +888,10 @@ function addPreviewMessage(text) {
 
   applyCardStyleVars(el, style, cardColor, textColor);
   applyPreviewEntryAnimation(el);
+  slot.appendChild(el);
   // column-reverse places the first DOM child at the bottom; prepend keeps
   // the newest preview card at the bottom and pushes older cards upward.
-  stack.prepend(el);
+  stack.prepend(slot);
   previewItems.push({
     el,
     text,
@@ -819,10 +910,12 @@ function escapePreviewHtml(s) {
 }
 
 function clearPreview() {
-  previewItems.forEach((item) => item.el?.remove());
   previewItems = [];
   const stack = document.getElementById('styleGeneratorPreviewStack');
-  if (stack) stack.innerHTML = '';
+  if (stack) {
+    Array.from(stack.children).forEach((slot) => forgetPreviewPushTransition(slot));
+    stack.innerHTML = '';
+  }
 }
 
 function seedPreview() {
@@ -1136,6 +1229,8 @@ export function initStyleGeneratorPage(deps = {}) {
   initSettingsRhythmAccordion();
   initNumberSteppers(form);
   initHorizontalFontPage({ showToast: toast, navigate: deps.navigate });
+  syncPresetSelect();
+  syncPresetVisibility(activePresetId);
   syncSingleColorPickersFromText();
   syncAddColorHexFromPicker('card');
   syncAddColorHexFromPicker('text');

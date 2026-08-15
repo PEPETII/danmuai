@@ -15,6 +15,7 @@
   var wsOpen = false;
   var animationFrame = 0;
   var cardIds = new Set();
+  var pushTransitionHandlers = new WeakMap();
 
   function applyClickThroughFromUrl() {
     var params = new URLSearchParams(window.location.search);
@@ -141,6 +142,8 @@
     cardEl.classList.toggle("layout-inline", layout !== "stacked");
     cardEl.classList.toggle("no-border", style.border_enabled === false || style.border_width === 0);
     cardEl.classList.toggle("no-card-surface", style.card_opacity != null && Number(style.card_opacity) <= 0);
+    var cardOpacity = style.card_opacity == null ? 100 : Number(style.card_opacity);
+    cardEl.classList.toggle("uses-backdrop", cardOpacity > 0 && cardOpacity < 100);
     cardEl.classList.toggle("has-outline", style.outline_enabled === true && style.outline_width > 0);
     cardEl.classList.toggle("is-bold", style.font_bold === true);
     var isBubble = style.shape === "bubble" && style.tail_enabled === true;
@@ -186,12 +189,12 @@
   function parseTransformY(value) {
     var raw = String(value || "");
     if (!raw || raw === "none") return 0;
-    var match = raw.match(/^matrix3d\\(([^)]+)\\)$/);
+    var match = raw.match(/^matrix3d\(([^)]+)\)$/);
     if (match) {
       var matrix3d = match[1].split(",");
       return Number(matrix3d[13]) || 0;
     }
-    match = raw.match(/^matrix\\(([^)]+)\\)$/);
+    match = raw.match(/^matrix\(([^)]+)\)$/);
     if (match) {
       var matrix = match[1].split(",");
       return Number(matrix[5]) || 0;
@@ -199,38 +202,56 @@
     return 0;
   }
 
-  function freezeCardMotion(card) {
-    if (!card) return;
-    var computed = getComputedStyle(card);
-    var currentY = parseTransformY(computed.transform);
-    var currentOpacity = computed.opacity;
-    if (card.getAnimations) {
-      card.getAnimations().forEach(function (animation) {
-        try {
-          animation.cancel();
-        } catch (_e) {
-          /* ignore stale animation handles */
-        }
-      });
+  function forgetPushTransition(slot) {
+    if (!slot) return;
+    var handler = pushTransitionHandlers.get(slot);
+    if (!handler) return;
+    slot.removeEventListener("transitionend", handler);
+    slot.removeEventListener("transitioncancel", handler);
+    pushTransitionHandlers.delete(slot);
+  }
+
+  /**
+   * Freeze only the slot's push transition.
+   *
+   * The child .card may still be running entry-fade/entry-slide-up. Cancelling
+   * Web Animations on the card here would reset its opacity/transform and is
+   * the source of the visible flash during rapid arrivals.
+   */
+  function freezeCardMotion(slot, currentY) {
+    if (!slot) return;
+    if (currentY == null) {
+      currentY = parseTransformY(getComputedStyle(slot).transform);
     }
-    card.classList.remove("is-pushing", "entry-fade", "entry-slide-up", "exiting");
+    var isPushing = slot.classList.contains("is-pushing");
+    if (!isPushing && Math.abs(currentY) <= 0.01) return;
+    forgetPushTransition(slot);
+    slot.classList.remove("is-pushing");
+    // Keep the current visual position while removing the old transition.
+    slot.style.setProperty("transition", "none");
     if (Math.abs(currentY) > 0.01) {
-      card.style.transform = "translateY(" + currentY + "px)";
+      slot.style.transform = "translateY(" + currentY + "px)";
     } else {
-      card.style.removeProperty("transform");
+      slot.style.removeProperty("transform");
     }
-    if (currentOpacity !== "1") {
-      card.style.opacity = currentOpacity;
-    } else {
-      card.style.removeProperty("opacity");
-    }
+    slot.style.removeProperty("transition");
   }
 
   function freezeAllCardMotions() {
     if (!panel) return;
+    // Read every current transform first, then write every frozen transform.
+    // This prevents a read/write layout cycle for each slot in a burst.
+    var motions = [];
     for (var i = 0; i < panel.children.length; i += 1) {
-      freezeCardMotion(panel.children[i]);
+      var slot = panel.children[i];
+      motions.push({
+        slot: slot,
+        currentY: parseTransformY(getComputedStyle(slot).transform),
+      });
     }
+    motions.forEach(function (motion) {
+      freezeCardMotion(motion.slot, motion.currentY);
+    });
   }
 
   function snapshotCardTops() {
@@ -245,28 +266,56 @@
 
   function animatePushedCards(previousTops) {
     if (!panel || !previousTops) return;
+    var motions = [];
+
+    // Read the complete post-layout state before writing any FLIP transform.
     previousTops.forEach(function (beforeTop, card) {
-      if (!card.parentNode) return;
-      var afterRect = card.getBoundingClientRect();
-      var frozenY = parseTransformY(getComputedStyle(card).transform);
+      var slot = card;
+      if (!slot.parentNode) return;
+      var frozenY = parseTransformY(getComputedStyle(slot).transform);
+      var afterRect = slot.getBoundingClientRect();
       var layoutTop = afterRect.top - frozenY;
       var delta = beforeTop - layoutTop;
       if (!isFinite(delta)) delta = 0;
-      card.style.opacity = "1";
-      card.classList.remove("is-pushing");
-      if (pushDurationMs <= 0 || Math.abs(delta) <= 0.01) {
-        card.style.removeProperty("transform");
-        return;
-      }
-      card.style.transform = "translateY(" + delta + "px)";
-      void card.offsetWidth;
-      card.classList.add("is-pushing");
-      card.style.removeProperty("transform");
-      card.addEventListener("transitionend", function (event) {
-        if (event.propertyName !== "transform") return;
-        card.classList.remove("is-pushing");
-        card.style.removeProperty("transform");
-      }, { once: true });
+      if (Math.abs(delta) > 0.01) motions.push({ slot: slot, delta: delta });
+    });
+
+    if (pushDurationMs <= 0) {
+      motions.forEach(function (motion) {
+        motion.slot.style.removeProperty("transform");
+      });
+      return;
+    }
+    if (!motions.length) return;
+
+    // FLIP write phase: set every initial inverse transform with transitions
+    // disabled, then force exactly one layout read for the whole batch.
+    motions.forEach(function (motion) {
+      var slot = motion.slot;
+      forgetPushTransition(slot);
+      slot.classList.remove("is-pushing");
+      slot.style.setProperty("transition", "none");
+      slot.style.transform = "translateY(" + motion.delta + "px)";
+      slot.style.removeProperty("transition");
+    });
+    void panel.offsetHeight;
+
+    // FLIP play phase: the slot transitions to zero; the child card's entry
+    // animation remains untouched and continues on its own transform/opacity.
+    motions.forEach(function (motion) {
+      var slot = motion.slot;
+      var handler = function (event) {
+        if (event.target !== slot || event.propertyName !== "transform") return;
+        if (pushTransitionHandlers.get(slot) !== handler) return;
+        forgetPushTransition(slot);
+        slot.classList.remove("is-pushing");
+        slot.style.removeProperty("transform");
+      };
+      pushTransitionHandlers.set(slot, handler);
+      slot.addEventListener("transitionend", handler);
+      slot.addEventListener("transitioncancel", handler);
+      slot.classList.add("is-pushing");
+      slot.style.removeProperty("transform");
     });
   }
 
@@ -322,6 +371,7 @@
       if (!oldest) break;
       var cid = oldest.dataset.cardId;
       if (cid) cardIds.delete(cid);
+      forgetPushTransition(oldest);
       if (oldest.parentNode) oldest.parentNode.removeChild(oldest);
     }
   }
@@ -334,9 +384,12 @@
     // of restarting a second CSS animation over a moving layout.
     freezeAllCardMotions();
     var previousTops = snapshotCardTops();
+    var slot = document.createElement("div");
+    slot.className = "card-slot";
     var card = document.createElement("div");
     card.className = "card";
     if (id) {
+      slot.dataset.cardId = id;
       card.dataset.cardId = id;
       cardIds.add(id);
     }
@@ -364,14 +417,18 @@
         '<div class="content">' + content + "</div>";
     }
     applyEntryAnimationClass(card);
+    slot.appendChild(card);
     // column-reverse places the first DOM child at the bottom. Prepending
     // keeps the newest card at the bottom and physically pushes older cards up.
-    panel.prepend(card);
+    panel.prepend(slot);
     removeOldestIfNeeded();
     animatePushedCards(previousTops);
   }
 
   function clearCards() {
+    for (var i = 0; i < panel.children.length; i += 1) {
+      forgetPushTransition(panel.children[i]);
+    }
     panel.innerHTML = "";
     cardIds.clear();
   }

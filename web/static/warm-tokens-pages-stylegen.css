@@ -479,6 +479,18 @@
   font-family: var(--font-family);
 }
 
+/* The slot owns stack movement; the card owns entry opacity/transform. */
+.sg-preview-card-slot {
+  flex: 0 0 auto;
+  position: relative;
+  max-width: 100%;
+}
+
+.sg-preview-card-slot.is-pushing {
+  transition: transform var(--push-duration) ease-out;
+  transform: translateY(0);
+}
+
 /* 与 floating_panel/.card 同构（类名 .sg-preview-card 避免污染控制台） */
 .sg-preview-card {
   position: relative;
@@ -488,11 +500,14 @@
   padding: var(--padding-y) var(--padding-x);
   max-width: var(--card-max-width);
   box-shadow: var(--card-shadow);
-  backdrop-filter: blur(2px);
-  will-change: transform, opacity;
+  backdrop-filter: none;
   box-sizing: border-box;
   text-align: left;
   font-family: var(--font-family);
+}
+
+.sg-preview-card.uses-backdrop {
+  backdrop-filter: blur(2px);
 }
 
 .sg-preview-card.no-card-surface {
@@ -517,10 +532,6 @@
 
 .sg-preview-card.entry-slide-up {
   animation: sg-fp-slideUp var(--entry-duration) ease-out both;
-}
-
-.sg-preview-card.is-pushing {
-  animation: sg-fp-pushUp var(--push-duration) ease-out both;
 }
 
 /* stacked：背景/边框/阴影只在 .bubble；用户名在气泡外（与 WEB-001 同构） */
@@ -731,15 +742,6 @@
   }
   100% {
     opacity: 1;
-  }
-}
-
-@keyframes sg-fp-pushUp {
-  0% {
-    transform: translateY(var(--push-offset, 0px));
-  }
-  100% {
-    transform: translateY(0);
   }
 }
 

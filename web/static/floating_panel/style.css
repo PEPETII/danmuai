@@ -85,6 +85,20 @@ body {
   cursor: move;
 }
 
+/* The flex item owns the stack movement; the child card owns entry opacity/
+   transform. Keeping these responsibilities on separate elements prevents
+   the two animations from overwriting each other. */
+.card-slot {
+  flex: 0 0 auto;
+  position: relative;
+  max-width: 100%;
+}
+
+.card-slot.is-pushing {
+  transition: transform var(--push-duration) ease-out;
+  transform: translateY(0);
+}
+
 /* ===== 卡片基础（inline / classic / wechat） ===== */
 .card {
   background: var(--card-bg);
@@ -94,11 +108,16 @@ body {
   max-width: var(--card-max-width);
   flex: 0 0 auto;
   box-shadow: var(--card-shadow);
-  backdrop-filter: blur(2px);
-  will-change: transform, opacity;
+  /* Avoid pre-promoting every transparent WebView2 card. The blur is opt-in
+     for translucent surfaces, where it changes the visual result. */
+  backdrop-filter: none;
   position: relative;
   font-family: var(--font-family);
   box-sizing: border-box;
+}
+
+.card.uses-backdrop {
+  backdrop-filter: blur(2px);
 }
 
 /* Transparent classic style must not blur the captured scene behind the card. */
@@ -119,11 +138,6 @@ body {
 
 .card.entry-slide-up {
   animation: slideUp var(--entry-duration) ease-out both;
-}
-
-.card.is-pushing {
-  transition: transform var(--push-duration) ease-out;
-  transform: translateY(0);
 }
 
 .card.no-border {

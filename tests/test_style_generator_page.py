@@ -288,6 +288,8 @@ def test_style_generator_preview_matches_web_panel_structure():
     assert "-webkit-line-clamp: 2" in panel_css
     assert "removeOldestIfNeeded" in mod
     assert "scheduleCardExit" in mod
+    assert "sg-preview-card-slot" in mod
+    assert "while (stack.children.length > maxCards)" in mod
     assert "applyCardStyleVars" in mod
     assert "is-bubble" in css and "is-bubble" in panel_css
     # LineLike stacked DOM + CSS vars (W-FP-LINELIKE-STYLEGEN-001)
@@ -301,10 +303,11 @@ def test_style_generator_preview_matches_web_panel_structure():
     assert "applyPreset('blivechat_line')" in mod or 'applyPreset("blivechat_line")' in mod
     assert "syncPresetVisibility" in mod
     assert "normalizeVisiblePreset" in mod
+    assert "resolveBasePresetId" in mod
     assert "let activePresetId = 'blivechat_line';" in mod
     assert "syncPresetSelect" in mod
     assert "select.value = activePresetId" in mod
-    assert "values.floating_panel_style_preset = visiblePreset" in mod
+    assert "values.floating_panel_style_preset = 'custom'" in mod
     assert "cardSection.hidden = isClassic" in mod
     assert "tailSection.hidden = isClassic" in mod
     assert "shapeField.hidden = isClassic" in mod
@@ -358,17 +361,24 @@ def test_style_generator_animation_controls_drive_preview_and_web_panel():
         "entry-fade",
     ):
         assert fragment in mod
-    for fragment in (
-        "entry-slide-up",
-        "entry-fade",
-        "is-pushing",
-        "sg-fp-pushUp",
-    ):
+    for fragment in ("entry-slide-up", "entry-fade", "is-pushing"):
         assert fragment in preview_css
-        assert fragment.replace("sg-fp-", "") in panel_css or fragment in panel_css
-    assert "stack.prepend(el)" in mod
+    assert "sg-preview-card-slot.is-pushing" in preview_css
+    assert "sg-fp-pushUp" not in preview_css
+    assert ".card-slot.is-pushing" in panel_css
+    assert ".card.is-pushing" not in panel_css
+    assert "will-change: transform, opacity" not in preview_css
+    assert "will-change: transform, opacity" not in panel_css
+    assert "freezeAllPreviewCardMotions" in mod
+    assert "slot.classList.contains('is-pushing')" in mod
+    assert "getComputedStyle(slot).transform" in mod
+    assert "void card.offsetWidth" not in mod
+    assert "void stack.offsetHeight" in mod
+    assert "stack.prepend(slot)" in mod
+    clear_body = mod.split("function clearPreview")[1].split("function seedPreview")[0]
+    assert "forgetPreviewPushTransition(slot)" in clear_body
     assert "push_duration_ms" in panel_js
-    assert "panel.prepend(card)" in panel_js
+    assert "panel.prepend(slot)" in panel_js
     assert "entry_animation" in panel_js
     assert "exit_animation" in panel_js
 
@@ -388,10 +398,33 @@ def test_manual_edits_mark_custom_but_preset_select_stays_on_base_style():
     mod = (_static() / "modules" / "app-style-generator-page.js").read_text(encoding="utf-8")
     partial = (_static() / "partials" / "style-generator.html").read_text(encoding="utf-8")
     assert "setFieldValue('floating_panel_style_preset', 'custom')" in mod
-    assert "syncPresetSelect('custom')" in mod
+    assert "syncPresetVisibility(activePresetId)" in mod
+    assert "syncPresetVisibility('custom')" not in mod
     assert "let activePresetId = 'blivechat_line';" in mod
     assert "select.value = activePresetId" in mod
     assert 'value="custom"' not in partial
+
+
+def test_manual_edits_on_classic_keep_youtube_dropdown_and_hide_bubble_sections():
+    """仿 YouTube 手动编辑后仍为 custom 保存态，下拉与显隐仍跟随 classic 基础风格。"""
+    mod = (_static() / "modules" / "app-style-generator-page.js").read_text(encoding="utf-8")
+    assert "resolveBasePresetId" in mod
+    assert "activePresetId = savedPreset" in mod or "activePresetId = basePresetId" in mod
+    assert "syncPresetVisibility(activePresetId)" in mod
+    assert "cardSection.hidden = isClassic" in mod
+
+
+def test_load_custom_config_keeps_custom_hidden_field():
+    """服务端 custom 配置加载时保留 custom 保存值，仅下拉回退到基础风格默认。"""
+    mod = (_static() / "modules" / "app-style-generator-page.js").read_text(encoding="utf-8")
+    normalize_body = mod.split("function normalizeVisiblePreset(values, presets)")[1].split(
+        "/** 仿 YouTube", 1
+    )[0]
+    assert "configuredPreset === 'custom'" in normalize_body
+    assert "values.floating_panel_style_preset = 'custom'" in normalize_body
+    assert "Object.assign(values, presets.presets" not in normalize_body.split(
+        "configuredPreset === 'custom'"
+    )[1].split("return")[0]
 
 
 def test_style_generator_has_a_default_visible_preset_select():

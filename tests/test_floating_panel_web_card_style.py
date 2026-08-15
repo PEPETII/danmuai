@@ -67,6 +67,7 @@ def test_apply_card_style_vars_supports_extended_style_fields():
         "no-border",
         "is-bold",
         "no-card-surface",
+        "uses-backdrop",
     ):
         assert token in body
 
@@ -87,6 +88,7 @@ def test_panel_surfaces_are_transparent_without_changing_card_backgrounds():
     assert "background: var(--card-bg)" in css
     assert ".card.no-card-surface" in css
     assert "backdrop-filter: none" in css
+    assert "will-change: transform, opacity" not in css
 
 
 def test_stacked_dom_has_bubble_username_outside():
@@ -170,15 +172,55 @@ def test_panel_stack_is_clipped_and_cards_do_not_shrink():
 
 
 def test_push_relayout_freezes_existing_animation_and_uses_transition():
-    """顶推只在插入时重定向一次，避免 animation 与布局同时驱动。"""
+    """顶推只重定向 slot，避免 entry animation 与布局同时驱动同一张卡。"""
     src = _app_js_text()
     assert "freezeAllCardMotions" in src
-    assert "card.getAnimations" in src
+    assert "card.getAnimations" not in src
+    assert 'card.style.opacity = "1"' not in src
+    assert "card-slot" in src
+    assert "void panel.offsetHeight" in src
+    assert "void card.offsetWidth" not in src
     assert "transitionend" in src
     assert "scheduleCardExit" not in src
     assert "animationend" not in src.split("function animatePushedCards", 1)[1].split(
         "function applyConfig", 1
     )[0]
     css = _style_css_text()
-    push_css = css.split(".card.is-pushing", 1)[1].split(".card.no-border", 1)[0]
+    assert ".card-slot.is-pushing" in css
+    assert ".card.is-pushing" not in css
+    push_css = css.split(".card-slot.is-pushing", 1)[1].split(".card.no-border", 1)[0]
     assert "transition: transform" in push_css
+
+
+def test_entry_animation_stays_on_card_and_supports_none_fade_slide_up():
+    """入场只操作 card；none 不会给新卡添加透明度/位移动画。"""
+    src = _app_js_text()
+    entry_body = src.split("function applyEntryAnimationClass")[1].split(
+        "function parseTransformY", 1
+    )[0]
+    assert 'card.classList.remove("entry-fade", "entry-slide-up")' in entry_body
+    assert 'entryAnimation === "fade"' in entry_body
+    assert 'entryAnimation === "slide_up"' in entry_body
+    assert 'entryAnimation === "none"' not in entry_body
+    add_body = src.split("function addCard(msg)")[1].split("function clearCards")[0]
+    assert "applyEntryAnimationClass(card)" in add_body
+    assert "slot.appendChild(card)" in add_body
+    assert "panel.prepend(slot)" in add_body
+
+
+def test_rapid_push_retargets_from_current_slot_visual_position():
+    """连续新增按当前 slot transform 反算布局位置，不取消 child entry 状态。"""
+    src = _app_js_text()
+    body = src.split("function animatePushedCards(previousTops)")[1].split(
+        "function applyConfig", 1
+    )[0]
+    assert "getComputedStyle(slot).transform" in body
+    assert r"/^matrix3d\(([^)]+)\)$/" in src
+    assert r"/^matrix\(([^)]+)\)$/" in src
+    assert 'slot.classList.contains("is-pushing")' in src
+    assert "layoutTop = afterRect.top - frozenY" in body
+    assert "forgetPushTransition(slot)" in body
+    assert "transitioncancel" in body
+    assert body.count("void panel.offsetHeight") == 1
+    clear_body = src.split("function clearCards")[1].split("function sendJson")[0]
+    assert "forgetPushTransition(panel.children[i])" in clear_body
