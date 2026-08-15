@@ -126,13 +126,17 @@
 }
 
 .danmu-pool-tab {
-  padding: 0.5rem 1rem;
+  box-sizing: border-box;
+  min-height: var(--control-height-sm);
+  padding: 0.5rem var(--space-4);
   border-radius: var(--radius-md);
-  font-size: 0.9rem;
+  font-family: inherit;
+  font-size: 0.875rem;
   font-weight: 600;
+  line-height: 1.2;
   color: var(--color-text-muted, #6b7280);
   background: transparent;
-  border: none;
+  border: 1px solid transparent;
   cursor: pointer;
 }
 
@@ -144,6 +148,13 @@
 .danmu-pool-tab.active {
   background: var(--color-accent);
   color: var(--color-primary-hover);
+  border-color: rgba(var(--color-primary-rgb), 0.35);
+  box-shadow: inset 0 -2px 0 var(--color-primary);
+}
+
+.danmu-pool-tab:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.28);
 }
 
 .danmu-pool-tab-panel {

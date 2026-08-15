@@ -3,12 +3,12 @@
       <div class="card p-8 danmu-pool-page ui-card">
         <div class="settings-tabs-bar mb-6">
           <div class="settings-tabs danmu-pool-tabs" role="tablist" data-i18n-aria-label="content.aria.公式化弹幕库分类" aria-label="公式化弹幕库分类">
-            <button type="button" role="tab" id="danmuPoolTabBtn-meme" class="danmu-pool-tab active" data-danmu-pool-tab="meme" aria-selected="true">烂梗公式化</button>
-            <button type="button" role="tab" class="danmu-pool-tab" data-danmu-pool-tab="custom" aria-selected="false">自定义公式化</button>
+            <button type="button" role="tab" id="danmuPoolTabBtn-meme" class="danmu-pool-tab active" data-danmu-pool-tab="meme" aria-controls="danmuPoolTab-meme" aria-selected="true">烂梗公式化</button>
+            <button type="button" role="tab" id="danmuPoolTabBtn-custom" class="danmu-pool-tab" data-danmu-pool-tab="custom" aria-controls="danmuPoolTab-custom" aria-selected="false">自定义公式化</button>
           </div>
         </div>
 
-        <div id="danmuPoolTab-meme" class="danmu-pool-tab-panel active space-y-8" data-danmu-pool-panel="meme" role="tabpanel">
+        <div id="danmuPoolTab-meme" class="danmu-pool-tab-panel active space-y-8" data-danmu-pool-panel="meme" role="tabpanel" aria-labelledby="danmuPoolTabBtn-meme">
           <div class="danmu-pool-section meme-source-credit">
             <p class="meme-source-credit-text">
               我们的烂梗库内容来自开源项目
@@ -133,7 +133,7 @@
           </div>
         </div>
 
-        <div id="danmuPoolTab-custom" class="danmu-pool-tab-panel space-y-8" data-danmu-pool-panel="custom" role="tabpanel" hidden>
+        <div id="danmuPoolTab-custom" class="danmu-pool-tab-panel space-y-8" data-danmu-pool-panel="custom" role="tabpanel" aria-labelledby="danmuPoolTabBtn-custom" hidden>
           <div class="danmu-pool-section">
             <p class="settings-section-title" data-i18n="content.text.自定义弹幕句库">自定义弹幕句库</p>
             <p class="settings-section-hint" data-i18n="content.text.自定义弹幕通过_TXT_文件管理_每个_TXT_文件可作为一个独立句库_可直接在文件夹中新增_编辑或删除_修改后刷新即可生效">自定义弹幕通过 TXT 文件管理。每个 TXT 文件可作为一个独立句库，可直接在文件夹中新增、编辑或删除，修改后刷新即可生效。</p>
@@ -183,12 +183,12 @@
       <div class="card p-8 space-y-8 pet-page ui-card">
         <div class="settings-tabs-bar mb-6">
           <div class="settings-tabs pet-tabs" role="tablist" aria-label="虚拟主播与桌宠分类">
-            <button type="button" role="tab" id="petTabBtn-pet" class="settings-tab active" data-pet-tab="pet" aria-selected="true">桌宠</button>
-            <button type="button" role="tab" class="settings-tab" data-pet-tab="vtuber" aria-selected="false">虚拟主播</button>
+            <button type="button" role="tab" id="petTabBtn-pet" class="settings-tab active" data-pet-tab="pet" aria-controls="petTab-pet" aria-selected="true">桌宠</button>
+            <button type="button" role="tab" id="petTabBtn-vtuber" class="settings-tab" data-pet-tab="vtuber" aria-controls="petTab-vtuber" aria-selected="false">虚拟主播</button>
           </div>
         </div>
 
-        <div id="petTab-pet" class="settings-tab-panel active space-y-8" data-pet-panel="pet" role="tabpanel">
+        <div id="petTab-pet" class="settings-tab-panel active space-y-8" data-pet-panel="pet" role="tabpanel" aria-labelledby="petTabBtn-pet">
         <div>
           <p class="settings-section-title">状态</p>
           <p id="petStatusText" class="text-warmText font-semibold min-w-0 break-words">未启用</p>
@@ -360,7 +360,7 @@
         <button type="button" id="btnPetSave" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm ui-button ui-button--primary ui-button--md">保存设置</button>
         </div>
 
-        <div id="petTab-vtuber" class="settings-tab-panel" data-pet-panel="vtuber" role="tabpanel" hidden></div>
+        <div id="petTab-vtuber" class="settings-tab-panel" data-pet-panel="vtuber" role="tabpanel" aria-labelledby="petTabBtn-vtuber" hidden></div>
       </div>
     </section>
 <section id="page-persona" class="page-panel">
@@ -369,12 +369,12 @@
         <div id="personaSaveStatusBanner" class="hidden mb-4 px-4 py-2 rounded-xl bg-green-50 border border-green-200 text-sm text-green-700 font-semibold min-w-0 break-words" role="status" aria-live="polite"></div>
         <div class="settings-tabs-bar mb-6">
           <div class="settings-tabs persona-tabs" role="tablist" aria-label="弹幕人格分类">
-            <button type="button" role="tab" id="personaTabBtn-active" class="settings-tab active" data-persona-tab="active" aria-selected="true">激活人格</button>
-            <button type="button" role="tab" class="settings-tab" data-persona-tab="manage" aria-selected="false">人格管理</button>
+            <button type="button" role="tab" id="personaTabBtn-active" class="settings-tab active" data-persona-tab="active" aria-controls="personaTab-active" aria-selected="true">激活人格</button>
+            <button type="button" role="tab" id="personaTabBtn-manage" class="settings-tab" data-persona-tab="manage" aria-controls="personaTab-manage" aria-selected="false">人格管理</button>
           </div>
         </div>
 
-        <div id="personaTab-active" class="settings-tab-panel active space-y-4" data-persona-panel="active" role="tabpanel">
+        <div id="personaTab-active" class="settings-tab-panel active space-y-4" data-persona-panel="active" role="tabpanel" aria-labelledby="personaTabBtn-active">
           <div>
             <p class="text-sm font-semibold text-warmText" data-i18n="content.text.名称显示">名称显示</p>
             <p class="text-xs text-gray-500 mt-1" data-i18n="content.text.需要展示人格名称请到弹幕样式界面">需要展示人格名称请到【弹幕样式】界面，开启后弹幕形式变为「人格名称:弹幕内容」</p>
@@ -387,7 +387,7 @@
           </div>
         </div>
 
-        <div id="personaTab-manage" class="settings-tab-panel space-y-4" data-persona-panel="manage" role="tabpanel" hidden>
+        <div id="personaTab-manage" class="settings-tab-panel space-y-4" data-persona-panel="manage" role="tabpanel" aria-labelledby="personaTabBtn-manage" hidden>
           <div>
             <div class="flex flex-wrap gap-3 items-end">
               <div class="flex-1 min-w-[200px]">
@@ -465,20 +465,20 @@
       <header class="mb-8 ui-page-header"><div class="ui-page-header__copy min-w-0"><h2 class="text-2xl font-bold text-warmText ui-page-title">教程|日志|反馈|公告|群聊|直播</h2><p class="text-gray-500 mt-1 ui-page-description" data-i18n="content.text.教程_弹幕日志_公告与问题反馈">教程、弹幕日志、公告、问题反馈、群聊与直播输出</p></div></header>
       <div class="settings-tabs-bar">
         <div class="settings-tabs" role="tablist" data-i18n-aria-label="content.text.教程_日志_反馈_公告" aria-label="教程|日志|反馈|公告|群聊|直播">
-          <button type="button" role="tab" class="settings-tab active" data-guide-tab="tutorial" aria-selected="true">教程</button>
-          <button type="button" role="tab" class="settings-tab" data-guide-tab="logs" aria-selected="false">弹幕日志</button>
-          <button type="button" role="tab" class="settings-tab" data-guide-tab="mic-logs" aria-selected="false" data-i18n="content.text.麦克风日志">麦克风日志</button>
-          <button type="button" role="tab" class="settings-tab" data-guide-tab="announcements" aria-selected="false">公告</button>
-          <button type="button" role="tab" class="settings-tab" data-guide-tab="feedback" aria-selected="false">问题反馈与群聊</button>
-          <button type="button" role="tab" class="settings-tab" data-guide-tab="live-output" aria-selected="false" data-i18n="content.text.直播输出">直播输出</button>
+            <button type="button" role="tab" id="guideTabBtn-tutorial" class="settings-tab active" data-guide-tab="tutorial" aria-controls="guideTab-tutorial" aria-selected="true">教程</button>
+            <button type="button" role="tab" id="guideTabBtn-logs" class="settings-tab" data-guide-tab="logs" aria-controls="guideTab-logs" aria-selected="false">弹幕日志</button>
+            <button type="button" role="tab" id="guideTabBtn-mic-logs" class="settings-tab" data-guide-tab="mic-logs" aria-controls="guideTab-mic-logs" aria-selected="false" data-i18n="content.text.麦克风日志">麦克风日志</button>
+            <button type="button" role="tab" id="guideTabBtn-announcements" class="settings-tab" data-guide-tab="announcements" aria-controls="guideTab-announcements" aria-selected="false">公告</button>
+            <button type="button" role="tab" id="guideTabBtn-feedback" class="settings-tab" data-guide-tab="feedback" aria-controls="guideTab-feedback" aria-selected="false">问题反馈与群聊</button>
+            <button type="button" role="tab" id="guideTabBtn-live-output" class="settings-tab" data-guide-tab="live-output" aria-controls="guideTab-live-output" aria-selected="false" data-i18n="content.text.直播输出">直播输出</button>
         </div>
       </div>
-      <div id="guideTab-tutorial" class="settings-tab-panel active space-y-6" data-guide-panel="tutorial" role="tabpanel"></div>
-      <div id="guideTab-logs" class="settings-tab-panel space-y-6" data-guide-panel="logs" role="tabpanel" hidden></div>
-      <div id="guideTab-mic-logs" class="settings-tab-panel space-y-6" data-guide-panel="mic-logs" role="tabpanel" hidden></div>
-      <div id="guideTab-announcements" class="settings-tab-panel space-y-6" data-guide-panel="announcements" role="tabpanel" hidden></div>
-      <div id="guideTab-feedback" class="settings-tab-panel space-y-6" data-guide-panel="feedback" role="tabpanel" hidden></div>
-      <div id="guideTab-live-output" class="settings-tab-panel space-y-6" data-guide-panel="live-output" role="tabpanel" hidden></div>
+      <div id="guideTab-tutorial" class="settings-tab-panel active space-y-6" data-guide-panel="tutorial" role="tabpanel" aria-labelledby="guideTabBtn-tutorial"></div>
+      <div id="guideTab-logs" class="settings-tab-panel space-y-6" data-guide-panel="logs" role="tabpanel" aria-labelledby="guideTabBtn-logs" hidden></div>
+      <div id="guideTab-mic-logs" class="settings-tab-panel space-y-6" data-guide-panel="mic-logs" role="tabpanel" aria-labelledby="guideTabBtn-mic-logs" hidden></div>
+      <div id="guideTab-announcements" class="settings-tab-panel space-y-6" data-guide-panel="announcements" role="tabpanel" aria-labelledby="guideTabBtn-announcements" hidden></div>
+      <div id="guideTab-feedback" class="settings-tab-panel space-y-6" data-guide-panel="feedback" role="tabpanel" aria-labelledby="guideTabBtn-feedback" hidden></div>
+      <div id="guideTab-live-output" class="settings-tab-panel space-y-6" data-guide-panel="live-output" role="tabpanel" aria-labelledby="guideTabBtn-live-output" hidden></div>
     </section>
 
     <!-- ========== 区域：教程（DOM 源，header 与 card 内容由 guide-tabs.js 搬入 #page-guide） ========== -->
@@ -687,7 +687,7 @@
           <button type="button" id="btnKnowledgeRefresh" class="px-4 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--md" data-i18n="dynamic.appKnowledgePage.refresh" data-i18n-aria-label="dynamic.appKnowledgePage.refresh" aria-label="刷新">刷新</button>
         </div>
         <div id="knowledgePackageList" class="space-y-4"></div>
-        <div id="knowledgePackageEmpty" class="knowledge-empty-state card ui-card p-8 text-center hidden">
+        <div id="knowledgePackageEmpty" class="knowledge-empty-state card ui-card p-8 text-center hidden" role="status" aria-live="polite">
           <h3 class="text-lg font-bold text-warmText mb-2" data-i18n="dynamic.appKnowledgePage.emptyTitle">还没有知识包</h3>
           <p class="text-sm text-gray-500 mb-4" data-i18n="dynamic.appKnowledgePage.emptyDesc">创建一个知识包，再导入游戏资料、角色设定、梗或直播背景。</p>
           <button type="button" id="btnKnowledgeCreateFirstPackage" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm ui-button ui-button--primary ui-button--md" data-i18n="dynamic.appKnowledgePage.createFirst">创建第一个知识包</button>
@@ -802,7 +802,7 @@
           <p class="settings-section-title" data-i18n="dynamic.appKnowledgePage.jobProgress">处理进度</p>
           <p class="settings-section-hint" data-i18n="dynamic.appKnowledgePage.jobProgressHint">导入后，系统会依次读取、切分并整理资料。处理完成后，生成的内容会出现在「知识条目」中。</p>
           <div id="knowledgeJobList" class="space-y-2"></div>
-          <p id="knowledgeJobEmpty" class="text-gray-500 text-sm hidden" data-i18n="dynamic.appKnowledgePage.noJobs">暂无任务</p>
+          <p id="knowledgeJobEmpty" class="text-gray-500 text-sm hidden" role="status" aria-live="polite" data-i18n="dynamic.appKnowledgePage.noJobs">暂无任务</p>
         </div>
 
         <div class="card p-8 space-y-4 ui-card">
@@ -834,7 +834,7 @@
             <button type="button" id="btnKnowledgeSearchItems" class="px-4 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--md" data-i18n="dynamic.appKnowledgePage.search">搜索</button>
           </div>
           <div id="knowledgeItemList" class="space-y-2"></div>
-          <p id="knowledgeItemEmpty" class="text-gray-500 text-sm hidden" data-i18n="dynamic.appKnowledgePage.noItems">暂无条目</p>
+          <p id="knowledgeItemEmpty" class="text-gray-500 text-sm hidden" role="status" aria-live="polite" data-i18n="dynamic.appKnowledgePage.noItems">暂无条目</p>
           <div class="flex flex-wrap items-center gap-3 mt-3 text-sm text-warmText">
             <button type="button" id="btnKnowledgeItemPrev" class="px-3 py-1.5 bg-white border border-gray-200 rounded-lg font-semibold hover:bg-gray-50 ui-button ui-button--secondary ui-button--sm" data-i18n="dynamic.appKnowledgePage.prev">上一页</button>
             <span id="knowledgeItemPageInfo" class="text-gray-500"></span>

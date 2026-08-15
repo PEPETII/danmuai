@@ -36,6 +36,7 @@ function syncMemeTagButtonStates(grid) {
     const value = btn.dataset.tagValue;
     const active = selectedTags.has(value);
     btn.classList.toggle('active', active);
+    btn.setAttribute('aria-pressed', String(active));
     const blocked = tagged && atMax && !active;
     btn.disabled = !tagged || blocked;
     btn.classList.toggle('at-limit', blocked);
@@ -69,6 +70,7 @@ function renderMemeTagGrid(tags) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'meme-tag-btn';
+    btn.setAttribute('aria-pressed', String(selectedTags.has(tag.value)));
     btn.dataset.tagValue = tag.value;
     btn.textContent = tag.label || tag.value;
     if (selectedTags.has(tag.value)) {

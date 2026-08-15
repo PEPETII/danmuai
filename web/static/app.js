@@ -169,7 +169,9 @@ function showToast(message, isError = false) {
     _toastExitTimer = null;
   }
   el.textContent = message;
-  el.className = `toast show ${isError ? 'text-red-700' : 'text-warmText'}`;
+  el.setAttribute('role', isError ? 'alert' : 'status');
+  el.setAttribute('aria-live', isError ? 'assertive' : 'polite');
+  el.className = `toast show ${isError ? 'toast--error' : 'toast--success'}`;
   _toastExitTimer = setTimeout(() => {
     el.classList.add('toast-exit');
     el.classList.remove('show');
@@ -267,6 +269,8 @@ async function withLoadingState(btn, originalText, asyncFn, successText = null, 
   const loadingText = originalText ? t('dynamic.app.originalText_中', { originalText }) : t('common.processing');
   const savedOriginal = originalText || btn.textContent;
   btn.disabled = true;
+  btn.classList.add('is-loading');
+  btn.setAttribute('aria-busy', 'true');
   btn.textContent = loadingText;
   btn.style.opacity = '0.7';
   let succeeded = false;
@@ -287,6 +291,8 @@ async function withLoadingState(btn, originalText, asyncFn, successText = null, 
       btn.style.opacity = '';
     }
     btn.disabled = false;
+    btn.classList.remove('is-loading');
+    btn.removeAttribute('aria-busy');
   }
 }
 window.withLoadingState = withLoadingState;

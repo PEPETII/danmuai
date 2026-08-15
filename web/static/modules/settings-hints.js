@@ -111,6 +111,10 @@ const PERSONA_FIELD_TIPS = {
 };
 
 const PET_FIELD_TIPS = {
+  petScale: 'hints.petScale',
+  petOpacity: 'hints.petOpacity',
+  petAlwaysOnTop: 'hints.petAlwaysOnTop',
+  petClickThrough: 'hints.petClickThrough',
 };
 
 const SETTINGS_HEADING_TIPS = {
@@ -132,7 +136,7 @@ function createFieldHintWrap(tipText, tipId) {
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'field-hint-btn';
-  btn.setAttribute('aria-label', 'common.fieldHintAria');
+  btn.setAttribute('aria-label', t('common.fieldHintAria'));
   if (tipId) btn.setAttribute('aria-describedby', tipId);
   btn.innerHTML = '<svg class="ui-icon" aria-hidden="true"><use href="#i-info"></use></svg>';
   wireFloatingTooltipButton(btn, () => {

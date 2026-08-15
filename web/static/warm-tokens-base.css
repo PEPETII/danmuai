@@ -24,6 +24,8 @@
 
 :root {
   color-scheme: light;
+  --font-sans: "Nunito", "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
   --color-primary: #ffa5a5;
   --color-primary-hover: #ff8585;
   --color-primary-light: #ffc8c8;
@@ -94,6 +96,11 @@
   --shadow-warm: 0 4px 20px rgba(var(--color-primary-rgb), 0.1);
   --shadow-warm-hover: 0 10px 25px rgba(var(--color-primary-rgb), 0.2);
   --shadow-btn: 0 4px 15px rgba(var(--color-primary-rgb), 0.4);
+  --z-sticky: 20;
+  --z-dropdown: 100;
+  --z-toast: 3000;
+  --z-modal-backdrop: 2000;
+  --z-modal: 2010;
 
   /* Semantic surface / text / border aliases (phase 5 step 1; old names remain) */
   --surface-page: var(--color-bg);
@@ -162,6 +169,11 @@
 body {
   background-color: var(--color-bg);
   color: var(--color-text);
+}
+
+/* Tailwind 的 .font-sans 只提供系统回退；控制台统一使用品牌字体。 */
+body.ui-shell {
+  font-family: var(--font-sans);
 }
 
 .ui-icon {

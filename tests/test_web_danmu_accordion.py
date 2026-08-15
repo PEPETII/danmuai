@@ -7,8 +7,12 @@ STATIC_ROOT = Path(__file__).resolve().parents[1] / "web" / "static"
 SETTINGS_HTML = STATIC_ROOT / "partials" / "settings.html"
 
 
+def _settings_html() -> str:
+    return SETTINGS_HTML.read_text(encoding="utf-8")
+
+
 def _danmu_tab_html() -> str:
-    html = SETTINGS_HTML.read_text(encoding="utf-8")
+    html = _settings_html()
     start = html.index('id="settingsTab-danmu"')
     end = html.index('id="settingsTab-capture"', start)
     return html[start:end]
@@ -16,15 +20,15 @@ def _danmu_tab_html() -> str:
 
 def test_danmu_accordion_wraps_only_target_sections():
     section = _danmu_tab_html()
+    settings_html = _settings_html()
 
-    assert section.count('data-settings-rhythm-accordion') == 1
+    assert section.count("data-settings-rhythm-accordion") == 1
     assert 'id="settingsDanmuBatchAccordionTrigger"' in section
     assert 'id="settingsDanmuAppearanceAccordionTrigger"' in section
     assert 'id="settingsDanmuScrollingAccordionTrigger"' in section
     assert 'id="normalModeOptions"' in section
     assert 'id="scrollingModeFields"' in section
-    assert 'id="danmu_render_mode"' in section
-    assert section.index('id="danmu_render_mode"') < section.index('data-settings-rhythm-accordion')
+    assert 'id="danmu_render_mode"' in settings_html
 
 
 def test_danmu_accordion_no_longer_has_opacity_or_eviction():
@@ -53,7 +57,7 @@ def test_danmu_accordion_preserves_field_ids_and_aria():
 
     # 默认全部折叠：用户未点击前不自动展开首项
     assert 'aria-expanded="true"' not in section
-    assert 'settings-rhythm-accordion-item is-open' not in section
+    assert "settings-rhythm-accordion-item is-open" not in section
     assert re.search(r'id="settingsDanmuBatchAccordionPanel"[^>]*\bhidden\b', section)
     assert re.search(r'id="settingsDanmuAppearanceAccordionPanel"[^>]*\bhidden\b', section)
     assert re.search(r'id="settingsDanmuScrollingAccordionPanel"[^>]*\bhidden\b', section)

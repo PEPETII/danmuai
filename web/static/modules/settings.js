@@ -1,5 +1,5 @@
 /**
- * 模块：settings — 弹幕设置页（6 个 tab）+ 视觉模型选择 + 识图框选。
+ * 模块：settings — 弹幕设置页（5 个 tab）+ 视觉模型选择 + 识图框选。
  *
  * 关键数据：
  *   - CONFIG_FIELDS：白名单字段表，决定 GET /api/config 与 PUT /api/config
@@ -679,12 +679,28 @@ export function bindSettingsControls(deps = {}) {
 
   document.getElementById('toggleKey')?.addEventListener('click', () => {
     const inp = document.getElementById('api_key');
-    inp.type = inp.type === 'password' ? 'text' : 'password';
+    if (!inp) return;
+    const visible = inp.type === 'password';
+    inp.type = visible ? 'text' : 'password';
+    const button = document.getElementById('toggleKey');
+    button?.setAttribute('aria-pressed', String(visible));
+    button?.setAttribute(
+      'aria-label',
+      t(`dynamic.settingsCustomModels.${visible ? '隐藏' : '显示'}_API_Key`),
+    );
   });
 
   document.getElementById('toggleMicKey')?.addEventListener('click', () => {
     const inp = document.getElementById('mic_api_key');
-    if (inp) inp.type = inp.type === 'password' ? 'text' : 'password';
+    if (!inp) return;
+    const visible = inp.type === 'password';
+    inp.type = visible ? 'text' : 'password';
+    const button = document.getElementById('toggleMicKey');
+    button?.setAttribute('aria-pressed', String(visible));
+    button?.setAttribute(
+      'aria-label',
+      t(`dynamic.settingsCustomModels.${visible ? '隐藏' : '显示'}_API_Key`),
+    );
   });
 
   document.getElementById('btnModelCancel')?.addEventListener('click', closeModelModal);

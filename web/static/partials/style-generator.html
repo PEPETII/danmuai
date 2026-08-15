@@ -1,7 +1,8 @@
     <section id="page-style-generator" class="page-panel">
-      <header class="mb-6">
-        <h2 class="text-2xl font-bold text-warmText" data-i18n="content.text.弹幕样式">弹幕样式</h2>
-        <p class="text-gray-500 mt-1">
+      <header class="ui-page-header mb-6">
+        <div class="ui-page-header__copy min-w-0">
+          <h2 class="ui-page-title text-2xl font-bold text-warmText" data-i18n="content.text.弹幕样式">弹幕样式</h2>
+          <p class="ui-page-description text-gray-500 mt-1">
           <span data-i18n="content.text.编辑从下到上浮动面板样式_实时预览堆积效果_保存后经现有配置接口持久化">
             编辑从下到上浮动面板样式，实时预览堆积效果；保存后经现有配置接口持久化。
           </span>
@@ -11,13 +12,14 @@
             rel="noopener noreferrer"
             class="meme-source-credit-link"
           >blivechat</a><span data-i18n="content.text.非常感谢作者无私奉献">，非常感谢作者无私奉献</span>。
-        </p>
+          </p>
+        </div>
       </header>
       <div class="sg-tabs" role="tablist" aria-label="弹幕样式模式">
-        <button type="button" class="sg-tab is-active" role="tab" aria-selected="true" data-sg-tab="bottom-up" data-i18n="content.text.从下到上模式">从下到上模式</button>
-        <button type="button" class="sg-tab" role="tab" aria-selected="false" data-sg-tab="horizontal" data-i18n="content.text.横向模式">横向模式</button>
+        <button type="button" id="sgTabBtn-bottom-up" class="sg-tab is-active" role="tab" aria-controls="sgTabPanel-bottom-up" aria-selected="true" data-sg-tab="bottom-up" data-i18n="content.text.从下到上模式">从下到上模式</button>
+        <button type="button" id="sgTabBtn-horizontal" class="sg-tab" role="tab" aria-controls="sgTabPanel-horizontal" aria-selected="false" data-sg-tab="horizontal" data-i18n="content.text.横向模式">横向模式</button>
       </div>
-      <div class="sg-tab-panel is-active" role="tabpanel" data-sg-tab-panel="bottom-up">
+      <div id="sgTabPanel-bottom-up" class="sg-tab-panel is-active" role="tabpanel" aria-labelledby="sgTabBtn-bottom-up" data-sg-tab-panel="bottom-up">
       <div class="style-generator-layout">
         <form id="styleGeneratorForm" class="style-generator-controls card p-6" autocomplete="off">
           <div class="px-1 pb-3 space-y-2">
@@ -567,7 +569,7 @@
         </div>
       </div>
       </div>
-      <div class="sg-tab-panel" role="tabpanel" data-sg-tab-panel="horizontal" hidden>
+      <div id="sgTabPanel-horizontal" class="sg-tab-panel" role="tabpanel" aria-labelledby="sgTabBtn-horizontal" data-sg-tab-panel="horizontal" hidden>
         <div class="style-generator-layout">
           <form id="horizontalFontForm" class="style-generator-controls card p-6" autocomplete="off">
             <div class="settings-rhythm-accordion sg-accordion" data-settings-rhythm-accordion>

@@ -1,12 +1,12 @@
     <!-- W-SETTINGS-RESTRUCT-A-006：旧顶栏 API 字段软隐藏（DOM 保留；规则已迁 warm-tokens-compat.css，删该规则即可回滚） -->
     <!-- ========== 区域：弹幕设置 ========== -->
     <!-- section: 弹幕设置（PUT /api/config → ConfigService，主线程落库） -->
-    <!-- 6 个设置 tab（顺序固定，由 modules/settings.js initSettingsTabs 渲染） -->
+    <!-- 5 个设置 tab（顺序固定，由 modules/settings.js initSettingsTabs 渲染） -->
     <section id="page-settings" class="page-panel">
-      <header class="flex flex-wrap justify-between items-start gap-4 mb-8">
-        <div>
-          <h2 class="text-2xl font-bold text-warmText" data-i18n="settings.text.弹幕设置">弹幕设置</h2>
-          <p class="text-gray-500 mt-1" data-i18n="settings.text.设置_AI_接口_识图屏幕和弹幕效果_保存后立即生效">设置 AI 接口、识图屏幕和弹幕效果，保存后立即生效</p>
+      <header class="ui-page-header flex flex-wrap justify-between items-start gap-4 mb-8">
+        <div class="ui-page-header__copy min-w-0">
+          <h2 class="ui-page-title text-2xl font-bold text-warmText" data-i18n="settings.text.弹幕设置">弹幕设置</h2>
+          <p class="ui-page-description text-gray-500 mt-1" data-i18n="settings.text.设置_AI_接口_识图屏幕和弹幕效果_保存后立即生效">设置 AI 接口、识图屏幕和弹幕效果，保存后立即生效</p>
         </div>
         <div class="theme-toggle-wrap shrink-0">
           <label class="lang-select-wrap" data-i18n-aria-label="settings.aria.界面语言" aria-label="界面语言">
@@ -29,21 +29,21 @@
         <div class="settings-tabs-bar">
           <div class="settings-tabs" role="tablist" data-i18n-aria-label="settings.aria.弹幕设置分类" aria-label="弹幕设置分类">
             <!-- tab: API 与模型 — 服务商/Key/视觉模型/温度/Token/记忆模式/模型配置档案 -->
-            <button type="button" role="tab" class="settings-tab active" data-settings-tab="api" aria-selected="true" data-i18n="settings.text.API_与模型">API 与模型</button>
+            <button type="button" id="settingsTabBtn-api" role="tab" class="settings-tab active" data-settings-tab="api" aria-controls="settingsTab-api" aria-selected="true" data-i18n="settings.text.API_与模型">API 与模型</button>
             <!-- tab: 麦克风模式 — 开麦/与视觉同模型/独立 mic 服务商 -->
-            <button type="button" role="tab" class="settings-tab" data-settings-tab="mic" aria-selected="false" data-i18n="settings.text.麦克风模式">麦克风模式</button>
+            <button type="button" id="settingsTabBtn-mic" role="tab" class="settings-tab" data-settings-tab="mic" aria-controls="settingsTab-mic" aria-selected="false" data-i18n="settings.text.麦克风模式">麦克风模式</button>
             <!-- tab: AI读弹幕 — MiMo TTS 启用/声音/语速/抽屏间隔 -->
-            <button type="button" role="tab" class="settings-tab" data-settings-tab="danmu-read" aria-selected="false" data-i18n="settings.text.AI读弹幕">AI读弹幕</button>
-            <button type="button" role="tab" class="settings-tab" data-settings-tab="danmu" aria-selected="false" data-i18n="settings.text.弹幕显示">弹幕显示</button>
+            <button type="button" id="settingsTabBtn-danmu-read" role="tab" class="settings-tab" data-settings-tab="danmu-read" aria-controls="settingsTab-danmu-read" aria-selected="false" data-i18n="settings.text.AI读弹幕">AI读弹幕</button>
+            <button type="button" id="settingsTabBtn-danmu" role="tab" class="settings-tab" data-settings-tab="danmu" aria-controls="settingsTab-danmu" aria-selected="false" data-i18n="settings.text.弹幕显示">弹幕显示</button>
             <!-- tab: AI识图相关 — 鼠标框选子区域 + 压缩质量/最大宽度（POST /api/capture-region） -->
-            <button type="button" role="tab" class="settings-tab" data-settings-tab="capture" aria-selected="false" data-i18n="settings.text.AI识图相关">AI识图相关</button>
+            <button type="button" id="settingsTabBtn-capture" role="tab" class="settings-tab" data-settings-tab="capture" aria-controls="settingsTab-capture" aria-selected="false" data-i18n="settings.text.AI识图相关">AI识图相关</button>
           </div>
 
         </div>
 
         <div class="settings-form-body">
         <!-- API 与模型 -->
-        <div id="settingsTab-api" class="settings-tab-panel active space-y-6" data-settings-panel="api" role="tabpanel">
+        <div id="settingsTab-api" class="settings-tab-panel active space-y-6" data-settings-panel="api" role="tabpanel" aria-labelledby="settingsTabBtn-api">
           <!-- AI 模型 -->
           <div id="customModelsSection" class="space-y-3">
             <div class="flex flex-wrap items-center justify-between gap-3">
@@ -100,7 +100,7 @@
               <label class="block text-sm font-semibold mb-2 text-warmText"><svg class="ui-icon field-label-icon" aria-hidden="true"><use href="#i-key"></use></svg>API 密钥 <span class="text-xs text-gray-400 font-normal">（保存在本机并加密）</span></label>
               <div class="relative">
                 <input type="password" name="api_key" id="api_key" autocomplete="current-password" placeholder="sk-..." class="settings-field-control w-full pr-12 ui-control ui-input">
-                <button type="button" id="toggleKey" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-warmPinkHover">
+                <button type="button" id="toggleKey" class="field-icon-button absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-warmPinkHover" aria-label="显示 API Key" aria-pressed="false" data-i18n-aria-label="dynamic.settingsCustomModels.显示_API_Key">
                   <svg class="ui-icon" aria-hidden="true"><use href="#i-eye"></use></svg>
                 </button>
               </div>
@@ -124,7 +124,7 @@
         </div>
 
         <!-- 麦克风模式 -->
-        <div id="settingsTab-mic" class="settings-tab-panel space-y-6" data-settings-panel="mic" role="tabpanel" hidden>
+        <div id="settingsTab-mic" class="settings-tab-panel space-y-6" data-settings-panel="mic" role="tabpanel" aria-labelledby="settingsTabBtn-mic" hidden>
           <h3 class="text-lg font-bold text-warmText flex items-center gap-2">
             <svg class="ui-icon text-warmPink" aria-hidden="true"><use href="#i-message"></use></svg> 麦克风模式
           </h3>
@@ -194,7 +194,7 @@
                     <div class="settings-rhythm-accordion-control-stack">
                       <div class="relative">
                         <input type="password" name="mic_api_key" id="mic_api_key" autocomplete="off" placeholder="sk-..." class="settings-field-control pr-12 ui-control ui-input">
-                        <button type="button" id="toggleMicKey" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-warmPinkHover">
+                        <button type="button" id="toggleMicKey" class="field-icon-button absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-warmPinkHover" aria-label="显示 API Key" aria-pressed="false" data-i18n-aria-label="dynamic.settingsCustomModels.显示_API_Key">
                           <svg class="ui-icon" aria-hidden="true"><use href="#i-eye"></use></svg>
                         </button>
                       </div>
@@ -260,7 +260,7 @@
         </div>
 
         <!-- AI读弹幕：provider/model/auth_schema/capabilities 由 catalog 驱动 -->
-        <div id="settingsTab-danmu-read" class="settings-tab-panel space-y-6 danmu-read-page" data-settings-panel="danmu-read" role="tabpanel" hidden data-i18n-aria-label="settings.aria.AI读弹幕_2" aria-label="AI读弹幕">
+        <div id="settingsTab-danmu-read" class="settings-tab-panel space-y-6 danmu-read-page" data-settings-panel="danmu-read" role="tabpanel" aria-labelledby="settingsTabBtn-danmu-read" hidden data-i18n-aria-label="settings.aria.AI读弹幕_2" aria-label="AI读弹幕">
           <div class="ui-page-header">
             <h3 class="text-lg font-bold text-warmText flex items-center gap-2">
               <svg class="ui-icon text-warmPink" aria-hidden="true"><use href="#i-message"></use></svg>
@@ -369,7 +369,7 @@
           </div>
         </div>
         <!-- 弹幕显示 -->
-        <div id="settingsTab-danmu" class="settings-tab-panel space-y-6" data-settings-panel="danmu" role="tabpanel" hidden>
+        <div id="settingsTab-danmu" class="settings-tab-panel space-y-6" data-settings-panel="danmu" role="tabpanel" aria-labelledby="settingsTabBtn-danmu" hidden>
           <h3 class="text-lg font-bold text-warmText flex items-center gap-2">
             <svg class="ui-icon text-warmPink" aria-hidden="true"><use href="#i-message"></use></svg> 弹幕与显示
           </h3>
@@ -464,7 +464,7 @@
           </div>
         </div>
         <!-- AI识图相关：识图区域 + 识图清晰度（原 capture / rhythm 合并） -->
-        <div id="settingsTab-capture" class="settings-tab-panel space-y-6" data-settings-panel="capture" role="tabpanel" hidden>
+        <div id="settingsTab-capture" class="settings-tab-panel space-y-6" data-settings-panel="capture" role="tabpanel" aria-labelledby="settingsTabBtn-capture" hidden>
           <h3 class="text-lg font-bold text-warmText flex items-center gap-2">
             <svg class="ui-icon text-warmPink" aria-hidden="true"><use href="#i-crop"></use></svg>
             <span data-i18n="settings.text.AI识图相关">AI识图相关</span>

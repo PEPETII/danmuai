@@ -222,6 +222,8 @@
   position: fixed;
   z-index: 10050;
   display: none;
+  box-sizing: border-box;
+  min-width: 0;
   max-width: min(320px, calc(100vw - 20px));
   padding: 10px 12px;
   border-radius: var(--radius-sm, 8px);
@@ -232,13 +234,14 @@
   line-height: 1.5;
   text-align: left;
   white-space: normal;
+  overflow-wrap: anywhere;
   box-shadow: 0 8px 24px rgba(93, 87, 87, 0.35);
   pointer-events: none;
 }
 
 .ui-tooltip-float--wide {
   max-width: 320px;
-  min-width: 240px;
+  min-width: min(240px, calc(100vw - 20px));
   padding: 12px 14px;
   line-height: 1.55;
 }
@@ -351,10 +354,12 @@ textarea:focus {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
+  min-width: 0;
   cursor: pointer;
 }
 
 .toggle-switch > span {
+  min-width: 0;
   font-size: 0.875rem;
   font-weight: 600;
   color: var(--color-text);
@@ -410,6 +415,30 @@ textarea:focus {
 .toggle-switch > input[type="checkbox"]:disabled {
   cursor: not-allowed;
   opacity: 0.6;
+}
+
+.field-icon-button {
+  display: inline-grid;
+  place-items: center;
+  width: var(--control-height-sm);
+  height: var(--control-height-sm);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  cursor: pointer;
+  transition: background-color var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard);
+}
+
+.field-icon-button:hover {
+  background: var(--surface-subtle);
+  color: var(--color-primary-hover);
+}
+
+.field-icon-button:focus-visible {
+  outline: 2px solid var(--color-primary-hover);
+  outline-offset: 2px;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -656,6 +685,7 @@ textarea:focus {
   font-size: 0.875rem;
   line-height: 1.5;
   min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .ui-status-banner--danger {
@@ -882,4 +912,98 @@ input[type="number"].settings-field-control.ui-input {
   outline: none;
   border-color: var(--color-primary);
   box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.2);
+}
+
+/*
+ * Utility-class compatibility guard.
+ * 页面仍保留 Tailwind 类以维持结构和旧版兼容，但显式的 ui-button/ui-control
+ * 负责同类控件的尺寸、字体和圆角，避免局部 px/py/text/rounded 类造成漂移。
+ */
+button.ui-button,
+a.ui-button {
+  box-sizing: border-box;
+  min-width: var(--control-height-md);
+  height: var(--control-height-md);
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+button.ui-button.ui-button--sm,
+a.ui-button.ui-button--sm {
+  min-width: var(--control-height-sm);
+  height: var(--control-height-sm);
+  padding: 0 var(--space-3);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+button.ui-button.ui-button--lg,
+a.ui-button.ui-button--lg {
+  min-width: var(--control-height-lg);
+  height: var(--control-height-lg);
+  padding: 0 var(--space-6);
+}
+
+button.ui-button.ui-button--link,
+a.ui-button.ui-button--link {
+  min-width: 0;
+  height: auto;
+  padding: 0;
+  border-radius: 0;
+  font-weight: 600;
+}
+
+button.ui-button.ui-button--primary,
+a.ui-button.ui-button--primary {
+  color: var(--text-on-brand);
+  background: var(--color-primary);
+  border-color: transparent;
+}
+
+button.ui-button.ui-button--secondary,
+a.ui-button.ui-button--secondary {
+  color: var(--text-primary);
+  background: var(--surface-card);
+  border-color: var(--border-default);
+}
+
+button.ui-button.ui-button--danger,
+a.ui-button.ui-button--danger {
+  color: var(--text-on-brand);
+  background: var(--color-danger);
+  border-color: transparent;
+}
+
+button.ui-button.ui-button--ghost,
+a.ui-button.ui-button--ghost {
+  color: var(--text-primary);
+  background: transparent;
+  border-color: transparent;
+}
+
+input.ui-control,
+select.ui-control,
+textarea.ui-control,
+input.ui-input,
+select.ui-select,
+textarea.ui-textarea {
+  box-sizing: border-box;
+  min-height: var(--control-height-md);
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+textarea.ui-control,
+textarea.ui-textarea {
+  min-height: 4.5rem;
+  padding: var(--space-3) var(--space-4);
+  font-weight: 400;
 }

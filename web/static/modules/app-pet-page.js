@@ -106,8 +106,8 @@ function renderBarrageSlots(data) {
       </div>
       <p class="slot-error text-sm font-semibold text-red-600 ${asset.error ? '' : 'hidden'}">${asset.error || ''}</p>
       <div class="flex flex-wrap gap-3">
-        <button type="button" class="btn-primary px-4 py-2 text-white rounded-xl text-sm font-bold shadow-warm" data-slot-action="import" data-slot-id="${slotId}">切换桌宠</button>
-        <button type="button" class="px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50" data-slot-action="reset" data-slot-id="${slotId}">恢复默认</button>
+        <button type="button" class="btn-primary ui-button ui-button--primary ui-button--md" data-slot-action="import" data-slot-id="${slotId}">切换桌宠</button>
+        <button type="button" class="ui-button ui-button--secondary ui-button--md" data-slot-action="reset" data-slot-id="${slotId}">恢复默认</button>
       </div>
     `;
     container.appendChild(card);

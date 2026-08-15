@@ -231,6 +231,7 @@
 }
 .model-modal-footer {
   justify-content: flex-end;
+  flex-wrap: wrap;
   border-top: 1px solid var(--border-soft);
 }
 .model-modal-body {
@@ -337,6 +338,19 @@
 
 .model-ids-hint + .model-ids-hint {
   margin-top: 0;
+}
+
+@media (max-width: 520px) {
+  .model-modal-header,
+  .model-modal-footer,
+  .model-modal-body {
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
+  }
+
+  .model-modal-footer > .ui-button {
+    flex: 1 1 100%;
+  }
 }
 .model-api-key-control {
   min-width: 0;
@@ -626,4 +640,66 @@ html[data-theme="dark"] .problem-detail-severity--fatal {
 #knowledgeCreatePackageModal .flex.flex-wrap,
 #knowledgeConfirmModal .flex.flex-wrap {
   min-width: 0;
+}
+
+/* Cross-page tab contract: settings, data pages and style generator share one
+   control rhythm; each page may keep its own active indicator. */
+.settings-tab,
+.danmu-pool-tab,
+.sg-tab {
+  box-sizing: border-box;
+  min-height: var(--control-height-sm);
+  padding: 0.5rem var(--space-4);
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.settings-tab[aria-selected="true"],
+.danmu-pool-tab[aria-selected="true"],
+.sg-tab[aria-selected="true"] {
+  color: var(--color-primary-hover);
+}
+
+.sg-tab:focus-visible {
+  outline: none;
+  border-radius: var(--radius-md);
+  box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.28);
+}
+
+@media (max-width: 600px) {
+  .settings-rhythm-accordion-field:not(.settings-rhythm-accordion-field--toggle) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: start;
+  }
+
+  .settings-rhythm-accordion-field:not(.settings-rhythm-accordion-field--toggle)
+    > .settings-field-label {
+    flex: 1 1 100%;
+  }
+
+  .settings-rhythm-accordion-field:not(.settings-rhythm-accordion-field--toggle)
+    > .settings-field-control,
+  .settings-rhythm-accordion-field:not(.settings-rhythm-accordion-field--toggle)
+    > .settings-rhythm-accordion-control-group,
+  .settings-rhythm-accordion-field:not(.settings-rhythm-accordion-field--toggle)
+    > .settings-rhythm-accordion-control-stack {
+    flex: 1 1 100%;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .settings-rhythm-accordion-field:not(.settings-rhythm-accordion-field--toggle)
+    > .settings-rhythm-stepper {
+    flex: 1 1 100%;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .toggle-switch > span {
+    overflow-wrap: anywhere;
+  }
 }
