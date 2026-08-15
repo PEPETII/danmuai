@@ -79,10 +79,34 @@ body {
 #panel.is-interactive {
   pointer-events: auto;
   cursor: move;
+  outline: 2px solid rgba(245, 158, 11, 0.88);
+  outline-offset: -2px;
 }
 
 #panel.is-interactive .card {
   cursor: move;
+}
+
+#panelAdjustHint {
+  display: none;
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  z-index: 1000;
+  transform: translateX(-50%);
+  padding: 5px 10px;
+  border-radius: 6px;
+  color: #fff7ed;
+  background: rgba(15, 23, 42, 0.84);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+#panel.is-interactive #panelAdjustHint {
+  display: block;
 }
 
 /* The flex item owns the stack movement; the child card owns entry opacity/

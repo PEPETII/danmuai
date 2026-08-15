@@ -118,6 +118,9 @@ CONFIG_DEFAULTS: dict[str, str] = {
     "floating_panel_danmu_per_second": "1",
     "floating_panel_x_offset": "20",
     "floating_panel_y_offset": "80",
+    # 用户拖动后的绝对逻辑坐标；空值表示继续使用 offset 初始布局。
+    "floating_panel_x": "",
+    "floating_panel_y": "",
     "floating_panel_opacity": "85",
     "floating_panel_font_size": "20",
     # W-FP-WEB-DRAG-001：默认穿透；关闭后允许鼠标拖动 Web 浮动面板

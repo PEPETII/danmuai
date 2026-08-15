@@ -55,6 +55,17 @@ def test_normalize_floating_panel_speed_invalid_uses_default(config_service):
     assert items["floating_panel_speed"] == DEFAULT_FLOATING_PANEL_SPEED
 
 
+def test_normalize_floating_panel_absolute_position_allows_negative_and_blank(config_service):
+    items = {"floating_panel_x": "-50000", "floating_panel_y": "125"}
+    config_service._normalize_items(items)
+    assert items["floating_panel_x"] == "-32000"
+    assert items["floating_panel_y"] == "125"
+
+    blank = {"floating_panel_x": "none", "floating_panel_y": ""}
+    config_service._normalize_items(blank)
+    assert blank == {"floating_panel_x": "", "floating_panel_y": ""}
+
+
 def test_apply_web_payload_ignores_visual_api_key(config_service):
     """W-GLOBAL-VISUAL-APIKEY-REMOVE-001: apply_web_payload 不再接受视觉 api_key。"""
     config_service._config.set_api_key("real-secret-key")

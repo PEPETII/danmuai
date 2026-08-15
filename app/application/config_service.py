@@ -54,6 +54,8 @@ WEB_CONFIG_KEYS = (
     "floating_panel_speed",
     "floating_panel_x_offset",
     "floating_panel_y_offset",
+    "floating_panel_x",
+    "floating_panel_y",
     "floating_panel_opacity",
     "floating_panel_font_size",
     "floating_panel_click_through",
@@ -410,6 +412,21 @@ class ConfigService:
                 items["floating_panel_speed"] = DEFAULT_FLOATING_PANEL_SPEED
         _clamp_int_key(items, "floating_panel_x_offset", 20, 0, 400)
         _clamp_int_key(items, "floating_panel_y_offset", 80, 0, 400)
+        # Absolute window origins may be negative on a monitor positioned left
+        # or above the primary display.  Blank values retain legacy offset mode.
+        for _key in ("floating_panel_x", "floating_panel_y"):
+            if _key not in items:
+                continue
+            _raw = str(items[_key] or "").strip().lower()
+            if not _raw or _raw in ("null", "none"):
+                items[_key] = ""
+                continue
+            try:
+                _pos = int(_raw)
+            except (TypeError, ValueError):
+                items[_key] = ""
+                continue
+            items[_key] = str(max(-32000, min(_pos, 32000)))
         _clamp_int_key(items, "floating_panel_opacity", 85, 0, 100)
         _clamp_int_key(items, "floating_panel_font_size", 20, 12, 48)
 

@@ -30,6 +30,13 @@ def test_style_generator_partial_is_independent_page_fragment():
     assert 'id="settingsTab-stylegen"' not in text
     assert 'data-settings-panel="stylegen"' not in text
     assert '横向模式即将推出' not in text
+    adjust_start = text.index('id="sg-floating_panel_click_through"')
+    accordion_start = text.index('class="settings-rhythm-accordion sg-accordion"')
+    assert adjust_start < accordion_start
+    assert text.count('id="sg-floating_panel_click_through"') == 1
+    assert "调整显示区域" in text
+    assert "开启【调整显示区域】调整到您喜欢的位置后关闭按钮即可" in text
+    assert "鼠标穿透" not in text
     settings = (_static() / "partials" / "settings.html").read_text(encoding="utf-8")
     assert "{{style_generator}}" not in settings
     assert 'data-settings-tab="font"' not in settings
@@ -60,6 +67,18 @@ def test_style_generator_form_names_match_contract_keys():
     assert 'value="stacked"' in text
     assert 'value="inline"' in text
     assert set(STYLE_PRESET_APPLY_KEYS)
+
+
+def test_style_generator_inverts_click_through_and_autosaves_adjustment_toggle():
+    mod = (_static() / "modules" / "app-style-generator-page.js").read_text(encoding="utf-8")
+    html = (_static() / "index.html").read_text(encoding="utf-8")
+    assert "ADJUST_DISPLAY_AREA_KEY" in mod
+    assert "name === ADJUST_DISPLAY_AREA_KEY ? !enabled : enabled" in mod
+    assert "checked ? '0' : '1'" in mod
+    assert "function saveAdjustDisplayArea()" in mod
+    assert "if (event.type === 'change') saveAdjustDisplayArea();" in mod
+    assert 'data-i18n="content.text.调整显示区域"' in html
+    assert 'data-i18n="content.text.调整显示区域提示"' in html
 
 
 def test_style_generator_color_fields_use_picker_plus_hex():

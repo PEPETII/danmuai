@@ -13,7 +13,7 @@ import sys
 import time
 from typing import TYPE_CHECKING
 
-from PyQt6.QtCore import QElapsedTimer, QPointF, QRectF, Qt, QTimer
+from PyQt6.QtCore import QElapsedTimer, QPoint, QPointF, QRectF, Qt, QTimer
 from PyQt6.QtGui import (
     QColor,
     QFont,
@@ -28,6 +28,7 @@ from PyQt6.QtGui import (
 from PyQt6.QtWidgets import QApplication, QWidget
 
 from app.floating_panel_engine import FloatingPanelEngine, FloatingPanelItem
+from app.floating_panel_geometry import compute_panel_geometry
 from app.floating_panel_style import (
     WECHAT_CARD_COLORS,
     WECHAT_TEXT_COLOR,
@@ -180,7 +181,7 @@ def fit_floating_panel_text(
 
 
 class FloatingPanelOverlay(QWidget):
-    """右侧窄窗悬浮弹幕；始终鼠标穿透；条目左对齐堆积。"""
+    """右侧窄窗悬浮弹幕；按配置在穿透与可拖动模式间切换。"""
 
     def __init__(self, config: "ConfigStore", engine: FloatingPanelEngine):
         super().__init__()
@@ -210,6 +211,9 @@ class FloatingPanelOverlay(QWidget):
         self._last_tick_valid = False
         self.last_tick_dt_sec: float = _FRAME_DT
         self._screen_unavailable: bool = False
+        self._click_through = True
+        self._drag_origin_global: QPoint | None = None
+        self._drag_origin_window: QPoint | None = None
 
         self.timer = QTimer(self)
         self.timer.setTimerType(Qt.TimerType.PreciseTimer)
@@ -419,6 +423,23 @@ class FloatingPanelOverlay(QWidget):
             except (TypeError, ValueError):
                 return default
 
+        previous_click_through = self._click_through
+        self._click_through = (
+            str(self.config.get("floating_panel_click_through", "1") or "1").strip()
+            == "1"
+        )
+        if previous_click_through is False and self._click_through is True:
+            self.persist_position()
+        self.setAttribute(
+            Qt.WidgetAttribute.WA_TransparentForMouseEvents,
+            self._click_through,
+        )
+        self.setCursor(
+            Qt.CursorShape.ArrowCursor
+            if self._click_through
+            else Qt.CursorShape.OpenHandCursor
+        )
+
         # 布局偏移仍由 ConfigStore 直接读取（非样式契约字段）
         self._x_offset = _int("floating_panel_x_offset", 20, 0, 400)
         self._y_offset = _int("floating_panel_y_offset", 80, 0, 400)
@@ -471,7 +492,49 @@ class FloatingPanelOverlay(QWidget):
                     ),
                 )
             return
-        apply_overlay_exstyles(hwnd, click_through=True)
+        apply_overlay_exstyles(hwnd, click_through=self._click_through)
+
+    def persist_position(self) -> None:
+        """Save the current existing fallback window origin after a drag."""
+        try:
+            x = max(-32000, min(32000, int(self.x())))
+            y = max(-32000, min(32000, int(self.y())))
+        except (RuntimeError, TypeError, ValueError):
+            return
+        items: dict[str, str] = {}
+        if str(self.config.get("floating_panel_x", "") or "") != str(x):
+            items["floating_panel_x"] = str(x)
+        if str(self.config.get("floating_panel_y", "") or "") != str(y):
+            items["floating_panel_y"] = str(y)
+        if items:
+            self.config.set_batch(items)
+
+    def mousePressEvent(self, event) -> None:
+        if self._click_through or event.button() != Qt.MouseButton.LeftButton:
+            event.ignore()
+            return
+        self._drag_origin_global = event.globalPosition().toPoint()
+        self._drag_origin_window = self.pos()
+        self.setCursor(Qt.CursorShape.ClosedHandCursor)
+        event.accept()
+
+    def mouseMoveEvent(self, event) -> None:
+        if self._click_through or self._drag_origin_global is None or self._drag_origin_window is None:
+            event.ignore()
+            return
+        delta = event.globalPosition().toPoint() - self._drag_origin_global
+        self.move(self._drag_origin_window + delta)
+        event.accept()
+
+    def mouseReleaseEvent(self, event) -> None:
+        if event.button() == Qt.MouseButton.LeftButton and self._drag_origin_global is not None:
+            self._drag_origin_global = None
+            self._drag_origin_window = None
+            self.persist_position()
+            self.setCursor(Qt.CursorShape.OpenHandCursor)
+            event.accept()
+            return
+        event.ignore()
 
     def reassert_topmost_zorder(self) -> None:
         """Win32：恢复 HWND_TOPMOST，不抢焦点。"""
@@ -926,29 +989,25 @@ class FloatingPanelOverlay(QWidget):
                 "show_for_screen: no screens available; floating panel stays hidden"
             )
             return
-        screen_index = max(0, min(int(screen_index), len(screens) - 1))
-        geo = screens[screen_index].geometry()
-        if geo.width() <= 0 or geo.height() <= 0:
+        if not any(
+            screen.geometry().width() > 0 and screen.geometry().height() > 0
+            for screen in screens
+        ):
+            self._screen_unavailable = True
             _fp_overlay_logger.warning(
-                "show_for_screen: screen %d has invalid geometry %dx%d; "
-                "falling back to primary screen",
-                screen_index, geo.width(), geo.height(),
+                "show_for_screen: all screens have invalid geometry; floating panel stays hidden"
             )
-            if screen_index != 0:
-                screen_index = 0
-                geo = screens[0].geometry()
-            if geo.width() <= 0 or geo.height() <= 0:
-                self._screen_unavailable = True
-                _fp_overlay_logger.warning(
-                    "show_for_screen: primary screen also invalid %dx%d; "
-                    "floating panel stays hidden",
-                    geo.width(), geo.height(),
-                )
-                return
+            return
         self._screen_unavailable = False
-        panel_h = max(160, geo.height() - self._y_offset * 2)
-        x = geo.x() + geo.width() - self._panel_width - self._x_offset
-        y = geo.y() + self._y_offset
+        _width, panel_h, x, y = compute_panel_geometry(
+            list(screens),
+            config=self.config,
+            width=self._panel_width,
+            x_offset=self._x_offset,
+            y_offset=self._y_offset,
+            preferred_screen_index=screen_index,
+            use_available_geometry=False,
+        )
         self.setGeometry(x, y, self._panel_width, panel_h)
         self.engine.set_panel_height(float(panel_h))
         self.show()
@@ -1017,29 +1076,51 @@ class FloatingPanelOverlay(QWidget):
         if self.engine.running:
             self.ensure_render_loop()
 
+    def _paint_adjustment_feedback(self, painter: QPainter) -> None:
+        if self._click_through:
+            return
+        painter.setPen(QPen(QColor(245, 158, 11, 235), 2))
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawRect(QRectF(1.0, 1.0, max(0.0, self.width() - 2.0), max(0.0, self.height() - 2.0)))
+        label = "拖动此区域调整位置"
+        font = QFont(self._font or QFont())
+        font.setPointSize(max(9, min(14, int(font.pointSize() or 12))))
+        font.setBold(True)
+        painter.setFont(font)
+        metrics = QFontMetrics(font)
+        label_w = metrics.horizontalAdvance(label) + 20
+        label_h = metrics.height() + 10
+        label_x = max(6.0, (self.width() - label_w) / 2.0)
+        label_rect = QRectF(label_x, 8.0, label_w, label_h)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor(15, 23, 42, 215))
+        painter.drawRoundedRect(label_rect, 6.0, 6.0)
+        painter.setPen(QColor(255, 247, 237, 245))
+        painter.drawText(label_rect, Qt.AlignmentFlag.AlignCenter, label)
+
     def paintEvent(self, event) -> None:
         items = self.engine.visible_items()
-        if not items:
-            return
         global_alpha = max(0.0, min(1.0, self._opacity_pct / 100.0))
-        if global_alpha <= 0.0:
+        if (not items or global_alpha <= 0.0) and self._click_through:
             return
         painter = QPainter(self)
         try:
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
             painter.setRenderHint(QPainter.RenderHint.TextAntialiasing)
-            # 严格裁剪于容器矩形：部分越顶/越底像素不得显示
-            clip = QRectF(0.0, 0.0, float(self.width()), float(self.height()))
-            painter.setClipRect(clip)
-            # 左对齐：统一左侧内缩，禁止 panel_w - pm_w 右对齐
-            left_x = _PANEL_INSET
-            for item in items:
-                alpha = item.opacity * global_alpha
-                if alpha <= 0.0 or item.pixmap is None:
-                    continue
-                pm: QPixmap = item.pixmap
-                painter.setOpacity(alpha)
-                painter.drawPixmap(int(left_x), int(item.current_y), pm)
+            if items and global_alpha > 0.0:
+                # 严格裁剪于容器矩形：部分越顶/越底像素不得显示
+                clip = QRectF(0.0, 0.0, float(self.width()), float(self.height()))
+                painter.setClipRect(clip)
+                # 左对齐：统一左侧内缩，禁止 panel_w - pm_w 右对齐
+                left_x = _PANEL_INSET
+                for item in items:
+                    alpha = item.opacity * global_alpha
+                    if alpha <= 0.0 or item.pixmap is None:
+                        continue
+                    pm: QPixmap = item.pixmap
+                    painter.setOpacity(alpha)
+                    painter.drawPixmap(int(left_x), int(item.current_y), pm)
             painter.setOpacity(1.0)
+            self._paint_adjustment_feedback(painter)
         finally:
             painter.end()

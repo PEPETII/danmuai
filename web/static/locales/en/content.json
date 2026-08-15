@@ -146,6 +146,8 @@
       "清空预览": "Clear preview",
       "堆积预览": "Stack preview",
       "新条目从底部进入_旧条目向上顶推_空闲静止_左对齐_严格裁剪": "New items enter from the bottom; older items push up; idle is still; left-aligned; hard-clipped.",
+      "调整显示区域": "Adjust display area",
+      "调整显示区域提示": "Turn on Adjust display area, move it to your preferred position, then turn it off.",
       "桌面互动宠物与弹幕指令入口_复用助手模型_不单独请求_AI": "Desktop pet and danmu command entry; reuses assistant model, no separate AI call",
       "去_PetDex_查找更多桌宠": "Find more pets on PetDex",
       "状态": "Status",

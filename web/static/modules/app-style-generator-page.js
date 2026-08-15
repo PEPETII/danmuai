@@ -88,6 +88,8 @@ const BOOL_KEYS = new Set([
   'floating_panel_click_through',
 ]);
 
+const ADJUST_DISPLAY_AREA_KEY = 'floating_panel_click_through';
+
 /** 仅保存时写入、不在表单中暴露的遗留/派生键。 */
 const DERIVED_STYLE_SAVE_KEYS = new Set([
   'floating_panel_font_size',
@@ -117,6 +119,7 @@ let suppressCustomMark = false;
 let styleGeneratorLoaded = false;
 let styleGeneratorDirty = false;
 let styleGeneratorLoadPromise = null;
+let adjustDisplayAreaSaveChain = Promise.resolve();
 // 基础风格下拉表示当前自定义样式的来源；它与保存用的 custom preset 字段独立。
 // 页面首次加载无法从 custom 配置可靠推断来源时，按产品默认显示仿微信。
 let activePresetId = 'blivechat_line';
@@ -291,7 +294,10 @@ function setFieldValue(name, value) {
   const el = field(name);
   if (!el) return;
   if (BOOL_KEYS.has(name)) {
-    el.checked = value === '1' || value === 1 || value === true || value === 'true';
+    const enabled = value === '1' || value === 1 || value === true || value === 'true';
+    // The UI describes the temporary interactive state; the stored key keeps
+    // its original native meaning for WebView2/Win32 compatibility.
+    el.checked = name === ADJUST_DISPLAY_AREA_KEY ? !enabled : enabled;
     return;
   }
   el.value = value == null ? '' : String(value);
@@ -309,7 +315,10 @@ function collectStylePayload() {
   STYLE_SAVE_KEYS.forEach((key) => {
     if (DERIVED_STYLE_SAVE_KEYS.has(key)) return;
     if (BOOL_KEYS.has(key)) {
-      data[key] = readBool(key) ? '1' : '0';
+      const checked = readBool(key);
+      data[key] = key === ADJUST_DISPLAY_AREA_KEY
+        ? (checked ? '0' : '1')
+        : (checked ? '1' : '0');
       return;
     }
     data[key] = readStr(key, '');
@@ -918,6 +927,29 @@ function clearPreview() {
   }
 }
 
+function saveAdjustDisplayArea() {
+  const checkbox = field(ADJUST_DISPLAY_AREA_KEY);
+  if (!checkbox) return;
+  const requested = Boolean(checkbox.checked);
+  adjustDisplayAreaSaveChain = adjustDisplayAreaSaveChain
+    .catch(() => {})
+    .then(async () => {
+      // If another toggle arrived before this request started, only the newest
+      // state should reach the server.
+      if (Boolean(checkbox.checked) !== requested) return;
+      await apiFetch('/api/config', {
+        method: 'PUT',
+        body: JSON.stringify({
+          [ADJUST_DISPLAY_AREA_KEY]: requested ? '0' : '1',
+        }),
+      });
+    })
+    .catch((error) => {
+      if (Boolean(checkbox.checked) === requested) checkbox.checked = !requested;
+      showToast(error.message || t('dynamic.appStyleGenerator.保存失败'), true);
+    });
+}
+
 function seedPreview() {
   clearPreview();
   for (let i = 0; i < 3; i++) {
@@ -929,6 +961,12 @@ function seedPreview() {
 function onFormChange(event) {
   const target = event.target;
   if (!target || !formEl()?.contains(target)) return;
+
+  if (target.name === ADJUST_DISPLAY_AREA_KEY) {
+    restyleVisiblePreviewItems();
+    if (event.type === 'change') saveAdjustDisplayArea();
+    return;
+  }
 
   if (target.classList.contains('sg-weight-input')) {
     syncWeightsFromPanel(target.dataset.kind || 'card');

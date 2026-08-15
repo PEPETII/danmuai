@@ -20,7 +20,7 @@ of `DanmuApp` without updating this document and the maintainer registries above
 |-------|------|
 | `reply_buffer` | AI reply FIFO (`AIReplyFIFOBuffer`); adaptive dequeue gap. **W-GENPIPELINE-EXTRACT 已完成**：消费逻辑委托 `app/application/generation_pipeline.py`，所有权仍属 DanmuApp |
 | QPixmap screenshot cache | Last capture held for AI request assembly |
-| `QTimer` | Screenshot tick, reply consume, mic poll, overlay refresh. **W-GENPIPELINE-EXTRACT 已完成**：`reply_timer` 实例所有权属 `app/main_lifecycle_mixin.py:155-158`；`generation_pipeline.py` 经 `app.reply_timer.start()` 驱动，不实例化 QTimer |
+| `QTimer` | Screenshot tick, reply consume, mic poll, overlay refresh, and settled WebView position sampling. **W-GENPIPELINE-EXTRACT 已完成**：`reply_timer` 实例所有权属 `app/main_lifecycle_mixin.py:155-158`；`generation_pipeline.py` 经 `app.reply_timer.start()` 驱动，不实例化 QTimer |
 | `QThreadPool` usage | Visual AI, capture, meme AI (via `app/worker_pools.py` lazy singletons) |
 | `_mic_service` | Microphone capture / utterance pipeline |
 

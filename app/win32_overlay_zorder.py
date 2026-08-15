@@ -183,6 +183,11 @@ def _read_window_rect(hwnd: int) -> tuple[int, int, int, int] | None:
     return (int(rect.left), int(rect.top), int(rect.right), int(rect.bottom))
 
 
+def read_window_rect(hwnd: int) -> tuple[int, int, int, int] | None:
+    """Return a top-level window rectangle for position persistence."""
+    return _read_window_rect(hwnd)
+
+
 def probe_exclusive_fullscreen_risk(
     *,
     overlay_hwnd: int,

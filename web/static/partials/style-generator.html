@@ -29,6 +29,17 @@
             </p>
           </div>
 
+          <div class="settings-field settings-field--toggle sg-adjust-display-area">
+            <span class="settings-field-label" data-i18n="content.text.调整显示区域">调整显示区域</span>
+            <label class="toggle-switch">
+              <input type="checkbox" name="floating_panel_click_through" id="sg-floating_panel_click_through" role="switch" value="1">
+              <span aria-hidden="true"></span>
+            </label>
+            <p class="settings-section-hint" data-i18n="content.text.调整显示区域提示">
+              开启【调整显示区域】调整到您喜欢的位置后关闭按钮即可
+            </p>
+          </div>
+
           <div class="settings-rhythm-accordion sg-accordion" data-settings-rhythm-accordion>
             <section class="settings-rhythm-accordion-item">
               <h4 class="settings-rhythm-accordion-heading">
@@ -95,14 +106,6 @@
                   <div class="settings-field">
                     <label for="sg-floating_panel_y_offset" class="settings-field-label">上下边距 (px)</label>
                     <input type="number" name="floating_panel_y_offset" id="sg-floating_panel_y_offset" min="0" max="400" class="settings-field-control ui-control ui-input" value="80">
-                  </div>
-                  <div class="settings-field settings-field--toggle">
-                    <span class="settings-field-label">鼠标穿透</span>
-                    <label class="toggle-switch">
-                      <input type="checkbox" name="floating_panel_click_through" id="sg-floating_panel_click_through" role="switch" value="1">
-                      <span aria-hidden="true"></span>
-                    </label>
-                    <p class="settings-section-hint">开启时鼠标可穿过面板；关闭后可拖动面板。</p>
                   </div>
                   <div class="settings-field">
                     <label for="floating_panel_danmu_per_second" class="settings-field-label">每秒弹幕数</label>

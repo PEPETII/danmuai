@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - AI platform reference data system with custom models schema and web UI model selector.
 - Per-model thinking level selector in advanced model configuration (off/low/medium/high).
 - Equivalent bottom-up floating-panel animation controls and live preview: entry fade/slide, stack push timing, and exit fade/none behavior are now carried through the WebView and Qt fallback renderers.
+- Bottom-up floating-panel display-area adjustment mode: the user-facing toggle temporarily enables dragging, shows an inline guide/border, and automatically persists the final position for the next launch.
 - Pet barrage system (`app/pet/pet_barrage.py`) for desktop companion overlay comments.
 - Live overlay setup assistant for streamers.
 - Diagnostics hub and SSE-based diagnostics snapshot API (`/api/diagnostics`).

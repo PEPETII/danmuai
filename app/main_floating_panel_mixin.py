@@ -13,7 +13,10 @@ import uuid
 from typing import Any
 from urllib.parse import urlencode
 
+from app.floating_panel_geometry import compute_panel_geometry
 from app.snipper import resolve_screen_index
+
+_PANEL_POSITION_SETTLE_SEC = 0.25
 
 
 class DanmuAppFloatingPanelMixin:
@@ -58,12 +61,128 @@ class DanmuAppFloatingPanelMixin:
     def _sync_web_panel_click_through(self) -> None:
         """配置热变更时同步 WebView 穿透状态，必要时重建窗口。"""
         process = self.__dict__.get("_panel_process")
+        enabled = self._panel_click_through_enabled()
         if not self.__dict__.get("_panel_web_active") or process is None:
+            if enabled:
+                self._stop_panel_position_tracking(force=True)
             return
+        if enabled:
+            # Capture the native origin before changing transparency: a state
+            # change restarts the child and must reuse the final dragged origin.
+            self._stop_panel_position_tracking(force=True)
         try:
-            process.set_click_through(self._panel_click_through_enabled())
+            process.set_click_through(enabled)
         except Exception as exc:
             self.logger.debug(f"panel click-through sync skipped: {exc!r}")
+        finally:
+            if enabled:
+                self._stop_panel_position_tracking(force=True)
+            else:
+                self._start_panel_position_tracking()
+
+    def _panel_current_position(self) -> tuple[int, int] | None:
+        process = self.__dict__.get("_panel_process")
+        if self.__dict__.get("_panel_web_active") and process is not None:
+            try:
+                position = process.current_position()
+            except Exception as exc:
+                self.logger.debug(f"panel position read skipped: {exc!r}")
+                position = None
+            if position is not None:
+                return int(position[0]), int(position[1])
+        overlay = self.__dict__.get("floating_panel_overlay")
+        if overlay is not None:
+            try:
+                if overlay.isVisible():
+                    return int(overlay.x()), int(overlay.y())
+            except (RuntimeError, TypeError, ValueError):
+                pass
+        return None
+
+    def _save_panel_position(self, position: tuple[int, int] | None) -> None:
+        if position is None:
+            return
+        x = max(-32000, min(32000, int(position[0])))
+        y = max(-32000, min(32000, int(position[1])))
+        items: dict[str, str] = {}
+        if str(self.config.get("floating_panel_x", "") or "") != str(x):
+            items["floating_panel_x"] = str(x)
+        if str(self.config.get("floating_panel_y", "") or "") != str(y):
+            items["floating_panel_y"] = str(y)
+        if items:
+            self.config.set_batch(items)
+        self.__dict__["_panel_position_last_saved"] = (x, y)
+
+    def _start_panel_position_tracking(self) -> None:
+        timer = self.__dict__.get("_panel_position_timer")
+        if timer is None:
+            return
+        position = self._panel_current_position()
+        state = self.__dict__
+        state["_panel_position_candidate"] = position
+        state["_panel_position_last_changed_at"] = time.monotonic()
+        state["_panel_position_last_saved"] = position
+        try:
+            timer.start()
+        except (RuntimeError, TypeError):
+            pass
+
+    def _stop_panel_position_tracking(self, *, force: bool) -> None:
+        timer = self.__dict__.get("_panel_position_timer")
+        if timer is not None:
+            try:
+                timer.stop()
+            except (RuntimeError, TypeError):
+                pass
+        state = self.__dict__
+        if force:
+            position = self._panel_current_position()
+            if position is None:
+                position = state.get("_panel_position_candidate")
+            self._save_panel_position(position)
+        state["_panel_position_candidate"] = None
+        state["_panel_position_last_changed_at"] = 0.0
+
+    def _on_panel_position_tick(self) -> None:
+        """Persist a settled native origin without touching Qt window objects."""
+        if (
+            not self.__dict__.get("_panel_web_active")
+            or self.__dict__.get("_panel_process") is None
+            or self._panel_click_through_enabled()
+        ):
+            self._stop_panel_position_tracking(force=False)
+            return
+        position = self._panel_current_position()
+        if position is None:
+            return
+        state = self.__dict__
+        now = time.monotonic()
+        candidate = state.get("_panel_position_candidate")
+        if candidate != position:
+            state["_panel_position_candidate"] = position
+            state["_panel_position_last_changed_at"] = now
+            return
+        if now - float(state.get("_panel_position_last_changed_at", now)) < _PANEL_POSITION_SETTLE_SEC:
+            return
+        if state.get("_panel_position_last_saved") != position:
+            self._save_panel_position(position)
+
+    def _recover_web_panel_position_after_screen_change(self) -> None:
+        """Recreate the existing WebView at a clamped origin after monitor changes."""
+        process = self.__dict__.get("_panel_process")
+        if not self.__dict__.get("_panel_web_active") or process is None:
+            return
+        interactive = not self._panel_click_through_enabled()
+        if interactive:
+            # A topology change can arrive before the 250 ms settle window. Capture
+            # the real native origin before clamping it to the remaining screens.
+            self._stop_panel_position_tracking(force=True)
+        try:
+            recovered = process.set_geometry(*self._panel_geometry())
+            if interactive and recovered:
+                self._start_panel_position_tracking()
+        except Exception as exc:
+            self.logger.debug(f"panel screen geometry recovery skipped: {exc!r}")
 
     def _panel_html_url(self) -> str | None:
         server = getattr(self, "web_server", None)
@@ -102,16 +221,15 @@ class DanmuAppFloatingPanelMixin:
         except (TypeError, ValueError):
             pass
 
-        screens = QApplication.screens()
-        idx = resolve_screen_index(self.config)
-        if not screens:
-            return width, 600, x_off, y_off
-        screen = screens[max(0, min(idx, len(screens) - 1))]
-        geo = screen.availableGeometry()
-        height = max(160, int(geo.height()) - y_off * 2)
-        x = int(geo.x()) + int(geo.width()) - width - x_off
-        y = int(geo.y()) + y_off
-        return width, height, x, y
+        return compute_panel_geometry(
+            list(QApplication.screens()),
+            config=self.config,
+            width=width,
+            x_offset=x_off,
+            y_offset=y_off,
+            preferred_screen_index=resolve_screen_index(self.config),
+            use_available_geometry=True,
+        )
 
     def _start_web_panel(self) -> bool:
         self._ensure_panel_web_components()
@@ -129,10 +247,15 @@ class DanmuAppFloatingPanelMixin:
         )
         self._panel_web_active = bool(ok)
         if ok:
+            if self._panel_click_through_enabled():
+                self._stop_panel_position_tracking(force=False)
+            else:
+                self._start_panel_position_tracking()
             self._push_panel_config()
         return ok
 
     def _stop_web_panel(self) -> None:
+        self._stop_panel_position_tracking(force=True)
         process = self.__dict__.get("_panel_process")
         if process is not None:
             try:

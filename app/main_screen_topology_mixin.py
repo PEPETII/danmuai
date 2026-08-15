@@ -33,6 +33,7 @@ class DanmuAppScreenTopologyMixin:
             return
         self._sync_overlay_visibility()
         self._sync_floating_panel_visibility()
+        self._recover_web_panel_position_after_screen_change()
         self._update_overlay_compat_warning()
         bridge = getattr(self, "web_bridge", None)
         if bridge is not None:

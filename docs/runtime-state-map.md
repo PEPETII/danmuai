@@ -70,6 +70,10 @@
 | `_panel_bridge` | 浮动面板 WS 桥（`PanelBridge`；通常挂在 `WebConsoleBridge.panel_bridge`） |
 | `_panel_web_active` | 当前是否走 Web 面板路径（bool） |
 | `font_registry` | 字体注册表（W-FONT-002） |
+| `_panel_position_timer` | 浮动面板位置采样 QTimer；仅在 WebView 可拖动状态运行 |
+| `_panel_position_candidate` | 最近一次稳定前的 WebView/窗口逻辑坐标候选值 |
+| `_panel_position_last_changed_at` | 位置候选最近一次变化的 monotonic 时间 |
+| `_panel_position_last_saved` | 最近一次写入配置的逻辑坐标 |
 
 ---
 

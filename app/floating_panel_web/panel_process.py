@@ -19,6 +19,19 @@ _KILL_JOIN_SEC = 1.0
 MAX_RESTARTS = 3
 
 
+def _windows_scale_factor() -> float:
+    """Return the scale used by pywebview's WinForms coordinate conversion."""
+    if sys.platform != "win32":
+        return 1.0
+    try:
+        import ctypes
+
+        value = float(ctypes.windll.shcore.GetScaleFactorForDevice(0)) / 100.0
+        return value if value > 0 else 1.0
+    except Exception:
+        return 1.0
+
+
 def _with_click_through_query(html_url: str, enabled: bool) -> str:
     """Return html_url with the authoritative click-through state in its query."""
     parts = urlsplit(str(html_url))
@@ -272,6 +285,42 @@ class PanelProcess:
     def hwnd(self) -> int:
         """当前 WebView 窗口 HWND；子进程尚未 ready 时为 0。"""
         return int(self._hwnd or 0)
+
+    @property
+    def last_geometry(self) -> tuple[int, int, int, int]:
+        """最近一次传给 pywebview 的逻辑几何参数。"""
+        return self._last_geometry
+
+    def current_position(self) -> tuple[int, int] | None:
+        """Read the native window origin and convert it to pywebview units."""
+        hwnd = self.hwnd
+        if not hwnd:
+            return None
+        try:
+            from app.win32_overlay_zorder import read_window_rect
+
+            rect = read_window_rect(hwnd)
+        except Exception:
+            rect = None
+        if rect is None:
+            return None
+        scale = _windows_scale_factor()
+        x = int(round(float(rect[0]) / scale))
+        y = int(round(float(rect[1]) / scale))
+        width, height, _old_x, _old_y = self._last_geometry
+        self._last_geometry = (width, height, x, y)
+        return x, y
+
+    def set_geometry(self, width: int, height: int, x: int, y: int) -> bool:
+        """Recreate the existing child only when screen topology changed its origin."""
+        geometry = (int(width), int(height), int(x), int(y))
+        changed = geometry != self._last_geometry
+        self._last_geometry = geometry
+        if not changed:
+            return True
+        if not self.hwnd or not self.is_alive():
+            return False
+        return self.restart()
 
     def set_click_through(self, enabled: bool) -> bool:
         """同步穿透状态；透明属性变化时重建 WebView 子进程。"""

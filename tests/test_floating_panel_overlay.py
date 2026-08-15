@@ -104,6 +104,14 @@ def test_window_flags_transparent_for_mouse(fp_v2_setup):
     assert overlay.testAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
 
 
+def test_adjustment_mode_enables_existing_qt_panel_for_drag(fp_v2_setup):
+    store, _, overlay = fp_v2_setup
+    store.set("floating_panel_click_through", "0")
+    overlay.apply_config()
+    assert not overlay.testAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+    assert overlay._click_through is False
+
+
 def test_show_for_screen_positions_panel(fp_v2_setup, qapp):
     _, _, overlay = fp_v2_setup
     overlay.show_for_screen(0)

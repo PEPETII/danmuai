@@ -41,6 +41,8 @@ FP_KEYS = (
     "floating_panel_click_through",
 )
 
+ABSOLUTE_POSITION_KEYS = ("floating_panel_x", "floating_panel_y")
+
 
 def test_fp_keys_present_in_defaults():
     """W-FP-V2-001 字段在 CONFIG_DEFAULTS 中均有默认值。"""
@@ -54,6 +56,12 @@ def test_fp_keys_present_in_web_config_keys():
     """W-FP-V2-001 字段在 WEB_CONFIG_KEYS 元组中可被 Web 端读写。"""
     for key in FP_KEYS:
         assert key in WEB_CONFIG_KEYS, f"missing web key for {key}"
+
+
+def test_absolute_floating_panel_position_keys_are_optional_and_web_writable():
+    for key in ABSOLUTE_POSITION_KEYS:
+        assert CONFIG_DEFAULTS[key] == ""
+        assert key in WEB_CONFIG_KEYS
 
 
 def test_danmu_recent_ttl_default_and_web_key_present():

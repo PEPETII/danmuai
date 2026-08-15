@@ -381,6 +381,35 @@ def test_set_click_through_without_alive_process_only_stores_state():
     assert panel.is_alive() is False
 
 
+def test_current_position_converts_native_rect_to_pywebview_coordinates(monkeypatch):
+    panel = PanelProcess(webview2_checker=lambda: True)
+    panel._hwnd = 12345
+    panel._last_geometry = (360, 600, 20, 80)
+    monkeypatch.setattr(
+        "app.win32_overlay_zorder.read_window_rect",
+        lambda hwnd: (150, 300, 510, 900) if hwnd == 12345 else None,
+    )
+    monkeypatch.setattr(panel_process_mod, "_windows_scale_factor", lambda: 1.5)
+
+    assert panel.current_position() == (100, 200)
+    assert panel.last_geometry == (360, 600, 100, 200)
+
+
+def test_set_geometry_restarts_existing_child_only_when_geometry_changes():
+    panel = PanelProcess(
+        webview2_checker=lambda: True,
+        process_factory=_factory_loaded,
+        load_timeout_sec=2.0,
+    )
+    assert panel.start("http://example", width=360, height=600, x=20, y=80) is True
+    first_process = panel._process
+    assert panel.set_geometry(360, 600, 20, 80) is True
+    assert panel._process is first_process
+    assert panel.set_geometry(360, 600, 100, 200) is True
+    assert panel._process is not first_process
+    assert panel.last_geometry == (360, 600, 100, 200)
+
+
 def test_webview_drag_region_targets_panel():
     fake_webview = SimpleNamespace(DRAG_REGION_SELECTOR=".pywebview-drag-region")
 

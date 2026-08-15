@@ -95,6 +95,7 @@ quit() 时序：`quit()` 分别对 capture/ai/meme_ai/meme_fetch 四个独立池
 | `_pool_topup_timer` | `app/main_lifecycle_mixin.py:164` | Qt main thread | 弹幕池低水位自动补满；timeout → `_maybe_pool_topup` |
 | `_live_status_timer` | `app/main_lifecycle_mixin.py:215` | Qt main thread | 直播状态周期性发布；timeout → `_publish_live_status` |
 | `_topmost_health_timer` | `app/main_lifecycle_mixin.py:219` | Qt main thread | Overlay / 浮动面板置顶健康检查；timeout → `_on_topmost_health_tick` |
+| `_panel_position_timer` | `app/main_lifecycle_mixin.py:274` | Qt main thread | 仅在“调整显示区域”开启时采样现有 WebView HWND 位置；settle 后写入 `floating_panel_x/y`，切回穿透或 stop 前强制保存 |
 | `_lifetime_flush_timer` | `app/main_lifecycle_mixin.py:304` | Qt main thread | 生命周期统计 pending flush；timeout → `lifetime_stats.flush_pending` |
 | `_meme_collect_timer` | `app/main_meme_mixin.py:63` | Qt main thread | 烂梗远程采集触发；timeout → `_meme_collect_tick` |
 | `_meme_display_timer` | `app/main_meme_mixin.py:66` | Qt main thread | 烂梗显示队列消费；timeout → `_meme_display_tick` |

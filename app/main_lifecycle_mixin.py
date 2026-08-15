@@ -269,6 +269,14 @@ class DanmuAppLifecycleMixin:
         self._topmost_health_timer = QTimer(self)
         self._topmost_health_timer.setInterval(TOPMOST_HEALTH_INTERVAL_MS)
         self._topmost_health_timer.timeout.connect(self._on_topmost_health_tick)
+        # WebView2 drag runs in its child process; the Qt main thread samples
+        # the existing HWND so the final logical origin can be persisted.
+        self._panel_position_timer = QTimer(self)
+        self._panel_position_timer.setInterval(100)
+        self._panel_position_timer.timeout.connect(self._on_panel_position_tick)
+        self._panel_position_candidate = None
+        self._panel_position_last_changed_at = 0.0
+        self._panel_position_last_saved = None
         self._last_foreground_hwnd = 0
         self._topmost_health_tick = 0
         self._last_fullscreen_at_risk = False
@@ -767,6 +775,7 @@ class DanmuAppLifecycleMixin:
         self.screenshot_timer.stop()
         self._live_status_timer.stop()
         self._topmost_health_timer.stop()
+        self._panel_position_timer.stop()
         self._last_foreground_hwnd = 0
         self._topmost_health_tick = 0
         self._last_fullscreen_at_risk = False

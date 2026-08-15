@@ -224,6 +224,27 @@
   grid-template-columns: minmax(0, 1fr) var(--sg-control-col-width);
 }
 
+#page-style-generator .sg-adjust-display-area {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--sg-control-col-width);
+  align-items: center;
+  margin: 0.25rem 0 1rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(var(--color-primary-rgb), 0.42);
+  background: rgba(var(--color-primary-rgb), 0.08);
+}
+
+#page-style-generator .sg-adjust-display-area .toggle-switch {
+  grid-column: 2;
+  justify-self: end;
+  margin: 0;
+}
+
+#page-style-generator .sg-adjust-display-area > .settings-section-hint {
+  grid-column: 1 / -1;
+  margin: 0.35rem 0 0;
+}
+
 #page-style-generator .sg-accordion .settings-field--toggle .toggle-switch,
 #page-style-generator .sg-accordion .settings-rhythm-accordion-field--toggle .toggle-switch {
   grid-column: 2;
