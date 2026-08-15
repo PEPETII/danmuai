@@ -11,24 +11,26 @@
 
 from __future__ import annotations
 
+import inspect
 from typing import TYPE_CHECKING, Any
 
 from fastapi import HTTPException
 
 from app.application.config_service import MASKED_API_KEY
-from app.danmu_read_service import export_danmu_read_config
+from app.danmu_read_service import _stored_tts_credentials, export_danmu_read_config
 from app.model_providers import normalize_endpoint
 from app.translations import tr
+from app.tts.types import descriptor_to_dict
 from app.tts_catalog import list_catalog_for_api
 from app.tts_providers import (
-    TTS_PROVIDER_DASHSCOPE_QWEN,
     TTS_PROVIDER_MIMO,
-    _reject_removed_doubao_tts,
+    canonical_tts_provider_id,
+    get_tts_manager,
     normalize_tts_voice,
+    validate_custom_tts_fields,
 )
 
 _UNSUPPORTED_CUSTOM_TTS_MSG = tr("tts.unsupportedCustom")
-_UNSUPPORTED_DOUBAO_TTS_MSG = tr("tts.unsupportedDoubao")
 
 if TYPE_CHECKING:
     from main import DanmuApp
@@ -42,6 +44,30 @@ def get_catalog() -> dict[str, object]:
     return {"providers": list_catalog_for_api()}
 
 
+def get_voices(
+    app: "DanmuApp",
+    provider_id: str,
+    model_id: str,
+    *,
+    force_refresh: bool = False,
+) -> dict[str, object]:
+    provider = canonical_tts_provider_id(provider_id)
+    model = model_id.strip()
+    if not provider or not model:
+        raise HTTPException(status_code=400, detail="provider and model_id are required")
+    credentials = _stored_tts_credentials(app.config, provider)
+    try:
+        voices = get_tts_manager().list_voices(
+            provider,
+            model,
+            credentials=credentials,
+            force_refresh=force_refresh,
+        )
+    except (ValueError, OSError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"voices": [descriptor_to_dict(voice) for voice in voices]}
+
+
 def save_config(app: "DanmuApp", payload: dict[str, Any]) -> dict[str, object]:
     try:
         return app.apply_danmu_read_config(payload)
@@ -51,7 +77,31 @@ def save_config(app: "DanmuApp", payload: dict[str, Any]) -> dict[str, object]:
 
 def run_probe(app: "DanmuApp", payload: dict[str, Any] | None = None) -> dict[str, object]:
     overrides = normalize_probe_payload(payload)
-    return app.run_danmu_read_probe(**overrides)
+    optional = {
+        key: overrides.pop(key)
+        for key in (
+            "voice_override",
+            "style_prompt_override",
+            "credentials_override",
+        )
+        if key in overrides
+    }
+    probe = app.run_danmu_read_probe
+    try:
+        parameters = inspect.signature(probe).parameters.values()
+    except (TypeError, ValueError):
+        parameters = ()
+    accepts_kwargs = any(
+        parameter.kind is inspect.Parameter.VAR_KEYWORD for parameter in parameters
+    )
+    accepted_names = {parameter.name for parameter in parameters}
+    if accepts_kwargs:
+        overrides.update(optional)
+    else:
+        overrides.update(
+            {key: value for key, value in optional.items() if key in accepted_names}
+        )
+    return probe(**overrides)
 
 
 def _pick_endpoint(body: dict[str, Any]) -> str:
@@ -71,14 +121,34 @@ def _pick_model_id(body: dict[str, Any]) -> str:
 def _reject_unsupported_custom_tts_payload(body: dict[str, Any]) -> None:
     provider = str(body.get("provider") or "").strip()
     endpoint = _pick_endpoint(body) if ("endpoint" in body or "custom_endpoint" in body) else ""
-    try:
-        _reject_removed_doubao_tts(provider)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
     if provider == "custom_openai":
         raise HTTPException(status_code=400, detail=_UNSUPPORTED_CUSTOM_TTS_MSG)
-    if endpoint and provider != TTS_PROVIDER_DASHSCOPE_QWEN:
+    canonical_provider = canonical_tts_provider_id(provider)
+    if provider and get_tts_manager().catalog.get_provider(canonical_provider) is None:
+        raise HTTPException(
+            status_code=400,
+            detail=tr("tts.error.unsupportedPlatform").format(platform=provider),
+        )
+    if endpoint:
         raise HTTPException(status_code=400, detail=_UNSUPPORTED_CUSTOM_TTS_MSG)
+
+    model_id = _pick_model_id(body) if ("model_id" in body or "custom_model_id" in body) else ""
+    if provider and model_id:
+        try:
+            validate_custom_tts_fields(provider, "", model_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+def _pick_credentials(body: dict[str, Any]) -> dict[str, str]:
+    raw = body.get("credentials")
+    if not isinstance(raw, dict):
+        return {}
+    return {
+        str(key): value.strip()
+        for key, value in raw.items()
+        if isinstance(key, str) and isinstance(value, str) and value.strip()
+    }
 
 
 def normalize_put_payload(body: dict[str, Any]) -> dict[str, Any]:
@@ -105,6 +175,11 @@ def normalize_put_payload(body: dict[str, Any]) -> dict[str, Any]:
         key = str(body.get("api_key") or "").strip()
         if key and key != MASKED_API_KEY:
             out["api_key"] = key
+    credentials = _pick_credentials(body)
+    if credentials:
+        out["credentials"] = credentials
+        if "api_key" not in out and credentials.get("api_key"):
+            out["api_key"] = credentials["api_key"]
     if "provider" in body:
         out["provider"] = str(body.get("provider") or "").strip()
     if "endpoint" in body or "custom_endpoint" in body:
@@ -114,8 +189,8 @@ def normalize_put_payload(body: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
-def normalize_probe_payload(payload: dict[str, Any] | None) -> dict[str, str | None]:
-    overrides: dict[str, str | None] = {
+def normalize_probe_payload(payload: dict[str, Any] | None) -> dict[str, Any]:
+    overrides: dict[str, Any] = {
         "api_key_override": None,
         "provider_override": None,
         "endpoint_override": None,
@@ -129,20 +204,25 @@ def normalize_probe_payload(payload: dict[str, Any] | None) -> dict[str, str | N
         key = raw.strip()
         if key and key != MASKED_API_KEY:
             overrides["api_key_override"] = key
+    credentials = _pick_credentials(payload)
+    if credentials:
+        overrides["credentials_override"] = credentials
+        if overrides["api_key_override"] is None and credentials.get("api_key"):
+            overrides["api_key_override"] = credentials["api_key"]
     if "provider" in payload:
         provider = str(payload.get("provider") or "").strip()
         if provider in ("", "mimo", TTS_PROVIDER_MIMO):
             overrides["provider_override"] = ""
-        elif provider == "doubao":
-            raise HTTPException(status_code=400, detail=_UNSUPPORTED_DOUBAO_TTS_MSG)
-        elif provider == TTS_PROVIDER_DASHSCOPE_QWEN:
+        elif get_tts_manager().catalog.get_provider(canonical_tts_provider_id(provider)) is not None:
             overrides["provider_override"] = provider
-        else:
-            raise HTTPException(status_code=400, detail=_UNSUPPORTED_CUSTOM_TTS_MSG)
     if "endpoint" in payload or "custom_endpoint" in payload:
         overrides["endpoint_override"] = _pick_endpoint(payload)
     if "model_id" in payload or "custom_model_id" in payload:
         overrides["model_id_override"] = _pick_model_id(payload)
+    if "voice" in payload:
+        overrides["voice_override"] = str(payload.get("voice") or "").strip()
+    if "style_prompt" in payload:
+        overrides["style_prompt_override"] = str(payload.get("style_prompt") or "")
     return overrides
 
 

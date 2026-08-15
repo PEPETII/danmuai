@@ -342,6 +342,9 @@ class DanmuAppMicMixin:
         provider_override: str | None = None,
         endpoint_override: str | None = None,
         model_id_override: str | None = None,
+        voice_override: str | None = None,
+        style_prompt_override: str | None = None,
+        credentials_override: dict[str, str] | None = None,
     ) -> dict:
         """TTS 试听；须在主线程调用。"""
         return self._danmu_read_service.run_probe(
@@ -349,4 +352,7 @@ class DanmuAppMicMixin:
             provider_override=provider_override,
             endpoint_override=endpoint_override,
             model_id_override=model_id_override,
+            voice_override=voice_override,
+            style_prompt_override=style_prompt_override,
+            credentials_override=credentials_override,
         )

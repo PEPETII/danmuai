@@ -12,8 +12,8 @@ from __future__ import annotations
 
 import base64
 import logging
-from dataclasses import dataclass
-from typing import Any, Protocol
+from dataclasses import dataclass, replace
+from typing import Any, Mapping, Protocol
 
 import httpx
 
@@ -21,6 +21,19 @@ from app.ai_client_support import extract_http_error_message
 from app.errors import TtsError
 from app.model_providers import normalize_endpoint
 from app.translations import tr
+from app.tts.audio import normalize_tts_result
+from app.tts.catalog import TtsCatalog as V2TtsCatalog
+from app.tts.manager import TtsManager
+from app.tts.providers.dashscope import DashScopeProvider
+from app.tts.providers.doubao import DoubaoProvider
+from app.tts.providers.mimo import MimoProvider
+from app.tts.providers.minimax import MiniMaxProvider
+from app.tts.registry import ProviderRegistry
+from app.tts.types import (
+    PricingDescriptor,
+    TtsAuthError,
+    TtsRequest,
+)
 from app.tts_audio_utils import ensure_wav_bytes, pcm_to_wav
 
 logger = logging.getLogger(__name__)
@@ -43,21 +56,53 @@ TTS_PROBE_TEXT = tr("tts.probeText")
 
 TTS_PROVIDER_MIMO = "mimo"
 TTS_PROVIDER_DASHSCOPE_QWEN = "dashscope_qwen"
+TTS_PROVIDER_DASHSCOPE = "dashscope"
+TTS_PROVIDER_MINIMAX = "minimax"
+TTS_PROVIDER_DOUBAO = "doubao"
 _LEGACY_TTS_CUSTOM_OPENAI = "custom_openai"
-_LEGACY_TTS_DOUBAO = "doubao"
+_LEGACY_TTS_DOUBAO = TTS_PROVIDER_DOUBAO
 
 _UNSUPPORTED_CUSTOM_TTS_MSG = tr("tts.unsupportedCustom")
 _UNSUPPORTED_DOUBAO_TTS_MSG = tr("tts.unsupportedDoubao")
 
 _PRESET_TTS_PROVIDERS = frozenset(
-    {TTS_PROVIDER_MIMO, TTS_PROVIDER_DASHSCOPE_QWEN}
+    {
+        TTS_PROVIDER_MIMO,
+        TTS_PROVIDER_DASHSCOPE,
+        TTS_PROVIDER_DASHSCOPE_QWEN,
+        TTS_PROVIDER_MINIMAX,
+        TTS_PROVIDER_DOUBAO,
+    }
 )
 _NON_MIMO_PRESET_PROVIDERS = _PRESET_TTS_PROVIDERS - {TTS_PROVIDER_MIMO}
 
+_TTS_PROVIDER_ALIASES = {
+    TTS_PROVIDER_DASHSCOPE_QWEN: TTS_PROVIDER_DASHSCOPE,
+    TTS_PROVIDER_MIMO: TTS_PROVIDER_MIMO,
+    TTS_PROVIDER_DASHSCOPE: TTS_PROVIDER_DASHSCOPE,
+    TTS_PROVIDER_MINIMAX: TTS_PROVIDER_MINIMAX,
+    TTS_PROVIDER_DOUBAO: TTS_PROVIDER_DOUBAO,
+}
+
+_TTS_MODEL_ALIASES = {
+    "qwen3-tts-flash-2025-11-27": "qwen3-tts-flash",
+}
+
 
 def _reject_removed_doubao_tts(provider: str) -> None:
-    if (provider or "").strip() == _LEGACY_TTS_DOUBAO:
-        raise ValueError(_UNSUPPORTED_DOUBAO_TTS_MSG)
+    """Retained as a compatibility symbol; Doubao is a supported provider."""
+    del provider
+
+
+def canonical_tts_provider_id(provider_id: str | None) -> str:
+    raw = (provider_id or "").strip().lower()
+    return _TTS_PROVIDER_ALIASES.get(raw, raw)
+
+
+def canonical_tts_model_id(provider_id: str, model_id: str) -> str:
+    del provider_id
+    raw = (model_id or "").strip()
+    return _TTS_MODEL_ALIASES.get(raw, raw)
 
 
 DanmuTtsError = TtsError
@@ -75,20 +120,42 @@ def normalize_tts_voice(
     provider: str = TTS_PROVIDER_MIMO,
     model_id: str = "",
 ) -> str:
-    from app.tts_catalog import normalize_catalog_voice
-
-    pid = (provider or TTS_PROVIDER_MIMO).strip() or TTS_PROVIDER_MIMO
-    if pid == TTS_PROVIDER_MIMO and not model_id:
-        raw = (voice or "").strip()
-        if raw in MIMO_TTS_VOICES:
-            return raw
-        return DEFAULT_TTS_VOICE
-    if pid in _PRESET_TTS_PROVIDERS and pid != TTS_PROVIDER_MIMO:
-        from app.tts_catalog import default_model_for_provider
-
-        mid = (model_id or "").strip() or default_model_for_provider(pid)
-        return normalize_catalog_voice(voice, provider_id=pid, model_id=mid)
+    pid = canonical_tts_provider_id(provider) or TTS_PROVIDER_MIMO
     raw = (voice or "").strip()
+    if pid == TTS_PROVIDER_MIMO and not model_id:
+        return raw if raw in MIMO_TTS_VOICES else DEFAULT_TTS_VOICE
+
+    # Keep the legacy catalog import and its alias-specific voice contract.
+    # The old catalog deliberately remains outside the V2 composition root.
+    if (provider or "").strip() == TTS_PROVIDER_DASHSCOPE_QWEN:
+        from app.tts_catalog import normalize_catalog_voice
+
+        return normalize_catalog_voice(
+            raw,
+            provider_id=TTS_PROVIDER_DASHSCOPE_QWEN,
+            model_id=model_id or "qwen3-tts-flash-2025-11-27",
+        )
+    if pid == TTS_PROVIDER_MIMO:
+        from app.tts_catalog import normalize_catalog_voice
+
+        return normalize_catalog_voice(
+            raw,
+            provider_id=TTS_PROVIDER_MIMO,
+            model_id=model_id or MIMO_TTS_MODEL,
+        )
+
+    try:
+        model = get_tts_manager().catalog.require_model(
+            pid,
+            canonical_tts_model_id(pid, model_id),
+        )
+    except (AttributeError, ValueError):
+        return raw or DEFAULT_TTS_VOICE
+    voice_ids = {voice_item.id for voice_item in model.voices}
+    if raw in voice_ids:
+        return raw
+    if model.voices:
+        return model.voices[0].id
     return raw or DEFAULT_TTS_VOICE
 
 
@@ -116,10 +183,28 @@ TTS_PROVIDERS: tuple[TtsProviderSpec, ...] = (
         default_model=MIMO_TTS_MODEL,
     ),
     TtsProviderSpec(
+        id=TTS_PROVIDER_DASHSCOPE,
+        label_zh="阿里百炼 Qwen3",
+        default_endpoint="https://dashscope.aliyuncs.com/api/v1",
+        default_model="qwen3-tts-flash",
+    ),
+    TtsProviderSpec(
         id=TTS_PROVIDER_DASHSCOPE_QWEN,
         label_zh="阿里百炼 Qwen3",
         default_endpoint="https://dashscope.aliyuncs.com/api/v1",
         default_model="qwen3-tts-flash-2025-11-27",
+    ),
+    TtsProviderSpec(
+        id=TTS_PROVIDER_MINIMAX,
+        label_zh="MiniMax",
+        default_endpoint="https://api.minimaxi.com/v1",
+        default_model="speech-2.8-turbo",
+    ),
+    TtsProviderSpec(
+        id=TTS_PROVIDER_DOUBAO,
+        label_zh="火山引擎豆包",
+        default_endpoint="https://openspeech.bytedance.com/api/v3/tts/unidirectional",
+        default_model="seed-tts-2.0",
     ),
 )
 
@@ -138,7 +223,114 @@ class ResolvedTtsConfig:
 
 
 def get_tts_provider(provider_id: str) -> TtsProviderSpec | None:
-    return _TTS_PROVIDER_BY_ID.get((provider_id or "").strip())
+    raw = (provider_id or "").strip()
+    return _TTS_PROVIDER_BY_ID.get(raw) or _TTS_PROVIDER_BY_ID.get(
+        canonical_tts_provider_id(raw)
+    )
+
+
+def _pricing_for(provider_id: str, model_id: str) -> PricingDescriptor:
+    source_urls = {
+        TTS_PROVIDER_MIMO: "https://mimo.mi.com/docs/usage-guide/speech-synthesis-v2.5",
+        TTS_PROVIDER_DASHSCOPE: "https://help.aliyun.com/zh/model-studio/non-realtime-tts-user-guide",
+        TTS_PROVIDER_MINIMAX: "https://platform.minimaxi.com/docs/guides/pricing-paygo",
+        TTS_PROVIDER_DOUBAO: "https://www.volcengine.com/docs/6561/2228192?lang=zh",
+    }
+    source = source_urls[provider_id]
+    verified_at = "2026-08-16"
+    if provider_id == TTS_PROVIDER_MIMO:
+        return PricingDescriptor(
+            kind="promotional_free",
+            display="限时免费",
+            note="限时活动，不代表永久免费；以官方账单为准",
+            verified_at=verified_at,
+            source=source,
+        )
+    if provider_id == TTS_PROVIDER_MINIMAX:
+        amount = {
+            "speech-2.8-turbo": 2.0,
+            "speech-2.8-hd": 3.5,
+            "speech-2.6-turbo": 2.0,
+            "speech-2.6-hd": 3.5,
+            "speech-02-turbo": 2.0,
+        }.get(model_id)
+        if amount is not None:
+            return PricingDescriptor(
+                kind="paygo",
+                currency="CNY",
+                amount=amount,
+                unit="10k_chars",
+                display=f"¥{amount:g} / 1万字符（按量参考）",
+                note="实际费用以 MiniMax 官方账单为准",
+                verified_at=verified_at,
+                source=source,
+            )
+    return PricingDescriptor(
+        kind="unknown",
+        display="以官方控制台/账单为准",
+        note="当前未确认可安全固化的统一价格，未作猜测",
+        verified_at=verified_at,
+        source=source,
+    )
+
+
+class _LegacyCompatibleMimoProvider(MimoProvider):
+    """Accept the legacy httpx test-double shape at this bridge boundary."""
+
+    def _raise_http_error(self, response) -> None:
+        if hasattr(response, "is_error"):
+            super()._raise_http_error(response)
+            return
+        raise_for_status = getattr(response, "raise_for_status", None)
+        if callable(raise_for_status):
+            raise_for_status()
+
+
+def _build_v2_registry() -> ProviderRegistry:
+    providers = (
+        _LegacyCompatibleMimoProvider(),
+        DashScopeProvider(),
+        MiniMaxProvider(),
+        DoubaoProvider(),
+    )
+    return ProviderRegistry(providers)
+
+
+def _build_v2_manager(registry: ProviderRegistry | None = None) -> TtsManager:
+    registry = registry or _build_v2_registry()
+    descriptors = []
+    for provider in registry:
+        descriptor = provider.descriptor
+        models = tuple(
+            replace(model, pricing=_pricing_for(descriptor.id, model.id))
+            for model in descriptor.models
+        )
+        descriptors.append(replace(descriptor, models=models))
+    return TtsManager(registry, V2TtsCatalog(descriptors))
+
+
+_TTS_V2_MANAGER: TtsManager | None = None
+_TTS_V2_REGISTRY: ProviderRegistry | None = None
+
+
+def get_tts_registry() -> ProviderRegistry:
+    """Return the process-local registry containing all V2 TTS providers."""
+    global _TTS_V2_REGISTRY
+    if _TTS_V2_REGISTRY is None:
+        _TTS_V2_REGISTRY = _build_v2_registry()
+    return _TTS_V2_REGISTRY
+
+
+def get_tts_manager() -> TtsManager:
+    """Return the process-local V2 registry/manager composition root."""
+    global _TTS_V2_MANAGER
+    if _TTS_V2_MANAGER is None:
+        _TTS_V2_MANAGER = _build_v2_manager(get_tts_registry())
+    return _TTS_V2_MANAGER
+
+
+def get_tts_v2_descriptors():
+    return get_tts_manager().registry.descriptors()
 
 
 def _stored_custom_fields(config) -> tuple[str, str, str]:
@@ -150,16 +342,27 @@ def _stored_custom_fields(config) -> tuple[str, str, str]:
 
 def _reject_legacy_custom_tts(provider: str, endpoint: str) -> None:
     pid = (provider or "").strip()
-    _reject_removed_doubao_tts(pid)
     if pid == _LEGACY_TTS_CUSTOM_OPENAI:
         raise ValueError(_UNSUPPORTED_CUSTOM_TTS_MSG)
-    if (endpoint or "").strip() and pid not in _NON_MIMO_PRESET_PROVIDERS:
+    if pid and canonical_tts_provider_id(pid) not in {
+        TTS_PROVIDER_MIMO,
+        TTS_PROVIDER_DASHSCOPE,
+        TTS_PROVIDER_MINIMAX,
+        TTS_PROVIDER_DOUBAO,
+    }:
+        raise ValueError(tr("tts.error.unsupportedPlatform").format(platform=pid))
+    if (endpoint or "").strip() and not pid:
         raise ValueError(_UNSUPPORTED_CUSTOM_TTS_MSG)
 
 
 def is_custom_tts_config(provider: str, endpoint: str, model_id: str) -> bool:
     _reject_legacy_custom_tts(provider, endpoint)
-    return (provider or "").strip() in _NON_MIMO_PRESET_PROVIDERS
+    del model_id
+    return canonical_tts_provider_id(provider) in {
+        TTS_PROVIDER_DASHSCOPE,
+        TTS_PROVIDER_MINIMAX,
+        TTS_PROVIDER_DOUBAO,
+    }
 
 
 def validate_custom_tts_fields(
@@ -170,12 +373,17 @@ def validate_custom_tts_fields(
     """按 provider 校验 TTS 配置字段。"""
     pid = (provider or "").strip()
     _reject_legacy_custom_tts(pid, endpoint)
-    if not is_custom_tts_config(pid, endpoint, model_id):
+    canonical = canonical_tts_provider_id(pid)
+    if not canonical:
         return
-    if pid == TTS_PROVIDER_DASHSCOPE_QWEN:
-        if not model_id:
-            raise ValueError(tr("tts.error.selectQwenModel"))
-        return
+    spec = get_tts_provider(canonical)
+    if spec is None:
+        raise ValueError(tr("tts.error.unsupportedPlatform").format(platform=pid))
+    selected_model = canonical_tts_model_id(canonical, model_id) or spec.default_model
+    try:
+        get_tts_manager().catalog.require_model(canonical, selected_model)
+    except (AttributeError, ValueError) as exc:
+        raise ValueError(tr("tts.error.unsupportedModel").format(model=selected_model)) from exc
 
 
 def resolve_tts_config(
@@ -185,8 +393,6 @@ def resolve_tts_config(
     endpoint_override: str | None = None,
     model_id_override: str | None = None,
 ) -> ResolvedTtsConfig:
-    from app.tts_catalog import default_model_for_provider
-
     stored_provider, stored_endpoint, stored_model_id = _stored_custom_fields(config)
     provider = (provider_override if provider_override is not None else stored_provider).strip()
     endpoint = normalize_endpoint(
@@ -195,9 +401,10 @@ def resolve_tts_config(
     model_id = (
         (model_id_override if model_id_override is not None else stored_model_id) or ""
     ).strip()
-    _reject_removed_doubao_tts(provider)
+    _reject_legacy_custom_tts(provider, endpoint)
+    canonical = canonical_tts_provider_id(provider)
 
-    if not is_custom_tts_config(provider, endpoint, model_id):
+    if not canonical:
         default = get_tts_provider(TTS_PROVIDER_MIMO)
         assert default is not None
         return ResolvedTtsConfig(
@@ -210,24 +417,26 @@ def resolve_tts_config(
             stored_model_id="",
         )
 
-    validate_custom_tts_fields(provider, endpoint, model_id)
-    resolved_provider = provider
-
-    if resolved_provider == TTS_PROVIDER_DASHSCOPE_QWEN:
-        spec = get_tts_provider(TTS_PROVIDER_DASHSCOPE_QWEN)
-        assert spec is not None
-        resolved_model = model_id or default_model_for_provider(TTS_PROVIDER_DASHSCOPE_QWEN)
-        return ResolvedTtsConfig(
-            provider=TTS_PROVIDER_DASHSCOPE_QWEN,
-            endpoint=spec.default_endpoint,
-            model=resolved_model,
-            is_custom=True,
-            stored_provider=provider,
-            stored_endpoint="",
-            stored_model_id=resolved_model,
-        )
-
-    raise ValueError(_UNSUPPORTED_CUSTOM_TTS_MSG)
+    spec = get_tts_provider(canonical)
+    if spec is None:
+        raise ValueError(tr("tts.error.unsupportedPlatform").format(platform=provider))
+    resolved_model = model_id or spec.default_model
+    canonical_model = canonical_tts_model_id(canonical, resolved_model)
+    try:
+        get_tts_manager().catalog.require_model(canonical, canonical_model)
+    except (AttributeError, ValueError) as exc:
+        # The old DashScope snapshot remains readable by the legacy adapter.
+        if not (canonical == TTS_PROVIDER_DASHSCOPE and resolved_model in _TTS_MODEL_ALIASES):
+            raise ValueError(tr("tts.error.unsupportedModel").format(model=resolved_model)) from exc
+    return ResolvedTtsConfig(
+        provider=provider or canonical,
+        endpoint=spec.default_endpoint,
+        model=resolved_model,
+        is_custom=canonical != TTS_PROVIDER_MIMO,
+        stored_provider=provider,
+        stored_endpoint="",
+        stored_model_id=resolved_model,
+    )
 
 
 class TtsSynthesisAdapter(Protocol):
@@ -541,7 +750,52 @@ def synthesize_tts(
     style_prompt: str = "",
     voice: str = DEFAULT_TTS_VOICE,
     timeout_sec: float = 60.0,
+    credentials: Mapping[str, str] | None = None,
 ) -> bytes:
+    canonical_provider = canonical_tts_provider_id(resolved.provider)
+    canonical_model = canonical_tts_model_id(canonical_provider, resolved.model)
+    manager = get_tts_manager()
+    is_v2_model = False
+    try:
+        manager.catalog.require_model(canonical_provider, canonical_model)
+        is_v2_model = True
+    except (AttributeError, ValueError):
+        pass
+
+    if is_v2_model:
+        request_format = "mp3" if canonical_provider == TTS_PROVIDER_MINIMAX else "wav"
+        request = TtsRequest(
+            text=text,
+            provider_id=canonical_provider,
+            model_id=canonical_model,
+            voice_id=(voice or "").strip() or None,
+            style_prompt=(style_prompt or "").strip() or None,
+            output_format=request_format,
+        )
+        provider_credentials = dict(credentials or {})
+        if api_key and "api_key" not in provider_credentials:
+            provider_credentials["api_key"] = api_key
+        try:
+            result = manager.synthesize(
+                request,
+                credentials=provider_credentials,
+                timeout_sec=timeout_sec,
+            )
+            normalized = normalize_tts_result(result)
+        except DanmuTtsError:
+            raise
+        except TtsAuthError as exc:
+            if "api_key" in str(exc).lower() and not provider_credentials.get("api_key"):
+                raise DanmuTtsError(tr("tts.error.noApiKey")) from exc
+            raise DanmuTtsError(str(exc)) from exc
+        except Exception as exc:
+            # Keep the old public exception type at this compatibility seam;
+            # the V2 error taxonomy remains available on the manager itself.
+            raise DanmuTtsError(str(exc)) from exc
+        return normalized.audio_bytes
+
+    # Legacy model IDs remain readable for one compatibility cycle.  New
+    # provider/model combinations must go through the V2 registry above.
     adapter = get_tts_adapter(resolved.provider, model_id=resolved.model)
     return adapter.synthesize(
         api_key,

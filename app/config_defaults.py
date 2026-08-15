@@ -50,6 +50,21 @@ DEFAULT_FLOATING_PANEL_SPEED = "1"
 DEFAULT_DANMU_PENDING_ENTRY_CAP = 300
 DEFAULT_DANMU_TRACK_RETENTION_CAP = 600
 
+# TTS V2 credential storage constants.  The empty legacy ``tts_provider``
+# remains a valid runtime value; migrations use MiMo as its effective provider.
+DEFAULT_TTS_PROVIDER = "mimo"
+TTS_SECRET_MASK = "********"
+TTS_SECRET_PROVIDER_ALIASES = {
+    "": DEFAULT_TTS_PROVIDER,
+    "default": DEFAULT_TTS_PROVIDER,
+    "mimo_default": DEFAULT_TTS_PROVIDER,
+    "mimo": DEFAULT_TTS_PROVIDER,
+    "dashscope": "dashscope",
+    "dashscope_qwen": "dashscope",
+    "minimax": "minimax",
+    "doubao": "doubao",
+}
+
 # String values aligned with runtime fallbacks in main.py / danmu_engine / ai_client.
 CONFIG_DEFAULTS: dict[str, str] = {
     "api_mode": "openai",

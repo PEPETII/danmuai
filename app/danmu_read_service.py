@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import random
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
 from PyQt6.QtCore import QObject, QRunnable, QThreadPool, QTimer, pyqtSignal
@@ -23,12 +24,12 @@ from app.translations import tr
 from app.tts_providers import (
     MIMO_TTS_MODEL,
     TTS_PROBE_TEXT,
-    TTS_PROVIDER_DASHSCOPE_QWEN,
     TTS_PROVIDER_MIMO,
     DanmuTtsError,
     ResolvedTtsConfig,
-    _reject_removed_doubao_tts,
+    canonical_tts_provider_id,
     clamp_read_interval_sec,
+    get_tts_manager,
     normalize_tts_voice,
     resolve_tts_config,
     synthesize_tts,
@@ -76,12 +77,55 @@ def _normalize_tts_provider(value: object) -> str:
     raw = str(value or "").strip()
     if raw in ("", "mimo", TTS_PROVIDER_MIMO):
         return ""
-    _reject_removed_doubao_tts(raw)
     if raw == "custom_openai":
         raise ValueError(tr("tts.unsupportedCustom"))
-    if raw == TTS_PROVIDER_DASHSCOPE_QWEN:
+    if get_tts_manager().catalog.get_provider(canonical_tts_provider_id(raw)) is not None:
         return raw
     raise ValueError(tr("tts.error.unsupportedPlatform").format(platform=raw))
+
+
+def _stored_tts_credentials(config, provider: str) -> dict[str, str]:
+    """读取 provider-scoped 凭据；旧的全局 TTS key 仅作为兼容回退。"""
+    canonical = canonical_tts_provider_id(provider) or TTS_PROVIDER_MIMO
+    credentials: dict[str, str] = {}
+    try:
+        descriptor = get_tts_manager().catalog.get_provider(canonical)
+        fields = descriptor.auth.fields if descriptor is not None else ()
+        for field in fields:
+            value = config.get_tts_secret(canonical, field.id)
+            if value:
+                credentials[field.id] = value
+    except (AttributeError, OSError, ValueError):
+        pass
+    if not credentials.get("api_key"):
+        try:
+            legacy_key = config.get_tts_api_key()
+        except AttributeError:
+            legacy_key = ""
+        if legacy_key:
+            credentials["api_key"] = legacy_key
+    return credentials
+
+
+def _masked_tts_credentials(config, provider: str) -> dict[str, str]:
+    canonical = canonical_tts_provider_id(provider) or TTS_PROVIDER_MIMO
+    result: dict[str, str] = {}
+    try:
+        descriptor = get_tts_manager().catalog.get_provider(canonical)
+        fields = descriptor.auth.fields if descriptor is not None else ()
+        for field in fields:
+            value = config.get_tts_secret_masked(canonical, field.id)
+            if value:
+                result[field.id] = value
+    except (AttributeError, OSError, ValueError):
+        pass
+    if canonical == TTS_PROVIDER_MIMO and not result.get("api_key"):
+        try:
+            if config.get_tts_api_key():
+                result["api_key"] = MASKED_API_KEY
+        except AttributeError:
+            pass
+    return result
 
 
 class _DanmuTtsRunnable(QRunnable):
@@ -94,6 +138,7 @@ class _DanmuTtsRunnable(QRunnable):
         voice: str,
         style_prompt: str,
         resolved: ResolvedTtsConfig,
+        credentials: Mapping[str, str] | None = None,
     ) -> None:
         super().__init__()
         self._service = service
@@ -102,6 +147,7 @@ class _DanmuTtsRunnable(QRunnable):
         self._voice = voice
         self._style_prompt = style_prompt
         self._resolved = resolved
+        self._credentials = dict(credentials or {})
         self.setAutoDelete(True)
 
     def run(self) -> None:
@@ -112,6 +158,7 @@ class _DanmuTtsRunnable(QRunnable):
                 style_prompt=self._style_prompt,
                 voice=self._voice,
                 resolved=self._resolved,
+                credentials=self._credentials,
             )
         except DanmuTtsError as exc:
             _emit_tts_failed(self._service, str(exc))
@@ -176,10 +223,6 @@ class DanmuReadService(QObject):
         if not self._app.engine.running or not danmu_read_enabled(config):
             self._timer.stop()
             return
-        if not config.get_tts_api_key():
-            self._log_skip_once("no_key", tr("danmuRead.noKeyWarning"))
-            self._timer.stop()
-            return
         interval_ms = clamp_read_interval_sec(
             config.get("danmu_read_interval_sec", "10")
         ) * 1000
@@ -222,7 +265,7 @@ class DanmuReadService(QObject):
         if "provider" in patch or "endpoint" in patch or "model_id" in patch:
             if provider == "custom_openai":
                 raise ValueError(tr("tts.unsupportedCustom"))
-            if endpoint and provider != TTS_PROVIDER_DASHSCOPE_QWEN:
+            if endpoint:
                 raise ValueError(tr("tts.unsupportedCustom"))
             if not provider and not endpoint and not model_id:
                 items["tts_provider"] = ""
@@ -258,6 +301,20 @@ class DanmuReadService(QObject):
             key = api_key.strip()
             if key and key != MASKED_API_KEY:
                 config.set_tts_api_key(key)
+                config.set_tts_secret(
+                    canonical_tts_provider_id(provider) or TTS_PROVIDER_MIMO,
+                    "api_key",
+                    key,
+                )
+        credentials = patch.get("credentials")
+        if isinstance(credentials, Mapping):
+            credential_provider = canonical_tts_provider_id(provider) or TTS_PROVIDER_MIMO
+            for field, value in credentials.items():
+                if not isinstance(field, str) or not isinstance(value, str):
+                    continue
+                value = value.strip()
+                if value and value != MASKED_API_KEY:
+                    config.set_tts_secret(credential_provider, field, value)
         self._skip_log_flags.discard("no_key")
         self._sync_timer()
         try:
@@ -284,11 +341,11 @@ class DanmuReadService(QObject):
         provider_override: str | None = None,
         endpoint_override: str | None = None,
         model_id_override: str | None = None,
+        voice_override: str | None = None,
+        style_prompt_override: str | None = None,
+        credentials_override: Mapping[str, str] | None = None,
     ) -> dict[str, object]:
         config = self._app.config
-        api_key = (api_key_override or "").strip() or config.get_tts_api_key()
-        if not api_key:
-            return {"ok": False, "message": tr("danmuRead.fillApiKey")}
         if self._playback.is_busy() or self._tts_in_flight:
             return {"ok": False, "message": tr("danmuRead.busyProbe")}
         try:
@@ -300,12 +357,22 @@ class DanmuReadService(QObject):
             )
         except ValueError as exc:
             return {"ok": False, "message": str(exc)}
+        credentials = dict(credentials_override or _stored_tts_credentials(config, resolved.provider))
+        api_key = (api_key_override or "").strip() or credentials.get("api_key", "")
+        if api_key:
+            credentials["api_key"] = api_key
+        if not api_key:
+            return {"ok": False, "message": tr("danmuRead.fillApiKey")}
         voice = normalize_tts_voice(
-            config.get("tts_voice", ""),
+            voice_override if voice_override is not None else config.get("tts_voice", ""),
             provider=resolved.provider,
             model_id=resolved.model,
         )
-        style = config.get("tts_style_prompt", "")
+        style = (
+            style_prompt_override
+            if style_prompt_override is not None
+            else config.get("tts_style_prompt", "")
+        )
         self._tts_in_flight = True
         self._probe_pending = True
         runnable = _DanmuTtsRunnable(
@@ -315,6 +382,7 @@ class DanmuReadService(QObject):
             voice=voice,
             style_prompt=style,
             resolved=resolved,
+            credentials=credentials,
         )
         QThreadPool.globalInstance().start(runnable)
         self._app.logger.info("danmu read: probe synthesis submitted")
@@ -328,10 +396,6 @@ class DanmuReadService(QObject):
         if not app.engine.running or not danmu_read_enabled(app.config):
             return
         if self._tts_in_flight or self._playback.is_busy():
-            return
-        api_key = app.config.get_tts_api_key()
-        if not api_key:
-            self._log_skip_once("no_key", tr("danmuRead.skipNoKey"))
             return
         texts = app.engine.visible_display_texts()
         if not texts:
@@ -354,6 +418,11 @@ class DanmuReadService(QObject):
         except ValueError as exc:
             self._log_skip_once("bad_tts_config", tr("danmuRead.invalidTtsConfig").format(error=exc))
             return
+        credentials = _stored_tts_credentials(app.config, resolved.provider)
+        api_key = credentials.get("api_key", "")
+        if not api_key:
+            self._log_skip_once("no_key", tr("danmuRead.skipNoKey"))
+            return
         voice = normalize_tts_voice(
             app.config.get("tts_voice", ""),
             provider=resolved.provider,
@@ -369,6 +438,7 @@ class DanmuReadService(QObject):
             voice=voice,
             style_prompt=style,
             resolved=resolved,
+            credentials=credentials,
         )
         QThreadPool.globalInstance().start(runnable)
 
@@ -416,11 +486,13 @@ def export_danmu_read_config(config) -> dict[str, object]:
     stored_provider = (config.get("tts_provider") or "").strip()
     stored_endpoint = normalize_endpoint(config.get("tts_endpoint") or "")
     stored_model_id = (config.get("tts_model_id") or "").strip()
-    # Auto-migrate legacy TTS providers so the frontend never sees them
-    if stored_provider in ("doubao", "custom_openai"):
+    if stored_provider == "custom_openai":
         config.set_batch({"tts_provider": "", "tts_endpoint": ""})
         stored_provider = ""
         stored_endpoint = ""
+    effective_provider = canonical_tts_provider_id(stored_provider) or TTS_PROVIDER_MIMO
+    credentials = _masked_tts_credentials(config, effective_provider)
+    has_credentials = bool(key or credentials)
     try:
         resolved = resolve_tts_config(config)
     except ValueError:
@@ -431,7 +503,8 @@ def export_danmu_read_config(config) -> dict[str, object]:
             ),
             "voice": normalize_tts_voice(config.get("tts_voice", "")),
             "style_prompt": config.get("tts_style_prompt", ""),
-            "api_key": MASKED_API_KEY if key else "",
+            "api_key": MASKED_API_KEY if has_credentials else "",
+            "credentials": credentials,
             "provider": stored_provider,
             "custom_endpoint": stored_endpoint,
             "custom_model_id": stored_model_id,
@@ -442,6 +515,7 @@ def export_danmu_read_config(config) -> dict[str, object]:
                 stored_provider, stored_endpoint, stored_model_id
             ),
         }
+    credentials = _masked_tts_credentials(config, resolved.provider)
     return {
         "enabled": danmu_read_enabled(config),
         "interval_sec": clamp_read_interval_sec(
@@ -453,7 +527,8 @@ def export_danmu_read_config(config) -> dict[str, object]:
             model_id=resolved.model,
         ),
         "style_prompt": config.get("tts_style_prompt", ""),
-        "api_key": MASKED_API_KEY if key else "",
+        "api_key": MASKED_API_KEY if (key or credentials) else "",
+        "credentials": credentials,
         "provider": stored_provider,
         "custom_endpoint": stored_endpoint,
         "custom_model_id": stored_model_id,

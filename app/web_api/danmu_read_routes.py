@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Callable
 
-from fastapi import Header
+from fastapi import Header, Query
 from pydantic import BaseModel
 
 from app.web_api import danmu_read as read_api
@@ -25,6 +25,7 @@ class DanmuReadConfigPayload(BaseModel):
     model_id: str | None = None
     custom_endpoint: str | None = None
     custom_model_id: str | None = None
+    credentials: dict[str, str] | None = None
 
 
 class DanmuReadProbePayload(BaseModel):
@@ -34,6 +35,9 @@ class DanmuReadProbePayload(BaseModel):
     model_id: str | None = None
     custom_endpoint: str | None = None
     custom_model_id: str | None = None
+    voice: str | None = None
+    style_prompt: str | None = None
+    credentials: dict[str, str] | None = None
 
 
 def register_danmu_read_routes(
@@ -49,6 +53,19 @@ def register_danmu_read_routes(
     @app.get("/api/danmu-read/catalog")
     def get_danmu_read_catalog():
         return read_api.get_catalog()
+
+    @app.get("/api/danmu-read/voices")
+    def get_danmu_read_voices(
+        provider: str = Query(default=""),
+        model_id: str = Query(default=""),
+        force_refresh: bool = Query(default=False),
+    ):
+        return read_api.get_voices(
+            bridge.danmu_app,
+            provider,
+            model_id,
+            force_refresh=force_refresh,
+        )
 
     @app.put("/api/danmu-read/config")
     @require_auth(check_token)

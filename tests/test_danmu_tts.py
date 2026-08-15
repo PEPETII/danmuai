@@ -125,15 +125,16 @@ def test_resolve_tts_config_defaults():
     assert resolved.is_custom is False
 
 
-def test_resolve_tts_config_rejects_doubao():
+def test_resolve_tts_config_supports_doubao():
     cfg = FakeConfig(
         {
             "tts_provider": "doubao",
             "tts_model_id": "seed-tts-2.0",
         }
     )
-    with pytest.raises(ValueError, match="火山豆包"):
-        resolve_tts_config(cfg)
+    resolved = resolve_tts_config(cfg)
+    assert resolved.provider == "doubao"
+    assert resolved.model == "seed-tts-2.0"
 
 
 def test_resolve_tts_config_dashscope():

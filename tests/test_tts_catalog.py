@@ -11,7 +11,8 @@ def test_list_catalog_for_api_has_providers():
     ids = {p["id"] for p in data}
     assert TTS_PROVIDER_MIMO in ids
     assert TTS_PROVIDER_DASHSCOPE_QWEN in ids
-    assert "doubao" not in ids
+    assert "doubao" in ids
+    assert "minimax" in ids
     assert "custom_openai" not in ids
 
 

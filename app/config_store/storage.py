@@ -63,7 +63,12 @@ _SENSITIVE_CONFIG_KEYS = frozenset(
 
 
 def _redact_config_value_for_log(key: str, value: str) -> str:
-    if key in _SENSITIVE_CONFIG_KEYS or "encrypted" in key.lower() or key.endswith("_key"):
+    if (
+        key in _SENSITIVE_CONFIG_KEYS
+        or key.startswith("tts_secret:")
+        or "encrypted" in key.lower()
+        or key.endswith("_key")
+    ):
         return "***"
     if len(value) > 120:
         return f"{value[:40]}…({len(value)} chars)"
@@ -127,6 +132,7 @@ class ConfigStore:
 
             seed_config_defaults(self)
             self._load_cache()
+        self._migrate_legacy_tts_credentials()
         # W-PERF-STARTUP-001：非关键迁移延迟到主线程空闲时执行，减少启动阻塞
         self._pending_deferred_migrations = True
         # W-LEGACY-MIGRATE-003：启动期自动迁移 legacy API 配置到默认 custom_models 档案
@@ -255,6 +261,7 @@ class ConfigStore:
                 self._cache.get("api_key_encrypted")
                 or self._cache.get("mic_api_key_encrypted")
                 or self._cache.get("tts_api_key_encrypted")
+                or any(key.startswith("tts_secret:") for key in self._cache)
             )
             if has_encrypted:
                 self._key_regenerated = True
@@ -558,6 +565,26 @@ class ConfigStore:
 
         set_tts_api_key_for_store(self, key)
 
+    def get_tts_secret(self, provider: str, field: str) -> str:
+        from app.config_store.storage_models import get_tts_secret_for_store
+
+        return get_tts_secret_for_store(self, provider, field)
+
+    def set_tts_secret(self, provider: str, field: str, value: str) -> None:
+        from app.config_store.storage_models import set_tts_secret_for_store
+
+        set_tts_secret_for_store(self, provider, field, value)
+
+    def delete_tts_secret(self, provider: str, field: str) -> bool:
+        from app.config_store.storage_models import delete_tts_secret_for_store
+
+        return delete_tts_secret_for_store(self, provider, field)
+
+    def get_tts_secret_masked(self, provider: str, field: str) -> str:
+        from app.config_store.storage_models import get_tts_secret_masked_for_store
+
+        return get_tts_secret_masked_for_store(self, provider, field)
+
     def get_mic_api_key(self) -> str:
         from app.config_store.storage_models import get_mic_api_key_for_store
 
@@ -792,6 +819,11 @@ class ConfigStore:
         )
 
         return maybe_migrate_legacy_api_to_custom_models_for_store(self)
+
+    def _migrate_legacy_tts_credentials(self) -> bool:
+        from app.config_migrations import migrate_legacy_tts_credentials
+
+        return migrate_legacy_tts_credentials(self)
 
     def close(self):
         # W-AUDIT-V2-BUG-005：统一写锁后只 acquire 一次。

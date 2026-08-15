@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import sqlite3
 from base64 import b64decode
 from typing import TYPE_CHECKING
@@ -17,6 +18,7 @@ except ImportError:
     InvalidToken = ValueError  # type: ignore[misc, assignment]
 
 import app.config_store as _cs_pkg
+from app.config_defaults import TTS_SECRET_MASK, TTS_SECRET_PROVIDER_ALIASES
 from app.config_store.crypto import (
     ConfigStoreCryptoUnavailableError,
     canonicalize_custom_model_profile,
@@ -27,6 +29,30 @@ if TYPE_CHECKING:
     from app.config_store.storage import ConfigStore
 
 logger = logging.getLogger(__name__)
+
+_TTS_SECRET_PREFIX = "tts_secret:"
+_TTS_SECRET_COMPONENT_RE = re.compile(r"^[a-z0-9][a-z0-9_.-]*$")
+
+
+def _normalize_tts_secret_component(value: str, name: str) -> str:
+    component = str(value or "").strip().lower()
+    if not component or not _TTS_SECRET_COMPONENT_RE.fullmatch(component):
+        raise ValueError(f"invalid TTS secret {name}")
+    return component
+
+
+def _canonical_tts_provider(provider: str) -> str:
+    raw = str(provider or "").strip().lower()
+    return TTS_SECRET_PROVIDER_ALIASES.get(raw, raw)
+
+
+def _tts_secret_storage_keys(provider: str, field: str) -> tuple[str, str]:
+    normalized_provider = _normalize_tts_secret_component(
+        _canonical_tts_provider(provider), "provider"
+    )
+    normalized_field = _normalize_tts_secret_component(field, "field")
+    encrypted_key = f"{_TTS_SECRET_PREFIX}{normalized_provider}:{normalized_field}"
+    return encrypted_key, f"{encrypted_key}:encoded"
 
 
 def _secret_fingerprint(
@@ -133,6 +159,28 @@ def encrypted_set_for_store(
     invalidate_secret_cache_for_store(store, encrypted_key)
 
 
+def encrypted_delete_for_store(
+    store: ConfigStore, encrypted_key: str, encoded_key: str
+) -> bool:
+    """删除某个密文 secret 及其历史 encoded 表示。"""
+    if encrypted_key not in store._cache and encoded_key not in store._cache:
+        return False
+    with store._write_lock:
+        try:
+            store.conn.execute(
+                "DELETE FROM config WHERE key IN (?, ?)",
+                (encrypted_key, encoded_key),
+            )
+            store.conn.commit()
+            store._cache.pop(encrypted_key, None)
+            store._cache.pop(encoded_key, None)
+        except sqlite3.DatabaseError:
+            store.conn.rollback()
+            raise
+    invalidate_secret_cache_for_store(store, encrypted_key)
+    return True
+
+
 def get_api_key_for_store(store: ConfigStore) -> str:
     """读取明文 API Key：优先 Fernet 解密 api_key_encrypted，否则回退 base64 的 api_key_encoded。"""
     return encrypted_get_for_store(store, "api_key_encrypted", "api_key_encoded")
@@ -151,6 +199,43 @@ def get_tts_api_key_for_store(store: ConfigStore) -> str:
 def set_tts_api_key_for_store(store: ConfigStore, key: str) -> None:
     """写入 TTS API Key（加密存储）。"""
     encrypted_set_for_store(store, "tts_api_key_encrypted", "tts_api_key_encoded", key)
+
+
+def get_tts_secret_for_store(store: ConfigStore, provider: str, field: str) -> str:
+    """读取一个按 provider/field 隔离的 TTS secret。"""
+    encrypted_key, encoded_key = _tts_secret_storage_keys(provider, field)
+    return encrypted_get_for_store(store, encrypted_key, encoded_key)
+
+
+def set_tts_secret_for_store(
+    store: ConfigStore, provider: str, field: str, value: str
+) -> None:
+    """使用现有 Fernet 机制写入一个 provider-scoped TTS secret。"""
+    encrypted_key, encoded_key = _tts_secret_storage_keys(provider, field)
+    if value is None or value == "":
+        encrypted_delete_for_store(store, encrypted_key, encoded_key)
+        return
+    encrypted_set_for_store(store, encrypted_key, encoded_key, str(value))
+
+
+def delete_tts_secret_for_store(store: ConfigStore, provider: str, field: str) -> bool:
+    """删除一个 provider/field secret，并清理历史 encoded 行。"""
+    encrypted_key, encoded_key = _tts_secret_storage_keys(provider, field)
+    return encrypted_delete_for_store(store, encrypted_key, encoded_key)
+
+
+def get_tts_secret_masked_for_store(
+    store: ConfigStore, provider: str, field: str
+) -> str:
+    """读取稳定的掩码值；没有 secret 时返回空串。"""
+    return TTS_SECRET_MASK if get_tts_secret_for_store(store, provider, field) else ""
+
+
+def delete_legacy_tts_api_key_for_store(store: ConfigStore) -> bool:
+    """迁移成功后删除旧的单一 TTS key。"""
+    return encrypted_delete_for_store(
+        store, "tts_api_key_encrypted", "tts_api_key_encoded"
+    )
 
 
 def get_mic_api_key_for_store(store: ConfigStore) -> str:

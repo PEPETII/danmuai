@@ -24,8 +24,25 @@ def test_get_danmu_read_catalog():
     ids = {p["id"] for p in data["providers"]}
     assert "mimo" in ids
     assert "dashscope_qwen" in ids
-    assert "doubao" not in ids
+    assert "doubao" in ids
+    assert "minimax" in ids
     assert "custom_openai" not in ids
+
+
+def test_get_danmu_read_voices_from_catalog():
+    app = FastAPI()
+    bridge = MagicMock()
+    bridge.danmu_app.config = MagicMock()
+    bridge.danmu_app.config.get_tts_secret.return_value = ""
+    bridge.danmu_app.config.get_tts_api_key.return_value = ""
+    register_web_routes(app, bridge, lambda _auth=None: None)
+    client = TestClient(app)
+    response = client.get(
+        "/api/danmu-read/voices",
+        params={"provider": "mimo", "model_id": "mimo-v2.5-tts"},
+    )
+    assert response.status_code == 200
+    assert response.json()["voices"][0]["id"] == "mimo_default"
 
 
 def test_get_danmu_read_config_masks_key(workspace_tmp):
@@ -142,7 +159,7 @@ def test_put_danmu_read_config_custom_missing_endpoint(workspace_tmp):
     assert res.status_code == 400
 
 
-def test_danmu_read_probe_route_rejects_doubao():
+def test_danmu_read_probe_route_accepts_doubao():
     app = FastAPI()
     bridge = MagicMock()
     bridge.danmu_app.run_danmu_read_probe.return_value = {"ok": True, "message": "试听播放中"}
@@ -159,21 +176,23 @@ def test_danmu_read_probe_route_rejects_doubao():
             "model_id": "seed-tts-2.0",
         },
     )
-    assert res.status_code == 400
-    bridge.danmu_app.run_danmu_read_probe.assert_not_called()
+    assert res.status_code == 200
+    bridge.danmu_app.run_danmu_read_probe.assert_called_once_with(
+        api_key_override="sk-test-tts",
+        provider_override="doubao",
+        endpoint_override=None,
+        model_id_override="seed-tts-2.0",
+    )
 
 
-def test_put_danmu_read_config_rejects_doubao_provider(workspace_tmp):
+def test_put_danmu_read_config_accepts_doubao_provider(workspace_tmp):
     app = FastAPI()
     bridge = MagicMock()
     config = ConfigStore(db_path=workspace_tmp / "doubao_read.db")
     danmu_app = MagicMock()
     danmu_app.config = config
 
-    def apply(patch):
-        raise AssertionError("should not reach apply for doubao")
-
-    danmu_app.apply_danmu_read_config = apply
+    danmu_app.apply_danmu_read_config = lambda patch: _apply_preset_tts_patch(config, patch)
     bridge.danmu_app = danmu_app
     bridge.invoke_on_main = lambda fn, *args, **kwargs: fn(*args, **kwargs)
 
@@ -187,7 +206,7 @@ def test_put_danmu_read_config_rejects_doubao_provider(workspace_tmp):
             "model_id": "seed-tts-2.0",
         },
     )
-    assert res.status_code == 400
+    assert res.status_code == 200
 
 
 def test_export_danmu_read_config_legacy_doubao(workspace_tmp):
@@ -199,10 +218,10 @@ def test_export_danmu_read_config_legacy_doubao(workspace_tmp):
         }
     )
     data = export_danmu_read_config(store)
-    assert data["provider"] == ""
+    assert data["provider"] == "doubao"
     assert data["custom_model_id"] == "seed-tts-2.0"
-    assert data["use_custom_model"] is False
-    assert data["model"] == "mimo-v2.5-tts"
+    assert data["use_custom_model"] is True
+    assert data["model"] == "seed-tts-2.0"
     assert "app_id" not in data
 
 
@@ -352,6 +371,37 @@ def test_danmu_read_probe_route_dashscope_provider():
         provider_override=TTS_PROVIDER_DASHSCOPE_QWEN,
         endpoint_override=None,
         model_id_override="qwen3-tts-flash-2025-11-27",
+    )
+
+
+def test_danmu_read_probe_passes_unsaved_voice_style_credentials():
+    app = FastAPI()
+    bridge = MagicMock()
+    bridge.danmu_app.run_danmu_read_probe.return_value = {"ok": True, "message": "试听播放中"}
+    bridge.invoke_on_main = lambda fn, *args, **kwargs: fn(*args, **kwargs)
+
+    register_web_routes(app, bridge, lambda _auth=None: None)
+    client = TestClient(app)
+    res = client.post(
+        "/api/danmu-read/probe",
+        headers={"Authorization": "Bearer test"},
+        json={
+            "provider": "doubao",
+            "model_id": "seed-tts-2.0",
+            "voice": "zh_female_vv_uranus_bigtts",
+            "style_prompt": "活泼自然",
+            "credentials": {"api_key": "sk-unsaved"},
+        },
+    )
+    assert res.status_code == 200
+    bridge.danmu_app.run_danmu_read_probe.assert_called_once_with(
+        api_key_override="sk-unsaved",
+        provider_override="doubao",
+        endpoint_override=None,
+        model_id_override="seed-tts-2.0",
+        voice_override="zh_female_vv_uranus_bigtts",
+        style_prompt_override="活泼自然",
+        credentials_override={"api_key": "sk-unsaved"},
     )
 
 

@@ -10,12 +10,14 @@ W-SCHEMA-MIGRATION-FOUNDATION-001：当前 MIGRATIONS 为空，仅建立版本�
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Callable, List, Tuple
-
-if TYPE_CHECKING:
-    import sqlite3
+import sqlite3
+from typing import Callable, List, Tuple
 
 logger = logging.getLogger(__name__)
+
+_TTS_GENERIC_API_KEY_PROVIDERS = frozenset(
+    {"mimo", "dashscope", "minimax", "doubao"}
+)
 
 # (version, name, fn(conn)) —— fn 在已开连接内运行，需幂等。
 MIGRATIONS: List[Tuple[int, str, Callable[["sqlite3.Connection"], None]]] = []
@@ -72,4 +74,54 @@ def run_pending(conn: "sqlite3.Connection") -> int:
     return max([current] + [m[0] for m in MIGRATIONS])
 
 
-__all__ = ["MIGRATIONS", "register", "run_pending"]
+def migrate_legacy_tts_credentials(store) -> bool:
+    """将旧单一 TTS key 幂等迁移到明确的 provider/api_key 槽位。
+
+    旧字段只迁入对应 provider 的 ``api_key`` 槽位，绝不复制或猜测为
+    Doubao 的 ``app_id``/``access_token``；未知 provider 保留旧值。
+    """
+    from app.config_defaults import DEFAULT_TTS_PROVIDER, TTS_SECRET_PROVIDER_ALIASES
+
+    legacy_raw = bool(
+        store.get("tts_api_key_encrypted", "")
+        or store.get("tts_api_key_encoded", "")
+    )
+    if not legacy_raw:
+        return False
+
+    raw_provider = str(store.get("tts_provider", "") or "").strip().lower()
+    provider = (
+        DEFAULT_TTS_PROVIDER
+        if not raw_provider
+        else TTS_SECRET_PROVIDER_ALIASES.get(raw_provider)
+    )
+    if provider not in _TTS_GENERIC_API_KEY_PROVIDERS:
+        return False
+
+    legacy_value = store.get_tts_api_key()
+    # 密文无法解密时保留旧行，交给既有 key-loss 处理，不以空读结果销毁。
+    if not legacy_value:
+        return False
+
+    target_raw = store.get(f"tts_secret:{provider}:api_key", "")
+    target_value = store.get_tts_secret(provider, "api_key")
+    if target_raw and not target_value:
+        return False
+
+    try:
+        if not target_value:
+            store.set_tts_secret(provider, "api_key", legacy_value)
+        from app.config_store.storage_models import delete_legacy_tts_api_key_for_store
+
+        delete_legacy_tts_api_key_for_store(store)
+    except Exception as exc:  # noqa: BLE001 - startup migration retries next launch
+        logger.warning(
+            "config.tts_secret_migration_failed provider=%s error=%s",
+            provider,
+            type(exc).__name__,
+        )
+        return False
+    return True
+
+
+__all__ = ["MIGRATIONS", "migrate_legacy_tts_credentials", "register", "run_pending"]
