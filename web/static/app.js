@@ -816,6 +816,15 @@ async function probeDanmuRead(voiceOverride = null) {
 
 function initDanmuReadPage() {
   ensureDanmuReadCatalog().catch((error) => recordBootstrapFailure('danmu-read-catalog', error));
+  document.querySelectorAll('#settingsTab-danmu-read [data-interval]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const input = document.getElementById('danmuReadInterval');
+      if (!input || !button.dataset.interval) return;
+      input.value = button.dataset.interval;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+  });
   document
     .getElementById('danmuReadProvider')
     ?.addEventListener('change', handleDanmuReadProviderChange);

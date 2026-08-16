@@ -260,8 +260,8 @@
         </div>
 
         <!-- AI读弹幕：provider/model/auth_schema/capabilities 由 catalog 驱动 -->
-        <div id="settingsTab-danmu-read" class="settings-tab-panel space-y-6 danmu-read-page" data-settings-panel="danmu-read" role="tabpanel" aria-labelledby="settingsTabBtn-danmu-read" hidden data-i18n-aria-label="settings.aria.AI读弹幕_2" aria-label="AI读弹幕">
-          <div class="ui-page-header">
+        <div id="settingsTab-danmu-read" class="settings-tab-panel danmu-read-page" data-settings-panel="danmu-read" role="tabpanel" aria-labelledby="settingsTabBtn-danmu-read" hidden data-i18n-aria-label="settings.aria.AI读弹幕_2" aria-label="AI读弹幕">
+          <div class="ui-page-header danmu-read-header">
             <h3 class="text-lg font-bold text-warmText flex items-center gap-2">
               <svg class="ui-icon text-warmPink" aria-hidden="true"><use href="#i-message"></use></svg>
               <span data-i18n="settings.text.读弹幕">读弹幕</span>
@@ -269,65 +269,105 @@
             <p class="text-sm text-gray-500" data-i18n="settings.text.使用语音合成定时随机朗读当前屏幕上的一条弹幕">使用语音合成定时随机朗读当前屏幕上的一条弹幕</p>
           </div>
 
-          <div class="tts-reader-notice ui-card">
-            <p data-i18n="settings.text.读弹幕说明">让 AI 随机朗读屏幕上正在显示的弹幕，只在开始生成后工作。</p>
-            <p class="settings-section-hint" data-i18n="settings.text.读弹幕费用说明">本功能按朗读文本量产生 TTS 费用；价格以目录和服务商账单为准。</p>
+          <div class="tts-reader-notice ui-card danmu-read-lede">
+            <span class="danmu-read-lede__icon" aria-hidden="true">
+              <svg class="ui-icon"><use href="#i-megaphone"></use></svg>
+            </span>
+            <div>
+              <p class="danmu-read-lede__title" data-i18n="settings.text.读弹幕说明">让 AI 随机朗读屏幕上正在显示的弹幕，只在开始生成后工作。</p>
+              <p class="settings-section-hint" data-i18n="settings.text.读弹幕费用说明">本功能按朗读文本量产生 TTS 费用；价格以目录和服务商账单为准。</p>
+            </div>
           </div>
 
-          <section class="settings-section" aria-labelledby="danmuReadBasicTitle">
-            <h4 id="danmuReadBasicTitle" class="settings-section-title" data-i18n="settings.text.基本设置">基本设置</h4>
-            <label class="toggle-switch">
-              <input type="checkbox" id="danmuReadEnabled" role="switch">
-              <span data-i18n="settings.text.启用读弹幕">启用读弹幕</span>
-            </label>
-            <div class="settings-field max-w-xs mt-3">
-              <label for="danmuReadInterval" class="settings-field-label" data-i18n="settings.text.朗读间隔_秒">朗读间隔（秒）</label>
-              <input type="number" id="danmuReadInterval" min="3" max="120" value="15" class="settings-field-control w-full ui-control ui-input">
-              <p class="settings-section-hint mt-1" data-i18n="settings.text.朗读间隔说明">到达间隔时会随机选择一条当前可见弹幕；上一句仍在合成或播放时不会重复发起。</p>
-              <div class="tts-reader-interval-presets" role="group" aria-label="Read interval presets">
-                <button type="button" class="ui-button ui-button--secondary ui-button--sm" data-interval="10">10s</button>
-                <button type="button" class="ui-button ui-button--secondary ui-button--sm" data-interval="15" data-recommended="true">15s · <span data-i18n="settings.text.推荐">推荐</span></button>
-                <button type="button" class="ui-button ui-button--secondary ui-button--sm" data-interval="30">30s</button>
+          <div class="danmu-read-layout">
+            <section class="settings-section danmu-read-panel danmu-read-basic-panel" aria-labelledby="danmuReadBasicTitle">
+              <div class="danmu-read-panel-heading">
+                <span class="tts-step-badge" aria-hidden="true">01</span>
+                <div>
+                  <h4 id="danmuReadBasicTitle" class="settings-section-title" data-i18n="settings.text.基本设置">基本设置</h4>
+                  <p class="settings-section-hint" data-i18n="settings.text.朗读间隔说明">到达间隔时会随机选择一条当前可见弹幕；上一句仍在合成或播放时不会重复发起。</p>
+                </div>
               </div>
-            </div>
-          </section>
-
-          <section class="settings-section" aria-labelledby="danmuReadServiceTitle">
-            <h4 id="danmuReadServiceTitle" class="settings-section-title" data-i18n="settings.text.语音服务">语音服务</h4>
-            <label for="danmuReadProvider" class="settings-field-label" data-i18n="settings.text.AI平台">AI 平台</label>
-            <select id="danmuReadProvider" class="sr-only" aria-describedby="danmuReadProviderCardsHint"></select>
-            <div id="danmuReadProviderCards" class="tts-provider-grid" role="radiogroup" aria-labelledby="danmuReadServiceTitle"></div>
-            <p id="danmuReadProviderCardsHint" class="settings-section-hint" data-i18n="settings.text.语音服务说明">选择平台后，模型、凭据和可用能力会同步更新。</p>
-
-            <div id="danmuReadModelSelectWrap" class="mt-4">
-              <label for="danmuReadModelSelect" class="settings-field-label" data-i18n="settings.text.TTS模型">TTS 模型</label>
-              <select id="danmuReadModelSelect" class="sr-only"></select>
-              <div id="danmuReadModelCards" class="tts-model-grid" role="radiogroup" aria-label="TTS model choices"></div>
-            </div>
-
-            <div class="mt-4">
-              <div class="flex flex-wrap items-center justify-between gap-2">
-                <h5 class="settings-field-label mb-0" data-i18n="settings.text.API凭据">API 凭据</h5>
-                <a id="danmuReadCredentialsHelp" class="text-sm text-warmPink underline" target="_blank" rel="noopener noreferrer" data-i18n="settings.text.如何获取">如何获取？</a>
+              <label class="toggle-switch danmu-read-toggle">
+                <input type="checkbox" id="danmuReadEnabled" role="switch">
+                <span data-i18n="settings.text.启用读弹幕">启用读弹幕</span>
+              </label>
+              <div class="settings-field danmu-read-interval-field">
+                <label for="danmuReadInterval" class="settings-field-label" data-i18n="settings.text.朗读间隔_秒">朗读间隔（秒）</label>
+                <input type="number" id="danmuReadInterval" min="3" max="120" value="15" class="settings-field-control w-full ui-control ui-input">
+                <div class="tts-reader-interval-presets" role="group" aria-label="Read interval presets">
+                  <button type="button" class="ui-button ui-button--secondary ui-button--sm" data-interval="10">10s</button>
+                  <button type="button" class="ui-button ui-button--secondary ui-button--sm" data-interval="15" data-recommended="true">15s · <span data-i18n="settings.text.推荐">推荐</span></button>
+                  <button type="button" class="ui-button ui-button--secondary ui-button--sm" data-interval="30">30s</button>
+                </div>
               </div>
-              <div id="danmuReadCredentials" class="tts-credentials-grid" aria-live="polite"></div>
-            </div>
+            </section>
 
-            <div class="mt-4">
-              <label for="danmuReadVoiceSearch" class="settings-field-label" data-i18n="settings.text.音色">音色</label>
-              <div class="tts-voice-toolbar">
-                <input id="danmuReadVoiceSearch" type="search" class="settings-field-control ui-control ui-input" data-i18n-placeholder="settings.placeholder.搜索音色" placeholder="搜索音色…">
-                <button type="button" id="btnDanmuReadVoiceRefresh" class="ui-button ui-button--secondary ui-button--sm" data-i18n="settings.text.刷新音色">刷新音色</button>
+            <section class="settings-section danmu-read-panel danmu-read-service-panel" aria-labelledby="danmuReadServiceTitle">
+              <div class="danmu-read-panel-heading">
+                <span class="tts-step-badge" aria-hidden="true">02</span>
+                <div>
+                  <h4 id="danmuReadServiceTitle" class="settings-section-title" data-i18n="settings.text.语音服务">语音服务</h4>
+                  <p class="settings-section-hint" data-i18n="settings.text.语音服务说明">选择平台后，模型、凭据和可用能力会同步更新。</p>
+                </div>
               </div>
-              <select id="danmuReadVoice" class="sr-only" aria-label="Selected voice"></select>
-              <div id="danmuReadVoiceList" class="tts-voice-list" role="listbox" aria-label="Voice choices"></div>
-              <p id="danmuReadVoiceStatus" class="settings-section-hint" aria-live="polite"></p>
-            </div>
-          </section>
+
+              <div class="danmu-read-service-flow">
+                <div class="tts-config-block">
+                  <div class="tts-config-block__heading">
+                    <span class="tts-step-badge tts-step-badge--small" aria-hidden="true">1</span>
+                    <label for="danmuReadProvider" class="settings-field-label tts-config-block__label" data-i18n="settings.text.AI平台">AI 平台</label>
+                  </div>
+                  <select id="danmuReadProvider" class="sr-only" aria-describedby="danmuReadProviderCardsHint"></select>
+                  <div id="danmuReadProviderCards" class="tts-provider-grid" role="radiogroup" aria-labelledby="danmuReadServiceTitle"></div>
+                  <p id="danmuReadProviderCardsHint" class="sr-only" data-i18n="settings.text.语音服务说明">选择平台后，模型、凭据和可用能力会同步更新。</p>
+                </div>
+
+                <div id="danmuReadModelSelectWrap" class="tts-config-block">
+                  <div class="tts-config-block__heading">
+                    <span class="tts-step-badge tts-step-badge--small" aria-hidden="true">2</span>
+                    <label for="danmuReadModelSelect" class="settings-field-label tts-config-block__label" data-i18n="settings.text.TTS模型">TTS 模型</label>
+                  </div>
+                  <select id="danmuReadModelSelect" class="sr-only"></select>
+                  <div id="danmuReadModelCards" class="tts-model-grid" role="radiogroup" aria-label="TTS model choices"></div>
+                </div>
+
+                <div class="tts-config-block">
+                  <div class="tts-config-block__heading tts-config-block__heading--spread">
+                    <div class="flex items-center gap-3 min-w-0">
+                      <span class="tts-step-badge tts-step-badge--small" aria-hidden="true">3</span>
+                      <h5 class="settings-field-label mb-0" data-i18n="settings.text.API凭据">API 凭据</h5>
+                    </div>
+                    <a id="danmuReadCredentialsHelp" class="text-sm text-warmPink underline" target="_blank" rel="noopener noreferrer" data-i18n="settings.text.如何获取">如何获取？</a>
+                  </div>
+                  <div id="danmuReadCredentials" class="tts-credentials-grid" aria-live="polite"></div>
+                </div>
+
+                <div class="tts-config-block">
+                  <div class="tts-config-block__heading">
+                    <span class="tts-step-badge tts-step-badge--small" aria-hidden="true">4</span>
+                    <label for="danmuReadVoiceSearch" class="settings-field-label tts-config-block__label" data-i18n="settings.text.音色">音色</label>
+                  </div>
+                  <div class="tts-voice-toolbar">
+                    <input id="danmuReadVoiceSearch" type="search" class="settings-field-control ui-control ui-input" data-i18n-placeholder="settings.placeholder.搜索音色" placeholder="搜索音色…">
+                    <button type="button" id="btnDanmuReadVoiceRefresh" class="ui-button ui-button--secondary ui-button--sm" data-i18n="settings.text.刷新音色">刷新音色</button>
+                  </div>
+                  <select id="danmuReadVoice" class="sr-only" aria-label="Selected voice"></select>
+                  <div id="danmuReadVoiceList" class="tts-voice-list" role="listbox" aria-label="Voice choices"></div>
+                  <p id="danmuReadVoiceStatus" class="settings-section-hint" aria-live="polite"></p>
+                </div>
+              </div>
+            </section>
+          </div>
 
           <details id="danmuReadAdvancedSection" class="tts-advanced-section">
-            <summary data-i18n="settings.text.语音效果高级">语音效果（高级）</summary>
-            <div id="danmuReadAdvancedFields" class="settings-params-grid cols-2 mt-4">
+            <summary>
+              <span class="tts-advanced-summary__main">
+                <span class="tts-step-badge" aria-hidden="true">03</span>
+                <span data-i18n="settings.text.语音效果高级">语音效果（高级）</span>
+              </span>
+            </summary>
+            <div id="danmuReadAdvancedFields" class="settings-params-grid cols-2">
               <div data-tts-capability="speed">
                 <label for="danmuReadSpeed" class="settings-field-label" data-i18n="settings.text.语速">语速</label>
                 <input type="number" id="danmuReadSpeed" data-tts-field="speed" class="settings-field-control ui-control ui-input" min="0.5" max="2" step="0.05">
@@ -358,12 +398,12 @@
                   <button type="button" class="ui-button ui-button--secondary ui-button--sm" data-style-prompt="直播感" data-i18n="settings.text.直播感">直播感</button>
                 </div>
                 <textarea id="danmuReadStylePrompt" data-tts-field="style_prompt" rows="3" class="settings-field-control w-full ui-control ui-textarea" data-i18n-placeholder="settings.placeholder.自动风格指令" placeholder="自动"></textarea>
-                <p id="danmuReadStyleHint" class="settings-section-hint mt-1" aria-live="polite"></p>
+                <p id="danmuReadStyleHint" class="settings-section-hint" aria-live="polite"></p>
               </div>
             </div>
           </details>
 
-          <div class="flex flex-wrap items-center gap-3">
+          <div class="danmu-read-actions">
             <button type="button" id="btnDanmuReadProbe" class="ui-button ui-button--secondary ui-button--md" data-i18n="settings.text.试听当前设置">试听当前设置</button>
             <span id="danmuReadStatus" class="text-xs text-gray-400" aria-live="polite" data-i18n="settings.text.试听提示">试听会使用当前未保存的表单值；定时朗读须保存并开始生成。</span>
           </div>
