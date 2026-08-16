@@ -62,6 +62,19 @@ def test_thinking_ui_is_per_model_advanced_configuration():
     assert "thinking_effort" in custom_models
 
 
+def test_temperature_ui_is_per_model_advanced_configuration():
+    settings = read("web/static/partials/settings.html")
+    modal = read("web/static/partials/modals.html")
+    custom_models = read("web/static/modules/settings-custom-models.js")
+    assert 'id="temperature"' not in settings
+    assert 'id="modelTemperature"' in modal
+    assert 'min="0"' in modal
+    assert 'max="2"' in modal
+    assert 'step="0.1"' in modal
+    assert "temperature" in custom_models
+    assert "parseModelTemperatureInput" in custom_models
+
+
 def test_locales_are_valid_json():
     for language in ("zh", "en"):
         json.loads(read(f"web/static/locales/{language}/dynamic.json"))

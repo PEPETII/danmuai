@@ -683,6 +683,64 @@ def test_request_doubao_model_profile_thinking_effort_overrides_legacy_global():
     worker.close()
 
 
+def _profile_custom_models(*, temperature=None):
+    profile = {
+        "name": "Profile",
+        "default_model_id": "doubao-seed-1-6-flash-250828",
+        "model_ids": ["doubao-seed-1-6-flash-250828"],
+        "endpoint": "https://ark.cn-beijing.volces.com/api/v3",
+        "apiKey": "sk-profile-key",
+        "mode": "doubao",
+    }
+    if temperature is not None:
+        profile["temperature"] = temperature
+    return [profile]
+
+
+def test_request_doubao_model_profile_temperature_overrides_legacy_global():
+    worker = AiWorker(
+        ai_client_fake_config(
+            data={"temperature": "1.2"},
+            custom_models=_profile_custom_models(temperature=0.2),
+        )
+    )
+    with patch("app.ai_client_requests.stream_doubao", return_value=("test", 100, 50, "")) as mock_stream:
+        with patch.object(worker, "_emit_safe"):
+            request_doubao(worker, "data:image/jpeg;base64,abc", "sys", "user", "p1", 1, 1, 1.0, 0)
+    assert mock_stream.call_args[0][4]["temperature"] == 0.2
+    worker.close()
+
+
+def test_request_doubao_model_profile_temperature_zero():
+    worker = AiWorker(
+        ai_client_fake_config(
+            data={"temperature": "1.2"},
+            custom_models=_profile_custom_models(temperature=0),
+        )
+    )
+    with patch("app.ai_client_requests.stream_doubao", return_value=("test", 100, 50, "")) as mock_stream:
+        with patch.object(worker, "_emit_safe"):
+            request_doubao(worker, "data:image/jpeg;base64,abc", "sys", "user", "p1", 1, 1, 1.0, 0)
+    payload = mock_stream.call_args[0][4]
+    assert "temperature" in payload
+    assert payload["temperature"] == 0.0
+    worker.close()
+
+
+def test_request_doubao_legacy_profile_falls_back_to_global_temperature():
+    worker = AiWorker(
+        ai_client_fake_config(
+            data={"temperature": "0.6"},
+            custom_models=_profile_custom_models(),
+        )
+    )
+    with patch("app.ai_client_requests.stream_doubao", return_value=("test", 100, 50, "")) as mock_stream:
+        with patch.object(worker, "_emit_safe"):
+            request_doubao(worker, "data:image/jpeg;base64,abc", "sys", "user", "p1", 1, 1, 1.0, 0)
+    assert mock_stream.call_args[0][4]["temperature"] == 0.6
+    worker.close()
+
+
 def test_request_doubao_thinking_disabled_when_model_unsupported():
     from app.providers.capabilities import ProviderCapabilities
 

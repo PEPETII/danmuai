@@ -1,6 +1,6 @@
 import { apiFetch } from "./transport.js";
 import { getLanguage, t } from "./i18n.js";
-import { isMaskedApiKey } from "./settings-defaults.js";
+import { isMaskedApiKey, configDefaultValue, getConfigDefaultsCache } from "./settings-defaults.js";
 import {
   findProvider,
   getProviderWebsite,
@@ -40,6 +40,43 @@ let customModelDeps = {
 
 let cachedCustomModels = [];
 let modelModalBindingsWired = false;
+
+const MODEL_TEMPERATURE_MIN = 0;
+const MODEL_TEMPERATURE_MAX = 2;
+const MODEL_TEMPERATURE_DEFAULT = 0.8;
+
+function coerceModelTemperature(value) {
+  if (value === undefined || value === null || value === "") return null;
+  const parsed = typeof value === "number" ? value : parseFloat(String(value));
+  if (Number.isNaN(parsed)) return null;
+  if (parsed < MODEL_TEMPERATURE_MIN) return MODEL_TEMPERATURE_MIN;
+  if (parsed > MODEL_TEMPERATURE_MAX) return MODEL_TEMPERATURE_MAX;
+  return parsed;
+}
+
+function resolveModelTemperatureFallback(existingValue) {
+  const existing = coerceModelTemperature(existingValue);
+  if (existing !== null) return existing;
+  const cached = getConfigDefaultsCache()?.temperature;
+  const fromCache = coerceModelTemperature(cached);
+  if (fromCache !== null) return fromCache;
+  const fallback = configDefaultValue("temperature");
+  const fromDefault = coerceModelTemperature(fallback);
+  if (fromDefault !== null) return fromDefault;
+  return MODEL_TEMPERATURE_DEFAULT;
+}
+
+function parseModelTemperatureInput() {
+  const raw = document.getElementById("modelTemperature")?.value;
+  if (raw === undefined || raw === null || raw === "") {
+    return MODEL_TEMPERATURE_DEFAULT;
+  }
+  const parsed = parseFloat(String(raw));
+  if (Number.isNaN(parsed)) return MODEL_TEMPERATURE_DEFAULT;
+  if (parsed < MODEL_TEMPERATURE_MIN) return MODEL_TEMPERATURE_MIN;
+  if (parsed > MODEL_TEMPERATURE_MAX) return MODEL_TEMPERATURE_MAX;
+  return parsed;
+}
 
 export function getCachedCustomModels() {
   return cachedCustomModels;
@@ -675,6 +712,12 @@ export function openModelModal(index, model = {}) {
     }
     maxTokensEl.value = String(val);
   }
+  const temperatureEl = document.getElementById("modelTemperature");
+  if (temperatureEl) {
+    temperatureEl.value = String(
+      resolveModelTemperatureFallback(isEdit ? model.temperature : undefined),
+    );
+  }
   document.getElementById("modelDescription").value = model.description || "";
   const supportsMicEl = document.getElementById("modelSupportsMic");
   if (supportsMicEl) supportsMicEl.checked = Boolean(model.supportsMic);
@@ -832,6 +875,7 @@ export function collectModelForm() {
     provider: document.getElementById("modelProvider").value,
     supportsMic: Boolean(document.getElementById("modelSupportsMic")?.checked),
     thinking_effort: document.getElementById("modelThinkingEffort")?.value || "off",
+    temperature: parseModelTemperatureInput(),
   };
 }
 

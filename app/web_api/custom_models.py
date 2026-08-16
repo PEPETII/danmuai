@@ -6,9 +6,9 @@
   ``validate_model_config`` 校验 name/model_ids/endpoint/apiKey 完整性。
 - ``DELETE /api/custom-models/{id}``：删除后若 id 是默认模型，重置为「未设置默认」。
 
-W-ARCH-MODEL-PROFILE-CANONICAL-004：公开契约仅含 canonical 字段
-（``model_ids`` / ``default_model_id`` / ``max_tokens``）；legacy ``modelId`` 仅由
-持久化 adapter 在读取历史 JSON 时内部消费。
+W-ARCH-MODEL-PROFILE-CANONICAL-004：公开契约含 canonical 字段
+（``model_ids`` / ``default_model_id`` / ``max_tokens``）及档案级 ``temperature``；
+legacy ``modelId`` 仅由持久化 adapter 在读取历史 JSON 时内部消费。
 
 设计约束：GET 必须返回掩码 apiKey（防泄漏）；**不**在 ``web_api/custom_models.py`` 内
 直接读 ``DanmuApp._config`` 私有字段，统一经 ``app.config`` 公开 façade。
@@ -34,6 +34,34 @@ if TYPE_CHECKING:
 # 掩码：前端拿到的 apiKey 都是这个常量；原始 key 只在写入时使用，不对外暴露
 MASKED_KEY = "********"
 THINKING_EFFORT_VALUES = ("off", "low", "medium", "high")
+DEFAULT_TEMPERATURE = 0.8
+TEMPERATURE_MIN = 0.0
+TEMPERATURE_MAX = 2.0
+
+
+def _coerce_temperature(raw) -> float | None:
+    """Parse temperature; ``0`` is valid. Returns None when missing or invalid."""
+    if raw is None or isinstance(raw, bool):
+        return None
+    if isinstance(raw, (int, float)):
+        value = float(raw)
+    else:
+        text = str(raw).strip()
+        if not text:
+            return None
+        try:
+            value = float(text)
+        except (TypeError, ValueError):
+            return None
+    if value < TEMPERATURE_MIN or value > TEMPERATURE_MAX:
+        return None
+    return value
+
+
+def _global_temperature_fallback(app: "DanmuApp | None") -> float:
+    if app is not None:
+        return app.config.get_float("temperature", DEFAULT_TEMPERATURE)
+    return DEFAULT_TEMPERATURE
 
 
 def _mask_model(model: dict) -> dict:
@@ -100,6 +128,23 @@ def _normalize_thinking_effort(payload: dict, existing: dict | None) -> str:
         raw = None
     value = str(raw or "off").strip().lower()
     return value if value in THINKING_EFFORT_VALUES else "off"
+
+
+def _normalize_temperature(
+    payload: dict,
+    existing: dict | None,
+    app: "DanmuApp | None" = None,
+) -> float:
+    """Normalize per-model temperature; ``0`` is valid and must not be treated as missing."""
+    if "temperature" in payload:
+        coerced = _coerce_temperature(payload.get("temperature"))
+        if coerced is not None:
+            return coerced
+    elif existing is not None and "temperature" in existing:
+        coerced = _coerce_temperature(existing.get("temperature"))
+        if coerced is not None:
+            return coerced
+    return _global_temperature_fallback(app)
 
 
 def _assert_canonical_http_payload(payload: dict, existing: dict | None) -> None:
@@ -181,6 +226,7 @@ def _normalize_payload(payload: dict, existing: dict | None = None, app: "DanmuA
         "provider": (payload.get("provider") or "").strip(),
         "supportsMic": _normalize_supports_mic(payload, existing),
         "thinking_effort": _normalize_thinking_effort(payload, existing),
+        "temperature": _normalize_temperature(payload, existing, app),
     }
 
 

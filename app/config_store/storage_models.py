@@ -323,6 +323,7 @@ def get_custom_models_for_store(store: ConfigStore) -> list:
     W-ARCH-MODEL-PROFILE-CANONICAL-001/004: 返回前对每条档案委托
     ``canonicalize_custom_model_profile`` 做内存 canonical 化（旧 ``modelId``
     → ``model_ids`` / ``default_model_id`` / ``max_tokens``，并剥离 legacy 键）。
+    档案级 ``temperature`` 等附加字段原样保留；缺失时由运行时回退全局兼容值。
     幂等、不写回 DB；新 shape 在下次 ``set_custom_models`` 调用时持久化。
     """
     raw = store.get("custom_models", "")

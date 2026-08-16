@@ -490,6 +490,7 @@
       "中": "Medium",
       "高": "High",
       "思考程度提示": "Applied per model profile; unsupported platforms receive no thinking parameter.",
+      "温度提示": "Creativity (0–2). Higher = more varied wording; lower = steadier, more formulaic tone.",
       "该模型未声明思考能力": "This model does not declare thinking support; thinking is disabled.",
       "该模型始终开启思考": "This model always enables thinking; the level is fixed to high.",
       "配置不完整": "Configuration incomplete",

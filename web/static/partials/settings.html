@@ -28,7 +28,7 @@
       <form id="settingsForm" class="card p-8 space-y-0">
         <div class="settings-tabs-bar">
           <div class="settings-tabs" role="tablist" data-i18n-aria-label="settings.aria.弹幕设置分类" aria-label="弹幕设置分类">
-            <!-- tab: API 与模型 — 服务商/Key/视觉模型/温度/Token/记忆模式/模型配置档案 -->
+            <!-- tab: API 与模型 — 服务商/Key/视觉模型/Token/记忆模式/模型配置档案 -->
             <button type="button" id="settingsTabBtn-api" role="tab" class="settings-tab active" data-settings-tab="api" aria-controls="settingsTab-api" aria-selected="true" data-i18n="settings.text.API_与模型">API 与模型</button>
             <!-- tab: 麦克风模式 — 开麦/与视觉同模型/独立 mic 服务商 -->
             <button type="button" id="settingsTabBtn-mic" role="tab" class="settings-tab" data-settings-tab="mic" aria-controls="settingsTab-mic" aria-selected="false" data-i18n="settings.text.麦克风模式">麦克风模式</button>
@@ -71,14 +71,6 @@
           <div>
             <label class="block text-sm font-semibold mb-2 text-warmText"><svg class="ui-icon field-label-icon" aria-hidden="true"><use href="#i-monitor"></use></svg>识图显示器</label>
             <select name="screen_index" id="screen_index" class="settings-field-control w-full ui-control ui-select"></select>
-          </div>
-
-          <hr class="border-gray-200">
-
-          <!-- A4 温度 -->
-          <div>
-            <label class="block text-sm font-semibold mb-2 text-warmText"><svg class="ui-icon field-label-icon" aria-hidden="true"><use href="#i-thermo"></use></svg>温度</label>
-            <input type="number" name="temperature" id="temperature" min="0" max="2" step="0.1" class="settings-field-control w-full ui-control ui-input">
           </div>
 
           <hr class="border-gray-200">

@@ -15,6 +15,7 @@
       "API_模式": "API mode",
       "API地址": "API endpoint",
       "输出_token_上限_下限_512": "(output token cap, min 512)",
+      "温度": "Temperature",
       "备注": "Note",
       "支持麦克风_input_audio": "Supports microphone (input_audio)",
       "OpenRouter_等自定义_OpenAI_兼容网关_若模型文档声明支持音频理": "For OpenRouter and other OpenAI-compatible gateways: if the model docs declare audio support, check this to attach mic audio.",

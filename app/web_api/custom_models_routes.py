@@ -19,6 +19,7 @@ class CustomModelPayload(BaseModel):
     model_ids: list[str] | None = None
     default_model_id: str = ""
     max_tokens: int | None = None
+    temperature: float | None = None
     mode: str = "doubao"
     endpoint: str = ""
     apiKey: str = ""

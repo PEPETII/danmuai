@@ -46,6 +46,8 @@ def _model_payload(model_id: str, **kwargs) -> dict:
         payload["supportsMic"] = kwargs["supportsMic"]
     if "thinking_effort" in kwargs:
         payload["thinking_effort"] = kwargs["thinking_effort"]
+    if "temperature" in kwargs:
+        payload["temperature"] = kwargs["temperature"]
     return payload
 
 
@@ -109,6 +111,68 @@ def test_custom_model_thinking_effort_is_normalized(model_app, value, expected):
         _model_payload("thinking-model", thinking_effort=value),
     )
     assert created["item"]["thinking_effort"] == expected
+
+
+@pytest.mark.parametrize(
+    "value, expected",
+    [(0, 0.0), (0.0, 0.0), (0.2, 0.2), (1.5, 1.5), (2, 2.0), ("1.1", 1.1), ("invalid", 0.8), (-1, 0.8), (3, 0.8)],
+)
+def test_custom_model_temperature_is_normalized(model_app, value, expected):
+    model_app.config.set("temperature", "0.8")
+    created = cm_api.create_custom_model(
+        model_app,
+        _model_payload("temp-model", temperature=value),
+    )
+    assert created["item"]["temperature"] == expected
+    stored = model_app.config.get_custom_models()[0]
+    assert stored["temperature"] == expected
+
+
+def test_custom_model_update_preserves_temperature_when_omitted(model_app):
+    created = cm_api.create_custom_model(
+        model_app,
+        _model_payload("temp-model", temperature=0.2),
+    )
+    index = created["index"]
+    payload = _model_payload("temp-model", name="Renamed", apiKey="********")
+    payload.pop("temperature", None)
+    updated = cm_api.update_custom_model(model_app, index, payload)
+    assert updated["item"]["temperature"] == 0.2
+
+
+def test_custom_model_create_without_temperature_uses_global_fallback(model_app):
+    model_app.config.set("temperature", "0.6")
+    created = cm_api.create_custom_model(model_app, _model_payload("temp-model"))
+    assert created["item"]["temperature"] == 0.6
+
+
+def test_settings_html_no_visible_global_temperature_field():
+    html = SETTINGS_HTML.read_text(encoding="utf-8")
+    assert 'id="temperature"' not in html
+
+
+def test_modals_html_has_model_temperature_field():
+    html = MODALS_HTML.read_text(encoding="utf-8")
+    assert 'id="modelTemperature"' in html
+    assert 'min="0"' in html
+    assert 'max="2"' in html
+    assert 'step="0.1"' in html
+
+
+def test_settings_custom_models_js_collects_model_temperature():
+    src = SETTINGS_CUSTOM_MODELS_JS.read_text(encoding="utf-8")
+    assert "temperature: parseModelTemperatureInput()" in src
+    assert "resolveModelTemperatureFallback" in src
+    assert "model.temperature" in src
+
+
+def test_settings_defaults_api_restore_group_excludes_temperature():
+    src = SETTINGS_DEFAULTS_JS.read_text(encoding="utf-8")
+    api_group_start = src.index("api: [")
+    api_group_end = src.index("],", api_group_start)
+    api_group = src[api_group_start:api_group_end]
+    assert "'temperature'" not in api_group
+    assert "'temperature'" in src
 
 
 def test_create_custom_model_returns_readable_validation_error(model_app):

@@ -48,7 +48,7 @@ export const CONFIG_FIELDS = [
 
 export const SETTINGS_RESTORE_GROUPS = {
   api: [
-    'api_endpoint', 'api_mode', 'screen_index', 'model', 'temperature', 'max_tokens', 'danmu_render_mode',
+    'api_endpoint', 'api_mode', 'screen_index', 'model', 'max_tokens', 'danmu_render_mode',
   ],
   mic: [
     'mic_window_sec', 'mic_input_device_id', 'mic_api_endpoint', 'mic_api_mode', 'mic_model',

@@ -177,7 +177,6 @@ def test_settings_page_controls_use_ui_dual_class():
     # 关键 ID / name 保留
     for field_id in (
         "api_endpoint",
-        "temperature",
         "screen_index",
         "danmuReadInterval",
         "danmu_render_mode",
@@ -185,11 +184,8 @@ def test_settings_page_controls_use_ui_dual_class():
         "themeToggle",
     ):
         assert f'id="{field_id}"' in settings
+    assert 'id="temperature"' not in settings
     # dual-class samples
-    assert re.search(
-        r'id="temperature"[^>]*class="[^"]*settings-field-control[^"]*ui-control',
-        settings,
-    )
     assert re.search(
         r'id="languageSelect"[^>]*class="[^"]*lang-select[^"]*ui-control',
         settings,

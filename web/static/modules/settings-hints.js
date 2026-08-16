@@ -22,8 +22,6 @@ const SETTINGS_FIELD_TIPS = {
     'dynamic.settingsHints.实际调用的模型名称或接入点_ID_也可在下方_模',
   screen_index:
     'dynamic.settingsHints.截图和弹幕叠在哪块显示器上_编号无效时会自动改用',
-  temperature:
-    'dynamic.settingsHints.创意程度_0_2_越高弹幕用词越发散_越低越稳',
   max_tokens:
     'dynamic.settingsHints.单次_AI_回复允许的最长输出_开启_思考_类模',
   mic_mode_enabled:

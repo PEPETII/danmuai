@@ -88,6 +88,36 @@ def _configured_thinking_effort(config, model_id: str) -> str:
     return value if value in {"off", "low", "medium", "high"} else "off"
 
 
+def _coerce_request_temperature(raw) -> float | None:
+    if raw is None or isinstance(raw, bool):
+        return None
+    if isinstance(raw, (int, float)):
+        value = float(raw)
+    else:
+        text = str(raw).strip()
+        if not text:
+            return None
+        try:
+            value = float(text)
+        except (TypeError, ValueError):
+            return None
+    if value < 0.0 or value > 2.0:
+        return None
+    return value
+
+
+def _configured_temperature(config, model_id: str) -> float:
+    """Read model-profile temperature, with legacy global fallback."""
+    from app.model_providers import find_custom_model_profile
+
+    profile = find_custom_model_profile(config.get_custom_models(), model_id)
+    if profile is not None and "temperature" in profile:
+        coerced = _coerce_request_temperature(profile.get("temperature"))
+        if coerced is not None:
+            return coerced
+    return config.get_float("temperature", 0.8)
+
+
 def _effective_thinking_effort(caps, model_id: str, configured: str) -> str | None:
     if (
         configured == "off"
@@ -184,7 +214,7 @@ def _prepare_visual_request_context(
             scene_generation=scene_generation,
         ), None
     endpoint, api_key, model, api_mode = resolved
-    temperature = worker.config.get_float("temperature", 0.8)
+    temperature = _configured_temperature(worker.config, model)
     configured_max = worker.config.get_int("max_tokens", DEFAULT_MAX_TOKENS)
     caps = get_capabilities_for_model(model, endpoint, api_mode)
     configured_thinking_effort = _configured_thinking_effort(worker.config, model)

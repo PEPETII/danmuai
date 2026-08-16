@@ -238,7 +238,7 @@ export async function fillForm(cfg) {
   };
   [
     'danmu_speed', 'danmu_lines', 'font_size', 'opacity', 'dedup_threshold', 'hotkey',
-    'image_max_width', 'temperature', 'max_tokens', 'image_quality', 'danmu_max_chars',
+    'image_max_width', 'max_tokens', 'image_quality', 'danmu_max_chars',
     'danmu_pending_entry_cap', 'danmu_track_retention_cap', 'reply_queue_max_items',
     'danmu_render_mode', 'danmu_font_family',
   ].forEach(setIfEmpty);
