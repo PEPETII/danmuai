@@ -641,6 +641,7 @@
       "悬浮窗整体不透明度_0_100_0_完全透明": "Floating panel opacity 0–100 (0 = transparent, 100 = opaque).",
       "悬浮窗内每条弹幕的字号_12_48_px": "Font size per danmu in floating panel (12–48 px).",
       "悬浮窗同时显示的最多条数_超过时按_FIFO_丢": "Max simultaneous danmu in floating panel; FIFO drops oldest.",
+      "开启后鼠标穿透悬浮窗_关闭后可拖动窗口": "When on, mouse clicks pass through the floating panel; when off, you can drag the panel.",
       "发给_AI_前把截图缩到多宽_越小越省流量和费用": "Screenshot width before sending to AI. Smaller = less bandwidth/cost; larger = sharper.",
       "JPEG_压缩质量_1_100_默认_85_越高": "JPEG quality 1–100, default 85. Higher = clearer, larger file.",
       "用当前填写的地址_模式和密钥试连一次_AI_不开": "Test AI with current endpoint, mode, and key—no danmu, no other changes.",

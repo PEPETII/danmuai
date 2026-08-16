@@ -44,6 +44,7 @@
     "floating_panel_opacity": "Floating panel opacity 0–100 (0 = transparent, 100 = opaque).",
     "floating_panel_font_size": "Font size per danmu in floating panel (12–48 px).",
     "floating_panel_max_items": "Max simultaneous danmu in floating panel; FIFO drops oldest.",
+    "floating_panel_click_through": "When on, mouse clicks pass through the floating panel; when off, you can drag the panel.",
     "image_max_width": "Screenshot width before sending to AI. Smaller = less bandwidth/cost; larger = sharper.",
     "image_quality": "JPEG quality 1–100, default 85. Higher = clearer, larger file.",
     "btnProbe": "Test AI with current endpoint, mode, and key—no danmu, no other changes.",
