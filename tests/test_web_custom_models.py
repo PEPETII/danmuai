@@ -796,3 +796,74 @@ def test_delete_custom_model_no_bindings_is_noop(model_app):
     cm_api.delete_custom_model(model_app, 0)
     assert model_app.config.get("persona_model_bindings", "{}") in ("{}", "")
 
+
+# ---------------------------------------------------------------------------
+# supportsMic user override vs catalog supports_mic (model modal)
+# ---------------------------------------------------------------------------
+
+DOUBAO_ENDPOINT = "https://ark.cn-beijing.volces.com/api/v3"
+CATALOG_MIC_MODEL = "doubao-seed-2-0-mini-260428"
+CATALOG_NO_MIC_MODEL = "doubao-seed-1-6-flash-250828"
+
+
+def _doubao_catalog_payload(model_id: str, **kwargs) -> dict:
+    return _model_payload(
+        model_id,
+        provider="doubao",
+        mode="doubao",
+        endpoint=DOUBAO_ENDPOINT,
+        **kwargs,
+    )
+
+
+def test_custom_model_supports_mic_override_catalog_default_true(model_app):
+    """Catalog supports_mic=true but user sets supportsMic=false; value persists."""
+    created = cm_api.create_custom_model(
+        model_app,
+        _doubao_catalog_payload(CATALOG_MIC_MODEL, supportsMic=False),
+    )
+    item = created["item"]
+    assert item["supportsMic"] is False
+    stored = model_app.config.get_custom_models()[created["index"]]
+    assert stored["supportsMic"] is False
+
+    listed = cm_api.list_custom_models(model_app)["items"][0]
+    assert listed["supportsMic"] is False
+
+
+def test_custom_model_supports_mic_override_catalog_default_false(model_app):
+    """Catalog supports_mic=false but user sets supportsMic=true; value persists."""
+    created = cm_api.create_custom_model(
+        model_app,
+        _doubao_catalog_payload(CATALOG_NO_MIC_MODEL, supportsMic=True),
+    )
+    item = created["item"]
+    assert item["supportsMic"] is True
+    stored = model_app.config.get_custom_models()[created["index"]]
+    assert stored["supportsMic"] is True
+
+
+def test_custom_model_supports_mic_persists_after_update_and_reopen(model_app):
+    """Edit + save supportsMic override; list API returns the same flag."""
+    created = cm_api.create_custom_model(
+        model_app,
+        _doubao_catalog_payload(CATALOG_MIC_MODEL, supportsMic=False),
+    )
+    index = created["index"]
+    assert created["item"]["supportsMic"] is False
+
+    updated = cm_api.update_custom_model(
+        model_app,
+        index,
+        _doubao_catalog_payload(
+            CATALOG_MIC_MODEL,
+            apiKey="********",
+            supportsMic=True,
+        ),
+    )
+    assert updated["item"]["supportsMic"] is True
+    assert model_app.config.get_custom_models()[index]["supportsMic"] is True
+
+    reopened = cm_api.list_custom_models(model_app)["items"][index]
+    assert reopened["supportsMic"] is True
+

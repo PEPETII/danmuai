@@ -112,10 +112,13 @@ export function syncModelModalUIState({
       ? t("dynamic.settingsCustomModels.例如_doubao_1_5_pro_32k_25")
       : "";
   }
-  if (mic && isCatalogPreset) {
-    mic.checked = Boolean(catalogModel.supports_mic);
-    mic.disabled = true;
-  } else if (mic) mic.disabled = false;
+  if (mic) {
+    mic.disabled = false;
+    // Catalog supports_mic is a default for new profiles only; saved supportsMic wins in edit mode.
+    if (!isEdit && isCatalogPreset && catalogModel) {
+      mic.checked = Boolean(catalogModel.supports_mic);
+    }
+  }
   syncModelThinkingEffort({ catalogModel: isCatalogPreset ? catalogModel : null });
   syncDefaultSelect();
   setAdvancedOpen(customIds || (isEdit && !isCatalogPreset));

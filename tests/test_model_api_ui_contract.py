@@ -65,3 +65,25 @@ def test_thinking_ui_is_per_model_advanced_configuration():
 def test_locales_are_valid_json():
     for language in ("zh", "en"):
         json.loads(read(f"web/static/locales/{language}/dynamic.json"))
+
+
+def _sync_model_modal_mic_block(source: str) -> str:
+    marker = "export function syncModelModalUIState"
+    start = source.index(marker)
+    mic_idx = source.index("const mic = document.getElementById", start)
+    end = source.index("syncModelThinkingEffort", mic_idx)
+    return source[mic_idx:end]
+
+
+def test_model_modal_mic_switch_allows_user_override():
+    """Catalog supports_mic is default-only; edit mode keeps saved supportsMic."""
+    source = read("web/static/modules/settings-model-modal-state.js")
+    custom_models = read("web/static/modules/settings-custom-models.js")
+    mic_block = _sync_model_modal_mic_block(source)
+
+    assert "mic.disabled = true" not in mic_block
+    assert "mic.disabled = false" in mic_block
+    assert "!isEdit && isCatalogPreset" in mic_block
+    assert "catalogModel.supports_mic" in mic_block
+    assert "supportsMicEl.checked = Boolean(model.supportsMic)" in custom_models
+    assert "supportsMic: Boolean(document.getElementById(\"modelSupportsMic\")" in custom_models
