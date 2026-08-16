@@ -38,10 +38,16 @@ from app.tts.types import (
 
 MIMO_PROVIDER_ID = "mimo"
 MIMO_MODEL_ID = "mimo-v2.5-tts"
+MIMO_VOICE_DESIGN_MODEL_ID = "mimo-v2.5-tts-voicedesign"
+MIMO_VOICE_CLONE_MODEL_ID = "mimo-v2.5-tts-voiceclone"
+MIMO_HISTORICAL_MODEL_ID = "mimo-v2-tts"
 MIMO_BASE_URL = "https://api.xiaomimimo.com"
 MIMO_CHAT_COMPLETIONS_PATH = "/v1/chat/completions"
 MIMO_DEFAULT_VOICE = "冰糖"
 MIMO_STREAM_SAMPLE_RATE = 24_000
+MIMO_MODEL_SOURCE_URL = "https://mimo.mi.com/docs/en-US/quick-start/usage-guide/audio/speech-synthesis-v2.5"
+MIMO_PRICING_SOURCE_URL = "https://mimo.mi.com/docs/zh-CN/price/pay-as-you-go"
+MIMO_VERIFIED_AT = "2026-08-17"
 
 # Keep the existing user-visible voice IDs.  The adapter does not use this
 # tuple as a legality gate: MiMo remains authoritative for a supplied voice ID.
@@ -59,10 +65,70 @@ MIMO_TTS_VOICES: tuple[str, ...] = (
 
 
 def _voice_descriptors() -> tuple[VoiceDescriptor, ...]:
+    metadata = {
+        "mimo_default": {
+            "name": "MiMo 默认",
+            "description": "中国集群默认为冰糖，其他集群默认为 Mia。",
+            "languages": ("zh-CN", "en-US"),
+            "tags": ("集群默认",),
+        },
+        "冰糖": {
+            "name": "冰糖",
+            "description": None,
+            "gender": "female",
+            "languages": ("zh-CN",),
+        },
+        "茉莉": {
+            "name": "茉莉",
+            "description": None,
+            "gender": "female",
+            "languages": ("zh-CN",),
+        },
+        "苏打": {
+            "name": "苏打",
+            "description": None,
+            "gender": "male",
+            "languages": ("zh-CN",),
+        },
+        "白桦": {
+            "name": "白桦",
+            "description": None,
+            "gender": "male",
+            "languages": ("zh-CN",),
+        },
+        "Mia": {
+            "name": "Mia",
+            "description": None,
+            "gender": "female",
+            "languages": ("en-US",),
+        },
+        "Chloe": {
+            "name": "Chloe",
+            "description": None,
+            "gender": "female",
+            "languages": ("en-US",),
+        },
+        "Milo": {
+            "name": "Milo",
+            "description": None,
+            "gender": "male",
+            "languages": ("en-US",),
+        },
+        "Dean": {
+            "name": "Dean",
+            "description": None,
+            "gender": "male",
+            "languages": ("en-US",),
+        },
+    }
     return tuple(
         VoiceDescriptor(
             id=voice_id,
-            name=voice_id,
+            name=metadata[voice_id]["name"],
+            description=metadata[voice_id].get("description"),
+            gender=metadata[voice_id].get("gender"),
+            languages=metadata[voice_id].get("languages", ()),
+            tags=metadata[voice_id].get("tags", ()),
             source=VoiceSource.STATIC_CATALOG,
         )
         for voice_id in MIMO_TTS_VOICES
@@ -70,23 +136,80 @@ def _voice_descriptors() -> tuple[VoiceDescriptor, ...]:
 
 
 def _descriptor() -> ProviderDescriptor:
+    pricing = PricingDescriptor(
+        kind="promotional_free",
+        display="限时免费",
+        note="官方当前将 MiMo V2.5 TTS 三款模型列为限时免费；标准恢复价格尚未公布。",
+        verified_at=MIMO_VERIFIED_AT,
+        source=MIMO_PRICING_SOURCE_URL,
+        source_url=MIMO_PRICING_SOURCE_URL,
+    )
+    capabilities = TtsCapabilities(
+        streaming=True,
+        style_prompt=True,
+        voice_list=True,
+        output_formats=frozenset({"wav", "pcm16"}),
+        notes=(
+            "风格、情绪、语速和方言使用 user 消息/音频标签自然语言控制；官方未提供独立数值参数。",
+            "mimo-v2.5-tts 支持低延迟流式；流式输出使用 24 kHz PCM16。",
+            "当前应用接入的是预置音色合成；Voice Design/Voice Clone 需要独立的音频样本/创建流程。",
+        ),
+    )
     model = ModelDescriptor(
         id=MIMO_MODEL_ID,
         label="MiMo V2.5 TTS",
         recommended=True,
-        tags=("推荐", "预置音色"),
+        tags=("推荐", "当前", "预置音色"),
         transport="http",
-        capabilities=TtsCapabilities(
-            streaming=True,
-            style_prompt=True,
-            voice_list=True,
-            output_formats=frozenset({"wav", "pcm16"}),
-        ),
-        pricing=PricingDescriptor(
-            kind="promotional_free",
-            note="限时免费；实际费用以 MiMo 官方账单为准",
-        ),
+        capabilities=capabilities,
+        pricing=pricing,
         voices=_voice_descriptors(),
+    )
+    catalog_only = (
+        ModelDescriptor(
+            id=MIMO_VOICE_DESIGN_MODEL_ID,
+            label="MiMo V2.5 Voice Design（目录）",
+            tags=("当前", "官方可用", "需单独接入"),
+            transport="catalog_only",
+            capabilities=TtsCapabilities(
+                voice_design=True,
+                output_formats=frozenset({"wav", "mp3", "pcm", "pcm16"}),
+                notes=(
+                    "通过文字描述生成音色；当前 AI 读弹幕页没有音色创建/预览输入，因此仅展示目录。",
+                    "官方兼容 stream 参数，但不是低延迟流式。",
+                ),
+            ),
+            pricing=pricing,
+            status="catalog_only",
+        ),
+        ModelDescriptor(
+            id=MIMO_VOICE_CLONE_MODEL_ID,
+            label="MiMo V2.5 Voice Clone（目录）",
+            tags=("当前", "官方可用", "需单独接入"),
+            transport="catalog_only",
+            capabilities=TtsCapabilities(
+                voice_clone=True,
+                custom_voice_id=True,
+                output_formats=frozenset({"wav", "mp3", "pcm", "pcm16"}),
+                notes=(
+                    "需要 MP3/WAV 音频样本（Base64 不超过 10 MB）；当前 AI 读弹幕页没有样本上传输入。",
+                    "官方兼容 stream 参数，但不是低延迟流式。",
+                ),
+            ),
+            pricing=pricing,
+            status="catalog_only",
+        ),
+        ModelDescriptor(
+            id=MIMO_HISTORICAL_MODEL_ID,
+            label="MiMo V2 TTS（已下线）",
+            tags=("historical", "deprecated"),
+            transport="http",
+            capabilities=capabilities,
+            pricing=pricing,
+            voices=_voice_descriptors(),
+            status="historical",
+            replacement_model_id=MIMO_MODEL_ID,
+        ),
     )
     return ProviderDescriptor(
         id=MIMO_PROVIDER_ID,
@@ -101,7 +224,7 @@ def _descriptor() -> ProviderDescriptor:
                 ),
             )
         ),
-        models=(model,),
+        models=(model, *catalog_only),
     )
 
 

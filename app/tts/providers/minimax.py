@@ -38,12 +38,19 @@ MINIMAX_PROVIDER_ID = "minimax"
 MINIMAX_T2A_ENDPOINT = "https://api.minimaxi.com/v1/t2a_v2"
 MINIMAX_GET_VOICE_ENDPOINT = "https://api.minimaxi.com/v1/get_voice"
 MINIMAX_DEFAULT_VOICE = "male-qn-qingse"
+MINIMAX_PRICING_SOURCE_URL = "https://platform.minimaxi.com/docs/guides/pricing-paygo"
+MINIMAX_VOICE_SOURCE_URL = "https://platform.minimaxi.com/docs/faq/system-voice-id"
+MINIMAX_VERIFIED_AT = "2026-08-17"
+MINIMAX_EMOTIONS = frozenset(
+    {"happy", "sad", "angry", "fearful", "disgusted", "surprised", "calm", "whipser"}
+)
 
 MINIMAX_CURRENT_MODELS = ("speech-2.8-turbo", "speech-2.8-hd")
 MINIMAX_HISTORICAL_MODELS = (
     "speech-2.6-turbo",
     "speech-2.6-hd",
     "speech-02-turbo",
+    "speech-02-hd",
 )
 
 _MINIMAX_AUDIO_FORMAT = "mp3"
@@ -58,29 +65,87 @@ _MINIMAX_CAPABILITIES = TtsCapabilities(
     voice_clone=True,
     voice_design=True,
     output_formats=frozenset({_MINIMAX_AUDIO_FORMAT}),
+    notes=(
+        "voice_setting 参数：speed 范围 0.5–2.0，pitch 范围 -12–12，vol 默认 1.0；官方未公布 vol 的数值边界。",
+        "emotion 使用官方枚举；Speech 2.8/2.6/02 支持语气词标签，普通 T2A 没有独立 style_prompt 参数。",
+        "官方支持 HTTP stream=true 与 WebSocket；当前 DanmuAI 单句播放适配器使用非流式 MP3。",
+    ),
 )
 
 
-def _fallback_voice() -> VoiceDescriptor:
-    # This ID is used by MiniMax's official T2A v2 request example.
-    return VoiceDescriptor(
-        id=MINIMAX_DEFAULT_VOICE,
-        name="MiniMax default voice",
-        source=VoiceSource.STATIC_CATALOG,
+def _fallback_voices() -> tuple[VoiceDescriptor, ...]:
+    # Official static system voices are the no-credential fallback.  The
+    # account-scoped get_voice response can replace/enrich this list later.
+    values = (
+        ("male-qn-qingse", "青涩青年音色", "male", None),
+        ("male-qn-jingying", "精英青年音色", "male", None),
+        ("male-qn-badao", "霸道青年音色", "male", None),
+        ("male-qn-daxuesheng", "青年大学生音色", "male", None),
+        ("female-shaonv", "少女音色", "female", None),
+        ("female-yujie", "御姐音色", "female", None),
+        ("female-chengshu", "成熟女性音色", "female", None),
+        ("female-tianmei", "甜美女性音色", "female", None),
+        ("clever_boy", "聪明男童", "male", None),
+        ("cute_boy", "可爱男童", "male", None),
+    )
+    return tuple(
+        VoiceDescriptor(
+            id=voice_id,
+            name=name,
+            description=description,
+            gender=gender,
+            age_group="child" if voice_id in {"clever_boy", "cute_boy"} else "adult",
+            languages=("zh-CN",),
+            tags=("官方系统音色",),
+            source=VoiceSource.STATIC_CATALOG,
+        )
+        for voice_id, name, gender, description in values
+    )
+
+
+def _pricing(model_id: str) -> PricingDescriptor:
+    amount = 3.5 if model_id.endswith("-hd") else 2.0
+    return PricingDescriptor(
+        kind="paygo",
+        currency="CNY",
+        amount=amount,
+        unit="10k_chars",
+        display=f"¥{amount:g} / 1万字符",
+        note=(
+            "同步/异步 T2A 按输入字符计费；中文字符按官方字符规则折算。"
+            "Voice Design/Cloning 创建音色为 9.9 元/个，试听按 2 元/万字符。"
+        ),
+        verified_at=MINIMAX_VERIFIED_AT,
+        source=MINIMAX_PRICING_SOURCE_URL,
+        source_url=MINIMAX_PRICING_SOURCE_URL,
     )
 
 
 def _model_descriptor(model_id: str, *, historical: bool = False) -> ModelDescriptor:
+    replacement_model_id = {
+        "speech-2.6-turbo": "speech-2.8-turbo",
+        "speech-02-turbo": "speech-2.8-turbo",
+        "speech-2.6-hd": "speech-2.8-hd",
+        "speech-02-hd": "speech-2.8-hd",
+    }.get(model_id)
     return ModelDescriptor(
         id=model_id,
-        label=model_id,
+        label={
+            "speech-2.8-turbo": "Speech 2.8 Turbo",
+            "speech-2.8-hd": "Speech 2.8 HD",
+            "speech-2.6-turbo": "Speech 2.6 Turbo（历史）",
+            "speech-2.6-hd": "Speech 2.6 HD（历史）",
+            "speech-02-turbo": "Speech 02 Turbo（历史）",
+            "speech-02-hd": "Speech 02 HD（历史）",
+        }.get(model_id, model_id),
         recommended=model_id == "speech-2.8-turbo",
         tags=("historical",) if historical else ("current",),
         transport="http",
         capabilities=_MINIMAX_CAPABILITIES,
-        pricing=PricingDescriptor(),
-        voices=(_fallback_voice(),),
+        pricing=_pricing(model_id),
+        voices=_fallback_voices(),
         status="historical" if historical else "active",
+        replacement_model_id=replacement_model_id,
     )
 
 
@@ -222,13 +287,16 @@ class MiniMaxProvider(BaseTtsProvider):
             raise TtsUnsupportedCapabilityError("style_prompt")
         if request.streaming:
             raise TtsUnsupportedCapabilityError("streaming")
-        for value, name, minimum, maximum in (
-            (request.speed, "speed", 0.5, 2.0),
-            (request.volume, "volume", 0.0, 10.0),
-            (request.pitch, "pitch", -12.0, 12.0),
-        ):
-            if value is not None and (value < minimum or value > maximum):
-                raise TtsConfigurationError(f"MiniMax {name} is out of range")
+        if request.speed is not None and not 0.5 <= request.speed <= 2.0:
+            raise TtsConfigurationError("MiniMax speed is out of range [0.5, 2.0]")
+        if request.pitch is not None and not -12.0 <= request.pitch <= 12.0:
+            raise TtsConfigurationError("MiniMax pitch is out of range [-12, 12]")
+        if request.volume is not None and request.volume < 0:
+            raise TtsConfigurationError("MiniMax volume must not be negative")
+        if request.emotion is not None and request.emotion.strip() not in MINIMAX_EMOTIONS:
+            raise TtsConfigurationError(
+                "MiniMax emotion must be one of the official emotion values"
+            )
         if request.voice_id is not None and not request.voice_id.strip():
             raise TtsInvalidVoiceError("MiniMax voice ID must not be empty")
         return model
@@ -351,6 +419,17 @@ class MiniMaxProvider(BaseTtsProvider):
                         VoiceDescriptor(
                             id=voice_id.strip(),
                             name=(voice_name.strip() if isinstance(voice_name, str) and voice_name.strip() else voice_id.strip()),
+                            description=(
+                                item.get("description")
+                                if isinstance(item.get("description"), str)
+                                else None
+                            ),
+                            gender=(
+                                item.get("gender")
+                                if isinstance(item.get("gender"), str)
+                                else None
+                            ),
+                            languages=("zh-CN",),
                             source=source,
                         )
                     )

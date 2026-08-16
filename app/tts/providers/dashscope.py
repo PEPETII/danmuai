@@ -27,6 +27,7 @@ from app.tts.types import (
     AuthDescriptor,
     AuthFieldDescriptor,
     ModelDescriptor,
+    PricingDescriptor,
     ProviderDescriptor,
     TtsAudioDecodeError,
     TtsAuthError,
@@ -57,20 +58,106 @@ DASHSCOPE_REALTIME_URL = "wss://dashscope.aliyuncs.com/api-ws/v1/realtime"
 QWEN3_TTS_FLASH = "qwen3-tts-flash"
 QWEN3_TTS_INSTRUCT_FLASH = "qwen3-tts-instruct-flash"
 QWEN3_TTS_FLASH_REALTIME = "qwen3-tts-flash-realtime"
+QWEN3_TTS_INSTRUCT_FLASH_REALTIME = "qwen3-tts-instruct-flash-realtime"
+QWEN_AUDIO_30_TTS_PLUS = "qwen-audio-3.0-tts-plus"
+QWEN_AUDIO_30_TTS_FLASH = "qwen-audio-3.0-tts-flash"
+QWEN3_TTS_VC = "qwen3-tts-vc-2026-01-22"
+QWEN3_TTS_VD = "qwen3-tts-vd-2026-01-26"
 COSYVOICE_V35_FLASH = "cosyvoice-v3.5-flash"
 COSYVOICE_V35_PLUS = "cosyvoice-v3.5-plus"
+_QWEN_LANGUAGES = (
+    "zh-CN", "en-US", "de-DE", "it-IT", "pt-PT", "es-ES", "ja-JP", "ko-KR", "fr-FR", "ru-RU"
+)
 
 _QWEN_VOICES: tuple[VoiceDescriptor, ...] = (
-    VoiceDescriptor("Cherry", "Cherry", source=VoiceSource.STATIC_CATALOG),
-    VoiceDescriptor("Serena", "Serena", source=VoiceSource.STATIC_CATALOG),
-    VoiceDescriptor("Ethan", "Ethan", source=VoiceSource.STATIC_CATALOG),
-    VoiceDescriptor("Chelsie", "Chelsie", source=VoiceSource.STATIC_CATALOG),
-    VoiceDescriptor("Momo", "Momo", source=VoiceSource.STATIC_CATALOG),
-    VoiceDescriptor("Vivian", "Vivian", source=VoiceSource.STATIC_CATALOG),
-    VoiceDescriptor("Kai", "Kai", source=VoiceSource.STATIC_CATALOG),
-    VoiceDescriptor("Bella", "Bella", source=VoiceSource.STATIC_CATALOG),
-    VoiceDescriptor("longanyang", "longanyang", source=VoiceSource.STATIC_CATALOG),
-    VoiceDescriptor("longanhuan_v3", "longanhuan_v3", source=VoiceSource.STATIC_CATALOG),
+    VoiceDescriptor(
+        "Cherry", "芊悦", "阳光积极、亲切自然小姐姐", "female",
+        languages=_QWEN_LANGUAGES,
+        source=VoiceSource.STATIC_CATALOG,
+    ),
+    VoiceDescriptor(
+        "Serena", "苏瑶", "温柔小姐姐", "female",
+        languages=_QWEN_LANGUAGES,
+        source=VoiceSource.STATIC_CATALOG,
+    ),
+    VoiceDescriptor(
+        "Ethan", "晨煦", "标准普通话，带部分北方口音。阳光、温暖、活力、朝气", "male",
+        languages=_QWEN_LANGUAGES,
+        tags=("北方口音",),
+        source=VoiceSource.STATIC_CATALOG,
+    ),
+    VoiceDescriptor(
+        "Chelsie", "千雪", "二次元虚拟女友", "female",
+        languages=_QWEN_LANGUAGES,
+        source=VoiceSource.STATIC_CATALOG,
+    ),
+    VoiceDescriptor(
+        "Momo", "茉兔", "撒娇搞怪，逗你开心", "female",
+        languages=_QWEN_LANGUAGES,
+        source=VoiceSource.STATIC_CATALOG,
+    ),
+    VoiceDescriptor(
+        "Vivian", "十三", "拽拽的、可爱的小暴躁", "female",
+        languages=_QWEN_LANGUAGES,
+        source=VoiceSource.STATIC_CATALOG,
+    ),
+    VoiceDescriptor(
+        "Moon", "月白", "率性帅气的月白", "male",
+        languages=_QWEN_LANGUAGES,
+        source=VoiceSource.STATIC_CATALOG,
+    ),
+    VoiceDescriptor(
+        "Maia", "四月", "知性与温柔的碰撞", "female",
+        languages=_QWEN_LANGUAGES,
+        source=VoiceSource.STATIC_CATALOG,
+    ),
+    VoiceDescriptor(
+        "Kai", "凯", "耳朵的一场SPA", "male",
+        languages=_QWEN_LANGUAGES,
+        source=VoiceSource.STATIC_CATALOG,
+    ),
+    VoiceDescriptor(
+        "Nofish", "不吃鱼", "不会翘舌音的设计师", "male",
+        languages=_QWEN_LANGUAGES,
+        tags=("不卷舌",),
+        source=VoiceSource.STATIC_CATALOG,
+    ),
+)
+
+_QWEN_AUDIO_PLUS_VOICES: tuple[VoiceDescriptor, ...] = (
+    VoiceDescriptor(
+        "longanlingxin", "龙安灵心", "知心温暖音", "female", age_group="25",
+        languages=("zh-CN", "en-US"), tags=("旗舰音色",), source=VoiceSource.STATIC_CATALOG,
+    ),
+    VoiceDescriptor(
+        "longanlufeng", "龙安鲁风", "明亮开朗音", "male", age_group="25",
+        languages=("zh-CN", "en-US"), tags=("旗舰音色",), source=VoiceSource.STATIC_CATALOG,
+    ),
+)
+
+_QWEN_AUDIO_FLASH_VOICES: tuple[VoiceDescriptor, ...] = tuple(
+    VoiceDescriptor(
+        voice_id,
+        name,
+        description,
+        gender,
+        age_group=age_group,
+        languages=("zh-CN", "en-US"),
+        tags=("系统音色",),
+        source=VoiceSource.STATIC_CATALOG,
+    )
+    for voice_id, name, description, age_group, gender in (
+        ("longanfengyue", "龙安风悦", "自然亲切音", "30", "female"),
+        ("longanyuanfei", "龙安元妃", "高傲妃子音", "30", "female"),
+        ("longanlingxi", "龙安灵希", "可爱甜美音", "25", "female"),
+        ("longanxiaoxin", "龙安小昕", "亲切活泼音", "22", "female"),
+        ("longanhuan_v3.6", "龙安欢", None, "25", "female"),
+        ("longjielidou_v3.6", "龙杰力豆", "天真男童", "5", "male"),
+        ("longpaopao_v3.6", "龙泡泡", "软糯可爱音", "5", "female"),
+        ("longhuohuo_v3.6", "龙火火", "顽皮少年音", "8", "male"),
+        ("longchuanshu_v3.6", "龙川叔", "川普大叔音", "40", "male"),
+        ("loongmary", "loongmary", "温暖英音", "20", "female"),
+    )
 )
 
 
@@ -82,25 +169,64 @@ def _model(
     capabilities: TtsCapabilities,
     voices: tuple[VoiceDescriptor, ...] = (),
     recommended: bool = False,
+    pricing: PricingDescriptor | None = None,
+    tags: tuple[str, ...] = (),
+    status: str = "active",
+    replacement_model_id: str | None = None,
 ) -> ModelDescriptor:
     return ModelDescriptor(
         id=model_id,
         label=label,
         recommended=recommended,
+        tags=tags,
         transport=transport,
         capabilities=capabilities,
         voices=voices,
+        pricing=pricing or PricingDescriptor(),
+        status=status,
+        replacement_model_id=replacement_model_id,
     )
 
 
 _QWEN_HTTP_CAPABILITIES = TtsCapabilities(output_formats=frozenset({"wav"}))
+_QWEN_AUDIO_CAPABILITIES = TtsCapabilities(
+    streaming=True,
+    style_prompt=True,
+    custom_voice_id=True,
+    voice_clone=True,
+    output_formats=frozenset({"wav", "mp3", "pcm"}),
+    notes=(
+        "官方支持 HTTP/WebSocket、free-style 自然语言指令和细粒度标签，可控制情绪、语气、角色、语速、音量与风格。",
+        "系统音色按模型严格区分；另有 500+ 个声音复刻基础音色，未在静态目录中伪装成系统音色。",
+    ),
+)
 _QWEN_INSTRUCT_CAPABILITIES = TtsCapabilities(
     style_prompt=True,
     output_formats=frozenset({"wav"}),
+    notes=("使用 input.instructions；仅 Qwen3 Instruct Flash 支持自然语言指令控制。",),
 )
 _QWEN_REALTIME_CAPABILITIES = TtsCapabilities(
     streaming=True,
+    speed=True,
+    pitch=True,
+    volume=True,
     output_formats=frozenset({"pcm", "wav"}),
+    notes=(
+        "Realtime 使用 WebSocket；Qwen3 Flash Realtime 不开放 instructions。",
+        "speech_rate 0.5–2.0、volume 0–100、pitch_rate 0.5–2.0；旧 Qwen-TTS-Realtime 不支持这些参数。",
+    ),
+)
+_QWEN_INSTRUCT_REALTIME_CAPABILITIES = TtsCapabilities(
+    streaming=True,
+    style_prompt=True,
+    speed=True,
+    pitch=True,
+    volume=True,
+    output_formats=frozenset({"pcm", "wav", "mp3", "opus"}),
+    notes=(
+        "session.update 参数：speech_rate 0.5–2.0、volume 0–100、pitch_rate 0.5–2.0。",
+        "instructions 最多 1600 Token，仅支持中文和英文。",
+    ),
 )
 _COSYVOICE_CAPABILITIES = TtsCapabilities(
     streaming=True,
@@ -109,6 +235,58 @@ _COSYVOICE_CAPABILITIES = TtsCapabilities(
     voice_clone=True,
     voice_design=True,
     output_formats=frozenset({"wav", "pcm"}),
+    notes=(
+        "CosyVoice v3.5 Flash/Plus 支持 instruction、声音复刻和声音设计；v3.5 系列没有固定系统音色。",
+    ),
+)
+
+
+def _pricing(
+    amount: float,
+    source_url: str,
+    *,
+    note: str = "按输入字符计费。",
+) -> PricingDescriptor:
+    return PricingDescriptor(
+        kind="paygo",
+        currency="CNY",
+        amount=amount,
+        unit="10k_chars",
+        display=f"¥{amount:g} / 1万字符",
+        note=note,
+        verified_at="2026-08-17",
+        source=source_url,
+        source_url=source_url,
+    )
+
+
+_QWEN3_FLASH_PRICING = _pricing(
+    0.8, "https://help.aliyun.com/zh/model-studio/qwen3-tts-flash"
+)
+_QWEN3_INSTRUCT_PRICING = _pricing(
+    0.8, "https://help.aliyun.com/zh/model-studio/qwen3-tts-instruct-flash"
+)
+_QWEN3_REALTIME_PRICING = _pricing(
+    1.0, "https://help.aliyun.com/zh/model-studio/qwen3-tts-flash-realtime"
+)
+_QWEN3_INSTRUCT_REALTIME_PRICING = _pricing(
+    1.0, "https://help.aliyun.com/zh/model-studio/qwen3-tts-instruct-flash-realtime"
+)
+_QWEN_AUDIO_PLUS_PRICING = _pricing(
+    1.4, "https://help.aliyun.com/zh/model-studio/qwen-audio-3-0-tts-plus"
+)
+_QWEN_AUDIO_FLASH_PRICING = _pricing(
+    1.0, "https://help.aliyun.com/zh/model-studio/qwen-audio-3-0-tts-flash"
+)
+_QWEN3_VC_PRICING = _pricing(
+    0.8,
+    "https://help.aliyun.com/zh/model-studio/qwen3-tts-vc",
+    note="按输入字符计费；声音复刻创建音色另按官方规则计费（北京原价 0.01 元/个）。",
+)
+_QWEN3_VD_PRICING = _pricing(
+    0.8,
+    "https://help.aliyun.com/zh/model-studio/qwen3-tts-vd",
+    note="按输入字符计费；声音设计创建音色另按官方规则计费（北京原价 0.2 元/个）。",
 )
 
 DASHSCOPE_MODELS: tuple[ModelDescriptor, ...] = (
@@ -119,6 +297,8 @@ DASHSCOPE_MODELS: tuple[ModelDescriptor, ...] = (
         capabilities=_QWEN_HTTP_CAPABILITIES,
         voices=_QWEN_VOICES,
         recommended=True,
+        pricing=_QWEN3_FLASH_PRICING,
+        tags=("current", "推荐", "HTTP"),
     ),
     _model(
         QWEN3_TTS_INSTRUCT_FLASH,
@@ -126,6 +306,8 @@ DASHSCOPE_MODELS: tuple[ModelDescriptor, ...] = (
         transport="qwen_http",
         capabilities=_QWEN_INSTRUCT_CAPABILITIES,
         voices=_QWEN_VOICES,
+        pricing=_QWEN3_INSTRUCT_PRICING,
+        tags=("current", "自然语言指令", "HTTP"),
     ),
     _model(
         QWEN3_TTS_FLASH_REALTIME,
@@ -133,18 +315,88 @@ DASHSCOPE_MODELS: tuple[ModelDescriptor, ...] = (
         transport="qwen_realtime",
         capabilities=_QWEN_REALTIME_CAPABILITIES,
         voices=_QWEN_VOICES,
+        pricing=_QWEN3_REALTIME_PRICING,
+        tags=("current", "Realtime", "流式"),
     ),
     _model(
         COSYVOICE_V35_FLASH,
         "CosyVoice v3.5 Flash",
         transport="cosyvoice_http",
         capabilities=_COSYVOICE_CAPABILITIES,
+        pricing=_pricing(
+            0.8,
+            "https://help.aliyun.com/zh/model-studio/cosyvoice-v3-5-flash",
+        ),
+        tags=("current", "流式", "需动态音色/自定义音色"),
     ),
     _model(
         COSYVOICE_V35_PLUS,
         "CosyVoice v3.5 Plus",
         transport="cosyvoice_http",
         capabilities=_COSYVOICE_CAPABILITIES,
+        pricing=_pricing(
+            1.5,
+            "https://help.aliyun.com/zh/model-studio/cosyvoice-v3-5-plus",
+        ),
+        tags=("current", "流式", "需动态音色/自定义音色"),
+    ),
+    _model(
+        QWEN_AUDIO_30_TTS_PLUS,
+        "Qwen-Audio 3.0 TTS Plus（目录）",
+        transport="catalog_only",
+        capabilities=_QWEN_AUDIO_CAPABILITIES,
+        voices=_QWEN_AUDIO_PLUS_VOICES,
+        pricing=_QWEN_AUDIO_PLUS_PRICING,
+        tags=("current", "官方可用", "需单独接入"),
+        status="catalog_only",
+    ),
+    _model(
+        QWEN_AUDIO_30_TTS_FLASH,
+        "Qwen-Audio 3.0 TTS Flash（目录）",
+        transport="catalog_only",
+        capabilities=_QWEN_AUDIO_CAPABILITIES,
+        voices=_QWEN_AUDIO_FLASH_VOICES,
+        pricing=_QWEN_AUDIO_FLASH_PRICING,
+        tags=("current", "官方可用", "需单独接入"),
+        status="catalog_only",
+    ),
+    _model(
+        QWEN3_TTS_INSTRUCT_FLASH_REALTIME,
+        "Qwen3-TTS Instruct Flash Realtime（目录）",
+        transport="qwen_realtime",
+        capabilities=_QWEN_INSTRUCT_REALTIME_CAPABILITIES,
+        voices=_QWEN_VOICES,
+        pricing=_QWEN3_INSTRUCT_REALTIME_PRICING,
+        tags=("current", "官方可用", "需单独接入", "流式"),
+        status="catalog_only",
+    ),
+    _model(
+        QWEN3_TTS_VC,
+        "Qwen3-TTS Voice Clone（目录）",
+        transport="catalog_only",
+        capabilities=TtsCapabilities(
+            custom_voice_id=True,
+            voice_clone=True,
+            output_formats=frozenset({"wav", "mp3"}),
+            notes=("自定义音色必须与创建时的 target_model 一致，不能跨模型复用。",),
+        ),
+        pricing=_QWEN3_VC_PRICING,
+        tags=("current", "官方可用", "需单独接入"),
+        status="catalog_only",
+    ),
+    _model(
+        QWEN3_TTS_VD,
+        "Qwen3-TTS Voice Design（目录）",
+        transport="catalog_only",
+        capabilities=TtsCapabilities(
+            custom_voice_id=True,
+            voice_design=True,
+            output_formats=frozenset({"wav", "mp3"}),
+            notes=("自定义音色必须与创建时的 target_model 一致，不能跨模型复用。",),
+        ),
+        pricing=_QWEN3_VD_PRICING,
+        tags=("current", "官方可用", "需单独接入"),
+        status="catalog_only",
     ),
 )
 
@@ -468,12 +720,22 @@ class _QwenRealtimeTransport:
                 context.model.id, collector, url, context.api_key
             )
             client.connect()
-            client.update_session(
-                voice=context.request.voice_id or "Cherry",
-                response_format="pcm",
-                sample_rate=24000,
-                mode="server_commit",
-            )
+            session_kwargs: dict[str, Any] = {
+                "voice": context.request.voice_id or "Cherry",
+                "response_format": "pcm",
+                "sample_rate": 24000,
+                "mode": "server_commit",
+            }
+            if context.request.style_prompt:
+                session_kwargs["instructions"] = context.request.style_prompt.strip()
+                session_kwargs["optimize_instructions"] = True
+            if context.request.speed is not None:
+                session_kwargs["speech_rate"] = context.request.speed
+            if context.request.pitch is not None:
+                session_kwargs["pitch_rate"] = context.request.pitch
+            if context.request.volume is not None:
+                session_kwargs["volume"] = context.request.volume
+            client.update_session(**session_kwargs)
             client.append_text(context.request.text.strip())
             client.finish()
             deadline = time.monotonic() + context.timeout_sec
@@ -694,6 +956,12 @@ class DashScopeProvider(BaseTtsProvider):
             raise TtsUnsupportedCapabilityError("style_prompt")
         if request.streaming and not model.capabilities.streaming:
             raise TtsUnsupportedCapabilityError("streaming")
+        if request.speed is not None and not 0.5 <= request.speed <= 2.0:
+            raise TtsConfigurationError("DashScope speech_rate is out of range [0.5, 2.0]")
+        if request.pitch is not None and not 0.5 <= request.pitch <= 2.0:
+            raise TtsConfigurationError("DashScope pitch_rate is out of range [0.5, 2.0]")
+        if request.volume is not None and not 0 <= request.volume <= 100:
+            raise TtsConfigurationError("DashScope volume is out of range [0, 100]")
         output_format = request.output_format.strip().lower()
         if output_format not in model.capabilities.output_formats:
             raise TtsUnsupportedCapabilityError(f"output_format:{output_format}")

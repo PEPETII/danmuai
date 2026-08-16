@@ -59,6 +59,9 @@ def test_descriptor_and_existing_voices_are_available():
     assert [voice.id for voice in provider.list_voices({}, model_id=MIMO_MODEL_ID)] == list(
         MIMO_TTS_VOICES
     )
+    assert len(MIMO_TTS_VOICES) == 9
+    assert provider.descriptor.models[0].pricing.kind == "promotional_free"
+    assert provider.descriptor.models[0].pricing.source_url
     assert provider.descriptor.models[0].capabilities.streaming is True
 
 

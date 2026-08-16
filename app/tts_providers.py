@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import base64
 import logging
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from typing import Any, Mapping, Protocol
 
 import httpx
@@ -29,11 +29,7 @@ from app.tts.providers.doubao import DoubaoProvider
 from app.tts.providers.mimo import MimoProvider
 from app.tts.providers.minimax import MiniMaxProvider
 from app.tts.registry import ProviderRegistry
-from app.tts.types import (
-    PricingDescriptor,
-    TtsAuthError,
-    TtsRequest,
-)
+from app.tts.types import TtsAuthError, TtsRequest
 from app.tts_audio_utils import ensure_wav_bytes, pcm_to_wav
 
 logger = logging.getLogger(__name__)
@@ -86,6 +82,11 @@ _TTS_PROVIDER_ALIASES = {
 
 _TTS_MODEL_ALIASES = {
     "qwen3-tts-flash-2025-11-27": "qwen3-tts-flash",
+    "mimo-v2-tts": "mimo-v2.5-tts",
+    "speech-2.6-turbo": "speech-2.8-turbo",
+    "speech-02-turbo": "speech-2.8-turbo",
+    "speech-2.6-hd": "speech-2.8-hd",
+    "speech-02-hd": "speech-2.8-hd",
 }
 
 
@@ -229,51 +230,6 @@ def get_tts_provider(provider_id: str) -> TtsProviderSpec | None:
     )
 
 
-def _pricing_for(provider_id: str, model_id: str) -> PricingDescriptor:
-    source_urls = {
-        TTS_PROVIDER_MIMO: "https://mimo.mi.com/docs/usage-guide/speech-synthesis-v2.5",
-        TTS_PROVIDER_DASHSCOPE: "https://help.aliyun.com/zh/model-studio/non-realtime-tts-user-guide",
-        TTS_PROVIDER_MINIMAX: "https://platform.minimaxi.com/docs/guides/pricing-paygo",
-        TTS_PROVIDER_DOUBAO: "https://www.volcengine.com/docs/6561/2228192?lang=zh",
-    }
-    source = source_urls[provider_id]
-    verified_at = "2026-08-16"
-    if provider_id == TTS_PROVIDER_MIMO:
-        return PricingDescriptor(
-            kind="promotional_free",
-            display="限时免费",
-            note="限时活动，不代表永久免费；以官方账单为准",
-            verified_at=verified_at,
-            source=source,
-        )
-    if provider_id == TTS_PROVIDER_MINIMAX:
-        amount = {
-            "speech-2.8-turbo": 2.0,
-            "speech-2.8-hd": 3.5,
-            "speech-2.6-turbo": 2.0,
-            "speech-2.6-hd": 3.5,
-            "speech-02-turbo": 2.0,
-        }.get(model_id)
-        if amount is not None:
-            return PricingDescriptor(
-                kind="paygo",
-                currency="CNY",
-                amount=amount,
-                unit="10k_chars",
-                display=f"¥{amount:g} / 1万字符（按量参考）",
-                note="实际费用以 MiniMax 官方账单为准",
-                verified_at=verified_at,
-                source=source,
-            )
-    return PricingDescriptor(
-        kind="unknown",
-        display="以官方控制台/账单为准",
-        note="当前未确认可安全固化的统一价格，未作猜测",
-        verified_at=verified_at,
-        source=source,
-    )
-
-
 class _LegacyCompatibleMimoProvider(MimoProvider):
     """Accept the legacy httpx test-double shape at this bridge boundary."""
 
@@ -298,15 +254,10 @@ def _build_v2_registry() -> ProviderRegistry:
 
 def _build_v2_manager(registry: ProviderRegistry | None = None) -> TtsManager:
     registry = registry or _build_v2_registry()
-    descriptors = []
-    for provider in registry:
-        descriptor = provider.descriptor
-        models = tuple(
-            replace(model, pricing=_pricing_for(descriptor.id, model.id))
-            for model in descriptor.models
-        )
-        descriptors.append(replace(descriptor, models=models))
-    return TtsManager(registry, V2TtsCatalog(descriptors))
+    return TtsManager(
+        registry,
+        V2TtsCatalog([provider.descriptor for provider in registry]),
+    )
 
 
 _TTS_V2_MANAGER: TtsManager | None = None
@@ -381,7 +332,11 @@ def validate_custom_tts_fields(
         raise ValueError(tr("tts.error.unsupportedPlatform").format(platform=pid))
     selected_model = canonical_tts_model_id(canonical, model_id) or spec.default_model
     try:
-        get_tts_manager().catalog.require_model(canonical, selected_model)
+        model = get_tts_manager().catalog.require_model(canonical, selected_model)
+        if model.status != "active":
+            raise ValueError(
+                tr("tts.error.unsupportedModel").format(model=selected_model)
+            )
     except (AttributeError, ValueError) as exc:
         raise ValueError(tr("tts.error.unsupportedModel").format(model=selected_model)) from exc
 
@@ -423,11 +378,24 @@ def resolve_tts_config(
     resolved_model = model_id or spec.default_model
     canonical_model = canonical_tts_model_id(canonical, resolved_model)
     try:
-        get_tts_manager().catalog.require_model(canonical, canonical_model)
+        model = get_tts_manager().catalog.require_model(canonical, canonical_model)
     except (AttributeError, ValueError) as exc:
-        # The old DashScope snapshot remains readable by the legacy adapter.
-        if not (canonical == TTS_PROVIDER_DASHSCOPE and resolved_model in _TTS_MODEL_ALIASES):
-            raise ValueError(tr("tts.error.unsupportedModel").format(model=resolved_model)) from exc
+        raise ValueError(tr("tts.error.unsupportedModel").format(model=resolved_model)) from exc
+    if model.status != "active":
+        # A previously saved catalog-only/historical value must not make the
+        # runtime unusable. Explicit new selections are rejected by
+        # validate_custom_tts_fields; only an existing stored value reaches
+        # this compatibility fallback.
+        if model_id_override is not None:
+            raise ValueError(tr("tts.error.unsupportedModel").format(model=resolved_model))
+        provider_descriptor = get_tts_manager().catalog.require_provider(canonical)
+        fallback = next(
+            (candidate for candidate in provider_descriptor.models if candidate.status == "active"),
+            None,
+        )
+        if fallback is None:
+            raise ValueError(tr("tts.error.unsupportedModel").format(model=resolved_model))
+        resolved_model = fallback.id
     return ResolvedTtsConfig(
         provider=provider or canonical,
         endpoint=spec.default_endpoint,
@@ -749,6 +717,10 @@ def synthesize_tts(
     resolved: ResolvedTtsConfig,
     style_prompt: str = "",
     voice: str = DEFAULT_TTS_VOICE,
+    emotion: str | None = None,
+    speed: float | None = None,
+    pitch: float | None = None,
+    volume: float | None = None,
     timeout_sec: float = 60.0,
     credentials: Mapping[str, str] | None = None,
 ) -> bytes:
@@ -763,13 +735,21 @@ def synthesize_tts(
         pass
 
     if is_v2_model:
-        request_format = "mp3" if canonical_provider == TTS_PROVIDER_MINIMAX else "wav"
+        request_format = (
+            "mp3"
+            if canonical_provider in {TTS_PROVIDER_MINIMAX, TTS_PROVIDER_DOUBAO}
+            else "wav"
+        )
         request = TtsRequest(
             text=text,
             provider_id=canonical_provider,
             model_id=canonical_model,
             voice_id=(voice or "").strip() or None,
             style_prompt=(style_prompt or "").strip() or None,
+            emotion=(emotion or "").strip() or None,
+            speed=speed,
+            pitch=pitch,
+            volume=volume,
             output_format=request_format,
         )
         provider_credentials = dict(credentials or {})

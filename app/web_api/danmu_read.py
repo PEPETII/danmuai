@@ -24,6 +24,7 @@ from app.tts.types import descriptor_to_dict
 from app.tts_catalog import list_catalog_for_api
 from app.tts_providers import (
     TTS_PROVIDER_MIMO,
+    canonical_tts_model_id,
     canonical_tts_provider_id,
     get_tts_manager,
     normalize_tts_voice,
@@ -52,11 +53,17 @@ def get_voices(
     force_refresh: bool = False,
 ) -> dict[str, object]:
     provider = canonical_tts_provider_id(provider_id)
-    model = model_id.strip()
+    model = canonical_tts_model_id(provider, model_id.strip())
     if not provider or not model:
         raise HTTPException(status_code=400, detail="provider and model_id are required")
-    credentials = _stored_tts_credentials(app.config, provider)
     try:
+        model_descriptor = get_tts_manager().catalog.require_model(provider, model)
+        if model_descriptor.status != "active":
+            raise HTTPException(
+                status_code=400,
+                detail=tr("tts.error.unsupportedModel").format(model=model),
+            )
+        credentials = _stored_tts_credentials(app.config, provider)
         voices = get_tts_manager().list_voices(
             provider,
             model,
@@ -82,6 +89,10 @@ def run_probe(app: "DanmuApp", payload: dict[str, Any] | None = None) -> dict[st
         for key in (
             "voice_override",
             "style_prompt_override",
+            "emotion_override",
+            "speed_override",
+            "pitch_override",
+            "volume_override",
             "credentials_override",
         )
         if key in overrides
@@ -171,6 +182,11 @@ def normalize_put_payload(body: dict[str, Any]) -> dict[str, Any]:
         )
     if "style_prompt" in body:
         out["style_prompt"] = str(body.get("style_prompt") or "")
+    if "emotion" in body:
+        out["emotion"] = str(body.get("emotion") or "")
+    for field in ("speed", "pitch", "volume"):
+        if field in body and body[field] is not None:
+            out[field] = float(body[field])
     if "api_key" in body:
         key = str(body.get("api_key") or "").strip()
         if key and key != MASKED_API_KEY:
@@ -223,6 +239,11 @@ def normalize_probe_payload(payload: dict[str, Any] | None) -> dict[str, Any]:
         overrides["voice_override"] = str(payload.get("voice") or "").strip()
     if "style_prompt" in payload:
         overrides["style_prompt_override"] = str(payload.get("style_prompt") or "")
+    if "emotion" in payload:
+        overrides["emotion_override"] = str(payload.get("emotion") or "")
+    for field in ("speed", "pitch", "volume"):
+        if field in payload and payload[field] is not None:
+            overrides[f"{field}_override"] = float(payload[field])
     return overrides
 
 

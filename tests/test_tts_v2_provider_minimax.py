@@ -68,7 +68,7 @@ def _success_body(audio_hex="494433", trace_id="trace-minimax"):
     }
 
 
-def test_descriptor_has_current_and_historical_models_without_prices():
+def test_descriptor_has_current_and_historical_models_with_official_prices():
     descriptor = MiniMaxProvider().descriptor
     models = {model.id: model for model in descriptor.models}
     assert tuple(model.id for model in descriptor.models[:2]) == MINIMAX_CURRENT_MODELS
@@ -76,7 +76,10 @@ def test_descriptor_has_current_and_historical_models_without_prices():
     assert models["speech-2.8-turbo"].recommended is True
     assert models["speech-2.8-turbo"].status == "active"
     assert models["speech-2.6-turbo"].status == "historical"
-    assert all(model.pricing.kind == "unknown" for model in models.values())
+    assert models["speech-2.8-turbo"].pricing.amount == 2.0
+    assert models["speech-2.8-hd"].pricing.amount == 3.5
+    assert models["speech-02-hd"].replacement_model_id == "speech-2.8-hd"
+    assert all(model.pricing.source_url for model in models.values())
 
 
 def test_missing_api_key_is_normalized_without_network_call():
@@ -189,4 +192,5 @@ def test_dynamic_voice_list_maps_categories_and_falls_back_on_failure():
 
     fallback = MiniMaxProvider(client_factory=FakeClient(FakeResponse({}, status_code=503)))
     voices = fallback.list_voices({"api_key": "secret-key"}, model_id="speech-2.8-hd")
-    assert [voice.id for voice in voices] == [MINIMAX_DEFAULT_VOICE]
+    assert len(voices) == 10
+    assert voices[0].id == MINIMAX_DEFAULT_VOICE

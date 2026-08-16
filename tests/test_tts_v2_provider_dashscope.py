@@ -7,6 +7,7 @@ import pytest
 from app.tts import (
     TtsAudioDecodeError,
     TtsAuthError,
+    TtsConfigurationError,
     TtsProviderResponseError,
     TtsRateLimitError,
     TtsRequest,
@@ -22,6 +23,7 @@ from app.tts.providers.dashscope import (
     QWEN3_TTS_FLASH,
     QWEN3_TTS_FLASH_REALTIME,
     QWEN3_TTS_INSTRUCT_FLASH,
+    QWEN3_TTS_INSTRUCT_FLASH_REALTIME,
     DashScopeProvider,
     parse_realtime_events,
 )
@@ -41,20 +43,26 @@ def _request(model_id: str, **kwargs) -> TtsRequest:
     return TtsRequest("你好，世界", DASHSCOPE_PROVIDER_ID, model_id, **kwargs)
 
 
-def test_descriptor_contains_only_the_five_verified_stable_models_and_separate_transports():
+def test_descriptor_contains_current_and_catalog_only_models_with_separate_transports():
     provider = DashScopeProvider()
     assert [model.id for model in provider.descriptor.models] == [model.id for model in DASHSCOPE_MODELS]
-    assert {model.id for model in DASHSCOPE_MODELS} == {
+    assert {
+        model.id for model in DASHSCOPE_MODELS if model.status == "active"
+    } == {
         QWEN3_TTS_FLASH,
         QWEN3_TTS_INSTRUCT_FLASH,
         QWEN3_TTS_FLASH_REALTIME,
         "cosyvoice-v3.5-flash",
         "cosyvoice-v3.5-plus",
     }
+    assert any(model.status == "catalog_only" for model in DASHSCOPE_MODELS)
     assert provider.descriptor.models[0].transport == "qwen_http"
     assert provider.descriptor.models[2].transport == "qwen_realtime"
     assert provider.descriptor.models[3].transport == "cosyvoice_http"
     assert provider.descriptor.models[3].voices == ()
+    assert provider.descriptor.models[0].pricing.source_url.endswith("qwen3-tts-flash")
+    assert provider.descriptor.models[3].pricing.amount == 0.8
+    assert provider.descriptor.models[4].pricing.amount == 1.5
 
 
 def test_qwen_http_generation_uses_bearer_input_and_downloads_audio(monkeypatch):
@@ -195,12 +203,74 @@ def test_realtime_transport_uses_model_url_and_returns_pcm():
         return Client(callback)
 
     result = DashScopeProvider(realtime_client_factory=factory).synthesize(
-        {"api_key": "test-key"}, _request(QWEN3_TTS_FLASH_REALTIME)
+        {"api_key": "test-key"},
+        _request(
+            QWEN3_TTS_FLASH_REALTIME,
+            speed=1.2,
+            pitch=0.9,
+            volume=70,
+        ),
     )
     assert result.audio_format == "pcm"
     assert result.audio_bytes == b"pcm"
     assert "model=qwen3-tts-flash-realtime" in captured["url"]
     assert captured["session"]["response_format"] == "pcm"
+    assert captured["session"]["speech_rate"] == 1.2
+    assert captured["session"]["pitch_rate"] == 0.9
+    assert captured["session"]["volume"] == 70
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [("speed", 0.4), ("pitch", 2.1), ("volume", 101)],
+)
+def test_realtime_numeric_options_enforce_official_ranges(field, value):
+    with pytest.raises(TtsConfigurationError, match="out of range"):
+        DashScopeProvider().synthesize(
+            {"api_key": "test-key"},
+            _request(QWEN3_TTS_FLASH_REALTIME, **{field: value}),
+        )
+
+
+def test_instruct_realtime_forwards_style_instructions():
+    captured: dict = {}
+
+    class Client:
+        def __init__(self, callback):
+            self.callback = callback
+
+        def connect(self):
+            self.callback.on_open()
+            self.callback.on_event(
+                {
+                    "type": "response.audio.delta",
+                    "delta": base64.b64encode(b"pcm").decode(),
+                }
+            )
+            self.callback.on_event(
+                {"type": "response.audio.done", "request_id": "req-instruct"}
+            )
+
+        def update_session(self, **kwargs):
+            captured["session"] = kwargs
+
+        def append_text(self, text):
+            captured["text"] = text
+
+        def finish(self):
+            return None
+
+    def factory(model_id, callback, url, api_key):
+        captured.update(model=model_id, url=url, api_key=api_key)
+        return Client(callback)
+
+    DashScopeProvider(realtime_client_factory=factory).synthesize(
+        {"api_key": "test-key"},
+        _request(QWEN3_TTS_INSTRUCT_FLASH_REALTIME, style_prompt="温柔、慢一点"),
+    )
+
+    assert captured["session"]["instructions"] == "温柔、慢一点"
+    assert captured["session"]["optimize_instructions"] is True
 
 
 def test_cosyvoice_has_no_qwen_static_voice_and_uses_its_own_sse_protocol(monkeypatch):

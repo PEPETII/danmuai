@@ -15,6 +15,7 @@ from app.tts.providers.doubao import (
 )
 from app.tts.types import (
     TtsAuthError,
+    TtsConfigurationError,
     TtsProviderResponseError,
     TtsRateLimitError,
     TtsRequest,
@@ -54,7 +55,7 @@ class _FakeTransport:
         return self.response
 
 
-def _request(*, voice="zh_female_test", output_format="mp3"):
+def _request(*, voice="zh_female_test", output_format="mp3", **kwargs):
     return TtsRequest(
         text="你好，豆包",
         provider_id=DOUBAO_PROVIDER_ID,
@@ -62,6 +63,7 @@ def _request(*, voice="zh_female_test", output_format="mp3"):
         voice_id=voice,
         output_format=output_format,
         streaming=True,
+        **kwargs,
     )
 
 
@@ -82,6 +84,8 @@ def test_descriptor_and_auth_schema_are_v3_only():
     assert [model.id for model in provider.descriptor.models] == [DOUBAO_MODEL_ID]
     assert provider.descriptor.models[0].recommended is True
     assert provider.descriptor.models[0].transport == "http_chunked_unidirectional"
+    assert len(provider.descriptor.models[0].voices) == 10
+    assert provider.descriptor.models[0].pricing.amount == 5.0
     assert {field.id for field in provider.descriptor.auth_schema} == {
         "api_key",
         "access_key_id",
@@ -120,6 +124,36 @@ def test_synthesize_uses_v3_http_chunked_transport_and_normalizes_stream():
     assert kwargs["headers"]["X-Api-Request-Id"] == "client-request-id"
     assert kwargs["json"]["req_params"]["text"] == "你好，豆包"
     assert kwargs["json"]["req_params"]["speaker"] == "zh_female_test"
+
+
+def test_synthesize_maps_official_speed_volume_and_emotion_parameters():
+    response = _FakeResponse(chunks=(_audio_frame(b"audio"),))
+    transport = _FakeTransport(response)
+    provider = DoubaoProvider(transport=transport)
+
+    provider.synthesize(
+        {"api_key": "tts-key"},
+        _request(speed=1.5, volume=1.2, emotion="happy"),
+    )
+
+    request_params = transport.stream_calls[0][2]["json"]["req_params"]
+    assert request_params["speed_ratio"] == 1.5
+    assert request_params["loudness_ratio"] == 1.2
+    assert request_params["emotion"] == "happy"
+    assert request_params["enable_emotion"] is True
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [("speed", 0.05), ("volume", 2.1)],
+)
+def test_synthesize_enforces_official_numeric_ranges(field, value):
+    provider = DoubaoProvider()
+    with pytest.raises(TtsConfigurationError, match="out of range"):
+        provider.synthesize(
+            {"api_key": "tts-key"},
+            _request(**{field: value}),
+        )
 
 
 @pytest.mark.parametrize(
@@ -207,9 +241,49 @@ def test_list_speakers_uses_injected_ak_sk_hmac_transport_only():
     assert voices[0].id == "voice-1"
     assert voices[0].source == "remote_catalog"
     method, url, kwargs = transport.request_calls[0]
-    assert method == "GET"
+    assert method == "POST"
     assert url == DOUBAO_LIST_SPEAKERS_ENDPOINT
     assert kwargs["headers"]["Authorization"].startswith("HMAC-SHA256 Credential=ak-test/")
     assert "X-Api-Key" not in kwargs["headers"]
+    assert kwargs["json"] == {
+        "ResourceIDs": [DOUBAO_MODEL_ID],
+        "Page": 1,
+        "Limit": 30,
+    }
     with pytest.raises(TtsAuthError, match="AK/SK"):
         provider.list_voices({"api_key": "tts-key"}, model_id=DOUBAO_MODEL_ID)
+
+
+def test_list_speakers_maps_official_uppercase_result_fields():
+    response = _FakeResponse(
+        body={
+            "Code": 0,
+            "Result": {
+                "Speakers": [
+                    {
+                        "VoiceType": "zh_female_official",
+                        "Name": "官方女声",
+                        "Gender": "female",
+                        "Languages": ["zh-CN"],
+                        "Emotions": ["happy"],
+                        "Categories": ["通用"],
+                        "Description": "官方描述",
+                        "TrialURL": "https://example.invalid/official.mp3",
+                    }
+                ]
+            },
+        }
+    )
+    provider = DoubaoProvider(speaker_transport=_FakeTransport(response))
+
+    voices = provider.list_voices(
+        {"access_key_id": "ak-test", "secret_access_key": "sk-test"},
+        model_id=DOUBAO_MODEL_ID,
+    )
+
+    assert voices[0].id == "zh_female_official"
+    assert voices[0].name == "官方女声"
+    assert voices[0].description == "官方描述"
+    assert voices[0].languages == ("zh-CN",)
+    assert voices[0].emotions == ("happy",)
+    assert voices[0].preview_url.endswith("official.mp3")

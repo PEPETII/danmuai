@@ -9,7 +9,7 @@ state cleanup.
 import threading
 from unittest.mock import MagicMock
 
-from app.danmu_read_service import DanmuReadService
+from app.danmu_read_service import DanmuReadService, _DanmuTtsRunnable
 from app.tts_providers import ResolvedTtsConfig
 
 
@@ -76,6 +76,45 @@ def test_run_probe_returns_immediately_without_sync_synthesize(qapp, monkeypatch
     assert len(captured_runnables) == 1
     assert service._tts_in_flight is True
     assert service._probe_pending is True
+
+
+def test_tts_runnable_forwards_advanced_options(qapp, monkeypatch):
+    calls = {}
+
+    def fake_synthesize(*args, **kwargs):
+        calls.update(kwargs)
+        return b"FAKE_WAV"
+
+    monkeypatch.setattr("app.danmu_read_service.synthesize_tts", fake_synthesize)
+    monkeypatch.setattr("app.danmu_read_service._emit_tts_ready", lambda *args: None)
+
+    resolved = ResolvedTtsConfig(
+        provider="minimax",
+        endpoint="https://api.minimaxi.com/v1/t2a_v2",
+        model="speech-2.8-turbo",
+        is_custom=True,
+        stored_provider="minimax",
+        stored_endpoint="",
+        stored_model_id="speech-2.8-turbo",
+    )
+    _DanmuTtsRunnable(
+        MagicMock(),
+        text="测试弹幕",
+        api_key="sk-test",
+        voice="male-qn-qingse",
+        style_prompt="",
+        emotion="happy",
+        speed=1.25,
+        pitch=-1.0,
+        volume=0.8,
+        resolved=resolved,
+        credentials={"api_key": "sk-test"},
+    ).run()
+
+    assert calls["emotion"] == "happy"
+    assert calls["speed"] == 1.25
+    assert calls["pitch"] == -1.0
+    assert calls["volume"] == 0.8
 
 
 def test_run_probe_no_api_key_returns_synchronously(qapp):

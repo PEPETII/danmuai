@@ -19,6 +19,10 @@ class DanmuReadConfigPayload(BaseModel):
     interval_sec: int | None = None
     voice: str | None = None
     style_prompt: str | None = None
+    emotion: str | None = None
+    speed: float | None = None
+    pitch: float | None = None
+    volume: float | None = None
     api_key: str | None = None
     provider: str | None = None
     endpoint: str | None = None
@@ -37,6 +41,10 @@ class DanmuReadProbePayload(BaseModel):
     custom_model_id: str | None = None
     voice: str | None = None
     style_prompt: str | None = None
+    emotion: str | None = None
+    speed: float | None = None
+    pitch: float | None = None
+    volume: float | None = None
     credentials: dict[str, str] | None = None
 
 

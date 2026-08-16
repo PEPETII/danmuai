@@ -331,14 +331,9 @@ window.addEventListener('error', (event) => {
 });
 
 const DANMU_READ_PROVIDER_ALIASES = { dashscope_qwen: 'dashscope' };
-const DANMU_READ_FALLBACK_CATALOG = {
-  providers: [
-    { id: 'mimo', label: '小米 MiMo', auth_schema: { fields: [{ id: 'api_key', label: 'MiMo API Key', secret: true }] }, models: [{ id: 'mimo-v2.5-tts', label: 'MiMo V2.5 TTS', recommended: true, tags: ['推荐'], pricing: { kind: 'promotional_free', display: '限时免费' }, capabilities: { streaming: true, style_prompt: true, voice_list: true, output_formats: ['wav'] }, voices: [{ id: '冰糖', name: '冰糖' }, { id: '茉莉', name: '茉莉' }, { id: '苏打', name: '苏打' }, { id: '白桦', name: '白桦' }] }] },
-    { id: 'dashscope', label: '阿里百炼 DashScope', auth_schema: { fields: [{ id: 'api_key', label: 'DashScope API Key', secret: true }] }, models: [{ id: 'qwen3-tts-flash', label: 'Qwen3-TTS Flash', recommended: true, tags: ['推荐'], capabilities: { voice_list: true }, voices: [{ id: 'Cherry', name: '芊悦' }, { id: 'Serena', name: '苏瑶' }, { id: 'Ethan', name: '晨煦' }] }] },
-    { id: 'minimax', label: 'MiniMax', auth_schema: { fields: [{ id: 'api_key', label: 'MiniMax API Key', secret: true }] }, models: [{ id: 'speech-2.8-turbo', label: 'Speech 2.8 Turbo', recommended: true, tags: ['推荐', '低延迟'], capabilities: { emotion: true, speed: true, pitch: true, volume: true, voice_list: true, custom_voice_id: true }, voices: [{ id: 'male-qn-qingse', name: '青涩男声' }] }] },
-    { id: 'doubao', label: '火山引擎豆包', auth_schema: { fields: [{ id: 'api_key', label: 'TTS API Key', secret: true }, { id: 'access_key_id', label: 'Access Key ID', required: false, secret: true }, { id: 'secret_access_key', label: 'Secret Access Key', required: false, secret: true }] }, models: [{ id: 'seed-tts-2.0', label: 'Doubao Seed TTS 2.0', recommended: true, tags: ['V3'], capabilities: { streaming: true, voice_list: true, voice_preview: true, custom_voice_id: true }, voices: [] }] },
-  ],
-};
+// The API catalog is the only UI source for model, price, voice and capability
+// data.  An empty fallback avoids maintaining a second stale catalog here.
+const DANMU_READ_FALLBACK_CATALOG = { providers: [] };
 
 function danmuReadCanonicalProviderId(value) {
   const raw = String(value || '').trim();
@@ -352,7 +347,13 @@ function danmuReadProviderLabel(provider) {
 
 function danmuReadNormalizeVoice(voice) {
   if (!voice || !voice.id) return null;
-  return { ...voice, name: voice.name || voice.label || voice.id, tags: voice.tags || [] };
+  return {
+    ...voice,
+    name: voice.name || voice.label || voice.id,
+    tags: voice.tags || [],
+    languages: voice.languages || [],
+    dialects: voice.dialects || [],
+  };
 }
 
 function danmuReadNormalizeModel(model) {
@@ -360,7 +361,14 @@ function danmuReadNormalizeModel(model) {
   const capabilities = { ...(model.capabilities || {}) };
   if (model.supports_style != null && capabilities.style_prompt == null) capabilities.style_prompt = Boolean(model.supports_style);
   const voices = (model.voices || []).map(danmuReadNormalizeVoice).filter(Boolean);
-  return { ...model, label: model.label || model.name || model.id, tags: model.tags || [], capabilities, voices };
+  return {
+    ...model,
+    label: model.label || model.name || model.id,
+    tags: model.tags || [],
+    status: model.status || 'active',
+    capabilities,
+    voices,
+  };
 }
 
 function danmuReadNormalizeProvider(provider) {
@@ -459,14 +467,17 @@ function renderDanmuReadModelCards() {
   container.replaceChildren();
   (provider?.models || []).forEach((model) => {
     const option = new Option(model.label || model.id, model.id);
+    option.disabled = model.status !== 'active';
     select.appendChild(option);
     const card = document.createElement('button');
     card.type = 'button';
     card.className = 'tts-model-card ui-card ui-card--interactive';
     card.dataset.modelId = model.id;
+    if (model.status !== 'active') card.dataset.modelStatus = model.status || 'unavailable';
     card.setAttribute('role', 'radio');
     card.setAttribute('aria-checked', String(model.id === selected));
     card.addEventListener('click', () => {
+      if (model.status !== 'active') return;
       select.value = model.id;
       handleDanmuReadModelChange();
     });
@@ -480,13 +491,20 @@ function renderDanmuReadModelCards() {
     const tags = document.createElement('span');
     tags.className = 'tts-model-card__tags';
     tags.textContent = (model.tags || []).join(' · ');
+    const status = document.createElement('small');
+    status.className = 'tts-model-card__status';
+    status.textContent = model.status === 'historical'
+      ? `历史/已下线${model.replacement_model_id ? ` · 建议 ${model.replacement_model_id}` : ''}`
+      : model.status === 'catalog_only'
+        ? '官方目录 · 当前页面未接入'
+        : '';
     const use = document.createElement('span');
     use.className = 'tts-model-card__use';
     use.textContent = model.use_case || model.description || t('settings.text.适合当前语音场景');
     const verified = document.createElement('small');
     const verifiedAt = model.verified_at || model.pricing?.verified_at;
     verified.textContent = verifiedAt ? `${t('settings.text.核验日期')} ${verifiedAt}` : t('settings.text.价格核验日期待目录提供');
-    card.append(title, id, price, tags, use, verified);
+    card.append(title, id, price, tags, status, use, verified);
     container.appendChild(card);
   });
   if (selected && [...select.options].some((option) => option.value === selected)) select.value = selected;
@@ -553,11 +571,11 @@ function renderDanmuReadCredentials() {
   }
 }
 
-function populateDanmuReadVoiceSelect(providerId, modelId, selectedVoice) {
+function populateDanmuReadVoiceSelect(providerId, modelId, selectedVoice, voiceOverride = null) {
   const voiceEl = document.getElementById('danmuReadVoice');
   const provider = getDanmuReadCatalogProvider(providerId);
   const model = provider?.models?.find((item) => item.id === modelId) || provider?.models?.[0];
-  danmuReadVoices = [...(model?.voices || [])];
+  danmuReadVoices = Array.isArray(voiceOverride) ? voiceOverride : [...(model?.voices || [])];
   if (!voiceEl) return;
   voiceEl.replaceChildren();
   danmuReadVoices.forEach((voice) => voiceEl.appendChild(new Option(voice.name || voice.id, voice.id)));
@@ -572,7 +590,7 @@ function renderDanmuReadVoiceList() {
   const selected = document.getElementById('danmuReadVoice')?.value || '';
   if (!container) return;
   container.replaceChildren();
-  const filtered = danmuReadVoices.filter((voice) => `${voice.name} ${voice.id} ${(voice.tags || []).join(' ')}`.toLowerCase().includes(search));
+  const filtered = danmuReadVoices.filter((voice) => `${voice.name} ${voice.id} ${voice.description || ''} ${(voice.languages || []).join(' ')} ${(voice.dialects || []).join(' ')} ${(voice.tags || []).join(' ')}`.toLowerCase().includes(search));
   if (!filtered.length) {
     const empty = document.createElement('p');
     empty.className = 'settings-section-hint';
@@ -595,8 +613,17 @@ function renderDanmuReadVoiceList() {
     const name = document.createElement('strong');
     name.textContent = voice.name || voice.id;
     const meta = document.createElement('span');
-    meta.textContent = [voice.gender, voice.age_group, ...(voice.tags || [])].filter(Boolean).join(' · ') || voice.id;
-    choose.append(name, meta);
+    meta.textContent = [
+      voice.gender,
+      voice.age_group,
+      ...(voice.languages || []),
+      ...(voice.dialects || []),
+      ...(voice.tags || []),
+    ].filter(Boolean).join(' · ') || voice.id;
+    const description = document.createElement('small');
+    description.className = 'tts-voice-row__description';
+    description.textContent = [voice.description, `ID: ${voice.id}`].filter(Boolean).join(' · ');
+    choose.append(name, meta, description);
     const preview = document.createElement('button');
     preview.type = 'button';
     preview.className = 'ui-button ui-button--secondary ui-button--sm';
@@ -623,7 +650,12 @@ async function refreshDanmuReadVoices(forceRefresh = true) {
     const voices = Array.isArray(response) ? response : response?.voices;
     if (requestId !== danmuReadVoiceRequest || !Array.isArray(voices)) return;
     danmuReadVoices = voices.map(danmuReadNormalizeVoice).filter(Boolean);
-    populateDanmuReadVoiceSelect(provider.id, model.id, document.getElementById('danmuReadVoice')?.value || '');
+    populateDanmuReadVoiceSelect(
+      provider.id,
+      model.id,
+      document.getElementById('danmuReadVoice')?.value || '',
+      danmuReadVoices,
+    );
     if (status) status.textContent = t('settings.text.音色已刷新');
   } catch {
     if (status) status.textContent = t('settings.text.在线音色不可用已使用目录');

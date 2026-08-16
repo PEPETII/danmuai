@@ -96,6 +96,26 @@ def test_manager_validates_model_voice_and_capability():
     assert provider.calls == 0
 
 
+def test_manager_rejects_historical_model_with_replacement_hint():
+    model = ModelDescriptor(
+        id="old-model",
+        label="Old model",
+        status="historical",
+        replacement_model_id="model-1",
+    )
+    descriptor = ProviderDescriptor(
+        id="provider-1",
+        label="Test provider",
+        auth=AuthDescriptor((AuthFieldDescriptor("api_key", "API key"),)),
+        models=(model, _provider().models[0]),
+    )
+    manager, provider = _manager(descriptor)
+
+    with pytest.raises(ValueError, match="historical.*model-1"):
+        manager.synthesize(TtsRequest("hi", "provider-1", "old-model"))
+    assert provider.calls == 0
+
+
 def test_zero_numeric_options_still_require_capability():
     manager, provider = _manager()
     with pytest.raises(TtsUnsupportedCapabilityError):

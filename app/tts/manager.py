@@ -54,6 +54,15 @@ class TtsManager:
         if request.provider_id.strip() != provider_descriptor.id:
             raise TtsConfigurationError("TTS request provider does not match its descriptor")
         model = self.catalog.require_model(provider_descriptor.id, request.model_id)
+        if model.status != "active":
+            replacement = (
+                f"; use {model.replacement_model_id} instead"
+                if model.replacement_model_id
+                else ""
+            )
+            raise TtsConfigurationError(
+                f"TTS model {model.id} is {model.status} and cannot be used{replacement}"
+            )
         self.capabilities.validate_request(request, model.capabilities)
         self._validate_voice(request, model)
         if not request.text or not request.text.strip():

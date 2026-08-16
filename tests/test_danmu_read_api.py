@@ -45,6 +45,48 @@ def test_get_danmu_read_voices_from_catalog():
     assert response.json()["voices"][0]["id"] == "mimo_default"
 
 
+def test_get_danmu_read_voices_keeps_legacy_dashscope_model_compatible():
+    app = FastAPI()
+    bridge = MagicMock()
+    bridge.danmu_app.config = MagicMock()
+    bridge.danmu_app.config.get_tts_secret.return_value = ""
+    bridge.danmu_app.config.get_tts_api_key.return_value = ""
+    register_web_routes(app, bridge, lambda _auth=None: None)
+    client = TestClient(app)
+
+    response = client.get(
+        "/api/danmu-read/voices",
+        params={
+            "provider": "dashscope_qwen",
+            "model_id": "qwen3-tts-flash-2025-11-27",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["voices"][0]["id"] == "Cherry"
+
+
+def test_get_danmu_read_voices_rejects_catalog_only_model():
+    app = FastAPI()
+    bridge = MagicMock()
+    bridge.danmu_app.config = MagicMock()
+    bridge.danmu_app.config.get_tts_secret.return_value = ""
+    bridge.danmu_app.config.get_tts_api_key.return_value = ""
+    register_web_routes(app, bridge, lambda _auth=None: None)
+    client = TestClient(app)
+
+    response = client.get(
+        "/api/danmu-read/voices",
+        params={
+            "provider": "dashscope",
+            "model_id": "qwen-audio-3.0-tts-flash",
+        },
+    )
+
+    assert response.status_code == 400
+    assert "unsupported" in response.json()["detail"].lower()
+
+
 def test_get_danmu_read_config_masks_key(workspace_tmp):
     app = FastAPI()
     bridge = MagicMock()
@@ -414,6 +456,45 @@ def test_normalize_put_payload_accepts_model_id_for_dashscope():
     )
     assert out["provider"] == TTS_PROVIDER_DASHSCOPE_QWEN
     assert out["model_id"] == "qwen3-tts-flash-2025-11-27"
+
+
+def test_normalize_put_payload_rejects_catalog_only_model():
+    with pytest.raises(HTTPException) as exc:
+        normalize_put_payload(
+            {
+                "provider": "dashscope",
+                "model_id": "qwen-audio-3.0-tts-flash",
+            }
+        )
+    assert exc.value.status_code == 400
+
+
+def test_normalize_put_and_probe_payload_preserve_advanced_tts_options():
+    put = normalize_put_payload(
+        {
+            "provider": "minimax",
+            "model_id": "speech-2.8-turbo",
+            "emotion": "happy",
+            "speed": 1.25,
+            "pitch": -1,
+            "volume": 0.8,
+        }
+    )
+    assert put["emotion"] == "happy"
+    assert put["speed"] == 1.25
+    assert put["pitch"] == -1.0
+    assert put["volume"] == 0.8
+
+    probe = normalize_probe_payload(
+        {
+            "provider": "minimax",
+            "model_id": "speech-2.8-turbo",
+            "emotion": "calm",
+            "speed": 0.9,
+        }
+    )
+    assert probe["emotion_override"] == "calm"
+    assert probe["speed_override"] == 0.9
 
 
 def test_normalize_put_payload_rejects_orphan_endpoint():

@@ -11,6 +11,7 @@
 
 from __future__ import annotations
 
+import math
 import random
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
@@ -128,6 +129,63 @@ def _masked_tts_credentials(config, provider: str) -> dict[str, str]:
     return result
 
 
+def _optional_float(value: object) -> float | None:
+    if value in (None, ""):
+        return None
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if math.isfinite(parsed) else None
+
+
+def _optional_text(value: object) -> str | None:
+    text = str(value or "").strip()
+    return text or None
+
+
+def _model_for_runtime(provider: str, model_id: str):
+    canonical_provider = canonical_tts_provider_id(provider) or TTS_PROVIDER_MIMO
+    from app.tts_providers import canonical_tts_model_id
+
+    canonical_model = canonical_tts_model_id(canonical_provider, model_id)
+    try:
+        return get_tts_manager().catalog.require_model(canonical_provider, canonical_model)
+    except (AttributeError, ValueError):
+        return None
+
+
+def _apply_supported_options(
+    *,
+    provider: str,
+    model_id: str,
+    style_prompt: str | None,
+    emotion: str | None,
+    speed: float | None,
+    pitch: float | None,
+    volume: float | None,
+) -> dict[str, object]:
+    """Drop stale hidden controls before a request reaches TtsManager."""
+
+    model = _model_for_runtime(provider, model_id)
+    if model is None:
+        return {
+            "style_prompt": style_prompt,
+            "emotion": emotion,
+            "speed": speed,
+            "pitch": pitch,
+            "volume": volume,
+        }
+    capabilities = model.capabilities
+    return {
+        "style_prompt": style_prompt if capabilities.style_prompt else None,
+        "emotion": emotion if capabilities.emotion else None,
+        "speed": speed if capabilities.speed else None,
+        "pitch": pitch if capabilities.pitch else None,
+        "volume": volume if capabilities.volume else None,
+    }
+
+
 class _DanmuTtsRunnable(QRunnable):
     def __init__(
         self,
@@ -137,6 +195,10 @@ class _DanmuTtsRunnable(QRunnable):
         api_key: str,
         voice: str,
         style_prompt: str,
+        emotion: str | None = None,
+        speed: float | None = None,
+        pitch: float | None = None,
+        volume: float | None = None,
         resolved: ResolvedTtsConfig,
         credentials: Mapping[str, str] | None = None,
     ) -> None:
@@ -146,6 +208,10 @@ class _DanmuTtsRunnable(QRunnable):
         self._api_key = api_key
         self._voice = voice
         self._style_prompt = style_prompt
+        self._emotion = emotion
+        self._speed = speed
+        self._pitch = pitch
+        self._volume = volume
         self._resolved = resolved
         self._credentials = dict(credentials or {})
         self.setAutoDelete(True)
@@ -156,6 +222,10 @@ class _DanmuTtsRunnable(QRunnable):
                 self._api_key,
                 self._text,
                 style_prompt=self._style_prompt,
+                emotion=self._emotion,
+                speed=self._speed,
+                pitch=self._pitch,
+                volume=self._volume,
                 voice=self._voice,
                 resolved=self._resolved,
                 credentials=self._credentials,
@@ -293,6 +363,34 @@ class DanmuReadService(QObject):
             )
         if "style_prompt" in patch:
             items["tts_style_prompt"] = str(patch.get("style_prompt", ""))
+        if "emotion" in patch:
+            items["tts_emotion"] = str(patch.get("emotion") or "")
+        for field in ("speed", "pitch", "volume"):
+            if field in patch:
+                value = _optional_float(patch.get(field))
+                items[f"tts_{field}"] = "" if value is None else str(value)
+
+        effective_provider = items.get("tts_provider", provider) or TTS_PROVIDER_MIMO
+        effective_model = items.get("tts_model_id", model_id)
+        if not effective_model:
+            try:
+                effective_model = resolve_tts_config(config).model
+            except ValueError:
+                effective_model = MIMO_TTS_MODEL
+        supported = _apply_supported_options(
+            provider=str(effective_provider),
+            model_id=str(effective_model),
+            style_prompt=_optional_text(items.get("tts_style_prompt", config.get("tts_style_prompt", ""))),
+            emotion=_optional_text(items.get("tts_emotion", config.get("tts_emotion", ""))),
+            speed=_optional_float(items.get("tts_speed", config.get("tts_speed", ""))),
+            pitch=_optional_float(items.get("tts_pitch", config.get("tts_pitch", ""))),
+            volume=_optional_float(items.get("tts_volume", config.get("tts_volume", ""))),
+        )
+        items["tts_style_prompt"] = str(supported["style_prompt"] or "")
+        items["tts_emotion"] = str(supported["emotion"] or "")
+        for field in ("speed", "pitch", "volume"):
+            value = supported[field]
+            items[f"tts_{field}"] = "" if value is None else str(value)
 
         if items:
             config.set_batch(items)
@@ -343,6 +441,10 @@ class DanmuReadService(QObject):
         model_id_override: str | None = None,
         voice_override: str | None = None,
         style_prompt_override: str | None = None,
+        emotion_override: str | None = None,
+        speed_override: float | None = None,
+        pitch_override: float | None = None,
+        volume_override: float | None = None,
         credentials_override: Mapping[str, str] | None = None,
     ) -> dict[str, object]:
         config = self._app.config
@@ -373,6 +475,31 @@ class DanmuReadService(QObject):
             if style_prompt_override is not None
             else config.get("tts_style_prompt", "")
         )
+        options = _apply_supported_options(
+            provider=resolved.provider,
+            model_id=resolved.model,
+            style_prompt=_optional_text(style),
+            emotion=(
+                _optional_text(emotion_override)
+                if emotion_override is not None
+                else _optional_text(config.get("tts_emotion", ""))
+            ),
+            speed=(
+                speed_override
+                if speed_override is not None
+                else _optional_float(config.get("tts_speed", ""))
+            ),
+            pitch=(
+                pitch_override
+                if pitch_override is not None
+                else _optional_float(config.get("tts_pitch", ""))
+            ),
+            volume=(
+                volume_override
+                if volume_override is not None
+                else _optional_float(config.get("tts_volume", ""))
+            ),
+        )
         self._tts_in_flight = True
         self._probe_pending = True
         runnable = _DanmuTtsRunnable(
@@ -380,7 +507,11 @@ class DanmuReadService(QObject):
             text=TTS_PROBE_TEXT,
             api_key=api_key,
             voice=voice,
-            style_prompt=style,
+            style_prompt=str(options["style_prompt"] or ""),
+            emotion=options["emotion"],
+            speed=options["speed"],
+            pitch=options["pitch"],
+            volume=options["volume"],
             resolved=resolved,
             credentials=credentials,
         )
@@ -412,7 +543,6 @@ class DanmuReadService(QObject):
             return
         text = random.choice(candidates)
         self._last_text = text
-        style = app.config.get("tts_style_prompt", "")
         try:
             resolved = resolve_tts_config(app.config)
         except ValueError as exc:
@@ -428,6 +558,15 @@ class DanmuReadService(QObject):
             provider=resolved.provider,
             model_id=resolved.model,
         )
+        options = _apply_supported_options(
+            provider=resolved.provider,
+            model_id=resolved.model,
+            style_prompt=_optional_text(app.config.get("tts_style_prompt", "")),
+            emotion=_optional_text(app.config.get("tts_emotion", "")),
+            speed=_optional_float(app.config.get("tts_speed", "")),
+            pitch=_optional_float(app.config.get("tts_pitch", "")),
+            volume=_optional_float(app.config.get("tts_volume", "")),
+        )
         preview = text if len(text) <= 24 else f"{text[:24]}..."
         app.logger.info("danmu read: synthesizing %s", preview)
         self._tts_in_flight = True
@@ -436,7 +575,11 @@ class DanmuReadService(QObject):
             text=text,
             api_key=api_key,
             voice=voice,
-            style_prompt=style,
+            style_prompt=str(options["style_prompt"] or ""),
+            emotion=options["emotion"],
+            speed=options["speed"],
+            pitch=options["pitch"],
+            volume=options["volume"],
             resolved=resolved,
             credentials=credentials,
         )
@@ -503,6 +646,10 @@ def export_danmu_read_config(config) -> dict[str, object]:
             ),
             "voice": normalize_tts_voice(config.get("tts_voice", "")),
             "style_prompt": config.get("tts_style_prompt", ""),
+            "emotion": config.get("tts_emotion", ""),
+            "speed": _optional_float(config.get("tts_speed", "")),
+            "pitch": _optional_float(config.get("tts_pitch", "")),
+            "volume": _optional_float(config.get("tts_volume", "")),
             "api_key": MASKED_API_KEY if has_credentials else "",
             "credentials": credentials,
             "provider": stored_provider,
@@ -527,6 +674,10 @@ def export_danmu_read_config(config) -> dict[str, object]:
             model_id=resolved.model,
         ),
         "style_prompt": config.get("tts_style_prompt", ""),
+        "emotion": config.get("tts_emotion", ""),
+        "speed": _optional_float(config.get("tts_speed", "")),
+        "pitch": _optional_float(config.get("tts_pitch", "")),
+        "volume": _optional_float(config.get("tts_volume", "")),
         "api_key": MASKED_API_KEY if (key or credentials) else "",
         "credentials": credentials,
         "provider": stored_provider,

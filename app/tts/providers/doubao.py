@@ -33,6 +33,7 @@ from app.tts.types import (
     AuthDescriptor,
     AuthFieldDescriptor,
     ModelDescriptor,
+    PricingDescriptor,
     ProviderDescriptor,
     TtsAuthError,
     TtsCapabilities,
@@ -55,7 +56,63 @@ DOUBAO_TTS_ENDPOINT = "https://openspeech.bytedance.com/api/v3/tts/unidirectiona
 DOUBAO_LIST_SPEAKERS_ENDPOINT = "https://open.volcengineapi.com"
 DOUBAO_LIST_SPEAKERS_SERVICE = "speech_saas_prod"
 DOUBAO_LIST_SPEAKERS_VERSION = "2025-05-20"
-DOUBAO_LIST_SPEAKERS_REGION = "cn-north-1"
+DOUBAO_LIST_SPEAKERS_REGION = "cn-beijing"
+DOUBAO_PRICING_SOURCE_URL = "https://www.volcengine.com/product/doubao/"
+DOUBAO_VOICE_SOURCE_URL = "https://www.volcengine.com/docs/6561/162929?lang=en"
+DOUBAO_VERIFIED_AT = "2026-08-17"
+
+DOUBAO_STATIC_VOICES: tuple[VoiceDescriptor, ...] = (
+    VoiceDescriptor(
+        "zh_female_vv_uranus_bigtts", "vivi 2.0", None, "female",
+        languages=("zh-CN", "en-US"), tags=("官方预置", "通用场景"),
+        source=VoiceSource.STATIC_CATALOG,
+    ),
+    VoiceDescriptor(
+        "zh_male_dayi_saturn_bigtts", "大壹", None, "male",
+        languages=("zh-CN",), tags=("官方预置", "视频配音"),
+        source=VoiceSource.STATIC_CATALOG,
+    ),
+    VoiceDescriptor(
+        "zh_female_mizai_saturn_bigtts", "黑猫侦探社咪仔", None, "female",
+        languages=("zh-CN",), tags=("官方预置", "视频配音"),
+        source=VoiceSource.STATIC_CATALOG,
+    ),
+    VoiceDescriptor(
+        "zh_female_jitangnv_saturn_bigtts", "鸡汤女", None, "female",
+        languages=("zh-CN",), tags=("官方预置", "视频配音"),
+        source=VoiceSource.STATIC_CATALOG,
+    ),
+    VoiceDescriptor(
+        "zh_female_meilinvyou_saturn_bigtts", "魅力女友", None, "female",
+        languages=("zh-CN",), tags=("官方预置", "视频配音"),
+        source=VoiceSource.STATIC_CATALOG,
+    ),
+    VoiceDescriptor(
+        "zh_female_santongyongns_saturn_bigtts", "流畅女声", None, "female",
+        languages=("zh-CN",), tags=("官方预置", "流畅女声"),
+        source=VoiceSource.STATIC_CATALOG,
+    ),
+    VoiceDescriptor(
+        "zh_male_ruyayichen_saturn_bigtts", "儒雅逸辰", None, "male",
+        languages=("zh-CN",), tags=("官方预置", "视频配音"),
+        source=VoiceSource.STATIC_CATALOG,
+    ),
+    VoiceDescriptor(
+        "ICL_zh_female_keainvsheng_tob", "可爱女生", None, "female",
+        languages=("zh-CN",), tags=("官方预置", "角色扮演"),
+        source=VoiceSource.STATIC_CATALOG,
+    ),
+    VoiceDescriptor(
+        "ICL_zh_female_tiaopigongzhu_tob", "调皮公主", None, "female",
+        languages=("zh-CN",), tags=("官方预置", "角色扮演"),
+        source=VoiceSource.STATIC_CATALOG,
+    ),
+    VoiceDescriptor(
+        "zh_female_vv_mars_bigtts", "Vivi", None, "female",
+        languages=("zh-CN",), tags=("官方预置", "通用场景"),
+        source=VoiceSource.STATIC_CATALOG,
+    ),
+)
 
 _LEGACY_SYNTHESIS_KEYS = frozenset(
     {"app_id", "appid", "access_token", "accessToken", "token"}
@@ -148,16 +205,24 @@ class _DoubaoV3Protocol:
         }
 
     def payload(self, request: TtsRequest, *, voice_id: str) -> dict[str, Any]:
+        req_params: dict[str, Any] = {
+            self.text_key: request.text.strip(),
+            self.voice_key: voice_id,
+            self.audio_key: {
+                self.format_key: request.output_format.strip().lower(),
+                self.sample_rate_key: 24000,
+            },
+        }
+        if request.speed is not None:
+            req_params["speed_ratio"] = request.speed
+        if request.volume is not None:
+            req_params["loudness_ratio"] = request.volume
+        if request.emotion is not None:
+            req_params["emotion"] = request.emotion.strip()
+            req_params["enable_emotion"] = True
         return {
             self.user_key: {"uid": "danmuai"},
-            self.request_key: {
-                self.text_key: request.text.strip(),
-                self.voice_key: voice_id,
-                self.audio_key: {
-                    self.format_key: request.output_format.strip().lower(),
-                    self.sample_rate_key: 24000,
-                },
-            },
+            self.request_key: req_params,
         }
 
 
@@ -427,15 +492,15 @@ def _voice_list_from_body(
 ) -> list[Mapping[str, Any]]:
     if not isinstance(body, Mapping):
         raise TtsProviderResponseError("Doubao ListSpeakers response is not a JSON object")
-    code = body.get("code")
+    code = _mapping_value(body, "Code", "code")
     if code not in (None, 0, "0", "OK", "ok", "success"):
-        detail = _redact(body.get("message") or code, secrets)
+        detail = _redact(_mapping_value(body, "Message", "message", "msg") or code, secrets)
         raise TtsProviderResponseError(f"Doubao ListSpeakers provider error: {detail}")
-    for key in ("speakers", "voices", "items"):
-        value = body.get(key)
+    for key in ("Speakers", "speakers", "Voices", "voices", "Items", "items"):
+        value = _mapping_value(body, key)
         if isinstance(value, list):
             return [item for item in value if isinstance(item, Mapping)]
-    data = body.get("data") or body.get("result")
+    data = _mapping_value(body, "Result", "result", "Data", "data")
     if isinstance(data, Mapping):
         return _voice_list_from_body(data, secrets=secrets)
     raise TtsProviderResponseError("Doubao ListSpeakers response is missing speakers")
@@ -447,8 +512,42 @@ def _tuple_value(value: Any) -> tuple[str, ...]:
     if isinstance(value, str):
         return (value.strip(),) if value.strip() else ()
     if isinstance(value, Iterable):
-        return tuple(str(item).strip() for item in value if str(item).strip())
+        values: list[str] = []
+        for item in value:
+            if isinstance(item, Mapping):
+                nested = (
+                    item.get("Language")
+                    or item.get("language")
+                    or item.get("Text")
+                    or item.get("text")
+                    or item.get("Label")
+                    or item.get("label")
+                    or item.get("Value")
+                    or item.get("value")
+                )
+                if nested is not None and str(nested).strip():
+                    values.append(str(nested).strip())
+            elif str(item).strip():
+                values.append(str(item).strip())
+        return tuple(values)
     return (str(value).strip(),) if str(value).strip() else ()
+
+
+def _mapping_value(item: Mapping[str, Any], *names: str) -> Any:
+    for name in names:
+        if name in item and item[name] not in (None, ""):
+            return item[name]
+    lowered = {str(key).lower(): value for key, value in item.items()}
+    for name in names:
+        value = lowered.get(name.lower())
+        if value not in (None, ""):
+            return value
+    return None
+
+
+def _mapping_text(item: Mapping[str, Any], *names: str) -> str:
+    value = _mapping_value(item, *names)
+    return str(value).strip() if value is not None and str(value).strip() else ""
 
 
 class DoubaoProvider(BaseTtsProvider):
@@ -492,11 +591,32 @@ class DoubaoProvider(BaseTtsProvider):
                     transport="http_chunked_unidirectional",
                     capabilities=TtsCapabilities(
                         streaming=True,
+                        emotion=True,
+                        speed=True,
+                        volume=True,
                         voice_list=True,
                         voice_preview=True,
                         custom_voice_id=True,
                         output_formats=frozenset({"wav", "mp3", "pcm"}),
+                        notes=(
+                            "V3 HTTP Chunked 单向流式；wav 不支持流式，建议使用 mp3/pcm。",
+                            "当前适配器支持 speed_ratio 0.1–2、loudness_ratio 0.5–2、emotion + enable_emotion。",
+                            "pitch 与普通 V3 单向接口的公开支持范围未确认，因此不展示音调控件。",
+                            "自然语言风格/语音指令主要属于端到端实时语音模型或指定音色能力，普通 TTS 不固化为 style_prompt。",
+                        ),
                     ),
+                    pricing=PricingDescriptor(
+                        kind="paygo",
+                        currency="CNY",
+                        amount=5.0,
+                        unit="10k_chars",
+                        display="¥5 / 1万字符（产品页语音合成大模型）",
+                        note="官方产品页展示的语音合成大模型价格点；账户实际后付费阶梯和资源包以控制台为准。",
+                        verified_at=DOUBAO_VERIFIED_AT,
+                        source=DOUBAO_PRICING_SOURCE_URL,
+                        source_url=DOUBAO_PRICING_SOURCE_URL,
+                    ),
+                    voices=DOUBAO_STATIC_VOICES,
                 ),
             ),
         )
@@ -573,22 +693,32 @@ class DoubaoProvider(BaseTtsProvider):
             "Version": DOUBAO_LIST_SPEAKERS_VERSION,
             "ServiceName": DOUBAO_LIST_SPEAKERS_SERVICE,
             "Region": DOUBAO_LIST_SPEAKERS_REGION,
-            "ResourceId": DOUBAO_MODEL_ID,
         }
+        request_body = {
+            "ResourceIDs": [DOUBAO_MODEL_ID],
+            "Page": 1,
+            "Limit": 30,
+        }
+        encoded_body = json.dumps(
+            request_body, ensure_ascii=False, separators=(",", ":")
+        ).encode("utf-8")
         headers = build_list_speakers_signature(
             ak,
             sk,
-            method="GET",
+            method="POST",
             uri="/",
             query=query,
+            body=encoded_body,
         )
+        headers["Content-Type"] = "application/json; charset=UTF-8"
         try:
             response = self._call_request(
                 self._speaker_transport,
-                method="GET",
+                method="POST",
                 url=DOUBAO_LIST_SPEAKERS_ENDPOINT,
                 headers=headers,
                 params=query,
+                json=request_body,
                 timeout=60.0,
             )
             _status_error(response, secrets=(ak, sk))
@@ -603,21 +733,23 @@ class DoubaoProvider(BaseTtsProvider):
 
         voices: list[VoiceDescriptor] = []
         for item in items:
-            voice_id = _credential_value(item, "voice_type", "voice_id", "speaker", "id")
+            voice_id = _mapping_text(item, "VoiceType", "voice_type", "VoiceID", "voice_id", "speaker", "id")
             if not voice_id:
                 continue
-            name = _credential_value(item, "name", "speaker_name", "display_name") or voice_id
+            name = _mapping_text(item, "Name", "name", "speaker_name", "display_name") or voice_id
             voices.append(
                 VoiceDescriptor(
                     id=voice_id,
                     name=name,
-                    gender=_credential_value(item, "gender") or None,
-                    age_group=_credential_value(item, "age", "age_group") or None,
-                    languages=_tuple_value(item.get("languages") or item.get("language")),
-                    emotions=_tuple_value(item.get("emotions") or item.get("emotion")),
-                    tags=_tuple_value(item.get("category") or item.get("tags")),
+                    description=_mapping_text(item, "Description", "description") or None,
+                    gender=_mapping_text(item, "Gender", "gender") or None,
+                    age_group=_mapping_text(item, "Age", "age", "age_group") or None,
+                    languages=_tuple_value(_mapping_value(item, "Languages", "languages", "Language", "language")),
+                    dialects=_tuple_value(_mapping_value(item, "Dialects", "dialects")),
+                    emotions=_tuple_value(_mapping_value(item, "Emotions", "emotions", "Emotion", "emotion")),
+                    tags=_tuple_value(_mapping_value(item, "Categories", "categories", "NormalLabels", "SpecialLabels", "category", "tags")),
                     preview_url=(
-                        _credential_value(item, "trial_url", "preview_url", "demo_url") or None
+                        _mapping_text(item, "TrialURL", "trial_url", "ShortTrialURL", "short_trial_url", "preview_url", "demo_url") or None
                     ),
                     source=VoiceSource.REMOTE_CATALOG,
                 )
@@ -645,6 +777,12 @@ class DoubaoProvider(BaseTtsProvider):
         if not voice_id:
             raise TtsInvalidVoiceError("Doubao V3 requires a voice_id")
         CapabilityResolver().validate_request(request, self.descriptor.models[0].capabilities)
+        if request.speed is not None and not 0.1 <= request.speed <= 2.0:
+            raise TtsConfigurationError("Doubao speed_ratio is out of range [0.1, 2.0]")
+        if request.volume is not None and not 0.5 <= request.volume <= 2.0:
+            raise TtsConfigurationError("Doubao loudness_ratio is out of range [0.5, 2.0]")
+        if request.emotion is not None and not request.emotion.strip():
+            raise TtsConfigurationError("Doubao emotion must not be empty")
         request_id = self._request_id_factory()
         headers = _V3.headers(api_key, request_id)
         payload = _V3.payload(request, voice_id=voice_id)

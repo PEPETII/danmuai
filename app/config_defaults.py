@@ -122,6 +122,10 @@ CONFIG_DEFAULTS: dict[str, str] = {
         "温柔微颤语气，1.0倍速，温暖音色，独白式表达，"
         "句尾轻收配合自然呼吸停顿，情绪克制有层次，适配泪目治愈类弹幕"
     ),
+    "tts_emotion": "",
+    "tts_speed": "",
+    "tts_pitch": "",
+    "tts_volume": "",
     "tts_provider": "",
     "tts_endpoint": "",
     "tts_model_id": "",

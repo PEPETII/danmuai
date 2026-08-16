@@ -44,6 +44,18 @@ def test_legacy_dashscope_alias_resolves_to_stable_v2_model():
     )
 
 
+def test_stored_catalog_only_model_falls_back_to_active_model():
+    resolved = tts_providers.resolve_tts_config(
+        FakeConfig(
+            {
+                "tts_provider": "dashscope",
+                "tts_model_id": "qwen-audio-3.0-tts-flash",
+            }
+        )
+    )
+    assert resolved.model == "qwen3-tts-flash"
+
+
 @pytest.mark.parametrize(
     ("provider", "model"),
     [
@@ -86,7 +98,9 @@ def test_synthesize_tts_dispatches_explicit_provider(provider, model, monkeypatc
     request, credentials, _timeout = calls[0]
     expected_provider = "dashscope" if provider == "dashscope_qwen" else provider
     assert request.provider_id == expected_provider
-    assert request.output_format == ("mp3" if expected_provider == "minimax" else "wav")
+    assert request.output_format == (
+        "mp3" if expected_provider in {"minimax", "doubao"} else "wav"
+    )
     assert credentials == {"api_key": "other"}
 
 

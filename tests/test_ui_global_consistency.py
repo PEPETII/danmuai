@@ -67,3 +67,16 @@ def test_shared_control_and_responsive_guards_are_declared() -> None:
     assert ".settings-tab,\n.danmu-pool-tab,\n.sg-tab" in pages
     assert ".toast--error" in overview
     assert "@media (max-width: 520px)" in pages
+
+
+def test_danmu_read_uses_catalog_metadata_and_capability_gates() -> None:
+    app_js = (_static_dir() / "app.js").read_text(encoding="utf-8")
+    settings = (_static_dir() / "partials" / "settings.html").read_text(encoding="utf-8")
+
+    assert "const DANMU_READ_FALLBACK_CATALOG = { providers: [] };" in app_js
+    assert "option.disabled = model.status !== 'active';" in app_js
+    assert "ID: ${voice.id}" in app_js
+    assert "voiceOverride = null" in app_js
+    assert "field.hidden || capabilityWrap?.hidden" in app_js
+    for capability in ("speed", "pitch", "volume", "emotion", "style_prompt"):
+        assert f'data-tts-capability="{capability}"' in settings

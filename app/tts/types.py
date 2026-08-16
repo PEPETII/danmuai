@@ -179,16 +179,18 @@ class VoiceSource(StrEnum):
 class VoiceDescriptor:
     id: str
     name: str
+    description: str | None = None
     gender: str | None = None
     age_group: str | None = None
     languages: tuple[str, ...] = ()
+    dialects: tuple[str, ...] = ()
     emotions: tuple[str, ...] = ()
     tags: tuple[str, ...] = ()
     preview_url: str | None = None
     source: VoiceSource | str = VoiceSource.STATIC_CATALOG
 
     def __post_init__(self) -> None:
-        for field_name in ("languages", "emotions", "tags"):
+        for field_name in ("languages", "dialects", "emotions", "tags"):
             object.__setattr__(self, field_name, tuple(getattr(self, field_name)))
 
 
@@ -204,6 +206,7 @@ class PricingDescriptor:
     note: str | None = None
     verified_at: str | None = None
     source: str | None = None
+    source_url: str | None = None
 
 
 Pricing = PricingDescriptor
@@ -244,10 +247,12 @@ class TtsCapabilities:
     voice_clone: bool = False
     voice_design: bool = False
     output_formats: frozenset[str] = field(default_factory=lambda: frozenset({"wav"}))
+    notes: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         formats = frozenset(str(value).strip().lower() for value in self.output_formats)
         object.__setattr__(self, "output_formats", formats)
+        object.__setattr__(self, "notes", tuple(self.notes))
 
 
 @dataclass(frozen=True)
@@ -261,6 +266,7 @@ class ModelDescriptor:
     pricing: PricingDescriptor = field(default_factory=PricingDescriptor)
     voices: tuple[VoiceDescriptor, ...] = ()
     status: str = "active"
+    replacement_model_id: str | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "tags", tuple(self.tags))
@@ -290,9 +296,11 @@ def descriptor_to_dict(descriptor: Any) -> dict[str, Any]:
         return {
             "id": descriptor.id,
             "name": descriptor.name,
+            "description": descriptor.description,
             "gender": descriptor.gender,
             "age_group": descriptor.age_group,
             "languages": list(descriptor.languages),
+            "dialects": list(descriptor.dialects),
             "emotions": list(descriptor.emotions),
             "tags": list(descriptor.tags),
             "preview_url": descriptor.preview_url,
@@ -308,6 +316,7 @@ def descriptor_to_dict(descriptor: Any) -> dict[str, Any]:
             "note": descriptor.note,
             "verified_at": descriptor.verified_at,
             "source": descriptor.source,
+            "source_url": descriptor.source_url or descriptor.source,
         }
     if isinstance(descriptor, AuthFieldDescriptor):
         return {
@@ -321,9 +330,13 @@ def descriptor_to_dict(descriptor: Any) -> dict[str, Any]:
         return {"fields": [descriptor_to_dict(field) for field in descriptor.fields]}
     if isinstance(descriptor, TtsCapabilities):
         return {
-            name: value for name, value in descriptor.__dict__.items()
-            if name != "output_formats"
-        } | {"output_formats": sorted(descriptor.output_formats)}
+            name: (list(value) if name == "notes" else value)
+            for name, value in descriptor.__dict__.items()
+            if name not in {"output_formats", "notes"}
+        } | {
+            "output_formats": sorted(descriptor.output_formats),
+            "notes": list(descriptor.notes),
+        }
     if isinstance(descriptor, ModelDescriptor):
         return {
             "id": descriptor.id,
@@ -335,6 +348,7 @@ def descriptor_to_dict(descriptor: Any) -> dict[str, Any]:
             "pricing": descriptor_to_dict(descriptor.pricing),
             "voices": [descriptor_to_dict(voice) for voice in descriptor.voices],
             "status": descriptor.status,
+            "replacement_model_id": descriptor.replacement_model_id,
         }
     if isinstance(descriptor, ProviderDescriptor):
         return {
