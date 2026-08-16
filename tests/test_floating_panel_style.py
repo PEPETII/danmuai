@@ -449,7 +449,7 @@ def test_wechat_preset_has_bubble_tail_and_username_fields():
     assert w["floating_panel_tail_style"] == "round"
     assert w["floating_panel_tail_width"] == "8"
     assert w["floating_panel_tail_height"] == "10"
-    assert w["floating_panel_username_enabled"] == "1"
+    assert w["floating_panel_username_enabled"] == "0"
     assert w["floating_panel_username_separator"] == "："
     assert w["floating_panel_shadow_enabled"] == "1"
     assert w["floating_panel_shadow_opacity"] == "25"
@@ -488,7 +488,7 @@ def test_snapshot_exposes_new_style_fields():
     assert snap.shadow_opacity == 25
     assert snap.border_enabled is True
     assert snap.border_width == 1
-    assert snap.username_enabled is True
+    assert snap.username_enabled is False
     assert snap.username_size == 14
     assert snap.username_weight == 700
     assert snap.content_size == 16

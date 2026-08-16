@@ -76,7 +76,7 @@ CONFIG_DEFAULTS: dict[str, str] = {
     "dedup_threshold": "0.5",
     "danmu_recent_ttl_sec": str(DEFAULT_DANMU_RECENT_TTL_SEC),
     "screen_index": "0",
-    "layout_mode": "fullscreen",
+    "layout_mode": "1/2",
     "opacity": "100",
     "font_size": "24",
     "danmu_font_family": "Microsoft YaHei",

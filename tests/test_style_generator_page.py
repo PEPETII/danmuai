@@ -514,6 +514,44 @@ def test_settings_danmu_preview_no_longer_implements_floating_stack():
     assert "我喜欢你" in mod
 
 
+def test_style_generator_bottom_up_field_hints_wired():
+    """从下到上模式指定设置项应挂载紧贴标题的提示号。"""
+    hints = (_static() / "modules" / "settings-hints.js").read_text(encoding="utf-8")
+    mod = (_static() / "modules" / "app-style-generator-page.js").read_text(encoding="utf-8")
+    css = (_static() / "warm-tokens-pages-stylegen.css").read_text(encoding="utf-8")
+    zh_hints = json.loads((_static() / "locales" / "zh" / "hints.json").read_text(encoding="utf-8"))
+
+    assert "export function initStyleGeneratorFieldHints" in hints
+    assert "initStyleGeneratorFieldHints();" in mod
+    assert "#page-style-generator .sg-accordion .settings-field > .field-label-row" in css
+    assert "display: inline-flex" in css
+
+    for field_id in (
+        "sg-floating_panel_shape",
+        "sg-floating_panel_layout",
+        "sg-floating_panel_stack_gap",
+        "sg-floating_panel_width",
+        "sg-floating_panel_max_items",
+        "sg-floating_panel_speed",
+        "sg-floating_panel_x_offset",
+        "sg-floating_panel_y_offset",
+        "floating_panel_danmu_per_second",
+        "sg-floating_panel_card_color_mode",
+        "sg-floating_panel_text_color_mode",
+    ):
+        assert field_id in hints
+
+    for hint_key in (
+        "floating_panel_shape",
+        "floating_panel_layout",
+        "floating_panel_stack_gap",
+        "floating_panel_danmu_per_second",
+        "floating_panel_card_color_mode",
+        "floating_panel_text_color_mode",
+    ):
+        assert hint_key in zh_hints["hints"]
+
+
 def test_app_js_wires_style_generator_navigate():
     app_js = (_static() / "app.js").read_text(encoding="utf-8")
     assert "ensureStyleGeneratorPage" in app_js

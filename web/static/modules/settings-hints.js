@@ -285,6 +285,27 @@ export function initHorizontalFieldHints() {
   attachFieldHintsInRoot(form, HORIZONTAL_FIELD_TIPS);
 }
 
+/** 弹幕样式 → 从下到上模式：全局外观、布局频率、选色模式等字段提示 */
+const STYLE_GENERATOR_FIELD_TIPS = {
+  'sg-floating_panel_shape': 'hints.floating_panel_shape',
+  'sg-floating_panel_layout': 'hints.floating_panel_layout',
+  'sg-floating_panel_stack_gap': 'hints.floating_panel_stack_gap',
+  'sg-floating_panel_width': 'hints.floating_panel_width',
+  'sg-floating_panel_max_items': 'hints.floating_panel_max_items',
+  'sg-floating_panel_speed': 'hints.floating_panel_speed',
+  'sg-floating_panel_x_offset': 'hints.floating_panel_x_offset',
+  'sg-floating_panel_y_offset': 'hints.floating_panel_y_offset',
+  floating_panel_danmu_per_second: 'hints.floating_panel_danmu_per_second',
+  'sg-floating_panel_card_color_mode': 'hints.floating_panel_card_color_mode',
+  'sg-floating_panel_text_color_mode': 'hints.floating_panel_text_color_mode',
+};
+
+export function initStyleGeneratorFieldHints() {
+  const form = document.getElementById('styleGeneratorForm');
+  if (!form) return;
+  attachFieldHintsInRoot(form, STYLE_GENERATOR_FIELD_TIPS);
+}
+
 export function initContentPageFieldHints() {
   const overviewRoot = document.getElementById('page-overview');
   const personaRoot = document.getElementById('page-persona');

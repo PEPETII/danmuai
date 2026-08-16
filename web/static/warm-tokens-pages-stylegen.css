@@ -113,6 +113,15 @@
   line-height: 1.4;
 }
 
+/* 提示号紧跟设置项标题，避免被网格列宽推到行末 */
+#page-style-generator .sg-accordion .settings-field > .field-label-row {
+  display: inline-flex;
+  flex: 0 1 auto;
+  align-self: center;
+  grid-column: 1;
+  min-width: 0;
+}
+
 /* 仅字段行直系控件占右列，避免色盘 hex 输入在复合控件内被拉成全宽。 */
 #page-style-generator .sg-accordion .settings-field > .settings-field-control,
 #page-style-generator .sg-accordion .settings-rhythm-accordion-field > .settings-field-control,

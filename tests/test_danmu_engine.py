@@ -163,6 +163,7 @@ def test_normalize_danmu_display_text_strips_only(engine):
 
 
 def test_init_tracks_clamps_configured_and_auto_line_count(engine):
+    engine.config.set("layout_mode", "fullscreen")
     engine.config.set("danmu_lines", "5")
     engine.set_screen_height(1080.0)
     engine.reload_tracks()
@@ -186,7 +187,7 @@ def test_clamp_danmu_lines_bounds():
 
 def test_layout_mode_normalization(engine):
     assert normalize_layout_mode("1/2") == "1/2"
-    assert normalize_layout_mode("invalid") == "fullscreen"
+    assert normalize_layout_mode("invalid") == "1/2"
     engine.config.set("layout_mode", "1/2")
     assert layout_height_ratio(engine.config) == 0.5
 

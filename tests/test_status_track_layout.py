@@ -103,10 +103,10 @@ def test_status_track_layout_reads_engine_metrics(workspace_tmp):
 
 
 def test_status_track_layout_layout_mode_fallback(workspace_tmp):
-    """未知 layout_mode 归一化为 fullscreen。"""
+    """未知 layout_mode 归一化为默认 1/2。"""
     config = ConfigStore(db_path=workspace_tmp / "track_layout_mode.db")
     config.set("layout_mode", "bogus")
     app = _track_layout_app(config, tracks=[Track(y=50.0)])
 
     snapshot = StatusSnapshotBuilder(app).build()
-    assert snapshot["danmu_track_layout"]["layout_mode"] == "fullscreen"
+    assert snapshot["danmu_track_layout"]["layout_mode"] == "1/2"

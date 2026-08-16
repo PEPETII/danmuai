@@ -38,7 +38,7 @@ LAYOUT_MODE_RATIOS: dict[str, float] = {
     "1/2": 0.5,
     "1/4": 0.25,
 }
-DEFAULT_LAYOUT_MODE = "fullscreen"
+DEFAULT_LAYOUT_MODE = "1/2"
 
 # 轨道布局基线（逻辑像素 @ 100% DPI）；_init_tracks 按 ui_scale_factor 缩放
 TRACK_LINE_HEIGHT_BASE = 40

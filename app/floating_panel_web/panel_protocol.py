@@ -47,7 +47,7 @@ class CardStyle:
     tail_width: int = 8
     tail_height: int = 10
     tail_offset_y: int = 38
-    username_enabled: bool = True
+    username_enabled: bool = False
     username_weight: int = 700
     username_separator: str = "："
     content_weight: int = 400

@@ -12,6 +12,7 @@ import { t } from './i18n.js';
 import { initSettingsRhythmAccordion } from './settings-rhythm-accordion.js?v=20260717-number-stepper-v1';
 import { initNumberSteppers } from './number-stepper.js?v=20260717-number-stepper-v1';
 import { loadHorizontalFontPage, initHorizontalFontPage } from './app-horizontal-font-page.js';
+import { initStyleGeneratorFieldHints } from './settings-hints.js';
 
 /** 保存/应用预设时提交的键（与 STYLE_PRESET_APPLY_KEYS 对齐） */
 const STYLE_SAVE_KEYS = [
@@ -1560,6 +1561,7 @@ export function initStyleGeneratorPage(deps = {}) {
 
   initSettingsRhythmAccordion();
   initNumberSteppers(form);
+  initStyleGeneratorFieldHints();
   initHorizontalFontPage({ showToast: toast, navigate: deps.navigate });
   syncPresetSelect();
   syncPresetVisibility(activePresetId);

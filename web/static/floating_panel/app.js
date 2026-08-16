@@ -414,7 +414,7 @@
     // Apply per-card style (not via document root)
     if (msg.style) applyCardStyleVars(card, msg.style);
     // Build inner HTML (dual DOM: stacked wraps content in .bubble)
-    var usernameEnabled = msg.style ? msg.style.username_enabled !== false : true;
+    var usernameEnabled = msg.style ? msg.style.username_enabled === true : false;
     var usernameSeparator =
       msg.style && msg.style.username_separator != null
         ? String(msg.style.username_separator)

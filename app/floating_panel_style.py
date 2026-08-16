@@ -326,7 +326,7 @@ _WECHAT_FLAT: dict[str, str] = {
     "floating_panel_tail_border": "8",
     "floating_panel_tail_long_side": "18",
     "floating_panel_tail_rotate_deg": "35",
-    "floating_panel_username_enabled": "1",
+    "floating_panel_username_enabled": "0",
     "floating_panel_username_text": "弹幕",
     "floating_panel_username_color": WECHAT_TEXT_COLOR,
     "floating_panel_username_size": "14",
