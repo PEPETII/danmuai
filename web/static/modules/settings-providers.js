@@ -127,6 +127,9 @@ export function syncApiModeLockState() {
   sel.disabled = locked;
 }
 
+export const MODAL_PROVIDER_REGION_CHINA = 'china';
+export const MODAL_PROVIDER_REGION_INTERNATIONAL = 'international';
+
 function isProviderVisibleForLanguage(provider) {
   const id = provider?.id;
   if (id === 'custom_doubao') return false;
@@ -138,8 +141,49 @@ function isProviderVisibleForLanguage(provider) {
   return true;
 }
 
+function isProviderVisibleInModalRegion(provider, modalRegion) {
+  const id = provider?.id;
+  if (id === 'custom_doubao') return false;
+  if (provider.region === 'global') return true;
+  if (modalRegion === MODAL_PROVIDER_REGION_CHINA) {
+    return provider.region === 'china';
+  }
+  if (modalRegion === MODAL_PROVIDER_REGION_INTERNATIONAL) {
+    return provider.region === 'international';
+  }
+  return true;
+}
+
 function getVisibleProviders() {
   return providersCache.filter(isProviderVisibleForLanguage);
+}
+
+export function getModalVisibleProviders(modalRegion) {
+  return providersCache.filter((provider) => isProviderVisibleInModalRegion(provider, modalRegion));
+}
+
+export function inferModalProviderRegion(providerId) {
+  const provider = findProvider(providerId);
+  if (!provider) return MODAL_PROVIDER_REGION_CHINA;
+  if (provider.region === 'international') return MODAL_PROVIDER_REGION_INTERNATIONAL;
+  return MODAL_PROVIDER_REGION_CHINA;
+}
+
+export function fillModelProviderSelect(modalRegion, selectedProviderId = '') {
+  const modelProv = document.getElementById('modelProvider');
+  if (!modelProv) return;
+  modelProv.innerHTML = '';
+  getModalVisibleProviders(modalRegion).forEach((provider) => {
+    const opt = document.createElement('option');
+    opt.value = provider.id;
+    opt.textContent = provider.label;
+    modelProv.appendChild(opt);
+  });
+  if (!modelProv.options.length) return;
+  const target = String(selectedProviderId || '').trim();
+  const hasOption = target
+    && Array.from(modelProv.options).some((opt) => opt.value === target);
+  modelProv.value = hasOption ? target : modelProv.options[0].value;
 }
 
 function appendManualProviderOption(sel) {
@@ -203,17 +247,6 @@ function validateProviderRulesPayload(payload) {
 }
 
 function renderProviderControls() {
-  const modelProv = document.getElementById('modelProvider');
-  if (modelProv) {
-    modelProv.innerHTML = '';
-    getVisibleProviders().forEach((p) => {
-      const opt = document.createElement('option');
-      opt.value = p.id;
-      opt.textContent = p.label;
-      modelProv.appendChild(opt);
-    });
-  }
-
   const micSel = document.getElementById('micProviderPreset');
   if (micSel) fillProviderPresetSelect(micSel, { mic: true });
 

@@ -14,6 +14,13 @@
           <section class="model-modal-basic-section" aria-labelledby="modelModalBasicTitle">
             <h4 id="modelModalBasicTitle" class="text-sm font-bold text-warmText">基础配置</h4>
             <div>
+              <label class="text-sm font-semibold text-warmText" for="modelProviderRegion" data-i18n="dynamic.settingsCustomModels.平台区域">平台区域</label>
+              <select id="modelProviderRegion" class="w-full px-4 py-2 bg-cream rounded-xl mt-1 ui-control ui-select">
+                <option value="china" data-i18n="dynamic.settingsCustomModels.国内">国内</option>
+                <option value="international" data-i18n="dynamic.settingsCustomModels.国外">国外</option>
+              </select>
+            </div>
+            <div>
               <label class="text-sm font-semibold text-warmText" for="modelProvider">模型平台</label>
               <select id="modelProvider" class="w-full px-4 py-2 bg-cream rounded-xl mt-1 ui-control ui-select"></select>
               <div id="modelProviderName" class="text-xs text-gray-500 mt-1 hidden"></div>

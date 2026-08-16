@@ -931,3 +931,23 @@ def test_custom_model_supports_mic_persists_after_update_and_reopen(model_app):
     reopened = cm_api.list_custom_models(model_app)["items"][index]
     assert reopened["supportsMic"] is True
 
+
+def test_modals_html_has_model_provider_region_select():
+    html = MODALS_HTML.read_text(encoding="utf-8")
+    assert 'id="modelProviderRegion"' in html
+    assert 'for="modelProviderRegion"' in html
+    region_pos = html.index('id="modelProviderRegion"')
+    provider_pos = html.index('id="modelProvider"')
+    assert region_pos < provider_pos
+
+
+def test_settings_custom_models_js_wires_modal_provider_region():
+    src = SETTINGS_CUSTOM_MODELS_JS.read_text(encoding="utf-8")
+    assert "modelProviderRegion" in src
+    assert "initModelProviderRegionSelect" in src
+    assert "onModalProviderRegionChange" in src
+    assert "inferModalProviderRegion" in src
+    assert "fillModelProviderSelect" in src
+    assert "MODAL_PROVIDER_REGION_CHINA" in src
+    assert "onProviderChangeInModal(providerId, { isEdit: false })" in src
+

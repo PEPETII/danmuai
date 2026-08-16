@@ -6,6 +6,10 @@ import {
   getProviderWebsite,
   isCustomProvider,
   getDefaultEndpoint,
+  MODAL_PROVIDER_REGION_CHINA,
+  MODAL_PROVIDER_REGION_INTERNATIONAL,
+  inferModalProviderRegion,
+  fillModelProviderSelect,
 } from "./settings-providers.js";
 import {
   getModelCatalogModels,
@@ -579,6 +583,40 @@ function modeToSelectValue(mode, providerId = "") {
   return "openai";
 }
 
+/** 初始化模型弹窗「平台区域」下拉（文案随界面语言） */
+function initModelProviderRegionSelect(preferredValue = MODAL_PROVIDER_REGION_CHINA) {
+  const el = document.getElementById("modelProviderRegion");
+  if (!el) return;
+  const value = preferredValue || el.value || MODAL_PROVIDER_REGION_CHINA;
+  el.innerHTML = "";
+  [
+    { value: MODAL_PROVIDER_REGION_CHINA, label: t("dynamic.settingsCustomModels.国内") },
+    { value: MODAL_PROVIDER_REGION_INTERNATIONAL, label: t("dynamic.settingsCustomModels.国外") },
+  ].forEach(({ value: optionValue, label }) => {
+    const opt = document.createElement("option");
+    opt.value = optionValue;
+    opt.textContent = label;
+    el.appendChild(opt);
+  });
+  el.value = value;
+}
+
+/** 切换平台区域：重建模型平台列表并联动刷新下游字段 */
+function onModalProviderRegionChange() {
+  const regionEl = document.getElementById("modelProviderRegion");
+  const modalRegion = regionEl?.value || MODAL_PROVIDER_REGION_CHINA;
+  const prevProviderId = document.getElementById("modelProvider")?.value || "";
+  fillModelProviderSelect(modalRegion, prevProviderId);
+  const providerId = document.getElementById("modelProvider")?.value || "";
+  onProviderChangeInModal(providerId, { isEdit: false });
+  syncModelModalUIState({
+    providerId,
+    isEdit: false,
+    catalogModels: getModelCatalogModels(providerId),
+    customProvider: isCustomProvider(providerId),
+  });
+}
+
 /** 处理服务商切换联动 */
 function onProviderChangeInModal(providerId, options = {}) {
   const { isEdit = false } = options;
@@ -646,20 +684,25 @@ export function openModelModal(index, model = {}) {
     : t("dynamic.settingsCustomModels.新增模型");
 
   const providerId = isEdit ? model.provider || "" : "doubao";
-  const providerEl = document.getElementById("modelProvider");
-  if (providerEl) providerEl.value = providerId;
+  const modalRegion = isEdit
+    ? inferModalProviderRegion(providerId)
+    : MODAL_PROVIDER_REGION_CHINA;
+  initModelProviderRegionSelect(modalRegion);
+  fillModelProviderSelect(modalRegion, providerId);
+  const resolvedProviderId =
+    document.getElementById("modelProvider")?.value || providerId;
 
   // 构建 provider 联动
-  buildModelIdPresetOptions(providerId);
+  buildModelIdPresetOptions(resolvedProviderId);
 
   if (isEdit) {
     // 编辑模式：回填已有数据
-    updateProviderWebsiteDisplay(providerId);
+    updateProviderWebsiteDisplay(resolvedProviderId);
 
     // API 地址回填
     const endpointEl = document.getElementById("modelEndpoint");
     if (endpointEl) endpointEl.value = model.endpoint || "";
-    if (isCustomProvider(providerId)) {
+    if (isCustomProvider(resolvedProviderId)) {
       setEndpointReadonly(false);
     } else {
       setEndpointReadonly(true);
@@ -668,7 +711,7 @@ export function openModelModal(index, model = {}) {
     // 模型 ID 下拉回填
     const modelIds = Array.isArray(model.model_ids) ? model.model_ids : [];
     const defaultModelId = model.default_model_id || "";
-    syncModelIdPresetFromForm(modelIds, defaultModelId, providerId);
+    syncModelIdPresetFromForm(modelIds, defaultModelId, resolvedProviderId);
 
     // chip 回填
     fillTagChips(modelIds, defaultModelId);
@@ -690,12 +733,12 @@ export function openModelModal(index, model = {}) {
     if (modeEl) {
       modeEl.value = modeToSelectValue(
         model.mode || document.getElementById("api_mode")?.value,
-        providerId,
+        resolvedProviderId,
       );
     }
   } else {
     // 新增模式：默认 doubao + 联动
-    onProviderChangeInModal(providerId, { isEdit: false });
+    onProviderChangeInModal(resolvedProviderId, { isEdit: false });
   }
 
   document.getElementById("modelApiKey").value = isMaskedApiKey(model.apiKey)
@@ -738,10 +781,10 @@ export function openModelModal(index, model = {}) {
   initModelModalProbe(collectModelForm);
   syncModelDefaultSelect();
   syncModelModalUIState({
-    providerId,
+    providerId: resolvedProviderId,
     isEdit,
-    catalogModels: getModelCatalogModels(providerId),
-    customProvider: isCustomProvider(providerId),
+    catalogModels: getModelCatalogModels(resolvedProviderId),
+    customProvider: isCustomProvider(resolvedProviderId),
   });
 }
 
@@ -920,9 +963,14 @@ export function initModelModalBindings() {
   initModelApiKeyVisibility();
   bindModelDefaultSelect();
   initModelModalProbe(collectModelForm);
+  initModelProviderRegionSelect();
   document
     .getElementById("btnModelClose")
     ?.addEventListener("click", closeModelModal);
+  const regionEl = document.getElementById("modelProviderRegion");
+  if (regionEl) {
+    regionEl.addEventListener("change", onModalProviderRegionChange);
+  }
   const providerEl = document.getElementById("modelProvider");
   if (providerEl) {
     providerEl.addEventListener("change", (e) => {

@@ -143,6 +143,22 @@ def test_settings_providers_js_filters_by_region_and_language():
     assert "provider.region === 'china'" in providers_js
 
 
+def test_settings_providers_js_has_modal_region_filter_helpers():
+    from app.bundle_paths import project_root
+
+    providers_js = (
+        project_root() / "web" / "static" / "modules" / "settings-providers.js"
+    ).read_text(encoding="utf-8")
+    assert "getModalVisibleProviders" in providers_js
+    assert "isProviderVisibleInModalRegion" in providers_js
+    assert "inferModalProviderRegion" in providers_js
+    assert "fillModelProviderSelect" in providers_js
+    controls_start = providers_js.index("function renderProviderControls()")
+    controls_end = providers_js.index("function renderProviderEmptyFallback()", controls_start)
+    controls_block = providers_js[controls_start:controls_end]
+    assert "modelProvider" not in controls_block
+
+
 def test_settings_model_catalog_js_filters_visible_platforms():
     from app.bundle_paths import project_root
 
