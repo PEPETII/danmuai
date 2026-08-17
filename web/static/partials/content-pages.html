@@ -360,7 +360,104 @@
         <button type="button" id="btnPetSave" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm ui-button ui-button--primary ui-button--md">保存设置</button>
         </div>
 
-        <div id="petTab-vtuber" class="settings-tab-panel" data-pet-panel="vtuber" role="tabpanel" aria-labelledby="petTabBtn-vtuber" hidden></div>
+        <div id="petTab-vtuber" class="settings-tab-panel space-y-6" data-pet-panel="vtuber" role="tabpanel" aria-labelledby="petTabBtn-vtuber" hidden>
+          <div id="vtuberStatusCard" class="vtuber-status-card ui-status-banner ui-status-banner--warning" role="status" aria-live="polite">
+            <div class="vtuber-status-card__header">
+              <div class="min-w-0">
+                <p class="settings-section-title">虚拟桌宠状态</p>
+                <p id="vtuberStatusText" class="vtuber-status-card__state">正在读取模型状态…</p>
+              </div>
+              <span id="vtuberStatusBadge" class="vtuber-status-card__badge">读取中</span>
+            </div>
+            <p id="vtuberModelText" class="settings-section-hint">尚未导入 Live2D 模型。</p>
+          </div>
+
+          <section class="vtuber-model-card ui-card" aria-labelledby="vtuberModelHeading">
+            <div class="vtuber-status-card__header">
+              <div class="min-w-0">
+                <h3 id="vtuberModelHeading" class="settings-section-title">Live2D 外部模型</h3>
+                <p id="vtuberModelFileName" class="settings-section-hint break-all">未选择模型</p>
+              </div>
+              <span id="vtuberModelState" class="text-xs text-gray-500">未导入</span>
+            </div>
+            <div id="vtuberCapabilities" class="vtuber-capabilities" aria-live="polite"></div>
+            <p id="vtuberModelError" class="vtuber-model-error hidden" role="alert"></p>
+            <div class="vtuber-settings-actions" aria-label="Live2D 模型操作">
+              <button type="button" id="btnVtuberImportModel" class="ui-button ui-button--primary ui-button--md">导入 Live2D 模型</button>
+              <button type="button" id="btnVtuberClearModel" class="ui-button ui-button--secondary ui-button--md" disabled>移除模型</button>
+            </div>
+            <p class="settings-section-hint">通过桌面原生文件选择器选择 .model3.json；模型文件不会上传或复制。</p>
+          </section>
+
+          <fieldset class="vtuber-settings-fieldset" disabled aria-describedby="vtuberSettingsNotice">
+            <legend class="settings-section-title">虚拟桌宠设置</legend>
+            <div class="settings-rhythm-accordion vtuber-settings-accordion">
+              <section class="settings-rhythm-accordion-item">
+                <h4 class="vtuber-settings-section-heading">角色与连接</h4>
+                <div class="settings-rhythm-accordion-panel">
+                  <div class="settings-rhythm-accordion-fields">
+                    <div class="settings-rhythm-accordion-field">
+                      <div class="min-w-0">
+                        <label for="vtuberModel" class="settings-field-label">角色模型</label>
+                        <p id="vtuberModelHint" class="text-xs text-gray-500 mt-1">模型目录与加载状态待后端接入。</p>
+                      </div>
+                      <select id="vtuberModel" class="settings-field-control ui-control ui-select" aria-describedby="vtuberModelHint" disabled>
+                        <option>待后端接入</option>
+                      </select>
+                    </div>
+                    <div class="settings-rhythm-accordion-field">
+                      <div class="min-w-0">
+                        <label for="vtuberVoice" class="settings-field-label">语音与动作</label>
+                        <p id="vtuberVoiceHint" class="text-xs text-gray-500 mt-1">语音、口型和动作联动能力未接入。</p>
+                      </div>
+                      <select id="vtuberVoice" class="settings-field-control ui-control ui-select" aria-describedby="vtuberVoiceHint" disabled>
+                        <option>未接入</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </section>
+              <section class="settings-rhythm-accordion-item">
+                <h4 class="vtuber-settings-section-heading">显示与互动</h4>
+                <div class="settings-rhythm-accordion-panel">
+                  <div class="settings-rhythm-accordion-fields">
+                    <div class="settings-rhythm-accordion-field">
+                      <div class="min-w-0">
+                        <label for="vtuberScale" class="settings-field-label">显示比例</label>
+                        <p id="vtuberScaleHint" class="text-xs text-gray-500 mt-1">窗口大小与位置设置待后端接入。</p>
+                      </div>
+                      <select id="vtuberScale" class="settings-field-control ui-control ui-select" aria-describedby="vtuberScaleHint" disabled>
+                        <option>待后端接入</option>
+                      </select>
+                    </div>
+                    <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--toggle">
+                      <div class="min-w-0">
+                        <span class="settings-field-label">启用虚拟桌宠</span>
+                        <p id="vtuberEnabledHint" class="text-xs text-gray-500 mt-1">启动与停止控制未接入。</p>
+                      </div>
+                      <label class="toggle-switch" for="vtuberEnabled">
+                        <input type="checkbox" id="vtuberEnabled" role="switch" aria-label="启用虚拟桌宠" aria-describedby="vtuberEnabledHint" disabled>
+                        <span aria-hidden="true"></span>
+                      </label>
+                    </div>
+                    <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--toggle">
+                      <div class="min-w-0">
+                        <span class="settings-field-label">响应弹幕互动</span>
+                        <p id="vtuberInteractionHint" class="text-xs text-gray-500 mt-1">弹幕互动规则未接入。</p>
+                      </div>
+                      <label class="toggle-switch" for="vtuberInteractionEnabled">
+                        <input type="checkbox" id="vtuberInteractionEnabled" role="switch" aria-label="响应弹幕互动" aria-describedby="vtuberInteractionHint" disabled>
+                        <span aria-hidden="true"></span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </fieldset>
+
+          <p id="vtuberSettingsNotice" class="settings-section-hint">模型导入状态可用；启动、互动、音频、动作和参数控件尚未接入运行时，因此继续禁用。</p>
+        </div>
       </div>
     </section>
 <section id="page-persona" class="page-panel">

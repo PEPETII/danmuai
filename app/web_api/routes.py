@@ -49,6 +49,7 @@ from app.web_api.danmu_pool_routes import register_danmu_pool_routes
 from app.web_api.danmu_read_routes import register_danmu_read_routes
 from app.web_api.diagnostics_routes import register_diagnostics_routes
 from app.web_api.knowledge_routes import register_knowledge_routes
+from app.web_api.live2d_routes import register_live2d_routes
 from app.web_api.meme_barrage_routes import register_meme_barrage_routes
 from app.web_api.mic_routes import register_mic_routes
 from app.web_api.misc_config_routes import register_misc_config_routes
@@ -110,6 +111,7 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
     register_danmu_pool_routes(app, bridge, check_token, invoke_main)
 
     register_pet_routes(app, bridge, check_token, invoke_main)
+    register_live2d_routes(app, bridge, check_token, invoke_main)
 
     register_knowledge_routes(app, bridge, check_token, invoke_main)
 

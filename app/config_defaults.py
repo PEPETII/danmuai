@@ -168,6 +168,7 @@ CONFIG_DEFAULTS: dict[str, str] = {
     "pet_barrage_slot_positions": "[]",
     "pet_barrage_previous_render_mode": "scrolling",
     "pet_barrage_previous_reply_count": str(DEFAULT_NORMAL_REPLY_COUNT),
+    "live2d_model_path": "",
     "use_thinking": "0",
     "danmu_font_color_selected": "[\"#FFFFFF\"]",
     "danmu_font_color_mode": "equal",

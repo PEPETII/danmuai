@@ -54,6 +54,7 @@ from app.main_launch import (
 )
 from app.main_launch_mixin import DanmuAppLaunchMixin
 from app.main_lifecycle_mixin import DanmuAppLifecycleMixin
+from app.main_live2d_mixin import DanmuAppLive2DMixin
 from app.main_meme_mixin import DanmuAppMemeMixin
 from app.main_mic_mixin import MIC_POLL_MS, MIC_POLL_PHASE_MS, DanmuAppMicMixin  # noqa: F401
 from app.main_overlay_mixin import DanmuAppOverlayMixin
@@ -97,6 +98,7 @@ class DanmuApp(
     DanmuAppMicMixin,
     DanmuAppRenderCoordinatorMixin,
     DanmuAppPetMixin,
+    DanmuAppLive2DMixin,
     DanmuAppOverlayMixin,
     DanmuAppFloatingPanelMixin,
     DanmuAppScreenTopologyMixin,

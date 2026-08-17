@@ -110,6 +110,7 @@ let danmuReadVoices = [];
 let danmuReadVoiceRequest = 0;
 let danmuPoolPagesReady = false;
 let petPageReady = false;
+let vtuberPageReady = false;
 let styleGeneratorPageReady = false;
 let knowledgePageReady = false;
 
@@ -294,6 +295,15 @@ async function withLoadingState(btn, originalText, asyncFn, successText = null, 
     btn.classList.remove('is-loading');
     btn.removeAttribute('aria-busy');
   }
+}
+
+async function ensureVtuberPage() {
+  const mod = await import('./modules/app-vtuber-page.js');
+  if (!vtuberPageReady) {
+    mod.initVtuberPage({ showToast });
+    vtuberPageReady = true;
+  }
+  return mod;
 }
 window.withLoadingState = withLoadingState;
 
@@ -951,8 +961,10 @@ function navigate(page) {
       .catch(() => {});
   }
   if (page === 'pet') {
-    ensurePetPage()
-      .then((mod) => mod.loadPetPage())
+    Promise.all([
+      ensurePetPage().then((mod) => mod.loadPetPage()),
+      ensureVtuberPage().then((mod) => mod.loadVtuberPage()),
+    ])
       .catch((error) => showToast(error.message, true));
   }
   if (page === 'knowledge') {
