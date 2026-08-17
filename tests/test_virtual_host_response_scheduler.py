@@ -99,8 +99,8 @@ def test_scheduler_cooldown_blocks_response():
     assert decision.reason == "cooldown"
 
 
-def test_scheduler_below_threshold_is_no_op():
-    scheduler = VirtualHostResponseScheduler(score_threshold=0.99, rng=lambda: 0.0)
+def test_scheduler_probability_miss_with_high_roll():
+    scheduler = VirtualHostResponseScheduler(rng=lambda: 0.99)
     session = _session_with_danmu(lines=("单条",))
     decision = scheduler.evaluate(
         _event(),
@@ -111,11 +111,11 @@ def test_scheduler_below_threshold_is_no_op():
         session=session,
     )
     assert decision.should_respond is False
-    assert decision.reason == "below_threshold"
+    assert decision.reason == "probability_miss"
 
 
-def test_scheduler_threshold_met_with_injected_rng():
-    scheduler = VirtualHostResponseScheduler(score_threshold=0.55, rng=lambda: 1.0)
+def test_scheduler_probability_hit_with_low_roll():
+    scheduler = VirtualHostResponseScheduler(rng=lambda: 0.0)
     session = _session_with_danmu(lines=("弹幕一", "弹幕二", "弹幕三"))
     decision = scheduler.evaluate(
         _event(),
@@ -126,12 +126,12 @@ def test_scheduler_threshold_met_with_injected_rng():
         session=session,
     )
     assert decision.should_respond is True
-    assert decision.reason == "threshold_met"
-    assert decision.score >= 0.55
+    assert decision.reason == "probability_hit"
+    assert decision.score > 0.0
 
 
 def test_scheduler_scene_change_candidate_can_score():
-    scheduler = VirtualHostResponseScheduler(score_threshold=0.4, rng=lambda: 1.0)
+    scheduler = VirtualHostResponseScheduler(rng=lambda: 0.0)
     session = VirtualHostSession()
     session.update_scene_context(
         SceneContext(scene_generation=1, summary="Boss 战", keywords=("Boss",), updated_at=time.time())
@@ -147,17 +147,63 @@ def test_scheduler_scene_change_candidate_can_score():
     assert decision.should_respond is True
 
 
-def test_build_autonomous_input_prefers_danmu_lines():
+def test_scheduler_ordinary_batches_not_trigger_every_cooldown_cycle():
+    """连续 100 个普通 batch 不应每个 cooldown 周期都触发。"""
+    now = 1000.0
+    rolls = [0.0 if index % 2 == 0 else 0.99 for index in range(100)]
+    roll_iter = iter(rolls)
+    scheduler = VirtualHostResponseScheduler(
+        min_cooldown_seconds=0.0,
+        rng=lambda: next(roll_iter),
+        clock=lambda: now,
+    )
+    session = VirtualHostSession()
+    session.update_scene_context(
+        SceneContext(scene_generation=0, summary="普通画面", updated_at=now)
+    )
+    triggered = 0
+    for index in range(100):
+        batch_id = f"batch-{index}"
+        batch = DanmuBatchCreated.from_lines(
+            batch_id=batch_id,
+            lines=["普通弹幕"],
+            created_at=now,
+            scene_generation=0,
+        )
+        session.ingest_danmu_batch(batch, current_scene_generation=0, now=now)
+        decision = scheduler.evaluate(
+            ResponseCandidateEvent(
+                kind="danmu_batch",
+                at=now + index,
+                batch_id=batch_id,
+                scene_generation=0,
+            ),
+            running=True,
+            model_enabled=True,
+            chat_in_flight=False,
+            last_spoke_at=None,
+            session=session,
+            now=now + index,
+        )
+        if decision.should_respond:
+            triggered += 1
+    assert triggered < 100
+    assert triggered > 0
+
+
+def test_build_autonomous_input_uses_semantic_instruction_for_danmu():
     session = _session_with_danmu(lines=("观众提问", "再来一条"))
     text = build_autonomous_input(session)
-    assert "观众提问" in text
-    assert "再来一条" in text
+    assert "观众提问" not in text
+    assert "再来一条" not in text
+    assert "弹幕" in text
 
 
-def test_build_autonomous_input_falls_back_to_scene_summary():
+def test_build_autonomous_input_falls_back_to_scene_instruction():
     session = VirtualHostSession()
     session.update_scene_context(
         SceneContext(scene_generation=0, summary="桌面浏览器", updated_at=time.time())
     )
     text = build_autonomous_input(session)
-    assert "桌面浏览器" in text
+    assert "桌面浏览器" not in text
+    assert "画面" in text

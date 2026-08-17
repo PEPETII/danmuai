@@ -8,7 +8,6 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Literal
 
-from app.virtual_host.contracts import normalize_text
 from app.virtual_host.session import VirtualHostSession
 
 CandidateKind = Literal["danmu_batch", "scene_change"]
@@ -30,18 +29,20 @@ class ScheduleDecision:
 
 
 class VirtualHostResponseScheduler:
-    """纯逻辑调度器；HTTP / Session 写入由运行时在外部门控后执行。"""
+    """纯逻辑调度器；HTTP / Session 写入由运行时在外部门控后执行。
+
+    硬门控通过后，由 relevance score 直接映射为触发概率，而不是 score+随机扰动
+    与固定阈值比较，避免 cooldown 后近似必触发。
+    """
 
     def __init__(
         self,
         *,
         min_cooldown_seconds: float = 20.0,
-        score_threshold: float = 0.55,
         rng: Callable[[], float] = random.random,
         clock: Callable[[], float] = time.time,
     ) -> None:
         self._min_cooldown_seconds = max(0.0, float(min_cooldown_seconds))
-        self._score_threshold = max(0.0, min(1.0, float(score_threshold)))
         self._rng = rng
         self._clock = clock
 
@@ -66,16 +67,28 @@ class VirtualHostResponseScheduler:
         if last_spoke_at is not None and current - float(last_spoke_at) < self._min_cooldown_seconds:
             return ScheduleDecision(False, 0.0, "cooldown")
 
-        context_score = self._context_score(session, now=current)
-        if context_score <= 0.0:
+        relevance = self._relevance_score(event, session=session, now=current)
+        if relevance <= 0.0:
             return ScheduleDecision(False, 0.0, "no_context")
 
-        event_score = self._event_score(event, session=session, now=current)
-        perturbation = float(self._rng()) * 0.35
-        total = min(1.0, context_score + event_score + perturbation)
-        if total < self._score_threshold:
-            return ScheduleDecision(False, total, "below_threshold")
-        return ScheduleDecision(True, total, "threshold_met")
+        probability = min(1.0, max(0.0, relevance))
+        roll = float(self._rng())
+        if roll >= probability:
+            return ScheduleDecision(False, relevance, "probability_miss")
+        return ScheduleDecision(True, relevance, "probability_hit")
+
+    def _relevance_score(
+        self,
+        event: ResponseCandidateEvent,
+        *,
+        session: VirtualHostSession,
+        now: float,
+    ) -> float:
+        context = self._context_score(session, now=now)
+        if context <= 0.0:
+            return 0.0
+        event_score = self._event_score(event, session=session, now=now)
+        return min(1.0, context + event_score)
 
     def _context_score(self, session: VirtualHostSession, *, now: float) -> float:
         batches = session.recent_batches(now=now)
@@ -83,9 +96,9 @@ class VirtualHostResponseScheduler:
         scene = session.current_scene_context(now=now)
         score = 0.0
         if line_count > 0:
-            score += min(0.45, 0.08 * line_count)
+            score += min(0.15, 0.03 * line_count)
         if scene is not None and scene.has_semantic_context:
-            score += 0.2
+            score += 0.1
         return score
 
     def _event_score(
@@ -100,34 +113,29 @@ class VirtualHostResponseScheduler:
             if event.batch_id:
                 matched = next((batch for batch in batches if batch.batch_id == event.batch_id), None)
                 if matched is not None:
-                    return min(0.35, 0.07 * len(matched.lines))
-            return min(0.25, 0.05 * sum(len(batch.lines) for batch in batches))
+                    return min(0.2, 0.04 * len(matched.lines))
+            return min(0.15, 0.03 * sum(len(batch.lines) for batch in batches))
         if event.kind == "scene_change":
             scene = session.current_scene_context(now=now)
             if scene is None:
                 return 0.0
             keyword_bonus = min(0.1, 0.02 * len(scene.keywords))
-            summary_bonus = 0.2 if scene.summary else 0.0
+            summary_bonus = 0.35 if scene.summary else 0.0
             return summary_bonus + keyword_bonus
         return 0.0
 
 
 def build_autonomous_input(session: VirtualHostSession, *, now: float | None = None) -> str:
-    """为自主轮次构造 HOST_INPUT：优先近期弹幕，其次画面摘要。"""
+    """为自主轮次构造 HOST_INPUT：简短语义指令，不重复复制弹幕正文。"""
 
     current = time.time() if now is None else float(now)
-    lines: list[str] = []
-    for batch in session.recent_batches(now=current):
-        for line in batch.lines:
-            text = normalize_text(line)
-            if text and text not in lines:
-                lines.append(text)
-    if lines:
-        return "\n".join(lines[:8])
+    line_count = sum(len(batch.lines) for batch in session.recent_batches(now=current))
+    if line_count > 0:
+        return "观众发来新弹幕，请根据当前弹幕与画面自然接话。"
     scene = session.current_scene_context(now=current)
     if scene is not None and scene.summary:
-        return f"画面更新：{scene.summary}"
-    return "自主回应"
+        return "画面有更新，请根据当前画面自然接话。"
+    return "请根据当前直播情境自然接话。"
 
 
 __all__ = [

@@ -98,3 +98,15 @@ class DanmuTtsPlayback(QObject):
             QMetaObject.invokeMethod(
                 self, "playback_finished", Qt.ConnectionType.QueuedConnection
             )
+
+    def stop(self) -> None:
+        """停止当前播放并释放 busy 状态。"""
+        try:
+            sd.stop()
+        except (OSError, RuntimeError):
+            pass
+        self._set_busy(False)
+
+    def pause(self) -> None:
+        """暂停当前播放（sounddevice 无独立 pause，等价 stop）。"""
+        self.stop()

@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import logging
 import time
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from PyQt6.QtCore import QObject, QRunnable, pyqtSignal
 
+from app.danmu_tts_playback import DanmuTtsPlayback
 from app.screenshot_compress import compress_screenshot
 from app.tts_providers import get_tts_manager
 from app.virtual_host.audio import (
@@ -15,15 +17,23 @@ from app.virtual_host.audio import (
     TtsSynthesisOutcome,
     TtsSynthesizer,
     VirtualHostAudioOrchestrator,
+    segment_text,
 )
 from app.virtual_host.chat import HostChatHttpResult, request_host_chat
-from app.virtual_host.contracts import BatchAcceptance, DanmuBatchCreated, HostTurn, SceneContext
+from app.virtual_host.contracts import (
+    BatchAcceptance,
+    DanmuBatchCreated,
+    HostTurn,
+    HostTurnResult,
+    SceneContext,
+)
 from app.virtual_host.model_config import (
     resolve_virtual_host_tts_binding,
     resolve_virtual_host_vision_credentials,
     sanitize_virtual_host_model_config,
     virtual_host_vision_enabled,
 )
+from app.virtual_host.playback import PlaybackItem, PlaybackPriority, PlaybackQueue
 from app.virtual_host.response_scheduler import (
     ResponseCandidateEvent,
     VirtualHostResponseScheduler,
@@ -35,6 +45,7 @@ from app.virtual_host.vision import (
     _keywords_from_summary,
     request_scene_summary,
 )
+from app.virtual_host_playback_adapter import DanmuTtsPlaybackAdapter
 from app.worker_pools import ai_worker_pool
 
 if TYPE_CHECKING:
@@ -42,7 +53,12 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["ChatResponseCoordinator", "SceneVisionCoordinator", "VirtualHostRuntimeService"]
+__all__ = [
+    "ChatResponseCoordinator",
+    "SceneVisionCoordinator",
+    "TtsSynthesisCoordinator",
+    "VirtualHostRuntimeService",
+]
 
 
 class ChatResponseCoordinator(QObject):
@@ -55,6 +71,59 @@ class SceneVisionCoordinator(QObject):
     """主线程 QObject；场景视觉 worker 经 completed 信号回传结构化结果。"""
 
     completed = pyqtSignal(object, int, int, float, int, str)
+
+
+class TtsSynthesisCoordinator(QObject):
+    """主线程 QObject；TTS worker 经 completed 信号回传合成结果。"""
+
+    completed = pyqtSignal(object, object)
+
+
+@dataclass(frozen=True)
+class TtsSynthesisJob:
+    session_id: str
+    turn_id: int
+    segment_index: int
+    text: str
+    runtime_generation: int
+    binding: TtsBinding
+    priority: int = PlaybackPriority.AUTO_SCENE
+    source: str = "auto_reply"
+
+
+@dataclass
+class _SpokenTtsState:
+    session_id: str
+    turn_id: int
+    segments: tuple[str, ...] = ()
+    next_segment_index: int = 0
+    runtime_generation: int = 0
+    priority: int = PlaybackPriority.AUTO_SCENE
+    source: str = "auto_reply"
+    failed: bool = False
+
+
+class _TtsSynthesisRunnable(QRunnable):
+    def __init__(
+        self,
+        coordinator: TtsSynthesisCoordinator,
+        *,
+        job: TtsSynthesisJob,
+        synthesizer: TtsSynthesizer,
+    ) -> None:
+        super().__init__()
+        self._coordinator = coordinator
+        self._job = job
+        self._synthesizer = synthesizer
+        self.setAutoDelete(True)
+
+    def run(self) -> None:
+        try:
+            outcome = self._synthesizer.synthesize(self._job.text, self._job.binding)
+        except Exception as exc:
+            logger.warning("virtual_host tts worker failed: %r", exc)
+            outcome = TtsSynthesisOutcome("failed", reason=type(exc).__name__)
+        self._coordinator.completed.emit(self._job, outcome)
 
 
 class _ChatResponseRunnable(QRunnable):
@@ -153,14 +222,22 @@ class VirtualHostRuntimeService:
         self._session = VirtualHostSession(persona_manager=getattr(app, "personae", None))
         self._response_scheduler = VirtualHostResponseScheduler()
         self._tts_binding: TtsBinding | None = None
+        self._spoken_tts_states: dict[tuple[str, int], _SpokenTtsState] = {}
         coordinator_parent = app if isinstance(app, QObject) else None
         self._vision_coordinator = SceneVisionCoordinator(coordinator_parent)
         self._vision_coordinator.completed.connect(self._on_scene_vision_completed)
         self._chat_coordinator = ChatResponseCoordinator(coordinator_parent)
         self._chat_coordinator.completed.connect(self._on_chat_response_completed)
+        self._tts_coordinator = TtsSynthesisCoordinator(coordinator_parent)
+        self._tts_coordinator.completed.connect(self._on_tts_synthesis_completed)
+        self._danmu_playback = DanmuTtsPlayback()
+        if coordinator_parent is not None:
+            self._danmu_playback.setParent(coordinator_parent)
+        playback_adapter = DanmuTtsPlaybackAdapter(self._danmu_playback)
         self._audio = VirtualHostAudioOrchestrator(
             self._session,
             tts=self._build_tts_synthesizer(),
+            playback=PlaybackQueue(playback_adapter),
         )
         self.refresh_model_bindings(bump_generation_on_vision_change=False)
 
@@ -203,9 +280,11 @@ class VirtualHostRuntimeService:
     def stop(self) -> None:
         self._running = False
         self._bump_runtime_generation()
+        self._spoken_tts_states.clear()
 
     def _bump_runtime_generation(self) -> int:
         self._runtime_generation += 1
+        self._spoken_tts_states.clear()
         return self._runtime_generation
 
     def refresh_model_bindings(self, *, bump_generation_on_vision_change: bool = True) -> None:
@@ -221,8 +300,10 @@ class VirtualHostRuntimeService:
         self._tts_binding = binding
         self._audio.tts_binding = binding
         self._audio.tts = self._build_tts_synthesizer()
+        self._spoken_tts_states.clear()
 
-    def _build_tts_synthesizer(self) -> TtsSynthesizer:
+    def _build_worker_tts_synthesizer(self) -> TtsSynthesizer:
+        """Worker 线程专用合成器；计数在 worker 内递增。"""
         service = self
         manager = get_tts_manager()
 
@@ -232,6 +313,9 @@ class VirtualHostRuntimeService:
             return synthesizer.synthesize(text, binding)
 
         return TtsSynthesizer(manager, synthesize_fn=_counting_synthesize)
+
+    def _build_tts_synthesizer(self) -> TtsSynthesizer:
+        return self._build_worker_tts_synthesizer()
 
     def on_danmu_batch_created(self, batch: DanmuBatchCreated) -> BatchAcceptance:
         """主链路弹幕批次入口；未 running 时拒绝，不触发 Chat/TTS。"""
@@ -489,4 +573,121 @@ class VirtualHostRuntimeService:
             logger.debug("virtual_host chat result rejected: %r", exc)
             return
         self._last_spoke_at = time.time()
-        self._audio.enqueue_spoken_result(completed)
+        self._enqueue_spoken_tts(completed, runtime_generation=runtime_generation)
+
+    def _spoken_turn_key(self, session_id: str, turn_id: int) -> tuple[str, int]:
+        return str(session_id).strip(), int(turn_id)
+
+    def _enqueue_spoken_tts(
+        self,
+        result: HostTurnResult,
+        *,
+        runtime_generation: int,
+        priority: int = PlaybackPriority.AUTO_SCENE,
+        source: str = "auto_reply",
+    ) -> None:
+        if not result.speak or not result.text:
+            return
+        binding = self._tts_binding
+        if binding is None:
+            return
+        segments = segment_text(result.text, max_chars=self._audio._max_segment_chars)
+        if not segments:
+            return
+        key = self._spoken_turn_key(result.session_id, result.turn_id)
+        self._spoken_tts_states[key] = _SpokenTtsState(
+            session_id=result.session_id,
+            turn_id=result.turn_id,
+            segments=segments,
+            runtime_generation=int(runtime_generation),
+            priority=int(priority),
+            source=str(source),
+        )
+        self._start_next_tts_segment(key)
+
+    def _start_next_tts_segment(self, key: tuple[str, int]) -> None:
+        state = self._spoken_tts_states.get(key)
+        if state is None or state.failed:
+            return
+        if state.next_segment_index >= len(state.segments):
+            self._spoken_tts_states.pop(key, None)
+            return
+        binding = self._tts_binding
+        if binding is None:
+            self._spoken_tts_states.pop(key, None)
+            return
+        index = state.next_segment_index
+        job = TtsSynthesisJob(
+            session_id=state.session_id,
+            turn_id=state.turn_id,
+            segment_index=index,
+            text=state.segments[index],
+            runtime_generation=state.runtime_generation,
+            binding=binding,
+            priority=state.priority,
+            source=state.source,
+        )
+        runnable = _TtsSynthesisRunnable(
+            self._tts_coordinator,
+            job=job,
+            synthesizer=self._build_worker_tts_synthesizer(),
+        )
+        ai_worker_pool().start(runnable)
+
+    def _should_apply_tts_result(self, job: TtsSynthesisJob) -> bool:
+        if not self._running:
+            return False
+        if int(job.runtime_generation) != self._runtime_generation:
+            return False
+        if job.session_id != self._session.session_id:
+            return False
+        key = self._spoken_turn_key(job.session_id, job.turn_id)
+        state = self._spoken_tts_states.get(key)
+        if state is None or state.failed:
+            return False
+        if state.runtime_generation != int(job.runtime_generation):
+            return False
+        if job.segment_index != state.next_segment_index:
+            return False
+        return True
+
+    def _on_tts_synthesis_completed(
+        self,
+        job: TtsSynthesisJob | None,
+        outcome: TtsSynthesisOutcome | None,
+    ) -> None:
+        if job is None:
+            return
+        key = self._spoken_turn_key(job.session_id, job.turn_id)
+        state = self._spoken_tts_states.get(key)
+        if not self._should_apply_tts_result(job):
+            if state is not None and int(job.runtime_generation) != self._runtime_generation:
+                self._spoken_tts_states.pop(key, None)
+                self._audio.playback.cancel_turn(job.session_id, job.turn_id, reason="runtime_generation_stale")
+            return
+        if state is None:
+            return
+        if outcome is None or outcome.status != "ok" or not outcome.audio_bytes:
+            state.failed = True
+            self._spoken_tts_states.pop(key, None)
+            self._audio.playback.cancel_turn(job.session_id, job.turn_id, reason="tts_failed")
+            return
+        playback_result = self._audio.playback.enqueue(
+            PlaybackItem(
+                session_id=job.session_id,
+                turn_id=job.turn_id,
+                segment_index=job.segment_index,
+                audio_bytes=outcome.audio_bytes,
+                priority=job.priority,
+                source=job.source,
+            )
+        )
+        if playback_result.status in {"unavailable", "rejected"}:
+            state.failed = True
+            self._spoken_tts_states.pop(key, None)
+            return
+        state.next_segment_index += 1
+        if state.next_segment_index >= len(state.segments):
+            self._spoken_tts_states.pop(key, None)
+            return
+        self._start_next_tts_segment(key)
