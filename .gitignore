@@ -125,7 +125,17 @@ workorders/local/
 reports/local/
 docs/工单列表/
 docs/reports/
-docs
+docs/*
+!docs/runtime-state-map.md
+!docs/main-pipeline-sequence.md
+!docs/final-architecture-baseline.md
+!docs/glossary.md
+!docs/ui/
+docs/ui/*
+!docs/ui/**
+!docs/operations/
+docs/operations/*
+!docs/operations/**
 
 # AI-generated completion / review artifacts (Chinese + English names)
 **/*-完成报告.md

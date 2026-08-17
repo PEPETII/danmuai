@@ -25,6 +25,7 @@ from app.reply_parser import (
     parse_ai_reply_payload,  # noqa: F401 — 保留以兼容现有测试 monkeypatch 目标
 )
 from app.translations import tr
+from app.virtual_host.contracts import DanmuBatchCreated
 
 if TYPE_CHECKING:
     from main import DanmuApp
@@ -156,6 +157,23 @@ class GenerationPipeline:
             except Exception as exc:  # boundary: 知识回写失败不影响主链路
                 app.logger.debug(
                     "knowledge on_reply_consumed failed (non-fatal): %r", exc
+                )
+        virtual_host_runtime = app.__dict__.get("virtual_host_runtime")
+        if virtual_host_runtime is not None:
+            try:
+                danmu_batch = DanmuBatchCreated.from_lines(
+                    batch_id=format_reply_request_id(
+                        request_round, screenshot_id, scene_generation
+                    ),
+                    lines=normalized_items,
+                    source="ai",
+                    screenshot_id=screenshot_id,
+                    scene_generation=scene_generation,
+                )
+                virtual_host_runtime.on_danmu_batch_created(danmu_batch)
+            except Exception as exc:  # boundary: 虚拟主播批次接入失败不影响主链路
+                app.logger.debug(
+                    "virtual_host on_danmu_batch_created failed (non-fatal): %r", exc
                 )
         app.notify_pet_visual_success()
         app.publish_live_status()

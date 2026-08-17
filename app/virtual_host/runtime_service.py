@@ -16,7 +16,7 @@ from app.virtual_host.audio import (
     TtsSynthesizer,
     VirtualHostAudioOrchestrator,
 )
-from app.virtual_host.contracts import SceneContext
+from app.virtual_host.contracts import BatchAcceptance, DanmuBatchCreated, SceneContext
 from app.virtual_host.model_config import (
     resolve_virtual_host_tts_binding,
     resolve_virtual_host_vision_credentials,
@@ -167,6 +167,18 @@ class VirtualHostRuntimeService:
             return synthesizer.synthesize(text, binding)
 
         return TtsSynthesizer(manager, synthesize_fn=_counting_synthesize)
+
+    def on_danmu_batch_created(self, batch: DanmuBatchCreated) -> BatchAcceptance:
+        """主链路弹幕批次入口；未 running 时拒绝，不触发 Chat/TTS。"""
+
+        if not self._running:
+            batch_id = batch.batch_id if isinstance(batch, DanmuBatchCreated) else ""
+            return BatchAcceptance(False, "invalid", batch_id)
+        scene_generation = int(getattr(self._app, "_scene_generation", 0))
+        return self._session.ingest_danmu_batch(
+            batch,
+            current_scene_generation=scene_generation,
+        )
 
     def on_capture_completed(
         self,
