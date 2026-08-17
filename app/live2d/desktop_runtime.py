@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 from typing import Any, Callable
 
@@ -10,6 +11,14 @@ from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QMouseEvent, QSurfaceFormat
 from PyQt6.QtOpenGLWidgets import QOpenGLWidget
 from PyQt6.QtWidgets import QApplication
+
+if sys.platform == "win32":
+    import ctypes
+
+    _DWMWA_WINDOW_CORNER_PREFERENCE = 33
+    _DWMWA_BORDER_COLOR = 34
+    _DWMWCP_DONOTROUND = 1
+    _DWMCOLOR_NONE = 0xFFFFFFFE
 
 
 def _load_sdk() -> Any:
@@ -87,6 +96,7 @@ class Live2DDesktopWindow(QOpenGLWidget):
             | Qt.WindowType.Tool
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground, False)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
         self.setAutoFillBackground(False)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
@@ -101,6 +111,37 @@ class Live2DDesktopWindow(QOpenGLWidget):
         self.render_timer = QTimer(self)
         self.render_timer.setInterval(16)
         self.render_timer.timeout.connect(self.update)
+
+    def showEvent(self, event) -> None:  # noqa: ANN001 - Qt virtual method
+        super().showEvent(event)
+        self._apply_windows_surface()
+
+    def _apply_windows_surface(self) -> None:
+        """Remove Win11 DWM corner/border chrome after the native HWND exists."""
+
+        if sys.platform != "win32" or not self.isVisible():
+            return
+        try:
+            hwnd = int(self.winId())
+            if not hwnd:
+                return
+            donotround = ctypes.c_int(_DWMWCP_DONOTROUND)
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                hwnd,
+                _DWMWA_WINDOW_CORNER_PREFERENCE,
+                ctypes.byref(donotround),
+                ctypes.sizeof(donotround),
+            )
+            no_border = ctypes.c_uint32(_DWMCOLOR_NONE)
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                hwnd,
+                _DWMWA_BORDER_COLOR,
+                ctypes.byref(no_border),
+                ctypes.sizeof(no_border),
+            )
+        except (AttributeError, OSError, TypeError, ValueError):
+            # Older Windows/DWM versions may not expose these attributes.
+            pass
 
     def initializeGL(self) -> None:
         try:
