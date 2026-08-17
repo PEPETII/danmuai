@@ -93,13 +93,13 @@ export function renderPackageList(packages, jobsByPackage = new Map()) {
     const cardState = computePackageCardState(pkg, pkgJobs);
 
     const card = document.createElement('div');
-    card.className = 'card ui-card knowledge-package-card p-6 space-y-3 min-w-0';
+    card.className = 'card ui-card knowledge-package-card min-w-0';
 
     const header = document.createElement('div');
     header.className = 'flex flex-wrap items-center gap-2 min-w-0';
 
     const name = document.createElement('span');
-    name.className = 'text-lg font-bold text-warmText break-words min-w-0';
+    name.className = 'knowledge-package-card-title';
     name.textContent = pkg.name || '(unnamed)';
     header.append(name);
 
@@ -111,7 +111,7 @@ export function renderPackageList(packages, jobsByPackage = new Map()) {
     card.append(header);
 
     const stats = document.createElement('p');
-    stats.className = 'text-xs text-gray-500';
+    stats.className = 'knowledge-package-card-stats';
     stats.textContent = [
       t('dynamic.appKnowledgePage.sourceCountLabel', { count: pkg.source_count ?? 0 }),
       t('dynamic.appKnowledgePage.itemCountLabel', { count: pkg.item_count ?? 0 }),
@@ -119,12 +119,12 @@ export function renderPackageList(packages, jobsByPackage = new Map()) {
     card.append(stats);
 
     const statusLine = document.createElement('p');
-    statusLine.className = 'text-sm text-warmText';
+    statusLine.className = 'knowledge-package-card-status';
     statusLine.textContent = t(`dynamic.appKnowledgePage.cardStatus.${cardState.statusKey}`);
     card.append(statusLine);
 
     const nextStep = document.createElement('p');
-    nextStep.className = 'text-xs text-gray-500';
+    nextStep.className = 'knowledge-package-card-next';
     nextStep.textContent = t('dynamic.appKnowledgePage.cardStatus.nextStep', {
       step: t(`dynamic.appKnowledgePage.cardStatus.${cardState.nextStepKey}`),
     });
@@ -135,8 +135,7 @@ export function renderPackageList(packages, jobsByPackage = new Map()) {
 
     const enterBtn = document.createElement('button');
     enterBtn.type = 'button';
-    enterBtn.className =
-      'btn-primary px-5 py-2 text-white rounded-xl font-bold shadow-warm text-sm ui-button ui-button--primary ui-button--sm';
+    enterBtn.className = 'ui-button ui-button--primary ui-button--sm';
     enterBtn.textContent = t('dynamic.appKnowledgePage.managePackage');
     enterBtn.addEventListener('click', () => {
       openPackageDetail(pkg.public_id).catch((error) =>
@@ -147,8 +146,7 @@ export function renderPackageList(packages, jobsByPackage = new Map()) {
 
     const moreBtn = document.createElement('button');
     moreBtn.type = 'button';
-    moreBtn.className =
-      'px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--sm';
+    moreBtn.className = 'ui-button ui-button--secondary ui-button--sm';
     moreBtn.textContent = t('dynamic.appKnowledgePage.more');
     moreBtn.setAttribute('aria-expanded', 'false');
     moreBtn.setAttribute('aria-haspopup', 'true');

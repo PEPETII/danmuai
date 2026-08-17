@@ -343,13 +343,13 @@ export function renderJobs(jobs) {
 
   jobs.forEach((job) => {
     const row = document.createElement('div');
-    row.className = 'knowledge-job-row p-3 bg-cream border border-softPeach rounded-xl space-y-2';
+    row.className = 'knowledge-job-row';
 
     const top = document.createElement('div');
-    top.className = 'flex flex-wrap items-center gap-2 text-sm min-w-0';
+    top.className = 'knowledge-job-row-top';
 
     const name = document.createElement('span');
-    name.className = 'font-semibold text-warmText break-words min-w-0';
+    name.className = 'knowledge-job-row-name';
     name.textContent = job.source_id || job.public_id;
     top.append(name);
 
@@ -364,7 +364,7 @@ export function renderJobs(jobs) {
         ? t(`dynamic.appKnowledgePage.${stageKeyName}`)
         : job.stage;
       const stageEl = document.createElement('span');
-      stageEl.className = 'text-xs text-gray-500';
+      stageEl.className = 'knowledge-job-row-stage';
       stageEl.textContent = t('dynamic.appKnowledgePage.stageLabel', { stage: stageLabel });
       top.append(stageEl);
     }
@@ -372,8 +372,7 @@ export function renderJobs(jobs) {
     if (ACTIVE_JOB_STATUSES.has(job.status)) {
       const viewBtn = document.createElement('button');
       viewBtn.type = 'button';
-      viewBtn.className =
-        'px-3 py-1 bg-white border border-gray-200 rounded-lg text-xs font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--sm';
+      viewBtn.className = 'ui-button ui-button--secondary ui-button--sm';
       viewBtn.textContent = t('dynamic.appKnowledgePage.viewProgress');
       viewBtn.addEventListener('click', () => {
         openOrganizeModalForJob(job.public_id, job.source_id || '');
@@ -382,8 +381,7 @@ export function renderJobs(jobs) {
 
       const cancelBtn = document.createElement('button');
       cancelBtn.type = 'button';
-      cancelBtn.className =
-        'px-3 py-1 bg-white border border-gray-200 rounded-lg text-xs font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--sm';
+      cancelBtn.className = 'ui-button ui-button--secondary ui-button--sm';
       cancelBtn.textContent = t('dynamic.appKnowledgePage.cancelJob');
       cancelBtn.addEventListener('click', () => void cancelJobById(job.public_id));
       top.append(cancelBtn);
@@ -400,7 +398,7 @@ export function renderJobs(jobs) {
       progressBar.value = job.processed_chunks;
       progressWrap.append(progressBar);
       const progressText = document.createElement('span');
-      progressText.className = 'text-xs text-gray-500';
+      progressText.className = 'knowledge-job-meta';
       progressText.textContent = t('dynamic.appKnowledgePage.progress', {
         processed: job.processed_chunks,
         total: job.total_chunks,
@@ -418,7 +416,7 @@ export function renderJobs(jobs) {
     }
     if (metaParts.length > 0) {
       const meta = document.createElement('p');
-      meta.className = 'text-xs text-gray-500';
+      meta.className = 'knowledge-job-meta';
       meta.textContent = metaParts.join(' · ');
       row.append(meta);
     }

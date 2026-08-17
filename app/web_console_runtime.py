@@ -43,6 +43,12 @@ def is_public_api_path(path: str) -> bool:
     """Return whether an HTTP API path is explicitly public by contract."""
     if path in _PUBLIC_API_PATHS:
         return True
+    # Pixi/Cubism loads model JSON, moc3, textures and motion resources via
+    # native XHR, which cannot attach the console Bearer header. The Live2D
+    # registry still restricts these reads to the selected model root and an
+    # allowlisted resource suffix, so this is a read-only local asset surface.
+    if path.startswith("/api/live2d/resource/"):
+        return True
     # The preview is a static image used by an ``<img>`` element, which cannot
     # attach an Authorization header.  It contains no configuration payload.
     return path.startswith("/api/pet/barrage-slots/") and path.endswith("/preview")

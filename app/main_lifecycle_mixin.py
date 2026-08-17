@@ -1059,6 +1059,13 @@ class DanmuAppLifecycleMixin:
                 except RuntimeError as exc:
                     self.logger.warning(f"pet barrage close on quit failed: {exc!r}")
 
+            live2d_runtime = self.__dict__.get("_live2d_desktop_runtime")
+            if live2d_runtime is not None:
+                try:
+                    live2d_runtime.stop()
+                except Exception as exc:
+                    self.logger.warning(f"Live2D desktop runtime close on quit failed: {exc!r}")
+
             self.overlay.hide()
 
             self.logger.info(tr("app.quit_done"))

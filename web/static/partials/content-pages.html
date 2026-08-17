@@ -389,74 +389,43 @@
             <p class="settings-section-hint">通过桌面原生文件选择器选择 .model3.json；模型文件不会上传或复制。</p>
           </section>
 
-          <fieldset class="vtuber-settings-fieldset" disabled aria-describedby="vtuberSettingsNotice">
-            <legend class="settings-section-title">虚拟桌宠设置</legend>
-            <div class="settings-rhythm-accordion vtuber-settings-accordion">
-              <section class="settings-rhythm-accordion-item">
-                <h4 class="vtuber-settings-section-heading">角色与连接</h4>
-                <div class="settings-rhythm-accordion-panel">
-                  <div class="settings-rhythm-accordion-fields">
-                    <div class="settings-rhythm-accordion-field">
-                      <div class="min-w-0">
-                        <label for="vtuberModel" class="settings-field-label">角色模型</label>
-                        <p id="vtuberModelHint" class="text-xs text-gray-500 mt-1">模型目录与加载状态待后端接入。</p>
-                      </div>
-                      <select id="vtuberModel" class="settings-field-control ui-control ui-select" aria-describedby="vtuberModelHint" disabled>
-                        <option>待后端接入</option>
-                      </select>
-                    </div>
-                    <div class="settings-rhythm-accordion-field">
-                      <div class="min-w-0">
-                        <label for="vtuberVoice" class="settings-field-label">语音与动作</label>
-                        <p id="vtuberVoiceHint" class="text-xs text-gray-500 mt-1">语音、口型和动作联动能力未接入。</p>
-                      </div>
-                      <select id="vtuberVoice" class="settings-field-control ui-control ui-select" aria-describedby="vtuberVoiceHint" disabled>
-                        <option>未接入</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
+          <section class="vtuber-runtime-card ui-card" aria-labelledby="vtuberRuntimeHeading">
+            <div class="vtuber-runtime-card__header">
+              <div class="min-w-0">
+                <h3 id="vtuberRuntimeHeading" class="settings-section-title">虚拟主播运行时</h3>
+                <p id="vtuberRuntimeStatus" class="settings-section-hint" role="status" aria-live="polite">请先导入模型。</p>
+              </div>
+              <div class="vtuber-settings-actions">
+                <button type="button" id="btnVtuberStart" class="ui-button ui-button--primary ui-button--md" disabled>启动虚拟主播</button>
+                <button type="button" id="btnVtuberStop" class="ui-button ui-button--secondary ui-button--md" disabled>停止虚拟主播</button>
+              </div>
+            </div>
+            <div class="vtuber-desktop-stage" role="status" aria-live="polite">
+              <span class="vtuber-desktop-stage__icon" aria-hidden="true">⌗</span>
+              <div>
+                <strong id="vtuberDesktopStatusText">未启动</strong>
+                <p id="vtuberDesktopStatusHint" class="settings-section-hint">启动后模型将在 Windows 桌面独立窗口显示，当前页面只提供控制面板。</p>
+              </div>
+            </div>
+            <div class="vtuber-control-grid">
+              <section class="vtuber-control-card" aria-labelledby="vtuberParametersHeading">
+                <h4 id="vtuberParametersHeading" class="vtuber-settings-section-heading">参数控制</h4>
+                <div id="vtuberParameters" class="vtuber-parameter-list"><p class="settings-section-hint">启动模型后读取实际参数。</p></div>
+                <h4 class="vtuber-settings-section-heading">基础动作</h4>
+                <div id="vtuberActions" class="vtuber-action-list"><p class="settings-section-hint">启动模型后读取可用动作参数。</p></div>
               </section>
-              <section class="settings-rhythm-accordion-item">
-                <h4 class="vtuber-settings-section-heading">显示与互动</h4>
-                <div class="settings-rhythm-accordion-panel">
-                  <div class="settings-rhythm-accordion-fields">
-                    <div class="settings-rhythm-accordion-field">
-                      <div class="min-w-0">
-                        <label for="vtuberScale" class="settings-field-label">显示比例</label>
-                        <p id="vtuberScaleHint" class="text-xs text-gray-500 mt-1">窗口大小与位置设置待后端接入。</p>
-                      </div>
-                      <select id="vtuberScale" class="settings-field-control ui-control ui-select" aria-describedby="vtuberScaleHint" disabled>
-                        <option>待后端接入</option>
-                      </select>
-                    </div>
-                    <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--toggle">
-                      <div class="min-w-0">
-                        <span class="settings-field-label">启用虚拟桌宠</span>
-                        <p id="vtuberEnabledHint" class="text-xs text-gray-500 mt-1">启动与停止控制未接入。</p>
-                      </div>
-                      <label class="toggle-switch" for="vtuberEnabled">
-                        <input type="checkbox" id="vtuberEnabled" role="switch" aria-label="启用虚拟桌宠" aria-describedby="vtuberEnabledHint" disabled>
-                        <span aria-hidden="true"></span>
-                      </label>
-                    </div>
-                    <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--toggle">
-                      <div class="min-w-0">
-                        <span class="settings-field-label">响应弹幕互动</span>
-                        <p id="vtuberInteractionHint" class="text-xs text-gray-500 mt-1">弹幕互动规则未接入。</p>
-                      </div>
-                      <label class="toggle-switch" for="vtuberInteractionEnabled">
-                        <input type="checkbox" id="vtuberInteractionEnabled" role="switch" aria-label="响应弹幕互动" aria-describedby="vtuberInteractionHint" disabled>
-                        <span aria-hidden="true"></span>
-                      </label>
-                    </div>
-                  </div>
-                </div>
+              <section class="vtuber-control-card" aria-labelledby="vtuberMotionsHeading">
+                <h4 id="vtuberMotionsHeading" class="vtuber-settings-section-heading">原生动作</h4>
+                <div id="vtuberMotions" class="vtuber-action-list"><p class="settings-section-hint">暂无动作文件。</p></div>
+              </section>
+              <section class="vtuber-control-card" aria-labelledby="vtuberExpressionsHeading">
+                <h4 id="vtuberExpressionsHeading" class="vtuber-settings-section-heading">表情</h4>
+                <div id="vtuberExpressions" class="vtuber-action-list"><p class="settings-section-hint">暂无表情文件。</p></div>
               </section>
             </div>
-          </fieldset>
+          </section>
 
-          <p id="vtuberSettingsNotice" class="settings-section-hint">模型导入状态可用；启动、互动、音频、动作和参数控件尚未接入运行时，因此继续禁用。</p>
+          <p id="vtuberSettingsNotice" class="settings-section-hint">模型资源只通过本机 Web API 代理读取；控制区使用模型运行时实际枚举到的参数、动作和表情。</p>
         </div>
       </div>
     </section>
@@ -796,117 +765,107 @@
         </div>
       </div>
 
-      <!-- 视图 2：知识包详情 -->
-      <div id="knowledgePackageDetail" class="knowledge-view hidden space-y-6">
-        <button type="button" id="btnKnowledgeBackToList" class="px-4 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--md" data-i18n="dynamic.appKnowledgePage.backToList">← 返回列表</button>
-
-        <div id="knowledgeDetailOverview" class="card p-8 space-y-4 ui-card">
-          <div class="flex flex-wrap items-start justify-between gap-4 min-w-0">
-            <div class="min-w-0 flex-1">
-              <h3 id="knowledgeOverviewName" class="text-xl font-bold text-warmText break-words"></h3>
-              <div class="flex flex-wrap items-center gap-2 mt-2">
-                <span id="knowledgeOverviewStatusBadge" class="knowledge-status-badge"></span>
-                <span id="knowledgeOverviewStats" class="text-sm text-gray-500"></span>
-              </div>
-              <p id="knowledgeOverviewSaveStatus" class="text-xs text-gray-500 mt-2"></p>
-            </div>
-            <div class="flex flex-wrap items-center gap-3 shrink-0">
-              <label class="toggle-switch font-semibold text-warmText text-sm">
-                <input type="checkbox" id="knowledgePackageEnabled" role="switch">
-                <span></span>
-                <span class="ml-2" data-i18n="dynamic.appKnowledgePage.enabled">启用</span>
-              </label>
-              <button type="button" id="btnKnowledgeSavePackage" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm ui-button ui-button--primary ui-button--md" data-i18n="dynamic.appKnowledgePage.save">保存更改</button>
-            </div>
-          </div>
-          <div id="knowledgeBackgroundJobBanner" class="knowledge-background-banner hidden flex flex-wrap items-center gap-3 p-3 bg-cream border border-softPeach rounded-xl">
-            <span id="knowledgeBackgroundJobText" class="text-sm text-warmText"></span>
-            <button type="button" id="btnKnowledgeViewProgress" class="px-4 py-1.5 bg-white border border-gray-200 rounded-lg text-sm font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--sm" data-i18n="dynamic.appKnowledgePage.viewProgress">查看进度</button>
+      <!-- 视图 2：知识包详情（管理知识包） -->
+      <div id="knowledgePackageDetail" class="knowledge-view knowledge-detail hidden">
+        <div class="knowledge-detail-toolbar">
+          <button type="button" id="btnKnowledgeBackToList" class="ui-button ui-button--secondary ui-button--sm" data-i18n="dynamic.appKnowledgePage.backToList">← 返回列表</button>
+          <div class="knowledge-detail-toolbar-actions">
+            <label class="toggle-switch knowledge-detail-enable-toggle">
+              <input type="checkbox" id="knowledgePackageEnabled" role="switch">
+              <span></span>
+              <span class="knowledge-detail-enable-label" data-i18n="dynamic.appKnowledgePage.enabled">启用</span>
+            </label>
+            <button type="button" id="btnKnowledgeSavePackage" class="ui-button ui-button--primary ui-button--sm" data-i18n="dynamic.appKnowledgePage.save">保存更改</button>
           </div>
         </div>
 
-        <div class="card p-8 space-y-4 ui-card">
-          <p class="settings-section-title" data-i18n="dynamic.appKnowledgePage.basicInfo">基础信息</p>
-          <div class="settings-field">
+        <div id="knowledgeDetailOverview" class="card ui-card knowledge-detail-card knowledge-detail-overview">
+          <div class="knowledge-detail-overview-head">
+            <h3 id="knowledgeOverviewName" class="knowledge-detail-title"></h3>
+            <div class="knowledge-detail-meta">
+              <span id="knowledgeOverviewStatusBadge" class="knowledge-status-badge"></span>
+              <span id="knowledgeOverviewStats" class="knowledge-detail-stats"></span>
+            </div>
+            <p id="knowledgeOverviewSaveStatus" class="knowledge-detail-save-status"></p>
+          </div>
+          <div id="knowledgeBackgroundJobBanner" class="knowledge-background-banner hidden">
+            <span id="knowledgeBackgroundJobText" class="knowledge-background-banner-text"></span>
+            <button type="button" id="btnKnowledgeViewProgress" class="ui-button ui-button--secondary ui-button--sm" data-i18n="dynamic.appKnowledgePage.viewProgress">查看进度</button>
+          </div>
+          <div class="settings-field knowledge-detail-name-field">
             <label for="knowledgePackageName" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.name">名称</label>
             <p class="settings-section-hint" data-i18n="dynamic.appKnowledgePage.nameHint">只用于识别这个知识包，不会直接写入弹幕提示词。</p>
             <input type="text" id="knowledgePackageName" class="settings-field-control ui-control ui-input">
           </div>
-          <div class="settings-rhythm-accordion" data-settings-rhythm-accordion>
-            <section class="settings-rhythm-accordion-item">
-              <h4 class="settings-rhythm-accordion-heading">
-                <button type="button" id="knowledgeDangerAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="knowledgeDangerAccordionPanel">
-                  <span class="settings-rhythm-accordion-trigger-copy">
-                    <span class="settings-rhythm-accordion-trigger-title" data-i18n="dynamic.appKnowledgePage.dangerZone">危险操作</span>
-                    <span class="settings-section-hint settings-rhythm-accordion-trigger-hint" data-i18n="dynamic.appKnowledgePage.dangerHint">删除知识包及所有资料与条目</span>
-                  </span>
-                  <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
-                </button>
-              </h4>
-              <div id="knowledgeDangerAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="knowledgeDangerAccordionTrigger" hidden>
-                <button type="button" id="btnKnowledgeDeletePackage" class="px-6 py-2 bg-red-50 border border-red-200 rounded-xl font-semibold text-red-600 ui-button ui-button--secondary ui-button--md" data-i18n="dynamic.appKnowledgePage.delete">删除知识包</button>
-              </div>
-            </section>
+        </div>
+
+        <div class="card ui-card knowledge-detail-card knowledge-detail-workflow">
+          <div id="knowledgeAddSource" class="knowledge-detail-section knowledge-add-source">
+            <div class="knowledge-detail-section-head">
+              <p class="settings-section-title" data-i18n="dynamic.appKnowledgePage.addSource">添加资料</p>
+              <p class="settings-section-hint" data-i18n="dynamic.appKnowledgePage.addSourceHint">选择资料来源并导入，系统会自动读取、拆分并整理。</p>
+            </div>
+            <select id="knowledgeSourceType" class="hidden" aria-hidden="true">
+              <option value="txt" selected>txt</option>
+              <option value="markdown">markdown</option>
+              <option value="webpage">webpage</option>
+            </select>
+            <div class="knowledge-source-type-grid" role="group" aria-label="来源类型">
+              <button type="button" class="knowledge-source-type-card is-active" data-knowledge-source-type="txt" aria-pressed="true">
+                <span class="knowledge-source-type-card-title" data-i18n="dynamic.appKnowledgePage.optSourceTxt">文本文件 (.txt)</span>
+                <span class="knowledge-source-type-card-hint" data-i18n="dynamic.appKnowledgePage.sourceTxtHint">适合大量纯文本资料，每行或每段均可。</span>
+              </button>
+              <button type="button" class="knowledge-source-type-card" data-knowledge-source-type="markdown" aria-pressed="false">
+                <span class="knowledge-source-type-card-title" data-i18n="dynamic.appKnowledgePage.optSourceMarkdown">Markdown 文档</span>
+                <span class="knowledge-source-type-card-hint" data-i18n="dynamic.appKnowledgePage.sourceMarkdownHint">适合结构化攻略、人物资料和整理后的知识。</span>
+              </button>
+              <button type="button" class="knowledge-source-type-card" data-knowledge-source-type="webpage" aria-pressed="false">
+                <span class="knowledge-source-type-card-title" data-i18n="dynamic.appKnowledgePage.optSourceWebpage">网页</span>
+                <span class="knowledge-source-type-card-hint" data-i18n="dynamic.appKnowledgePage.sourceWebpageHint">系统会读取网页正文并自动整理。</span>
+              </button>
+            </div>
+            <div class="settings-field">
+              <label for="knowledgeDisplayName" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.displayName">显示名称</label>
+              <p class="settings-section-hint" data-i18n="dynamic.appKnowledgePage.displayNameHint">用于在任务和来源列表中识别这份资料，不影响原始内容。</p>
+              <input type="text" id="knowledgeDisplayName" class="settings-field-control ui-control ui-input">
+            </div>
+            <div id="knowledgeSourceUrlWrap" class="settings-field hidden">
+              <label for="knowledgeSourceUrl" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.sourceUrl">网页 URL</label>
+              <p class="settings-section-hint" data-i18n="dynamic.appKnowledgePage.sourceUrlHint">填写可公开访问的单个网页地址。</p>
+              <input type="text" id="knowledgeSourceUrl" class="settings-field-control ui-control ui-input">
+              <p id="knowledgeSourceUrlError" class="knowledge-field-error hidden" role="alert"></p>
+            </div>
+            <div id="knowledgeSourceFileWrap" class="settings-field">
+              <label for="knowledgeSourceFile" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.selectFile">选择文件</label>
+              <p class="settings-section-hint" data-i18n="dynamic.appKnowledgePage.fileHint">支持 TXT、MD 和 Markdown 文件，单个文件最大 5 MB。</p>
+              <input type="file" id="knowledgeSourceFile" accept=".txt,.md,.markdown,text/plain,text/markdown">
+              <p id="knowledgeSourceFileName" class="settings-section-hint"></p>
+              <p id="knowledgeSourceFileError" class="knowledge-field-error hidden" role="alert"></p>
+            </div>
+            <p id="knowledgeImportActiveHint" class="knowledge-import-active-hint hidden"></p>
+            <div class="knowledge-detail-section-actions">
+              <button type="button" id="btnKnowledgeStartImport" class="ui-button ui-button--primary ui-button--sm" data-i18n="dynamic.appKnowledgePage.startImport">开始导入</button>
+              <p class="settings-section-hint knowledge-import-footnote" data-i18n="dynamic.appKnowledgePage.importFootnote">导入后，系统会自动读取、拆分并整理资料。</p>
+            </div>
+          </div>
+
+          <div id="knowledgeJobProgress" class="knowledge-detail-section knowledge-job-section">
+            <div class="knowledge-detail-section-head">
+              <p class="settings-section-title" data-i18n="dynamic.appKnowledgePage.jobProgress">处理进度</p>
+              <p class="settings-section-hint" data-i18n="dynamic.appKnowledgePage.jobProgressHint">导入后，系统会依次读取、切分并整理资料。处理完成后，生成的内容会出现在「知识条目」中。</p>
+            </div>
+            <div id="knowledgeJobList" class="knowledge-job-list"></div>
+            <p id="knowledgeJobEmpty" class="knowledge-empty-inline hidden" role="status" aria-live="polite" data-i18n="dynamic.appKnowledgePage.noJobs">暂无任务</p>
           </div>
         </div>
 
-        <div id="knowledgeAddSource" class="card p-8 space-y-4 ui-card">
-          <p class="settings-section-title" data-i18n="dynamic.appKnowledgePage.addSource">添加资料</p>
-          <p class="settings-section-hint" data-i18n="dynamic.appKnowledgePage.addSourceHint">选择资料来源并导入，系统会自动读取、拆分并整理。</p>
-          <select id="knowledgeSourceType" class="hidden" aria-hidden="true">
-            <option value="txt" selected>txt</option>
-            <option value="markdown">markdown</option>
-            <option value="webpage">webpage</option>
-          </select>
-          <div class="knowledge-source-type-grid" role="group" aria-label="来源类型">
-            <button type="button" class="knowledge-source-type-card is-active" data-knowledge-source-type="txt" aria-pressed="true">
-              <span class="font-semibold text-warmText" data-i18n="dynamic.appKnowledgePage.optSourceTxt">文本文件 (.txt)</span>
-              <span class="text-xs text-gray-500" data-i18n="dynamic.appKnowledgePage.sourceTxtHint">适合大量纯文本资料，每行或每段均可。</span>
-            </button>
-            <button type="button" class="knowledge-source-type-card" data-knowledge-source-type="markdown" aria-pressed="false">
-              <span class="font-semibold text-warmText" data-i18n="dynamic.appKnowledgePage.optSourceMarkdown">Markdown 文档</span>
-              <span class="text-xs text-gray-500" data-i18n="dynamic.appKnowledgePage.sourceMarkdownHint">适合结构化攻略、人物资料和整理后的知识。</span>
-            </button>
-            <button type="button" class="knowledge-source-type-card" data-knowledge-source-type="webpage" aria-pressed="false">
-              <span class="font-semibold text-warmText" data-i18n="dynamic.appKnowledgePage.optSourceWebpage">网页</span>
-              <span class="text-xs text-gray-500" data-i18n="dynamic.appKnowledgePage.sourceWebpageHint">系统会读取网页正文并自动整理。</span>
-            </button>
+        <div class="card ui-card knowledge-detail-card knowledge-detail-items-card">
+          <div class="knowledge-detail-section-head">
+            <p class="settings-section-title" data-i18n="dynamic.appKnowledgePage.items">知识条目</p>
+            <p class="settings-section-hint" data-i18n="dynamic.appKnowledgePage.itemsHint">知识条目是系统从资料中整理出的可检索内容。启用的条目会在相关画面或语境出现时参与弹幕生成。</p>
           </div>
-          <div class="settings-field">
-            <label for="knowledgeDisplayName" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.displayName">显示名称</label>
-            <p class="settings-section-hint" data-i18n="dynamic.appKnowledgePage.displayNameHint">用于在任务和来源列表中识别这份资料，不影响原始内容。</p>
-            <input type="text" id="knowledgeDisplayName" class="settings-field-control ui-control ui-input">
-          </div>
-          <div id="knowledgeSourceUrlWrap" class="settings-field hidden">
-            <label for="knowledgeSourceUrl" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.sourceUrl">网页 URL</label>
-            <p class="settings-section-hint" data-i18n="dynamic.appKnowledgePage.sourceUrlHint">填写可公开访问的单个网页地址。</p>
-            <input type="text" id="knowledgeSourceUrl" class="settings-field-control ui-control ui-input">
-            <p id="knowledgeSourceUrlError" class="text-xs text-red-600 mt-1 hidden" role="alert"></p>
-          </div>
-          <div id="knowledgeSourceFileWrap" class="settings-field">
-            <label for="knowledgeSourceFile" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.selectFile">选择文件</label>
-            <p class="settings-section-hint" data-i18n="dynamic.appKnowledgePage.fileHint">支持 TXT、MD 和 Markdown 文件，单个文件最大 5 MB。</p>
-            <input type="file" id="knowledgeSourceFile" accept=".txt,.md,.markdown,text/plain,text/markdown">
-            <p id="knowledgeSourceFileName" class="settings-section-hint"></p>
-            <p id="knowledgeSourceFileError" class="text-xs text-red-600 mt-1 hidden" role="alert"></p>
-          </div>
-          <p id="knowledgeImportActiveHint" class="text-sm text-amber-700 hidden"></p>
-          <button type="button" id="btnKnowledgeStartImport" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm ui-button ui-button--primary ui-button--md" data-i18n="dynamic.appKnowledgePage.startImport">开始导入</button>
-          <p class="settings-section-hint" data-i18n="dynamic.appKnowledgePage.importFootnote">导入后，系统会自动读取、拆分并整理资料。</p>
-        </div>
-
-        <div id="knowledgeJobProgress" class="card p-8 space-y-4 ui-card">
-          <p class="settings-section-title" data-i18n="dynamic.appKnowledgePage.jobProgress">处理进度</p>
-          <p class="settings-section-hint" data-i18n="dynamic.appKnowledgePage.jobProgressHint">导入后，系统会依次读取、切分并整理资料。处理完成后，生成的内容会出现在「知识条目」中。</p>
-          <div id="knowledgeJobList" class="space-y-2"></div>
-          <p id="knowledgeJobEmpty" class="text-gray-500 text-sm hidden" role="status" aria-live="polite" data-i18n="dynamic.appKnowledgePage.noJobs">暂无任务</p>
-        </div>
-
-        <div class="card p-8 space-y-4 ui-card">
-          <p class="settings-section-title" data-i18n="dynamic.appKnowledgePage.items">知识条目</p>
-          <p class="settings-section-hint" data-i18n="dynamic.appKnowledgePage.itemsHint">知识条目是系统从资料中整理出的可检索内容。启用的条目会在相关画面或语境出现时参与弹幕生成。</p>
-          <div class="flex flex-wrap items-end gap-3">
-            <div class="settings-field min-w-[140px]">
+          <div class="knowledge-item-filters">
+            <div class="settings-field">
               <label for="knowledgeItemKindFilter" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.filterKind">条目类型</label>
               <select id="knowledgeItemKindFilter" class="settings-field-control ui-control ui-select">
                 <option value="" data-i18n="dynamic.appKnowledgePage.all">全部</option>
@@ -916,7 +875,7 @@
                 <option value="style_example" data-i18n="dynamic.appKnowledgePage.kindStyle">表达参考</option>
               </select>
             </div>
-            <div class="settings-field min-w-[140px]">
+            <div class="settings-field">
               <label for="knowledgeItemEnabledFilter" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.filterEnabled">启用状态</label>
               <select id="knowledgeItemEnabledFilter" class="settings-field-control ui-control ui-select">
                 <option value="" data-i18n="dynamic.appKnowledgePage.all">全部</option>
@@ -924,23 +883,25 @@
                 <option value="false" data-i18n="dynamic.appKnowledgePage.disabled">未启用</option>
               </select>
             </div>
-            <div class="settings-field min-w-[180px] flex-1">
+            <div class="settings-field knowledge-item-search-field">
               <label for="knowledgeItemSearch" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.searchKnowledge">搜索知识</label>
               <input type="search" id="knowledgeItemSearch" class="settings-field-control ui-control ui-input" data-i18n-placeholder="dynamic.appKnowledgePage.searchPlaceholder" placeholder="输入关键词">
             </div>
-            <button type="button" id="btnKnowledgeSearchItems" class="px-4 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--md" data-i18n="dynamic.appKnowledgePage.search">搜索</button>
+            <div class="knowledge-item-filter-action">
+              <button type="button" id="btnKnowledgeSearchItems" class="ui-button ui-button--secondary ui-button--sm" data-i18n="dynamic.appKnowledgePage.search">搜索</button>
+            </div>
           </div>
-          <div id="knowledgeItemList" class="space-y-2"></div>
-          <p id="knowledgeItemEmpty" class="text-gray-500 text-sm hidden" role="status" aria-live="polite" data-i18n="dynamic.appKnowledgePage.noItems">暂无条目</p>
-          <div class="flex flex-wrap items-center gap-3 mt-3 text-sm text-warmText">
-            <button type="button" id="btnKnowledgeItemPrev" class="px-3 py-1.5 bg-white border border-gray-200 rounded-lg font-semibold hover:bg-gray-50 ui-button ui-button--secondary ui-button--sm" data-i18n="dynamic.appKnowledgePage.prev">上一页</button>
-            <span id="knowledgeItemPageInfo" class="text-gray-500"></span>
-            <button type="button" id="btnKnowledgeItemNext" class="px-3 py-1.5 bg-white border border-gray-200 rounded-lg font-semibold hover:bg-gray-50 ui-button ui-button--secondary ui-button--sm" data-i18n="dynamic.appKnowledgePage.next">下一页</button>
+          <div id="knowledgeItemList" class="knowledge-item-list"></div>
+          <p id="knowledgeItemEmpty" class="knowledge-empty-inline hidden" role="status" aria-live="polite" data-i18n="dynamic.appKnowledgePage.noItems">暂无条目</p>
+          <div class="knowledge-item-pagination">
+            <button type="button" id="btnKnowledgeItemPrev" class="ui-button ui-button--secondary ui-button--sm" data-i18n="dynamic.appKnowledgePage.prev">上一页</button>
+            <span id="knowledgeItemPageInfo" class="knowledge-item-page-info"></span>
+            <button type="button" id="btnKnowledgeItemNext" class="ui-button ui-button--secondary ui-button--sm" data-i18n="dynamic.appKnowledgePage.next">下一页</button>
           </div>
         </div>
 
-        <div class="card p-8 ui-card">
-          <div class="settings-rhythm-accordion" data-settings-rhythm-accordion>
+        <div class="card ui-card knowledge-detail-card knowledge-detail-footer-card">
+          <div class="settings-rhythm-accordion knowledge-detail-accordion" data-settings-rhythm-accordion>
             <section class="settings-rhythm-accordion-item">
               <h4 class="settings-rhythm-accordion-heading">
                 <button type="button" id="knowledgeAdvancedAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="knowledgeAdvancedAccordionPanel">
@@ -951,7 +912,7 @@
                   <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
                 </button>
               </h4>
-              <div id="knowledgeAdvancedAccordionPanel" class="settings-rhythm-accordion-panel space-y-4" role="region" aria-labelledby="knowledgeAdvancedAccordionTrigger" hidden>
+              <div id="knowledgeAdvancedAccordionPanel" class="settings-rhythm-accordion-panel knowledge-detail-accordion-panel" role="region" aria-labelledby="knowledgeAdvancedAccordionTrigger" hidden>
                 <div class="settings-field">
                   <label for="knowledgePackagePriority" class="settings-field-label" data-i18n="dynamic.appKnowledgePage.priority">优先级</label>
                   <p class="settings-section-hint" data-i18n="dynamic.appKnowledgePage.priorityHint">多个知识包同时匹配时，数值越高越优先。普通用户保持默认值即可。</p>
@@ -960,8 +921,22 @@
                 <div class="settings-field">
                   <p class="settings-field-label" data-i18n="dynamic.appKnowledgePage.testRetrieval">测试知识检索</p>
                   <p class="settings-section-hint" data-i18n="dynamic.appKnowledgePage.testRetrievalHint">模拟一个画面或直播场景，检查系统会使用哪些知识。</p>
-                  <button type="button" id="btnKnowledgeOpenRetrievalPreview" class="px-6 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--md" data-i18n="dynamic.appKnowledgePage.testRetrieval">测试知识检索</button>
+                  <button type="button" id="btnKnowledgeOpenRetrievalPreview" class="ui-button ui-button--secondary ui-button--sm" data-i18n="dynamic.appKnowledgePage.testRetrieval">测试知识检索</button>
                 </div>
+              </div>
+            </section>
+            <section class="settings-rhythm-accordion-item">
+              <h4 class="settings-rhythm-accordion-heading">
+                <button type="button" id="knowledgeDangerAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="knowledgeDangerAccordionPanel">
+                  <span class="settings-rhythm-accordion-trigger-copy">
+                    <span class="settings-rhythm-accordion-trigger-title" data-i18n="dynamic.appKnowledgePage.dangerZone">危险操作</span>
+                    <span class="settings-section-hint settings-rhythm-accordion-trigger-hint" data-i18n="dynamic.appKnowledgePage.dangerHint">删除知识包及所有资料与条目</span>
+                  </span>
+                  <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
+                </button>
+              </h4>
+              <div id="knowledgeDangerAccordionPanel" class="settings-rhythm-accordion-panel knowledge-detail-accordion-panel" role="region" aria-labelledby="knowledgeDangerAccordionTrigger" hidden>
+                <button type="button" id="btnKnowledgeDeletePackage" class="ui-button ui-button--secondary ui-button--sm knowledge-delete-package-btn" data-i18n="dynamic.appKnowledgePage.delete">删除知识包</button>
               </div>
             </section>
           </div>

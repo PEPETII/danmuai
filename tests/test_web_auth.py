@@ -585,6 +585,10 @@ def test_private_api_middleware_requires_bearer_except_health():
     def overlay_config():
         return {"font_size": 28}
 
+    @app.get("/api/live2d/resource/model.json")
+    def live2d_resource():
+        return {"ok": True}
+
     client = TestClient(app, raise_server_exceptions=False)
     assert client.get("/api/health").status_code == 200
     assert client.get("/api/status").status_code == 401
@@ -599,6 +603,7 @@ def test_private_api_middleware_requires_bearer_except_health():
     assert client.get("/api/status", headers={"Authorization": "Bearer right"}).status_code == 200
     assert client.get("/api/live-overlay/status").status_code == 200
     assert client.get("/api/live-overlay/config").status_code == 200
+    assert client.get("/api/live2d/resource/model.json").status_code == 200
 
 
 def test_session_bootstrap_store_is_one_time_and_bounded():

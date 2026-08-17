@@ -64,3 +64,96 @@ def test_live2d_write_routes_require_auth_and_invoke_main_facade():
     assert bridge.invoke_on_main.call_count == 2
     bridge.danmu_app.import_live2d_model_via_dialog.assert_called_once_with()
     bridge.danmu_app.clear_live2d_model.assert_called_once_with()
+
+
+def test_live2d_runtime_routes_require_auth_and_use_public_facades():
+    client, bridge = _client()
+    bridge.danmu_app.start_live2d_model.return_value = {
+        "status": "ready",
+        "runtime_status": "running",
+        "model_url": "/api/live2d/resource/model.json",
+    }
+    bridge.danmu_app.stop_live2d_model.return_value = {
+        "status": "ready",
+        "runtime_status": "stopped",
+    }
+
+    assert client.post("/api/live2d/start").status_code == 401
+    started = client.post(
+        "/api/live2d/start",
+        headers={"Authorization": "Bearer live2d-secret"},
+    )
+    stopped = client.post(
+        "/api/live2d/stop",
+        headers={"Authorization": "Bearer live2d-secret"},
+    )
+
+    assert started.status_code == 200
+    assert started.json()["runtime_status"] == "running"
+    assert stopped.status_code == 200
+    assert stopped.json()["runtime_status"] == "stopped"
+    bridge.danmu_app.start_live2d_model.assert_called_once_with()
+    bridge.danmu_app.stop_live2d_model.assert_called_once_with()
+
+
+def test_live2d_resource_route_returns_proxy_bytes_without_exposing_model_path():
+    client, bridge = _client()
+    bridge.danmu_app.get_live2d_model_resource.return_value = (
+        b'{"FileReferences":{}}',
+        "application/json",
+    )
+
+    response = client.get("/api/live2d/resource/model.json")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("application/json")
+    assert response.content == b'{"FileReferences":{}}'
+    bridge.danmu_app.get_live2d_model_resource.assert_called_once_with("model.json")
+
+
+def test_live2d_start_maps_not_ready_to_conflict():
+    client, bridge = _client()
+    bridge.danmu_app.start_live2d_model.side_effect = ValueError("model_not_ready")
+
+    response = client.post(
+        "/api/live2d/start",
+        headers={"Authorization": "Bearer live2d-secret"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "model_not_ready"
+
+
+def test_live2d_control_routes_use_desktop_runtime_facades():
+    client, bridge = _client()
+    bridge.danmu_app.set_live2d_parameter.return_value = {
+        "ok": True,
+        "kind": "parameter",
+        "parameter_id": "ParamAngleX",
+        "value": 0.5,
+    }
+    bridge.danmu_app.trigger_live2d_action.return_value = {
+        "ok": True,
+        "kind": "action",
+        "action": "点头",
+    }
+    bridge.danmu_app.start_live2d_motion.return_value = {
+        "ok": True,
+        "kind": "motion",
+        "file": "idle.motion3.json",
+    }
+    bridge.danmu_app.set_live2d_expression.return_value = {
+        "ok": True,
+        "kind": "expression",
+        "file": "smile.exp3.json",
+    }
+    headers = {"Authorization": "Bearer live2d-secret"}
+
+    assert client.post("/api/live2d/control/parameter", json={"parameter_id": "ParamAngleX", "value": 0.5}, headers=headers).status_code == 200
+    assert client.post("/api/live2d/control/action", json={"action": "点头"}, headers=headers).status_code == 200
+    assert client.post("/api/live2d/control/motion", json={"file": "idle.motion3.json"}, headers=headers).status_code == 200
+    assert client.post("/api/live2d/control/expression", json={"file": "smile.exp3.json"}, headers=headers).status_code == 200
+    bridge.danmu_app.set_live2d_parameter.assert_called_once_with("ParamAngleX", 0.5)
+    bridge.danmu_app.trigger_live2d_action.assert_called_once_with("点头")
+    bridge.danmu_app.start_live2d_motion.assert_called_once_with("idle.motion3.json")
+    bridge.danmu_app.set_live2d_expression.assert_called_once_with("smile.exp3.json")

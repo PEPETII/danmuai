@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from app.live2d.model_registry import Live2DModelRegistry
+
+if TYPE_CHECKING:
+    from app.live2d.desktop_runtime import Live2DDesktopRuntime
 
 
 class DanmuAppLive2DMixin:
@@ -17,10 +22,101 @@ class DanmuAppLive2DMixin:
         return registry
 
     def get_live2d_model_snapshot(self) -> dict[str, object]:
-        return self._get_live2d_model_registry().snapshot()
+        snapshot = self._get_live2d_model_registry().snapshot()
+        runtime = self.__dict__.get("_live2d_desktop_runtime")
+        if runtime is not None:
+            runtime_snapshot = runtime.snapshot()
+            snapshot["runtime_status"] = runtime_snapshot.get("runtime_status", "stopped")
+            if runtime_snapshot.get("runtime_status") == "running":
+                snapshot["desktop_visible"] = bool(runtime_snapshot.get("desktop_visible"))
+                snapshot["capabilities"] = {
+                    **dict(snapshot.get("capabilities") or {}),
+                    **dict(runtime_snapshot.get("capabilities") or {}),
+                }
+            else:
+                snapshot["desktop_visible"] = False
+        return snapshot
+
+    def _get_live2d_desktop_runtime(self) -> Live2DDesktopRuntime:
+        runtime = self.__dict__.get("_live2d_desktop_runtime")
+        if runtime is None:
+            from app.live2d.desktop_runtime import Live2DDesktopRuntime
+
+            runtime = Live2DDesktopRuntime()
+            self.__dict__["_live2d_desktop_runtime"] = runtime
+        return runtime
 
     def import_live2d_model_via_dialog(self) -> dict[str, object]:
+        runtime = self.__dict__.get("_live2d_desktop_runtime")
+        if runtime is not None:
+            runtime.stop()
         return self._get_live2d_model_registry().import_model_via_dialog()
 
     def clear_live2d_model(self) -> dict[str, object]:
+        runtime = self.__dict__.get("_live2d_desktop_runtime")
+        if runtime is not None:
+            runtime.stop()
         return self._get_live2d_model_registry().clear_model()
+
+    def start_live2d_model(self) -> dict[str, object]:
+        registry = self._get_live2d_model_registry()
+        registry_snapshot = registry.start_model()
+        model_path = str(self.config.get("live2d_model_path", "") or "").strip()
+        try:
+            runtime_snapshot = self._get_live2d_desktop_runtime().start(model_path)
+        except Exception as exc:
+            registry.stop_model()
+            raise ValueError(f"desktop_runtime_failed:{_safe_live2d_error(exc)}") from exc
+        return {
+            **registry_snapshot,
+            **runtime_snapshot,
+            "desktop_visible": bool(runtime_snapshot.get("desktop_visible")),
+            "capabilities": {
+                **dict(registry_snapshot.get("capabilities") or {}),
+                **dict(runtime_snapshot.get("capabilities") or {}),
+            },
+        }
+
+    def stop_live2d_model(self) -> dict[str, object]:
+        runtime = self.__dict__.get("_live2d_desktop_runtime")
+        if runtime is not None:
+            runtime.stop()
+        snapshot = self._get_live2d_model_registry().stop_model()
+        snapshot["desktop_visible"] = False
+        return snapshot
+
+    def set_live2d_parameter(self, parameter_id: str, value: float) -> dict[str, object]:
+        return {
+            "ok": True,
+            "kind": "parameter",
+            **self._get_live2d_desktop_runtime().set_parameter(parameter_id, value),
+        }
+
+    def trigger_live2d_action(self, action: str) -> dict[str, object]:
+        return {
+            "ok": True,
+            "kind": "action",
+            **self._get_live2d_desktop_runtime().trigger_action(action),
+        }
+
+    def start_live2d_motion(self, file_name: str) -> dict[str, object]:
+        return {
+            "ok": True,
+            "kind": "motion",
+            **self._get_live2d_desktop_runtime().start_motion(file_name),
+        }
+
+    def set_live2d_expression(self, file_name: str) -> dict[str, object]:
+        return {
+            "ok": True,
+            "kind": "expression",
+            **self._get_live2d_desktop_runtime().set_expression(file_name),
+        }
+
+    def get_live2d_model_resource(self, resource_path: str) -> tuple[bytes, str]:
+        return self._get_live2d_model_registry().read_resource(resource_path)
+
+
+def _safe_live2d_error(exc: Exception) -> str:
+    text = str(exc).strip().replace("\n", " ")
+    return text[:240] if text else exc.__class__.__name__

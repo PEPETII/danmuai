@@ -53,13 +53,13 @@ export function renderItems(items, total, page, pageSize) {
 
   items.forEach((item) => {
     const card = document.createElement('div');
-    card.className = 'knowledge-item-card p-3 bg-cream border border-softPeach rounded-xl space-y-2 min-w-0';
+    card.className = 'knowledge-item-card';
 
     const top = document.createElement('div');
-    top.className = 'flex flex-wrap items-center gap-2 min-w-0';
+    top.className = 'knowledge-item-card-top';
 
     const title = document.createElement('span');
-    title.className = 'font-semibold text-warmText flex-1 min-w-0 break-words';
+    title.className = 'knowledge-item-card-title';
     title.textContent = item.title || '(untitled)';
     top.append(title);
 
@@ -80,7 +80,7 @@ export function renderItems(items, total, page, pageSize) {
     const deleteBtn = document.createElement('button');
     deleteBtn.type = 'button';
     deleteBtn.className =
-      'px-3 py-1 bg-white border border-gray-200 rounded-lg text-xs font-semibold text-red-600 hover:bg-red-50 ui-button ui-button--secondary ui-button--sm';
+      'ui-button ui-button--secondary ui-button--sm knowledge-item-delete-btn';
     deleteBtn.textContent = t('dynamic.appKnowledgePage.deleteItem');
     deleteBtn.addEventListener('click', () => {
       void deleteItemById(item.public_id);
@@ -90,12 +90,12 @@ export function renderItems(items, total, page, pageSize) {
     card.append(top);
 
     const content = document.createElement('p');
-    content.className = 'text-sm text-warmText break-words';
+    content.className = 'knowledge-item-card-content';
     content.textContent = summarizeContent(item.content);
     card.append(content);
 
     const toggleLabel = document.createElement('label');
-    toggleLabel.className = 'toggle-switch text-xs';
+    toggleLabel.className = 'toggle-switch knowledge-item-enable-toggle';
     const toggleInput = document.createElement('input');
     toggleInput.type = 'checkbox';
     toggleInput.role = 'switch';
@@ -107,10 +107,10 @@ export function renderItems(items, total, page, pageSize) {
     const toggleSpan = document.createElement('span');
     toggleLabel.append(toggleSpan);
     const toggleText = document.createElement('span');
-    toggleText.className = 'text-xs text-gray-500 ml-2';
+    toggleText.className = 'knowledge-item-enable-label';
     toggleText.textContent = t('dynamic.appKnowledgePage.itemEnableLabel');
     const toggleWrap = document.createElement('div');
-    toggleWrap.className = 'flex items-center gap-2';
+    toggleWrap.className = 'knowledge-item-card-footer';
     toggleWrap.append(toggleLabel, toggleText);
     card.append(toggleWrap);
 
@@ -153,8 +153,7 @@ export function renderItems(items, total, page, pageSize) {
     if (details.children.length > 0) {
       const expandBtn = document.createElement('button');
       expandBtn.type = 'button';
-      expandBtn.className =
-        'px-3 py-1 bg-white border border-gray-200 rounded-lg text-xs font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--sm';
+      expandBtn.className = 'ui-button ui-button--secondary ui-button--sm';
       expandBtn.textContent = t('dynamic.appKnowledgePage.viewItemDetails');
       expandBtn.setAttribute('aria-expanded', 'false');
       expandBtn.setAttribute('aria-controls', details.id);

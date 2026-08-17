@@ -148,9 +148,10 @@ def test_registry_cancel_and_clear_are_stable(tmp_path, monkeypatch):
         "reason": "cleared",
         "error": None,
         "capabilities": {
-            "parameter_ids": [],
-            "parameter_count": 0,
-            "motion_groups": [],
+                "parameter_ids": [],
+                "parameter_count": 0,
+                "parameter_source": "none",
+                "motion_groups": [],
             "expression_ids": [],
             "motion_files": [],
             "expression_files": [],
@@ -160,5 +161,52 @@ def test_registry_cancel_and_clear_are_stable(tmp_path, monkeypatch):
             "missing_dependencies": [],
         },
         "cancelled": False,
+        "runtime_status": "stopped",
+        "model_url": None,
     }
     assert config.get("live2d_model_path") == ""
+
+
+def test_browser_resource_merges_standalone_motion_and_expression_files(tmp_path):
+    model_path = _write_model(tmp_path)
+    config = FakeConfig({"live2d_model_path": str(model_path)})
+    registry = Live2DModelRegistry(config)
+
+    content, media_type = registry.read_resource("model.json")
+    document = json.loads(content)
+    references = document["FileReferences"]
+    motion_files = {
+        item["File"]
+        for group in references["Motions"].values()
+        for item in group
+    }
+    expression_files = {item["File"] for item in references["Expressions"]}
+
+    assert media_type == "application/json"
+    assert "standalone.motion3.json" in motion_files
+    assert "standalone.exp3.json" in expression_files
+    assert str(tmp_path) not in content.decode("utf-8")
+
+
+def test_resource_path_is_confined_to_model_directory(tmp_path):
+    model_path = _write_model(tmp_path)
+    registry = Live2DModelRegistry(FakeConfig({"live2d_model_path": str(model_path)}))
+
+    try:
+        registry.read_resource("../outside.txt")
+    except PermissionError as exc:
+        assert str(exc) == "invalid_model_resource_path"
+    else:
+        raise AssertionError("path traversal must be rejected")
+
+
+def test_start_and_stop_are_model_lifecycle_facade_operations(tmp_path):
+    model_path = _write_model(tmp_path)
+    registry = Live2DModelRegistry(FakeConfig({"live2d_model_path": str(model_path)}))
+
+    started = registry.start_model()
+    stopped = registry.stop_model()
+
+    assert started["runtime_status"] == "running"
+    assert started["model_url"] == "/api/live2d/resource/model.json"
+    assert stopped["runtime_status"] == "stopped"
