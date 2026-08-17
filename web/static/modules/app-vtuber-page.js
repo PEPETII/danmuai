@@ -5,6 +5,7 @@ let handlersBound = false;
 let requestInFlight = false;
 let modelSettingsCache = null;
 let modelSettingsSaveToken = 0;
+let clickThroughSaveToken = 0;
 
 const CAPABILITY_LABELS = [
   ['dependency_count', '依赖'], ['texture_count', '纹理'], ['parameter_count', '参数'],
@@ -16,6 +17,41 @@ function setText(id, value) { const target = element(id); if (target) target.tex
 
 function renderModelSettingsStatus(message) {
   setText('vtuberModelSettingsStatus', message || '');
+}
+
+function renderClickThroughStatus(message) {
+  setText('vtuberClickThroughStatus', message || '');
+}
+
+function renderClickThrough(data) {
+  const toggle = element('vtuberClickThrough');
+  if (toggle) toggle.checked = Boolean(data?.click_through);
+  renderClickThroughStatus(
+    data?.click_through
+      ? '鼠标穿透已开启，虚拟主播窗口不再拦截鼠标事件。'
+      : '鼠标穿透已关闭，可拖动虚拟主播窗口。',
+  );
+}
+
+async function saveClickThrough(enabled) {
+  const token = ++clickThroughSaveToken;
+  renderClickThroughStatus('正在保存鼠标穿透设置…');
+  try {
+    const data = await apiFetch('/api/live2d/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ click_through: Boolean(enabled) }),
+    });
+    if (token !== clickThroughSaveToken) return data;
+    renderClickThrough(data);
+    toast(enabled ? '鼠标穿透已开启' : '鼠标穿透已关闭');
+    return data;
+  } catch (error) {
+    if (token === clickThroughSaveToken) {
+      renderClickThroughStatus(error?.message || '保存鼠标穿透设置失败');
+    }
+    throw error;
+  }
 }
 
 function fillSelectOptions(select, options, selectedValue) {
@@ -159,6 +195,7 @@ function renderModel(data) {
   if (clearButton) clearButton.disabled = requestInFlight || !hasModel;
   if (startButton) startButton.disabled = requestInFlight || !model.loaded || running;
   if (stopButton) stopButton.disabled = requestInFlight || !running;
+  renderClickThrough(model);
 }
 
 function setRequestState(active) {
@@ -228,6 +265,10 @@ export function initVtuberPage(deps = {}) {
   });
   element('vtuberTtsModelSelect')?.addEventListener('change', () => {
     saveModelSettings({ tts_option_id: element('vtuberTtsModelSelect')?.value || '' })
+      .catch((error) => toast(error.message, true));
+  });
+  element('vtuberClickThrough')?.addEventListener('change', (event) => {
+    saveClickThrough(Boolean(event.target?.checked))
       .catch((error) => toast(error.message, true));
   });
   element('btnVtuberImportModel')?.addEventListener('click', () => importModel().catch((error) => toast(error.message, true)));

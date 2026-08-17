@@ -11,6 +11,15 @@ if TYPE_CHECKING:
 
 
 class DanmuAppLive2DMixin:
+    def _live2d_click_through_enabled(self) -> bool:
+        return str(self.config.get("live2d_click_through", "0") or "0").strip() == "1"
+
+    def _sync_live2d_click_through(self) -> None:
+        runtime = self.__dict__.get("_live2d_desktop_runtime")
+        if runtime is None:
+            return
+        runtime.set_click_through(self._live2d_click_through_enabled())
+
     def _get_live2d_model_registry(self) -> Live2DModelRegistry:
         registry = self.__dict__.get("_live2d_registry")
         if registry is None:
@@ -23,10 +32,12 @@ class DanmuAppLive2DMixin:
 
     def get_live2d_model_snapshot(self) -> dict[str, object]:
         snapshot = self._get_live2d_model_registry().snapshot()
+        snapshot["click_through"] = self._live2d_click_through_enabled()
         runtime = self.__dict__.get("_live2d_desktop_runtime")
         if runtime is not None:
             runtime_snapshot = runtime.snapshot()
             snapshot["runtime_status"] = runtime_snapshot.get("runtime_status", "stopped")
+            snapshot["click_through"] = bool(runtime_snapshot.get("click_through"))
             if runtime_snapshot.get("runtime_status") == "running":
                 snapshot["desktop_visible"] = bool(runtime_snapshot.get("desktop_visible"))
                 snapshot["capabilities"] = {
@@ -36,6 +47,19 @@ class DanmuAppLive2DMixin:
             else:
                 snapshot["desktop_visible"] = False
         return snapshot
+
+    def apply_live2d_settings_patch(self, patch: dict) -> dict[str, object]:
+        if not isinstance(patch, dict):
+            raise ValueError("invalid_payload")
+        items: dict[str, str] = {}
+        if "click_through" in patch and patch["click_through"] is not None:
+            enabled = bool(patch["click_through"])
+            items["live2d_click_through"] = "1" if enabled else "0"
+        if items:
+            self.config.set_batch(items)
+            self._sync_live2d_click_through()
+            self.config_changed.emit()
+        return self.get_live2d_model_snapshot()
 
     def _get_live2d_desktop_runtime(self) -> Live2DDesktopRuntime:
         runtime = self.__dict__.get("_live2d_desktop_runtime")
@@ -77,8 +101,10 @@ class DanmuAppLive2DMixin:
         registry = self._get_live2d_model_registry()
         registry_snapshot = registry.start_model()
         model_path = str(self.config.get("live2d_model_path", "") or "").strip()
+        runtime = self._get_live2d_desktop_runtime()
+        runtime.set_click_through(self._live2d_click_through_enabled())
         try:
-            runtime_snapshot = self._get_live2d_desktop_runtime().start(model_path)
+            runtime_snapshot = runtime.start(model_path)
         except Exception as exc:
             registry.stop_model()
             raise ValueError(f"desktop_runtime_failed:{_safe_live2d_error(exc)}") from exc
@@ -95,6 +121,7 @@ class DanmuAppLive2DMixin:
             **registry_snapshot,
             **runtime_snapshot,
             "desktop_visible": bool(runtime_snapshot.get("desktop_visible")),
+            "click_through": bool(runtime_snapshot.get("click_through")),
             "capabilities": {
                 **dict(registry_snapshot.get("capabilities") or {}),
                 **dict(runtime_snapshot.get("capabilities") or {}),
@@ -110,6 +137,7 @@ class DanmuAppLive2DMixin:
             runtime.stop()
         snapshot = self._get_live2d_model_registry().stop_model()
         snapshot["desktop_visible"] = False
+        snapshot["click_through"] = self._live2d_click_through_enabled()
         return snapshot
 
     def get_live2d_model_resource(self, resource_path: str) -> tuple[bytes, str]:

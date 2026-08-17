@@ -431,6 +431,19 @@
                 <p id="vtuberDesktopStatusHint" class="settings-section-hint">启动后模型将在 Windows 桌面独立窗口显示，当前页面不会渲染 Live2D。</p>
               </div>
             </div>
+            <div class="settings-rhythm-accordion-fields mt-4">
+              <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--toggle">
+                <div class="flex-1 min-w-0">
+                  <span class="settings-field-label">鼠标穿透</span>
+                  <p class="text-xs text-gray-500 mt-1">开启后鼠标可穿透虚拟主播窗口，点击与滚轮将作用于后方应用；开启后无法拖动主播位置。</p>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="vtuberClickThrough" role="switch">
+                  <span aria-hidden="true"></span>
+                </label>
+              </div>
+            </div>
+            <p id="vtuberClickThroughStatus" class="settings-section-hint" role="status" aria-live="polite"></p>
           </section>
 
           <p id="vtuberSettingsNotice" class="settings-section-hint">模型资源只通过本机 Web API 代理读取。</p>

@@ -475,6 +475,7 @@ class ConfigService:
             "pet_click_through",
             "pet_command_box_enabled",
             "pet_barrage_mode_enabled",
+            "live2d_click_through",
         ):
             if _key in items:
                 _v = str(items[_key]).strip().lower()

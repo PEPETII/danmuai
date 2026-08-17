@@ -107,6 +107,28 @@ def test_live2d_runtime_routes_require_auth_and_use_public_facades():
     bridge.danmu_app.stop_live2d_model.assert_called_once_with()
 
 
+def test_live2d_settings_route_requires_auth_and_applies_patch():
+    client, bridge = _client()
+    bridge.danmu_app.apply_live2d_settings_patch.return_value = {
+        "configured": True,
+        "status": "ready",
+        "click_through": True,
+    }
+
+    assert client.put("/api/live2d/settings", json={"click_through": True}).status_code == 401
+
+    response = client.put(
+        "/api/live2d/settings",
+        json={"click_through": True},
+        headers={"Authorization": "Bearer live2d-secret"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["click_through"] is True
+    bridge.invoke_on_main.assert_called_once()
+    bridge.danmu_app.apply_live2d_settings_patch.assert_called_once_with({"click_through": True})
+
+
 def test_live2d_resource_route_returns_proxy_bytes_without_exposing_model_path():
     client, bridge = _client()
     bridge.danmu_app.get_live2d_model_resource.return_value = (

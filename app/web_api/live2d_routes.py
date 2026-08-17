@@ -6,12 +6,17 @@ from typing import TYPE_CHECKING, Callable
 
 from fastapi import Header, HTTPException
 from fastapi.responses import Response
+from pydantic import BaseModel
 
 from app.web_api import live2d as live2d_api
 from app.web_api.auth import require_auth
 
 if TYPE_CHECKING:
     from app.web_console import WebConsoleBridge
+
+
+class Live2DSettingsPatch(BaseModel):
+    click_through: bool | None = None
 
 
 def register_live2d_routes(
@@ -23,6 +28,21 @@ def register_live2d_routes(
     @app.get("/api/live2d/model")
     def get_live2d_model():
         return live2d_api.get_model_snapshot(bridge.danmu_app)
+
+    @app.put("/api/live2d/settings")
+    @require_auth(check_token)
+    def put_live2d_settings(
+        payload: Live2DSettingsPatch,
+        authorization: str | None = Header(default=None),
+    ):
+        try:
+            return invoke_main(
+                live2d_api.apply_settings,
+                bridge.danmu_app,
+                payload.model_dump(exclude_unset=True),
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.post("/api/live2d/import-model")
     @require_auth(check_token)

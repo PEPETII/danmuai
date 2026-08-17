@@ -29,3 +29,7 @@ def stop_model(app) -> dict[str, object]:
 
 def get_model_resource(app, resource_path: str) -> tuple[bytes, str]:
     return app.get_live2d_model_resource(resource_path)
+
+
+def apply_settings(app, payload: dict) -> dict[str, object]:
+    return app.apply_live2d_settings_patch(payload)

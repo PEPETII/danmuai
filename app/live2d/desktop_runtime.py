@@ -7,10 +7,13 @@ import sys
 from pathlib import Path
 from typing import Any, Callable
 
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import QPoint, Qt, QTimer
 from PyQt6.QtGui import QMouseEvent, QSurfaceFormat
 from PyQt6.QtOpenGLWidgets import QOpenGLWidget
 from PyQt6.QtWidgets import QApplication
+
+from app.live2d.window_interaction import compute_window_drag_target
+from app.win32_overlay_zorder import apply_overlay_exstyles
 
 if sys.platform == "win32":
     import ctypes
@@ -106,8 +109,9 @@ class Live2DDesktopWindow(QOpenGLWidget):
         self.load_error: Exception | None = None
         self._gl_initialized = False
         self._closing = False
-        self._drag_origin = None
-        self._window_origin = None
+        self._click_through = False
+        self._drag_origin_global: QPoint | None = None
+        self._drag_origin_window: QPoint | None = None
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint
             | Qt.WindowType.NoDropShadowWindowHint
@@ -134,6 +138,32 @@ class Live2DDesktopWindow(QOpenGLWidget):
     def showEvent(self, event) -> None:  # noqa: ANN001 - Qt virtual method
         super().showEvent(event)
         self._apply_windows_surface()
+        self._apply_click_through_surface()
+
+    def set_click_through(self, enabled: bool) -> None:
+        """Toggle mouse pass-through without reloading the model or moving the window."""
+
+        enabled = bool(enabled)
+        if self._click_through == enabled:
+            self._apply_click_through_surface()
+            return
+        self._click_through = enabled
+        if enabled:
+            self._drag_origin_global = None
+            self._drag_origin_window = None
+        self._apply_click_through_surface()
+
+    def _apply_click_through_surface(self) -> None:
+        transparent = bool(self._click_through)
+        if self.testAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents) != transparent:
+            self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, transparent)
+        if sys.platform == "win32" and self.isVisible():
+            try:
+                hwnd = int(self.winId())
+            except (RuntimeError, TypeError, ValueError):
+                hwnd = 0
+            if hwnd:
+                apply_overlay_exstyles(hwnd, click_through=transparent)
 
     def _apply_windows_surface(self) -> None:
         """Remove Win11 DWM corner/border chrome after the native HWND exists."""
@@ -189,21 +219,40 @@ class Live2DDesktopWindow(QOpenGLWidget):
             self.model.Resize(width, height)
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
-        if event.button() == Qt.MouseButton.LeftButton:
-            self._drag_origin = event.position().toPoint()
-            self._window_origin = self.pos()
-        super().mousePressEvent(event)
+        if self._click_through or event.button() != Qt.MouseButton.LeftButton:
+            event.ignore()
+            return
+        self._drag_origin_global = event.globalPosition().toPoint()
+        self._drag_origin_window = self.pos()
+        event.accept()
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
-        if self._drag_origin is not None and self._window_origin is not None:
-            self.move(self._window_origin + event.position().toPoint() - self._drag_origin)
-        super().mouseMoveEvent(event)
+        if (
+            self._click_through
+            or self._drag_origin_global is None
+            or self._drag_origin_window is None
+        ):
+            event.ignore()
+            return
+        if not (event.buttons() & Qt.MouseButton.LeftButton):
+            event.ignore()
+            return
+        self.move(
+            compute_window_drag_target(
+                self._drag_origin_global,
+                self._drag_origin_window,
+                event.globalPosition().toPoint(),
+            )
+        )
+        event.accept()
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
-        if event.button() == Qt.MouseButton.LeftButton:
-            self._drag_origin = None
-            self._window_origin = None
-        super().mouseReleaseEvent(event)
+        if event.button() == Qt.MouseButton.LeftButton and self._drag_origin_global is not None:
+            self._drag_origin_global = None
+            self._drag_origin_window = None
+            event.accept()
+            return
+        event.ignore()
 
     def closeEvent(self, event) -> None:  # noqa: ANN001 - Qt virtual method
         self.cleanup_native_resources()
@@ -399,6 +448,7 @@ class Live2DDesktopRuntime:
         self._window: Live2DDesktopWindow | None = None
         self._model_path: Path | None = None
         self._sdk: Any | None = None
+        self._click_through = False
         self._frame_callback: Callable[[], None] | None = None
         self._frame_callback_window: Live2DDesktopWindow | None = None
 
@@ -434,6 +484,7 @@ class Live2DDesktopRuntime:
             error = window.load_error or RuntimeError("桌面窗口未完成模型加载")
             self.stop()
             raise RuntimeError(str(error))
+        window.set_click_through(self._click_through)
         self._connect_frame_callback()
         return self.snapshot()
 
@@ -481,12 +532,24 @@ class Live2DDesktopRuntime:
 
     def snapshot(self) -> dict[str, object]:
         if self._window is None or not self.running:
-            return {"runtime_status": "stopped", "desktop_visible": False}
+            return {
+                "runtime_status": "stopped",
+                "desktop_visible": False,
+                "click_through": bool(self._click_through),
+            }
         return {
             "runtime_status": "running",
             "desktop_visible": self.visible,
+            "click_through": bool(self._window._click_through),
             "capabilities": self._window.runtime_capabilities(),
         }
+
+    def set_click_through(self, enabled: bool) -> dict[str, object]:
+        enabled = bool(enabled)
+        self._click_through = enabled
+        if self._window is not None:
+            self._window.set_click_through(enabled)
+        return {"click_through": enabled}
 
     def set_parameter(self, parameter_id: str, value: float) -> dict[str, object]:
         if self._window is None or not self.running:
