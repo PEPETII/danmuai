@@ -389,6 +389,28 @@
             <p class="settings-section-hint">通过桌面原生文件选择器选择 .model3.json；模型文件不会上传或复制。</p>
           </section>
 
+          <section class="vtuber-model-card ui-card" aria-labelledby="vtuberModelSettingsHeading">
+            <h3 id="vtuberModelSettingsHeading" class="settings-section-title">模型设置</h3>
+            <p class="settings-section-hint">与弹幕默认 AI / AI 读弹幕 TTS 独立；选择「无」将关闭对应能力，不会回退到全局模型。</p>
+            <div class="settings-rhythm-accordion-fields">
+              <div class="settings-rhythm-accordion-field">
+                <div class="flex-1 min-w-0">
+                  <label for="vtuberVisionModelSelect" class="settings-field-label">视觉AI（截图理解）模型</label>
+                  <p class="text-xs text-gray-500 mt-1">仅列出已配置且支持截图理解的 AI 模型。</p>
+                </div>
+                <select id="vtuberVisionModelSelect" class="settings-field-control ui-control ui-select" aria-describedby="vtuberModelSettingsStatus"></select>
+              </div>
+              <div class="settings-rhythm-accordion-field">
+                <div class="flex-1 min-w-0">
+                  <label for="vtuberTtsModelSelect" class="settings-field-label">语音/TTS 模型</label>
+                  <p class="text-xs text-gray-500 mt-1">仅列出凭据已配置、可正常使用的 TTS 模型。</p>
+                </div>
+                <select id="vtuberTtsModelSelect" class="settings-field-control ui-control ui-select" aria-describedby="vtuberModelSettingsStatus"></select>
+              </div>
+            </div>
+            <p id="vtuberModelSettingsStatus" class="settings-section-hint" role="status" aria-live="polite">正在读取模型选项…</p>
+          </section>
+
           <section class="vtuber-runtime-card ui-card" aria-labelledby="vtuberRuntimeHeading">
             <div class="vtuber-runtime-card__header">
               <div class="min-w-0">

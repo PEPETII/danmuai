@@ -298,6 +298,9 @@ def delete_custom_model(app: "DanmuApp", index: int) -> None:
     # W-PERSONA-MODEL-BIND-001：清除引用了被删模型的人格绑定，使其回退全局"使用"模型
     if removed_id:
         _purge_persona_model_bindings_for_model(app.config, removed_id)
+        from app.virtual_host.model_config import purge_virtual_host_model_refs
+
+        purge_virtual_host_model_refs(app.config, removed_id)
     app.config_changed.emit()
 
 

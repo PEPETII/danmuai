@@ -116,13 +116,13 @@ class TtsBinding:
     """经过 ``TtsManager`` 验证的 provider/model/voice 绑定。
 
     ``credentials`` 只供本次注入式调用使用；不出现在状态摘要和事件中。
-    ``source`` 表示它与 AI 读弹幕配置的复用关系。
+    ``source`` 标记绑定来源（例如 ``virtual_host``），与 AI 读弹幕配置解耦。
     """
 
     provider_id: str
     model_id: str
     voice_id: str = ""
-    source: str = "ai_read_danmaku"
+    source: str = "virtual_host"
     voice_source: str = "model_default"
     credential_source: str = "manager"
     credential_fields: tuple[str, ...] = ()
@@ -136,7 +136,7 @@ class TtsBinding:
         object.__setattr__(self, "provider_id", provider_id)
         object.__setattr__(self, "model_id", model_id)
         object.__setattr__(self, "voice_id", str(self.voice_id or "").strip())
-        object.__setattr__(self, "source", str(self.source or "ai_read_danmaku").strip())
+        object.__setattr__(self, "source", str(self.source or "virtual_host").strip())
         object.__setattr__(self, "voice_source", str(self.voice_source or "model_default"))
         object.__setattr__(self, "credential_source", str(self.credential_source or "manager"))
         object.__setattr__(self, "credential_fields", tuple(sorted(str(key) for key in self.credential_fields)))
@@ -153,7 +153,7 @@ def resolve_tts_binding(
     provider_id: str,
     model_id: str,
     voice_id: str = "",
-    source: str = "ai_read_danmaku",
+    source: str = "virtual_host",
     credentials: Mapping[str, str] | None = None,
 ) -> TtsBinding:
     """通过现有 manager/catalog/registry/credential 语义解析 TTS 配置。
@@ -553,8 +553,10 @@ class VirtualHostAudioOrchestrator:
             return state
         active_binding = binding or self.tts_binding
         if active_binding is None:
-            state.tts_status = "unavailable"
-            return self._fail(state, "tts_binding_unavailable", stage="tts")
+            state.tts_status = "skipped"
+            state.playback_status = "skipped"
+            state.status = "completed"
+            return state
         state.tts_provider_id = active_binding.provider_id
         state.tts_model_id = active_binding.model_id
         state.tts_voice_id = active_binding.voice_id

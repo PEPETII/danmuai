@@ -47,6 +47,9 @@ def test_vtuber_runtime_exposes_start_stop_desktop_status_and_control_regions():
     assert 'id="vtuberActions"' in panel
     assert 'id="vtuberMotions"' in panel
     assert 'id="vtuberExpressions"' in panel
+    assert 'id="vtuberVisionModelSelect"' in panel
+    assert 'id="vtuberTtsModelSelect"' in panel
+    assert 'id="vtuberModelSettingsStatus"' in panel
     assert "通过桌面原生文件选择器" in panel
     assert "模型文件不会上传或复制" in panel
 
@@ -61,6 +64,7 @@ def test_vtuber_module_uses_native_model_api_and_keeps_runtime_controls_out():
         "/api/live2d/clear-model",
         "/api/live2d/start",
         "/api/live2d/stop",
+        "/api/virtual-host/models",
         "/api/live2d/control/parameter",
         "/api/live2d/control/action",
         "/api/live2d/control/motion",
@@ -79,6 +83,8 @@ def test_vtuber_module_uses_native_model_api_and_keeps_runtime_controls_out():
     assert "WEBGL_LEGACY" not in source
     assert "checkMaxIfStatementsInShader" not in source
     assert "vtuberCanvas" not in source
+    assert "vtuberVisionModelSelect" in source
+    assert "vtuberTtsModelSelect" in source
     assert "桌面窗口运行时" in source
     assert "app-vtuber-page.js" in app_source
     assert "Promise.all" in app_source

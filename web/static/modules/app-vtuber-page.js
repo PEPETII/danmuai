@@ -3,6 +3,8 @@ import { apiFetch } from './transport.js';
 let toast = () => {};
 let handlersBound = false;
 let requestInFlight = false;
+let modelSettingsCache = null;
+let modelSettingsSaveToken = 0;
 
 const CAPABILITY_LABELS = [
   ['dependency_count', '依赖'], ['texture_count', '纹理'], ['parameter_count', '参数'],
@@ -23,6 +25,73 @@ const CONTROL_ENDPOINTS = {
 
 function element(id) { return document.getElementById(id); }
 function setText(id, value) { const target = element(id); if (target) target.textContent = value; }
+
+function renderModelSettingsStatus(message) {
+  setText('vtuberModelSettingsStatus', message || '');
+}
+
+function fillSelectOptions(select, options, selectedValue) {
+  if (!select) return;
+  select.replaceChildren();
+  const none = document.createElement('option');
+  none.value = '';
+  none.textContent = '无';
+  select.appendChild(none);
+  (options || []).forEach((item) => {
+    const option = document.createElement('option');
+    option.value = String(item.id || '');
+    option.textContent = String(item.label || item.id || '');
+    select.appendChild(option);
+  });
+  const normalized = String(selectedValue || '');
+  if (normalized && [...select.options].some((option) => option.value === normalized)) {
+    select.value = normalized;
+  } else {
+    select.value = '';
+  }
+}
+
+function renderModelSettings(data) {
+  modelSettingsCache = data || null;
+  const visionSelect = element('vtuberVisionModelSelect');
+  const ttsSelect = element('vtuberTtsModelSelect');
+  fillSelectOptions(visionSelect, data?.vision_options, data?.vision_model_id);
+  fillSelectOptions(ttsSelect, data?.tts_options, data?.tts_option_id);
+  const visionLabel = data?.vision_enabled ? '已选择视觉模型' : '视觉理解已关闭';
+  const ttsLabel = data?.tts_enabled ? '已选择 TTS 模型' : '语音合成已关闭';
+  renderModelSettingsStatus(`${visionLabel}；${ttsLabel}`);
+}
+
+async function loadModelSettings() {
+  try {
+    renderModelSettings(await apiFetch('/api/virtual-host/models'));
+  } catch (error) {
+    renderModelSettingsStatus(error?.message || '读取模型设置失败');
+    throw error;
+  }
+}
+
+async function saveModelSettings(patch) {
+  const token = ++modelSettingsSaveToken;
+  renderModelSettingsStatus('正在保存模型设置…');
+  try {
+    const data = await apiFetch('/api/virtual-host/models', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    });
+    if (token !== modelSettingsSaveToken) return data;
+    renderModelSettings(data);
+    toast('虚拟主播模型设置已保存');
+    return data;
+  } catch (error) {
+    if (token === modelSettingsSaveToken) {
+      renderModelSettingsStatus(error?.message || '保存模型设置失败');
+    }
+    throw error;
+  }
+}
+
 function modelFromResponse(data) { return data?.model ?? data?.result ?? data ?? {}; }
 
 function normalizeModel(data) {
@@ -291,11 +360,22 @@ async function clearModel() {
 }
 
 export async function loadVtuberPage() {
-  try { renderModel(await apiFetch('/api/live2d/model')); } catch (error) { renderRequestError(error); throw error; }
+  try {
+    await loadModelSettings();
+    renderModel(await apiFetch('/api/live2d/model'));
+  } catch (error) { renderRequestError(error); throw error; }
 }
 
 export function initVtuberPage(deps = {}) {
   toast = deps.showToast || toast; if (handlersBound) return; handlersBound = true;
+  element('vtuberVisionModelSelect')?.addEventListener('change', () => {
+    saveModelSettings({ vision_model_id: element('vtuberVisionModelSelect')?.value || '' })
+      .catch((error) => toast(error.message, true));
+  });
+  element('vtuberTtsModelSelect')?.addEventListener('change', () => {
+    saveModelSettings({ tts_option_id: element('vtuberTtsModelSelect')?.value || '' })
+      .catch((error) => toast(error.message, true));
+  });
   element('btnVtuberImportModel')?.addEventListener('click', () => importModel().catch((error) => toast(error.message, true)));
   element('btnVtuberClearModel')?.addEventListener('click', () => clearModel().catch((error) => toast(error.message, true)));
   element('btnVtuberStart')?.addEventListener('click', () => startModel().catch((error) => toast(error.message, true)));

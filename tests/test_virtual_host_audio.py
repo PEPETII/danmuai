@@ -103,7 +103,7 @@ def _binding() -> TtsBinding:
         provider_id="tts-provider",
         model_id="tts-model",
         voice_id="voice-1",
-        source="ai_read_danmaku",
+        source="virtual_host",
         voice_source="static_catalog",
         credential_source="injected",
         credential_fields=("api_key",),
@@ -202,6 +202,23 @@ def test_cancelled_turn_rejects_late_speech_and_tts_failure_isolated():
     orchestrator.cancel_turn(cancelled.turn_id, reason="user_cancelled")
     assert orchestrator.synthesize_turn(cancelled.turn_id).status == "cancelled"
     assert cancelled.cancel_reason == "user_cancelled"
+
+
+def test_missing_binding_skips_tts_and_keeps_text_result():
+    session = VirtualHostSession(session_id="host-session")
+    orchestrator = VirtualHostAudioOrchestrator(
+        session,
+        tts=TtsSynthesizer(synthesize_fn=lambda text, binding: text.encode()),
+        playback=PlaybackQueue(),
+    )
+    turn = orchestrator.begin_mic_turn()
+    orchestrator.accept_transcript(turn.turn_id, "用户输入")
+    orchestrator.submit_chat_result(turn.turn_id, "仅文本回复")
+
+    state = orchestrator.synthesize_turn(turn.turn_id)
+    assert state.status == "completed"
+    assert state.tts_status == "skipped"
+    assert state.playback_status == "skipped"
 
 
 def test_missing_manager_is_unavailable_not_fake_success():

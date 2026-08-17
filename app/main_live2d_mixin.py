@@ -116,6 +116,22 @@ class DanmuAppLive2DMixin:
     def get_live2d_model_resource(self, resource_path: str) -> tuple[bytes, str]:
         return self._get_live2d_model_registry().read_resource(resource_path)
 
+    def get_virtual_host_model_config(self) -> dict[str, object]:
+        from app.virtual_host.model_config import (
+            export_virtual_host_model_config,
+            sanitize_virtual_host_model_config,
+        )
+
+        sanitize_virtual_host_model_config(self.config, persist=True)
+        return export_virtual_host_model_config(self.config)
+
+    def apply_virtual_host_model_config(self, patch: dict) -> dict[str, object]:
+        from app.virtual_host.model_config import apply_virtual_host_model_config
+
+        result = apply_virtual_host_model_config(self.config, patch)
+        self.config_changed.emit()
+        return result
+
 
 def _safe_live2d_error(exc: Exception) -> str:
     text = str(exc).strip().replace("\n", " ")
