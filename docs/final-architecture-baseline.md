@@ -9,3 +9,5 @@ DanmuAI 架构基线：Qt 主线程拥有 timer、截图槽位与回复队列；
 `runtime_generation` 与 `_active_vision_model_id` 用于丢弃 stop/start 或换模后的过期结果。
 主链路弹幕批次经 `on_danmu_batch_created` 写入 `VirtualHostSession`；`VirtualHostResponseScheduler`
 评分达标后才经 `virtual_host_chat` 自主回应，与显示分发解耦。
+
+**时间域**：业务 freshness / TTL / cooldown 使用 `time.time()`；HTTP / 场景 / Chat / TTS / 播放耗时统计使用 `time.monotonic()`。主链路 `captured_at` 为 monotonic，不得混入 Session 业务时间戳。

@@ -16,7 +16,9 @@
 | `_chat_in_flight` | Qt 主线程（调度/完成槽） | Qt 主线程 | 单次 Chat HTTP 在途 |
 | `_runtime_generation` | Qt 主线程（start/stop/模型切换） | Qt 主线程 | 递增令牌，失效旧视觉/Chat 请求 |
 | `_active_vision_model_id` | Qt 主线程（`refresh_model_bindings`） | Qt 主线程 | 当前绑定的视觉/Chat model_id |
-| `_last_spoke_at` | Qt 主线程（Chat 完成） | Qt 主线程 | 上次自主发言时间（cooldown） |
+| `_last_spoke_at` | Qt 主线程（Chat 完成） | Qt 主线程 | 上次自主发言时间（cooldown）；**wall clock**（`time.time()`） |
+
+**业务时间 vs 性能计时**：Session / TTL / Scheduler 业务时间戳一律使用 **wall clock**（`time.time()`），包括 `SceneContext.updated_at`、`DanmuBatchCreated.created_at`、`ResponseCandidateEvent.at`、`HostTurn.created_at`、`_last_spoke_at`。主链路 `captured_at`（`DanmuApp._latest_screenshot_time`，**monotonic**）仅用于截图→场景诊断耗时（`scene_latency_ms` 等），禁止写入 `SceneContext.updated_at` 或 `ResponseCandidateEvent.at`。
 | `_vision_coordinator` | 构造时 | Qt 主线程 | `SceneVisionCoordinator` 信号桥 |
 | `_chat_coordinator` | 构造时 | Qt 主线程 | `ChatResponseCoordinator` 信号桥 |
 | `vision_request_count` | Qt 主线程（调度时） | 任意只读 | 累计视觉 HTTP 次数 |

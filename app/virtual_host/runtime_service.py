@@ -54,15 +54,10 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_CAPTURE_WALL_CLOCK_THRESHOLD = 1_000_000_000
+def _monotonic_elapsed_since(captured_at: float) -> float:
+    """Return elapsed seconds since a monotonic capture stamp (diagnostics only)."""
 
-
-def _elapsed_since_capture(captured_at: float) -> float:
-    """Return elapsed seconds for either monotonic or wall-clock capture stamps."""
-
-    value = float(captured_at)
-    clock = time.monotonic if value < _CAPTURE_WALL_CLOCK_THRESHOLD else time.time
-    return max(0.0, clock() - value)
+    return max(0.0, time.monotonic() - float(captured_at))
 
 __all__ = [
     "ChatResponseCoordinator",
@@ -508,7 +503,7 @@ class VirtualHostRuntimeService:
             return
         runtime_generation = self._runtime_generation
         vision_model_id = resolved[2]
-        captured_at_value = captured_at if captured_at is not None else time.time()
+        captured_at_value = captured_at if captured_at is not None else time.monotonic()
         started_at = time.monotonic()
         self._vision_in_flight = True
         self.vision_request_count += 1
@@ -636,7 +631,7 @@ class VirtualHostRuntimeService:
                 applied=False,
                 screenshot_id=screenshot_id,
                 scene_generation=scene_generation,
-                scene_latency_ms=round(_elapsed_since_capture(captured_at) * 1000, 1),
+                scene_latency_ms=round(_monotonic_elapsed_since(captured_at) * 1000, 1),
             )
             return
         if result is None or not result.ok:
@@ -648,7 +643,7 @@ class VirtualHostRuntimeService:
                 applied=False,
                 screenshot_id=screenshot_id,
                 scene_generation=scene_generation,
-                scene_latency_ms=round(_elapsed_since_capture(captured_at) * 1000, 1),
+                scene_latency_ms=round(_monotonic_elapsed_since(captured_at) * 1000, 1),
             )
             return
         self._apply_scene_summary(
@@ -666,15 +661,21 @@ class VirtualHostRuntimeService:
         scene_generation: int,
         captured_at: float | None,
     ) -> None:
-        current = time.time() if captured_at is None else float(captured_at)
+        wall_now = time.time()
         context = SceneContext(
             scene_generation=int(scene_generation),
             summary=result.text,
             keywords=_keywords_from_summary(result.text),
             screenshot_id=screenshot_id,
-            updated_at=current,
+            updated_at=wall_now,
         )
         self._session.update_scene_context(context)
+        latency_fields: dict[str, float] = {}
+        if captured_at is not None:
+            latency_fields["scene_latency_ms"] = round(
+                _monotonic_elapsed_since(captured_at) * 1000,
+                1,
+            )
         log_diagnostic(
             "scene_end",
             runtime_generation=self._runtime_generation,
@@ -683,12 +684,12 @@ class VirtualHostRuntimeService:
             applied=True,
             screenshot_id=screenshot_id,
             scene_generation=scene_generation,
-            scene_latency_ms=round(_elapsed_since_capture(current) * 1000, 1),
+            **latency_fields,
         )
         self._on_response_candidate(
             ResponseCandidateEvent(
                 kind="scene_change",
-                at=current,
+                at=wall_now,
                 scene_generation=int(scene_generation),
             )
         )
