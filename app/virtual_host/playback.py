@@ -224,7 +224,9 @@ class PlaybackQueue:
         try:
             pause = getattr(self._player, "pause", None)
             if callable(pause):
-                pause()
+                pause_result = pause()
+                if pause_result is False:
+                    return False
         except Exception:
             return False
         self._emit(PlaybackEvent("pause", item))

@@ -49,6 +49,7 @@ class DanmuTtsPlayback(QObject):
     def __init__(self) -> None:
         super().__init__(None)
         self._busy = False
+        self._active_playback_id = 0
         self._lock = threading.Lock()
         self._next_playback_id = 0
 
@@ -56,18 +57,24 @@ class DanmuTtsPlayback(QObject):
         with self._lock:
             return self._busy
 
-    def _set_busy(self, value: bool) -> None:
+    def _release_playback_if_active(self, playback_id: int) -> None:
         with self._lock:
-            self._busy = value
+            if int(playback_id) != self._active_playback_id:
+                return
+            self._busy = False
+            self._active_playback_id = 0
 
     def play_wav_bytes(self, wav_bytes: bytes) -> int:
         """开始播放；成功返回大于 0 的 playback_id，拒绝时返回 0。"""
-        if self.is_busy() or not wav_bytes:
+        if not wav_bytes:
             return 0
         with self._lock:
+            if self._busy:
+                return 0
             self._next_playback_id += 1
             playback_id = self._next_playback_id
-        self._set_busy(True)
+            self._active_playback_id = playback_id
+            self._busy = True
         threading.Thread(
             target=self._play_worker,
             args=(wav_bytes, playback_id),
@@ -101,7 +108,7 @@ class DanmuTtsPlayback(QObject):
         except (OSError, RuntimeError, ValueError) as exc:
             logger.warning("danmu tts playback failed: %s", exc)
         finally:
-            self._set_busy(False)
+            self._release_playback_if_active(playback_id)
             # 跨线程安全投递：通过 QMetaObject.invokeMethod + QueuedConnection 将信号
             # 投递到主线程事件循环，等价于 QTimer.singleShot(0, ...)。
             QMetaObject.invokeMethod(
@@ -121,8 +128,10 @@ class DanmuTtsPlayback(QObject):
             sd.stop()
         except (OSError, RuntimeError):
             pass
-        self._set_busy(False)
+        with self._lock:
+            self._busy = False
+            self._active_playback_id = 0
 
-    def pause(self) -> None:
-        """暂停当前播放（sounddevice 无独立 pause，等价 stop）。"""
-        self.stop()
+    def pause(self) -> bool:
+        """sounddevice 无真正 pause/resume；不支持暂停语义。"""
+        return False

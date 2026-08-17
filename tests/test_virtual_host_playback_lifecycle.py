@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import io
+import threading
 import time
+import wave
 
 import pytest
 from app.danmu_tts_playback import DanmuTtsPlayback
@@ -17,6 +20,16 @@ from tests.test_virtual_host_autonomous_response import (
     _wait_pool,
 )
 from tests.test_virtual_host_playback import FakePlayer
+
+
+def _fake_wav_bytes() -> bytes:
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as wf:
+        wf.setnchannels(1)
+        wf.setsampwidth(2)
+        wf.setframerate(24000)
+        wf.writeframes(b"\x00\x00" * 240)
+    return buf.getvalue()
 
 
 class _RuntimePlayer(FakePlayer):
@@ -132,6 +145,82 @@ def test_stale_playback_finished_does_not_complete_new_item(qapp, monkeypatch):
     playback.playback_finished.emit(current_id)
     qapp.processEvents()
     assert completed == ["b"]
+
+
+def test_stale_worker_finally_does_not_clear_new_playback_busy(qapp, monkeypatch):
+    """A 开始 → stop A → B 立即开始 → A worker finally 不得清除 B 的 busy。"""
+    from app.danmu_tts_playback import DanmuTtsPlayback
+
+    playback = DanmuTtsPlayback()
+    wav = _fake_wav_bytes()
+    worker_a_started = threading.Event()
+    worker_a_block = threading.Event()
+    worker_b_started = threading.Event()
+    worker_b_block = threading.Event()
+    worker_b_finished = threading.Event()
+    play_call = 0
+    b_playback_id_holder: list[int] = [0]
+
+    def _fake_play(audio, samplerate, blocking=True):
+        nonlocal play_call
+        play_call += 1
+        if play_call == 1:
+            worker_a_started.set()
+            worker_a_block.wait(timeout=5.0)
+        elif play_call == 2:
+            worker_b_started.set()
+            worker_b_block.wait(timeout=5.0)
+
+    def _fake_wait():
+        if play_call == 1:
+            worker_a_block.wait(timeout=5.0)
+        elif play_call == 2:
+            worker_b_block.wait(timeout=5.0)
+
+    original_release = playback._release_playback_if_active
+
+    def _release_with_b_signal(playback_id: int) -> None:
+        original_release(playback_id)
+        if b_playback_id_holder[0] and int(playback_id) == b_playback_id_holder[0]:
+            worker_b_finished.set()
+
+    monkeypatch.setattr(playback, "_release_playback_if_active", _release_with_b_signal)
+    monkeypatch.setattr("app.danmu_tts_playback.sd.play", _fake_play)
+    monkeypatch.setattr("app.danmu_tts_playback.sd.wait", _fake_wait)
+
+    id_a = playback.play_wav_bytes(wav)
+    assert id_a > 0
+    assert worker_a_started.wait(timeout=5.0)
+    assert playback.is_busy()
+
+    playback.stop()
+    id_b = playback.play_wav_bytes(wav)
+    b_playback_id_holder[0] = id_b
+    assert id_b > id_a
+    assert worker_b_started.wait(timeout=5.0)
+    assert playback.is_busy()
+
+    worker_a_block.set()
+    time.sleep(0.05)
+    assert playback.is_busy()
+
+    id_c = playback.play_wav_bytes(wav)
+    assert id_c == 0
+
+    worker_b_block.set()
+    assert worker_b_finished.wait(timeout=5.0)
+    assert not playback.is_busy()
+
+
+def test_danmu_tts_playback_pause_is_unsupported(qapp):
+    playback = DanmuTtsPlayback()
+    assert playback.pause() is False
+
+
+def test_adapter_pause_is_unsupported(qapp):
+    playback = DanmuTtsPlayback()
+    adapter = DanmuTtsPlaybackAdapter(playback)
+    assert adapter.pause() is False
 
 
 def test_runtime_stop_interrupts_active_auto_scene(monkeypatch, qapp):

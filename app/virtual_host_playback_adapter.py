@@ -39,7 +39,7 @@ class DanmuTtsPlaybackAdapter:
         self._active_playback_id = 0
         return self._playback.stop()
 
-    def pause(self) -> Any:
+    def pause(self) -> bool:
         return self._playback.pause()
 
 
