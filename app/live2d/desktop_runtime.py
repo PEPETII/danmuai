@@ -294,6 +294,20 @@ class Live2DDesktopWindow(QOpenGLWidget):
             raise RuntimeError("expression_set_failed")
         return {"id": entry["id"], "file": entry["file"]}
 
+    def reset_expression(self) -> dict[str, object]:
+        """Clear the native Live2D expression layer without stopping motions."""
+
+        if self.model is None:
+            return {"status": "unavailable", "reason": "model_not_loaded"}
+        reset_fn = getattr(self.model, "ResetExpression", None)
+        if not callable(reset_fn):
+            return {"status": "degraded", "reason": "reset_expression_unavailable"}
+        try:
+            reset_fn()
+        except Exception as exc:
+            return {"status": "failed", "reason": f"reset_expression_failed:{type(exc).__name__}"}
+        return {"status": "reset"}
+
     def restore_idle(self) -> dict[str, object]:
         """Clear one-shot motion state without assuming an Idle resource exists."""
 
@@ -493,6 +507,11 @@ class Live2DDesktopRuntime:
         if self._window is None or not self.running:
             raise RuntimeError("model_not_running")
         return self._window.set_expression(file_name)
+
+    def reset_expression(self) -> dict[str, object]:
+        if self._window is None or not self.running:
+            return {"status": "unavailable", "reason": "model_not_running"}
+        return self._window.reset_expression()
 
     def restore_idle(self) -> dict[str, object]:
         """Stop transient motions and optionally resume a declared idle motion."""

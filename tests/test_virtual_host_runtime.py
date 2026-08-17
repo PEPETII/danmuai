@@ -36,6 +36,42 @@ from PyQt6.QtCore import QObject, QThreadPool, pyqtSlot
 
 from tests.fakes import FakePixmap
 
+_vh_runtime_services: list[VirtualHostRuntimeService] = []
+_vh_runtime_pools: list[QThreadPool] = []
+
+
+def _register_runtime_test(
+    service: VirtualHostRuntimeService,
+    pool: QThreadPool | None = None,
+) -> None:
+    _vh_runtime_services.append(service)
+    if pool is not None:
+        _vh_runtime_pools.append(pool)
+
+
+@pytest.fixture(autouse=True)
+def _virtual_host_runtime_teardown(qapp):
+    yield
+    for service in _vh_runtime_services:
+        try:
+            if service.running:
+                service.stop()
+        except Exception:
+            pass
+    deadline = time.monotonic() + 5.0
+    while time.monotonic() < deadline:
+        qapp.processEvents()
+        if all(
+            not service.vision_in_flight and not service.chat_in_flight
+            for service in _vh_runtime_services
+        ):
+            break
+    for pool in _vh_runtime_pools:
+        pool.waitForDone(5000)
+    _vh_runtime_services.clear()
+    _vh_runtime_pools.clear()
+    qapp.processEvents()
+
 
 class _FakeConfig:
     def __init__(self, data: dict | None = None, *, custom_models: list | None = None) -> None:
@@ -153,6 +189,7 @@ def test_runtime_vision_disabled_makes_zero_http_calls(monkeypatch):
     config = _FakeConfig(custom_models=[_vision_profile("vision-b")])
     service = VirtualHostRuntimeService(_fake_app(config))
     service.start()
+    _register_runtime_test(service)
     monkeypatch.setattr(
         "app.virtual_host.runtime_service.request_scene_summary",
         lambda *_args, **_kwargs: pytest.fail("vision HTTP must not run"),
@@ -178,6 +215,7 @@ def test_runtime_vision_uses_virtual_host_model_not_danmu_default(monkeypatch):
     apply_virtual_host_model_config(config, {"vision_model_id": vision_model})
     service = VirtualHostRuntimeService(_fake_app(config))
     service.start()
+    _register_runtime_test(service)
     seen: dict[str, str] = {}
 
     def _fake_request(image_data_uri, resolved, *, http_client=None):
@@ -227,6 +265,7 @@ def test_runtime_tts_binding_uses_virtual_host_provider(monkeypatch):
     monkeypatch.setattr("app.virtual_host.runtime_service.get_tts_manager", lambda: manager)
     service = VirtualHostRuntimeService(_fake_app(config))
     service.start()
+    _register_runtime_test(service)
     service.audio.playback = PlaybackQueue(_FakePlayer())
     binding = resolve_virtual_host_tts_binding(config, manager)
     assert binding is not None
@@ -245,6 +284,7 @@ def test_runtime_tts_none_skips_synthesis(monkeypatch):
     monkeypatch.setattr("app.virtual_host.model_config.list_tts_model_options", lambda _config: [])
     service = VirtualHostRuntimeService(_fake_app(config))
     service.start()
+    _register_runtime_test(service)
     orchestrator = service.audio
     turn = orchestrator.begin_mic_turn(scene_generation=1)
     orchestrator.accept_transcript(turn.turn_id, "你好")
@@ -272,6 +312,7 @@ def test_runtime_tts_binding_configuration_error_does_not_block_start(monkeypatc
 
     service = VirtualHostRuntimeService(_fake_app(_FakeConfig()))
     service.start()
+    _register_runtime_test(service)
 
     assert service.running is True
     assert service.audio.tts_binding is None
@@ -306,6 +347,7 @@ def test_stale_virtual_host_model_sanitized_without_fallback(monkeypatch):
     assert normalized["virtual_host_tts_provider"] == ""
     service = VirtualHostRuntimeService(_fake_app(config))
     service.start()
+    _register_runtime_test(service)
     assert service.update_scene_from_image_data_uri(
         "data:image/jpeg;base64,ZmFrZQ==",
         screenshot_id=1,
@@ -372,6 +414,7 @@ def _vision_service(monkeypatch, config: _FakeConfig) -> VirtualHostRuntimeServi
     )
     service = VirtualHostRuntimeService(_fake_app(config))
     service.start()
+    _register_runtime_test(service, pool)
     return service
 
 
@@ -581,3 +624,36 @@ def test_scene_vision_http_failure_clears_vision_in_flight(qapp, monkeypatch):
 
     assert not service.vision_in_flight
     assert service.session.current_scene_context() is None
+
+
+def test_repeated_vision_capture_drains_worker_pool(qapp, monkeypatch):
+    config = _vision_config()
+    pool = QThreadPool()
+    monkeypatch.setattr("app.virtual_host.runtime_service.ai_worker_pool", lambda: pool)
+    monkeypatch.setattr(
+        "app.virtual_host.runtime_service.compress_screenshot",
+        lambda _pixmap: "data:image/jpeg;base64,ZmFrZQ==",
+    )
+
+    def _fake_request(_image_data_uri, resolved, *, http_client=None):
+        del http_client
+        return SceneSummaryResult(ok=True, text="重复运行", model_id=resolved[2])
+
+    monkeypatch.setattr("app.virtual_host.runtime_service.request_scene_summary", _fake_request)
+
+    for _ in range(3):
+        service = VirtualHostRuntimeService(_fake_app(config))
+        service.start()
+        _register_runtime_test(service, pool)
+        service.on_capture_completed(
+            FakePixmap(1),
+            screenshot_id=20,
+            scene_generation=8,
+        )
+        deadline = time.monotonic() + 2.0
+        while service.vision_in_flight and time.monotonic() < deadline:
+            qapp.processEvents()
+        assert not service.vision_in_flight
+        service.stop()
+
+    assert pool.waitForDone(3000)

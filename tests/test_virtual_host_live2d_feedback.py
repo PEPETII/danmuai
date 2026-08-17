@@ -8,7 +8,7 @@ from app.virtual_host.playback import PlaybackEvent, PlaybackItem
 
 
 class FakeRuntime:
-    def __init__(self, *, mouth: bool = True) -> None:
+    def __init__(self, *, mouth: bool = True, reset_expression_supported: bool = True) -> None:
         specs = [
             {
                 "parameter_id": "ParamMouthOpenY",
@@ -19,6 +19,7 @@ class FakeRuntime:
             },
             {"parameter_id": "ParamMouthForm", "minimum": -1, "maximum": 1, "default": 0},
             {"parameter_id": "ParamEyeBallX", "minimum": -1, "maximum": 1, "default": 0},
+            {"parameter_id": "ParamAngleY", "minimum": -30, "maximum": 30, "default": 0},
         ]
         if not mouth:
             specs.pop(0)
@@ -32,6 +33,8 @@ class FakeRuntime:
         }
         self.callback = None
         self.calls: list[tuple[str, object]] = []
+        self._expression_active = False
+        self._reset_expression_supported = reset_expression_supported
 
     def snapshot(self):
         return self.snapshot_data
@@ -41,8 +44,16 @@ class FakeRuntime:
         return {"parameter_id": parameter_id, "value": value}
 
     def set_expression(self, file_name: str):
+        self._expression_active = True
         self.calls.append(("expression", file_name))
         return {"file": file_name}
+
+    def reset_expression(self):
+        self._expression_active = False
+        if self._reset_expression_supported:
+            self.calls.append(("reset_expression", None))
+            return {"status": "reset"}
+        return {"status": "degraded", "reason": "reset_expression_unavailable"}
 
     def start_motion(self, file_name: str):
         self.calls.append(("motion", file_name))
@@ -54,6 +65,10 @@ class FakeRuntime:
 
     def set_frame_callback(self, callback):
         self.callback = callback
+
+    def simulate_model_update(self):
+        if self._expression_active:
+            self.calls.append(("expression_reapplied", None))
 
 
 def _item(item_id: str, generation: int = 1) -> PlaybackItem:
@@ -156,7 +171,54 @@ def test_generation_reset_writes_mouth_back_to_default_immediately():
     controller.set_runtime_generation(2)
 
     assert ("parameter", ("ParamMouthOpenY", 0.0)) in runtime.calls
+    assert ("reset_expression", None) in runtime.calls
     assert not controller.speech_lip_sync_active
+
+
+def test_expression_reset_survives_model_update_after_generation_bump():
+    controller, runtime = _controller()
+    controller.apply_turn_result(
+        HostTurnResult("session", 1, "hi", emotion=EmotionDraft("happy")),
+        1,
+    )
+    runtime.calls.clear()
+
+    controller.set_runtime_generation(2)
+    runtime.simulate_model_update()
+
+    assert ("reset_expression", None) in runtime.calls
+    assert ("expression_reapplied", None) not in runtime.calls
+
+
+def test_deactivate_and_unbind_clear_expression_state():
+    controller, runtime = _controller()
+    controller.apply_turn_result(
+        HostTurnResult("session", 1, "hi", emotion=EmotionDraft("happy")),
+        1,
+    )
+    runtime.calls.clear()
+
+    controller.deactivate()
+    assert ("reset_expression", None) in runtime.calls
+    runtime.calls.clear()
+    runtime._expression_active = True
+
+    controller.activate()
+    controller.unbind_runtime()
+    assert ("reset_expression", None) in runtime.calls
+    runtime.simulate_model_update()
+    assert ("expression_reapplied", None) not in runtime.calls
+
+
+def test_reset_expression_missing_api_degrades_without_crash():
+    controller, runtime = _controller(FakeRuntime(reset_expression_supported=False))
+    controller.apply_turn_result(
+        HostTurnResult("session", 1, "hi", emotion=EmotionDraft("happy")),
+        1,
+    )
+    runtime.calls.clear()
+    controller.set_runtime_generation(2)
+    assert ("reset_expression", None) not in runtime.calls
 
 
 def test_consecutive_start_events_do_not_create_a_lip_sync_gap():
@@ -176,9 +238,42 @@ def test_emotion_maps_to_actual_expression_and_ignores_missing_match():
     matching = HostTurnResult("session", 1, "hi", emotion=EmotionDraft("happy"))
     mismatching = HostTurnResult("session", 2, "hi", emotion=EmotionDraft("made_up"))
 
-    assert controller.apply_turn_result(matching, 1)[0].status == "applied"
+    assert controller.apply_turn_result(matching, 1)[0].status == "expression_applied"
     assert controller.apply_turn_result(mismatching, 1)[0].status == "ignored"
     assert ("expression", "expressions/smile.exp3.json") in runtime.calls
+
+
+def test_arbitrary_expression_name_is_not_guessed_as_happy():
+    runtime = FakeRuntime()
+    runtime.snapshot_data["capabilities"]["expression_entries"] = [
+        {"id": "ku", "file": "expressions/exp01.exp3.json"},
+    ]
+    controller, _runtime = _controller(runtime)
+
+    outcome = controller.apply_turn_result(
+        HostTurnResult("session", 1, "hi", emotion=EmotionDraft("exp01")),
+        1,
+    )[0]
+    assert outcome.status == "ignored"
+    assert not any(kind == "expression" for kind, _ in runtime.calls)
+
+
+def test_explicit_semantic_mapping_hits_arbitrary_expression_name():
+    runtime = FakeRuntime()
+    runtime.snapshot_data["capabilities"]["expression_entries"] = [
+        {"id": "ku", "file": "expressions/exp01.exp3.json"},
+    ]
+    runtime.snapshot_data["capabilities"]["semantic_mappings"] = {
+        "emotions": {"happy": "ku"},
+    }
+    controller, runtime = _controller(runtime)
+
+    outcome = controller.apply_turn_result(
+        HostTurnResult("session", 1, "hi", emotion=EmotionDraft("happy")),
+        1,
+    )[0]
+    assert outcome.status == "expression_applied"
+    assert ("expression", "expressions/exp01.exp3.json") in runtime.calls
 
 
 def test_expression_requires_allowlisted_name_and_real_entry():
@@ -192,7 +287,7 @@ def test_expression_requires_allowlisted_name_and_real_entry():
 
     outcomes = controller.apply_turn_result(result, 1)
 
-    assert [outcome.status for outcome in outcomes] == ["applied", "ignored"]
+    assert [outcome.status for outcome in outcomes] == ["expression_applied", "ignored"]
     assert runtime.calls == [("expression", "expressions/smile.exp3.json")]
 
 
@@ -207,8 +302,74 @@ def test_gesture_requires_allowlisted_name_and_real_motion_entry():
 
     outcomes = controller.apply_turn_result(result, 1)
 
-    assert [outcome.status for outcome in outcomes] == ["applied", "ignored"]
+    assert [outcome.status for outcome in outcomes] == ["motion_applied", "ignored"]
     assert runtime.calls == [("motion", "motions/nod.motion3.json")]
+
+
+def test_nod_without_motion_uses_angle_y_parameter_fallback():
+    runtime = FakeRuntime()
+    runtime.snapshot_data["capabilities"]["motion_entries"] = [
+        {"group": "daiji", "index": 0, "file": "motions/daiji.motion3.json"},
+    ]
+    controller, runtime = _controller(runtime)
+
+    outcome = controller.apply_turn_result(
+        HostTurnResult("session", 1, "hi", actions=(_named_action("gesture", "nod"),)),
+        1,
+    )[0]
+    controller.tick()
+    assert outcome.status == "parameter_fallback"
+    assert not any(kind == "motion" for kind, _ in runtime.calls)
+    assert any(kind == "parameter" and args[0] == "ParamAngleY" for kind, args in runtime.calls)
+
+
+def test_nod_does_not_auto_match_idle_daiji_motion():
+    runtime = FakeRuntime()
+    runtime.snapshot_data["capabilities"]["motion_entries"] = [
+        {"group": "daiji", "index": 0, "file": "motions/daiji.motion3.json"},
+        {"group": "nod", "index": 0, "file": "motions/nod.motion3.json"},
+    ]
+    controller, runtime = _controller(runtime)
+
+    outcome = controller.apply_turn_result(
+        HostTurnResult("session", 1, "hi", actions=(_named_action("gesture", "nod"),)),
+        1,
+    )[0]
+    assert outcome.status == "motion_applied"
+    assert ("motion", "motions/nod.motion3.json") in runtime.calls
+
+
+def test_missing_gesture_parameters_are_ignored_safely():
+    runtime = FakeRuntime()
+    runtime.snapshot_data["capabilities"]["parameter_specs"] = [
+        {"parameter_id": "ParamMouthForm", "minimum": -1, "maximum": 1, "default": 0},
+    ]
+    runtime.snapshot_data["capabilities"]["motion_entries"] = []
+    controller, _runtime = _controller(runtime)
+
+    outcome = controller.apply_turn_result(
+        HostTurnResult("session", 1, "hi", actions=(_named_action("gesture", "nod"),)),
+        1,
+    )[0]
+    assert outcome.status == "ignored"
+    assert outcome.reason == "gesture_parameters_missing"
+
+
+def test_happy_without_expression_uses_parameter_fallback():
+    runtime = FakeRuntime()
+    runtime.snapshot_data["capabilities"]["expression_entries"] = [
+        {"id": "ku", "file": "expressions/exp01.exp3.json"},
+    ]
+    controller, runtime = _controller(runtime)
+
+    outcome = controller.apply_turn_result(
+        HostTurnResult("session", 1, "hi", emotion=EmotionDraft("happy")),
+        1,
+    )[0]
+    controller.tick()
+    assert outcome.status == "parameter_fallback"
+    assert not any(kind == "expression" for kind, _ in runtime.calls)
+    assert any(kind == "parameter" and args[0] == "ParamMouthForm" for kind, args in runtime.calls)
 
 
 def test_look_at_and_idle_use_controlled_semantic_names():
