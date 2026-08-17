@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import threading
+import time
 from types import SimpleNamespace
 
 import pytest
@@ -27,8 +29,11 @@ from app.virtual_host.model_config import (
     sanitize_virtual_host_model_config,
 )
 from app.virtual_host.playback import PlaybackQueue
-from app.virtual_host.runtime_service import VirtualHostRuntimeService
+from app.virtual_host.runtime_service import SceneVisionCoordinator, VirtualHostRuntimeService
 from app.virtual_host.vision import SceneSummaryResult
+from PyQt6.QtCore import QObject, QThreadPool, pyqtSlot
+
+from tests.fakes import FakePixmap
 
 
 class _FakeConfig:
@@ -300,3 +305,238 @@ def test_request_scene_summary_posts_expected_model(monkeypatch):
     assert result.ok is True
     assert result.model_id == vision_model
     assert vision_model in str(captured.get("json"))
+
+
+def _vision_config(
+    vision_model: str = "qwen3-vl-flash",
+    *,
+    extra_models: list | None = None,
+) -> _FakeConfig:
+    models = list(extra_models or [])
+    if not any(
+        isinstance(m, dict) and m.get("default_model_id") == vision_model for m in models
+    ):
+        models.append(_vision_profile(vision_model))
+    config = _FakeConfig({VISION_MODEL_KEY: vision_model}, custom_models=models)
+    apply_virtual_host_model_config(config, {"vision_model_id": vision_model})
+    return config
+
+
+def _vision_service(monkeypatch, config: _FakeConfig) -> VirtualHostRuntimeService:
+    pool = QThreadPool()
+    monkeypatch.setattr("app.virtual_host.runtime_service.ai_worker_pool", lambda: pool)
+    monkeypatch.setattr(
+        "app.virtual_host.runtime_service.compress_screenshot",
+        lambda _pixmap: "data:image/jpeg;base64,ZmFrZQ==",
+    )
+    service = VirtualHostRuntimeService(_fake_app(config))
+    service.start()
+    return service
+
+
+class _SceneVisionCompleteReceiver(QObject):
+    def __init__(self) -> None:
+        super().__init__()
+        self.thread_ids: list[int] = []
+
+    @pyqtSlot(object, int, int, float, int, str)
+    def on_completed(
+        self,
+        _result: object,
+        _screenshot_id: int,
+        _scene_generation: int,
+        _captured_at: float,
+        _runtime_generation: int,
+        _vision_model_id: str,
+    ) -> None:
+        self.thread_ids.append(threading.get_ident())
+
+
+def test_scene_vision_worker_result_delivered_on_main_thread_via_signal(qapp, monkeypatch):
+    config = _vision_config()
+    service = _vision_service(monkeypatch, config)
+    coordinator = SceneVisionCoordinator()
+    receiver = _SceneVisionCompleteReceiver()
+    coordinator.completed.connect(receiver.on_completed)
+    main_thread_id = threading.get_ident()
+
+    def _fake_request(_image_data_uri, resolved, *, http_client=None):
+        del http_client
+        return SceneSummaryResult(ok=True, text="主线程信号", model_id=resolved[2])
+
+    monkeypatch.setattr("app.virtual_host.runtime_service.request_scene_summary", _fake_request)
+
+    from app.virtual_host.runtime_service import _SceneVisionRunnable
+
+    resolved = service._active_vision_model_id
+    runnable = _SceneVisionRunnable(
+        coordinator,
+        image_data_uri="data:image/jpeg;base64,ZmFrZQ==",
+        resolved=(
+            "https://dashscope.aliyuncs.com/compatible-mode/v1",
+            "vision-secret",
+            resolved,
+            "openai-compatible",
+        ),
+        screenshot_id=1,
+        scene_generation=1,
+        captured_at=1.0,
+        runtime_generation=service.runtime_generation,
+        vision_model_id=resolved,
+    )
+
+    worker = threading.Thread(target=runnable.run)
+    worker.start()
+    worker.join(timeout=2.0)
+    assert not worker.is_alive()
+
+    deadline = time.monotonic() + 1.0
+    while not receiver.thread_ids and time.monotonic() < deadline:
+        qapp.processEvents()
+        time.sleep(0.01)
+
+    assert receiver.thread_ids == [main_thread_id]
+
+
+def test_scene_vision_stale_result_after_stop_does_not_update_scene_context(qapp, monkeypatch):
+    config = _vision_config()
+    service = _vision_service(monkeypatch, config)
+
+    def _slow_request(_image_data_uri, resolved, *, http_client=None):
+        del http_client
+        time.sleep(0.05)
+        return SceneSummaryResult(ok=True, text="stop 后过期", model_id=resolved[2])
+
+    monkeypatch.setattr("app.virtual_host.runtime_service.request_scene_summary", _slow_request)
+
+    service.on_capture_completed(
+        FakePixmap(1),
+        screenshot_id=9,
+        scene_generation=2,
+    )
+    assert service.vision_in_flight
+    service.stop()
+
+    deadline = time.monotonic() + 2.0
+    while service.vision_in_flight and time.monotonic() < deadline:
+        qapp.processEvents()
+        time.sleep(0.01)
+
+    assert not service.vision_in_flight
+    context = service.session.current_scene_context()
+    assert context is None or context.summary != "stop 后过期"
+
+
+def test_scene_vision_stale_result_after_stop_start_does_not_update_scene_context(qapp, monkeypatch):
+    config = _vision_config()
+    service = _vision_service(monkeypatch, config)
+
+    def _slow_request(_image_data_uri, resolved, *, http_client=None):
+        del http_client
+        time.sleep(0.05)
+        return SceneSummaryResult(ok=True, text="上一周期", model_id=resolved[2])
+
+    monkeypatch.setattr("app.virtual_host.runtime_service.request_scene_summary", _slow_request)
+
+    service.on_capture_completed(
+        FakePixmap(1),
+        screenshot_id=3,
+        scene_generation=1,
+    )
+    service.stop()
+    service.start()
+
+    deadline = time.monotonic() + 2.0
+    while service.vision_in_flight and time.monotonic() < deadline:
+        qapp.processEvents()
+        time.sleep(0.01)
+
+    context = service.session.current_scene_context()
+    assert context is None or context.summary != "上一周期"
+
+
+def test_scene_vision_stale_model_result_does_not_update_scene_context(qapp, monkeypatch):
+    model_a = "qwen3-vl-flash"
+    model_b = "vision-model-b"
+    config = _vision_config(
+        model_a,
+        extra_models=[_vision_profile(model_b, api_key="vision-b")],
+    )
+    service = _vision_service(monkeypatch, config)
+
+    def _slow_request(_image_data_uri, resolved, *, http_client=None):
+        del http_client
+        time.sleep(0.05)
+        return SceneSummaryResult(ok=True, text="旧模型 A", model_id=resolved[2])
+
+    monkeypatch.setattr("app.virtual_host.runtime_service.request_scene_summary", _slow_request)
+
+    service.on_capture_completed(
+        FakePixmap(1),
+        screenshot_id=5,
+        scene_generation=4,
+    )
+    config.set_batch({VISION_MODEL_KEY: model_b})
+    service.refresh_model_bindings()
+
+    deadline = time.monotonic() + 2.0
+    while service.vision_in_flight and time.monotonic() < deadline:
+        qapp.processEvents()
+        time.sleep(0.01)
+
+    context = service.session.current_scene_context()
+    assert context is None or context.summary != "旧模型 A"
+
+
+def test_scene_vision_success_clears_vision_in_flight(qapp, monkeypatch):
+    config = _vision_config()
+    service = _vision_service(monkeypatch, config)
+
+    def _fake_request(_image_data_uri, resolved, *, http_client=None):
+        del http_client
+        return SceneSummaryResult(ok=True, text="正常完成", model_id=resolved[2])
+
+    monkeypatch.setattr("app.virtual_host.runtime_service.request_scene_summary", _fake_request)
+
+    service.on_capture_completed(
+        FakePixmap(1),
+        screenshot_id=11,
+        scene_generation=6,
+    )
+    assert service.vision_in_flight
+
+    deadline = time.monotonic() + 2.0
+    while service.vision_in_flight and time.monotonic() < deadline:
+        qapp.processEvents()
+        time.sleep(0.01)
+
+    assert not service.vision_in_flight
+    context = service.session.current_scene_context()
+    assert context is not None
+    assert context.summary == "正常完成"
+
+
+def test_scene_vision_http_failure_clears_vision_in_flight(qapp, monkeypatch):
+    config = _vision_config()
+    service = _vision_service(monkeypatch, config)
+
+    def _failed_request(_image_data_uri, resolved, *, http_client=None):
+        del resolved, http_client
+        return SceneSummaryResult(ok=False, error="http_error")
+
+    monkeypatch.setattr("app.virtual_host.runtime_service.request_scene_summary", _failed_request)
+
+    service.on_capture_completed(
+        FakePixmap(1),
+        screenshot_id=12,
+        scene_generation=7,
+    )
+    assert service.vision_in_flight
+
+    deadline = time.monotonic() + 2.0
+    while service.vision_in_flight and time.monotonic() < deadline:
+        qapp.processEvents()
+        time.sleep(0.01)
+
+    assert not service.vision_in_flight
+    assert service.session.current_scene_context() is None
