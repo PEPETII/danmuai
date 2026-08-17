@@ -10,10 +10,23 @@ from pathlib import Path
 from typing import Any, Callable
 
 from .model_loader import Live2DModelLoader, ModelCapabilities, ModelLoadResult
+from .model_storage import (
+    DiscoveredModel,
+    allocate_model_id,
+    copy_model_directory,
+    discover_models_in_folder,
+    model_selection_label,
+)
 
 LIVE2D_MODEL_PATH_KEY = "live2d_model_path"
+LIVE2D_MODEL_ID_KEY = "live2d_model_id"
+LIVE2D_MODEL_NAME_KEY = "live2d_model_name"
+LIVE2D_MODEL_ENTRY_KEY = "live2d_model_entry"
 _MODEL_SUFFIX = ".model3.json"
 _MODEL_RESOURCE_URL = "/api/live2d/resource/model.json"
+_NO_MODELS_MESSAGE = (
+    "未在该文件夹中识别到可用的 Live2D 模型，请选择解压后的完整模型文件夹。"
+)
 _RESOURCE_SUFFIXES = frozenset(
     {
         ".json",
@@ -67,7 +80,7 @@ def _empty_capabilities() -> dict[str, Any]:
 
 
 class Live2DModelRegistry:
-    """Own the config binding; model resources remain at their original path."""
+    """Own the config binding; imported models are copied into managed storage."""
 
     def __init__(
         self,
@@ -75,11 +88,17 @@ class Live2DModelRegistry:
         *,
         loader: Live2DModelLoader | None = None,
         on_config_changed: Callable[[], None] | None = None,
+        models_root: Path | None = None,
     ) -> None:
         self._config = config
         self._loader = loader or Live2DModelLoader()
         self._on_config_changed = on_config_changed
         self._runtime_status = "stopped"
+        if models_root is None:
+            from .model_storage import LIVE2D_MODELS_ROOT
+
+            models_root = LIVE2D_MODELS_ROOT
+        self._models_root = Path(models_root)
 
     def snapshot(self) -> dict[str, Any]:
         raw_path = str(self._config.get(LIVE2D_MODEL_PATH_KEY, "") or "").strip()
@@ -95,11 +114,16 @@ class Live2DModelRegistry:
             )
 
         result = self._loader.inspect(raw_path)
-        return self._snapshot_from_result(
+        configured_name = str(self._config.get(LIVE2D_MODEL_NAME_KEY, "") or "").strip() or None
+        snapshot = self._snapshot_from_result(
             result,
             configured=True,
             fallback_path=raw_path,
+            model_name=configured_name or _model_name(raw_path),
         )
+        snapshot["model_id"] = str(self._config.get(LIVE2D_MODEL_ID_KEY, "") or "").strip() or None
+        snapshot["model_entry"] = str(self._config.get(LIVE2D_MODEL_ENTRY_KEY, "") or "").strip() or None
+        return snapshot
 
     def start_model(self) -> dict[str, Any]:
         snapshot = self.snapshot()
@@ -220,9 +244,43 @@ class Live2DModelRegistry:
 
         current = str(self._config.get(LIVE2D_MODEL_PATH_KEY, "") or "").strip()
         start_dir = str(Path(current).parent) if current else str(Path.home())
+        selected_dir = QFileDialog.getExistingDirectory(
+            None,
+            "选择 Live2D 模型文件夹",
+            start_dir,
+            QFileDialog.Option.ShowDirsOnly,
+        )
+        if not selected_dir:
+            result = self.snapshot()
+            result["cancelled"] = True
+            result["reason"] = "cancelled"
+            return result
+
+        discovered = discover_models_in_folder(Path(selected_dir))
+        if not discovered:
+            return self._snapshot(
+                configured=False,
+                model_name=None,
+                model_path=None,
+                status="invalid",
+                reason="model_not_found_in_folder",
+                capabilities=_empty_capabilities(),
+                error=_NO_MODELS_MESSAGE,
+            )
+
+        if len(discovered) == 1:
+            return self._import_discovered_model(discovered[0])
+
+        return self._import_discovered_model_via_selection(discovered)
+
+    def import_model_file_via_dialog(self) -> dict[str, Any]:
+        from PyQt6.QtWidgets import QFileDialog
+
+        current = str(self._config.get(LIVE2D_MODEL_PATH_KEY, "") or "").strip()
+        start_dir = str(Path(current).parent) if current else str(Path.home())
         selected, _selected_filter = QFileDialog.getOpenFileName(
             None,
-            "选择 Live2D 模型",
+            "选择 Live2D 模型文件",
             start_dir,
             "Live2D 模型 (*.model3.json)",
         )
@@ -232,25 +290,109 @@ class Live2DModelRegistry:
             result["reason"] = "cancelled"
             return result
 
-        loaded = self._loader.inspect(selected)
+        model_path = Path(selected).resolve()
+        discovered = DiscoveredModel(
+            name=_model_name(model_path) or "未命名模型",
+            model_path=model_path,
+            model_dir=model_path.parent,
+        )
+        return self._import_discovered_model(discovered)
+
+    def _import_discovered_model_via_selection(
+        self,
+        discovered: list[DiscoveredModel],
+    ) -> dict[str, Any]:
+        from PyQt6.QtWidgets import QInputDialog
+
+        labels = [model_selection_label(model, discovered) for model in discovered]
+        selected_label, accepted = QInputDialog.getItem(
+            None,
+            "选择要导入的模型",
+            "识别到多个 Live2D 模型，请选择一个：",
+            labels,
+            0,
+            False,
+        )
+        if not accepted or not selected_label:
+            result = self.snapshot()
+            result["cancelled"] = True
+            result["reason"] = "cancelled"
+            return result
+
+        index = labels.index(str(selected_label))
+        return self._import_discovered_model(discovered[index])
+
+    def _import_discovered_model(self, discovered: DiscoveredModel) -> dict[str, Any]:
+        loaded = self._loader.inspect(discovered.model_path)
         if not loaded.ok:
             return self._snapshot_from_result(
                 loaded,
                 configured=False,
-                fallback_path=selected,
+                fallback_path=discovered.model_path,
+                model_name=discovered.name,
             )
 
-        self._config.set(LIVE2D_MODEL_PATH_KEY, str(Path(selected).resolve()))
+        try:
+            managed_path = self._copy_to_managed_storage(discovered)
+        except OSError as exc:
+            return self._snapshot(
+                configured=False,
+                model_name=discovered.name,
+                model_path=_redacted_path(discovered.model_path),
+                status="blocked",
+                reason="model_copy_failed",
+                capabilities=_capabilities_dict(loaded.capabilities),
+                error=f"模型复制失败：{exc}",
+            )
+
+        self._persist_managed_model(
+            model_id=managed_path["model_id"],
+            model_name=discovered.name,
+            model_entry=managed_path["model_entry"],
+            model_path=managed_path["model_path"],
+        )
         self._runtime_status = "stopped"
         self._notify_config_changed()
+        persisted = self._loader.inspect(managed_path["model_path"])
         return self._snapshot_from_result(
-            loaded,
+            persisted,
             configured=True,
-            fallback_path=selected,
+            fallback_path=managed_path["model_path"],
+            model_name=discovered.name,
         )
+
+    def _copy_to_managed_storage(self, discovered: DiscoveredModel) -> dict[str, str]:
+        model_id = allocate_model_id(discovered.name, self._models_root)
+        destination = copy_model_directory(
+            discovered.model_dir,
+            model_id=model_id,
+            root=self._models_root,
+        )
+        model_path = (destination / discovered.entry_relative).resolve()
+        return {
+            "model_id": model_id,
+            "model_entry": discovered.entry_relative,
+            "model_path": str(model_path),
+        }
+
+    def _persist_managed_model(
+        self,
+        *,
+        model_id: str,
+        model_name: str,
+        model_entry: str,
+        model_path: str,
+    ) -> None:
+        self._config.set(LIVE2D_MODEL_ID_KEY, model_id)
+        self._config.set(LIVE2D_MODEL_NAME_KEY, model_name)
+        self._config.set(LIVE2D_MODEL_ENTRY_KEY, model_entry)
+        self._config.set(LIVE2D_MODEL_PATH_KEY, model_path)
 
     def clear_model(self) -> dict[str, Any]:
         self._config.set(LIVE2D_MODEL_PATH_KEY, "")
+        self._config.set(LIVE2D_MODEL_ID_KEY, "")
+        self._config.set(LIVE2D_MODEL_NAME_KEY, "")
+        self._config.set(LIVE2D_MODEL_ENTRY_KEY, "")
         self._runtime_status = "stopped"
         self._notify_config_changed()
         result = self.snapshot()
@@ -263,16 +405,22 @@ class Live2DModelRegistry:
         *,
         configured: bool,
         fallback_path: str | Path | None,
+        model_name: str | None = None,
     ) -> dict[str, Any]:
-        return self._snapshot(
+        resolved_name = model_name or _model_name(fallback_path)
+        snapshot = self._snapshot(
             configured=configured,
-            model_name=_model_name(fallback_path),
+            model_name=resolved_name,
             model_path=result.model_path or _redacted_path(fallback_path),
             status=result.status,
             reason=result.reason,
             capabilities=_capabilities_dict(result.capabilities),
             error=result.error,
         )
+        if configured:
+            snapshot["model_id"] = str(self._config.get(LIVE2D_MODEL_ID_KEY, "") or "").strip() or None
+            snapshot["model_entry"] = str(self._config.get(LIVE2D_MODEL_ENTRY_KEY, "") or "").strip() or None
+        return snapshot
 
     def _snapshot(
         self,
@@ -296,6 +444,8 @@ class Live2DModelRegistry:
             "cancelled": False,
             "runtime_status": self._runtime_status,
             "model_url": _MODEL_RESOURCE_URL if configured and status == "ready" else None,
+            "model_id": None,
+            "model_entry": None,
         }
 
     def _notify_config_changed(self) -> None:
@@ -303,4 +453,10 @@ class Live2DModelRegistry:
             self._on_config_changed()
 
 
-__all__ = ["LIVE2D_MODEL_PATH_KEY", "Live2DModelRegistry"]
+__all__ = [
+    "LIVE2D_MODEL_ENTRY_KEY",
+    "LIVE2D_MODEL_ID_KEY",
+    "LIVE2D_MODEL_NAME_KEY",
+    "LIVE2D_MODEL_PATH_KEY",
+    "Live2DModelRegistry",
+]

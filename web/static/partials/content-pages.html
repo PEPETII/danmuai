@@ -383,10 +383,12 @@
             <div id="vtuberCapabilities" class="vtuber-capabilities" aria-live="polite"></div>
             <p id="vtuberModelError" class="vtuber-model-error hidden" role="alert"></p>
             <div class="vtuber-settings-actions" aria-label="Live2D 模型操作">
-              <button type="button" id="btnVtuberImportModel" class="ui-button ui-button--primary ui-button--md">导入 Live2D 模型</button>
+              <button type="button" id="btnVtuberImportModel" class="ui-button ui-button--primary ui-button--md">导入模型文件夹</button>
+              <button type="button" id="btnVtuberImportModelAdvanced" class="ui-button ui-button--secondary ui-button--md">高级导入</button>
               <button type="button" id="btnVtuberClearModel" class="ui-button ui-button--secondary ui-button--md" disabled>移除模型</button>
             </div>
-            <p class="settings-section-hint">通过桌面原生文件选择器选择 .model3.json；模型文件不会上传或复制。</p>
+            <p class="settings-section-hint">选择包含 Live2D 模型的文件夹，DanmuAI 会自动识别模型，无需手动查找模型文件。</p>
+            <p class="settings-section-hint">高级导入可手动选择 .model3.json 入口文件；导入后模型会复制到本机受管目录，避免原路径移动后失效。</p>
           </section>
 
           <section class="vtuber-model-card ui-card" aria-labelledby="vtuberModelSettingsHeading">

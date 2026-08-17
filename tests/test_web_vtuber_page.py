@@ -36,7 +36,13 @@ def test_vtuber_panel_is_wired_to_pet_tabs():
 def test_vtuber_runtime_exposes_start_stop_desktop_status():
     panel = _vtuber_panel()
 
-    for control_id in ("btnVtuberImportModel", "btnVtuberClearModel", "btnVtuberStart", "btnVtuberStop"):
+    for control_id in (
+        "btnVtuberImportModel",
+        "btnVtuberImportModelAdvanced",
+        "btnVtuberClearModel",
+        "btnVtuberStart",
+        "btnVtuberStop",
+    ):
         assert f'id="{control_id}"' in panel
     assert 'id="btnVtuberImportModel"' in panel and 'disabled' not in panel.split('id="btnVtuberImportModel"', 1)[1].split('>', 1)[0]
     assert 'id="btnVtuberClearModel"' in panel and re.search(r'id="btnVtuberClearModel"[^>]*\bdisabled\b', panel)
@@ -50,8 +56,8 @@ def test_vtuber_runtime_exposes_start_stop_desktop_status():
     assert 'id="vtuberVisionModelSelect"' in panel
     assert 'id="vtuberTtsModelSelect"' in panel
     assert 'id="vtuberModelSettingsStatus"' in panel
-    assert "通过桌面原生文件选择器" in panel
-    assert "模型文件不会上传或复制" in panel
+    assert "选择包含 Live2D 模型的文件夹" in panel
+    assert "高级导入" in panel
 
 
 def test_vtuber_module_uses_native_model_api_without_web_control_panel():
@@ -61,6 +67,7 @@ def test_vtuber_module_uses_native_model_api_without_web_control_panel():
     for endpoint in (
         "/api/live2d/model",
         "/api/live2d/import-model",
+        "/api/live2d/import-model-file",
         "/api/live2d/clear-model",
         "/api/live2d/start",
         "/api/live2d/stop",

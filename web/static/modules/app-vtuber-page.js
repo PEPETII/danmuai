@@ -152,8 +152,10 @@ function renderModel(data) {
   const errorElement = element('vtuberModelError');
   if (errorElement) { errorElement.textContent = error; errorElement.classList.toggle('hidden', !error); }
   const importButton = element('btnVtuberImportModel'); const clearButton = element('btnVtuberClearModel');
+  const advancedButton = element('btnVtuberImportModelAdvanced');
   const startButton = element('btnVtuberStart'); const stopButton = element('btnVtuberStop');
   if (importButton) importButton.disabled = requestInFlight;
+  if (advancedButton) advancedButton.disabled = requestInFlight;
   if (clearButton) clearButton.disabled = requestInFlight || !hasModel;
   if (startButton) startButton.disabled = requestInFlight || !model.loaded || running;
   if (stopButton) stopButton.disabled = requestInFlight || !running;
@@ -164,6 +166,7 @@ function setRequestState(active) {
   const current = element('vtuberModelFileName')?.textContent || '';
   const hasModel = current && current !== '未选择模型';
   const importButton = element('btnVtuberImportModel'); if (importButton) importButton.disabled = active;
+  const advancedButton = element('btnVtuberImportModelAdvanced'); if (advancedButton) advancedButton.disabled = active;
   const clearButton = element('btnVtuberClearModel'); if (clearButton) clearButton.disabled = active || !hasModel;
   const running = element('vtuberStatusBadge')?.textContent === '运行中';
   const startButton = element('btnVtuberStart'); if (startButton) startButton.disabled = active || !hasModel || running;
@@ -191,10 +194,10 @@ async function stopModel() {
   } catch (error) { renderRequestError(error); throw error; } finally { setRequestState(false); }
 }
 
-async function importModel() {
+async function importModel(endpoint = '/api/live2d/import-model') {
   setRequestState(true);
   try {
-    const data = await apiFetch('/api/live2d/import-model', { method: 'POST' });
+    const data = await apiFetch(endpoint, { method: 'POST' });
     renderModel(data);
     if (!data?.cancelled) toast('Live2D 模型已导入，可以启动虚拟主播');
   } catch (error) { renderRequestError(error); throw error; } finally { setRequestState(false); }
@@ -228,6 +231,7 @@ export function initVtuberPage(deps = {}) {
       .catch((error) => toast(error.message, true));
   });
   element('btnVtuberImportModel')?.addEventListener('click', () => importModel().catch((error) => toast(error.message, true)));
+  element('btnVtuberImportModelAdvanced')?.addEventListener('click', () => importModel('/api/live2d/import-model-file').catch((error) => toast(error.message, true)));
   element('btnVtuberClearModel')?.addEventListener('click', () => clearModel().catch((error) => toast(error.message, true)));
   element('btnVtuberStart')?.addEventListener('click', () => startModel().catch((error) => toast(error.message, true)));
   element('btnVtuberStop')?.addEventListener('click', () => stopModel().catch((error) => toast(error.message, true)));

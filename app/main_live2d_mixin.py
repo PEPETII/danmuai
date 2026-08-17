@@ -52,6 +52,12 @@ class DanmuAppLive2DMixin:
             runtime.stop()
         return self._get_live2d_model_registry().import_model_via_dialog()
 
+    def import_live2d_model_file_via_dialog(self) -> dict[str, object]:
+        runtime = self.__dict__.get("_live2d_desktop_runtime")
+        if runtime is not None:
+            runtime.stop()
+        return self._get_live2d_model_registry().import_model_file_via_dialog()
+
     def clear_live2d_model(self) -> dict[str, object]:
         runtime = self.__dict__.get("_live2d_desktop_runtime")
         if runtime is not None:

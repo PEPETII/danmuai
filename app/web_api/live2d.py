@@ -11,6 +11,10 @@ def import_model_via_dialog(app) -> dict[str, object]:
     return app.import_live2d_model_via_dialog()
 
 
+def import_model_file_via_dialog(app) -> dict[str, object]:
+    return app.import_live2d_model_file_via_dialog()
+
+
 def clear_model(app) -> dict[str, object]:
     return app.clear_live2d_model()
 

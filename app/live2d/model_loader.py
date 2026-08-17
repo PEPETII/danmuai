@@ -331,22 +331,30 @@ class Live2DModelLoader:
                 model_path=redacted,
                 error="model3 JSON does not reference a moc3 file",
             )
-        resource_keys = ("Moc", "Textures", "Physics", "DisplayInfo", "Pose", "Expressions")
+        critical_keys = ("Moc", "Textures")
+        optional_keys = ("Physics", "DisplayInfo", "Pose", "Expressions")
         dependencies: list[str] = []
         missing: list[str] = []
-        for key in resource_keys:
-            values = _resource_values(references.get(key))
-            for relative in values:
-                if relative not in dependencies:
-                    dependencies.append(relative)
-                if not (path.parent / relative).is_file() and relative not in missing:
-                    missing.append(relative)
-        motion_values = _resource_values(references.get("Motions"))
-        for relative in motion_values:
+        critical_missing: list[str] = []
+
+        def _track_dependency(relative: str, *, critical: bool) -> None:
             if relative not in dependencies:
                 dependencies.append(relative)
-            if not (path.parent / relative).is_file() and relative not in missing:
-                missing.append(relative)
+            if (path.parent / relative).is_file() or relative in missing:
+                return
+            missing.append(relative)
+            if critical and relative not in critical_missing:
+                critical_missing.append(relative)
+
+        for key in critical_keys:
+            for relative in _resource_values(references.get(key)):
+                _track_dependency(relative, critical=True)
+        for key in optional_keys:
+            for relative in _resource_values(references.get(key)):
+                _track_dependency(relative, critical=False)
+        motion_values = _resource_values(references.get("Motions"))
+        for relative in motion_values:
+            _track_dependency(relative, critical=False)
 
         motion_files = tuple(
             sorted(
@@ -401,14 +409,15 @@ class Live2DModelLoader:
             dependencies=tuple(dependencies),
             missing_dependencies=tuple(missing),
         )
-        if missing:
+        if critical_missing:
+            missing_list = "、".join(critical_missing)
             return ModelLoadResult(
                 ok=False,
                 status="blocked",
-                reason="dependency_missing",
+                reason="core_dependency_missing",
                 model_path=redacted,
                 capabilities=capabilities,
-                error="one or more model dependencies are missing",
+                error=f"核心模型资源缺失，无法加载：缺少 {missing_list}",
             )
         return ModelLoadResult(
             ok=True,
