@@ -156,11 +156,15 @@ def _pick_credentials(body: dict[str, Any]) -> dict[str, str]:
     raw = body.get("credentials")
     if not isinstance(raw, dict):
         return {}
-    return {
-        str(key): value.strip()
-        for key, value in raw.items()
-        if isinstance(key, str) and isinstance(value, str) and value.strip()
-    }
+    picked: dict[str, str] = {}
+    for key, value in raw.items():
+        if not isinstance(key, str) or not isinstance(value, str):
+            continue
+        stripped = value.strip()
+        if stripped == MASKED_API_KEY:
+            continue
+        picked[str(key)] = stripped
+    return picked
 
 
 def normalize_put_payload(body: dict[str, Any]) -> dict[str, Any]:
@@ -190,8 +194,12 @@ def normalize_put_payload(body: dict[str, Any]) -> dict[str, Any]:
             out[field] = float(body[field])
     if "api_key" in body:
         key = str(body.get("api_key") or "").strip()
-        if key and key != MASKED_API_KEY:
+        if key == MASKED_API_KEY:
+            pass
+        else:
             out["api_key"] = key
+    if body.get("clear_credentials"):
+        out["clear_credentials"] = True
     credentials = _pick_credentials(body)
     if credentials:
         out["credentials"] = credentials

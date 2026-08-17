@@ -9,6 +9,7 @@ from app.config_store import ConfigStore
 from app.danmu_read_service import DanmuReadService, export_danmu_read_config
 from app.tts.config_credentials import (
     all_masked_tts_credentials,
+    clear_stored_tts_credentials,
     masked_tts_credentials,
     stored_tts_credentials,
 )
@@ -201,3 +202,46 @@ def test_get_voices_uses_provider_scoped_credentials():
 
     assert seen == [TTS_PROVIDER_MINIMAX]
     assert result["voices"][0]["id"] == "voice-1"
+
+
+def test_clear_stored_tts_credentials_removes_only_target_provider(workspace_tmp):
+    store = ConfigStore(workspace_tmp / "clear_one.db")
+    try:
+        store.set_tts_secret(TTS_PROVIDER_MIMO, "api_key", "mimo-key")
+        store.set_tts_secret("dashscope", "api_key", "dash-key")
+        assert clear_stored_tts_credentials(store, "dashscope") is True
+        assert stored_tts_credentials(store, "dashscope") == {}
+        assert stored_tts_credentials(store, TTS_PROVIDER_MIMO)["api_key"] == "mimo-key"
+    finally:
+        store.close()
+
+
+def test_apply_config_clear_credentials_via_api(workspace_tmp):
+    store = ConfigStore(workspace_tmp / "clear_via_apply.db")
+    service = _make_read_service(store)
+    try:
+        service.apply_config(
+            {
+                "provider": TTS_PROVIDER_DASHSCOPE_QWEN,
+                "model_id": "qwen3-tts-flash-2025-11-27",
+                "credentials": {"api_key": "dash-key"},
+            }
+        )
+        assert stored_tts_credentials(store, "dashscope")["api_key"] == "dash-key"
+        service.apply_config({"clear_credentials": True})
+        assert stored_tts_credentials(store, "dashscope") == {}
+        assert all_masked_tts_credentials(store).get("dashscope") is None
+    finally:
+        store.close()
+
+
+def test_apply_config_empty_api_key_clears_provider_secret(workspace_tmp):
+    store = ConfigStore(workspace_tmp / "clear_empty_key.db")
+    service = _make_read_service(store)
+    try:
+        service.apply_config({"credentials": {"api_key": "minimax-key"}, "provider": TTS_PROVIDER_MINIMAX})
+        assert stored_tts_credentials(store, TTS_PROVIDER_MINIMAX)["api_key"] == "minimax-key"
+        service.apply_config({"provider": TTS_PROVIDER_MINIMAX, "api_key": ""})
+        assert stored_tts_credentials(store, TTS_PROVIDER_MINIMAX) == {}
+    finally:
+        store.close()

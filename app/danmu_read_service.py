@@ -24,6 +24,7 @@ from app.model_providers import normalize_endpoint
 from app.translations import tr
 from app.tts.config_credentials import (
     all_masked_tts_credentials,
+    clear_stored_tts_credentials,
     masked_tts_credentials,
     stored_tts_credentials,
 )
@@ -370,10 +371,14 @@ class DanmuReadService(QObject):
         credential_provider = canonical_tts_provider_id(
             items.get("tts_provider") or provider or config.get("tts_provider") or ""
         ) or TTS_PROVIDER_MIMO
+        if patch.get("clear_credentials"):
+            clear_stored_tts_credentials(config, credential_provider)
         api_key = patch.get("api_key")
         if isinstance(api_key, str):
             key = api_key.strip()
-            if key and key != MASKED_API_KEY:
+            if key == MASKED_API_KEY:
+                pass
+            else:
                 config.set_tts_secret(credential_provider, "api_key", key)
         credentials = patch.get("credentials")
         if isinstance(credentials, Mapping):
@@ -381,8 +386,9 @@ class DanmuReadService(QObject):
                 if not isinstance(field, str) or not isinstance(value, str):
                     continue
                 value = value.strip()
-                if value and value != MASKED_API_KEY:
-                    config.set_tts_secret(credential_provider, field, value)
+                if value == MASKED_API_KEY:
+                    continue
+                config.set_tts_secret(credential_provider, field, value)
         self._skip_log_flags.discard("no_key")
         self._sync_timer()
         try:

@@ -18,8 +18,8 @@ from app.model_providers import (
 )
 from app.providers.capabilities import get_capabilities_for_endpoint
 from app.providers.capability_resolver import resolve_capabilities
-from app.tts.types import TtsRequest
-from app.tts_catalog import default_voice_for_provider, list_catalog_for_api
+from app.tts.types import ModelDescriptor, TtsCapabilities, TtsRequest
+from app.tts_catalog import default_voice_for_provider
 from app.tts_providers import canonical_tts_model_id, canonical_tts_provider_id, get_tts_manager
 from app.virtual_host.audio import TtsBinding, resolve_tts_binding
 
@@ -99,6 +99,40 @@ def tts_provider_credentials_ready(config, provider_id: str) -> bool:
     return True
 
 
+def _output_format_for_validation(capabilities: TtsCapabilities) -> str:
+    """Pick a supported output format for catalog validation (not synthesis defaults)."""
+
+    formats = capabilities.output_formats
+    for preferred in ("wav", "mp3", "pcm", "pcm16"):
+        if preferred in formats:
+            return preferred
+    if formats:
+        return sorted(formats)[0]
+    return "wav"
+
+
+def _tts_model_selectable(manager: Any, canonical_provider: str, model_id: str) -> bool:
+    try:
+        model = manager.catalog.require_model(canonical_provider, model_id)
+    except (AttributeError, ValueError):
+        return False
+    if model.status != "active":
+        return False
+    output_format = _output_format_for_validation(model.capabilities)
+    try:
+        manager.validate_request(
+            TtsRequest(
+                text="virtual host option validation",
+                provider_id=canonical_provider,
+                model_id=model_id,
+                output_format=output_format,
+            )
+        )
+    except Exception:
+        return False
+    return True
+
+
 def encode_tts_option_id(provider_id: str, model_id: str) -> str:
     provider = canonical_tts_provider_id(provider_id)
     model = canonical_tts_model_id(provider, model_id)
@@ -118,34 +152,32 @@ def decode_tts_option_id(value: str) -> tuple[str, str]:
 def list_tts_model_options(config) -> list[dict[str, str]]:
     options: list[dict[str, str]] = []
     manager = get_tts_manager()
-    for provider in list_catalog_for_api():
-        wire_id = str(provider.get("wire_id") or provider.get("id") or "").strip()
-        catalog_id = str(provider.get("id") or "").strip()
-        if not wire_id or not tts_provider_credentials_ready(config, wire_id):
+    seen: set[tuple[str, str]] = set()
+    for provider_id in manager.catalog.provider_ids():
+        canonical = canonical_tts_provider_id(provider_id)
+        if not canonical or not tts_provider_credentials_ready(config, canonical):
             continue
-        label_prefix = str(provider.get("label") or catalog_id)
-        for model in provider.get("models") or []:
-            if str(model.get("status") or "active") != "active":
+        descriptor = manager.catalog.get_provider(canonical)
+        if descriptor is None:
+            continue
+        label_prefix = descriptor.label
+        for model in descriptor.models:
+            if not isinstance(model, ModelDescriptor) or model.status != "active":
                 continue
-            model_id = str(model.get("id") or "").strip()
+            model_id = canonical_tts_model_id(canonical, model.id)
             if not model_id:
                 continue
-            try:
-                manager.validate_request(
-                    TtsRequest(
-                        text="virtual host option validation",
-                        provider_id=wire_id,
-                        model_id=model_id,
-                    )
-                )
-            except Exception:
+            dedupe_key = (canonical, model_id)
+            if dedupe_key in seen:
                 continue
-            model_label = str(model.get("label") or model_id)
+            if not _tts_model_selectable(manager, canonical, model_id):
+                continue
+            seen.add(dedupe_key)
             options.append(
                 {
-                    "id": encode_tts_option_id(wire_id, model_id),
-                    "label": f"{label_prefix} · {model_label}",
-                    "provider_id": wire_id,
+                    "id": encode_tts_option_id(canonical, model_id),
+                    "label": f"{label_prefix} · {model.label}",
+                    "provider_id": canonical,
                     "model_id": model_id,
                 }
             )

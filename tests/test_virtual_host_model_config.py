@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+from app.config_store import ConfigStore
 from app.tts import (
     AuthDescriptor,
     AuthFieldDescriptor,
@@ -15,12 +16,16 @@ from app.tts import (
     TtsResult,
     VoiceDescriptor,
 )
+from app.tts.config_credentials import clear_stored_tts_credentials, stored_tts_credentials
+from app.tts_providers import TTS_PROVIDER_MIMO, TTS_PROVIDER_MINIMAX
 from app.virtual_host.model_config import (
     VISION_MODEL_KEY,
     apply_virtual_host_model_config,
     custom_profile_supports_vision,
+    decode_tts_option_id,
     encode_tts_option_id,
     export_virtual_host_model_config,
+    list_tts_model_options,
     list_vision_model_options,
     purge_virtual_host_model_refs,
     resolve_virtual_host_tts_binding,
@@ -207,3 +212,76 @@ def test_export_virtual_host_model_config_includes_option_lists(monkeypatch):
     assert payload["vision_options"]
     assert payload["tts_options"] == []
     assert payload["vision_enabled"] is False
+
+
+def test_list_tts_model_options_mimo_minimax_only_without_stale_dashscope(workspace_tmp):
+    store = ConfigStore(workspace_tmp / "vh_tts_mimo_minimax.db")
+    try:
+        store.set_tts_secret(TTS_PROVIDER_MIMO, "api_key", "mimo-key")
+        store.set_tts_secret(TTS_PROVIDER_MINIMAX, "api_key", "minimax-key")
+        options = list_tts_model_options(store)
+        providers = {item["provider_id"] for item in options}
+        assert providers == {TTS_PROVIDER_MIMO, TTS_PROVIDER_MINIMAX}
+        minimax_models = {item["model_id"] for item in options if item["provider_id"] == TTS_PROVIDER_MINIMAX}
+        assert minimax_models == {"speech-2.8-turbo", "speech-2.8-hd"}
+        option_ids = [item["id"] for item in options]
+        assert len(option_ids) == len(set(option_ids))
+    finally:
+        store.close()
+
+
+def test_list_tts_model_options_excludes_cleared_stale_dashscope_credentials(workspace_tmp):
+    store = ConfigStore(workspace_tmp / "vh_tts_stale_dash.db")
+    try:
+        store.set_tts_secret(TTS_PROVIDER_MIMO, "api_key", "mimo-key")
+        store.set_tts_secret(TTS_PROVIDER_MINIMAX, "api_key", "minimax-key")
+        store.set_tts_secret("dashscope", "api_key", "stale-dashscope")
+        assert {item["provider_id"] for item in list_tts_model_options(store)} == {
+            TTS_PROVIDER_MIMO,
+            TTS_PROVIDER_MINIMAX,
+            "dashscope",
+        }
+        clear_stored_tts_credentials(store, "dashscope")
+        providers = {item["provider_id"] for item in list_tts_model_options(store)}
+        assert providers == {TTS_PROVIDER_MIMO, TTS_PROVIDER_MINIMAX}
+        assert stored_tts_credentials(store, "dashscope") == {}
+    finally:
+        store.close()
+
+
+def test_list_tts_model_options_dashscope_models_not_duplicated(workspace_tmp):
+    store = ConfigStore(workspace_tmp / "vh_tts_dash_unique.db")
+    try:
+        store.set_tts_secret("dashscope", "api_key", "dash-key")
+        options = [
+            item
+            for item in list_tts_model_options(store)
+            if item["provider_id"] == "dashscope"
+        ]
+        model_ids = [item["model_id"] for item in options]
+        assert model_ids
+        assert len(model_ids) == len(set(model_ids))
+        assert all(decode_tts_option_id(item["id"])[0] == "dashscope" for item in options)
+    finally:
+        store.close()
+
+
+def test_virtual_host_tts_selection_persists_after_reload(workspace_tmp):
+    store = ConfigStore(workspace_tmp / "vh_tts_persist.db")
+    try:
+        store.set_tts_secret(TTS_PROVIDER_MIMO, "api_key", "mimo-key")
+        store.set_tts_secret(TTS_PROVIDER_MINIMAX, "api_key", "minimax-key")
+        option_id = encode_tts_option_id(TTS_PROVIDER_MINIMAX, "speech-2.8-turbo")
+        apply_virtual_host_model_config(store, {"tts_option_id": option_id})
+        assert store.get("virtual_host_tts_provider") == TTS_PROVIDER_MINIMAX
+        assert store.get("virtual_host_tts_model_id") == "speech-2.8-turbo"
+
+        store.close()
+        store = ConfigStore(workspace_tmp / "vh_tts_persist.db")
+        exported = export_virtual_host_model_config(store)
+        assert exported["tts_option_id"] == option_id
+        assert exported["tts_enabled"] is True
+        assert exported["tts_options"]
+        assert option_id in {item["id"] for item in exported["tts_options"]}
+    finally:
+        store.close()

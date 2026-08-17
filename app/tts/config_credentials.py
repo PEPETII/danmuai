@@ -6,6 +6,39 @@ from app.application.config_service import MASKED_API_KEY
 from app.tts_providers import TTS_PROVIDER_MIMO, canonical_tts_provider_id, get_tts_manager
 
 
+def clear_stored_tts_credentials(config, provider: str) -> bool:
+    """Remove stored secrets for one canonical TTS provider (others untouched)."""
+
+    canonical = canonical_tts_provider_id(provider)
+    if not canonical:
+        return False
+    descriptor = get_tts_manager().catalog.get_provider(canonical)
+    if descriptor is None:
+        return False
+    changed = False
+    delete_secret = getattr(config, "delete_tts_secret", None)
+    set_secret = getattr(config, "set_tts_secret", None)
+    get_secret = getattr(config, "get_tts_secret", None)
+    for field in descriptor.auth.fields:
+        if callable(delete_secret):
+            if delete_secret(canonical, field.id):
+                changed = True
+            continue
+        if callable(set_secret):
+            had_value = bool(str(get_secret(canonical, field.id) or "").strip()) if callable(get_secret) else False
+            set_secret(canonical, field.id, "")
+            if had_value:
+                changed = True
+    if canonical == TTS_PROVIDER_MIMO:
+        try:
+            if config.get_tts_api_key():
+                config.set_tts_api_key("")
+                changed = True
+        except AttributeError:
+            pass
+    return changed
+
+
 def stored_tts_credentials(config, provider: str) -> dict[str, str]:
     """读取 provider-scoped 凭据；旧的全局 TTS key 仅作为 MiMo 历史数据兼容。"""
 
@@ -65,4 +98,9 @@ def all_masked_tts_credentials(config) -> dict[str, dict[str, str]]:
     return result
 
 
-__all__ = ["all_masked_tts_credentials", "masked_tts_credentials", "stored_tts_credentials"]
+__all__ = [
+    "all_masked_tts_credentials",
+    "clear_stored_tts_credentials",
+    "masked_tts_credentials",
+    "stored_tts_credentials",
+]
