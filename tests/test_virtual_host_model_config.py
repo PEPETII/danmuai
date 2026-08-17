@@ -226,6 +226,17 @@ def test_list_tts_model_options_mimo_minimax_only_without_stale_dashscope(worksp
         assert minimax_models == {"speech-2.8-turbo", "speech-2.8-hd"}
         option_ids = [item["id"] for item in options]
         assert len(option_ids) == len(set(option_ids))
+        assert encode_tts_option_id(TTS_PROVIDER_MINIMAX, "speech-2.8-turbo") in option_ids
+        store.set_batch(
+            {
+                "virtual_host_tts_provider": TTS_PROVIDER_MINIMAX,
+                "virtual_host_tts_model_id": "speech-2.8-turbo",
+            }
+        )
+        binding = resolve_virtual_host_tts_binding(store)
+        assert binding is not None
+        assert binding.provider_id == TTS_PROVIDER_MINIMAX
+        assert binding.model_id == "speech-2.8-turbo"
     finally:
         store.close()
 
@@ -264,6 +275,35 @@ def test_list_tts_model_options_dashscope_models_not_duplicated(workspace_tmp):
         assert all(decode_tts_option_id(item["id"])[0] == "dashscope" for item in options)
     finally:
         store.close()
+
+
+def test_list_and_binding_require_the_runtime_default_wav_format(monkeypatch):
+    voice = VoiceDescriptor("voice-1", "Voice 1")
+    model = ModelDescriptor(
+        id="mp3-only-model",
+        label="MP3 only",
+        capabilities=TtsCapabilities(output_formats=frozenset({"mp3"})),
+        voices=(voice,),
+    )
+    descriptor = ProviderDescriptor(
+        id="mp3-only-provider",
+        label="MP3 only provider",
+        models=(model,),
+    )
+    manager = TtsManager(
+        ProviderRegistry([FakeProvider(descriptor)]),
+        TtsCatalog([descriptor]),
+    )
+    monkeypatch.setattr("app.virtual_host.model_config.get_tts_manager", lambda: manager)
+    config = _FakeConfig(
+        {
+            "virtual_host_tts_provider": "mp3-only-provider",
+            "virtual_host_tts_model_id": "mp3-only-model",
+        }
+    )
+
+    assert list_tts_model_options(config) == []
+    assert resolve_virtual_host_tts_binding(config, manager) is None
 
 
 def test_virtual_host_tts_selection_persists_after_reload(workspace_tmp):

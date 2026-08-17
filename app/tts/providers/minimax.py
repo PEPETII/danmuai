@@ -64,7 +64,7 @@ MINIMAX_HISTORICAL_MODELS = (
     "speech-02-hd",
 )
 
-_MINIMAX_AUDIO_FORMAT = "mp3"
+_MINIMAX_AUDIO_FORMAT = "wav"
 _MINIMAX_OUTPUT_FORMAT = "hex"
 _MINIMAX_CAPABILITIES = TtsCapabilities(
     emotion=True,
@@ -79,7 +79,7 @@ _MINIMAX_CAPABILITIES = TtsCapabilities(
     notes=(
         "voice_setting 参数：speed 范围 0.5–2.0，pitch 范围 -12–12，vol 默认 1.0；官方未公布 vol 的数值边界。",
         "emotion 使用官方枚举；Speech 2.8/2.6/02 支持语气词标签，普通 T2A 没有独立 style_prompt 参数。",
-        "官方支持 HTTP stream=true 与 WebSocket；当前 DanmuAI 单句播放适配器使用非流式 MP3。",
+        "官方支持 HTTP stream=true 与 WebSocket；当前 DanmuAI 单句播放适配器使用非流式 WAV。",
     ),
 )
 
@@ -210,7 +210,7 @@ def _raise_http_error(status_code: int, *, trace_id: str | None = None) -> None:
 
 
 class MiniMaxProvider(BaseTtsProvider):
-    """MiniMax T2A v2 adapter using synchronous, non-streaming MP3 output."""
+    """MiniMax T2A v2 adapter using synchronous, non-streaming WAV output."""
 
     def __init__(
         self,

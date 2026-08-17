@@ -98,9 +98,7 @@ def test_synthesize_tts_dispatches_explicit_provider(provider, model, monkeypatc
     request, credentials, _timeout = calls[0]
     expected_provider = "dashscope" if provider == "dashscope_qwen" else provider
     assert request.provider_id == expected_provider
-    assert request.output_format == (
-        "mp3" if expected_provider in {"minimax", "doubao"} else "wav"
-    )
+    assert request.output_format == ("mp3" if expected_provider == "doubao" else "wav")
     assert credentials == {"api_key": "other"}
 
 

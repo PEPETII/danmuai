@@ -11,6 +11,7 @@ from PyQt6.QtCore import QObject, QRunnable, pyqtSignal
 
 from app.danmu_tts_playback import DanmuTtsPlayback
 from app.screenshot_compress import compress_screenshot
+from app.tts.types import TtsError
 from app.tts_providers import get_tts_manager
 from app.virtual_host.audio import (
     TtsBinding,
@@ -382,7 +383,20 @@ class VirtualHostRuntimeService:
         if bump_generation_on_vision_change and previous_vision != new_vision:
             self._bump_runtime_generation()
         self._active_vision_model_id = new_vision
-        binding = resolve_virtual_host_tts_binding(config, get_tts_manager())
+        try:
+            binding = resolve_virtual_host_tts_binding(config, get_tts_manager())
+        except TtsError as exc:
+            # TTS is optional: typed TTS configuration/provider errors disable
+            # only the binding. Unknown exceptions must still reach the caller.
+            binding = None
+            log_diagnostic(
+                "tts_binding_unavailable",
+                runtime_generation=self._runtime_generation,
+                model_id="",
+                status="unavailable",
+                reason=type(exc).__name__,
+                error=type(exc).__name__,
+            )
         new_tts_key = self._tts_binding_key(binding)
         if self._tts_binding is not None and new_tts_key != previous_tts_key:
             self._bump_runtime_generation()

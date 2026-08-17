@@ -18,7 +18,13 @@ from app.model_providers import (
 )
 from app.providers.capabilities import get_capabilities_for_endpoint
 from app.providers.capability_resolver import resolve_capabilities
-from app.tts.types import ModelDescriptor, TtsCapabilities, TtsRequest
+from app.tts.types import (
+    ModelDescriptor,
+    TtsConfigurationError,
+    TtsInvalidVoiceError,
+    TtsRequest,
+    TtsUnsupportedCapabilityError,
+)
 from app.tts_catalog import default_voice_for_provider
 from app.tts_providers import canonical_tts_model_id, canonical_tts_provider_id, get_tts_manager
 from app.virtual_host.audio import TtsBinding, resolve_tts_binding
@@ -99,16 +105,14 @@ def tts_provider_credentials_ready(config, provider_id: str) -> bool:
     return True
 
 
-def _output_format_for_validation(capabilities: TtsCapabilities) -> str:
-    """Pick a supported output format for catalog validation (not synthesis defaults)."""
+def _tts_binding_voice_id(manager: Any, provider_id: str, model_id: str) -> str:
+    """Return the same model-default voice used by the runtime binding."""
 
-    formats = capabilities.output_formats
-    for preferred in ("wav", "mp3", "pcm", "pcm16"):
-        if preferred in formats:
-            return preferred
-    if formats:
-        return sorted(formats)[0]
-    return "wav"
+    try:
+        model = manager.catalog.require_model(provider_id, model_id)
+    except (AttributeError, ValueError):
+        return default_voice_for_provider(provider_id, model_id)
+    return model.voices[0].id if model.voices else ""
 
 
 def _tts_model_selectable(manager: Any, canonical_provider: str, model_id: str) -> bool:
@@ -118,17 +122,17 @@ def _tts_model_selectable(manager: Any, canonical_provider: str, model_id: str) 
         return False
     if model.status != "active":
         return False
-    output_format = _output_format_for_validation(model.capabilities)
+    voice_id = _tts_binding_voice_id(manager, canonical_provider, model_id)
     try:
         manager.validate_request(
             TtsRequest(
                 text="virtual host option validation",
                 provider_id=canonical_provider,
                 model_id=model_id,
-                output_format=output_format,
+                voice_id=voice_id or None,
             )
         )
-    except Exception:
+    except (TtsConfigurationError, TtsInvalidVoiceError, TtsUnsupportedCapabilityError):
         return False
     return True
 
@@ -270,13 +274,7 @@ def resolve_virtual_host_tts_binding(config, manager: Any | None = None) -> TtsB
     if not provider or not model_id:
         return None
     active_manager = manager or get_tts_manager()
-    voice_id = ""
-    try:
-        model = active_manager.catalog.require_model(provider, model_id)
-        if model.voices:
-            voice_id = model.voices[0].id
-    except (AttributeError, ValueError):
-        voice_id = default_voice_for_provider(provider, model_id)
+    voice_id = _tts_binding_voice_id(active_manager, provider, model_id)
     credentials = _stored_tts_credentials(config, provider)
     return resolve_tts_binding(
         active_manager,

@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import io
+import wave
+
 from app.tts import (
     AuthDescriptor,
     AuthFieldDescriptor,
@@ -13,6 +16,11 @@ from app.tts import (
     TtsManager,
     TtsResult,
     VoiceDescriptor,
+)
+from app.tts.providers.minimax import (
+    MINIMAX_DEFAULT_VOICE,
+    MINIMAX_PROVIDER_ID,
+    MiniMaxProvider,
 )
 from app.virtual_host.audio import (
     AsrResult,
@@ -237,3 +245,85 @@ def test_missing_manager_is_unavailable_not_fake_success():
     assert state.status == "failed"
     assert state.tts_status == "unavailable"
     assert state.failure_reason == "tts_manager_unavailable"
+
+
+class _MiniMaxResponse:
+    status_code = 200
+
+    def __init__(self, body):
+        self._body = body
+
+    def json(self):
+        return self._body
+
+
+class _MiniMaxClient:
+    def __init__(self, response):
+        self.response = response
+        self.calls = []
+
+    def __call__(self, **_kwargs):
+        return self
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args):
+        return False
+
+    def post(self, url, *, json, headers):
+        self.calls.append((url, json, headers))
+        return self.response
+
+
+def _minimax_wav() -> bytes:
+    output = io.BytesIO()
+    with wave.open(output, "wb") as wav_file:
+        wav_file.setnchannels(1)
+        wav_file.setsampwidth(2)
+        wav_file.setframerate(32000)
+        wav_file.writeframes(b"\x00\x00" * 4)
+    return output.getvalue()
+
+
+def test_minimax_wav_is_normalized_and_enters_playback_queue():
+    wav_bytes = _minimax_wav()
+    client = _MiniMaxClient(
+        _MiniMaxResponse(
+            {
+                "data": {"audio": wav_bytes.hex()},
+                "base_resp": {"status_code": 0, "status_msg": "success"},
+            }
+        )
+    )
+    provider = MiniMaxProvider(client_factory=client)
+    manager = TtsManager(
+        ProviderRegistry([provider]),
+        TtsCatalog([provider.descriptor]),
+    )
+    credentials = InMemoryCredentialStore()
+    credentials.set(MINIMAX_PROVIDER_ID, {"api_key": "secret"})
+    manager.credentials = manager.credentials.__class__(credentials)
+    binding = resolve_tts_binding(
+        manager,
+        provider_id=MINIMAX_PROVIDER_ID,
+        model_id="speech-2.8-turbo",
+        voice_id=MINIMAX_DEFAULT_VOICE,
+    )
+    player = FakePlayer()
+    orchestrator = VirtualHostAudioOrchestrator(
+        VirtualHostSession(session_id="minimax-session"),
+        tts=TtsSynthesizer(manager),
+        tts_binding=binding,
+        playback=PlaybackQueue(player),
+    )
+    turn = orchestrator.begin_mic_turn()
+    orchestrator.accept_transcript(turn.turn_id, "你好")
+    orchestrator.submit_chat_result(turn.turn_id, "欢迎回来。")
+
+    state = orchestrator.synthesize_turn(turn.turn_id)
+
+    assert state.tts_status == "completed"
+    assert orchestrator.playback.active_item is not None
+    assert player.started == [wav_bytes]
+    assert client.calls[0][1]["audio_setting"] == {"format": "wav"}

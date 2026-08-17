@@ -15,6 +15,7 @@ from app.tts import (
     ProviderRegistry,
     TtsCapabilities,
     TtsCatalog,
+    TtsConfigurationError,
     TtsManager,
     TtsResult,
     VoiceDescriptor,
@@ -254,6 +255,39 @@ def test_runtime_tts_none_skips_synthesis(monkeypatch):
     state = orchestrator.synthesize_turn(turn.turn_id)
     assert state.tts_status == "skipped"
     assert service.tts_synthesize_count == 0
+
+
+def test_runtime_tts_binding_configuration_error_does_not_block_start(monkeypatch):
+    events: list[tuple[str, dict]] = []
+    monkeypatch.setattr(
+        "app.virtual_host.runtime_service.resolve_virtual_host_tts_binding",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            TtsConfigurationError("output_format:wav")
+        ),
+    )
+    monkeypatch.setattr(
+        "app.virtual_host.runtime_service.log_diagnostic",
+        lambda event, **fields: events.append((event, fields)),
+    )
+
+    service = VirtualHostRuntimeService(_fake_app(_FakeConfig()))
+    service.start()
+
+    assert service.running is True
+    assert service.audio.tts_binding is None
+    assert any(event == "tts_binding_unavailable" for event, _fields in events)
+
+
+def test_runtime_unknown_tts_binding_error_is_not_swallowed(monkeypatch):
+    def _raise_unknown(*_args, **_kwargs):
+        raise RuntimeError("unexpected binding failure")
+
+    monkeypatch.setattr(
+        "app.virtual_host.runtime_service.resolve_virtual_host_tts_binding",
+        _raise_unknown,
+    )
+    with pytest.raises(RuntimeError, match="unexpected binding failure"):
+        VirtualHostRuntimeService(_fake_app(_FakeConfig()))
 
 
 def test_stale_virtual_host_model_sanitized_without_fallback(monkeypatch):

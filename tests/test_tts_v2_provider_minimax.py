@@ -1,3 +1,6 @@
+import io
+import wave
+
 import pytest
 from app.tts import (
     TtsAudioDecodeError,
@@ -9,6 +12,7 @@ from app.tts import (
     TtsUnsupportedCapabilityError,
     VoiceSource,
 )
+from app.tts.audio import AudioNormalizer
 from app.tts.providers.minimax import (
     MINIMAX_CURRENT_MODELS,
     MINIMAX_DEFAULT_VOICE,
@@ -54,16 +58,30 @@ def _request(**kwargs):
         "text": "你好，MiniMax",
         "provider_id": MINIMAX_PROVIDER_ID,
         "model_id": "speech-2.8-turbo",
-        "output_format": "mp3",
+        "output_format": "wav",
     }
     values.update(kwargs)
     return TtsRequest(**values)
 
 
-def _success_body(audio_hex="494433", trace_id="trace-minimax"):
+def _wav_bytes(*, sample_rate=32000):
+    output = io.BytesIO()
+    with wave.open(output, "wb") as wav_file:
+        wav_file.setnchannels(1)
+        wav_file.setsampwidth(2)
+        wav_file.setframerate(sample_rate)
+        wav_file.writeframes(b"\x00\x00" * 4)
+    return output.getvalue()
+
+
+def _success_body(audio_hex=None, trace_id="trace-minimax"):
+    if audio_hex is None:
+        audio_hex = _wav_bytes().hex()
+    elif isinstance(audio_hex, bytes):
+        audio_hex = audio_hex.hex()
     return {
         "data": {"audio": audio_hex, "status": 2},
-        "extra_info": {"audio_sample_rate": 32000, "audio_format": "mp3"},
+        "extra_info": {"audio_sample_rate": 32000, "audio_format": "wav"},
         "trace_id": trace_id,
         "base_resp": {"status_code": 0, "status_msg": "success"},
     }
@@ -80,6 +98,7 @@ def test_descriptor_has_current_and_historical_models_with_official_prices():
     assert models["speech-2.8-turbo"].pricing.amount == 2.0
     assert models["speech-2.8-hd"].pricing.amount == 3.5
     assert models["speech-02-hd"].replacement_model_id == "speech-2.8-hd"
+    assert models["speech-2.8-turbo"].capabilities.output_formats == frozenset({"wav"})
     assert all(model.pricing.source_url for model in models.values())
 
 
@@ -96,10 +115,13 @@ def test_success_maps_payload_and_hex_audio():
         {"api_key": "secret-key"},
         _request(speed=1.25, volume=0.8, pitch=-1, emotion="happy", voice_id="voice-1"),
     )
-    assert result.audio_bytes == bytes.fromhex("494433")
-    assert result.audio_format == "mp3"
+    assert result.audio_bytes == _wav_bytes()
+    assert result.audio_format == "wav"
     assert result.sample_rate == 32000
     assert result.provider_request_id == "trace-minimax"
+    normalized = AudioNormalizer().normalize(result)
+    assert normalized.audio_format == "wav"
+    assert normalized.audio_bytes == result.audio_bytes
     url, payload, headers = client.calls[0]
     assert url == MINIMAX_T2A_ENDPOINT
     assert headers == {"Authorization": "Bearer secret-key", "Content-Type": "application/json"}
@@ -112,7 +134,7 @@ def test_success_maps_payload_and_hex_audio():
         "pitch": -1,
         "emotion": "happy",
     }
-    assert payload["audio_setting"] == {"format": "mp3"}
+    assert payload["audio_setting"] == {"format": "wav"}
     assert payload["output_format"] == "hex"
 
 

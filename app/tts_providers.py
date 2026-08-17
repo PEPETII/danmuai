@@ -735,11 +735,7 @@ def synthesize_tts(
         pass
 
     if is_v2_model:
-        request_format = (
-            "mp3"
-            if canonical_provider in {TTS_PROVIDER_MINIMAX, TTS_PROVIDER_DOUBAO}
-            else "wav"
-        )
+        request_format = "mp3" if canonical_provider == TTS_PROVIDER_DOUBAO else "wav"
         request = TtsRequest(
             text=text,
             provider_id=canonical_provider,
