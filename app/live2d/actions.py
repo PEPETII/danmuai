@@ -518,6 +518,28 @@ class Live2DActionAdapter:
         del self._entries[normalized]
         return ActionResult(True, "cancelled", action, normalized)
 
+    def reset(self, *, immediate: bool = True) -> tuple[ParameterUpdate, ...]:
+        """Clear transient layers and return managed parameters to model defaults."""
+
+        self._entries.clear()
+        self._speech_active = False
+        self._speech_started_at = None
+        self._speech_release_started_at = None
+        self._speech_level_value = None
+        self._last_output.clear()
+        if not immediate or self._controller is None:
+            return ()
+        updates: list[ParameterUpdate] = []
+        for parameter_id, spec in self._specs.items():
+            try:
+                update = self._controller.set_value(parameter_id, spec.default)
+            except Exception as exc:
+                self.last_failure = f"parameter_reset_failed:{type(exc).__name__}"
+                updates.append(ParameterUpdate(parameter_id, "unavailable", reason=self.last_failure))
+                continue
+            updates.append(update)
+        return tuple(updates)
+
     def configure_idle(
         self,
         logical_name: object,

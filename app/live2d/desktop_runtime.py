@@ -51,7 +51,14 @@ def _model_entries(model_path: Path) -> tuple[list[dict[str, object]], list[dict
     if isinstance(raw_motions, dict):
         motion_groups = raw_motions.items()
     elif isinstance(raw_motions, list):
-        motion_groups = ((item.get("Group") or item.get("group") or "", [item]) for item in raw_motions if isinstance(item, dict))
+        grouped: dict[str, list[object]] = {}
+        for item in raw_motions:
+            if not isinstance(item, dict):
+                continue
+            group = str(item.get("Group") or item.get("group") or "").strip()
+            if group:
+                grouped.setdefault(group, []).append(item)
+        motion_groups = grouped.items()
     else:
         motion_groups = ()
     for group, values in motion_groups:
@@ -65,14 +72,26 @@ def _model_entries(model_path: Path) -> tuple[list[dict[str, object]], list[dict
 
     expressions: list[dict[str, object]] = []
     raw_expressions = references.get("Expressions")
-    if isinstance(raw_expressions, list):
-        for index, item in enumerate(raw_expressions):
-            if not isinstance(item, dict):
-                continue
-            relative = _safe_relative(item.get("File") or item.get("file"))
-            expression_id = str(item.get("Name") or item.get("name") or Path(relative).stem).strip()
-            if relative and expression_id:
-                expressions.append({"id": expression_id, "index": index, "file": relative})
+    if isinstance(raw_expressions, dict):
+        expression_values = []
+        for name, item in raw_expressions.items():
+            if isinstance(item, dict):
+                value = dict(item)
+                value.setdefault("Name", name)
+                expression_values.append(value)
+            else:
+                expression_values.append({"Name": name, "File": item})
+    elif isinstance(raw_expressions, list):
+        expression_values = raw_expressions
+    else:
+        expression_values = []
+    for index, item in enumerate(expression_values):
+        if not isinstance(item, dict):
+            continue
+        relative = _safe_relative(item.get("File") or item.get("file"))
+        expression_id = str(item.get("Name") or item.get("name") or Path(relative).stem).strip()
+        if relative and expression_id:
+            expressions.append({"id": expression_id, "index": index, "file": relative})
     return motions, expressions
 
 
@@ -275,6 +294,36 @@ class Live2DDesktopWindow(QOpenGLWidget):
             raise RuntimeError("expression_set_failed")
         return {"id": entry["id"], "file": entry["file"]}
 
+    def restore_idle(self) -> dict[str, object]:
+        """Clear one-shot motion state without assuming an Idle resource exists."""
+
+        if self.model is None:
+            return {"status": "unavailable", "reason": "model_not_loaded"}
+        stop_all = getattr(self.model, "StopAllMotions", None)
+        if callable(stop_all):
+            stop_all()
+        motions, _expressions = _model_entries(self.model_path)
+        idle_aliases = {"idle", "待机", "breath", "呼吸"}
+        entry = next(
+            (
+                item
+                for item in motions
+                if str(item.get("group", "")).strip().casefold() in idle_aliases
+            ),
+            None,
+        )
+        if entry is not None:
+            started = self.model.StartMotion(str(entry["group"]), int(entry["index"]), 3)
+            if started is False:
+                return {"status": "degraded", "reason": "idle_motion_start_failed"}
+            return {
+                "status": "idle_motion_started",
+                "group": entry["group"],
+                "index": entry["index"],
+                "file": entry["file"],
+            }
+        return {"status": "idle", "reason": "idle_motion_not_found"}
+
     def trigger_action(self, action: str) -> dict[str, object]:
         """Apply a short, model-aware parameter action and restore defaults."""
 
@@ -336,6 +385,8 @@ class Live2DDesktopRuntime:
         self._window: Live2DDesktopWindow | None = None
         self._model_path: Path | None = None
         self._sdk: Any | None = None
+        self._frame_callback: Callable[[], None] | None = None
+        self._frame_callback_window: Live2DDesktopWindow | None = None
 
     @property
     def running(self) -> bool:
@@ -369,9 +420,11 @@ class Live2DDesktopRuntime:
             error = window.load_error or RuntimeError("桌面窗口未完成模型加载")
             self.stop()
             raise RuntimeError(str(error))
+        self._connect_frame_callback()
         return self.snapshot()
 
     def stop(self) -> dict[str, object]:
+        self._disconnect_frame_callback()
         window, self._window = self._window, None
         self._model_path = None
         if window is not None:
@@ -380,6 +433,37 @@ class Live2DDesktopRuntime:
         if sdk is not None:
             sdk.dispose()
         return {"runtime_status": "stopped", "desktop_visible": False}
+
+    def set_frame_callback(self, callback: Callable[[], None] | None) -> None:
+        """Run a small main-thread callback on the existing render tick.
+
+        The Live2D window already owns a 16 ms ``QTimer``.  Feedback layers use
+        this hook instead of creating another timer or touching the native model
+        from a worker thread.
+        """
+
+        self._disconnect_frame_callback()
+        self._frame_callback = callback
+        self._connect_frame_callback()
+
+    def _connect_frame_callback(self) -> None:
+        if self._frame_callback is None or self._window is None:
+            return
+        if self._frame_callback_window is self._window:
+            return
+        self._window.render_timer.timeout.connect(self._frame_callback)
+        self._frame_callback_window = self._window
+
+    def _disconnect_frame_callback(self) -> None:
+        window = self._frame_callback_window
+        callback = self._frame_callback
+        self._frame_callback_window = None
+        if window is None or callback is None:
+            return
+        try:
+            window.render_timer.timeout.disconnect(callback)
+        except (TypeError, RuntimeError):
+            pass
 
     def snapshot(self) -> dict[str, object]:
         if self._window is None or not self.running:
@@ -409,6 +493,13 @@ class Live2DDesktopRuntime:
         if self._window is None or not self.running:
             raise RuntimeError("model_not_running")
         return self._window.set_expression(file_name)
+
+    def restore_idle(self) -> dict[str, object]:
+        """Stop transient motions and optionally resume a declared idle motion."""
+
+        if self._window is None or not self.running:
+            return {"status": "unavailable", "reason": "model_not_running"}
+        return self._window.restore_idle()
 
 
 __all__ = ["Live2DDesktopRuntime", "Live2DDesktopWindow"]

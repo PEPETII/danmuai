@@ -242,12 +242,22 @@ class ActionDraft:
     kind: Literal["expression", "gesture", "look_at", "idle"]
     intensity: float = 0.5
     duration_seconds: float = 1.0
+    name: str = ""
+
+    MAX_NAME_CHARS = 64
 
     def __post_init__(self) -> None:
         if self.kind not in {"expression", "gesture", "look_at", "idle"}:
             raise ValueError("unsupported semantic action")
+        if self.name is None:
+            name = ""
+        elif not isinstance(self.name, str):
+            raise TypeError("action name must be a string")
+        else:
+            name = _clip(self.name, self.MAX_NAME_CHARS)
         object.__setattr__(self, "intensity", max(0.0, min(1.0, float(self.intensity))))
         object.__setattr__(self, "duration_seconds", max(0.0, min(30.0, float(self.duration_seconds))))
+        object.__setattr__(self, "name", name)
 
 
 @dataclass(frozen=True)

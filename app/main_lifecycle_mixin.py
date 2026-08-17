@@ -1080,6 +1080,13 @@ class DanmuAppLifecycleMixin:
                 except RuntimeError as exc:
                     self.logger.warning(f"pet barrage close on quit failed: {exc!r}")
 
+            virtual_host_runtime = self.__dict__.get("virtual_host_runtime")
+            if virtual_host_runtime is not None:
+                try:
+                    virtual_host_runtime.stop()
+                except Exception as exc:
+                    self.logger.warning(f"virtual host runtime close on quit failed: {exc!r}")
+
             live2d_runtime = self.__dict__.get("_live2d_desktop_runtime")
             if live2d_runtime is not None:
                 try:

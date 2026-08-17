@@ -47,18 +47,27 @@ class DanmuAppLive2DMixin:
         return runtime
 
     def import_live2d_model_via_dialog(self) -> dict[str, object]:
+        virtual_host_runtime = self.__dict__.get("virtual_host_runtime")
+        if virtual_host_runtime is not None:
+            virtual_host_runtime.stop()
         runtime = self.__dict__.get("_live2d_desktop_runtime")
         if runtime is not None:
             runtime.stop()
         return self._get_live2d_model_registry().import_model_via_dialog()
 
     def import_live2d_model_file_via_dialog(self) -> dict[str, object]:
+        virtual_host_runtime = self.__dict__.get("virtual_host_runtime")
+        if virtual_host_runtime is not None:
+            virtual_host_runtime.stop()
         runtime = self.__dict__.get("_live2d_desktop_runtime")
         if runtime is not None:
             runtime.stop()
         return self._get_live2d_model_registry().import_model_file_via_dialog()
 
     def clear_live2d_model(self) -> dict[str, object]:
+        virtual_host_runtime = self.__dict__.get("virtual_host_runtime")
+        if virtual_host_runtime is not None:
+            virtual_host_runtime.stop()
         runtime = self.__dict__.get("_live2d_desktop_runtime")
         if runtime is not None:
             runtime.stop()
@@ -78,6 +87,9 @@ class DanmuAppLive2DMixin:
             ensure()
         virtual_host_runtime = self.__dict__.get("virtual_host_runtime")
         if virtual_host_runtime is not None:
+            attach = getattr(virtual_host_runtime, "attach_live2d_runtime", None)
+            if callable(attach):
+                attach(self._get_live2d_desktop_runtime())
             virtual_host_runtime.start()
         return {
             **registry_snapshot,
@@ -90,12 +102,12 @@ class DanmuAppLive2DMixin:
         }
 
     def stop_live2d_model(self) -> dict[str, object]:
-        runtime = self.__dict__.get("_live2d_desktop_runtime")
-        if runtime is not None:
-            runtime.stop()
         virtual_host_runtime = self.__dict__.get("virtual_host_runtime")
         if virtual_host_runtime is not None:
             virtual_host_runtime.stop()
+        runtime = self.__dict__.get("_live2d_desktop_runtime")
+        if runtime is not None:
+            runtime.stop()
         snapshot = self._get_live2d_model_registry().stop_model()
         snapshot["desktop_visible"] = False
         return snapshot

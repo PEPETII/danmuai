@@ -40,6 +40,42 @@ def test_parse_host_turn_result_from_json():
     assert len(result.memory_effects) == 1
 
 
+def test_parse_host_turn_result_reads_action_name():
+    raw = json.dumps(
+        {
+            "text": "回应",
+            "actions": [{"kind": "gesture", "name": "  wave   hello "}],
+        }
+    )
+    result = parse_host_turn_result(raw, session_id="sid", turn_id=2)
+    assert result is not None
+    assert result.actions == (ActionDraft("gesture", name="wave hello"),)
+
+
+def test_action_draft_name_defaults_empty_and_is_clipped():
+    assert ActionDraft("gesture").name == ""
+    raw_name = "  " + "wave " * 30
+    action = ActionDraft("gesture", name=raw_name)
+    expected = " ".join(raw_name.split())[: ActionDraft.MAX_NAME_CHARS].rstrip()
+    assert action.name == expected
+    assert len(action.name) <= ActionDraft.MAX_NAME_CHARS
+
+
+def test_parse_host_turn_result_skips_action_with_invalid_name():
+    raw = json.dumps(
+        {
+            "text": "回应",
+            "actions": [
+                {"kind": "gesture", "name": {"command": "do-not-run"}},
+                {"kind": "idle"},
+            ],
+        }
+    )
+    result = parse_host_turn_result(raw, session_id="sid", turn_id=2)
+    assert result is not None
+    assert result.actions == (ActionDraft("idle"),)
+
+
 def test_parse_host_turn_result_plain_text_fallback():
     result = parse_host_turn_result("纯文本回复", session_id="sid", turn_id=1)
     assert result is not None

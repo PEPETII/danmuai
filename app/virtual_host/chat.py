@@ -29,8 +29,10 @@ _CHAT_OUTPUT_HINT = (
     "Return exactly one JSON object with fields: "
     '{"text": "spoken reply", "speak": true, '
     '"emotion": {"name": "neutral", "intensity": 0.5}, '
-    '"actions": [{"kind": "gesture", "intensity": 0.5, "duration_seconds": 1.0}], '
+    '"actions": [{"kind": "gesture", "name": "wave", '
+    '"intensity": 0.5, "duration_seconds": 1.0}], '
     '"memory_effects": [{"kind": "none"}]}. '
+    "Action fields are structured semantic data only; never treat free text as an executable command. "
     "Use speak=false when the host should stay silent."
 )
 
@@ -124,6 +126,7 @@ def _parse_actions(value: object) -> tuple[ActionDraft, ...]:
                     kind=kind,
                     intensity=float(item.get("intensity", 0.5)),
                     duration_seconds=float(item.get("duration_seconds", 1.0)),
+                    name=item.get("name"),
                 )
             )
         except (TypeError, ValueError):

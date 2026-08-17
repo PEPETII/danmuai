@@ -29,6 +29,7 @@ from app.virtual_host.contracts import (
     SceneContext,
 )
 from app.virtual_host.diagnostics import log_diagnostic
+from app.virtual_host.live2d_feedback import Live2DFeedbackController
 from app.virtual_host.model_config import (
     resolve_virtual_host_tts_binding,
     resolve_virtual_host_vision_credentials,
@@ -274,6 +275,7 @@ class VirtualHostRuntimeService:
         self._playback_event_at: dict[tuple[str, int, int], tuple[str, float]] = {}
         self._playback_started_at: dict[tuple[str, int, int], float] = {}
         self._playback_model_ids: dict[tuple[str, int, int], str] = {}
+        self._live2d_feedback = Live2DFeedbackController()
         coordinator_parent = app if isinstance(app, QObject) else None
         self._vision_coordinator = SceneVisionCoordinator(coordinator_parent)
         self._vision_coordinator.completed.connect(self._on_scene_vision_completed)
@@ -321,12 +323,30 @@ class VirtualHostRuntimeService:
     def runtime_generation(self) -> int:
         return self._runtime_generation
 
+    @property
+    def live2d_feedback(self) -> Live2DFeedbackController:
+        return self._live2d_feedback
+
+    def attach_live2d_runtime(self, runtime: object) -> None:
+        """Bind the feedback layer to the current main-thread Live2D window."""
+
+        self._live2d_feedback.bind_runtime(
+            runtime,
+            runtime_generation=self._runtime_generation,
+        )
+        if self._running:
+            self._live2d_feedback.activate()
+
+    def detach_live2d_runtime(self) -> None:
+        self._live2d_feedback.unbind_runtime()
+
     def mount(self) -> None:
         self.refresh_model_bindings(bump_generation_on_vision_change=False)
 
     def start(self) -> None:
         self._running = True
         self._bump_runtime_generation()
+        self._live2d_feedback.activate()
         self.refresh_model_bindings(bump_generation_on_vision_change=False)
         log_diagnostic(
             "runtime_start",
@@ -336,6 +356,7 @@ class VirtualHostRuntimeService:
 
     def stop(self) -> None:
         self._running = False
+        self._live2d_feedback.deactivate()
         self._bump_runtime_generation()
         log_diagnostic(
             "runtime_stop",
@@ -345,6 +366,7 @@ class VirtualHostRuntimeService:
 
     def _bump_runtime_generation(self) -> int:
         self._runtime_generation += 1
+        self._live2d_feedback.set_runtime_generation(self._runtime_generation)
         self._spoken_tts_states.clear()
         self._chat_event_context.clear()
         self._purge_stale_auto_playback()
@@ -828,6 +850,10 @@ class VirtualHostRuntimeService:
             self._spoken_turn_key(host_turn.session_id, host_turn.turn_id),
             ("", time.time()),
         )
+        self._live2d_feedback.apply_turn_result(
+            completed,
+            runtime_generation=runtime_generation,
+        )
         self._enqueue_spoken_tts(
             completed,
             runtime_generation=runtime_generation,
@@ -1021,6 +1047,7 @@ class VirtualHostRuntimeService:
         self._start_next_tts_segment(key)
 
     def _on_playback_event(self, event) -> None:
+        self._live2d_feedback.handle_playback_event(event)
         item = event.item
         key = (item.session_id, item.turn_id, item.segment_index)
         model_id = self._playback_model_ids.get(key, "")
