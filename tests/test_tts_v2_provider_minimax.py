@@ -15,6 +15,7 @@ from app.tts.providers.minimax import (
     MINIMAX_GET_VOICE_ENDPOINT,
     MINIMAX_HISTORICAL_MODELS,
     MINIMAX_PROVIDER_ID,
+    MINIMAX_RECOMMENDED_VOICES,
     MINIMAX_T2A_ENDPOINT,
     MiniMaxProvider,
 )
@@ -192,5 +193,5 @@ def test_dynamic_voice_list_maps_categories_and_falls_back_on_failure():
 
     fallback = MiniMaxProvider(client_factory=FakeClient(FakeResponse({}, status_code=503)))
     voices = fallback.list_voices({"api_key": "secret-key"}, model_id="speech-2.8-hd")
-    assert len(voices) == 10
+    assert [voice.id for voice in voices] == list(MINIMAX_RECOMMENDED_VOICES)
     assert voices[0].id == MINIMAX_DEFAULT_VOICE

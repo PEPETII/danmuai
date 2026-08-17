@@ -37,9 +37,20 @@ from app.tts.types import (
 MINIMAX_PROVIDER_ID = "minimax"
 MINIMAX_T2A_ENDPOINT = "https://api.minimaxi.com/v1/t2a_v2"
 MINIMAX_GET_VOICE_ENDPOINT = "https://api.minimaxi.com/v1/get_voice"
-MINIMAX_DEFAULT_VOICE = "male-qn-qingse"
+MINIMAX_RECOMMENDED_VOICES = (
+    "Chinese (Mandarin)_BashfulGirl",
+    "Chinese (Mandarin)_Mature_Woman",
+    "Chinese_worker_female",
+    "Chinese (Mandarin)_Warm_Bestie",
+    "Chinese (Mandarin)_Sweet_Lady",
+    "Chinese_crisp_podcaster_nv1",
+    "Chinese (Mandarin)_IntellectualGirl",
+    "Chinese (Mandarin)_Warm_HeartedGirl",
+    "Chinese (Mandarin)_ExplorativeGirl",
+)
+MINIMAX_DEFAULT_VOICE = MINIMAX_RECOMMENDED_VOICES[0]
 MINIMAX_PRICING_SOURCE_URL = "https://platform.minimaxi.com/docs/guides/pricing-paygo"
-MINIMAX_VOICE_SOURCE_URL = "https://platform.minimaxi.com/docs/faq/system-voice-id"
+MINIMAX_VOICE_SOURCE_URL = "https://platform.minimaxi.com/docs/api-reference/voice-management-get"
 MINIMAX_VERIFIED_AT = "2026-08-17"
 MINIMAX_EMOTIONS = frozenset(
     {"happy", "sad", "angry", "fearful", "disgusted", "surprised", "calm", "whipser"}
@@ -76,30 +87,18 @@ _MINIMAX_CAPABILITIES = TtsCapabilities(
 def _fallback_voices() -> tuple[VoiceDescriptor, ...]:
     # Official static system voices are the no-credential fallback.  The
     # account-scoped get_voice response can replace/enrich this list later.
-    values = (
-        ("male-qn-qingse", "青涩青年音色", "male", None),
-        ("male-qn-jingying", "精英青年音色", "male", None),
-        ("male-qn-badao", "霸道青年音色", "male", None),
-        ("male-qn-daxuesheng", "青年大学生音色", "male", None),
-        ("female-shaonv", "少女音色", "female", None),
-        ("female-yujie", "御姐音色", "female", None),
-        ("female-chengshu", "成熟女性音色", "female", None),
-        ("female-tianmei", "甜美女性音色", "female", None),
-        ("clever_boy", "聪明男童", "male", None),
-        ("cute_boy", "可爱男童", "male", None),
-    )
     return tuple(
         VoiceDescriptor(
             id=voice_id,
-            name=name,
-            description=description,
-            gender=gender,
-            age_group="child" if voice_id in {"clever_boy", "cute_boy"} else "adult",
+            name=voice_id,
+            description=None,
+            gender=None,
+            age_group="adult",
             languages=("zh-CN",),
-            tags=("官方系统音色",),
+            tags=("官方系统音色", "推荐1"),
             source=VoiceSource.STATIC_CATALOG,
         )
-        for voice_id, name, gender, description in values
+        for voice_id in MINIMAX_RECOMMENDED_VOICES
     )
 
 
@@ -446,6 +445,7 @@ __all__ = [
     "MINIMAX_GET_VOICE_ENDPOINT",
     "MINIMAX_HISTORICAL_MODELS",
     "MINIMAX_PROVIDER_ID",
+    "MINIMAX_RECOMMENDED_VOICES",
     "MINIMAX_T2A_ENDPOINT",
     "MiniMaxProvider",
 ]

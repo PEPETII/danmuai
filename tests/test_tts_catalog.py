@@ -31,7 +31,17 @@ def test_catalog_projects_descriptor_prices_and_voice_metadata():
     doubao = data["doubao"]["models"][0]
     assert minimax["pricing"]["amount"] == 2.0
     assert minimax["pricing"]["source_url"].startswith("https://platform.minimaxi.com/")
-    assert len(minimax["voices"]) == 10
+    assert [voice["id"] for voice in minimax["voices"]] == [
+        "Chinese (Mandarin)_BashfulGirl",
+        "Chinese (Mandarin)_Mature_Woman",
+        "Chinese_worker_female",
+        "Chinese (Mandarin)_Warm_Bestie",
+        "Chinese (Mandarin)_Sweet_Lady",
+        "Chinese_crisp_podcaster_nv1",
+        "Chinese (Mandarin)_IntellectualGirl",
+        "Chinese (Mandarin)_Warm_HeartedGirl",
+        "Chinese (Mandarin)_ExplorativeGirl",
+    ]
     assert cosy_flash["pricing"]["amount"] == 0.8
     assert cosy_plus["pricing"]["amount"] == 1.5
     assert cosy_flash["pricing"]["source_url"].endswith("cosyvoice-v3-5-flash")
