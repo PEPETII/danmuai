@@ -32,6 +32,8 @@ WEB_RUNTIME_STATE_PATH = Path("app/application/web_runtime_state.py")
 REQUEST_SCHEDULER_PATH = Path("app/application/request_scheduler.py")
 REQUEST_TIMING_SERVICE_PATH = Path("app/application/request_timing_service.py")
 DIAGNOSTIC_SNAPSHOT_PATH = Path("app/application/diagnostic_snapshot.py")
+VIRTUAL_HOST_DIR = Path("app/virtual_host")
+VIRTUAL_HOST_RUNTIME_PATH = Path("app/virtual_host/runtime_service.py")
 
 WEB_PRIVATE_PATTERNS: tuple[tuple[str, str], ...] = (
     (

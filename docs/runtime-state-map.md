@@ -13,10 +13,14 @@
 |------|----------|----------|----------|
 | `_running` | Qt 主线程（`start`/`stop`） | Qt 主线程 | Live2D start→stop |
 | `_vision_in_flight` | Qt 主线程（调度/完成槽） | Qt 主线程 | 单次视觉 HTTP 在途 |
-| `_runtime_generation` | Qt 主线程（start/stop/模型切换） | Qt 主线程 | 递增令牌，失效旧视觉请求 |
-| `_active_vision_model_id` | Qt 主线程（`refresh_model_bindings`） | Qt 主线程 | 当前绑定的视觉 model_id |
+| `_chat_in_flight` | Qt 主线程（调度/完成槽） | Qt 主线程 | 单次 Chat HTTP 在途 |
+| `_runtime_generation` | Qt 主线程（start/stop/模型切换） | Qt 主线程 | 递增令牌，失效旧视觉/Chat 请求 |
+| `_active_vision_model_id` | Qt 主线程（`refresh_model_bindings`） | Qt 主线程 | 当前绑定的视觉/Chat model_id |
+| `_last_spoke_at` | Qt 主线程（Chat 完成） | Qt 主线程 | 上次自主发言时间（cooldown） |
 | `_vision_coordinator` | 构造时 | Qt 主线程 | `SceneVisionCoordinator` 信号桥 |
+| `_chat_coordinator` | 构造时 | Qt 主线程 | `ChatResponseCoordinator` 信号桥 |
 | `vision_request_count` | Qt 主线程（调度时） | 任意只读 | 累计视觉 HTTP 次数 |
+| `chat_request_count` | Qt 主线程（调度时） | 任意只读 | 累计 Chat HTTP 次数 |
 | `tts_synthesize_count` | Qt 主线程（TTS 合成） | 任意只读 | 累计 TTS 次数 |
 
 `VirtualHostSession` 内的 `_scene_context` / `_scene_generation` 由主线程 `_apply_scene_summary` 写入；

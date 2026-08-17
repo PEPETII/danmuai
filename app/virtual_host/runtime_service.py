@@ -16,12 +16,18 @@ from app.virtual_host.audio import (
     TtsSynthesizer,
     VirtualHostAudioOrchestrator,
 )
-from app.virtual_host.contracts import BatchAcceptance, DanmuBatchCreated, SceneContext
+from app.virtual_host.chat import HostChatHttpResult, request_host_chat
+from app.virtual_host.contracts import BatchAcceptance, DanmuBatchCreated, HostTurn, SceneContext
 from app.virtual_host.model_config import (
     resolve_virtual_host_tts_binding,
     resolve_virtual_host_vision_credentials,
     sanitize_virtual_host_model_config,
     virtual_host_vision_enabled,
+)
+from app.virtual_host.response_scheduler import (
+    ResponseCandidateEvent,
+    VirtualHostResponseScheduler,
+    build_autonomous_input,
 )
 from app.virtual_host.session import VirtualHostSession
 from app.virtual_host.vision import (
@@ -36,13 +42,58 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["SceneVisionCoordinator", "VirtualHostRuntimeService"]
+__all__ = ["ChatResponseCoordinator", "SceneVisionCoordinator", "VirtualHostRuntimeService"]
+
+
+class ChatResponseCoordinator(QObject):
+    """主线程 QObject；Chat worker 经 completed 信号回传结构化结果。"""
+
+    completed = pyqtSignal(object, object, int, str)
 
 
 class SceneVisionCoordinator(QObject):
     """主线程 QObject；场景视觉 worker 经 completed 信号回传结构化结果。"""
 
     completed = pyqtSignal(object, int, int, float, int, str)
+
+
+class _ChatResponseRunnable(QRunnable):
+    def __init__(
+        self,
+        coordinator: ChatResponseCoordinator,
+        *,
+        prompt: object,
+        resolved: tuple[str, str, str, str],
+        host_turn: HostTurn,
+        runtime_generation: int,
+        chat_model_id: str,
+    ) -> None:
+        super().__init__()
+        self._coordinator = coordinator
+        self._prompt = prompt
+        self._resolved = resolved
+        self._host_turn = host_turn
+        self._runtime_generation = int(runtime_generation)
+        self._chat_model_id = str(chat_model_id)
+        self.setAutoDelete(True)
+
+    def run(self) -> None:
+        try:
+            result = request_host_chat(
+                self._prompt,
+                self._resolved,
+                session_id=self._host_turn.session_id,
+                turn_id=self._host_turn.turn_id,
+            )
+        except Exception as exc:
+            logger.warning("virtual_host chat worker failed: %r", exc)
+            result = HostChatHttpResult(ok=False, error=type(exc).__name__)
+        self._coordinator.completed.emit(
+            result,
+            self._host_turn,
+            self._runtime_generation,
+            self._chat_model_id,
+        )
 
 
 class _SceneVisionRunnable(QRunnable):
@@ -92,15 +143,21 @@ class VirtualHostRuntimeService:
         self._app = app
         self._running = False
         self._vision_in_flight = False
+        self._chat_in_flight = False
         self._runtime_generation = 0
         self._active_vision_model_id = ""
+        self._last_spoke_at: float | None = None
         self.vision_request_count = 0
+        self.chat_request_count = 0
         self.tts_synthesize_count = 0
         self._session = VirtualHostSession(persona_manager=getattr(app, "personae", None))
+        self._response_scheduler = VirtualHostResponseScheduler()
         self._tts_binding: TtsBinding | None = None
         coordinator_parent = app if isinstance(app, QObject) else None
         self._vision_coordinator = SceneVisionCoordinator(coordinator_parent)
         self._vision_coordinator.completed.connect(self._on_scene_vision_completed)
+        self._chat_coordinator = ChatResponseCoordinator(coordinator_parent)
+        self._chat_coordinator.completed.connect(self._on_chat_response_completed)
         self._audio = VirtualHostAudioOrchestrator(
             self._session,
             tts=self._build_tts_synthesizer(),
@@ -122,6 +179,14 @@ class VirtualHostRuntimeService:
     @property
     def vision_in_flight(self) -> bool:
         return self._vision_in_flight
+
+    @property
+    def chat_in_flight(self) -> bool:
+        return self._chat_in_flight
+
+    @property
+    def response_scheduler(self) -> VirtualHostResponseScheduler:
+        return self._response_scheduler
 
     @property
     def runtime_generation(self) -> int:
@@ -175,10 +240,20 @@ class VirtualHostRuntimeService:
             batch_id = batch.batch_id if isinstance(batch, DanmuBatchCreated) else ""
             return BatchAcceptance(False, "invalid", batch_id)
         scene_generation = int(getattr(self._app, "_scene_generation", 0))
-        return self._session.ingest_danmu_batch(
+        decision = self._session.ingest_danmu_batch(
             batch,
             current_scene_generation=scene_generation,
         )
+        if decision.accepted:
+            self._on_response_candidate(
+                ResponseCandidateEvent(
+                    kind="danmu_batch",
+                    at=time.time(),
+                    batch_id=decision.batch_id,
+                    scene_generation=scene_generation,
+                )
+            )
+        return decision
 
     def on_capture_completed(
         self,
@@ -323,3 +398,95 @@ class VirtualHostRuntimeService:
             updated_at=current,
         )
         self._session.update_scene_context(context)
+        self._on_response_candidate(
+            ResponseCandidateEvent(
+                kind="scene_change",
+                at=current,
+                scene_generation=int(scene_generation),
+            )
+        )
+
+    def _on_response_candidate(self, event: ResponseCandidateEvent) -> None:
+        if not self._running:
+            return
+        decision = self._response_scheduler.evaluate(
+            event,
+            running=self._running,
+            model_enabled=virtual_host_vision_enabled(self._app.config),
+            chat_in_flight=self._chat_in_flight,
+            last_spoke_at=self._last_spoke_at,
+            session=self._session,
+            now=event.at,
+        )
+        if not decision.should_respond:
+            return
+        self._start_chat_request(now=event.at)
+
+    def _start_chat_request(self, *, now: float | None = None) -> None:
+        if not self._running or self._chat_in_flight:
+            return
+        resolved = resolve_virtual_host_vision_credentials(self._app.config)
+        if resolved is None:
+            return
+        current = time.time() if now is None else float(now)
+        try:
+            host_turn = self._session.start_turn(
+                build_autonomous_input(self._session, now=current),
+                now=current,
+            )
+            prompt = self._session.compose_prompt(host_turn, now=current)
+        except Exception as exc:
+            logger.debug("virtual_host chat prompt skipped: %r", exc)
+            return
+        runtime_generation = self._runtime_generation
+        chat_model_id = resolved[2]
+        self._chat_in_flight = True
+        self.chat_request_count += 1
+        runnable = _ChatResponseRunnable(
+            self._chat_coordinator,
+            prompt=prompt,
+            resolved=resolved,
+            host_turn=host_turn,
+            runtime_generation=runtime_generation,
+            chat_model_id=chat_model_id,
+        )
+        ai_worker_pool().start(runnable)
+
+    def _should_apply_chat_result(
+        self,
+        *,
+        runtime_generation: int,
+        request_chat_model_id: str,
+    ) -> bool:
+        if not self._running:
+            return False
+        if int(runtime_generation) != self._runtime_generation:
+            return False
+        if str(request_chat_model_id) != self._active_vision_model_id:
+            return False
+        return True
+
+    def _on_chat_response_completed(
+        self,
+        result: HostChatHttpResult | None,
+        host_turn: HostTurn | None,
+        runtime_generation: int,
+        request_chat_model_id: str,
+    ) -> None:
+        self._chat_in_flight = False
+        if host_turn is None:
+            return
+        if not self._should_apply_chat_result(
+            runtime_generation=runtime_generation,
+            request_chat_model_id=request_chat_model_id,
+        ):
+            return
+        if result is None or not result.ok or result.result is None:
+            return
+        try:
+            completed = self._session.complete_turn(host_turn, result.result)
+        except ValueError as exc:
+            logger.debug("virtual_host chat result rejected: %r", exc)
+            return
+        self._last_spoke_at = time.time()
+        self._audio.enqueue_spoken_result(completed)

@@ -37,6 +37,7 @@ from .rules.runtime import (
     check_thread_trigger_docs,
 )
 from .rules.status import check_status_snapshot_builder_delegation
+from .rules.virtual_host import check_virtual_host_module_boundaries
 from .rules.web import (
     check_status_route_boundary,
     check_web_diagnostics_route_boundary,
@@ -71,5 +72,6 @@ def run_boundary_guard(repo_root: Path) -> list[Finding]:
     findings.extend(check_status_route_boundary(repo_root, changed))
     findings.extend(check_web_diagnostics_ui_boundary(repo_root, changed))
     findings.extend(check_final_architecture_baseline(repo_root))
+    findings.extend(check_virtual_host_module_boundaries(repo_root, changed))
     findings.sort(key=lambda item: (item.path, item.line, item.rule, item.message))
     return findings

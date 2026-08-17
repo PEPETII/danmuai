@@ -42,6 +42,7 @@ Purpose = Literal[
     "connection_probe",
     "model_capability_probe",
     "virtual_host_scene",
+    "virtual_host_chat",
 ]
 
 
@@ -151,6 +152,7 @@ def plan_http_request(req: GenerationRequest) -> PlannedHttpRequest:
         "connection_probe",
         "knowledge_organize",
         "virtual_host_scene",
+        "virtual_host_chat",
     ):
         apply_thinking_disabled(body, caps=caps)
     elif req.reasoning_enabled is not None:
@@ -229,6 +231,7 @@ def _plan_doubao_body(
         "connection_probe",
         "knowledge_organize",
         "virtual_host_scene",
+        "virtual_host_chat",
     ):
         data["thinking"] = dict(THINKING_DISABLED)
     elif req.reasoning_enabled is not None and caps.thinking_param_style == "thinking_type":
@@ -263,6 +266,7 @@ def _plan_openai_chat_body(
         "connection_probe",
         "knowledge_organize",
         "virtual_host_scene",
+        "virtual_host_chat",
     ):
         apply_thinking_disabled(data, caps=caps)
     elif req.reasoning_enabled is not None:
@@ -286,7 +290,7 @@ def _build_openai_messages(
 ) -> list[dict]:
     if req.purpose == "connection_probe":
         return [{"role": "user", "content": req.user_text or "ping"}]
-    if req.purpose == "knowledge_organize":
+    if req.purpose in {"knowledge_organize", "virtual_host_chat"}:
         return [
             {"role": "system", "content": req.system_text or ""},
             {"role": "user", "content": req.user_text},

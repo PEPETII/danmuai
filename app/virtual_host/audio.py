@@ -606,6 +606,42 @@ class VirtualHostAudioOrchestrator:
         self.playback.cancel_turn(state.session_id, state.turn_id, reason=state.cancel_reason)
         return state
 
+    def enqueue_spoken_result(
+        self,
+        result: HostTurnResult,
+        *,
+        binding: TtsBinding | None = None,
+        max_chars: int | None = None,
+    ) -> bool:
+        """自主回应 TTS：speak=false 或缺绑定时不合成、不入队。"""
+
+        if not result.speak or not result.text:
+            return False
+        active_binding = binding or self.tts_binding
+        if active_binding is None:
+            return False
+        segments = segment_text(result.text, max_chars=max_chars or self._max_segment_chars)
+        if not segments:
+            return False
+        for index, segment in enumerate(segments):
+            outcome = self.tts.synthesize(segment, active_binding)
+            if outcome.status != "ok" or not outcome.audio_bytes:
+                self.playback.cancel_turn(result.session_id, result.turn_id, reason="tts_failed")
+                return False
+            playback_result = self.playback.enqueue(
+                PlaybackItem(
+                    session_id=result.session_id,
+                    turn_id=result.turn_id,
+                    segment_index=index,
+                    audio_bytes=outcome.audio_bytes,
+                    priority=PlaybackPriority.AUTO_SCENE,
+                    source="auto_reply",
+                )
+            )
+            if playback_result.status in {"unavailable", "rejected"}:
+                return False
+        return True
+
     def timeout_turn(self, turn_id: int, *, reason: str = "timeout") -> VoiceTurnState:
         state = self.get_turn(turn_id)
         state.timeout_reason = str(reason or "timeout")
