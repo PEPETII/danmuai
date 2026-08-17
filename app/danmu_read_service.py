@@ -22,7 +22,11 @@ from app.application.config_service import MASKED_API_KEY
 from app.danmu_tts_playback import DanmuTtsPlayback
 from app.model_providers import normalize_endpoint
 from app.translations import tr
-from app.tts.config_credentials import masked_tts_credentials, stored_tts_credentials
+from app.tts.config_credentials import (
+    all_masked_tts_credentials,
+    masked_tts_credentials,
+    stored_tts_credentials,
+)
 from app.tts_providers import (
     MIMO_TTS_MODEL,
     TTS_PROBE_TEXT,
@@ -234,10 +238,14 @@ class DanmuReadService(QObject):
 
     def on_engine_started(self) -> None:
         config = self._app.config
+        try:
+            active_provider = resolve_tts_config(config).provider
+        except ValueError:
+            active_provider = TTS_PROVIDER_MIMO
         self._app.logger.info(
             "danmu read: engine start enabled=%s has_key=%s interval=%ss",
             danmu_read_enabled(config),
-            bool(config.get_tts_api_key()),
+            bool(_stored_tts_credentials(config, active_provider)),
             config.get("danmu_read_interval_sec", "10"),
         )
         self._skip_log_flags.clear()
@@ -359,19 +367,16 @@ class DanmuReadService(QObject):
 
         if items:
             config.set_batch(items)
+        credential_provider = canonical_tts_provider_id(
+            items.get("tts_provider") or provider or config.get("tts_provider") or ""
+        ) or TTS_PROVIDER_MIMO
         api_key = patch.get("api_key")
         if isinstance(api_key, str):
             key = api_key.strip()
             if key and key != MASKED_API_KEY:
-                config.set_tts_api_key(key)
-                config.set_tts_secret(
-                    canonical_tts_provider_id(provider) or TTS_PROVIDER_MIMO,
-                    "api_key",
-                    key,
-                )
+                config.set_tts_secret(credential_provider, "api_key", key)
         credentials = patch.get("credentials")
         if isinstance(credentials, Mapping):
-            credential_provider = canonical_tts_provider_id(provider) or TTS_PROVIDER_MIMO
             for field, value in credentials.items():
                 if not isinstance(field, str) or not isinstance(value, str):
                     continue
@@ -388,11 +393,15 @@ class DanmuReadService(QObject):
                 config.get("tts_endpoint") or "",
                 config.get("tts_model_id") or "",
             )
+        try:
+            saved_provider = resolve_tts_config(config).provider
+        except ValueError:
+            saved_provider = TTS_PROVIDER_MIMO
         self._app.logger.info(
             "danmu read: config saved enabled=%s interval=%ss has_key=%s custom=%s",
             danmu_read_enabled(config),
             config.get("danmu_read_interval_sec", "10"),
-            bool(config.get_tts_api_key()),
+            bool(_stored_tts_credentials(config, saved_provider)),
             is_custom,
         )
         return export_danmu_read_config(config)
@@ -590,7 +599,6 @@ def _export_use_custom_model(provider: str, endpoint: str, model_id: str) -> boo
 
 
 def export_danmu_read_config(config) -> dict[str, object]:
-    key = config.get_tts_api_key()
     stored_provider = (config.get("tts_provider") or "").strip()
     stored_endpoint = normalize_endpoint(config.get("tts_endpoint") or "")
     stored_model_id = (config.get("tts_model_id") or "").strip()
@@ -600,7 +608,6 @@ def export_danmu_read_config(config) -> dict[str, object]:
         stored_endpoint = ""
     effective_provider = canonical_tts_provider_id(stored_provider) or TTS_PROVIDER_MIMO
     credentials = _masked_tts_credentials(config, effective_provider)
-    has_credentials = bool(key or credentials)
     try:
         resolved = resolve_tts_config(config)
     except ValueError:
@@ -615,8 +622,9 @@ def export_danmu_read_config(config) -> dict[str, object]:
             "speed": _optional_float(config.get("tts_speed", "")),
             "pitch": _optional_float(config.get("tts_pitch", "")),
             "volume": _optional_float(config.get("tts_volume", "")),
-            "api_key": MASKED_API_KEY if has_credentials else "",
+            "api_key": credentials.get("api_key", ""),
             "credentials": credentials,
+            "provider_credentials": all_masked_tts_credentials(config),
             "provider": stored_provider,
             "custom_endpoint": stored_endpoint,
             "custom_model_id": stored_model_id,
@@ -643,8 +651,9 @@ def export_danmu_read_config(config) -> dict[str, object]:
         "speed": _optional_float(config.get("tts_speed", "")),
         "pitch": _optional_float(config.get("tts_pitch", "")),
         "volume": _optional_float(config.get("tts_volume", "")),
-        "api_key": MASKED_API_KEY if (key or credentials) else "",
+        "api_key": credentials.get("api_key", ""),
         "credentials": credentials,
+        "provider_credentials": all_masked_tts_credentials(config),
         "provider": stored_provider,
         "custom_endpoint": stored_endpoint,
         "custom_model_id": stored_model_id,

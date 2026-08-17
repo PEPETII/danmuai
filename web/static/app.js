@@ -106,6 +106,7 @@ let danmuReadConfigCache = null;
 let danmuReadCatalog = null;
 let danmuReadCredentialDrafts = {};
 let danmuReadSavedCredentials = {};
+let danmuReadRenderedProviderId = null;
 let danmuReadVoices = [];
 let danmuReadVoiceRequest = 0;
 let danmuPoolPagesReady = false;
@@ -453,7 +454,9 @@ function renderDanmuReadProviderCards() {
     name.textContent = danmuReadProviderLabel(provider);
     const meta = document.createElement('span');
     meta.className = 'tts-provider-card__meta';
-    meta.textContent = provider.credential_status?.configured ? t('settings.text.凭据已保存') : t('settings.text.按需填写凭据');
+    meta.textContent = danmuReadProviderHasSavedCredentials(provider.id)
+      ? t('settings.text.凭据已保存')
+      : t('settings.text.按需填写凭据');
     button.append(name, meta);
     container.appendChild(button);
   });
@@ -530,8 +533,17 @@ function isDanmuReadMasked(value) {
   return isMaskedApiKey(value) || /^([•*]){4,}$/.test(String(value || '').trim());
 }
 
-function captureDanmuReadCredentialDraft() {
-  const provider = currentDanmuReadProvider();
+function danmuReadProviderHasSavedCredentials(providerId) {
+  const provider = getDanmuReadCatalogProvider(providerId);
+  const saved = danmuReadSavedCredentials[providerId] || {};
+  return credentialFieldsFor(provider).some((field) => {
+    const value = saved[field.id];
+    return value != null && String(value).trim() !== '';
+  });
+}
+
+function captureDanmuReadCredentialDraft(providerId = danmuReadRenderedProviderId) {
+  const provider = getDanmuReadCatalogProvider(providerId);
   if (!provider) return;
   const values = { ...(danmuReadCredentialDrafts[provider.id] || {}) };
   credentialFieldsFor(provider).forEach((field) => {
@@ -546,7 +558,12 @@ function renderDanmuReadCredentials() {
   const container = document.getElementById('danmuReadCredentials');
   const help = document.getElementById('danmuReadCredentialsHelp');
   if (!provider || !container) return;
-  captureDanmuReadCredentialDraft();
+  if (
+    danmuReadRenderedProviderId
+    && danmuReadRenderedProviderId !== provider.id
+  ) {
+    captureDanmuReadCredentialDraft(danmuReadRenderedProviderId);
+  }
   container.replaceChildren();
   const saved = danmuReadSavedCredentials[provider.id] || {};
   const draft = danmuReadCredentialDrafts[provider.id] || {};
@@ -570,10 +587,16 @@ function renderDanmuReadCredentials() {
     if (field.id === 'api_key') input.dataset.legacyApiKey = 'true';
     const status = document.createElement('small');
     status.className = 'settings-section-hint';
-    status.textContent = isDanmuReadMasked(input.value) || saved[field.id] === true ? t('settings.text.凭据已保存') : t('settings.text.试听可使用当前值');
+    const hasSaved = isDanmuReadMasked(saved[field.id]) || (
+      saved[field.id] != null && String(saved[field.id]).trim() !== '' && !draft[field.id]
+    );
+    status.textContent = isDanmuReadMasked(input.value) || hasSaved
+      ? t('settings.text.凭据已保存')
+      : t('settings.text.试听可使用当前值');
     wrapper.append(label, input, status);
     container.appendChild(wrapper);
   });
+  danmuReadRenderedProviderId = provider.id;
   if (help) {
     const url = provider.auth_schema?.help_url || provider.help_url || '';
     setHidden(help, !/^https?:\/\//i.test(url));
@@ -693,7 +716,9 @@ function syncDanmuReadCapabilities() {
 }
 
 function handleDanmuReadProviderChange() {
-  captureDanmuReadCredentialDraft();
+  if (danmuReadRenderedProviderId) {
+    captureDanmuReadCredentialDraft(danmuReadRenderedProviderId);
+  }
   renderDanmuReadProviderCards();
   const provider = currentDanmuReadProvider();
   const modelId = document.getElementById('danmuReadModelSelect')?.value || provider?.models?.find((model) => model.recommended)?.id || '';
@@ -768,6 +793,7 @@ function applyDanmuReadForm(cfg, { preserveDraft = false } = {}) {
   if (!preserveDraft) {
     danmuReadCredentialDrafts = {};
     danmuReadSavedCredentials = {};
+    danmuReadRenderedProviderId = null;
   }
   const enabledEl = document.getElementById('danmuReadEnabled');
   const intervalEl = document.getElementById('danmuReadInterval');
@@ -779,9 +805,19 @@ function applyDanmuReadForm(cfg, { preserveDraft = false } = {}) {
   const storedProvider = danmuReadCanonicalProviderId(cfg?.provider || 'mimo');
   const provider = getDanmuReadCatalogProvider(storedProvider) || getDanmuReadCatalogProvider('mimo');
   if (providerEl) providerEl.value = provider?.wire_id || provider?.id || '';
-  const rawCredentials = cfg?.credentials || cfg?.provider_credentials || cfg?.auth || {};
-  danmuReadSavedCredentials[provider?.id || storedProvider] = { ...(rawCredentials || {}) };
-  if (cfg?.api_key) danmuReadSavedCredentials[provider?.id || storedProvider].api_key = cfg.api_key;
+  const rawCredentials = cfg?.credentials || cfg?.auth || {};
+  const providerKey = provider?.id || storedProvider;
+  if (cfg?.provider_credentials && typeof cfg.provider_credentials === 'object') {
+    Object.entries(cfg.provider_credentials).forEach(([savedProviderId, savedValues]) => {
+      if (!savedProviderId || !savedValues || typeof savedValues !== 'object') return;
+      danmuReadSavedCredentials[savedProviderId] = { ...savedValues };
+    });
+  }
+  danmuReadSavedCredentials[providerKey] = {
+    ...(danmuReadSavedCredentials[providerKey] || {}),
+    ...(rawCredentials || {}),
+  };
+  if (cfg?.api_key) danmuReadSavedCredentials[providerKey].api_key = cfg.api_key;
   renderDanmuReadProviderCards();
   renderDanmuReadCredentials();
   populateDanmuReadModelSelect(provider?.id, cfg?.model_id || cfg?.model || '');

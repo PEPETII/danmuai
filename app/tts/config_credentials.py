@@ -7,7 +7,7 @@ from app.tts_providers import TTS_PROVIDER_MIMO, canonical_tts_provider_id, get_
 
 
 def stored_tts_credentials(config, provider: str) -> dict[str, str]:
-    """读取 provider-scoped 凭据；旧的全局 TTS key 仅作为兼容回退。"""
+    """读取 provider-scoped 凭据；旧的全局 TTS key 仅作为 MiMo 历史数据兼容。"""
 
     canonical = canonical_tts_provider_id(provider) or TTS_PROVIDER_MIMO
     credentials: dict[str, str] = {}
@@ -20,7 +20,7 @@ def stored_tts_credentials(config, provider: str) -> dict[str, str]:
                 credentials[field.id] = value
     except (AttributeError, OSError, ValueError):
         pass
-    if not credentials.get("api_key"):
+    if canonical == TTS_PROVIDER_MIMO and not credentials.get("api_key"):
         try:
             legacy_key = config.get_tts_api_key()
         except AttributeError:
@@ -51,4 +51,18 @@ def masked_tts_credentials(config, provider: str) -> dict[str, str]:
     return result
 
 
-__all__ = ["masked_tts_credentials", "stored_tts_credentials"]
+def all_masked_tts_credentials(config) -> dict[str, dict[str, str]]:
+    """Return masked credentials for every known TTS provider (UI status only)."""
+
+    result: dict[str, dict[str, str]] = {}
+    try:
+        for provider_id in get_tts_manager().catalog.provider_ids():
+            credentials = masked_tts_credentials(config, provider_id)
+            if credentials:
+                result[provider_id] = credentials
+    except (AttributeError, OSError, ValueError):
+        pass
+    return result
+
+
+__all__ = ["all_masked_tts_credentials", "masked_tts_credentials", "stored_tts_credentials"]
