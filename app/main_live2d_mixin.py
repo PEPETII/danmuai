@@ -94,34 +94,6 @@ class DanmuAppLive2DMixin:
         snapshot["desktop_visible"] = False
         return snapshot
 
-    def set_live2d_parameter(self, parameter_id: str, value: float) -> dict[str, object]:
-        return {
-            "ok": True,
-            "kind": "parameter",
-            **self._get_live2d_desktop_runtime().set_parameter(parameter_id, value),
-        }
-
-    def trigger_live2d_action(self, action: str) -> dict[str, object]:
-        return {
-            "ok": True,
-            "kind": "action",
-            **self._get_live2d_desktop_runtime().trigger_action(action),
-        }
-
-    def start_live2d_motion(self, file_name: str) -> dict[str, object]:
-        return {
-            "ok": True,
-            "kind": "motion",
-            **self._get_live2d_desktop_runtime().start_motion(file_name),
-        }
-
-    def set_live2d_expression(self, file_name: str) -> dict[str, object]:
-        return {
-            "ok": True,
-            "kind": "expression",
-            **self._get_live2d_desktop_runtime().set_expression(file_name),
-        }
-
     def get_live2d_model_resource(self, resource_path: str) -> tuple[bytes, str]:
         return self._get_live2d_model_registry().read_resource(resource_path)
 

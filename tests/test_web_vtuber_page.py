@@ -33,7 +33,7 @@ def test_vtuber_panel_is_wired_to_pet_tabs():
     assert "虚拟桌宠状态" in panel
 
 
-def test_vtuber_runtime_exposes_start_stop_desktop_status_and_control_regions():
+def test_vtuber_runtime_exposes_start_stop_desktop_status():
     panel = _vtuber_panel()
 
     for control_id in ("btnVtuberImportModel", "btnVtuberClearModel", "btnVtuberStart", "btnVtuberStop"):
@@ -43,10 +43,10 @@ def test_vtuber_runtime_exposes_start_stop_desktop_status_and_control_regions():
     assert 'id="vtuberDesktopStatusText"' in panel
     assert 'id="vtuberDesktopStatusHint"' in panel
     assert 'id="vtuberCanvas"' not in panel
-    assert 'id="vtuberParameters"' in panel
-    assert 'id="vtuberActions"' in panel
-    assert 'id="vtuberMotions"' in panel
-    assert 'id="vtuberExpressions"' in panel
+    assert 'id="vtuberParameters"' not in panel
+    assert 'id="vtuberActions"' not in panel
+    assert 'id="vtuberMotions"' not in panel
+    assert 'id="vtuberExpressions"' not in panel
     assert 'id="vtuberVisionModelSelect"' in panel
     assert 'id="vtuberTtsModelSelect"' in panel
     assert 'id="vtuberModelSettingsStatus"' in panel
@@ -54,7 +54,7 @@ def test_vtuber_runtime_exposes_start_stop_desktop_status_and_control_regions():
     assert "模型文件不会上传或复制" in panel
 
 
-def test_vtuber_module_uses_native_model_api_and_keeps_runtime_controls_out():
+def test_vtuber_module_uses_native_model_api_without_web_control_panel():
     source = (STATIC_ROOT / "modules" / "app-vtuber-page.js").read_text(encoding="utf-8")
     app_source = (STATIC_ROOT / "app.js").read_text(encoding="utf-8")
 
@@ -65,10 +65,6 @@ def test_vtuber_module_uses_native_model_api_and_keeps_runtime_controls_out():
         "/api/live2d/start",
         "/api/live2d/stop",
         "/api/virtual-host/models",
-        "/api/live2d/control/parameter",
-        "/api/live2d/control/action",
-        "/api/live2d/control/motion",
-        "/api/live2d/control/expression",
     ):
         assert endpoint in source
     assert "apiFetch" in source
@@ -76,7 +72,8 @@ def test_vtuber_module_uses_native_model_api_and_keeps_runtime_controls_out():
     assert "FormData" not in source
     assert "motion_files" in source
     assert "expression_files" in source
-    assert "PARAMETER_ACTIONS" in source
+    assert "PARAMETER_ACTIONS" not in source
+    assert "/api/live2d/control/" not in source
     assert "setParameterValueById" not in source
     assert "getParameterIds" not in source
     assert "Live2DModel.from" not in source
@@ -85,6 +82,5 @@ def test_vtuber_module_uses_native_model_api_and_keeps_runtime_controls_out():
     assert "vtuberCanvas" not in source
     assert "vtuberVisionModelSelect" in source
     assert "vtuberTtsModelSelect" in source
-    assert "桌面窗口运行时" in source
     assert "app-vtuber-page.js" in app_source
     assert "Promise.all" in app_source

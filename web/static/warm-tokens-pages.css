@@ -244,15 +244,6 @@
   padding: 0;
 }
 
-#page-pet .vtuber-settings-section-heading {
-  margin: 0;
-  padding: var(--space-3) var(--space-4);
-  color: var(--text-primary);
-  font-size: 0.875rem;
-  font-weight: 700;
-  line-height: 1.35;
-}
-
 #page-pet .vtuber-settings-actions {
   display: flex;
   flex-wrap: wrap;
@@ -338,56 +329,6 @@
     color: var(--text-primary);
   }
 
-  #page-pet .vtuber-control-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1.5fr) repeat(2, minmax(0, 1fr));
-    gap: var(--space-3);
-  }
-
-  #page-pet .vtuber-control-card {
-    min-width: 0;
-    padding: var(--space-3);
-    border: 1px solid var(--border-default);
-    border-radius: var(--radius-md);
-    background: var(--surface-subtle);
-  }
-
-  #page-pet .vtuber-parameter-list,
-  #page-pet .vtuber-action-list {
-    display: grid;
-    gap: var(--space-2);
-    max-height: 20rem;
-    overflow: auto;
-    padding-right: 0.25rem;
-  }
-
-  #page-pet .vtuber-parameter-row {
-    display: grid;
-    grid-template-columns: minmax(7rem, 1fr) minmax(5rem, 2fr) 4.5rem;
-    align-items: center;
-    gap: var(--space-2);
-    font-size: 0.75rem;
-  }
-
-  #page-pet .vtuber-parameter-row code {
-    overflow: hidden;
-    color: var(--text-secondary);
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  #page-pet .vtuber-parameter-value {
-    width: 100%;
-  }
-
-  #page-pet .vtuber-action-list .ui-button {
-    width: 100%;
-    justify-content: flex-start;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
   @media (max-width: 600px) {
   #page-pet .vtuber-status-card__header {
     flex-direction: column;
@@ -398,14 +339,8 @@
       width: 100%;
     }
 
-    #page-pet .vtuber-runtime-card__header,
-    #page-pet .vtuber-control-grid {
-      grid-template-columns: 1fr;
+    #page-pet .vtuber-runtime-card__header {
       flex-direction: column;
-    }
-
-    #page-pet .vtuber-control-grid {
-      display: grid;
     }
   }
 

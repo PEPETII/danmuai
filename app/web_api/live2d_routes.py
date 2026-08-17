@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Callable
 
-from fastapi import Body, Header, HTTPException
+from fastapi import Header, HTTPException
 from fastapi.responses import Response
 
 from app.web_api import live2d as live2d_api
@@ -46,48 +46,6 @@ def register_live2d_routes(
     @require_auth(check_token)
     def post_live2d_stop(authorization: str | None = Header(default=None)):
         return invoke_main(live2d_api.stop_model, bridge.danmu_app)
-
-    def _control_route(control, payload: dict[str, object]):
-        try:
-            return invoke_main(control, bridge.danmu_app, payload)
-        except (TypeError, ValueError, RuntimeError) as exc:
-            raise HTTPException(status_code=409, detail=str(exc)) from exc
-
-    @app.post("/api/live2d/control/parameter")
-    @require_auth(check_token)
-    def post_live2d_parameter(
-        payload: dict[str, object] = Body(...),
-        authorization: str | None = Header(default=None),
-    ):
-        del authorization
-        return _control_route(live2d_api.control_parameter, payload)
-
-    @app.post("/api/live2d/control/action")
-    @require_auth(check_token)
-    def post_live2d_action(
-        payload: dict[str, object] = Body(...),
-        authorization: str | None = Header(default=None),
-    ):
-        del authorization
-        return _control_route(live2d_api.control_action, payload)
-
-    @app.post("/api/live2d/control/motion")
-    @require_auth(check_token)
-    def post_live2d_motion(
-        payload: dict[str, object] = Body(...),
-        authorization: str | None = Header(default=None),
-    ):
-        del authorization
-        return _control_route(live2d_api.control_motion, payload)
-
-    @app.post("/api/live2d/control/expression")
-    @require_auth(check_token)
-    def post_live2d_expression(
-        payload: dict[str, object] = Body(...),
-        authorization: str | None = Header(default=None),
-    ):
-        del authorization
-        return _control_route(live2d_api.control_expression, payload)
 
     @app.get("/api/live2d/resource/{resource_path:path}")
     def get_live2d_resource(resource_path: str):
