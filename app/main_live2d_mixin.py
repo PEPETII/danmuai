@@ -67,6 +67,12 @@ class DanmuAppLive2DMixin:
         except Exception as exc:
             registry.stop_model()
             raise ValueError(f"desktop_runtime_failed:{_safe_live2d_error(exc)}") from exc
+        ensure = getattr(self, "_ensure_virtual_host_runtime", None)
+        if callable(ensure):
+            ensure()
+        virtual_host_runtime = self.__dict__.get("virtual_host_runtime")
+        if virtual_host_runtime is not None:
+            virtual_host_runtime.start()
         return {
             **registry_snapshot,
             **runtime_snapshot,
@@ -81,6 +87,9 @@ class DanmuAppLive2DMixin:
         runtime = self.__dict__.get("_live2d_desktop_runtime")
         if runtime is not None:
             runtime.stop()
+        virtual_host_runtime = self.__dict__.get("virtual_host_runtime")
+        if virtual_host_runtime is not None:
+            virtual_host_runtime.stop()
         snapshot = self._get_live2d_model_registry().stop_model()
         snapshot["desktop_visible"] = False
         return snapshot
@@ -129,6 +138,9 @@ class DanmuAppLive2DMixin:
         from app.virtual_host.model_config import apply_virtual_host_model_config
 
         result = apply_virtual_host_model_config(self.config, patch)
+        runtime = self.__dict__.get("virtual_host_runtime")
+        if runtime is not None:
+            runtime.refresh_model_bindings()
         self.config_changed.emit()
         return result
 

@@ -187,7 +187,7 @@ def test_resolve_virtual_host_tts_binding_uses_virtual_host_source(monkeypatch):
         lambda _config: [{"id": option_id, "label": "TTS", "provider_id": "tts-provider", "model_id": "tts-model"}],
     )
     monkeypatch.setattr(
-        "app.virtual_host.model_config._stored_tts_credentials",
+        "app.tts.config_credentials.stored_tts_credentials",
         lambda _config, _provider: {"api_key": "secret"},
     )
     binding = resolve_virtual_host_tts_binding(config, manager)

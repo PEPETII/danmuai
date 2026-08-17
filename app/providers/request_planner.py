@@ -41,6 +41,7 @@ Purpose = Literal[
     "knowledge_organize",
     "connection_probe",
     "model_capability_probe",
+    "virtual_host_scene",
 ]
 
 
@@ -146,7 +147,11 @@ def plan_http_request(req: GenerationRequest) -> PlannedHttpRequest:
     body = adapter.build_body(effective_req, caps, warnings) if hasattr(adapter, "build_body") else _plan_openai_chat_body(effective_req, endpoint, api_mode, caps, warnings)
     # Adapters own message/transport shape; thinking remains a shared
     # capability contract so every adapter receives the same per-model level.
-    if req.force_thinking_off or req.purpose in ("connection_probe", "knowledge_organize"):
+    if req.force_thinking_off or req.purpose in (
+        "connection_probe",
+        "knowledge_organize",
+        "virtual_host_scene",
+    ):
         apply_thinking_disabled(body, caps=caps)
     elif req.reasoning_enabled is not None:
         if catalog_model_supports_thinking_toggle(req.model_id) and caps.thinking_param_style != "none":
@@ -220,7 +225,11 @@ def _plan_doubao_body(
         data["max_output_tokens"] = req.max_output_tokens
     if req.temperature is not None and req.temperature >= 0:
         data["temperature"] = req.temperature
-    if req.force_thinking_off or req.purpose in ("connection_probe", "knowledge_organize"):
+    if req.force_thinking_off or req.purpose in (
+        "connection_probe",
+        "knowledge_organize",
+        "virtual_host_scene",
+    ):
         data["thinking"] = dict(THINKING_DISABLED)
     elif req.reasoning_enabled is not None and caps.thinking_param_style == "thinking_type":
         data["thinking"] = dict(THINKING_ENABLED if req.reasoning_enabled else THINKING_DISABLED)
@@ -250,7 +259,11 @@ def _plan_openai_chat_body(
         adapter.patch_openai_chat_body(data, max_tokens=max_tokens, caps=caps)
     elif req.purpose == "connection_probe":
         adapter.patch_probe_body(data, caps=caps)
-    if req.force_thinking_off or req.purpose in ("connection_probe", "knowledge_organize"):
+    if req.force_thinking_off or req.purpose in (
+        "connection_probe",
+        "knowledge_organize",
+        "virtual_host_scene",
+    ):
         apply_thinking_disabled(data, caps=caps)
     elif req.reasoning_enabled is not None:
         if catalog_model_supports_thinking_toggle(req.model_id) and caps.thinking_param_style != "none":

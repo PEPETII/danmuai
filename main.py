@@ -424,6 +424,14 @@ class DanmuApp(
             return
         if not self._apply_capture_result(pixmap):
             return
+        virtual_host_runtime = getattr(self, "virtual_host_runtime", None)
+        if virtual_host_runtime is not None:
+            virtual_host_runtime.on_capture_completed(
+                pixmap,
+                screenshot_id=self._latest_screenshot_id,
+                scene_generation=self._scene_generation,
+                captured_at=self._latest_screenshot_time,
+            )
         source = self._pending_api_trigger_source or "normal_interval"
         self._pending_api_trigger_source = None
         self._trigger_api_call(

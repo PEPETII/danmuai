@@ -17,9 +17,10 @@ from typing import TYPE_CHECKING, Any
 from fastapi import HTTPException
 
 from app.application.config_service import MASKED_API_KEY
-from app.danmu_read_service import _stored_tts_credentials, export_danmu_read_config
+from app.danmu_read_service import export_danmu_read_config
 from app.model_providers import normalize_endpoint
 from app.translations import tr
+from app.tts.config_credentials import stored_tts_credentials
 from app.tts.types import descriptor_to_dict
 from app.tts_catalog import list_catalog_for_api
 from app.tts_providers import (
@@ -63,7 +64,7 @@ def get_voices(
                 status_code=400,
                 detail=tr("tts.error.unsupportedModel").format(model=model),
             )
-        credentials = _stored_tts_credentials(app.config, provider)
+        credentials = stored_tts_credentials(app.config, provider)
         voices = get_tts_manager().list_voices(
             provider,
             model,

@@ -22,6 +22,7 @@ from app.application.config_service import MASKED_API_KEY
 from app.danmu_tts_playback import DanmuTtsPlayback
 from app.model_providers import normalize_endpoint
 from app.translations import tr
+from app.tts.config_credentials import masked_tts_credentials, stored_tts_credentials
 from app.tts_providers import (
     MIMO_TTS_MODEL,
     TTS_PROBE_TEXT,
@@ -86,47 +87,11 @@ def _normalize_tts_provider(value: object) -> str:
 
 
 def _stored_tts_credentials(config, provider: str) -> dict[str, str]:
-    """读取 provider-scoped 凭据；旧的全局 TTS key 仅作为兼容回退。"""
-    canonical = canonical_tts_provider_id(provider) or TTS_PROVIDER_MIMO
-    credentials: dict[str, str] = {}
-    try:
-        descriptor = get_tts_manager().catalog.get_provider(canonical)
-        fields = descriptor.auth.fields if descriptor is not None else ()
-        for field in fields:
-            value = config.get_tts_secret(canonical, field.id)
-            if value:
-                credentials[field.id] = value
-    except (AttributeError, OSError, ValueError):
-        pass
-    if not credentials.get("api_key"):
-        try:
-            legacy_key = config.get_tts_api_key()
-        except AttributeError:
-            legacy_key = ""
-        if legacy_key:
-            credentials["api_key"] = legacy_key
-    return credentials
+    return stored_tts_credentials(config, provider)
 
 
 def _masked_tts_credentials(config, provider: str) -> dict[str, str]:
-    canonical = canonical_tts_provider_id(provider) or TTS_PROVIDER_MIMO
-    result: dict[str, str] = {}
-    try:
-        descriptor = get_tts_manager().catalog.get_provider(canonical)
-        fields = descriptor.auth.fields if descriptor is not None else ()
-        for field in fields:
-            value = config.get_tts_secret_masked(canonical, field.id)
-            if value:
-                result[field.id] = value
-    except (AttributeError, OSError, ValueError):
-        pass
-    if canonical == TTS_PROVIDER_MIMO and not result.get("api_key"):
-        try:
-            if config.get_tts_api_key():
-                result["api_key"] = MASKED_API_KEY
-        except AttributeError:
-            pass
-    return result
+    return masked_tts_credentials(config, provider)
 
 
 def _optional_float(value: object) -> float | None:

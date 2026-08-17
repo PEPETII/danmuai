@@ -350,6 +350,24 @@ class DanmuAppLifecycleMixin:
             return False
         return getattr(runtime, "repository", None) is not None
 
+    def _ensure_virtual_host_runtime(self) -> bool:
+        runtime = self.__dict__.get("virtual_host_runtime")
+        try:
+            if runtime is None:
+                from app.virtual_host.runtime_service import VirtualHostRuntimeService
+
+                runtime = VirtualHostRuntimeService(self)
+                self.virtual_host_runtime = runtime
+            else:
+                mount = getattr(runtime, "mount", None)
+                if callable(mount):
+                    mount()
+        except Exception as exc:
+            self.logger.warning(f"virtual_host_runtime mount failed: {exc!r}")
+            self.virtual_host_runtime = None
+            return False
+        return getattr(runtime, "session", None) is not None
+
     def _init_startup_services(self, log_startup) -> None:
         self.tray.show()
         qt_app = QApplication.instance()
@@ -385,6 +403,9 @@ class DanmuAppLifecycleMixin:
         # Phase B / Wave 7（B2）：挂载知识包运行时服务。
         # 异常隔离：装配失败时主链路调用 no-op；start() 会再次尝试恢复。
         self._ensure_knowledge_runtime()
+
+        # 虚拟主播运行时：Live2D 启动后消费独立视觉/TTS 配置。
+        self._ensure_virtual_host_runtime()
 
         # PET-009 / W-PET-LAZY-INIT-VISIBILITY-001：启动期按需初始化并同步桌宠显隐。
         # config_changed 信号在 _start_web_console_stack 才连接，启动期收不到；

@@ -80,9 +80,9 @@ def list_vision_model_options(config) -> list[dict[str, str]]:
 
 
 def _stored_tts_credentials(config, provider_id: str) -> dict[str, str]:
-    from app.danmu_read_service import _stored_tts_credentials
+    from app.tts.config_credentials import stored_tts_credentials
 
-    return _stored_tts_credentials(config, provider_id)
+    return stored_tts_credentials(config, provider_id)
 
 
 def tts_provider_credentials_ready(config, provider_id: str) -> bool:
