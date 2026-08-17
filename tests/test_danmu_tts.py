@@ -257,8 +257,8 @@ def test_playback_busy_flag(qtbot):
     playback.playback_finished.connect(lambda: finished.append(1))
     assert not playback.is_busy()
     wav = _fake_wav_bytes()
-    assert playback.play_wav_bytes(wav) is True
+    assert playback.play_wav_bytes(wav) > 0
     assert playback.is_busy()
-    assert playback.play_wav_bytes(wav) is False
+    assert playback.play_wav_bytes(wav) == 0
     qtbot.waitUntil(lambda: bool(finished), timeout=3000)
     assert not playback.is_busy()

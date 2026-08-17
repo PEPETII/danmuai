@@ -83,14 +83,6 @@ def _service(monkeypatch, config: _FakeConfig, *, rng=lambda: 0.0) -> VirtualHos
 def _service_with_player(monkeypatch, config: _FakeConfig, *, rng=lambda: 0.0) -> tuple[VirtualHostRuntimeService, _FakePlayer]:
     service = _service(monkeypatch, config, rng=rng)
     player = _FakePlayer()
-    player.started: list[bytes] = []
-    original_play = player.play
-
-    def _tracking_play(audio_bytes: bytes, on_complete):
-        player.started.append(audio_bytes)
-        return original_play(audio_bytes, on_complete)
-
-    player.play = _tracking_play
     service._audio.playback = PlaybackQueue(player)
     return service, player
 

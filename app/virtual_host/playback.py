@@ -53,6 +53,7 @@ class PlaybackItem:
     audio_bytes: bytes
     priority: int = PlaybackPriority.AUTO_SCENE
     source: str = "virtual_host"
+    runtime_generation: int = 0
     item_id: str = ""
 
     def __post_init__(self) -> None:
@@ -67,6 +68,7 @@ class PlaybackItem:
         object.__setattr__(self, "audio_bytes", bytes(self.audio_bytes))
         object.__setattr__(self, "priority", int(self.priority))
         object.__setattr__(self, "source", str(self.source or "virtual_host"))
+        object.__setattr__(self, "runtime_generation", int(self.runtime_generation))
         object.__setattr__(self, "item_id", str(self.item_id or uuid.uuid4().hex))
 
 
@@ -257,6 +259,32 @@ class PlaybackQueue:
 
     def clear_cancelled_turn(self, session_id: str, turn_id: int) -> None:
         self._cancelled_turns.discard((str(session_id).strip(), int(turn_id)))
+
+    @staticmethod
+    def _is_stale_auto_runtime(item: PlaybackItem, current_runtime_generation: int) -> bool:
+        return (
+            int(item.priority) <= PlaybackPriority.AUTO_SCENE
+            and int(item.runtime_generation) < int(current_runtime_generation)
+        )
+
+    def purge_stale_auto_runtime(
+        self,
+        current_runtime_generation: int,
+        *,
+        reason: str = "runtime_generation_stale",
+    ) -> None:
+        """移除旧 runtime 的 AUTO_SCENE 排队项并打断当前自动播报；保留 USER_MIC。"""
+
+        self._pending = [
+            value
+            for value in self._pending
+            if not self._is_stale_auto_runtime(value[2], current_runtime_generation)
+        ]
+        if self._active is not None and self._is_stale_auto_runtime(
+            self._active,
+            current_runtime_generation,
+        ):
+            self.interrupt(reason=reason)
 
 
 __all__ = [

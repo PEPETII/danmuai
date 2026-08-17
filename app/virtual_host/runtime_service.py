@@ -280,39 +280,51 @@ class VirtualHostRuntimeService:
     def stop(self) -> None:
         self._running = False
         self._bump_runtime_generation()
-        self._spoken_tts_states.clear()
 
     def _bump_runtime_generation(self) -> int:
         self._runtime_generation += 1
         self._spoken_tts_states.clear()
+        self._purge_stale_auto_playback()
         return self._runtime_generation
+
+    def _purge_stale_auto_playback(self) -> None:
+        self._audio.playback.purge_stale_auto_runtime(
+            self._runtime_generation,
+            reason="runtime_generation_stale",
+        )
+
+    def _tts_binding_key(self, binding: TtsBinding | None) -> tuple[str, str, str]:
+        if binding is None:
+            return ("", "", "")
+        return (
+            str(binding.provider_id),
+            str(binding.model_id),
+            str(binding.voice_id),
+        )
 
     def refresh_model_bindings(self, *, bump_generation_on_vision_change: bool = True) -> None:
         config = self._app.config
         sanitize_virtual_host_model_config(config, persist=True)
         previous_vision = self._active_vision_model_id
+        previous_tts_key = self._tts_binding_key(self._tts_binding)
         resolved = resolve_virtual_host_vision_credentials(config)
         new_vision = resolved[2] if resolved is not None else ""
         if bump_generation_on_vision_change and previous_vision != new_vision:
             self._bump_runtime_generation()
         self._active_vision_model_id = new_vision
         binding = resolve_virtual_host_tts_binding(config, get_tts_manager())
+        new_tts_key = self._tts_binding_key(binding)
+        if self._tts_binding is not None and new_tts_key != previous_tts_key:
+            self._bump_runtime_generation()
         self._tts_binding = binding
         self._audio.tts_binding = binding
         self._audio.tts = self._build_tts_synthesizer()
         self._spoken_tts_states.clear()
+        self._purge_stale_auto_playback()
 
     def _build_worker_tts_synthesizer(self) -> TtsSynthesizer:
-        """Worker 线程专用合成器；计数在 worker 内递增。"""
-        service = self
-        manager = get_tts_manager()
-
-        def _counting_synthesize(text: str, binding: TtsBinding) -> TtsSynthesisOutcome:
-            service.tts_synthesize_count += 1
-            synthesizer = TtsSynthesizer(manager)
-            return synthesizer.synthesize(text, binding)
-
-        return TtsSynthesizer(manager, synthesize_fn=_counting_synthesize)
+        """Worker 线程专用合成器；计数在主线程投递 job 时维护。"""
+        return TtsSynthesizer(get_tts_manager())
 
     def _build_tts_synthesizer(self) -> TtsSynthesizer:
         return self._build_worker_tts_synthesizer()
@@ -617,6 +629,7 @@ class VirtualHostRuntimeService:
             self._spoken_tts_states.pop(key, None)
             return
         index = state.next_segment_index
+        self.tts_synthesize_count += 1
         job = TtsSynthesisJob(
             session_id=state.session_id,
             turn_id=state.turn_id,
@@ -680,6 +693,7 @@ class VirtualHostRuntimeService:
                 audio_bytes=outcome.audio_bytes,
                 priority=job.priority,
                 source=job.source,
+                runtime_generation=job.runtime_generation,
             )
         )
         if playback_result.status in {"unavailable", "rejected"}:

@@ -570,7 +570,7 @@ class DanmuReadService(QObject):
         # 保持 _tts_in_flight 直至 playback_finished，避免定时 tick 触发新的 sd.play 打断当前句
         self._app.logger.info("danmu read: playback started (%s bytes)", len(wav_bytes))
 
-    def _on_playback_finished(self) -> None:
+    def _on_playback_finished(self, _playback_id: int = 0) -> None:
         self._tts_in_flight = False
         self._app.logger.debug("danmu read: playback finished")
 

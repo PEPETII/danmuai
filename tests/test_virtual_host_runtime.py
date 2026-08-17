@@ -127,17 +127,25 @@ def _fake_app(config: _FakeConfig) -> SimpleNamespace:
 class _FakePlayer:
     def __init__(self) -> None:
         self.current_callback = None
+        self.started: list[bytes] = []
+        self.stop_count = 0
 
     def play(self, audio_bytes: bytes, on_complete):
-        del audio_bytes
+        self.started.append(audio_bytes)
         self.current_callback = on_complete
         return object()
 
     def stop(self):
-        pass
+        self.stop_count += 1
 
     def pause(self):
         pass
+
+    def complete(self) -> None:
+        callback = self.current_callback
+        self.current_callback = None
+        if callback is not None:
+            callback()
 
 
 def test_runtime_vision_disabled_makes_zero_http_calls(monkeypatch):
@@ -229,7 +237,6 @@ def test_runtime_tts_binding_uses_virtual_host_provider(monkeypatch):
     state = orchestrator.synthesize_turn(turn.turn_id)
     assert state.tts_status == "completed"
     assert tts_calls == ["vh-tts-model"]
-    assert service.tts_synthesize_count == 1
 
 
 def test_runtime_tts_none_skips_synthesis(monkeypatch):

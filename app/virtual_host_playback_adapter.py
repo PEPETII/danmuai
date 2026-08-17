@@ -14,22 +14,29 @@ class DanmuTtsPlaybackAdapter:
     def __init__(self, playback: DanmuTtsPlayback) -> None:
         self._playback = playback
         self._on_complete: Callable[[], None] | None = None
+        self._active_playback_id = 0
         playback.playback_finished.connect(self._handle_finished)
 
-    def _handle_finished(self) -> None:
+    def _handle_finished(self, playback_id: int) -> None:
+        if int(playback_id) != self._active_playback_id:
+            return
         callback = self._on_complete
         self._on_complete = None
+        self._active_playback_id = 0
         if callback is not None:
             callback()
 
     def play(self, audio_bytes: bytes, on_complete: Callable[[], None]) -> object:
-        self._on_complete = on_complete
-        if not self._playback.play_wav_bytes(audio_bytes):
-            self._on_complete = None
+        playback_id = self._playback.play_wav_bytes(audio_bytes)
+        if not playback_id:
             return False
+        self._on_complete = on_complete
+        self._active_playback_id = int(playback_id)
         return object()
 
     def stop(self) -> Any:
+        self._on_complete = None
+        self._active_playback_id = 0
         return self._playback.stop()
 
     def pause(self) -> Any:

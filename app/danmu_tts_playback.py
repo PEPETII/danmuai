@@ -17,7 +17,7 @@ import wave
 
 import numpy as np
 import sounddevice as sd
-from PyQt6.QtCore import QMetaObject, QObject, Qt, pyqtSignal
+from PyQt6.QtCore import Q_ARG, QMetaObject, QObject, Qt, pyqtSignal, pyqtSlot
 
 logger = logging.getLogger(__name__)
 
@@ -42,14 +42,15 @@ def _append_trailing_pause(audio: np.ndarray, sample_rate: int) -> np.ndarray:
 
 
 class DanmuTtsPlayback(QObject):
-    """非阻塞播放；busy 期间 is_busy() 为 True；结束后发射 playback_finished。"""
+    """非阻塞播放；busy 期间 is_busy() 为 True；结束后发射 playback_finished(playback_id)。"""
 
-    playback_finished = pyqtSignal()
+    playback_finished = pyqtSignal(int)
 
     def __init__(self) -> None:
         super().__init__(None)
         self._busy = False
         self._lock = threading.Lock()
+        self._next_playback_id = 0
 
     def is_busy(self) -> bool:
         with self._lock:
@@ -59,14 +60,22 @@ class DanmuTtsPlayback(QObject):
         with self._lock:
             self._busy = value
 
-    def play_wav_bytes(self, wav_bytes: bytes) -> bool:
+    def play_wav_bytes(self, wav_bytes: bytes) -> int:
+        """开始播放；成功返回大于 0 的 playback_id，拒绝时返回 0。"""
         if self.is_busy() or not wav_bytes:
-            return False
+            return 0
+        with self._lock:
+            self._next_playback_id += 1
+            playback_id = self._next_playback_id
         self._set_busy(True)
-        threading.Thread(target=self._play_worker, args=(wav_bytes,), daemon=True).start()
-        return True
+        threading.Thread(
+            target=self._play_worker,
+            args=(wav_bytes, playback_id),
+            daemon=True,
+        ).start()
+        return playback_id
 
-    def _play_worker(self, wav_bytes: bytes) -> None:
+    def _play_worker(self, wav_bytes: bytes, playback_id: int) -> None:
         try:
             with wave.open(io.BytesIO(wav_bytes), "rb") as wf:
                 channels = wf.getnchannels()
@@ -96,8 +105,15 @@ class DanmuTtsPlayback(QObject):
             # 跨线程安全投递：通过 QMetaObject.invokeMethod + QueuedConnection 将信号
             # 投递到主线程事件循环，等价于 QTimer.singleShot(0, ...)。
             QMetaObject.invokeMethod(
-                self, "playback_finished", Qt.ConnectionType.QueuedConnection
+                self,
+                "_deliver_playback_finished",
+                Qt.ConnectionType.QueuedConnection,
+                Q_ARG(int, int(playback_id)),
             )
+
+    @pyqtSlot(int)
+    def _deliver_playback_finished(self, playback_id: int) -> None:
+        self.playback_finished.emit(int(playback_id))
 
     def stop(self) -> None:
         """停止当前播放并释放 busy 状态。"""
