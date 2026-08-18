@@ -113,20 +113,24 @@ def test_live2d_settings_route_requires_auth_and_applies_patch():
         "configured": True,
         "status": "ready",
         "click_through": True,
+        "display_scale_percent": 150,
     }
 
     assert client.put("/api/live2d/settings", json={"click_through": True}).status_code == 401
 
     response = client.put(
         "/api/live2d/settings",
-        json={"click_through": True},
+        json={"click_through": True, "display_scale_percent": 150},
         headers={"Authorization": "Bearer live2d-secret"},
     )
 
     assert response.status_code == 200
     assert response.json()["click_through"] is True
+    assert response.json()["display_scale_percent"] == 150
     bridge.invoke_on_main.assert_called_once()
-    bridge.danmu_app.apply_live2d_settings_patch.assert_called_once_with({"click_through": True})
+    bridge.danmu_app.apply_live2d_settings_patch.assert_called_once_with(
+        {"click_through": True, "display_scale_percent": 150}
+    )
 
 
 def test_live2d_resource_route_returns_proxy_bytes_without_exposing_model_path():

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from app.live2d.model_registry import Live2DModelRegistry
+from app.live2d.model_registry import LIVE2D_MODEL_ID_KEY, Live2DModelRegistry
 
 if TYPE_CHECKING:
     from app.live2d.desktop_runtime import Live2DDesktopRuntime
@@ -30,8 +30,30 @@ class DanmuAppLive2DMixin:
             self.__dict__["_live2d_registry"] = registry
         return registry
 
+    def _current_live2d_model_id(self) -> str:
+        return str(self.config.get(LIVE2D_MODEL_ID_KEY, "") or "").strip()
+
+    def _live2d_display_scale_percent(self) -> int:
+        from app.live2d.display_scale import get_model_display_scale_percent
+
+        return get_model_display_scale_percent(self.config, self._current_live2d_model_id())
+
+    def _sync_live2d_display_scale(self) -> None:
+        runtime = self.__dict__.get("_live2d_desktop_runtime")
+        if runtime is None:
+            return
+        runtime.set_display_scale_percent(self._live2d_display_scale_percent())
+
+    def _attach_live2d_display_scale(self, snapshot: dict[str, object]) -> dict[str, object]:
+        from app.live2d.display_scale import export_display_scale_settings
+
+        return {
+            **snapshot,
+            **export_display_scale_settings(self.config, self._current_live2d_model_id()),
+        }
+
     def get_live2d_model_snapshot(self) -> dict[str, object]:
-        snapshot = self._get_live2d_model_registry().snapshot()
+        snapshot = self._attach_live2d_display_scale(self._get_live2d_model_registry().snapshot())
         snapshot["click_through"] = self._live2d_click_through_enabled()
         runtime = self.__dict__.get("_live2d_desktop_runtime")
         if runtime is not None:
@@ -55,9 +77,23 @@ class DanmuAppLive2DMixin:
         if "click_through" in patch and patch["click_through"] is not None:
             enabled = bool(patch["click_through"])
             items["live2d_click_through"] = "1" if enabled else "0"
+        if "display_scale_percent" in patch and patch["display_scale_percent"] is not None:
+            from app.live2d.display_scale import set_model_display_scale_percent
+
+            model_id = self._current_live2d_model_id()
+            if not model_id:
+                raise ValueError("live2d_model_not_configured")
+            set_model_display_scale_percent(
+                self.config,
+                model_id,
+                patch["display_scale_percent"],
+            )
+            self._sync_live2d_display_scale()
         if items:
             self.config.set_batch(items)
             self._sync_live2d_click_through()
+            self.config_changed.emit()
+        elif "display_scale_percent" in patch and patch["display_scale_percent"] is not None:
             self.config_changed.emit()
         return self.get_live2d_model_snapshot()
 
@@ -103,6 +139,7 @@ class DanmuAppLive2DMixin:
         model_path = str(self.config.get("live2d_model_path", "") or "").strip()
         runtime = self._get_live2d_desktop_runtime()
         runtime.set_click_through(self._live2d_click_through_enabled())
+        runtime.set_display_scale_percent(self._live2d_display_scale_percent())
         try:
             runtime_snapshot = runtime.start(model_path)
         except Exception as exc:
@@ -117,7 +154,7 @@ class DanmuAppLive2DMixin:
             if callable(attach):
                 attach(self._get_live2d_desktop_runtime())
             virtual_host_runtime.start()
-        return {
+        return self._attach_live2d_display_scale({
             **registry_snapshot,
             **runtime_snapshot,
             "desktop_visible": bool(runtime_snapshot.get("desktop_visible")),
@@ -126,7 +163,7 @@ class DanmuAppLive2DMixin:
                 **dict(registry_snapshot.get("capabilities") or {}),
                 **dict(runtime_snapshot.get("capabilities") or {}),
             },
-        }
+        })
 
     def stop_live2d_model(self) -> dict[str, object]:
         virtual_host_runtime = self.__dict__.get("virtual_host_runtime")
@@ -135,7 +172,7 @@ class DanmuAppLive2DMixin:
         runtime = self.__dict__.get("_live2d_desktop_runtime")
         if runtime is not None:
             runtime.stop()
-        snapshot = self._get_live2d_model_registry().stop_model()
+        snapshot = self._attach_live2d_display_scale(self._get_live2d_model_registry().stop_model())
         snapshot["desktop_visible"] = False
         snapshot["click_through"] = self._live2d_click_through_enabled()
         return snapshot

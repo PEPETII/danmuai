@@ -6,6 +6,11 @@ let requestInFlight = false;
 let modelSettingsCache = null;
 let modelSettingsSaveToken = 0;
 let clickThroughSaveToken = 0;
+let displayScaleSaveToken = 0;
+
+const DISPLAY_SCALE_MIN = 25;
+const DISPLAY_SCALE_MAX = 300;
+const DISPLAY_SCALE_DEFAULT = 100;
 
 const CAPABILITY_LABELS = [
   ['dependency_count', '依赖'], ['texture_count', '纹理'], ['parameter_count', '参数'],
@@ -21,6 +26,60 @@ function renderModelSettingsStatus(message) {
 
 function renderClickThroughStatus(message) {
   setText('vtuberClickThroughStatus', message || '');
+}
+
+function renderDisplayScaleStatus(message) {
+  setText('vtuberDisplayScaleStatus', message || '');
+}
+
+function clampDisplayScalePercent(value) {
+  const parsed = Number.parseInt(String(value ?? ''), 10);
+  if (!Number.isFinite(parsed)) return DISPLAY_SCALE_DEFAULT;
+  return Math.min(DISPLAY_SCALE_MAX, Math.max(DISPLAY_SCALE_MIN, parsed));
+}
+
+function renderDisplayScale(data) {
+  const percent = clampDisplayScalePercent(data?.display_scale_percent ?? DISPLAY_SCALE_DEFAULT);
+  const range = element('vtuberDisplayScaleRange');
+  const input = element('vtuberDisplayScaleInput');
+  const resetButton = element('btnVtuberDisplayScaleReset');
+  const configured = data?.configured === true && Boolean(data?.model_id);
+  if (range) {
+    range.value = String(percent);
+    range.disabled = !configured;
+  }
+  if (input) {
+    input.value = String(percent);
+    input.disabled = !configured;
+  }
+  if (resetButton) resetButton.disabled = !configured;
+  renderDisplayScaleStatus(
+    configured
+      ? `当前模型显示大小为 ${percent}%。`
+      : '导入模型后可调整显示大小。',
+  );
+}
+
+async function saveDisplayScale(percent, { silent = false } = {}) {
+  const normalized = clampDisplayScalePercent(percent);
+  const token = ++displayScaleSaveToken;
+  renderDisplayScaleStatus('正在保存显示大小…');
+  try {
+    const data = await apiFetch('/api/live2d/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ display_scale_percent: normalized }),
+    });
+    if (token !== displayScaleSaveToken) return data;
+    renderDisplayScale(data);
+    if (!silent) toast(`显示大小已设为 ${normalized}%`);
+    return data;
+  } catch (error) {
+    if (token === displayScaleSaveToken) {
+      renderDisplayScaleStatus(error?.message || '保存显示大小失败');
+    }
+    throw error;
+  }
 }
 
 function renderClickThrough(data) {
@@ -196,6 +255,7 @@ function renderModel(data) {
   if (startButton) startButton.disabled = requestInFlight || !model.loaded || running;
   if (stopButton) stopButton.disabled = requestInFlight || !running;
   renderClickThrough(model);
+  renderDisplayScale(model);
 }
 
 function setRequestState(active) {
@@ -270,6 +330,28 @@ export function initVtuberPage(deps = {}) {
   element('vtuberClickThrough')?.addEventListener('change', (event) => {
     saveClickThrough(Boolean(event.target?.checked))
       .catch((error) => toast(error.message, true));
+  });
+  const displayScaleRange = element('vtuberDisplayScaleRange');
+  const displayScaleInput = element('vtuberDisplayScaleInput');
+  const syncDisplayScaleControls = (percent, { persist = false } = {}) => {
+    const normalized = clampDisplayScalePercent(percent);
+    if (displayScaleRange) displayScaleRange.value = String(normalized);
+    if (displayScaleInput) displayScaleInput.value = String(normalized);
+    if (persist) {
+      saveDisplayScale(normalized).catch((error) => toast(error.message, true));
+    }
+  };
+  displayScaleRange?.addEventListener('input', (event) => {
+    syncDisplayScaleControls(event.target?.value);
+  });
+  displayScaleRange?.addEventListener('change', (event) => {
+    syncDisplayScaleControls(event.target?.value, { persist: true });
+  });
+  displayScaleInput?.addEventListener('change', (event) => {
+    syncDisplayScaleControls(event.target?.value, { persist: true });
+  });
+  element('btnVtuberDisplayScaleReset')?.addEventListener('click', () => {
+    syncDisplayScaleControls(DISPLAY_SCALE_DEFAULT, { persist: true });
   });
   element('btnVtuberImportModel')?.addEventListener('click', () => importModel().catch((error) => toast(error.message, true)));
   element('btnVtuberImportModelAdvanced')?.addEventListener('click', () => importModel('/api/live2d/import-model-file').catch((error) => toast(error.message, true)));

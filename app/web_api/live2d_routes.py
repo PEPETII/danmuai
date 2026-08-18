@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 
 class Live2DSettingsPatch(BaseModel):
     click_through: bool | None = None
+    display_scale_percent: int | None = None
 
 
 def register_live2d_routes(

@@ -57,6 +57,10 @@ def test_vtuber_runtime_exposes_start_stop_desktop_status():
     assert 'id="vtuberTtsModelSelect"' in panel
     assert 'id="vtuberModelSettingsStatus"' in panel
     assert 'id="vtuberClickThrough"' in panel
+    assert 'id="vtuberDisplayScaleRange"' in panel
+    assert 'id="vtuberDisplayScaleInput"' in panel
+    assert 'id="btnVtuberDisplayScaleReset"' in panel
+    assert "显示大小" in panel
     assert "鼠标穿透" in panel
     assert "选择包含 Live2D 模型的文件夹" in panel
     assert "高级导入" in panel
@@ -93,6 +97,8 @@ def test_vtuber_module_uses_native_model_api_without_web_control_panel():
     assert "vtuberVisionModelSelect" in source
     assert "vtuberTtsModelSelect" in source
     assert "vtuberClickThrough" in source
+    assert "vtuberDisplayScaleRange" in source
+    assert "display_scale_percent" in source
     assert "/api/live2d/settings" in source
     assert "app-vtuber-page.js" in app_source
     assert "Promise.all" in app_source

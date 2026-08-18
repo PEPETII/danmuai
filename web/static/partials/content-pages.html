@@ -432,6 +432,20 @@
               </div>
             </div>
             <div class="settings-rhythm-accordion-fields mt-4">
+              <div class="settings-rhythm-accordion-field">
+                <div class="flex-1 min-w-0">
+                  <label for="vtuberDisplayScaleRange" class="settings-field-label">显示大小</label>
+                  <p class="text-xs text-gray-500 mt-1">调整虚拟主播在桌面上的渲染尺寸（25%–300%）。缩放以角色脚底为中心，不修改窗口大小。</p>
+                </div>
+                <div class="vtuber-display-scale-controls">
+                  <input type="range" id="vtuberDisplayScaleRange" class="vtuber-display-scale-range" min="25" max="300" step="1" value="100" aria-describedby="vtuberDisplayScaleStatus">
+                  <div class="vtuber-display-scale-input-wrap">
+                    <input type="number" id="vtuberDisplayScaleInput" class="settings-field-control ui-control ui-input vtuber-display-scale-input" min="25" max="300" step="1" value="100" aria-label="显示大小百分比">
+                    <span class="vtuber-display-scale-suffix" aria-hidden="true">%</span>
+                  </div>
+                  <button type="button" id="btnVtuberDisplayScaleReset" class="ui-button ui-button--secondary ui-button--sm">恢复默认</button>
+                </div>
+              </div>
               <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--toggle">
                 <div class="flex-1 min-w-0">
                   <span class="settings-field-label">鼠标穿透</span>
@@ -443,6 +457,7 @@
                 </label>
               </div>
             </div>
+            <p id="vtuberDisplayScaleStatus" class="settings-section-hint" role="status" aria-live="polite"></p>
             <p id="vtuberClickThroughStatus" class="settings-section-hint" role="status" aria-live="polite"></p>
           </section>
 

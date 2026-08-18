@@ -12,6 +12,12 @@ from PyQt6.QtGui import QMouseEvent, QSurfaceFormat
 from PyQt6.QtOpenGLWidgets import QOpenGLWidget
 from PyQt6.QtWidgets import QApplication
 
+from app.live2d.display_scale import (
+    DEFAULT_DISPLAY_SCALE_PERCENT,
+    clamp_display_scale_percent,
+    compute_bottom_center_offset_y,
+    scale_factor_from_percent,
+)
 from app.live2d.window_interaction import compute_window_drag_target
 from app.win32_overlay_zorder import apply_overlay_exstyles
 
@@ -110,6 +116,7 @@ class Live2DDesktopWindow(QOpenGLWidget):
         self._gl_initialized = False
         self._closing = False
         self._click_through = False
+        self._display_scale_percent = DEFAULT_DISPLAY_SCALE_PERCENT
         self._drag_origin_global: QPoint | None = None
         self._drag_origin_window: QPoint | None = None
         self.setWindowFlags(
@@ -200,6 +207,7 @@ class Live2DDesktopWindow(QOpenGLWidget):
             self.model = self.sdk.LAppModel()
             self.model.LoadModelJson(str(self.model_path))
             self.model.Resize(self.width(), self.height())
+            self._apply_display_scale()
             self.model.SetAutoBreathEnable(True)
             self.model.SetAutoBlinkEnable(True)
             self.render_timer.start()
@@ -217,6 +225,21 @@ class Live2DDesktopWindow(QOpenGLWidget):
     def resizeGL(self, width: int, height: int) -> None:
         if self.model is not None:
             self.model.Resize(width, height)
+            self._apply_display_scale()
+
+    def set_display_scale_percent(self, percent: int) -> dict[str, object]:
+        self._display_scale_percent = clamp_display_scale_percent(percent)
+        self._apply_display_scale()
+        return {"display_scale_percent": self._display_scale_percent}
+
+    def _apply_display_scale(self) -> None:
+        if self.model is None:
+            return
+        factor = scale_factor_from_percent(self._display_scale_percent)
+        offset_y = compute_bottom_center_offset_y(factor)
+        self.model.SetScale(factor)
+        self.model.SetOffset(0.0, offset_y)
+        self.update()
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
         if self._click_through or event.button() != Qt.MouseButton.LeftButton:
@@ -449,6 +472,7 @@ class Live2DDesktopRuntime:
         self._model_path: Path | None = None
         self._sdk: Any | None = None
         self._click_through = False
+        self._display_scale_percent = DEFAULT_DISPLAY_SCALE_PERCENT
         self._frame_callback: Callable[[], None] | None = None
         self._frame_callback_window: Live2DDesktopWindow | None = None
 
@@ -485,6 +509,7 @@ class Live2DDesktopRuntime:
             self.stop()
             raise RuntimeError(str(error))
         window.set_click_through(self._click_through)
+        window.set_display_scale_percent(self._display_scale_percent)
         self._connect_frame_callback()
         return self.snapshot()
 
@@ -536,11 +561,13 @@ class Live2DDesktopRuntime:
                 "runtime_status": "stopped",
                 "desktop_visible": False,
                 "click_through": bool(self._click_through),
+                "display_scale_percent": self._display_scale_percent,
             }
         return {
             "runtime_status": "running",
             "desktop_visible": self.visible,
             "click_through": bool(self._window._click_through),
+            "display_scale_percent": int(self._window._display_scale_percent),
             "capabilities": self._window.runtime_capabilities(),
         }
 
@@ -550,6 +577,13 @@ class Live2DDesktopRuntime:
         if self._window is not None:
             self._window.set_click_through(enabled)
         return {"click_through": enabled}
+
+    def set_display_scale_percent(self, percent: int) -> dict[str, object]:
+        normalized = clamp_display_scale_percent(percent)
+        self._display_scale_percent = normalized
+        if self._window is not None:
+            return self._window.set_display_scale_percent(normalized)
+        return {"display_scale_percent": normalized}
 
     def set_parameter(self, parameter_id: str, value: float) -> dict[str, object]:
         if self._window is None or not self.running:

@@ -329,6 +329,37 @@
     color: var(--text-primary);
   }
 
+  #page-pet .vtuber-display-scale-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3);
+    width: 100%;
+    max-width: 28rem;
+  }
+
+  #page-pet .vtuber-display-scale-range {
+    flex: 1 1 12rem;
+    min-width: 10rem;
+    accent-color: var(--text-accent);
+  }
+
+  #page-pet .vtuber-display-scale-input-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+  }
+
+  #page-pet .vtuber-display-scale-input {
+    width: 5.5rem;
+  }
+
+  #page-pet .vtuber-display-scale-suffix {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+
   @media (max-width: 600px) {
   #page-pet .vtuber-status-card__header {
     flex-direction: column;
