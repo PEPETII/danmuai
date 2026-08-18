@@ -185,6 +185,7 @@
           <div class="settings-tabs pet-tabs" role="tablist" aria-label="虚拟主播与桌宠分类">
             <button type="button" role="tab" id="petTabBtn-pet" class="settings-tab active" data-pet-tab="pet" aria-controls="petTab-pet" aria-selected="true">桌宠</button>
             <button type="button" role="tab" id="petTabBtn-vtuber" class="settings-tab" data-pet-tab="vtuber" aria-controls="petTab-vtuber" aria-selected="false">虚拟主播</button>
+            <button type="button" role="tab" id="petTabBtn-vtuber-persona" class="settings-tab" data-pet-tab="vtuber-persona" aria-controls="petTab-vtuber-persona" aria-selected="false" data-i18n="content.text.虚拟主播人格">虚拟主播人格</button>
           </div>
         </div>
 
@@ -505,6 +506,30 @@
           </section>
 
           <p id="vtuberSettingsNotice" class="settings-section-hint">模型资源只通过本机 Web API 代理读取。</p>
+        </div>
+
+        <div id="petTab-vtuber-persona" class="settings-tab-panel space-y-6" data-pet-panel="vtuber-persona" role="tabpanel" aria-labelledby="petTabBtn-vtuber-persona" hidden>
+          <section class="vtuber-model-card ui-card" aria-labelledby="vtuberPersonaHeading">
+            <h3 id="vtuberPersonaHeading" class="settings-section-title" data-i18n="content.text.虚拟主播人格">虚拟主播人格</h3>
+            <p id="vtuberPersonaScopeHint" class="settings-section-hint" data-i18n="content.hint.vtuberPersonaScope">此处仅影响虚拟主播语音对话与弹幕适配的基础人格层，不影响全局 AI 读弹幕、普通弹幕人格或桌宠。</p>
+            <div class="settings-rhythm-accordion-fields space-y-4">
+              <div class="settings-rhythm-accordion-field">
+                <label for="vtuberPersonaSystemPrompt" class="settings-field-label" data-i18n="content.label.vtuberPersonaSystem">基础人格 Prompt</label>
+                <p id="vtuberPersonaSystemHint" class="text-xs text-gray-500 mt-1" data-i18n="content.hint.vtuberPersonaSystem">描述虚拟主播身份、性格、语言风格和长期行为边界。</p>
+                <textarea id="vtuberPersonaSystemPrompt" class="settings-field-control ui-control ui-textarea vtuber-persona-textarea" rows="6" maxlength="8000" aria-describedby="vtuberPersonaSystemHint vtuberPersonaStatus" data-i18n-placeholder="content.placeholder.vtuberPersonaSystem"></textarea>
+              </div>
+              <div class="settings-rhythm-accordion-field">
+                <label for="vtuberPersonaVoicePrompt" class="settings-field-label" data-i18n="content.label.vtuberPersonaVoice">语音对话 Prompt</label>
+                <p id="vtuberPersonaVoiceHint" class="text-xs text-gray-500 mt-1" data-i18n="content.hint.vtuberPersonaVoice">描述如何回应玩家语音；强调以当前语音为主要回应对象，避免无请求主动评论画面或弹幕。</p>
+                <textarea id="vtuberPersonaVoicePrompt" class="settings-field-control ui-control ui-textarea vtuber-persona-textarea" rows="6" maxlength="8000" aria-describedby="vtuberPersonaVoiceHint vtuberPersonaStatus" data-i18n-placeholder="content.placeholder.vtuberPersonaVoice"></textarea>
+              </div>
+            </div>
+            <div class="vtuber-settings-actions" aria-label="虚拟主播人格操作">
+              <button type="button" id="btnVtuberPersonaSave" class="ui-button ui-button--primary ui-button--md" data-i18n="content.text.保存">保存</button>
+              <button type="button" id="btnVtuberPersonaReset" class="ui-button ui-button--secondary ui-button--md" data-i18n="content.text.恢复默认">恢复默认</button>
+            </div>
+            <p id="vtuberPersonaStatus" class="settings-section-hint" role="status" aria-live="polite"></p>
+          </section>
         </div>
       </div>
     </section>

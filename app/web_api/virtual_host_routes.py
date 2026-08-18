@@ -19,6 +19,11 @@ class VirtualHostSettingsPatch(BaseModel):
     danmu_adapter_enabled: bool | None = None
 
 
+class VirtualHostPersonaPatch(BaseModel):
+    system_prompt: str | None = None
+    voice_dialogue_prompt: str | None = None
+
+
 def register_virtual_host_routes(
     app,
     bridge: "WebConsoleBridge",
@@ -98,5 +103,28 @@ def register_virtual_host_routes(
         del authorization
         try:
             return invoke_main(virtual_host_api.cancel_voice_session, bridge.danmu_app)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.get("/api/virtual-host/persona")
+    def get_virtual_host_persona():
+        return invoke_main(virtual_host_api.get_persona_config, bridge.danmu_app)
+
+    @app.put("/api/virtual-host/persona")
+    @require_auth(check_token)
+    def put_virtual_host_persona(
+        payload: VirtualHostPersonaPatch | None = Body(default=None),
+        reset: bool = False,
+        authorization: str | None = Header(default=None),
+    ):
+        del authorization
+        try:
+            patch = payload.model_dump(exclude_unset=True) if payload is not None else {}
+            return invoke_main(
+                virtual_host_api.save_persona_config,
+                bridge.danmu_app,
+                patch,
+                reset=reset,
+            )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc

@@ -288,6 +288,12 @@ function initPetTabs() {
         panel.classList.toggle('active', active);
         panel.hidden = !active;
       });
+      if (tabId === 'vtuber-persona') {
+        import('./app-vtuber-persona-page.js').then((mod) => {
+          mod.initVtuberPersonaPage({ showToast: toast });
+          mod.onVtuberPersonaTabActivated();
+        }).catch(() => {});
+      }
     });
   });
 }

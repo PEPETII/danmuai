@@ -261,6 +261,12 @@
   padding: var(--space-4);
 }
 
+#page-pet .vtuber-persona-textarea {
+  min-height: 9rem;
+  resize: vertical;
+  width: 100%;
+}
+
 #page-pet .vtuber-capabilities {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));

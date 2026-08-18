@@ -293,7 +293,19 @@
       "字体资源": "Font Resources",
       "用户名": "Username",
       "消息样式": "Message Style",
-      "显示与退场": "Display & Exit"
+      "显示与退场": "Display & Exit",
+      "虚拟主播人格": "Virtual host persona",
+      "保存": "Save",
+      "恢复默认": "Restore defaults"
+    },
+    "hint": {
+      "vtuberPersonaScope": "Affects only the virtual host base persona layer for voice chat and danmu adaptation—not global AI read-danmu, regular danmu personas, or the desktop pet.",
+      "vtuberPersonaSystem": "Describe the host identity, personality, tone, and long-term behavior boundaries.",
+      "vtuberPersonaVoice": "Describe how to respond to player speech; focus on the current utterance and avoid unsolicited commentary on the screen or danmu."
+    },
+    "label": {
+      "vtuberPersonaSystem": "Base persona prompt",
+      "vtuberPersonaVoice": "Voice dialogue prompt"
     },
     "placeholder": {
       "太真实了_10_这也行": "So real&#10;How is this allowed?",
@@ -302,7 +314,9 @@
       "请描述问题或建议_请勿填写_API_Key_密码或截图中的敏感信息": "Describe the issue or suggestion (do not include API Key, passwords, or sensitive screenshot data)",
       "QQ_邮箱等_方便回访": "QQ, email, etc., for follow-up",
       "告诉我想调整什么设置_Enter_发送_Shift_Enter_换行": "Ask anything... (Enter to send, Shift+Enter for newline)",
-      "有什么想问的_Enter_发送_Shift_Enter_换行": "Ask anything... (Enter to send, Shift+Enter for newline)"
+      "有什么想问的_Enter_发送_Shift_Enter_换行": "Ask anything... (Enter to send, Shift+Enter for newline)",
+      "vtuberPersonaSystem": "e.g. You are a lively virtual host—keep replies short, friendly, and within platform safety rules.",
+      "vtuberPersonaVoice": "e.g. Respond directly to what the viewer just said; do not comment on the screen or older danmu unless asked."
     },
     "aria": {
       "公式化弹幕库分类": "Formula danmu pool category",

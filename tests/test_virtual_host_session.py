@@ -5,18 +5,18 @@ from app.virtual_host import (
     SceneContext,
     VirtualHostSession,
 )
+from app.virtual_host.persona_config import VirtualHostPersonaSnapshot
 
 
-class _PersonaManager:
-    def __init__(self):
-        self.pick_count = 0
-
-    def pick_random(self):
-        self.pick_count += 1
-        return "稳定主播"
-
-    def get_prompt(self, name):
-        return "人格系统设定", f"人格用户设定:{name}"
+def _snapshot_loader(
+    system_prompt: str = "人格系统设定",
+    voice_dialogue_prompt: str = "人格语音设定",
+):
+    snapshot = VirtualHostPersonaSnapshot(
+        system_prompt=system_prompt,
+        voice_dialogue_prompt=voice_dialogue_prompt,
+    )
+    return lambda: snapshot
 
 
 def _batch(batch_id, created_at, generation, lines=("弹幕来了",)):
@@ -30,8 +30,8 @@ def _batch(batch_id, created_at, generation, lines=("弹幕来了",)):
 
 
 def test_session_keeps_persona_and_turn_history_across_two_rounds():
-    manager = _PersonaManager()
-    session = VirtualHostSession(manager, session_id="session-1")
+    loader = _snapshot_loader()
+    session = VirtualHostSession(loader, session_id="session-1")
     scene = SceneContext(scene_generation=1, summary="当前画面", updated_at=100.0)
     assert session.update_scene_context(scene)
     assert session.accept_danmu_batch(_batch("b1", 100.0, 1), now=101.0)
@@ -41,9 +41,10 @@ def test_session_keeps_persona_and_turn_history_across_two_rounds():
     session.complete_turn(turn1, result1)
     turn2 = session.start_turn("第二轮问题", now=102.0)
 
-    assert manager.pick_count == 1
-    assert session.persona_id == "稳定主播"
+    assert session.persona_id == "virtual_host"
     assert turn1.turn_id == 1 and turn2.turn_id == 2
+    assert turn1.persona_system == "人格系统设定"
+    assert turn1.persona_user == ""
     assert turn2.history[0].assistant_text == "第一轮回答"
     assert turn2.recent_batches[0].batch_id == "b1"
 
@@ -84,11 +85,11 @@ def test_session_remembers_accepted_batch_id_after_retention_eviction():
 
 
 def test_prompt_layers_keep_persona_scene_danmu_knowledge_and_input_separate():
-    manager = _PersonaManager()
-    session = VirtualHostSession(manager, session_id="session-4")
+    loader = _snapshot_loader()
+    session = VirtualHostSession(loader, session_id="session-4")
     session.update_scene_context(SceneContext(scene_generation=1, summary="画面层", updated_at=100.0))
     session.accept_danmu_batch(_batch("b1", 100.0, 1, ("弹幕层",)), now=100.0)
-    turn = session.start_turn("输入层", now=100.0)
+    turn = session.start_turn("输入层", now=100.0, include_voice_dialogue=True)
     prompt = session.compose_prompt(
         turn,
         knowledge=KnowledgeContextResult(
@@ -104,11 +105,23 @@ def test_prompt_layers_keep_persona_scene_danmu_knowledge_and_input_separate():
     assert "[HOST_PERSONA_SYSTEM]" in system
     assert "[HOST_KNOWLEDGE]" in system
     assert "[HOST_PERSONA_USER]" in user
+    assert "人格语音设定" in user
     assert "[HOST_SCENE]" in user
     assert "[HOST_DANMU]" in user
     assert "[HOST_INPUT]" in user
     assert user.index("[HOST_SCENE]") < user.index("[HOST_INPUT]")
     assert "知识层" not in user
+
+
+def test_voice_dialogue_prompt_only_included_when_requested():
+    loader = _snapshot_loader(voice_dialogue_prompt="仅语音层")
+    session = VirtualHostSession(loader, session_id="session-voice")
+
+    danmu_turn = session.start_turn("弹幕输入", now=100.0)
+    voice_turn = session.start_turn("语音输入", now=101.0, include_voice_dialogue=True)
+
+    assert danmu_turn.persona_user == ""
+    assert voice_turn.persona_user == "仅语音层"
 
 
 def test_expired_scene_is_not_rendered_into_new_prompt():

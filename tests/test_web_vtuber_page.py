@@ -25,12 +25,18 @@ def test_vtuber_panel_is_wired_to_pet_tabs():
     panel = _vtuber_panel()
 
     assert 'data-pet-tab="vtuber"' in html
+    assert 'data-pet-tab="vtuber-persona"' in html
     assert 'aria-controls="petTab-vtuber"' in html
+    assert 'aria-controls="petTab-vtuber-persona"' in html
     assert 'data-pet-panel="vtuber"' in panel
+    assert 'data-pet-panel="vtuber-persona"' in html
     assert 'role="tabpanel"' in panel
     assert 'aria-labelledby="petTabBtn-vtuber"' in panel
     assert re.search(r'id="petTab-vtuber"[^>]*\bhidden\b', panel)
+    assert re.search(r'id="petTab-vtuber-persona"[^>]*\bhidden\b', html)
     assert "虚拟桌宠状态" in panel
+    assert 'id="vtuberPersonaSystemPrompt"' in html
+    assert 'id="btnVtuberPersonaSave"' in html
 
 
 def test_vtuber_runtime_exposes_start_stop_desktop_status():

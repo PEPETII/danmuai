@@ -41,6 +41,7 @@ from app.virtual_host.model_config import (
     sanitize_virtual_host_model_config,
     virtual_host_vision_enabled,
 )
+from app.virtual_host.persona_config import load_virtual_host_persona_snapshot
 from app.virtual_host.playback import PlaybackItem, PlaybackPriority, PlaybackQueue
 from app.virtual_host.response_scheduler import (
     ResponseCandidateEvent,
@@ -313,7 +314,9 @@ class VirtualHostRuntimeService:
         self.vision_request_count = 0
         self.chat_request_count = 0
         self.tts_synthesize_count = 0
-        self._session = VirtualHostSession(persona_manager=getattr(app, "personae", None))
+        self._session = VirtualHostSession(
+            persona_snapshot_loader=lambda: load_virtual_host_persona_snapshot(self._app.config),
+        )
         self._response_scheduler = VirtualHostResponseScheduler()
         self._tts_binding: TtsBinding | None = None
         self._spoken_tts_states: dict[tuple[str, int], _SpokenTtsState] = {}

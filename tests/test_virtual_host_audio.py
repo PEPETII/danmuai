@@ -143,7 +143,7 @@ def test_tts_binding_uses_manager_catalog_registry_and_credential_semantics():
 def test_two_mic_turns_keep_history_and_trace_tts_source():
     player = FakePlayer()
     chat = FakeChat()
-    session = VirtualHostSession(session_id="host-session", persona_name="host")
+    session = VirtualHostSession(session_id="host-session")
     orchestrator = VirtualHostAudioOrchestrator(
         session,
         asr=FakeAsr(),

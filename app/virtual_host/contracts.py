@@ -213,6 +213,8 @@ class HostTurn:
     scene_context: SceneContext | None = None
     recent_batches: tuple[DanmuBatchCreated, ...] = ()
     history: tuple[ConversationTurn, ...] = ()
+    persona_system: str = ""
+    persona_user: str = ""
 
 
 @dataclass(frozen=True)

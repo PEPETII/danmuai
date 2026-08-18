@@ -575,6 +575,7 @@ class VirtualHostAudioOrchestrator:
                 state.transcript,
                 mic_text=state.transcript,
                 include_recent_batches=False,
+                include_voice_dialogue=True,
                 now=self._clock(),
             )
             prompt = self.session.compose_prompt(host_turn, now=self._clock())

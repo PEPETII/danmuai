@@ -10,6 +10,7 @@ from app.mic_transcription import MicTranscriptionResult
 from app.virtual_host.chat import HostChatHttpResult
 from app.virtual_host.contracts import DanmuBatchCreated, HostTurnResult, SceneContext
 from app.virtual_host.knowledge import KnowledgeContextAdapter
+from app.virtual_host.persona_config import apply_virtual_host_persona_config
 from app.virtual_host.playback import PlaybackQueue
 from app.virtual_host.runtime_service import VirtualHostRuntimeService
 from PyQt6.QtCore import QThreadPool
@@ -21,25 +22,26 @@ from tests.test_virtual_host_runtime import (
     _register_runtime_test,
 )
 
+_PERSONA_SYSTEM = "独立虚拟主播系统层"
+_PERSONA_VOICE = "独立语音对话层"
 
-class _PersonaManager:
-    def __init__(self) -> None:
-        self.pick_count = 0
 
-    def pick_random(self):
-        self.pick_count += 1
-        return "稳定主播"
-
-    def get_prompt(self, name):
-        return f"系统人格:{name}", f"用户人格:{name}"
+def _apply_test_persona(config) -> None:
+    apply_virtual_host_persona_config(
+        config,
+        {
+            "system_prompt": _PERSONA_SYSTEM,
+            "voice_dialogue_prompt": _PERSONA_VOICE,
+        },
+    )
 
 
 def _dialogue_service_with_persona(monkeypatch, config) -> VirtualHostRuntimeService:
+    _apply_test_persona(config)
     pool = QThreadPool()
     monkeypatch.setattr("app.virtual_host.runtime_service.ai_worker_pool", lambda: pool)
     app = SimpleNamespace(
         config=config,
-        personae=_PersonaManager(),
         logger=SimpleNamespace(warning=lambda *args, **kwargs: None),
     )
     service = VirtualHostRuntimeService(app)
@@ -63,9 +65,11 @@ def test_voice_chat_two_rounds_keep_stable_persona_and_host_turn_result(monkeypa
     service._app._scene_generation = 2
     replies = iter(["第一轮回复", "第二轮回复"])
     captured_turn_ids: list[int] = []
+    captured_prompts: list[tuple[str, str]] = []
 
     def _fake_request(prompt, resolved, *, session_id, turn_id):
         captured_turn_ids.append(int(turn_id))
+        captured_prompts.append(prompt.render())
         result = _fake_chat_ok(next(replies))
         return HostChatHttpResult(
             ok=True,
@@ -86,8 +90,11 @@ def test_voice_chat_two_rounds_keep_stable_persona_and_host_turn_result(monkeypa
     assert service.on_mic_utterance_end(b"pcm-2")
     _wait_pool(service, qapp)
 
-    assert service._app.personae.pick_count == 1
     assert captured_turn_ids == [1, 2]
+    assert len(captured_prompts) == 2
+    for system_text, user_text in captured_prompts:
+        assert _PERSONA_SYSTEM in system_text
+        assert _PERSONA_VOICE in user_text
     assert len(service.session.history) == 2
     assert service.session.history[0].assistant_text == "第一轮回复"
     assert service.session.history[1].assistant_text == "第二轮回复"
@@ -146,7 +153,9 @@ def test_voice_chat_request_carries_session_scene_and_knowledge_context(monkeypa
     assert captured["session_id"] == service.session.session_id
     assert captured["turn_id"] == 1
     assert captured["scene_generation"] == 5
-    assert "系统人格:稳定主播" in str(captured["system_text"])
+    assert "系统人格:稳定主播" not in str(captured["system_text"])
+    assert _PERSONA_SYSTEM in str(captured["system_text"])
+    assert _PERSONA_VOICE in str(captured["user_text"])
     assert "Boss 战" in str(captured["user_text"])
     assert "这个 Boss 怎么打" in str(captured["user_text"])
     assert "知识片段" in str(captured["system_text"])
@@ -308,3 +317,153 @@ def test_adapter_mode_danmu_batch_still_accepts_without_voice_chat(monkeypatch, 
     decision = service.on_danmu_batch_created(batch)
     assert decision.accepted is True
     assert not service.mic_route_active()
+
+
+def test_voice_chat_new_round_uses_updated_persona_after_config_save(monkeypatch, qapp):
+    config = _dialogue_config()
+    apply_virtual_host_persona_config(
+        config,
+        {
+            "system_prompt": "人格V1",
+            "voice_dialogue_prompt": "语音V1",
+        },
+    )
+    service = _dialogue_service(monkeypatch, config)
+    captured_prompts: list[tuple[str, str]] = []
+
+    def _fake_request(prompt, resolved, *, session_id, turn_id):
+        del resolved, session_id, turn_id
+        captured_prompts.append(prompt.render())
+        return HostChatHttpResult(
+            ok=True,
+            result=HostTurnResult(
+                session_id=service.session.session_id,
+                turn_id=len(captured_prompts),
+                text=f"回复{len(captured_prompts)}",
+            ),
+        )
+
+    monkeypatch.setattr("app.virtual_host.runtime_service.request_host_chat", _fake_request)
+    monkeypatch.setattr(
+        "app.virtual_host.runtime_service.transcribe_pcm",
+        lambda _cfg, pcm: MicTranscriptionResult(True, text=f"问{pcm.decode()}"),
+    )
+
+    assert service.on_mic_speech_start()
+    assert service.on_mic_utterance_end(b"1")
+    _wait_pool(service, qapp)
+
+    apply_virtual_host_persona_config(
+        config,
+        {
+            "system_prompt": "人格V2",
+            "voice_dialogue_prompt": "语音V2",
+        },
+    )
+
+    assert service.on_mic_speech_start()
+    assert service.on_mic_utterance_end(b"2")
+    _wait_pool(service, qapp)
+
+    assert len(captured_prompts) == 2
+    assert "人格V1" in captured_prompts[0][0]
+    assert "语音V1" in captured_prompts[0][1]
+    assert "人格V2" in captured_prompts[1][0]
+    assert "语音V2" in captured_prompts[1][1]
+
+
+def test_in_flight_voice_chat_keeps_persona_snapshot_from_turn_start(monkeypatch, qapp):
+    import threading
+
+    config = _dialogue_config()
+    apply_virtual_host_persona_config(
+        config,
+        {
+            "system_prompt": "在途人格",
+            "voice_dialogue_prompt": "在途语音",
+        },
+    )
+    service = _dialogue_service(monkeypatch, config)
+    release = threading.Event()
+    captured: dict[str, tuple[str, str]] = {}
+
+    def _fake_request(prompt, resolved, *, session_id, turn_id):
+        del resolved, session_id, turn_id
+        captured["prompt"] = prompt.render()
+        assert release.wait(timeout=2.0)
+        return HostChatHttpResult(
+            ok=True,
+            result=HostTurnResult(
+                session_id=service.session.session_id,
+                turn_id=1,
+                text="在途回复",
+            ),
+        )
+
+    monkeypatch.setattr("app.virtual_host.runtime_service.request_host_chat", _fake_request)
+    monkeypatch.setattr(
+        "app.virtual_host.runtime_service.transcribe_pcm",
+        lambda _cfg, _pcm: MicTranscriptionResult(True, text="用户说话"),
+    )
+
+    assert service.on_mic_speech_start()
+    assert service.on_mic_utterance_end(b"pcm")
+    _wait_pool(service, qapp, timeout=0.2)
+
+    apply_virtual_host_persona_config(
+        config,
+        {
+            "system_prompt": "新人格",
+            "voice_dialogue_prompt": "新语音",
+        },
+    )
+    release.set()
+    _wait_pool(service, qapp)
+
+    system_text, user_text = captured["prompt"]
+    assert "在途人格" in system_text
+    assert "在途语音" in user_text
+    assert "新人格" not in system_text
+    assert "新语音" not in user_text
+
+
+def test_adapter_autonomous_chat_omits_voice_dialogue_prompt(monkeypatch, qapp):
+    from tests.test_virtual_host_danmu_adapter_mode import _adapter_config, _make_service
+    from tests.test_virtual_host_danmu_batch_pipeline import _batch
+
+    config = _adapter_config()
+    apply_virtual_host_persona_config(
+        config,
+        {
+            "system_prompt": "适配系统人格",
+            "voice_dialogue_prompt": "不应出现的语音层",
+        },
+    )
+    service = _make_service(monkeypatch, config, rng=lambda: 0.0)
+    service.session.update_scene_context(
+        SceneContext(scene_generation=0, summary="画面", updated_at=time.time())
+    )
+    captured: dict[str, str] = {}
+
+    def _fake_chat(prompt, resolved, *, session_id, turn_id):
+        del resolved, session_id
+        system_text, user_text = prompt.render()
+        captured["system_text"] = system_text
+        captured["user_text"] = user_text
+        return HostChatHttpResult(
+            ok=True,
+            result=HostTurnResult(
+                session_id=service.session.session_id,
+                turn_id=turn_id,
+                text="适配回复",
+            ),
+        )
+
+    monkeypatch.setattr("app.virtual_host.runtime_service.request_host_chat", _fake_chat)
+    decision = service.on_danmu_batch_created(_batch("adapter-persona", scene_generation=0))
+    assert decision.accepted is True
+    _wait_pool(service, qapp)
+
+    assert "适配系统人格" in captured["system_text"]
+    assert "不应出现的语音层" not in captured["user_text"]
+    assert service.chat_request_count == 1

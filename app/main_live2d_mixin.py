@@ -251,6 +251,27 @@ class DanmuAppLive2DMixin:
             raise ValueError("runtime_unavailable")
         return runtime.cancel_voice_session()
 
+    def get_virtual_host_persona_config(self) -> dict[str, object]:
+        from app.virtual_host.persona_config import (
+            export_virtual_host_persona_config,
+            sanitize_virtual_host_persona_config,
+        )
+
+        sanitize_virtual_host_persona_config(self.config, persist=True)
+        return export_virtual_host_persona_config(self.config)
+
+    def apply_virtual_host_persona_config(
+        self,
+        patch: dict,
+        *,
+        reset: bool = False,
+    ) -> dict[str, object]:
+        from app.virtual_host.persona_config import apply_virtual_host_persona_config
+
+        result = apply_virtual_host_persona_config(self.config, patch, reset=reset)
+        self.config_changed.emit()
+        return result
+
 
 def _safe_live2d_error(exc: Exception) -> str:
     text = str(exc).strip().replace("\n", " ")

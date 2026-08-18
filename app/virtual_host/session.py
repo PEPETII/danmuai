@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 import uuid
 from collections import OrderedDict
-from typing import Any, Callable
+from typing import Callable
 
 from app.virtual_host.contracts import (
     BatchAcceptance,
@@ -17,21 +17,21 @@ from app.virtual_host.contracts import (
     KnowledgeContextResult,
     SceneContext,
 )
+from app.virtual_host.persona_config import VirtualHostPersonaSnapshot
 
 
 class VirtualHostSession:
     """不拥有模型、线程、窗口或播放器的虚拟主播会话。
 
-    人格在构造时选择一次；批次和画面上下文只在当前 scene generation 且未过期
-    时进入新轮次。该类不执行 ``HostTurnResult.actions``，动作消费由后续运行时
-    工单负责。
+    人格 Prompt 在每次 ``start_turn`` 时从独立配置快照冻结；批次和画面上下文
+    只在当前 scene generation 且未过期时进入新轮次。该类不执行
+    ``HostTurnResult.actions``，动作消费由后续运行时工单负责。
     """
 
     def __init__(
         self,
-        persona_manager: Any | None = None,
+        persona_snapshot_loader: Callable[[], VirtualHostPersonaSnapshot] | None = None,
         *,
-        persona_name: str | None = None,
         session_id: str | None = None,
         clock: Callable[[], float] = time.time,
         max_batches: int = 3,
@@ -42,9 +42,7 @@ class VirtualHostSession:
         if not self.session_id.strip():
             raise ValueError("session_id must not be empty")
         self._clock = clock
-        self._persona_manager = persona_manager
-        self._persona_id = self._select_persona(persona_name)
-        self._persona_system, self._persona_user = self._load_persona_prompt()
+        self._persona_snapshot_loader = persona_snapshot_loader
         self._next_turn_id = 1
         self._max_batches = max(1, min(int(max_batches), 3))
         self._batch_char_budget = max(1, int(batch_char_budget))
@@ -58,7 +56,7 @@ class VirtualHostSession:
 
     @property
     def persona_id(self) -> str:
-        return self._persona_id
+        return "virtual_host"
 
     @property
     def turn_id(self) -> int:
@@ -72,29 +70,17 @@ class VirtualHostSession:
     def history(self) -> tuple[ConversationTurn, ...]:
         return tuple(self._history)
 
-    def _select_persona(self, requested: str | None) -> str:
-        if requested and str(requested).strip():
-            return str(requested).strip()
-        manager = self._persona_manager
-        if manager is not None:
-            pick = getattr(manager, "pick_random", None)
-            if callable(pick):
-                selected = str(pick() or "").strip()
-                if selected:
-                    return selected
-            get_active = getattr(manager, "get_active", None)
-            if callable(get_active):
-                active = list(get_active() or [])
-                if active and str(active[0]).strip():
-                    return str(active[0]).strip()
-        return "default"
-
-    def _load_persona_prompt(self) -> tuple[str, str]:
-        getter = getattr(self._persona_manager, "get_prompt", None)
-        if not callable(getter):
+    def _capture_persona_layers(self, *, include_voice_dialogue: bool) -> tuple[str, str]:
+        loader = self._persona_snapshot_loader
+        if loader is None:
             return "", ""
-        system_prompt, user_prompt = getter(self._persona_id)
-        return str(system_prompt or "").strip(), str(user_prompt or "").strip()
+        snapshot = loader()
+        system_prompt = str(snapshot.system_prompt or "").strip()
+        if include_voice_dialogue:
+            user_prompt = str(snapshot.voice_dialogue_prompt or "").strip()
+        else:
+            user_prompt = ""
+        return system_prompt, user_prompt
 
     def update_scene_context(self, context: SceneContext) -> bool:
         """更新画面上下文；较旧 generation 不得覆盖当前上下文。"""
@@ -203,11 +189,15 @@ class VirtualHostSession:
         live_topic: str = "",
         scene_context: SceneContext | None = None,
         include_recent_batches: bool = True,
+        include_voice_dialogue: bool = False,
         now: float | None = None,
     ) -> HostTurn:
         current = self._clock() if now is None else float(now)
         if scene_context is not None:
             self.update_scene_context(scene_context)
+        persona_system, persona_user = self._capture_persona_layers(
+            include_voice_dialogue=include_voice_dialogue,
+        )
         turn = HostTurn(
             session_id=self.session_id,
             turn_id=self._next_turn_id,
@@ -218,6 +208,8 @@ class VirtualHostSession:
             scene_context=self.current_scene_context(now=current),
             recent_batches=(self.recent_batches(now=current) if include_recent_batches else ()),
             history=tuple(self._history),
+            persona_system=persona_system,
+            persona_user=persona_user,
         )
         self._next_turn_id += 1
         return turn
@@ -246,8 +238,8 @@ class VirtualHostSession:
             for item in turn.history
         )
         return HostPrompt(
-            persona_system=self._persona_system,
-            persona_user=self._persona_user,
+            persona_system=turn.persona_system,
+            persona_user=turn.persona_user,
             session_context=history_text,
             scene_context=(active_scene.summary if active_scene else ""),
             danmu_context=tuple(

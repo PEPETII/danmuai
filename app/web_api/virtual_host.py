@@ -42,3 +42,16 @@ def stop_voice_session(app: "DanmuApp") -> dict[str, object]:
 
 def cancel_voice_session(app: "DanmuApp") -> dict[str, object]:
     return app.cancel_virtual_host_voice()
+
+
+def get_persona_config(app: "DanmuApp") -> dict[str, object]:
+    return app.get_virtual_host_persona_config()
+
+
+def save_persona_config(
+    app: "DanmuApp",
+    payload: dict[str, Any],
+    *,
+    reset: bool = False,
+) -> dict[str, object]:
+    return app.apply_virtual_host_persona_config(payload, reset=reset)
