@@ -441,6 +441,21 @@
             <p id="vtuberModeSettingsStatus" class="settings-section-hint" role="status" aria-live="polite">正在读取互动模式…</p>
           </section>
 
+          <section id="vtuberVoiceCard" class="vtuber-model-card ui-card hidden" aria-labelledby="vtuberVoiceHeading" hidden>
+            <div class="vtuber-runtime-card__header">
+              <div class="min-w-0">
+                <h3 id="vtuberVoiceHeading" class="settings-section-title">语音对话</h3>
+                <p id="vtuberVoicePhaseText" class="settings-section-hint" role="status" aria-live="polite">语音对话未开启。</p>
+              </div>
+              <div class="vtuber-settings-actions vtuber-voice-actions" aria-label="语音对话控制">
+                <button type="button" id="btnVtuberVoiceStart" class="ui-button ui-button--primary ui-button--md">开始语音</button>
+                <button type="button" id="btnVtuberVoiceStop" class="ui-button ui-button--secondary ui-button--md" disabled>停止语音</button>
+                <button type="button" id="btnVtuberVoiceCancel" class="ui-button ui-button--secondary ui-button--md" disabled>取消</button>
+              </div>
+            </div>
+            <p id="vtuberVoiceStatus" class="settings-section-hint" role="status" aria-live="polite"></p>
+          </section>
+
           <section class="vtuber-runtime-card ui-card" aria-labelledby="vtuberRuntimeHeading">
             <div class="vtuber-runtime-card__header">
               <div class="min-w-0">
@@ -598,6 +613,7 @@
             <button type="button" role="tab" id="guideTabBtn-tutorial" class="settings-tab active" data-guide-tab="tutorial" aria-controls="guideTab-tutorial" aria-selected="true">教程</button>
             <button type="button" role="tab" id="guideTabBtn-logs" class="settings-tab" data-guide-tab="logs" aria-controls="guideTab-logs" aria-selected="false">弹幕日志</button>
             <button type="button" role="tab" id="guideTabBtn-mic-logs" class="settings-tab" data-guide-tab="mic-logs" aria-controls="guideTab-mic-logs" aria-selected="false" data-i18n="content.text.麦克风日志">麦克风日志</button>
+            <button type="button" role="tab" id="guideTabBtn-virtual-host-logs" class="settings-tab" data-guide-tab="virtual-host-logs" aria-controls="guideTab-virtual-host-logs" aria-selected="false" data-i18n="content.text.虚拟主播日志">虚拟主播日志</button>
             <button type="button" role="tab" id="guideTabBtn-announcements" class="settings-tab" data-guide-tab="announcements" aria-controls="guideTab-announcements" aria-selected="false">公告</button>
             <button type="button" role="tab" id="guideTabBtn-feedback" class="settings-tab" data-guide-tab="feedback" aria-controls="guideTab-feedback" aria-selected="false">问题反馈与群聊</button>
             <button type="button" role="tab" id="guideTabBtn-live-output" class="settings-tab" data-guide-tab="live-output" aria-controls="guideTab-live-output" aria-selected="false" data-i18n="content.text.直播输出">直播输出</button>
@@ -606,6 +622,7 @@
       <div id="guideTab-tutorial" class="settings-tab-panel active space-y-6" data-guide-panel="tutorial" role="tabpanel" aria-labelledby="guideTabBtn-tutorial"></div>
       <div id="guideTab-logs" class="settings-tab-panel space-y-6" data-guide-panel="logs" role="tabpanel" aria-labelledby="guideTabBtn-logs" hidden></div>
       <div id="guideTab-mic-logs" class="settings-tab-panel space-y-6" data-guide-panel="mic-logs" role="tabpanel" aria-labelledby="guideTabBtn-mic-logs" hidden></div>
+      <div id="guideTab-virtual-host-logs" class="settings-tab-panel space-y-6" data-guide-panel="virtual-host-logs" role="tabpanel" aria-labelledby="guideTabBtn-virtual-host-logs" hidden></div>
       <div id="guideTab-announcements" class="settings-tab-panel space-y-6" data-guide-panel="announcements" role="tabpanel" aria-labelledby="guideTabBtn-announcements" hidden></div>
       <div id="guideTab-feedback" class="settings-tab-panel space-y-6" data-guide-panel="feedback" role="tabpanel" aria-labelledby="guideTabBtn-feedback" hidden></div>
       <div id="guideTab-live-output" class="settings-tab-panel space-y-6" data-guide-panel="live-output" role="tabpanel" aria-labelledby="guideTabBtn-live-output" hidden></div>
@@ -785,6 +802,26 @@
         <div class="mic-log-panel" role="region" data-i18n-aria-label="content.aria.麦克风日志" aria-label="麦克风日志">
           <p id="micLogViewEmpty" class="mic-log-view-empty" data-i18n="dynamic.micLogs.empty">暂无麦克风日志。启用麦克风模式并开始说话后，语音转文字内容会显示在这里。</p>
           <div id="micLogView" class="mic-log-view max-h-[70vh] overflow-y-auto space-y-2" tabindex="0"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== 区域：虚拟主播日志（DOM 源，header 与 card 内容由 guide-tabs.js 搬入 #page-guide） ========== -->
+    <section id="page-virtual-host-logs" class="page-panel" data-guide-panel="virtual-host-logs-source" hidden data-i18n-aria-label="content.text.虚拟主播日志" aria-label="虚拟主播日志">
+      <header class="mb-8 flex flex-wrap justify-between items-start gap-4 ui-page-header" data-guide-move="virtual-host-logs">
+        <div class="ui-page-header__copy min-w-0">
+          <h2 class="text-2xl font-bold text-warmText ui-page-title" data-i18n="content.text.虚拟主播日志">虚拟主播日志</h2>
+          <p class="text-gray-500 mt-1 ui-page-description" data-i18n="dynamic.virtualHostLogs.subtitle">虚拟主播生成并进入语音播报队列的内容会显示在这里（仅保留本次运行的最近 200 条）。</p>
+        </div>
+        <div class="flex items-center gap-2 bg-white px-4 py-2 rounded-full shadow-warm border border-softPeach text-sm ui-page-header__actions shrink-0">
+          <span class="text-gray-500" data-i18n="dynamic.virtualHostLogs.channelLabel">日志通道</span>
+          <span data-virtual-host-log-conn class="text-xs font-normal border-l border-gray-200 pl-2 conn-polling" aria-live="polite" data-i18n="dynamic.virtualHostLogs.polling">HTTP 轮询</span>
+        </div>
+      </header>
+      <div class="card p-4 space-y-3 ui-card" data-guide-move="virtual-host-logs">
+        <div class="virtual-host-log-panel mic-log-panel" role="region" data-i18n-aria-label="content.text.虚拟主播日志" aria-label="虚拟主播日志">
+          <p id="virtualHostSpeechLogEmpty" class="virtual-host-log-view-empty mic-log-view-empty" data-i18n="dynamic.virtualHostLogs.empty">暂无虚拟主播说话日志。虚拟主播完成一次语音对话或弹幕适配后，内容会显示在这里。</p>
+          <div id="virtualHostSpeechLogView" class="virtual-host-log-view mic-log-view max-h-[70vh] overflow-y-auto space-y-2" tabindex="0" aria-live="polite"></div>
         </div>
       </div>
     </section>

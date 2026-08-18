@@ -455,6 +455,16 @@
       "statusFailed": "Recognition failed",
       "failedWithReason": "Recognition failed: {reason}"
     },
+    "virtualHostLogs": {
+      "subtitle": "Content generated for virtual-host speech appears here (the latest 200 entries from this run).",
+      "channelLabel": "Log channel",
+      "polling": "HTTP polling",
+      "failed": "Failed to load virtual-host logs",
+      "empty": "No virtual-host speech yet. Completed voice dialogue or danmu-adapter replies will appear here.",
+      "sourceUserMic": "Voice dialogue",
+      "sourceAutoReply": "Danmu adapter",
+      "turn": "Turn {turnId}"
+    },
     "settingsCaptureRegion": {
       "正在框选": "Selecting region…",
       "鼠标框选识图范围": "Drag to select capture region",

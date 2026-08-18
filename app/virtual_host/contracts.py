@@ -312,6 +312,31 @@ class HostTurnResult:
         object.__setattr__(self, "memory_effects", memory_effects)
 
 
+VoiceTurnSource = Literal["user_mic", "auto_scene"]
+
+
+@dataclass(frozen=True)
+class VoiceTurnSnapshot:
+    """语音轮次诊断投影；不含原始 PCM、完整转写或凭证。"""
+
+    session_id: str
+    turn_id: int
+    source: str
+    status: str
+    scene_generation: int | None
+    runtime_generation: int | None
+    started_at: float
+    ended_at: float | None
+    asr_status: str
+    llm_status: str
+    tts_status: str
+    playback_status: str
+    transcript_summary: str
+    cancel_reason: str = ""
+    failure_reason: str = ""
+    timeout_reason: str = ""
+
+
 @dataclass(frozen=True)
 class HostPrompt:
     """分层后的 system/user Prompt，便于后续模型适配器安全消费。"""

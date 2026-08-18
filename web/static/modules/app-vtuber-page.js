@@ -9,6 +9,27 @@ let clickThroughSaveToken = 0;
 let displayScaleSaveToken = 0;
 let hostSettingsCache = null;
 let hostSettingsSaveToken = 0;
+let voiceStatusCache = null;
+let voicePollTimer = null;
+let voiceRequestInFlight = false;
+
+const VOICE_PHASE_LABELS = {
+  idle: '待命',
+  listening: '聆听中',
+  recognizing: '识别中',
+  thinking: '思考中',
+  speaking: '播报中',
+  completed: '已完成',
+  failed: '失败',
+};
+
+const VOICE_BLOCKING_LABELS = {
+  dialogue_mode_disabled: '请先开启「虚拟主播对话」。',
+  adapter_mode_active: '适配模式下无法使用语音控制。',
+  runtime_stopped: '请先启动虚拟主播运行时。',
+  mic_mode_disabled: '请先在全局设置中开启麦克风模式。',
+  mic_capture_unavailable: '麦克风采集未就绪，请检查设备与权限。',
+};
 
 const DISPLAY_SCALE_MIN = 25;
 const DISPLAY_SCALE_MAX = 300;
@@ -36,6 +57,155 @@ function renderDisplayScaleStatus(message) {
 
 function renderModeSettingsStatus(message) {
   setText('vtuberModeSettingsStatus', message || '');
+}
+
+function renderVoiceStatusMessage(message) {
+  setText('vtuberVoiceStatus', message || '');
+}
+
+function describeVoiceBlockingError(data) {
+  const code = String(data?.blocking_error || '');
+  if (!code) return '';
+  if (VOICE_BLOCKING_LABELS[code]) return VOICE_BLOCKING_LABELS[code];
+  if (code === 'mic_capture_unavailable' && data?.mic_error) {
+    return `麦克风不可用：${data.mic_error}`;
+  }
+  return `语音不可用：${code}`;
+}
+
+function describeVoicePhase(data) {
+  const phase = String(data?.phase || 'idle');
+  const label = VOICE_PHASE_LABELS[phase] || phase;
+  if (phase === 'failed') {
+    const reason = data?.failure_reason || data?.mic_error || data?.blocking_error;
+    return reason ? `${label}（${reason}）` : label;
+  }
+  if (phase === 'completed') return `${label}，可继续说话或停止语音。`;
+  return label;
+}
+
+function voiceControlsForPhase(data) {
+  const phase = String(data?.phase || 'idle');
+  const armed = Boolean(data?.armed);
+  const busy = ['listening', 'recognizing', 'thinking', 'speaking'].includes(phase);
+  const canStart = Boolean(data?.dialogue_enabled)
+    && !Boolean(data?.danmu_adapter_enabled)
+    && data?.runtime_status === 'running'
+    && !armed
+    && !busy
+    && !voiceRequestInFlight;
+  const canStop = armed && !voiceRequestInFlight;
+  const canCancel = armed && (busy || phase === 'failed' || phase === 'completed') && !voiceRequestInFlight;
+  return { canStart, canStop, canCancel };
+}
+
+function renderVoiceCard(data) {
+  voiceStatusCache = data || null;
+  const dialogue = Boolean(data?.dialogue_enabled);
+  const adapter = Boolean(data?.danmu_adapter_enabled);
+  const card = element('vtuberVoiceCard');
+  const visible = dialogue && !adapter;
+  if (card) {
+    card.classList.toggle('hidden', !visible);
+    card.hidden = !visible;
+  }
+  if (!visible) {
+    renderVoiceStatusMessage(adapter ? '适配模式下语音控制已禁用。' : '开启「虚拟主播对话」后可使用语音控制。');
+    setText('vtuberVoicePhaseText', adapter ? '语音控制不可用' : '语音对话未开启');
+    const startButton = element('btnVtuberVoiceStart');
+    const stopButton = element('btnVtuberVoiceStop');
+    const cancelButton = element('btnVtuberVoiceCancel');
+    if (startButton) startButton.disabled = true;
+    if (stopButton) stopButton.disabled = true;
+    if (cancelButton) cancelButton.disabled = true;
+    return;
+  }
+  const phaseText = describeVoicePhase(data);
+  setText('vtuberVoicePhaseText', phaseText);
+  const blocking = describeVoiceBlockingError(data);
+  const detailParts = [];
+  if (blocking) detailParts.push(blocking);
+  if (data?.asr_status && data.asr_status !== 'pending') detailParts.push(`ASR：${data.asr_status}`);
+  if (data?.llm_status && data.llm_status !== 'pending') detailParts.push(`Chat：${data.llm_status}`);
+  if (data?.tts_status && data.tts_status !== 'pending') detailParts.push(`TTS：${data.tts_status}`);
+  if (data?.playback_status && data.playback_status !== 'pending') {
+    detailParts.push(`播放：${data.playback_status}`);
+  }
+  renderVoiceStatusMessage(detailParts.join('；'));
+  const controls = voiceControlsForPhase(data);
+  const startButton = element('btnVtuberVoiceStart');
+  const stopButton = element('btnVtuberVoiceStop');
+  const cancelButton = element('btnVtuberVoiceCancel');
+  if (startButton) startButton.disabled = !controls.canStart;
+  if (stopButton) stopButton.disabled = !controls.canStop;
+  if (cancelButton) cancelButton.disabled = !controls.canCancel;
+}
+
+function stopVoiceStatusPoll() {
+  if (voicePollTimer) {
+    window.clearInterval(voicePollTimer);
+    voicePollTimer = null;
+  }
+}
+
+function ensureVoiceStatusPoll() {
+  const dialogue = Boolean(hostSettingsCache?.dialogue_enabled);
+  const adapter = Boolean(hostSettingsCache?.danmu_adapter_enabled);
+  if (!dialogue || adapter) {
+    stopVoiceStatusPoll();
+    return;
+  }
+  if (voicePollTimer) return;
+  voicePollTimer = window.setInterval(() => {
+    loadVoiceStatus({ silent: true }).catch(() => {});
+  }, 1000);
+}
+
+async function loadVoiceStatus({ silent = false } = {}) {
+  try {
+    const data = await apiFetch('/api/virtual-host/voice/status');
+    renderVoiceCard(data);
+    ensureVoiceStatusPoll();
+    return data;
+  } catch (error) {
+    if (!silent) renderVoiceStatusMessage(error?.message || '读取语音状态失败');
+    throw error;
+  }
+}
+
+async function postVoiceAction(endpoint) {
+  if (voiceRequestInFlight) return null;
+  voiceRequestInFlight = true;
+  renderVoiceCard(voiceStatusCache);
+  try {
+    const data = await apiFetch(endpoint, { method: 'POST' });
+    renderVoiceCard(data);
+    return data;
+  } finally {
+    voiceRequestInFlight = false;
+    renderVoiceCard(voiceStatusCache);
+  }
+}
+
+async function startVoiceSession() {
+  renderVoiceStatusMessage('正在开启语音聆听…');
+  const data = await postVoiceAction('/api/virtual-host/voice/start');
+  if (data) toast('已开始语音聆听');
+  return data;
+}
+
+async function stopVoiceSession() {
+  renderVoiceStatusMessage('正在停止语音聆听…');
+  const data = await postVoiceAction('/api/virtual-host/voice/stop');
+  if (data) toast('已停止语音聆听');
+  return data;
+}
+
+async function cancelVoiceSession() {
+  renderVoiceStatusMessage('正在取消当前语音轮次…');
+  const data = await postVoiceAction('/api/virtual-host/voice/cancel');
+  if (data) toast('已取消语音轮次');
+  return data;
 }
 
 function clampDisplayScalePercent(value) {
@@ -203,6 +373,15 @@ function renderHostSettings(data) {
   if (dialogueToggle) dialogueToggle.checked = Boolean(data?.dialogue_enabled);
   if (adapterToggle) adapterToggle.checked = Boolean(data?.danmu_adapter_enabled);
   renderModeSettingsStatus(describeHostModeSettings(data));
+  if (voiceStatusCache) {
+    renderVoiceCard({
+      ...voiceStatusCache,
+      dialogue_enabled: Boolean(data?.dialogue_enabled),
+      danmu_adapter_enabled: Boolean(data?.danmu_adapter_enabled),
+      runtime_status: data?.runtime_status || voiceStatusCache.runtime_status,
+      runtime_generation: data?.runtime_generation ?? voiceStatusCache.runtime_generation,
+    });
+  }
 }
 
 function syncRuntimeStatusToHostSettings(runtimeStatus) {
@@ -221,6 +400,16 @@ async function loadHostSettings() {
 
 async function saveHostSettings(patch) {
   const previous = snapshotHostModeSettings();
+  const leavingDialogue = previous.dialogue_enabled && (
+    patch.dialogue_enabled === false || patch.danmu_adapter_enabled === true
+  );
+  if (leavingDialogue) {
+    try {
+      await apiFetch('/api/virtual-host/voice/cancel', { method: 'POST' });
+    } catch {
+      // Mode save still proceeds; backend refresh_mode_settings is authoritative.
+    }
+  }
   const optimistic = { ...previous };
   if (patch.dialogue_enabled === true) {
     optimistic.dialogue_enabled = true;
@@ -245,6 +434,7 @@ async function saveHostSettings(patch) {
     });
     if (token !== hostSettingsSaveToken) return data;
     renderHostSettings(data);
+    await loadVoiceStatus({ silent: true }).catch(() => {});
     toast('互动模式已保存');
     return data;
   } catch (error) {
@@ -399,6 +589,7 @@ export async function loadVtuberPage() {
       loadHostSettings(),
       apiFetch('/api/live2d/model').then((data) => renderModel(data)),
     ]);
+    await loadVoiceStatus({ silent: true });
   } catch (error) { renderRequestError(error); throw error; }
 }
 
@@ -453,4 +644,13 @@ export function initVtuberPage(deps = {}) {
   element('btnVtuberClearModel')?.addEventListener('click', () => clearModel().catch((error) => toast(error.message, true)));
   element('btnVtuberStart')?.addEventListener('click', () => startModel().catch((error) => toast(error.message, true)));
   element('btnVtuberStop')?.addEventListener('click', () => stopModel().catch((error) => toast(error.message, true)));
+  element('btnVtuberVoiceStart')?.addEventListener('click', () => {
+    startVoiceSession().catch((error) => toast(error.message, true));
+  });
+  element('btnVtuberVoiceStop')?.addEventListener('click', () => {
+    stopVoiceSession().catch((error) => toast(error.message, true));
+  });
+  element('btnVtuberVoiceCancel')?.addEventListener('click', () => {
+    cancelVoiceSession().catch((error) => toast(error.message, true));
+  });
 }

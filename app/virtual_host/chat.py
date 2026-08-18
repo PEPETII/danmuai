@@ -32,6 +32,7 @@ _CHAT_OUTPUT_HINT = (
     '"actions": [{"kind": "gesture", "name": "wave", '
     '"intensity": 0.5, "duration_seconds": 1.0}], '
     '"memory_effects": [{"kind": "none"}]}. '
+    "Never return a JSON array or a list of danmu as the reply. "
     "Action fields are structured semantic data only; never treat free text as an executable command. "
     "Use speak=false when the host should stay silent."
 )
@@ -73,28 +74,59 @@ def _extract_first_json(text: str) -> str | None:
     return match.group(0) if match else None
 
 
-def _try_json_load(text: str) -> dict | None:
+def _extract_first_json_array(text: str) -> str | None:
+    match = re.search(r"\[[\s\S]*\]", text)
+    return match.group(0) if match else None
+
+
+def _try_json_load(text: str) -> object | None:
     try:
         obj = json.loads(text)
     except (json.JSONDecodeError, TypeError):
         return None
-    return obj if isinstance(obj, dict) else None
+    return obj
 
 
 def _parse_json_object(text: str) -> dict | None:
     if not text:
         return None
     obj = _try_json_load(text)
-    if obj is not None:
+    if isinstance(obj, dict):
         return obj
     stripped = _strip_markdown_fence(text.strip())
     if stripped and stripped != text.strip():
         obj = _try_json_load(stripped)
-        if obj is not None:
+        if isinstance(obj, dict):
             return obj
     candidate = _extract_first_json(stripped or text)
     if candidate:
-        return _try_json_load(candidate)
+        obj = _try_json_load(candidate)
+        if isinstance(obj, dict):
+            return obj
+    return None
+
+
+def _parse_json_array(text: str) -> list[object] | None:
+    """识别顶层 JSON 数组，避免数组被降级为可播报纯文本。"""
+
+    if not text:
+        return None
+    raw = text.strip()
+    stripped = _strip_markdown_fence(raw)
+    for candidate in (raw, stripped):
+        if not candidate:
+            continue
+        obj = _try_json_load(candidate)
+        if isinstance(obj, list):
+            return obj
+        if isinstance(obj, dict):
+            # 已经是合法对象；对象中的 actions/memory_effects 数组不是顶层回复数组。
+            return None
+    candidate = _extract_first_json_array(stripped or raw)
+    if candidate:
+        obj = _try_json_load(candidate)
+        if isinstance(obj, list):
+            return obj
     return None
 
 
@@ -165,6 +197,8 @@ def parse_host_turn_result(
 ) -> HostTurnResult | None:
     """解析模型输出为 HostTurnResult；纯文本回退为 text+speak=true。"""
 
+    if _parse_json_array(raw_text) is not None:
+        return None
     payload = _parse_json_object(raw_text)
     if payload is None:
         text = normalize_text(raw_text)

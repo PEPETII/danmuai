@@ -23,7 +23,13 @@ from app.tts.types import (
     TtsResult,
     TtsUnsupportedCapabilityError,
 )
-from app.virtual_host.contracts import HostPrompt, HostTurn, HostTurnResult
+from app.virtual_host.contracts import (
+    HostPrompt,
+    HostTurn,
+    HostTurnResult,
+    VoiceTurnSnapshot,
+    VoiceTurnSource,
+)
 from app.virtual_host.playback import (
     PlaybackEvent,
     PlaybackItem,
@@ -293,7 +299,9 @@ class VoiceTurnState:
     session_id: str
     turn_id: int
     input_started_at: float
+    source: VoiceTurnSource = "user_mic"
     scene_generation: int | None = None
+    runtime_generation: int | None = None
     input_ended_at: float | None = None
     transcript: str = ""
     transcript_summary: str = ""
@@ -321,11 +329,34 @@ class VoiceTurnState:
     def cancelled(self) -> bool:
         return self.status == "cancelled"
 
+    def to_snapshot(self) -> VoiceTurnSnapshot:
+        return VoiceTurnSnapshot(
+            session_id=self.session_id,
+            turn_id=self.turn_id,
+            source=self.source,
+            status=self.status,
+            scene_generation=self.scene_generation,
+            runtime_generation=self.runtime_generation,
+            started_at=self.input_started_at,
+            ended_at=self.input_ended_at,
+            asr_status=self.asr_status,
+            llm_status=self.llm_status,
+            tts_status=self.tts_status,
+            playback_status=self.playback_status,
+            transcript_summary=self.transcript_summary,
+            cancel_reason=self.cancel_reason,
+            failure_reason=self.failure_reason,
+            timeout_reason=self.timeout_reason,
+        )
+
 
 class VirtualHostAudioOrchestrator:
     """把现有主播会话、ASR/chat 适配器、TTS 和播放队列串成可测试状态机。"""
 
     _terminal = frozenset({"completed", "cancelled", "failed"})
+    _supersedeable = frozenset(
+        {"input", "transcribing", "transcribed", "chatting", "synthesizing"}
+    )
 
     def __init__(
         self,
@@ -361,8 +392,20 @@ class VirtualHostAudioOrchestrator:
         except KeyError as exc:
             raise KeyError(f"unknown voice turn: {turn_id}") from exc
 
-    def _usable(self, state: VoiceTurnState, current_scene_generation: int | None = None) -> bool:
+    def _usable(
+        self,
+        state: VoiceTurnState,
+        current_scene_generation: int | None = None,
+        current_runtime_generation: int | None = None,
+    ) -> bool:
         if state.status in self._terminal:
+            return False
+        if (
+            current_runtime_generation is not None
+            and state.runtime_generation is not None
+            and int(current_runtime_generation) != state.runtime_generation
+        ):
+            self.cancel_turn(state.turn_id, reason="runtime_generation_stale")
             return False
         if (
             current_scene_generation is not None
@@ -377,18 +420,23 @@ class VirtualHostAudioOrchestrator:
         self,
         *,
         scene_generation: int | None = None,
+        runtime_generation: int | None = None,
+        source: VoiceTurnSource = "user_mic",
         input_started_at: float | None = None,
         supersede_previous: bool = True,
     ) -> VoiceTurnState:
         if supersede_previous:
             for previous in tuple(self._turns.values()):
-                if previous.status not in self._terminal:
-                    self.cancel_turn(previous.turn_id, reason="superseded_by_new_mic_turn")
+                if previous.status in self._terminal or previous.status not in self._supersedeable:
+                    continue
+                self.cancel_turn(previous.turn_id, reason="superseded_by_new_mic_turn")
         turn = VoiceTurnState(
             session_id=self.session.session_id,
             turn_id=self._next_turn_id,
             input_started_at=self._clock() if input_started_at is None else float(input_started_at),
+            source=source,
             scene_generation=None if scene_generation is None else int(scene_generation),
+            runtime_generation=None if runtime_generation is None else int(runtime_generation),
         )
         self._next_turn_id += 1
         self._turns[turn.turn_id] = turn
@@ -396,7 +444,9 @@ class VirtualHostAudioOrchestrator:
 
     def end_input(self, turn_id: int, *, input_ended_at: float | None = None) -> VoiceTurnState:
         state = self.get_turn(turn_id)
-        if state.cancelled:
+        if state.cancelled or state.status in self._terminal:
+            return state
+        if state.status != "input":
             return state
         state.input_ended_at = self._clock() if input_ended_at is None else float(input_ended_at)
         state.status = "transcribing"
@@ -418,9 +468,17 @@ class VirtualHostAudioOrchestrator:
         safe_summary: str = "",
         provider_id: str = "",
         model_id: str = "",
+        current_scene_generation: int | None = None,
+        current_runtime_generation: int | None = None,
     ) -> VoiceTurnState:
         state = self.get_turn(turn_id)
         if state.cancelled:
+            return state
+        if not self._usable(
+            state,
+            current_scene_generation,
+            current_runtime_generation,
+        ):
             return state
         result = AsrResult("ok", transcript, safe_summary, provider_id=provider_id, model_id=model_id)
         if not result.text:
@@ -431,11 +489,18 @@ class VirtualHostAudioOrchestrator:
         state.status = "transcribed"
         return state
 
-    def transcribe(self, turn_id: int, pcm: bytes) -> VoiceTurnState:
+    def transcribe(
+        self,
+        turn_id: int,
+        pcm: bytes,
+        *,
+        current_scene_generation: int | None = None,
+        current_runtime_generation: int | None = None,
+    ) -> VoiceTurnState:
         state = self.get_turn(turn_id)
         if state.cancelled:
             return state
-        if not self._usable(state):
+        if not self._usable(state, current_scene_generation, current_runtime_generation):
             return state
         if not pcm:
             return self._fail(state, "empty_pcm", stage="asr")
@@ -457,6 +522,37 @@ class VirtualHostAudioOrchestrator:
             safe_summary=normalized.safe_summary,
             provider_id=normalized.provider_id,
             model_id=normalized.model_id,
+            current_scene_generation=current_scene_generation,
+            current_runtime_generation=current_runtime_generation,
+        )
+
+    def apply_asr_result(
+        self,
+        turn_id: int,
+        result: AsrResult,
+        *,
+        current_scene_generation: int | None = None,
+        current_runtime_generation: int | None = None,
+    ) -> VoiceTurnState:
+        """主线程交付 ASR 结果；过期 generation 或取消后轮次保持幂等。"""
+
+        state = self.get_turn(turn_id)
+        if state.cancelled or state.status in self._terminal:
+            return state
+        if not self._usable(state, current_scene_generation, current_runtime_generation):
+            return state
+        normalized = self._coerce_asr(result)
+        if normalized.status != "ok":
+            state.asr_status = normalized.status
+            return self._fail(state, normalized.reason or f"asr_{normalized.status}", stage="asr")
+        return self.accept_transcript(
+            turn_id,
+            normalized.text,
+            safe_summary=normalized.safe_summary,
+            provider_id=normalized.provider_id,
+            model_id=normalized.model_id,
+            current_scene_generation=current_scene_generation,
+            current_runtime_generation=current_runtime_generation,
         )
 
     def prepare_chat(
@@ -464,9 +560,10 @@ class VirtualHostAudioOrchestrator:
         turn_id: int,
         *,
         current_scene_generation: int | None = None,
+        current_runtime_generation: int | None = None,
     ) -> HostPrompt | None:
         state = self.get_turn(turn_id)
-        if not self._usable(state, current_scene_generation):
+        if not self._usable(state, current_scene_generation, current_runtime_generation):
             return None
         if not state.transcript:
             self._fail(state, "transcript_required", stage="llm")
@@ -477,6 +574,7 @@ class VirtualHostAudioOrchestrator:
             host_turn = self.session.start_turn(
                 state.transcript,
                 mic_text=state.transcript,
+                include_recent_batches=False,
                 now=self._clock(),
             )
             prompt = self.session.compose_prompt(host_turn, now=self._clock())
@@ -495,12 +593,47 @@ class VirtualHostAudioOrchestrator:
             return HostTurnResult(session_id=session_id, turn_id=host_turn.turn_id, text=value)
         return None
 
-    def submit_chat_result(self, turn_id: int, result: HostTurnResult | str) -> VoiceTurnState:
+    def fail_chat(
+        self,
+        turn_id: int,
+        reason: str,
+        *,
+        current_scene_generation: int | None = None,
+        current_runtime_generation: int | None = None,
+    ) -> VoiceTurnState:
+        """主线程：Chat 失败或取消时标记轮次，不写入可播放结果。"""
+
+        state = self.get_turn(turn_id)
+        if state.cancelled or state.status in self._terminal:
+            return state
+        if not self._usable(
+            state,
+            current_scene_generation,
+            current_runtime_generation,
+        ):
+            return state
+        state.llm_status = "failed"
+        return self._fail(state, reason, stage="llm")
+
+    def submit_chat_result(
+        self,
+        turn_id: int,
+        result: HostTurnResult | str,
+        *,
+        current_scene_generation: int | None = None,
+        current_runtime_generation: int | None = None,
+    ) -> VoiceTurnState:
         state = self.get_turn(turn_id)
         if state.cancelled:
             return state
+        if not self._usable(state, current_scene_generation, current_runtime_generation):
+            return state
         if state.host_turn is None:
-            self.prepare_chat(turn_id)
+            self.prepare_chat(
+                turn_id,
+                current_scene_generation=current_scene_generation,
+                current_runtime_generation=current_runtime_generation,
+            )
         if state.host_turn is None:
             return state
         normalized = self._coerce_chat_result(state.session_id, state.host_turn, result)
@@ -515,9 +648,19 @@ class VirtualHostAudioOrchestrator:
         state.status = "chat_completed"
         return state
 
-    def run_chat(self, turn_id: int, *, current_scene_generation: int | None = None) -> VoiceTurnState:
+    def run_chat(
+        self,
+        turn_id: int,
+        *,
+        current_scene_generation: int | None = None,
+        current_runtime_generation: int | None = None,
+    ) -> VoiceTurnState:
         state = self.get_turn(turn_id)
-        prompt = self.prepare_chat(turn_id, current_scene_generation=current_scene_generation)
+        prompt = self.prepare_chat(
+            turn_id,
+            current_scene_generation=current_scene_generation,
+            current_runtime_generation=current_runtime_generation,
+        )
         if prompt is None or state.cancelled:
             return state
         if self.chat is None:
@@ -539,9 +682,11 @@ class VirtualHostAudioOrchestrator:
         *,
         binding: TtsBinding | None = None,
         max_chars: int | None = None,
+        current_scene_generation: int | None = None,
+        current_runtime_generation: int | None = None,
     ) -> VoiceTurnState:
         state = self.get_turn(turn_id)
-        if not self._usable(state):
+        if not self._usable(state, current_scene_generation, current_runtime_generation):
             return state
         result = state.host_result
         if result is None:
@@ -598,7 +743,7 @@ class VirtualHostAudioOrchestrator:
 
     def cancel_turn(self, turn_id: int, *, reason: str = "cancelled") -> VoiceTurnState:
         state = self.get_turn(turn_id)
-        if state.status == "completed":
+        if state.status in {"completed", "cancelled"}:
             return state
         state.cancel_reason = str(reason or "cancelled")
         state.status = "cancelled"
@@ -695,6 +840,8 @@ __all__ = [
     "TtsSynthesisOutcome",
     "TtsSynthesizer",
     "VirtualHostAudioOrchestrator",
+    "VoiceTurnSnapshot",
+    "VoiceTurnSource",
     "VoiceTurnState",
     "resolve_tts_binding",
     "segment_text",

@@ -20,6 +20,7 @@
 | `_active_vision_model_id` | Qt 主线程（`refresh_model_bindings`） | Qt 主线程 | 当前绑定的视觉/Chat model_id |
 | `_live2d_feedback` | Qt 主线程（Playback/Chat/生命周期回调） | Qt 主线程 | 当前 Live2D 模型的嘴型、表情、动作反馈层 |
 | `_last_spoke_at` | Qt 主线程（Chat 完成） | Qt 主线程 | 上次自主发言时间（cooldown）；**wall clock**（`time.time()`） |
+| `_speech_logs` | Qt 主线程（接受 Chat 结果时） | Qt 主线程（Web façade 查询） | 当前进程最近 200 条虚拟主播说话内容；仅内存保留 |
 
 **业务时间 vs 性能计时**：Session / TTL / Scheduler 业务时间戳一律使用 **wall clock**（`time.time()`），包括 `SceneContext.updated_at`、`DanmuBatchCreated.created_at`、`ResponseCandidateEvent.at`、`HostTurn.created_at`、`_last_spoke_at`。主链路 `captured_at`（`DanmuApp._latest_screenshot_time`，**monotonic**）仅用于截图→场景诊断耗时（`scene_latency_ms` 等），禁止写入 `SceneContext.updated_at` 或 `ResponseCandidateEvent.at`。
 | `_vision_coordinator` | 构造时 | Qt 主线程 | `SceneVisionCoordinator` 信号桥 |

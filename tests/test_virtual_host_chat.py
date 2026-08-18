@@ -83,6 +83,14 @@ def test_parse_host_turn_result_plain_text_fallback():
     assert result.speak is True
 
 
+def test_parse_host_turn_result_rejects_json_array_as_spoken_reply():
+    for raw in (
+        json.dumps(["弹幕一", "弹幕二"], ensure_ascii=False),
+        "```json\n[\"弹幕一\", \"弹幕二\"]\n```",
+    ):
+        assert parse_host_turn_result(raw, session_id="sid", turn_id=1) is None
+
+
 def test_request_host_chat_posts_virtual_host_chat_purpose(monkeypatch):
     captured: dict[str, object] = {}
 

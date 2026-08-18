@@ -22,3 +22,23 @@ def get_settings(app: "DanmuApp") -> dict[str, object]:
 
 def save_settings(app: "DanmuApp", payload: dict[str, Any]) -> dict[str, object]:
     return app.apply_virtual_host_settings(payload)
+
+
+def get_voice_status(app: "DanmuApp") -> dict[str, object]:
+    return app.get_virtual_host_voice_status()
+
+
+def get_speech_logs(app: "DanmuApp") -> dict[str, object]:
+    return app.get_virtual_host_speech_logs()
+
+
+def start_voice_session(app: "DanmuApp") -> dict[str, object]:
+    return app.start_virtual_host_voice()
+
+
+def stop_voice_session(app: "DanmuApp") -> dict[str, object]:
+    return app.stop_virtual_host_voice()
+
+
+def cancel_voice_session(app: "DanmuApp") -> dict[str, object]:
+    return app.cancel_virtual_host_voice()

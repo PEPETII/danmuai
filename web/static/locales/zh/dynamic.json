@@ -455,6 +455,16 @@
       "statusFailed": "识别失败",
       "failedWithReason": "识别失败：{reason}"
     },
+    "virtualHostLogs": {
+      "subtitle": "虚拟主播生成并进入语音播报队列的内容会显示在这里（仅保留本次运行的最近 200 条）。",
+      "channelLabel": "日志通道",
+      "polling": "HTTP 轮询",
+      "failed": "读取虚拟主播日志失败",
+      "empty": "暂无虚拟主播说话日志。虚拟主播完成一次语音对话或弹幕适配后，内容会显示在这里。",
+      "sourceUserMic": "语音对话",
+      "sourceAutoReply": "弹幕适配",
+      "turn": "第 {turnId} 轮"
+    },
     "settingsCaptureRegion": {
       "正在框选": "正在框选…",
       "鼠标框选识图范围": "鼠标框选识图范围",

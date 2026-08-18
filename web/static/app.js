@@ -31,6 +31,7 @@ import {
   navigateToMicLogs,
   onMicLogsTabActivated,
 } from './modules/mic-logs.js';
+import { onVirtualHostLogsTabActivated } from './modules/virtual-host-logs.js';
 import {
   applyCaptureRegionFromPayload,
   bindSettingsControls,
@@ -942,6 +943,7 @@ function navigate(page) {
     page === 'tutorial' ||
     page === 'logs' ||
     page === 'mic-logs' ||
+    page === 'virtual-host-logs' ||
     page === 'announcements' ||
     page === 'feedback' ||
     page === 'live-output' ||
@@ -1029,6 +1031,8 @@ function navigate(page) {
       }
     } else if (activeTab === 'mic-logs') {
       onMicLogsTabActivated();
+    } else if (activeTab === 'virtual-host-logs') {
+      onVirtualHostLogsTabActivated();
     } else if (activeTab === 'tutorial') {
       import('./modules/content-tutorial.js')
         .then((mod) => mod.loadTutorialPage())
@@ -1126,6 +1130,8 @@ function bindCoreInteractions() {
         }
       } else if (tabId === 'mic-logs') {
         onMicLogsTabActivated();
+      } else if (tabId === 'virtual-host-logs') {
+        onVirtualHostLogsTabActivated();
       } else if (tabId === 'tutorial') {
         import('./modules/content-tutorial.js')
           .then((mod) => mod.loadTutorialPage())

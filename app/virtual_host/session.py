@@ -202,6 +202,7 @@ class VirtualHostSession:
         mic_text: str = "",
         live_topic: str = "",
         scene_context: SceneContext | None = None,
+        include_recent_batches: bool = True,
         now: float | None = None,
     ) -> HostTurn:
         current = self._clock() if now is None else float(now)
@@ -215,7 +216,7 @@ class VirtualHostSession:
             mic_text=" ".join(str(mic_text or "").split()),
             live_topic=" ".join(str(live_topic or "").split()),
             scene_context=self.current_scene_context(now=current),
-            recent_batches=self.recent_batches(now=current),
+            recent_batches=(self.recent_batches(now=current) if include_recent_batches else ()),
             history=tuple(self._history),
         )
         self._next_turn_id += 1

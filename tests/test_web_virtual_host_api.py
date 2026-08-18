@@ -35,3 +35,11 @@ def test_virtual_host_settings_api_delegates_to_danmu_app_facade():
         "danmu_adapter_enabled": False,
     }
     app.apply_virtual_host_settings.assert_called_once_with({"dialogue_enabled": True})
+
+
+def test_virtual_host_voice_status_api_delegates_to_danmu_app_facade():
+    app = MagicMock()
+    app.get_virtual_host_voice_status.return_value = {"phase": "idle", "armed": False}
+
+    assert virtual_host_api.get_voice_status(app) == {"phase": "idle", "armed": False}
+    app.get_virtual_host_voice_status.assert_called_once_with()

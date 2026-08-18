@@ -104,6 +104,11 @@ class PlaybackQueue:
         self._sequence = 0
         self._active: PlaybackItem | None = None
         self._cancelled_turns: set[tuple[str, int]] = set()
+        self._playback_suppressed = False
+
+    @property
+    def playback_suppressed(self) -> bool:
+        return self._playback_suppressed
 
     @property
     def active_item(self) -> PlaybackItem | None:
@@ -136,6 +141,19 @@ class PlaybackQueue:
         return (self._active is not None and self._turn_key(self._active) == key) or any(
             self._turn_key(item) == key for _priority, _sequence, item in self._pending
         )
+
+    def suppress_playback(self, *, reason: str = "mic_capture") -> None:
+        """麦克风采集期间抑制新播放；打断当前项但不永久禁用队列。"""
+
+        self._playback_suppressed = True
+        if self._active is not None:
+            self.interrupt(reason=reason)
+
+    def release_playback_suppression(self) -> None:
+        if not self._playback_suppressed:
+            return
+        self._playback_suppressed = False
+        self._start_next()
 
     def enqueue(
         self,
@@ -179,6 +197,8 @@ class PlaybackQueue:
         ]
 
     def _start_next(self) -> PlaybackResult | None:
+        if self._playback_suppressed:
+            return None
         if self._active is not None:
             return None
         while self._pending:

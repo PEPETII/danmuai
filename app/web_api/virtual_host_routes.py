@@ -59,3 +59,44 @@ def register_virtual_host_routes(
             )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.get("/api/virtual-host/voice/status")
+    def get_virtual_host_voice_status():
+        return invoke_main(virtual_host_api.get_voice_status, bridge.danmu_app)
+
+    @app.get("/api/virtual-host/speech-logs")
+    def get_virtual_host_speech_logs():
+        return invoke_main(virtual_host_api.get_speech_logs, bridge.danmu_app)
+
+    @app.post("/api/virtual-host/voice/start")
+    @require_auth(check_token)
+    def post_virtual_host_voice_start(
+        authorization: str | None = Header(default=None),
+    ):
+        del authorization
+        try:
+            return invoke_main(virtual_host_api.start_voice_session, bridge.danmu_app)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.post("/api/virtual-host/voice/stop")
+    @require_auth(check_token)
+    def post_virtual_host_voice_stop(
+        authorization: str | None = Header(default=None),
+    ):
+        del authorization
+        try:
+            return invoke_main(virtual_host_api.stop_voice_session, bridge.danmu_app)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.post("/api/virtual-host/voice/cancel")
+    @require_auth(check_token)
+    def post_virtual_host_voice_cancel(
+        authorization: str | None = Header(default=None),
+    ):
+        del authorization
+        try:
+            return invoke_main(virtual_host_api.cancel_voice_session, bridge.danmu_app)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc

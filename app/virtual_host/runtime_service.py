@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import logging
 import time
+from collections import deque
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from PyQt6.QtCore import QObject, QRunnable, pyqtSignal
 
 from app.danmu_tts_playback import DanmuTtsPlayback
+from app.mic_transcription import MicTranscriptionResult, transcribe_pcm
 from app.screenshot_compress import compress_screenshot
 from app.tts.types import TtsError
 from app.tts_providers import get_tts_manager
@@ -29,7 +31,9 @@ from app.virtual_host.contracts import (
     SceneContext,
 )
 from app.virtual_host.diagnostics import log_diagnostic
+from app.virtual_host.knowledge import KnowledgeContextAdapter
 from app.virtual_host.live2d_feedback import Live2DFeedbackController
+from app.virtual_host.mic_route import MicAsrJob, VirtualHostMicRoute, mic_route_enabled
 from app.virtual_host.mode_config import export_virtual_host_mode_settings
 from app.virtual_host.model_config import (
     resolve_virtual_host_tts_binding,
@@ -49,6 +53,7 @@ from app.virtual_host.vision import (
     _keywords_from_summary,
     request_scene_summary,
 )
+from app.virtual_host.voice_status import export_voice_status
 from app.virtual_host_playback_adapter import DanmuTtsPlaybackAdapter
 from app.worker_pools import ai_worker_pool
 
@@ -56,6 +61,10 @@ if TYPE_CHECKING:
     from main import DanmuApp
 
 logger = logging.getLogger(__name__)
+
+_USER_MIC_PLAYBACK_ECHO_COOLDOWN_SEC = 0.35
+_MAX_SPEECH_LOG_ENTRIES = 200
+
 
 def _monotonic_elapsed_since(captured_at: float) -> float:
     """Return elapsed seconds since a monotonic capture stamp (diagnostics only)."""
@@ -86,6 +95,12 @@ class TtsSynthesisCoordinator(QObject):
     """主线程 QObject；TTS worker 经 completed 信号回传合成结果。"""
 
     completed = pyqtSignal(object, object)
+
+
+class MicAsrCoordinator(QObject):
+    """主线程 QObject；麦克风 ASR worker 经 completed 信号回传结构化结果。"""
+
+    completed = pyqtSignal(int, object, int)  # turn_id, MicTranscriptionResult, runtime_generation
 
 
 @dataclass(frozen=True)
@@ -149,6 +164,33 @@ class _TtsSynthesisRunnable(QRunnable):
             tts_latency_ms=round((time.monotonic() - started_at) * 1000, 1),
         )
         self._coordinator.completed.emit(self._job, outcome)
+
+
+class _MicAsrRunnable(QRunnable):
+    def __init__(
+        self,
+        coordinator: MicAsrCoordinator,
+        *,
+        job: MicAsrJob,
+        config: Any,
+    ) -> None:
+        super().__init__()
+        self._coordinator = coordinator
+        self._job = job
+        self._config = config
+        self.setAutoDelete(True)
+
+    def run(self) -> None:
+        try:
+            result = transcribe_pcm(self._config, self._job.pcm)
+        except Exception as exc:
+            logger.warning("virtual_host mic asr worker failed: %r", exc)
+            result = MicTranscriptionResult(False, error=type(exc).__name__)
+        self._coordinator.completed.emit(
+            self._job.turn_id,
+            result,
+            self._job.runtime_generation,
+        )
 
 
 class _ChatResponseRunnable(QRunnable):
@@ -275,10 +317,15 @@ class VirtualHostRuntimeService:
         self._response_scheduler = VirtualHostResponseScheduler()
         self._tts_binding: TtsBinding | None = None
         self._spoken_tts_states: dict[tuple[str, int], _SpokenTtsState] = {}
+        self._speech_logs: deque[dict[str, object]] = deque(maxlen=_MAX_SPEECH_LOG_ENTRIES)
         self._chat_event_context: dict[tuple[str, int], tuple[str, float]] = {}
+        self._pending_voice_chat: dict[int, int] = {}
+        self._knowledge_adapter: KnowledgeContextAdapter | None = None
         self._playback_event_at: dict[tuple[str, int, int], tuple[str, float]] = {}
         self._playback_started_at: dict[tuple[str, int, int], float] = {}
         self._playback_model_ids: dict[tuple[str, int, int], str] = {}
+        self._playback_echo_guard_until = 0.0
+        self._voice_session_armed = False
         self._live2d_feedback = Live2DFeedbackController()
         coordinator_parent = app if isinstance(app, QObject) else None
         self._vision_coordinator = SceneVisionCoordinator(coordinator_parent)
@@ -287,6 +334,8 @@ class VirtualHostRuntimeService:
         self._chat_coordinator.completed.connect(self._on_chat_response_completed)
         self._tts_coordinator = TtsSynthesisCoordinator(coordinator_parent)
         self._tts_coordinator.completed.connect(self._on_tts_synthesis_completed)
+        self._mic_asr_coordinator = MicAsrCoordinator(coordinator_parent)
+        self._mic_asr_coordinator.completed.connect(self._on_mic_asr_completed)
         self._danmu_playback = DanmuTtsPlayback()
         if coordinator_parent is not None:
             self._danmu_playback.setParent(coordinator_parent)
@@ -297,6 +346,10 @@ class VirtualHostRuntimeService:
             playback=PlaybackQueue(playback_adapter),
         )
         self._audio.playback.add_listener(self._on_playback_event)
+        self._mic_route = VirtualHostMicRoute(
+            self,
+            schedule_asr_job=self._schedule_mic_asr_job,
+        )
         self.refresh_model_bindings(bump_generation_on_vision_change=False)
 
     @property
@@ -335,6 +388,36 @@ class VirtualHostRuntimeService:
     def danmu_adapter_enabled(self) -> bool:
         return self._danmu_adapter_enabled
 
+    @property
+    def voice_session_armed(self) -> bool:
+        return self._voice_session_armed
+
+    def get_speech_logs(self) -> list[dict[str, object]]:
+        """Return the bounded, current-process log of accepted host speech."""
+
+        return [dict(entry) for entry in self._speech_logs]
+
+    def _record_speech_log(
+        self,
+        result: HostTurnResult,
+        *,
+        source: str,
+        event_kind: str = "",
+        timestamp: float | None = None,
+    ) -> None:
+        if not result.speak or not result.text:
+            return
+        self._speech_logs.append(
+            {
+                "id": f"{result.session_id}:{result.turn_id}",
+                "timestamp": time.time() if timestamp is None else float(timestamp),
+                "turn_id": int(result.turn_id),
+                "source": str(source or "virtual_host"),
+                "event_kind": str(event_kind or ""),
+                "text": result.text,
+            }
+        )
+
     def _autonomous_response_enabled(self) -> bool:
         """弹幕适配模式开启且对话模式关闭时才允许自动批次/场景回应。"""
 
@@ -371,6 +454,9 @@ class VirtualHostRuntimeService:
         current = (dialogue, danmu_adapter)
         self._dialogue_enabled = dialogue
         self._danmu_adapter_enabled = danmu_adapter
+        if previous != current:
+            self._voice_session_armed = False
+            self._mic_route.reset(reason="mode_changed")
         if bump_generation and previous != current:
             self._bump_runtime_generation()
             log_diagnostic(
@@ -393,7 +479,10 @@ class VirtualHostRuntimeService:
 
     def stop(self) -> None:
         self._running = False
+        self._voice_session_armed = False
+        self._mic_route.reset(reason="runtime_stop")
         self._live2d_feedback.deactivate()
+        self._playback_echo_guard_until = 0.0
         self._bump_runtime_generation()
         log_diagnostic(
             "runtime_stop",
@@ -406,10 +495,12 @@ class VirtualHostRuntimeService:
         self._live2d_feedback.set_runtime_generation(self._runtime_generation)
         self._spoken_tts_states.clear()
         self._chat_event_context.clear()
+        self._pending_voice_chat.clear()
         self._purge_stale_auto_playback()
         self._playback_event_at.clear()
         self._playback_started_at.clear()
         self._playback_model_ids.clear()
+        self._playback_echo_guard_until = 0.0
         log_diagnostic(
             "runtime_generation_bump",
             runtime_generation=self._runtime_generation,
@@ -521,6 +612,323 @@ class VirtualHostRuntimeService:
             scene_generation=scene_generation,
         )
         return decision
+
+    def mic_route_active(self) -> bool:
+        return (
+            self._voice_session_armed
+            and mic_route_enabled(
+                running=self._running,
+                dialogue_enabled=self._dialogue_enabled,
+                danmu_adapter_enabled=self._danmu_adapter_enabled,
+            )
+        )
+
+    def get_voice_status(self) -> dict[str, object]:
+        return export_voice_status(self, self._app)
+
+    def start_voice_session(self) -> dict[str, object]:
+        if not self._dialogue_enabled:
+            raise ValueError("dialogue_mode_disabled")
+        if self._danmu_adapter_enabled:
+            raise ValueError("adapter_mode_active")
+        if not self._running:
+            raise ValueError("runtime_stopped")
+        self._voice_session_armed = True
+        log_diagnostic(
+            "voice_session_start",
+            runtime_generation=self._runtime_generation,
+            status="armed",
+        )
+        return self.get_voice_status()
+
+    def stop_voice_session(self) -> dict[str, object]:
+        self._voice_session_armed = False
+        if self._mic_route.active_turn_id:
+            self._mic_route.on_utterance_discarded()
+        log_diagnostic(
+            "voice_session_stop",
+            runtime_generation=self._runtime_generation,
+            status="disarmed",
+        )
+        return self.get_voice_status()
+
+    def cancel_voice_session(self) -> dict[str, object]:
+        self._voice_session_armed = False
+        for state in self._audio.turns:
+            if state.source != "user_mic":
+                continue
+            if state.status in {"completed", "cancelled", "failed"}:
+                continue
+            self._audio.cancel_turn(state.turn_id, reason="user_cancelled")
+        self._mic_route.reset(reason="user_cancelled")
+        self._playback_echo_guard_until = 0.0
+        log_diagnostic(
+            "voice_session_cancel",
+            runtime_generation=self._runtime_generation,
+            status="cancelled",
+        )
+        return self.get_voice_status()
+
+    def on_mic_speech_start(self) -> bool:
+        if not self.mic_route_active():
+            return False
+        if self._user_mic_echo_guard_active():
+            log_diagnostic(
+                "mic_turn_skipped",
+                runtime_generation=self._runtime_generation,
+                reason="playback_echo_guard",
+            )
+            return False
+        return self._mic_route.on_speech_start()
+
+    def _user_mic_echo_guard_active(self) -> bool:
+        """USER_MIC 播报与结束后短 cooldown 内抑制自回声新轮次。"""
+
+        active = self._audio.playback.active_item
+        if active is not None and (
+            str(getattr(active, "source", "")) == "mic_reply"
+            or int(active.priority) >= PlaybackPriority.USER_MIC
+        ):
+            return True
+        return time.monotonic() < self._playback_echo_guard_until
+
+    def on_mic_utterance_discarded(self) -> bool:
+        if not self._mic_route.active_turn_id and not self._mic_route.asr_in_flight:
+            return False
+        return self._mic_route.on_utterance_discarded()
+
+    def on_mic_utterance_end(self, pcm: bytes) -> bool:
+        if not self.mic_route_active():
+            return False
+        return self._mic_route.on_utterance_end(pcm)
+
+    def _schedule_mic_asr_job(self, job: MicAsrJob) -> None:
+        runnable = _MicAsrRunnable(
+            self._mic_asr_coordinator,
+            job=job,
+            config=self._app.config,
+        )
+        ai_worker_pool().start(runnable)
+
+    def _on_mic_asr_completed(
+        self,
+        turn_id: int,
+        result: MicTranscriptionResult,
+        runtime_generation: int,
+    ) -> None:
+        self._mic_route.on_asr_completed(turn_id, result, runtime_generation)
+
+    def _knowledge_context_adapter(self) -> KnowledgeContextAdapter:
+        if self._knowledge_adapter is None:
+            runtime = getattr(self._app, "knowledge_runtime", None)
+            self._knowledge_adapter = KnowledgeContextAdapter(runtime)
+        return self._knowledge_adapter
+
+    def on_mic_transcript_ready(self, voice_turn_id: int) -> None:
+        """主线程：ASR 成功后投递 voice chat worker，不阻塞麦克风回调。"""
+
+        if not self._running or not self._dialogue_enabled:
+            return
+        scene_generation = int(getattr(self._app, "_scene_generation", 0))
+        runtime_generation = self._runtime_generation
+        try:
+            state = self._audio.get_turn(voice_turn_id)
+        except KeyError:
+            return
+        if state.status != "transcribed":
+            return
+        if self._chat_in_flight:
+            self._audio.fail_chat(
+                voice_turn_id,
+                "chat_in_flight",
+                current_scene_generation=scene_generation,
+                current_runtime_generation=runtime_generation,
+            )
+            log_diagnostic(
+                "voice_chat_skipped",
+                runtime_generation=runtime_generation,
+                turn_id=voice_turn_id,
+                reason="chat_in_flight",
+            )
+            return
+        prompt = self._audio.prepare_chat(
+            voice_turn_id,
+            current_scene_generation=scene_generation,
+            current_runtime_generation=runtime_generation,
+        )
+        if prompt is None or state.host_turn is None:
+            return
+        host_turn = state.host_turn
+        knowledge = self._knowledge_context_adapter().retrieve(
+            turn_id=host_turn.turn_id,
+            input_text=host_turn.input_text,
+            scene_context=host_turn.scene_context,
+            recent_batches=host_turn.recent_batches,
+            mic_text=host_turn.mic_text,
+        )
+        prompt = self._session.compose_prompt(host_turn, knowledge=knowledge)
+        state.prompt = prompt
+        resolved = resolve_virtual_host_vision_credentials(self._app.config)
+        if resolved is None:
+            self._audio.fail_chat(
+                voice_turn_id,
+                "credentials_unavailable",
+                current_scene_generation=scene_generation,
+                current_runtime_generation=runtime_generation,
+            )
+            log_diagnostic(
+                "voice_chat_end",
+                runtime_generation=runtime_generation,
+                turn_id=voice_turn_id,
+                status="failed",
+                error="credentials_unavailable",
+            )
+            return
+        chat_model_id = resolved[2]
+        started_at = time.monotonic()
+        self._pending_voice_chat[host_turn.turn_id] = voice_turn_id
+        self._chat_in_flight = True
+        self.chat_request_count += 1
+        log_diagnostic(
+            "voice_chat_start",
+            runtime_generation=runtime_generation,
+            turn_id=voice_turn_id,
+            session_turn_id=host_turn.turn_id,
+            model_id=chat_model_id,
+            scene_generation=scene_generation,
+            transcript_chars=len(state.transcript),
+            source="user_mic",
+        )
+        runnable = _ChatResponseRunnable(
+            self._chat_coordinator,
+            prompt=prompt,
+            resolved=resolved,
+            host_turn=host_turn,
+            runtime_generation=runtime_generation,
+            chat_model_id=chat_model_id,
+            started_at=started_at,
+        )
+        ai_worker_pool().start(runnable)
+
+    def _should_apply_voice_chat_result(
+        self,
+        *,
+        voice_turn_id: int,
+        host_turn: HostTurn,
+        runtime_generation: int,
+        request_chat_model_id: str,
+    ) -> bool:
+        if not self._running or not self._dialogue_enabled:
+            return False
+        if int(runtime_generation) != self._runtime_generation:
+            return False
+        if str(request_chat_model_id) != self._active_vision_model_id:
+            return False
+        try:
+            state = self._audio.get_turn(voice_turn_id)
+        except KeyError:
+            return False
+        if state.cancelled or state.status not in {"chatting", "chat_completed"}:
+            return False
+        if state.host_turn is None or state.host_turn.turn_id != host_turn.turn_id:
+            return False
+        return True
+
+    def _complete_voice_chat(
+        self,
+        voice_turn_id: int,
+        result: HostChatHttpResult | None,
+        host_turn: HostTurn,
+        runtime_generation: int,
+        request_chat_model_id: str,
+    ) -> None:
+        scene_generation = int(getattr(self._app, "_scene_generation", 0))
+        if not self._should_apply_voice_chat_result(
+            voice_turn_id=voice_turn_id,
+            host_turn=host_turn,
+            runtime_generation=runtime_generation,
+            request_chat_model_id=request_chat_model_id,
+        ):
+            log_diagnostic(
+                "voice_chat_end",
+                runtime_generation=self._runtime_generation,
+                turn_id=voice_turn_id,
+                session_turn_id=host_turn.turn_id,
+                model_id=request_chat_model_id,
+                status="stale",
+            )
+            return
+        if result is None or not result.ok or result.result is None:
+            error = str(result.error if result is not None else "missing_result")
+            self._audio.fail_chat(
+                voice_turn_id,
+                error,
+                current_scene_generation=scene_generation,
+                current_runtime_generation=runtime_generation,
+            )
+            log_diagnostic(
+                "voice_chat_end",
+                runtime_generation=runtime_generation,
+                turn_id=voice_turn_id,
+                session_turn_id=host_turn.turn_id,
+                model_id=request_chat_model_id,
+                status="failed",
+                error=error,
+            )
+            return
+        try:
+            state = self._audio.submit_chat_result(
+                voice_turn_id,
+                result.result,
+                current_scene_generation=scene_generation,
+                current_runtime_generation=runtime_generation,
+            )
+        except ValueError as exc:
+            self._audio.fail_chat(
+                voice_turn_id,
+                f"chat_result_invalid:{type(exc).__name__}",
+                current_scene_generation=scene_generation,
+                current_runtime_generation=runtime_generation,
+            )
+            log_diagnostic(
+                "voice_chat_end",
+                runtime_generation=runtime_generation,
+                turn_id=voice_turn_id,
+                session_turn_id=host_turn.turn_id,
+                model_id=request_chat_model_id,
+                status="failed",
+                error=type(exc).__name__,
+            )
+            return
+        if state.status != "chat_completed" or state.host_result is None:
+            return
+        self._record_speech_log(
+            state.host_result,
+            source="user_mic",
+            event_kind="user_mic",
+        )
+        log_diagnostic(
+            "voice_chat_end",
+            runtime_generation=runtime_generation,
+            turn_id=voice_turn_id,
+            session_turn_id=host_turn.turn_id,
+            model_id=request_chat_model_id,
+            status="ok",
+            text_chars=len(state.host_result.text),
+            source="user_mic",
+        )
+        self._live2d_feedback.apply_turn_result(
+            state.host_result,
+            runtime_generation=runtime_generation,
+        )
+        self._enqueue_spoken_tts(
+            state.host_result,
+            runtime_generation=runtime_generation,
+            priority=PlaybackPriority.USER_MIC,
+            source="mic_reply",
+            event_kind="user_mic",
+            event_at=time.time(),
+        )
 
     def on_capture_completed(
         self,
@@ -885,6 +1293,16 @@ class VirtualHostRuntimeService:
         self._chat_in_flight = False
         if host_turn is None:
             return
+        voice_turn_id = self._pending_voice_chat.pop(host_turn.turn_id, 0)
+        if voice_turn_id:
+            self._complete_voice_chat(
+                voice_turn_id,
+                result,
+                host_turn,
+                runtime_generation,
+                request_chat_model_id,
+            )
+            return
         if not self._should_apply_chat_result(
             runtime_generation=runtime_generation,
             request_chat_model_id=request_chat_model_id,
@@ -909,6 +1327,11 @@ class VirtualHostRuntimeService:
         event_kind, event_at = self._chat_event_context.pop(
             self._spoken_turn_key(host_turn.session_id, host_turn.turn_id),
             ("", time.time()),
+        )
+        self._record_speech_log(
+            completed,
+            source="auto_reply",
+            event_kind=event_kind,
         )
         self._live2d_feedback.apply_turn_result(
             completed,
@@ -1113,6 +1536,17 @@ class VirtualHostRuntimeService:
         item = event.item
         key = (item.session_id, item.turn_id, item.segment_index)
         model_id = self._playback_model_ids.get(key, "")
+        if (
+            event.kind == "end"
+            and event.reason == "completed"
+            and (
+                str(getattr(item, "source", "")) == "mic_reply"
+                or int(item.priority) >= PlaybackPriority.USER_MIC
+            )
+        ):
+            self._playback_echo_guard_until = (
+                time.monotonic() + _USER_MIC_PLAYBACK_ECHO_COOLDOWN_SEC
+            )
         if event.kind == "start":
             self._playback_started_at[key] = time.monotonic()
             event_context = self._playback_event_at.get(key)

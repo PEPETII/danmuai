@@ -130,12 +130,22 @@ class DanmuAppMicMixin:
     def _on_mic_speech_start(self) -> None:
         if not mic_mode_enabled(self.config) or not self.engine.running:
             return
+        runtime = self.__dict__.get("virtual_host_runtime")
+        if runtime is not None and runtime.on_mic_speech_start():
+            import uuid
+
+            self._active_mic_utterance_id = str(uuid.uuid4())
+            self._mic_log_store.begin_partial(utterance_id=self._active_mic_utterance_id)
+            return
         import uuid
 
         self._active_mic_utterance_id = str(uuid.uuid4())
         self._mic_log_store.begin_partial(utterance_id=self._active_mic_utterance_id)
 
     def _on_mic_utterance_discarded(self) -> None:
+        runtime = self.__dict__.get("virtual_host_runtime")
+        if runtime is not None:
+            runtime.on_mic_utterance_discarded()
         if not self._active_mic_utterance_id:
             return
         self._mic_log_store.discard(self._active_mic_utterance_id)
@@ -180,6 +190,12 @@ class DanmuAppMicMixin:
         if not self._mic_audio_supported():
             return
         pcm = self._mic_orchestrator.snapshot_pcm_for_utterance(self.config)
+        runtime = self.__dict__.get("virtual_host_runtime")
+        routed = (
+            runtime is not None
+            and pcm is not None
+            and runtime.on_mic_utterance_end(pcm)
+        )
         if pcm is None:
             if self._active_mic_utterance_id:
                 self._mic_log_store.finalize(
@@ -199,6 +215,8 @@ class DanmuAppMicMixin:
         self._schedule_mic_transcription_log(utterance_id, pcm)
         rms, _ = self._mic_orchestrator.pcm_metrics(pcm)
         self.logger.info(f"mic utterance end: pcm_bytes={len(pcm)} rms={rms}")
+        if routed:
+            return
         self._trigger_mic_api_call(pcm)
 
     def _has_mic_request_in_flight(self) -> bool:

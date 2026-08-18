@@ -361,6 +361,14 @@
   }
 
   @media (max-width: 600px) {
+  #page-pet .vtuber-voice-actions .ui-button {
+    min-width: 6.5rem;
+  }
+
+  #page-pet .vtuber-voice-actions .ui-button[disabled] {
+    opacity: 0.55;
+  }
+
   #page-pet .vtuber-status-card__header {
     flex-direction: column;
     gap: var(--space-2);

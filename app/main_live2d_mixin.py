@@ -223,6 +223,35 @@ class DanmuAppLive2DMixin:
         self.config_changed.emit()
         return self.get_virtual_host_settings()
 
+    def get_virtual_host_voice_status(self) -> dict[str, object]:
+        runtime = self.__dict__.get("virtual_host_runtime")
+        from app.virtual_host.voice_status import export_voice_status
+
+        return export_voice_status(runtime, self)
+
+    def get_virtual_host_speech_logs(self) -> dict[str, object]:
+        runtime = self.__dict__.get("virtual_host_runtime")
+        return {"items": runtime.get_speech_logs() if runtime is not None else []}
+
+    def start_virtual_host_voice(self) -> dict[str, object]:
+        runtime = self.__dict__.get("virtual_host_runtime")
+        if runtime is None:
+            raise ValueError("runtime_unavailable")
+        return runtime.start_voice_session()
+
+    def stop_virtual_host_voice(self) -> dict[str, object]:
+        runtime = self.__dict__.get("virtual_host_runtime")
+        if runtime is None:
+            raise ValueError("runtime_unavailable")
+        return runtime.stop_voice_session()
+
+    def cancel_virtual_host_voice(self) -> dict[str, object]:
+        runtime = self.__dict__.get("virtual_host_runtime")
+        if runtime is None:
+            raise ValueError("runtime_unavailable")
+        return runtime.cancel_voice_session()
+
+
 def _safe_live2d_error(exc: Exception) -> str:
     text = str(exc).strip().replace("\n", " ")
     return text[:240] if text else exc.__class__.__name__
