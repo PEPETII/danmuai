@@ -14,3 +14,11 @@ def get_model_config(app: "DanmuApp") -> dict[str, object]:
 
 def save_model_config(app: "DanmuApp", payload: dict[str, Any]) -> dict[str, object]:
     return app.apply_virtual_host_model_config(payload)
+
+
+def get_settings(app: "DanmuApp") -> dict[str, object]:
+    return app.get_virtual_host_settings()
+
+
+def save_settings(app: "DanmuApp", payload: dict[str, Any]) -> dict[str, object]:
+    return app.apply_virtual_host_settings(payload)

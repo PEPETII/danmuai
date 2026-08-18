@@ -15,11 +15,12 @@ from typing import Literal, Protocol
 
 
 class PlaybackPriority(IntEnum):
-    """越大越优先；用户麦克风语音必须高于自动语音。"""
+    """越大越优先；用户主动语音交互必须高于自动语音。"""
 
     IDLE = 10
     AUTO_SCENE = 50
-    USER_MIC = 100
+    USER_INTERACTION = 100
+    USER_MIC = USER_INTERACTION
 
 
 PlaybackEventKind = Literal["start", "pause", "interrupted", "end"]

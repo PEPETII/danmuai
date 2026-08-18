@@ -177,6 +177,8 @@ CONFIG_DEFAULTS: dict[str, str] = {
     "virtual_host_vision_model_id": "",
     "virtual_host_tts_provider": "",
     "virtual_host_tts_model_id": "",
+    "virtual_host_dialogue_enabled": "0",
+    "virtual_host_danmu_adapter_enabled": "1",
     "use_thinking": "0",
     "danmu_font_color_selected": "[\"#FFFFFF\"]",
     "danmu_font_color_mode": "equal",

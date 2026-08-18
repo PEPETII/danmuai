@@ -218,7 +218,15 @@ class HostTurn:
 @dataclass(frozen=True)
 class BatchAcceptance:
     accepted: bool
-    reason: Literal["accepted", "duplicate", "expired", "scene_generation", "empty", "invalid"]
+    reason: Literal[
+        "accepted",
+        "duplicate",
+        "expired",
+        "scene_generation",
+        "empty",
+        "invalid",
+        "mode_disabled",
+    ]
     batch_id: str = ""
 
 

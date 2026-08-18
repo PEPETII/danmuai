@@ -7,6 +7,8 @@ let modelSettingsCache = null;
 let modelSettingsSaveToken = 0;
 let clickThroughSaveToken = 0;
 let displayScaleSaveToken = 0;
+let hostSettingsCache = null;
+let hostSettingsSaveToken = 0;
 
 const DISPLAY_SCALE_MIN = 25;
 const DISPLAY_SCALE_MAX = 300;
@@ -30,6 +32,10 @@ function renderClickThroughStatus(message) {
 
 function renderDisplayScaleStatus(message) {
   setText('vtuberDisplayScaleStatus', message || '');
+}
+
+function renderModeSettingsStatus(message) {
+  setText('vtuberModeSettingsStatus', message || '');
 }
 
 function clampDisplayScalePercent(value) {
@@ -175,6 +181,81 @@ async function saveModelSettings(patch) {
   }
 }
 
+function snapshotHostModeSettings() {
+  return {
+    dialogue_enabled: Boolean(hostSettingsCache?.dialogue_enabled),
+    danmu_adapter_enabled: Boolean(hostSettingsCache?.danmu_adapter_enabled),
+  };
+}
+
+function describeHostModeSettings(data) {
+  const dialogue = Boolean(data?.dialogue_enabled);
+  const adapter = Boolean(data?.danmu_adapter_enabled);
+  if (dialogue) return '虚拟主播对话已开启。';
+  if (adapter) return 'AI读弹幕适配已开启。';
+  return '两种互动模式均已关闭。';
+}
+
+function renderHostSettings(data) {
+  hostSettingsCache = data || null;
+  const dialogueToggle = element('vtuberDialogueEnabled');
+  const adapterToggle = element('vtuberDanmuAdapterEnabled');
+  if (dialogueToggle) dialogueToggle.checked = Boolean(data?.dialogue_enabled);
+  if (adapterToggle) adapterToggle.checked = Boolean(data?.danmu_adapter_enabled);
+  renderModeSettingsStatus(describeHostModeSettings(data));
+}
+
+function syncRuntimeStatusToHostSettings(runtimeStatus) {
+  if (!hostSettingsCache) return;
+  hostSettingsCache = { ...hostSettingsCache, runtime_status: runtimeStatus };
+}
+
+async function loadHostSettings() {
+  try {
+    renderHostSettings(await apiFetch('/api/virtual-host/settings'));
+  } catch (error) {
+    renderModeSettingsStatus(error?.message || '读取互动模式失败');
+    throw error;
+  }
+}
+
+async function saveHostSettings(patch) {
+  const previous = snapshotHostModeSettings();
+  const optimistic = { ...previous };
+  if (patch.dialogue_enabled === true) {
+    optimistic.dialogue_enabled = true;
+    optimistic.danmu_adapter_enabled = false;
+  } else if (patch.dialogue_enabled === false) {
+    optimistic.dialogue_enabled = false;
+  }
+  if (patch.danmu_adapter_enabled === true) {
+    optimistic.danmu_adapter_enabled = true;
+    optimistic.dialogue_enabled = false;
+  } else if (patch.danmu_adapter_enabled === false) {
+    optimistic.danmu_adapter_enabled = false;
+  }
+  renderHostSettings({ ...(hostSettingsCache || {}), ...optimistic });
+  const token = ++hostSettingsSaveToken;
+  renderModeSettingsStatus('正在保存互动模式…');
+  try {
+    const data = await apiFetch('/api/virtual-host/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    });
+    if (token !== hostSettingsSaveToken) return data;
+    renderHostSettings(data);
+    toast('互动模式已保存');
+    return data;
+  } catch (error) {
+    if (token === hostSettingsSaveToken) {
+      renderHostSettings({ ...(hostSettingsCache || {}), ...previous });
+      renderModeSettingsStatus(error?.message || '保存互动模式失败');
+    }
+    throw error;
+  }
+}
+
 function modelFromResponse(data) { return data?.model ?? data?.result ?? data ?? {}; }
 
 function normalizeModel(data) {
@@ -256,6 +337,7 @@ function renderModel(data) {
   if (stopButton) stopButton.disabled = requestInFlight || !running;
   renderClickThrough(model);
   renderDisplayScale(model);
+  syncRuntimeStatusToHostSettings(runtimeStatus);
 }
 
 function setRequestState(active) {
@@ -312,8 +394,11 @@ async function clearModel() {
 
 export async function loadVtuberPage() {
   try {
-    await loadModelSettings();
-    renderModel(await apiFetch('/api/live2d/model'));
+    await Promise.all([
+      loadModelSettings(),
+      loadHostSettings(),
+      apiFetch('/api/live2d/model').then((data) => renderModel(data)),
+    ]);
   } catch (error) { renderRequestError(error); throw error; }
 }
 
@@ -329,6 +414,16 @@ export function initVtuberPage(deps = {}) {
   });
   element('vtuberClickThrough')?.addEventListener('change', (event) => {
     saveClickThrough(Boolean(event.target?.checked))
+      .catch((error) => toast(error.message, true));
+  });
+  element('vtuberDialogueEnabled')?.addEventListener('change', (event) => {
+    const enabled = Boolean(event.target?.checked);
+    saveHostSettings({ dialogue_enabled: enabled })
+      .catch((error) => toast(error.message, true));
+  });
+  element('vtuberDanmuAdapterEnabled')?.addEventListener('change', (event) => {
+    const enabled = Boolean(event.target?.checked);
+    saveHostSettings({ danmu_adapter_enabled: enabled })
       .catch((error) => toast(error.message, true));
   });
   const displayScaleRange = element('vtuberDisplayScaleRange');

@@ -14,7 +14,9 @@
 | `_running` | Qt 主线程（`start`/`stop`） | Qt 主线程 | Live2D start→stop |
 | `_vision_in_flight` | Qt 主线程（调度/完成槽） | Qt 主线程 | 单次视觉 HTTP 在途 |
 | `_chat_in_flight` | Qt 主线程（调度/完成槽） | Qt 主线程 | 单次 Chat HTTP 在途 |
-| `_runtime_generation` | Qt 主线程（start/stop/模型切换） | Qt 主线程 | 递增令牌，失效旧视觉/Chat 请求 |
+| `_runtime_generation` | Qt 主线程（start/stop/模型切换/模式切换） | Qt 主线程 | 递增令牌，失效旧视觉/Chat 请求 |
+| `_dialogue_enabled` | Qt 主线程（`refresh_mode_settings`） | Qt 主线程 | 虚拟主播对话模式开关（与弹幕适配互斥） |
+| `_danmu_adapter_enabled` | Qt 主线程（`refresh_mode_settings`） | Qt 主线程 | AI 读弹幕适配模式开关（与对话互斥） |
 | `_active_vision_model_id` | Qt 主线程（`refresh_model_bindings`） | Qt 主线程 | 当前绑定的视觉/Chat model_id |
 | `_live2d_feedback` | Qt 主线程（Playback/Chat/生命周期回调） | Qt 主线程 | 当前 Live2D 模型的嘴型、表情、动作反馈层 |
 | `_last_spoke_at` | Qt 主线程（Chat 完成） | Qt 主线程 | 上次自主发言时间（cooldown）；**wall clock**（`time.time()`） |

@@ -185,6 +185,47 @@ class _FakePlayer:
             callback()
 
 
+def test_runtime_refresh_mode_settings_bumps_generation_on_change(qapp):
+    from app.virtual_host.mode_config import apply_virtual_host_mode_settings
+
+    config = _FakeConfig(
+        {
+            "virtual_host_dialogue_enabled": "0",
+            "virtual_host_danmu_adapter_enabled": "1",
+        }
+    )
+    service = VirtualHostRuntimeService(_fake_app(config))
+    _register_runtime_test(service)
+    initial_generation = service.runtime_generation
+
+    apply_virtual_host_mode_settings(config, {"dialogue_enabled": True})
+    service.refresh_mode_settings()
+
+    assert service.dialogue_enabled is True
+    assert service.danmu_adapter_enabled is False
+    assert service.runtime_generation == initial_generation + 1
+    qapp.processEvents()
+
+
+def test_runtime_refresh_mode_settings_allows_save_when_stopped(qapp):
+    config = _FakeConfig(
+        {
+            "virtual_host_dialogue_enabled": "0",
+            "virtual_host_danmu_adapter_enabled": "1",
+        }
+    )
+    service = VirtualHostRuntimeService(_fake_app(config))
+    _register_runtime_test(service)
+    assert service.running is False
+
+    config.set_batch({"virtual_host_danmu_adapter_enabled": "0"})
+    service.refresh_mode_settings(bump_generation=False)
+
+    assert service.dialogue_enabled is False
+    assert service.danmu_adapter_enabled is False
+    qapp.processEvents()
+
+
 def test_runtime_vision_disabled_makes_zero_http_calls(monkeypatch):
     config = _FakeConfig(custom_models=[_vision_profile("vision-b")])
     service = VirtualHostRuntimeService(_fake_app(config))

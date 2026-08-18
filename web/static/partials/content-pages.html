@@ -413,6 +413,34 @@
             <p id="vtuberModelSettingsStatus" class="settings-section-hint" role="status" aria-live="polite">正在读取模型选项…</p>
           </section>
 
+          <section class="vtuber-model-card ui-card" aria-labelledby="vtuberInteractionHeading">
+            <h3 id="vtuberInteractionHeading" class="settings-section-title">互动模式</h3>
+            <p class="settings-section-hint">两种模式互斥，可同时关闭；开启「虚拟主播对话」后进入语音对话模式。</p>
+            <div class="settings-rhythm-accordion-fields">
+              <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--toggle">
+                <div class="flex-1 min-w-0">
+                  <span class="settings-field-label">虚拟主播对话</span>
+                  <p class="text-xs text-gray-500 mt-1">开启后与虚拟主播进行语音对话；回复由虚拟主播播报并驱动口型。</p>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="vtuberDialogueEnabled" role="switch">
+                  <span aria-hidden="true"></span>
+                </label>
+              </div>
+              <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--toggle">
+                <div class="flex-1 min-w-0">
+                  <span class="settings-field-label">AI读弹幕适配</span>
+                  <p class="text-xs text-gray-500 mt-1">将 DanmuAI 生成的弹幕交给虚拟主播自动回应、播报并驱动口型；不改变全局「AI读弹幕」设置。</p>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="vtuberDanmuAdapterEnabled" role="switch">
+                  <span aria-hidden="true"></span>
+                </label>
+              </div>
+            </div>
+            <p id="vtuberModeSettingsStatus" class="settings-section-hint" role="status" aria-live="polite">正在读取互动模式…</p>
+          </section>
+
           <section class="vtuber-runtime-card ui-card" aria-labelledby="vtuberRuntimeHeading">
             <div class="vtuber-runtime-card__header">
               <div class="min-w-0">

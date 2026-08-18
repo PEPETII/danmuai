@@ -30,6 +30,7 @@ from app.virtual_host.contracts import (
 )
 from app.virtual_host.diagnostics import log_diagnostic
 from app.virtual_host.live2d_feedback import Live2DFeedbackController
+from app.virtual_host.mode_config import export_virtual_host_mode_settings
 from app.virtual_host.model_config import (
     resolve_virtual_host_tts_binding,
     resolve_virtual_host_vision_credentials,
@@ -262,6 +263,9 @@ class VirtualHostRuntimeService:
         self._vision_in_flight = False
         self._chat_in_flight = False
         self._runtime_generation = 0
+        mode_settings = export_virtual_host_mode_settings(app.config)
+        self._dialogue_enabled = bool(mode_settings["dialogue_enabled"])
+        self._danmu_adapter_enabled = bool(mode_settings["danmu_adapter_enabled"])
         self._active_vision_model_id = ""
         self._last_spoke_at: float | None = None
         self.vision_request_count = 0
@@ -324,6 +328,19 @@ class VirtualHostRuntimeService:
         return self._runtime_generation
 
     @property
+    def dialogue_enabled(self) -> bool:
+        return self._dialogue_enabled
+
+    @property
+    def danmu_adapter_enabled(self) -> bool:
+        return self._danmu_adapter_enabled
+
+    def _autonomous_response_enabled(self) -> bool:
+        """弹幕适配模式开启且对话模式关闭时才允许自动批次/场景回应。"""
+
+        return self._danmu_adapter_enabled and not self._dialogue_enabled
+
+    @property
     def live2d_feedback(self) -> Live2DFeedbackController:
         return self._live2d_feedback
 
@@ -341,7 +358,27 @@ class VirtualHostRuntimeService:
         self._live2d_feedback.unbind_runtime()
 
     def mount(self) -> None:
+        self.refresh_mode_settings(bump_generation=False)
         self.refresh_model_bindings(bump_generation_on_vision_change=False)
+
+    def refresh_mode_settings(self, *, bump_generation: bool = True) -> None:
+        """主线程：读取持久化互斥模式，变更时递增 runtime_generation 失效在途结果。"""
+
+        settings = export_virtual_host_mode_settings(self._app.config)
+        dialogue = bool(settings["dialogue_enabled"])
+        danmu_adapter = bool(settings["danmu_adapter_enabled"])
+        previous = (self._dialogue_enabled, self._danmu_adapter_enabled)
+        current = (dialogue, danmu_adapter)
+        self._dialogue_enabled = dialogue
+        self._danmu_adapter_enabled = danmu_adapter
+        if bump_generation and previous != current:
+            self._bump_runtime_generation()
+            log_diagnostic(
+                "mode_settings_refresh",
+                runtime_generation=self._runtime_generation,
+                model_id=self._active_vision_model_id,
+                reason="mode_changed",
+            )
 
     def start(self) -> None:
         self._running = True
@@ -449,6 +486,17 @@ class VirtualHostRuntimeService:
                 reason="runtime_stopped",
             )
             return BatchAcceptance(False, "invalid", batch_id)
+        batch_id = batch.batch_id if isinstance(batch, DanmuBatchCreated) else ""
+        if not self._autonomous_response_enabled():
+            log_diagnostic(
+                "danmu_batch",
+                runtime_generation=self._runtime_generation,
+                model_id=self._active_vision_model_id,
+                batch_id=batch_id,
+                accepted=False,
+                reason="mode_disabled",
+            )
+            return BatchAcceptance(False, "mode_disabled", batch_id)
         scene_generation = int(getattr(self._app, "_scene_generation", 0))
         decision = self._session.ingest_danmu_batch(
             batch,
@@ -733,6 +781,18 @@ class VirtualHostRuntimeService:
     def _on_response_candidate(self, event: ResponseCandidateEvent) -> None:
         if not self._running:
             return
+        if not self._autonomous_response_enabled():
+            log_diagnostic(
+                "scheduler_decision",
+                runtime_generation=self._runtime_generation,
+                model_id=self._active_vision_model_id,
+                decision="skip",
+                reason="mode_disabled",
+                event_kind=event.kind,
+                batch_id=event.batch_id,
+                scene_generation=event.scene_generation,
+            )
+            return
         decision = self._response_scheduler.evaluate(
             event,
             running=self._running,
@@ -760,7 +820,7 @@ class VirtualHostRuntimeService:
         self._start_chat_request(now=event.at, event_kind=event.kind)
 
     def _start_chat_request(self, *, now: float | None = None, event_kind: str = "") -> None:
-        if not self._running or self._chat_in_flight:
+        if not self._running or self._chat_in_flight or not self._autonomous_response_enabled():
             return
         resolved = resolve_virtual_host_vision_credentials(self._app.config)
         if resolved is None:
@@ -857,6 +917,8 @@ class VirtualHostRuntimeService:
         self._enqueue_spoken_tts(
             completed,
             runtime_generation=runtime_generation,
+            priority=PlaybackPriority.AUTO_SCENE,
+            source="auto_reply",
             event_kind=event_kind,
             event_at=event_at,
         )

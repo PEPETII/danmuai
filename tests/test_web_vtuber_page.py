@@ -64,6 +64,22 @@ def test_vtuber_runtime_exposes_start_stop_desktop_status():
     assert "鼠标穿透" in panel
     assert "选择包含 Live2D 模型的文件夹" in panel
     assert "高级导入" in panel
+    assert 'id="vtuberDialogueEnabled"' in panel
+    assert 'id="vtuberDanmuAdapterEnabled"' in panel
+    assert "虚拟主播对话" in panel
+    assert "AI读弹幕适配" in panel
+
+
+def test_vtuber_module_wires_virtual_host_mode_api():
+    source = (STATIC_ROOT / "modules" / "app-vtuber-page.js").read_text(encoding="utf-8")
+
+    assert "/api/virtual-host/settings" in source
+    assert "vtuberDialogueEnabled" in source
+    assert "vtuberDanmuAdapterEnabled" in source
+    assert "dialogue_enabled" in source
+    assert "danmu_adapter_enabled" in source
+    assert "textContent" in source
+    assert "innerHTML" not in source
 
 
 def test_vtuber_module_uses_native_model_api_without_web_control_panel():

@@ -199,6 +199,29 @@ class DanmuAppLive2DMixin:
         self.config_changed.emit()
         return result
 
+    def get_virtual_host_settings(self) -> dict[str, object]:
+        from app.virtual_host.mode_config import (
+            export_virtual_host_mode_settings,
+            sanitize_virtual_host_mode_settings,
+        )
+
+        sanitize_virtual_host_mode_settings(self.config, persist=True)
+        snapshot: dict[str, object] = dict(export_virtual_host_mode_settings(self.config))
+        runtime = self.__dict__.get("virtual_host_runtime")
+        if runtime is not None:
+            snapshot["runtime_status"] = "running" if runtime.running else "stopped"
+            snapshot["runtime_generation"] = runtime.runtime_generation
+        return snapshot
+
+    def apply_virtual_host_settings(self, patch: dict) -> dict[str, object]:
+        from app.virtual_host.mode_config import apply_virtual_host_mode_settings
+
+        apply_virtual_host_mode_settings(self.config, patch)
+        runtime = self.__dict__.get("virtual_host_runtime")
+        if runtime is not None:
+            runtime.refresh_mode_settings()
+        self.config_changed.emit()
+        return self.get_virtual_host_settings()
 
 def _safe_live2d_error(exc: Exception) -> str:
     text = str(exc).strip().replace("\n", " ")

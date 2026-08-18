@@ -5,12 +5,18 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Callable
 
 from fastapi import Body, Header, HTTPException
+from pydantic import BaseModel
 
 from app.web_api import virtual_host as virtual_host_api
 from app.web_api.auth import require_auth
 
 if TYPE_CHECKING:
     from app.web_console import WebConsoleBridge
+
+
+class VirtualHostSettingsPatch(BaseModel):
+    dialogue_enabled: bool | None = None
+    danmu_adapter_enabled: bool | None = None
 
 
 def register_virtual_host_routes(
@@ -32,5 +38,24 @@ def register_virtual_host_routes(
         del authorization
         try:
             return invoke_main(virtual_host_api.save_model_config, bridge.danmu_app, payload)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+    @app.get("/api/virtual-host/settings")
+    def get_virtual_host_settings():
+        return invoke_main(virtual_host_api.get_settings, bridge.danmu_app)
+
+    @app.put("/api/virtual-host/settings")
+    @require_auth(check_token)
+    def put_virtual_host_settings(
+        payload: VirtualHostSettingsPatch,
+        authorization: str | None = Header(default=None),
+    ):
+        del authorization
+        try:
+            return invoke_main(
+                virtual_host_api.save_settings,
+                bridge.danmu_app,
+                payload.model_dump(exclude_unset=True),
+            )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
