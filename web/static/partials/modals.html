@@ -11,103 +11,148 @@
       <div class="model-modal-body">
         <form id="modelModalForm" class="model-modal-form">
           <input type="hidden" id="modelEditIndex" value="-1">
-          <section class="model-modal-basic-section" aria-labelledby="modelModalBasicTitle">
-            <h4 id="modelModalBasicTitle" class="settings-section-title">基础配置</h4>
-            <div class="settings-field">
-              <label class="settings-field-label" for="modelProviderRegion" data-i18n="dynamic.settingsCustomModels.平台区域">平台区域</label>
-              <select id="modelProviderRegion" class="settings-field-control ui-control ui-select">
+
+          <div id="modelEditor" class="model-editor">
+            <div id="modelProviderMigrationWarning" class="model-warning hidden" role="alert" aria-live="polite"></div>
+
+            <div class="field">
+              <label for="modelName" data-i18n="modals.text.配置名称_可选">配置名称（可选）</label>
+              <input id="modelName" type="text" class="ui-control ui-input" data-i18n-placeholder="modals.placeholder.例如_豆包_Pro_32K" placeholder="例如：豆包 Pro 32K" autocomplete="off">
+              <p class="hint" data-i18n="modals.text.仅界面展示_不参与_API">仅用于界面展示，不参与 API 请求。</p>
+            </div>
+
+            <div class="field">
+              <label for="modelProviderRegion" data-i18n="dynamic.settingsCustomModels.平台区域">平台区域</label>
+              <select id="modelProviderRegion" class="ui-control ui-select">
                 <option value="china" data-i18n="dynamic.settingsCustomModels.国内">国内</option>
                 <option value="international" data-i18n="dynamic.settingsCustomModels.国外">国外</option>
               </select>
             </div>
-            <div class="settings-field">
-              <label class="settings-field-label" for="modelProvider">模型平台</label>
-              <select id="modelProvider" class="settings-field-control ui-control ui-select"></select>
-              <div id="modelProviderName" class="model-provider-meta text-xs text-gray-500 hidden"></div>
-              <div id="modelProviderWebsite" class="model-provider-meta model-provider-website hidden">
-                <span class="text-xs text-gray-400">官网：</span>
-                <a id="modelProviderWebsiteLink" class="text-xs text-sky-600 underline break-all min-w-0" target="_blank" rel="noopener noreferrer"></a>
-                <button type="button" id="modelOpenWebsite" class="ui-button ui-button--secondary ui-button--sm">打开官网</button>
+
+            <div class="field-row-2">
+              <div class="field">
+                <label for="modelProvider" data-i18n="dynamic.settingsCustomModels.模型平台">模型平台</label>
+                <select id="modelProvider" class="ui-control ui-select"></select>
+                <div id="modelProviderName" class="model-provider-meta text-xs text-gray-500 hidden"></div>
+                <div id="modelProviderWebsite" class="model-provider-meta model-provider-website hidden">
+                  <span class="text-xs text-gray-400" data-i18n="modals.text.官网">官网：</span>
+                  <a id="modelProviderWebsiteLink" class="text-xs text-sky-600 underline break-all min-w-0" target="_blank" rel="noopener noreferrer"></a>
+                  <button type="button" id="modelOpenWebsite" class="ui-button ui-button--secondary ui-button--sm" data-i18n="modals.text.打开官网">打开官网</button>
+                </div>
+                <p id="modelProviderError" class="model-field-error" role="alert"></p>
               </div>
-              <div id="modelProviderMigrationWarning" class="hidden mt-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="alert" aria-live="polite"></div>
-              <p id="modelProviderError" class="model-field-error" role="alert"></p>
-            </div>
-            <div class="settings-field">
-              <label class="settings-field-label" for="modelIdPreset">选择模型</label>
-              <select id="modelIdPreset" class="settings-field-control ui-control ui-select"><option value="__custom__">自定义配置</option></select>
-              <p id="modelIdError" class="model-field-error" role="alert"></p>
-            </div>
-            <div class="settings-field model-api-key-control">
-              <label class="settings-field-label" for="modelApiKey">API Key</label>
-              <div class="model-api-key-row">
-                <input id="modelApiKey" type="password" autocomplete="current-password" class="settings-field-control ui-control ui-input min-w-0" placeholder="sk-...">
-                <button type="button" id="btnModelApiKeyVisibility" class="ui-button ui-button--secondary ui-button--sm" aria-pressed="false" aria-label="显示 API Key">显示</button>
+              <div class="field">
+                <label for="modelIdPreset" data-i18n="dynamic.settingsCustomModels.选择模型">选择模型</label>
+                <select id="modelIdPreset" class="ui-control ui-select">
+                  <option value="__custom__" data-i18n="dynamic.settingsCustomModels.自定义配置">自定义配置</option>
+                </select>
+                <div id="modelPresetMeta" class="model-preset-meta hidden" aria-live="polite"></div>
+                <p id="modelIdError" class="model-field-error" role="alert"></p>
               </div>
+            </div>
+
+            <div id="modelIdsTagsWrap" class="field model-ids-field hidden">
+              <label for="modelIdsInput" data-i18n="modals.text.模型_ID_列表">此配置包含的模型 ID</label>
+              <div id="modelIdsTags" class="tag-input-container">
+                <input id="modelIdsInput" class="tag-input" data-i18n-placeholder="dynamic.settingsCustomModels.例如_doubao_1_5_pro_32k_25" aria-describedby="modelIdsHint modelIdsDefaultHint modelIdListError" placeholder="例如：doubao-1-5-pro-32k-250115">
+              </div>
+              <p id="modelIdsHint" class="hint" data-i18n="modals.text.回车或逗号添加_点击_chip_切换默认">填写服务商提供的模型 ID（接口会按此名称识别模型）；按 Enter 或逗号添加，点击标签切换默认模型。</p>
+              <p id="modelIdsDefaultHint" class="hint" data-i18n="modals.text.第一个_chip_自动设为默认_删除默认_chip_后剩余第一个自动成为默认">第一个模型 ID 会自动设为默认；删除默认模型后，剩余第一个会自动接替。</p>
+              <select id="modelDefaultIdSelect" class="ui-control ui-select hidden" aria-label="默认模型"></select>
+              <p id="modelIdListError" class="model-field-error" role="alert"></p>
+            </div>
+
+            <div class="field">
+              <label for="modelEndpoint" data-i18n="dynamic.settingsCustomModels.API_地址">API 地址</label>
+              <input id="modelEndpoint" type="url" autocomplete="url" class="ui-control ui-input min-w-0" placeholder="https://api.openai.com/v1">
+              <p id="modelEndpointHint" class="hint" data-i18n="dynamic.settingsCustomModels.API_地址提示">支持 OpenAI 兼容的 Chat Completions 完整地址</p>
+              <p id="modelEndpointError" class="model-field-error" role="alert"></p>
+            </div>
+
+            <div class="field">
+              <label for="modelApiKey">API Key</label>
+              <div class="input-with-toggle">
+                <input id="modelApiKey" type="password" autocomplete="off" class="ui-control ui-input min-w-0" placeholder="sk-...">
+                <button type="button" id="btnModelApiKeyVisibility" class="toggle-btn field-icon-button" title="显示/隐藏" aria-pressed="false" data-i18n-aria-label="dynamic.settingsCustomModels.显示_API_Key" aria-label="显示 API Key">
+                  <svg class="ui-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                </button>
+              </div>
+              <p class="hint" data-i18n="dynamic.settingsCustomModels.API_Key_安全说明">API Key 仅保存在本机配置中。编辑时不会显示完整密钥。</p>
               <p id="modelApiKeyError" class="model-field-error" role="alert"></p>
             </div>
-          </section>
+
+            <div class="field-row-3">
+              <div class="field">
+                <label for="modelTemperature">
+                  <span data-i18n="modals.text.温度">温度</span>
+                  <span class="temp-hint" id="modelTemperatureHintLabel" data-i18n="dynamic.settingsCustomModels.温度精确">精确</span>
+                </label>
+                <div class="slider-group">
+                  <input type="range" id="modelTemperatureRange" min="0" max="2" step="0.1" value="0.8" aria-label="温度滑块">
+                  <input type="number" id="modelTemperature" min="0" max="2" step="0.1" value="0.8" class="num-input ui-control ui-input" aria-describedby="modelTemperatureHint modelTemperatureError">
+                </div>
+                <p id="modelTemperatureHint" class="hint" data-i18n="dynamic.settingsCustomModels.温度提示">创意程度（0–2）。越高弹幕用词越发散，越低越稳定、越像固定话术。</p>
+                <p id="modelTemperatureError" class="model-field-error" role="alert"></p>
+              </div>
+              <div class="field">
+                <label for="modelMaxTokens" data-i18n="dynamic.settingsCustomModels.最大输出_Token">最大 Token</label>
+                <input id="modelMaxTokens" type="number" min="512" value="512" class="ui-control ui-input">
+                <p id="modelMaxTokensHint" class="hint" data-i18n="dynamic.settingsCustomModels.最大输出_Token_提示">限制单次回复允许生成的最大 Token 数。</p>
+                <p id="modelMaxTokensError" class="model-field-error" role="alert"></p>
+              </div>
+              <div class="field model-mic-field">
+                <label class="toggle-row model-mic-toggle" for="modelSupportsMic">
+                  <div class="toggle-info">
+                    <span class="toggle-label" data-i18n="dynamic.settingsCustomModels.音频输入能力">音频输入能力</span>
+                    <span class="toggle-desc" data-i18n="dynamic.settingsCustomModels.音频输入能力_说明">表示模型是否支持接收音频输入</span>
+                  </div>
+                  <span class="toggle-switch">
+                    <input type="checkbox" id="modelSupportsMic" role="switch">
+                    <span aria-hidden="true"></span>
+                  </span>
+                </label>
+              </div>
+            </div>
+          </div>
+
           <section id="modelProbeResult" class="model-probe-result hidden" role="status" aria-live="polite" aria-atomic="true">
             <div class="model-probe-result-icon" aria-hidden="true"></div>
-            <div class="min-w-0 flex-1"><h4 id="modelProbeResultTitle" class="font-semibold"></h4><p id="modelProbeResultMessage" class="text-sm break-words"></p><p id="modelProbeResultMeta" class="text-xs text-gray-500 break-all"></p></div>
+            <div class="min-w-0 flex-1">
+              <h4 id="modelProbeResultTitle" class="font-semibold"></h4>
+              <p id="modelProbeResultMessage" class="text-sm break-words"></p>
+              <p id="modelProbeResultMeta" class="text-xs text-gray-500 break-all"></p>
+            </div>
             <button type="button" id="btnModelProbeTechnicalDetail" class="ui-button ui-button--ghost ui-button--sm hidden">技术详情</button>
           </section>
+
           <section class="model-modal-advanced-section settings-rhythm-accordion" data-settings-rhythm-accordion>
             <div class="settings-rhythm-accordion-item">
-              <h4 class="settings-rhythm-accordion-heading"><button type="button" id="modelModalAdvancedTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="modelModalAdvancedPanel"><span class="settings-rhythm-accordion-trigger-copy"><span class="settings-rhythm-accordion-trigger-title">高级配置</span><span class="settings-section-hint">接口协议、模型列表与能力</span></span><span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span></button></h4>
+              <h4 class="settings-rhythm-accordion-heading">
+                <button type="button" id="modelModalAdvancedTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="modelModalAdvancedPanel">
+                  <span class="settings-rhythm-accordion-trigger-copy">
+                    <span class="settings-rhythm-accordion-trigger-title" data-i18n="dynamic.settingsCustomModels.高级配置">高级配置</span>
+                    <span class="settings-section-hint" data-i18n="dynamic.settingsCustomModels.高级配置_说明">通常无需修改，仅用于自定义接口或特殊模型配置。</span>
+                  </span>
+                  <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
+                </button>
+              </h4>
               <div id="modelModalAdvancedPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="modelModalAdvancedTrigger" hidden>
                 <div class="settings-rhythm-accordion-fields">
-                  <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--stacked">
-                    <label class="settings-field-label" for="modelName">配置名称</label>
-                    <div class="settings-rhythm-accordion-control-stack">
-                      <input id="modelName" class="settings-field-control ui-control ui-input" data-i18n-placeholder="modals.placeholder.例如_豆包_Pro_32K" placeholder="例如：豆包 Pro 32K">
-                    </div>
-                  </div>
-                  <div id="modelIdsTagsWrap" class="model-modal-field-block">
-                    <label class="settings-field-label" for="modelIdsInput" data-i18n="modals.text.模型_ID_列表">模型 ID 列表</label>
-                    <div id="modelIdsTags" class="tag-input-container"><input id="modelIdsInput" class="tag-input" data-i18n-placeholder="dynamic.settingsCustomModels.例如_doubao_1_5_pro_32k_25" aria-describedby="modelIdsHint modelIdsDefaultHint modelIdListError" placeholder="例如：doubao-1-5-pro-32k-250115"></div>
-                    <p id="modelIdsHint" class="settings-section-hint model-ids-hint" data-i18n="modals.text.回车或逗号添加_点击_chip_切换默认">填写服务商提供的模型 ID（接口会按此名称识别模型）；按 Enter 或逗号添加，点击标签切换默认模型。</p>
-                    <p id="modelIdsDefaultHint" class="settings-section-hint model-ids-hint" data-i18n="modals.text.第一个_chip_自动设为默认_删除默认_chip_后剩余第一个自动成为默认">第一个模型 ID 会自动设为默认；删除默认模型后，剩余第一个会自动接替。</p>
-                    <select id="modelDefaultIdSelect" class="settings-field-control ui-control ui-select hidden" aria-label="默认模型"></select>
-                    <p id="modelIdListError" class="model-field-error" role="alert"></p>
-                  </div>
                   <div class="settings-rhythm-accordion-field">
-                    <label class="settings-field-label" for="modelMode">接口协议</label>
-                    <select id="modelMode" class="settings-field-control ui-control ui-select"><option value="doubao" data-i18n="settings.text.豆包_火山方舟">豆包（火山方舟）</option><option value="openai" data-i18n="settings.text.OpenAI_兼容接口">OpenAI 兼容接口</option></select>
+                    <label class="settings-field-label" for="modelMode" data-i18n="dynamic.settingsCustomModels.接口协议">接口协议</label>
+                    <select id="modelMode" class="settings-field-control ui-control ui-select">
+                      <option value="doubao" data-i18n="settings.text.豆包_火山方舟">豆包（火山方舟）</option>
+                      <option value="openai" data-i18n="settings.text.OpenAI_兼容接口">OpenAI 兼容接口</option>
+                    </select>
                   </div>
                   <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--stacked">
-                    <label class="settings-field-label" for="modelEndpoint">接口地址</label>
-                    <div class="settings-rhythm-accordion-control-stack">
-                      <input id="modelEndpoint" type="url" autocomplete="url" class="settings-field-control ui-control ui-input min-w-0" placeholder="https://api.openai.com/v1">
-                      <p id="modelEndpointError" class="model-field-error" role="alert"></p>
-                    </div>
-                  </div>
-                  <div class="model-modal-field-block">
-                    <div class="settings-rhythm-accordion-field">
-                      <label class="settings-field-label" for="modelMaxTokens">最大输出 tokens</label>
-                      <input id="modelMaxTokens" type="number" min="512" value="512" class="settings-field-control ui-control ui-input">
-                    </div>
-                    <p id="modelMaxTokensError" class="model-field-error" role="alert"></p>
-                  </div>
-                  <div class="model-modal-field-block">
-                    <div class="settings-rhythm-accordion-field">
-                      <label class="settings-field-label" for="modelTemperature" data-i18n="modals.text.温度">温度</label>
-                      <input id="modelTemperature" type="number" min="0" max="2" step="0.1" value="0.8" class="settings-field-control ui-control ui-input">
-                    </div>
-                    <p id="modelTemperatureHint" class="settings-section-hint model-modal-field-hint" data-i18n="dynamic.settingsCustomModels.温度提示">创意程度（0–2）。越高弹幕用词越发散，越低越稳定、越像固定话术。</p>
-                    <p id="modelTemperatureError" class="model-field-error" role="alert"></p>
-                  </div>
-                  <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--stacked">
-                    <label class="settings-field-label" for="modelDescription">备注</label>
+                    <label class="settings-field-label" for="modelDescription" data-i18n="dynamic.settingsCustomModels.使用说明_可选">使用说明（可选）</label>
                     <div class="settings-rhythm-accordion-control-stack">
                       <input id="modelDescription" class="settings-field-control ui-control ui-input" data-i18n-placeholder="modals.placeholder.备注用途_如_识图主力模型" placeholder="备注用途，如“识图主力模型”">
                     </div>
-                  </div>
-                  <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--toggle">
-                    <span class="settings-field-label">音频输入能力（input_audio）</span>
-                    <label class="toggle-switch">
-                      <input type="checkbox" id="modelSupportsMic" role="switch">
-                      <span aria-hidden="true"></span>
-                    </label>
                   </div>
                   <div class="model-modal-field-block">
                     <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--stacked">
@@ -129,7 +174,11 @@
           </section>
         </form>
       </div>
-      <footer class="model-modal-footer"><button type="button" id="btnModelCancel" class="ui-button ui-button--secondary ui-button--md">取消</button><button type="button" id="btnModelProbe" class="ui-button ui-button--secondary ui-button--md">测试连接</button><button type="submit" id="btnModelSave" form="modelModalForm" class="btn-primary ui-button ui-button--primary ui-button--md">保存</button></footer>
+      <footer class="model-modal-footer">
+        <button type="button" id="btnModelCancel" class="ui-button ui-button--secondary ui-button--md">取消</button>
+        <button type="button" id="btnModelProbe" class="ui-button ui-button--secondary ui-button--md">测试连接</button>
+        <button type="submit" id="btnModelSave" form="modelModalForm" class="btn-primary ui-button ui-button--primary ui-button--md">保存</button>
+      </footer>
     </div>
   </div>
 
@@ -250,7 +299,7 @@
         <p class="text-xs font-semibold text-warmText mb-1">其它下载渠道</p>
         <p class="text-xs text-gray-400 mb-3">若应用内更新较慢，可使用镜像或网盘（非主更新源）</p>
         <div class="flex flex-col gap-2">
-          <button type="button" id="btnAppUpdateGitHub" class="px-4 py-2 border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50 text-left ui-button ui-button--secondary ui-button--sm"GitHub 更新 <span class="text-xs font-normal text-gray-400">（镜像备用）</span></button>
+          <button type="button" id="btnAppUpdateGitHub" class="px-4 py-2 border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50 text-left ui-button ui-button--secondary ui-button--sm">GitHub 更新 <span class="text-xs font-normal text-gray-400">（镜像备用）</span></button>
           <button type="button" id="btnAppUpdateQuark" class="px-4 py-2 border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50 text-left ui-button ui-button--secondary ui-button--sm">夸克网盘</button>
           <button type="button" id="btnAppUpdateBaidu" class="px-4 py-2 border border-gray-200 rounded-xl text-sm font-semibold text-warmText hover:bg-gray-50 text-left ui-button ui-button--secondary ui-button--sm">百度网盘</button>
         </div>

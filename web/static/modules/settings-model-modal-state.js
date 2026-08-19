@@ -1,6 +1,8 @@
 import { t } from "./i18n.js";
 
 const CUSTOM_VALUE = "__custom__";
+const MODEL_TEMPERATURE_MIN = 0;
+const MODEL_TEMPERATURE_MAX = 2;
 
 function getChips() {
   return Array.from(
@@ -125,6 +127,52 @@ export function syncModelModalUIState({
   return { isCatalogPreset, customIds, catalogModel };
 }
 
+function coerceTemperatureValue(value) {
+  const parsed = typeof value === "number" ? value : parseFloat(String(value));
+  if (Number.isNaN(parsed)) return null;
+  if (parsed < MODEL_TEMPERATURE_MIN) return MODEL_TEMPERATURE_MIN;
+  if (parsed > MODEL_TEMPERATURE_MAX) return MODEL_TEMPERATURE_MAX;
+  return Math.round(parsed * 10) / 10;
+}
+
+export function temperatureHintKey(value) {
+  const temp = coerceTemperatureValue(value);
+  if (temp === null) return "dynamic.settingsCustomModels.温度平衡";
+  if (temp <= 0.5) return "dynamic.settingsCustomModels.温度精确";
+  if (temp >= 1.2) return "dynamic.settingsCustomModels.温度创意";
+  return "dynamic.settingsCustomModels.温度平衡";
+}
+
+export function syncModelTemperatureControls(value) {
+  const normalized = coerceTemperatureValue(value);
+  const numberEl = document.getElementById("modelTemperature");
+  const rangeEl = document.getElementById("modelTemperatureRange");
+  const hintEl = document.getElementById("modelTemperatureHintLabel");
+  if (normalized === null) return;
+  const text = String(normalized);
+  if (numberEl && numberEl.value !== text) numberEl.value = text;
+  if (rangeEl && rangeEl.value !== text) rangeEl.value = text;
+  if (hintEl) hintEl.textContent = t(temperatureHintKey(normalized));
+}
+
+export function initModelTemperatureControls() {
+  const numberEl = document.getElementById("modelTemperature");
+  const rangeEl = document.getElementById("modelTemperatureRange");
+  if (!numberEl || !rangeEl) return;
+
+  const onChange = (value) => syncModelTemperatureControls(value);
+
+  if (rangeEl.dataset.bound !== "true") {
+    rangeEl.dataset.bound = "true";
+    rangeEl.addEventListener("input", () => onChange(rangeEl.value));
+  }
+  if (numberEl.dataset.bound !== "true") {
+    numberEl.dataset.bound = "true";
+    numberEl.addEventListener("input", () => onChange(numberEl.value));
+    numberEl.addEventListener("change", () => onChange(numberEl.value));
+  }
+}
+
 export function resetModelApiKeyVisibility() {
   const input = document.getElementById("modelApiKey");
   const button = document.getElementById("btnModelApiKeyVisibility");
@@ -135,7 +183,7 @@ export function resetModelApiKeyVisibility() {
       "aria-label",
       t("dynamic.settingsCustomModels.显示_API_Key"),
     );
-    button.textContent = t("dynamic.settingsCustomModels.显示");
+    button.setAttribute("title", t("dynamic.settingsCustomModels.显示"));
   }
 }
 
@@ -152,8 +200,9 @@ export function initModelApiKeyVisibility() {
       "aria-label",
       t(`dynamic.settingsCustomModels.${visible ? "隐藏" : "显示"}_API_Key`),
     );
-    button.textContent = t(
-      `dynamic.settingsCustomModels.${visible ? "隐藏" : "显示"}`,
+    button.setAttribute(
+      "title",
+      t(`dynamic.settingsCustomModels.${visible ? "隐藏" : "显示"}`),
     );
   });
 }

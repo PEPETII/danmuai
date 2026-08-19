@@ -8,6 +8,7 @@
       "模型_ID": "Model ID",
       "自定义配置": "Custom configuration",
       "显示名称": "Display name",
+      "配置名称_可选": "Profile name (optional)",
       "仅界面展示_不参与_API": "(UI display only, not sent to API)",
       "模型_ID_列表": "Model ID list",
       "回车或逗号添加_点击_chip_切换默认": "Enter the model ID supplied by the provider; press Enter or comma to add it, then click a tag to set the default model.",

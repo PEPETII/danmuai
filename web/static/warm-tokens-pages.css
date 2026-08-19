@@ -431,47 +431,150 @@
 .model-modal-form {
   display: flex;
   flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+#modelModal .model-editor {
+  display: flex;
+  flex-direction: column;
   gap: var(--space-3);
   min-width: 0;
 }
-.model-modal-basic-section,
-.model-modal-advanced-section {
+
+#modelModal .model-editor .field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
   min-width: 0;
 }
-.model-modal-basic-section {
+
+#modelModal .model-editor .field > label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+#modelModal .model-editor .hint {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+#modelModal .model-editor .field-row-2 {
   display: grid;
-  gap: var(--space-2);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+#modelModal .model-editor .field-row-3 {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 0.85fr) minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: start;
+}
+
+#modelModal .model-warning {
   padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-lg);
-  border: 1px solid var(--color-accent);
-  background: rgba(255, 242, 204, 0.28);
+  border: 1px solid var(--color-warning-border, #fcd34d);
+  background: var(--status-warning-bg, #fffbeb);
+  color: var(--color-warning-text, #92400e);
+  font-size: 0.875rem;
+  line-height: 1.5;
 }
-.model-modal-basic-section > .settings-section-title {
-  margin: 0 0 var(--space-1);
-}
-#modelModal .model-modal-basic-section .settings-field {
-  padding: var(--space-2) var(--space-3);
-  margin: 0;
-}
-#modelModal .model-modal-basic-section .settings-field-label {
-  margin-bottom: var(--space-2);
-}
-#modelModal .model-modal-basic-section .settings-field-control {
-  text-align: left;
-}
-#modelModal .model-api-key-row {
+
+#modelModal .input-with-toggle {
+  position: relative;
   display: flex;
   align-items: stretch;
+  min-width: 0;
+}
+
+#modelModal .input-with-toggle .ui-control {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-right: calc(var(--control-height-sm) + var(--space-3));
+}
+
+#modelModal .input-with-toggle .toggle-btn {
+  position: absolute;
+  top: 50%;
+  right: var(--space-2);
+  transform: translateY(-50%);
+  color: var(--text-muted);
+}
+
+#modelModal .slider-group {
+  display: flex;
+  align-items: center;
   gap: var(--space-2);
   min-width: 0;
 }
-#modelModal .model-api-key-row .settings-field-control {
+
+#modelModal .slider-group input[type="range"] {
   flex: 1 1 auto;
   min-width: 0;
+  height: 0.375rem;
+  margin: 0;
+  accent-color: var(--color-primary);
+  cursor: pointer;
 }
+
+#modelModal .slider-group .num-input {
+  width: 4.75rem;
+  flex: 0 0 auto;
+  text-align: center;
+}
+
+#modelModal .temp-hint {
+  margin-left: var(--space-2);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-primary);
+}
+
+#modelModal .toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 42px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-control);
+  cursor: pointer;
+}
+
+#modelModal .toggle-row .toggle-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+#modelModal .toggle-row .toggle-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+#modelModal .toggle-row .toggle-desc {
+  font-size: 0.6875rem;
+  line-height: 1.35;
+  color: var(--text-muted);
+}
+
+#modelModal .toggle-row .toggle-switch {
+  flex-shrink: 0;
+}
+
 #modelModal .model-provider-meta {
-  margin-top: var(--space-2);
+  margin-top: var(--space-1);
 }
+
 #modelModal .model-provider-website {
   display: flex;
   flex-wrap: wrap;
@@ -479,7 +582,16 @@
   gap: var(--space-2);
   min-width: 0;
 }
-#modelModal .model-modal-advanced-section {
+
+#modelModal .model-preset-meta {
+  margin-top: var(--space-1);
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.model-modal-advanced-section {
+  min-width: 0;
   border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
   overflow: hidden;
@@ -595,6 +707,13 @@
 
 .model-ids-hint + .model-ids-hint {
   margin-top: 0;
+}
+
+@media (max-width: 640px) {
+  #modelModal .model-editor .field-row-2,
+  #modelModal .model-editor .field-row-3 {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 520px) {

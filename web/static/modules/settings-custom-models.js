@@ -19,9 +19,11 @@ import {
 import {
   bindModelDefaultSelect,
   initModelApiKeyVisibility,
+  initModelTemperatureControls,
   resetModelApiKeyVisibility,
   syncModelDefaultSelect,
   syncModelModalUIState,
+  syncModelTemperatureControls,
   setModelModalBusy,
   expandModelModalAdvanced,
 } from "./settings-model-modal-state.js";
@@ -682,6 +684,12 @@ export function openModelModal(index, model = {}) {
   document.getElementById("modelModalTitle").textContent = isEdit
     ? t("dynamic.settingsCustomModels.编辑模型")
     : t("dynamic.settingsCustomModels.新增模型");
+  const subtitleEl = document.getElementById("modelModalSubtitle");
+  if (subtitleEl) {
+    subtitleEl.textContent = isEdit
+      ? t("dynamic.settingsCustomModels.编辑模型说明")
+      : t("dynamic.settingsCustomModels.新增模型说明");
+  }
 
   const providerId = isEdit ? model.provider || "" : "doubao";
   const modalRegion = isEdit
@@ -757,9 +765,11 @@ export function openModelModal(index, model = {}) {
   }
   const temperatureEl = document.getElementById("modelTemperature");
   if (temperatureEl) {
-    temperatureEl.value = String(
-      resolveModelTemperatureFallback(isEdit ? model.temperature : undefined),
+    const tempValue = resolveModelTemperatureFallback(
+      isEdit ? model.temperature : undefined,
     );
+    temperatureEl.value = String(tempValue);
+    syncModelTemperatureControls(tempValue);
   }
   document.getElementById("modelDescription").value = model.description || "";
   const supportsMicEl = document.getElementById("modelSupportsMic");
@@ -961,6 +971,7 @@ export async function probe() {
 
 export function initModelModalBindings() {
   initModelApiKeyVisibility();
+  initModelTemperatureControls();
   bindModelDefaultSelect();
   initModelModalProbe(collectModelForm);
   initModelProviderRegionSelect();
