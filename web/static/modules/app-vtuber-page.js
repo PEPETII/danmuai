@@ -11,6 +11,7 @@ let clickThroughSaveToken = 0;
 let displayScaleSaveToken = 0;
 let hostSettingsCache = null;
 let hostSettingsSaveToken = 0;
+let voiceStatusCache = null;
 let voiceSessionArmed = false;
 let voiceRequestInFlight = false;
 
@@ -18,13 +19,74 @@ const DISPLAY_SCALE_MIN = 25;
 const DISPLAY_SCALE_MAX = 300;
 const DISPLAY_SCALE_DEFAULT = 100;
 
-const CAPABILITY_LABELS = [
-  ['dependency_count', '依赖'], ['texture_count', '纹理'], ['parameter_count', '参数'],
-  ['motion_files', '原生动作'], ['expression_files', '表情'], ['physics', '物理'],
+const CAPABILITY_SUMMARY_LABELS = [
+  ['motion_files', '动作'],
+  ['expression_files', '表情'],
+  ['physics', '物理'],
+  ['texture_count', '纹理'],
 ];
 
 function element(id) { return document.getElementById(id); }
 function setText(id, value) { const target = element(id); if (target) target.textContent = value; }
+
+function formatPipelineToken(value) {
+  const text = String(value || '').trim();
+  return text || '—';
+}
+
+function setStatusPill(state, label) {
+  const pill = element('vtuberStatusBadge');
+  const labelNode = element('vtuberStatusText');
+  if (labelNode) labelNode.textContent = label;
+  if (!pill) return;
+  pill.dataset.state = state;
+  pill.className = `vtuber-status-pill vtuber-status-pill--${state}`;
+}
+
+function renderAdvancedDiagnostics(model = null, voiceStatus = voiceStatusCache) {
+  const normalized = model ? normalizeModel(model) : null;
+  const modelPath = String(normalized?.model_path || model?.model_path || '').trim();
+  setText('vtuberAdvancedModelPath', modelPath || '—');
+
+  const runtimeStatus = String(
+    normalized?.runtime_status || model?.runtime_status || hostSettingsCache?.runtime_status || 'stopped',
+  );
+  const running = runtimeStatus === 'running';
+  const desktopVisible = Boolean(normalized?.desktop_visible ?? model?.desktop_visible);
+  const runtimeLines = [
+    running ? '虚拟主播运行中' : '虚拟主播未启动',
+    desktopVisible ? '桌面窗口已显示' : '桌面窗口未显示',
+    element('vtuberDesktopStatusHint')?.textContent || '',
+  ].filter(Boolean);
+  setText('vtuberAdvancedRuntimeState', runtimeLines.join('；'));
+
+  const visionEnabled = Boolean(modelSettingsCache?.vision_enabled);
+  const ttsEnabled = Boolean(modelSettingsCache?.tts_enabled);
+  const pipelineParts = [
+    `ASR ${formatPipelineToken(voiceStatus?.asr_status)}`,
+    `LLM ${formatPipelineToken(voiceStatus?.llm_status)}`,
+    `TTS ${formatPipelineToken(voiceStatus?.tts_status)}`,
+    `语音 ${voiceStatus?.armed ? '已武装' : '未武装'}`,
+    `视觉 ${visionEnabled ? '已启用' : '未启用'}`,
+    `TTS 配置 ${ttsEnabled ? '已启用' : '未启用'}`,
+  ];
+  setText('vtuberAdvancedPipelineStatus', pipelineParts.join(' · '));
+
+  const live2dLines = [
+    normalized?.fileName || '未选择模型',
+    normalized?.status || (normalized?.loaded ? 'ready' : '未导入'),
+    normalized?.loaded ? '模型资源已就绪' : '模型资源未就绪',
+  ].filter(Boolean);
+  setText('vtuberAdvancedLive2dStatus', live2dLines.join(' · '));
+
+  const diagnostics = [
+    model?.error || normalized?.reason || '',
+    voiceStatus?.failure_reason || '',
+    voiceStatus?.blocking_error || '',
+    voiceStatus?.mic_error || '',
+  ].map((item) => String(item || '').trim()).filter(Boolean);
+  setText('vtuberAdvancedDiagnostics', diagnostics.length ? diagnostics.join('；') : '—');
+}
 
 function renderModelSettingsStatus(message) {
   setText('vtuberModelSettingsStatus', message || '');
@@ -242,6 +304,7 @@ function renderModelSettings(data) {
   const visionLabel = data?.vision_enabled ? '已选择视觉模型' : '视觉理解已关闭';
   const ttsLabel = data?.tts_enabled ? '已选择 TTS 模型' : '语音合成已关闭';
   renderModelSettingsStatus(`${visionLabel}；${ttsLabel}`);
+  renderAdvancedDiagnostics();
 }
 
 async function loadModelSettings() {
@@ -310,6 +373,7 @@ function renderHostSettings(data) {
   if (knowledgeToggle) knowledgeToggle.checked = Boolean(data?.knowledge_enabled);
   renderModeSettingsStatus(describeHostModeSettings(data));
   renderKnowledgeSettingsStatus(describeKnowledgeSettings(data));
+  renderAdvancedDiagnostics();
 }
 
 function syncRuntimeStatusToHostSettings(runtimeStatus) {
@@ -416,31 +480,80 @@ function countCapability(model, key) {
   return value == null ? 0 : value;
 }
 
+function formatCapabilityValue(model, key) {
+  const count = countCapability(model, key);
+  if (key === 'physics') return count ? '✓' : '✗';
+  return String(count);
+}
+
 function renderCapabilities(model) {
   const container = element('vtuberCapabilities');
   if (!container) return;
   container.replaceChildren();
-  CAPABILITY_LABELS.forEach(([key, label]) => {
-    const item = document.createElement('div'); item.className = 'vtuber-capability';
-    const value = document.createElement('strong');
-    const count = countCapability(model, key);
-    value.textContent = key === 'physics' ? (count ? '支持' : '无') : String(count);
-    item.append(value, document.createTextNode(label)); container.appendChild(item);
+  const configured = model?.configured === true;
+  if (!configured) {
+    const empty = document.createElement('span');
+    empty.className = 'vtuber-capability-summary__label';
+    empty.textContent = '导入模型后可查看能力摘要。';
+    container.appendChild(empty);
+    return;
+  }
+  CAPABILITY_SUMMARY_LABELS.forEach(([key, label]) => {
+    const item = document.createElement('span');
+    item.className = 'vtuber-capability-summary__item';
+    const labelNode = document.createElement('span');
+    labelNode.className = 'vtuber-capability-summary__label';
+    labelNode.textContent = label;
+    const valueNode = document.createElement('span');
+    valueNode.className = 'vtuber-capability-summary__value';
+    valueNode.textContent = formatCapabilityValue(model, key);
+    item.append(labelNode, document.createTextNode(' '), valueNode);
+    container.appendChild(item);
   });
   const missing = model.capabilities?.missing_dependencies || [];
   if (missing.length) {
-    const warning = document.createElement('p'); warning.className = 'text-sm text-amber-700';
-    warning.textContent = `缺少依赖：${missing.join('、')}`; container.appendChild(warning);
+    const warning = document.createElement('span');
+    warning.className = 'vtuber-capability-summary__warning';
+    warning.textContent = `缺少依赖：${missing.join('、')}`;
+    container.appendChild(warning);
   }
+}
+
+function deriveStatusPresentation(model, data, { error = false } = {}) {
+  const configured = model.configured === true;
+  const hasModel = configured && Boolean(model.fileName);
+  const runtimeStatus = model.runtime_status || 'stopped';
+  const running = runtimeStatus === 'running';
+  if (error) {
+    return { state: 'error', label: '错误' };
+  }
+  if (data?.cancelled) {
+    return { state: 'warning', label: '已取消选择' };
+  }
+  if (running) {
+    return { state: 'running', label: '运行中' };
+  }
+  if (model.status === 'blocked' || model.status === 'invalid') {
+    return { state: 'warning', label: model.status === 'blocked' ? '模型不可用' : '模型无效' };
+  }
+  if (model.loaded) {
+    return { state: 'ready', label: '已就绪' };
+  }
+  if (hasModel) {
+    return { state: 'warning', label: '已导入' };
+  }
+  return { state: 'pending', label: '未导入' };
 }
 
 function renderRequestError(error) {
   const message = error?.message || 'Live2D 操作失败';
   const target = element('vtuberModelError');
   if (target) { target.textContent = message; target.classList.remove('hidden'); }
-  setText('vtuberStatusText', '操作失败'); setText('vtuberStatusBadge', '错误');
-  setText('vtuberRuntimeStatus', message); setText('vtuberDesktopStatusText', '错误');
-  setText('vtuberDesktopStatusHint', '桌面窗口控制失败，请查看上方错误信息。');
+  setStatusPill('error', '错误');
+  setText('vtuberRuntimeStatus', message);
+  setText('vtuberDesktopStatusText', '错误');
+  setText('vtuberDesktopStatusHint', '桌面窗口控制失败，请查看高级信息中的错误详情。');
+  renderAdvancedDiagnostics();
 }
 
 function renderModel(data) {
@@ -449,10 +562,8 @@ function renderModel(data) {
   const hasModel = configured && Boolean(model.fileName);
   const runtimeStatus = model.runtime_status || 'stopped';
   const running = runtimeStatus === 'running';
-  const statusText = model.status === 'blocked' ? '模型不可用' : model.status === 'invalid' ? '模型无效'
-    : hasModel ? (running ? '运行中' : '已导入') : '未导入';
-  setText('vtuberStatusText', data?.cancelled ? '已取消选择' : statusText);
-  setText('vtuberStatusBadge', running ? '运行中' : model.loaded ? '已就绪' : '未导入');
+  const statusPresentation = deriveStatusPresentation(model, data);
+  setStatusPill(statusPresentation.state, statusPresentation.label);
   setText('vtuberModelFileName', model.fileName || '未选择模型');
   setText('vtuberModelState', model.status || (hasModel ? 'ready' : '未导入'));
   setText('vtuberModelText', model.loaded ? '当前模型已通过本机资源代理准备就绪。' : configured ? '当前登记的 Live2D 模型不可用，请重新导入。' : '尚未导入 Live2D 模型。');
@@ -475,6 +586,12 @@ function renderModel(data) {
   renderClickThrough(model);
   renderDisplayScale(model);
   syncRuntimeStatusToHostSettings(runtimeStatus);
+  renderAdvancedDiagnostics(data);
+}
+
+function isVtuberRunning() {
+  const pill = element('vtuberStatusBadge');
+  return pill?.dataset?.state === 'running';
 }
 
 function setRequestState(active) {
@@ -485,7 +602,7 @@ function setRequestState(active) {
   const advancedButton = element('btnVtuberImportModelAdvanced'); if (advancedButton) advancedButton.disabled = active;
   const clearButton = element('btnVtuberClearModel'); if (clearButton) clearButton.disabled = active || !hasModel;
   const modelSelect = element('vtuberLive2dModelSelect'); if (modelSelect) modelSelect.disabled = active;
-  const running = element('vtuberStatusBadge')?.textContent === '运行中';
+  const running = isVtuberRunning();
   const startButton = element('btnVtuberStart'); if (startButton) startButton.disabled = active || !hasModel || running;
   const stopButton = element('btnVtuberStop'); if (stopButton) stopButton.disabled = active || !running;
 }
@@ -569,11 +686,17 @@ async function openModelsFolder() {
 async function clearModel() {
   setRequestState(true);
   try {
-    if (element('vtuberStatusBadge')?.textContent === '运行中') {
+    if (isVtuberRunning()) {
       await apiFetch('/api/live2d/stop', { method: 'POST' });
     }
     renderModel(await apiFetch('/api/live2d/clear-model', { method: 'POST' })); toast('Live2D 模型已移除');
   } catch (error) { renderRequestError(error); throw error; } finally { setRequestState(false); }
+}
+
+function applyVoiceStatus(data) {
+  voiceStatusCache = data || null;
+  syncVoiceSessionArmed(data);
+  renderAdvancedDiagnostics();
 }
 
 export async function loadVtuberPage() {
@@ -584,10 +707,11 @@ export async function loadVtuberPage() {
       apiFetch('/api/live2d/model').then((data) => renderModel(data)),
     ]);
     try {
-      const voiceStatus = await apiFetch('/api/virtual-host/voice/status');
-      syncVoiceSessionArmed(voiceStatus);
+      applyVoiceStatus(await apiFetch('/api/virtual-host/voice/status'));
     } catch {
+      voiceStatusCache = null;
       voiceSessionArmed = false;
+      renderAdvancedDiagnostics();
     }
   } catch (error) { renderRequestError(error); throw error; }
 }

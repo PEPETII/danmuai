@@ -16,7 +16,7 @@ STATIC_ROOT = CONTENT_PAGES_HTML.parents[1]
 def _vtuber_panel() -> str:
     html = CONTENT_PAGES_HTML.read_text(encoding="utf-8")
     start = html.index('id="petTab-vtuber"')
-    end = html.index('id="page-persona"', start)
+    end = html.index('id="petTab-vtuber-persona"', start)
     return html[start:end]
 
 
@@ -37,7 +37,9 @@ def test_vtuber_panel_is_wired_to_pet_tabs():
     assert re.search(r'id="petTab-vtuber-persona"[^>]*\bhidden\b', html)
     assert 'id="vtuberKnowledgeEnabled"' in panel
     assert 'id="petTab-vtuber-knowledge"' not in html
-    assert "虚拟桌宠状态" in panel
+    assert "虚拟主播" in panel
+    assert "让 AI 角色理解画面、与你交流并回应直播内容" in panel
+    assert 'id="vtuberHeroHeading"' in panel
     assert 'id="vtuberLive2dModelSelect"' in panel
     assert 'id="vtuberLive2dModelSelectStatus"' in panel
     assert "Live2D 模型" in panel
@@ -61,6 +63,12 @@ def test_vtuber_runtime_exposes_start_stop_desktop_status():
     assert 'id="btnVtuberClearModel"' in panel and re.search(r'id="btnVtuberClearModel"[^>]*\bdisabled\b', panel)
     assert 'id="vtuberDesktopStatusText"' in panel
     assert 'id="vtuberDesktopStatusHint"' in panel
+    assert 'id="vtuberAdvancedModelPath"' in panel
+    assert 'id="vtuberAdvancedRuntimeState"' in panel
+    assert 'id="vtuberAdvancedPipelineStatus"' in panel
+    assert 'id="vtuberAdvancedLive2dStatus"' in panel
+    assert 'id="vtuberAdvancedDiagnostics"' in panel
+    assert 'id="vtuberAdvancedAccordionTrigger"' in panel
     assert 'id="vtuberCanvas"' not in panel
     assert 'id="vtuberParameters"' not in panel
     assert 'id="vtuberActions"' not in panel
@@ -78,16 +86,22 @@ def test_vtuber_runtime_exposes_start_stop_desktop_status():
     assert "选择包含 Live2D 模型的文件夹" in panel
     assert "打开模型文件夹" in panel
     assert "高级导入" not in panel
+    assert "高级信息" in panel
     assert 'id="vtuberDialogueEnabled"' in panel
     assert 'id="vtuberDanmuAdapterEnabled"' in panel
     assert 'id="vtuberVoiceCard"' not in panel
     assert 'id="btnVtuberVoiceStart"' not in panel
     assert 'id="btnVtuberVoiceStop"' not in panel
     assert 'id="btnVtuberVoiceCancel"' not in panel
-    assert "启动虚拟主播时将自动开启语音聆听" in panel
+    assert "启动虚拟主播时自动监听你的语音并对话" in panel
     assert "虚拟主播对话" in panel
-    assert "AI读弹幕适配" in panel
+    assert "AI 读弹幕适配" in panel
     assert "检索弹幕知识库" in panel
+    assert "视觉 AI" in panel
+    assert "语音 / TTS" in panel
+    assert "AI 能力" in panel
+    assert "互动方式" in panel
+    assert 'class="vtuber-model-card ui-card"' not in panel
 
 
 def test_vtuber_module_wires_virtual_host_mode_api():
@@ -107,8 +121,9 @@ def test_vtuber_module_wires_virtual_host_mode_api():
     assert "btnVtuberVoiceStart" not in source
     assert "vtuberVoiceCard" not in source
     assert "onVtuberKnowledgeTabActivated" not in source
-    assert "textContent" in source
-    assert "innerHTML" not in source
+    assert "renderAdvancedDiagnostics" in source
+    assert "setStatusPill" in source
+    assert "CAPABILITY_SUMMARY_LABELS" in source
 
 
 def test_vtuber_module_uses_native_model_api_without_web_control_panel():

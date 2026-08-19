@@ -361,132 +361,117 @@
         <button type="button" id="btnPetSave" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm ui-button ui-button--primary ui-button--md">保存设置</button>
         </div>
 
-        <div id="petTab-vtuber" class="settings-tab-panel space-y-6" data-pet-panel="vtuber" role="tabpanel" aria-labelledby="petTabBtn-vtuber" hidden>
-          <div id="vtuberStatusCard" class="vtuber-status-card ui-status-banner ui-status-banner--warning" role="status" aria-live="polite">
-            <div class="vtuber-status-card__header">
-              <div class="min-w-0">
-                <p class="settings-section-title">虚拟桌宠状态</p>
-                <p id="vtuberStatusText" class="vtuber-status-card__state">正在读取模型状态…</p>
-              </div>
-              <span id="vtuberStatusBadge" class="vtuber-status-card__badge">读取中</span>
+        <div id="petTab-vtuber" class="settings-tab-panel vtuber-page" data-pet-panel="vtuber" role="tabpanel" aria-labelledby="petTabBtn-vtuber" hidden>
+          <header class="vtuber-hero" aria-labelledby="vtuberHeroHeading">
+            <div class="vtuber-hero__intro min-w-0">
+              <h3 id="vtuberHeroHeading" class="vtuber-hero__title">虚拟主播</h3>
+              <p class="vtuber-hero__description">让 AI 角色理解画面、与你交流并回应直播内容</p>
+              <p id="vtuberModelText" class="settings-section-hint vtuber-hero__hint">尚未导入 Live2D 模型。</p>
             </div>
-            <p id="vtuberModelText" class="settings-section-hint">尚未导入 Live2D 模型。</p>
-          </div>
-
-          <section class="vtuber-model-card ui-card" aria-labelledby="vtuberModelHeading">
-            <div class="vtuber-status-card__header">
-              <div class="min-w-0">
-                <h3 id="vtuberModelHeading" class="settings-section-title">Live2D 外部模型</h3>
-                <p id="vtuberModelFileName" class="settings-section-hint break-all">未选择模型</p>
-              </div>
-              <span id="vtuberModelState" class="text-xs text-gray-500">未导入</span>
-            </div>
-            <div class="settings-rhythm-accordion-field">
-              <div class="flex-1 min-w-0">
-                <label for="vtuberLive2dModelSelect" class="settings-field-label">Live2D 模型</label>
-                <p class="text-xs text-gray-500 mt-1">从已导入的模型中选择当前虚拟主播使用的模型。</p>
-              </div>
-              <select id="vtuberLive2dModelSelect" class="settings-field-control ui-control ui-select" aria-describedby="vtuberLive2dModelSelectStatus">
-                <option value="">无</option>
-              </select>
-            </div>
-            <p id="vtuberLive2dModelSelectStatus" class="settings-section-hint" role="status" aria-live="polite">尚未导入 Live2D 模型。</p>
-            <div id="vtuberCapabilities" class="vtuber-capabilities" aria-live="polite"></div>
-            <p id="vtuberModelError" class="vtuber-model-error hidden" role="alert"></p>
-            <div class="vtuber-settings-actions" aria-label="Live2D 模型操作">
-              <button type="button" id="btnVtuberImportModel" class="ui-button ui-button--primary ui-button--md">导入模型文件夹</button>
-              <button type="button" id="btnVtuberImportModelAdvanced" class="ui-button ui-button--secondary ui-button--md">打开模型文件夹</button>
-              <button type="button" id="btnVtuberClearModel" class="ui-button ui-button--secondary ui-button--md" disabled>移除模型</button>
-            </div>
-            <p class="settings-section-hint">选择包含 Live2D 模型的文件夹，DanmuAI 会自动识别模型，无需手动查找模型文件。</p>
-            <p class="settings-section-hint">打开模型文件夹可在资源管理器中查看和管理本机已导入的 Live2D 模型。</p>
-          </section>
-
-          <section class="vtuber-model-card ui-card" aria-labelledby="vtuberModelSettingsHeading">
-            <h3 id="vtuberModelSettingsHeading" class="settings-section-title">模型设置</h3>
-            <p class="settings-section-hint">与弹幕默认 AI / AI 读弹幕 TTS 独立；选择「无」将关闭对应能力，不会回退到全局模型。</p>
-            <div class="settings-rhythm-accordion-fields">
-              <div class="settings-rhythm-accordion-field">
-                <div class="flex-1 min-w-0">
-                  <label for="vtuberVisionModelSelect" class="settings-field-label">AI模型（多模态）</label>
-                  <p class="text-xs text-gray-500 mt-1">用于理解当前画面，并结合弹幕、人格与上下文生成虚拟主播回应。</p>
-                </div>
-                <select id="vtuberVisionModelSelect" class="settings-field-control ui-control ui-select" aria-describedby="vtuberModelSettingsStatus"></select>
-              </div>
-              <div class="settings-rhythm-accordion-field">
-                <div class="flex-1 min-w-0">
-                  <label for="vtuberTtsModelSelect" class="settings-field-label">语音/TTS 模型</label>
-                  <p class="text-xs text-gray-500 mt-1">仅列出凭据已配置、可正常使用的 TTS 模型。</p>
-                </div>
-                <select id="vtuberTtsModelSelect" class="settings-field-control ui-control ui-select" aria-describedby="vtuberModelSettingsStatus"></select>
-              </div>
-            </div>
-            <p id="vtuberModelSettingsStatus" class="settings-section-hint" role="status" aria-live="polite">正在读取模型选项…</p>
-          </section>
-
-          <section class="vtuber-model-card ui-card" aria-labelledby="vtuberInteractionHeading">
-            <h3 id="vtuberInteractionHeading" class="settings-section-title">互动模式</h3>
-            <p class="settings-section-hint">两种模式互斥，可同时关闭；开启「虚拟主播对话」后，启动虚拟主播时将自动开启语音聆听。</p>
-            <div class="settings-rhythm-accordion-fields">
-              <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--toggle">
-                <div class="flex-1 min-w-0">
-                  <span class="settings-field-label">虚拟主播对话</span>
-                  <p class="text-xs text-gray-500 mt-1">开启后启动虚拟主播将自动聆听语音；回复由虚拟主播播报并驱动口型。关闭开关会立即停止语音聆听。</p>
-                </div>
-                <label class="toggle-switch">
-                  <input type="checkbox" id="vtuberDialogueEnabled" role="switch">
-                  <span aria-hidden="true"></span>
-                </label>
-              </div>
-              <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--toggle">
-                <div class="flex-1 min-w-0">
-                  <span class="settings-field-label">AI读弹幕适配</span>
-                  <p class="text-xs text-gray-500 mt-1">将 DanmuAI 生成的弹幕交给虚拟主播自动回应、播报并驱动口型；不改变全局「AI读弹幕」设置。</p>
-                </div>
-                <label class="toggle-switch">
-                  <input type="checkbox" id="vtuberDanmuAdapterEnabled" role="switch">
-                  <span aria-hidden="true"></span>
-                </label>
-              </div>
-              <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--toggle">
-                <div class="flex-1 min-w-0">
-                  <span class="settings-field-label" data-i18n="content.label.vtuberKnowledgeEnabled">检索弹幕知识库</span>
-                  <p class="text-xs text-gray-500 mt-1" data-i18n="content.hint.vtuberKnowledgeEnabled">开启后，虚拟主播在语音对话或弹幕适配回复前会按当前语境检索已启用的弹幕知识库条目，并将有限摘要注入 Prompt。</p>
-                </div>
-                <label class="toggle-switch">
-                  <input type="checkbox" id="vtuberKnowledgeEnabled" role="switch" aria-describedby="vtuberKnowledgeSettingsStatus">
-                  <span aria-hidden="true"></span>
-                </label>
-              </div>
-            </div>
-            <p id="vtuberModeSettingsStatus" class="settings-section-hint" role="status" aria-live="polite">正在读取互动模式…</p>
-            <p id="vtuberKnowledgeSettingsStatus" class="settings-section-hint" role="status" aria-live="polite"></p>
-          </section>
-
-          <section class="vtuber-runtime-card ui-card" aria-labelledby="vtuberRuntimeHeading">
-            <div class="vtuber-runtime-card__header">
-              <div class="min-w-0">
-                <h3 id="vtuberRuntimeHeading" class="settings-section-title">虚拟主播运行时</h3>
-                <p id="vtuberRuntimeStatus" class="settings-section-hint" role="status" aria-live="polite">请先导入模型。</p>
-              </div>
-              <div class="vtuber-settings-actions">
+            <div class="vtuber-hero__control" role="status" aria-live="polite">
+              <p id="vtuberStatusBadge" class="vtuber-status-pill vtuber-status-pill--pending" data-state="pending">
+                <span class="vtuber-status-pill__dot" aria-hidden="true"></span>
+                <span id="vtuberStatusText" class="vtuber-status-pill__label">正在读取模型状态…</span>
+              </p>
+              <div class="vtuber-hero__actions">
                 <button type="button" id="btnVtuberStart" class="ui-button ui-button--primary ui-button--md" disabled>启动虚拟主播</button>
                 <button type="button" id="btnVtuberStop" class="ui-button ui-button--secondary ui-button--md" disabled>停止虚拟主播</button>
               </div>
             </div>
-            <div class="vtuber-desktop-stage" role="status" aria-live="polite">
-              <span class="vtuber-desktop-stage__icon" aria-hidden="true">⌗</span>
-              <div>
-                <strong id="vtuberDesktopStatusText">未启动</strong>
-                <p id="vtuberDesktopStatusHint" class="settings-section-hint">启动后模型将在 Windows 桌面独立窗口显示，当前页面不会渲染 Live2D。</p>
+          </header>
+
+          <div class="vtuber-section-divider" role="presentation"></div>
+
+          <section class="vtuber-section" aria-labelledby="vtuberModelHeading">
+            <h4 id="vtuberModelHeading" class="vtuber-section__title">Live2D 模型</h4>
+            <div class="vtuber-section__body">
+              <label for="vtuberLive2dModelSelect" class="settings-field-label">当前角色</label>
+              <select id="vtuberLive2dModelSelect" class="settings-field-control ui-control ui-select vtuber-model-select" aria-describedby="vtuberLive2dModelSelectStatus">
+                <option value="">无</option>
+              </select>
+              <p id="vtuberLive2dModelSelectStatus" class="settings-section-hint" role="status" aria-live="polite">尚未导入 Live2D 模型。</p>
+              <div class="vtuber-settings-actions" aria-label="Live2D 模型操作">
+                <button type="button" id="btnVtuberImportModel" class="ui-button ui-button--primary ui-button--md">导入模型文件夹</button>
+                <button type="button" id="btnVtuberImportModelAdvanced" class="ui-button ui-button--secondary ui-button--md">打开模型文件夹</button>
               </div>
+              <p class="settings-section-hint">选择包含 Live2D 模型的文件夹，DanmuAI 会自动识别模型，无需手动查找模型文件。</p>
             </div>
-            <div class="settings-rhythm-accordion-fields mt-4">
-              <div class="settings-rhythm-accordion-field">
+          </section>
+
+          <section class="vtuber-section vtuber-section--compact" aria-labelledby="vtuberCapabilitiesHeading">
+            <h4 id="vtuberCapabilitiesHeading" class="vtuber-section__title">模型能力</h4>
+            <div id="vtuberCapabilities" class="vtuber-capability-summary" aria-live="polite"></div>
+          </section>
+
+          <section class="vtuber-section" aria-labelledby="vtuberModelSettingsHeading">
+            <h4 id="vtuberModelSettingsHeading" class="vtuber-section__title">AI 能力</h4>
+            <div class="vtuber-section-divider vtuber-section-divider--inner" role="presentation"></div>
+            <div class="vtuber-section__body">
+              <div class="vtuber-field-row">
                 <div class="flex-1 min-w-0">
-                  <label for="vtuberDisplayScaleRange" class="settings-field-label">显示大小</label>
-                  <p class="text-xs text-gray-500 mt-1">调整虚拟主播在桌面上的渲染尺寸（25%–300%）。缩放以角色脚底为中心，不修改窗口大小；超过 100% 后受窗口可视区域限制，会逐步接近画面上限。</p>
+                  <label for="vtuberVisionModelSelect" class="settings-field-label">视觉 AI</label>
+                  <p class="text-xs text-gray-500 mt-1">用于理解游戏画面并生成主播回应</p>
                 </div>
+                <select id="vtuberVisionModelSelect" class="settings-field-control ui-control ui-select" aria-describedby="vtuberModelSettingsStatus"></select>
+              </div>
+              <div class="vtuber-field-row">
+                <div class="flex-1 min-w-0">
+                  <label for="vtuberTtsModelSelect" class="settings-field-label">语音 / TTS</label>
+                  <p class="text-xs text-gray-500 mt-1">用于主播语音播报及口型驱动</p>
+                </div>
+                <select id="vtuberTtsModelSelect" class="settings-field-control ui-control ui-select" aria-describedby="vtuberModelSettingsStatus"></select>
+              </div>
+              <p id="vtuberModelSettingsStatus" class="settings-section-hint" role="status" aria-live="polite">正在读取模型选项…</p>
+            </div>
+          </section>
+
+          <section class="vtuber-section" aria-labelledby="vtuberInteractionHeading">
+            <h4 id="vtuberInteractionHeading" class="vtuber-section__title">互动方式</h4>
+            <div class="vtuber-section-divider vtuber-section-divider--inner" role="presentation"></div>
+            <div class="vtuber-section__body">
+              <div class="settings-rhythm-accordion-fields vtuber-toggle-list">
+                <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--toggle">
+                  <div class="flex-1 min-w-0">
+                    <span class="settings-field-label">虚拟主播对话</span>
+                    <p class="text-xs text-gray-500 mt-1">开启后，启动虚拟主播时自动监听你的语音并对话</p>
+                  </div>
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="vtuberDialogueEnabled" role="switch">
+                    <span aria-hidden="true"></span>
+                  </label>
+                </div>
+                <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--toggle">
+                  <div class="flex-1 min-w-0">
+                    <span class="settings-field-label">AI 读弹幕适配</span>
+                    <p class="text-xs text-gray-500 mt-1">让虚拟主播回应 DanmuAI 生成的弹幕</p>
+                  </div>
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="vtuberDanmuAdapterEnabled" role="switch">
+                    <span aria-hidden="true"></span>
+                  </label>
+                </div>
+                <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--toggle">
+                  <div class="flex-1 min-w-0">
+                    <span class="settings-field-label" data-i18n="content.label.vtuberKnowledgeEnabled">检索弹幕知识库</span>
+                    <p class="text-xs text-gray-500 mt-1">回答前检索已启用的弹幕知识库</p>
+                  </div>
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="vtuberKnowledgeEnabled" role="switch" aria-describedby="vtuberKnowledgeSettingsStatus">
+                    <span aria-hidden="true"></span>
+                  </label>
+                </div>
+              </div>
+              <p id="vtuberModeSettingsStatus" class="settings-section-hint" role="status" aria-live="polite">正在读取互动模式…</p>
+              <p id="vtuberKnowledgeSettingsStatus" class="settings-section-hint" role="status" aria-live="polite"></p>
+            </div>
+          </section>
+
+          <section class="vtuber-section" aria-labelledby="vtuberDisplayHeading">
+            <h4 id="vtuberDisplayHeading" class="vtuber-section__title">显示设置</h4>
+            <div class="vtuber-section-divider vtuber-section-divider--inner" role="presentation"></div>
+            <div class="vtuber-section__body">
+              <div class="vtuber-field-row vtuber-field-row--scale">
+                <label for="vtuberDisplayScaleRange" class="settings-field-label">显示大小</label>
                 <div class="vtuber-display-scale-controls">
                   <input type="range" id="vtuberDisplayScaleRange" class="vtuber-display-scale-range" min="25" max="300" step="1" value="100" aria-describedby="vtuberDisplayScaleStatus">
                   <div class="vtuber-display-scale-input-wrap">
@@ -496,22 +481,65 @@
                   <button type="button" id="btnVtuberDisplayScaleReset" class="ui-button ui-button--secondary ui-button--sm">恢复默认</button>
                 </div>
               </div>
-              <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--toggle">
+              <p id="vtuberDisplayScaleStatus" class="settings-section-hint" role="status" aria-live="polite"></p>
+              <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--toggle vtuber-field-row--toggle">
                 <div class="flex-1 min-w-0">
                   <span class="settings-field-label">鼠标穿透</span>
-                  <p class="text-xs text-gray-500 mt-1">开启后鼠标可穿透虚拟主播窗口，点击与滚轮将作用于后方应用；开启后无法拖动主播位置。</p>
+                  <p class="text-xs text-gray-500 mt-1">开启后鼠标操作穿透虚拟主播窗口</p>
                 </div>
                 <label class="toggle-switch">
                   <input type="checkbox" id="vtuberClickThrough" role="switch">
                   <span aria-hidden="true"></span>
                 </label>
               </div>
+              <p id="vtuberClickThroughStatus" class="settings-section-hint" role="status" aria-live="polite"></p>
             </div>
-            <p id="vtuberDisplayScaleStatus" class="settings-section-hint" role="status" aria-live="polite"></p>
-            <p id="vtuberClickThroughStatus" class="settings-section-hint" role="status" aria-live="polite"></p>
           </section>
 
-          <p id="vtuberSettingsNotice" class="settings-section-hint">模型资源只通过本机 Web API 代理读取。</p>
+          <div class="settings-rhythm-accordion vtuber-advanced" data-settings-rhythm-accordion>
+            <section class="settings-rhythm-accordion-item">
+              <h4 class="settings-rhythm-accordion-heading">
+                <button type="button" id="vtuberAdvancedAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="vtuberAdvancedAccordionPanel">
+                  <span>高级信息</span>
+                  <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
+                </button>
+              </h4>
+              <div id="vtuberAdvancedAccordionPanel" class="settings-rhythm-accordion-panel vtuber-advanced-panel" role="region" aria-labelledby="vtuberAdvancedAccordionTrigger" hidden>
+                <dl class="vtuber-advanced-grid">
+                  <div class="vtuber-advanced-row">
+                    <dt>模型路径</dt>
+                    <dd id="vtuberAdvancedModelPath" class="break-all">—</dd>
+                  </div>
+                  <div class="vtuber-advanced-row">
+                    <dt>运行时状态</dt>
+                    <dd id="vtuberAdvancedRuntimeState">—</dd>
+                  </div>
+                  <div class="vtuber-advanced-row">
+                    <dt>ASR / LLM / TTS 状态</dt>
+                    <dd id="vtuberAdvancedPipelineStatus">—</dd>
+                  </div>
+                  <div class="vtuber-advanced-row">
+                    <dt>Live2D 加载状态</dt>
+                    <dd id="vtuberAdvancedLive2dStatus">—</dd>
+                  </div>
+                  <div class="vtuber-advanced-row">
+                    <dt>错误 / 诊断信息</dt>
+                    <dd id="vtuberAdvancedDiagnostics" class="break-all">—</dd>
+                  </div>
+                </dl>
+                <p id="vtuberModelFileName" class="settings-section-hint break-all hidden" aria-hidden="true">未选择模型</p>
+                <p id="vtuberModelState" class="hidden" aria-hidden="true">未导入</p>
+                <p id="vtuberRuntimeStatus" class="hidden" aria-hidden="true">请先导入模型。</p>
+                <p id="vtuberDesktopStatusText" class="hidden" aria-hidden="true">未启动</p>
+                <p id="vtuberDesktopStatusHint" class="hidden" aria-hidden="true">启动后模型将在 Windows 桌面独立窗口显示，当前页面不会渲染 Live2D。</p>
+                <p id="vtuberModelError" class="vtuber-model-error hidden" role="alert"></p>
+                <div class="vtuber-settings-actions vtuber-advanced-actions" aria-label="高级模型操作">
+                  <button type="button" id="btnVtuberClearModel" class="ui-button ui-button--secondary ui-button--md" disabled>移除模型</button>
+                </div>
+                <p id="vtuberSettingsNotice" class="settings-section-hint">模型资源只通过本机 Web API 代理读取。</p>
+              </div>
+            </section>
+          </div>
         </div>
 
         <div id="petTab-vtuber-persona" class="settings-tab-panel space-y-6" data-pet-panel="vtuber-persona" role="tabpanel" aria-labelledby="petTabBtn-vtuber-persona" hidden>
