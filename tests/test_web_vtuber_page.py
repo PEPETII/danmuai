@@ -80,6 +80,11 @@ def test_vtuber_runtime_exposes_start_stop_desktop_status():
     assert "高级导入" not in panel
     assert 'id="vtuberDialogueEnabled"' in panel
     assert 'id="vtuberDanmuAdapterEnabled"' in panel
+    assert 'id="vtuberVoiceCard"' not in panel
+    assert 'id="btnVtuberVoiceStart"' not in panel
+    assert 'id="btnVtuberVoiceStop"' not in panel
+    assert 'id="btnVtuberVoiceCancel"' not in panel
+    assert "启动虚拟主播时将自动开启语音聆听" in panel
     assert "虚拟主播对话" in panel
     assert "AI读弹幕适配" in panel
     assert "检索弹幕知识库" in panel
@@ -95,6 +100,12 @@ def test_vtuber_module_wires_virtual_host_mode_api():
     assert "dialogue_enabled" in source
     assert "danmu_adapter_enabled" in source
     assert "knowledge_enabled" in source
+    assert "syncVoiceDialogueForRuntime" in source
+    assert "isDialogueVoiceEligible" in source
+    assert "startVoiceSession" in source
+    assert "cancelVoiceSession" in source
+    assert "btnVtuberVoiceStart" not in source
+    assert "vtuberVoiceCard" not in source
     assert "onVtuberKnowledgeTabActivated" not in source
     assert "textContent" in source
     assert "innerHTML" not in source

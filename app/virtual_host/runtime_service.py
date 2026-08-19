@@ -472,12 +472,40 @@ class VirtualHostRuntimeService:
                 model_id=self._active_vision_model_id,
                 reason="mode_changed",
             )
+        self._sync_voice_session_with_dialogue_mode()
+
+    def _sync_voice_session_with_dialogue_mode(self) -> None:
+        if mic_route_enabled(
+            running=self._running,
+            dialogue_enabled=self._dialogue_enabled,
+            danmu_adapter_enabled=self._danmu_adapter_enabled,
+        ):
+            if not self._voice_session_armed:
+                self._voice_session_armed = True
+                log_diagnostic(
+                    "voice_session_start",
+                    runtime_generation=self._runtime_generation,
+                    status="armed",
+                    reason="dialogue_mode_auto",
+                )
+            return
+        if self._voice_session_armed:
+            self._voice_session_armed = False
+            if self._mic_route.active_turn_id:
+                self._mic_route.on_utterance_discarded()
+            log_diagnostic(
+                "voice_session_stop",
+                runtime_generation=self._runtime_generation,
+                status="disarmed",
+                reason="dialogue_mode_auto",
+            )
 
     def start(self) -> None:
         self._running = True
         self._bump_runtime_generation()
         self._live2d_feedback.activate()
         self.refresh_model_bindings(bump_generation_on_vision_change=False)
+        self._sync_voice_session_with_dialogue_mode()
         log_diagnostic(
             "runtime_start",
             runtime_generation=self._runtime_generation,
@@ -488,6 +516,12 @@ class VirtualHostRuntimeService:
         self._running = False
         self._voice_session_armed = False
         self._mic_route.reset(reason="runtime_stop")
+        for state in self._audio.turns:
+            if state.source != "user_mic":
+                continue
+            if state.status in {"completed", "cancelled", "failed"}:
+                continue
+            self._audio.cancel_turn(state.turn_id, reason="runtime_stop")
         self._live2d_feedback.deactivate()
         self._playback_echo_guard_until = 0.0
         self._bump_runtime_generation()

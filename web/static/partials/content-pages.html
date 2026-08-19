@@ -426,12 +426,12 @@
 
           <section class="vtuber-model-card ui-card" aria-labelledby="vtuberInteractionHeading">
             <h3 id="vtuberInteractionHeading" class="settings-section-title">互动模式</h3>
-            <p class="settings-section-hint">两种模式互斥，可同时关闭；开启「虚拟主播对话」后进入语音对话模式。</p>
+            <p class="settings-section-hint">两种模式互斥，可同时关闭；开启「虚拟主播对话」后，启动虚拟主播时将自动开启语音聆听。</p>
             <div class="settings-rhythm-accordion-fields">
               <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--toggle">
                 <div class="flex-1 min-w-0">
                   <span class="settings-field-label">虚拟主播对话</span>
-                  <p class="text-xs text-gray-500 mt-1">开启后与虚拟主播进行语音对话；回复由虚拟主播播报并驱动口型。</p>
+                  <p class="text-xs text-gray-500 mt-1">开启后启动虚拟主播将自动聆听语音；回复由虚拟主播播报并驱动口型。关闭开关会立即停止语音聆听。</p>
                 </div>
                 <label class="toggle-switch">
                   <input type="checkbox" id="vtuberDialogueEnabled" role="switch">
@@ -461,21 +461,6 @@
             </div>
             <p id="vtuberModeSettingsStatus" class="settings-section-hint" role="status" aria-live="polite">正在读取互动模式…</p>
             <p id="vtuberKnowledgeSettingsStatus" class="settings-section-hint" role="status" aria-live="polite"></p>
-          </section>
-
-          <section id="vtuberVoiceCard" class="vtuber-model-card ui-card hidden" aria-labelledby="vtuberVoiceHeading" hidden>
-            <div class="vtuber-runtime-card__header">
-              <div class="min-w-0">
-                <h3 id="vtuberVoiceHeading" class="settings-section-title">语音对话</h3>
-                <p id="vtuberVoicePhaseText" class="settings-section-hint" role="status" aria-live="polite">语音对话未开启。</p>
-              </div>
-              <div class="vtuber-settings-actions vtuber-voice-actions" aria-label="语音对话控制">
-                <button type="button" id="btnVtuberVoiceStart" class="ui-button ui-button--primary ui-button--md">开始语音</button>
-                <button type="button" id="btnVtuberVoiceStop" class="ui-button ui-button--secondary ui-button--md" disabled>停止语音</button>
-                <button type="button" id="btnVtuberVoiceCancel" class="ui-button ui-button--secondary ui-button--md" disabled>取消</button>
-              </div>
-            </div>
-            <p id="vtuberVoiceStatus" class="settings-section-hint" role="status" aria-live="polite"></p>
           </section>
 
           <section class="vtuber-runtime-card ui-card" aria-labelledby="vtuberRuntimeHeading">
