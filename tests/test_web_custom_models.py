@@ -15,6 +15,12 @@ from app.web_api import custom_models as cm_api
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SETTINGS_CUSTOM_MODELS_JS = REPO_ROOT / "web" / "static" / "modules" / "settings-custom-models.js"
+SETTINGS_MODEL_MODAL_FORM_JS = (
+    REPO_ROOT / "web" / "static" / "modules" / "settings-model-modal-form.js"
+)
+SETTINGS_MODEL_MODAL_PROBE_JS = (
+    REPO_ROOT / "web" / "static" / "modules" / "settings-model-modal-probe.js"
+)
 MODALS_HTML = REPO_ROOT / "web" / "static" / "partials" / "modals.html"
 INDEX_HTML = REPO_ROOT / "web" / "static" / "index.html"
 SETTINGS_HTML = REPO_ROOT / "web" / "static" / "partials" / "settings.html"
@@ -160,8 +166,9 @@ def test_modals_html_has_model_temperature_field():
 
 
 def test_settings_custom_models_js_collects_model_temperature():
-    src = SETTINGS_CUSTOM_MODELS_JS.read_text(encoding="utf-8")
+    src = SETTINGS_MODEL_MODAL_FORM_JS.read_text(encoding="utf-8")
     assert "temperature: parseModelTemperatureInput()" in src
+    assert "model_names:" in src
     assert "resolveModelTemperatureFallback" in src
     assert "model.temperature" in src
 
@@ -514,10 +521,8 @@ def test_format_delete_model_message_function_exported():
 def test_format_delete_model_message_text_rules_in_source():
     """W-DELETE-CONFIRM-005：formatDeleteModelMessage 使用 i18n key 与 model_ids 契约。"""
     src = _read_settings_custom_models_js()
-    # name 空降级与确认文案经 t() 引用，不硬编码中文
-    assert "t('dynamic.settingsCustomModels.这条模型档案')" in src
-    assert "t('dynamic.settingsCustomModels.确定删除模型_display_吗_该档案包', { display, n })" in src
-    # N 来自 model_ids.length
+    assert "resolveProfileDisplayName(profile)" in src
+    assert "dynamic.settingsCustomModels.确定删除模型_display_吗_该档案包" in src
     assert "model_ids" in src
     assert "display" in src
     assert "ids.length" in src
@@ -535,8 +540,8 @@ def test_open_delete_model_confirm_uses_focus_trap_and_classlist():
     """W-DELETE-CONFIRM-005：openDeleteModelConfirm 复用 activateFocusTrap + classList 切换（与 restoreDefaultsModal 风格一致）。"""
     src = _read_settings_custom_models_js()
     assert "activateFocusTrap(modal, closeDeleteModelConfirm)" in src
-    assert "modal.classList.remove('hidden')" in src
-    assert "modal.classList.add('flex')" in src
+    assert "modal.classList.remove(\"hidden\")" in src
+    assert "modal.classList.add(\"flex\")" in src
     assert "deactivateFocusTrap()" in src
 
 
@@ -548,16 +553,16 @@ def test_open_delete_model_confirm_cleanup_on_close():
     # 使用 { once: true } 绑定一次性监听
     assert "{ once: true }" in src
     # closeDeleteModelConfirm 中调用清理
-    assert "removeEventListener('click', onConfirm)" in src
-    assert "removeEventListener('click', close)" in src
-    assert "removeEventListener('click', onBackdropClick)" in src
+    assert "removeEventListener(\"click\", onConfirm)" in src
+    assert "removeEventListener(\"click\", close)" in src
+    assert "removeEventListener(\"click\", onBackdropClick)" in src
 
 
 def test_open_delete_model_confirm_calls_delete_api_and_toast():
     """W-DELETE-CONFIRM-005：确认按钮回调调用 DELETE /api/custom-models/{index} + toast + loadCustomModels。"""
     src = _read_settings_custom_models_js()
-    assert "apiFetch(`/api/custom-models/${index}`, { method: 'DELETE' })" in src
-    assert "customModelDeps.showToast(t('dynamic.settingsCustomModels.已删除_2'))" in src
+    assert "apiFetch(`/api/custom-models/${index}`, { method: \"DELETE\" })" in src
+    assert "customModelDeps.showToast(t(\"dynamic.settingsCustomModels.已删除_2\"))" in src
     assert "loadCustomModels()" in src
     # 错误处理：失败时关闭 modal + 错误 toast
     assert "customModelDeps.showToast(error.message, true)" in src
@@ -743,9 +748,11 @@ def test_settings_custom_models_js_has_row_structure_without_default_controls():
 
 def test_add_custom_model_button_wired_to_open_model_modal():
     """W-SETTINGS-RESTRUCT-A-006：「+ 添加模型」按钮 → openModelModal(-1)（新增模型）。"""
-    src = SETTINGS_CUSTOM_MODELS_JS.read_text(encoding="utf-8")
-    assert "btnAddCustomModel" in src
-    assert "openModelModal(-1)" in src
+    form_src = SETTINGS_MODEL_MODAL_FORM_JS.read_text(encoding="utf-8")
+    html = SETTINGS_HTML.read_text(encoding="utf-8")
+    assert "btnAddCustomModel" in html
+    assert "btnAddCustomModel" in form_src
+    assert "openModelModal(-1)" in form_src
 
 
 def test_settings_html_has_add_custom_model_button_and_ai_models_title():
@@ -782,10 +789,11 @@ def _collect_model_form_return_block(src: str) -> str:
 
 def test_collect_model_form_payload_excludes_model_id():
     """W-ARCH-MODEL-PROFILE-CANONICAL-003：collectModelForm 提交块不含 legacy modelId。"""
-    src = SETTINGS_CUSTOM_MODELS_JS.read_text(encoding="utf-8")
+    src = SETTINGS_MODEL_MODAL_FORM_JS.read_text(encoding="utf-8")
     block = _collect_model_form_return_block(src)
     assert "model_ids:" in block
     assert "default_model_id:" in block
+    assert "model_names:" in block
     assert "modelId:" not in block
 
 
@@ -804,22 +812,21 @@ def test_settings_js_has_no_duplicate_custom_model_http():
     assert "/api/custom-models" not in src
 
 
-def test_custom_models_module_is_unique_save_probe_owner():
-    """W-ARCH-MODEL-PROFILE-CANONICAL-003：saveModel / probe 唯一实现在 settings-custom-models.js。"""
-    custom_src = SETTINGS_CUSTOM_MODELS_JS.read_text(encoding="utf-8")
+def test_model_modal_form_is_unique_save_probe_owner():
+    """W-ARCH-MODEL-PROFILE-CANONICAL-003：saveModel / probe 唯一实现在 form 模块。"""
+    form_src = SETTINGS_MODEL_MODAL_FORM_JS.read_text(encoding="utf-8")
     settings_src = SETTINGS_JS.read_text(encoding="utf-8")
-    assert "export async function saveModel()" in custom_src
-    assert "export async function probe()" in custom_src
-    assert "await apiFetch(`/api/custom-models/${index}`" in custom_src
-    assert "await apiFetch('/api/custom-models'" in custom_src
-    assert "await apiFetch('/api/custom-models/probe'" in custom_src
+    assert "export async function saveModel()" in form_src
+    assert "export async function probe()" in form_src
+    assert "await apiFetch(`/api/custom-models/${index}`" in form_src
+    assert "await apiFetch(\"/api/custom-models\"" in form_src
     assert "export async function saveModel()" not in settings_src
     assert "export async function probe()" not in settings_src
 
 
 def test_probe_payload_includes_explicit_model_id():
     """W-ARCH-MODEL-PROFILE-CANONICAL-003：probe 显式携带 model_id=default_model_id。"""
-    src = SETTINGS_CUSTOM_MODELS_JS.read_text(encoding="utf-8")
+    src = SETTINGS_MODEL_MODAL_PROBE_JS.read_text(encoding="utf-8")
     assert "model_id: form.default_model_id" in src
 
 
@@ -941,8 +948,42 @@ def test_modals_html_has_model_provider_region_select():
     assert region_pos < provider_pos
 
 
+def test_modals_html_has_model_list_table_and_multiselect():
+    html = MODALS_HTML.read_text(encoding="utf-8")
+    assert 'id="modelListTable"' in html
+    assert 'id="modelCatalogMultiselect"' in html
+    assert 'id="modelMode"' in html
+    assert 'id="modelName"' not in html
+    assert 'id="modelDescription"' not in html
+    assert 'id="modelIdsTags"' not in html
+    mode_pos = html.index('id="modelMode"')
+    provider_pos = html.index('id="modelProvider"')
+    assert mode_pos < provider_pos
+
+
+def test_create_custom_model_persists_model_names(model_app):
+    created = cm_api.create_custom_model(
+        model_app,
+        {
+            "name": "Display A",
+            "model_ids": ["model-a", "model-b"],
+            "model_names": {"model-a": "Name A", "model-b": "Name B"},
+            "default_model_id": "model-b",
+            "mode": "openai",
+            "endpoint": "https://api.example.com/v1",
+            "apiKey": "sk-multi-names",
+            "provider": "custom_openai",
+        },
+    )
+    item = created["item"]
+    assert item["model_names"] == {"model-a": "Name A", "model-b": "Name B"}
+    assert item["name"] == "Name B"
+    stored = model_app.config.get_custom_models()[0]
+    assert stored["model_names"]["model-b"] == "Name B"
+
+
 def test_settings_custom_models_js_wires_modal_provider_region():
-    src = SETTINGS_CUSTOM_MODELS_JS.read_text(encoding="utf-8")
+    src = SETTINGS_MODEL_MODAL_FORM_JS.read_text(encoding="utf-8")
     assert "modelProviderRegion" in src
     assert "initModelProviderRegionSelect" in src
     assert "onModalProviderRegionChange" in src

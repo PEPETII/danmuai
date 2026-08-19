@@ -52,27 +52,27 @@ def test_provider_status_hides_unknown_source_for_active_providers():
 def test_thinking_ui_is_per_model_advanced_configuration():
     settings = read("web/static/partials/settings.html")
     modal = read("web/static/partials/modals.html")
-    custom_models = read("web/static/modules/settings-custom-models.js")
+    form_js = read("web/static/modules/settings-model-modal-form.js")
     assert 'id="use_thinking"' not in settings
     assert 'id="thinking_effort"' not in settings
     assert 'id="thinking_always_on"' not in settings
     assert 'id="modelThinkingEffort"' in modal
     for value in ("off", "low", "medium", "high"):
         assert f'value="{value}"' in modal
-    assert "thinking_effort" in custom_models
+    assert "thinking_effort" in form_js
 
 
 def test_temperature_ui_is_per_model_advanced_configuration():
     settings = read("web/static/partials/settings.html")
     modal = read("web/static/partials/modals.html")
-    custom_models = read("web/static/modules/settings-custom-models.js")
+    form_js = read("web/static/modules/settings-model-modal-form.js")
     assert 'id="temperature"' not in settings
     assert 'id="modelTemperature"' in modal
     assert 'min="0"' in modal
     assert 'max="2"' in modal
     assert 'step="0.1"' in modal
-    assert "temperature" in custom_models
-    assert "parseModelTemperatureInput" in custom_models
+    assert "temperature" in form_js
+    assert "parseModelTemperatureInput" in form_js
 
 
 def test_locales_are_valid_json():
@@ -81,22 +81,20 @@ def test_locales_are_valid_json():
 
 
 def _sync_model_modal_mic_block(source: str) -> str:
-    marker = "export function syncModelModalUIState"
+    marker = "function syncModelMicForDefault"
     start = source.index(marker)
-    mic_idx = source.index("const mic = document.getElementById", start)
-    end = source.index("syncModelThinkingEffort", mic_idx)
-    return source[mic_idx:end]
+    end = source.index("export function expandModelModalAdvanced", start)
+    return source[start:end]
 
 
 def test_model_modal_mic_switch_allows_user_override():
-    """Catalog supports_mic is default-only; edit mode keeps saved supportsMic."""
+    """Default-model catalog gates mic; saved value preserved on open only."""
     source = read("web/static/modules/settings-model-modal-state.js")
-    custom_models = read("web/static/modules/settings-custom-models.js")
+    form_src = read("web/static/modules/settings-model-modal-form.js")
     mic_block = _sync_model_modal_mic_block(source)
 
-    assert "mic.disabled = true" not in mic_block
-    assert "mic.disabled = false" in mic_block
-    assert "!isEdit && isCatalogPreset" in mic_block
+    assert "mic.disabled = true" in mic_block
+    assert "preserveSaved" in mic_block
     assert "catalogModel.supports_mic" in mic_block
-    assert "supportsMicEl.checked = Boolean(model.supportsMic)" in custom_models
-    assert "supportsMic: Boolean(document.getElementById(\"modelSupportsMic\")" in custom_models
+    assert "supportsMicEl.checked = Boolean(model.supportsMic)" in form_src
+    assert "supportsMic: Boolean(document.getElementById(\"modelSupportsMic\")" in form_src

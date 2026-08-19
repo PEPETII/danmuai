@@ -26,6 +26,7 @@ from app.model_providers import (
     normalize_mode,
     validate_model_config,
 )
+from app.model_selection import catalog_display_name
 from app.translations import tr
 
 if TYPE_CHECKING:
@@ -62,6 +63,66 @@ def _global_temperature_fallback(app: "DanmuApp | None") -> float:
     if app is not None:
         return app.config.get_float("temperature", DEFAULT_TEMPERATURE)
     return DEFAULT_TEMPERATURE
+
+
+def _normalize_description(payload: dict, existing: dict | None) -> str:
+    if "description" in payload:
+        return (payload.get("description") or "").strip()
+    if existing is not None:
+        return (existing.get("description") or "").strip()
+    return ""
+
+
+def _normalize_model_names(
+    payload: dict,
+    existing: dict | None,
+    model_ids: list[str],
+    default_model_id: str,
+    provider: str,
+) -> dict[str, str]:
+    raw = payload.get("model_names")
+    if isinstance(raw, dict):
+        incoming = {
+            str(key).strip(): str(value).strip()
+            for key, value in raw.items()
+            if str(key).strip()
+        }
+    elif existing is not None and isinstance(existing.get("model_names"), dict):
+        incoming = {
+            str(key).strip(): str(value).strip()
+            for key, value in existing["model_names"].items()
+            if str(key).strip()
+        }
+    else:
+        incoming = {}
+
+    profile_name = (payload.get("name") or "").strip()
+    if not profile_name and existing is not None:
+        profile_name = (existing.get("name") or "").strip()
+
+    result: dict[str, str] = {}
+    for mid in model_ids:
+        name = incoming.get(mid, "").strip()
+        if not name and mid == default_model_id and profile_name:
+            name = profile_name
+        if not name:
+            catalog_name = catalog_display_name(provider, mid)
+            name = (catalog_name or mid).strip()
+        result[mid] = name
+    return result
+
+
+def _derive_profile_name(
+    model_names: dict[str, str],
+    default_model_id: str,
+    model_ids: list[str],
+) -> str:
+    if default_model_id and model_names.get(default_model_id):
+        return model_names[default_model_id]
+    if model_ids:
+        first = model_ids[0]
+        return model_names.get(first, first)
+    return ""
 
 
 def _mask_model(model: dict) -> dict:
@@ -214,16 +275,31 @@ def _normalize_payload(payload: dict, existing: dict | None = None, app: "DanmuA
         _merge_payload_for_canonicalization(payload, existing)
     )
     default_model_id = canonical["default_model_id"]
+    model_ids = canonical["model_ids"]
+    provider = (payload.get("provider") or (existing or {}).get("provider") or "").strip()
+    model_names = _normalize_model_names(
+        payload,
+        existing,
+        model_ids,
+        default_model_id,
+        provider,
+    )
+    profile_name = _derive_profile_name(model_names, default_model_id, model_ids)
+    if not profile_name:
+        profile_name = (payload.get("name") or "").strip()
+    if not profile_name and existing is not None:
+        profile_name = (existing.get("name") or "").strip()
     return {
-        "name": (payload.get("name") or "").strip(),
-        "model_ids": canonical["model_ids"],
+        "name": profile_name,
+        "model_ids": model_ids,
+        "model_names": model_names,
         "default_model_id": default_model_id,
         "max_tokens": canonical["max_tokens"],
         "mode": normalize_mode((payload.get("mode") or "doubao").strip()),
         "endpoint": normalize_endpoint((payload.get("endpoint") or "").strip()),
         "apiKey": _resolve_api_key(payload, existing, app),
-        "description": (payload.get("description") or "").strip(),
-        "provider": (payload.get("provider") or "").strip(),
+        "description": _normalize_description(payload, existing),
+        "provider": provider,
         "supportsMic": _normalize_supports_mic(payload, existing),
         "thinking_effort": _normalize_thinking_effort(payload, existing),
         "temperature": _normalize_temperature(payload, existing, app),

@@ -15,18 +15,21 @@
           <div id="modelEditor" class="model-editor">
             <div id="modelProviderMigrationWarning" class="model-warning hidden" role="alert" aria-live="polite"></div>
 
-            <div class="field">
-              <label for="modelName" data-i18n="modals.text.配置名称_可选">配置名称（可选）</label>
-              <input id="modelName" type="text" class="ui-control ui-input" data-i18n-placeholder="modals.placeholder.例如_豆包_Pro_32K" placeholder="例如：豆包 Pro 32K" autocomplete="off">
-              <p class="hint" data-i18n="modals.text.仅界面展示_不参与_API">仅用于界面展示，不参与 API 请求。</p>
-            </div>
-
-            <div class="field">
-              <label for="modelProviderRegion" data-i18n="dynamic.settingsCustomModels.平台区域">平台区域</label>
-              <select id="modelProviderRegion" class="ui-control ui-select">
-                <option value="china" data-i18n="dynamic.settingsCustomModels.国内">国内</option>
-                <option value="international" data-i18n="dynamic.settingsCustomModels.国外">国外</option>
-              </select>
+            <div class="field-row-2">
+              <div class="field">
+                <label for="modelProviderRegion" data-i18n="dynamic.settingsCustomModels.平台区域">平台区域</label>
+                <select id="modelProviderRegion" class="ui-control ui-select">
+                  <option value="china" data-i18n="dynamic.settingsCustomModels.国内">国内</option>
+                  <option value="international" data-i18n="dynamic.settingsCustomModels.国外">国外</option>
+                </select>
+              </div>
+              <div class="field">
+                <label class="settings-field-label" for="modelMode" data-i18n="dynamic.settingsCustomModels.接口协议">接口协议</label>
+                <select id="modelMode" class="ui-control ui-select">
+                  <option value="doubao" data-i18n="settings.text.豆包_火山方舟">豆包（火山方舟）</option>
+                  <option value="openai" data-i18n="settings.text.OpenAI_兼容接口">OpenAI 兼容接口</option>
+                </select>
+              </div>
             </div>
 
             <div class="field-row-2">
@@ -42,31 +45,13 @@
                 <p id="modelProviderError" class="model-field-error" role="alert"></p>
               </div>
               <div class="field">
-                <label for="modelIdPreset" data-i18n="dynamic.settingsCustomModels.选择模型">选择模型</label>
-                <select id="modelIdPreset" class="ui-control ui-select">
-                  <option value="__custom__" data-i18n="dynamic.settingsCustomModels.自定义配置">自定义配置</option>
-                </select>
-                <div id="modelPresetMeta" class="model-preset-meta hidden" aria-live="polite"></div>
+                <label for="modelCatalogMultiselectTrigger" data-i18n="dynamic.settingsCustomModels.选择模型">选择模型</label>
+                <div id="modelCatalogMultiselect" class="model-catalog-multiselect">
+                  <button type="button" id="modelCatalogMultiselectTrigger" class="ui-control ui-select model-catalog-multiselect-trigger" aria-haspopup="listbox" aria-expanded="false" data-i18n="dynamic.settingsCustomModels.选择模型">选择模型</button>
+                  <div id="modelCatalogMultiselectPanel" class="model-catalog-multiselect-panel hidden" role="listbox" aria-multiselectable="true"></div>
+                </div>
                 <p id="modelIdError" class="model-field-error" role="alert"></p>
               </div>
-            </div>
-
-            <div id="modelIdsTagsWrap" class="field model-ids-field hidden">
-              <label for="modelIdsInput" data-i18n="modals.text.模型_ID_列表">此配置包含的模型 ID</label>
-              <div id="modelIdsTags" class="tag-input-container">
-                <input id="modelIdsInput" class="tag-input" data-i18n-placeholder="dynamic.settingsCustomModels.例如_doubao_1_5_pro_32k_25" aria-describedby="modelIdsHint modelIdsDefaultHint modelIdListError" placeholder="例如：doubao-1-5-pro-32k-250115">
-              </div>
-              <p id="modelIdsHint" class="hint" data-i18n="modals.text.回车或逗号添加_点击_chip_切换默认">填写服务商提供的模型 ID（接口会按此名称识别模型）；按 Enter 或逗号添加，点击标签切换默认模型。</p>
-              <p id="modelIdsDefaultHint" class="hint" data-i18n="modals.text.第一个_chip_自动设为默认_删除默认_chip_后剩余第一个自动成为默认">第一个模型 ID 会自动设为默认；删除默认模型后，剩余第一个会自动接替。</p>
-              <select id="modelDefaultIdSelect" class="ui-control ui-select hidden" aria-label="默认模型"></select>
-              <p id="modelIdListError" class="model-field-error" role="alert"></p>
-            </div>
-
-            <div class="field">
-              <label for="modelEndpoint" data-i18n="dynamic.settingsCustomModels.API_地址">API 地址</label>
-              <input id="modelEndpoint" type="url" autocomplete="url" class="ui-control ui-input min-w-0" placeholder="https://api.openai.com/v1">
-              <p id="modelEndpointHint" class="hint" data-i18n="dynamic.settingsCustomModels.API_地址提示">支持 OpenAI 兼容的 Chat Completions 完整地址</p>
-              <p id="modelEndpointError" class="model-field-error" role="alert"></p>
             </div>
 
             <div class="field">
@@ -84,38 +69,30 @@
               <p id="modelApiKeyError" class="model-field-error" role="alert"></p>
             </div>
 
-            <div class="field-row-3 model-parameter-grid">
-              <div class="field model-parameter-field">
-                <label for="modelTemperature">
-                  <span data-i18n="modals.text.温度">温度</span>
-                  <span class="temp-hint" id="modelTemperatureHintLabel" data-i18n="dynamic.settingsCustomModels.温度精确">精确</span>
-                </label>
-                <div class="slider-group model-parameter-control">
-                  <input type="range" id="modelTemperatureRange" min="0" max="2" step="0.1" value="0.8" aria-label="温度滑块">
-                  <input type="number" id="modelTemperature" min="0" max="2" step="0.1" value="0.8" class="num-input ui-control ui-input" aria-describedby="modelTemperatureHint modelTemperatureError">
-                </div>
-                <p id="modelTemperatureHint" class="hint" data-i18n="dynamic.settingsCustomModels.温度提示">创意程度（0–2）。越高弹幕用词越发散，越低越稳定、越像固定话术。</p>
-                <p id="modelTemperatureError" class="model-field-error" role="alert"></p>
+            <div class="field">
+              <label for="modelEndpoint" data-i18n="dynamic.settingsCustomModels.API_地址">API 地址</label>
+              <input id="modelEndpoint" type="url" autocomplete="url" class="ui-control ui-input min-w-0" placeholder="https://api.openai.com/v1">
+              <p id="modelEndpointHint" class="hint" data-i18n="dynamic.settingsCustomModels.API_地址提示">支持 OpenAI 兼容的 Chat Completions 完整地址</p>
+              <p id="modelEndpointError" class="model-field-error" role="alert"></p>
+            </div>
+
+            <div class="field model-list-field">
+              <div class="model-list-header">
+                <span class="model-list-title" data-i18n="dynamic.settingsCustomModels.模型列表">模型列表</span>
+                <button type="button" id="btnAddCustomModelId" class="ui-button ui-button--secondary ui-button--sm" data-i18n="dynamic.settingsCustomModels.添加自定义模型_ID">添加自定义模型 ID</button>
               </div>
-              <div class="field model-parameter-field model-max-tokens-field">
-                <label for="modelMaxTokens" data-i18n="dynamic.settingsCustomModels.最大输出_Token">最大 Token</label>
-                <div class="model-parameter-control">
-                  <input id="modelMaxTokens" type="number" min="512" value="512" class="ui-control ui-input">
-                </div>
-                <p id="modelMaxTokensHint" class="hint" data-i18n="dynamic.settingsCustomModels.最大输出_Token_提示">限制单次回复允许生成的最大 Token 数。</p>
-                <p id="modelMaxTokensError" class="model-field-error" role="alert"></p>
-              </div>
-              <div class="field model-parameter-field model-mic-field">
-                <label for="modelSupportsMic" data-i18n="dynamic.settingsCustomModels.音频输入能力">音频输入能力</label>
-                <label class="toggle-row model-mic-toggle" for="modelSupportsMic">
-                  <span class="toggle-label" data-i18n="dynamic.settingsCustomModels.支持麦克风">支持麦克风</span>
-                  <span class="toggle-switch">
-                    <input type="checkbox" id="modelSupportsMic" role="switch">
-                    <span aria-hidden="true"></span>
-                  </span>
-                </label>
-                <p class="hint" data-i18n="dynamic.settingsCustomModels.音频输入能力_说明">表示模型是否支持接收音频输入</p>
-              </div>
+              <table id="modelListTable" class="model-list-table" aria-label="模型列表">
+                <thead>
+                  <tr>
+                    <th scope="col" data-i18n="dynamic.settingsCustomModels.默认">默认</th>
+                    <th scope="col" data-i18n="dynamic.settingsCustomModels.模型_ID">模型 ID</th>
+                    <th scope="col" data-i18n="dynamic.settingsCustomModels.模型名称">模型名称</th>
+                    <th scope="col" data-i18n="dynamic.settingsCustomModels.操作">操作</th>
+                  </tr>
+                </thead>
+                <tbody id="modelListTableBody"></tbody>
+              </table>
+              <p id="modelIdListError" class="model-field-error" role="alert"></p>
             </div>
           </div>
 
@@ -142,18 +119,36 @@
               </h4>
               <div id="modelModalAdvancedPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="modelModalAdvancedTrigger" hidden>
                 <div class="settings-rhythm-accordion-fields">
-                  <div class="settings-rhythm-accordion-field">
-                    <label class="settings-field-label" for="modelMode" data-i18n="dynamic.settingsCustomModels.接口协议">接口协议</label>
-                    <select id="modelMode" class="settings-field-control ui-control ui-select">
-                      <option value="doubao" data-i18n="settings.text.豆包_火山方舟">豆包（火山方舟）</option>
-                      <option value="openai" data-i18n="settings.text.OpenAI_兼容接口">OpenAI 兼容接口</option>
-                    </select>
-                  </div>
-                  <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--stacked">
-                    <label class="settings-field-label" for="modelDescription" data-i18n="dynamic.settingsCustomModels.使用说明_可选">使用说明（可选）</label>
-                    <div class="settings-rhythm-accordion-control-stack">
-                      <input id="modelDescription" class="settings-field-control ui-control ui-input" data-i18n-placeholder="modals.placeholder.备注用途_如_识图主力模型" placeholder="备注用途，如“识图主力模型”">
+                  <div class="field model-parameter-field">
+                    <label for="modelTemperature">
+                      <span data-i18n="modals.text.温度">温度</span>
+                      <span class="temp-hint" id="modelTemperatureHintLabel" data-i18n="dynamic.settingsCustomModels.温度精确">精确</span>
+                    </label>
+                    <div class="slider-group model-parameter-control">
+                      <input type="range" id="modelTemperatureRange" min="0" max="2" step="0.1" value="0.8" aria-label="温度滑块">
+                      <input type="number" id="modelTemperature" min="0" max="2" step="0.1" value="0.8" class="num-input ui-control ui-input" aria-describedby="modelTemperatureHint modelTemperatureError">
                     </div>
+                    <p id="modelTemperatureHint" class="hint" data-i18n="dynamic.settingsCustomModels.温度提示">创意程度（0–2）。越高弹幕用词越发散，越低越稳定、越像固定话术。</p>
+                    <p id="modelTemperatureError" class="model-field-error" role="alert"></p>
+                  </div>
+                  <div class="field model-parameter-field model-max-tokens-field">
+                    <label for="modelMaxTokens" data-i18n="dynamic.settingsCustomModels.最大输出_Token">最大 Token</label>
+                    <div class="model-parameter-control">
+                      <input id="modelMaxTokens" type="number" min="512" value="512" class="ui-control ui-input">
+                    </div>
+                    <p id="modelMaxTokensHint" class="hint" data-i18n="dynamic.settingsCustomModels.最大输出_Token_提示">限制单次回复允许生成的最大 Token 数。</p>
+                    <p id="modelMaxTokensError" class="model-field-error" role="alert"></p>
+                  </div>
+                  <div class="field model-parameter-field model-mic-field">
+                    <label for="modelSupportsMic" data-i18n="dynamic.settingsCustomModels.音频输入能力">音频输入能力</label>
+                    <label class="toggle-row model-mic-toggle" for="modelSupportsMic">
+                      <span class="toggle-label" data-i18n="dynamic.settingsCustomModels.支持麦克风">支持麦克风</span>
+                      <span class="toggle-switch">
+                        <input type="checkbox" id="modelSupportsMic" role="switch">
+                        <span aria-hidden="true"></span>
+                      </span>
+                    </label>
+                    <p class="hint" data-i18n="dynamic.settingsCustomModels.音频输入能力_说明">表示模型是否支持接收音频输入</p>
                   </div>
                   <div class="model-modal-field-block">
                     <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--stacked">

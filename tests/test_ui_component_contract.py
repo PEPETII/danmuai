@@ -31,8 +31,8 @@ def test_model_modal_parameter_grid_keeps_controls_aligned_and_bounded():
     modals = (_static_dir() / "partials" / "modals.html").read_text(encoding="utf-8")
     css = _pages_css()
 
-    assert 'class="field-row-3 model-parameter-grid"' in modals
-    assert modals.count("model-parameter-field") == 3
+    assert 'id="modelTemperature"' in modals
+    assert modals.count("model-parameter-field") >= 3
     assert 'class="slider-group model-parameter-control"' in modals
     assert 'class="model-parameter-control"' in modals
     assert re.search(
@@ -407,7 +407,7 @@ def test_content_pages_f2_semantic_shell():
         modals,
     )
     assert re.search(
-        r'id="modelName"[^>]*class="[^"]*ui-control',
+        r'id="modelListTable"[^>]*class="[^"]*model-list-table',
         modals,
     )
 

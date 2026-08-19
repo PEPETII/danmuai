@@ -1,48 +1,13 @@
 import { t } from "./i18n.js";
+import { getModelNameFromCatalog } from "./settings-model-catalog.js";
 
-const CUSTOM_VALUE = "__custom__";
 const MODEL_TEMPERATURE_MIN = 0;
 const MODEL_TEMPERATURE_MAX = 2;
 
-function getChips() {
-  return Array.from(
-    document.querySelectorAll("#modelIdsTags .tag-chip[data-value]"),
-  );
-}
-
-function setChipDefault(chip, isDefault) {
-  if (!chip) return;
-  if (isDefault) chip.setAttribute("data-default", "1");
-  else chip.removeAttribute("data-default");
-  let mark = chip.querySelector(".tag-default-mark");
-  if (isDefault && !mark) {
-    mark = document.createElement("span");
-    mark.className = "tag-default-mark";
-    mark.textContent = t("common.defaultLabel");
-    chip.insertBefore(mark, chip.querySelector(".tag-remove"));
-  } else if (!isDefault && mark) mark.remove();
-}
-
-function syncDefaultSelect() {
-  const select = document.getElementById("modelDefaultIdSelect");
-  if (!select) return;
-  const chips = getChips();
-  const ids = chips.map((chip) => chip.dataset.value || "").filter(Boolean);
-  const current =
-    chips.find((chip) => chip.hasAttribute("data-default"))?.dataset.value ||
-    ids[0] ||
-    "";
-  select.replaceChildren(
-    ...ids.map((id) => {
-      const option = document.createElement("option");
-      option.value = id;
-      option.textContent = id;
-      option.selected = id === current;
-      return option;
-    }),
-  );
-  select.classList.toggle("hidden", ids.length <= 1);
-  select.value = current;
+function resolveCatalogModel(defaultModelId, catalogModels) {
+  const id = String(defaultModelId || "").trim();
+  if (!id) return null;
+  return catalogModels.find((model) => model.id === id) || null;
 }
 
 function setAdvancedOpen(open) {
@@ -64,18 +29,62 @@ function syncModelThinkingEffort({ catalogModel = null } = {}) {
   const hint = document.getElementById("modelThinkingEffortHint");
   if (!select) return;
 
-  const mode = String(catalogModel?.thinking_mode || "").trim().toLowerCase();
+  if (!catalogModel) {
+    select.value = "off";
+    select.disabled = true;
+    if (hint) {
+      hint.textContent = t(
+        "dynamic.settingsCustomModels.暂未获取到该模型的能力信息",
+      );
+    }
+    return;
+  }
+
+  const mode = String(catalogModel.thinking_mode || "").trim().toLowerCase();
   if (mode === "off") {
     select.value = "off";
     select.disabled = true;
-    if (hint) hint.textContent = t("dynamic.settingsCustomModels.该模型未声明思考能力");
+    if (hint) {
+      hint.textContent = t(
+        "dynamic.settingsCustomModels.该模型未声明思考能力",
+      );
+    }
   } else if (mode === "always") {
     select.value = "high";
     select.disabled = true;
-    if (hint) hint.textContent = t("dynamic.settingsCustomModels.该模型始终开启思考");
+    if (hint) {
+      hint.textContent = t("dynamic.settingsCustomModels.该模型始终开启思考");
+    }
   } else {
     select.disabled = false;
-    if (hint) hint.textContent = t("dynamic.settingsCustomModels.思考程度提示");
+    if (hint) {
+      hint.textContent = t("dynamic.settingsCustomModels.思考程度提示");
+    }
+  }
+}
+
+function syncModelMicForDefault({
+  catalogModel = null,
+  preserveSaved = false,
+} = {}) {
+  const mic = document.getElementById("modelSupportsMic");
+  if (!mic) return;
+
+  if (!catalogModel) {
+    mic.checked = false;
+    mic.disabled = true;
+    return;
+  }
+
+  if (!catalogModel.supports_mic) {
+    mic.checked = false;
+    mic.disabled = true;
+    return;
+  }
+
+  mic.disabled = false;
+  if (!preserveSaved) {
+    mic.checked = Boolean(catalogModel.supports_mic);
   }
 }
 
@@ -88,43 +97,26 @@ export function syncModelModalUIState({
   isEdit = false,
   catalogModels = [],
   customProvider = false,
+  defaultModelId = "",
+  preserveSavedCapabilities = false,
 } = {}) {
-  const preset = document.getElementById("modelIdPreset");
-  const selectedId = preset?.value || "";
-  const catalogModel = catalogModels.find((model) => model.id === selectedId);
-  const isCatalogPreset = Boolean(catalogModel) && selectedId !== CUSTOM_VALUE;
+  const catalogModel = resolveCatalogModel(defaultModelId, catalogModels);
   const endpoint = document.getElementById("modelEndpoint");
-  const modelIdsWrap = document.getElementById("modelIdsTagsWrap");
-  const input = document.getElementById("modelIdsInput");
-  const mic = document.getElementById("modelSupportsMic");
-  const customIds =
-    customProvider ||
-    selectedId === CUSTOM_VALUE ||
-    (isEdit && !isCatalogPreset);
+  const customIds = customProvider;
 
   if (endpoint) {
     endpoint.readOnly = !customProvider;
     endpoint.classList.toggle("bg-gray-100", !customProvider);
     endpoint.classList.toggle("cursor-not-allowed", !customProvider);
   }
-  if (modelIdsWrap) modelIdsWrap.classList.toggle("hidden", !customIds);
-  if (input) {
-    input.disabled = !customIds;
-    input.placeholder = customIds
-      ? t("dynamic.settingsCustomModels.例如_doubao_1_5_pro_32k_25")
-      : "";
-  }
-  if (mic) {
-    mic.disabled = false;
-    // Catalog supports_mic is a default for new profiles only; saved supportsMic wins in edit mode.
-    if (!isEdit && isCatalogPreset && catalogModel) {
-      mic.checked = Boolean(catalogModel.supports_mic);
-    }
-  }
-  syncModelThinkingEffort({ catalogModel: isCatalogPreset ? catalogModel : null });
-  syncDefaultSelect();
-  setAdvancedOpen(customIds || (isEdit && !isCatalogPreset));
-  return { isCatalogPreset, customIds, catalogModel };
+
+  syncModelMicForDefault({
+    catalogModel,
+    preserveSaved: preserveSavedCapabilities,
+  });
+  syncModelThinkingEffort({ catalogModel });
+  setAdvancedOpen(customIds);
+  return { catalogModel, customIds };
 }
 
 function coerceTemperatureValue(value) {
@@ -208,7 +200,7 @@ export function initModelApiKeyVisibility() {
 }
 
 export function syncModelDefaultSelect() {
-  syncDefaultSelect();
+  /* default model radios live in the model list table */
 }
 
 export function setModelModalBusy(isBusy, label = "") {
@@ -228,14 +220,12 @@ export function setModelModalBusy(isBusy, label = "") {
 }
 
 export function bindModelDefaultSelect() {
-  const select = document.getElementById("modelDefaultIdSelect");
-  if (!select || select.dataset.bound === "true") return;
-  select.dataset.bound = "true";
-  select.addEventListener("change", () => {
-    const selected = select.value;
-    getChips().forEach((chip) =>
-      setChipDefault(chip, chip.dataset.value === selected),
-    );
-    syncDefaultSelect();
-  });
+  /* handled by settings-model-modal-list.js */
+}
+
+export function resolveDefaultModelCatalog(providerId, defaultModelId) {
+  const id = String(defaultModelId || "").trim();
+  if (!id) return null;
+  const name = getModelNameFromCatalog(providerId, id);
+  return name ? { id, name } : { id, name: id };
 }

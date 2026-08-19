@@ -571,7 +571,15 @@
       "高级配置": "Advanced",
       "高级配置_说明": "Usually leave unchanged; for custom endpoints or special models.",
       "接口协议": "API protocol",
-      "使用说明_可选": "Notes (optional)"
+      "使用说明_可选": "Notes (optional)",
+      "模型列表": "Model list",
+      "模型_ID": "Model ID",
+      "模型名称": "Model name",
+      "操作": "Actions",
+      "添加自定义模型_ID": "Add custom model ID",
+      "已选模型数量": "{count} models selected",
+      "服务商停服提示": "This provider is scheduled for shutdown on {date}.",
+      "查看迁移公告": "View migration notice"
     },
     "settingsDanmuPreview": {
       "这波操作666": "That play was insane",
