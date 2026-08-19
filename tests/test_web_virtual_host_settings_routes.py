@@ -64,6 +64,29 @@ def test_virtual_host_settings_put_requires_auth_and_applies_patch():
     bridge.danmu_app.apply_virtual_host_settings.assert_called_once_with({"dialogue_enabled": True})
 
 
+def test_virtual_host_settings_put_applies_knowledge_enabled_patch():
+    client, bridge = _client()
+    bridge.danmu_app.apply_virtual_host_settings.return_value = {
+        "dialogue_enabled": False,
+        "danmu_adapter_enabled": True,
+        "knowledge_enabled": False,
+        "runtime_status": "stopped",
+        "runtime_generation": 1,
+    }
+
+    response = client.put(
+        "/api/virtual-host/settings",
+        json={"knowledge_enabled": False},
+        headers={"Authorization": "Bearer virtual-host-secret"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["knowledge_enabled"] is False
+    bridge.danmu_app.apply_virtual_host_settings.assert_called_once_with(
+        {"knowledge_enabled": False}
+    )
+
+
 def test_virtual_host_settings_put_maps_mutual_exclusive_error_to_400():
     client, bridge = _client()
     bridge.danmu_app.apply_virtual_host_settings.side_effect = ValueError(

@@ -162,6 +162,42 @@ def test_voice_chat_request_carries_session_scene_and_knowledge_context(monkeypa
     assert captured["knowledge_kwargs"]["request_round"] == 1
 
 
+def test_voice_chat_skips_knowledge_when_disabled(monkeypatch, qapp):
+    config = _dialogue_config()
+    config.set_batch({"virtual_host_knowledge_enabled": "0"})
+    service = _dialogue_service_with_persona(monkeypatch, config)
+    captured: dict[str, object] = {"retrieve_called": False}
+
+    class _Retriever:
+        def retrieve(self, **kwargs):
+            captured["retrieve_called"] = True
+            return None
+
+    service._knowledge_adapter = KnowledgeContextAdapter(retriever=_Retriever())
+
+    def _fake_request(prompt, resolved, *, session_id, turn_id):
+        del resolved, session_id, turn_id
+        captured["system_text"], captured["user_text"] = prompt.render()
+        return HostChatHttpResult(
+            ok=True,
+            result=HostTurnResult(session_id=service.session.session_id, turn_id=1, text="收到"),
+        )
+
+    monkeypatch.setattr("app.virtual_host.runtime_service.request_host_chat", _fake_request)
+    monkeypatch.setattr(
+        "app.virtual_host.runtime_service.transcribe_pcm",
+        lambda _cfg, pcm: MicTranscriptionResult(True, text="你好"),
+    )
+
+    assert service.on_mic_speech_start()
+    assert service.on_mic_utterance_end(b"pcm")
+    _wait_pool(service, qapp)
+
+    assert captured["retrieve_called"] is False
+    assert "知识片段" not in str(captured["system_text"])
+    assert "No verified knowledge was injected" in str(captured["user_text"])
+
+
 def test_voice_chat_does_not_inject_recent_danmu_batches(monkeypatch, qapp):
     config = _dialogue_config()
     service = _dialogue_service_with_persona(monkeypatch, config)

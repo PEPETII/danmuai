@@ -295,17 +295,21 @@
       "消息样式": "消息样式",
       "显示与退场": "显示与退场",
       "虚拟主播人格": "虚拟主播人格",
+      "vtuberKnowledgeRetrieval": "知识库检索",
       "保存": "保存",
       "恢复默认": "恢复默认"
     },
     "hint": {
       "vtuberPersonaScope": "此处仅影响虚拟主播语音对话与弹幕适配的基础人格层，不影响全局 AI 读弹幕、普通弹幕人格或桌宠。",
       "vtuberPersonaSystem": "描述虚拟主播身份、性格、语言风格和长期行为边界。",
-      "vtuberPersonaVoice": "描述如何回应玩家语音；强调以当前语音为主要回应对象，避免无请求主动评论画面或弹幕。"
+      "vtuberPersonaVoice": "描述如何回应玩家语音；强调以当前语音为主要回应对象，避免无请求主动评论画面或弹幕。",
+      "vtuberKnowledgeScope": "仅影响虚拟主播语音对话与弹幕适配生成时的知识库检索注入，不影响全局 AI 读弹幕或弹幕知识库管理。",
+      "vtuberKnowledgeEnabled": "开启后，虚拟主播在语音对话或弹幕适配回复前会按当前语境检索已启用的弹幕知识库条目，并将有限摘要注入 Prompt。"
     },
     "label": {
       "vtuberPersonaSystem": "基础人格 Prompt",
-      "vtuberPersonaVoice": "语音对话 Prompt"
+      "vtuberPersonaVoice": "语音对话 Prompt",
+      "vtuberKnowledgeEnabled": "检索弹幕知识库"
     },
     "placeholder": {
       "太真实了_10_这也行": "太真实了&#10;这也行？",

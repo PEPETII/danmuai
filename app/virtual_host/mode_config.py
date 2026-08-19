@@ -6,11 +6,15 @@ from typing import Any
 
 DIALOGUE_ENABLED_KEY = "virtual_host_dialogue_enabled"
 DANMU_ADAPTER_ENABLED_KEY = "virtual_host_danmu_adapter_enabled"
+KNOWLEDGE_ENABLED_KEY = "virtual_host_knowledge_enabled"
 
 DEFAULT_DIALOGUE_ENABLED = "0"
 DEFAULT_DANMU_ADAPTER_ENABLED = "1"
+DEFAULT_KNOWLEDGE_ENABLED = "1"
 
-ALLOWED_PATCH_KEYS = frozenset({"dialogue_enabled", "danmu_adapter_enabled"})
+ALLOWED_PATCH_KEYS = frozenset(
+    {"dialogue_enabled", "danmu_adapter_enabled", "knowledge_enabled"}
+)
 
 
 def _read_bool(config, key: str, *, default: str) -> bool:
@@ -19,6 +23,10 @@ def _read_bool(config, key: str, *, default: str) -> bool:
 
 def _write_bool(enabled: bool) -> str:
     return "1" if enabled else "0"
+
+
+def virtual_host_knowledge_enabled(config) -> bool:
+    return _read_bool(config, KNOWLEDGE_ENABLED_KEY, default=DEFAULT_KNOWLEDGE_ENABLED)
 
 
 def sanitize_virtual_host_mode_settings(config, *, persist: bool = False) -> dict[str, str]:
@@ -30,16 +38,19 @@ def sanitize_virtual_host_mode_settings(config, *, persist: bool = False) -> dic
         DANMU_ADAPTER_ENABLED_KEY,
         default=DEFAULT_DANMU_ADAPTER_ENABLED,
     )
+    knowledge = virtual_host_knowledge_enabled(config)
     if dialogue and danmu_adapter:
         dialogue = False
     normalized = {
         DIALOGUE_ENABLED_KEY: _write_bool(dialogue),
         DANMU_ADAPTER_ENABLED_KEY: _write_bool(danmu_adapter),
+        KNOWLEDGE_ENABLED_KEY: _write_bool(knowledge),
     }
     if persist:
         current = {
             DIALOGUE_ENABLED_KEY: str(config.get(DIALOGUE_ENABLED_KEY, "") or ""),
             DANMU_ADAPTER_ENABLED_KEY: str(config.get(DANMU_ADAPTER_ENABLED_KEY, "") or ""),
+            KNOWLEDGE_ENABLED_KEY: str(config.get(KNOWLEDGE_ENABLED_KEY, "") or ""),
         }
         if current != normalized:
             setter = getattr(config, "set_batch", None)
@@ -53,6 +64,7 @@ def export_virtual_host_mode_settings(config) -> dict[str, bool]:
     return {
         "dialogue_enabled": normalized[DIALOGUE_ENABLED_KEY] == "1",
         "danmu_adapter_enabled": normalized[DANMU_ADAPTER_ENABLED_KEY] == "1",
+        "knowledge_enabled": normalized[KNOWLEDGE_ENABLED_KEY] == "1",
     }
 
 
@@ -95,6 +107,10 @@ def apply_virtual_host_mode_settings(config, patch: dict[str, Any]) -> dict[str,
     if dialogue and danmu_adapter:
         raise ValueError("virtual_host_modes_mutually_exclusive")
 
+    knowledge = current["knowledge_enabled"]
+    if "knowledge_enabled" in patch and patch["knowledge_enabled"] is not None:
+        knowledge = bool(patch["knowledge_enabled"])
+
     setter = getattr(config, "set_batch", None)
     if not callable(setter):
         raise RuntimeError("config store unavailable")
@@ -102,6 +118,7 @@ def apply_virtual_host_mode_settings(config, patch: dict[str, Any]) -> dict[str,
         {
             DIALOGUE_ENABLED_KEY: _write_bool(dialogue),
             DANMU_ADAPTER_ENABLED_KEY: _write_bool(danmu_adapter),
+            KNOWLEDGE_ENABLED_KEY: _write_bool(knowledge),
         }
     )
     return export_virtual_host_mode_settings(config)
@@ -112,8 +129,11 @@ __all__ = [
     "DANMU_ADAPTER_ENABLED_KEY",
     "DEFAULT_DANMU_ADAPTER_ENABLED",
     "DEFAULT_DIALOGUE_ENABLED",
+    "DEFAULT_KNOWLEDGE_ENABLED",
     "DIALOGUE_ENABLED_KEY",
+    "KNOWLEDGE_ENABLED_KEY",
     "apply_virtual_host_mode_settings",
     "export_virtual_host_mode_settings",
     "sanitize_virtual_host_mode_settings",
+    "virtual_host_knowledge_enabled",
 ]

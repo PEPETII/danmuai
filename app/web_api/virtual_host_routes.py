@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 class VirtualHostSettingsPatch(BaseModel):
     dialogue_enabled: bool | None = None
     danmu_adapter_enabled: bool | None = None
+    knowledge_enabled: bool | None = None
 
 
 class VirtualHostPersonaPatch(BaseModel):

@@ -295,17 +295,21 @@
       "消息样式": "Message Style",
       "显示与退场": "Display & Exit",
       "虚拟主播人格": "Virtual host persona",
+      "vtuberKnowledgeRetrieval": "Knowledge retrieval",
       "保存": "Save",
       "恢复默认": "Restore defaults"
     },
     "hint": {
       "vtuberPersonaScope": "Affects only the virtual host base persona layer for voice chat and danmu adaptation—not global AI read-danmu, regular danmu personas, or the desktop pet.",
       "vtuberPersonaSystem": "Describe the host identity, personality, tone, and long-term behavior boundaries.",
-      "vtuberPersonaVoice": "Describe how to respond to player speech; focus on the current utterance and avoid unsolicited commentary on the screen or danmu."
+      "vtuberPersonaVoice": "Describe how to respond to player speech; focus on the current utterance and avoid unsolicited commentary on the screen or danmu.",
+      "vtuberKnowledgeScope": "Affects only knowledge retrieval injection for virtual host voice chat and danmu adaptation—not global AI read-danmu or knowledge package management.",
+      "vtuberKnowledgeEnabled": "When on, the virtual host retrieves enabled knowledge items from the danmu knowledge base before voice or danmu-adaptation replies and injects a bounded summary into the prompt."
     },
     "label": {
       "vtuberPersonaSystem": "Base persona prompt",
-      "vtuberPersonaVoice": "Voice dialogue prompt"
+      "vtuberPersonaVoice": "Voice dialogue prompt",
+      "vtuberKnowledgeEnabled": "Retrieve danmu knowledge base"
     },
     "placeholder": {
       "太真实了_10_这也行": "So real&#10;How is this allowed?",

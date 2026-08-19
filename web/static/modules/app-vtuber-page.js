@@ -59,6 +59,10 @@ function renderModeSettingsStatus(message) {
   setText('vtuberModeSettingsStatus', message || '');
 }
 
+function renderKnowledgeSettingsStatus(message) {
+  setText('vtuberKnowledgeSettingsStatus', message || '');
+}
+
 function renderVoiceStatusMessage(message) {
   setText('vtuberVoiceStatus', message || '');
 }
@@ -355,7 +359,14 @@ function snapshotHostModeSettings() {
   return {
     dialogue_enabled: Boolean(hostSettingsCache?.dialogue_enabled),
     danmu_adapter_enabled: Boolean(hostSettingsCache?.danmu_adapter_enabled),
+    knowledge_enabled: Boolean(hostSettingsCache?.knowledge_enabled),
   };
+}
+
+function describeKnowledgeSettings(data) {
+  return Boolean(data?.knowledge_enabled)
+    ? '已开启：语音对话与弹幕适配生成时将检索弹幕知识库。'
+    : '已关闭：虚拟主播回复不再注入知识库检索结果。';
 }
 
 function describeHostModeSettings(data) {
@@ -370,9 +381,12 @@ function renderHostSettings(data) {
   hostSettingsCache = data || null;
   const dialogueToggle = element('vtuberDialogueEnabled');
   const adapterToggle = element('vtuberDanmuAdapterEnabled');
+  const knowledgeToggle = element('vtuberKnowledgeEnabled');
   if (dialogueToggle) dialogueToggle.checked = Boolean(data?.dialogue_enabled);
   if (adapterToggle) adapterToggle.checked = Boolean(data?.danmu_adapter_enabled);
+  if (knowledgeToggle) knowledgeToggle.checked = Boolean(data?.knowledge_enabled);
   renderModeSettingsStatus(describeHostModeSettings(data));
+  renderKnowledgeSettingsStatus(describeKnowledgeSettings(data));
   if (voiceStatusCache) {
     renderVoiceCard({
       ...voiceStatusCache,
@@ -398,7 +412,7 @@ async function loadHostSettings() {
   }
 }
 
-async function saveHostSettings(patch) {
+async function saveHostSettings(patch, { successToast = '互动模式已保存' } = {}) {
   const previous = snapshotHostModeSettings();
   const leavingDialogue = previous.dialogue_enabled && (
     patch.dialogue_enabled === false || patch.danmu_adapter_enabled === true
@@ -423,9 +437,19 @@ async function saveHostSettings(patch) {
   } else if (patch.danmu_adapter_enabled === false) {
     optimistic.danmu_adapter_enabled = false;
   }
+  if (patch.knowledge_enabled === true) {
+    optimistic.knowledge_enabled = true;
+  } else if (patch.knowledge_enabled === false) {
+    optimistic.knowledge_enabled = false;
+  }
   renderHostSettings({ ...(hostSettingsCache || {}), ...optimistic });
   const token = ++hostSettingsSaveToken;
-  renderModeSettingsStatus('正在保存互动模式…');
+  const savingKnowledgeOnly = Object.keys(patch).length === 1 && 'knowledge_enabled' in patch;
+  if (savingKnowledgeOnly) {
+    renderKnowledgeSettingsStatus('正在保存知识库检索设置…');
+  } else {
+    renderModeSettingsStatus('正在保存互动模式…');
+  }
   try {
     const data = await apiFetch('/api/virtual-host/settings', {
       method: 'PUT',
@@ -435,12 +459,16 @@ async function saveHostSettings(patch) {
     if (token !== hostSettingsSaveToken) return data;
     renderHostSettings(data);
     await loadVoiceStatus({ silent: true }).catch(() => {});
-    toast('互动模式已保存');
+    toast(successToast);
     return data;
   } catch (error) {
     if (token === hostSettingsSaveToken) {
       renderHostSettings({ ...(hostSettingsCache || {}), ...previous });
-      renderModeSettingsStatus(error?.message || '保存互动模式失败');
+      if (savingKnowledgeOnly) {
+        renderKnowledgeSettingsStatus(error?.message || '保存知识库检索设置失败');
+      } else {
+        renderModeSettingsStatus(error?.message || '保存互动模式失败');
+      }
     }
     throw error;
   }
@@ -616,6 +644,13 @@ export function initVtuberPage(deps = {}) {
     const enabled = Boolean(event.target?.checked);
     saveHostSettings({ danmu_adapter_enabled: enabled })
       .catch((error) => toast(error.message, true));
+  });
+  element('vtuberKnowledgeEnabled')?.addEventListener('change', (event) => {
+    const enabled = Boolean(event.target?.checked);
+    saveHostSettings(
+      { knowledge_enabled: enabled },
+      { successToast: '知识库检索设置已保存' },
+    ).catch((error) => toast(error.message, true));
   });
   const displayScaleRange = element('vtuberDisplayScaleRange');
   const displayScaleInput = element('vtuberDisplayScaleInput');

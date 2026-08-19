@@ -438,8 +438,19 @@
                   <span aria-hidden="true"></span>
                 </label>
               </div>
+              <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--toggle">
+                <div class="flex-1 min-w-0">
+                  <span class="settings-field-label" data-i18n="content.label.vtuberKnowledgeEnabled">检索弹幕知识库</span>
+                  <p class="text-xs text-gray-500 mt-1" data-i18n="content.hint.vtuberKnowledgeEnabled">开启后，虚拟主播在语音对话或弹幕适配回复前会按当前语境检索已启用的弹幕知识库条目，并将有限摘要注入 Prompt。</p>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="vtuberKnowledgeEnabled" role="switch" aria-describedby="vtuberKnowledgeSettingsStatus">
+                  <span aria-hidden="true"></span>
+                </label>
+              </div>
             </div>
             <p id="vtuberModeSettingsStatus" class="settings-section-hint" role="status" aria-live="polite">正在读取互动模式…</p>
+            <p id="vtuberKnowledgeSettingsStatus" class="settings-section-hint" role="status" aria-live="polite"></p>
           </section>
 
           <section id="vtuberVoiceCard" class="vtuber-model-card ui-card hidden" aria-labelledby="vtuberVoiceHeading" hidden>

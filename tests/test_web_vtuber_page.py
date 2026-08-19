@@ -30,10 +30,13 @@ def test_vtuber_panel_is_wired_to_pet_tabs():
     assert 'aria-controls="petTab-vtuber-persona"' in html
     assert 'data-pet-panel="vtuber"' in panel
     assert 'data-pet-panel="vtuber-persona"' in html
+    assert 'data-pet-tab="vtuber-knowledge"' not in html
     assert 'role="tabpanel"' in panel
     assert 'aria-labelledby="petTabBtn-vtuber"' in panel
     assert re.search(r'id="petTab-vtuber"[^>]*\bhidden\b', panel)
     assert re.search(r'id="petTab-vtuber-persona"[^>]*\bhidden\b', html)
+    assert 'id="vtuberKnowledgeEnabled"' in panel
+    assert 'id="petTab-vtuber-knowledge"' not in html
     assert "虚拟桌宠状态" in panel
     assert 'id="vtuberPersonaSystemPrompt"' in html
     assert 'id="btnVtuberPersonaSave"' in html
@@ -74,6 +77,7 @@ def test_vtuber_runtime_exposes_start_stop_desktop_status():
     assert 'id="vtuberDanmuAdapterEnabled"' in panel
     assert "虚拟主播对话" in panel
     assert "AI读弹幕适配" in panel
+    assert "检索弹幕知识库" in panel
 
 
 def test_vtuber_module_wires_virtual_host_mode_api():
@@ -82,8 +86,11 @@ def test_vtuber_module_wires_virtual_host_mode_api():
     assert "/api/virtual-host/settings" in source
     assert "vtuberDialogueEnabled" in source
     assert "vtuberDanmuAdapterEnabled" in source
+    assert "vtuberKnowledgeEnabled" in source
     assert "dialogue_enabled" in source
     assert "danmu_adapter_enabled" in source
+    assert "knowledge_enabled" in source
+    assert "onVtuberKnowledgeTabActivated" not in source
     assert "textContent" in source
     assert "innerHTML" not in source
 

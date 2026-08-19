@@ -28,13 +28,17 @@ from app.virtual_host.contracts import (
     DanmuBatchCreated,
     HostTurn,
     HostTurnResult,
+    KnowledgeContextResult,
     SceneContext,
 )
 from app.virtual_host.diagnostics import log_diagnostic
 from app.virtual_host.knowledge import KnowledgeContextAdapter
 from app.virtual_host.live2d_feedback import Live2DFeedbackController
 from app.virtual_host.mic_route import MicAsrJob, VirtualHostMicRoute, mic_route_enabled
-from app.virtual_host.mode_config import export_virtual_host_mode_settings
+from app.virtual_host.mode_config import (
+    export_virtual_host_mode_settings,
+    virtual_host_knowledge_enabled,
+)
 from app.virtual_host.model_config import (
     resolve_virtual_host_tts_binding,
     resolve_virtual_host_vision_credentials,
@@ -727,6 +731,20 @@ class VirtualHostRuntimeService:
             self._knowledge_adapter = KnowledgeContextAdapter(runtime)
         return self._knowledge_adapter
 
+    def _retrieve_knowledge_for_turn(self, host_turn: HostTurn) -> KnowledgeContextResult:
+        if not virtual_host_knowledge_enabled(self._app.config):
+            return KnowledgeContextResult(
+                status="no_hit",
+                diagnostic="knowledge_disabled",
+            )
+        return self._knowledge_context_adapter().retrieve(
+            turn_id=host_turn.turn_id,
+            input_text=host_turn.input_text,
+            scene_context=host_turn.scene_context,
+            recent_batches=host_turn.recent_batches,
+            mic_text=host_turn.mic_text,
+        )
+
     def on_mic_transcript_ready(self, voice_turn_id: int) -> None:
         """主线程：ASR 成功后投递 voice chat worker，不阻塞麦克风回调。"""
 
@@ -762,13 +780,7 @@ class VirtualHostRuntimeService:
         if prompt is None or state.host_turn is None:
             return
         host_turn = state.host_turn
-        knowledge = self._knowledge_context_adapter().retrieve(
-            turn_id=host_turn.turn_id,
-            input_text=host_turn.input_text,
-            scene_context=host_turn.scene_context,
-            recent_batches=host_turn.recent_batches,
-            mic_text=host_turn.mic_text,
-        )
+        knowledge = self._retrieve_knowledge_for_turn(host_turn)
         prompt = self._session.compose_prompt(host_turn, knowledge=knowledge)
         state.prompt = prompt
         resolved = resolve_virtual_host_vision_credentials(self._app.config)
@@ -1242,7 +1254,8 @@ class VirtualHostRuntimeService:
                 build_autonomous_input(self._session, now=current),
                 now=current,
             )
-            prompt = self._session.compose_prompt(host_turn, now=current)
+            knowledge = self._retrieve_knowledge_for_turn(host_turn)
+            prompt = self._session.compose_prompt(host_turn, knowledge=knowledge, now=current)
         except Exception as exc:
             logger.debug("virtual_host chat prompt skipped: %r", exc)
             return
