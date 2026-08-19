@@ -5,6 +5,8 @@ let handlersBound = false;
 let requestInFlight = false;
 let modelSettingsCache = null;
 let modelSettingsSaveToken = 0;
+let live2dModelCache = null;
+let live2dModelSaveToken = 0;
 let clickThroughSaveToken = 0;
 let displayScaleSaveToken = 0;
 let hostSettingsCache = null;
@@ -314,6 +316,38 @@ function fillSelectOptions(select, options, selectedValue) {
   }
 }
 
+function renderLive2dModelSelect(data) {
+  live2dModelCache = data || null;
+  const select = element('vtuberLive2dModelSelect');
+  if (!select) return;
+  select.replaceChildren();
+  const none = document.createElement('option');
+  none.value = '';
+  none.textContent = '无';
+  select.appendChild(none);
+  const models = Array.isArray(data?.models) ? data.models : [];
+  models.forEach((model) => {
+    const option = document.createElement('option');
+    option.value = String(model.id || '');
+    option.textContent = String(model.label || model.model_name || model.id || '');
+    option.disabled = model.ready === false;
+    select.appendChild(option);
+  });
+  const selected = String(data?.model_id || '');
+  select.value = selected && [...select.options].some((option) => option.value === selected)
+    ? selected : '';
+  select.disabled = requestInFlight;
+  if (!models.length) {
+    setText('vtuberLive2dModelSelectStatus', '尚未导入 Live2D 模型。');
+    return;
+  }
+  const selectedOption = [...select.options].find((option) => option.value === select.value);
+  setText(
+    'vtuberLive2dModelSelectStatus',
+    selectedOption?.value ? `当前使用：${selectedOption.textContent}` : '请选择当前虚拟主播使用的模型。',
+  );
+}
+
 function renderModelSettings(data) {
   modelSettingsCache = data || null;
   const visionSelect = element('vtuberVisionModelSelect');
@@ -541,6 +575,7 @@ function renderModel(data) {
   setText('vtuberRuntimeStatus', running ? '模型已在桌面窗口显示。' : model.loaded ? '模型已就绪，可以启动虚拟主播。' : '请先导入可用模型。');
   setText('vtuberDesktopStatusText', running ? '运行中' : '未启动');
   setText('vtuberDesktopStatusHint', running ? '模型已在桌面窗口显示。' : '启动后模型将在桌面窗口显示，当前页面不会渲染 Live2D。');
+  renderLive2dModelSelect(data);
   renderCapabilities(model);
   const error = data?.error || (model.loaded ? '' : model.reason || '');
   const errorElement = element('vtuberModelError');
@@ -565,9 +600,35 @@ function setRequestState(active) {
   const importButton = element('btnVtuberImportModel'); if (importButton) importButton.disabled = active;
   const advancedButton = element('btnVtuberImportModelAdvanced'); if (advancedButton) advancedButton.disabled = active;
   const clearButton = element('btnVtuberClearModel'); if (clearButton) clearButton.disabled = active || !hasModel;
+  const modelSelect = element('vtuberLive2dModelSelect'); if (modelSelect) modelSelect.disabled = active;
   const running = element('vtuberStatusBadge')?.textContent === '运行中';
   const startButton = element('btnVtuberStart'); if (startButton) startButton.disabled = active || !hasModel || running;
   const stopButton = element('btnVtuberStop'); if (stopButton) stopButton.disabled = active || !running;
+}
+
+async function selectLive2dModel(modelId) {
+  const token = ++live2dModelSaveToken;
+  setRequestState(true);
+  setText('vtuberLive2dModelSelectStatus', '正在切换 Live2D 模型…');
+  try {
+    const data = await apiFetch('/api/live2d/model', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model_id: String(modelId || '') }),
+    });
+    if (token !== live2dModelSaveToken) return data;
+    renderModel(data);
+    toast(data?.model_id ? 'Live2D 模型已切换' : '当前 Live2D 模型已清除');
+    return data;
+  } catch (error) {
+    if (token === live2dModelSaveToken) {
+      renderRequestError(error);
+      if (live2dModelCache) renderLive2dModelSelect(live2dModelCache);
+    }
+    throw error;
+  } finally {
+    setRequestState(false);
+  }
 }
 
 async function startModel() {
@@ -623,6 +684,9 @@ export async function loadVtuberPage() {
 
 export function initVtuberPage(deps = {}) {
   toast = deps.showToast || toast; if (handlersBound) return; handlersBound = true;
+  element('vtuberLive2dModelSelect')?.addEventListener('change', (event) => {
+    selectLive2dModel(event.target?.value || '').catch((error) => toast(error.message, true));
+  });
   element('vtuberVisionModelSelect')?.addEventListener('change', () => {
     saveModelSettings({ vision_model_id: element('vtuberVisionModelSelect')?.value || '' })
       .catch((error) => toast(error.message, true));

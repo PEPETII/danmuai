@@ -20,6 +20,10 @@ class Live2DSettingsPatch(BaseModel):
     display_scale_percent: int | None = None
 
 
+class Live2DModelSelection(BaseModel):
+    model_id: str = ""
+
+
 def register_live2d_routes(
     app,
     bridge: "WebConsoleBridge",
@@ -29,6 +33,21 @@ def register_live2d_routes(
     @app.get("/api/live2d/model")
     def get_live2d_model():
         return live2d_api.get_model_snapshot(bridge.danmu_app)
+
+    @app.put("/api/live2d/model")
+    @require_auth(check_token)
+    def put_live2d_model(
+        payload: Live2DModelSelection,
+        authorization: str | None = Header(default=None),
+    ):
+        try:
+            return invoke_main(
+                live2d_api.select_model,
+                bridge.danmu_app,
+                payload.model_id,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.put("/api/live2d/settings")
     @require_auth(check_token)

@@ -114,12 +114,23 @@ def resolve_managed_model_path(
     *,
     root: Path = LIVE2D_MODELS_ROOT,
 ) -> Path:
+    model_key = str(model_id or "").replace("\\", "/").strip()
+    model_parts = model_key.split("/")
+    if not model_key or model_key.startswith("/") or any(
+        part in {"", ".", ".."} for part in model_parts
+    ):
+        raise ValueError("invalid_model_id")
+
+    managed_root = Path(root).expanduser().resolve()
+    destination_root = (managed_root / model_key).resolve()
+    if destination_root.parent != managed_root:
+        raise ValueError("invalid_model_id")
+
     entry = str(entry_relative or "").replace("\\", "/").strip()
     parts = entry.split("/")
     if not entry or entry.startswith("/") or any(part in {"", ".", ".."} for part in parts):
         raise ValueError("invalid_model_entry")
 
-    destination_root = (Path(root).expanduser().resolve() / model_id).resolve()
     candidate = (destination_root / Path(*parts)).resolve()
     if candidate != destination_root and destination_root not in candidate.parents:
         raise ValueError("invalid_model_entry")

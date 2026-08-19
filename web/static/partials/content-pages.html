@@ -381,6 +381,16 @@
               </div>
               <span id="vtuberModelState" class="text-xs text-gray-500">未导入</span>
             </div>
+            <div class="settings-rhythm-accordion-field">
+              <div class="flex-1 min-w-0">
+                <label for="vtuberLive2dModelSelect" class="settings-field-label">Live2D 模型</label>
+                <p class="text-xs text-gray-500 mt-1">从已导入的模型中选择当前虚拟主播使用的模型。</p>
+              </div>
+              <select id="vtuberLive2dModelSelect" class="settings-field-control ui-control ui-select" aria-describedby="vtuberLive2dModelSelectStatus">
+                <option value="">无</option>
+              </select>
+            </div>
+            <p id="vtuberLive2dModelSelectStatus" class="settings-section-hint" role="status" aria-live="polite">尚未导入 Live2D 模型。</p>
             <div id="vtuberCapabilities" class="vtuber-capabilities" aria-live="polite"></div>
             <p id="vtuberModelError" class="vtuber-model-error hidden" role="alert"></p>
             <div class="vtuber-settings-actions" aria-label="Live2D 模型操作">

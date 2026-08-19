@@ -35,6 +35,27 @@ def test_live2d_model_snapshot_uses_public_facade():
     bridge.danmu_app.get_live2d_model_snapshot.assert_called_once_with()
 
 
+def test_live2d_model_selection_route_requires_auth_and_uses_public_facade():
+    client, bridge = _client()
+    bridge.danmu_app.select_live2d_model.return_value = {
+        "configured": True,
+        "model_id": "avatar-2",
+        "status": "ready",
+    }
+
+    assert client.put("/api/live2d/model", json={"model_id": "avatar-2"}).status_code == 401
+
+    response = client.put(
+        "/api/live2d/model",
+        json={"model_id": "avatar-2"},
+        headers={"Authorization": "Bearer live2d-secret"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["model_id"] == "avatar-2"
+    bridge.danmu_app.select_live2d_model.assert_called_once_with("avatar-2")
+
+
 def test_live2d_write_routes_require_auth_and_invoke_main_facade():
     client, bridge = _client()
     bridge.danmu_app.import_live2d_model_via_dialog.return_value = {

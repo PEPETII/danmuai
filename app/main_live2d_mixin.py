@@ -124,6 +124,15 @@ class DanmuAppLive2DMixin:
             runtime.stop()
         return self._get_live2d_model_registry().import_model_file_via_dialog()
 
+    def select_live2d_model(self, model_id: str) -> dict[str, object]:
+        virtual_host_runtime = self.__dict__.get("virtual_host_runtime")
+        if virtual_host_runtime is not None:
+            virtual_host_runtime.stop()
+        runtime = self.__dict__.get("_live2d_desktop_runtime")
+        if runtime is not None:
+            runtime.stop()
+        return self._get_live2d_model_registry().select_model(model_id)
+
     def clear_live2d_model(self) -> dict[str, object]:
         virtual_host_runtime = self.__dict__.get("virtual_host_runtime")
         if virtual_host_runtime is not None:

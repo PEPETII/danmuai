@@ -38,6 +38,10 @@ def test_vtuber_panel_is_wired_to_pet_tabs():
     assert 'id="vtuberKnowledgeEnabled"' in panel
     assert 'id="petTab-vtuber-knowledge"' not in html
     assert "虚拟桌宠状态" in panel
+    assert 'id="vtuberLive2dModelSelect"' in panel
+    assert 'id="vtuberLive2dModelSelectStatus"' in panel
+    assert "Live2D 模型" in panel
+    assert ">无<" in panel
     assert 'id="vtuberPersonaSystemPrompt"' in html
     assert 'id="btnVtuberPersonaSave"' in html
 
@@ -125,6 +129,9 @@ def test_vtuber_module_uses_native_model_api_without_web_control_panel():
     assert "vtuberCanvas" not in source
     assert "vtuberVisionModelSelect" in source
     assert "vtuberTtsModelSelect" in source
+    assert "vtuberLive2dModelSelect" in source
+    assert "models" in source
+    assert "method: 'PUT'" in source
     assert "vtuberClickThrough" in source
     assert "vtuberDisplayScaleRange" in source
     assert "display_scale_percent" in source

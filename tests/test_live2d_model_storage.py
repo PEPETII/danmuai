@@ -89,3 +89,6 @@ def test_resolve_managed_model_path_rejects_traversal(tmp_path: Path):
 
     with pytest.raises(ValueError):
         resolve_managed_model_path("avatar", "../outside.model3.json", root=managed_root)
+
+    with pytest.raises(ValueError):
+        resolve_managed_model_path("../outside", "avatar.model3.json", root=managed_root)

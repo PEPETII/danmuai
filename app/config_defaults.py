@@ -172,6 +172,7 @@ CONFIG_DEFAULTS: dict[str, str] = {
     "live2d_model_id": "",
     "live2d_model_name": "",
     "live2d_model_entry": "",
+    "live2d_model_catalog": "[]",
     "live2d_click_through": "0",
     "live2d_model_display_scales": "{}",
     "virtual_host_vision_model_id": "",

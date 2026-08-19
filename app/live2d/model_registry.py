@@ -16,12 +16,14 @@ from .model_storage import (
     copy_model_directory,
     discover_models_in_folder,
     model_selection_label,
+    resolve_managed_model_path,
 )
 
 LIVE2D_MODEL_PATH_KEY = "live2d_model_path"
 LIVE2D_MODEL_ID_KEY = "live2d_model_id"
 LIVE2D_MODEL_NAME_KEY = "live2d_model_name"
 LIVE2D_MODEL_ENTRY_KEY = "live2d_model_entry"
+LIVE2D_MODEL_CATALOG_KEY = "live2d_model_catalog"
 _MODEL_SUFFIX = ".model3.json"
 _MODEL_RESOURCE_URL = "/api/live2d/resource/model.json"
 _NO_MODELS_MESSAGE = (
@@ -124,6 +126,163 @@ class Live2DModelRegistry:
         snapshot["model_id"] = str(self._config.get(LIVE2D_MODEL_ID_KEY, "") or "").strip() or None
         snapshot["model_entry"] = str(self._config.get(LIVE2D_MODEL_ENTRY_KEY, "") or "").strip() or None
         return snapshot
+
+    def list_models(self) -> list[dict[str, Any]]:
+        """Return imported model options without exposing local filesystem paths."""
+
+        records = self._model_records()
+        name_counts: dict[str, int] = {}
+        for record in records:
+            name = str(record["name"] or "未命名模型")
+            name_counts[name] = name_counts.get(name, 0) + 1
+
+        options: list[dict[str, Any]] = []
+        for record in records:
+            model_id = str(record["id"])
+            name = str(record["name"] or "未命名模型")
+            label = name if name_counts[name] == 1 else f"{name}（{model_id}）"
+            result = record["result"]
+            options.append(
+                {
+                    "id": model_id,
+                    "label": label,
+                    "model_name": name,
+                    "status": result.status,
+                    "ready": result.ok,
+                }
+            )
+        return options
+
+    def select_model(self, model_id: str) -> dict[str, Any]:
+        """Select one imported model, or clear the active selection for an empty ID."""
+
+        normalized_id = str(model_id or "").strip()
+        if not normalized_id:
+            self._clear_active_model()
+            self._runtime_status = "stopped"
+            self._notify_config_changed()
+            result = self.snapshot()
+            result["reason"] = "cleared"
+            return result
+
+        selected = next(
+            (record for record in self._model_records() if record["id"] == normalized_id),
+            None,
+        )
+        if selected is None:
+            raise ValueError("live2d_model_not_found")
+        result = selected["result"]
+        if not result.ok:
+            raise ValueError(result.reason or "live2d_model_not_ready")
+
+        self._persist_managed_model(
+            model_id=normalized_id,
+            model_name=str(selected["name"]),
+            model_entry=str(selected["entry"]),
+            model_path=str(selected["path"]),
+        )
+        self._runtime_status = "stopped"
+        self._notify_config_changed()
+        snapshot = self.snapshot()
+        snapshot["reason"] = "model_selected"
+        return snapshot
+
+    def _model_records(self) -> list[dict[str, Any]]:
+        records: list[dict[str, Any]] = []
+        seen_ids: set[str] = set()
+
+        for item in self._load_model_catalog():
+            model_id = item["id"]
+            model_path = resolve_managed_model_path(
+                model_id,
+                item["entry"],
+                root=self._models_root,
+            )
+            if not model_path.is_file():
+                continue
+            records.append(
+                self._build_model_record(
+                    model_id=model_id,
+                    model_name=item["name"],
+                    model_entry=item["entry"],
+                    model_path=model_path,
+                )
+            )
+            seen_ids.add(model_id)
+
+        root = self._models_root.expanduser().resolve()
+        if root.is_dir():
+            for model_root in sorted(root.iterdir(), key=lambda path: path.name.casefold()):
+                if not model_root.is_dir() or model_root.name in seen_ids:
+                    continue
+                discovered = discover_models_in_folder(model_root)
+                if not discovered:
+                    continue
+                model_path = discovered[0].model_path.resolve()
+                entry = model_path.relative_to(model_root.resolve()).as_posix()
+                records.append(
+                    self._build_model_record(
+                        model_id=model_root.name,
+                        model_name=discovered[0].name,
+                        model_entry=entry,
+                        model_path=model_path,
+                    )
+                )
+
+        return records
+
+    def _build_model_record(
+        self,
+        *,
+        model_id: str,
+        model_name: str,
+        model_entry: str,
+        model_path: Path,
+    ) -> dict[str, Any]:
+        result = self._loader.inspect(model_path)
+        return {
+            "id": model_id,
+            "name": model_name.strip() or _model_name(model_path) or "未命名模型",
+            "entry": model_entry,
+            "path": model_path,
+            "result": result,
+        }
+
+    def _load_model_catalog(self) -> list[dict[str, str]]:
+        raw = str(self._config.get(LIVE2D_MODEL_CATALOG_KEY, "[]") or "[]")
+        try:
+            decoded = json.loads(raw)
+        except (TypeError, ValueError):
+            return []
+        if not isinstance(decoded, list):
+            return []
+
+        catalog: list[dict[str, str]] = []
+        seen_ids: set[str] = set()
+        for item in decoded:
+            if not isinstance(item, Mapping):
+                continue
+            model_id = str(item.get("id") or "").strip()
+            model_entry = str(item.get("entry") or "").strip()
+            if not model_id or not model_entry or model_id in seen_ids:
+                continue
+            try:
+                resolve_managed_model_path(
+                    model_id,
+                    model_entry,
+                    root=self._models_root,
+                )
+            except ValueError:
+                continue
+            catalog.append(
+                {
+                    "id": model_id,
+                    "name": str(item.get("name") or "").strip(),
+                    "entry": model_entry,
+                }
+            )
+            seen_ids.add(model_id)
+        return catalog
 
     def start_model(self) -> dict[str, Any]:
         snapshot = self.snapshot()
@@ -383,16 +542,47 @@ class Live2DModelRegistry:
         model_entry: str,
         model_path: str,
     ) -> None:
-        self._config.set(LIVE2D_MODEL_ID_KEY, model_id)
-        self._config.set(LIVE2D_MODEL_NAME_KEY, model_name)
-        self._config.set(LIVE2D_MODEL_ENTRY_KEY, model_entry)
-        self._config.set(LIVE2D_MODEL_PATH_KEY, model_path)
+        replacement = {
+            "id": model_id,
+            "name": model_name,
+            "entry": model_entry,
+        }
+        catalog: list[dict[str, str]] = []
+        replaced = False
+        for item in self._load_model_catalog():
+            if item["id"] == model_id:
+                catalog.append(replacement)
+                replaced = True
+            else:
+                catalog.append(item)
+        if not replaced:
+            catalog.append(replacement)
+        values = {
+            LIVE2D_MODEL_ID_KEY: model_id,
+            LIVE2D_MODEL_NAME_KEY: model_name,
+            LIVE2D_MODEL_ENTRY_KEY: model_entry,
+            LIVE2D_MODEL_PATH_KEY: model_path,
+            LIVE2D_MODEL_CATALOG_KEY: json.dumps(
+                catalog,
+                ensure_ascii=False,
+                separators=(",", ":"),
+            ),
+        }
+        setter = getattr(self._config, "set_batch", None)
+        if callable(setter):
+            setter(values)
+        else:
+            for key, value in values.items():
+                self._config.set(key, value)
 
-    def clear_model(self) -> dict[str, Any]:
+    def _clear_active_model(self) -> None:
         self._config.set(LIVE2D_MODEL_PATH_KEY, "")
         self._config.set(LIVE2D_MODEL_ID_KEY, "")
         self._config.set(LIVE2D_MODEL_NAME_KEY, "")
         self._config.set(LIVE2D_MODEL_ENTRY_KEY, "")
+
+    def clear_model(self) -> dict[str, Any]:
+        self._clear_active_model()
         self._runtime_status = "stopped"
         self._notify_config_changed()
         result = self.snapshot()
@@ -446,6 +636,7 @@ class Live2DModelRegistry:
             "model_url": _MODEL_RESOURCE_URL if configured and status == "ready" else None,
             "model_id": None,
             "model_entry": None,
+            "models": self.list_models(),
         }
 
     def _notify_config_changed(self) -> None:
@@ -454,6 +645,7 @@ class Live2DModelRegistry:
 
 
 __all__ = [
+    "LIVE2D_MODEL_CATALOG_KEY",
     "LIVE2D_MODEL_ENTRY_KEY",
     "LIVE2D_MODEL_ID_KEY",
     "LIVE2D_MODEL_NAME_KEY",

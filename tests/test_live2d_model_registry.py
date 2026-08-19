@@ -6,14 +6,15 @@ import types
 from pathlib import Path
 
 from app.live2d.model_loader import Live2DModelLoader
-from app.live2d.model_storage import DiscoveredModel
 from app.live2d.model_registry import (
+    LIVE2D_MODEL_CATALOG_KEY,
     LIVE2D_MODEL_ENTRY_KEY,
     LIVE2D_MODEL_ID_KEY,
     LIVE2D_MODEL_NAME_KEY,
     LIVE2D_MODEL_PATH_KEY,
     Live2DModelRegistry,
 )
+from app.live2d.model_storage import DiscoveredModel
 
 
 class FakeConfig:
@@ -318,6 +319,45 @@ def test_registry_duplicate_import_allocates_unique_model_id(tmp_path, monkeypat
     assert config.get(LIVE2D_MODEL_ID_KEY) == "avatar-2"
     assert (managed_root / "avatar").exists()
     assert (managed_root / "avatar-2").exists()
+
+
+def test_registry_lists_imported_models_and_switches_selection(tmp_path, monkeypatch):
+    alpha_path = _write_model(tmp_path / "alpha-source", name="alpha")
+    beta_path = _write_model(tmp_path / "beta-source", name="beta")
+    managed_root = tmp_path / "managed"
+    config = FakeConfig()
+    registry = Live2DModelRegistry(config, models_root=managed_root)
+
+    _install_folder_dialog(monkeypatch, str(alpha_path.parent))
+    registry.import_model_via_dialog()
+    _install_folder_dialog(monkeypatch, str(beta_path.parent))
+    registry.import_model_via_dialog()
+
+    options = registry.list_models()
+    assert [item["id"] for item in options] == ["alpha", "beta"]
+    assert [item["label"] for item in options] == ["alpha", "beta"]
+    assert all(item["ready"] is True for item in options)
+
+    selected = registry.select_model("alpha")
+
+    assert selected["model_id"] == "alpha"
+    assert selected["model_name"] == "alpha"
+    assert Path(config.get(LIVE2D_MODEL_PATH_KEY)).name == "alpha.model3.json"
+    assert json.loads(config.get(LIVE2D_MODEL_CATALOG_KEY))[1]["id"] == "beta"
+
+
+def test_registry_clearing_selection_keeps_imported_model_options(tmp_path, monkeypatch):
+    model_path = _write_model(tmp_path, name="avatar")
+    managed_root = tmp_path / "managed"
+    config = FakeConfig()
+    registry = Live2DModelRegistry(config, models_root=managed_root)
+    _install_folder_dialog(monkeypatch, str(model_path.parent))
+    registry.import_model_via_dialog()
+
+    cleared = registry.select_model("")
+
+    assert cleared["configured"] is False
+    assert [item["id"] for item in cleared["models"]] == ["avatar"]
 
 
 def test_registry_snapshot_survives_reload_from_config(tmp_path):
