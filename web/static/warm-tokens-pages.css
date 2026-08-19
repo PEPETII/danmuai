@@ -525,6 +525,117 @@
   }
 }
 
+#page-pet .vtuber-download-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+#page-pet .vtuber-download-hero__title {
+  margin: 0 0 var(--space-3);
+  color: var(--text-primary);
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+#page-pet .vtuber-download-intro {
+  display: grid;
+  gap: var(--space-3);
+  color: var(--text-secondary);
+  font-size: 0.9375rem;
+  line-height: 1.65;
+}
+
+#page-pet .vtuber-download-intro p {
+  margin: 0;
+}
+
+#page-pet .vtuber-download-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+#page-pet .vtuber-download-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+}
+
+#page-pet .vtuber-download-card__preview {
+  aspect-ratio: 4 / 3;
+  background: linear-gradient(180deg, rgba(255, 248, 240, 0.9), rgba(255, 255, 255, 0.95));
+  border-bottom: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.06));
+}
+
+#page-pet .vtuber-download-card__image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+#page-pet .vtuber-download-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+
+#page-pet .vtuber-download-card__title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+#page-pet .vtuber-download-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+#page-pet .vtuber-download-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 3.5rem;
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+#page-pet .vtuber-download-tag--bilibili {
+  background: rgba(251, 114, 153, 0.16);
+  color: #d14f7d;
+}
+
+#page-pet .vtuber-download-tag--booth {
+  background: rgba(252, 90, 90, 0.14);
+  color: #d94848;
+}
+
+#page-pet .vtuber-download-tag--unknown {
+  background: rgba(120, 120, 120, 0.12);
+  color: var(--text-secondary);
+}
+
+#page-pet .vtuber-download-card__action {
+  flex-shrink: 0;
+}
+
+@media (max-width: 720px) {
+  #page-pet .vtuber-download-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Modal dialog shells: long text + action wrap (F2 modals) */
 #modelModal .flex.flex-wrap,
 #restoreDefaultsModal .flex.flex-col,

@@ -26,10 +26,13 @@ def test_vtuber_panel_is_wired_to_pet_tabs():
 
     assert 'data-pet-tab="vtuber"' in html
     assert 'data-pet-tab="vtuber-persona"' in html
+    assert 'data-pet-tab="vtuber-download"' in html
     assert 'aria-controls="petTab-vtuber"' in html
     assert 'aria-controls="petTab-vtuber-persona"' in html
+    assert 'aria-controls="petTab-vtuber-download"' in html
     assert 'data-pet-panel="vtuber"' in panel
     assert 'data-pet-panel="vtuber-persona"' in html
+    assert 'data-pet-panel="vtuber-download"' in html
     assert 'data-pet-tab="vtuber-knowledge"' not in html
     assert 'role="tabpanel"' in panel
     assert 'aria-labelledby="petTabBtn-vtuber"' in panel
@@ -165,3 +168,44 @@ def test_vtuber_module_uses_native_model_api_without_web_control_panel():
     assert "/api/live2d/settings" in source
     assert "app-vtuber-page.js" in app_source
     assert "Promise.all" in app_source
+
+
+def test_vtuber_download_tab_panel_and_module():
+    html = CONTENT_PAGES_HTML.read_text(encoding="utf-8")
+    download_js = (STATIC_ROOT / "modules" / "app-vtuber-download-page.js").read_text(encoding="utf-8")
+    pet_js = (STATIC_ROOT / "modules" / "app-pet-page.js").read_text(encoding="utf-8")
+
+    assert 'id="petTab-vtuber-download"' in html
+    assert 'id="vtuberDownloadGrid"' in html
+    assert "所有 Live2D 模型均可免费使用" in html
+    assert "【B站】" not in html
+    assert "【Booth】" not in html
+    assert 'class="vtuber-download-tag vtuber-download-tag--bilibili"' in html
+    assert 'class="vtuber-download-tag vtuber-download-tag--booth"' in html
+    assert "阿尼亚" in download_js
+    assert "芙莉莲" in download_js
+    assert "魔女" in download_js
+    assert "decodeVtuberDownloadUrl" in download_js
+    assert "https://booth.pm/en/items/5247208" in download_js or "booth.pm/en/items" in download_js
+    assert "image: '1.png'" in download_js
+    assert "https://pan.quark.cn/s/5e1fba5584d3#listshare" in download_js
+    assert "app-vtuber-download-page.js" in pet_js
+    assert "onVtuberDownloadTabActivated" in pet_js
+
+
+def test_vtuber_download_url_decoder_patterns():
+    cases = {
+        "httpsbooth.pmenitems5247208.png": "https://booth.pm/en/items/5247208",
+        "httpsbooth.pmzh-cnitems6499774.png": "https://booth.pm/zh-cn/items/6499774",
+        "httpspan.quark.cns5e1fba5584d3#listshare.png": "https://pan.quark.cn/s/5e1fba5584d3#listshare",
+    }
+    for image_name, expected in cases.items():
+        base = image_name.replace(".png", "")
+        if match := re.fullmatch(r"httpsbooth\.pm(en)items(\d+)", base):
+            assert expected == f"https://booth.pm/{match.group(1)}/items/{match.group(2)}"
+        elif match := re.fullmatch(r"httpsbooth\.pm(zh-cn)items(\d+)", base):
+            assert expected == f"https://booth.pm/{match.group(1)}/items/{match.group(2)}"
+        elif match := re.fullmatch(r"httpspan\.quark\.cn(s)(.+)", base):
+            assert expected == f"https://pan.quark.cn/s/{match.group(2)}"
+        else:
+            raise AssertionError(f"unexpected image name: {image_name}")

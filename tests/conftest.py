@@ -43,13 +43,23 @@ _FEEDBACK_IMAGE_NAMES = (
     "mm_reward_qrcode_1779738306814.png",
 )
 
+_LIVE2D_PREVIEW_IMAGE_NAMES = (
+    "httpsbooth.pmenitems4862237.png",
+    "httpsbooth.pmenitems5247208.png",
+    "httpsbooth.pmenitems5323958.png",
+    "httpsbooth.pmzh-cnitems6499774.png",
+    "httpsbooth.pmzh-cnitems7159191.png",
+    "httpsbooth.pmzh-cnitems7641846.png",
+    "1.png",
+)
+
 
 def _ensure_feedback_static_images() -> None:
     """Mirror image/ QR assets into web/static/image for static UI and packaging."""
     dst_dir = _ROOT / "web" / "static" / "image"
     src_dir = _ROOT / "image"
     dst_dir.mkdir(parents=True, exist_ok=True)
-    for name in _FEEDBACK_IMAGE_NAMES:
+    for name in (*_FEEDBACK_IMAGE_NAMES, *_LIVE2D_PREVIEW_IMAGE_NAMES):
         src = src_dir / name
         dst = dst_dir / name
         if not src.is_file():

@@ -15,10 +15,20 @@ FILES = (
     "mm_reward_qrcode_1779738306814.png",
 )
 
+LIVE2D_PREVIEW_IMAGE_NAMES = (
+    "httpsbooth.pmenitems4862237.png",
+    "httpsbooth.pmenitems5247208.png",
+    "httpsbooth.pmenitems5323958.png",
+    "httpsbooth.pmzh-cnitems6499774.png",
+    "httpsbooth.pmzh-cnitems7159191.png",
+    "httpsbooth.pmzh-cnitems7641846.png",
+    "1.png",
+)
+
 
 def main() -> int:
     DST_DIR.mkdir(parents=True, exist_ok=True)
-    for name in FILES:
+    for name in (*FILES, *LIVE2D_PREVIEW_IMAGE_NAMES):
         src = SRC_DIR / name
         dst = DST_DIR / name
         if not src.is_file():

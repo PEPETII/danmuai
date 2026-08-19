@@ -294,6 +294,12 @@ function initPetTabs() {
           mod.onVtuberPersonaTabActivated();
         }).catch(() => {});
       }
+      if (tabId === 'vtuber-download') {
+        import('./app-vtuber-download-page.js').then((mod) => {
+          mod.initVtuberDownloadPage();
+          mod.onVtuberDownloadTabActivated();
+        }).catch(() => {});
+      }
     });
   });
 }

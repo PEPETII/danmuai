@@ -186,6 +186,7 @@
             <button type="button" role="tab" id="petTabBtn-pet" class="settings-tab active" data-pet-tab="pet" aria-controls="petTab-pet" aria-selected="true">桌宠</button>
             <button type="button" role="tab" id="petTabBtn-vtuber" class="settings-tab" data-pet-tab="vtuber" aria-controls="petTab-vtuber" aria-selected="false">虚拟主播</button>
             <button type="button" role="tab" id="petTabBtn-vtuber-persona" class="settings-tab" data-pet-tab="vtuber-persona" aria-controls="petTab-vtuber-persona" aria-selected="false" data-i18n="content.text.虚拟主播人格">虚拟主播人格</button>
+            <button type="button" role="tab" id="petTabBtn-vtuber-download" class="settings-tab" data-pet-tab="vtuber-download" aria-controls="petTab-vtuber-download" aria-selected="false">虚拟主播下载</button>
           </div>
         </div>
 
@@ -540,6 +541,18 @@
               </div>
             </section>
           </div>
+        </div>
+
+        <div id="petTab-vtuber-download" class="settings-tab-panel vtuber-download-page" data-pet-panel="vtuber-download" role="tabpanel" aria-labelledby="petTabBtn-vtuber-download" hidden>
+          <header class="vtuber-download-hero" aria-labelledby="vtuberDownloadHeading">
+            <h3 id="vtuberDownloadHeading" class="vtuber-download-hero__title">虚拟主播下载</h3>
+            <div class="vtuber-download-intro">
+              <p>所有 Live2D 模型均可免费使用，同时支持自行导入其他 Live2D 模型。下载前请注意以下标签说明：</p>
+              <p><span class="vtuber-download-tag vtuber-download-tag--bilibili">B站</span>：表示该模型来源于 Bilibili。通常可以直接通过提供的网盘链接下载，也可以自行前往 B站搜索模型名称或作者获取。</p>
+              <p><span class="vtuber-download-tag vtuber-download-tag--booth">Booth</span>：表示该模型来源于 Booth。模型本身依然免费，但 Booth 下载通常需要注册账号，且国内邮箱可能无法正常完成注册，使用起来相对麻烦。此外，由于模型作者明确禁止二次分发，DanmuAI 无法直接提供模型文件，需要您自行前往 Booth 原页面下载。</p>
+            </div>
+          </header>
+          <div id="vtuberDownloadGrid" class="vtuber-download-grid" role="list" aria-label="Live2D 模型下载列表"></div>
         </div>
 
         <div id="petTab-vtuber-persona" class="settings-tab-panel space-y-6" data-pet-panel="vtuber-persona" role="tabpanel" aria-labelledby="petTabBtn-vtuber-persona" hidden>
