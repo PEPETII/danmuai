@@ -14,6 +14,10 @@ def _base_css() -> str:
     return (_static_dir() / "warm-tokens-base.css").read_text(encoding="utf-8")
 
 
+def _pages_css() -> str:
+    return (_static_dir() / "warm-tokens-pages.css").read_text(encoding="utf-8")
+
+
 def _rule_block(css: str, selector: str) -> str | None:
     """Return body of first rule whose selector matches exactly (simple)."""
     pattern = re.compile(
@@ -21,6 +25,34 @@ def _rule_block(css: str, selector: str) -> str | None:
     )
     match = pattern.search(css)
     return match.group(1) if match else None
+
+
+def test_model_modal_parameter_grid_keeps_controls_aligned_and_bounded():
+    modals = (_static_dir() / "partials" / "modals.html").read_text(encoding="utf-8")
+    css = _pages_css()
+
+    assert 'class="field-row-3 model-parameter-grid"' in modals
+    assert modals.count("model-parameter-field") == 3
+    assert 'class="slider-group model-parameter-control"' in modals
+    assert 'class="model-parameter-control"' in modals
+    assert re.search(
+        r'class="field model-parameter-field model-mic-field">\s*'
+        r'<label for="modelSupportsMic"',
+        modals,
+    )
+
+    parameter_grid = _rule_block(css, "#modelModal .model-editor .field-row-3")
+    assert parameter_grid is not None
+    assert "align-items: start" in parameter_grid
+
+    body = _rule_block(css, ".model-modal-body")
+    assert body is not None
+    assert "overflow-y: auto" in body
+    assert "min-height: 0" in body
+
+    stepper = _rule_block(css, "#modelModal .model-parameter-control > .settings-rhythm-stepper")
+    assert stepper is not None
+    assert "height: var(--control-height-md)" in stepper
 
 
 def test_static_card_hover_has_no_translatey():

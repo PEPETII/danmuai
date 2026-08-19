@@ -409,6 +409,7 @@
 .model-modal-header,
 .model-modal-footer {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
@@ -424,7 +425,9 @@
   border-top: 1px solid var(--border-soft);
 }
 .model-modal-body {
+  flex: 1 1 auto;
   overflow-y: auto;
+  min-height: 0;
   min-width: 0;
   padding: var(--space-4) var(--space-5);
 }
@@ -470,9 +473,21 @@
 
 #modelModal .model-editor .field-row-3 {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(0, 0.85fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.35fr) minmax(9.5rem, 0.85fr) minmax(10rem, 1fr);
   gap: var(--space-3);
   align-items: start;
+}
+
+#modelModal .model-parameter-field {
+  align-self: start;
+  align-content: start;
+}
+
+#modelModal .model-parameter-control {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  min-height: var(--control-height-md);
 }
 
 #modelModal .model-warning {
@@ -507,8 +522,8 @@
 }
 
 #modelModal .slider-group {
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: minmax(5rem, 1fr) auto;
   gap: var(--space-2);
   min-width: 0;
 }
@@ -523,9 +538,30 @@
 }
 
 #modelModal .slider-group .num-input {
-  width: 4.75rem;
-  flex: 0 0 auto;
   text-align: center;
+}
+
+#modelModal .model-parameter-control > .settings-rhythm-stepper {
+  align-self: start;
+  height: var(--control-height-md);
+  min-height: var(--control-height-md);
+}
+
+#modelModal .slider-group > .settings-rhythm-stepper {
+  width: 7rem;
+  max-width: 7rem;
+}
+
+#modelModal .model-max-tokens-field .model-parameter-control > .settings-rhythm-stepper {
+  width: 100%;
+  max-width: 10rem;
+}
+
+#modelModal .model-parameter-control .settings-rhythm-step-button,
+#modelModal .model-parameter-control .settings-field-control,
+#modelModal .model-parameter-control .ui-input {
+  height: var(--control-height-md);
+  min-height: var(--control-height-md);
 }
 
 #modelModal .temp-hint {
@@ -540,7 +576,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  min-height: 42px;
+  min-height: var(--control-height-md);
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
@@ -559,6 +595,13 @@
   font-size: 0.8125rem;
   font-weight: 600;
   color: var(--text-primary);
+}
+
+#modelModal .model-mic-toggle {
+  height: var(--control-height-md);
+  min-height: var(--control-height-md);
+  padding-top: 0;
+  padding-bottom: 0;
 }
 
 #modelModal .toggle-row .toggle-desc {

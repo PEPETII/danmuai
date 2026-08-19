@@ -84,36 +84,37 @@
               <p id="modelApiKeyError" class="model-field-error" role="alert"></p>
             </div>
 
-            <div class="field-row-3">
-              <div class="field">
+            <div class="field-row-3 model-parameter-grid">
+              <div class="field model-parameter-field">
                 <label for="modelTemperature">
                   <span data-i18n="modals.text.温度">温度</span>
                   <span class="temp-hint" id="modelTemperatureHintLabel" data-i18n="dynamic.settingsCustomModels.温度精确">精确</span>
                 </label>
-                <div class="slider-group">
+                <div class="slider-group model-parameter-control">
                   <input type="range" id="modelTemperatureRange" min="0" max="2" step="0.1" value="0.8" aria-label="温度滑块">
                   <input type="number" id="modelTemperature" min="0" max="2" step="0.1" value="0.8" class="num-input ui-control ui-input" aria-describedby="modelTemperatureHint modelTemperatureError">
                 </div>
                 <p id="modelTemperatureHint" class="hint" data-i18n="dynamic.settingsCustomModels.温度提示">创意程度（0–2）。越高弹幕用词越发散，越低越稳定、越像固定话术。</p>
                 <p id="modelTemperatureError" class="model-field-error" role="alert"></p>
               </div>
-              <div class="field">
+              <div class="field model-parameter-field model-max-tokens-field">
                 <label for="modelMaxTokens" data-i18n="dynamic.settingsCustomModels.最大输出_Token">最大 Token</label>
-                <input id="modelMaxTokens" type="number" min="512" value="512" class="ui-control ui-input">
+                <div class="model-parameter-control">
+                  <input id="modelMaxTokens" type="number" min="512" value="512" class="ui-control ui-input">
+                </div>
                 <p id="modelMaxTokensHint" class="hint" data-i18n="dynamic.settingsCustomModels.最大输出_Token_提示">限制单次回复允许生成的最大 Token 数。</p>
                 <p id="modelMaxTokensError" class="model-field-error" role="alert"></p>
               </div>
-              <div class="field model-mic-field">
+              <div class="field model-parameter-field model-mic-field">
+                <label for="modelSupportsMic" data-i18n="dynamic.settingsCustomModels.音频输入能力">音频输入能力</label>
                 <label class="toggle-row model-mic-toggle" for="modelSupportsMic">
-                  <div class="toggle-info">
-                    <span class="toggle-label" data-i18n="dynamic.settingsCustomModels.音频输入能力">音频输入能力</span>
-                    <span class="toggle-desc" data-i18n="dynamic.settingsCustomModels.音频输入能力_说明">表示模型是否支持接收音频输入</span>
-                  </div>
+                  <span class="toggle-label" data-i18n="dynamic.settingsCustomModels.支持麦克风">支持麦克风</span>
                   <span class="toggle-switch">
                     <input type="checkbox" id="modelSupportsMic" role="switch">
                     <span aria-hidden="true"></span>
                   </span>
                 </label>
+                <p class="hint" data-i18n="dynamic.settingsCustomModels.音频输入能力_说明">表示模型是否支持接收音频输入</p>
               </div>
             </div>
           </div>
