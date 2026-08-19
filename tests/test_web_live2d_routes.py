@@ -62,9 +62,9 @@ def test_live2d_write_routes_require_auth_and_invoke_main_facade():
         "configured": True,
         "status": "ready",
     }
-    bridge.danmu_app.import_live2d_model_file_via_dialog.return_value = {
-        "configured": True,
-        "status": "ready",
+    bridge.danmu_app.open_live2d_models_folder.return_value = {
+        "ok": "true",
+        "models_dir": r"C:\Users\test\AppData\Roaming\DanmuAI\live2d-models",
     }
     bridge.danmu_app.clear_live2d_model.return_value = {
         "configured": False,
@@ -77,8 +77,8 @@ def test_live2d_write_routes_require_auth_and_invoke_main_facade():
         "/api/live2d/import-model",
         headers={"Authorization": "Bearer live2d-secret"},
     )
-    imported_file = client.post(
-        "/api/live2d/import-model-file",
+    opened = client.post(
+        "/api/live2d/open-models-folder",
         headers={"Authorization": "Bearer live2d-secret"},
     )
     cleared = client.post(
@@ -88,13 +88,13 @@ def test_live2d_write_routes_require_auth_and_invoke_main_facade():
 
     assert imported.status_code == 200
     assert imported.json()["status"] == "ready"
-    assert imported_file.status_code == 200
-    assert imported_file.json()["status"] == "ready"
+    assert opened.status_code == 200
+    assert opened.json()["ok"] == "true"
     assert cleared.status_code == 200
     assert cleared.json()["status"] == "unconfigured"
     assert bridge.invoke_on_main.call_count == 3
     bridge.danmu_app.import_live2d_model_via_dialog.assert_called_once_with()
-    bridge.danmu_app.import_live2d_model_file_via_dialog.assert_called_once_with()
+    bridge.danmu_app.open_live2d_models_folder.assert_called_once_with()
     bridge.danmu_app.clear_live2d_model.assert_called_once_with()
 
 

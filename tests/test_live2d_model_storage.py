@@ -32,6 +32,20 @@ def _write_model(model_dir: Path, name: str = "avatar") -> Path:
     return model_path
 
 
+def test_open_models_root_directory_creates_directory_and_returns_path(tmp_path: Path, monkeypatch):
+    from app.live2d.model_storage import open_models_root_directory
+
+    opened: list[str] = []
+    monkeypatch.setattr("app.live2d.model_storage.os.startfile", lambda path: opened.append(path))
+
+    result = open_models_root_directory(tmp_path / "live2d-models")
+
+    assert result["ok"] == "true"
+    assert result["models_dir"] == str((tmp_path / "live2d-models").resolve())
+    assert (tmp_path / "live2d-models").is_dir()
+    assert opened == [result["models_dir"]]
+
+
 def test_discover_models_in_nested_and_empty_directories(tmp_path: Path):
     root = tmp_path / "下载包"
     root.mkdir()

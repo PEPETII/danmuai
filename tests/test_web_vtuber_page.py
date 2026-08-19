@@ -76,7 +76,8 @@ def test_vtuber_runtime_exposes_start_stop_desktop_status():
     assert "显示大小" in panel
     assert "鼠标穿透" in panel
     assert "选择包含 Live2D 模型的文件夹" in panel
-    assert "高级导入" in panel
+    assert "打开模型文件夹" in panel
+    assert "高级导入" not in panel
     assert 'id="vtuberDialogueEnabled"' in panel
     assert 'id="vtuberDanmuAdapterEnabled"' in panel
     assert "虚拟主播对话" in panel
@@ -107,7 +108,7 @@ def test_vtuber_module_uses_native_model_api_without_web_control_panel():
         "/api/live2d/model",
         "/api/live2d/settings",
         "/api/live2d/import-model",
-        "/api/live2d/import-model-file",
+        "/api/live2d/open-models-folder",
         "/api/live2d/clear-model",
         "/api/live2d/start",
         "/api/live2d/stop",

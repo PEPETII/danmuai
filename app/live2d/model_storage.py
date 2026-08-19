@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import re
 import shutil
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -108,6 +109,24 @@ def copy_model_directory(
     return destination.resolve()
 
 
+def ensure_models_root_directory(root: Path = LIVE2D_MODELS_ROOT) -> Path:
+    directory = Path(root).expanduser().resolve()
+    directory.mkdir(parents=True, exist_ok=True)
+    return directory
+
+
+def open_models_root_directory(root: Path = LIVE2D_MODELS_ROOT) -> dict[str, str]:
+    directory = ensure_models_root_directory(root)
+    path = str(directory)
+    if sys.platform == "win32":
+        os.startfile(path)  # noqa: S606 — Windows Explorer for local folder management
+    elif sys.platform == "darwin":
+        os.system(f'open "{path}"')  # noqa: S605
+    else:
+        os.system(f'xdg-open "{path}"')  # noqa: S605
+    return {"ok": "true", "models_dir": path}
+
+
 def resolve_managed_model_path(
     model_id: str,
     entry_relative: str,
@@ -143,8 +162,10 @@ __all__ = [
     "allocate_model_id",
     "copy_model_directory",
     "discover_models_in_folder",
+    "ensure_models_root_directory",
     "model_display_name",
     "model_selection_label",
+    "open_models_root_directory",
     "resolve_managed_model_path",
     "slugify_model_id",
 ]

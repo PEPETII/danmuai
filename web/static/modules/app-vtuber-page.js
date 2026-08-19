@@ -661,6 +661,19 @@ async function importModel(endpoint = '/api/live2d/import-model') {
   } catch (error) { renderRequestError(error); throw error; } finally { setRequestState(false); }
 }
 
+async function openModelsFolder() {
+  const button = element('btnVtuberImportModelAdvanced');
+  if (button) button.disabled = true;
+  try {
+    await apiFetch('/api/live2d/open-models-folder', { method: 'POST' });
+  } catch (error) {
+    toast(error?.message || '打开模型文件夹失败', true);
+    throw error;
+  } finally {
+    if (button) button.disabled = requestInFlight;
+  }
+}
+
 async function clearModel() {
   setRequestState(true);
   try {
@@ -739,7 +752,7 @@ export function initVtuberPage(deps = {}) {
     syncDisplayScaleControls(DISPLAY_SCALE_DEFAULT, { persist: true });
   });
   element('btnVtuberImportModel')?.addEventListener('click', () => importModel().catch((error) => toast(error.message, true)));
-  element('btnVtuberImportModelAdvanced')?.addEventListener('click', () => importModel('/api/live2d/import-model-file').catch((error) => toast(error.message, true)));
+  element('btnVtuberImportModelAdvanced')?.addEventListener('click', () => openModelsFolder().catch(() => {}));
   element('btnVtuberClearModel')?.addEventListener('click', () => clearModel().catch((error) => toast(error.message, true)));
   element('btnVtuberStart')?.addEventListener('click', () => startModel().catch((error) => toast(error.message, true)));
   element('btnVtuberStop')?.addEventListener('click', () => stopModel().catch((error) => toast(error.message, true)));

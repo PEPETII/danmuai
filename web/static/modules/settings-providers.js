@@ -144,6 +144,7 @@ function isProviderVisibleForLanguage(provider) {
 function isProviderVisibleInModalRegion(provider, modalRegion) {
   const id = provider?.id;
   if (id === 'custom_doubao') return false;
+  if (id === 'custom_openai') return true;
   if (provider.region === 'global') return true;
   if (modalRegion === MODAL_PROVIDER_REGION_CHINA) {
     return provider.region === 'china';
