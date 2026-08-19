@@ -25,7 +25,11 @@ PyInstaller spec for DanmuAI（Web 控制台 + pywebview + Qt overlay）。
 import sys
 from pathlib import Path
 
-from PyInstaller.utils.hooks import collect_submodules
+from PyInstaller.utils.hooks import (
+    collect_data_files,
+    collect_dynamic_libs,
+    collect_submodules,
+)
 
 root = Path(SPECPATH)
 sys.path.insert(0, str(root))
@@ -76,6 +80,37 @@ def _collect_dir_datas(
         entries.append((str(path), dest_dir))
     return entries
 
+
+def _collect_package_native_extensions(package_name: str) -> list[tuple[str, str]]:
+    """Collect package-local .pyd/.dll files that hooks may not classify.
+
+    ``live2d-py`` ships its Cubism bridge as a package-local native extension.
+    Keeping the destination relative to the package root preserves imports such
+    as ``live2d.v3._v3cpp`` in an onedir bundle.
+    """
+
+    import importlib.util
+
+    package_spec = importlib.util.find_spec(package_name)
+    if package_spec is None or not package_spec.submodule_search_locations:
+        return []
+    package_root = Path(next(iter(package_spec.submodule_search_locations)))
+    destination_root = package_name.replace(".", "/")
+    entries: list[tuple[str, str]] = []
+    for path in sorted(package_root.rglob("*")):
+        if not path.is_file() or path.suffix.lower() not in {".pyd", ".dll"}:
+            continue
+        relative_parent = path.parent.relative_to(package_root)
+        destination = destination_root
+        if relative_parent != Path("."):
+            destination = f"{destination_root}/{relative_parent.as_posix()}"
+        entries.append((str(path), destination))
+    return entries
+
+
+# These packages are reached through delayed service initialization, package
+# __getattr__, or provider/adapter registration.  Collect the current source
+# tree instead of maintaining another historical hand-written module list.
 # Only PyQt6 is used; exclude other Qt bindings and dev tools that pull PyQt5 in.
 EXCLUDES = [
     "matplotlib",
@@ -115,6 +150,11 @@ datas.append((str(root / "data" / "pet" / "default"), "data/pet/default"))
 if (root / "resources" / "icon.png").is_file():
     datas.append((str(root / "resources" / "icon.png"), "resources"))
 
+# The Live2D SDK is imported only when the desktop model window starts.  The
+# package's data/native files are not project resources and therefore cannot be
+# covered by the web/static Tree above.
+datas += collect_data_files("live2d")
+
 def _collect_velopack_binary() -> list:
     """PyInstaller does not pick up velopack.pyd via collect_dynamic_libs."""
     try:
@@ -128,6 +168,8 @@ def _collect_velopack_binary() -> list:
 
 
 binaries: list = _collect_velopack_binary()
+binaries += collect_dynamic_libs("live2d")
+binaries += _collect_package_native_extensions("live2d")
 hiddenimports: list[str] = [
     # ── 第三方包 ──────────────────────────────────────────────────
     "webview",
@@ -178,6 +220,22 @@ hiddenimports: list[str] = [
     "dashscope.audio.qwen_tts_realtime",
     "velopack",
     "velopack.velopack",
+    *collect_submodules("live2d"),
+    # live2d.v2 imports OpenGL.GL directly. Limit collection to the core
+    # renderer and platform adapters; the full PyOpenGL tree pulls optional
+    # Tk/Togl and GLES backends that are not used by this application.
+    *collect_submodules("OpenGL.GL"),
+    *collect_submodules("OpenGL.platform"),
+    *collect_submodules("app.application"),
+    *collect_submodules("app.config_store"),
+    *collect_submodules("app.knowledge"),
+    *collect_submodules("app.live2d"),
+    *collect_submodules("app.meme_barrage"),
+    *collect_submodules("app.pet"),
+    *collect_submodules("app.providers"),
+    *collect_submodules("app.tts"),
+    *collect_submodules("app.virtual_host"),
+    *collect_submodules("app.web_api"),
     # ── app 顶层模块 ─────────────────────────────────────────────
     "app.ai_client",
     "app.ai_client_requests",
@@ -188,9 +246,11 @@ hiddenimports: list[str] = [
     "app.config_defaults",
     "app.config_migrations",
     "app.config_store",
+    "app.custom_formula_txt_pool",
     "app.danmu_engine",
     "app.danmu_engine_dedup",
     "app.danmu_engine_models",
+    "app.danmu_engine.screen",
     "app.danmu_pool",
     "app.danmu_pool_overlay",
     "app.danmu_read_service",
@@ -203,6 +263,8 @@ hiddenimports: list[str] = [
     "app.floating_panel_web.panel_bridge",
     "app.floating_panel_web.panel_process",
     "app.floating_panel_web.panel_protocol",
+    "app.floating_panel_custom_css",
+    "app.floating_panel_style",
     "app.font_registry",
     "app.history_writer",
     "app.hotkey",
@@ -237,6 +299,9 @@ hiddenimports: list[str] = [
     "app.mic_test",
     "app.mic_test_send",
     "app.mic_utterance",
+    "app.mic_log_store",
+    "app.mic_transcript_worker",
+    "app.openai_chat_stream",
     # ── app.live2d.* ─────────────────────────────────────────────
     "app.live2d",
     "app.live2d.actions",
@@ -322,6 +387,7 @@ hiddenimports: list[str] = [
     "app.pet.pet_prompt",
     "app.pet.pet_state",
     "app.pet.pet_window",
+    "app.problems.classifier",
     # ── app.providers.* ──────────────────────────────────────────
     "app.providers",
     "app.providers.adapters",
@@ -357,7 +423,7 @@ a = Analysis(
     binaries=binaries,
     datas=datas,
     hiddenimports=hiddenimports,
-    hookspath=[],
+    hookspath=[str(root / "packaging_hooks")],
     hooksconfig={},
     runtime_hooks=[],
     excludes=EXCLUDES,

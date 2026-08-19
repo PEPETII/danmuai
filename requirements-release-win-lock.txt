@@ -1,8 +1,8 @@
 # requirements-release-win-lock.txt
 # Purpose: Windows release build only. Do NOT use for daily dev installs.
 # Source: requirements.txt + requirements-dev.txt (direct + transitive deps)
-# Platform: Windows x64, Python 3.12.10
-# Generated: 2026-07-07
+# Platform: Windows x64, Python 3.12.13
+# Generated: 2026-08-20
 # Refresh: docs/operations/PACKAGING_WINDOWS.md — 「依赖锁定（Windows 发布）」
 aiohappyeyeballs==2.7.1
 aiohttp==3.14.1
@@ -12,6 +12,7 @@ annotated-doc==0.0.4
 annotated-types==0.7.0
 anyio==4.14.1
 attrs==26.1.0
+babel==2.18.0
 bottle==0.13.4
 certifi==2026.6.17
 cffi==2.1.0
@@ -19,13 +20,16 @@ charset-normalizer==3.4.8
 click==8.4.2
 clr_loader==0.3.1
 colorama==0.4.6
+courlan==1.4.0
 cryptography==44.0.3
 dashscope==1.26.2
+dateparser==1.4.2
 fastapi==0.139.0
 frozenlist==1.8.0
 h11==0.16.0
 h2==4.3.0
 hpack==4.2.0
+htmldate==1.10.0
 httpcore==1.0.9
 httptools==0.8.0
 httpx==0.28.1
@@ -33,8 +37,12 @@ httpx-sse==0.4.3
 hyperframe==6.1.0
 idna==3.18
 iniconfig==2.3.0
+jusText==3.0.2
 keyboard==0.13.5
 Levenshtein==0.27.3
+live2d-py==0.7.0.4
+lxml==6.1.2
+lxml_html_clean==0.4.5
 markdown-it-py==4.2.0
 mdurl==0.1.2
 multidict==6.7.1
@@ -62,10 +70,12 @@ python-dotenv==1.2.2
 python-Levenshtein==0.27.3
 python-multipart==0.0.32
 pythonnet==3.1.0
+pytz==2026.3.post1
 pywebview==5.4
 pywin32-ctypes==0.2.3
 PyYAML==6.0.3
 RapidFuzz==3.14.5
+regex==2026.7.19
 requests==2.34.2
 rich==15.0.0
 ruff==0.15.20
@@ -74,11 +84,14 @@ shellingham==1.5.4
 six==1.17.0
 sounddevice==0.5.5
 starlette==1.3.1
-live2d-py==0.7.0.4
+tld==0.13.2
+trafilatura==1.12.2
 typer==0.26.8
 typing_extensions==4.16.0
 typing-inspection==0.4.2
 urllib3==2.7.0
+tzdata==2026.3
+tzlocal==5.4.4
 uvicorn==0.50.2
 velopack==1.2.0
 volcengine-python-sdk==5.0.38

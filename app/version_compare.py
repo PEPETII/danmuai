@@ -64,10 +64,7 @@ def parse_version(raw: str) -> tuple[tuple[int, ...], str | None]:
     if not normalized:
         raise ValueError("empty version")
     core, prerelease = _split_core_prerelease(normalized)
-    try:
-        return _parse_numeric_segments(core), prerelease
-    except ValueError:
-        return (0,), prerelease
+    return _parse_numeric_segments(core), prerelease
 
 
 def _compare_prerelease(a: str, b: str) -> int:

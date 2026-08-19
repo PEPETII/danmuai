@@ -172,7 +172,7 @@ if ($deltaCount -gt 0 -and $deltaFeedCount -eq 0) {
     "Version: $appVersion"
     "Built (UTC): $builtAt"
     "Git: $gitSha"
-    "Changelog: docs/operations/CHANGELOG.md"
+    "Packaging guide: docs/operations/PACKAGING_WINDOWS.md"
     ""
     "Velopack outputs in this folder:"
     "  PEPETII.DanmuAI-win-Setup.exe"

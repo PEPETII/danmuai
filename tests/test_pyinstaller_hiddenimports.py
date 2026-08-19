@@ -98,3 +98,18 @@ def test_audit_script_exits_zero() -> None:
         audit_mod.parse_spec_hiddenimports(spec_text)
     )
     assert not missing_app and not missing_3p
+
+
+def test_spec_collects_current_runtime_package_roots(audit_mod, spec_text: str) -> None:
+    collected = audit_mod.parse_spec_collected_packages(spec_text)
+    missing = audit_mod.missing_critical_package_coverage(collected)
+    assert not missing, f"missing current app package coverage: {sorted(missing)}"
+
+
+def test_spec_collects_live2d_native_runtime_packages(spec_text: str) -> None:
+    assert 'collect_submodules("live2d")' in spec_text
+    assert 'collect_submodules("OpenGL.GL")' in spec_text
+    assert 'collect_submodules("OpenGL.platform")' in spec_text
+    assert 'collect_dynamic_libs("live2d")' in spec_text
+    assert "_collect_package_native_extensions(\"live2d\")" in spec_text
+    assert 'hookspath=[str(root / "packaging_hooks")]' in spec_text

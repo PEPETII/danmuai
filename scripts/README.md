@@ -92,7 +92,7 @@ R2 为正式更新与主下载源（Setup.exe 为主入口）；不得改回 COS
 
 ```powershell
 .\scripts\check_release_endpoints.ps1
-.\scripts\check_release_endpoints.ps1 -Version 0.3.9
+.\scripts\check_release_endpoints.ps1 -Version 0.4.0
 ```
 
 ## `verify_windows_release_artifacts.ps1` / `write_release_hash_manifest.ps1`

@@ -2,9 +2,11 @@
 """Audit DanmuAI.spec hiddenimports against deferred/lazy runtime imports.
 
 Scans app/**/*.py and main.py for imports inside functions (and known lazy
-third-party imports), then compares against string literals in DanmuAI.spec.
+third-party imports), then compares against literal entries and
+``collect_submodules(...)`` package coverage in DanmuAI.spec.
 
-Exit 0 when CRITICAL_DEFERRED_IMPORTS are all covered; exit 1 otherwise.
+Exit 0 when critical deferred imports and current package coverage are covered;
+exit 1 otherwise.
 """
 
 from __future__ import annotations
@@ -41,6 +43,24 @@ CRITICAL_LAZY_THIRD_PARTY: frozenset[str] = frozenset(
         "dashscope.audio.qwen_tts_realtime",
         "velopack",
         "velopack.velopack",
+    }
+)
+
+# Current runtime package roots that contain delayed services, provider
+# adapters, or package-level lazy imports.  A package-level collection is
+# intentionally preferred over a second hand-maintained module list.
+CRITICAL_APP_PACKAGE_COVERAGE: frozenset[str] = frozenset(
+    {
+        "app.application",
+        "app.config_store",
+        "app.knowledge",
+        "app.live2d",
+        "app.meme_barrage",
+        "app.pet",
+        "app.providers",
+        "app.tts",
+        "app.virtual_host",
+        "app.web_api",
     }
 )
 
@@ -112,22 +132,58 @@ def scan_deferred_imports() -> set[str]:
 
 
 def parse_spec_hiddenimports(spec_text: str) -> set[str]:
-    """Extract string literal entries from hiddenimports list (ignores collect_submodules)."""
+    """Extract string literal entries from the complete hiddenimports list."""
+
     entries: set[str] = set()
     in_block = False
+    bracket_depth = 0
     for line in spec_text.splitlines():
         stripped = line.strip()
         if stripped.startswith("hiddenimports:"):
             in_block = True
+            bracket_depth = line.count("[") - line.count("]")
             continue
         if in_block:
-            if stripped.startswith("]"):
-                break
             if stripped.startswith('"') or stripped.startswith("'"):
                 match = re.match(r'^["\']([^"\']+)["\']', stripped)
                 if match:
                     entries.add(match.group(1))
+            bracket_depth += line.count("[") - line.count("]")
+            if bracket_depth <= 0:
+                break
     return entries
+
+
+def parse_spec_collected_packages(spec_text: str) -> set[str]:
+    """Extract package names covered by collect_submodules calls."""
+
+    return set(
+        re.findall(
+            r"collect_submodules\(\s*[\"']([^\"']+)[\"']\s*\)",
+            spec_text,
+        )
+    )
+
+
+def missing_critical_package_coverage(
+    collected_packages: set[str],
+) -> set[str]:
+    """Return current package roots not covered by the spec."""
+
+    return {
+        package
+        for package in CRITICAL_APP_PACKAGE_COVERAGE
+        if package not in collected_packages
+    }
+
+
+def _is_covered(module: str, spec_entries: set[str], collected_packages: set[str]) -> bool:
+    """Return whether a literal or package collection covers a module."""
+
+    return module in spec_entries or any(
+        module == package or module.startswith(f"{package}.")
+        for package in collected_packages
+    )
 
 
 def missing_critical(spec_entries: set[str]) -> tuple[set[str], set[str]]:
@@ -143,11 +199,15 @@ def main() -> int:
 
     spec_text = SPEC_PATH.read_text(encoding="utf-8")
     spec_entries = parse_spec_hiddenimports(spec_text)
+    collected_packages = parse_spec_collected_packages(spec_text)
     deferred = scan_deferred_imports()
 
     missing_app, missing_3p = missing_critical(spec_entries)
+    missing_packages = missing_critical_package_coverage(collected_packages)
     uncovered_deferred = sorted(
-        m for m in deferred if m.startswith("app.") and m not in spec_entries
+        m
+        for m in deferred
+        if m.startswith("app.") and not _is_covered(m, spec_entries, collected_packages)
     )
 
     print("=== DanmuAI.spec hiddenimports audit ===")
@@ -163,6 +223,17 @@ def main() -> int:
     else:
         print("CRITICAL gaps: none")
 
+    print(
+        "Collected current app package roots: "
+        f"{len(CRITICAL_APP_PACKAGE_COVERAGE - missing_packages)}"
+        f"/{len(CRITICAL_APP_PACKAGE_COVERAGE)}"
+    )
+    if missing_packages:
+        print("CRITICAL package coverage gaps:")
+        for name in sorted(missing_packages):
+            print(f"  - {name}")
+        print()
+
     if uncovered_deferred:
         print("Other deferred app.* not in spec (informational):")
         for name in uncovered_deferred[:40]:
@@ -171,7 +242,7 @@ def main() -> int:
             print(f"  ... and {len(uncovered_deferred) - 40} more")
         print()
 
-    return 1 if (missing_app or missing_3p) else 0
+    return 1 if (missing_app or missing_3p or missing_packages) else 0
 
 
 if __name__ == "__main__":
