@@ -144,41 +144,93 @@
 .quick-settings-grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: var(--space-4);
+  gap: var(--space-5);
 }
 
 @media (min-width: 640px) {
   .quick-settings-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-6);
   }
 }
 
-.quick-setting-item {
+.quick-setting-card {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3);
+  flex-direction: column;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-width: 0;
+  min-height: 9.5rem;
+  padding: var(--space-5);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.14);
+  background: linear-gradient(
+    165deg,
+    rgba(var(--color-primary-rgb), 0.05) 0%,
+    var(--surface-card) 42%
+  );
+}
+
+.quick-setting-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
   min-width: 0;
 }
 
-.quick-setting-label {
-  flex: 1 1 8rem;
-  min-width: 0;
-  font-size: 0.875rem;
-  font-weight: 600;
+.quick-setting-card__title {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  line-height: 1.4;
   color: var(--text-primary);
 }
 
-.quick-setting-item .ui-button,
-.quick-setting-control {
-  flex: 0 1 auto;
-  min-width: 7.5rem;
-  max-width: 100%;
+.quick-setting-card__desc {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--color-text-dim);
 }
 
-.quick-setting-control {
-  width: auto;
-  min-width: 9rem;
+.quick-setting-card__action {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: auto;
+  padding-top: var(--space-1);
+}
+
+.quick-setting-card__action .ui-button {
+  min-width: 7.5rem;
+  box-shadow: var(--shadow-btn);
+}
+
+.quick-setting-card__action .ui-button--secondary {
+  background: var(--surface-card);
+  border-color: rgba(var(--color-primary-rgb), 0.28);
+}
+
+.quick-setting-card__action .ui-button--secondary:hover:not(:disabled):not(.is-loading):not([aria-busy="true"]) {
+  border-color: rgba(var(--color-primary-rgb), 0.45);
+  box-shadow: var(--shadow-warm-hover);
+  transform: translateY(-1px);
+}
+
+.quick-setting-card--control .quick-setting-control {
+  width: 100%;
+  min-width: 0;
+  box-shadow: var(--shadow-btn);
+}
+
+.quick-setting-card--control .quick-setting-control:hover:not(:disabled) {
+  border-color: rgba(var(--color-primary-rgb), 0.45);
+  box-shadow: var(--shadow-warm-hover);
+}
+
+.quick-setting-card--control .quick-setting-control:focus-visible {
+  outline: 2px solid rgba(var(--color-primary-rgb), 0.45);
+  outline-offset: 2px;
 }
 
 .session-run-log {

@@ -244,6 +244,8 @@ def test_overview_quick_settings_grid():
     overview = (_static_dir() / "partials" / "overview.html").read_text(encoding="utf-8")
     overview_css = (_static_dir() / "warm-tokens-pages-overview.css").read_text(encoding="utf-8")
     quick_js = (_static_dir() / "modules" / "overview-quick-settings.js").read_text(encoding="utf-8")
+    assert 'id="overviewQuickSettingsTitle"' in overview
+    assert "快捷设置" in overview
     assert 'id="overviewQuickSettingsGrid"' in overview
     assert 'class="quick-settings-grid"' in overview
     assert 'id="danmu_render_mode_quick"' in overview
@@ -251,8 +253,12 @@ def test_overview_quick_settings_grid():
     assert 'data-quick-nav="danmu-read"' in overview
     assert 'data-quick-nav="knowledge"' in overview
     assert 'data-quick-nav="persona-manage"' in overview
-    assert overview.count("quick-setting-item") == 9
+    assert overview.count('<article class="quick-setting-card') == 9
+    assert "quick-setting-card__title" in overview
+    assert "quick-setting-card__desc" in overview
+    assert "：" not in overview[overview.index("overviewQuickSettingsGrid"):overview.index("liveTopicInput")]
     assert ".quick-settings-grid" in overview_css
+    assert ".quick-setting-card" in overview_css
     assert "QUICK_NAV_MAP" in quick_js
 
 
