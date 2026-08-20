@@ -247,6 +247,11 @@ def test_overview_demo_topic_nickname_use_ui_field():
     assert 'id="btnSaveLiveTopic"' in overview
     assert 'id="btnSaveUserNickname"' in overview
     assert 'id="btnToggle"' in overview
+    assert 'id="btnQuickToggleVtuber"' in overview
+    assert re.search(
+        r'id="btnQuickToggleVtuber"[^>]*class="[^"]*ui-button[^"]*ui-button--primary[^"]*ui-button--md',
+        overview,
+    )
     assert "ui-field" in overview
     assert "ui-field__label" in overview
     assert "ui-control" in overview

@@ -1262,6 +1262,11 @@ async function init() {
   }
 
   void runBootstrapTask('overview', loadOverviewGlobalFields);
+  void runBootstrapTask('vtuber-runtime', async () => {
+    await ensureVtuberPage();
+    const { refreshVtuberRuntimeState } = await import('./modules/vtuber-controller.js');
+    await refreshVtuberRuntimeState();
+  });
   initAppUpdateModal({ showToast });
 
   const statusPromise = runBootstrapTask('status', async () => {

@@ -109,6 +109,7 @@ def test_vtuber_runtime_exposes_start_stop_desktop_status():
 
 def test_vtuber_module_wires_virtual_host_mode_api():
     source = (STATIC_ROOT / "modules" / "app-vtuber-page.js").read_text(encoding="utf-8")
+    controller = (STATIC_ROOT / "modules" / "vtuber-controller.js").read_text(encoding="utf-8")
 
     assert "/api/virtual-host/settings" in source
     assert "vtuberDialogueEnabled" in source
@@ -127,10 +128,18 @@ def test_vtuber_module_wires_virtual_host_mode_api():
     assert "renderAdvancedDiagnostics" in source
     assert "setStatusPill" in source
     assert "CAPABILITY_SUMMARY_LABELS" in source
+    assert "startVtuber" in source
+    assert "stopVtuber" in source
+    assert "vtuber-controller.js" in source
+    assert "export async function startVtuber" in controller
+    assert "export async function stopVtuber" in controller
+    assert "export function updateVtuberState" in controller
+    assert "btnQuickToggleVtuber" in controller
 
 
 def test_vtuber_module_uses_native_model_api_without_web_control_panel():
     source = (STATIC_ROOT / "modules" / "app-vtuber-page.js").read_text(encoding="utf-8")
+    controller = (STATIC_ROOT / "modules" / "vtuber-controller.js").read_text(encoding="utf-8")
     app_source = (STATIC_ROOT / "app.js").read_text(encoding="utf-8")
 
     for endpoint in (
@@ -143,7 +152,7 @@ def test_vtuber_module_uses_native_model_api_without_web_control_panel():
         "/api/live2d/stop",
         "/api/virtual-host/models",
     ):
-        assert endpoint in source
+        assert endpoint in source or endpoint in controller
     assert "apiFetch" in source
     assert "cancelled" in source
     assert "FormData" not in source
@@ -167,6 +176,8 @@ def test_vtuber_module_uses_native_model_api_without_web_control_panel():
     assert "display_scale_percent" in source
     assert "/api/live2d/settings" in source
     assert "app-vtuber-page.js" in app_source
+    assert "vtuber-controller.js" in app_source
+    assert "refreshVtuberRuntimeState" in app_source
     assert "Promise.all" in app_source
 
 
