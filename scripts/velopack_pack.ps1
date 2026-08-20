@@ -47,6 +47,58 @@ See docs/operations/PACKAGING_WINDOWS.md
 "@
 }
 
+function Get-MarkOfTheWebFiles {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    $markedFiles = @()
+    $files = @(Get-ChildItem -LiteralPath $Path -File -Recurse -Force)
+    foreach ($file in $files) {
+        try {
+            Get-Item -LiteralPath $file.FullName -Stream Zone.Identifier -ErrorAction Stop | Out-Null
+            $markedFiles += $file.FullName
+        } catch {
+            if ($_.FullyQualifiedErrorId -like "AlternateDataStreamNotFound*") {
+                # Expected when the file has no Mark-of-the-Web stream.
+                continue
+            }
+            throw
+        }
+    }
+    return $markedFiles
+}
+
+function Clear-MarkOfTheWeb {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    $files = @(Get-ChildItem -LiteralPath $Path -File -Recurse -Force)
+    Write-Host "Clearing Mark-of-the-Web from $($files.Count) file(s): $Path"
+    foreach ($file in $files) {
+        Unblock-File -LiteralPath $file.FullName -ErrorAction Stop
+    }
+}
+
+function Assert-NoMarkOfTheWeb {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path,
+        [Parameter(Mandatory = $true)]
+        [string]$Label
+    )
+
+    $markedFiles = @(Get-MarkOfTheWebFiles -Path $Path)
+    if ($markedFiles.Count -gt 0) {
+        $details = $markedFiles -join [Environment]::NewLine
+        Write-Error "Mark-of-the-Web check failed for ${Label}:$([Environment]::NewLine)$details"
+    }
+    Write-Host "Mark-of-the-Web check passed: $Label"
+}
+
 Ensure-Vpk
 
 if (-not $BuildPython) {
@@ -119,7 +171,28 @@ $portableItems = Get-ChildItem -LiteralPath $PackDir -Force | Select-Object -Exp
 if (-not $portableItems -or $portableItems.Count -eq 0) {
     Write-Error "Portable package source is empty: $PackDir"
 }
+
+# A downloaded/extracted dependency can retain Zone.Identifier and prevent
+# pythonnet/pywebview from loading Python.Runtime.dll. Clear every release input
+# before archiving, then verify both the local output and its extracted layout.
+Clear-MarkOfTheWeb -Path $PackDir
+Clear-MarkOfTheWeb -Path $OutputDir
+Assert-NoMarkOfTheWeb -Path $PackDir -Label "Portable source directory"
+Assert-NoMarkOfTheWeb -Path $OutputDir -Label "Release output directory before Portable ZIP"
+
 Compress-Archive -LiteralPath $portableItems -DestinationPath $portableZip -CompressionLevel Optimal
+Assert-NoMarkOfTheWeb -Path $OutputDir -Label "Release output directory after Portable ZIP"
+
+$portableVerifyDir = Join-Path $env:TEMP ("danmu-portable-motw-" + [guid]::NewGuid().ToString())
+try {
+    New-Item -ItemType Directory -Force -Path $portableVerifyDir | Out-Null
+    Expand-Archive -LiteralPath $portableZip -DestinationPath $portableVerifyDir -Force
+    Assert-NoMarkOfTheWeb -Path $portableVerifyDir -Label "Extracted Portable ZIP"
+} finally {
+    if (Test-Path -LiteralPath $portableVerifyDir) {
+        Remove-Item -LiteralPath $portableVerifyDir -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
 
 return @{
     Version        = $appVersion

@@ -115,6 +115,10 @@ $env:DANMU_BUILD_USE_RELEASE_LOCK = "1"
 
 MSI 不属于当前链路；`*.msi` 出现即失败。`velopack_poc.ps1` 只用于隔离 POC，不是正式 0.4.0 发布入口。
 
+`velopack_pack.ps1` 在生成 Portable ZIP 前会对 `dist` 便携包源目录和 `release\velopack\` 递归执行 `Unblock-File`，并检查输出目录及重新解压的 Portable ZIP 不含 `Zone.Identifier`。`verify_windows_release_artifacts.ps1` 会重复该检查；任一依赖 DLL（包括 `Python.Runtime.dll`、`Microsoft.Web.WebView2.Core.dll`）或其他文件残留 Mark-of-the-Web 时，构建/校验失败。
+
+该检查只保证本地产物没有 Mark-of-the-Web。Windows 可能在用户下载 ZIP 后给 ZIP 重新添加该标记，并在解压时传播到文件；这属于下载渠道/Windows 信任策略，不能由 ZIP 内部文件元数据预先消除。
+
 ## 6. 产物校验
 
 ```powershell

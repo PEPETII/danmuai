@@ -58,6 +58,45 @@ function Get-FeedLatestFullVersion {
     return (Get-LatestAppSemVersion -Versions $fullVersions)
 }
 
+function Get-MarkOfTheWebFiles {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    $markedFiles = @()
+    $files = @(Get-ChildItem -LiteralPath $Path -File -Recurse -Force)
+    foreach ($file in $files) {
+        try {
+            Get-Item -LiteralPath $file.FullName -Stream Zone.Identifier -ErrorAction Stop | Out-Null
+            $markedFiles += $file.FullName
+        } catch {
+            if ($_.FullyQualifiedErrorId -like "AlternateDataStreamNotFound*") {
+                # Expected when the file has no Mark-of-the-Web stream.
+                continue
+            }
+            throw
+        }
+    }
+    return $markedFiles
+}
+
+function Assert-NoMarkOfTheWeb {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path,
+        [Parameter(Mandatory = $true)]
+        [string]$Label
+    )
+
+    $markedFiles = @(Get-MarkOfTheWebFiles -Path $Path)
+    if ($markedFiles.Count -gt 0) {
+        $details = $markedFiles -join [Environment]::NewLine
+        Write-Error "Mark-of-the-Web check failed for ${Label}:$([Environment]::NewLine)$details"
+    }
+    Write-Host "Mark-of-the-Web check passed: $Label"
+}
+
 # --- MSI must not be present (W-REL-CLEANUP-001) ---
 $msiFiles = @(Get-ChildItem -Path $releaseFull -Filter "*.msi" -ErrorAction SilentlyContinue)
 if ($msiFiles.Count -gt 0) {
@@ -93,6 +132,7 @@ $portableZip = Join-Path $releaseFull "$packId-win-Portable.zip"
 if (-not (Test-Path -LiteralPath $portableZip)) {
     Write-Error "Missing Portable zip: $portableZip"
 }
+Assert-NoMarkOfTheWeb -Path $releaseFull -Label "Release output directory"
 
 $portableTemp = Join-Path $env:TEMP ("danmu-portable-verify-" + [guid]::NewGuid().ToString())
 try {
@@ -108,6 +148,8 @@ try {
     if (-not (Test-Path -LiteralPath $internalDir -PathType Container)) {
         Write-Error "Portable zip root missing _internal/ directory"
     }
+
+    Assert-NoMarkOfTheWeb -Path $portableTemp -Label "Extracted Portable ZIP"
 } finally {
     if (Test-Path -LiteralPath $portableTemp) {
         Remove-Item -LiteralPath $portableTemp -Recurse -Force -ErrorAction SilentlyContinue
