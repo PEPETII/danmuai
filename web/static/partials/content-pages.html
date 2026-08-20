@@ -600,7 +600,10 @@
             <p class="text-sm font-semibold text-warmText" id="hintPersonaActiveTitle">激活人格（运行时随机）</p>
             <p class="text-xs text-gray-500 mt-1 mb-4">勾选多个人格后，运行时每轮随机选一个生成弹幕；点「保存激活列表」生效。</p>
             <div id="personaActiveList" class="grid grid-cols-1 sm:grid-cols-2 gap-2"></div>
-            <button type="button" id="btnSavePersonaActive" class="mt-3 px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold ui-button ui-button--secondary ui-button--sm">保存激活列表</button>
+            <div class="mt-3 flex flex-wrap gap-2">
+              <button type="button" id="btnSavePersonaActive" class="px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold ui-button ui-button--secondary ui-button--sm">保存激活列表</button>
+              <button type="button" id="btnBulkSwitchPersonaModels" class="px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold ui-button ui-button--secondary ui-button--sm" data-i18n="dynamic.appPersonaTopicPage.一键切换全模型">一键切换全模型</button>
+            </div>
           </div>
         </div>
 

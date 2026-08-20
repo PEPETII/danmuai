@@ -601,3 +601,19 @@ def test_builtin_saved_zh_default_returns_en_prompt_when_language_en(persona_app
     finally:
         Translator.set_language("zh")
         persona_api.restore_builtin_default(persona_app, "高压吐槽型")
+
+
+def test_persona_bulk_model_switch_ui_wired():
+    from app.bundle_paths import project_root
+
+    root = project_root()
+    html = (root / "web" / "static" / "partials" / "content-pages.html").read_text(encoding="utf-8")
+    modals = (root / "web" / "static" / "partials" / "modals.html").read_text(encoding="utf-8")
+    js = (root / "web" / "static" / "modules" / "app-persona-topic-page.js").read_text(encoding="utf-8")
+    assert 'id="btnBulkSwitchPersonaModels"' in html
+    assert "一键切换全模型" in html
+    assert 'id="personaBulkModelModal"' in modals
+    assert 'id="personaBulkModelList"' in modals
+    assert "openPersonaBulkModelModal" in js
+    assert "applyBulkPersonaModel" in js
+    assert "/api/personae/${enc(personaId)}/model" in js

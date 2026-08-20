@@ -1,5 +1,6 @@
 import { apiFetch } from './transport.js';
 import { t } from './i18n.js';
+import { activateFocusTrap, deactivateFocusTrap } from './modal-focus-trap.js';
 
 let currentPersonaId = '';
 let toast = () => {};
@@ -146,6 +147,107 @@ async function loadPersonaeCheckboxes(containerId) {
     box.appendChild(row);
   });
   return data;
+}
+
+function resolveProfileDisplayName(model) {
+  const def = String(model?.default_model_id || '').trim();
+  const names =
+    model?.model_names && typeof model.model_names === 'object'
+      ? model.model_names
+      : {};
+  if (def && names[def]) return String(names[def]).trim();
+  return String(model?.name || '').trim() || def || t('common.unnamed');
+}
+
+function closePersonaBulkModelModal() {
+  const modal = document.getElementById('personaBulkModelModal');
+  if (modal) {
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+  }
+  deactivateFocusTrap();
+}
+
+async function applyBulkPersonaModel(modelId) {
+  const mid = String(modelId || '').trim();
+  if (!mid) return;
+  const data = await personaFetch('/api/personae');
+  const personaIds = (data?.items || []).map((item) => item.id).filter(Boolean);
+  if (!personaIds.length) return;
+  await Promise.all(
+    personaIds.map((personaId) =>
+      apiFetch(`/api/personae/${enc(personaId)}/model`, {
+        method: 'PUT',
+        body: JSON.stringify({ model_id: mid }),
+      }),
+    ),
+  );
+  await loadPersonaeCheckboxes('personaActiveList');
+  showToast(t('dynamic.appPersonaTopicPage.已一键切换_n_个人格模型', { count: personaIds.length }));
+  showPersonaPageStatus(t('dynamic.appPersonaTopicPage.已一键切换_n_个人格模型', { count: personaIds.length }));
+}
+
+async function openPersonaBulkModelModal() {
+  const modal = document.getElementById('personaBulkModelModal');
+  const list = document.getElementById('personaBulkModelList');
+  const empty = document.getElementById('personaBulkModelEmpty');
+  if (!modal || !list || !empty) return;
+
+  list.innerHTML = '';
+  let modelItems = [];
+  try {
+    const models = await apiFetch('/api/custom-models');
+    modelItems = Array.isArray(models?.items) ? models.items : [];
+  } catch (error) {
+    showToast(error.message, true);
+    return;
+  }
+
+  const usable = modelItems.filter((model) => String(model?.default_model_id || '').trim());
+  empty.classList.toggle('hidden', usable.length > 0);
+  list.classList.toggle('hidden', usable.length === 0);
+
+  usable.forEach((model) => {
+    const modelId = String(model.default_model_id || '').trim();
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className =
+      'persona-bulk-model-option w-full text-left flex flex-wrap items-center gap-3 p-3 bg-cream rounded-xl text-sm hover:bg-softPeach transition-colors ui-button ui-button--ghost';
+    row.setAttribute('role', 'option');
+    row.dataset.modelId = modelId;
+
+    const nameWrap = document.createElement('span');
+    nameWrap.className = 'font-semibold text-warmText min-w-0 flex-1 truncate';
+    nameWrap.textContent = resolveProfileDisplayName(model);
+    row.appendChild(nameWrap);
+
+    const idWrap = document.createElement('span');
+    idWrap.className = 'text-gray-500 text-xs font-mono truncate max-w-full';
+    idWrap.textContent = modelId;
+    row.appendChild(idWrap);
+
+    if (model.complete === false) {
+      const warn = document.createElement('span');
+      warn.className = 'text-amber-600 text-xs font-bold shrink-0';
+      warn.textContent = t('dynamic.settingsCustomModels.配置不完整');
+      row.appendChild(warn);
+    }
+
+    row.addEventListener('click', async () => {
+      closePersonaBulkModelModal();
+      try {
+        await applyBulkPersonaModel(modelId);
+      } catch (error) {
+        showToast(error.message || t('dynamic.appPersonaTopicPage.一键切换失败'), true);
+        showPersonaPageStatus(error.message || t('dynamic.appPersonaTopicPage.一键切换失败'), true);
+      }
+    });
+    list.appendChild(row);
+  });
+
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+  activateFocusTrap(modal, closePersonaBulkModelModal);
 }
 
 async function loadLiveTopic() {
@@ -403,5 +505,12 @@ export function initPersonaTopicPage(deps = {}) {
       showToast(error.message, true);
       showPersonaPageStatus(error.message, true);
     }
+  });
+  document.getElementById('btnBulkSwitchPersonaModels')?.addEventListener('click', () => {
+    openPersonaBulkModelModal().catch((error) => showToast(error.message, true));
+  });
+  document.getElementById('btnPersonaBulkModelClose')?.addEventListener('click', closePersonaBulkModelModal);
+  document.getElementById('personaBulkModelModal')?.addEventListener('click', (event) => {
+    if (event.target === event.currentTarget) closePersonaBulkModelModal();
   });
 }

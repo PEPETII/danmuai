@@ -191,6 +191,19 @@
     </div>
   </div>
 
+  <!-- 弹幕人格：一键切换全模型 -->
+  <div id="personaBulkModelModal" class="fixed inset-0 bg-black/20 backdrop-blur-sm hidden items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="personaBulkModelModalTitle">
+    <div class="bg-white rounded-3xl shadow-warm max-w-lg w-full p-8 min-w-0">
+      <div class="flex items-start justify-between gap-3 mb-2">
+        <h3 id="personaBulkModelModalTitle" class="text-lg font-bold text-warmText min-w-0" data-i18n="dynamic.appPersonaTopicPage.一键切换全模型">一键切换全模型</h3>
+        <button type="button" id="btnPersonaBulkModelClose" class="ui-button ui-button--ghost ui-button--sm shrink-0" data-i18n-aria-label="common.close" aria-label="关闭">×</button>
+      </div>
+      <p id="personaBulkModelModalHint" class="text-sm text-gray-500 mb-4" data-i18n="dynamic.appPersonaTopicPage.一键切换全模型_说明">点击一个已配置模型，所有人格的模型绑定将统一切换为该模型。</p>
+      <div id="personaBulkModelList" class="space-y-2 max-h-[min(50vh,360px)] overflow-y-auto" role="listbox" aria-labelledby="personaBulkModelModalTitle"></div>
+      <p id="personaBulkModelEmpty" class="hidden text-sm text-gray-400" data-i18n="dynamic.appPersonaTopicPage.暂无已配置模型_请先到弹幕设置添加">暂无已配置模型，请先到「弹幕设置 → API 与模型」添加。</p>
+    </div>
+  </div>
+
   <!-- 删除模型档案二次确认 -->
   <div id="deleteModelConfirmModal" class="fixed inset-0 bg-black/20 backdrop-blur-sm hidden items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="deleteModelConfirmModalTitle">
     <div class="bg-white rounded-3xl shadow-warm max-w-md w-full p-8 min-w-0">

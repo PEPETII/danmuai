@@ -336,7 +336,12 @@
       "人格名称不能包含_等特殊字": "Persona name cannot contain / \\\\ % # ? or other special characters",
       "新人格已创建": "New persona created",
       "激活人格已更新": "Active personas updated",
-      "激活人格已更新_下一次生成会使用新内容": "Active personas updated; next generation uses new selection"
+      "激活人格已更新_下一次生成会使用新内容": "Active personas updated; next generation uses new selection",
+      "一键切换全模型": "Switch all models",
+      "一键切换全模型_说明": "Pick a configured model to bind the same model to every persona.",
+      "暂无已配置模型_请先到弹幕设置添加": "No configured models yet. Add one in Danmu Settings → API & model first.",
+      "已一键切换_n_个人格模型": "Switched models for {count} personas",
+      "一键切换失败": "Bulk model switch failed"
     },
     "appPetPage": {
       "默认桌宠": "Default pet",
