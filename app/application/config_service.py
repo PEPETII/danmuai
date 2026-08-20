@@ -538,7 +538,11 @@ class ConfigService:
             items["use_thinking"] = "1" if _v in ("1", "true", "yes", "on") else "0"
 
     def _merge_custom_models(self, payload_models: list[Any]) -> list[dict[str, Any]]:
-        from app.config_store import canonicalize_custom_model_profile
+        from app.config_store.crypto import (
+            CustomModelApiKeyConflictError,
+            canonicalize_custom_model_profile,
+            read_custom_model_api_key,
+        )
         from app.web_api.custom_models import MASKED_KEY
 
         existing = [model for model in self._config.get_custom_models() if isinstance(model, dict)]
@@ -551,13 +555,16 @@ class ConfigService:
         for index, incoming in enumerate(payload_models):
             if not isinstance(incoming, dict):
                 continue
-            row = canonicalize_custom_model_profile(dict(incoming))
-            key = (row.get("apiKey") or row.get("api_key") or "").strip()
+            try:
+                row = canonicalize_custom_model_profile(dict(incoming))
+            except CustomModelApiKeyConflictError as exc:
+                raise ValueError(str(exc)) from None
+            key = read_custom_model_api_key(row)
             previous = existing_by_identity.get(_custom_model_identity(row))
             if previous is None and index < len(existing):
                 previous = existing[index]
             if key == MASKED_KEY and previous:
-                row["apiKey"] = previous.get("apiKey", "")
+                row["apiKey"] = read_custom_model_api_key(previous)
             elif key == MASKED_KEY:
                 row["apiKey"] = ""
             merged.append(row)

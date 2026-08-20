@@ -108,6 +108,7 @@ RUNTIME_FIELD_EXCLUDE = {
     "_panel_process",  # pywebview 浮动面板子进程管理
     "_panel_bridge",  # 浮动面板 WS 桥
     "_panel_web_active",  # 当前是否走 Web 面板路径
+    "_panel_child_exit_handling",  # 子进程异常退出恢复去重
     "font_registry",  # W-FONT-002
 }
 

@@ -1,7 +1,7 @@
 /**
  * Language preference sync + live Web i18n apply.
  */
-import { API, apiFetch, authHeaders } from './transport.js';
+import { apiFetch } from './transport.js';
 import {
   applyI18n,
   getLanguage,
@@ -93,15 +93,10 @@ async function syncLanguageFromServer() {
 }
 
 async function persistLanguageToServer(lang) {
-  try {
-    await fetch(`${API.base}/api/language`, {
-      method: 'PUT',
-      headers: authHeaders(),
-      body: JSON.stringify({ language: lang }),
-    });
-  } catch (e) {
-    console.warn('[language] persist to server failed', e);
-  }
+  return apiFetch('/api/language', {
+    method: 'PUT',
+    body: JSON.stringify({ language: lang }),
+  });
 }
 
 async function onChange(event, showToast) {
@@ -110,13 +105,21 @@ async function onChange(event, showToast) {
   if (next === prev) return;
   storeLangLocal(next);
   applySelectValue(next);
-  await persistLanguageToServer(next);
   await setLanguage(next);
   applyI18n();
   refreshDynamicI18n();
-  await refreshServerLocalizedContent();
-  const msg = t('dynamic.language.switched');
-  if (typeof showToast === 'function') showToast(msg);
+  try {
+    await persistLanguageToServer(next);
+    await refreshServerLocalizedContent();
+    if (typeof showToast === 'function') {
+      showToast(t('dynamic.language.switched'));
+    }
+  } catch (error) {
+    console.warn('[language] persist to server failed', error);
+    if (typeof showToast === 'function') {
+      showToast(t('dynamic.language.persistFailed'), true);
+    }
+  }
 }
 
 export function initLanguage({ showToast } = {}) {

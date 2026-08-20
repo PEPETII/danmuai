@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Callable
 
 from fastapi import Header
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from app.web_api import custom_models as cm_api
 from app.web_api.auth import require_auth
@@ -15,8 +15,13 @@ if TYPE_CHECKING:
 
 
 class CustomModelPayload(BaseModel):
+    """HTTP contract for custom model create/update; mirrors settings modal payload."""
+
+    model_config = ConfigDict(extra="forbid")
+
     name: str = ""
     model_ids: list[str] | None = None
+    model_names: dict[str, str] | None = None
     default_model_id: str = ""
     max_tokens: int | None = None
     temperature: float | None = None
@@ -25,6 +30,8 @@ class CustomModelPayload(BaseModel):
     apiKey: str = ""
     description: str = ""
     provider: str = ""
+    supportsMic: bool = False
+    thinking_effort: str = "off"
 
 
 class CustomModelProbePayload(CustomModelPayload):

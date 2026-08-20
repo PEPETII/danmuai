@@ -933,6 +933,13 @@ class DanmuApp(
         """AiWorker.finished 主线程入口：释放在途 → 解析入队 → 驱动 _consume_reply_queue。"""
         self.logger.debug(f"[DEBUG] _on_ai_reply called, text length={len(text)}")
         reply_received_at = time.monotonic()
+        if self._discard_stale_mic_callback_if_needed(
+            request_round,
+            screenshot_id,
+            scene_generation,
+            kind="reply",
+        ):
+            return
         meta = self._pop_request_meta(request_round, screenshot_id, scene_generation)
         source = self._abort_ai_reply_early(
             meta,

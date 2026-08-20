@@ -17,6 +17,7 @@ from app.main_helpers import (
     VISUAL_INFLIGHT_RECOVER_SEC,
     density_right_target,
     floating_panel_reply_gap_ms,
+    mic_capture_epoch_from_round,
     queue_capacity,
     reply_request_id,
 )
@@ -75,6 +76,75 @@ class DanmuAppRequestContextMixin:
             return "scene_generation_lagged"
         return None
 
+    def _drop_stale_visual_error_if_needed(
+        self,
+        *,
+        source: str,
+        request_round: int,
+        screenshot_id: int,
+        scene_generation: int,
+    ) -> bool:
+        """Drop lagged visual error/timeout callbacks without failure backoff or user alerts."""
+        if source == "mic":
+            return False
+        stale_reason = self._visual_reply_stale_reason(scene_generation)
+        if not stale_reason:
+            return False
+        self._release_inflight_for_source(source)
+        self._consume_request_timing(request_round, screenshot_id, scene_generation)
+        publish = getattr(self, "_publish_live_status", None)
+        if callable(publish):
+            publish()
+        self.logger.warning(
+            "stale_error_dropped: request_round=%s screenshot_id=%s "
+            "scene_generation=%s current_scene_generation=%s reason=%s",
+            request_round,
+            screenshot_id,
+            scene_generation,
+            int(getattr(self, "_scene_generation", 0)),
+            stale_reason,
+        )
+        try_scene_refresh = getattr(self, "_try_scene_refresh", None)
+        if callable(try_scene_refresh):
+            try_scene_refresh()
+        return True
+
+    def _mic_reply_stale_reason(self, request_round: int) -> str | None:
+        """Return stale reason when mic callback belongs to a prior capture session."""
+        if int(request_round) >= 0:
+            return None
+        callback_epoch = mic_capture_epoch_from_round(request_round)
+        current_epoch = int(getattr(self, "_capture_session_epoch", 0))
+        if callback_epoch != current_epoch:
+            return "mic_capture_session_stale"
+        return None
+
+    def _discard_stale_mic_callback_if_needed(
+        self,
+        request_round: int,
+        screenshot_id: int,
+        scene_generation: int,
+        *,
+        kind: str,
+    ) -> bool:
+        """Drop mic worker callbacks from a prior capture session before meta pop."""
+        stale_reason = self._mic_reply_stale_reason(request_round)
+        if not stale_reason:
+            return False
+        self._pop_request_meta(request_round, screenshot_id, scene_generation)
+        self.logger.warning(
+            "stale_mic_callback_dropped: request_round=%s screenshot_id=%s "
+            "scene_generation=%s callback_epoch=%s current_epoch=%s reason=%s kind=%s",
+            request_round,
+            screenshot_id,
+            scene_generation,
+            mic_capture_epoch_from_round(request_round),
+            int(getattr(self, "_capture_session_epoch", 0)),
+            stale_reason,
+            kind,
+        )
+        return True
+
     def _acquire_visual_inflight(self, screenshot_id: int, scene_generation: int) -> None:
         """W-MAIN-INFLIGHT-ATOMIC-001：视觉 in-flight 计数与关联字段同处写入（主线程）。"""
         self.ai_in_flight += 1
@@ -127,6 +197,13 @@ class DanmuAppRequestContextMixin:
             screenshot_id,
             scene_generation,
         )
+        if self._drop_stale_visual_error_if_needed(
+            source="visual",
+            request_round=request_round,
+            screenshot_id=screenshot_id,
+            scene_generation=scene_generation,
+        ):
+            return True
         self._handle_visual_ai_failure(
             tr("ai.error_timeout"),
             self.__dict__.get("_current_persona", ""),

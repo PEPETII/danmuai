@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 
 
 def test_post_custom_model_legacy_only_body_returns_400():
-    """W-004：legacy-only POST /api/custom-models 获得 400。"""
+    """W-004：legacy-only POST /api/custom-models 获得 400；legacy modelId 字段获得 422。"""
     from app.web_api.routes import register_web_routes
     from fastapi import FastAPI, HTTPException
     from fastapi.testclient import TestClient
@@ -20,7 +20,7 @@ def test_post_custom_model_legacy_only_body_returns_400():
     register_web_routes(app, bridge, _check_token)
     client = TestClient(app, raise_server_exceptions=False)
 
-    res = client.post(
+    legacy_field = client.post(
         "/api/custom-models",
         json={
             "name": "Legacy",
@@ -32,7 +32,22 @@ def test_post_custom_model_legacy_only_body_returns_400():
         },
         headers={"Authorization": "Bearer cm-secret"},
     )
-    assert res.status_code == 400
+    assert legacy_field.status_code == 422
+    detail = legacy_field.json()["detail"]
+    assert any(err.get("loc") == ["body", "modelId"] for err in detail)
+
+    missing_ids = client.post(
+        "/api/custom-models",
+        json={
+            "name": "Legacy",
+            "mode": "openai",
+            "endpoint": "https://api.example.com/v1",
+            "apiKey": "sk-legacy-only",
+            "provider": "custom_openai",
+        },
+        headers={"Authorization": "Bearer cm-secret"},
+    )
+    assert missing_ids.status_code == 400
 
 
 def test_probe_route_accepts_json_body():

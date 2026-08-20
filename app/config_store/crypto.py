@@ -53,6 +53,40 @@ def _backup_corrupted_key_file(key_dir: Path, raw_bytes: bytes) -> Path | None:
 
 
 _DEFAULT_MAX_TOKENS = 512
+MASKED_CUSTOM_MODEL_API_KEY = "********"
+
+
+class CustomModelApiKeyConflictError(ValueError):
+    """Raised when apiKey and api_key carry different non-empty values."""
+
+
+def read_custom_model_api_key(entry: dict | None) -> str:
+    """Return trimmed apiKey value, accepting legacy ``api_key`` alias."""
+    if not isinstance(entry, dict):
+        return ""
+    return (entry.get("apiKey") or entry.get("api_key") or "").strip()
+
+
+def assert_custom_model_api_key_aliases_consistent(entry: dict) -> None:
+    """Reject payloads that supply conflicting apiKey/api_key values."""
+    if not isinstance(entry, dict):
+        return
+    canonical = str(entry.get("apiKey") or "").strip()
+    snake = str(entry.get("api_key") or "").strip()
+    if canonical and snake and canonical != snake:
+        raise CustomModelApiKeyConflictError(
+            tr("custom_model.error_api_key_conflict")
+        )
+
+
+def normalize_custom_model_api_key_aliases(entry: dict) -> dict:
+    """Collapse ``api_key`` into canonical ``apiKey`` and strip the alias field."""
+    assert_custom_model_api_key_aliases_consistent(entry)
+    resolved = read_custom_model_api_key(entry)
+    if resolved or "apiKey" in entry or "api_key" in entry:
+        entry["apiKey"] = resolved
+    entry.pop("api_key", None)
+    return entry
 
 
 def _resolve_model_ids(entry: dict) -> list[str]:
@@ -118,7 +152,7 @@ def canonicalize_custom_model_profile(entry: dict) -> dict:
     entry["max_tokens"] = max_tokens
     entry.pop("modelId", None)
     entry.pop("model_id", None)
-    return entry
+    return normalize_custom_model_api_key_aliases(entry)
 
 
 # W-CUSTOMMODEL-SCHEMA-002 别名；测试与既有 import 仍可用。

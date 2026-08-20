@@ -35,6 +35,55 @@ def test_capture_always_advances_screenshot_id_even_when_in_flight():
     assert app._latest_screenshot_id == 4
 
 
+def test_stale_error_dropped_when_scene_generation_lagged(monkeypatch):
+    import main as main_mod
+
+    app = make_minimal_danmu_app()
+    app.logger = FakeLogger()
+    app.engine.running = True
+    app.ai_in_flight = 1
+    app._is_generating = True
+    app._consecutive_failures = 0
+    app._failure_backoff_paused = False
+    app._scene_generation = 2
+    app._register_request_meta(10, 10, 1, "visual")
+    app._on_ai_error = main_mod.DanmuApp._on_ai_error.__get__(app, main_mod.DanmuApp)
+    app._publish_live_status = lambda: None
+    app._notify_pet_visual_error = lambda: None
+    app.report_problem = MagicMock()
+
+    app._on_ai_error("provider 500", "persona-1", 10, 10, time.monotonic(), 1)
+
+    assert app._consecutive_failures == 0
+    assert app._failure_backoff_paused is False
+    assert app.ai_in_flight == 0
+    assert app._is_generating is False
+    assert app.report_problem.call_count == 0
+    assert any("stale_error_dropped" in msg for msg in app.logger.warning_messages)
+    assert any("scene_generation_lagged" in msg for msg in app.logger.warning_messages)
+
+
+def test_fresh_visual_error_still_counts_failure(monkeypatch):
+    import main as main_mod
+
+    app = make_minimal_danmu_app()
+    app.logger = FakeLogger()
+    app.engine.running = True
+    app.ai_in_flight = 1
+    app._scene_generation = 2
+    app._register_request_meta(10, 10, 2, "visual")
+    app._on_ai_error = main_mod.DanmuApp._on_ai_error.__get__(app, main_mod.DanmuApp)
+    app._publish_live_status = lambda: None
+    app._notify_pet_visual_error = lambda: None
+    app.report_problem = MagicMock()
+
+    app._on_ai_error("provider 500", "persona-1", 10, 10, time.monotonic(), 2)
+
+    assert app._consecutive_failures == 1
+    assert app.ai_in_flight == 0
+    assert not any("scene_generation_lagged" in msg for msg in app.logger.warning_messages)
+
+
 def test_stale_reply_dropped_when_scene_generation_lagged(monkeypatch):
     import main as main_mod
 

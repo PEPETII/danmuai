@@ -184,9 +184,9 @@ class DanmuAppMicMixin:
     def _on_mic_utterance_end(self) -> None:
         if not mic_mode_enabled(self.config) or not self.engine.running:
             return
-        if self._has_mic_request_in_flight():
+        mic_busy = self._has_mic_request_in_flight()
+        if mic_busy:
             self.logger.info("mic insert skipped: request already in flight")
-            return
         if not self._mic_audio_supported():
             return
         pcm = self._mic_orchestrator.snapshot_pcm_for_utterance(self.config)
@@ -217,6 +217,8 @@ class DanmuAppMicMixin:
         self.logger.info(f"mic utterance end: pcm_bytes={len(pcm)} rms={rms}")
         if routed:
             return
+        if mic_busy:
+            return
         self._trigger_mic_api_call(pcm)
 
     def _has_mic_request_in_flight(self) -> bool:
@@ -242,7 +244,12 @@ class DanmuAppMicMixin:
             return
 
         self._mic_request_seq += 1
-        request_round = -self._mic_request_seq
+        from app.main_helpers import mic_request_round
+
+        request_round = mic_request_round(
+            self._mic_request_seq,
+            getattr(self, "_capture_session_epoch", 0),
+        )
         screenshot_id = self._latest_screenshot_id
         captured_at = time.monotonic()
         scene_generation = self._scene_generation

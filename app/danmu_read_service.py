@@ -221,6 +221,8 @@ class DanmuReadService(QObject):
         self._shutdown = False
         self._playback = DanmuTtsPlayback()
         self._playback.playback_finished.connect(self._on_playback_finished)
+        self._playback.playback_failed.connect(self._on_playback_failed)
+        self._playback.playback_stopped.connect(self._on_playback_stopped)
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._on_tick)
         self._tts_ready.connect(self._on_tts_ready)
@@ -231,9 +233,10 @@ class DanmuReadService(QObject):
         self._skip_log_flags: set[str] = set()
 
     def shutdown(self) -> None:
-        """退出前调用：停止定时器并忽略池线程迟到的 emit。"""
+        """退出前调用：停止定时器、中断在播音频并忽略池线程迟到的 emit。"""
         self._shutdown = True
         self._timer.stop()
+        self._stop_playback()
         self._tts_in_flight = False
         self._probe_pending = False
 
@@ -254,7 +257,11 @@ class DanmuReadService(QObject):
 
     def on_engine_stopped(self) -> None:
         self._timer.stop()
+        self._stop_playback()
         self._tts_in_flight = False
+
+    def _stop_playback(self) -> None:
+        self._playback.stop()
 
     def _log_skip_once(self, reason: str, message: str) -> None:
         if reason in self._skip_log_flags:
@@ -585,9 +592,20 @@ class DanmuReadService(QObject):
         # 保持 _tts_in_flight 直至 playback_finished，避免定时 tick 触发新的 sd.play 打断当前句
         self._app.logger.info("danmu read: playback started (%s bytes)", len(wav_bytes))
 
-    def _on_playback_finished(self, _playback_id: int = 0) -> None:
+    def _clear_playback_in_flight(self) -> None:
         self._tts_in_flight = False
+
+    def _on_playback_finished(self, _playback_id: int = 0) -> None:
+        self._clear_playback_in_flight()
         self._app.logger.debug("danmu read: playback finished")
+
+    def _on_playback_failed(self, _playback_id: int = 0) -> None:
+        self._clear_playback_in_flight()
+        self._app.logger.warning("danmu read: playback failed (audio output error)")
+
+    def _on_playback_stopped(self, _playback_id: int = 0) -> None:
+        self._clear_playback_in_flight()
+        self._app.logger.debug("danmu read: playback stopped")
 
     def _on_tts_failed(self, message: str) -> None:
         self._tts_in_flight = False

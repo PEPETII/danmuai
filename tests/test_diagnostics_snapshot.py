@@ -6,16 +6,99 @@ from unittest.mock import MagicMock
 import app.api_schedule as api_schedule
 import main
 import pytest
+from app.application.diagnostic_snapshot import DiagnosticSnapshotBuilder, build_diagnostic_report
 from app.web_api.routes import register_web_routes
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from tests.diagnostics_helpers import (
-    DiagnosticSnapshotBuilder,
-    build_diagnostic_report,
-    make_diagnostic_app,
-)
+from tests.diagnostics_helpers import make_diagnostic_app
 from tests.fakes import FakeConfig
+
+
+def test_config_context_sanitizes_endpoint_userinfo_query_and_fragment(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """Endpoint credentials must not appear in api_endpoint_host, api_endpoint, or report text."""
+    fake_user = "fake_user_placeholder"
+    fake_pass = "fake_pass_placeholder"
+    fake_token = "fake_token_placeholder"
+    fake_fragment = "fake_fragment_secret"
+    endpoint = (
+        f"https://{fake_user}:{fake_pass}@api.example.com:8443/v1/chat"
+        f"?token={fake_token}#{fake_fragment}"
+    )
+    app = make_diagnostic_app()
+    app.config.values.update(
+        {
+            "api_endpoint": endpoint,
+            "api_mode": "openai",
+            "model": "gpt-4o",
+            "default_model_id": "gpt-4o",
+        }
+    )
+
+    monkeypatch.setattr(api_schedule.time, "monotonic", lambda: 100.0)
+    monkeypatch.setattr("app.application.diagnostic_snapshot.time.monotonic", lambda: 100.0)
+
+    snapshot = app.build_diagnostic_snapshot()
+    ctx = snapshot["config_context"]
+    report = build_diagnostic_report(snapshot)
+    leaked = f"{fake_user}|{fake_pass}|{fake_token}|{fake_fragment}"
+
+    assert ctx["api_endpoint_host"] == "api.example.com:8443"
+    assert ctx["api_endpoint"] == "https://api.example.com:8443/v1/chat"
+    assert leaked not in ctx["api_endpoint_host"]
+    assert leaked not in ctx["api_endpoint"]
+    assert leaked not in report
+
+
+def test_config_context_sanitizes_ipv6_endpoint_host():
+    endpoint = "https://cred_user:cred_pass@[2001:db8::1]:8443/v1"
+    host = DiagnosticSnapshotBuilder._sanitize_api_endpoint_host(endpoint)
+    sanitized = DiagnosticSnapshotBuilder._sanitize_api_endpoint(endpoint)
+
+    assert host == "2001:db8::1:8443"
+    assert sanitized == "https://2001:db8::1:8443/v1"
+    assert "cred_user" not in host
+    assert "cred_pass" not in sanitized
+
+
+def test_sanitize_api_endpoint_rejects_invalid_urls():
+    assert DiagnosticSnapshotBuilder._sanitize_api_endpoint_host("not-a-url") == ""
+    assert DiagnosticSnapshotBuilder._sanitize_api_endpoint("not-a-url") == ""
+    assert DiagnosticSnapshotBuilder._sanitize_api_endpoint_host("") == ""
+
+
+def test_diagnostics_api_response_omits_endpoint_credentials(monkeypatch: pytest.MonkeyPatch):
+    fake_user = "fake_api_user_placeholder"
+    fake_pass = "fake_api_pass_placeholder"
+    endpoint = f"https://{fake_user}:{fake_pass}@api.example.com/v1"
+    app = make_diagnostic_app(
+        config=FakeConfig(
+            {
+                "screenshot_interval": "3",
+                "api_endpoint": endpoint,
+                "api_mode": "openai",
+            }
+        )
+    )
+
+    monkeypatch.setattr(api_schedule.time, "monotonic", lambda: 100.0)
+    monkeypatch.setattr("app.application.diagnostic_snapshot.time.monotonic", lambda: 100.0)
+    monkeypatch.setattr("app.application.runtime_state.time.monotonic", lambda: 100.0)
+
+    fastapi_app = FastAPI()
+    bridge = SimpleNamespace(danmu_app=app)
+    register_web_routes(fastapi_app, bridge, lambda _authorization=None: None)
+    client = TestClient(fastapi_app)
+
+    response = client.get("/api/diagnostics")
+    body_text = response.text
+
+    assert response.status_code == 200
+    assert fake_user not in body_text
+    assert fake_pass not in body_text
+    assert response.json()["diagnostics"]["config_context"]["api_endpoint_host"] == "api.example.com"
 
 
 def test_diagnostic_snapshot_is_read_only(monkeypatch: pytest.MonkeyPatch):
@@ -231,15 +314,17 @@ def test_diagnostics_api_returns_independent_read_only_payload(monkeypatch: pyte
                 "has_pending_timing": True,
             },
             "undisplayed": {},
-            "knowledge": {
-                "enabled": False,
-                "fts_backend": "",
-                "packages_count": 0,
-                "enabled_packages_count": 0,
-                "items_count": 0,
-                "enabled_items_count": 0,
-                "last_injected_count": 0,
-            },
+                "knowledge": {
+                    "enabled": False,
+                    "fts_backend": "",
+                    "packages_count": 0,
+                    "enabled_packages_count": 0,
+                    "items_count": 0,
+                    "enabled_items_count": 0,
+                    "last_injected_count": 0,
+                    "last_injected_public_ids": [],
+                    "last_query_brief": "",
+                },
         },
     }
     assert diagnostics_res.status_code == 200

@@ -81,3 +81,32 @@ def test_transport_retains_http_and_json_error_boundary():
 
     assert "if (!res.ok)" in source
     assert "return res.json();" in source
+
+
+def test_transport_clears_stale_session_on_refresh_failure():
+    source = read_web("web/static/modules/transport.js")
+
+    assert "export function clearSessionCredentials()" in source
+    assert "reportAuthFailure(error, 'apiFetch')" in source
+    assert ".catch((e) => reportAuthFailure(e, 'ws-status'))" in source
+    assert ".catch((e) => reportAuthFailure(e, 'ws-logs'))" in source
+    assert "onAuthFailure" in source
+
+
+def test_visibility_resume_uses_single_flight_transport_entry():
+    app_js = read_web("web/static/app.js")
+    transport_js = read_web("web/static/modules/transport.js")
+
+    visibility_block = app_js.split("document.addEventListener('visibilitychange'", 1)[1].split(
+        "\n});", 1
+    )[0]
+    assert "resumeRealtimeTransport()" in visibility_block
+    assert "startRealtimeTransport()" not in visibility_block
+    assert "bootstrapLogsFromServer" not in visibility_block
+
+    assert "export function resumeRealtimeTransport()" in transport_js
+    assert "let resumeTransportPromise = null" in transport_js
+    assert "function scheduleLogsBootstrap(" in transport_js
+    assert "function isTransportHealthy()" in transport_js
+    assert "handlers.bootstrapLogs(0)" not in transport_js
+    assert "scheduleLogsBootstrap(REALTIME.lastLogsPollTs)" in transport_js

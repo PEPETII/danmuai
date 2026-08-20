@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from PyQt6.QtCore import QObject, QRunnable, pyqtSignal
 
-from app.mic_transcription import transcribe_pcm
+from app.mic_transcription import MicTranscriptionResult, transcribe_pcm
 
 
 class MicTranscriptCoordinator(QObject):
@@ -28,5 +28,8 @@ class MicTranscriptRunnable(QRunnable):
         self.setAutoDelete(True)
 
     def run(self) -> None:
-        result = transcribe_pcm(self._config, self._pcm)
+        try:
+            result = transcribe_pcm(self._config, self._pcm)
+        except Exception as exc:  # noqa: BLE001 — worker must always emit a terminal result
+            result = MicTranscriptionResult(ok=False, error=type(exc).__name__)
         self._coordinator.finished.emit(self._utterance_id, result)

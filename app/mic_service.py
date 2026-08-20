@@ -69,8 +69,6 @@ class MicService:
         return input_device_exists(device_id)
 
     def ensure_capture(self, *, preferred_device_id: int | None = None) -> bool:
-        if self._capture.is_running():
-            return True
         return self._capture.start(preferred_device_id=preferred_device_id)
 
     def clear_buffer(self) -> None:
@@ -78,11 +76,9 @@ class MicService:
 
     def sync(self, *, enabled: bool, preferred_device_id: int | None = None) -> None:
         if enabled:
-            if not self._capture.is_running():
-                self._capture.start(preferred_device_id=preferred_device_id)
-        else:
-            if self._capture.is_running():
-                self._capture.stop()
+            self._capture.start(preferred_device_id=preferred_device_id)
+        elif self._capture.is_running():
+            self._capture.stop()
 
     def stop(self) -> None:
         self._capture.stop()

@@ -73,44 +73,88 @@ function resolveSlotAssetMap(data) {
   return new Map(slotAssets.map((item) => [Number(item.slot_id), item]));
 }
 
+function appendTextElement(parent, tagName, className, text) {
+  const el = document.createElement(tagName);
+  if (className) el.className = className;
+  el.textContent = text;
+  parent.appendChild(el);
+  return el;
+}
+
+export function createBarrageSlotCard(slotId, slot, asset) {
+  const displayName = asset.display_name || t('dynamic.appPetPage.默认桌宠');
+  const resourceLabel = asset.resource_label || t('dynamic.appPetPage.内置默认');
+  const assetPath = slot.asset_path || '—';
+  const slotNumber = slotId + 1;
+
+  const card = document.createElement('article');
+  card.className = 'rounded-2xl border border-softPeach bg-white/80 p-4 space-y-3';
+
+  const headerRow = document.createElement('div');
+  headerRow.className = 'flex items-start justify-between gap-3';
+
+  const titleBlock = document.createElement('div');
+  appendTextElement(titleBlock, 'h4', 'text-base font-bold text-warmText', `槽位 ${slotNumber}`);
+  appendTextElement(titleBlock, 'p', 'text-sm text-gray-500', displayName);
+  headerRow.appendChild(titleBlock);
+
+  appendTextElement(
+    headerRow,
+    'span',
+    'rounded-full bg-cream px-3 py-1 text-xs font-semibold text-warmText',
+    resourceLabel,
+  );
+
+  const previewBox = document.createElement('div');
+  previewBox.className = 'rounded-xl border border-softPeach bg-cream/60 p-2 flex items-center justify-center min-h-[140px]';
+  const previewImg = document.createElement('img');
+  previewImg.src = `/api/pet/barrage-slots/${slotId}/preview`;
+  previewImg.alt = `桌宠槽位 ${slotNumber} 预览`;
+  previewImg.className = 'max-h-32 w-auto object-contain';
+  previewBox.appendChild(previewImg);
+
+  const metaBlock = document.createElement('div');
+  metaBlock.className = 'text-xs text-gray-500 space-y-1';
+  appendTextElement(metaBlock, 'p', '', `资源来源：${resourceLabel}`);
+  appendTextElement(metaBlock, 'p', 'break-all', `资源路径：${assetPath}`);
+
+  const errorEl = document.createElement('p');
+  errorEl.className = `slot-error text-sm font-semibold text-red-600${asset.error ? '' : ' hidden'}`;
+  errorEl.textContent = asset.error || '';
+
+  const buttonRow = document.createElement('div');
+  buttonRow.className = 'flex flex-wrap gap-3';
+
+  const importBtn = document.createElement('button');
+  importBtn.type = 'button';
+  importBtn.className = 'btn-primary ui-button ui-button--primary ui-button--md';
+  importBtn.dataset.slotAction = 'import';
+  importBtn.dataset.slotId = String(slotId);
+  importBtn.textContent = '切换桌宠';
+
+  const resetBtn = document.createElement('button');
+  resetBtn.type = 'button';
+  resetBtn.className = 'ui-button ui-button--secondary ui-button--md';
+  resetBtn.dataset.slotAction = 'reset';
+  resetBtn.dataset.slotId = String(slotId);
+  resetBtn.textContent = '恢复默认';
+
+  buttonRow.append(importBtn, resetBtn);
+  card.append(headerRow, previewBox, metaBlock, errorEl, buttonRow);
+  return card;
+}
+
 function renderBarrageSlots(data) {
   const container = document.getElementById('petBarrageSlots');
   if (!container) return;
   const slotAssets = resolveSlotAssetMap(data);
   currentBarrageSlotAssets = slotAssets;
   const slots = data?.pet_barrage?.slots || [];
-  container.innerHTML = '';
+  container.replaceChildren();
   slots.forEach((slot) => {
     const slotId = Number(slot.slot_id);
     const asset = slotAssets.get(slotId) || {};
-    const card = document.createElement('article');
-    card.className = 'rounded-2xl border border-softPeach bg-white/80 p-4 space-y-3';
-    card.innerHTML = `
-      <div class="flex items-start justify-between gap-3">
-        <div>
-          <h4 class="text-base font-bold text-warmText">槽位 ${slotId + 1}</h4>
-          <p class="text-sm text-gray-500">${asset.display_name || t('dynamic.appPetPage.默认桌宠')}</p>
-        </div>
-        <span class="rounded-full bg-cream px-3 py-1 text-xs font-semibold text-warmText">${asset.resource_label || t('dynamic.appPetPage.内置默认')}</span>
-      </div>
-      <div class="rounded-xl border border-softPeach bg-cream/60 p-2 flex items-center justify-center min-h-[140px]">
-        <img
-          src="/api/pet/barrage-slots/${slotId}/preview"
-          alt="桌宠槽位 ${slotId + 1} 预览"
-          class="max-h-32 w-auto object-contain"
-        >
-      </div>
-      <div class="text-xs text-gray-500 space-y-1">
-        <p>资源来源：${asset.resource_label || t('dynamic.appPetPage.内置默认')}</p>
-        <p class="break-all">资源路径：${slot.asset_path || '—'}</p>
-      </div>
-      <p class="slot-error text-sm font-semibold text-red-600 ${asset.error ? '' : 'hidden'}">${asset.error || ''}</p>
-      <div class="flex flex-wrap gap-3">
-        <button type="button" class="btn-primary ui-button ui-button--primary ui-button--md" data-slot-action="import" data-slot-id="${slotId}">切换桌宠</button>
-        <button type="button" class="ui-button ui-button--secondary ui-button--md" data-slot-action="reset" data-slot-id="${slotId}">恢复默认</button>
-      </div>
-    `;
-    container.appendChild(card);
+    container.appendChild(createBarrageSlotCard(slotId, slot, asset));
   });
 }
 

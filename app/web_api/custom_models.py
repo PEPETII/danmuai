@@ -19,7 +19,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from app.application.config_service import set_default_model_selection
-from app.config_store.crypto import canonicalize_custom_model_profile
+from app.config_store.crypto import (
+    CustomModelApiKeyConflictError,
+    assert_custom_model_api_key_aliases_consistent,
+    canonicalize_custom_model_profile,
+    read_custom_model_api_key,
+)
 from app.model_providers import (
     is_model_config_complete,
     normalize_endpoint,
@@ -127,8 +132,9 @@ def _derive_profile_name(
 
 def _mask_model(model: dict) -> dict:
     out = dict(model)
-    if out.get("apiKey"):
+    if read_custom_model_api_key(out):
         out["apiKey"] = MASKED_KEY
+    out.pop("api_key", None)
     return out
 
 
@@ -144,10 +150,14 @@ def list_custom_models(app: "DanmuApp") -> dict[str, Any]:
 
 
 def _resolve_api_key(payload: dict, existing: dict | None, app: "DanmuApp") -> str:
-    key = (payload.get("apiKey") or payload.get("api_key") or "").strip()
+    try:
+        assert_custom_model_api_key_aliases_consistent(payload)
+    except CustomModelApiKeyConflictError as exc:
+        raise ValueError(str(exc)) from None
+    key = read_custom_model_api_key(payload)
     if key == MASKED_KEY:
         # Masked key means "keep stored key" only when editing an existing entry.
-        return (existing.get("apiKey", "") if existing else "")
+        return read_custom_model_api_key(existing)
     if key:
         return key
     return ""

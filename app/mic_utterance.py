@@ -91,6 +91,9 @@ class MicUtteranceDetector:
 
     def reset(self) -> None:
         """停麦或模式切换时清空状态机与噪声底，避免沿用上一会话阈值。"""
+        if self._state in (UtteranceState.SPEAKING, UtteranceState.SILENCE_PENDING):
+            if self._on_utterance_discarded is not None:
+                self._on_utterance_discarded()
         self._state = UtteranceState.IDLE
         self._speech_started_at = 0.0
         self._silence_started_at = 0.0

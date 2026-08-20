@@ -113,3 +113,15 @@ def test_language_static_assets_present():
     assert "export function initLanguage" in lang_js
     assert "from './modules/language.js'" in app_js
     assert "initLanguage(" in app_js
+
+
+def test_language_js_persists_via_api_fetch_and_surfaces_save_failures():
+    root = project_root()
+    lang_js = (root / "web" / "static" / "modules" / "language.js").read_text(encoding="utf-8")
+
+    assert "apiFetch('/api/language'" in lang_js
+    assert "dynamic.language.persistFailed" in lang_js
+    assert "dynamic.language.switched" in lang_js
+    assert "showToast(t('dynamic.language.switched'))" in lang_js
+    assert "showToast(t('dynamic.language.persistFailed'), true)" in lang_js
+    assert "fetch(`${API.base}/api/language`" not in lang_js

@@ -90,14 +90,26 @@ class DiagnosticSnapshotBuilder:
         }
 
     @staticmethod
+    def _endpoint_host_port(parsed) -> str:
+        if not parsed.hostname:
+            return ""
+        host = parsed.hostname
+        if parsed.port:
+            host = f"{host}:{parsed.port}"
+        return host
+
+    @staticmethod
+    def _sanitize_api_endpoint_host(endpoint: str) -> str:
+        """Return host[:port] without userinfo."""
+        return DiagnosticSnapshotBuilder._endpoint_host_port(urlparse(endpoint.strip()))
+
+    @staticmethod
     def _sanitize_api_endpoint(endpoint: str) -> str:
         """Return scheme + host + path, stripping query/fragment/userinfo."""
         parsed = urlparse(endpoint.strip())
         if not parsed.scheme or not parsed.hostname:
             return ""
-        netloc = parsed.hostname
-        if parsed.port:
-            netloc = f"{netloc}:{parsed.port}"
+        netloc = DiagnosticSnapshotBuilder._endpoint_host_port(parsed)
         return parsed._replace(netloc=netloc, params="", query="", fragment="").geturl()
 
     def _config_context_summary(self) -> dict[str, Any]:
@@ -113,7 +125,7 @@ class DiagnosticSnapshotBuilder:
             }
         endpoint = str(config.get("api_endpoint", "") or "").strip()
         api_mode = str(config.get("api_mode", "doubao") or "doubao")
-        host = urlparse(endpoint).netloc if endpoint else ""
+        host = self._sanitize_api_endpoint_host(endpoint) if endpoint else ""
         active_model_id = resolve_active_model_id(config)
         model_status = resolve_model_status(config)
         return {

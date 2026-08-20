@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import queue
 import threading
+import time
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -408,6 +409,117 @@ def test_set_geometry_restarts_existing_child_only_when_geometry_changes():
     assert panel.set_geometry(360, 600, 100, 200) is True
     assert panel._process is not first_process
     assert panel.last_geometry == (360, 600, 100, 200)
+
+
+class _JoinableFakeProcess(_FakeProcess):
+    def __init__(self, *, die_after: float | None = None) -> None:
+        super().__init__(die_after=die_after)
+        self._join_event = threading.Event()
+
+    def _die(self) -> None:
+        super()._die()
+        self._join_event.set()
+
+    def join(self, timeout: float | None = None) -> None:
+        if timeout is None:
+            self._join_event.wait()
+        else:
+            self._join_event.wait(timeout)
+
+
+def test_exit_watcher_notifies_on_unexpected_child_exit():
+    events: list[str] = []
+
+    def factory(*args):
+        rq, proc = _factory_loaded(*args)
+        return rq, _JoinableFakeProcess()
+
+    panel = PanelProcess(
+        webview2_checker=lambda: True,
+        process_factory=factory,
+        load_timeout_sec=2.0,
+    )
+    panel.set_on_unexpected_exit(lambda: events.append("exit"))
+    assert panel.start("http://example") is True
+    assert panel.lifecycle_state == "running"
+    dead_proc = panel._process
+    dead_proc._die()
+    deadline = time.monotonic() + 2.0
+    while time.monotonic() < deadline and not events:
+        time.sleep(0.02)
+    assert events == ["exit"]
+
+
+def test_exit_watcher_suppressed_on_intentional_stop():
+    events: list[str] = []
+
+    panel = PanelProcess(
+        webview2_checker=lambda: True,
+        process_factory=_factory_loaded,
+        load_timeout_sec=2.0,
+    )
+    panel.set_on_unexpected_exit(lambda: events.append("exit"))
+    assert panel.start("http://example") is True
+    panel.stop()
+    time.sleep(0.2)
+    assert events == []
+    assert panel.lifecycle_state == "stopped"
+
+
+def test_note_child_died_restarts_once_and_updates_lifecycle():
+    starts = 0
+
+    def factory(*args):
+        nonlocal starts
+        starts += 1
+        rq: queue.Queue = queue.Queue()
+        rq.put("loaded")
+        rq.put("hwnd:12345")
+        return rq, _JoinableFakeProcess()
+
+    panel = PanelProcess(
+        webview2_checker=lambda: True,
+        process_factory=factory,
+        load_timeout_sec=2.0,
+    )
+    panel.set_on_unexpected_exit(lambda: panel.note_child_died())
+    assert panel.start("http://example") is True
+    first = panel._process
+    first._die()
+    deadline = time.monotonic() + 2.0
+    while time.monotonic() < deadline and panel._process is first:
+        time.sleep(0.02)
+    assert panel.is_alive() is True
+    assert panel.lifecycle_state == "running"
+    assert starts == 2
+    assert panel.restart_count == 0
+
+
+def test_note_child_died_is_idempotent_while_handling():
+    panel = PanelProcess(
+        webview2_checker=lambda: True,
+        process_factory=_factory_loaded,
+        load_timeout_sec=2.0,
+    )
+    assert panel.start("http://example") is True
+    panel._unexpected_exit_handling = True
+    assert panel.note_child_died() is False
+
+
+def test_note_child_died_fallback_sets_lifecycle_state():
+    def factory_fail(*_args):
+        return queue.Queue(), _FakeProcess()
+
+    panel = PanelProcess(
+        webview2_checker=lambda: True,
+        process_factory=factory_fail,
+        load_timeout_sec=0.05,
+    )
+    panel._restart_count = MAX_RESTARTS
+    panel._process = _FakeProcess()
+    assert panel.note_child_died() is False
+    assert panel.lifecycle_state == "fallback"
+    assert panel.fallback_to_qpainter_called is True
 
 
 def test_webview_drag_region_targets_panel():

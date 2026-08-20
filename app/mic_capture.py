@@ -332,6 +332,16 @@ def input_device_exists(device_id: int | None) -> bool:
     return max_input > 0
 
 
+def _close_input_stream(stream) -> None:
+    if stream is None:
+        return
+    try:
+        stream.stop()
+        stream.close()
+    except _MIC_DEVICE_ERRORS:
+        pass
+
+
 class MicCaptureService:
     """Capture PCM into a ring buffer; never writes audio to disk."""
 
@@ -414,11 +424,7 @@ class MicCaptureService:
             else:
                 stream = None
         if stream is not None:
-            try:
-                stream.stop()
-                stream.close()
-            except _MIC_DEVICE_ERRORS:
-                pass
+            _close_input_stream(stream)
             if follow_default:
                 self._log("mic capture restarted: system default input device changed")
             else:
@@ -460,6 +466,7 @@ class MicCaptureService:
                     self._log("mic capture started")
                 return True
             except Exception as exc:  # pragma: no cover - hardware dependent
+                failed_stream = self._stream
                 self._last_error = str(exc)
                 self._stream = None
                 self._running = False
@@ -469,6 +476,7 @@ class MicCaptureService:
                 self._requested_follow_default = follow_default
                 self._fallback_to_default = fallback_to_default
                 self._last_start_reason = start_reason
+                _close_input_stream(failed_stream)
                 self._log(f"mic capture failed: {exc}")
                 return False
 
@@ -480,14 +488,10 @@ class MicCaptureService:
             self._running = False
             self._active_device_id = None
             self._active_device_label = ""
+        if stream is not None:
+            _close_input_stream(stream)
         if not was_running:
             return
-        if stream is not None:
-            try:
-                stream.stop()
-                stream.close()
-            except _MIC_DEVICE_ERRORS:
-                pass
         self._buffer.clear()
         self._log("mic capture stopped")
 

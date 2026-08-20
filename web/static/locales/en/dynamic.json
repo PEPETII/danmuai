@@ -429,6 +429,7 @@
     },
     "language": {
       "switched": "Language switched to English",
+      "persistFailed": "Language changed on this page only; save to server failed. Refresh or restart may restore the saved language.",
       "语言已切换为中文_正在重载页面": "Language switched to English, reloading…"
     },
     "liveSettingsTabs": {

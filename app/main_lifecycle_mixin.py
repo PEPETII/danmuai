@@ -665,6 +665,13 @@ class DanmuAppLifecycleMixin:
         input_tokens: int = 0,
         output_tokens: int = 0,
     ) -> None:
+        if self._discard_stale_mic_callback_if_needed(
+            request_round,
+            screenshot_id,
+            scene_generation,
+            kind="error",
+        ):
+            return
         meta = self._pop_request_meta(request_round, screenshot_id, scene_generation)
         if not meta:
             self.logger.warning(
@@ -684,6 +691,14 @@ class DanmuAppLifecycleMixin:
                 f"[persona={persona_id}, round={request_round}, screenshot_id={screenshot_id}]"
             )
             self._consume_request_timing(request_round, screenshot_id, scene_generation)
+            return
+
+        if self._drop_stale_visual_error_if_needed(
+            source=source,
+            request_round=request_round,
+            screenshot_id=screenshot_id,
+            scene_generation=scene_generation,
+        ):
             return
 
         self._handle_visual_ai_failure(
@@ -806,17 +821,34 @@ class DanmuAppLifecycleMixin:
         if self.lifetime_stats.flush_runtime(session_sec):
             stats_state.clear_runtime()
 
+    def _flush_lifetime_stats_on_stop(self) -> bool:
+        """Persist lifetime counters during stop; return False when persistence fails."""
+        try:
+            self.lifetime_stats.flush_pending()
+            self._flush_session_runtime_to_lifetime()
+            return True
+        except Exception as exc:
+            self.logger.warning(
+                "lifetime stats flush failed during stop: %s",
+                sanitize_sensitive_text(repr(exc)),
+            )
+            return False
+
     def stop(self) -> None:
         self._lifetime_flush_timer.stop()
         stats = self._ensure_stats_state()
-        self.lifetime_stats.flush_pending()
-        self._flush_session_runtime_to_lifetime()
-        self.session_run_log.complete(
-            ended_at=time.time(),
-            input_tokens=stats.total_input_tokens,
-            output_tokens=stats.total_output_tokens,
-            danmu_count=stats.danmu_count,
-        )
+        lifetime_flush_ok = self._flush_lifetime_stats_on_stop()
+        if lifetime_flush_ok:
+            self.session_run_log.complete(
+                ended_at=time.time(),
+                input_tokens=stats.total_input_tokens,
+                output_tokens=stats.total_output_tokens,
+                danmu_count=stats.danmu_count,
+            )
+        else:
+            self.logger.warning(
+                "session run log skipped: lifetime stats flush failed during stop"
+            )
         self.screenshot_timer.stop()
         self._live_status_timer.stop()
         self._topmost_health_timer.stop()

@@ -153,23 +153,41 @@ class AiRunnable(QRunnable):
 
         compress_ms = (time.monotonic() - started) * 1000.0
         try:
-            orig_w = int(self.pixmap.width())
-            orig_h = int(self.pixmap.height())
-        except (AttributeError, TypeError, ValueError):
-            orig_w, orig_h = 0, 0
-        quality = 85 if self.image_quality is None else int(self.image_quality)
-        log_compress_metrics(
-            logger,
-            orig_w=orig_w,
-            orig_h=orig_h,
-            quality=quality,
-            compress_ms=compress_ms,
-            data_uri=image_data_uri,
-        )
+            try:
+                orig_w = int(self.pixmap.width())
+                orig_h = int(self.pixmap.height())
+            except (AttributeError, TypeError, ValueError):
+                orig_w, orig_h = 0, 0
+            quality = 85 if self.image_quality is None else int(self.image_quality)
+            log_compress_metrics(
+                logger,
+                orig_w=orig_w,
+                orig_h=orig_h,
+                quality=quality,
+                compress_ms=compress_ms,
+                data_uri=image_data_uri,
+            )
 
-        audio_data_uri = None
-        if self.mic_pcm and self.mic_attach_audio:
-            audio_data_uri = pcm_to_wav_data_uri(self.mic_pcm)
+            audio_data_uri = None
+            if self.mic_pcm and self.mic_attach_audio:
+                audio_data_uri = pcm_to_wav_data_uri(self.mic_pcm)
+        except Exception as exc:  # boundary: pre-request preprocessing
+            if not self.worker._stopping.is_set():
+                self.worker._emit_safe(
+                    "error",
+                    tr("runnable.compress_failed"),
+                    self.persona_id,
+                    self.request_round,
+                    self.screenshot_id,
+                    self.captured_at,
+                    self.scene_generation,
+                    0,
+                    0,
+                )
+                logger.debug(
+                    f"preprocess failed: {type(exc).__name__}: {exc}"
+                )
+            return
 
         deadline_at = started + REQUEST_WALL_CLOCK_SEC
         try:

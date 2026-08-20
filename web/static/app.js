@@ -4,6 +4,7 @@ import {
   REALTIME,
   apiFetch,
   refreshSession,
+  resumeRealtimeTransport,
   setRealtimeHandlers,
   startRealtimeTransport,
   stopRealtimeTransport,
@@ -1091,6 +1092,9 @@ function bindCoreInteractions() {
     updateLogPanelState,
     showToast,
     bootstrapLogs: bootstrapLogsFromServer,
+    onAuthFailure: ({ error }) => {
+      recordBootstrapFailure('session', error);
+    },
   });
 
   initSettingsTabs();
@@ -1291,15 +1295,13 @@ async function init() {
 }
 
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState !== 'visible' || !API.base) return;
-  refreshSession()
-    .then(() => {
-      REALTIME.statusAttempt = 0;
-      REALTIME.logsAttempt = 0;
-      startRealtimeTransport();
-      return bootstrapLogsFromServer(0);
-    })
-    .catch((error) => console.warn('[realtime] visibility refresh failed', error));
+  if (document.visibilityState !== 'visible') return;
+  resumeRealtimeTransport()
+    .then(() => clearBootstrapFailure('session'))
+    .catch((error) => {
+      console.warn('[realtime] visibility refresh failed', error);
+      recordBootstrapFailure('session', error);
+    });
 });
 
 window.addEventListener('pagehide', () => {

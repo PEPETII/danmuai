@@ -8,6 +8,7 @@ from app.mic_transcription import (
     MicTranscriptionResult,
     _transcription_url,
     pcm_to_wav_bytes,
+    resolve_mic_asr_route,
     transcribe_pcm,
 )
 
@@ -128,3 +129,100 @@ def test_transcribe_pcm_empty_transcript_is_failed():
 
     assert result.ok is False
     assert result.error == "empty_transcript"
+
+
+def test_resolve_mic_asr_route_mimo_uses_chat_audio():
+    route = resolve_mic_asr_route(
+        "https://api.xiaomimimo.com/v1",
+        "openai",
+        "mimo-v2.5",
+    )
+    assert route == "chat_audio"
+
+
+def test_resolve_mic_asr_route_mimo_unsupported_model():
+    route = resolve_mic_asr_route(
+        "https://api.xiaomimimo.com/v1",
+        "openai",
+        "mimo-v1",
+    )
+    assert route == "unsupported"
+
+
+def test_transcribe_pcm_mimo_uses_chat_completions_input_audio():
+    pcm = _sample_pcm()
+    config = MagicMock()
+    response = MagicMock()
+    response.status_code = 200
+    response.json.return_value = {
+        "choices": [{"message": {"content": "你好，MiMo"}}],
+    }
+    client = MagicMock()
+    client.post.return_value = response
+
+    with patch(
+        "app.mic_transcription.resolve_mic_request_credentials",
+        return_value=(
+            "https://api.xiaomimimo.com/v1",
+            "sk-test",
+            "mimo-v2.5",
+            "openai",
+        ),
+    ):
+        result = transcribe_pcm(config, pcm, http_client=client)
+
+    assert result == MicTranscriptionResult(ok=True, text="你好，MiMo")
+    call = client.post.call_args
+    assert call.args[0] == "https://api.xiaomimimo.com/v1/chat/completions"
+    body = call.kwargs["json"]
+    assert body["model"] == "mimo-v2.5"
+    assert body["stream"] is False
+    assert body["thinking"] == {"type": "disabled"}
+    content = body["messages"][0]["content"]
+    audio_parts = [part for part in content if part["type"] == "input_audio"]
+    assert len(audio_parts) == 1
+    assert audio_parts[0]["input_audio"]["data"].startswith("data:audio/wav;base64,")
+
+
+def test_transcribe_pcm_mimo_unsupported_model_fails_explicitly():
+    pcm = _sample_pcm()
+    config = MagicMock()
+    client = MagicMock()
+
+    with patch(
+        "app.mic_transcription.resolve_mic_request_credentials",
+        return_value=(
+            "https://api.xiaomimimo.com/v1",
+            "sk-test",
+            "mimo-v1",
+            "openai",
+        ),
+    ):
+        result = transcribe_pcm(config, pcm, http_client=client)
+
+    assert result == MicTranscriptionResult(ok=False, error="unsupported_asr_provider")
+    client.post.assert_not_called()
+
+
+def test_transcribe_pcm_mimo_http_error():
+    pcm = _sample_pcm()
+    config = MagicMock()
+    response = MagicMock()
+    response.status_code = 400
+    response.text = '{"error":"bad request"}'
+    client = MagicMock()
+    client.post.return_value = response
+
+    with patch(
+        "app.mic_transcription.resolve_mic_request_credentials",
+        return_value=(
+            "https://api.xiaomimimo.com/v1",
+            "sk-test",
+            "mimo-v2.5",
+            "openai",
+        ),
+    ):
+        result = transcribe_pcm(config, pcm, http_client=client)
+
+    assert result.ok is False
+    assert result.error == "http_400"

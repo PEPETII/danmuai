@@ -83,6 +83,25 @@ def test_export_config_masks_custom_model_api_keys():
     assert "sk-custom-secret" not in str(data)
 
 
+def test_export_config_masks_custom_model_api_key_alias():
+    cfg = FakeConfig()
+    cfg.set_custom_models(
+        [
+            {
+                "name": "Alias",
+                "modelId": "gpt-4o",
+                "api_key": "sk-alias-export-secret",
+                "endpoint": "https://api.example.com",
+                "mode": "openai",
+            }
+        ]
+    )
+    data = export_config(cfg)
+    assert data["custom_models"][0]["apiKey"] == "********"
+    assert "api_key" not in data["custom_models"][0]
+    assert "sk-alias-export-secret" not in str(data)
+
+
 def test_apply_config_patch_preserves_masked_custom_model_key():
     config = FakeConfig()
     config.set_custom_models(

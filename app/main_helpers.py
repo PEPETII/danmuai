@@ -25,6 +25,9 @@ REQUEST_WALL_CLOCK_SEC = 45.0
 STREAM_FIRST_CONTENT_TIMEOUT_SEC: float = 20.0
 MAX_IN_FLIGHT = 1
 MAX_MIC_IN_FLIGHT = 1
+# Mic request_round encodes capture_session_epoch so stop→start seq reset cannot
+# collide with in-flight workers from the previous session (MIC-SESSION-ISOLATION).
+MIC_REQUEST_EPOCH_STRIDE = 1_000_000
 # S-009: consecutive capture failures before surfacing Web status bar warning.
 CAPTURE_FAIL_WARN_THRESHOLD = 3
 # W-PERF-TIMER-001：topmost 健康检查间隔与心跳（约 9s 无条件重申 @ 1500ms × 6）。
@@ -51,6 +54,23 @@ def reply_request_id(
     scene_generation: int,
 ) -> tuple[int, int, int]:
     return (int(request_round), int(screenshot_id), int(scene_generation))
+
+
+def mic_request_round(seq: int, capture_session_epoch: int) -> int:
+    """Negative request_round for mic insert; embeds capture session epoch."""
+    safe_seq = max(1, int(seq))
+    epoch = max(0, int(capture_session_epoch))
+    return -(safe_seq + epoch * MIC_REQUEST_EPOCH_STRIDE)
+
+
+def mic_request_seq_from_round(request_round: int) -> int:
+    """Decode mic seq from an encoded mic request_round."""
+    return (-int(request_round)) % MIC_REQUEST_EPOCH_STRIDE
+
+
+def mic_capture_epoch_from_round(request_round: int) -> int:
+    """Decode capture_session_epoch from an encoded mic request_round."""
+    return (-int(request_round)) // MIC_REQUEST_EPOCH_STRIDE
 
 
 def density_right_target(min_n: int) -> int:

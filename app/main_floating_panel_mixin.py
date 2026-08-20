@@ -36,6 +36,60 @@ class DanmuAppFloatingPanelMixin:
             self._panel_process = PanelProcess(logger_=self.logger)
         if self.__dict__.get("_panel_web_active") is None:
             self._panel_web_active = False
+        if self.__dict__.get("_panel_child_exit_handling") is None:
+            self._panel_child_exit_handling = False
+        process = self._panel_process
+        process.set_on_unexpected_exit(self._schedule_panel_child_exit_recovery)
+
+    def _schedule_panel_child_exit_recovery(self) -> None:
+        """Exit watcher thread callback: marshal recovery onto the Qt main thread."""
+        from PyQt6.QtCore import QTimer
+
+        QTimer.singleShot(0, self._on_panel_child_unexpected_exit)
+
+    def _on_panel_child_unexpected_exit(self) -> None:
+        if not self.__dict__.get("_panel_web_active"):
+            return
+        if self.__dict__.get("_panel_child_exit_handling"):
+            return
+        process = self.__dict__.get("_panel_process")
+        if process is None:
+            return
+        self._panel_child_exit_handling = True
+        try:
+            self.logger.info("panel child exited unexpectedly, attempting recovery")
+            restarted = process.note_child_died()
+            if restarted and process.is_alive():
+                self._panel_web_active = True
+                self._push_panel_config()
+                if self._panel_click_through_enabled():
+                    self._stop_panel_position_tracking(force=False)
+                else:
+                    self._start_panel_position_tracking()
+                return
+            self._fallback_panel_to_qpainter(reason="child_exit_recovery_failed")
+        finally:
+            self._panel_child_exit_handling = False
+
+    def _fallback_panel_to_qpainter(self, *, reason: str) -> None:
+        self.logger.info("panel falling back to QPainter reason=%s", reason)
+        self._stop_panel_position_tracking(force=False)
+        process = self.__dict__.get("_panel_process")
+        if process is not None:
+            try:
+                process.stop()
+            except Exception as exc:
+                self.logger.debug(f"panel process stop during fallback skipped: {exc!r}")
+        self._panel_web_active = False
+        overlay = self.__dict__.get("floating_panel_overlay")
+        if overlay is None or not self._floating_panel_v2_enabled():
+            return
+        if not getattr(self.engine, "running", False):
+            return
+        try:
+            overlay.show_for_screen(resolve_screen_index(self.config))
+        except Exception as exc:
+            self.logger.debug(f"panel QPainter fallback show skipped: {exc!r}")
 
     def _should_use_web_panel(self) -> bool:
         """WebView2 可用 + floating_panel_use_web 默认开 + 重启未超限。"""
@@ -431,9 +485,7 @@ class DanmuAppFloatingPanelMixin:
                     pass
                 if not self.__dict__.get("_panel_web_active") or not self._panel_process.is_alive():
                     if not self._start_web_panel():
-                        # fallback QPainter
-                        overlay.show_for_screen(resolve_screen_index(self.config))
-                        self._panel_web_active = False
+                        self._fallback_panel_to_qpainter(reason="start_failed")
             else:
                 self._stop_web_panel()
                 overlay.show_for_screen(resolve_screen_index(self.config))

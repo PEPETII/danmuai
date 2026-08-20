@@ -17,6 +17,7 @@ _LOAD_TIMEOUT_SEC = 25.0
 _STOP_JOIN_SEC = 3.0
 _KILL_JOIN_SEC = 1.0
 MAX_RESTARTS = 3
+_EXIT_WATCH_JOIN_SEC = 0.25
 
 
 def _windows_scale_factor() -> float:
@@ -268,6 +269,21 @@ class PanelProcess:
         self._last_geometry: tuple[int, int, int, int] = (360, 600, 20, 80)
         self._last_click_through = True
         self._hwnd = 0
+        self._lifecycle_state = "stopped"
+        self._exit_watch_generation = 0
+        self._exit_watch_thread: threading.Thread | None = None
+        self._exit_watch_proc: Any | None = None
+        self._on_unexpected_exit: Callable[[], None] | None = None
+        self._unexpected_exit_handling = False
+
+    @property
+    def lifecycle_state(self) -> str:
+        """stopped | running | restarting | fallback."""
+        return str(self._lifecycle_state)
+
+    def set_on_unexpected_exit(self, callback: Callable[[], None] | None) -> None:
+        """Register a host callback when the child exits without an explicit stop()."""
+        self._on_unexpected_exit = callback
 
     @property
     def restart_count(self) -> int:
@@ -402,13 +418,17 @@ class PanelProcess:
             return False
         self._restart_count = 0
         self._fallback_to_qpainter_called = False
+        self._lifecycle_state = "running"
+        self._arm_exit_watch(self._process)
         return True
 
     def stop(self) -> None:
+        self._disarm_exit_watch()
         proc = self._process
         self._process = None
         self._ready_queue = None
         self._hwnd = 0
+        self._lifecycle_state = "stopped"
         if proc is None:
             return
         try:
@@ -438,32 +458,90 @@ class PanelProcess:
 
     def note_child_died(self) -> bool:
         """Called by host when child exits unexpectedly. Returns True if restarting."""
-        if self._restart_count >= MAX_RESTARTS:
-            self._fallback_to_qpainter_called = True
-            self._logger.error(
-                "panel restart limit reached, falling back to QPainter count=%s",
-                self._restart_count,
-            )
+        if self._unexpected_exit_handling:
             return False
-        self._restart_count += 1
-        self._logger.info(
-            "restarting panel (%s/%s)",
-            self._restart_count,
-            MAX_RESTARTS,
-        )
-        ok = self.start(
-            self._last_html_url,
-            *self._last_geometry,
-            click_through=self._last_click_through,
-        )
-        if not ok and self._restart_count >= MAX_RESTARTS:
-            self._fallback_to_qpainter_called = True
-        return ok
+        if self._process is None:
+            return False
+        self._unexpected_exit_handling = True
+        try:
+            if self._restart_count >= MAX_RESTARTS:
+                self._fallback_to_qpainter_called = True
+                self._lifecycle_state = "fallback"
+                self._logger.error(
+                    "panel restart limit reached, falling back to QPainter count=%s",
+                    self._restart_count,
+                )
+                return False
+            self._restart_count += 1
+            self._lifecycle_state = "restarting"
+            self._logger.info(
+                "restarting panel (%s/%s)",
+                self._restart_count,
+                MAX_RESTARTS,
+            )
+            ok = self.start(
+                self._last_html_url,
+                *self._last_geometry,
+                click_through=self._last_click_through,
+            )
+            if not ok and self._restart_count >= MAX_RESTARTS:
+                self._fallback_to_qpainter_called = True
+                self._lifecycle_state = "fallback"
+            return ok
+        finally:
+            self._unexpected_exit_handling = False
 
     def _note_start_failure(self) -> None:
         self._restart_count += 1
         if self._restart_count >= MAX_RESTARTS:
             self._fallback_to_qpainter_called = True
+            self._lifecycle_state = "fallback"
+
+    def _disarm_exit_watch(self) -> None:
+        self._exit_watch_generation += 1
+        self._exit_watch_proc = None
+
+    def _arm_exit_watch(self, proc: Any | None) -> None:
+        if proc is None:
+            return
+        self._disarm_exit_watch()
+        generation = self._exit_watch_generation
+        self._exit_watch_proc = proc
+
+        def _watch() -> None:
+            try:
+                join = getattr(proc, "join", None)
+                if callable(join):
+                    join()
+            except Exception:
+                return
+            while bool(getattr(proc, "is_alive", lambda: False)()):
+                if generation != self._exit_watch_generation:
+                    return
+                if self._exit_watch_proc is not proc:
+                    return
+                time.sleep(_EXIT_WATCH_JOIN_SEC)
+            if generation != self._exit_watch_generation:
+                return
+            if self._exit_watch_proc is not proc:
+                return
+            if self._process is not proc:
+                return
+            callback = self._on_unexpected_exit
+            if callback is None:
+                return
+            try:
+                callback()
+            except Exception as exc:
+                self._logger.debug("panel unexpected exit callback failed: %r", exc)
+
+        thread = threading.Thread(
+            target=_watch,
+            name="fp-panel-exit-watch",
+            daemon=True,
+        )
+        self._exit_watch_thread = thread
+        thread.start()
 
     def _launch_child_process(
         self,

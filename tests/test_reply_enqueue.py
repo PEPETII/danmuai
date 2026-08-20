@@ -531,9 +531,11 @@ def _bind_app_for_full_stop(app, *, config, lifetime_stats, session_run_log):
     app.screenshot_timer = FakeTimer()
     app._live_status_timer = FakeTimer()
     app._pool_topup_timer = FakeTimer()
-    app.ai_worker = SimpleNamespace(mark_stopping=lambda: None)
-    app.overlay = SimpleNamespace(stop_render_loop=lambda: None, hide=lambda: None)
-    app.tray = SimpleNamespace(update_state=lambda **kw: None)
+    app._panel_position_timer = FakeTimer()
+    app.ai_worker = SimpleNamespace(mark_stopping=Mock())
+    app.overlay = SimpleNamespace(stop_render_loop=Mock(), hide=Mock())
+    app.engine = SimpleNamespace(running=True, stop=Mock(side_effect=lambda: setattr(app.engine, "running", False)))
+    app.tray = SimpleNamespace(update_state=Mock())
     app.state_changed = Mock()
     mic_service = SimpleNamespace(
         is_running=lambda: False,
@@ -555,12 +557,27 @@ def _bind_app_for_full_stop(app, *, config, lifetime_stats, session_run_log):
         "_flush_session_runtime_to_lifetime",
         DanmuApp._flush_session_runtime_to_lifetime.__get__(app, DanmuApp),
     )
+    object.__setattr__(
+        app,
+        "_flush_lifetime_stats_on_stop",
+        DanmuApp._flush_lifetime_stats_on_stop.__get__(app, DanmuApp),
+    )
     object.__setattr__(app, "_ensure_stats_state", DanmuApp._ensure_stats_state.__get__(app, DanmuApp))
+    object.__setattr__(
+        app,
+        "_ensure_web_runtime_state",
+        DanmuApp._ensure_web_runtime_state.__get__(app, DanmuApp),
+    )
     object.__setattr__(app, "_sync_mic_service", DanmuApp._sync_mic_service.__get__(app, DanmuApp))
     object.__setattr__(
         app,
         "_get_request_timing_service",
         DanmuApp._get_request_timing_service.__get__(app, DanmuApp),
+    )
+    object.__setattr__(
+        app,
+        "_reset_scene_generation_baseline",
+        DanmuApp._reset_scene_generation_baseline.__get__(app, DanmuApp),
     )
 
 
@@ -594,7 +611,7 @@ def test_stop_writes_session_and_lifetime_atomically(workspace_tmp, monkeypatch)
 
 
 def test_stop_skips_session_when_lifetime_runtime_flush_fails(workspace_tmp, monkeypatch):
-    """BUG-033: failed runtime flush must not leave a session row without lifetime runtime."""
+    """BUG-033 + STOP-TEARDOWN: failed runtime flush skips session row but still tears down."""
     store = ConfigStore(db_path=workspace_tmp / "atomic_stop_fail.db")
     lifetime = LifetimeStats(store)
     session_log = SessionRunLog(store)
@@ -609,12 +626,113 @@ def test_stop_skips_session_when_lifetime_runtime_flush_fails(workspace_tmp, mon
     monkeypatch.setattr("main.mic_audio_supported_for_mic_config", lambda _cfg: False)
 
     with patch.object(store, "set_batch", side_effect=sqlite3.OperationalError("locked")):
-        with pytest.raises(sqlite3.OperationalError):
-            DanmuApp.stop(app)
+        DanmuApp.stop(app)
 
     assert session_log.list_dicts_newest_first() == []
     assert stats.start_time == before_start
     assert store.get(STATS_LIFETIME_RUNTIME_SEC, "") in ("", "0", "0.0")
+    app.ai_worker.mark_stopping.assert_called_once()
+    app.engine.stop.assert_called_once()
+    app.overlay.stop_render_loop.assert_called_once()
+    app.overlay.hide.assert_called_once()
+    app.tray.update_state.assert_called_once_with(running=False)
+    app.state_changed.emit.assert_called_once_with(False)
+    assert app.engine.running is False
+    assert app.ai_in_flight == 0
+    assert app._capture_in_flight is False
+
+
+def test_stop_continues_cleanup_when_flush_pending_fails(workspace_tmp, monkeypatch):
+    """STOP-TEARDOWN: flush_pending failure must not skip worker/engine teardown."""
+    store = ConfigStore(db_path=workspace_tmp / "flush_pending_fail.db")
+    lifetime = LifetimeStats(store)
+    lifetime.add_danmu(3)
+    session_log = SessionRunLog(store)
+    app = DanmuApp.__new__(DanmuApp)
+    _bind_app_for_full_stop(app, config=store, lifetime_stats=lifetime, session_run_log=session_log)
+
+    session_log.begin(started_at=time.time() - 5.0, model="pending-fail")
+    app.stats_state.danmu_count = 2
+
+    monkeypatch.setattr("main.mic_audio_supported_for_mic_config", lambda _cfg: False)
+
+    with patch.object(store, "set_batch", side_effect=sqlite3.OperationalError("locked")):
+        DanmuApp.stop(app)
+
+    assert session_log.list_dicts_newest_first() == []
+    app.engine.stop.assert_called_once()
+    app.state_changed.emit.assert_called_once_with(False)
+
+
+def test_stop_closes_knowledge_runtime_when_lifetime_flush_fails(workspace_tmp, monkeypatch):
+    """STOP-TEARDOWN: knowledge runtime close must run even when flush fails."""
+    store = ConfigStore(db_path=workspace_tmp / "kb_stop_fail.db")
+    lifetime = LifetimeStats(store)
+    session_log = SessionRunLog(store)
+    app = DanmuApp.__new__(DanmuApp)
+    _bind_app_for_full_stop(app, config=store, lifetime_stats=lifetime, session_run_log=session_log)
+    knowledge_runtime = SimpleNamespace(close=Mock())
+    object.__setattr__(app, "knowledge_runtime", knowledge_runtime)
+
+    session_log.begin(started_at=time.time() - 5.0, model="kb-fail")
+    app.stats_state.start_time = time.monotonic() - 2.0
+
+    monkeypatch.setattr("main.mic_audio_supported_for_mic_config", lambda _cfg: False)
+
+    with patch.object(store, "set_batch", side_effect=sqlite3.OperationalError("locked")):
+        DanmuApp.stop(app)
+
+    knowledge_runtime.close.assert_called_once()
+
+
+def test_stop_logs_flush_failure_without_reporting_success(workspace_tmp, monkeypatch):
+    """STOP-TEARDOWN: flush failure must be observable and not imply persistence success."""
+    store = ConfigStore(db_path=workspace_tmp / "flush_log.db")
+    lifetime = LifetimeStats(store)
+    session_log = SessionRunLog(store)
+    logger = FakeLogger()
+    app = DanmuApp.__new__(DanmuApp)
+    _bind_app_for_full_stop(
+        app,
+        config=store,
+        lifetime_stats=lifetime,
+        session_run_log=session_log,
+    )
+    app.logger = logger
+
+    session_log.begin(started_at=time.time() - 5.0, model="log-fail")
+    app.stats_state.start_time = time.monotonic() - 2.0
+
+    monkeypatch.setattr("main.mic_audio_supported_for_mic_config", lambda _cfg: False)
+
+    with patch.object(store, "set_batch", side_effect=sqlite3.OperationalError("locked")):
+        DanmuApp.stop(app)
+
+    warning_messages = logger.warning_messages
+    assert any("lifetime stats flush failed during stop" in msg for msg in warning_messages)
+    assert any("session run log skipped" in msg for msg in warning_messages)
+    assert not any("persist" in msg and "success" in msg.lower() for msg in warning_messages)
+
+
+def test_stop_idempotent_after_lifetime_flush_failure(workspace_tmp, monkeypatch):
+    """STOP-TEARDOWN: repeated stop() after flush failure must not raise or double-stop."""
+    store = ConfigStore(db_path=workspace_tmp / "stop_twice.db")
+    lifetime = LifetimeStats(store)
+    session_log = SessionRunLog(store)
+    app = DanmuApp.__new__(DanmuApp)
+    _bind_app_for_full_stop(app, config=store, lifetime_stats=lifetime, session_run_log=session_log)
+
+    session_log.begin(started_at=time.time() - 5.0, model="twice")
+    app.stats_state.start_time = time.monotonic() - 3.0
+
+    monkeypatch.setattr("main.mic_audio_supported_for_mic_config", lambda _cfg: False)
+
+    with patch.object(store, "set_batch", side_effect=sqlite3.OperationalError("locked")):
+        DanmuApp.stop(app)
+        DanmuApp.stop(app)
+
+    assert app.engine.stop.call_count == 2
+    assert app.state_changed.emit.call_count == 2
 
 
 def test_pick_random_skips_deleted_custom_persona(tmp_path):

@@ -1,8 +1,11 @@
 """Best-effort speech-to-text for microphone log entries.
 
-Uses the mic credential bundle. OpenAI-compatible providers use
-``/audio/transcriptions``; Doubao uses its existing Responses audio-input path
-because Ark does not expose the OpenAI transcription route at its model endpoint.
+Uses the mic credential bundle. Provider routing:
+
+- Doubao: Responses ``input_audio`` (Ark has no OpenAI transcription route).
+- MiMo: Chat Completions ``input_audio.data`` (same contract as mic danmu).
+- Other OpenAI-compatible: ``/audio/transcriptions`` (Whisper-style).
+
 Failures are returned to callers; they must not interrupt mic danmu flow.
 """
 
@@ -13,6 +16,7 @@ import io
 import logging
 import wave
 from dataclasses import dataclass
+from typing import Literal
 
 import httpx
 
@@ -20,13 +24,20 @@ from app.ai_client_requests import resolve_mic_request_credentials
 from app.doubao_responses_stream import extract_text_from_response
 from app.mic_buffer import BYTES_PER_SAMPLE, DEFAULT_MIC_SAMPLE_RATE
 from app.mic_encode import MIN_PCM_BYTES
-from app.model_providers import normalize_endpoint, resolve_api_transport
+from app.model_providers import (
+    guess_provider_from_endpoint,
+    model_supports_mic_audio,
+    normalize_endpoint,
+    resolve_api_transport,
+)
 from app.providers.request_planner import GenerationRequest, plan_http_request
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_TRANSCRIPTION_MODEL = "whisper-1"
+_TRANSCRIPTION_PROMPT = "请逐字转写这段音频中的人声。只返回转写文本，不要解释或补充内容。"
 _TRANSCRIPTION_TIMEOUT_SEC = 25.0
+MicAsrRoute = Literal["doubao", "chat_audio", "whisper", "unsupported"]
 
 
 @dataclass(frozen=True)
@@ -71,7 +82,30 @@ def _wav_data_uri(wav_bytes: bytes) -> str:
     return f"data:audio/wav;base64,{encoded}"
 
 
-def _transcribe_with_doubao(
+def _extract_openai_chat_text(payload: dict) -> str:
+    choices = payload.get("choices") or []
+    if not choices:
+        return ""
+    message = choices[0].get("message") if isinstance(choices[0], dict) else None
+    if not isinstance(message, dict):
+        return ""
+    return str(message.get("content") or "").strip()
+
+
+def resolve_mic_asr_route(endpoint: str, api_mode: str, model_id: str) -> MicAsrRoute:
+    """Select the independent transcript ASR protocol for one mic credential bundle."""
+    transport = resolve_api_transport(endpoint, api_mode)
+    if transport == "doubao":
+        return "doubao"
+    provider_id = guess_provider_from_endpoint(endpoint, api_mode)
+    if provider_id == "mimo":
+        if model_supports_mic_audio(model_id, endpoint=endpoint, api_mode=api_mode):
+            return "chat_audio"
+        return "unsupported"
+    return "whisper"
+
+
+def _transcribe_with_planned_request(
     *,
     endpoint: str,
     api_key: str,
@@ -79,6 +113,8 @@ def _transcribe_with_doubao(
     api_mode: str,
     audio_data_uri: str,
     http_client: httpx.Client,
+    response_format: Literal["doubao", "openai_chat"],
+    provider_id: str | None = None,
 ) -> MicTranscriptionResult:
     planned = plan_http_request(
         GenerationRequest(
@@ -87,7 +123,8 @@ def _transcribe_with_doubao(
             endpoint=endpoint,
             api_key=api_key,
             api_mode=api_mode,
-            user_text="请逐字转写这段音频中的人声。只返回转写文本，不要解释或补充内容。",
+            provider_id=provider_id,
+            user_text=_TRANSCRIPTION_PROMPT,
             audio_data_uri=audio_data_uri,
             stream=False,
             force_thinking_off=True,
@@ -111,10 +148,55 @@ def _transcribe_with_doubao(
     payload = response.json()
     if not isinstance(payload, dict):
         return MicTranscriptionResult(ok=False, error="invalid_response")
-    text = extract_text_from_response(payload).strip()
+    if response_format == "doubao":
+        text = extract_text_from_response(payload).strip()
+    else:
+        text = _extract_openai_chat_text(payload)
     if not text:
         return MicTranscriptionResult(ok=False, error="empty_transcript")
     return MicTranscriptionResult(ok=True, text=text)
+
+
+def _transcribe_with_doubao(
+    *,
+    endpoint: str,
+    api_key: str,
+    model_id: str,
+    api_mode: str,
+    audio_data_uri: str,
+    http_client: httpx.Client,
+) -> MicTranscriptionResult:
+    return _transcribe_with_planned_request(
+        endpoint=endpoint,
+        api_key=api_key,
+        model_id=model_id,
+        api_mode=api_mode,
+        audio_data_uri=audio_data_uri,
+        http_client=http_client,
+        response_format="doubao",
+    )
+
+
+def _transcribe_with_chat_audio(
+    *,
+    endpoint: str,
+    api_key: str,
+    model_id: str,
+    api_mode: str,
+    audio_data_uri: str,
+    http_client: httpx.Client,
+    provider_id: str | None = None,
+) -> MicTranscriptionResult:
+    return _transcribe_with_planned_request(
+        endpoint=endpoint,
+        api_key=api_key,
+        model_id=model_id,
+        api_mode=api_mode,
+        audio_data_uri=audio_data_uri,
+        http_client=http_client,
+        response_format="openai_chat",
+        provider_id=provider_id,
+    )
 
 
 def transcribe_pcm(config, pcm: bytes, *, http_client: httpx.Client | None = None) -> MicTranscriptionResult:
@@ -132,14 +214,34 @@ def transcribe_pcm(config, pcm: bytes, *, http_client: httpx.Client | None = Non
     owns_client = http_client is None
     client = http_client or httpx.Client(timeout=httpx.Timeout(_TRANSCRIPTION_TIMEOUT_SEC, connect=5.0))
     try:
-        if resolve_api_transport(endpoint, api_mode) == "doubao":
+        route = resolve_mic_asr_route(endpoint, api_mode, model_id)
+        audio_data_uri = _wav_data_uri(wav_bytes)
+        if route == "unsupported":
+            logger.info(
+                "mic transcription unsupported provider=%s model=%s endpoint=%s",
+                guess_provider_from_endpoint(endpoint, api_mode),
+                model_id,
+                endpoint,
+            )
+            return MicTranscriptionResult(ok=False, error="unsupported_asr_provider")
+        if route == "doubao":
             return _transcribe_with_doubao(
                 endpoint=endpoint,
                 api_key=api_key,
                 model_id=model_id,
                 api_mode=api_mode,
-                audio_data_uri=_wav_data_uri(wav_bytes),
+                audio_data_uri=audio_data_uri,
                 http_client=client,
+            )
+        if route == "chat_audio":
+            return _transcribe_with_chat_audio(
+                endpoint=endpoint,
+                api_key=api_key,
+                model_id=model_id,
+                api_mode=api_mode,
+                audio_data_uri=audio_data_uri,
+                http_client=client,
+                provider_id=guess_provider_from_endpoint(endpoint, api_mode),
             )
 
         url = _transcription_url(endpoint)

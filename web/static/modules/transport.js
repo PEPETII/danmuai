@@ -7,6 +7,7 @@
  *   2) WebSocket：startRealtimeTransport() 同时拉起两路 WS
  *      - /api/ws/status ：服务端的运行状态推送（运行/待命、统计、is_error）
  *      - /api/ws/logs   ：实时日志流
+ *      resumeRealtimeTransport() 为 visibility 恢复单飞入口。
  *      断线走指数退避（baseBackoffMs=1s, maxBackoffMs=16s, attempt 上限 6）。
  *   3) 轮询降级：WS 关闭后经 wsGraceMs（status=2.5s, logs=0.8s）宽限，再
  *      用 setInterval(pollIntervalMs=1500) 走 GET /api/status 和
@@ -23,9 +24,14 @@ import { t } from './i18n.js';
 
 export const API = { token: null, base: '' };
 
+/** @typedef {'pending'|'authenticated'|'unauthenticated'} SessionAuthState */
+export const AUTH = { state: /** @type {SessionAuthState} */ ('pending') };
+
 const SESSION_STORAGE_KEY = 'danmuai.web.session.v1';
 let bootstrapSecret = takeBootstrapSecretFromFragment();
 let sessionRefreshPromise = null;
+let resumeTransportPromise = null;
+let logsBootstrapPromise = null;
 
 function takeBootstrapSecretFromFragment() {
   if (typeof window === 'undefined' || !window.location) return '';
@@ -69,6 +75,40 @@ function writeStoredSession(session) {
   }
 }
 
+export function clearSessionCredentials() {
+  API.token = null;
+  API.base = '';
+  AUTH.state = 'unauthenticated';
+  try {
+    window.sessionStorage.removeItem(SESSION_STORAGE_KEY);
+  } catch (_) {
+    // sessionStorage may be unavailable in an embedded shell.
+  }
+}
+
+export function isSessionAuthenticated() {
+  return AUTH.state === 'authenticated' && Boolean(API.token);
+}
+
+function markSessionAuthenticated() {
+  AUTH.state = 'authenticated';
+}
+
+function haltRealtimeAfterAuthFailure() {
+  stopRealtimeTransport();
+  REALTIME.statusAttempt = 6;
+  REALTIME.logsAttempt = 6;
+  setRealtimeConnUI('failed');
+  setLogsConnUI('failed');
+}
+
+function reportAuthFailure(error, source) {
+  clearSessionCredentials();
+  haltRealtimeAfterAuthFailure();
+  handlers.onAuthFailure?.({ source, error });
+  console.warn(`[transport] session auth recovery failed (${source})`, error);
+}
+
 /** @typedef {'connecting'|'connected'|'reconnecting'|'polling'|'failed'} RealtimeConnMode */
 
 export const REALTIME = {
@@ -90,6 +130,8 @@ export const REALTIME = {
   logsWsDownAt: 0,
   lastStatusPollToastAt: 0,
   lastLogsPollTs: 0,
+  statusConnGeneration: 0,
+  logsConnGeneration: 0,
   baseBackoffMs: 1000,
   maxBackoffMs: 16000,
   pollIntervalMs: 1500,
@@ -105,6 +147,7 @@ const defaultHandlers = {
   updateLogPanelState: () => {},
   showToast: () => {},
   bootstrapLogs: async () => {},
+  onAuthFailure: () => {},
 };
 
 let handlers = { ...defaultHandlers };
@@ -151,8 +194,15 @@ export function refreshSession() {
       const cachedToken = API.token || cached?.token;
       if (cachedToken) headers.Authorization = `Bearer ${cachedToken}`;
     }
-    const res = await fetch(sessionUrl, { cache: 'no-store', headers });
+    let res;
+    try {
+      res = await fetch(sessionUrl, { cache: 'no-store', headers });
+    } catch (error) {
+      clearSessionCredentials();
+      throw error;
+    }
     if (!res.ok) {
+      clearSessionCredentials();
       const err = await res.json().catch(() => ({ detail: res.statusText }));
       const detail = formatApiError(err.detail, res.statusText);
       throw new Error(
@@ -162,6 +212,7 @@ export function refreshSession() {
     }
     const session = await res.json();
     if (!session?.token) {
+      clearSessionCredentials();
       throw new Error(t('dynamic.transport.会话接口未返回_token_请重启_python'));
     }
     API.token = session.token;
@@ -169,6 +220,7 @@ export function refreshSession() {
     writeStoredSession(session);
     bootstrapSecret = '';
     REALTIME.lastLogsPollTs = 0;
+    markSessionAuthenticated();
     return session;
   })();
   sessionRefreshPromise = sessionRefreshPromise.finally(() => {
@@ -184,7 +236,12 @@ export async function apiFetch(path, options = {}, retried = false) {
     headers: { ...authHeaders(), ...(options.headers || {}) },
   });
   if ((res.status === 401 || res.status === 403) && !retried) {
-    await refreshSession();
+    try {
+      await refreshSession();
+    } catch (error) {
+      reportAuthFailure(error, 'apiFetch');
+      throw error;
+    }
     return apiFetch(path, options, true);
   }
   if (!res.ok) {
@@ -198,12 +255,22 @@ export async function apiFetch(path, options = {}, retried = false) {
   return res.json();
 }
 
-export async function apiFormFetch(path, formData) {
+export async function apiFormFetch(path, formData, retried = false) {
+  if (!API.base) await refreshSession();
   const res = await fetch(`${API.base}${path}`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${API.token}` },
     body: formData,
   });
+  if ((res.status === 401 || res.status === 403) && !retried) {
+    try {
+      await refreshSession();
+    } catch (error) {
+      reportAuthFailure(error, 'apiFormFetch');
+      throw error;
+    }
+    return apiFormFetch(path, formData, true);
+  }
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(formatApiError(err.detail, res.statusText));
@@ -221,11 +288,8 @@ function wsUrl(path) {
 }
 
 /**
- * 发送 WebSocket 认证消息（首次消息认证机制）。
- * W-SECURITY-002: Token 不再通过 query 参数传递，改为连接后首条消息。
- * @param {WebSocket} ws - WebSocket 实例
- * @param {number} timeoutMs - 认证超时（毫秒）
- * @returns {Promise<boolean>} 认证是否成功
+ * Send WebSocket auth as first message (W-SECURITY-002).
+ * @returns {Promise<boolean>}
  */
 function authenticateWebSocket(ws, timeoutMs = 5000) {
   return new Promise((resolve) => {
@@ -302,8 +366,7 @@ function logsBackoffMs() {
 }
 
 /**
- * 判断 WS 关闭是否因t('dynamic.transport.连接数已满')导致。
- * UX-012: 1008 + reason 含 t('dynamic.transport.连接数已满') 或 "max consumers" 时停止重连并提示用户。
+ * 判断 WS 关闭是否因连接数已满导致。
  */
 function isMaxConsumersClose(code, reason) {
   if (code !== 1008) return false;
@@ -381,8 +444,40 @@ function detachWebSocket(ws) {
   }
 }
 
-async function pollStatusOnce() {
+function isTransportHealthy() {
+  return REALTIME.statusOpen && REALTIME.logsOpen
+    && REALTIME.statusWs?.readyState === WebSocket.OPEN
+    && REALTIME.logsWs?.readyState === WebSocket.OPEN;
+}
+
+function scheduleLogsBootstrap(sinceTs = REALTIME.lastLogsPollTs) {
+  if (logsBootstrapPromise) return logsBootstrapPromise;
+  logsBootstrapPromise = handlers.bootstrapLogs(sinceTs)
+    .catch((e) => console.warn('[realtime] logs bootstrap failed', e))
+    .finally(() => { logsBootstrapPromise = null; });
+  return logsBootstrapPromise;
+}
+
+function ensureRealtimeConnections() {
+  setRealtimeConnUI('connecting');
+  setLogsConnUI('connecting');
+  REALTIME.logsWsDownAt = Date.now();
+  scheduleLogsPollingGraceCheck();
+  connectStatusWebSocket();
+  connectLogsWebSocket();
+}
+
+async function pollStatusOnce(retried = false) {
   const res = await fetch(`${API.base}/api/status`, { headers: authHeaders() });
+  if ((res.status === 401 || res.status === 403) && !retried) {
+    try {
+      await refreshSession();
+    } catch (error) {
+      reportAuthFailure(error, 'statusPoll');
+      throw error;
+    }
+    return pollStatusOnce(true);
+  }
   if (!res.ok) throw new Error(res.statusText);
   handlers.onStatus(await res.json());
 }
@@ -434,11 +529,20 @@ function schedulePollingGraceCheck() {
   }, wait);
 }
 
-async function pollLogsOnce() {
+async function pollLogsOnce(retried = false) {
   const res = await fetch(
     `${API.base}/api/logs/recent?since_ts=${encodeURIComponent(REALTIME.lastLogsPollTs)}`,
     { cache: 'no-store', headers: authHeaders() },
   );
+  if ((res.status === 401 || res.status === 403) && !retried) {
+    try {
+      await refreshSession();
+    } catch (error) {
+      reportAuthFailure(error, 'logsPoll');
+      throw error;
+    }
+    return pollLogsOnce(true);
+  }
   if (!res.ok) throw new Error(res.statusText);
   const data = await res.json();
   handlers.onLogBatch(data.items || []);
@@ -521,11 +625,14 @@ function connectStatusWebSocket() {
   console.debug('[realtime] status WS connecting', url);
   updateRealtimeConnUI();
   const ws = new WebSocket(url);
+  const connId = ++REALTIME.statusConnGeneration;
   REALTIME.statusWs = ws;
 
   ws.onopen = async () => {
+    if (REALTIME.statusWs !== ws || connId !== REALTIME.statusConnGeneration) return;
     console.debug('[realtime] status WS open');
     const authOk = await authenticateWebSocket(ws);
+    if (REALTIME.statusWs !== ws || connId !== REALTIME.statusConnGeneration) return;
     if (!authOk) {
       console.warn('[realtime] status WS auth failed');
       ws.close();
@@ -539,6 +646,7 @@ function connectStatusWebSocket() {
   };
 
   ws.onmessage = (ev) => {
+    if (REALTIME.statusWs !== ws) return;
     try {
       const data = JSON.parse(ev.data);
       // 跳过认证响应消息
@@ -550,6 +658,7 @@ function connectStatusWebSocket() {
   };
 
   ws.onerror = () => {
+    if (REALTIME.statusWs !== ws) return;
     console.warn('[realtime] status WS error');
     if (REALTIME.statusAttempt >= 3) {
       console.warn(
@@ -561,6 +670,7 @@ function connectStatusWebSocket() {
   };
 
   ws.onclose = (ev) => {
+    if (REALTIME.statusWs !== ws) return;
     console.debug('[realtime] status WS close', ev.code, ev.reason || '');
     REALTIME.statusOpen = false;
     if (!REALTIME.statusWsDownAt) REALTIME.statusWsDownAt = Date.now();
@@ -572,8 +682,8 @@ function connectStatusWebSocket() {
     }
     if (ev.code === 1008) {
       refreshSession()
-        .catch((e) => console.warn('[realtime] session refresh after WS 1008 failed', e))
-        .finally(() => scheduleStatusReconnect());
+        .then(() => scheduleStatusReconnect())
+        .catch((e) => reportAuthFailure(e, 'ws-status'));
       return;
     }
     scheduleStatusReconnect();
@@ -586,11 +696,14 @@ function connectLogsWebSocket() {
   const url = wsUrl('/ws/logs');
   console.debug('[realtime] logs WS connecting', url);
   const ws = new WebSocket(url);
+  const connId = ++REALTIME.logsConnGeneration;
   REALTIME.logsWs = ws;
 
   ws.onopen = async () => {
+    if (REALTIME.logsWs !== ws || connId !== REALTIME.logsConnGeneration) return;
     console.debug('[realtime] logs WS open');
     const authOk = await authenticateWebSocket(ws);
+    if (REALTIME.logsWs !== ws || connId !== REALTIME.logsConnGeneration) return;
     if (!authOk) {
       console.warn('[realtime] logs WS auth failed');
       ws.close();
@@ -600,13 +713,12 @@ function connectLogsWebSocket() {
     REALTIME.logsOpen = true;
     REALTIME.logsWsDownAt = 0;
     stopLogsPolling();
-    handlers.bootstrapLogs(REALTIME.lastLogsPollTs).catch((e) => {
-      console.warn('[realtime] logs bootstrap after WS open failed', e);
-    });
+    scheduleLogsBootstrap(REALTIME.lastLogsPollTs);
     updateRealtimeConnUI();
   };
 
   ws.onmessage = (ev) => {
+    if (REALTIME.logsWs !== ws) return;
     try {
       const data = JSON.parse(ev.data);
       // 跳过认证响应消息
@@ -618,6 +730,7 @@ function connectLogsWebSocket() {
   };
 
   ws.onerror = () => {
+    if (REALTIME.logsWs !== ws) return;
     console.warn('[realtime] logs WS error');
     if (REALTIME.logsAttempt >= 3) {
       console.warn(
@@ -629,6 +742,7 @@ function connectLogsWebSocket() {
   };
 
   ws.onclose = (ev) => {
+    if (REALTIME.logsWs !== ws) return;
     console.debug('[realtime] logs WS close', ev.code, ev.reason || '');
     REALTIME.logsOpen = false;
     if (!REALTIME.logsWsDownAt) REALTIME.logsWsDownAt = Date.now();
@@ -640,8 +754,8 @@ function connectLogsWebSocket() {
     }
     if (ev.code === 1008) {
       refreshSession()
-        .catch((e) => console.warn('[realtime] session refresh after WS 1008 failed', e))
-        .finally(() => scheduleLogsReconnect());
+        .then(() => scheduleLogsReconnect())
+        .catch((e) => reportAuthFailure(e, 'ws-logs'));
       return;
     }
     scheduleLogsReconnect();
@@ -650,15 +764,23 @@ function connectLogsWebSocket() {
 }
 
 export function startRealtimeTransport() {
-  setRealtimeConnUI('connecting');
-  setLogsConnUI('connecting');
-  REALTIME.logsWsDownAt = Date.now();
-  scheduleLogsPollingGraceCheck();
-  handlers.bootstrapLogs(0).catch((e) => {
-    console.warn('[realtime] initial logs bootstrap failed', e);
+  ensureRealtimeConnections();
+}
+
+export function resumeRealtimeTransport() {
+  if (resumeTransportPromise) return resumeTransportPromise;
+  resumeTransportPromise = (async () => {
+    await refreshSession();
+    REALTIME.statusAttempt = 0;
+    REALTIME.logsAttempt = 0;
+    clearStatusReconnect();
+    clearLogsReconnect();
+    if (isTransportHealthy()) return;
+    ensureRealtimeConnections();
+  })().finally(() => {
+    resumeTransportPromise = null;
   });
-  connectStatusWebSocket();
-  connectLogsWebSocket();
+  return resumeTransportPromise;
 }
 
 export function stopRealtimeTransport() {

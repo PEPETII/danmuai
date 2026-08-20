@@ -42,9 +42,17 @@ def _append_trailing_pause(audio: np.ndarray, sample_rate: int) -> np.ndarray:
 
 
 class DanmuTtsPlayback(QObject):
-    """非阻塞播放；busy 期间 is_busy() 为 True；结束后发射 playback_finished(playback_id)。"""
+    """非阻塞播放；busy 期间 is_busy() 为 True。
+
+    终态信号（均经主线程 QueuedConnection 投递）：
+    - ``playback_finished``：整句自然播完
+    - ``playback_failed``：WAV/输出设备错误，非成功完成
+    - ``playback_stopped``：``stop()`` 或外部中断，非成功完成
+    """
 
     playback_finished = pyqtSignal(int)
+    playback_failed = pyqtSignal(int)
+    playback_stopped = pyqtSignal(int)
 
     def __init__(self) -> None:
         super().__init__(None)
@@ -52,6 +60,7 @@ class DanmuTtsPlayback(QObject):
         self._active_playback_id = 0
         self._lock = threading.Lock()
         self._next_playback_id = 0
+        self._stopped_playback_ids: set[int] = set()
 
     def is_busy(self) -> bool:
         with self._lock:
@@ -83,6 +92,7 @@ class DanmuTtsPlayback(QObject):
         return playback_id
 
     def _play_worker(self, wav_bytes: bytes, playback_id: int) -> None:
+        failed = False
         try:
             with wave.open(io.BytesIO(wav_bytes), "rb") as wf:
                 channels = wf.getnchannels()
@@ -92,45 +102,70 @@ class DanmuTtsPlayback(QObject):
                 frames = wf.readframes(nframes)
             if sample_width != 2:
                 logger.warning("danmu tts playback: unsupported sample width %s", sample_width)
-                return
-            if len(frames) < nframes * sample_width * max(channels, 1):
+                failed = True
+            elif len(frames) < nframes * sample_width * max(channels, 1):
                 logger.warning(
                     "danmu tts playback: short wav read %s/%s frames",
                     len(frames),
                     nframes,
                 )
-            audio = np.frombuffer(frames, dtype=np.int16)
-            if channels > 1:
-                audio = audio.reshape(-1, channels).mean(axis=1).astype(np.int16)
-            audio = _append_trailing_pause(audio, rate)
-            sd.play(audio, samplerate=rate, blocking=True)
-            sd.wait()
+            else:
+                audio = np.frombuffer(frames, dtype=np.int16)
+                if channels > 1:
+                    audio = audio.reshape(-1, channels).mean(axis=1).astype(np.int16)
+                audio = _append_trailing_pause(audio, rate)
+                sd.play(audio, samplerate=rate, blocking=True)
+                sd.wait()
         except (OSError, RuntimeError, ValueError) as exc:
             logger.warning("danmu tts playback failed: %s", exc)
+            with self._lock:
+                if playback_id not in self._stopped_playback_ids:
+                    failed = True
         finally:
+            with self._lock:
+                was_stopped = playback_id in self._stopped_playback_ids
+                self._stopped_playback_ids.discard(playback_id)
             self._release_playback_if_active(playback_id)
-            # 跨线程安全投递：通过 QMetaObject.invokeMethod + QueuedConnection 将信号
-            # 投递到主线程事件循环，等价于 QTimer.singleShot(0, ...)。
-            QMetaObject.invokeMethod(
-                self,
-                "_deliver_playback_finished",
-                Qt.ConnectionType.QueuedConnection,
-                Q_ARG(int, int(playback_id)),
-            )
+            if was_stopped:
+                self._invoke_playback_terminal(playback_id, "_deliver_playback_stopped")
+            elif failed:
+                self._invoke_playback_terminal(playback_id, "_deliver_playback_failed")
+            else:
+                self._invoke_playback_terminal(playback_id, "_deliver_playback_finished")
+
+    def _invoke_playback_terminal(self, playback_id: int, slot_name: str) -> None:
+        # 跨线程安全投递：通过 QMetaObject.invokeMethod + QueuedConnection 将信号
+        # 投递到主线程事件循环，等价于 QTimer.singleShot(0, ...)。
+        QMetaObject.invokeMethod(
+            self,
+            slot_name,
+            Qt.ConnectionType.QueuedConnection,
+            Q_ARG(int, int(playback_id)),
+        )
 
     @pyqtSlot(int)
     def _deliver_playback_finished(self, playback_id: int) -> None:
         self.playback_finished.emit(int(playback_id))
 
+    @pyqtSlot(int)
+    def _deliver_playback_failed(self, playback_id: int) -> None:
+        self.playback_failed.emit(int(playback_id))
+
+    @pyqtSlot(int)
+    def _deliver_playback_stopped(self, playback_id: int) -> None:
+        self.playback_stopped.emit(int(playback_id))
+
     def stop(self) -> None:
-        """停止当前播放并释放 busy 状态。"""
+        """停止当前播放并释放 busy 状态；幂等，可在任意线程调用。"""
+        with self._lock:
+            if self._busy and self._active_playback_id:
+                self._stopped_playback_ids.add(self._active_playback_id)
+            self._busy = False
+            self._active_playback_id = 0
         try:
             sd.stop()
         except (OSError, RuntimeError):
             pass
-        with self._lock:
-            self._busy = False
-            self._active_playback_id = 0
 
     def pause(self) -> bool:
         """sounddevice 无真正 pause/resume；不支持暂停语义。"""

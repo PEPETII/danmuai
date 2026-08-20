@@ -274,8 +274,13 @@ def _encode_custom_models_json(store: ConfigStore, models: list) -> str:
     for model in models:
         if not isinstance(model, dict):
             continue
-        entry = dict(model)
-        plain_key = (entry.get("apiKey") or "").strip()
+        from app.config_store.crypto import (
+            normalize_custom_model_api_key_aliases,
+            read_custom_model_api_key,
+        )
+
+        entry = normalize_custom_model_api_key_aliases(dict(model))
+        plain_key = read_custom_model_api_key(entry)
         if plain_key:
             if _looks_like_fernet_token(store, plain_key):
                 entry["apiKey"] = plain_key
@@ -345,13 +350,22 @@ def get_custom_models_for_store(store: ConfigStore) -> list:
     for model in parsed:
         if not isinstance(model, dict):
             continue
+        from app.config_store.crypto import (
+            assert_custom_model_api_key_aliases_consistent,
+            normalize_custom_model_api_key_aliases,
+            read_custom_model_api_key,
+        )
+
         entry = dict(model)
-        stored_key = (entry.get("apiKey") or "").strip()
+        assert_custom_model_api_key_aliases_consistent(entry)
+        stored_key = read_custom_model_api_key(entry)
         if stored_key:
             plain_key, needs_encrypt = _resolve_custom_model_api_key(store, stored_key)
             entry["apiKey"] = plain_key
+            entry.pop("api_key", None)
             if needs_encrypt:
                 needs_upgrade = True
+        entry = normalize_custom_model_api_key_aliases(entry)
         result.append(entry)
     if needs_upgrade:
         set_custom_models_for_store(store, result)

@@ -16,6 +16,7 @@ from app.main_helpers import (
     MAX_IN_FLIGHT,
     density_right_target,
     floating_panel_reply_gap_ms,
+    mic_request_round,
     reply_request_id,
 )
 from main import DanmuApp
@@ -130,6 +131,8 @@ def test_lifecycle_init_creates_scheduler_and_timing_once(qapp, monkeypatch):
 def test_reply_request_id_format():
     assert reply_request_id(2, 7, 0) == (2, 7, 0)
     assert reply_request_id(-1, 5, 0) != reply_request_id(3, 5, 0)
+    assert mic_request_round(1, 0) == -1
+    assert mic_request_round(1, 2) != mic_request_round(1, 3)
 
 
 def test_reply_request_id_injective_across_ranges():

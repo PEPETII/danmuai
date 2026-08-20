@@ -46,6 +46,10 @@ def _model_payload(model_id: str, **kwargs) -> dict:
         "apiKey": kwargs.get("apiKey", "sk-test-key-1234567890"),
         "provider": kwargs.get("provider", "custom_openai"),
     }
+    if "api_key" in kwargs:
+        payload["api_key"] = kwargs["api_key"]
+        if "apiKey" not in kwargs:
+            payload.pop("apiKey")
     if "max_tokens" in kwargs:
         payload["max_tokens"] = kwargs["max_tokens"]
     if "supportsMic" in kwargs:
@@ -991,4 +995,184 @@ def test_settings_custom_models_js_wires_modal_provider_region():
     assert "fillModelProviderSelect" in src
     assert "MODAL_PROVIDER_REGION_CHINA" in src
     assert "onProviderChangeInModal(providerId, { isEdit: false })" in src
+
+
+# ---------------------------------------------------------------------------
+# W-REVIEW-20260820-CUSTOMMODEL-HTTP-CONTRACT-001: HTTP schema ↔ UI payload
+# ---------------------------------------------------------------------------
+
+CUSTOM_MODELS_ROUTES_PY = REPO_ROOT / "app" / "web_api" / "custom_models_routes.py"
+
+
+def test_custom_model_payload_schema_declares_form_fields():
+    """CustomModelPayload must accept every field emitted by collectModelForm()."""
+    src = CUSTOM_MODELS_ROUTES_PY.read_text(encoding="utf-8")
+    for field in (
+        "model_names:",
+        "supportsMic:",
+        "thinking_effort:",
+        "temperature:",
+        'extra="forbid"',
+    ):
+        assert field in src
+
+
+def _custom_model_http_client(tmp_path):
+    from app.web_api.routes import register_web_routes
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    app = FastAPI()
+    bridge = MagicMock()
+    bridge.invoke_on_main.side_effect = lambda fn, *args, **kwargs: fn(*args, **kwargs)
+    config = ConfigStore(db_path=tmp_path / "routes.db")
+    bridge.danmu_app = SimpleNamespace(config=config, config_changed=MagicMock())
+
+    def _check_token(_authorization: str | None = None) -> None:
+        return None
+
+    register_web_routes(app, bridge, _check_token)
+    return TestClient(app, raise_server_exceptions=False), config
+
+
+def test_custom_model_http_post_persists_form_fields(tmp_path):
+    client, config = _custom_model_http_client(tmp_path)
+    payload = {
+        "name": "Display A",
+        "model_ids": ["model-a", "model-b"],
+        "model_names": {"model-a": "Name A", "model-b": "Name B"},
+        "default_model_id": "model-b",
+        "max_tokens": 512,
+        "mode": "openai",
+        "endpoint": "https://api.example.com/v1",
+        "apiKey": "sk-http-contract-key",
+        "provider": "custom_openai",
+        "supportsMic": True,
+        "thinking_effort": "high",
+        "temperature": 0.3,
+    }
+    res = client.post("/api/custom-models", json=payload)
+    assert res.status_code == 200
+    item = res.json()["item"]
+    assert item["model_names"] == {"model-a": "Name A", "model-b": "Name B"}
+    assert item["supportsMic"] is True
+    assert item["thinking_effort"] == "high"
+    assert item["temperature"] == 0.3
+    assert item["apiKey"] == "********"
+
+    stored = config.get_custom_models()[0]
+    assert stored["model_names"]["model-b"] == "Name B"
+    assert stored["supportsMic"] is True
+    assert stored["thinking_effort"] == "high"
+    assert stored["apiKey"] == "sk-http-contract-key"
+
+
+def test_custom_model_http_put_persists_form_fields(tmp_path):
+    client, config = _custom_model_http_client(tmp_path)
+    created = client.post(
+        "/api/custom-models",
+        json=_model_payload("persist-model"),
+    )
+    assert created.status_code == 200
+
+    updated = client.put(
+        "/api/custom-models/0",
+        json={
+            **_model_payload("persist-model", apiKey="********"),
+            "model_names": {"persist-model": "Renamed"},
+            "supportsMic": True,
+            "thinking_effort": "medium",
+            "temperature": 1.1,
+        },
+    )
+    assert updated.status_code == 200
+    item = updated.json()["item"]
+    assert item["model_names"] == {"persist-model": "Renamed"}
+    assert item["supportsMic"] is True
+    assert item["thinking_effort"] == "medium"
+    assert item["temperature"] == 1.1
+
+    listed = client.get("/api/custom-models").json()["items"][0]
+    assert listed["supportsMic"] is True
+    assert listed["thinking_effort"] == "medium"
+    assert listed["apiKey"] == "********"
+    stored = config.get_custom_models()[0]
+    assert stored["model_names"]["persist-model"] == "Renamed"
+
+
+def test_custom_model_http_rejects_unknown_fields(tmp_path):
+    client, _config = _custom_model_http_client(tmp_path)
+    res = client.post(
+        "/api/custom-models",
+        json={
+            **_model_payload("unknown-field-model"),
+            "unexpected_field": True,
+        },
+    )
+    assert res.status_code == 422
+    detail = res.json()["detail"]
+    assert any(
+        err.get("loc") == ["body", "unexpected_field"] and err.get("type") == "extra_forbidden"
+        for err in detail
+    )
+
+
+def test_custom_model_api_key_alias_create_encrypts_and_masks(model_app):
+    secret = "sk-snake-alias-create-key"
+    created = cm_api.create_custom_model(
+        model_app,
+        _model_payload("alias-create-model", api_key=secret),
+    )
+    item = created["item"]
+    assert item["apiKey"] == "********"
+    assert "api_key" not in item
+    assert model_app.config.get_custom_models()[0]["apiKey"] == secret
+
+    conn = sqlite3.connect(str(model_app.config.db_path))
+    try:
+        row = conn.execute(
+            "SELECT value FROM config WHERE key = ?",
+            ("custom_models",),
+        ).fetchone()
+    finally:
+        conn.close()
+    assert row is not None
+    assert secret not in row[0]
+    assert '"api_key"' not in row[0]
+
+
+def test_custom_model_api_key_alias_conflict_does_not_leak_secrets(model_app):
+    with pytest.raises(ValueError) as exc:
+        cm_api.create_custom_model(
+            model_app,
+            {
+                **_model_payload("conflict-model"),
+                "apiKey": "sk-conflict-a",
+                "api_key": "sk-conflict-b",
+            },
+        )
+    message = str(exc.value)
+    assert "sk-conflict-a" not in message
+    assert "sk-conflict-b" not in message
+    assert tr("custom_model.error_api_key_conflict") in message
+
+
+def test_list_custom_model_masks_api_key_alias_only(model_app):
+    model_app.config.set_json(
+        "custom_models",
+        [
+            {
+                "name": "AliasOnly",
+                "modelId": "alias-only",
+                "mode": "openai",
+                "endpoint": "https://api.example.com/v1",
+                "api_key": "sk-list-alias-only",
+            }
+        ],
+    )
+    listing = cm_api.list_custom_models(model_app)
+    item = listing["items"][0]
+    assert item["apiKey"] == "********"
+    assert "api_key" not in item
+    assert "sk-list-alias-only" not in json.dumps(listing)
 

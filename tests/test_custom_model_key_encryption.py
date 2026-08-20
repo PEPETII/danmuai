@@ -104,3 +104,57 @@ def test_get_custom_models_decrypts_at_most_once(store):
     models = store.get_custom_models()
     assert models[0]["apiKey"] == "sk-decrypt-once-key"
     assert len(decrypt_calls) <= 1
+
+
+def test_legacy_custom_model_api_key_alias_encrypts_and_normalizes(store):
+    legacy = [
+        {
+            "name": "Alias",
+            "modelId": "alias-model",
+            "mode": "openai-compatible",
+            "endpoint": "https://api.example.com/v1",
+            "api_key": "sk-alias-only-key",
+        }
+    ]
+    store.set_json("custom_models", legacy)
+    models = store.get_custom_models()
+    assert models[0]["apiKey"] == "sk-alias-only-key"
+    assert "api_key" not in models[0]
+
+    raw = _raw_custom_models_json(store)
+    assert "sk-alias-only-key" not in raw
+    parsed = json.loads(raw)
+    assert "api_key" not in parsed[0]
+    assert parsed[0]["apiKey"] != "sk-alias-only-key"
+
+
+def test_conflicting_custom_model_api_key_aliases_raise(store):
+    legacy = [
+        {
+            "name": "Conflict",
+            "modelId": "conflict-model",
+            "mode": "openai-compatible",
+            "endpoint": "https://api.example.com/v1",
+            "apiKey": "sk-canonical-key",
+            "api_key": "sk-snake-key",
+        }
+    ]
+    store.set_json("custom_models", legacy)
+    with pytest.raises(ValueError, match="apiKey"):
+        store.get_custom_models()
+
+
+def test_set_custom_models_rejects_conflicting_api_key_aliases(store):
+    with pytest.raises(ValueError, match="apiKey"):
+        store.set_custom_models(
+            [
+                {
+                    "name": "Conflict",
+                    "modelId": "conflict-model",
+                    "mode": "openai-compatible",
+                    "endpoint": "https://api.example.com/v1",
+                    "apiKey": "sk-canonical-key",
+                    "api_key": "sk-snake-key",
+                }
+            ]
+        )
