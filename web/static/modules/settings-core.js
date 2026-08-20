@@ -301,6 +301,7 @@ export async function fillForm(cfg) {
   // W-GLOBAL-VISUAL-APIKEY-REMOVE-001: 视觉全局 api_key 已下线，不再回填 hidden input
   syncColorUIFromConfig(cfg);
   updateDanmuPreviewSnapshot(cfg);
+  document.dispatchEvent(new CustomEvent('danmu:config-filled'));
 }
 
 export async function reloadConfigFromServer() {

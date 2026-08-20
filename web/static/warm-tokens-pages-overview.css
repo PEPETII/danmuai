@@ -141,6 +141,46 @@
   transform: none;
 }
 
+.quick-settings-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+}
+
+@media (min-width: 640px) {
+  .quick-settings-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.quick-setting-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.quick-setting-label {
+  flex: 1 1 8rem;
+  min-width: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.quick-setting-item .ui-button,
+.quick-setting-control {
+  flex: 0 1 auto;
+  min-width: 7.5rem;
+  max-width: 100%;
+}
+
+.quick-setting-control {
+  width: auto;
+  min-width: 9rem;
+}
+
 .session-run-log {
   max-height: min(220px, 32vh);
   overflow-x: hidden;

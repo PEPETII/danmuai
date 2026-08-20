@@ -93,6 +93,50 @@
         </div>
       </div>
 
+      <div class="card ui-card p-6 mb-8">
+        <div class="quick-settings-grid" id="overviewQuickSettingsGrid">
+          <div class="quick-setting-item">
+            <span class="quick-setting-label">语音与弹幕交流：</span>
+            <button type="button" class="ui-button ui-button--secondary ui-button--md" data-quick-nav="mic">语音输入</button>
+          </div>
+          <div class="quick-setting-item">
+            <span class="quick-setting-label">AI语音随机朗读弹幕：</span>
+            <button type="button" class="ui-button ui-button--secondary ui-button--md" data-quick-nav="danmu-read">AI播报</button>
+          </div>
+          <div class="quick-setting-item">
+            <span class="quick-setting-label">弹幕显示形式：</span>
+            <select id="danmu_render_mode_quick" name="danmu_render_mode_quick" class="quick-setting-control settings-field-control ui-control ui-select" aria-label="弹幕显示形式">
+              <option value="scrolling">横向弹幕</option>
+              <option value="floating_panel">从下到上</option>
+            </select>
+          </div>
+          <div class="quick-setting-item">
+            <span class="quick-setting-label">弹幕字数和数量：</span>
+            <button type="button" class="ui-button ui-button--secondary ui-button--md" data-quick-nav="danmu">弹幕显示</button>
+          </div>
+          <div class="quick-setting-item">
+            <span class="quick-setting-label">弹幕的知识程度：</span>
+            <button type="button" class="ui-button ui-button--secondary ui-button--md" data-quick-nav="knowledge">弹幕知识库</button>
+          </div>
+          <div class="quick-setting-item">
+            <span class="quick-setting-label">虚拟主播切换：</span>
+            <button type="button" class="ui-button ui-button--secondary ui-button--md" data-quick-nav="vtuber">虚拟主播</button>
+          </div>
+          <div class="quick-setting-item">
+            <span class="quick-setting-label">历史运行统计：</span>
+            <button type="button" class="ui-button ui-button--secondary ui-button--md" data-quick-nav="history-stats">历史运行统计</button>
+          </div>
+          <div class="quick-setting-item">
+            <span class="quick-setting-label">直播设置：</span>
+            <button type="button" class="ui-button ui-button--secondary ui-button--md" data-quick-nav="live-output">直播输出</button>
+          </div>
+          <div class="quick-setting-item">
+            <span class="quick-setting-label">修改弹幕角色：</span>
+            <button type="button" class="ui-button ui-button--secondary ui-button--md" data-quick-nav="persona-manage">人格管理</button>
+          </div>
+        </div>
+      </div>
+
       <div class="card ui-card p-8 mb-6 space-y-4">
         <div class="flex flex-wrap gap-3 items-end">
           <div class="ui-field flex-1 min-w-[220px]">
