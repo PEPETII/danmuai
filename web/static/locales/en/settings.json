@@ -29,6 +29,7 @@
       "开启后模型会先进行内部思考再生成弹幕_响应延迟增加且_Token_消耗上升_思考": "When on, model thinks internally before danmu; higher latency and token use. Thinking is not shown in danmu.",
       "当前_API_模式不支持思考模式": "Current API mode does not support thinking mode",
       "AI_模型": "AI model",
+      "可以在侧边栏_弹幕人格_内对不同人格切换不同模型": "Switch models per persona in Danmu Persona in the sidebar.",
       "添加模型": "+ Add model",
       "麦克风模式_实验": "Mic mode (experimental)",
       "开启后_说完一句话会额外生成几条接话弹幕_并插队显示_不影响看屏识图的节奏_请": "When on, after you speak, extra reply danmu are generated and shown out of order without affecting capture rhythm. Please",

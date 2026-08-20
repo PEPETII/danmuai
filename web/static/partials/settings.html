@@ -47,9 +47,10 @@
           <!-- AI 模型 -->
           <div id="customModelsSection" class="space-y-3">
             <div class="flex flex-wrap items-center justify-between gap-3">
-              <h4 class="text-md font-bold text-warmText">AI 模型</h4>
-              <button type="button" id="btnAddCustomModel" class="ui-button ui-button--secondary ui-button--sm">+ 添加模型</button>
+              <h4 class="text-md font-bold text-warmText" data-i18n="settings.text.AI_模型">AI 模型</h4>
+              <button type="button" id="btnAddCustomModel" class="ui-button ui-button--secondary ui-button--sm" data-i18n="settings.text.添加模型">+ 添加模型</button>
             </div>
+            <p class="settings-section-hint" data-i18n="settings.text.可以在侧边栏_弹幕人格_内对不同人格切换不同模型">可以在侧边栏【弹幕人格】内对不同人格切换不同模型</p>
             <div id="customModelsList" class="space-y-2"></div>
           </div>
           <div id="providerStatus" class="hidden rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status" aria-live="polite"></div>

@@ -115,11 +115,6 @@ const PET_FIELD_TIPS = {
   petClickThrough: 'hints.petClickThrough',
 };
 
-const SETTINGS_HEADING_TIPS = {
-  'custom-models':
-    'dynamic.settingsHints.模型配置档案_为不同接口地址_模型_密钥保存多套',
-};
-
 const CONTENT_PAGE_SECTION_TIPS = {
 };
 
@@ -266,12 +261,6 @@ export function initSettingsFieldHints() {
   if (!form) return;
 
   attachFieldHintsInRoot(form, SETTINGS_FIELD_TIPS, SETTINGS_CONTROL_HINT_IDS);
-
-  attachHintToHeading(
-    document.querySelector('#customModelsSection h4'),
-    resolveTipText(SETTINGS_HEADING_TIPS['custom-models']),
-    'tip-heading-custom-models',
-  );
 }
 
 const HORIZONTAL_FIELD_TIPS = {
