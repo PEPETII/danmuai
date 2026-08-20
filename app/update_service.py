@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sys
 import threading
+import time
 from dataclasses import dataclass
 from typing import Any
 
@@ -11,7 +12,12 @@ from app.translations import tr
 from app.velopack_config import UPDATE_FEED_URL
 from app.velopack_runtime import is_velopack_install
 
+_CHECK_CACHE_TTL_SEC = 60.0
+
 _lock = threading.Lock()
+_check_cache_at: float | None = None
+_check_cache_result: Any = None
+_check_cache_frozen: bool | None = None
 _state: dict[str, Any] = {
     "last_check": None,
     "pending_update": None,
@@ -233,7 +239,41 @@ def get_status() -> UpdateStatus:
         )
 
 
-def check_for_updates() -> UpdateStatus:
+def clear_check_cache() -> None:
+    """Clear the short-lived startup/manual check cache (tests)."""
+    global _check_cache_at, _check_cache_result, _check_cache_frozen
+    with _lock:
+        _check_cache_at = None
+        _check_cache_result = None
+        _check_cache_frozen = None
+
+
+def check_for_updates(*, force: bool = False) -> UpdateStatus:
+    global _check_cache_at, _check_cache_result, _check_cache_frozen
+    frozen = _is_velopack_install()
+    if not force:
+        now = time.monotonic()
+        with _lock:
+            cached_at = _check_cache_at
+            cached_result = _check_cache_result
+            cached_frozen = _check_cache_frozen
+        if (
+            cached_result is not None
+            and cached_at is not None
+            and cached_frozen == frozen
+            and now - cached_at < _CHECK_CACHE_TTL_SEC
+        ):
+            return cached_result
+
+    result = _check_for_updates_uncached()
+    with _lock:
+        _check_cache_at = time.monotonic()
+        _check_cache_result = result
+        _check_cache_frozen = frozen
+    return result
+
+
+def _check_for_updates_uncached() -> UpdateStatus:
     if not _is_velopack_install():
         return UpdateStatus(
             ok=False,

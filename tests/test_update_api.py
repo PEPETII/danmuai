@@ -28,8 +28,15 @@ def _make_client():
     return TestClient(app)
 
 
+@pytest.fixture(autouse=True)
+def _clear_update_check_cache():
+    update_service.clear_check_cache()
+    yield
+
+
 @pytest.fixture
 def reset_update_state():
+    update_service.clear_check_cache()
     with update_service._lock:
         update_service._state.clear()
         update_service._state.update(

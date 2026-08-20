@@ -10,6 +10,7 @@ from app import update_service
 
 @pytest.fixture
 def reset_state():
+    update_service.clear_check_cache()
     with update_service._lock:
         update_service._state.clear()
         update_service._state.update(
@@ -192,3 +193,31 @@ def test_check_for_updates_uses_fallback_current_version(reset_state):
 
     assert st.current_version == __version__
     assert st.current_version != ""
+
+
+def test_check_for_updates_uses_short_cache(reset_state):
+    mock_mgr = MagicMock()
+    mock_mgr.check_for_updates.return_value = None
+    mock_mgr.get_current_version.return_value = "0.3.0"
+
+    with patch.object(update_service, "_is_velopack_install", return_value=True):
+        with patch.object(update_service, "_manager", return_value=mock_mgr):
+            first = update_service.check_for_updates()
+            second = update_service.check_for_updates()
+
+    assert first.ok is True
+    assert second.ok is True
+    assert mock_mgr.check_for_updates.call_count == 1
+
+
+def test_check_for_updates_force_bypasses_cache(reset_state):
+    mock_mgr = MagicMock()
+    mock_mgr.check_for_updates.return_value = None
+    mock_mgr.get_current_version.return_value = "0.3.0"
+
+    with patch.object(update_service, "_is_velopack_install", return_value=True):
+        with patch.object(update_service, "_manager", return_value=mock_mgr):
+            update_service.check_for_updates()
+            update_service.check_for_updates(force=True)
+
+    assert mock_mgr.check_for_updates.call_count == 2

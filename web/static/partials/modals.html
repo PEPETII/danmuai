@@ -274,13 +274,27 @@
   <!-- 新版本更新提醒 -->
   <div id="appUpdateModal" class="fixed inset-0 bg-black/20 backdrop-blur-sm hidden items-center justify-center z-[55] p-4" role="dialog" aria-modal="true" aria-labelledby="appUpdateModalTitle">
     <div class="bg-white rounded-3xl shadow-warm max-w-lg w-full p-8 max-h-[90vh] overflow-y-auto min-w-0">
-      <h3 id="appUpdateModalTitle" class="text-lg font-bold text-warmText mb-2">发现新版本</h3>
-      <p id="appUpdateModalMessage" class="text-sm text-gray-600 mb-4 whitespace-pre-wrap break-words"></p>
+      <h3 id="appUpdateModalTitle" class="text-lg font-bold text-warmText mb-4">发现新版本</h3>
+
+      <dl class="app-update-version-grid grid grid-cols-2 gap-3 mb-4 text-sm">
+        <div class="min-w-0">
+          <dt class="text-xs text-gray-400 mb-1" data-i18n="modals.appUpdate.currentVersion">当前版本</dt>
+          <dd id="appUpdateModalCurrentVersion" class="font-semibold text-warmText break-words">-</dd>
+        </div>
+        <div class="min-w-0">
+          <dt class="text-xs text-gray-400 mb-1" data-i18n="modals.appUpdate.latestVersion">最新版本</dt>
+          <dd id="appUpdateModalLatestVersion" class="font-semibold text-softPeach break-words">-</dd>
+        </div>
+      </dl>
+
+      <div id="appUpdateModalReleaseNotesSection" class="hidden mb-4">
+        <p class="text-xs font-semibold text-warmText mb-1" data-i18n="modals.appUpdate.releaseNotes">更新内容</p>
+        <p id="appUpdateModalReleaseNotes" class="text-sm text-gray-600 whitespace-pre-wrap break-words"></p>
+      </div>
+
+      <p id="appUpdateModalMessage" class="text-sm text-gray-600 mb-4 whitespace-pre-wrap break-words hidden"></p>
 
       <div class="mb-5">
-        <p class="text-xs font-semibold text-warmText mb-1">立即应用内更新</p>
-        <p class="text-xs text-gray-400 mb-2">推荐：通过 Velopack 直接下载并安装（主更新源 R2）</p>
-        <button type="button" id="btnAppUpdateInApp" class="btn-primary w-full px-5 py-2.5 text-white rounded-xl text-sm font-bold ui-button ui-button--primary ui-button--md">应用内更新</button>
         <div class="update-progress-panel hidden mt-3" data-update-progress-root>
           <p class="update-progress-status text-xs text-warmText mb-2" aria-live="polite"></p>
           <div class="update-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
@@ -289,6 +303,11 @@
           <p class="update-progress-meta text-xs text-gray-400 mt-1"></p>
           <p class="update-progress-error hidden text-xs mt-1"></p>
         </div>
+      </div>
+
+      <div id="appUpdateModalPrimaryActions" class="flex flex-wrap justify-end gap-2 mb-5 border-b border-gray-100 pb-4">
+        <button type="button" id="btnAppUpdateRemindLater" class="px-5 py-2 border border-gray-200 rounded-xl text-sm font-semibold text-gray-500 hover:bg-gray-50 ui-button ui-button--secondary ui-button--sm" data-i18n="modals.appUpdate.remindLater">稍后提醒</button>
+        <button type="button" id="btnAppUpdateInApp" class="btn-primary px-5 py-2.5 text-white rounded-xl text-sm font-bold ui-button ui-button--primary ui-button--md" data-i18n="modals.appUpdate.updateNow">更新</button>
       </div>
 
       <div id="appUpdateModalAlternateChannels" class="mb-5 border-t border-gray-100 pt-4">
@@ -310,9 +329,6 @@
         </div>
       </div>
 
-      <div id="appUpdateModalDismissRow" class="flex justify-end border-t border-gray-100 pt-4">
-        <button type="button" id="btnAppUpdateDismiss" class="px-5 py-2 border border-gray-200 rounded-xl text-sm font-semibold text-gray-500 hover:bg-gray-50 ui-button ui-button--secondary ui-button--sm">暂不更新</button>
-      </div>
     </div>
   </div>
 

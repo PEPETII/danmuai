@@ -43,12 +43,20 @@ def _patch_update_service(
     looks up attributes on the module at call time, so patching the module
     attributes is sufficient.
     """
-    monkeypatch.setattr("app.update_service.check_for_updates", lambda: check_status)
+    monkeypatch.setattr("app.update_service.check_for_updates", lambda *a, **k: check_status)
     monkeypatch.setattr(
         "app.update_service.download_updates", lambda *, wait=False: download_status
     )
     monkeypatch.setattr("app.update_service.get_status", lambda: get_status)
     monkeypatch.setattr("app.update_service.apply_updates_and_restart", lambda: None)
+
+
+def _wait_for_update_check(qapp):
+    """Wait for tray background update-check thread + queued signal delivery."""
+    import time
+
+    time.sleep(0.3)
+    qapp.processEvents()
 
 
 def _cleanup_tray(tray):
@@ -84,7 +92,7 @@ def test_update_progress_survives_gc(qapp, monkeypatch):
 
     try:
         tray._on_check_update()
-        qapp.processEvents()
+        _wait_for_update_check(qapp)
 
         # Pre-GC: dialog and timer exist and are active.
         assert tray._update_progress is not None
@@ -140,6 +148,7 @@ def test_update_progress_download_ready_clears_state(qapp, monkeypatch):
 
     try:
         tray._on_check_update()
+        _wait_for_update_check(qapp)
         # Don't processEvents before emit — avoid timer tick racing the manual
         # emit. The timer interval is 200ms so it hasn't ticked yet.
         assert tray._update_poll_timer is not None
@@ -181,6 +190,7 @@ def test_update_progress_failure_clears_state(qapp, monkeypatch):
 
     try:
         tray._on_check_update()
+        _wait_for_update_check(qapp)
         assert tray._update_poll_timer is not None
         tray._update_poll_timer.timeout.emit()
         qapp.processEvents()
@@ -217,6 +227,7 @@ def test_update_progress_cancel_clears_state(qapp, monkeypatch):
 
     try:
         tray._on_check_update()
+        _wait_for_update_check(qapp)
         dlg = tray._update_progress
         assert dlg is not None
         assert tray._update_poll_timer is not None
@@ -257,6 +268,7 @@ def test_update_progress_retrigger_clears_old(qapp, monkeypatch):
 
     try:
         tray._on_check_update()
+        _wait_for_update_check(qapp)
         first_timer = tray._update_poll_timer
         first_dlg = tray._update_progress
         assert first_timer is not None
@@ -265,6 +277,7 @@ def test_update_progress_retrigger_clears_old(qapp, monkeypatch):
         # Second trigger must pre-clean the old dialog/timer before creating
         # new ones (pre-creation cleanup branch in _on_check_update).
         tray._on_check_update()
+        _wait_for_update_check(qapp)
         assert tray._update_poll_timer is not None
         assert tray._update_progress is not None
         assert tray._update_poll_timer is not first_timer

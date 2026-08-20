@@ -65,7 +65,7 @@ def test_on_check_update_starts_background_thread(qapp):
 
     thread_holder: dict = {}
 
-    def _fake_check():
+    def _fake_check(*_args, **_kwargs):
         import threading
 
         thread_holder["current"] = threading.current_thread()
@@ -95,7 +95,7 @@ def test_on_check_update_done_resets_flag(qapp):
 
     with patch("app.tray.QMessageBox"):
         mgr._update_check_in_flight = True
-        mgr._on_check_update_done(result, "检查更新")
+        mgr._on_check_update_done(result, "检查更新", False, False)
 
     assert mgr._update_check_in_flight is False
 
@@ -107,7 +107,7 @@ def test_on_check_update_done_handles_error(qapp):
     result = MagicMock(ok=False, message="网络错误", error="timeout")
 
     with patch("app.tray.QMessageBox") as mock_box:
-        mgr._on_check_update_done(result, "检查更新")
+        mgr._on_check_update_done(result, "检查更新", False, False)
         mock_box.warning.assert_called_once()
 
     assert mgr._update_check_in_flight is False

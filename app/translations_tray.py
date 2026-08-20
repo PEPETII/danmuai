@@ -23,6 +23,11 @@ TRANSLATIONS_ZH: dict[str, str] = {
     "tray.update_downloading": "正在下载更新…",
     "tray.update_up_to_date": "已是最新版本",
     "tray.update_download_prompt": "发现新版本 {version}，是否下载？",
+    "tray.startup_update_title": "发现新版本",
+    "tray.startup_update_body": "当前版本：{current}\n最新版本：{latest}",
+    "tray.startup_update_notes_heading": "更新内容：",
+    "tray.startup_update_now": "更新",
+    "tray.startup_update_remind_later": "稍后提醒",
     "tray.uninstall_unavailable": "当前环境不支持卸载。",
     "tray.uninstall_prompt": "是否启动卸载？默认会保留用户数据。",
     "tray.uninstall_delete_data_prompt": (
@@ -106,6 +111,11 @@ TRANSLATIONS_EN: dict[str, str] = {
     "tray.update_downloading": "Downloading update…",
     "tray.update_up_to_date": "You are on the latest version",
     "tray.update_download_prompt": "New version {version} found. Download now?",
+    "tray.startup_update_title": "New Version Available",
+    "tray.startup_update_body": "Current version: {current}\nLatest version: {latest}",
+    "tray.startup_update_notes_heading": "Release notes:",
+    "tray.startup_update_now": "Update",
+    "tray.startup_update_remind_later": "Remind Later",
     "tray.uninstall_unavailable": "Uninstall is not available in this environment.",
     "tray.uninstall_prompt": "Start uninstall? User data is kept by default.",
     "tray.uninstall_delete_data_prompt": (

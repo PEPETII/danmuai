@@ -460,6 +460,9 @@ class DanmuAppLifecycleMixin:
         QTimer.singleShot(
             0, lambda: show_startup_notice_if_needed(self.config, self.logger)
         )
+        tray = getattr(self, "tray", None)
+        if tray is not None:
+            QTimer.singleShot(1500, tray.schedule_startup_update_check)
         if self.web_launch_mode == "browser":
             QTimer.singleShot(
                 900,

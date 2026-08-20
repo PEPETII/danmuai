@@ -177,7 +177,7 @@ function setUpdateControlsDisabled(disabled) {
 
 function setModalUpdateSectionsHidden(hidden) {
   document.getElementById('appUpdateModalAlternateChannels')?.classList.toggle('hidden', hidden);
-  document.getElementById('appUpdateModalDismissRow')?.classList.toggle('hidden', hidden);
+  document.getElementById('appUpdateModalPrimaryActions')?.classList.toggle('hidden', hidden);
   document.getElementById('appUpdateChannelDetail')?.classList.toggle('hidden', hidden);
 }
 
@@ -356,11 +356,33 @@ function showChannelDetail(title, body, copyText, openUrl) {
 function showAppUpdateModal(latest, message) {
   const modal = document.getElementById('appUpdateModal');
   const msgEl = document.getElementById('appUpdateModalMessage');
-  if (!modal || !msgEl) return;
+  const currentEl = document.getElementById('appUpdateModalCurrentVersion');
+  const latestEl = document.getElementById('appUpdateModalLatestVersion');
+  const notesSection = document.getElementById('appUpdateModalReleaseNotesSection');
+  const notesEl = document.getElementById('appUpdateModalReleaseNotes');
+  if (!modal) return;
+
   const current = appVersionState.current || '-';
-  let text = t('dynamic.appUpdateBanner.当前版本_current_发现新版本', { current, latest });
-  if (message) text += `\n\n${message}`;
-  msgEl.textContent = text;
+  const latestText = latest || appVersionState.latest || '-';
+  if (currentEl) currentEl.textContent = current;
+  if (latestEl) latestEl.textContent = latestText;
+
+  const notes = String(message || appVersionState.message || '').trim();
+  if (notesSection && notesEl) {
+    if (notes) {
+      notesEl.textContent = notes;
+      notesSection.classList.remove('hidden');
+    } else {
+      notesEl.textContent = '';
+      notesSection.classList.add('hidden');
+    }
+  }
+
+  if (msgEl) {
+    msgEl.textContent = '';
+    msgEl.classList.add('hidden');
+  }
+
   hideChannelDetail();
   modal.classList.remove('hidden');
   modal.classList.add('flex');
@@ -390,6 +412,36 @@ function maybeShowAppUpdateModal() {
   pendingAppUpdatePrompt = null;
 }
 
+async function runVelopackStartupCheck() {
+  try {
+    const status = await fetchVelopackUpdateStatus();
+    if (!status?.frozen) return null;
+    return await runVelopackCheckUpdate();
+  } catch {
+    return null;
+  }
+}
+
+function applyVelopackCheckToAppState(checkData, metadataMessage = '') {
+  if (!checkData?.ok) return false;
+  if (checkData.current_version) {
+    appVersionState.current = normalizeVersionString(checkData.current_version);
+  }
+  if (!checkData.update_available) {
+    appVersionState.checkStatus = 'up_to_date';
+    return false;
+  }
+  const latest = normalizeVersionString(checkData.latest_version || '');
+  appVersionState.latest = latest;
+  appVersionState.checkStatus = 'update_available';
+  if (!appVersionState.message && metadataMessage) {
+    appVersionState.message = metadataMessage;
+  }
+  pendingAppUpdatePrompt = { latest, message: appVersionState.message };
+  refreshVelopackUpdateButtons(checkData);
+  return true;
+}
+
 export async function initAppVersionAndUpdateCheck() {
   try {
     if (!API.base) {
@@ -405,31 +457,55 @@ export async function initAppVersionAndUpdateCheck() {
     window.DANMU_APP_VERSION = current;
     refreshAppVersionFooter();
 
-    const metadata = await loadUpdateMetadata();
-    if (!metadata?.latest_version) {
-      appVersionState.checkStatus = 'check_failed';
-      refreshAppVersionFooter();
-      await loadAppUpdateDismissState();
-      return;
+    const [metadata, velopackCheck] = await Promise.all([
+      loadUpdateMetadata(),
+      runVelopackStartupCheck(),
+    ]);
+
+    let updateDetected = false;
+    if (velopackCheck?.frozen) {
+      updateDetected = applyVelopackCheckToAppState(
+        velopackCheck,
+        String(metadata?.message || '').trim(),
+      );
     }
 
-    applyReleaseChannels(metadata);
-    const latest = normalizeVersionString(metadata.latest_version);
-    appVersionState.latest = latest;
-    appVersionState.releaseUrl = String(metadata.release_url || metadata.r2_latest_installer_url || '').trim();
-    appVersionState.message = String(metadata.message || '').trim();
-    appVersionState.stale = Boolean(metadata.stale);
-    appVersionState.cacheState = String(metadata.cache_state || '');
-    appVersionState.cacheAgeSec =
-      typeof metadata.cache_age_sec === 'number' ? metadata.cache_age_sec : null;
+    if (!updateDetected && metadata?.latest_version) {
+      applyReleaseChannels(metadata);
+      const latest = normalizeVersionString(metadata.latest_version);
+      appVersionState.latest = latest;
+      appVersionState.releaseUrl = String(metadata.release_url || metadata.r2_latest_installer_url || '').trim();
+      appVersionState.message = String(metadata.message || '').trim();
+      appVersionState.stale = Boolean(metadata.stale);
+      appVersionState.cacheState = String(metadata.cache_state || '');
+      appVersionState.cacheAgeSec =
+        typeof metadata.cache_age_sec === 'number' ? metadata.cache_age_sec : null;
 
-    if (metadata.update_available) {
-      appVersionState.checkStatus = 'update_available';
-      pendingAppUpdatePrompt = { latest, message: appVersionState.message };
-    } else {
+      if (metadata.update_available) {
+        appVersionState.checkStatus = 'update_available';
+        pendingAppUpdatePrompt = { latest, message: appVersionState.message };
+        updateDetected = true;
+      } else if (!velopackCheck?.frozen) {
+        appVersionState.checkStatus = 'up_to_date';
+        pendingAppUpdatePrompt = null;
+      }
+    } else if (metadata) {
+      applyReleaseChannels(metadata);
+      appVersionState.releaseUrl = String(metadata.release_url || metadata.r2_latest_installer_url || '').trim();
+      if (!appVersionState.message) {
+        appVersionState.message = String(metadata.message || '').trim();
+      }
+      appVersionState.stale = Boolean(metadata.stale);
+      appVersionState.cacheState = String(metadata.cache_state || '');
+      appVersionState.cacheAgeSec =
+        typeof metadata.cache_age_sec === 'number' ? metadata.cache_age_sec : null;
+    }
+
+    if (!updateDetected && velopackCheck?.frozen && velopackCheck?.ok && !velopackCheck.update_available) {
       appVersionState.checkStatus = 'up_to_date';
       pendingAppUpdatePrompt = null;
     }
+
     refreshAppVersionFooter();
 
     await loadAppUpdateDismissState();
@@ -771,11 +847,11 @@ export function initAppUpdateModal(deps = {}) {
       openExternalUrl(channelDetailState.openUrl, t('dynamic.appUpdateBanner.链接已复制到剪贴板'));
     }
   });
-  document.getElementById('btnAppUpdateDismiss')?.addEventListener('click', async () => {
+  document.getElementById('btnAppUpdateRemindLater')?.addEventListener('click', () => {
     const latest = appVersionState.latest;
     closeAppUpdateModal({ suppressSession: false });
     if (latest) {
-      await persistAppUpdateDismiss(latest);
+      suppressAppUpdateForSession(latest);
     }
   });
   document.getElementById('appUpdateModal')?.addEventListener('click', (event) => {
