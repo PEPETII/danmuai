@@ -91,7 +91,7 @@ def test_reverse_map_resolves_cross_language_samples():
     reverse = _build_reverse_map(zh, en)
     samples = [
         ("nav.overview", "温馨控制台", "Dashboard"),
-        ("settings.text.API_与模型", "API 与模型", "API & model"),
+        ("settings.text.API_与模型", "AI模型配置", "AI model config"),
         ("common.darkMode", "黑夜模式", "Dark mode"),
     ]
     for key, zh_text, en_text in samples:

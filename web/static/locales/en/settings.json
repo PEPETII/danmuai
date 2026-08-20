@@ -6,13 +6,13 @@
       "中文": "Chinese",
       "英语": "English",
       "黑夜模式": "Dark mode",
-      "API_与模型": "API & model",
-      "麦克风模式": "Mic mode",
-      "AI读弹幕": "AI danmu reader",
+      "API_与模型": "AI model config",
+      "麦克风模式": "Voice input",
+      "AI读弹幕": "AI broadcast",
       "弹幕显示": "Danmu display",
       "识图区域": "Capture region",
       "识图清晰度": "Capture quality",
-      "AI识图相关": "AI capture",
+      "AI识图相关": "Capture range",
       "字体设置": "Font settings",
       "助手配置": "Assistant settings",
       "API_地址": "API endpoint",
@@ -238,7 +238,7 @@
       "弹幕设置分类": "Danmu settings category",
       "视觉模型_2": "Vision model",
       "麦克风模型_2": "Mic model",
-      "AI读弹幕_2": "AI danmu reader"
+      "AI读弹幕_2": "AI broadcast"
     }
   }
 }

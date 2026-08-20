@@ -35,7 +35,7 @@ def test_rhythm_accordion_keeps_existing_config_field_contracts():
     assert 'id="image_quality"' in capture
     assert 'name="image_quality"' in capture
     assert 'data-rhythm-step' not in capture
-    assert 'data-i18n="settings.text.AI识图相关"' in capture or 'AI识图相关' in capture
+    assert 'data-i18n="settings.text.AI识图相关"' in capture or '画面识别范围' in capture
 
 
 def test_rhythm_accordion_module_only_toggles_dom_state():
