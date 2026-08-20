@@ -316,63 +316,67 @@
                   </div>
                 </div>
                 <div class="settings-section-divider mt-4"></div>
-                <p class="settings-section-title mt-4" data-i18n="content.text.阴影">阴影</p>
-                <div class="settings-params-grid cols-2">
-                  <div class="settings-field">
-                    <label for="sg-floating_panel_shadow_color" class="settings-field-label" data-i18n="content.text.阴影颜色">阴影颜色</label>
-                    <div class="sg-color-input">
-                      <input type="color" id="sg-floating_panel_shadow_color_picker" class="sg-color-picker" value="#000000" data-sg-color-for="floating_panel_shadow_color" aria-label="阴影颜色选择器">
-                      <input type="text" name="floating_panel_shadow_color" id="sg-floating_panel_shadow_color" class="sg-color-hex-input settings-field-control" placeholder="#000000" maxlength="9" spellcheck="false" data-sg-color-field="floating_panel_shadow_color">
+                <div data-sg-capability="shadow">
+                  <p class="settings-section-title mt-4" data-i18n="content.text.阴影">阴影</p>
+                  <div class="settings-params-grid cols-2">
+                    <div class="settings-field">
+                      <label for="sg-floating_panel_shadow_color" class="settings-field-label" data-i18n="content.text.阴影颜色">阴影颜色</label>
+                      <div class="sg-color-input">
+                        <input type="color" id="sg-floating_panel_shadow_color_picker" class="sg-color-picker" value="#000000" data-sg-color-for="floating_panel_shadow_color" aria-label="阴影颜色选择器">
+                        <input type="text" name="floating_panel_shadow_color" id="sg-floating_panel_shadow_color" class="sg-color-hex-input settings-field-control" placeholder="#000000" maxlength="9" spellcheck="false" data-sg-color-field="floating_panel_shadow_color">
+                      </div>
                     </div>
-                  </div>
-                  <div class="settings-field">
-                    <label for="sg-floating_panel_shadow_opacity" class="settings-field-label" data-i18n="content.text.阴影不透明度">阴影不透明度 (%)</label>
-                    <input type="number" name="floating_panel_shadow_opacity" id="sg-floating_panel_shadow_opacity" min="0" max="100" class="settings-field-control ui-control ui-input" value="25">
-                  </div>
-                  <div class="settings-field">
-                    <label for="sg-floating_panel_shadow_blur" class="settings-field-label" data-i18n="content.text.阴影模糊">阴影模糊</label>
-                    <input type="number" name="floating_panel_shadow_blur" id="sg-floating_panel_shadow_blur" min="0" max="32" class="settings-field-control ui-control ui-input" value="12">
-                  </div>
-                  <div class="settings-field">
-                    <label for="sg-floating_panel_shadow_offset_x" class="settings-field-label" data-i18n="content.text.阴影偏移_X">阴影偏移 X</label>
-                    <input type="number" name="floating_panel_shadow_offset_x" id="sg-floating_panel_shadow_offset_x" min="-20" max="20" class="settings-field-control ui-control ui-input" value="2">
-                  </div>
-                  <div class="settings-field">
-                    <label for="sg-floating_panel_shadow_offset_y" class="settings-field-label" data-i18n="content.text.阴影偏移_Y">阴影偏移 Y</label>
-                    <input type="number" name="floating_panel_shadow_offset_y" id="sg-floating_panel_shadow_offset_y" min="-20" max="20" class="settings-field-control ui-control ui-input" value="2">
-                  </div>
-                  <div class="settings-field settings-field--toggle">
-                    <span class="settings-field-label" data-i18n="content.text.启用阴影">启用阴影</span>
-                    <label class="toggle-switch">
-                      <input type="checkbox" name="floating_panel_shadow_enabled" id="sg-floating_panel_shadow_enabled" role="switch" value="1">
-                      <span aria-hidden="true"></span>
-                    </label>
+                    <div class="settings-field">
+                      <label for="sg-floating_panel_shadow_opacity" class="settings-field-label" data-i18n="content.text.阴影不透明度">阴影不透明度 (%)</label>
+                      <input type="number" name="floating_panel_shadow_opacity" id="sg-floating_panel_shadow_opacity" min="0" max="100" class="settings-field-control ui-control ui-input" value="25">
+                    </div>
+                    <div class="settings-field">
+                      <label for="sg-floating_panel_shadow_blur" class="settings-field-label" data-i18n="content.text.阴影模糊">阴影模糊</label>
+                      <input type="number" name="floating_panel_shadow_blur" id="sg-floating_panel_shadow_blur" min="0" max="32" class="settings-field-control ui-control ui-input" value="12">
+                    </div>
+                    <div class="settings-field">
+                      <label for="sg-floating_panel_shadow_offset_x" class="settings-field-label" data-i18n="content.text.阴影偏移_X">阴影偏移 X</label>
+                      <input type="number" name="floating_panel_shadow_offset_x" id="sg-floating_panel_shadow_offset_x" min="-20" max="20" class="settings-field-control ui-control ui-input" value="2">
+                    </div>
+                    <div class="settings-field">
+                      <label for="sg-floating_panel_shadow_offset_y" class="settings-field-label" data-i18n="content.text.阴影偏移_Y">阴影偏移 Y</label>
+                      <input type="number" name="floating_panel_shadow_offset_y" id="sg-floating_panel_shadow_offset_y" min="-20" max="20" class="settings-field-control ui-control ui-input" value="2">
+                    </div>
+                    <div class="settings-field settings-field--toggle">
+                      <span class="settings-field-label" data-i18n="content.text.启用阴影">启用阴影</span>
+                      <label class="toggle-switch">
+                        <input type="checkbox" name="floating_panel_shadow_enabled" id="sg-floating_panel_shadow_enabled" role="switch" value="1">
+                        <span aria-hidden="true"></span>
+                      </label>
+                    </div>
                   </div>
                 </div>
-                <div class="settings-section-divider mt-4"></div>
-                <p class="settings-section-title mt-4" data-i18n="content.text.边框">边框</p>
-                <div class="settings-params-grid cols-2">
-                  <div class="settings-field">
-                    <label for="sg-floating_panel_border_color" class="settings-field-label" data-i18n="content.text.边框颜色">边框颜色</label>
-                    <div class="sg-color-input">
-                      <input type="color" id="sg-floating_panel_border_color_picker" class="sg-color-picker" value="#FFFFFF" data-sg-color-for="floating_panel_border_color" aria-label="边框颜色选择器">
-                      <input type="text" name="floating_panel_border_color" id="sg-floating_panel_border_color" class="sg-color-hex-input settings-field-control" placeholder="#FFFFFF" maxlength="9" spellcheck="false" data-sg-color-field="floating_panel_border_color">
+                <div class="settings-section-divider mt-4" data-sg-capability="border"></div>
+                <div data-sg-capability="border">
+                  <p class="settings-section-title mt-4" data-i18n="content.text.边框">边框</p>
+                  <div class="settings-params-grid cols-2">
+                    <div class="settings-field">
+                      <label for="sg-floating_panel_border_color" class="settings-field-label" data-i18n="content.text.边框颜色">边框颜色</label>
+                      <div class="sg-color-input">
+                        <input type="color" id="sg-floating_panel_border_color_picker" class="sg-color-picker" value="#FFFFFF" data-sg-color-for="floating_panel_border_color" aria-label="边框颜色选择器">
+                        <input type="text" name="floating_panel_border_color" id="sg-floating_panel_border_color" class="sg-color-hex-input settings-field-control" placeholder="#FFFFFF" maxlength="9" spellcheck="false" data-sg-color-field="floating_panel_border_color">
+                      </div>
                     </div>
-                  </div>
-                  <div class="settings-field">
-                    <label for="sg-floating_panel_border_width" class="settings-field-label" data-i18n="content.text.边框宽度">边框宽度</label>
-                    <input type="number" name="floating_panel_border_width" id="sg-floating_panel_border_width" min="0" max="8" class="settings-field-control ui-control ui-input" value="1">
-                  </div>
-                  <div class="settings-field">
-                    <label for="sg-floating_panel_border_opacity" class="settings-field-label" data-i18n="content.text.边框不透明度">边框不透明度 (%)</label>
-                    <input type="number" name="floating_panel_border_opacity" id="sg-floating_panel_border_opacity" min="0" max="100" class="settings-field-control ui-control ui-input" value="45">
-                  </div>
-                  <div class="settings-field settings-field--toggle">
-                    <span class="settings-field-label" data-i18n="content.text.启用边框">启用边框</span>
-                    <label class="toggle-switch">
-                      <input type="checkbox" name="floating_panel_border_enabled" id="sg-floating_panel_border_enabled" role="switch" value="1">
-                      <span aria-hidden="true"></span>
-                    </label>
+                    <div class="settings-field">
+                      <label for="sg-floating_panel_border_width" class="settings-field-label" data-i18n="content.text.边框宽度">边框宽度</label>
+                      <input type="number" name="floating_panel_border_width" id="sg-floating_panel_border_width" min="0" max="8" class="settings-field-control ui-control ui-input" value="1">
+                    </div>
+                    <div class="settings-field">
+                      <label for="sg-floating_panel_border_opacity" class="settings-field-label" data-i18n="content.text.边框不透明度">边框不透明度 (%)</label>
+                      <input type="number" name="floating_panel_border_opacity" id="sg-floating_panel_border_opacity" min="0" max="100" class="settings-field-control ui-control ui-input" value="45">
+                    </div>
+                    <div class="settings-field settings-field--toggle">
+                      <span class="settings-field-label" data-i18n="content.text.启用边框">启用边框</span>
+                      <label class="toggle-switch">
+                        <input type="checkbox" name="floating_panel_border_enabled" id="sg-floating_panel_border_enabled" role="switch" value="1">
+                        <span aria-hidden="true"></span>
+                      </label>
+                    </div>
                   </div>
                 </div>
               </div>

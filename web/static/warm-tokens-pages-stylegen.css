@@ -65,7 +65,8 @@
 }
 
 #page-style-generator .sg-accordion .settings-rhythm-accordion-item[hidden],
-#page-style-generator .sg-accordion .settings-field[hidden] {
+#page-style-generator .sg-accordion .settings-field[hidden],
+#page-style-generator .sg-accordion [data-sg-capability][hidden] {
   display: none;
 }
 

@@ -298,6 +298,7 @@ console.log(JSON.stringify(payload));
 def test_style_generator_preview_matches_web_panel_structure():
     """Preview must mirror real floating_panel: column-reverse, card DOM, 2-line clamp, maxCards."""
     mod = (_static() / "modules" / "app-style-generator-page.js").read_text(encoding="utf-8")
+    partial = (_static() / "partials" / "style-generator.html").read_text(encoding="utf-8")
     css = (_static() / "warm-tokens-pages-stylegen.css").read_text(encoding="utf-8")
     panel_css = (_static() / "floating_panel" / "style.css").read_text(encoding="utf-8")
     assert "sg-preview-card" in mod
@@ -327,12 +328,20 @@ def test_style_generator_preview_matches_web_panel_structure():
     assert "syncPresetSelect" in mod
     assert "select.value = activePresetId" in mod
     assert "values.floating_panel_style_preset = 'custom'" in mod
-    assert "cardSection.hidden = isClassic" in mod
-    assert "tailSection.hidden = isClassic" in mod
-    assert "shapeField.hidden = isClassic" in mod
-    assert "layoutField.hidden = isClassic" in mod
+    assert "STYLE_PRESET_CAPABILITIES" in mod
+    assert "resolvePresetCapabilities" in mod
+    assert "setAccordionItemHidden('sgCardColorsAccordionTrigger', !show('bubble'))" in mod
+    assert "setAccordionItemHidden('sgTailAccordionTrigger', !show('tail'))" in mod
+    assert "setSettingsFieldHidden('sg-floating_panel_shape', !show('shape'))" in mod
+    assert "setSettingsFieldHidden('sg-floating_panel_layout', !show('layout'))" in mod
+    assert "setSettingsFieldHidden('sg-floating_panel_radius', !show('radius'))" in mod
+    assert "setCapabilityGroupsHidden('shadow', !show('shadow'))" in mod
+    assert "setCapabilityGroupsHidden('border', !show('border'))" in mod
+    assert 'data-sg-capability="shadow"' in partial
+    assert 'data-sg-capability="border"' in partial
     assert ".settings-rhythm-accordion-item[hidden]" in css
     assert ".settings-field[hidden]" in css
+    assert "[data-sg-capability][hidden]" in css
     assert "layout-stacked" in css
     assert "--tail-border" in css
     assert "--tail-long-side" in css
@@ -430,14 +439,14 @@ def test_manual_edits_on_classic_keep_youtube_dropdown_and_hide_bubble_sections(
     assert "resolveBasePresetId" in mod
     assert "activePresetId = savedPreset" in mod or "activePresetId = basePresetId" in mod
     assert "syncPresetVisibility(activePresetId)" in mod
-    assert "cardSection.hidden = isClassic" in mod
+    assert "cardSection.hidden = isClassic" not in mod
 
 
 def test_load_custom_config_keeps_custom_hidden_field():
     """服务端 custom 配置加载时保留 custom 保存值，仅下拉回退到基础风格默认。"""
     mod = (_static() / "modules" / "app-style-generator-page.js").read_text(encoding="utf-8")
     normalize_body = mod.split("function normalizeVisiblePreset(values, presets)")[1].split(
-        "/** 仿 YouTube", 1
+        "/** 基础风格", 1
     )[0]
     assert "configuredPreset === 'custom'" in normalize_body
     assert "values.floating_panel_style_preset = 'custom'" in normalize_body
@@ -452,6 +461,51 @@ def test_style_generator_has_a_default_visible_preset_select():
     assert 'id="sgPresetSelect"' in partial
     assert 'value="blivechat_line"' in partial
     assert 'selected data-i18n="content.text.预设LineLike"' in partial
+
+
+def test_style_preset_capabilities_map_classic_and_wechat():
+    """基础风格能力映射应区分 classic 无气泡与 blivechat_line 全量气泡项。"""
+    script = """
+import { STYLE_PRESET_CAPABILITIES, resolvePresetCapabilities } from './web/static/modules/app-style-generator-page.js';
+const classic = resolvePresetCapabilities('classic');
+const wechat = resolvePresetCapabilities('blivechat_line');
+console.log(JSON.stringify({
+  classicBubble: classic.bubble,
+  classicTail: classic.tail,
+  classicRadius: classic.radius,
+  classicPadding: classic.padding,
+  wechatBubble: wechat.bubble,
+  wechatTail: wechat.tail,
+  wechatRadius: wechat.radius,
+  wechatPadding: wechat.padding,
+  keys: Object.keys(STYLE_PRESET_CAPABILITIES),
+}));
+"""
+    result = subprocess.run(
+        ["node", "--input-type=module", "-e", script],
+        cwd=_root(),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["classicBubble"] is False
+    assert payload["classicTail"] is False
+    assert payload["classicRadius"] is False
+    assert payload["classicPadding"] is False
+    assert payload["wechatBubble"] is True
+    assert payload["wechatTail"] is True
+    assert payload["wechatRadius"] is True
+    assert payload["wechatPadding"] is True
+    assert set(payload["keys"]) >= {"classic", "blivechat_line"}
+
+
+def test_apply_preset_reapplies_visibility_after_dropdown_change():
+    mod = (_static() / "modules" / "app-style-generator-page.js").read_text(encoding="utf-8")
+    apply_body = mod.split("function applyPreset(presetId)")[1].split("function readPreviewStyle", 1)[0]
+    assert "activePresetId = presetId;" in apply_body
+    assert "syncPresetVisibility(presetId);" in apply_body
 
 
 def test_preview_recomputes_existing_card_colors_when_presets_change_round_trip():

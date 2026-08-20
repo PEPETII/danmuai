@@ -475,34 +475,100 @@ function normalizeVisiblePreset(values, presets) {
   values.floating_panel_style_preset = basePresetId;
 }
 
+/** 基础风格 → 表单能力映射；新增风格时在此登记即可扩展显隐规则。 */
+export const STYLE_PRESET_CAPABILITIES = {
+  classic: {
+    bubble: false,
+    tail: false,
+    radius: false,
+    padding: false,
+    shadow: false,
+    border: false,
+    shape: false,
+    layout: false,
+  },
+  blivechat_line: {
+    bubble: true,
+    tail: true,
+    radius: true,
+    padding: true,
+    shadow: true,
+    border: true,
+    shape: true,
+    layout: true,
+  },
+};
+
+const DEFAULT_STYLE_CAPABILITIES = STYLE_PRESET_CAPABILITIES.blivechat_line;
+
+const CUSTOM_CSS_VISUAL_ACCORDION_TRIGGERS = [
+  'sgBasicAccordionTrigger',
+  'sgCardColorsAccordionTrigger',
+  'sgTextColorsAccordionTrigger',
+  'sgStrokeShadowBorderAccordionTrigger',
+  'sgUsernameAccordionTrigger',
+  'sgTailAccordionTrigger',
+  'sgAnimationAccordionTrigger',
+];
+
+/** 将 preset/custom 解析为当前基础风格的能力表；仅隐藏 UI，不改动字段值。 */
+export function resolvePresetCapabilities(preset) {
+  if (preset === 'custom_css') {
+    return { customCssMode: true };
+  }
+  const baseId = preset === 'classic' || preset === 'blivechat_line'
+    ? preset
+    : activePresetId;
+  return STYLE_PRESET_CAPABILITIES[baseId] || DEFAULT_STYLE_CAPABILITIES;
+}
+
+function setSettingsFieldHidden(fieldId, hidden) {
+  const el = document.getElementById(fieldId)?.closest('.settings-field');
+  if (el) el.hidden = hidden;
+}
+
+function setAccordionItemHidden(triggerId, hidden) {
+  const el = document.getElementById(triggerId)?.closest('.settings-rhythm-accordion-item');
+  if (el) el.hidden = hidden;
+}
+
+function setCapabilityGroupsHidden(capability, hidden) {
+  document.querySelectorAll(`#page-style-generator [data-sg-capability="${capability}"]`)
+    .forEach((el) => {
+      el.hidden = hidden;
+    });
+}
+
 /** 仿 YouTube 只隐藏不适用的设置，切回仿微信/自定义时恢复可见并保留字段值。 */
-function syncPresetVisibility(preset) {
-  const isClassic = preset === 'classic';
+export function syncPresetVisibility(preset) {
   const isCustomCss = preset === 'custom_css';
+  const caps = resolvePresetCapabilities(preset);
   const customCssSection = document.getElementById('sgCustomCssSection');
   if (customCssSection) customCssSection.hidden = !isCustomCss;
-  const shapeField = document.getElementById('sg-floating_panel_shape')?.closest('.settings-field');
-  const layoutField = document.getElementById('sg-floating_panel_layout')?.closest('.settings-field');
-  const cardSection = document.getElementById('sgCardColorsAccordionTrigger')?.closest('.settings-rhythm-accordion-item');
-  const tailSection = document.getElementById('sgTailAccordionTrigger')?.closest('.settings-rhythm-accordion-item');
-  if (shapeField) shapeField.hidden = isClassic || isCustomCss;
-  if (layoutField) layoutField.hidden = isClassic || isCustomCss;
-  if (cardSection) cardSection.hidden = isClassic || isCustomCss;
-  if (tailSection) tailSection.hidden = isClassic || isCustomCss;
-  const customCssVisualTriggers = [
-    'sgBasicAccordionTrigger',
-    'sgCardColorsAccordionTrigger',
-    'sgTextColorsAccordionTrigger',
-    'sgStrokeShadowBorderAccordionTrigger',
-    'sgUsernameAccordionTrigger',
-    'sgTailAccordionTrigger',
-    'sgAnimationAccordionTrigger',
-  ];
-  customCssVisualTriggers.forEach((id) => {
-    const item = document.getElementById(id)?.closest('.settings-rhythm-accordion-item');
-    if (item && isCustomCss) item.hidden = true;
-    else if (item) item.hidden = false;
+
+  if (isCustomCss) {
+    CUSTOM_CSS_VISUAL_ACCORDION_TRIGGERS.forEach((id) => {
+      setAccordionItemHidden(id, true);
+    });
+    return;
+  }
+
+  const show = (key) => caps[key] !== false;
+  setSettingsFieldHidden('sg-floating_panel_shape', !show('shape'));
+  setSettingsFieldHidden('sg-floating_panel_layout', !show('layout'));
+  setAccordionItemHidden('sgCardColorsAccordionTrigger', !show('bubble'));
+  setAccordionItemHidden('sgTailAccordionTrigger', !show('tail'));
+  setSettingsFieldHidden('sg-floating_panel_radius', !show('radius'));
+  setSettingsFieldHidden('sg-floating_panel_padding_x', !show('padding'));
+  setSettingsFieldHidden('sg-floating_panel_padding_y', !show('padding'));
+  setCapabilityGroupsHidden('shadow', !show('shadow'));
+  setCapabilityGroupsHidden('border', !show('border'));
+
+  CUSTOM_CSS_VISUAL_ACCORDION_TRIGGERS.forEach((id) => {
+    setAccordionItemHidden(id, false);
   });
+  setAccordionItemHidden('sgCardColorsAccordionTrigger', !show('bubble'));
+  setAccordionItemHidden('sgTailAccordionTrigger', !show('tail'));
 }
 
 function writePaletteHidden(kind) {
@@ -619,6 +685,9 @@ function applyPreset(presetId) {
     floating_panel_style_preset: presetId,
     floating_panel_custom_css_file: '',
   });
+  activePresetId = presetId;
+  syncPresetSelect(presetId);
+  syncPresetVisibility(presetId);
   customCssText = '';
   setPreviewCustomCss('');
   styleGeneratorDirty = true;
