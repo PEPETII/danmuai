@@ -680,6 +680,69 @@
       </div>
     </section>
 
+    <!-- ========== 区域：历史运行统计（DOM 源，由 guide-tabs.js 搬入 #page-guide） ========== -->
+    <section id="page-history-stats-source" class="page-panel" data-guide-panel="history-stats-source" hidden data-i18n-aria-label="content.aria.历史运行统计" aria-label="历史运行统计">
+      <header class="mb-8 ui-page-header" data-guide-move="history-stats">
+        <div class="ui-page-header__copy min-w-0">
+          <h2 class="text-2xl font-bold text-warmText ui-page-title" data-i18n="content.text.历史运行统计">历史运行统计</h2>
+          <p class="text-gray-500 mt-1 ui-page-description" data-i18n="content.text.历史运行统计说明">跨会话累计的弹幕、运行时长与 Token 用量</p>
+        </div>
+      </header>
+      <div data-guide-move="history-stats">
+        <h3 class="overview-group-title" data-i18n="overview.text.累计">累计</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 2xl:grid-cols-4 gap-4 mb-8">
+          <div class="card ui-card ui-card--interactive stat-card p-6 min-w-0">
+            <div class="flex items-center gap-4 min-w-0">
+              <div class="w-12 h-12 bg-softPeach/80 rounded-2xl flex items-center justify-center text-2xl icon-badge shrink-0"><svg class="ui-icon ui-icon-lg" aria-hidden="true"><use href="#i-message"></use></svg></div>
+              <div class="min-w-0">
+                <p class="text-gray-400 text-sm" data-i18n="overview.text.生成总弹幕">生成总弹幕</p>
+                <p class="overview-stat-value text-2xl font-bold text-warmText truncate" id="statLifetimeDanmu">0</p>
+              </div>
+            </div>
+          </div>
+          <div class="card ui-card ui-card--interactive stat-card p-6 min-w-0">
+            <div class="flex items-center gap-4 min-w-0">
+              <div class="w-12 h-12 bg-blue-50/90 rounded-2xl flex items-center justify-center text-2xl icon-badge shrink-0"><svg class="ui-icon ui-icon-lg" aria-hidden="true"><use href="#i-timer"></use></svg></div>
+              <div class="min-w-0">
+                <p class="text-gray-400 text-sm" data-i18n="overview.text.运行总时长">运行总时长</p>
+                <p class="overview-stat-value text-2xl font-bold text-warmText truncate" id="statLifetimeRuntime">0:00</p>
+              </div>
+            </div>
+          </div>
+          <div class="card ui-card ui-card--interactive stat-card p-6 min-w-0">
+            <div class="flex items-center gap-4 min-w-0">
+              <div class="w-12 h-12 bg-pastelYellow/90 rounded-2xl flex items-center justify-center text-2xl icon-badge shrink-0"><svg class="ui-icon ui-icon-lg" aria-hidden="true"><use href="#i-hash"></use></svg></div>
+              <div class="min-w-0">
+                <p class="text-gray-400 text-sm" data-i18n="overview.text.输入总_Token">输入总 Token</p>
+                <p class="overview-stat-value text-2xl font-bold text-warmText truncate" id="statLifetimeInputTokens">0</p>
+              </div>
+            </div>
+          </div>
+          <div class="card ui-card ui-card--interactive stat-card p-6 min-w-0">
+            <div class="flex items-center gap-4 min-w-0">
+              <div class="w-12 h-12 bg-blue-50/90 rounded-2xl flex items-center justify-center text-2xl icon-badge shrink-0"><svg class="ui-icon ui-icon-lg" aria-hidden="true"><use href="#i-hash"></use></svg></div>
+              <div class="min-w-0">
+                <p class="text-gray-400 text-sm" data-i18n="overview.text.输出总_Token">输出总 Token</p>
+                <p class="overview-stat-value text-2xl font-bold text-warmText truncate" id="statLifetimeOutputTokens">0</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p id="statLifetimeTokenNote" class="text-xs text-gray-400 -mt-4 mb-8 hidden" role="note"></p>
+      </div>
+    </section>
+
+    <!-- ========== 区域：弹幕场次记录（DOM 源，由 guide-tabs.js 搬入 #page-guide） ========== -->
+    <section id="page-session-runs-source" class="page-panel" data-guide-panel="session-runs-source" hidden data-i18n-aria-label="content.aria.弹幕场次记录" aria-label="弹幕场次记录">
+      <div class="card ui-card p-6" data-guide-move="session-runs">
+        <h3 class="text-lg font-bold text-warmText mb-2" data-i18n="overview.text.弹幕场次记录">弹幕场次记录</h3>
+        <p class="text-sm text-gray-400 mb-4" data-i18n="overview.text.每次_生成弹幕_至_停止弹幕_为一轮_保存在本机配置库_重启后仍可查看最近_10">每次「生成弹幕」至「停止弹幕」为一轮；保存在本机配置库，重启后仍可查看最近 100 条</p>
+        <div id="sessionRunLog" class="session-run-log" role="log" aria-live="polite">
+          <p id="sessionRunLogEmpty" class="session-run-log-empty text-sm text-gray-400" data-i18n="overview.text.暂无记录_停止弹幕后会在此显示时间与_Token_用量">暂无记录，停止弹幕后会在此显示时间与 Token 用量</p>
+        </div>
+      </div>
+    </section>
+
     <!-- ========== 区域：教程|日志|反馈|公告|群聊|直播（合并 Tab） ========== -->
     <section id="page-guide" class="page-panel" data-i18n-aria-label="content.text.教程_日志_反馈_公告" aria-label="教程|日志|反馈|公告|群聊|直播">
       <header class="mb-8 ui-page-header"><div class="ui-page-header__copy min-w-0"><h2 class="text-2xl font-bold text-warmText ui-page-title">教程|日志|反馈|公告|群聊|直播</h2><p class="text-gray-500 mt-1 ui-page-description" data-i18n="content.text.教程_弹幕日志_公告与问题反馈">教程、弹幕日志、公告、问题反馈、群聊与直播输出</p></div></header>
@@ -689,6 +752,8 @@
             <button type="button" role="tab" id="guideTabBtn-logs" class="settings-tab" data-guide-tab="logs" aria-controls="guideTab-logs" aria-selected="false">弹幕日志</button>
             <button type="button" role="tab" id="guideTabBtn-mic-logs" class="settings-tab" data-guide-tab="mic-logs" aria-controls="guideTab-mic-logs" aria-selected="false" data-i18n="content.text.麦克风日志">麦克风日志</button>
             <button type="button" role="tab" id="guideTabBtn-virtual-host-logs" class="settings-tab" data-guide-tab="virtual-host-logs" aria-controls="guideTab-virtual-host-logs" aria-selected="false" data-i18n="content.text.虚拟主播日志">虚拟主播日志</button>
+            <button type="button" role="tab" id="guideTabBtn-history-stats" class="settings-tab" data-guide-tab="history-stats" aria-controls="guideTab-history-stats" aria-selected="false" data-i18n="content.text.历史运行统计">历史运行统计</button>
+            <button type="button" role="tab" id="guideTabBtn-session-runs" class="settings-tab" data-guide-tab="session-runs" aria-controls="guideTab-session-runs" aria-selected="false" data-i18n="content.text.弹幕场次记录">弹幕场次记录</button>
             <button type="button" role="tab" id="guideTabBtn-announcements" class="settings-tab" data-guide-tab="announcements" aria-controls="guideTab-announcements" aria-selected="false">公告</button>
             <button type="button" role="tab" id="guideTabBtn-feedback" class="settings-tab" data-guide-tab="feedback" aria-controls="guideTab-feedback" aria-selected="false">问题反馈与群聊</button>
             <button type="button" role="tab" id="guideTabBtn-live-output" class="settings-tab" data-guide-tab="live-output" aria-controls="guideTab-live-output" aria-selected="false" data-i18n="content.text.直播输出">直播输出</button>
@@ -698,6 +763,8 @@
       <div id="guideTab-logs" class="settings-tab-panel space-y-6" data-guide-panel="logs" role="tabpanel" aria-labelledby="guideTabBtn-logs" hidden></div>
       <div id="guideTab-mic-logs" class="settings-tab-panel space-y-6" data-guide-panel="mic-logs" role="tabpanel" aria-labelledby="guideTabBtn-mic-logs" hidden></div>
       <div id="guideTab-virtual-host-logs" class="settings-tab-panel space-y-6" data-guide-panel="virtual-host-logs" role="tabpanel" aria-labelledby="guideTabBtn-virtual-host-logs" hidden></div>
+      <div id="guideTab-history-stats" class="settings-tab-panel space-y-6" data-guide-panel="history-stats" role="tabpanel" aria-labelledby="guideTabBtn-history-stats" hidden></div>
+      <div id="guideTab-session-runs" class="settings-tab-panel space-y-6" data-guide-panel="session-runs" role="tabpanel" aria-labelledby="guideTabBtn-session-runs" hidden></div>
       <div id="guideTab-announcements" class="settings-tab-panel space-y-6" data-guide-panel="announcements" role="tabpanel" aria-labelledby="guideTabBtn-announcements" hidden></div>
       <div id="guideTab-feedback" class="settings-tab-panel space-y-6" data-guide-panel="feedback" role="tabpanel" aria-labelledby="guideTabBtn-feedback" hidden></div>
       <div id="guideTab-live-output" class="settings-tab-panel space-y-6" data-guide-panel="live-output" role="tabpanel" aria-labelledby="guideTabBtn-live-output" hidden></div>

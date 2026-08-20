@@ -10,6 +10,7 @@
       "本次输出总_Token": "Output tokens this app session",
       "生成总弹幕": "Total danmu generated",
       "运行总时长": "Total runtime",
+      "累计": "Lifetime",
       "输入总_Token": "Total input tokens",
       "输出总_Token": "Total output tokens",
       "提示内容": "Hint content",

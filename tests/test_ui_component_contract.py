@@ -104,20 +104,24 @@ def test_card_transition_not_all():
 
 def test_overview_stat_cards_have_interactive_class():
     overview = (_static_dir() / "partials" / "overview.html").read_text(encoding="utf-8")
-    # Eight overview stat cards (session + lifetime).
+    content = (_static_dir() / "partials" / "content-pages.html").read_text(encoding="utf-8")
+    # Four overview session stat cards on overview; four lifetime cards moved to guide tab.
     count = overview.count("ui-card--interactive")
-    assert count == 8, f"expected 8 ui-card--interactive on overview stats, got {count}"
+    assert count == 4, f"expected 4 ui-card--interactive on overview session stats, got {count}"
     for sid in (
         "statDanmu",
         "statAppInputTokens",
         "statRuntime",
         "statAppOutputTokens",
+    ):
+        assert sid in overview
+    for sid in (
         "statLifetimeDanmu",
         "statLifetimeRuntime",
         "statLifetimeInputTokens",
         "statLifetimeOutputTokens",
     ):
-        assert sid in overview
+        assert sid in content
 
 
 def test_settings_form_card_not_interactive():
@@ -262,6 +266,7 @@ def test_overview_demo_topic_nickname_use_ui_field():
 def test_overview_f1_semantic_shell():
     """W-UI-PAGES-OVERVIEW-001: page header, group titles, status banners, IDs."""
     overview = (_static_dir() / "partials" / "overview.html").read_text(encoding="utf-8")
+    content = (_static_dir() / "partials" / "content-pages.html").read_text(encoding="utf-8")
     components = _components_css()
     pages = (_static_dir() / "warm-tokens-pages-overview.css").read_text(encoding="utf-8")
 
@@ -275,17 +280,19 @@ def test_overview_f1_semantic_shell():
     assert 'id="statusDot"' in overview
     assert 'id="errorBanner"' in overview
     assert 'id="overlayCompatBanner"' in overview
-    assert 'id="sessionRunLog"' in overview
+    assert 'id="sessionRunLog"' in content
     assert "ui-status-banner" in overview
     assert "ui-status-banner--danger" in overview
     assert "ui-status-banner--warning" in overview
     assert "overview-group-title" in overview
     assert "本场（从启动应用到关闭应用）" in overview
-    assert "累计" in overview
+    assert "累计" not in overview
+    assert "累计" in content
     # Lifetime cards no longer rely only on opacity/softPeach wash for grouping
     assert "bg-white/80" not in overview
-    # Static large cards (topic/persona/log) keep .card without only-interactive
-    assert overview.count("ui-card--interactive") == 8
+    # Static large cards (topic/persona) keep .card without only-interactive
+    assert overview.count("ui-card--interactive") == 4
+    assert content.count("ui-card--interactive") >= 4
     assert 'id="btnErrorReportFromBanner"' in overview
     assert "ui-button" in overview
     assert "ui-button--secondary" in overview
@@ -318,6 +325,8 @@ def test_content_pages_f2_semantic_shell():
         "page-danmu-pool",
         "page-pet",
         "page-live-output-source",
+        "page-history-stats-source",
+        "page-session-runs-source",
         "page-guide",
         "page-logs",
         "page-feedback",
@@ -337,8 +346,11 @@ def test_content_pages_f2_semantic_shell():
     assert "ui-input" in content
     assert "ui-select" in content
     assert "ui-textarea" in content
-    # Static content cards must not use interactive lift
-    assert "ui-card--interactive" not in content
+    # Lifetime stat cards in guide tab keep interactive lift; other content cards stay static.
+    assert content.count("ui-card--interactive") == 4
+    assert 'data-guide-tab="history-stats"' in content
+    assert 'data-guide-tab="session-runs"' in content
+    assert 'id="sessionRunLog"' in content
 
     for bid in (
         "btnSaveMemeBarrageSettings",

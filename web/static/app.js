@@ -945,6 +945,8 @@ function navigate(page) {
     page === 'logs' ||
     page === 'mic-logs' ||
     page === 'virtual-host-logs' ||
+    page === 'history-stats' ||
+    page === 'session-runs' ||
     page === 'announcements' ||
     page === 'feedback' ||
     page === 'live-output' ||

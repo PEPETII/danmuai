@@ -1,9 +1,8 @@
     <!-- ========== 区域：温馨控制台 / 运行概览 ========== -->
     <!-- section: 顶部公告简略条（supabase announcements，最新一条） -->
     <!-- section: 运行指示（状态药丸 + Realtime 连接状态 + 开始/停止按钮） -->
-    <!-- section: 4 张统计卡（本场 / 累计） + 4 张累计 Token / 运行时长卡 -->
-    <!-- section: 当前人格 + 直播输出面板（OBS/直播伴侣网页弹幕层地址） -->
-    <!-- section: 弹幕场次记录（最近 100 条 session_runs，存于 config.db） -->
+    <!-- section: 4 张统计卡（本场） -->
+    <!-- section: 提示内容 / 昵称 -->
     <section id="page-overview" class="page-panel active">
       <div id="overviewAnnouncementBanner" class="overview-announcement-banner hidden" role="status" aria-live="polite">
         <p class="overview-announcement-banner-text" id="overviewAnnouncementBannerText"></p>
@@ -91,47 +90,6 @@
         </div>
       </div>
 
-      <h3 class="overview-group-title">累计</h3>
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 2xl:grid-cols-4 gap-4 mb-8">
-        <div class="card ui-card ui-card--interactive stat-card p-6 min-w-0">
-          <div class="flex items-center gap-4 min-w-0">
-            <div class="w-12 h-12 bg-softPeach/80 rounded-2xl flex items-center justify-center text-2xl icon-badge shrink-0"><svg class="ui-icon ui-icon-lg" aria-hidden="true"><use href="#i-message"></use></svg></div>
-            <div class="min-w-0">
-              <p class="text-gray-400 text-sm">生成总弹幕</p>
-              <p class="overview-stat-value text-2xl font-bold text-warmText truncate" id="statLifetimeDanmu">0</p>
-            </div>
-          </div>
-        </div>
-        <div class="card ui-card ui-card--interactive stat-card p-6 min-w-0">
-          <div class="flex items-center gap-4 min-w-0">
-            <div class="w-12 h-12 bg-blue-50/90 rounded-2xl flex items-center justify-center text-2xl icon-badge shrink-0"><svg class="ui-icon ui-icon-lg" aria-hidden="true"><use href="#i-timer"></use></svg></div>
-            <div class="min-w-0">
-              <p class="text-gray-400 text-sm">运行总时长</p>
-              <p class="overview-stat-value text-2xl font-bold text-warmText truncate" id="statLifetimeRuntime">0:00</p>
-            </div>
-          </div>
-        </div>
-        <div class="card ui-card ui-card--interactive stat-card p-6 min-w-0">
-          <div class="flex items-center gap-4 min-w-0">
-            <div class="w-12 h-12 bg-pastelYellow/90 rounded-2xl flex items-center justify-center text-2xl icon-badge shrink-0"><svg class="ui-icon ui-icon-lg" aria-hidden="true"><use href="#i-hash"></use></svg></div>
-            <div class="min-w-0">
-              <p class="text-gray-400 text-sm" data-i18n="overview.text.输入总_Token">输入总 Token</p>
-              <p class="overview-stat-value text-2xl font-bold text-warmText truncate" id="statLifetimeInputTokens">0</p>
-            </div>
-          </div>
-        </div>
-        <div class="card ui-card ui-card--interactive stat-card p-6 min-w-0">
-          <div class="flex items-center gap-4 min-w-0">
-            <div class="w-12 h-12 bg-blue-50/90 rounded-2xl flex items-center justify-center text-2xl icon-badge shrink-0"><svg class="ui-icon ui-icon-lg" aria-hidden="true"><use href="#i-hash"></use></svg></div>
-            <div class="min-w-0">
-              <p class="text-gray-400 text-sm" data-i18n="overview.text.输出总_Token">输出总 Token</p>
-              <p class="overview-stat-value text-2xl font-bold text-warmText truncate" id="statLifetimeOutputTokens">0</p>
-            </div>
-          </div>
-        </div>
-      </div>
-      <p id="statLifetimeTokenNote" class="text-xs text-gray-400 -mt-4 mb-8 hidden" role="note"></p>
-
       <div class="card ui-card p-8 mb-6 space-y-4">
         <div class="flex flex-wrap gap-3 items-end">
           <div class="ui-field flex-1 min-w-[220px]">
@@ -160,20 +118,6 @@
             />
           </div>
           <button type="button" id="btnSaveUserNickname" class="ui-button ui-button--secondary ui-button--md shrink-0">保存昵称</button>
-        </div>
-      </div>
-
-      <div class="card ui-card p-8">
-        <h3 class="text-lg font-bold text-warmText mb-4">当前人格</h3>
-        <p class="text-warmText min-w-0 break-words" id="activePersonae">—</p>
-        <p class="text-sm text-gray-400 mt-4 min-w-0 break-words" id="liveStatusLine"></p>
-      </div>
-
-      <div class="card ui-card p-6 mt-6">
-        <h3 class="text-lg font-bold text-warmText mb-2" data-i18n="overview.text.弹幕场次记录">弹幕场次记录</h3>
-        <p class="text-sm text-gray-400 mb-4" data-i18n="overview.text.每次_生成弹幕_至_停止弹幕_为一轮_保存在本机配置库_重启后仍可查看最近_10">每次「生成弹幕」至「停止弹幕」为一轮；保存在本机配置库，重启后仍可查看最近 100 条</p>
-        <div id="sessionRunLog" class="session-run-log" role="log" aria-live="polite">
-          <p id="sessionRunLogEmpty" class="session-run-log-empty text-sm text-gray-400" data-i18n="overview.text.暂无记录_停止弹幕后会在此显示时间与_Token_用量">暂无记录，停止弹幕后会在此显示时间与 Token 用量</p>
         </div>
       </div>
     </section>

@@ -84,10 +84,13 @@ def test_overview_global_fields_in_index_html():
     assert 'id="btnSaveUserNickname"' in overview_slice
     assert 'id="liveTopicInput"' not in persona_html
     assert 'id="userNicknameInput"' not in persona_html
-    lifetime_idx = overview_slice.index('id="statLifetimeDanmu"')
-    topic_idx = overview_slice.index('id="liveTopicInput"')
-    persona_idx = overview_slice.index('id="activePersonae"')
-    assert lifetime_idx < topic_idx < persona_idx
+    assert 'id="statLifetimeDanmu"' not in overview_slice
+    assert 'id="statLifetimeDanmu"' in html
+    assert 'data-guide-tab="history-stats"' in html
+    assert 'data-guide-tab="session-runs"' in html
+    assert 'id="guideTab-history-stats"' in html
+    assert 'id="guideTab-session-runs"' in html
+    assert 'id="activePersonae"' not in overview_slice
 
 
 def test_persona_name_prefix_migrated_to_horizontal_mode():
