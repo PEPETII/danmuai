@@ -47,7 +47,7 @@ def test_model_catalog_api_payload():
     dash_mic = {m["id"] for m in dashscope["models"] if m["supports_mic"]}
     assert dash_mic == set()
 
-    assert len(by_id["openai"]["models"]) == 5
+    assert len(by_id["openai"]["models"]) == 3
     assert len(by_id["google-gemini"]["models"]) == 5
     assert len(by_id["xai"]["models"]) == 5
     assert len(by_id["mistral"]["models"]) == 5
@@ -364,6 +364,9 @@ def test_web_content_page_field_hints_wired():
         encoding="utf-8"
     )
     html = (root / "web" / "static" / "index.html").read_text(encoding="utf-8")
+    hints_zh = (root / "web" / "static" / "locales" / "zh" / "hints.json").read_text(
+        encoding="utf-8"
+    )
     assert "initContentPageFieldHints" in hints_js
     assert "OVERVIEW_FIELD_TIPS" in hints_js
     assert "liveTopicInput" in hints_js
@@ -374,11 +377,13 @@ def test_web_content_page_field_hints_wired():
     assert "initContentPageFieldHints()" in app_js
     assert "initContentPageFieldHints" in settings_js
     assert 'id="hintMemeCategoryTitle"' in html
-    assert "随机：从全库抽取。自选：限选最多 3 个标签。" in html
+    assert "随机：从全库抽取。自选：限选最多 3 个标签。" in hints_zh
+    assert "控制烂梗弹幕的采集节奏" in hints_zh
+    assert "控制烂梗弹幕的上屏节奏" in hints_zh
+    assert "清空本地烂梗库与待展示队列" in hints_zh
+    assert "设为 0 则关闭补足" in hints_zh
     assert "控制烂梗弹幕的采集节奏" in html
     assert "控制烂梗弹幕的上屏节奏" in html
-    assert "清空本地烂梗库与待展示队列" in html
-    assert "设为 0 则关闭补足" in html
     assert 'for="personaSelect"' in html
     assert 'id="hintPersonaActiveTitle"' in html
 
