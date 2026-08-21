@@ -3,7 +3,7 @@
 Official parameter shapes (see completion report for doc URLs):
 - ``thinking_type``: ``thinking: {"type": "enabled"|"disabled"}``
 - ``enable_thinking``: ``enable_thinking: true|false``
-- ``reasoning_effort_flat``: ``reasoning_effort: "low"|"medium"|"high"``
+- ``reasoning_effort_flat``: ``reasoning_effort: "none"|...``
 - ``reasoning_object``: ``reasoning: {"effort": "medium"}``
 - ``reasoning_enabled``: ``reasoning: {"enabled": false}``
 - ``chat_template_kwargs``: ``chat_template_kwargs: {"enable_thinking": false}``
@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from app.providers.capabilities import ProviderCapabilities
 
-_REASONING_EFFORT_VALUES = frozenset({"low", "medium", "high"})
+_REASONING_EFFORT_VALUES = frozenset({"none", "minimal", "low", "medium", "high", "xhigh", "max"})
 
 
 def apply_thinking_mode(
@@ -39,12 +39,12 @@ def apply_thinking_mode(
         data["enable_thinking"] = bool(enabled)
         return
     if style == "reasoning_effort_flat":
-        if enabled:
-            data["reasoning_effort"] = _normalize_effort(effort)
+        if enabled or effort is not None:
+            data["reasoning_effort"] = _normalize_effort(effort, caps=caps)
         return
     if style == "reasoning_object":
-        if enabled:
-            data["reasoning"] = {"effort": _normalize_effort(effort)}
+        if enabled or effort is not None:
+            data["reasoning"] = {"effort": _normalize_effort(effort, caps=caps)}
         else:
             data["reasoning"] = {"enabled": False}
         return
@@ -55,12 +55,22 @@ def apply_thinking_mode(
         data["chat_template_kwargs"] = {"enable_thinking": bool(enabled)}
         return
     if style == "always_on":
-        data["reasoning_effort"] = _normalize_effort(effort or "high")
+        data["reasoning_effort"] = _normalize_effort(effort or "high", caps=caps)
 
 
 def apply_thinking_disabled(data: dict, *, caps: ProviderCapabilities) -> None:
     """Force thinking off using the provider's native parameter shape."""
     if caps.thinking_param_style == "always_on":
+        return
+    if caps.thinking_param_style == "reasoning_effort_flat":
+        _clear_thinking_fields(data)
+        if "none" in (caps.reasoning_effort_values or ()):
+            data["reasoning_effort"] = "none"
+        return
+    if caps.thinking_param_style == "reasoning_object":
+        _clear_thinking_fields(data)
+        if "none" in (caps.reasoning_effort_values or ()):
+            data["reasoning"] = {"effort": "none"}
         return
     apply_thinking_mode(data, enabled=False, caps=caps)
 
@@ -76,9 +86,10 @@ def _clear_thinking_fields(data: dict) -> None:
         data.pop(key, None)
 
 
-def _normalize_effort(effort: str | None) -> str:
+def _normalize_effort(effort: str | None, *, caps: ProviderCapabilities | None = None) -> str:
     value = (effort or "medium").strip().lower()
-    if value not in _REASONING_EFFORT_VALUES:
-        return "medium"
+    allowed = getattr(caps, "reasoning_effort_values", ()) or _REASONING_EFFORT_VALUES
+    if value not in allowed:
+        return "medium" if "medium" in allowed else next(iter(allowed), "medium")
     return value
 

@@ -140,7 +140,7 @@ def test_list_platform_catalogs_has_vision_platforms():
     assert len(dashscope["models"]) == 10
     openai = _platform_by_id(platforms, "openai")
     assert openai["provider_id"] == "openai"
-    assert len(openai["models"]) == 5
+    assert len(openai["models"]) == 3
     gemini = _platform_by_id(platforms, "google-gemini")
     assert gemini["provider_id"] == "google_gemini"
     assert len(gemini["models"]) == 5
@@ -213,7 +213,7 @@ def test_dashscope_catalog_has_no_mic_flagged_models():
 
 def test_international_catalog_presets_have_five_models_each():
     expected = {
-        "openai": (OPENAI_MODELS, {"gpt-5.1", "gpt-5", "gpt-5-mini", "gpt-5-nano", "gpt-4.1"}),
+        "openai": (OPENAI_MODELS, {"gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"}),
         "google_gemini": (
             GOOGLE_GEMINI_MODELS,
             {
@@ -270,12 +270,40 @@ def test_international_catalog_presets_have_five_models_each():
         ),
     }
     for provider_id, (models, ids) in expected.items():
-        assert len(models) == 5
+        expected_count = 3 if provider_id == "openai" else 5
+        assert len(models) == expected_count
         assert {m.id for m in models} == ids
         catalog = get_catalog_for_provider(provider_id)
         assert catalog is not None
-        assert len(catalog["models"]) == 5
+        assert len(catalog["models"]) == expected_count
         assert catalog["region"] == "international"
+
+
+def test_openai_catalog_uses_gpt56_official_metadata():
+    by_id = {model.id: model for model in OPENAI_MODELS}
+    assert set(by_id) == {"gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"}
+    assert not any(model.id == "gpt-5.6" for model in OPENAI_MODELS)
+    assert not set(by_id) & {"gpt-5.1", "gpt-5", "gpt-5-mini", "gpt-5-nano", "gpt-4.1"}
+    assert by_id["gpt-5.6-sol"].price.to_dict() == {
+        "input": 5.0,
+        "audio": None,
+        "output": 30.0,
+        "currency": "USD",
+    }
+    assert by_id["gpt-5.6-terra"].price.input == 2.5
+    assert by_id["gpt-5.6-terra"].price.output == 15.0
+    assert by_id["gpt-5.6-luna"].price.input == 1.0
+    assert by_id["gpt-5.6-luna"].price.output == 6.0
+    for model in by_id.values():
+        assert model.supports_vision is True
+        assert model.thinking_mode == "hybrid"
+        assert model.temperature_support == "never"
+        assert model.reasoning_effort_values == ("none", "low", "medium", "high", "xhigh", "max")
+        assert model.reasoning_param_style_chat == "reasoning_effort_flat"
+        assert model.reasoning_param_style_responses == "reasoning_object"
+        assert model.max_tokens_field == "max_completion_tokens"
+        assert model.context_window == 1_050_000
+        assert model.max_output_tokens == 128_000
 
 
 def test_get_catalog_for_provider_doubao():
@@ -380,7 +408,7 @@ def test_catalog_model_ids_doubao():
 def test_default_catalog_model_id_prefers_curated_catalog_order_over_cheapest():
     assert default_catalog_model_id("doubao") == "doubao-seed-2-0-pro-260215"
     assert default_catalog_model_id("dashscope") == "qwen3-vl-flash"
-    assert default_catalog_model_id("openai") == "gpt-5.1"
+    assert default_catalog_model_id("openai") == "gpt-5.6-sol"
     assert default_catalog_model_id("google_gemini") == "gemini-3.5-flash"
     assert default_catalog_model_id("xai") == "grok-4.3"
     assert default_catalog_model_id("mistral") == "mistral-large-2512"

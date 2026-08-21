@@ -57,7 +57,7 @@ def test_thinking_ui_is_per_model_advanced_configuration():
     assert 'id="thinking_effort"' not in settings
     assert 'id="thinking_always_on"' not in settings
     assert 'id="modelThinkingEffort"' in modal
-    for value in ("off", "low", "medium", "high"):
+    for value in ("off", "low", "medium", "high", "xhigh", "max"):
         assert f'value="{value}"' in modal
     assert "thinking_effort" in form_js
 
@@ -73,6 +73,8 @@ def test_temperature_ui_is_per_model_advanced_configuration():
     assert 'step="0.1"' in modal
     assert "temperature" in form_js
     assert "parseModelTemperatureInput" in form_js
+    assert "temperature_support" in read("web/static/modules/settings-model-modal-state.js")
+    assert "模型不支持_Temperature" in read("web/static/locales/zh/dynamic.json")
 
 
 def test_locales_are_valid_json():

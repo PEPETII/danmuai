@@ -16,7 +16,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Literal
 
 from app.model_providers import PROVIDERS
@@ -31,6 +31,7 @@ ThinkingParamStyle = Literal[
     "chat_template_kwargs",
     "always_on",
 ]
+TemperatureSupport = Literal["always", "reasoning_none_only", "never"]
 
 # Per preset provider_id; custom_* fall back to matched host or OpenAI defaults.
 _CAPABILITIES_BY_ID: dict[str, ProviderCapabilities] = {}
@@ -47,6 +48,11 @@ class ProviderCapabilities:
     image_before_text: bool = False
     stream_usage_in_final_chunk: bool | None = True
     max_tokens_field: str = "max_tokens"
+    temperature_support: TemperatureSupport = "always"
+    reasoning_effort_values: tuple[str, ...] = ()
+    reasoning_param_style_responses: ThinkingParamStyle | None = None
+    context_window: int | None = None
+    max_output_tokens: int | None = None
     usage_token_style: str = "openai"  # "dashscope" uses input_tokens/output_tokens first
     text_input: bool | None = None
     image_input: bool | None = None
@@ -74,6 +80,11 @@ class ProviderCapabilities:
     @property
     def file(self) -> bool | None:
         return self.file_input
+
+    @property
+    def supports_temperature(self) -> bool:
+        """Backward-compatible boolean view of the temperature capability."""
+        return self.temperature_support != "never"
 
 
 def _register(
@@ -186,6 +197,31 @@ def get_capabilities_for_endpoint(endpoint: str, api_mode: str = "") -> Provider
             return _DEFAULT_DOUBAO
         return _DEFAULT_OPENAI
     return caps
+
+
+def capabilities_for_api_family(
+    caps: ProviderCapabilities,
+    api_family: str,
+) -> ProviderCapabilities:
+    """Project model capabilities onto the request API family."""
+    if api_family == "openai_responses" and caps.reasoning_param_style_responses:
+        return replace(
+            caps,
+            thinking_param_style=caps.reasoning_param_style_responses,
+        )
+    return caps
+
+
+def temperature_allowed_for_request(
+    caps: ProviderCapabilities,
+    reasoning_effort: str | None,
+) -> bool:
+    """Return whether a temperature field is valid for this model/request."""
+    if caps.temperature_support == "never":
+        return False
+    if caps.temperature_support == "reasoning_none_only":
+        return reasoning_effort in (None, "none")
+    return True
 
 
 def list_registered_provider_ids() -> list[str]:

@@ -113,7 +113,14 @@ def test_custom_model_crud(model_app):
 
 @pytest.mark.parametrize(
     "value, expected",
-    [("off", "off"), ("low", "low"), ("medium", "medium"), ("high", "high"), ("invalid", "off")],
+    [
+        ("off", "off"),
+        ("low", "low"),
+        ("medium", "medium"),
+        ("high", "high"),
+        ("xhigh", "xhigh"),
+        ("invalid", "off"),
+    ],
 )
 def test_custom_model_thinking_effort_is_normalized(model_app, value, expected):
     created = cm_api.create_custom_model(

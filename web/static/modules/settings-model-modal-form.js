@@ -364,7 +364,16 @@ export function openModelModal(index, model = {}) {
   const thinkingEffortEl = document.getElementById("modelThinkingEffort");
   if (thinkingEffortEl) {
     const value = String(model.thinking_effort || "off").trim().toLowerCase();
-    thinkingEffortEl.value = ["off", "low", "medium", "high"].includes(value)
+    thinkingEffortEl.value = [
+      "off",
+      "none",
+      "minimal",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max",
+    ].includes(value)
       ? value
       : "off";
   }

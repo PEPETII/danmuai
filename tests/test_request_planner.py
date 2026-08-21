@@ -137,6 +137,56 @@ def test_plan_visual_doubao_golden_shape(golden_dir):
     _write_golden(golden_dir, "doubao_responses.json", planned)
 
 
+def test_plan_gpt56_chat_uses_reasoning_effort_and_max_completion_tokens():
+    planned = plan_http_request(
+        GenerationRequest(
+            purpose="visual_danmu",
+            model_id="gpt-5.6-sol",
+            endpoint="https://api.openai.com/v1",
+            api_key="fixture-key",
+            api_mode="openai-compatible",
+            user_text="hi",
+            image_data_uri="data:image/jpeg;base64,abc",
+            max_output_tokens=512,
+            temperature=0.8,
+            reasoning_enabled=False,
+            reasoning_effort="none",
+            stream=True,
+        )
+    )
+    assert planned.api_family == "openai_chat_completions"
+    assert planned.json_body["max_completion_tokens"] == 512
+    assert "max_tokens" not in planned.json_body
+    assert "temperature" not in planned.json_body
+    assert planned.json_body["reasoning_effort"] == "none"
+
+
+def test_plan_gpt56_responses_uses_responses_fields_and_reasoning_object():
+    planned = plan_http_request(
+        GenerationRequest(
+            purpose="visual_danmu",
+            model_id="gpt-5.6-luna",
+            endpoint="https://api.openai.com/v1",
+            api_key="fixture-key",
+            api_mode="openai-compatible",
+            api_family="openai_responses",
+            user_text="hi",
+            image_data_uri="data:image/jpeg;base64,abc",
+            max_output_tokens=512,
+            temperature=0.8,
+            reasoning_enabled=True,
+            reasoning_effort="medium",
+            stream=True,
+        )
+    )
+    assert planned.api_family == "openai_responses"
+    assert planned.json_body["max_output_tokens"] == 512
+    assert "max_completion_tokens" not in planned.json_body
+    assert "max_tokens" not in planned.json_body
+    assert "temperature" not in planned.json_body
+    assert planned.json_body["reasoning"] == {"effort": "medium"}
+
+
 def test_explicit_family_and_optional_fields_are_honored_only_when_explicit():
     planned = plan_http_request(
         GenerationRequest(

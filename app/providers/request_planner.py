@@ -18,7 +18,11 @@ from app.providers.adapters.default_openai import DefaultOpenAIAdapter
 from app.providers.adapters.mimo import MimoOpenAIAdapter
 from app.providers.adapters.responses import ResponsesAdapter
 from app.providers.auth_resolver import resolve_auth
-from app.providers.capabilities import ProviderCapabilities
+from app.providers.capabilities import (
+    ProviderCapabilities,
+    capabilities_for_api_family,
+    temperature_allowed_for_request,
+)
 from app.providers.capability_resolver import resolve_capabilities
 from app.providers.constants import THINKING_DISABLED, THINKING_ENABLED
 from app.providers.endpoint_resolver import (
@@ -114,6 +118,7 @@ def plan_http_request(req: GenerationRequest) -> PlannedHttpRequest:
         supports_vision_override=req.supports_vision_override,
         supports_mic_override=req.supports_mic_override,
     )
+    caps = capabilities_for_api_family(caps, api_family)
     warnings: list[str] = []
     auth_profile = profile.auth if profile else auth_profile_for_provider(provider_id, default_endpoint=endpoint)
     if provider_id == "openrouter" and extract_hostname(endpoint) != "openrouter.ai":
@@ -167,12 +172,11 @@ def plan_http_request(req: GenerationRequest) -> PlannedHttpRequest:
             apply_thinking_disabled(body, caps=caps)
     elif caps.thinking_param and caps.thinking_param_style != "none" and req.purpose == "visual_danmu":
         apply_thinking_disabled(body, caps=caps)
-    if not req.stream_options:
-        body.pop("stream_options", None)
-    elif caps.stream_usage_in_final_chunk and req.stream:
-        body["stream_options"] = dict(req.stream_options)
-    else:
-        body.pop("stream_options", None)
+    if req.stream_options is not None:
+        if caps.stream_usage_in_final_chunk and req.stream:
+            body["stream_options"] = dict(req.stream_options)
+        else:
+            body.pop("stream_options", None)
     return PlannedHttpRequest(
         provider_id=provider_id,
         model_id=req.model_id,
@@ -225,7 +229,11 @@ def _plan_doubao_body(
         data["instructions"] = req.system_text
     if req.max_output_tokens and req.max_output_tokens > 0:
         data["max_output_tokens"] = req.max_output_tokens
-    if req.temperature is not None and req.temperature >= 0:
+    if (
+        req.temperature is not None
+        and req.temperature >= 0
+        and temperature_allowed_for_request(caps, req.reasoning_effort)
+    ):
         data["temperature"] = req.temperature
     if req.force_thinking_off or req.purpose in (
         "connection_probe",
@@ -256,7 +264,11 @@ def _plan_openai_chat_body(
     max_tokens = req.max_output_tokens or 0
     if req.purpose == "connection_probe" and max_tokens <= 0:
         max_tokens = 1
-    if req.temperature is not None and req.temperature >= 0:
+    if (
+        req.temperature is not None
+        and req.temperature >= 0
+        and temperature_allowed_for_request(caps, req.reasoning_effort)
+    ):
         data["temperature"] = req.temperature
     if max_tokens > 0:
         adapter.patch_openai_chat_body(data, max_tokens=max_tokens, caps=caps)

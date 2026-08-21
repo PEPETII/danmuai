@@ -41,6 +41,45 @@ function syncModelThinkingEffort({ catalogModel = null } = {}) {
   }
 
   const mode = String(catalogModel.thinking_mode || "").trim().toLowerCase();
+  const declaredEfforts = Array.isArray(catalogModel.reasoning_effort_values)
+    ? catalogModel.reasoning_effort_values
+        .map((value) => String(value || "").trim().toLowerCase())
+        .filter(Boolean)
+    : [];
+  const values =
+    mode === "off"
+      ? ["off"]
+      : mode === "always"
+        ? ["high"]
+        : declaredEfforts.length
+          ? [
+              "off",
+              ...declaredEfforts.filter(
+                (value) => value !== "none" && value !== "off",
+              ),
+            ]
+          : ["off", "low", "medium", "high"];
+  const previousValue = String(select.value || "off").trim().toLowerCase();
+  select.replaceChildren(
+    ...values.map((value) => {
+      const option = document.createElement("option");
+      option.value = value;
+      const labelKey =
+        {
+          off: "dynamic.settingsCustomModels.关闭思考",
+          low: "dynamic.settingsCustomModels.低",
+          medium: "dynamic.settingsCustomModels.中",
+          high: "dynamic.settingsCustomModels.高",
+          minimal: "dynamic.settingsCustomModels.最低",
+          xhigh: "dynamic.settingsCustomModels.极高",
+          max: "dynamic.settingsCustomModels.最大",
+        }[value] || value;
+      option.dataset.i18n = labelKey;
+      option.textContent = t(labelKey);
+      return option;
+    }),
+  );
+  select.value = values.includes(previousValue) ? previousValue : values[0];
   if (mode === "off") {
     select.value = "off";
     select.disabled = true;
@@ -60,6 +99,43 @@ function syncModelThinkingEffort({ catalogModel = null } = {}) {
     if (hint) {
       hint.textContent = t("dynamic.settingsCustomModels.思考程度提示");
     }
+  }
+}
+
+function syncModelTemperatureCapability({ catalogModel = null } = {}) {
+  const numberEl = document.getElementById("modelTemperature");
+  const rangeEl = document.getElementById("modelTemperatureRange");
+  const hintEl = document.getElementById("modelTemperatureHint");
+  const hintLabelEl = document.getElementById("modelTemperatureHintLabel");
+  const thinkingEl = document.getElementById("modelThinkingEffort");
+  const support = String(catalogModel?.temperature_support || "always");
+  const reasoningOff = ["off", "none"].includes(
+    String(thinkingEl?.value || "off").toLowerCase(),
+  );
+  const disabled =
+    support === "never" || (support === "reasoning_none_only" && !reasoningOff);
+  [numberEl, rangeEl].forEach((element) => {
+    if (!element) return;
+    element.disabled = disabled;
+    element.setAttribute("aria-disabled", String(disabled));
+  });
+  if (hintEl) {
+    if (support === "never") {
+      hintEl.textContent = t(
+        "dynamic.settingsCustomModels.模型不支持_Temperature",
+      );
+    } else if (support === "reasoning_none_only") {
+      hintEl.textContent = t(
+        "dynamic.settingsCustomModels.Temperature_仅在关闭思考时发送",
+      );
+    } else if (!disabled) {
+      hintEl.textContent = t("dynamic.settingsCustomModels.温度提示");
+    }
+  }
+  if (hintLabelEl && disabled) {
+    hintLabelEl.textContent = t("dynamic.settingsCustomModels.不适用");
+  } else if (hintLabelEl && !disabled) {
+    hintLabelEl.textContent = t(temperatureHintKey(numberEl?.value));
   }
 }
 
@@ -115,6 +191,14 @@ export function syncModelModalUIState({
     preserveSaved: preserveSavedCapabilities,
   });
   syncModelThinkingEffort({ catalogModel });
+  const thinkingSelect = document.getElementById("modelThinkingEffort");
+  if (thinkingSelect && thinkingSelect.dataset.temperatureCapabilityBound !== "true") {
+    thinkingSelect.dataset.temperatureCapabilityBound = "true";
+    thinkingSelect.addEventListener("change", () =>
+      syncModelTemperatureCapability(),
+    );
+  }
+  syncModelTemperatureCapability({ catalogModel });
   setAdvancedOpen(customIds);
   return { catalogModel, customIds };
 }

@@ -91,6 +91,11 @@ class CapabilityProfile:
     image_before_text: bool = False
     stream_usage_in_final_chunk: bool = True
     max_tokens_field: str = "max_tokens"
+    temperature_support: str = "always"
+    reasoning_effort_values: tuple[str, ...] = ()
+    reasoning_param_style_responses: str | None = None
+    context_window: int | None = None
+    max_output_tokens: int | None = None
     usage_token_style: str = "openai"
     text_input: bool | None = None
     image_input: bool | None = None
@@ -387,6 +392,11 @@ def _capability_profile_to_dict(caps: CapabilityProfile) -> dict[str, Any]:
         "image_before_text": caps.image_before_text,
         "stream_usage_in_final_chunk": caps.stream_usage_in_final_chunk,
         "max_tokens_field": caps.max_tokens_field,
+        "temperature_support": caps.temperature_support,
+        "reasoning_effort_values": list(caps.reasoning_effort_values),
+        "reasoning_param_style_responses": caps.reasoning_param_style_responses,
+        "context_window": caps.context_window,
+        "max_output_tokens": caps.max_output_tokens,
         "usage_token_style": caps.usage_token_style,
         "text_input": caps.text_input,
         "image_input": caps.image_input,
@@ -414,6 +424,11 @@ def capability_profile_from_provider_capabilities(caps) -> CapabilityProfile:
         image_before_text=caps.image_before_text,
         stream_usage_in_final_chunk=caps.stream_usage_in_final_chunk,
         max_tokens_field=caps.max_tokens_field,
+        temperature_support=caps.temperature_support,
+        reasoning_effort_values=caps.reasoning_effort_values,
+        reasoning_param_style_responses=caps.reasoning_param_style_responses,
+        context_window=caps.context_window,
+        max_output_tokens=caps.max_output_tokens,
         usage_token_style=caps.usage_token_style,
         text_input=getattr(caps, "text_input", None),
         image_input=getattr(caps, "image_input", None),
@@ -426,8 +441,32 @@ def capability_profile_from_provider_capabilities(caps) -> CapabilityProfile:
 
 def model_definition_from_catalog_model(model, *, provider_id: str = "", platform_id: str = "") -> ModelDefinition:
     """Map legacy ``CatalogModel`` to v2 ``ModelDefinition``."""
+    from app.providers.capabilities import get_capabilities
+
     supports_mic = getattr(model, "supports_mic", False)
     source_url = getattr(model, "source_url", None)
+    input_modalities = getattr(model, "input_modalities", ())
+    output_modalities = getattr(model, "output_modalities", ())
+    provider_caps = get_capabilities(provider_id) if provider_id else CapabilityProfile()
+    chat_style = getattr(model, "reasoning_param_style_chat", None)
+    capabilities = CapabilityProfile(
+        vision=getattr(model, "supports_vision", True),
+        mic_audio=supports_mic,
+        thinking_param=bool(chat_style) or provider_caps.thinking_param,
+        thinking_param_style=chat_style or provider_caps.thinking_param_style,
+        supports_thinking=(getattr(model, "thinking_mode", "off") != "off") or provider_caps.supports_thinking,
+        temperature_support=getattr(model, "temperature_support", "always"),
+        reasoning_effort_values=getattr(model, "reasoning_effort_values", ()),
+        reasoning_param_style_responses=getattr(model, "reasoning_param_style_responses", None),
+        max_tokens_field=getattr(model, "max_tokens_field", None) or provider_caps.max_tokens_field,
+        context_window=getattr(model, "context_window", None),
+        max_output_tokens=getattr(model, "max_output_tokens", None),
+        text_input=("text" in input_modalities),
+        image_input=("image" in input_modalities),
+        audio_input=("audio" in input_modalities),
+        video_input=("video" in input_modalities),
+        file_input=("file" in input_modalities),
+    )
     return ModelDefinition(
         id=model.id,
         display_name=model.name,
@@ -441,13 +480,15 @@ def model_definition_from_catalog_model(model, *, provider_id: str = "", platfor
         supports_vision=getattr(model, "supports_vision", None),
         main_flow_recommended=model.main_flow_recommended,
         thinking_mode=model.thinking_mode,
-        capabilities=CapabilityProfile(audio_input=supports_mic),
+        context_window=getattr(model, "context_window", None),
+        max_output_tokens=getattr(model, "max_output_tokens", None),
+        capabilities=capabilities,
         provider_id=provider_id,
         platform_id=platform_id,
         status=getattr(model, "status", "unknown"),
         replacement_model_id=getattr(model, "replacement_model_id", None),
-        input_modalities=getattr(model, "input_modalities", ()),
-        output_modalities=getattr(model, "output_modalities", ()),
+        input_modalities=input_modalities,
+        output_modalities=output_modalities,
         source=(
             OfficialSource(
                 url=source_url,

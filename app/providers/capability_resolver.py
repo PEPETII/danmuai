@@ -21,6 +21,8 @@ _UNKNOWN_CAPS = ProviderCapabilities(
     thinking_param_style="none",
     supports_thinking=False,
     stream_usage_in_final_chunk=False,
+    temperature_support="always",
+    reasoning_effort_values=(),
     text_input=None,
     image_input=None,
     audio_input=None,
@@ -61,7 +63,20 @@ def resolve_capabilities(
             audio_input=("audio" in catalog.input_modalities),
             video_input=("video" in catalog.input_modalities),
             file_input=("file" in catalog.input_modalities),
+            temperature_support=catalog.temperature_support,
+            reasoning_effort_values=catalog.reasoning_effort_values,
+            reasoning_param_style_responses=catalog.reasoning_param_style_responses,
+            max_tokens_field=catalog.max_tokens_field or base.max_tokens_field,
+            context_window=catalog.context_window,
+            max_output_tokens=catalog.max_output_tokens,
         )
+        if catalog.reasoning_param_style_chat:
+            base = replace(
+                base,
+                thinking_param=True,
+                thinking_param_style=catalog.reasoning_param_style_chat,
+                supports_thinking=True,
+            )
     else:
         base = _merge_unknown_transport(base, endpoint, api_mode)
 

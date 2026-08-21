@@ -1,3 +1,4 @@
+from app.providers.capabilities import capabilities_for_api_family
 from app.providers.capability_resolver import resolve_capabilities
 
 
@@ -37,3 +38,20 @@ def test_all_model_overrides_win():
 def test_price_audio_does_not_imply_audio_capability():
     caps = resolve_capabilities("doubao-seed-1-8-251228", "https://ark.cn-beijing.volces.com/api/v3")
     assert caps.audio_input is False
+
+
+def test_gpt56_capabilities_are_model_and_api_family_specific():
+    caps = resolve_capabilities(
+        "gpt-5.6-sol",
+        "https://api.openai.com/v1",
+        api_mode="openai-compatible",
+        provider_id="openai",
+    )
+    assert caps.vision is True
+    assert caps.temperature_support == "never"
+    assert caps.reasoning_effort_values == ("none", "low", "medium", "high", "xhigh", "max")
+    assert caps.thinking_param_style == "reasoning_effort_flat"
+    assert caps.max_tokens_field == "max_completion_tokens"
+    assert caps.max_output_tokens == 128_000
+    responses_caps = capabilities_for_api_family(caps, "openai_responses")
+    assert responses_caps.thinking_param_style == "reasoning_object"

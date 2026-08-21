@@ -33,6 +33,7 @@ from dataclasses import dataclass, replace
 from typing import Any, Literal
 
 ThinkingMode = Literal["off", "hybrid", "always"]
+TemperatureSupport = Literal["always", "reasoning_none_only", "never"]
 
 
 @dataclass(frozen=True)
@@ -68,6 +69,13 @@ class CatalogModel:
     verified_at: str | None = "2026-08-01"
     input_modalities: tuple[str, ...] = ("text", "image")
     output_modalities: tuple[str, ...] = ("text",)
+    temperature_support: TemperatureSupport = "always"
+    reasoning_effort_values: tuple[str, ...] = ()
+    reasoning_param_style_chat: str | None = None
+    reasoning_param_style_responses: str | None = None
+    max_tokens_field: str | None = None
+    context_window: int | None = None
+    max_output_tokens: int | None = None
 
     @property
     def supports_thinking_toggle(self) -> bool:
@@ -91,6 +99,13 @@ class CatalogModel:
             "verified_at": self.verified_at,
             "input_modalities": list(self.input_modalities),
             "output_modalities": list(self.output_modalities),
+            "temperature_support": self.temperature_support,
+            "reasoning_effort_values": list(self.reasoning_effort_values),
+            "reasoning_param_style_chat": self.reasoning_param_style_chat,
+            "reasoning_param_style_responses": self.reasoning_param_style_responses,
+            "max_tokens_field": self.max_tokens_field,
+            "context_window": self.context_window,
+            "max_output_tokens": self.max_output_tokens,
         }
 
 
@@ -227,29 +242,55 @@ DASHSCOPE_MODELS: tuple[CatalogModel, ...] = (
 
 OPENAI_MODELS: tuple[CatalogModel, ...] = (
     CatalogModel(
-        "GPT-5.1",
-        "gpt-5.1",
-        ModelPrice(input=1.25, audio=None, output=10.0, currency="USD"),
+        "GPT-5.6 Sol",
+        "gpt-5.6-sol",
+        ModelPrice(input=5.0, audio=None, output=30.0, currency="USD"),
+        supports_vision=True,
+        thinking_mode="hybrid",
+        source_kind="official",
+        source_url="https://developers.openai.com/api/docs/models/gpt-5.6-sol",
+        verified_at="2026-08-21",
+        temperature_support="never",
+        reasoning_effort_values=("none", "low", "medium", "high", "xhigh", "max"),
+        reasoning_param_style_chat="reasoning_effort_flat",
+        reasoning_param_style_responses="reasoning_object",
+        max_tokens_field="max_completion_tokens",
+        context_window=1_050_000,
+        max_output_tokens=128_000,
     ),
     CatalogModel(
-        "GPT-5",
-        "gpt-5",
-        ModelPrice(input=1.25, audio=None, output=10.0, currency="USD"),
+        "GPT-5.6 Terra",
+        "gpt-5.6-terra",
+        ModelPrice(input=2.5, audio=None, output=15.0, currency="USD"),
+        supports_vision=True,
+        thinking_mode="hybrid",
+        source_kind="official",
+        source_url="https://developers.openai.com/api/docs/models/gpt-5.6-terra",
+        verified_at="2026-08-21",
+        temperature_support="never",
+        reasoning_effort_values=("none", "low", "medium", "high", "xhigh", "max"),
+        reasoning_param_style_chat="reasoning_effort_flat",
+        reasoning_param_style_responses="reasoning_object",
+        max_tokens_field="max_completion_tokens",
+        context_window=1_050_000,
+        max_output_tokens=128_000,
     ),
     CatalogModel(
-        "GPT-5-mini",
-        "gpt-5-mini",
-        ModelPrice(input=0.25, audio=None, output=2.0, currency="USD"),
-    ),
-    CatalogModel(
-        "GPT-5-nano",
-        "gpt-5-nano",
-        ModelPrice(input=0.05, audio=None, output=0.4, currency="USD"),
-    ),
-    CatalogModel(
-        "GPT-4.1",
-        "gpt-4.1",
-        ModelPrice(input=2.0, audio=None, output=8.0, currency="USD"),
+        "GPT-5.6 Luna",
+        "gpt-5.6-luna",
+        ModelPrice(input=1.0, audio=None, output=6.0, currency="USD"),
+        supports_vision=True,
+        thinking_mode="hybrid",
+        source_kind="official",
+        source_url="https://developers.openai.com/api/docs/models/gpt-5.6-luna",
+        verified_at="2026-08-21",
+        temperature_support="never",
+        reasoning_effort_values=("none", "low", "medium", "high", "xhigh", "max"),
+        reasoning_param_style_chat="reasoning_effort_flat",
+        reasoning_param_style_responses="reasoning_object",
+        max_tokens_field="max_completion_tokens",
+        context_window=1_050_000,
+        max_output_tokens=128_000,
     ),
 )
 

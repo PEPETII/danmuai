@@ -39,7 +39,7 @@ if TYPE_CHECKING:
 
 # 掩码：前端拿到的 apiKey 都是这个常量；原始 key 只在写入时使用，不对外暴露
 MASKED_KEY = "********"
-THINKING_EFFORT_VALUES = ("off", "low", "medium", "high")
+THINKING_EFFORT_VALUES = ("off", "none", "minimal", "low", "medium", "high", "xhigh", "max")
 DEFAULT_TEMPERATURE = 0.8
 TEMPERATURE_MIN = 0.0
 TEMPERATURE_MAX = 2.0

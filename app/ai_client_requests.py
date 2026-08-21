@@ -71,7 +71,7 @@ def _effective_use_thinking(caps, model_id: str, config_use_thinking: bool) -> b
         caps,
         model_id,
         "medium" if config_use_thinking else "off",
-    ) is not None
+    ) not in (None, "none")
 
 
 def _configured_thinking_effort(config, model_id: str) -> str:
@@ -85,7 +85,7 @@ def _configured_thinking_effort(config, model_id: str) -> str:
         # Old profiles have no per-model field. Preserve their previous global
         # behavior until the profile is edited and saved in the new UI.
         value = "medium" if config.get("use_thinking", "0") == "1" else "off"
-    return value if value in {"off", "low", "medium", "high"} else "off"
+    return value if value in {"off", "none", "minimal", "low", "medium", "high", "xhigh", "max"} else "off"
 
 
 def _coerce_request_temperature(raw) -> float | None:
@@ -120,12 +120,18 @@ def _configured_temperature(config, model_id: str) -> float:
 
 def _effective_thinking_effort(caps, model_id: str, configured: str) -> str | None:
     if (
-        configured == "off"
-        or caps.thinking_param_style == "none"
+        caps.thinking_param_style == "none"
         or not catalog_model_supports_thinking_toggle(model_id)
     ):
         return None
+    allowed = getattr(caps, "reasoning_effort_values", ())
+    if configured == "off":
+        return "none" if "none" in allowed else None
+    if allowed and configured not in allowed:
+        return "medium" if "medium" in allowed else None
     return configured
+
+
 def _resolve_request_timing(
     worker,
     *,
@@ -223,7 +229,7 @@ def _prepare_visual_request_context(
         model,
         configured_thinking_effort,
     )
-    effective_use_thinking = thinking_effort is not None
+    effective_use_thinking = thinking_effort not in (None, "none")
     max_tokens = resolve_danmu_max_output_tokens(
         configured_max,
         use_thinking=effective_use_thinking,

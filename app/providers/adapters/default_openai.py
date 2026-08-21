@@ -12,7 +12,7 @@
 
 from __future__ import annotations
 
-from app.providers.capabilities import ProviderCapabilities
+from app.providers.capabilities import ProviderCapabilities, temperature_allowed_for_request
 from app.providers.registry import is_minimax_endpoint
 
 
@@ -47,7 +47,11 @@ class DefaultOpenAIAdapter:
         ]
 
     def add_optional_fields(self, data: dict, *, request, caps: ProviderCapabilities) -> None:
-        if request.temperature is not None and request.temperature >= 0:
+        if (
+            request.temperature is not None
+            and request.temperature >= 0
+            and temperature_allowed_for_request(caps, request.reasoning_effort)
+        ):
             data["temperature"] = request.temperature
         if request.reasoning_effort is not None and caps.thinking_param_style in (
             "reasoning_effort_flat",

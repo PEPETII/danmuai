@@ -5,7 +5,8 @@ from app.model_catalog import (
     get_thinking_mode_for_model,
 )
 from app.providers.capabilities import get_capabilities
-from app.providers.thinking import apply_thinking_mode
+from app.providers.capability_resolver import resolve_capabilities
+from app.providers.thinking import apply_thinking_disabled, apply_thinking_mode
 
 
 def test_get_capabilities_thinking_param_styles():
@@ -53,3 +54,14 @@ def test_catalog_thinking_toggle_hybrid_only():
     assert get_thinking_mode_for_model("Qwen/Qwen3-VL-8B-Thinking") == "always"
     assert catalog_model_supports_thinking_toggle("Qwen/Qwen3-VL-8B-Thinking") is False
     assert get_thinking_mode_for_model("ernie-5-0-thinking-latest") == "always"
+
+
+def test_gpt56_reasoning_none_is_explicitly_emitted_when_thinking_is_off():
+    caps = resolve_capabilities("gpt-5.6-sol", "https://api.openai.com/v1", provider_id="openai")
+    data: dict = {"temperature": 0.8}
+    apply_thinking_disabled(data, caps=caps)
+    assert data["reasoning_effort"] == "none"
+    data = {}
+    responses_caps = type(caps)(**{**caps.__dict__, "thinking_param_style": "reasoning_object"})
+    apply_thinking_mode(data, enabled=False, caps=responses_caps, effort="none")
+    assert data["reasoning"] == {"effort": "none"}
