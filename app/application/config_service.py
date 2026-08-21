@@ -14,7 +14,6 @@ if TYPE_CHECKING:
 MASKED_API_KEY = "********"
 
 WEB_CONFIG_KEYS = (
-    "model",
     "temperature",
     "max_tokens",
     "danmu_speed",
@@ -222,22 +221,6 @@ def _custom_model_identity(model: dict[str, Any]) -> tuple[str, str]:
     )
 
 
-def set_default_model_selection(
-    config,
-    model_id: str,
-    *,
-    sync_legacy_model: bool = True,
-) -> str:
-    """同时维护 default_model_id 与 legacy model 键，避免 Web/自定义模型路径双写不一致。"""
-    normalized = str(model_id or "").strip()
-    if not normalized:
-        return ""
-    config.set_default_model_id(normalized)
-    if sync_legacy_model:
-        config.set("model", normalized)
-    return normalized
-
-
 class ConfigService:
     """DanmuApp.apply_web_config_payload 的委托实现；勿在 web_console 路由内直接 set_batch。"""
 
@@ -258,16 +241,6 @@ class ConfigService:
 
         if items:
             self._normalize_items(items)
-
-        if "default_model_id" in payload:
-            model_id = str(payload.get("default_model_id", "")).strip()
-            if model_id:
-                items["default_model_id"] = model_id
-                items["model"] = model_id
-        else:
-            model_id = (items.get("model") or "").strip()
-            if model_id:
-                items["default_model_id"] = model_id
 
         # W-GLOBAL-VISUAL-APIKEY-REMOVE-001: 视觉 api_key 写入口已移除；仅 mic_api_key 走加密路径
         mic_api_key = _submitted_api_key(payload.get("mic_api_key", ""))

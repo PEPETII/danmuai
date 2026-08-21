@@ -1,10 +1,10 @@
-"""自定义模型 CRUD；默认模型切换须复用 set_default_model_selection 双写规则。
+"""自定义模型 CRUD；模型档案顺序决定未绑定人格的运行时回退。
 
 路由（由 ``app.web_api.routes`` 注册）：
 - ``GET /api/custom-models``：返回全部自定义模型，``apiKey`` 字段**掩码**为 ``MASKED_KEY``。
 - ``POST /api/custom-models`` / ``PUT /api/custom-models/{id}``：写入前经
   ``validate_model_config`` 校验 name/model_ids/endpoint/apiKey 完整性。
-- ``DELETE /api/custom-models/{id}``：删除后若 id 是默认模型，重置为「未设置默认」。
+- ``DELETE /api/custom-models/{id}``：删除后清理人格对该档案的悬挂绑定。
 
 W-ARCH-MODEL-PROFILE-CANONICAL-004：公开契约含 canonical 字段
 （``model_ids`` / ``default_model_id`` / ``max_tokens``）及档案级 ``temperature``；
@@ -18,7 +18,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from app.application.config_service import set_default_model_selection
 from app.config_store.crypto import (
     CustomModelApiKeyConflictError,
     assert_custom_model_api_key_aliases_consistent,
@@ -145,7 +144,6 @@ def list_custom_models(app: "DanmuApp") -> dict[str, Any]:
             {**_mask_model(m), "complete": is_model_config_complete(m)}
             for m in models
         ],
-        "default_model_id": app.config.get_default_model_id(),
     }
 
 
@@ -371,17 +369,8 @@ def delete_custom_model(app: "DanmuApp", index: int) -> None:
 
     removed = models.pop(index)
     app.config.set_custom_models(models)
-    default_id = app.config.get_default_model_id()
     removed_id = (removed.get("default_model_id") or "").strip()
-    if removed_id == default_id:
-        fallback = ""
-        if models:
-            fallback = (models[0].get("default_model_id") or "").strip()
-        if not fallback:
-            fallback = app.config.get("model", "")
-        if fallback:
-            set_default_model_selection(app.config, fallback)
-    # W-PERSONA-MODEL-BIND-001：清除引用了被删模型的人格绑定，使其回退全局"使用"模型
+    # W-PERSONA-MODEL-BIND-001：清除引用了被删模型的人格绑定，使其回退首个模型
     if removed_id:
         _purge_persona_model_bindings_for_model(app.config, removed_id)
         from app.virtual_host.model_config import purge_virtual_host_model_refs
@@ -414,17 +403,3 @@ def _purge_persona_model_bindings_for_model(config, model_id: str) -> None:
         config.set(
             "persona_model_bindings", _json.dumps(bindings, ensure_ascii=False)
         )
-
-
-def set_default_custom_model(app: "DanmuApp", index: int) -> dict:
-    models = app.config.get_custom_models()
-    if index < 0 or index >= len(models):
-        raise ValueError(tr("customModel.indexInvalid"))
-
-    model_id = (models[index].get("default_model_id") or "").strip()
-    if not model_id:
-        raise ValueError(tr("customModel.idEmpty"))
-
-    set_default_model_selection(app.config, model_id)
-    app.config_changed.emit()
-    return {"default_model_id": model_id}

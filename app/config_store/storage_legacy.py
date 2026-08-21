@@ -64,9 +64,11 @@ def maybe_migrate_legacy_api_to_custom_models_for_store(store: ConfigStore) -> b
     - ``get_api_key()`` 非空 + 标志位非 true → 运行安全网：
       - 分支 A：存在完整 custom_models 档案 → 清空全局 ``api_key`` / ``api_endpoint`` / ``api_mode``
       - 分支 B：无完整档案但全局凭证完整（api_key + endpoint + model 均非空）→ 自动建档 + 清空全局
-      - 分支 C：全局凭证不完整 → 记 warning，不清空，置标志位避免重复尝试
+      - 分支 C：全局凭证不完整 → 记 warning，保留仍有价值的旧凭证；
+        ConfigStore 启动清理器另行删除已废弃的全局模型选择键
 
-    保留 ``model`` 字段不动（双写兼容）；保留 ``max_tokens``（全局设置）。
+    迁移完成后删除旧的全局 ``model`` / ``default_model_id`` 键；保留
+    ``max_tokens``（全局设置）。档案内部的 ``default_model_id`` 仍保留。
     ``mic_api_key`` / ``tts_api_key`` / ``danmu_read_api_key`` 职责不同，不受影响。
 
     异常容错：迁移过程中任一步失败 → 不置标志位 → 下次启动重试。
@@ -112,6 +114,7 @@ def maybe_migrate_legacy_api_to_custom_models_for_store(store: ConfigStore) -> b
                 items={"api_endpoint": "", "api_mode": ""},
                 api_key="",
                 flags={"legacy_api_migrated_v1": "true"},
+                keys_to_delete=("model", "default_model_id"),
             )
             logger.info(
                 "legacy global api cleaned: complete profile exists",
@@ -160,12 +163,11 @@ def maybe_migrate_legacy_api_to_custom_models_for_store(store: ConfigStore) -> b
             items={
                 "api_endpoint": "",
                 "api_mode": "",
-                "default_model_id": default_model_id,
-                "model": default_model_id,
             },
             api_key="",
             custom_models=[profile],
             flags={"legacy_api_migrated_v1": "true"},
+            keys_to_delete=("model", "default_model_id"),
         )
 
         logger.info(

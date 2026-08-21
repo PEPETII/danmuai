@@ -383,13 +383,9 @@ def execute_stream_request_with_retry(
 
 
 def get_model_config(config) -> dict:
-    from app.model_providers import find_custom_model_profile
+    from app.model_providers import first_custom_model_profile
 
-    default_model_id = (config.get_default_model_id() or "").strip()
-    if not default_model_id:
-        return {}
-    profile = find_custom_model_profile(config.get_custom_models(), default_model_id)
-    return profile or {}
+    return first_custom_model_profile(config) or {}
 
 
 def resolve_request_credentials(config) -> tuple[str, str, str, str] | None:
@@ -474,13 +470,6 @@ def credential_gap_translation_keys(config) -> list[str]:
         if not (model_config.get("default_model_id") or "").strip():
             gaps.append("custom_model.error_model_id")
         return gaps
-    default_model_id = (config.get_default_model_id() or "").strip()
-    if default_model_id:
-        return [
-            "custom_model.error_endpoint",
-            "custom_model.error_api_key",
-            "custom_model.error_model_id",
-        ]
     return [
         "custom_model.error_endpoint",
         "custom_model.error_api_key",

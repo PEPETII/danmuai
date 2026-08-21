@@ -85,9 +85,12 @@ def check_default_model_selection_guard(repo_root: Path, changed: dict[Path, str
         if not body:
             continue
         body_text = '\n'.join(_meaningful_body_lines(body))
-        if 'set_default_model_selection(' not in body_text:
-            findings.append(Finding(severity='error', rule='phase1-boundary-rules.md 2.2 / phase2.5', path=str(CUSTOM_MODELS_PATH), line=0, message=f'`{func_name}()` 必须继续复用 `set_default_model_selection()` 维护 `model/default_model_id` 兼容写规则'))
-        forbidden = ('set_default_model_id(', '.set("model"', ".set('model'")
+        forbidden = (
+            'set_default_model_selection(',
+            'set_default_model_id(',
+            '.set("model"',
+            ".set('model'",
+        )
         if any((token in body_text for token in forbidden)):
-            findings.append(Finding(severity='error', rule='phase1-boundary-rules.md 2.2 / phase2.5', path=str(CUSTOM_MODELS_PATH), line=0, message='`app/web_api/custom_models.py` 不允许重新手写不一致的 `model/default_model_id` 默认模型回退逻辑'))
+            findings.append(Finding(severity='error', rule='phase1-boundary-rules.md 2.2 / phase2.5', path=str(CUSTOM_MODELS_PATH), line=0, message='`app/web_api/custom_models.py` 不得恢复已删除的全局默认模型写入逻辑'))
     return findings

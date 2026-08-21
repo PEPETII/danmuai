@@ -18,7 +18,7 @@
 import sqlite3
 
 import pytest
-from app.application.config_service import MASKED_API_KEY, set_default_model_selection
+from app.application.config_service import MASKED_API_KEY
 from app.config_store import ConfigStore
 
 try:
@@ -93,8 +93,8 @@ def test_clean_migration_creates_default_profile(tmp_path):
     assert store2.get_flag("legacy_api_migrated_v1") == "true"
 
     # 验证：default_model_id 指向新档案
-    assert store2.get_default_model_id() == "doubao-seed-1-6-vision-32k-250115"
-    assert store2.get("model") == "doubao-seed-1-6-vision-32k-250115"
+    assert store2.get_custom_models()[0]["default_model_id"] == "doubao-seed-1-6-vision-32k-250115"
+    assert store2.get("model", "") == ""
 
     # W-GLOBAL-VISUAL-APIKEY-REMOVE-001: 分支 B 应清空全局三字段
     assert store2.get_api_key() == "", "分支 B 建档后应清空全局 api_key"
@@ -285,7 +285,6 @@ def test_existing_profiles_protected_from_migration(tmp_path):
         "description": "user-created",
     }
     store.set_custom_models([existing_profile])
-    set_default_model_selection(store, "user-model-1")
     assert len(store.get_custom_models()) == 1
 
     # 人为清除标志位（模拟"被人为清空"）
@@ -299,7 +298,7 @@ def test_existing_profiles_protected_from_migration(tmp_path):
     assert models[0]["default_model_id"] == "user-model-1"
     assert store.get_flag("legacy_api_migrated_v1") == "true"
     # default_model_id 不应被迁移改动
-    assert store.get_default_model_id() == "user-model-1"
+    assert store.get_custom_models()[0]["default_model_id"] == "user-model-1"
     # W-GLOBAL-VISUAL-APIKEY-REMOVE-001: 分支 A——存在完整档案时应清空全局三字段
     assert store.get_api_key() == "", "分支 A：存在完整档案时应清空全局 api_key"
     assert store.get("api_endpoint") == "", "分支 A：存在完整档案时应清空全局 api_endpoint"
@@ -473,7 +472,6 @@ def test_safety_net_branch_a_cleans_global_when_complete_profile_exists(tmp_path
         "description": "",
     }
     store1.set_custom_models([profile])
-    set_default_model_selection(store1, "existing-model")
     # 写入全局残留（模拟历史遗留）
     store1.set_api_key("sk-legacy-residual-1234567890")
     store1.set("api_endpoint", "https://legacy.example.com/v1")
@@ -501,7 +499,7 @@ def test_safety_net_branch_a_cleans_global_when_complete_profile_exists(tmp_path
     assert store2.get_flag("legacy_api_migrated_v1") == "true"
 
     # 断言：default_model_id 不变
-    assert store2.get_default_model_id() == "existing-model"
+    assert store2.get_custom_models()[0]["default_model_id"] == "existing-model"
     store2.close()
 
 
@@ -643,7 +641,7 @@ def test_branch_b_migration_rollback_on_failure_restart_consistent(tmp_path):
     assert len(store2.get_custom_models()) == 1
     assert store2.get_api_key() == ""
     assert store2.get_flag("legacy_api_migrated_v1") == "true"
-    assert store2.get_default_model_id() == "doubao-seed-1-6-vision-32k-250115"
+    assert store2.get_custom_models()[0]["default_model_id"] == "doubao-seed-1-6-vision-32k-250115"
     store2.close()
 
 
@@ -664,7 +662,6 @@ def test_branch_a_migration_rollback_on_failure(tmp_path):
         "description": "",
     }
     store.set_custom_models([profile])
-    set_default_model_selection(store, "existing-model")
     legacy_key = "sk-legacy-residual-1234567890"
     store.set_api_key(legacy_key)
     store.set("api_endpoint", "https://legacy.example.com/v1")

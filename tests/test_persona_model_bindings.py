@@ -9,6 +9,7 @@
 """
 
 import json
+from pathlib import Path
 
 import pytest
 from app.ai_client_requests import (
@@ -17,6 +18,8 @@ from app.ai_client_requests import (
 )
 from app.config_store import ConfigStore
 from app.persona_manager import PersonaManager
+
+PERSONA_PAGE_JS = Path(__file__).resolve().parent.parent / "web" / "static" / "modules" / "app-persona-topic-page.js"
 
 
 @pytest.fixture
@@ -109,9 +112,8 @@ def test_builtin_persona_can_bind(persona_config):
 
 
 def _setup_global_model(config, model_id: str = "global-model") -> None:
-    """配置一个全局"使用"模型档案（用于 resolve_request_credentials 回退路径）。"""
+    """配置首个模型档案（用于未绑定人格的回退路径）。"""
     config.set_custom_models([_make_complete_model(model_id=model_id, name="GlobalModel")])
-    config.set_default_model_id(model_id)
 
 
 def test_resolve_credentials_for_persona_uses_binding(persona_config):
@@ -126,7 +128,6 @@ def test_resolve_credentials_for_persona_uses_binding(persona_config):
             _make_complete_model(model_id="bound-model-1", name="BoundModel"),
         ]
     )
-    config.set_default_model_id("global-model")
     # 给"高压吐槽型"绑定 bound-model-1
     personae.set_model_binding("高压吐槽型", "bound-model-1")
 
@@ -151,6 +152,23 @@ def test_resolve_credentials_for_persona_falls_back_when_unbound(persona_config)
     fallback = resolve_request_credentials_for_persona(config, "未绑定的人格")
     assert fallback is not None
     assert fallback == global_resolved
+
+
+def test_resolve_credentials_for_persona_uses_first_profile_without_global_selector(persona_config):
+    """未绑定人格没有全局选择器时，仍使用模型档案列表中的首个档案。"""
+    config, _personae = persona_config
+    config.set_custom_models(
+        [
+            _make_complete_model(model_id="first-model", name="FirstModel"),
+            _make_complete_model(model_id="second-model", name="SecondModel"),
+        ]
+    )
+
+    resolved = resolve_request_credentials_for_persona(config, "未绑定的人格")
+    assert resolved is not None
+    assert resolved[2] == "first-model"
+    assert config.get("model", "") == ""
+    assert config.get("default_model_id", "") == ""
 
 
 def test_resolve_credentials_for_persona_falls_back_when_model_deleted(persona_config):
@@ -180,7 +198,6 @@ def test_resolve_credentials_for_persona_falls_back_when_incomplete(persona_conf
             incomplete,
         ]
     )
-    config.set_default_model_id("global-model")
     personae.set_model_binding("高压吐槽型", "bound-incomplete")
 
     global_resolved = resolve_request_credentials(config)
@@ -198,3 +215,29 @@ def test_resolve_credentials_for_persona_empty_persona_id_falls_back(persona_con
     fallback = resolve_request_credentials_for_persona(config, "")
     assert fallback == global_resolved
     assert fallback[2] == "global-model"
+
+
+def test_persona_page_displays_first_model_for_unbound_persona():
+    """人格页下拉框的未绑定状态随首个模型显示，而非停留在占位项。"""
+    source = PERSONA_PAGE_JS.read_text(encoding="utf-8")
+    assert "const effectiveModelId = boundModelId || firstModelId;" in source
+    assert "const placeholderOpt = document.createElement('option');" in source
+    assert "if (!firstModelId)" in source
+
+
+def test_config_store_clears_retired_global_model_keys_on_restart(tmp_path):
+    """旧数据库重启后清理全局选择键，但保留模型档案。"""
+    db_path = tmp_path / "config.db"
+    store = ConfigStore(db_path=db_path)
+    store.set_custom_models([_make_complete_model(model_id="first-model")])
+    store.set("model", "stale-global-model")
+    store.set("default_model_id", "stale-global-model")
+    store.close()
+
+    reopened = ConfigStore(db_path=db_path)
+    try:
+        assert reopened.get("model", "") == ""
+        assert reopened.get("default_model_id", "") == ""
+        assert reopened.get_custom_models()[0]["default_model_id"] == "first-model"
+    finally:
+        reopened.close()

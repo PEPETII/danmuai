@@ -263,7 +263,6 @@ def export_config(config) -> dict[str, Any]:
     # （has_api_key 仍由 /api/status 经 runtime_state.py 提供）
     active_model_id = resolve_active_model_id(config)
     model_status = resolve_model_status(config)
-    data["default_model_id"] = config.get_default_model_id()
     data["active_model_id"] = active_model_id
     data.update(model_status)
     data["mic_api_key"] = _mask_mic_api_key(config)

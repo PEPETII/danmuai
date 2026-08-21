@@ -524,14 +524,31 @@ def find_custom_model_profile(custom_models: list, model_id: str) -> dict | None
     return None
 
 
+def first_custom_model_profile(config) -> dict | None:
+    """Return the first configured model profile used as the runtime fallback.
+
+    Persona bindings remain explicit overrides.  When a persona has no binding,
+    the first profile in the user's custom-model list is the only fallback;
+    there is no separate global model selector.
+    """
+    get_models = getattr(config, "get_custom_models", None)
+    if not callable(get_models):
+        return None
+    for entry in get_models():
+        if isinstance(entry, dict) and custom_model_profile_id(entry):
+            return entry
+    return None
+
+
+def first_custom_model_id(config) -> str:
+    """Return the model id of the first configured custom-model profile."""
+    entry = first_custom_model_profile(config)
+    return custom_model_profile_id(entry) if entry is not None else ""
+
+
 def resolve_active_model_id(config) -> str:
-    """Model id used for API requests (matches ``AiWorker._resolve_request_credentials``)."""
-    default_id = (config.get_default_model_id() or "").strip()
-    if default_id:
-        if find_custom_model_profile(config.get_custom_models(), default_id):
-            return default_id
-        return default_id
-    return (config.get("model") or "").strip()
+    """Model id used for API requests: the first custom-model profile."""
+    return first_custom_model_id(config)
 
 
 MIMO_MIC_MODEL_ID = "mimo-v2.5"
@@ -645,11 +662,8 @@ def resolve_supports_mic_declared(
     if not mid:
         return None
     if config.get("mic_use_visual_model", "1") == "1":
-        default_id = (config.get_default_model_id() or "").strip()
-        if default_id != mid:
-            return None
-        entry = find_custom_model_profile(get_models(), default_id)
-        if entry is None:
+        entry = first_custom_model_profile(config)
+        if entry is None or custom_model_profile_id(entry) != mid:
             return None
         return entry.get("supportsMic")
     mic_model = (config.get("mic_model") or "").strip()
@@ -671,17 +685,16 @@ def mic_audio_unsupported_message(model_id: str) -> str:
 
 
 def mic_audio_supported_for_config(config) -> bool:
-    """Match runtime mic gating: active model + global or custom endpoint/mode."""
-    default_model_id = (config.get_default_model_id() or "").strip()
-    if default_model_id:
-        model = find_custom_model_profile(config.get_custom_models(), default_model_id)
-        if model is not None:
-            return model_supports_mic_audio(
-                default_model_id,
-                endpoint=(model.get("endpoint") or ""),
-                api_mode=(model.get("mode") or ""),
-                supports_mic_declared=model.get("supportsMic"),
-            )
+    """Match runtime mic gating against the first custom-model profile."""
+    model = first_custom_model_profile(config)
+    if model is not None:
+        model_id = custom_model_profile_id(model)
+        return model_supports_mic_audio(
+            model_id,
+            endpoint=(model.get("endpoint") or ""),
+            api_mode=(model.get("mode") or ""),
+            supports_mic_declared=model.get("supportsMic"),
+        )
     return model_supports_mic_audio(
         resolve_active_model_id(config),
         endpoint=(config.get("api_endpoint") or ""),

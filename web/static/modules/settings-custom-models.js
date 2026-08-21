@@ -69,15 +69,15 @@ export function configureSettingsCustomModels(deps) {
   });
 }
 
-function collectActivePersonaModelIds(personaeItems, globalDefaultModelId) {
+function collectActivePersonaModelIds(personaeItems, firstModelId) {
   const used = new Set();
-  const globalId = (globalDefaultModelId || "").trim();
+  const fallbackId = (firstModelId || "").trim();
   const items = Array.isArray(personaeItems) ? personaeItems : [];
   for (const item of items) {
     if (!item?.active) continue;
     const bound = (item.model_id || "").trim();
     if (bound) used.add(bound);
-    else if (globalId) used.add(globalId);
+    else if (fallbackId) used.add(fallbackId);
   }
   return used;
 }
@@ -114,16 +114,13 @@ export async function loadCustomModels() {
     list.innerHTML = t("dynamic.settingsCustomModels.p_class_text_sm_text_g");
     return;
   }
-  const usedByActivePersonae = collectActivePersonaModelIds(
-    personaeData?.items,
-    data.default_model_id,
-  );
+  const firstModelId = String(data.items[0]?.default_model_id || '').trim();
+  const usedByActivePersonae = collectActivePersonaModelIds(personaeData?.items, firstModelId);
   data.items.forEach((model, index) => {
     const row = document.createElement("div");
     row.className =
       "custom-model-row flex flex-wrap items-center gap-3 p-3 bg-cream rounded-xl text-sm";
     const inUseByPersona = profileUsesAnyModelId(model, usedByActivePersonae);
-    const isDefault = model.default_model_id === data.default_model_id;
 
     const colName = document.createElement("div");
     colName.className = "flex items-center gap-2 min-w-0 flex-1";
@@ -172,7 +169,7 @@ export async function loadCustomModels() {
 
     const colStatus = document.createElement("div");
     colStatus.className = "custom-model-status-col";
-    if (isDefault || inUseByPersona) {
+    if (inUseByPersona) {
       const badge = document.createElement("span");
       badge.className =
         "custom-model-in-use-badge px-2 py-0.5 rounded-full bg-softPeach text-warmText text-xs font-bold";

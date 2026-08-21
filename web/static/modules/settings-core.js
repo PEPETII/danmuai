@@ -159,7 +159,7 @@ function applySettingsDefaults(scope) {
     document.getElementById('api_mode')?.value || configDefaultsCache.api_mode || '',
   );
   coreDeps.syncApiModeLockState();
-  const modelId = configDefaultsCache.model || document.getElementById('model')?.value || '';
+  const modelId = document.getElementById('model')?.value || '';
   coreDeps.syncVisionModelPickerFromForm(modelId);
   coreDeps.syncMicProviderPresetFromEndpoint();
   const micModelId = configDefaultsCache.mic_model || document.getElementById('mic_model')?.value || '';
@@ -292,7 +292,7 @@ export async function fillForm(cfg) {
   refreshOpacityWarning();
   coreDeps.applyApiModeValue(cfg.api_mode);
   coreDeps.syncApiModeLockState();
-  const modelId = cfg.active_model_id || cfg.default_model_id || cfg.model || '';
+  const modelId = cfg.active_model_id || '';
   const modelEl = document.getElementById('model');
   if (modelEl) modelEl.value = modelId;
   coreDeps.syncVisionModelPickerFromForm(modelId);
@@ -308,7 +308,7 @@ export async function reloadConfigFromServer() {
   const cfg = await apiFetch('/api/config');
   await fillForm(cfg);
   coreDeps.refreshDanmuPreview();
-  const modelId = cfg.active_model_id || cfg.default_model_id || cfg.model || '';
+  const modelId = cfg.active_model_id || '';
   coreDeps.syncVisionModelPickerFromForm(modelId);
   coreDeps.updateModelActiveSourceBanner(cfg);
   coreDeps.updateMicActiveSourceBanner(cfg);

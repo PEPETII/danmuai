@@ -83,16 +83,21 @@ async function loadPersonaeCheckboxes(containerId) {
     label.append(cb, span);
     row.appendChild(label);
 
-    // 模型下拉：只显示该人格的显式绑定，未绑定时保持未绑定状态
+    // 模型下拉：未显式绑定时跟随首个模型；没有模型时才显示“未绑定”。
     const select = document.createElement('select');
     select.className =
       'shrink-0 max-w-[9rem] px-2 py-1 bg-white border border-gray-200 rounded-lg text-xs font-normal ui-control ui-select';
     select.title = t('dynamic.appPersonaTopicPage.为该人格选择模型');
-    const placeholderOpt = document.createElement('option');
-    placeholderOpt.value = '';
-    placeholderOpt.textContent = t('dynamic.appPersonaTopicPage.未绑定');
-    placeholderOpt.disabled = true;
-    select.appendChild(placeholderOpt);
+    const firstModelId = modelItems
+      .map((m) => (m.default_model_id || m.modelId || '').trim())
+      .find(Boolean) || '';
+    if (!firstModelId) {
+      const placeholderOpt = document.createElement('option');
+      placeholderOpt.value = '';
+      placeholderOpt.textContent = t('dynamic.appPersonaTopicPage.未绑定');
+      placeholderOpt.disabled = true;
+      select.appendChild(placeholderOpt);
+    }
     modelItems.forEach((m) => {
       const opt = document.createElement('option');
       const mid = (m.default_model_id || m.modelId || '').trim();
@@ -104,15 +109,10 @@ async function loadPersonaeCheckboxes(containerId) {
       select.appendChild(opt);
     });
     const boundModelId = (item.model_id || '').trim();
-    if (boundModelId) {
-      select.value = boundModelId;
-      // 若绑定值不在选项中（模型已删但绑定未清），回退到 placeholder
-      if (!Array.from(select.options).some((o) => o.value === boundModelId)) {
-        select.value = '';
-      }
-    } else {
-      select.value = '';
-    }
+    const effectiveModelId = boundModelId || firstModelId;
+    select.value = effectiveModelId;
+    // 若绑定值不在选项中（模型已删但绑定未清），回退到首个模型。
+    if (select.value !== effectiveModelId) select.value = firstModelId;
     const applyBinding = async (newModelId, rollbackTo) => {
       try {
         await apiFetch(`/api/personae/${enc(item.id)}/model`, {

@@ -670,7 +670,9 @@ def test_apply_web_save_single_commit(tmp_path):
 
     assert counting.commit_call_count == 1
     assert store.get("danmu_speed") == "3"
-    assert store.get_default_model_id() == "gpt-4o"
+    assert store.get_custom_models()[0]["default_model_id"] == "test-model"
+    assert store.get("model", "") == "gpt-4o"
+    assert store.get("default_model_id", "") == "gpt-4o"
     assert store.get_api_key() == "sk-test-key-1234567890"
     assert store.get_mic_api_key() == "sk-mic-key-1234567890"
     models = store.get_custom_models()

@@ -308,10 +308,9 @@ class _Cfg:
         return self._data.get("custom_models", [])
 
 
-def test_resolve_active_model_id_prefers_custom_default():
+def test_resolve_active_model_id_uses_first_custom_profile():
     cfg = _Cfg(
         model="doubao-seed-1-6-flash-250828",
-        default_model_id="doubao-seed-2-0-mini-260428",
         custom_models=[
             {
                 "default_model_id": "doubao-seed-2-0-mini-260428",
@@ -405,9 +404,17 @@ def test_resolve_openai_provider_id_mimo_v25_requires_mimo_host():
 def test_mic_audio_supported_for_mic_config_falls_back_to_visual():
     cfg = _Cfg(
         mic_use_visual_model="1",
-        model="doubao-seed-2-0-mini-260428",
         api_endpoint="https://ark.cn-beijing.volces.com/api/v3",
         api_mode="doubao",
+        custom_models=[
+            {
+                "default_model_id": "doubao-seed-2-0-mini-260428",
+                "model_ids": ["doubao-seed-2-0-mini-260428"],
+                "endpoint": "https://ark.cn-beijing.volces.com/api/v3",
+                "apiKey": "sk-visual",
+                "mode": "doubao",
+            }
+        ],
     )
     assert mic_audio_supported_for_mic_config(cfg) is True
 
@@ -492,16 +499,26 @@ def test_mic_audio_supported_for_config_custom_model_supports_mic_flag():
 
 def test_mic_audio_supported_for_config_custom_mimo_proxy():
     cfg = _Cfg(
-        model="mimo-v2.5",
-        api_endpoint="https://my-mimo-proxy.com/v1",
-        api_mode="openai-compatible",
+        custom_models=[
+            {
+                "default_model_id": "mimo-v2.5",
+                "endpoint": "https://my-mimo-proxy.com/v1",
+                "mode": "openai-compatible",
+                "apiKey": "sk",
+            }
+        ],
     )
     assert mic_audio_supported_for_config(cfg) is True
 
     cfg_unsupported = _Cfg(
-        model="gpt-4o",
-        api_endpoint="https://example.com/v1",
-        api_mode="openai-compatible",
+        custom_models=[
+            {
+                "default_model_id": "gpt-4o",
+                "endpoint": "https://example.com/v1",
+                "mode": "openai-compatible",
+                "apiKey": "sk",
+            }
+        ],
     )
     assert mic_audio_supported_for_config(cfg_unsupported) is False
 

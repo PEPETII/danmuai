@@ -814,7 +814,7 @@
       "prefix_当前模型_modelId": "${prefix}current model「${modelId ||",
       "未声明_mic_audio_支持_请在模型配": "}」does not declare mic_audio support. Enable「Supports microphone」in model profiles, use Doubao/MiMo, or configure separately in Mic tab.",
       "可能听不懂麦克风_请改选带_支持麦克风_的模": "}」may not understand the mic. Pick a model with「Supports microphone」(e.g. doubao-seed-2-0-mini), save, then start danmu.",
-      "当前默认模型来自模型配置档案_name": "Default model from profile「{name}」({id}). API endpoint/key in Danmu Settings are not used for generation—maintain them in Model profiles.",
+       "当前使用模型来自模型配置档案_name": "Current model from profile「{name}」({id}). API endpoint/key in Danmu Settings are not used for generation—maintain them in Model profiles.",
       "另外_当前_API_地址与已选模型目录不一致_保": "Also: current API endpoint does not match selected model catalog; save may be rejected—re-select the vision model.",
       "配置已保存_当前生效模型_label": "Settings saved; active model: {label}",
       "配置已保存": "Settings saved",

@@ -11,7 +11,7 @@
   - ``floating_panel``：侧边悬浮窗 V2
   - 遗留 ``display_mode`` 在 ConfigStore 启动时由 ``migrate_legacy_display_mode_to_render_mode`` 写回 ``danmu_render_mode``
 - 字体（``danmu_font_*`` + ``floating_panel_font_*`` + ``imported_fonts``；W-FONT-001/002/003）
-- API（``api_mode`` + ``api_endpoint`` + ``api_key`` + ``model`` + ``temperature`` + ``max_tokens``）
+- API（``api_mode`` + ``api_endpoint`` + ``api_key`` + ``temperature`` + ``max_tokens``）
 - TTS / 读弹幕（``tts_*`` + ``danmu_read_*``）
 - 公告 / 主题 / 更新 / 用户（``user_nickname`` / ``live_topic`` + ``console_theme`` + ``app_update_state``）
 
@@ -216,12 +216,6 @@ def _default_mic_api_endpoint() -> str:
     return _default_api_endpoint(_DEFAULT_MIC_PROVIDER_ID)
 
 
-def _default_model_id() -> str:
-    from app.model_catalog import default_catalog_model_id
-
-    return default_catalog_model_id(_DEFAULT_PROVIDER_ID)
-
-
 def export_web_config_defaults() -> dict[str, str]:
     """Web「恢复默认」唯一来源：覆盖 WEB_CONFIG_KEYS，不含 api_key / 自定义模型 / 人格 / 识图区域。
 
@@ -231,8 +225,6 @@ def export_web_config_defaults() -> dict[str, str]:
 
     defaults = {key: CONFIG_DEFAULTS.get(key, "") for key in WEB_CONFIG_KEYS}
     # W-GLOBAL-VISUAL-APIKEY-REMOVE-001: api_endpoint 已从 WEB_CONFIG_KEYS 移除，不再注入默认值
-    default_model = _default_model_id()
-    defaults["model"] = default_model
     defaults["mic_api_endpoint"] = _default_mic_api_endpoint()
     return defaults
 

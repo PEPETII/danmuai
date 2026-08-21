@@ -137,10 +137,10 @@ def test_apply_web_payload_uses_single_commit_with_custom_models(config_service)
     assert models[0]["apiKey"] == "sk-custom-key-1234567890"
 
 
-def test_apply_web_payload_syncs_default_model_id_to_legacy_model(config_service):
-    """W-GLOBAL-VISUAL-APIKEY-REMOVE-001: default_model_id 写入需对应完整 custom_models 档案。"""
+def test_apply_web_payload_ignores_retired_global_model_selection(config_service):
+    """全局 default_model_id/model 提交不再参与 Web 配置写入。"""
     new_model = "doubao-seed-1-6-flash-250828"
-    # 预设 default_model_id 以通过 validate_web_config_patch；model 保留旧值以验证双写同步
+    # 旧字段保留在测试配置中，确认提交不会再触发全局模型双写。
     config_service._config.set_batch(
         {
             "model": "old-model",
@@ -160,5 +160,5 @@ def test_apply_web_payload_syncs_default_model_id_to_legacy_model(config_service
         ]
     )
     config_service.apply_web_payload({"default_model_id": new_model})
-    assert config_service._config.get_default_model_id() == new_model
-    assert config_service._config.get("model") == new_model
+    assert config_service._config.get_custom_models()[0]["default_model_id"] == new_model
+    assert config_service._config.get("model") == "old-model"

@@ -477,7 +477,7 @@ export function updateMicActiveSourceBanner(cfg) {
   const endpointLabel = (endpoint) => endpoint || t('common.notConfigured');
   if (useVisual) {
     const usesCustom = cfg?.uses_custom_credentials === true;
-    const modelId = (cfg?.active_model_id || cfg?.model || document.getElementById('model')?.value || '').trim();
+    const modelId = (cfg?.active_model_id || document.getElementById('model')?.value || '').trim();
     const endpoint = usesCustom
       ? (cfg?.custom_models || []).find((m) => m.modelId === modelId)?.endpoint
         || document.getElementById('api_endpoint')?.value
@@ -553,7 +553,7 @@ export function updateModelActiveSourceBanner(cfg) {
   }
   const name = cfg.model_display_name || cfg.active_model_id || '';
   const id = cfg.active_model_id || '';
-  banner.textContent = t('dynamic.settings.当前默认模型来自模型配置档案_name', { name, id });
+  banner.textContent = t('dynamic.settings.当前使用模型来自模型配置档案_name', { name, id });
   banner.classList.remove('hidden');
   if (cfg.provider_model_mismatch) {
     banner.textContent += t('dynamic.settings.另外_当前_API_地址与已选模型目录不一致_保');
@@ -638,7 +638,7 @@ export function bindSettingsControls(deps = {}) {
         if (window.saveDanmuReadSettings) {
           await window.saveDanmuReadSettings();
         }
-        const active = cfg.active_model_id || cfg.model || '';
+        const active = cfg.active_model_id || '';
         const label = cfg.model_display_name && cfg.model_display_name !== active
           ? `${cfg.model_display_name}（${active}）`
           : active;

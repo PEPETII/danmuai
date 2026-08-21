@@ -131,7 +131,7 @@ def test_apply_config_patch_preserves_masked_custom_model_key():
 
 def test_apply_config_patch_updates_batch_and_ignores_visual_api_key():
     """W-GLOBAL-VISUAL-APIKEY-REMOVE-001: apply_config_patch 不再接受 api_key / api_endpoint
-    （WEB_CONFIG_KEYS 已移除）；model 仍可写入并同步 default_model_id。"""
+    （WEB_CONFIG_KEYS 已移除）；model/default_model_id 不再写入。"""
     config = FakeConfig({"api_endpoint": "old", "default_model_id": "gpt-4o"})
     # 提供完整 custom_models 档案以通过 validate_web_config_patch
     config.set_custom_models(
@@ -163,9 +163,9 @@ def test_apply_config_patch_updates_batch_and_ignores_visual_api_key():
 
     # api_endpoint 不在 WEB_CONFIG_KEYS 中，不会被写入
     assert config.get("api_endpoint") == "old"
-    # model 仍可写入
-    assert config.get("model") == "gpt-4o"
-    assert config.get_default_model_id() == "gpt-4o"
+    # 全局 model 已退出 Web 写入白名单
+    assert config.get("model") == ""
+    assert config.get_custom_models()[0]["default_model_id"] == "gpt-4o"
     # api_key 被忽略（Phase 1 移除视觉 api_key 写入口）
     assert config.get_api_key() == ""
     personae.set_active.assert_called_once()
@@ -221,8 +221,8 @@ def test_apply_config_patch_preserves_masked_custom_model_key_by_identity():
     assert models[1]["apiKey"] == "sk-a"
 
 
-def test_apply_config_patch_syncs_default_model_id_to_legacy_model():
-    """W-GLOBAL-VISUAL-APIKEY-REMOVE-001: default_model_id 写入需对应完整 custom_models 档案。"""
+def test_apply_config_patch_ignores_default_model_id_payload():
+    """全局 default_model_id 提交不再同步旧 model 键。"""
     new_model = "doubao-seed-1-6-flash-250828"
     config = FakeConfig({
         "model": "old-model",
@@ -246,8 +246,8 @@ def test_apply_config_patch_syncs_default_model_id_to_legacy_model():
 
     apply_config_patch(app, {"default_model_id": new_model})
 
-    assert config.get_default_model_id() == new_model
-    assert config.get("model") == new_model
+    assert config.get_custom_models()[0]["default_model_id"] == new_model
+    assert config.get("model") == "old-model"
 
 
 def test_extract_config_payload_accepts_wrapped_and_flat():
@@ -303,7 +303,6 @@ def test_web_config_keys_cover_core_settings():
 def test_export_web_config_defaults():
     from app.application.config_service import RESTORABLE_CONFIG_KEYS, WEB_CONFIG_KEYS
     from app.config_defaults import CONFIG_DEFAULTS, export_web_config_defaults
-    from app.model_catalog import default_catalog_model_id
     from app.model_providers import get_provider
 
     data = export_web_config_defaults()
@@ -318,7 +317,7 @@ def test_export_web_config_defaults():
     # W-GLOBAL-VISUAL-APIKEY-REMOVE-001: api_endpoint/api_mode 已不在 WEB_CONFIG_KEYS
     assert "api_endpoint" not in data
     assert "api_mode" not in data
-    assert data["model"] == default_catalog_model_id("custom_openai")
+    assert "model" not in data
 
     assert data["mic_api_endpoint"] == doubao.default_endpoint
     assert data["mic_input_device_id"] == ""
@@ -326,13 +325,13 @@ def test_export_web_config_defaults():
     assert data["pet_scale"] == "0.5"
 
     for key in WEB_CONFIG_KEYS:
-        if key in ("model", "mic_api_endpoint"):
+        if key == "mic_api_endpoint":
             continue
         assert data[key] == CONFIG_DEFAULTS.get(key, ""), key
 
 
-def test_apply_config_patch_dashscope_model_syncs_default_model_id():
-    """W-GLOBAL-VISUAL-APIKEY-REMOVE-001: model 写入需对应完整 custom_models 档案。"""
+def test_apply_config_patch_ignores_retired_global_model_payload():
+    """旧客户端提交 model 时不再改变全局模型选择。"""
     from app.model_catalog import default_catalog_model_id
 
     dash_model = default_catalog_model_id("dashscope")
@@ -365,13 +364,11 @@ def test_apply_config_patch_dashscope_model_syncs_default_model_id():
         },
     )
 
-    assert config.get("model") == dash_model
-    assert config.get_default_model_id() == dash_model
+    assert config.get("model") == "doubao-seed-1-6-flash-250828"
+    assert config.get_custom_models()[0]["default_model_id"] == dash_model
 
 
-def test_export_config_mismatched_model_still_loads():
-    from app.model_catalog import is_catalog_model_for_provider
-
+def test_export_config_has_no_global_model_projection():
     cfg = FakeConfig(
         {
             "api_endpoint": "https://dashscope.aliyuncs.com/compatible-mode/v1",
@@ -381,28 +378,32 @@ def test_export_config_mismatched_model_still_loads():
         }
     )
     data = export_config(cfg)
-    assert data["model"] == "doubao-seed-1-6-flash-250828"
-    assert not is_catalog_model_for_provider("dashscope", data["active_model_id"])
-    assert data["provider_model_mismatch"] is True
-    assert data["inferred_provider_id"] == "dashscope"
-    assert data["model_source"] == "freeform"
+    assert "model" not in data
+    assert data["active_model_id"] == ""
+    assert data["provider_model_mismatch"] is False
+    assert data["inferred_provider_id"] == ""
+    assert data["model_source"] == "unknown"
 
 
-def test_export_config_includes_catalog_display_name():
-    from app.model_catalog import default_catalog_model_id
-
-    dash_model = default_catalog_model_id("dashscope")
+def test_export_config_uses_first_custom_model_profile():
+    dash_model = "dash-model"
     cfg = FakeConfig(
         {
             "api_endpoint": "https://dashscope.aliyuncs.com/compatible-mode/v1",
             "api_mode": "openai",
-            "model": dash_model,
-            "default_model_id": dash_model,
+            "custom_models": [{
+                "name": "DashScope",
+                "model_ids": [dash_model],
+                "default_model_id": dash_model,
+                "endpoint": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+                "apiKey": "sk-profile",
+                "mode": "openai",
+            }],
         }
     )
     data = export_config(cfg)
     assert data["active_model_id"] == dash_model
-    assert data["model_source"] == "catalog"
+    assert data["model_source"] == "custom"
     assert data["model_display_name"]
     assert data["provider_model_mismatch"] is False
 

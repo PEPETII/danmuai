@@ -871,7 +871,7 @@
   "dynamic.settings.prefix_当前模型_modelId": "${prefix}当前模型「${modelId ||",
   "dynamic.settings.未声明_mic_audio_支持_请在模型配": "}」未声明 mic_audio 支持。请在模型配置档案中勾选「支持麦克风」，或改用豆包/MiMo，或在麦克风标签单独配置。",
   "dynamic.settings.可能听不懂麦克风_请改选带_支持麦克风_的模": "}」可能听不懂麦克风。请改选带「支持麦克风」的模型（例如 doubao-seed-2-0-mini），保存后再开始弹幕。",
-  "dynamic.settings.当前默认模型来自模型配置档案_name": "当前默认模型来自模型配置档案「${name}」（${id}）。弹幕设置中的 API 地址与密钥不用于生成弹幕，请在模型配置档案列表中维护。",
+  "dynamic.settings.当前使用模型来自模型配置档案_name": "当前使用模型来自模型配置档案「${name}」（${id}）。弹幕设置中的 API 地址与密钥不用于生成弹幕，请在模型配置档案列表中维护。",
   "dynamic.settings.另外_当前_API_地址与已选模型目录不一致_保": "另外：当前 API 地址与已选模型目录不一致，保存配置时可能被拒绝，请重新选择视觉模型。",
   "dynamic.settings.配置已保存_当前生效模型_label": "配置已保存，当前生效模型：${label}",
   "dynamic.settings.配置已保存": "配置已保存~",

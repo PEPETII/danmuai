@@ -397,6 +397,7 @@ def apply_web_save_for_store(
     mic_api_key: str | None = None,
     custom_models: list[dict] | None = None,
     flags: dict[str, str] | None = None,
+    keys_to_delete: list[str] | tuple[str, ...] | None = None,
 ) -> None:
     """Web PUT /api/config 原子落库：普通键、API Key、custom_models、flags 单次 commit。
 
@@ -404,7 +405,7 @@ def apply_web_save_for_store(
     失败 rollback 且不更新 _cache。``api_key=""`` 表示清空全局视觉 key。
     """
     pairs: list[tuple[str, str]] = []
-    keys_to_delete: list[str] = []
+    keys_to_delete = list(keys_to_delete or [])
     invalidate_secrets: list[str] = []
     flag_pairs: list[tuple[str, str]] = list(flags.items()) if flags else []
 

@@ -139,6 +139,7 @@ class ConfigStore:
         # 必须在 _fernet / _cache / _custom_models_cache 初始化之后调用；
         # 迁移函数自身有异常容错，不会再抛异常。
         self._maybe_migrate_legacy_api_to_custom_models()
+        self._clear_obsolete_global_model_selection()
 
     @property
     def schema_version(self) -> int:
@@ -421,6 +422,7 @@ class ConfigStore:
         mic_api_key: str | None = None,
         custom_models: list[dict] | None = None,
         flags: dict[str, str] | None = None,
+        keys_to_delete: list[str] | tuple[str, ...] | None = None,
     ) -> None:
         from app.config_store.storage_models import apply_web_save_for_store
 
@@ -431,6 +433,7 @@ class ConfigStore:
             mic_api_key=mic_api_key,
             custom_models=custom_models,
             flags=flags,
+            keys_to_delete=keys_to_delete,
         )
 
     @contextmanager
@@ -792,15 +795,6 @@ class ConfigStore:
 
         invalidate_formula_text_cache(self)
 
-    def get_default_model_id(self) -> str:
-        model_id = self.get("default_model_id", "")
-        if model_id:
-            return model_id
-        return self.get("model", "")
-
-    def set_default_model_id(self, model_id: str):
-        self.set("default_model_id", model_id)
-
     # --- System flags (one-shot migration markers, W-LEGACY-MIGRATE-003) ---
 
     def get_flag(self, key: str) -> str | None:
@@ -819,6 +813,12 @@ class ConfigStore:
         )
 
         return maybe_migrate_legacy_api_to_custom_models_for_store(self)
+
+    def _clear_obsolete_global_model_selection(self) -> None:
+        """Remove the retired config-level visual-model selector after migration."""
+        if not (self.get("model", "") or self.get("default_model_id", "")):
+            return
+        self.apply_web_save(keys_to_delete=("model", "default_model_id"))
 
     def _migrate_legacy_tts_credentials(self) -> bool:
         from app.config_migrations import migrate_legacy_tts_credentials

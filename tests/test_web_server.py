@@ -349,7 +349,7 @@ def test_web_settings_ui_provider_naming_unified():
         "dynamic.settingsHints.为麦克风接话选择服务商预设_会自动填入麦克风_A" in hints_js
     )
     assert "为麦克风接话选择服务商预设" in zh_hints["hints"]["micProviderPreset"]
-    assert "dynamic.settings.当前默认模型来自模型配置档案_name" in settings_js
+    assert "dynamic.settings.当前使用模型来自模型配置档案_name" in settings_js
 
 
 def test_web_content_page_field_hints_wired():

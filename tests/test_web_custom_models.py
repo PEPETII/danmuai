@@ -104,8 +104,8 @@ def test_custom_model_crud(model_app):
     stored = model_app.config.get_custom_models()[0]
     assert stored["supportsMic"] is True
 
-    cm_api.set_default_custom_model(model_app, 0)
-    assert model_app.config.get_default_model_id() == "test-model-2"
+    assert "default_model_id" not in listing
+    assert model_app.config.get_custom_models()[0]["default_model_id"] == "test-model-2"
 
     cm_api.delete_custom_model(model_app, 0)
     assert model_app.config.get_custom_models() == []
@@ -717,13 +717,12 @@ def test_legacy_field_dom_ids_still_present_in_index_html():
         assert f'id="{field_id}"' in html, f"旧字段 DOM 节点 {field_id} 应在 index.html 中保留"
 
 
-def test_config_fields_retains_legacy_keys():
-    """W-SETTINGS-RESTRUCT-A-006：CONFIG_FIELDS 仍含 4 个旧 key（api_key 按设计不在内，走加密独立路径）。"""
+def test_config_fields_drops_retired_global_model_key():
+    """全局默认模型已移除；遗留隐藏 DOM 不再进入可保存字段。"""
     src = SETTINGS_DEFAULTS_JS.read_text(encoding="utf-8")
-    # api_endpoint / api_mode / model / max_tokens 必须仍在 CONFIG_FIELDS 中
-    for key in ("api_endpoint", "api_mode", "model", "max_tokens"):
+    for key in ("api_endpoint", "api_mode", "max_tokens"):
         assert f"'{key}'" in src, f"CONFIG_FIELDS 应保留旧 key '{key}'"
-    # api_key 按设计不在 CONFIG_FIELDS（加密 key 走独立掩码路径），此处只记录事实，不强制
+    assert "'model'" not in src
 
 
 def test_settings_js_sets_hidden_on_legacy_field_wrappers():

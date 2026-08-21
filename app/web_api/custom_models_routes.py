@@ -85,14 +85,6 @@ def register_custom_models_routes(
         invoke_main(cm_api.delete_custom_model, bridge.danmu_app, index)
         return {"ok": True}
 
-    @app.post("/api/custom-models/{index}/default")
-    @require_auth(check_token)
-    def set_default_custom_model(
-        index: int,
-        authorization: str | None = Header(default=None),
-    ):
-        return invoke_main(cm_api.set_default_custom_model, bridge.danmu_app, index)
-
     @app.post("/api/probe")
     @require_auth(check_token)
     def probe_api_connection_route(
