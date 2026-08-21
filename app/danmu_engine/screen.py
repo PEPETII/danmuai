@@ -9,6 +9,7 @@ import random
 from PyQt6.QtGui import QColor
 
 from app.danmu_engine_models import DanmuItem, Track
+from app.danmu_text_normalize import strip_outer_wrapping_quotes
 from app.translations import Translator
 
 # 与 app.config_defaults 保持同步（避免循环导入）
@@ -168,10 +169,10 @@ def resolve_danmu_max_chars(config, *, lang: str | None = None) -> int:
 def normalize_danmu_display_text(content: str, config, *, lang: str | None = None) -> str:
     """与 add_text 上屏前一致的轻量规范化，供去重判断与日志拒因对齐。
 
-    仅转字符串并 strip；不按 danmu_max_chars 截断。
+    转字符串、strip，并移除最外层包裹引号；不按 danmu_max_chars 截断。
     """
     del config, lang  # 保留签名以兼容现有调用方
-    return str(content).strip()
+    return strip_outer_wrapping_quotes(str(content))
 
 
 def is_persona_name_prefix_enabled(config) -> bool:

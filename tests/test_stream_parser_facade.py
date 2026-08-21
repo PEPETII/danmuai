@@ -48,3 +48,15 @@ def test_chat_facade_propagates_top_level_error_without_space_after_data():
     )
     assert result.text == ""
     assert result.error == "rate limited"
+
+
+def test_chat_facade_eof_without_done_marks_incomplete():
+    lines = ['data: {"choices":[{"delta":{"content":"partial"}}]}']
+    result = consume_stream(
+        lines,
+        api_family=API_FAMILY_OPENAI_CHAT,
+        adapter=DefaultOpenAIAdapter(),
+        caps=ProviderCapabilities(),
+    )
+    assert result.text == "partial"
+    assert result.error == "stream incomplete: eof_without_done"

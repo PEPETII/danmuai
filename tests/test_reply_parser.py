@@ -38,9 +38,10 @@ def test_parse_ai_reply_payload_empty_and_whitespace():
     assert parse_ai_reply_payload("   \n  ") == []
 
 
-def test_parse_ai_reply_payload_unclosed_array_falls_back_to_plain():
-    """流式截断且无法 json.loads 时退化为纯文本行。"""
-    assert parse_ai_reply_payload('["only start') == ['["only start']
+def test_parse_ai_reply_payload_unclosed_array_does_not_emit_malformed_json():
+    """流式截断且无法 json.loads 时不得把半截 JSON 数组当作普通弹幕。"""
+    assert parse_ai_reply_payload('["only start') == []
+    assert parse_ai_reply_payload('[{"主播...", "人上') == []
 
 
 def test_parse_ai_reply_payload_json_object_without_comments_key():

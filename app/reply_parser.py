@@ -25,6 +25,7 @@ from app.danmu_pool import (
     custom_pool_size,
     pool_enabled,
 )
+from app.danmu_text_normalize import strip_outer_wrapping_quotes
 
 logger = logging.getLogger(__name__)
 
@@ -270,7 +271,7 @@ def _try_parse_json_array(raw: str):
 def _normalize_comment_list(candidates) -> list[str]:
     normalized: list[str] = []
     for item in candidates:
-        value = str(item).strip().strip('"').strip("'")
+        value = strip_outer_wrapping_quotes(str(item))
         if _is_usable_comment(value):
             normalized.append(value)
     return normalized
@@ -339,6 +340,13 @@ def parse_ai_reply_payload(text: str) -> list[str]:
             candidates = _heuristic_comments_from_malformed_json(raw)
     elif isinstance(parsed, list):
         candidates = parsed
+    elif raw.startswith("[") and tried_json and parsed is None:
+        logger.warning(
+            "AI reply malformed JSON array; reason=malformed_json_array raw_len=%s prefix=%.80s",
+            len(raw),
+            raw,
+        )
+        return []
     elif raw.startswith("{") and _raw_has_envelope_key(raw):
         used_heuristic = True
         if tried_json:
@@ -453,7 +461,7 @@ def normalize_reply_batch(
     cleaned: list[str] = []
     seen: set[str] = set()
     for item in items:
-        value = str(item).strip()
+        value = strip_outer_wrapping_quotes(str(item))
         if not _is_usable_comment(value) or value in seen:
             continue
         if _batch_has_similar_text(value, cleaned):

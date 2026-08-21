@@ -224,6 +224,21 @@ class _StreamAttemptResult:
     input_tokens: int
     output_tokens: int
     stream_error: str = ""
+    finish_reason: str = ""
+    stream_completed: bool = False
+    terminated_by: str = ""
+
+
+def _stream_eof_is_retriable(result: _StreamAttemptResult) -> bool:
+    """Transport EOF without [DONE] may retry once; semantic length must not."""
+    if result.terminated_by != "eof":
+        return False
+    if not result.stream_error:
+        return False
+    finish_reason = (result.finish_reason or "").strip().lower()
+    if finish_reason in {"length", "content_filter", "max_tokens", "model_length", "incomplete"}:
+        return False
+    return "eof_without_done" in result.stream_error
 
 
 def execute_stream_request_with_retry(
@@ -254,6 +269,15 @@ def execute_stream_request_with_retry(
             )
         try:
             result = attempt_stream(http_client)
+            if result.stream_error and attempt < 1 and _stream_eof_is_retriable(result):
+                try:
+                    from app.ai_client_requests import reset_worker_http_client
+
+                    http_client = reset_worker_http_client(worker)
+                except RuntimeError:
+                    pass
+                else:
+                    continue
             if result.stream_error:
                 message = sanitize_provider_error_snippet(result.stream_error)
                 return worker._deliver_outcome(

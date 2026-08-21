@@ -533,10 +533,21 @@ def request_openai(
             deadline_at=deadline_at,
             started_at=started_at,
             include_error=True,
+            return_result=True,
         )
-        text, input_tokens, output_tokens = stream_result[:3]
-        stream_error = stream_result[3] if len(stream_result) > 3 else ""
-        return _StreamAttemptResult(text, input_tokens, output_tokens, stream_error)
+        if isinstance(stream_result, tuple):
+            text, input_tokens, output_tokens = stream_result[:3]
+            stream_error = stream_result[3] if len(stream_result) > 3 else ""
+            return _StreamAttemptResult(text, input_tokens, output_tokens, stream_error)
+        return _StreamAttemptResult(
+            stream_result.text,
+            stream_result.input_tokens,
+            stream_result.output_tokens,
+            stream_result.error,
+            finish_reason=stream_result.finish_reason,
+            stream_completed=stream_result.stream_completed,
+            terminated_by=stream_result.terminated_by,
+        )
 
     return _run_visual_stream_request(
         worker,
@@ -565,7 +576,8 @@ def stream_openai(
     deadline_at: float | None = None,
     started_at: float | None = None,
     include_error: bool = False,
-) -> tuple[str, int, int] | tuple[str, int, int, str]:
+    return_result: bool = False,
+):
     from app.openai_chat_stream import stream_openai_chat
     deadline_at, started_at = _resolve_request_timing(
         worker, deadline_at=deadline_at, started_at=started_at
@@ -589,6 +601,8 @@ def stream_openai(
             result.output_tokens,
             normalize_endpoint(endpoint) if endpoint else url,
         )
+    if return_result:
+        return result
     values = (result.text, result.input_tokens, result.output_tokens)
     if include_error:
         return (*values, result.error)

@@ -23,6 +23,10 @@ from app.providers import get_capabilities_for_endpoint, get_openai_adapter
 
 logger = logging.getLogger(__name__)
 
+_INCOMPLETE_FINISH_REASONS = frozenset(
+    {"length", "content_filter", "max_tokens", "model_length", "incomplete"}
+)
+
 
 @dataclass
 class OpenAIChatStreamResult:
@@ -31,6 +35,20 @@ class OpenAIChatStreamResult:
     output_tokens: int = 0
     reasoning_only: bool = False
     error: str = ""
+    finish_reason: str = ""
+    stream_completed: bool = False
+    terminated_by: str = ""
+    request_id: str = ""
+
+    @property
+    def outcome(self) -> str:
+        if self.error:
+            return "error"
+        if self.text:
+            return "finished"
+        if self.reasoning_only:
+            return "reasoning_only"
+        return "empty"
 
 
 def _request_wall_clock_exceeded(*, deadline_at: float | None) -> bool:
@@ -71,6 +89,46 @@ def _extract_error_message(chunk: dict[str, Any]) -> str:
     return ""
 
 
+def _finish_reason_is_incomplete(finish_reason: str) -> bool:
+    return (finish_reason or "").strip().lower() in _INCOMPLETE_FINISH_REASONS
+
+
+def _apply_stream_completion_state(result: OpenAIChatStreamResult) -> None:
+    """Fill ``error`` for incomplete streams; provider errors take precedence."""
+    if result.error:
+        return
+    if result.terminated_by == "stopping":
+        if result.text:
+            result.error = "stream terminated: stopping"
+        return
+    finish_reason = (result.finish_reason or "").strip()
+    if _finish_reason_is_incomplete(finish_reason):
+        result.error = f"stream incomplete: finish_reason={finish_reason}"
+        return
+    if result.text and not result.stream_completed:
+        result.error = "stream incomplete: eof_without_done"
+        return
+    if result.terminated_by == "first_content_timeout":
+        result.error = "stream incomplete: first_content_timeout"
+
+
+def _log_openai_stream_outcome(result: OpenAIChatStreamResult, *, endpoint_label: str) -> None:
+    logger.info(
+        "openai stream outcome endpoint=%s request_id=%s text_len=%s "
+        "input_tokens=%s output_tokens=%s finish_reason=%s terminated_by=%s "
+        "stream_completed=%s outcome=%s",
+        endpoint_label,
+        result.request_id or "-",
+        len(result.text),
+        result.input_tokens,
+        result.output_tokens,
+        result.finish_reason or "-",
+        result.terminated_by or "-",
+        result.stream_completed,
+        result.outcome,
+    )
+
+
 def consume_openai_sse_lines(
     lines: Iterable[Any],
     *,
@@ -89,10 +147,15 @@ def consume_openai_sse_lines(
     output_tokens = 0
     stream_error = ""
     got_first_content = False
+    finish_reason = ""
+    request_id = ""
+    saw_done = False
+    terminated_by = "eof"
     endpoint_label = normalize_endpoint(endpoint) if endpoint else url
 
     for raw in lines:
         if stopping is not None and stopping():
+            terminated_by = "stopping"
             break
         _raise_if_wall_clock_exceeded(deadline_at=deadline_at)
         # W-PERF-STREAM-001：首内容超时检查
@@ -103,14 +166,20 @@ def consume_openai_sse_lines(
                     first_content_timeout,
                     endpoint_label,
                 )
+                terminated_by = "first_content_timeout"
                 break
         payload = _sse_payload(raw)
         if payload is None:
             continue
         if payload.strip() == "[DONE]":
+            saw_done = True
+            terminated_by = "done"
             break
         try:
             chunk = json.loads(payload)
+            chunk_id = chunk.get("id")
+            if chunk_id:
+                request_id = str(chunk_id)
             usage = chunk.get("usage")
             if usage:
                 input_tokens, output_tokens = adapter.normalize_usage(usage, caps=caps)
@@ -118,6 +187,9 @@ def consume_openai_sse_lines(
                 stream_error = stream_error or _extract_error_message(chunk) or "provider stream error"
                 continue
             choice = chunk.get("choices", [{}])[0]
+            choice_finish = choice.get("finish_reason")
+            if choice_finish:
+                finish_reason = str(choice_finish)
             delta = choice.get("delta", {})
             content = delta.get("content", "")
             if content:
@@ -153,13 +225,20 @@ def consume_openai_sse_lines(
             reasoning_len,
             endpoint_label,
         )
-    return OpenAIChatStreamResult(
+    result = OpenAIChatStreamResult(
         text=text,
         input_tokens=input_tokens,
         output_tokens=output_tokens,
         reasoning_only=reasoning_only,
         error=stream_error,
+        finish_reason=finish_reason,
+        stream_completed=saw_done,
+        terminated_by=terminated_by,
+        request_id=request_id,
     )
+    _apply_stream_completion_state(result)
+    _log_openai_stream_outcome(result, endpoint_label=endpoint_label)
+    return result
 
 
 def stream_openai_chat(
