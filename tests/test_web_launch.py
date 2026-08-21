@@ -46,7 +46,7 @@ def test_tray_single_click_opens_settings(qapp, monkeypatch):
 
 def test_tray_uninstall_keeps_user_data_without_second_delete_confirm(qapp, monkeypatch):
     from app.tray import TrayManager
-    from PyQt6.QtWidgets import QMessageBox
+    from PyQt6.QtWidgets import QMessageBox, QSystemTrayIcon
 
     app = make_minimal_danmu_app()
     monkeypatch.setattr("app.tray.Translator.instance", lambda: _FakeTranslator())
@@ -67,20 +67,35 @@ def test_tray_uninstall_keeps_user_data_without_second_delete_confirm(qapp, monk
         or type("S", (), {"ok": True, "message": "started", "error": None})(),
     )
 
-    answers = iter(
-        [
-            QMessageBox.StandardButton.Yes,
-            QMessageBox.StandardButton.No,
-        ]
+    # _on_uninstall 使用单个 QMessageBox.exec()，保留数据按钮为 AcceptRole。
+    _keep_btn = [None]
+    _orig_addButton = QMessageBox.addButton
+
+    def _addButton(self, *args, **kwargs):
+        btn = _orig_addButton(self, *args, **kwargs)
+        role = kwargs.get("role") or (args[1] if len(args) > 1 else None)
+        if role == QMessageBox.ButtonRole.AcceptRole:
+            _keep_btn[0] = btn
+        return btn
+
+    monkeypatch.setattr(QMessageBox, "addButton", _addButton)
+    monkeypatch.setattr(QMessageBox, "exec", lambda self: 0)
+    monkeypatch.setattr(QMessageBox, "clickedButton", lambda self: _keep_btn[0])
+    question_calls = []
+    monkeypatch.setattr(
+        QMessageBox,
+        "question",
+        lambda *args, **kwargs: question_calls.append((args, kwargs)),
     )
-    monkeypatch.setattr(QMessageBox, "question", lambda *args, **kwargs: next(answers))
     info = []
-    monkeypatch.setattr(QMessageBox, "information", lambda *args, **kwargs: info.append(args))
+    monkeypatch.setattr(tray.tray, "showMessage", lambda *args, **kwargs: info.append(args))
 
     tray._on_uninstall()
 
     assert request_calls == [False]
     assert len(info) == 1
+    assert info[0][2] == QSystemTrayIcon.MessageIcon.Information
+    assert question_calls == []
 
 
 def test_tray_uninstall_delete_user_data_requires_second_confirm(qapp, monkeypatch):

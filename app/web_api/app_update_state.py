@@ -10,11 +10,19 @@
 
 from __future__ import annotations
 
+import re
+
 from fastapi import HTTPException
 
 from app.translations import tr
 
 APP_UPDATE_STATE_KEY = "app_update_state"
+_SUPPORTED_VERSION_FORMAT = re.compile(
+    r"^v?\d+\.\d+\.\d+"
+    r"(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?"
+    r"(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$",
+    re.IGNORECASE,
+)
 
 
 def empty_state() -> dict[str, str]:
@@ -47,11 +55,16 @@ def validate_payload(body: dict) -> dict[str, str]:
     if dismissed:
         from app.version_compare import normalize_version, parse_version
 
+        normalized = normalize_version(dismissed)
+        if not _SUPPORTED_VERSION_FORMAT.fullmatch(normalized):
+            raise HTTPException(
+                status_code=400, detail=tr("validation.dismissedLatestVersionInvalid")
+            )
         try:
-            parse_version(dismissed)
+            parse_version(normalized)
         except ValueError as exc:
             raise HTTPException(
                 status_code=400, detail=tr("validation.dismissedLatestVersionInvalid")
             ) from exc
-        dismissed = normalize_version(dismissed)
+        dismissed = normalized
     return {"dismissedLatestVersion": dismissed}

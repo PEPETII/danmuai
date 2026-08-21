@@ -42,12 +42,11 @@ def test_validate_payload_rejects_non_string_type_in_en():
 
 
 def test_validate_payload_rejects_invalid_version_in_zh():
-    # The current version_compare parser is forgiving; simulate a parse failure
-    # so we can exercise the translated invalid-version error path.
+    # Keep the parser-error path covered independently from format validation.
     with patch("app.version_compare.parse_version", side_effect=ValueError("bad")):
         with _with_language("zh"):
             with pytest.raises(HTTPException) as exc_info:
-                validate_payload({"dismissedLatestVersion": "not-a-version"})
+                validate_payload({"dismissedLatestVersion": "0.4.1"})
 
     assert exc_info.value.status_code == 400
     assert "dismissedLatestVersion 版本格式无效" in exc_info.value.detail
@@ -58,7 +57,7 @@ def test_validate_payload_rejects_invalid_version_in_en():
     with patch("app.version_compare.parse_version", side_effect=ValueError("bad")):
         with _with_language("en"):
             with pytest.raises(HTTPException) as exc_info:
-                validate_payload({"dismissedLatestVersion": "not-a-version"})
+                validate_payload({"dismissedLatestVersion": "0.4.1"})
 
     assert exc_info.value.status_code == 400
     assert "dismissedLatestVersion has an invalid version format" in exc_info.value.detail

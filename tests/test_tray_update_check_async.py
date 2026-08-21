@@ -32,19 +32,23 @@ def test_on_check_update_sets_in_flight_flag(qapp):
     """BUG-002: _on_check_update 应立即设置 _update_check_in_flight = True。"""
     mgr = _make_minimal_tray_manager(qapp)
 
-    with patch("app.update_service.check_for_updates") as mock_check:
-        mock_check.return_value = MagicMock(ok=False, message="test error")
-        mgr._on_check_update()
+    with patch("app.tray.QSystemTrayIcon") as tray_icon_class:
+        tray_icon_class.isSystemTrayAvailable.return_value = False
+        with patch("app.tray.QMessageBox.warning", return_value=None) as mock_warning:
+            with patch("app.update_service.check_for_updates") as mock_check:
+                mock_check.return_value = MagicMock(ok=False, message="test error")
+                mgr._on_check_update()
 
-        # 立即检查：flag 应为 True（后台线程尚未完成）
-        assert mgr._update_check_in_flight is True
+                # 立即检查：flag 应为 True（后台线程尚未完成）
+                assert mgr._update_check_in_flight is True
 
-    # 等待后台线程完成并投递 QTimer.singleShot 回调
-    import time
+                # 等待后台线程完成并投递 QTimer.singleShot 回调
+                import time
 
-    time.sleep(0.3)
-    qapp.processEvents()
-    assert mgr._update_check_in_flight is False
+                time.sleep(0.3)
+                qapp.processEvents()
+                assert mgr._update_check_in_flight is False
+                mock_warning.assert_called_once()
 
 
 def test_on_check_update_prevents_reentry(qapp):
@@ -71,13 +75,17 @@ def test_on_check_update_starts_background_thread(qapp):
         thread_holder["current"] = threading.current_thread()
         return MagicMock(ok=True, update_available=False, message="已是最新版本")
 
-    with patch("app.update_service.check_for_updates", side_effect=_fake_check):
-        mgr._on_check_update()
-        # 等待后台线程完成（给一点时间）
-        import time
+    with patch("app.tray.QSystemTrayIcon") as tray_icon_class:
+        tray_icon_class.isSystemTrayAvailable.return_value = False
+        with patch("app.tray.QMessageBox.information", return_value=None) as mock_information:
+            with patch("app.update_service.check_for_updates", side_effect=_fake_check):
+                mgr._on_check_update()
+                # 等待后台线程完成（给一点时间）
+                import time
 
-        time.sleep(0.2)
-        qapp.processEvents()
+                time.sleep(0.2)
+                qapp.processEvents()
+            mock_information.assert_called_once()
 
     # check_for_updates 应在非主线程中执行
     assert "current" in thread_holder

@@ -106,7 +106,13 @@ def test_overview_stat_cards_have_interactive_class():
     overview = (_static_dir() / "partials" / "overview.html").read_text(encoding="utf-8")
     content = (_static_dir() / "partials" / "content-pages.html").read_text(encoding="utf-8")
     # Four overview session stat cards on overview; four lifetime cards moved to guide tab.
-    count = overview.count("ui-card--interactive")
+    session_stats_start = overview.index('id="page-overview"')
+    quick_settings_start = overview.index(
+        '<section class="overview-quick-settings',
+        session_stats_start,
+    )
+    session_stats = overview[session_stats_start:quick_settings_start]
+    count = session_stats.count("ui-card--interactive")
     assert count == 4, f"expected 4 ui-card--interactive on overview session stats, got {count}"
     for sid in (
         "statDanmu",
@@ -114,7 +120,7 @@ def test_overview_stat_cards_have_interactive_class():
         "statRuntime",
         "statAppOutputTokens",
     ):
-        assert sid in overview
+        assert sid in session_stats
     for sid in (
         "statLifetimeDanmu",
         "statLifetimeRuntime",
@@ -296,6 +302,12 @@ def test_overview_f1_semantic_shell():
     content = (_static_dir() / "partials" / "content-pages.html").read_text(encoding="utf-8")
     components = _components_css()
     pages = (_static_dir() / "warm-tokens-pages-overview.css").read_text(encoding="utf-8")
+    session_stats_start = overview.index('id="page-overview"')
+    quick_settings_start = overview.index(
+        '<section class="overview-quick-settings',
+        session_stats_start,
+    )
+    session_stats = overview[session_stats_start:quick_settings_start]
 
     assert "ui-page-header" in overview
     assert "ui-page-header__copy" in overview
@@ -313,12 +325,12 @@ def test_overview_f1_semantic_shell():
     assert "ui-status-banner--warning" in overview
     assert "overview-group-title" in overview
     assert "本场（从启动应用到关闭应用）" in overview
-    assert "累计" not in overview
+    assert "累计" not in session_stats
     assert "累计" in content
     # Lifetime cards no longer rely only on opacity/softPeach wash for grouping
     assert "bg-white/80" not in overview
     # Static large cards (topic/persona) keep .card without only-interactive
-    assert overview.count("ui-card--interactive") == 4
+    assert session_stats.count("ui-card--interactive") == 4
     assert content.count("ui-card--interactive") >= 4
     assert 'id="btnErrorReportFromBanner"' in overview
     assert "ui-button" in overview

@@ -335,14 +335,14 @@ def test_start_without_api_key_does_not_start(monkeypatch):
 
 def test_start_without_api_key_surfaces_ui_feedback(monkeypatch):
     """BUG-009: missing API key must set web error state and show tray hint."""
-    from app.ai_client_requests import format_credential_error
+    from app.translations import tr
 
     app, _engine_start_called, _screenshot_timer, tray = make_app_for_start_without_api_key(
         monkeypatch
     )
     DanmuApp.start(app)
-    msg = format_credential_error(app.config)
-    assert app.web_runtime_state.error_message == msg
+    assert app.web_runtime_state.active_problem["code"] == "CONFIG-001"
+    assert app.web_runtime_state.error_message == tr("problem.config.summary")
     assert app.web_runtime_state.is_error is True
     tray.show_api_key_missing_hint.assert_called_once()
 
@@ -776,6 +776,8 @@ def test_delete_custom_prunes_active_personae(tmp_path):
 
 def test_quit_stops_pool_topup_timer(monkeypatch):
     """BUG-019: quit() must stop _pool_topup_timer even if stop() does not."""
+    from app.main_lifecycle_mixin import DanmuAppLifecycleMixin
+
     fake_pool = MagicMock()
     fake_pool.waitForDone.return_value = True
     for name in (
@@ -823,7 +825,7 @@ def test_quit_stops_pool_topup_timer(monkeypatch):
         _mic_service=MagicMock(),
     )
 
-    DanmuApp.quit(app)
+    DanmuAppLifecycleMixin.quit(app)
 
     app.stop.assert_called_once_with()
     assert not pool_timer.isActive()

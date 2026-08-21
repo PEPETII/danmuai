@@ -175,7 +175,7 @@ def test_web_console_modules_exist():
 def test_live_overlay_setup_assistant_in_overview():
     root = project_root()
     html = (root / "web" / "static" / "index.html").read_text(encoding="utf-8")
-    partial = (root / "web" / "static" / "partials" / "overview.html").read_text(
+    partial = (root / "web" / "static" / "partials" / "content-pages.html").read_text(
         encoding="utf-8"
     )
     overlay_js = (root / "web" / "static" / "modules" / "app-live-overlay-panel.js").read_text(
@@ -368,11 +368,19 @@ def test_app_init_parallelizes_independent_fetches():
     init_start = app_js.index("async function init()")
     init_end = app_js.index("\ndocument.addEventListener('visibilitychange'", init_start)
     init_body = app_js[init_start:init_end]
-    assert "await Promise.all([" in init_body
-    assert "loadModelCatalog()" in init_body
-    assert "loadProviders()" in init_body
-    assert "loadConfigDefaults()" in init_body
-    assert "reloadConfigFromServer()" in init_body
+    bootstrap_start = init_body.index("await Promise.all([\n")
+    bootstrap_end = init_body.index("  const [cfg]", bootstrap_start)
+    bootstrap_block = init_body[bootstrap_start:bootstrap_end]
+
+    assert "await Promise.all([" in bootstrap_block
+    assert "].map(([label, task]) => runBootstrapTask(label, task)));" in bootstrap_block
+    for task in (
+        "['announcements', loadAnnouncementsReadState]",
+        "['model-catalog', loadModelCatalog]",
+        "['providers', loadProviders]",
+        "['config-defaults', loadConfigDefaults]",
+    ):
+        assert bootstrap_block.count(task) == 1
 
 
 def test_index_html_font_preconnect():
@@ -391,16 +399,41 @@ def test_error_report_flow_in_app_js():
         encoding="utf-8"
     )
     status_js = (root / "web" / "static" / "modules" / "status.js").read_text(encoding="utf-8")
-    assert "function maybePromptErrorReport" in js
-    assert "function openErrorReportModal" in js
+
+    app_error_import_start = js.index("import {\n  initErrorReporting,")
+    app_error_import_end = js.index("} from './modules/app-error-reporting.js';", app_error_import_start)
+    app_error_import = js[app_error_import_start:app_error_import_end]
+    assert "initErrorReporting" in app_error_import
+    assert "openErrorReportModal as openErrorReportModalImpl" in app_error_import
+    assert "openErrorReportModalFromProblem" in app_error_import
+    assert "function maybePromptErrorReport(_status)" in js
+    assert "return Promise.resolve();" in js[js.index("function maybePromptErrorReport"):]
+    assert "function openErrorReportModal" not in js
+    assert "submitErrorReport" not in js
+    assert "initErrorReporting({ showToast, getLastStatus: getLastAppliedStatus });" in js
+    assert "openErrorReport: (problem, options) =>" in js
+    assert "openErrorReportModalFromProblem(problem, {" in js
+    assert "statusSnapshot: getLastAppliedStatus()," in js
+    assert "configureStatus({" in js
+    assert "onProblemShow: maybeShowProblem" in js
+    assert "onProblemOccurrenceUpdate: updateVisibleProblemOccurrence" in js
+
     assert "export async function openErrorReportModal" in reporting_js
-    assert "function collectErrorReportContext" in reporting_js
+    assert "export async function openErrorReportModalFromProblem" in reporting_js
+    assert "export async function maybePromptErrorReport" in reporting_js
+    assert "async function collectErrorReportContext" in reporting_js
     assert "function extractErrorReportSearchTerms" in reporting_js
     assert "function findErrorLogAnchorIndex" in reporting_js
     assert "localStorage.setItem(ERROR_REPORT_DISMISS_STORAGE" in reporting_js
-    assert "submitErrorReport" in js
-    assert "statusHadError" in status_js
+    assert "async function submitErrorReportFromModal" in reporting_js
+    assert "window.DanmuSupabase.submitErrorReport(payload)" in reporting_js
     assert "btnErrorReportFromBanner" in reporting_js
+
+    assert "let statusHadError = false;" in status_js
+    assert "export function getStatusHadError()" in status_js
+    assert "const problem = st.active_problem || null;" in status_js
+    assert "const isError = !!(st.is_error || problem);" in status_js
+    assert "statusHadError = isError;" in status_js
 
 
 def test_mic_settings_tab_separate_from_api_panel():
@@ -435,11 +468,11 @@ def test_pet_page_in_index_html():
     assert 'https://petdex.dev/zh' in html
     assert 'id="btnPetImportFolder"' in html
     assert 'id="btnPetResetAsset"' in html
+    assert 'id="petAssetText"' in html
     assert 'id="petAssetSourceText"' in html
-    assert 'id="petAssetPathText"' in html
     assert 'id="petAssetErrorText"' in html
     assert '去 PetDex 查找更多桌宠' in html
-    assert '目录中需包含 pet.json 与 spritesheet.webp 或 spritesheet.png' in html
+    assert '目录需包含 pet.json 与 spritesheet.webp 或 spritesheet.png' in html
     assert 'id="petVisible"' not in html
     assert 'id="btnPetShow"' not in html
     assert 'id="btnPetHide"' not in html
