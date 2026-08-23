@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from app.config_defaults import DEFAULT_REPLY_QUEUE_MAX_ITEMS
+
 if TYPE_CHECKING:
     from main import DanmuApp
 
@@ -207,6 +209,20 @@ def _clamp_int_key(
         items[key] = str(default)
 
 
+def _normalize_reply_queue_capacity(items: dict[str, str]) -> None:
+    """Keep reply backlog bounded; accept legacy zero as the new safe default."""
+    key = "reply_queue_max_items"
+    if key not in items:
+        return
+    try:
+        value = int(items[key])
+    except (TypeError, ValueError):
+        value = DEFAULT_REPLY_QUEUE_MAX_ITEMS
+    if value <= 0:
+        value = DEFAULT_REPLY_QUEUE_MAX_ITEMS
+    items[key] = str(min(value, 9999))
+
+
 def _submitted_api_key(value: Any) -> str:
     key = str(value or "").strip()
     if not key or key == MASKED_API_KEY:
@@ -342,7 +358,7 @@ class ConfigService:
 
             _clamp_int_key(items, "danmu_pending_entry_cap", 0, 0, DANMU_PENDING_ENTRY_CAP_MAX)
             _clamp_int_key(items, "danmu_track_retention_cap", 0, 0, DANMU_TRACK_RETENTION_CAP_MAX)
-            _clamp_int_key(items, "reply_queue_max_items", 0, 0, 9999)
+            _normalize_reply_queue_capacity(items)
 
         if "layout_mode" in items:
             from app.danmu_engine import normalize_layout_mode

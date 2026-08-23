@@ -31,7 +31,7 @@ from app.providers.request_planner import GenerationRequest, plan_http_request
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["organize_chunk"]
+__all__ = ["KnowledgeOrganizerSession", "organize_chunk"]
 
 # ---------------------------------------------------------------------------
 # 常量
@@ -41,6 +41,7 @@ __all__ = ["organize_chunk"]
 # 比纯对话 15s 更宽松；与 worker 内 httpx.Timeout 对齐。
 _ORGANIZE_TIMEOUT_SEC = 180.0
 _ORGANIZE_MAX_OUTPUT_TOKENS = 8192
+_ORGANIZER_WORKER_LOCAL = threading.local()
 
 # Kept deliberately in this module: it is a request preference, not provider
 # transport knowledge.  The planner/adapter decides whether it is emitted.
@@ -191,6 +192,29 @@ class _KnowledgeOrganizerWorker:
                 except OSError:
                     pass
             self._clients.clear()
+
+
+class KnowledgeOrganizerSession:
+    """把可复用的整理 worker 绑定到当前导入线程。"""
+
+    def __init__(self, config) -> None:
+        self._previous = getattr(_ORGANIZER_WORKER_LOCAL, "worker", None)
+        self._worker = self._previous or _KnowledgeOrganizerWorker(config)
+        self._owns_worker = self._previous is None
+        self._closed = False
+        if self._owns_worker:
+            _ORGANIZER_WORKER_LOCAL.worker = self._worker
+
+    def close(self) -> None:
+        if self._closed:
+            return
+        self._closed = True
+        if not self._owns_worker:
+            return
+        try:
+            self._worker.close()
+        finally:
+            delattr(_ORGANIZER_WORKER_LOCAL, "worker")
 
 
 # ---------------------------------------------------------------------------
@@ -432,7 +456,12 @@ def organize_chunk(
     # package_id / source_id / chunk_id 仅用于调用方追踪；本函数不使用
     _ = (package_id, source_id, chunk_id)
 
-    worker = _KnowledgeOrganizerWorker(config)
+    worker = getattr(_ORGANIZER_WORKER_LOCAL, "worker", None)
+    owns_worker = worker is None
+    if owns_worker:
+        worker = _KnowledgeOrganizerWorker(config)
+    worker._request_started_at = time.monotonic()
+    worker._request_deadline_at = worker._request_started_at + _ORGANIZE_TIMEOUT_SEC
     total_in = 0
     total_out = 0
     applied_max_tokens = _ORGANIZE_MAX_OUTPUT_TOKENS
@@ -527,4 +556,5 @@ def organize_chunk(
             "error": _sanitize_organizer_error(str(exc)),
         }
     finally:
-        worker.close()
+        if owns_worker:
+            worker.close()

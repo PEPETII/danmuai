@@ -92,8 +92,10 @@ def register_knowledge_routes(
         )
 
     @app.get("/api/knowledge/packages/{package_id}")
-    def get_package(package_id: str):
-        return knowledge_api.get_package(bridge.danmu_app, package_id)
+    def get_package(package_id: str, summary: bool = Query(default=False)):
+        return knowledge_api.get_package(
+            bridge.danmu_app, package_id, summary=summary
+        )
 
     @app.patch("/api/knowledge/packages/{package_id}")
     @require_auth(check_token)

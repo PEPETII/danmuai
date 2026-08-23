@@ -58,13 +58,21 @@ class TestPackageListAggregation:
         first = repo.create_package(name="高优先级", priority=2)
         second = repo.create_package(name="空包", priority=0)
         first_id = repo.get_package(first["public_id"])["id"]  # type: ignore[index]
-        source = repo.create_source(
-            package_id=first_id, source_type="pasted_text", display_name="source"
-        )
-        repo.insert_item(
-            package_id=first_id, source_id=source["id"], chunk_id=None,
-            kind="fact", title="title", content="content"
-        )
+        sources = [
+            repo.create_source(
+                package_id=first_id,
+                source_type="pasted_text",
+                display_name=f"source-{index}",
+            )
+            for index in range(3)
+        ]
+        for index in range(5):
+            repo.insert_item(
+                package_id=first_id,
+                source_id=sources[index % len(sources)]["id"],
+                chunk_id=None,
+                kind="fact", title=f"title-{index}", content=f"content-{index}"
+            )
         statements: list[str] = []
         with db.read_connection() as conn:
             conn.set_trace_callback(statements.append)
@@ -72,9 +80,10 @@ class TestPackageListAggregation:
             conn.set_trace_callback(None)
         selects = [sql for sql in statements if sql.lstrip().upper().startswith("SELECT")]
         assert len(selects) == 1
+        assert "COUNT(DISTINCT" not in selects[0]
         assert [pkg["public_id"] for pkg in packages] == [first["public_id"], second["public_id"]]
-        assert packages[0]["source_count"] == 1
-        assert packages[0]["item_count"] == 1
+        assert packages[0]["source_count"] == 3
+        assert packages[0]["item_count"] == 5
         assert packages[1]["source_count"] == 0
         assert packages[1]["item_count"] == 0
 
@@ -879,6 +888,45 @@ class TestRepositoryCrud:
         page4 = repo.list_items(package_id=package_id, page=4, page_size=3)
         assert len(page4["items"]) == 0
         assert page4["total"] == 7
+
+    def test_get_item_ids_by_public_ids_uses_one_select(
+        self, db: KnowledgeDatabase, repo: KnowledgeRepository
+    ) -> None:
+        pkg = repo.create_package(name="batch lookup")
+        package_id = repo.get_package(pkg["public_id"])["id"]  # type: ignore[index]
+        source = repo.create_source(
+            package_id=package_id,
+            source_type="pasted_text",
+            display_name="source",
+        )
+        items = [
+            repo.insert_item(
+                package_id=package_id,
+                source_id=source["id"],
+                chunk_id=None,
+                kind="fact",
+                title=f"item {index}",
+                content=f"content {index}",
+            )
+            for index in range(2)
+        ]
+        statements: list[str] = []
+        db.conn.set_trace_callback(statements.append)
+        try:
+            item_ids = repo.get_item_ids_by_public_ids(
+                [items[0]["public_id"], "missing", items[1]["public_id"]]
+            )
+        finally:
+            db.conn.set_trace_callback(None)
+
+        assert set(item_ids) == {items[0]["id"], items[1]["id"]}
+        selects = [
+            statement
+            for statement in statements
+            if statement.lstrip().upper().startswith("SELECT")
+        ]
+        assert len(selects) == 1
+        assert "WHERE public_id IN" in selects[0]
 
     def test_list_items_filter_by_kind(self, repo: KnowledgeRepository) -> None:
         pkg = repo.create_package(name="包")

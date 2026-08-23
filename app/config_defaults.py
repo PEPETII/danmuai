@@ -46,9 +46,11 @@ SCROLLING_NORMAL_RECOGNITION_INTERVAL_SEC = 5
 FLOATING_PANEL_NORMAL_RECOGNITION_INTERVAL_SEC = 5
 FLOATING_PANEL_NORMAL_REPLY_COUNT = 10
 DEFAULT_FLOATING_PANEL_SPEED = "1"
-# 弹幕容量保护默认（0=用户显式无限制；键缺失时回落到下列值）
+# 弹幕容量保护默认。轨道 cap 的 0 保留为显式无限制；回复 FIFO 则始终有界，
+# 以免高频模型批次快于上屏消费时持续累积内存和陈旧内容。
 DEFAULT_DANMU_PENDING_ENTRY_CAP = 300
 DEFAULT_DANMU_TRACK_RETENTION_CAP = 600
+DEFAULT_REPLY_QUEUE_MAX_ITEMS = 100
 
 # TTS V2 credential storage constants.  The empty legacy ``tts_provider``
 # remains a valid runtime value; migrations use MiMo as its effective provider.
@@ -99,7 +101,7 @@ CONFIG_DEFAULTS: dict[str, str] = {
     "eviction_mode": "natural",
     "danmu_pending_entry_cap": str(DEFAULT_DANMU_PENDING_ENTRY_CAP),
     "danmu_track_retention_cap": str(DEFAULT_DANMU_TRACK_RETENTION_CAP),
-    "reply_queue_max_items": "0",
+    "reply_queue_max_items": str(DEFAULT_REPLY_QUEUE_MAX_ITEMS),
     "image_max_width": "1024",
     "image_quality": "85",
     "hotkey": "Ctrl+Shift+B",
@@ -353,11 +355,13 @@ def resolve_danmu_render_mode(config) -> str:
 
 
 def seed_config_defaults(config: "ConfigStore") -> None:
-    """Persist defaults for keys that are missing or blank."""
+    """Persist missing defaults and migrate the retired unlimited reply backlog."""
     items = {
         key: default
         for key, default in CONFIG_DEFAULTS.items()
         if not config.get(key, "")
     }
+    if config.get("reply_queue_max_items", "") == "0":
+        items["reply_queue_max_items"] = str(DEFAULT_REPLY_QUEUE_MAX_ITEMS)
     if items:
         config.set_batch(items)

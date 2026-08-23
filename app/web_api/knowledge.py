@@ -72,16 +72,27 @@ def list_packages(app: "DanmuApp") -> dict[str, Any]:
     return {"packages": packages, "total": len(packages)}
 
 
-def get_package(app: "DanmuApp", package_public_id: str) -> dict[str, Any]:
-    """GET /api/knowledge/packages/{id} — 详情（含 sources 与 items 概要）。"""
+def get_package(
+    app: "DanmuApp", package_public_id: str, *, summary: bool = False
+) -> dict[str, Any]:
+    """GET /api/knowledge/packages/{id} — 详情；摘要模式不传输正文或首屏条目。"""
     repo = _get_or_create_repository(app)
     if repo is None:
         return {"error": "not_initialized"}
     pkg = repo.get_package(package_public_id)
     if pkg is None:
         return {"error": "not_found"}
-    sources = repo.list_sources(pkg["id"])
-    items = repo.list_items(package_id=pkg["id"])
+    if summary:
+        sources = repo.list_source_summaries(pkg["id"])
+        items = {
+            "items": [],
+            "page": 1,
+            "page_size": 0,
+            "total": repo.count_items(pkg["id"]),
+        }
+    else:
+        sources = repo.list_sources(pkg["id"])
+        items = repo.list_items(package_id=pkg["id"])
     pkg["sources"] = sources
     pkg["items"] = items
     return pkg

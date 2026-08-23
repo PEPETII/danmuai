@@ -23,7 +23,7 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Callable
 
-from app.knowledge.ai_organizer import organize_chunk
+from app.knowledge.ai_organizer import KnowledgeOrganizerSession, organize_chunk
 from app.knowledge.chunker import chunk_source
 from app.knowledge.deduplicator import KnowledgeDeduplicator
 from app.knowledge.source_extractors import MAX_SOURCE_CHARS
@@ -373,6 +373,7 @@ class ImportOrchestrator:
             )
 
             # 9-11. 逐 chunk 处理（预载包内已有条目，跨导入去重）
+            organizer_session = KnowledgeOrganizerSession(config)
             deduplicator = KnowledgeDeduplicator(package_id=package_id, threshold=0.85)
             try:
                 existing_rows = self._repository.list_item_dedupe_keys(package_id)
@@ -595,6 +596,9 @@ class ImportOrchestrator:
                 )
         finally:
             # 16. 从 _cancel_flags 移除 job_public_id（在锁内）
+            organizer_session = locals().get("organizer_session")
+            if organizer_session is not None:
+                organizer_session.close()
             with self._lock:
                 self._cancel_flags.pop(job_public_id, None)
                 self._job_packages.pop(job_public_id, None)

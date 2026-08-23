@@ -280,6 +280,50 @@ def test_get_package_detail(client):
     assert "items" in body
 
 
+def test_get_package_summary_omits_large_source_and_item_bodies(client, repo):
+    """控制台摘要只需要计数，默认详情仍保留旧的完整响应。"""
+    pid = client.post("/api/knowledge/packages", json={"name": "summary"}).json()[
+        "package_id"
+    ]
+    package = repo.get_package(pid)
+    assert package is not None
+    source = repo.create_source(
+        package_id=package["id"],
+        source_type="pasted_text",
+        display_name="large source",
+        raw_text="raw-body-should-not-be-returned",
+        normalized_text="normalized-body-should-not-be-returned",
+        status="processed",
+    )
+    repo.insert_item(
+        package_id=package["id"],
+        source_id=source["id"],
+        chunk_id=None,
+        kind="fact",
+        title="detail item",
+        content="item-body-should-not-be-returned",
+    )
+
+    summary = client.get(f"/api/knowledge/packages/{pid}?summary=true")
+    assert summary.status_code == 200
+    summary_body = summary.json()
+    assert summary_body["items"] == {
+        "items": [],
+        "page": 1,
+        "page_size": 0,
+        "total": 1,
+    }
+    assert len(summary_body["sources"]) == 1
+    assert summary_body["sources"][0]["display_name"] == "large source"
+    assert "raw_text" not in summary_body["sources"][0]
+    assert "normalized_text" not in summary_body["sources"][0]
+    assert "content_hash" not in summary_body["sources"][0]
+
+    legacy = client.get(f"/api/knowledge/packages/{pid}").json()
+    assert legacy["sources"][0]["raw_text"] == "raw-body-should-not-be-returned"
+    assert legacy["items"]["items"][0]["title"] == "detail item"
+
+
 def test_get_package_not_found(client):
     resp = client.get("/api/knowledge/packages/nonexistent_id")
     assert resp.status_code == 200

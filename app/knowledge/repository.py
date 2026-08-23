@@ -105,16 +105,22 @@ def list_packages_for_db(
 def list_packages_with_counts_for_db(
     db: "KnowledgeDatabase", *, enabled_only: bool = False
 ) -> list[dict[str, Any]]:
-    """列出知识包及 source/item 计数（单次分组查询，保持既有排序）。"""
+    """列出知识包及 source/item 计数，避免 sources × items 的 JOIN 放大。"""
     where = "WHERE p.enabled=1" if enabled_only else ""
     with db.read_connection() as conn:
         rows = conn.execute(
-            "SELECT p.*, COUNT(DISTINCT s.id) AS source_count, "
-            "COUNT(DISTINCT i.id) AS item_count "
+            "SELECT p.*, COALESCE(s.source_count, 0) AS source_count, "
+            "COALESCE(i.item_count, 0) AS item_count "
             "FROM knowledge_packages p "
-            "LEFT JOIN knowledge_sources s ON s.package_id=p.id "
-            "LEFT JOIN knowledge_items i ON i.package_id=p.id "
-            f"{where} GROUP BY p.id ORDER BY p.priority DESC, p.id ASC"
+            "LEFT JOIN ("
+            "SELECT package_id, COUNT(*) AS source_count "
+            "FROM knowledge_sources GROUP BY package_id"
+            ") s ON s.package_id=p.id "
+            "LEFT JOIN ("
+            "SELECT package_id, COUNT(*) AS item_count "
+            "FROM knowledge_items GROUP BY package_id"
+            ") i ON i.package_id=p.id "
+            f"{where} ORDER BY p.priority DESC, p.id ASC"
         ).fetchall()
     return [_deserialize_package_row(row) for row in rows]
 
@@ -407,6 +413,20 @@ def list_sources_for_db(
     with db.read_connection() as conn:
         rows = conn.execute(
             "SELECT * FROM knowledge_sources WHERE package_id=? ORDER BY id ASC",
+            (package_id,),
+        ).fetchall()
+    return [_row_to_dict(r) for r in rows]  # type: ignore[list-item]
+
+
+def list_source_summaries_for_db(
+    db: "KnowledgeDatabase", package_id: int
+) -> list[dict[str, Any]]:
+    """列出来源元数据，不读取导入原文、规范化文本或内容哈希。"""
+    with db.read_connection() as conn:
+        rows = conn.execute(
+            "SELECT id, public_id, package_id, source_type, display_name, "
+            "source_url, status, error_message, created_at, updated_at "
+            "FROM knowledge_sources WHERE package_id=? ORDER BY id ASC",
             (package_id,),
         ).fetchall()
     return [_row_to_dict(r) for r in rows]  # type: ignore[list-item]
@@ -836,6 +856,35 @@ def get_item_by_id_for_db(
     return _deserialize_item_row(row) if row else None
 
 
+def get_item_ids_by_public_ids_for_db(
+    db: "KnowledgeDatabase", public_ids: list[str]
+) -> list[int]:
+    """批量解析 public_id 为内部 ID，避免回复消费路径逐项查询。"""
+    unique_ids = list(
+        dict.fromkeys(
+            public_id
+            for public_id in public_ids
+            if isinstance(public_id, str) and public_id
+        )
+    )
+    if not unique_ids:
+        return []
+
+    item_ids: list[int] = []
+    # SQLite 默认参数上限通常为 999；留出余量并支持异常大的模型返回数组。
+    batch_size = 500
+    with db.read_connection() as conn:
+        for offset in range(0, len(unique_ids), batch_size):
+            batch = unique_ids[offset : offset + batch_size]
+            placeholders = ",".join("?" * len(batch))
+            rows = conn.execute(
+                f"SELECT id FROM knowledge_items WHERE public_id IN ({placeholders})",
+                batch,
+            ).fetchall()
+            item_ids.extend(int(row[0]) for row in rows)
+    return item_ids
+
+
 def list_item_dedupe_keys_for_db(
     db: "KnowledgeDatabase", package_id: int
 ) -> list[dict[str, Any]]:
@@ -921,6 +970,16 @@ def list_items_for_db(
         "page_size": page_size,
         "total": total,
     }
+
+
+def count_items_for_db(db: "KnowledgeDatabase", package_id: int) -> int:
+    """返回一个知识包的条目总数，不读取条目正文。"""
+    with db.read_connection() as conn:
+        row = conn.execute(
+            "SELECT COUNT(*) FROM knowledge_items WHERE package_id=?",
+            (int(package_id),),
+        ).fetchone()
+    return int(row[0]) if row else 0
 
 
 def update_item_for_db(
@@ -1352,6 +1411,9 @@ class KnowledgeRepository:
     def list_sources(self, package_id: int) -> list[dict[str, Any]]:
         return list_sources_for_db(self.db, package_id)
 
+    def list_source_summaries(self, package_id: int) -> list[dict[str, Any]]:
+        return list_source_summaries_for_db(self.db, package_id)
+
     def update_source_status(self, public_id: str, **kwargs: Any) -> dict[str, Any] | None:
         return update_source_status_for_db(self.db, public_id, **kwargs)
 
@@ -1381,8 +1443,14 @@ class KnowledgeRepository:
     def get_item_by_id(self, item_id: int) -> dict[str, Any] | None:
         return get_item_by_id_for_db(self.db, item_id)
 
+    def get_item_ids_by_public_ids(self, public_ids: list[str]) -> list[int]:
+        return get_item_ids_by_public_ids_for_db(self.db, public_ids)
+
     def list_items(self, **kwargs: Any) -> dict[str, Any]:
         return list_items_for_db(self.db, **kwargs)
+
+    def count_items(self, package_id: int) -> int:
+        return count_items_for_db(self.db, package_id)
 
     def list_item_dedupe_keys(self, package_id: int) -> list[dict[str, Any]]:
         return list_item_dedupe_keys_for_db(self.db, package_id)
@@ -1424,6 +1492,7 @@ __all__ = [
     "create_source_for_db",
     "get_source_for_db",
     "list_sources_for_db",
+    "list_source_summaries_for_db",
     "update_source_status_for_db",
     "insert_chunks_for_db",
     "list_chunks_for_db",
@@ -1433,7 +1502,9 @@ __all__ = [
     "finish_import_if_active_for_db",
     "get_item_for_db",
     "get_item_by_id_for_db",
+    "get_item_ids_by_public_ids_for_db",
     "list_items_for_db",
+    "count_items_for_db",
     "list_item_dedupe_keys_for_db",
     "update_item_for_db",
     "delete_item_for_db",

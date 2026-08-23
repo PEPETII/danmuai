@@ -680,7 +680,7 @@
       "自然_按正常速度滚出屏幕_加速_换场景或清屏时让": "Natural: normal scroll off screen. Accelerated: old danmu clear faster on scene change.",
       "入口区_屏幕右侧待滚入_最多保留几条_pendi": "Max pending danmu in entry zone (right edge). Default 300; 0 = unlimited. Drops farthest off-screen items, not new ones.",
       "所有轨道上同时保留的弹幕总条数上限_新装默认_6": "Max total danmu on all tracks. Default 600; 0 = unlimited; drops off-screen pending first.",
-      "AI_回复在入队等待上屏时的最大条数_0_表示不": "Max queued AI replies before display. 0 = no trim; >0 drops oldest from front when exceeded.",
+      "AI_回复在入队等待上屏时的最大条数_默认_100": "Maximum AI replies queued before display. Default: 100. When exceeded, the oldest queued replies are dropped and newer replies are kept.",
       "某行轨道空了时_暂时加快滚动_让新弹幕更快占满空": "When a track is empty, briefly speed up scroll to fill the gap.",
       "横向弹幕_全屏透明_Overlay_横向滚动_从": "Horizontal: full-screen transparent overlay scroll. Bottom-to-top: narrow right panel scrolls up. Use borderless/windowed fullscreen for games; exclusive fullscreen may hide danmu.",
       "从下到上模式窗口宽度_200_800_px_默": "Bottom-to-top panel width (200–800 px), right side by default.",

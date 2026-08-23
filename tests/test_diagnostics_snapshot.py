@@ -225,10 +225,42 @@ def test_runtime_diagnostics_summarize_runtime_state_without_polluting_status_sn
         "latest_queued_screenshot_id": 102,
         "latest_displayed_screenshot_id": 103,
     }
+    assert snapshot["runtime_state"]["reply_queue"] == {
+        "current_size": 0,
+        "max_items": 8,
+        "high_watermark": 0,
+        "enqueued_total": 0,
+        "dequeued_total": 0,
+        "discarded_total": 0,
+        "capacity_dropped_total": 0,
+    }
     assert "config_context" not in status
     assert "scheduler" not in status
     assert "timing" not in status
     assert "diagnosis" not in status
+
+
+def test_diagnostic_snapshot_exposes_reply_queue_capacity_metrics():
+    from app.reply_queue import QueuedReply
+
+    app = make_diagnostic_app()
+    app.reply_buffer.set_max_items(2)
+    app.reply_buffer.extend(
+        [QueuedReply("p", 0, index, f"line-{index}") for index in range(3)]
+    )
+    app.reply_buffer.pop()
+
+    snapshot = app.build_diagnostic_snapshot()
+
+    assert snapshot["runtime_state"]["reply_queue"] == {
+        "current_size": 1,
+        "max_items": 2,
+        "high_watermark": 3,
+        "enqueued_total": 3,
+        "dequeued_total": 1,
+        "discarded_total": 1,
+        "capacity_dropped_total": 1,
+    }
 
 
 def test_diagnostics_api_returns_independent_read_only_payload(monkeypatch: pytest.MonkeyPatch):
@@ -307,6 +339,15 @@ def test_diagnostics_api_returns_independent_read_only_payload(monkeypatch: pyte
                     "latest_queued_screenshot_id": 0,
                     "latest_displayed_screenshot_id": 0,
                 },
+                "reply_queue": {
+                    "current_size": 0,
+                    "max_items": 8,
+                    "high_watermark": 0,
+                    "enqueued_total": 0,
+                    "dequeued_total": 0,
+                    "discarded_total": 0,
+                    "capacity_dropped_total": 0,
+                },
             },
             "diagnosis": {
                 "scheduler_blocked": True,
@@ -379,6 +420,7 @@ def test_diagnostic_report_is_read_only_and_contains_recommendations(monkeypatch
     assert "DanmuAI Diagnostic Report" in report
     assert "block_reason: min_api_interval" in report
     assert "avg_rtt: 4.0" in report
+    assert "[runtime_state.reply_queue]" in report
     assert "recommended_next_steps" in report
     assert "Inspect scheduler block reason" in report
     assert scheduler.last_api_trigger_at == before_last_trigger

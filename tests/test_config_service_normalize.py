@@ -47,6 +47,15 @@ def test_normalize_danmu_speed_invalid_defaults(config_service):
     assert items["danmu_speed"] == "2"
 
 
+def test_normalize_reply_queue_capacity_replaces_legacy_unlimited_value(config_service):
+    from app.config_defaults import DEFAULT_REPLY_QUEUE_MAX_ITEMS
+
+    items = {"reply_queue_max_items": "0"}
+    config_service._normalize_items(items)
+
+    assert items["reply_queue_max_items"] == str(DEFAULT_REPLY_QUEUE_MAX_ITEMS)
+
+
 def test_normalize_floating_panel_speed_invalid_uses_default(config_service):
     items = {"floating_panel_speed": "bad"}
     config_service._normalize_items(items)

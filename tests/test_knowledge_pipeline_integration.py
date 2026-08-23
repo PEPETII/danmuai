@@ -303,6 +303,31 @@ def test_on_reply_consumed_increments_use_count(seeded_runtime, knowledge_runtim
     assert row_after[1] is not None and isinstance(row_after[1], str) and row_after[1] != ""
 
 
+def test_on_reply_consumed_resolves_public_ids_in_one_batch(
+    seeded_runtime, knowledge_runtime, monkeypatch
+):
+    """多个模型声明 ID 应通过一个仓储批量查询解析，而非逐条读取。"""
+    public_ids, internal_ids = seeded_runtime
+    repo = knowledge_runtime.repository
+    resolver = MagicMock(wraps=repo.get_item_ids_by_public_ids)
+    monkeypatch.setattr(repo, "get_item_ids_by_public_ids", resolver)
+    monkeypatch.setattr(
+        repo,
+        "get_item",
+        MagicMock(side_effect=AssertionError("per-item lookup must not run")),
+    )
+
+    knowledge_runtime.on_reply_consumed(
+        [public_ids[0], "missing", public_ids[1], public_ids[0], "", None]
+    )
+
+    resolver.assert_called_once_with(
+        [public_ids[0], "missing", public_ids[1], public_ids[0], "", None]
+    )
+    assert _use_count(knowledge_runtime._db, internal_ids[0]) == 1
+    assert _use_count(knowledge_runtime._db, internal_ids[1]) == 1
+
+
 def test_on_reply_consumed_ignores_invalid_public_ids(
     seeded_runtime, knowledge_runtime
 ):

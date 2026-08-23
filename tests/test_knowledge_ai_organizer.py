@@ -33,6 +33,7 @@ from unittest.mock import patch
 import httpx
 import pytest
 from app.knowledge.ai_organizer import (
+    KnowledgeOrganizerSession,
     _build_doubao_input,
     _build_system_prompt,
     _build_user_content,
@@ -516,3 +517,22 @@ def test_worker_close_is_idempotent():
     worker._get_http_client()
     worker.close()
     worker.close()  # 不抛异常
+
+
+@patch("app.knowledge.ai_organizer.stream_openai")
+@patch("app.knowledge.ai_organizer.resolve_request_credentials")
+def test_organizer_session_reuses_one_http_client_across_chunks(mock_cred, mock_stream):
+    mock_cred.return_value = _CRED_OPENAI
+    mock_stream.return_value = (_ok_payload([]), 0, 0)
+
+    with patch("app.knowledge.ai_organizer.httpx.Client") as client_factory:
+        client = client_factory.return_value
+        session = KnowledgeOrganizerSession(_make_config())
+        try:
+            organize_chunk(_make_config(), "chunk-1", "game", "pkg", "src", "chunk-1")
+            organize_chunk(_make_config(), "chunk-2", "game", "pkg", "src", "chunk-2")
+        finally:
+            session.close()
+
+    assert client_factory.call_count == 1
+    client.close.assert_called_once_with()

@@ -526,20 +526,7 @@ class KnowledgeRuntimeService:
         if retriever is None or repo is None:
             return
         try:
-            internal_ids: list[int] = []
-            for public_id in knowledge_used_item_ids:
-                if not isinstance(public_id, str) or not public_id:
-                    continue
-                item = repo.get_item(public_id)
-                if item is None:
-                    continue
-                item_id = item.get("id")
-                if item_id is None:
-                    continue
-                try:
-                    internal_ids.append(int(item_id))
-                except (TypeError, ValueError):
-                    continue
+            internal_ids = repo.get_item_ids_by_public_ids(knowledge_used_item_ids)
             if not internal_ids:
                 return
             retriever.mark_items_used(internal_ids)

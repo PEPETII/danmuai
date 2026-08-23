@@ -16,6 +16,7 @@ export function buildDiagnosticReportText(diag) {
   const webRuntime = runtimeState.web_runtime || {};
   const stats = runtimeState.stats || {};
   const generation = runtimeState.generation_pipeline || {};
+  const replyQueue = runtimeState.reply_queue || {};
   const suggestions = [];
   if (diagnosis.scheduler_blocked) {
     const reason = scheduler.block_reason || 'unknown';
@@ -55,6 +56,15 @@ export function buildDiagnosticReportText(diag) {
     `runtime_sec: ${stats.runtime_sec ?? 0}`,
     `cached_layout_mode: ${webRuntime.cached_layout_mode || 'fullscreen'}`,
     `latest_displayed_round: ${generation.latest_displayed_round ?? 0}`,
+    '',
+    '[reply_queue]',
+    `current_size: ${replyQueue.current_size ?? 0}`,
+    `max_items: ${replyQueue.max_items ?? 0}`,
+    `high_watermark: ${replyQueue.high_watermark ?? 0}`,
+    `enqueued_total: ${replyQueue.enqueued_total ?? 0}`,
+    `dequeued_total: ${replyQueue.dequeued_total ?? 0}`,
+    `discarded_total: ${replyQueue.discarded_total ?? 0}`,
+    `capacity_dropped_total: ${replyQueue.capacity_dropped_total ?? 0}`,
     '',
     '[undisplayed]',
     `recent_count: ${undisplayed.recent_count ?? 0}`,

@@ -546,7 +546,7 @@ export async function refreshJobs() {
       try {
         if (currentPackageId === packageId) {
           const pkg = await apiFetch(
-            `/api/knowledge/packages/${encodeURIComponent(packageId)}`,
+            `/api/knowledge/packages/${encodeURIComponent(packageId)}?summary=true`,
           );
           if (currentPackageId === packageId && pkg) {
             const snapshot = {

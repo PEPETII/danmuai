@@ -33,6 +33,7 @@ class DiagnosticSnapshotBuilder:
         stats_state = getattr(self._app, "stats_state", None)
         web_runtime_state = getattr(self._app, "web_runtime_state", None)
         generation_pipeline = GenerationPipelineState.from_app(self._app)
+        reply_queue = self._reply_queue_summary()
 
         last_trigger_at = float(scheduler.last_api_trigger_at)
         now = time.monotonic()
@@ -79,6 +80,7 @@ class DiagnosticSnapshotBuilder:
                 "web_runtime": self._web_runtime_summary(web_runtime_state),
                 "stats": self._stats_summary(stats_state, runtime_sec=stats_runtime_sec),
                 "generation_pipeline": asdict(generation_pipeline),
+                "reply_queue": reply_queue,
             },
             "diagnosis": {
                 "scheduler_blocked": bool(block_reason),
@@ -158,6 +160,28 @@ class DiagnosticSnapshotBuilder:
             "total_output_tokens": int(getattr(stats_state, "total_output_tokens", 0) or 0),
             "runtime_sec": float(runtime_sec),
         }
+
+    def _reply_queue_summary(self) -> dict[str, int]:
+        """读取队列锁保护的指标快照，不暴露回复正文。"""
+        defaults = {
+            "current_size": 0,
+            "max_items": 0,
+            "high_watermark": 0,
+            "enqueued_total": 0,
+            "dequeued_total": 0,
+            "discarded_total": 0,
+            "capacity_dropped_total": 0,
+        }
+        reply_buffer = getattr(self._app, "reply_buffer", None)
+        snapshot = getattr(reply_buffer, "metrics_snapshot", None)
+        if not callable(snapshot):
+            return defaults
+        metrics = snapshot()
+        to_dict = getattr(metrics, "to_dict", None)
+        if not callable(to_dict):
+            return defaults
+        values = to_dict()
+        return {key: int(values.get(key, 0) or 0) for key in defaults}
 
     def _knowledge_summary(self) -> dict[str, Any]:
         """只读投影 knowledge_runtime 状态；任何异常返回降级字段。
@@ -252,6 +276,7 @@ def build_diagnostic_report(snapshot: dict[str, object]) -> str:
     generation = (
         runtime_state.get("generation_pipeline", {}) if isinstance(runtime_state, dict) else {}
     )
+    reply_queue = runtime_state.get("reply_queue", {}) if isinstance(runtime_state, dict) else {}
 
     recommendations: list[str] = []
     if diagnosis.get("scheduler_blocked"):
@@ -306,6 +331,15 @@ def build_diagnostic_report(snapshot: dict[str, object]) -> str:
         f"latest_requested_screenshot_id: {generation.get('latest_requested_screenshot_id', 0)}",
         f"latest_queued_screenshot_id: {generation.get('latest_queued_screenshot_id', 0)}",
         f"latest_displayed_screenshot_id: {generation.get('latest_displayed_screenshot_id', 0)}",
+        "",
+        "[runtime_state.reply_queue]",
+        f"current_size: {reply_queue.get('current_size', 0)}",
+        f"max_items: {reply_queue.get('max_items', 0)}",
+        f"high_watermark: {reply_queue.get('high_watermark', 0)}",
+        f"enqueued_total: {reply_queue.get('enqueued_total', 0)}",
+        f"dequeued_total: {reply_queue.get('dequeued_total', 0)}",
+        f"discarded_total: {reply_queue.get('discarded_total', 0)}",
+        f"capacity_dropped_total: {reply_queue.get('capacity_dropped_total', 0)}",
         "",
         "[diagnosis]",
         f"scheduler_blocked: {diagnosis.get('scheduler_blocked', False)}",

@@ -8,6 +8,7 @@ from app.config_defaults import (
     DEFAULT_FLOATING_PANEL_SPEED,
     DEFAULT_IMAGE_MAX_WIDTH,
     DEFAULT_LANGUAGE,
+    DEFAULT_REPLY_QUEUE_MAX_ITEMS,
     FLOATING_PANEL_NORMAL_REPLY_COUNT,
     LEGACY_IMAGE_MAX_WIDTH,
     default_normal_reply_count_for_mode,
@@ -25,6 +26,16 @@ def test_seed_includes_language_field_when_added(tmp_path):
     seed_config_defaults(store)
 
     assert store.get("language") == DEFAULT_LANGUAGE
+    store.close()
+
+
+def test_seed_migrates_legacy_unlimited_reply_queue_capacity(tmp_path):
+    store = ConfigStore(db_path=tmp_path / "config.db")
+    store.set("reply_queue_max_items", "0")
+
+    seed_config_defaults(store)
+
+    assert store.get("reply_queue_max_items") == str(DEFAULT_REPLY_QUEUE_MAX_ITEMS)
     store.close()
 
 

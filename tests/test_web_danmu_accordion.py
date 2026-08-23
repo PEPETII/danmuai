@@ -56,6 +56,9 @@ def test_danmu_accordion_preserves_field_ids_and_aria():
         assert section.count(f'id="{field_id}"') == 1
 
     # 默认全部折叠：用户未点击前不自动展开首项
+    assert re.search(r'id="reply_queue_max_items"[^>]*\bmin="1"', section)
+    assert 'data-i18n-placeholder="settings.placeholder.默认_100"' in section
+
     assert 'aria-expanded="true"' not in section
     assert "settings-rhythm-accordion-item is-open" not in section
     assert re.search(r'id="settingsDanmuBatchAccordionPanel"[^>]*\bhidden\b', section)

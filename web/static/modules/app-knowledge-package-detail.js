@@ -117,7 +117,7 @@ export async function openPackageDetail(packageId) {
   showDetailView();
   try {
     const data = await apiFetch(
-      `/api/knowledge/packages/${encodeURIComponent(packageId)}`,
+      `/api/knowledge/packages/${encodeURIComponent(packageId)}?summary=true`,
       { signal },
     );
     if (!isCurrentDetailLoad(requestId, packageId)) return;

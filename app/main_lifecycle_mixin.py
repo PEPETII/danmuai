@@ -808,6 +808,7 @@ class DanmuAppLifecycleMixin:
         self._mic_batch_id = 0
         self._pending_request_meta.clear()
         self.reply_buffer.set_max_items(self._queue_capacity())
+        self.reply_buffer.reset_metrics()
         self.screenshot_timer.stop()
         self.screenshot_timer.setInterval(self._normal_recognition_interval_ms())
         self.screenshot_timer.start()

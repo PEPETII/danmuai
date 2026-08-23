@@ -13,6 +13,7 @@ DanmuApp 通过 from app.main_helpers import ... 使用这些常量和函数。
 
 from __future__ import annotations
 
+from app.config_defaults import DEFAULT_REPLY_QUEUE_MAX_ITEMS
 from app.danmu_engine import DanmuItem
 
 VISUAL_INFLIGHT_WARN_SEC = 45.0
@@ -90,10 +91,12 @@ def config_flag_enabled(config, key: str, *, default: str = "0") -> bool:
 
 
 def queue_capacity(config, normal_reply_count: int) -> int:
-    """回复队列容量；reply_queue_max_items=0 表示无裁剪，否则 clamp 到 1..9999。"""
-    configured = config.get_int("reply_queue_max_items", 0)
+    """回复队列容量：始终有界，旧的 0 值安全回退到默认容量。"""
+    configured = config.get_int(
+        "reply_queue_max_items", DEFAULT_REPLY_QUEUE_MAX_ITEMS
+    )
     if configured <= 0:
-        return 0
+        return DEFAULT_REPLY_QUEUE_MAX_ITEMS
     return max(1, min(configured, 9999))
 
 

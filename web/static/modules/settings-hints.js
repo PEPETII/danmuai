@@ -69,7 +69,7 @@ const SETTINGS_FIELD_TIPS = {
   danmu_track_retention_cap:
     'dynamic.settingsHints.所有轨道上同时保留的弹幕总条数上限_新装默认_6',
   reply_queue_max_items:
-    'dynamic.settingsHints.AI_回复在入队等待上屏时的最大条数_0_表示不',
+    'dynamic.settingsHints.AI_回复在入队等待上屏时的最大条数_默认_100',
   empty_accel:
     'dynamic.settingsHints.某行轨道空了时_暂时加快滚动_让新弹幕更快占满空',
   danmu_render_mode:

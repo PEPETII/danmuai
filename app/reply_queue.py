@@ -47,6 +47,30 @@ class QueuedReply:
     replaceable: bool = False  # True 且 source=fallback 时，可被同 request_id/batch_id 的 AI 批次替换
 
 
+@dataclass(frozen=True)
+class ReplyQueueMetrics:
+    """供 diagnostics 读取的会话级 FIFO 计数器，不含回复正文。"""
+
+    current_size: int
+    max_items: int
+    high_watermark: int
+    enqueued_total: int
+    dequeued_total: int
+    discarded_total: int
+    capacity_dropped_total: int
+
+    def to_dict(self) -> dict[str, int]:
+        return {
+            "current_size": self.current_size,
+            "max_items": self.max_items,
+            "high_watermark": self.high_watermark,
+            "enqueued_total": self.enqueued_total,
+            "dequeued_total": self.dequeued_total,
+            "discarded_total": self.discarded_total,
+            "capacity_dropped_total": self.capacity_dropped_total,
+        }
+
+
 class AIReplyFIFOBuffer:
     """有序 FIFO 缓冲：先入先出消费。max_items=0 表示无容量裁剪（默认由配置 reply_queue_max_items 控制）。"""
 
@@ -54,6 +78,21 @@ class AIReplyFIFOBuffer:
         self._items = deque()
         self._max_items = max(0, max_items)
         self._lock = threading.Lock()
+        self._high_watermark = 0
+        self._enqueued_total = 0
+        self._dequeued_total = 0
+        self._discarded_total = 0
+        self._capacity_dropped_total = 0
+
+    def _record_size_unlocked(self) -> None:
+        self._high_watermark = max(self._high_watermark, len(self._items))
+
+    def _record_discard_unlocked(self, count: int, *, capacity: bool = False) -> None:
+        if count <= 0:
+            return
+        self._discarded_total += count
+        if capacity:
+            self._capacity_dropped_total += count
 
     def _drop_one_tail_replaceable_fallback(self) -> bool:
         # Single-element delete: deque supports indexed del (Py 3.5+), avoiding
@@ -93,6 +132,7 @@ class AIReplyFIFOBuffer:
                 self._items.pop()
             dropped += 1
         if dropped:
+            self._record_discard_unlocked(dropped, capacity=True)
             from app.main_request_context_mixin import reply_pipeline_log_enabled
 
             extra = ""
@@ -116,6 +156,8 @@ class AIReplyFIFOBuffer:
         """追加一条到队尾。"""
         with self._lock:
             self._items.append(item)
+            self._enqueued_total += 1
+            self._record_size_unlocked()
             self._trim_overflow(drop_from_left=True)
 
     def pop(self) -> QueuedReply | None:
@@ -123,6 +165,7 @@ class AIReplyFIFOBuffer:
         with self._lock:
             if not self._items:
                 return None
+            self._dequeued_total += 1
             return self._items.popleft()
 
     def peek(self) -> QueuedReply | None:
@@ -133,6 +176,7 @@ class AIReplyFIFOBuffer:
 
     def clear(self):
         with self._lock:
+            self._record_discard_unlocked(len(self._items))
             self._items.clear()
 
     def is_empty(self) -> bool:
@@ -142,6 +186,28 @@ class AIReplyFIFOBuffer:
     def size(self) -> int:
         with self._lock:
             return len(self._items)
+
+    def metrics_snapshot(self) -> ReplyQueueMetrics:
+        """返回不含排队回复正文的线程安全指标快照。"""
+        with self._lock:
+            return ReplyQueueMetrics(
+                current_size=len(self._items),
+                max_items=self._max_items,
+                high_watermark=self._high_watermark,
+                enqueued_total=self._enqueued_total,
+                dequeued_total=self._dequeued_total,
+                discarded_total=self._discarded_total,
+                capacity_dropped_total=self._capacity_dropped_total,
+            )
+
+    def reset_metrics(self) -> None:
+        """开始新的 start 会话统计窗口，不修改当前队列内容。"""
+        with self._lock:
+            self._high_watermark = len(self._items)
+            self._enqueued_total = 0
+            self._dequeued_total = 0
+            self._discarded_total = 0
+            self._capacity_dropped_total = 0
 
     def set_max_items(self, max_items: int):
         with self._lock:
@@ -153,6 +219,8 @@ class AIReplyFIFOBuffer:
         with self._lock:
             for item in items:
                 self._items.append(item)
+            self._enqueued_total += len(items)
+            self._record_size_unlocked()
             self._trim_overflow(drop_from_left=True)
 
     def prepend_batch(
@@ -172,6 +240,7 @@ class AIReplyFIFOBuffer:
         preserve_scene_generation: 非 None 时只保留该代际（历史兼容，运行期常为 0）。
         """
         with self._lock:
+            size_before = len(self._items)
             preserved: list[QueuedReply] = []
             if preserve_existing is None or preserve_existing > 0:
                 for item in self._items:
@@ -184,6 +253,9 @@ class AIReplyFIFOBuffer:
                         break
 
             self._items = deque([*items, *preserved])
+            self._record_discard_unlocked(size_before - len(preserved))
+            self._enqueued_total += len(items)
+            self._record_size_unlocked()
             # S-017: prepend overflow drops replaceable fallback tail before AI batches.
             return self._trim_overflow(
                 drop_from_left=False,
@@ -215,14 +287,18 @@ class AIReplyFIFOBuffer:
                     )
                 )
             )
-            return before - len(self._items)
+            dropped = before - len(self._items)
+            self._record_discard_unlocked(dropped)
+            return dropped
 
     def purge_before_round(self, min_round: int):
         """丢弃 screenshot_round 早于 min_round 的条目（调度轮次回退或重置时用）。"""
         with self._lock:
+            before = len(self._items)
             self._items = deque(
                 item for item in self._items if item.screenshot_round >= min_round
             )
+            self._record_discard_unlocked(before - len(self._items))
 
     def purge_stale_by_generation(
         self,
@@ -246,7 +322,9 @@ class AIReplyFIFOBuffer:
                 return item.source not in sources
 
             self._items = deque(item for item in self._items if _keep(item))
-            return before - len(self._items)
+            dropped = before - len(self._items)
+            self._record_discard_unlocked(dropped)
+            return dropped
 
     def drop_older_generations(self, min_generation: int) -> int:
         """丢弃 scene_generation < min_generation 的条目（全部来源，含 mic）。"""
