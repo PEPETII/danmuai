@@ -3,7 +3,7 @@
 坐标系统：region_w/h > 0 时按**屏内相对坐标**裁剪（不是绝对屏幕坐标）。
 与 POST/GET /api/capture-region/* 配合：Web 端框选区域后写入 config，本模块读取并裁剪。
 
-W-PERF-HIGH-001：主线程 ``build_capture_plan`` 解析屏几何；worker 线程 ``execute_capture`` 执行 grab。
+Qt GUI 合约：计划解析和像素抓取均在主线程执行。
 """
 from __future__ import annotations
 
@@ -180,7 +180,7 @@ def _grab_window_by_hwnd(hwnd: int) -> tuple[QPixmap | None, str]:
 
 
 def execute_capture(plan: CapturePlan) -> QPixmap | None:
-    """Execute pixel grab on a capture worker thread."""
+    """Execute a GUI-thread pixel grab for a previously resolved plan."""
     if plan.mode == "window" and plan.hwnd > 0:
         pixmap, reason = _grab_window_by_hwnd(plan.hwnd)
         if pixmap is not None and not pixmap.isNull():

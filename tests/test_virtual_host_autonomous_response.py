@@ -8,7 +8,7 @@ import time
 import pytest
 from app.virtual_host.audio import TtsSynthesisOutcome, TtsSynthesizer
 from app.virtual_host.chat import HostChatHttpResult
-from app.virtual_host.contracts import DanmuBatchCreated, HostTurnResult, SceneContext
+from app.virtual_host.contracts import DanmuDisplayed, HostTurnResult, SceneContext
 from app.virtual_host.model_config import (
     VISION_MODEL_KEY,
     apply_virtual_host_model_config,
@@ -36,6 +36,14 @@ def _vision_config(vision_model: str = "qwen3-vl-flash") -> _FakeConfig:
     config = _FakeConfig({VISION_MODEL_KEY: vision_model}, custom_models=[_vision_profile(vision_model)])
     apply_virtual_host_model_config(config, {"vision_model_id": vision_model})
     return config
+
+
+def _displayed(**kwargs) -> DanmuDisplayed:
+    return DanmuDisplayed.from_lines(
+        event_id=f"test:{kwargs['batch_id']}",
+        display_surface="overlay",
+        **kwargs,
+    )
 
 
 def _tts_vision_config(monkeypatch, vision_model: str = "qwen3-vl-flash") -> tuple[_FakeConfig, list[str]]:
@@ -69,7 +77,7 @@ def _tts_vision_config(monkeypatch, vision_model: str = "qwen3-vl-flash") -> tup
 
 def _service(monkeypatch, config: _FakeConfig, *, rng=lambda: 0.0) -> VirtualHostRuntimeService:
     pool = QThreadPool()
-    monkeypatch.setattr("app.virtual_host.runtime_service.ai_worker_pool", lambda: pool)
+    monkeypatch.setattr("app.virtual_host.runtime_service.submit_virtual_host_job", lambda runnable: pool.start(runnable) or True)
     service = VirtualHostRuntimeService(_fake_app(config))
     service._response_scheduler = type(service._response_scheduler)(
         rng=rng,
@@ -107,13 +115,13 @@ def test_autonomous_batch_probability_miss_makes_zero_http(monkeypatch):
     service.session.update_scene_context(
         SceneContext(scene_generation=0, summary="画面", updated_at=time.time())
     )
-    batch = DanmuBatchCreated.from_lines(
+    batch = _displayed(
         batch_id="b1",
         lines=["单条"],
         created_at=time.time(),
         scene_generation=0,
     )
-    service.on_danmu_batch_created(batch)
+    service.on_danmu_displayed(batch)
     assert service.chat_request_count == 0
 
 
@@ -233,13 +241,13 @@ def test_on_danmu_batch_triggers_chat_when_scheduler_passes(monkeypatch, qapp):
 
     monkeypatch.setattr("app.virtual_host.runtime_service.request_host_chat", _fake_chat)
 
-    batch = DanmuBatchCreated.from_lines(
+    batch = _displayed(
         batch_id="trigger-batch",
         lines=["弹幕一", "弹幕二", "弹幕三"],
         created_at=time.time(),
         scene_generation=0,
     )
-    service.on_danmu_batch_created(batch)
+    service.on_danmu_displayed(batch)
 
     deadline = time.monotonic() + 2.0
     while (service.chat_in_flight or not service.session.history) and time.monotonic() < deadline:
@@ -257,13 +265,13 @@ def test_model_none_makes_zero_chat_http(monkeypatch):
         "app.virtual_host.runtime_service.request_host_chat",
         lambda *_args, **_kwargs: pytest.fail("chat HTTP must not run"),
     )
-    batch = DanmuBatchCreated.from_lines(
+    batch = _displayed(
         batch_id="no-model",
         lines=["弹幕"],
         created_at=time.time(),
         scene_generation=0,
     )
-    service.on_danmu_batch_created(batch)
+    service.on_danmu_displayed(batch)
     assert service.chat_request_count == 0
 
 
@@ -442,22 +450,22 @@ def test_tts_failure_does_not_block_subsequent_chat(monkeypatch, qapp):
 
     monkeypatch.setattr(service, "_build_worker_tts_synthesizer", _fail_build)
 
-    batch1 = DanmuBatchCreated.from_lines(
+    batch1 = _displayed(
         batch_id="batch-a",
         lines=["弹幕一"],
         created_at=time.time(),
         scene_generation=0,
     )
-    service.on_danmu_batch_created(batch1)
+    service.on_danmu_displayed(batch1)
     _wait_pool(service, qapp)
     assert chat_calls == 1
 
-    batch2 = DanmuBatchCreated.from_lines(
+    batch2 = _displayed(
         batch_id="batch-b",
         lines=["弹幕二"],
         created_at=time.time(),
         scene_generation=0,
     )
-    service.on_danmu_batch_created(batch2)
+    service.on_danmu_displayed(batch2)
     _wait_pool(service, qapp)
     assert chat_calls == 2

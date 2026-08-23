@@ -13,7 +13,7 @@ from app.custom_formula_txt_pool import (
     refresh_txt_pool,
     sample_txt_pool_texts,
 )
-from app.danmu_pool import CUSTOM_DANMU_POOL_MAX, custom_pool_size, sample_danmu_for_config
+from app.danmu_pool import CUSTOM_DANMU_POOL_MAX, sample_danmu_for_config
 from app.web_api import danmu_pool as pool_api
 
 

@@ -42,6 +42,7 @@ class LiveOverlayHub:
     last_broadcast_at: float | None = field(default=None, repr=False)
     last_batch_size: int = field(default=0, repr=False)
     last_source: str = field(default="", repr=False)
+    _next_event_id: int = field(default=1, repr=False)
 
     def set_loop(self, loop: asyncio.AbstractEventLoop) -> None:
         self._loop = loop
@@ -59,6 +60,26 @@ class LiveOverlayHub:
 
     def recent_items(self) -> list[dict[str, Any]]:
         return list(self._recent)
+
+    def replay_after(self, cursor: int) -> tuple[str, list[dict[str, Any]]]:
+        """Return incremental cached items, or a diagnostic cursor control event."""
+        items = self.recent_items()
+        latest = self._next_event_id - 1
+        if cursor > latest:
+            return "reset", [{"event": "reset", "cursor": cursor, "latest_id": latest}]
+        if not items:
+            return "items", []
+        earliest = int(items[0]["id"])
+        if cursor < earliest - 1:
+            return "overflow", [
+                {
+                    "event": "overflow",
+                    "cursor": cursor,
+                    "earliest_id": earliest,
+                    "latest_id": latest,
+                }
+            ]
+        return "items", [item for item in items if int(item["id"]) > cursor]
 
     def _remember(self, payload: dict[str, Any]) -> None:
         if payload.get("event") == "danmu_item":
@@ -98,7 +119,10 @@ class LiveOverlayHub:
         source: str,
     ) -> dict[str, Any]:
         resolved_source = source or "ai"
+        event_id = self._next_event_id
+        self._next_event_id += 1
         return {
+            "id": event_id,
             "event": "danmu_item",
             "text": text,
             "y": y,

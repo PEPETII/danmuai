@@ -42,7 +42,7 @@ def test_normal_tick_skips_while_in_flight():
     assert schedule_count == 0
 
 
-def test_normal_tick_schedules_capture_without_main_thread_grab(monkeypatch):
+def test_normal_tick_captures_on_main_thread_then_queues_safe_payload(monkeypatch):
     app = make_minimal_danmu_app()
     app.config = FakeConfig({"danmu_display_mode": "normal"})
     app.engine.running = True
@@ -65,10 +65,13 @@ def test_normal_tick_schedules_capture_without_main_thread_grab(monkeypatch):
         "app.worker_pools.capture_worker_pool",
         lambda: _FakePool(),
     )
+    image_payload = object()
+    monkeypatch.setattr("main.pixmap_to_image_snapshot", lambda _pixmap: image_payload)
 
     app._on_normal_capture_tick()
-    assert grab_count == 0
+    assert grab_count == 1
     assert len(started) == 1
+    assert started[0]._image is image_payload
     assert started[0]._session_epoch == app._capture_session_epoch
 
 

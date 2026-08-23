@@ -374,6 +374,7 @@ def make_minimal_danmu_app():
     app._latest_displayed_screenshot_id = 0
     app.screenshot_timer = FakeTimer()
     app._topmost_health_timer = FakeTimer()
+    app._panel_position_timer = FakeTimer()
     app.capturer = FakeCapturer(None)
     app._capture_in_flight = False
     app._capture_coordinator = Mock()
@@ -389,6 +390,8 @@ def make_minimal_danmu_app():
     app._inflight_started_at = 0.0
     app._publish_live_status = lambda: None
     app.web_bridge = None
+    # Avoid QObject dynamic getattr on an instance built without __init__.
+    object.__setattr__(app, "virtual_host_runtime", None)
     app.lifetime_stats = FakeLifetimeStats()
     app.session_run_log = Mock()
     app._lifetime_flush_timer = FakeTimer()

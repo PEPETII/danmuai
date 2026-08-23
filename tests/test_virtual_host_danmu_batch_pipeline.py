@@ -6,8 +6,12 @@ import time
 from unittest.mock import Mock
 
 from app.application.generation_pipeline import GenerationPipeline
-from app.main_request_context_mixin import format_reply_request_id
-from app.virtual_host.contracts import DanmuBatchCreated, SceneContext
+from app.virtual_host.contracts import (
+    DanmuDisplayed,
+    DanmuGenerated,
+    DanmuQueued,
+    SceneContext,
+)
 from app.virtual_host.runtime_service import VirtualHostRuntimeService
 
 from tests.conftest import make_minimal_danmu_app
@@ -29,11 +33,13 @@ def _batch(
     scene_generation: int,
     lines: tuple[str, ...] = ("弹幕一", "弹幕二"),
     ttl_seconds: float = 120.0,
-) -> DanmuBatchCreated:
+) -> DanmuDisplayed:
     current = time.time() if created_at is None else created_at
-    return DanmuBatchCreated.from_lines(
+    return DanmuDisplayed.from_lines(
         batch_id=batch_id,
         lines=list(lines),
+        event_id=f"event:{batch_id}",
+        display_surface="overlay",
         created_at=current,
         source="ai",
         screenshot_id=10,
@@ -68,16 +74,48 @@ def test_runtime_accepts_batch_when_running():
         SceneContext(scene_generation=0, summary="画面", updated_at=time.time())
     )
     batch = _batch("10:10:0", scene_generation=0)
-    decision = service.on_danmu_batch_created(batch)
+    decision = service.on_danmu_displayed(batch)
     assert decision.accepted is True
     assert decision.reason == "accepted"
     assert service.session.recent_batches()[0].lines == batch.lines
 
 
+def test_runtime_only_accepts_displayed_events_for_each_surface():
+    service = _make_runtime_service()
+    service.start()
+    generated = DanmuGenerated.from_lines(
+        batch_id="generated",
+        lines=["模型已生成但尚未显示"],
+        scene_generation=0,
+    )
+    queued = DanmuQueued.from_lines(
+        batch_id="queued",
+        lines=["已入队但尚未显示"],
+        scene_generation=0,
+    )
+    assert service.on_danmu_displayed(generated).accepted is False
+    assert service.on_danmu_displayed(queued).accepted is False
+
+    for surface in ("overlay", "floating_panel", "pet"):
+        event = DanmuDisplayed.from_lines(
+            batch_id=f"batch-{surface}",
+            event_id=f"displayed-{surface}",
+            display_surface=surface,
+            lines=[f"{surface} 已实际接受"],
+            scene_generation=0,
+        )
+        assert service.on_danmu_displayed(event).accepted is True
+    assert [row.display_surface for row in service.session.recent_batches()] == [
+        "overlay",
+        "floating_panel",
+        "pet",
+    ]
+
+
 def test_runtime_rejects_batch_when_stopped():
     service = _make_runtime_service()
     batch = _batch("10:10:0", scene_generation=0)
-    decision = service.on_danmu_batch_created(batch)
+    decision = service.on_danmu_displayed(batch)
     assert decision.accepted is False
     assert decision.reason == "invalid"
     assert service.session.recent_batches() == ()
@@ -87,8 +125,8 @@ def test_runtime_rejects_duplicate_batch_id():
     service = _make_runtime_service()
     service.start()
     batch = _batch("dup-id", scene_generation=0)
-    assert service.on_danmu_batch_created(batch).accepted is True
-    duplicate = service.on_danmu_batch_created(batch)
+    assert service.on_danmu_displayed(batch).accepted is True
+    duplicate = service.on_danmu_displayed(batch)
     assert duplicate.accepted is False
     assert duplicate.reason == "duplicate"
 
@@ -100,16 +138,32 @@ def test_runtime_rejects_scene_generation_mismatch():
         SceneContext(scene_generation=2, summary="画面", updated_at=time.time())
     )
     stale = _batch("stale-gen", scene_generation=1)
-    decision = service.on_danmu_batch_created(stale)
+    decision = service.on_danmu_displayed(stale)
     assert decision.accepted is False
     assert decision.reason == "scene_generation"
+
+
+def test_runtime_generation_notification_clears_old_context_before_accepting_new_batch():
+    service = _make_runtime_service()
+    service.start()
+    service.session.update_scene_context(
+        SceneContext(scene_generation=0, summary="old", updated_at=time.time())
+    )
+    assert service.on_danmu_displayed(_batch("old", scene_generation=0)).accepted
+
+    service._app.scene_generation = 1
+    service.on_scene_generation_changed(1)
+    decision = service.on_danmu_displayed(_batch("new", scene_generation=1))
+
+    assert decision.accepted is True
+    assert tuple(batch.batch_id for batch in service.session.recent_batches()) == ("new",)
 
 
 def test_runtime_rejects_expired_batch():
     service = _make_runtime_service()
     service.start()
     expired = _batch("expired", created_at=time.time() - 200.0, scene_generation=0, ttl_seconds=1.0)
-    decision = service.on_danmu_batch_created(expired)
+    decision = service.on_danmu_displayed(expired)
     assert decision.accepted is False
     assert decision.reason == "expired"
 
@@ -123,22 +177,27 @@ def test_vision_disabled_still_accepts_danmu_batch():
         scene_generation=0,
     ) is None
     batch = _batch("no-vision", scene_generation=0)
-    decision = service.on_danmu_batch_created(batch)
+    decision = service.on_danmu_displayed(batch)
     assert decision.accepted is True
     assert service.session.recent_batches()[0].batch_id == "no-vision"
 
 
-def test_handle_reply_parsed_feeds_virtual_host_without_affecting_reply_buffer():
+def test_handle_reply_parsed_waits_for_actual_display_before_feeding_virtual_host():
     app = make_minimal_danmu_app()
     service = _make_runtime_service()
     service.start()
     _attach_runtime(app, service)
+    app._generation_pipeline.consume_reply_queue = Mock()
     assert _handle_visual_reply(app) is True
     assert app.reply_buffer.size() > 0
+    assert service.session.recent_batches() == ()
+
+    GenerationPipeline.consume_reply_queue(app._generation_pipeline)
     batches = service.session.recent_batches()
     assert len(batches) == 1
-    assert batches[0].batch_id == format_reply_request_id(10, 10, 0)
+    assert batches[0].batch_id == str(app._batch_id)
     assert batches[0].source == "ai"
+    assert batches[0].display_surface == "overlay"
     assert "场景弹幕" in batches[0].lines
 
 

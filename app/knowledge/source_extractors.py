@@ -377,6 +377,50 @@ def _validate_url(url: str) -> str | None:
     return _check_ssrf(hostname)
 
 
+def _response_peer_ip(response: Any) -> str | None:
+    """Return the connected peer IP recorded by httpx/httpcore, if available.
+
+    The synchronous ``httpx`` transport exposes its socket-backed
+    ``network_stream`` as a response extension.  Reading ``server_addr`` keeps
+    HTTPS hostname-based, preserving Host/SNI while validating the completed
+    connection against the same SSRF boundary as URL preflight.
+    """
+    extensions = getattr(response, "extensions", None)
+    if not isinstance(extensions, dict):
+        return None
+    stream = extensions.get("network_stream")
+    get_extra_info = getattr(stream, "get_extra_info", None)
+    if not callable(get_extra_info):
+        return None
+    try:
+        peer = get_extra_info("server_addr")
+    except Exception:
+        return None
+    if isinstance(peer, tuple):
+        peer = peer[0] if peer else None
+    if isinstance(peer, bytes):
+        try:
+            peer = peer.decode("ascii")
+        except UnicodeDecodeError:
+            return None
+    if not isinstance(peer, str):
+        return None
+    try:
+        return str(ipaddress.ip_address(peer))
+    except ValueError:
+        return None
+
+
+def _check_response_peer(response: Any) -> str | None:
+    """Validate the actual connected peer, failing closed if it is unavailable."""
+    peer_ip = _response_peer_ip(response)
+    if peer_ip is None:
+        return "peer_verification_failed"
+    if _is_blocked_ip(ipaddress.ip_address(peer_ip)):
+        return "ssrf_blocked"
+    return None
+
+
 class WebpageExtractor:
     """网页提取器（spec §7.3）。
 
@@ -422,6 +466,10 @@ class WebpageExtractor:
                 max_redirects=MAX_REDIRECTS,
                 timeout=HTTP_TIMEOUT_SEC,
                 headers=headers,
+                # The peer check below applies to the target connection. Do
+                # not inherit environment proxies, whose peer would otherwise
+                # be the proxy instead of the requested origin.
+                trust_env=False,
             ) as client:
                 while True:
                     # current_url 在本轮请求前已经通过 scheme/hostname/DNS 检查：
@@ -433,6 +481,16 @@ class WebpageExtractor:
                             if response_url_value is None
                             else str(response_url_value)
                         )
+                        peer_ssrf_reason = _check_response_peer(resp)
+                        if peer_ssrf_reason is not None:
+                            return ExtractionResult(
+                                "",
+                                _metadata(
+                                    final_url=response_url,
+                                    redirect_count=redirect_count,
+                                ),
+                                error=peer_ssrf_reason,
+                            )
                         response_ssrf_reason = _validate_url(response_url)
                         if response_ssrf_reason is not None:
                             return ExtractionResult(

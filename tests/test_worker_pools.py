@@ -2,7 +2,14 @@
 
 import threading
 
-from app.worker_pools import ai_worker_pool, capture_worker_pool, meme_ai_pool
+from app.worker_pools import (
+    VIRTUAL_HOST_POOL_MAX_QUEUED_OR_RUNNING,
+    ai_worker_pool,
+    capture_worker_pool,
+    meme_ai_pool,
+    virtual_host_pool_snapshot,
+    virtual_host_worker_pool,
+)
 
 
 def test_ai_worker_pool_isolated_with_max_two_threads():
@@ -24,6 +31,38 @@ def test_meme_ai_pool_isolated_from_ai_worker_pool():
     assert pool is meme_ai_pool()
     assert pool is not ai_worker_pool()
     assert pool is not capture_worker_pool()
+
+
+def test_virtual_host_pool_isolated_and_bounded():
+    pool = virtual_host_worker_pool()
+    assert pool.maxThreadCount() == 2
+    assert pool is not ai_worker_pool()
+    snapshot = virtual_host_pool_snapshot()
+    assert snapshot["capacity"] == VIRTUAL_HOST_POOL_MAX_QUEUED_OR_RUNNING
+    assert snapshot["pending"] >= 0
+    assert snapshot["running"] >= 0
+
+
+def test_virtual_host_pool_rejects_at_admission_capacity(monkeypatch):
+    from app import worker_pools
+
+    monkeypatch.setattr(
+        worker_pools,
+        "_virtual_host_pending",
+        VIRTUAL_HOST_POOL_MAX_QUEUED_OR_RUNNING,
+    )
+    monkeypatch.setattr(worker_pools, "_virtual_host_running", 0)
+    monkeypatch.setattr(worker_pools, "_virtual_host_rejected", 0)
+
+    class _Runnable:
+        def run(self):
+            raise AssertionError("rejected job must not run")
+
+    assert worker_pools.submit_virtual_host_job(_Runnable()) is False
+    snapshot = worker_pools.virtual_host_pool_snapshot()
+    assert snapshot["pending"] == VIRTUAL_HOST_POOL_MAX_QUEUED_OR_RUNNING
+    assert snapshot["running"] == 0
+    assert snapshot["rejected"] == 1
 
 
 def test_ai_worker_pool_concurrent_init_returns_singleton(monkeypatch):

@@ -21,7 +21,7 @@ import threading
 import uuid
 from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable
 
 from app.knowledge.ai_organizer import organize_chunk
 from app.knowledge.chunker import chunk_source
@@ -76,6 +76,10 @@ class ImportOrchestrator:
         )
         # job_public_id -> threading.Event；协作式取消标志。
         self._cancel_flags: dict[str, threading.Event] = {}
+        self._job_packages: dict[str, int] = {}
+        self._futures: set[Future] = set()
+        self._accepting_submissions = True
+        self._drain_callbacks: list[Callable[[], None]] = []
         self._lock = threading.Lock()
 
     # ------------------------------------------------------------------
@@ -103,25 +107,34 @@ class ImportOrchestrator:
             5. 立即返回 ``job_public_id``。
         """
         job_public_id = _generate_job_public_id()
-        # 1. 创建 job 行
-        self._create_job_row(package_id, source_id, job_public_id)
-        # 2. 注册取消标志
         cancel_flag = threading.Event()
+        # Keep row creation, Future registration, and shutdown admission under
+        # one lock.  Otherwise begin_shutdown() can drain and close the DB
+        # after a job row is created but before its Future is tracked.
         with self._lock:
+            if not self._accepting_submissions:
+                raise RuntimeError("knowledge import orchestrator is stopping")
+            # 1. 创建 job 行
+            self._create_job_row(package_id, source_id, job_public_id)
+            # 2. 注册取消标志
             self._cancel_flags[job_public_id] = cancel_flag
-        # 3. 提交到执行器
-        future = self._executor.submit(
-            self._run_import,
-            config,
-            job_public_id,
-            package_id,
-            source_id,
-            source_type,
-            payload,
-            document_kind,
-            content_kind,
-        )
-        # 4. 异常日志回调
+            self._job_packages[job_public_id] = package_id
+            # 3-4. Submit and track before shutdown is allowed to inspect
+            # the drain state.  The callback is intentionally attached after
+            # releasing this non-reentrant lock because an already-complete
+            # Future invokes callbacks synchronously.
+            future = self._executor.submit(
+                self._run_import,
+                config,
+                job_public_id,
+                package_id,
+                source_id,
+                source_type,
+                payload,
+                document_kind,
+                content_kind,
+            )
+            self._futures.add(future)
         future.add_done_callback(self._on_job_done)
         return job_public_id
 
@@ -136,7 +149,48 @@ class ImportOrchestrator:
             if flag is None:
                 return False
             flag.set()
-            return True
+        self._repository.update_job_progress(
+            job_public_id, status="cancelling", stage="cancelling"
+        )
+        return True
+
+    def cancel_package(self, package_id: int) -> int:
+        """在删除 package 前取消其活跃导入，并返回受影响任务数。"""
+        job_ids: list[str] = []
+        with self._lock:
+            for job_id, registered_package_id in self._job_packages.items():
+                if registered_package_id == package_id:
+                    self._cancel_flags[job_id].set()
+                    job_ids.append(job_id)
+        for job_id in job_ids:
+            self._repository.update_job_progress(
+                job_id, status="cancelling", stage="deleting"
+            )
+        return len(job_ids)
+
+    def is_accepting_submissions(self) -> bool:
+        with self._lock:
+            return self._accepting_submissions
+
+    def begin_shutdown(self, on_drained: Any | None = None) -> None:
+        """拒绝新任务、协作取消已有任务，且不等待 worker。"""
+        with self._lock:
+            self._accepting_submissions = False
+            job_ids = list(self._cancel_flags)
+            for flag in self._cancel_flags.values():
+                flag.set()
+            if callable(on_drained):
+                self._drain_callbacks.append(on_drained)
+        for job_id in job_ids:
+            self._repository.update_job_progress(
+                job_id, status="cancelling", stage="cancelling"
+            )
+        # Do not cancel queued futures here: a cancelled Future never enters
+        # _run_import(), so it cannot atomically mark its job/source cancelled.
+        # Queued jobs observe their already-set flag at entry and finish
+        # without issuing extraction or model work.
+        self._executor.shutdown(wait=False, cancel_futures=False)
+        self._notify_if_drained()
 
     def close(self) -> None:
         """关闭执行器，等待未完成任务完成。"""
@@ -222,6 +276,9 @@ class ImportOrchestrator:
         逐 chunk AI organize → validate → dedupe → save items → update job progress。
         """
         try:
+            if self._is_cancelled(job_public_id):
+                self._finalize_cancelled(job_public_id, package_id, source_id)
+                return
             # 1. 更新 job.status='running', stage='extracting'
             self._repository.update_job_progress(
                 job_public_id, status="running", stage="extracting"
@@ -229,6 +286,9 @@ class ImportOrchestrator:
 
             # 2. 提取
             extraction_result = extract_source(source_type, payload or {})
+            if self._is_cancelled(job_public_id):
+                self._finalize_cancelled(job_public_id, package_id, source_id)
+                return
             if extraction_result.error:
                 self._fail_job(
                     job_public_id,
@@ -266,6 +326,9 @@ class ImportOrchestrator:
             self._update_source(
                 source_id, normalized_text=normalized_text, status="extracted"
             )
+            if self._is_cancelled(job_public_id):
+                self._finalize_cancelled(job_public_id, package_id, source_id)
+                return
 
             # 5. 分块（传 document_kind，使 livestream_log 在 content_kind=auto 时仍走直播分块）
             self._repository.update_job_progress(job_public_id, stage="chunking")
@@ -361,6 +424,10 @@ class ImportOrchestrator:
                         "error": f"organize_exception: {exc!r}",
                     }
 
+                if self._is_cancelled(job_public_id):
+                    cancelled = True
+                    break
+
                 if not result.get("ok", False):
                     # 11.4 chunk 失败
                     total_failed += 1
@@ -400,9 +467,6 @@ class ImportOrchestrator:
                     val_msg = "; ".join(validation_errors[:5])
                     if len(validation_errors) > 5:
                         val_msg += f"; ... and {len(validation_errors) - 5} more"
-                    self._repository.update_chunk_status(
-                        chunk["id"], status="completed", error_message=val_msg
-                    )
                     all_errors.append(
                         {"chunk_id": chunk["id"], "error": f"validation: {val_msg}"}
                     )
@@ -410,47 +474,31 @@ class ImportOrchestrator:
                 # 11.6 去重
                 kept_items, dedup_count = deduplicator.dedupe(valid_items)
 
-                # 11.7 保存 items
-                for item in kept_items:
-                    self._repository.insert_item(
-                        package_id=package_id,
-                        source_id=source_id,
-                        chunk_id=chunk["id"],
-                        kind=item.get("kind", "fact"),
-                        title=item.get("title", ""),
-                        content=item.get("content", ""),
-                        examples=item.get("examples", []),
-                        triggers=item.get("triggers", []),
-                        tones=item.get("tones", []),
-                        scopes=item.get("scopes", []),
-                        entities=item.get("entities", []),
-                        confidence=item.get("confidence", 1.0),
-                        evidence=item.get("evidence", ""),
-                    )
-
-                # 11.8 更新 chunk.status='completed'（若校验有错误已在 11.5.1 更新）
-                if not validation_errors:
-                    self._repository.update_chunk_status(
-                        chunk["id"], status="completed"
-                    )
-
-                # 11.9 累加统计
+                # 11.7-11.10 原子保存 items、chunk 状态与 job 进度；同一锁也
+                # 串行化 cancel/delete，避免模型返回后留下孤儿行。
                 total_input_tokens += int(result.get("input_tokens", 0))
                 total_output_tokens += int(result.get("output_tokens", 0))
                 total_kept += len(kept_items)
                 total_dedup += dedup_count
                 processed += 1
-
-                # 11.10 更新 job 进度（每次 chunk 后更新，让前端看到进度）
-                self._repository.update_job_progress(
-                    job_public_id,
-                    processed_chunks=processed,
-                    failed_chunks=total_failed,
-                    generated_items=total_kept,
-                    deduplicated_items=total_dedup,
-                    input_tokens=total_input_tokens,
-                    output_tokens=total_output_tokens,
-                )
+                with self._lock:
+                    committed = not self._is_cancelled_locked(job_public_id) and self._repository.commit_import_chunk_if_active(
+                        job_public_id=job_public_id,
+                        package_id=package_id,
+                        source_id=source_id,
+                        chunk_id=chunk["id"],
+                        items=kept_items,
+                        chunk_error_message=val_msg if validation_errors else "",
+                        processed_chunks=processed,
+                        failed_chunks=total_failed,
+                        generated_items=total_kept,
+                        deduplicated_items=total_dedup,
+                        input_tokens=total_input_tokens,
+                        output_tokens=total_output_tokens,
+                    )
+                if not committed:
+                    cancelled = True
+                    break
 
             # 12. 确定最终 job/source status
             # source 映射：
@@ -484,19 +532,8 @@ class ImportOrchestrator:
             error_message = self._format_errors(all_errors)
             if not error_message and total_kept == 0 and not cancelled:
                 error_message = "no_items_generated"
-            self._repository.update_job_progress(
-                job_public_id,
-                status=final_status,
-                stage=final_stage,
-                generated_items=total_kept,
-                deduplicated_items=total_dedup,
-                input_tokens=total_input_tokens,
-                output_tokens=total_output_tokens,
-                error_message=error_message,
-                finished_at=_now_iso(),
-            )
-
-            # 14. 按终态同步 source（禁止无条件 processed）
+            # 14. 按终态同步 source（禁止无条件 processed）；在同一事务内重验
+            # package/source/job，取消或删除获胜时不会覆盖为 completed。
             if source_final_status == "failed":
                 source_error = error_message or "no_items_generated"
             elif source_final_status == "processed_with_errors":
@@ -506,14 +543,28 @@ class ImportOrchestrator:
             else:
                 # processed：清空错误
                 source_error = ""
-            self._update_source(
-                source_id,
-                status=source_final_status,
-                error_message=source_error,
-            )
+            if cancelled or self._is_cancelled(job_public_id):
+                self._finalize_cancelled(
+                    job_public_id, package_id, source_id,
+                    generated_items=total_kept, deduplicated_items=total_dedup,
+                    input_tokens=total_input_tokens, output_tokens=total_output_tokens,
+                )
+            else:
+                with self._lock:
+                    if not self._is_cancelled_locked(job_public_id):
+                        self._repository.finish_import_if_active(
+                            job_public_id=job_public_id, package_id=package_id,
+                            source_id=source_id, status=final_status, stage=final_stage,
+                            source_status=source_final_status, error_message=source_error,
+                            generated_items=total_kept, deduplicated_items=total_dedup,
+                            input_tokens=total_input_tokens, output_tokens=total_output_tokens,
+                        )
 
         except Exception as exc:
             # 15. 异常处理：更新 job + source 均为 failed
+            if self._is_cancelled(job_public_id):
+                self._finalize_cancelled(job_public_id, package_id, source_id)
+                return
             logger.exception(
                 "knowledge import job %s failed unexpectedly", job_public_id
             )
@@ -546,6 +597,7 @@ class ImportOrchestrator:
             # 16. 从 _cancel_flags 移除 job_public_id（在锁内）
             with self._lock:
                 self._cancel_flags.pop(job_public_id, None)
+                self._job_packages.pop(job_public_id, None)
 
     # ------------------------------------------------------------------
     # 内部：辅助
@@ -561,6 +613,8 @@ class ImportOrchestrator:
         source_error: str | None = None,
     ) -> None:
         """统一处理 job 失败：更新 job + 可选更新 source。"""
+        if self._is_cancelled(job_public_id):
+            return
         self._repository.update_job_progress(
             job_public_id,
             status="failed",
@@ -601,3 +655,47 @@ class ImportOrchestrator:
             logger.exception(
                 "knowledge import job raised unexpected exception in future"
             )
+        finally:
+            with self._lock:
+                self._futures.discard(future)
+            self._notify_if_drained()
+
+    def _is_cancelled_locked(self, job_public_id: str) -> bool:
+        flag = self._cancel_flags.get(job_public_id)
+        return flag is None or flag.is_set()
+
+    def _is_cancelled(self, job_public_id: str) -> bool:
+        with self._lock:
+            return self._is_cancelled_locked(job_public_id)
+
+    def _finalize_cancelled(
+        self,
+        job_public_id: str,
+        package_id: int,
+        source_id: int,
+        *,
+        generated_items: int = 0,
+        deduplicated_items: int = 0,
+        input_tokens: int = 0,
+        output_tokens: int = 0,
+    ) -> None:
+        """仅在行仍存在且尚活动时把 job/source 一起置为 cancelled。"""
+        self._repository.finish_import_if_active(
+            job_public_id=job_public_id, package_id=package_id, source_id=source_id,
+            status="cancelled", stage="cancelled", source_status="cancelled",
+            error_message="cancelled", generated_items=generated_items,
+            deduplicated_items=deduplicated_items, input_tokens=input_tokens,
+            output_tokens=output_tokens,
+        )
+
+    def _notify_if_drained(self) -> None:
+        callbacks: list[Any] = []
+        with self._lock:
+            if self._futures:
+                return
+            callbacks, self._drain_callbacks = self._drain_callbacks, []
+        for callback in callbacks:
+            try:
+                callback()
+            except Exception:
+                logger.exception("knowledge import drain callback failed")

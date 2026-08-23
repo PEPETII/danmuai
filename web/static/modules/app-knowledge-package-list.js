@@ -8,7 +8,7 @@ import {
   resetPackageContext,
   showKnowledgeToast,
 } from './app-knowledge-state.js';
-import { openPackageDetail } from './app-knowledge-package-detail.js';
+import { cancelPackageDetailLoad, openPackageDetail } from './app-knowledge-package-detail.js';
 import { openCreatePackageModal, openKnowledgeConfirmModal } from './app-knowledge-modals.js';
 
 function groupJobsByPackageId(jobs, packages) {
@@ -182,6 +182,7 @@ export async function loadKnowledgePage() {
   const { showListView } = await import('./app-knowledge-page.js');
   const { stopKnowledgeJobPolling } = await import('./app-knowledge-jobs.js');
   showListView();
+  cancelPackageDetailLoad();
   stopKnowledgeJobPolling();
   resetPackageContext();
   document.getElementById('knowledgePackageEmpty')?.classList.add('hidden');

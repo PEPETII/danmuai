@@ -33,6 +33,7 @@ def test_wait_all_worker_pools_done_runs_in_parallel(monkeypatch):
         "ai": make_pool(),
         "meme_ai": make_pool(),
         "meme_fetch": make_pool(),
+        "virtual_host": make_pool(),
         "global": make_pool(),
     }
     monkeypatch.setattr(
@@ -42,6 +43,9 @@ def test_wait_all_worker_pools_done_runs_in_parallel(monkeypatch):
     monkeypatch.setattr("app.worker_pools.meme_ai_pool", lambda: pools["meme_ai"])
     monkeypatch.setattr(
         "app.worker_pools.meme_fetch_pool", lambda: pools["meme_fetch"]
+    )
+    monkeypatch.setattr(
+        "app.worker_pools.virtual_host_worker_pool", lambda: pools["virtual_host"]
     )
 
     class _FakeQThreadPool:
@@ -62,6 +66,7 @@ def test_wait_all_worker_pools_done_runs_in_parallel(monkeypatch):
         "ai": True,
         "meme_ai": True,
         "meme_fetch": True,
+        "virtual_host": True,
         "global": True,
     }
     assert elapsed < 0.8, f"expected parallel ~{delay_sec}s, got {elapsed:.2f}s"
@@ -75,6 +80,7 @@ def test_wait_all_worker_pools_done_reports_per_pool_timeouts(monkeypatch):
         "ai": False,
         "meme_ai": True,
         "meme_fetch": False,
+        "virtual_host": True,
         "global": True,
     }
 
@@ -91,6 +97,9 @@ def test_wait_all_worker_pools_done_reports_per_pool_timeouts(monkeypatch):
     monkeypatch.setattr("app.worker_pools.meme_ai_pool", lambda: pools["meme_ai"])
     monkeypatch.setattr(
         "app.worker_pools.meme_fetch_pool", lambda: pools["meme_fetch"]
+    )
+    monkeypatch.setattr(
+        "app.worker_pools.virtual_host_worker_pool", lambda: pools["virtual_host"]
     )
 
     class _FakeQThreadPool:
@@ -117,6 +126,7 @@ def test_quit_uses_parallel_pool_wait(qapp, monkeypatch):
             "ai": True,
             "meme_ai": True,
             "meme_fetch": True,
+            "virtual_host": True,
             "global": True,
         }
     )
@@ -125,6 +135,7 @@ def test_quit_uses_parallel_pool_wait(qapp, monkeypatch):
         "ai": True,
         "meme_ai": True,
         "meme_fetch": True,
+        "virtual_host": True,
         "global": True,
     }
     monkeypatch.setattr("app.worker_pools.wait_all_worker_pools_done", wait_mock)

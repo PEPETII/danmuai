@@ -23,10 +23,6 @@ class _CaptureCoordinatorStub:
         self.failed = _SignalRecorder()
 
 
-def _raise_capture_error(_plan: object) -> None:
-    raise RuntimeError("capture boom")
-
-
 class _FailureReceiver(QObject):
     def __init__(self) -> None:
         super().__init__()
@@ -41,24 +37,25 @@ class _FailureReceiver(QObject):
         self.thread_ids.append(threading.get_ident())
 
 
-def test_capture_runnable_exception_emits_failed_without_completed(monkeypatch):
+def test_capture_runnable_carries_safe_payload_without_capture_backend_call():
     coordinator = _CaptureCoordinatorStub()
-    monkeypatch.setattr("app.runnable.execute_capture", _raise_capture_error)
+    image_payload = object()
 
-    runnable = CaptureRunnable(object(), coordinator, threading.Event(), session_epoch=7)
+    runnable = CaptureRunnable(image_payload, coordinator, threading.Event(), session_epoch=7)
     runnable.run()
 
-    assert coordinator.completed.calls == []
-    assert coordinator.failed.calls == [("RuntimeError: capture boom", 7)]
+    assert coordinator.completed.calls == [(image_payload, 7)]
+    assert coordinator.failed.calls == []
 
 
-def test_capture_failure_signal_is_delivered_on_main_thread(qapp, monkeypatch):
+def test_capture_stopping_signal_is_delivered_on_main_thread(qapp):
     coordinator = CaptureCoordinator()
     receiver = _FailureReceiver()
     coordinator.failed.connect(receiver.on_failed)
-    monkeypatch.setattr("app.runnable.execute_capture", _raise_capture_error)
     main_thread_id = threading.get_ident()
-    runnable = CaptureRunnable(object(), coordinator, threading.Event(), session_epoch=11)
+    stopping = threading.Event()
+    stopping.set()
+    runnable = CaptureRunnable(object(), coordinator, stopping, session_epoch=11)
 
     worker = threading.Thread(target=runnable.run)
     worker.start()
@@ -70,25 +67,24 @@ def test_capture_failure_signal_is_delivered_on_main_thread(qapp, monkeypatch):
         qapp.processEvents()
         time.sleep(0.01)
 
-    assert receiver.messages == ["RuntimeError: capture boom"]
+    assert receiver.messages == ["capture_aborted_stopping"]
     assert receiver.epochs == [11]
     assert receiver.thread_ids == [main_thread_id]
 
 
-def test_capture_completed_signal_carries_session_epoch(monkeypatch):
+def test_capture_completed_signal_carries_session_epoch():
     coordinator = _CaptureCoordinatorStub()
-    pixmap = FakePixmap(1)
-    monkeypatch.setattr("app.runnable.execute_capture", lambda _plan: pixmap)
+    image = object()
 
     runnable = CaptureRunnable(
-        object(),
+        image,
         coordinator,
         threading.Event(),
         session_epoch=23,
     )
     runnable.run()
 
-    assert coordinator.completed.calls == [(pixmap, 23)]
+    assert coordinator.completed.calls == [(image, 23)]
     assert coordinator.failed.calls == []
 
 
@@ -117,6 +113,7 @@ def test_capture_failed_releases_slot_and_allows_next_schedule(monkeypatch):
             started.append(runnable)
 
     monkeypatch.setattr("app.worker_pools.capture_worker_pool", lambda: _FakePool())
+    monkeypatch.setattr("main.pixmap_to_image_snapshot", lambda _pixmap: object())
 
     app._schedule_capture()
 
@@ -155,16 +152,12 @@ def test_capture_runnable_stopping_emits_failed_without_completed():
     assert coordinator.failed.calls == [("capture_aborted_stopping", 0)]
 
 
-def test_capture_runnable_stopping_after_grab_emits_failed(monkeypatch):
-    """grab 完成后若已 stopping，不得 completed，须 failed 释放槽位。"""
+def test_capture_runnable_stopping_emits_failed_without_payload_delivery():
+    """The payload dispatcher observes stopping before it can emit completed."""
     coordinator = _CaptureCoordinatorStub()
     stopping = threading.Event()
 
-    def _grab_then_stop(_plan):
-        stopping.set()
-        return FakePixmap(1)
-
-    monkeypatch.setattr("app.runnable.execute_capture", _grab_then_stop)
+    stopping.set()
     runnable = CaptureRunnable(object(), coordinator, stopping)
     runnable.run()
 

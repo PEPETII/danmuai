@@ -97,18 +97,37 @@ def list_packages_for_db(
     if enabled_only:
         sql += " WHERE enabled=1"
     sql += " ORDER BY priority DESC, id ASC"
-    rows = db.conn.execute(sql).fetchall()
+    with db.read_connection() as conn:
+        rows = conn.execute(sql).fetchall()
     return [_deserialize_package_row(r) for r in rows]
+
+
+def list_packages_with_counts_for_db(
+    db: "KnowledgeDatabase", *, enabled_only: bool = False
+) -> list[dict[str, Any]]:
+    """列出知识包及 source/item 计数（单次分组查询，保持既有排序）。"""
+    where = "WHERE p.enabled=1" if enabled_only else ""
+    with db.read_connection() as conn:
+        rows = conn.execute(
+            "SELECT p.*, COUNT(DISTINCT s.id) AS source_count, "
+            "COUNT(DISTINCT i.id) AS item_count "
+            "FROM knowledge_packages p "
+            "LEFT JOIN knowledge_sources s ON s.package_id=p.id "
+            "LEFT JOIN knowledge_items i ON i.package_id=p.id "
+            f"{where} GROUP BY p.id ORDER BY p.priority DESC, p.id ASC"
+        ).fetchall()
+    return [_deserialize_package_row(row) for row in rows]
 
 
 def get_package_for_db(
     db: "KnowledgeDatabase", public_id: str
 ) -> dict[str, Any] | None:
     """按 public_id 取单个知识包；不存在返回 None。"""
-    row = db.conn.execute(
-        "SELECT * FROM knowledge_packages WHERE public_id=?",
-        (public_id,),
-    ).fetchone()
+    with db.read_connection() as conn:
+        row = conn.execute(
+            "SELECT * FROM knowledge_packages WHERE public_id=?",
+            (public_id,),
+        ).fetchone()
     return _deserialize_package_row(row) if row else None
 
 
@@ -116,10 +135,11 @@ def _get_package_id_by_public_id(
     db: "KnowledgeDatabase", public_id: str
 ) -> int | None:
     """public_id → 内部 id；不存在返回 None。读路径不持锁。"""
-    row = db.conn.execute(
-        "SELECT id FROM knowledge_packages WHERE public_id=?",
-        (public_id,),
-    ).fetchone()
+    with db.read_connection() as conn:
+        row = conn.execute(
+            "SELECT id FROM knowledge_packages WHERE public_id=?",
+            (public_id,),
+        ).fetchone()
     return int(row[0]) if row else None
 
 
@@ -372,10 +392,11 @@ def get_source_for_db(
     db: "KnowledgeDatabase", public_id: str
 ) -> dict[str, Any] | None:
     """按 public_id 取单个 source。"""
-    row = db.conn.execute(
-        "SELECT * FROM knowledge_sources WHERE public_id=?",
-        (public_id,),
-    ).fetchone()
+    with db.read_connection() as conn:
+        row = conn.execute(
+            "SELECT * FROM knowledge_sources WHERE public_id=?",
+            (public_id,),
+        ).fetchone()
     return _row_to_dict(row)
 
 
@@ -383,10 +404,11 @@ def list_sources_for_db(
     db: "KnowledgeDatabase", package_id: int
 ) -> list[dict[str, Any]]:
     """列出一包下全部 sources（按 id ASC）。"""
-    rows = db.conn.execute(
-        "SELECT * FROM knowledge_sources WHERE package_id=? ORDER BY id ASC",
-        (package_id,),
-    ).fetchall()
+    with db.read_connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM knowledge_sources WHERE package_id=? ORDER BY id ASC",
+            (package_id,),
+        ).fetchall()
     return [_row_to_dict(r) for r in rows]  # type: ignore[list-item]
 
 
@@ -482,10 +504,11 @@ def list_chunks_for_db(
     db: "KnowledgeDatabase", source_id: int
 ) -> list[dict[str, Any]]:
     """列出 source 下全部 chunks（按 sequence_no ASC）。"""
-    rows = db.conn.execute(
-        "SELECT * FROM knowledge_chunks WHERE source_id=? ORDER BY sequence_no ASC",
-        (source_id,),
-    ).fetchall()
+    with db.read_connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM knowledge_chunks WHERE source_id=? ORDER BY sequence_no ASC",
+            (source_id,),
+        ).fetchall()
     return [_row_to_dict(r) for r in rows]  # type: ignore[list-item]
 
 
@@ -645,6 +668,138 @@ def _insert_fts_row_locked(
         pass
 
 
+def commit_import_chunk_if_active_for_db(
+    db: "KnowledgeDatabase",
+    *,
+    job_public_id: str,
+    package_id: int,
+    source_id: int,
+    chunk_id: int,
+    items: list[dict[str, Any]],
+    chunk_error_message: str,
+    processed_chunks: int,
+    failed_chunks: int,
+    generated_items: int,
+    deduplicated_items: int,
+    input_tokens: int,
+    output_tokens: int,
+) -> bool:
+    """原子提交一个导入 chunk，且只允许活动 job 写入。
+
+    删除 package 或取消 job 会先取得同一写锁；因此本函数要么在删除前完整
+    提交（随后被级联删除），要么观察到 package/source/job 已不存在或 job 已
+    取消并且完全不写。这样不会留下孤儿 item/chunk/FTS 行。
+    """
+    with db.with_write_lock():
+        active = db.conn.execute(
+            "SELECT j.id FROM knowledge_jobs j "
+            "JOIN knowledge_packages p ON p.id=j.package_id "
+            "JOIN knowledge_sources s ON s.id=j.source_id "
+            "JOIN knowledge_chunks c ON c.id=? AND c.source_id=s.id "
+            "WHERE j.public_id=? AND j.package_id=? AND j.source_id=? "
+            "AND j.status IN ('pending', 'running')",
+            (chunk_id, job_public_id, package_id, source_id),
+        ).fetchone()
+        if active is None:
+            return False
+
+        for item in items:
+            examples = list(item.get("examples") or [])
+            triggers = list(item.get("triggers") or [])
+            tones = list(item.get("tones") or [])
+            scopes = list(item.get("scopes") or [])
+            entities = list(item.get("entities") or [])
+            title = str(item.get("title", ""))
+            content = str(item.get("content", ""))
+            search_text = _build_search_text(
+                title, content, examples, triggers, tones, scopes, entities
+            )
+            now = _now_iso()
+            cursor = db.conn.execute(
+                "INSERT INTO knowledge_items "
+                "(public_id, package_id, source_id, chunk_id, kind, title, content, "
+                "examples_json, triggers_json, tones_json, scopes_json, entities_json, "
+                "search_text, confidence, evidence, content_hash, enabled, priority, "
+                "use_count, created_at, updated_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0, 0, ?, ?)",
+                (
+                    _new_public_id(), package_id, source_id, chunk_id,
+                    str(item.get("kind", "fact")), title, content,
+                    json.dumps(examples, ensure_ascii=False),
+                    json.dumps(triggers, ensure_ascii=False),
+                    json.dumps(tones, ensure_ascii=False),
+                    json.dumps(scopes, ensure_ascii=False),
+                    json.dumps(entities, ensure_ascii=False), search_text,
+                    float(item.get("confidence", 1.0)), str(item.get("evidence", "")),
+                    _content_hash(content), now, now,
+                ),
+            )
+            _insert_fts_row_locked(
+                db, rowid=int(cursor.lastrowid), title=title,
+                content=content, search_text=search_text,
+            )
+
+        db.conn.execute(
+            "UPDATE knowledge_chunks SET status='completed', error_message=? WHERE id=?",
+            (chunk_error_message, chunk_id),
+        )
+        db.conn.execute(
+            "UPDATE knowledge_jobs SET processed_chunks=?, failed_chunks=?, "
+            "generated_items=?, deduplicated_items=?, input_tokens=?, output_tokens=?, "
+            "updated_at=? WHERE public_id=?",
+            (
+                processed_chunks, failed_chunks, generated_items, deduplicated_items,
+                input_tokens, output_tokens, _now_iso(), job_public_id,
+            ),
+        )
+        db.conn.commit()
+    return True
+
+
+def finish_import_if_active_for_db(
+    db: "KnowledgeDatabase",
+    *,
+    job_public_id: str,
+    package_id: int,
+    source_id: int,
+    status: str,
+    stage: str,
+    source_status: str,
+    error_message: str,
+    generated_items: int,
+    deduplicated_items: int,
+    input_tokens: int,
+    output_tokens: int,
+) -> bool:
+    """原子终结仍活动的导入任务，删除/取消获胜时不覆盖终态。"""
+    with db.with_write_lock():
+        active = db.conn.execute(
+            "SELECT j.id FROM knowledge_jobs j "
+            "JOIN knowledge_packages p ON p.id=j.package_id "
+            "JOIN knowledge_sources s ON s.id=j.source_id "
+            "WHERE j.public_id=? AND j.package_id=? AND j.source_id=? "
+            "AND (j.status IN ('pending', 'running') "
+            "OR (j.status='cancelling' AND ?='cancelled'))",
+            (job_public_id, package_id, source_id, status),
+        ).fetchone()
+        if active is None:
+            return False
+        now = _now_iso()
+        db.conn.execute(
+            "UPDATE knowledge_jobs SET status=?, stage=?, generated_items=?, "
+            "deduplicated_items=?, input_tokens=?, output_tokens=?, error_message=?, "
+            "finished_at=?, updated_at=? WHERE public_id=?",
+            (status, stage, generated_items, deduplicated_items, input_tokens,
+             output_tokens, error_message, now, now, job_public_id),
+        )
+        db.conn.execute(
+            "UPDATE knowledge_sources SET status=?, error_message=?, updated_at=? WHERE id=?",
+            (source_status, error_message, now, source_id),
+        )
+        db.conn.commit()
+    return True
+
+
 def _delete_fts_row_locked(db: "KnowledgeDatabase", rowid: int) -> None:
     """同步删除 FTS 索引行（须持写锁）。fallback 模式 no-op。"""
     if db.fts_backend == "fallback":
@@ -661,10 +816,11 @@ def get_item_for_db(
     db: "KnowledgeDatabase", public_id: str
 ) -> dict[str, Any] | None:
     """按 public_id 取单个 item（含反序列化的 JSON 字段）。"""
-    row = db.conn.execute(
-        "SELECT * FROM knowledge_items WHERE public_id=?",
-        (public_id,),
-    ).fetchone()
+    with db.read_connection() as conn:
+        row = conn.execute(
+            "SELECT * FROM knowledge_items WHERE public_id=?",
+            (public_id,),
+        ).fetchone()
     return _deserialize_item_row(row) if row else None
 
 
@@ -672,10 +828,11 @@ def get_item_by_id_for_db(
     db: "KnowledgeDatabase", item_id: int
 ) -> dict[str, Any] | None:
     """按内部 id 取单个 item。"""
-    row = db.conn.execute(
-        "SELECT * FROM knowledge_items WHERE id=?",
-        (item_id,),
-    ).fetchone()
+    with db.read_connection() as conn:
+        row = conn.execute(
+            "SELECT * FROM knowledge_items WHERE id=?",
+            (item_id,),
+        ).fetchone()
     return _deserialize_item_row(row) if row else None
 
 
@@ -686,11 +843,12 @@ def list_item_dedupe_keys_for_db(
 
     供 ``KnowledgeDeduplicator.seed_existing`` 跨导入预载；不拉 examples 等大字段。
     """
-    rows = db.conn.execute(
-        "SELECT kind, content_hash, content, public_id "
-        "FROM knowledge_items WHERE package_id=? ORDER BY id ASC",
-        (int(package_id),),
-    ).fetchall()
+    with db.read_connection() as conn:
+        rows = conn.execute(
+            "SELECT kind, content_hash, content, public_id "
+            "FROM knowledge_items WHERE package_id=? ORDER BY id ASC",
+            (int(package_id),),
+        ).fetchall()
     result: list[dict[str, Any]] = []
     for row in rows:
         content = str(row["content"] or "")
@@ -746,16 +904,17 @@ def list_items_for_db(
         where.append("search_text LIKE ?")
         params.append(f"%{query}%")
     where_sql = (" WHERE " + " AND ".join(where)) if where else ""
-    total_row = db.conn.execute(
-        f"SELECT COUNT(*) FROM knowledge_items{where_sql}", params
-    ).fetchone()
-    total = int(total_row[0]) if total_row else 0
-    offset = (page - 1) * page_size
-    rows = db.conn.execute(
-        f"SELECT * FROM knowledge_items{where_sql} "
-        "ORDER BY priority DESC, id ASC LIMIT ? OFFSET ?",
-        [*params, page_size, offset],
-    ).fetchall()
+    with db.read_connection() as conn:
+        total_row = conn.execute(
+            f"SELECT COUNT(*) FROM knowledge_items{where_sql}", params
+        ).fetchone()
+        total = int(total_row[0]) if total_row else 0
+        offset = (page - 1) * page_size
+        rows = conn.execute(
+            f"SELECT * FROM knowledge_items{where_sql} "
+            "ORDER BY priority DESC, id ASC LIMIT ? OFFSET ?",
+            [*params, page_size, offset],
+        ).fetchall()
     return {
         "items": [_deserialize_item_row(r) for r in rows],
         "page": page,
@@ -1019,10 +1178,11 @@ def get_job_for_db(
     db: "KnowledgeDatabase", public_id: str
 ) -> dict[str, Any] | None:
     """按 public_id 取单个 job。"""
-    row = db.conn.execute(
-        "SELECT * FROM knowledge_jobs WHERE public_id=?",
-        (public_id,),
-    ).fetchone()
+    with db.read_connection() as conn:
+        row = conn.execute(
+            "SELECT * FROM knowledge_jobs WHERE public_id=?",
+            (public_id,),
+        ).fetchone()
     return _row_to_dict(row)
 
 
@@ -1044,10 +1204,11 @@ def list_jobs_for_db(
         params.append(status)
     where_sql = (" WHERE " + " AND ".join(where)) if where else ""
     limit = max(1, min(200, int(limit)))
-    rows = db.conn.execute(
-        f"SELECT * FROM knowledge_jobs{where_sql} ORDER BY id DESC LIMIT ?",
-        [*params, limit],
-    ).fetchall()
+    with db.read_connection() as conn:
+        rows = conn.execute(
+            f"SELECT * FROM knowledge_jobs{where_sql} ORDER BY id DESC LIMIT ?",
+            [*params, limit],
+        ).fetchall()
     return [_row_to_dict(r) for r in rows]  # type: ignore[list-item]
 
 
@@ -1164,6 +1325,11 @@ class KnowledgeRepository:
     def list_packages(self, *, enabled_only: bool = False) -> list[dict[str, Any]]:
         return list_packages_for_db(self.db, enabled_only=enabled_only)
 
+    def list_packages_with_counts(
+        self, *, enabled_only: bool = False
+    ) -> list[dict[str, Any]]:
+        return list_packages_with_counts_for_db(self.db, enabled_only=enabled_only)
+
     def get_package(self, public_id: str) -> dict[str, Any] | None:
         return get_package_for_db(self.db, public_id)
 
@@ -1202,6 +1368,12 @@ class KnowledgeRepository:
     # items
     def insert_item(self, **kwargs: Any) -> dict[str, Any]:
         return insert_item_for_db(self.db, **kwargs)
+
+    def commit_import_chunk_if_active(self, **kwargs: Any) -> bool:
+        return commit_import_chunk_if_active_for_db(self.db, **kwargs)
+
+    def finish_import_if_active(self, **kwargs: Any) -> bool:
+        return finish_import_if_active_for_db(self.db, **kwargs)
 
     def get_item(self, public_id: str) -> dict[str, Any] | None:
         return get_item_for_db(self.db, public_id)
@@ -1244,6 +1416,7 @@ class KnowledgeRepository:
 __all__ = [
     # 纯函数 API
     "list_packages_for_db",
+    "list_packages_with_counts_for_db",
     "get_package_for_db",
     "create_package_for_db",
     "update_package_for_db",
@@ -1256,6 +1429,8 @@ __all__ = [
     "list_chunks_for_db",
     "update_chunk_status_for_db",
     "insert_item_for_db",
+    "commit_import_chunk_if_active_for_db",
+    "finish_import_if_active_for_db",
     "get_item_for_db",
     "get_item_by_id_for_db",
     "list_items_for_db",

@@ -68,13 +68,7 @@ def list_packages(app: "DanmuApp") -> dict[str, Any]:
     repo = _get_or_create_repository(app)
     if repo is None:
         return {"packages": [], "total": 0, "error": "not_initialized"}
-    packages = repo.list_packages()
-    # 为每个 package 附加 source_count 与 item_count
-    for pkg in packages:
-        sources = repo.list_sources(pkg["id"])
-        items = repo.list_items(package_id=pkg["id"])
-        pkg["source_count"] = len(sources)
-        pkg["item_count"] = items["total"]
+    packages = repo.list_packages_with_counts()
     return {"packages": packages, "total": len(packages)}
 
 
@@ -133,9 +127,16 @@ def delete_package(
     Returns:
         ``{"ok": True}`` 或 ``{"error": ...}``。
     """
+    runtime = _get_knowledge_runtime(app)
     repo = _get_or_create_repository(app)
-    if repo is None:
+    if repo is None or runtime is None:
         return {"error": "not_initialized"}
+    orchestrator = getattr(runtime, "import_orchestrator", None)
+    package = repo.get_package(package_public_id)
+    if package is None:
+        return {"error": "not_found"}
+    if orchestrator is not None:
+        orchestrator.cancel_package(package["id"])
     ok = repo.delete_package(package_public_id)
     if not ok:
         return {"error": "not_found"}
@@ -209,6 +210,8 @@ def import_source(
     orchestrator = getattr(runtime, "import_orchestrator", None)
     if orchestrator is None:
         return {"error": "orchestrator_not_ready"}
+    if not orchestrator.is_accepting_submissions():
+        return {"error": "orchestrator_stopping"}
 
     pkg = repo.get_package(package_public_id)
     if pkg is None:
@@ -229,15 +232,18 @@ def import_source(
     )
 
     # 提交到 ImportOrchestrator（立即返回 job_id）
-    job_public_id = orchestrator.submit_import(
-        config=app.config,
-        package_id=pkg["id"],
-        source_id=source["id"],
-        source_type=source_type,
-        payload=payload,
-        document_kind="auto",
-        content_kind="auto",
-    )
+    try:
+        job_public_id = orchestrator.submit_import(
+            config=app.config,
+            package_id=pkg["id"],
+            source_id=source["id"],
+            source_type=source_type,
+            payload=payload,
+            document_kind="auto",
+            content_kind="auto",
+        )
+    except RuntimeError:
+        return {"error": "orchestrator_stopping"}
     return {"ok": True, "job_id": job_public_id, "source_id": source["public_id"]}
 
 

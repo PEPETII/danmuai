@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 
-from app.virtual_host.contracts import DanmuBatchCreated, SceneContext
+from app.virtual_host.contracts import DanmuDisplayed, SceneContext
 from app.virtual_host.response_scheduler import (
     ResponseCandidateEvent,
     VirtualHostResponseScheduler,
@@ -13,12 +13,20 @@ from app.virtual_host.response_scheduler import (
 from app.virtual_host.session import VirtualHostSession
 
 
+def _displayed(**kwargs) -> DanmuDisplayed:
+    return DanmuDisplayed.from_lines(
+        event_id=f"test:{kwargs['batch_id']}",
+        display_surface="overlay",
+        **kwargs,
+    )
+
+
 def _session_with_danmu(*, scene_generation: int = 0, lines: tuple[str, ...] = ("弹幕A", "弹幕B")) -> VirtualHostSession:
     session = VirtualHostSession()
     session.update_scene_context(
         SceneContext(scene_generation=scene_generation, summary="游戏画面", updated_at=time.time())
     )
-    batch = DanmuBatchCreated.from_lines(
+    batch = _displayed(
         batch_id="batch-1",
         lines=list(lines),
         created_at=time.time(),
@@ -164,7 +172,7 @@ def test_scheduler_ordinary_batches_not_trigger_every_cooldown_cycle():
     triggered = 0
     for index in range(100):
         batch_id = f"batch-{index}"
-        batch = DanmuBatchCreated.from_lines(
+        batch = _displayed(
             batch_id=batch_id,
             lines=["普通弹幕"],
             created_at=now,

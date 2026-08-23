@@ -17,7 +17,6 @@ from app.image_metrics import log_compress_metrics
 from app.logger import SanitizedLogger
 from app.main_helpers import REQUEST_WALL_CLOCK_SEC
 from app.mic_encode import pcm_to_wav_data_uri
-from app.snipper import CapturePlan, execute_capture
 from app.translations import tr
 
 
@@ -29,17 +28,21 @@ class CaptureCoordinator(QObject):
 
 
 class CaptureRunnable(QRunnable):
-    """Capture worker: emit completed on success and failed on backend errors."""
+    """Carry a main-thread-created QImage snapshot to the coordinator.
+
+    The legacy name is retained for the capture-slot contract. This worker
+    must not touch QApplication, QScreen, or QPixmap.
+    """
 
     def __init__(
         self,
-        plan: CapturePlan,
+        image,
         coordinator: CaptureCoordinator,
         stopping: threading.Event,
         session_epoch: int = 0,
     ) -> None:
         super().__init__()
-        self._plan = plan
+        self._image = image
         self._coordinator = coordinator
         self._stopping = stopping
         self._session_epoch = session_epoch
@@ -54,21 +57,13 @@ class CaptureRunnable(QRunnable):
                 self._session_epoch,
             )
             return
-        try:
-            pixmap = execute_capture(self._plan)
-        except Exception as exc:  # boundary: capture backend must settle the slot
-            self._coordinator.failed.emit(
-                f"{type(exc).__name__}: {exc}",
-                self._session_epoch,
-            )
-            return
         if self._stopping.is_set():
             self._coordinator.failed.emit(
                 "capture_aborted_stopping",
                 self._session_epoch,
             )
             return
-        self._coordinator.completed.emit(pixmap, self._session_epoch)
+        self._coordinator.completed.emit(self._image, self._session_epoch)
 
 
 class AiRunnable(QRunnable):
@@ -96,6 +91,8 @@ class AiRunnable(QRunnable):
         image_quality: int | None = None,
         mic_pcm: bytes | None = None,
         mic_attach_audio: bool = False,
+        session_token: int | None = None,
+        session_is_current=None,
     ):
         super().__init__()
         self.worker = worker
@@ -111,11 +108,13 @@ class AiRunnable(QRunnable):
         self.image_quality = image_quality
         self.mic_pcm = mic_pcm
         self.mic_attach_audio = mic_attach_audio
+        self.session_token = session_token
+        self.session_is_current = session_is_current
         self.setAutoDelete(True)
 
     def run(self):
         """QThreadPool 工作线程入口：压缩截图 → _request() → finished/error 信号回主线程。"""
-        if self.worker._stopping.is_set():
+        if not self._session_is_current():
             return
 
         logger = SanitizedLogger()
@@ -151,6 +150,11 @@ class AiRunnable(QRunnable):
             )
             return
 
+        # stop() clears the old Event and start() resets it. The immutable
+        # session token remains the queue-time cancellation boundary.
+        if not self._session_is_current():
+            return
+
         compress_ms = (time.monotonic() - started) * 1000.0
         try:
             try:
@@ -172,7 +176,7 @@ class AiRunnable(QRunnable):
             if self.mic_pcm and self.mic_attach_audio:
                 audio_data_uri = pcm_to_wav_data_uri(self.mic_pcm)
         except Exception as exc:  # boundary: pre-request preprocessing
-            if not self.worker._stopping.is_set():
+            if self._session_is_current():
                 self.worker._emit_safe(
                     "error",
                     tr("runnable.compress_failed"),
@@ -189,6 +193,8 @@ class AiRunnable(QRunnable):
                 )
             return
 
+        if not self._session_is_current():
+            return
         deadline_at = started + REQUEST_WALL_CLOCK_SEC
         try:
             self.worker._request(
@@ -205,7 +211,7 @@ class AiRunnable(QRunnable):
                 request_deadline_at=deadline_at,
             )
         except Exception as exc:  # boundary: AI request worker top-level
-            if not self.worker._stopping.is_set():
+            if self._session_is_current():
                 self.worker._emit_safe(
                     "error",
                     tr("ai.error_request_failed").format(error=exc),
@@ -220,3 +226,14 @@ class AiRunnable(QRunnable):
                 logger.debug(
                     f"ai request failed in runnable: {type(exc).__name__}: {exc}"
                 )
+
+    def _session_is_current(self) -> bool:
+        if self.worker._stopping.is_set():
+            return False
+        if self.session_token is None or self.session_is_current is None:
+            return True
+        try:
+            return bool(self.session_is_current(self.session_token))
+        except Exception:
+            # Cancellation guards fail closed: do not send a stale request.
+            return False

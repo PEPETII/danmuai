@@ -248,6 +248,7 @@ class KnowledgeRuntimeService:
         self._last_injection: KnowledgeInjectionResult | None = None
         self._last_scene_context: KnowledgeSceneContext | None = None
         self._cached_scene_generation: int | None = None
+        self._closing = False
         self.mount()
 
     def mount(self) -> bool:
@@ -257,6 +258,8 @@ class KnowledgeRuntimeService:
         保留 ``knowledge_runtime`` 引用，以便下一次 ``start()`` 重新打开。
         挂载失败时保留降级模式，并由调用方决定是否继续启动主链路。
         """
+        if self._closing:
+            return False
         if (
             self._db is not None
             and self.repository is not None
@@ -548,16 +551,27 @@ class KnowledgeRuntimeService:
     # ------------------------------------------------------------------
 
     def close(self) -> None:
-        """关闭执行器与数据库连接（停止时调用）。异常隔离，不抛出。"""
+        """请求导入停止；DB 在 worker 排空后异步关闭，不能阻塞 Qt 主线程。"""
+        if self._closing:
+            return
+        self._closing = True
         orch = self.import_orchestrator
         if orch is not None:
             try:
-                orch.close()
+                orch.begin_shutdown(self._finish_close_after_imports)
             except Exception as exc:
                 logger.warning(
-                    "knowledge_runtime import_orchestrator close failed: %r",
+                    "knowledge_runtime import_orchestrator stop failed: %r",
                     exc,
                 )
+                self._finish_close_after_imports()
+            return
+        self._finish_close_after_imports()
+
+    def _finish_close_after_imports(self) -> None:
+        """仅由已排空的 import worker 回调执行数据库收尾。"""
+        if not self._closing:
+            return
         db = self._db
         if db is not None:
             try:
@@ -573,3 +587,4 @@ class KnowledgeRuntimeService:
         self._last_injection = None
         self._last_scene_context = None
         self._cached_scene_generation = None
+        self._closing = False

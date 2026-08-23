@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from unittest.mock import Mock
 
 import pytest
 from app.virtual_host.chat import HostChatHttpResult
@@ -61,7 +62,7 @@ def test_danmu_batch_rejected_with_mode_disabled_when_adapter_off(monkeypatch):
         SceneContext(scene_generation=0, summary="画面", updated_at=time.time())
     )
 
-    decision = service.on_danmu_batch_created(_batch("off-batch", scene_generation=0))
+    decision = service.on_danmu_displayed(_batch("off-batch", scene_generation=0))
 
     assert decision.accepted is False
     assert decision.reason == "mode_disabled"
@@ -76,7 +77,7 @@ def test_danmu_batch_rejected_with_mode_disabled_when_dialogue_on(monkeypatch):
         SceneContext(scene_generation=0, summary="画面", updated_at=time.time())
     )
 
-    decision = service.on_danmu_batch_created(_batch("dialogue-batch", scene_generation=0))
+    decision = service.on_danmu_displayed(_batch("dialogue-batch", scene_generation=0))
 
     assert decision.accepted is False
     assert decision.reason == "mode_disabled"
@@ -88,10 +89,8 @@ def test_scene_change_does_not_trigger_chat_when_adapter_off(monkeypatch):
     service = _make_service(monkeypatch, config)
     service.start()
     service._danmu_adapter_enabled = False
-    monkeypatch.setattr(
-        "app.virtual_host.runtime_service.request_host_chat",
-        lambda *_args, **_kwargs: pytest.fail("chat HTTP must not run"),
-    )
+    on_response_candidate = Mock()
+    monkeypatch.setattr(service, "_on_response_candidate", on_response_candidate)
 
     service._apply_scene_summary(
         SceneSummaryResult(ok=True, text="新画面", model_id="qwen3-vl-flash"),
@@ -130,7 +129,7 @@ def test_adapter_enabled_preserves_existing_batch_acceptance(monkeypatch):
         SceneContext(scene_generation=0, summary="画面", updated_at=time.time())
     )
 
-    decision = service.on_danmu_batch_created(_batch("enabled-batch", scene_generation=0))
+    decision = service.on_danmu_displayed(_batch("enabled-batch", scene_generation=0))
 
     assert decision.accepted is True
     assert decision.reason == "accepted"
@@ -144,18 +143,18 @@ def test_batches_during_disabled_period_are_not_replayed_on_re_enable(monkeypatc
     service.session.update_scene_context(
         SceneContext(scene_generation=0, summary="画面", updated_at=time.time())
     )
-    monkeypatch.setattr(
-        "app.virtual_host.runtime_service.request_host_chat",
-        lambda *_args, **_kwargs: pytest.fail("chat HTTP must not run"),
-    )
+    on_response_candidate = Mock()
+    monkeypatch.setattr(service, "_on_response_candidate", on_response_candidate)
 
-    assert service.on_danmu_batch_created(_batch("missed", scene_generation=0)).reason == "mode_disabled"
+    assert service.on_danmu_displayed(_batch("missed", scene_generation=0)).reason == "mode_disabled"
+    assert on_response_candidate.call_count == 0
 
     apply_virtual_host_mode_settings(config, {"danmu_adapter_enabled": True})
     service.refresh_mode_settings()
 
     assert service.session.recent_batches() == ()
-    assert service.on_danmu_batch_created(_batch("fresh", scene_generation=0)).accepted is True
+    assert service.on_danmu_displayed(_batch("fresh", scene_generation=0)).accepted is True
+    assert on_response_candidate.call_count == 1
     assert [batch.batch_id for batch in service.session.recent_batches()] == ["fresh"]
 
 

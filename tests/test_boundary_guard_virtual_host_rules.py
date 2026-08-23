@@ -20,6 +20,23 @@ def test_boundary_guard_detects_virtual_host_qt_import_in_scheduler(tmp_path: Pa
     )
 
 
+def test_boundary_guard_detects_virtual_host_private_danmu_app_read(tmp_path: Path) -> None:
+    repo = _baseline_repo(tmp_path)
+    _write(
+        repo,
+        "app/virtual_host/runtime_service.py",
+        "    generation = self._app._scene_generation\n",
+    )
+
+    findings = run_boundary_guard(repo)
+
+    assert any(
+        item.rule == "virtual-host-private-app-read"
+        and "runtime_service.py" in item.path
+        for item in findings
+    )
+
+
 def test_boundary_guard_detects_direct_start_turn_in_batch_handler(tmp_path: Path) -> None:
     repo = _baseline_repo(tmp_path)
     _write(

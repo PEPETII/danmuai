@@ -8,7 +8,7 @@ from types import SimpleNamespace
 import pytest
 from app.mic_transcription import MicTranscriptionResult
 from app.virtual_host.chat import HostChatHttpResult
-from app.virtual_host.contracts import DanmuBatchCreated, HostTurnResult, SceneContext
+from app.virtual_host.contracts import DanmuDisplayed, HostTurnResult, SceneContext
 from app.virtual_host.knowledge import KnowledgeContextAdapter
 from app.virtual_host.persona_config import apply_virtual_host_persona_config
 from app.virtual_host.playback import PlaybackQueue
@@ -26,6 +26,14 @@ _PERSONA_SYSTEM = "独立虚拟主播系统层"
 _PERSONA_VOICE = "独立语音对话层"
 
 
+def _displayed(**kwargs) -> DanmuDisplayed:
+    return DanmuDisplayed.from_lines(
+        event_id=f"test:{kwargs['batch_id']}",
+        display_surface="overlay",
+        **kwargs,
+    )
+
+
 def _apply_test_persona(config) -> None:
     apply_virtual_host_persona_config(
         config,
@@ -39,10 +47,13 @@ def _apply_test_persona(config) -> None:
 def _dialogue_service_with_persona(monkeypatch, config) -> VirtualHostRuntimeService:
     _apply_test_persona(config)
     pool = QThreadPool()
-    monkeypatch.setattr("app.virtual_host.runtime_service.ai_worker_pool", lambda: pool)
+    monkeypatch.setattr("app.virtual_host.runtime_service.submit_virtual_host_job", lambda runnable: pool.start(runnable) or True)
     app = SimpleNamespace(
         config=config,
         logger=SimpleNamespace(warning=lambda *args, **kwargs: None),
+    )
+    app.get_scene_generation_snapshot = lambda: int(
+        getattr(app, "_scene_generation", 0)
     )
     service = VirtualHostRuntimeService(app)
     service.start()
@@ -202,7 +213,7 @@ def test_voice_chat_does_not_inject_recent_danmu_batches(monkeypatch, qapp):
     config = _dialogue_config()
     service = _dialogue_service_with_persona(monkeypatch, config)
     service._app._scene_generation = 0
-    batch = DanmuBatchCreated.from_lines(
+    batch = _displayed(
         batch_id="stale-danmu",
         lines=["不应进入语音对话的弹幕"],
         created_at=time.time(),
@@ -320,13 +331,13 @@ def test_dialogue_mode_danmu_batch_does_not_trigger_chat(monkeypatch, qapp):
         "app.virtual_host.runtime_service.request_host_chat",
         lambda *_args, **_kwargs: pytest.fail("danmu batch must not trigger chat in dialogue mode"),
     )
-    batch = DanmuBatchCreated.from_lines(
+    batch = _displayed(
         batch_id="dialogue-batch",
         lines=["弹幕不应触发"],
         created_at=time.time(),
         scene_generation=0,
     )
-    decision = service.on_danmu_batch_created(batch)
+    decision = service.on_danmu_displayed(batch)
     assert decision.accepted is False
     assert decision.reason == "mode_disabled"
     assert service.chat_request_count == 0
@@ -337,20 +348,20 @@ def test_adapter_mode_danmu_batch_still_accepts_without_voice_chat(monkeypatch, 
 
     config = _adapter_config()
     pool = QThreadPool()
-    monkeypatch.setattr("app.virtual_host.runtime_service.ai_worker_pool", lambda: pool)
+    monkeypatch.setattr("app.virtual_host.runtime_service.submit_virtual_host_job", lambda runnable: pool.start(runnable) or True)
     service = VirtualHostRuntimeService(
         SimpleNamespace(config=config, personae=None, logger=SimpleNamespace(warning=lambda *_a, **_k: None))
     )
     service.start()
     _register_runtime_test(service, pool)
 
-    batch = DanmuBatchCreated.from_lines(
+    batch = _displayed(
         batch_id="adapter-batch",
         lines=["适配模式弹幕"],
         created_at=time.time(),
         scene_generation=0,
     )
-    decision = service.on_danmu_batch_created(batch)
+    decision = service.on_danmu_displayed(batch)
     assert decision.accepted is True
     assert not service.mic_route_active()
 
@@ -496,7 +507,7 @@ def test_adapter_autonomous_chat_omits_voice_dialogue_prompt(monkeypatch, qapp):
         )
 
     monkeypatch.setattr("app.virtual_host.runtime_service.request_host_chat", _fake_chat)
-    decision = service.on_danmu_batch_created(_batch("adapter-persona", scene_generation=0))
+    decision = service.on_danmu_displayed(_batch("adapter-persona", scene_generation=0))
     assert decision.accepted is True
     _wait_pool(service, qapp)
 

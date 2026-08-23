@@ -32,6 +32,8 @@ def test_trigger_api_call_passes_latest_screenshot_without_copy(monkeypatch):
     class _Runnable:
         def __init__(self, _worker, handed_pixmap, *_args, **_kwargs):
             captured["pixmap"] = handed_pixmap
+            captured["session_token"] = _kwargs["session_token"]
+            captured["session_is_current"] = _kwargs["session_is_current"]
 
     pool = Mock()
     pool.start = Mock()
@@ -52,6 +54,9 @@ def test_trigger_api_call_passes_latest_screenshot_without_copy(monkeypatch):
     assert captured["pixmap"] is app._latest_screenshot
     assert captured["pixmap"].width() == 100
     assert captured["pixmap"].height() == 80
+    assert captured["session_token"] == app._capture_session_epoch
+    assert captured["session_is_current"](app._capture_session_epoch) is True
+    assert captured["session_is_current"](app._capture_session_epoch + 1) is False
     pool.start.assert_called_once()
 
 

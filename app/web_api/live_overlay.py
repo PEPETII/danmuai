@@ -76,7 +76,7 @@ def register_live_overlay_routes(
         return {"ok": True, "count": len(items) if items else 2}
 
     @app.get("/api/live-overlay/events")
-    async def live_overlay_events():
+    async def live_overlay_events(last_event_id: str | None = Header(default=None, alias="Last-Event-ID")):
         queue: asyncio.Queue = asyncio.Queue(maxsize=64)
         hub.register(queue)
 
@@ -87,13 +87,26 @@ def register_live_overlay_routes(
                     ensure_ascii=False,
                 )
                 yield f"event: hello\ndata: {hello}\n\n"
-                for replay in hub.recent_items():
-                    replay_data = json.dumps(replay, ensure_ascii=False)
-                    yield f"data: {replay_data}\n\n"
+                if last_event_id is not None:
+                    try:
+                        cursor = int(last_event_id)
+                    except (TypeError, ValueError):
+                        cursor = -1
+                    _, replay_items = hub.replay_after(cursor)
+                    for replay in replay_items:
+                        replay_data = json.dumps(replay, ensure_ascii=False)
+                        event_name = replay.get("event")
+                        event_id = replay.get("id")
+                        prefix = f"event: {event_name}\n" if event_name else ""
+                        if event_id is not None:
+                            prefix += f"id: {event_id}\n"
+                        yield f"{prefix}data: {replay_data}\n\n"
                 while True:
                     payload = await queue.get()
                     data = json.dumps(payload, ensure_ascii=False)
-                    yield f"data: {data}\n\n"
+                    event_id = payload.get("id")
+                    prefix = f"id: {event_id}\n" if event_id is not None else ""
+                    yield f"{prefix}data: {data}\n\n"
             finally:
                 hub.unregister(queue)
 

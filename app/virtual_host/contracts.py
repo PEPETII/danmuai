@@ -37,8 +37,8 @@ def _unique_texts(values: tuple[object, ...] | list[object]) -> tuple[str, ...]:
 
 
 @dataclass(frozen=True)
-class DanmuBatchCreated:
-    """已接受的最终弹幕文本批次，不包含视觉模型原始 JSON。"""
+class DanmuGenerated:
+    """模型规范化后的生成事件；它不表示已入队或已显示。"""
 
     batch_id: str
     created_at: float
@@ -47,6 +47,7 @@ class DanmuBatchCreated:
     scene_generation: int
     lines: tuple[str, ...]
     ttl_seconds: float = 120.0
+    request_id: str = ""
 
     MAX_LINES = 10
     DEFAULT_CHAR_BUDGET = 600
@@ -64,6 +65,7 @@ class DanmuBatchCreated:
         object.__setattr__(self, "scene_generation", int(self.scene_generation))
         object.__setattr__(self, "lines", lines)
         object.__setattr__(self, "ttl_seconds", float(self.ttl_seconds))
+        object.__setattr__(self, "request_id", normalize_text(self.request_id))
 
     @classmethod
     def from_lines(
@@ -77,7 +79,8 @@ class DanmuBatchCreated:
         scene_generation: int = 0,
         ttl_seconds: float = 120.0,
         char_budget: int = DEFAULT_CHAR_BUDGET,
-    ) -> "DanmuBatchCreated":
+        request_id: str = "",
+    ) -> "DanmuGenerated":
         """规范化、去重并按条数/字符预算截断批次。"""
 
         remaining = max(0, int(char_budget))
@@ -103,6 +106,7 @@ class DanmuBatchCreated:
             scene_generation=scene_generation,
             lines=tuple(clipped),
             ttl_seconds=ttl_seconds,
+            request_id=request_id,
         )
 
     @property
@@ -122,6 +126,100 @@ class DanmuBatchCreated:
         if self.is_expired(now=now):
             return False
         return scene_generation is None or self.scene_generation == int(scene_generation)
+
+
+@dataclass(frozen=True)
+class DanmuQueued(DanmuGenerated):
+    """已进入 reply queue 的事件模型；不表示显示面已接受。"""
+
+
+@dataclass(frozen=True)
+class DanmuDisplayed(DanmuGenerated):
+    """一个显示面实际接受的弹幕事件，供虚拟主播作为唯一默认输入。"""
+
+    event_id: str = ""
+    display_surface: Literal["overlay", "floating_panel", "pet"] = "overlay"
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        event_id = normalize_text(self.event_id)
+        if not event_id:
+            raise ValueError("event_id must not be empty")
+        if self.display_surface not in {"overlay", "floating_panel", "pet"}:
+            raise ValueError("unsupported display surface")
+        object.__setattr__(self, "event_id", event_id)
+
+    @classmethod
+    def from_lines(
+        cls,
+        *,
+        batch_id: str,
+        lines: list[str] | tuple[str, ...],
+        event_id: str,
+        display_surface: Literal["overlay", "floating_panel", "pet"],
+        created_at: float | None = None,
+        source: str = "visual",
+        screenshot_id: int | str | None = None,
+        scene_generation: int = 0,
+        ttl_seconds: float = 120.0,
+        char_budget: int = DanmuGenerated.DEFAULT_CHAR_BUDGET,
+        request_id: str = "",
+    ) -> "DanmuDisplayed":
+        generated = DanmuGenerated.from_lines(
+            batch_id=batch_id,
+            lines=lines,
+            created_at=created_at,
+            source=source,
+            screenshot_id=screenshot_id,
+            scene_generation=scene_generation,
+            ttl_seconds=ttl_seconds,
+            char_budget=char_budget,
+            request_id=request_id,
+        )
+        return cls(
+            batch_id=generated.batch_id,
+            created_at=generated.created_at,
+            source=generated.source,
+            screenshot_id=generated.screenshot_id,
+            scene_generation=generated.scene_generation,
+            lines=generated.lines,
+            ttl_seconds=generated.ttl_seconds,
+            request_id=generated.request_id,
+            event_id=event_id,
+            display_surface=display_surface,
+        )
+
+    @classmethod
+    def from_queued(
+        cls,
+        queued: object,
+        text: str,
+        *,
+        display_surface: Literal["overlay", "floating_panel", "pet"],
+        displayed_at: float | None = None,
+    ) -> "DanmuDisplayed":
+        """由已成功分发的 ``QueuedReply`` 建立单行 displayed 事件。"""
+        request_raw = getattr(queued, "request_id", "")
+        request_id = "" if request_raw is None else str(request_raw)
+        content_index = int(getattr(queued, "content_index", 0) or 0)
+        batch_raw = getattr(queued, "batch_id", "")
+        batch_id = "" if batch_raw is None else str(batch_raw)
+        return cls.from_lines(
+            batch_id=batch_id,
+            lines=(text,),
+            created_at=time.time() if displayed_at is None else displayed_at,
+            source=str(getattr(queued, "source", "ai") or "ai"),
+            screenshot_id=getattr(queued, "screenshot_id", None),
+            scene_generation=int(getattr(queued, "scene_generation", 0) or 0),
+            request_id=request_id,
+            event_id=f"{request_id}:{batch_id}:{content_index}:{display_surface}",
+            display_surface=display_surface,
+        )
+
+
+# Backward-compatible import name.  New producers must select one of the explicit
+# lifecycle names above; only ``DanmuDisplayed`` is eligible for host input.
+DanmuBatchCreated = DanmuGenerated
 
 
 @dataclass(frozen=True)

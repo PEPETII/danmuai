@@ -234,9 +234,10 @@ class KnowledgeRetriever:
             "ORDER BY fts_score ASC LIMIT ?"
         )
         try:
-            rows = self._db.conn.execute(
-                sql, (query_text, _FTS_HIT_LIMIT)
-            ).fetchall()
+            with self._db.read_connection() as conn:
+                rows = conn.execute(
+                    sql, (query_text, _FTS_HIT_LIMIT)
+                ).fetchall()
         except sqlite3.OperationalError as exc:
             # FTS 查询语法错误或表损坏 → 回退 LIKE
             logger.debug("knowledge.fts query failed, fallback to LIKE: %s", exc)
@@ -273,9 +274,10 @@ class KnowledgeRetriever:
             f"WHERE p.enabled=1 AND i.enabled=1 AND ({where_clause}) "
             "ORDER BY i.priority DESC, i.id ASC LIMIT ?"
         )
-        rows = self._db.conn.execute(
-            sql, [*params, _FTS_HIT_LIMIT]
-        ).fetchall()
+        with self._db.read_connection() as conn:
+            rows = conn.execute(
+                sql, [*params, _FTS_HIT_LIMIT]
+            ).fetchall()
         return [_deserialize_item_row(row) for row in rows]
 
     # ------------------------------------------------------------------

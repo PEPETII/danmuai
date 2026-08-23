@@ -72,8 +72,7 @@ class VirtualHostMicRoute:
     def on_speech_start(self) -> bool:
         if not self._route_active():
             return False
-        app = self._runtime._app
-        scene_generation = int(getattr(app, "_scene_generation", 0))
+        scene_generation = self._runtime._current_scene_generation()
         runtime_generation = self._runtime.runtime_generation
         turn = self._audio().begin_mic_turn(
             scene_generation=scene_generation,
@@ -122,7 +121,7 @@ class VirtualHostMicRoute:
             self._active_runtime_generation = self._runtime.runtime_generation
         turn_id = self._active_turn_id
         runtime_generation = self._active_runtime_generation
-        scene_generation = int(getattr(self._runtime._app, "_scene_generation", 0))
+        scene_generation = self._runtime._current_scene_generation()
         self._audio().end_input(turn_id)
         self._playback().release_playback_suppression()
         if not pcm:
@@ -199,7 +198,7 @@ class VirtualHostMicRoute:
                 error="stale_turn",
             )
             return
-        scene_generation = int(getattr(self._runtime._app, "_scene_generation", 0))
+        scene_generation = self._runtime._current_scene_generation()
         state = self._audio().get_turn(turn_id)
         if state.cancelled or state.status in {"completed", "failed", "cancelled"}:
             self._active_turn_id = 0

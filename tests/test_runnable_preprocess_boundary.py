@@ -138,3 +138,38 @@ def test_preprocess_success_still_reaches_request():
 
     worker._emit_safe.assert_not_called()
     worker._request.assert_called_once()
+
+
+def test_stale_session_token_skips_compress_and_provider_request():
+    """A queued pre-stop visual runnable must not reach provider HTTP after start."""
+    worker = _mock_worker()
+    compress = Mock(return_value="data:image/jpeg;base64,abc")
+    runnable = AiRunnable(
+        **_base_runnable_kwargs(
+            worker=worker,
+            compress_fn=compress,
+            session_token=7,
+            session_is_current=lambda _token: False,
+        )
+    )
+
+    runnable.run()
+
+    compress.assert_not_called()
+    worker._request.assert_not_called()
+    worker._emit_safe.assert_not_called()
+
+
+def test_current_session_token_reaches_provider_request():
+    worker = _mock_worker()
+    runnable = AiRunnable(
+        **_base_runnable_kwargs(
+            worker=worker,
+            session_token=8,
+            session_is_current=lambda token: token == 8,
+        )
+    )
+
+    runnable.run()
+
+    worker._request.assert_called_once()

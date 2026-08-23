@@ -25,7 +25,7 @@ from app.reply_parser import (
     parse_ai_reply_payload,  # noqa: F401 — 保留以兼容现有测试 monkeypatch 目标
 )
 from app.translations import tr
-from app.virtual_host.contracts import DanmuBatchCreated
+from app.virtual_host.contracts import DanmuDisplayed
 
 if TYPE_CHECKING:
     from main import DanmuApp
@@ -158,23 +158,6 @@ class GenerationPipeline:
                 app.logger.debug(
                     "knowledge on_reply_consumed failed (non-fatal): %r", exc
                 )
-        virtual_host_runtime = app.__dict__.get("virtual_host_runtime")
-        if virtual_host_runtime is not None:
-            try:
-                danmu_batch = DanmuBatchCreated.from_lines(
-                    batch_id=format_reply_request_id(
-                        request_round, screenshot_id, scene_generation
-                    ),
-                    lines=normalized_items,
-                    source="ai",
-                    screenshot_id=screenshot_id,
-                    scene_generation=scene_generation,
-                )
-                virtual_host_runtime.on_danmu_batch_created(danmu_batch)
-            except Exception as exc:  # boundary: 虚拟主播批次接入失败不影响主链路
-                app.logger.debug(
-                    "virtual_host on_danmu_batch_created failed (non-fatal): %r", exc
-                )
         app.notify_pet_visual_success()
         app.publish_live_status()
 
@@ -229,27 +212,43 @@ class GenerationPipeline:
             app.update_stats_from_pipeline(success=False)
             app.maybe_pool_topup()
             return
-        barrage.deliver_batch(
+        deliveries = barrage.deliver_batch(
             [text for _, text in rendered_rows[:5]],
             persona_id=rendered_rows[0][0].persona_id,
             batch_id=rendered_rows[0][0].batch_id,
             scene_generation=rendered_rows[0][0].scene_generation,
             source=rendered_rows[0][0].source,
         )
-        for queued_item, text in rendered_rows[:5]:
+        delivered_rows = rendered_rows[: len(deliveries)]
+        for queued_item, text in delivered_rows:
             app.history_writer.enqueue(text, queued_item.persona_id, queued_item.batch_index)
             app.log_reply_pipeline_from_queued(
                 "reply_displayed",
                 queued_item,
                 displayed=True,
             )
+            self._notify_virtual_host_displayed(app, queued_item, text, "pet")
+        rejected_rows = rendered_rows[len(deliveries) :]
+        for queued_item, _text in rejected_rows:
+            app.log_reply_pipeline_from_queued(
+                "reply_displayed",
+                queued_item,
+                displayed=False,
+            )
+            app.record_undisplayed("pet_rejected", persona_id=queued_item.persona_id)
+        if not delivered_rows:
+            if not app.reply_buffer.is_empty():
+                app.reply_timer.start(100)
+            app.update_stats_from_pipeline(success=False)
+            app.maybe_pool_topup()
+            return
         app.set_latest_displayed_from_pipeline(
-            screenshot_round=max(item.screenshot_round for item, _ in rendered_rows),
-            screenshot_id=max(item.screenshot_id for item, _ in rendered_rows),
+            screenshot_round=max(item.screenshot_round for item, _ in delivered_rows),
+            screenshot_id=max(item.screenshot_id for item, _ in delivered_rows),
         )
         if not app.reply_buffer.is_empty():
             app.reply_timer.start(app.estimated_reply_gap_ms())
-        app.update_stats_from_pipeline(success=True, count=len(rendered_rows[:5]))
+        app.update_stats_from_pipeline(success=True, count=len(delivered_rows))
         app.maybe_pool_topup()
 
     def _dispatch_to_floating_panel(self, app: "DanmuApp") -> None:
@@ -362,6 +361,9 @@ class GenerationPipeline:
                 queued,
                 displayed=True,
             )
+            self._notify_virtual_host_displayed(
+                app, queued, display_content, "floating_panel"
+            )
             app.history_writer.enqueue(display_content, queued.persona_id, queued.batch_index)
             from app.danmu_engine_models import DanmuItem
 
@@ -466,6 +468,7 @@ class GenerationPipeline:
                 queued,
                 displayed=True,
             )
+            self._notify_virtual_host_displayed(app, queued, display_content, "overlay")
             app.history_writer.enqueue(display_content, queued.persona_id, queued.batch_index)
             from app.danmu_engine_models import DanmuItem
 
@@ -529,6 +532,29 @@ class GenerationPipeline:
 
         app.update_stats_from_pipeline(success=item is not None)
         app.maybe_pool_topup()
+
+    def _notify_virtual_host_displayed(
+        self,
+        app: "DanmuApp",
+        queued_item,
+        display_text: str,
+        surface: str,
+    ) -> None:
+        """仅在显示面实际接受后通知虚拟主播；拒绝/裁剪不会产生此事件。"""
+        runtime = app.__dict__.get("virtual_host_runtime")
+        if runtime is None:
+            return
+        try:
+            event = DanmuDisplayed.from_queued(
+                queued_item,
+                display_text,
+                display_surface=surface,
+            )
+            runtime.on_danmu_displayed(event)
+        except Exception as exc:  # boundary: 虚拟主播输入失败不影响主链路
+            app.logger.debug(
+                "virtual_host on_danmu_displayed failed (non-fatal): %r", exc
+            )
 
     def _compute_anchor_update(self, app: "DanmuApp", item) -> None:
         """共享锚点更新：成功上屏后设置 batch.anchor_item 与 next_generation_time。

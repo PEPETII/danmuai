@@ -14,6 +14,7 @@ from app.screenshot_compress import (
     IMAGE_JPEG_QUALITY,
     IMAGE_MAX_WIDTH,
     compress_screenshot,
+    pixmap_to_image_snapshot,
 )
 from PIL import Image
 from PyQt6.QtGui import QColor, QImage, QPixmap
@@ -45,6 +46,17 @@ def test_compress_screenshot_constants():
 def test_compress_screenshot_data_uri_prefix(qapp):
     uri = compress_screenshot(_make_pixmap(640, 480))
     assert uri.startswith(JPEG_DATA_URI_PREFIX)
+
+
+def test_pixmap_snapshot_is_independent_qimage_for_worker(qapp):
+    pixmap = _make_pixmap(640, 480)
+
+    image = pixmap_to_image_snapshot(pixmap)
+
+    assert isinstance(image, QImage)
+    assert not image.isNull()
+    assert image.size() == pixmap.size()
+    assert compress_screenshot(image).startswith(JPEG_DATA_URI_PREFIX)
 
 
 def test_compress_screenshot_non_empty_payload(qapp):

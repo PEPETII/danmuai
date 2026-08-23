@@ -14,8 +14,9 @@
 - scene_generation：场景配置指纹版本（live_topic/user_nickname/screen_index/region_* 变更递增；start/stop 重置；截图不推进）
 - MAX_IN_FLIGHT=1：并发视觉请求会破坏过期判断与回复顺序，故硬限制为 1
 
-线程：DanmuApp 在 Qt 主线程；CaptureRunnable 在 capture_worker_pool 抓屏；
-AiRunnable 在 ai_worker_pool 中调 AiWorker，finished 信号队列回主线程。
+线程：DanmuApp 在 Qt 主线程抓屏并创建 QImage 快照；CaptureRunnable 在
+capture_worker_pool 中仅转送该线程安全 payload；AiRunnable 在 ai_worker_pool
+中压缩快照、调 AiWorker，finished 信号队列回主线程。
 
 Phase 4 冻结：ai_in_flight、_pending_request_meta、_scene_generation 等仍冻结于本模块；
 reply_buffer/QTimer 所有权仍属本模块，回复消费逻辑已委托 app/application/generation_pipeline.py
@@ -80,6 +81,7 @@ from app.screenshot_compress import (
     IMAGE_JPEG_QUALITY,
     IMAGE_MAX_WIDTH,
     compress_screenshot,
+    pixmap_to_image_snapshot,
 )
 from app.snipper import resolve_screen_index  # noqa: F401
 from app.translations import tr
@@ -320,17 +322,17 @@ class DanmuApp(
             self.reply_timer.setInterval(min(self.reply_timer.interval(), 200))
         self._publish_live_status()
 
-    def _apply_capture_result(self, pixmap):
-        """主线程：校验 worker 回传的 pixmap，更新 _latest_screenshot*。
+    def _apply_capture_result(self, image):
+        """主线程：校验 worker 回传的 QImage snapshot，更新 _latest_screenshot*。
 
         无效帧（None / isNull / 零尺寸）仅记 warning，不递增 screenshot_id。
         """
-        if pixmap is None:
+        if image is None:
             self.logger.warning(tr("app.capture_failed"))
             self._note_capture_failure()
             self._record_undisplayed("capture_failure")
             return False
-        if pixmap.isNull() or pixmap.width() <= 0 or pixmap.height() <= 0:
+        if image.isNull() or image.width() <= 0 or image.height() <= 0:
             screen_index = self.config.get_int("screen_index", 0)
             region_x = self.config.get_int("region_x", 0)
             region_y = self.config.get_int("region_y", 0)
@@ -339,9 +341,9 @@ class DanmuApp(
             self.logger.warning(
                 "截图无效: is_null=%s width=%s height=%s screen_index=%s "
                 "region_x=%s region_y=%s region_w=%s region_h=%s reason=null_pixmap",
-                pixmap.isNull(),
-                pixmap.width(),
-                pixmap.height(),
+                image.isNull(),
+                image.width(),
+                image.height(),
                 screen_index,
                 region_x,
                 region_y,
@@ -352,15 +354,15 @@ class DanmuApp(
             self._record_undisplayed("capture_failure")
             return False
         self._note_capture_success()
-        self._latest_screenshot = pixmap
+        self._latest_screenshot = image
         self._latest_screenshot_time = time.monotonic()
         self._latest_screenshot_id += 1
         self.logger.debug(
             tr("app.screenshot_updated").format(
                 screenshot_id=self._latest_screenshot_id,
                 scene_generation=self._scene_generation,
-                width=pixmap.width(),
-                height=pixmap.height(),
+                width=image.width(),
+                height=image.height(),
             )
         )
         return True
@@ -371,10 +373,12 @@ class DanmuApp(
             return
         if self._failure_backoff_paused:
             return
+        # This helper is synchronous and runs on the caller's GUI thread.
+        # The production asynchronous path below always snapshots to QImage.
         self._apply_capture_result(self.capturer.grab())
 
     def _schedule_capture(self) -> None:
-        """主线程：构建 CapturePlan 并投递 capture_worker_pool。"""
+        """主线程抓屏并创建 QImage snapshot，再投递 capture_worker_pool。"""
         if not self.engine.running:
             return
         if self._failure_backoff_paused:
@@ -382,17 +386,27 @@ class DanmuApp(
         if self._capture_in_flight:
             self.logger.debug("跳过截图调度: reason=capture_in_flight")
             return
-        plan = self.capturer.build_plan()
-        if plan is None:
-            self.logger.warning(tr("app.capture_failed"))
-            self._note_capture_failure()
+        try:
+            pixmap = self.capturer.grab()
+            image = pixmap_to_image_snapshot(pixmap) if pixmap is not None else None
+        except Exception as exc:
+            self._on_capture_failed(
+                f"{type(exc).__name__}: {exc}",
+                getattr(self, "_capture_session_epoch", 0),
+            )
+            return
+        if image is None:
+            self._on_capture_failed(
+                "capture_returned_none",
+                getattr(self, "_capture_session_epoch", 0),
+            )
             return
         self._capture_in_flight = True
         from app.runnable import CaptureRunnable
         from app.worker_pools import capture_worker_pool
 
         runnable = CaptureRunnable(
-            plan,
+            image,
             self._capture_coordinator,
             self.ai_worker._stopping,
             session_epoch=getattr(self, "_capture_session_epoch", 0),
@@ -413,7 +427,7 @@ class DanmuApp(
         )
         return False
 
-    def _on_capture_completed(self, pixmap, session_epoch=None) -> None:
+    def _on_capture_completed(self, image, session_epoch=None) -> None:
         """CaptureCoordinator.completed 主线程槽：应用截图结果并触发 API。"""
         if not self._capture_session_is_current(session_epoch):
             return
@@ -422,12 +436,12 @@ class DanmuApp(
             return
         if self._failure_backoff_paused:
             return
-        if not self._apply_capture_result(pixmap):
+        if not self._apply_capture_result(image):
             return
         virtual_host_runtime = getattr(self, "virtual_host_runtime", None)
         if virtual_host_runtime is not None:
             virtual_host_runtime.on_capture_completed(
-                pixmap,
+                image,
                 screenshot_id=self._latest_screenshot_id,
                 scene_generation=self._scene_generation,
                 captured_at=self._latest_screenshot_time,
@@ -532,7 +546,7 @@ class DanmuApp(
         self._get_request_scheduler().record_trigger_time(now=trigger_at)
         self._log_api_schedule(decision="fire", source=source)
         self._scene_refresh_wanted = False
-        pixmap, screenshot_id, captured_at = self._borrow_latest_screenshot_for_request()
+        image, screenshot_id, captured_at = self._borrow_latest_screenshot_for_request()
         self.screenshot_round += 1
         request_round = self.screenshot_round
         self._batch_id += 1
@@ -540,7 +554,7 @@ class DanmuApp(
         self._latest_requested_screenshot_id = screenshot_id
         self._acquire_visual_inflight(screenshot_id, self._scene_generation)
         self._publish_live_status()
-        return pixmap, screenshot_id, captured_at, request_round, batch_id
+        return image, screenshot_id, captured_at, request_round, batch_id
 
     def _build_visual_prompts(
         self,
@@ -617,7 +631,7 @@ class DanmuApp(
 
     def _dispatch_visual_ai_runnable(
         self,
-        pixmap: object,
+        image: object,
         system_pt: str,
         user_pt: str,
         persona: str,
@@ -652,7 +666,7 @@ class DanmuApp(
         image_quality = self.config.get_int("image_quality", IMAGE_JPEG_QUALITY)
         runnable = AiRunnable(
             self.ai_worker,
-            pixmap,
+            image,
             system_pt,
             user_pt,
             persona,
@@ -662,6 +676,9 @@ class DanmuApp(
             self._scene_generation,
             lambda p: compress_screenshot(p, image_max_width, image_quality),
             image_quality=image_quality,
+            session_token=getattr(self, "_capture_session_epoch", 0),
+            session_is_current=lambda token: token
+            == getattr(self, "_capture_session_epoch", None),
         )
         ai_worker_pool().start(runnable)
 
@@ -678,7 +695,7 @@ class DanmuApp(
         """
         if self._blocked_visual_api_trigger(source, enforce_min_interval=enforce_min_interval):
             return
-        pixmap, screenshot_id, captured_at, request_round, batch_id = self._begin_visual_api_round(
+        image, screenshot_id, captured_at, request_round, batch_id = self._begin_visual_api_round(
             source
         )
         prompts = self._build_visual_prompts(
@@ -690,7 +707,7 @@ class DanmuApp(
             return
         system_pt, user_pt, persona = prompts
         self._dispatch_visual_ai_runnable(
-            pixmap,
+            image,
             system_pt,
             user_pt,
             persona,

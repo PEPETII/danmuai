@@ -5,7 +5,11 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from ..constants import VIRTUAL_HOST_DIR, VIRTUAL_HOST_RUNTIME_PATH
+from ..constants import (
+    VIRTUAL_HOST_DIR,
+    VIRTUAL_HOST_PRIVATE_APP_READ_PATTERN,
+    VIRTUAL_HOST_RUNTIME_PATH,
+)
 from ..git_diff import _is_comment_or_blank, get_added_lines
 from ..models import Finding
 
@@ -19,12 +23,25 @@ def check_virtual_host_module_boundaries(repo_root: Path, changed: dict[Path, st
     qt_pattern = re.compile(r"\bfrom PyQt6\b|\bimport PyQt6\b")
     for path in sorted(vh_dir.glob("*.py")):
         rel_path = path.relative_to(repo_root)
-        if rel_path == VIRTUAL_HOST_RUNTIME_PATH:
-            continue
         if rel_path not in changed:
             continue
         for line_no, line in get_added_lines(repo_root, rel_path, changed[rel_path]):
             if _is_comment_or_blank(line):
+                continue
+            if VIRTUAL_HOST_PRIVATE_APP_READ_PATTERN.search(line):
+                findings.append(
+                    Finding(
+                        severity="error",
+                        rule="virtual-host-private-app-read",
+                        path=str(rel_path),
+                        line=line_no,
+                        message=(
+                            "virtual_host must not read DanmuApp private fields; "
+                            "add or use a public DanmuApp facade"
+                        ),
+                    )
+                )
+            if rel_path == VIRTUAL_HOST_RUNTIME_PATH:
                 continue
             if qt_pattern.search(line):
                 findings.append(

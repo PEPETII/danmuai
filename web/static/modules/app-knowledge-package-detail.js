@@ -20,8 +20,28 @@ import {
   stopKnowledgeJobPolling,
   updateBackgroundJobBanner,
 } from './app-knowledge-jobs.js';
-import { loadItems } from './app-knowledge-items.js';
+import { cancelItemsLoad, loadItems } from './app-knowledge-items.js';
 import { syncImportFormState } from './app-knowledge-import.js';
+
+let detailLoadRequestId = 0;
+let detailLoadAbortController = null;
+
+function isAbortError(error) {
+  return error?.name === 'AbortError';
+}
+
+function isCurrentDetailLoad(requestId, packageId, { requireVisible = true } = {}) {
+  if (requestId !== detailLoadRequestId || packageId !== currentPackageId) return false;
+  if (!requireVisible) return true;
+  return !document.getElementById('knowledgePackageDetail')?.classList.contains('hidden');
+}
+
+export function cancelPackageDetailLoad() {
+  detailLoadRequestId += 1;
+  detailLoadAbortController?.abort();
+  detailLoadAbortController = null;
+  cancelItemsLoad();
+}
 
 export function fillPackageForm(pkg) {
   const set = (id, value) => {
@@ -81,7 +101,10 @@ export function markOverviewSaved() {
 }
 
 export async function openPackageDetail(packageId) {
-  const { showDetailView } = await import('./app-knowledge-page.js');
+  cancelPackageDetailLoad();
+  const requestId = ++detailLoadRequestId;
+  detailLoadAbortController = new AbortController();
+  const { signal } = detailLoadAbortController;
   if (jobPollPackageId && jobPollPackageId !== packageId) {
     stopKnowledgeJobPolling();
   }
@@ -89,11 +112,15 @@ export async function openPackageDetail(packageId) {
   setJobPollPackageId(packageId);
   resetPreviousJobStatuses();
   setItemPage(1);
+  const { showDetailView } = await import('./app-knowledge-page.js');
+  if (!isCurrentDetailLoad(requestId, packageId, { requireVisible: false })) return;
   showDetailView();
   try {
     const data = await apiFetch(
       `/api/knowledge/packages/${encodeURIComponent(packageId)}`,
+      { signal },
     );
+    if (!isCurrentDetailLoad(requestId, packageId)) return;
     setCurrentPackageSnapshot({
       source_count: data.sources?.length ?? 0,
       item_count: data.items?.total ?? 0,
@@ -115,13 +142,18 @@ export async function openPackageDetail(packageId) {
     const jobList = document.getElementById('knowledgeJobList');
     if (jobList) jobList.replaceChildren();
     await refreshJobs();
+    if (!isCurrentDetailLoad(requestId, packageId)) return;
     await loadItems();
+    if (!isCurrentDetailLoad(requestId, packageId)) return;
     startKnowledgeJobPolling(packageId);
     syncImportFormState();
     updateBackgroundJobBanner();
   } catch (error) {
+    if (isAbortError(error) || !isCurrentDetailLoad(requestId, packageId)) return;
     showKnowledgeToast(error.message, true);
     console.warn('[knowledge] openPackageDetail failed', error);
+  } finally {
+    if (requestId === detailLoadRequestId) detailLoadAbortController = null;
   }
 }
 

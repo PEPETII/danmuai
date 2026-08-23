@@ -289,6 +289,18 @@ class DanmuAppLifecycleMixin:
         self._scene_version_fingerprint = scene_version_fingerprint(self.config)
         self._scene_refresh_wanted = False
         self._pending_api_trigger_source = None
+        self._notify_virtual_host_scene_generation(reset=True)
+
+    def get_scene_generation_snapshot(self) -> int:
+        """Return the main-thread-owned scene generation for dependent runtimes."""
+
+        return int(self._scene_generation)
+
+    def _notify_virtual_host_scene_generation(self, *, reset: bool = False) -> None:
+        runtime = self.__dict__.get("virtual_host_runtime")
+        callback = getattr(runtime, "on_scene_generation_changed", None)
+        if callable(callback):
+            callback(self.get_scene_generation_snapshot(), reset=reset)
 
     def _maybe_bump_scene_generation_on_config(self) -> bool:
         fp = scene_version_fingerprint(self.config)
@@ -304,6 +316,7 @@ class DanmuAppLifecycleMixin:
             "scene_generation=%s reason=scene_config_changed",
             self._scene_generation,
         )
+        self._notify_virtual_host_scene_generation()
         return True
 
     def _on_scene_generation_bumped(self) -> None:

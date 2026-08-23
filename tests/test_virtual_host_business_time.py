@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 
 from app.virtual_host.chat import HostChatHttpResult
-from app.virtual_host.contracts import DanmuBatchCreated, HostTurnResult, SceneContext
+from app.virtual_host.contracts import DanmuDisplayed, DanmuGenerated, HostTurnResult, SceneContext
 from app.virtual_host.model_config import VISION_MODEL_KEY, apply_virtual_host_model_config
 from app.virtual_host.response_scheduler import ResponseCandidateEvent, VirtualHostResponseScheduler
 from app.virtual_host.runtime_service import VirtualHostRuntimeService, _monotonic_elapsed_since
@@ -19,6 +19,14 @@ def _vision_config(vision_model: str = "qwen3-vl-flash") -> _FakeConfig:
     config = _FakeConfig({VISION_MODEL_KEY: vision_model}, custom_models=[_vision_profile(vision_model)])
     apply_virtual_host_model_config(config, {"vision_model_id": vision_model})
     return config
+
+
+def _displayed(**kwargs) -> DanmuDisplayed:
+    return DanmuDisplayed.from_lines(
+        event_id=f"test:{kwargs['batch_id']}",
+        display_surface="overlay",
+        **kwargs,
+    )
 
 
 def _running_service(monkeypatch, *, sync_workers: bool = False) -> VirtualHostRuntimeService:
@@ -39,7 +47,7 @@ def _running_service(monkeypatch, *, sync_workers: bool = False) -> VirtualHostR
             def start(self, runnable):
                 runnable.run()
 
-        monkeypatch.setattr("app.virtual_host.runtime_service.ai_worker_pool", lambda: _SyncPool())
+        monkeypatch.setattr("app.virtual_host.runtime_service.submit_virtual_host_job", lambda runnable: _SyncPool().start(runnable) or True)
     service = VirtualHostRuntimeService(_fake_app(_vision_config()))
     service.start()
     return service
@@ -77,13 +85,13 @@ def test_scene_context_survives_danmu_batch_with_wall_clock_created_at(monkeypat
         captured_at=captured_at,
     )
 
-    batch = DanmuBatchCreated.from_lines(
+    batch = _displayed(
         batch_id="wall-batch",
         lines=["来了来了"],
         created_at=time.time(),
         scene_generation=0,
     )
-    service.on_danmu_batch_created(batch)
+    service.on_danmu_displayed(batch)
 
     scheduler = VirtualHostResponseScheduler(rng=lambda: 0.0)
     decision = scheduler.evaluate(
@@ -155,7 +163,7 @@ def test_scene_context_ttl_still_expires_with_wall_clock():
 
 def test_danmu_batch_ttl_does_not_regress():
     now = time.time()
-    batch = DanmuBatchCreated.from_lines(
+    batch = DanmuGenerated.from_lines(
         batch_id="ttl-batch",
         lines=["未过期"],
         created_at=now - 5.0,
@@ -185,7 +193,7 @@ def test_scene_latency_diagnostic_uses_monotonic_capture_stamp(monkeypatch, qapp
     from PyQt6.QtCore import QThreadPool
 
     pool = QThreadPool()
-    monkeypatch.setattr("app.virtual_host.runtime_service.ai_worker_pool", lambda: pool)
+    monkeypatch.setattr("app.virtual_host.runtime_service.submit_virtual_host_job", lambda runnable: pool.start(runnable) or True)
 
     captured: list[dict] = []
 

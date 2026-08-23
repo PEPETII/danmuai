@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 import base64
+import socket
 from unittest.mock import patch
 
 import httpx
@@ -39,6 +40,13 @@ from app.knowledge.source_extractors import (
 # ---------------------------------------------------------------------------
 
 
+class _MockPeerStream:
+    def get_extra_info(self, name: str):
+        if name == "server_addr":
+            return ("93.184.216.34", 443)
+        return None
+
+
 class _MockStreamResponse:
     """模拟 ``httpx.Client.stream()`` 返回的响应上下文管理器。"""
 
@@ -56,6 +64,7 @@ class _MockStreamResponse:
         }
         self._iter_chunks = iter_chunks
         self._content = content
+        self.extensions = {"network_stream": _MockPeerStream()}
 
     @property
     def charset_encoding(self) -> str | None:
@@ -428,6 +437,22 @@ class TestWebpageSSRF:
 
 
 class TestWebpageHTTP:
+    @pytest.fixture(autouse=True)
+    def _public_dns(self):
+        with patch(
+            "app.knowledge.source_extractors.socket.getaddrinfo",
+            return_value=[
+                (
+                    socket.AF_INET,
+                    socket.SOCK_STREAM,
+                    6,
+                    "",
+                    ("93.184.216.34", 0),
+                )
+            ],
+        ):
+            yield
+
     def test_successful_extraction(self):
         html = "<html><body><article><p>Extracted article text.</p></article></body></html>"
         resp = _MockStreamResponse(content=html.encode("utf-8"))

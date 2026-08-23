@@ -10,7 +10,7 @@ from typing import Callable
 from app.virtual_host.contracts import (
     BatchAcceptance,
     ConversationTurn,
-    DanmuBatchCreated,
+    DanmuDisplayed,
     HostPrompt,
     HostTurn,
     HostTurnResult,
@@ -28,6 +28,8 @@ class VirtualHostSession:
     ``HostTurnResult.actions``，动作消费由后续运行时工单负责。
     """
 
+    DEFAULT_MAX_RETAINED_DISPLAY_EVENT_IDS = 128
+
     def __init__(
         self,
         persona_snapshot_loader: Callable[[], VirtualHostPersonaSnapshot] | None = None,
@@ -37,6 +39,7 @@ class VirtualHostSession:
         max_batches: int = 3,
         batch_char_budget: int = 600,
         max_history_turns: int = 8,
+        max_retained_display_event_ids: int = DEFAULT_MAX_RETAINED_DISPLAY_EVENT_IDS,
     ) -> None:
         self.session_id = str(session_id or uuid.uuid4().hex)
         if not self.session_id.strip():
@@ -47,8 +50,9 @@ class VirtualHostSession:
         self._max_batches = max(1, min(int(max_batches), 3))
         self._batch_char_budget = max(1, int(batch_char_budget))
         self._max_history_turns = max(1, int(max_history_turns))
-        self._batches: OrderedDict[str, DanmuBatchCreated] = OrderedDict()
-        self._seen_batch_ids: set[str] = set()
+        self._max_retained_display_event_ids = max(1, int(max_retained_display_event_ids))
+        self._batches: OrderedDict[str, DanmuDisplayed] = OrderedDict()
+        self._seen_display_event_ids: OrderedDict[str, float] = OrderedDict()
         self._scene_context: SceneContext | None = None
         self._scene_generation: int | None = None
         self._history: list[ConversationTurn] = []
@@ -70,6 +74,19 @@ class VirtualHostSession:
     def history(self) -> tuple[ConversationTurn, ...]:
         return tuple(self._history)
 
+    @property
+    def scene_generation(self) -> int | None:
+        """Return the generation that owns the retained scene context."""
+
+        return self._scene_generation
+
+    @property
+    def retained_display_event_count(self) -> int:
+        """当前去重窗口内保留的显示事件数量，不暴露事件文本或 ID。"""
+
+        self._prune_seen_display_event_ids(now=self._clock())
+        return len(self._seen_display_event_ids)
+
     def _capture_persona_layers(self, *, include_voice_dialogue: bool) -> tuple[str, str]:
         loader = self._persona_snapshot_loader
         if loader is None:
@@ -87,12 +104,35 @@ class VirtualHostSession:
 
         if not isinstance(context, SceneContext):
             raise TypeError("context must be SceneContext")
-        if self._scene_generation is not None and context.scene_generation < self._scene_generation:
+        if not self.sync_scene_generation(context.scene_generation):
             return False
         self._scene_context = context
-        self._scene_generation = context.scene_generation
-        self._prune_batches(now=self._clock())
         return True
+
+    def sync_scene_generation(self, scene_generation: int) -> bool:
+        """Advance scene ownership before accepting data for a newer generation.
+
+        The session is main-thread owned. Clearing old scene context and
+        batches here ensures a newly accepted batch cannot immediately be
+        pruned because the session still belongs to the prior generation.
+        """
+
+        generation = int(scene_generation)
+        if self._scene_generation is not None and generation < self._scene_generation:
+            return False
+        if generation == self._scene_generation:
+            return True
+        self._scene_generation = generation
+        self._scene_context = None
+        self._batches.clear()
+        return True
+
+    def reset_scene_generation(self, scene_generation: int = 0) -> None:
+        """Reset ownership for a new main-application session generation."""
+
+        self._scene_generation = int(scene_generation)
+        self._scene_context = None
+        self._batches.clear()
 
     def current_scene_context(self, *, now: float | None = None) -> SceneContext | None:
         context = self._scene_context
@@ -105,54 +145,64 @@ class VirtualHostSession:
 
     def ingest_danmu_batch(
         self,
-        batch: DanmuBatchCreated,
+        batch: DanmuDisplayed,
         *,
         current_scene_generation: int | None = None,
         now: float | None = None,
     ) -> BatchAcceptance:
         current = self._clock() if now is None else float(now)
-        if not isinstance(batch, DanmuBatchCreated):
+        self._prune_seen_display_event_ids(now=current)
+        if not isinstance(batch, DanmuDisplayed):
             decision = BatchAcceptance(False, "invalid")
         elif not batch.lines:
             decision = BatchAcceptance(False, "empty", batch.batch_id)
-        elif batch.batch_id in self._seen_batch_ids:
+        elif batch.event_id in self._seen_display_event_ids:
+            self._seen_display_event_ids.move_to_end(batch.event_id)
             decision = BatchAcceptance(False, "duplicate", batch.batch_id)
         elif batch.is_expired(now=current):
             decision = BatchAcceptance(False, "expired", batch.batch_id)
         else:
-            expected_generation = (
-                self._scene_generation
-                if current_scene_generation is None
-                else int(current_scene_generation)
-            )
-            if expected_generation is not None and batch.scene_generation != expected_generation:
+            if (
+                current_scene_generation is not None
+                and not self.sync_scene_generation(current_scene_generation)
+            ):
                 decision = BatchAcceptance(False, "scene_generation", batch.batch_id)
             else:
-                if batch.char_count > self._batch_char_budget:
-                    batch = DanmuBatchCreated.from_lines(
-                        batch_id=batch.batch_id,
-                        lines=batch.lines,
-                        created_at=batch.created_at,
-                        source=batch.source,
-                        screenshot_id=batch.screenshot_id,
-                        scene_generation=batch.scene_generation,
-                        ttl_seconds=batch.ttl_seconds,
-                        char_budget=self._batch_char_budget,
+                expected_generation = self._scene_generation
+                if expected_generation is not None and batch.scene_generation != expected_generation:
+                    decision = BatchAcceptance(False, "scene_generation", batch.batch_id)
+                else:
+                    if batch.char_count > self._batch_char_budget:
+                        batch = DanmuDisplayed.from_lines(
+                            batch_id=batch.batch_id,
+                            lines=batch.lines,
+                            created_at=batch.created_at,
+                            source=batch.source,
+                            screenshot_id=batch.screenshot_id,
+                            scene_generation=batch.scene_generation,
+                            ttl_seconds=batch.ttl_seconds,
+                            request_id=batch.request_id,
+                            event_id=batch.event_id,
+                            display_surface=batch.display_surface,
+                            char_budget=self._batch_char_budget,
+                        )
+                    if not batch.lines:
+                        decision = BatchAcceptance(False, "empty", batch.batch_id)
+                        self._last_batch_acceptance = decision
+                        return decision
+                    self._batches[batch.event_id] = batch
+                    self._seen_display_event_ids[batch.event_id] = (
+                        batch.created_at + batch.ttl_seconds
                     )
-                if not batch.lines:
-                    decision = BatchAcceptance(False, "empty", batch.batch_id)
-                    self._last_batch_acceptance = decision
-                    return decision
-                self._batches[batch.batch_id] = batch
-                self._seen_batch_ids.add(batch.batch_id)
-                self._prune_batches(now=current)
-                decision = BatchAcceptance(True, "accepted", batch.batch_id)
+                    self._seen_display_event_ids.move_to_end(batch.event_id)
+                    self._prune_batches(now=current)
+                    decision = BatchAcceptance(True, "accepted", batch.batch_id)
         self._last_batch_acceptance = decision
         return decision
 
     def accept_danmu_batch(
         self,
-        batch: DanmuBatchCreated,
+        batch: DanmuDisplayed,
         *,
         current_scene_generation: int | None = None,
         now: float | None = None,
@@ -163,7 +213,7 @@ class VirtualHostSession:
             now=now,
         ).accepted
 
-    def recent_batches(self, *, now: float | None = None) -> tuple[DanmuBatchCreated, ...]:
+    def recent_batches(self, *, now: float | None = None) -> tuple[DanmuDisplayed, ...]:
         self._prune_batches(now=self._clock() if now is None else float(now))
         return tuple(self._batches.values())
 
@@ -180,6 +230,15 @@ class VirtualHostSession:
             if not self._batches:
                 break
             self._batches.popitem(last=False)
+
+    def _prune_seen_display_event_ids(self, *, now: float) -> None:
+        """按显示事件自身 TTL 过期，并以 LRU 容量限制去重窗口。"""
+
+        for event_id, expires_at in list(self._seen_display_event_ids.items()):
+            if now > expires_at:
+                self._seen_display_event_ids.pop(event_id, None)
+        while len(self._seen_display_event_ids) > self._max_retained_display_event_ids:
+            self._seen_display_event_ids.popitem(last=False)
 
     def start_turn(
         self,

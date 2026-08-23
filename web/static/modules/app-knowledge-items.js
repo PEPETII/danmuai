@@ -10,6 +10,27 @@ import {
 import { kindKey } from './app-knowledge-status.js';
 import { openKnowledgeConfirmModal } from './app-knowledge-modals.js';
 
+let itemsLoadRequestId = 0;
+let itemsLoadAbortController = null;
+
+function isAbortError(error) {
+  return error?.name === 'AbortError';
+}
+
+function isCurrentItemsLoad(requestId, packageId) {
+  return (
+    requestId === itemsLoadRequestId
+    && packageId === currentPackageId
+    && !document.getElementById('knowledgePackageDetail')?.classList.contains('hidden')
+  );
+}
+
+export function cancelItemsLoad() {
+  itemsLoadRequestId += 1;
+  itemsLoadAbortController?.abort();
+  itemsLoadAbortController = null;
+}
+
 export function scrollToItemsSection() {
   document.getElementById('knowledgeItemList')?.scrollIntoView({
     behavior: 'smooth',
@@ -170,18 +191,25 @@ export function renderItems(items, total, page, pageSize) {
 
 export async function loadItems() {
   if (!currentPackageId) return;
+  itemsLoadAbortController?.abort();
+  const requestId = ++itemsLoadRequestId;
+  const packageId = currentPackageId;
+  itemsLoadAbortController = new AbortController();
   const kind = document.getElementById('knowledgeItemKindFilter')?.value || '';
   const enabledRaw = document.getElementById('knowledgeItemEnabledFilter')?.value || '';
   const query = document.getElementById('knowledgeItemSearch')?.value || '';
   const params = new URLSearchParams();
-  params.set('package_id', currentPackageId);
+  params.set('package_id', packageId);
   params.set('page', String(itemPage));
   params.set('page_size', String(ITEMS_PAGE_SIZE));
   if (kind) params.set('kind', kind);
   if (enabledRaw === 'true' || enabledRaw === 'false') params.set('enabled', enabledRaw);
   if (query) params.set('query', query);
   try {
-    const data = await apiFetch(`/api/knowledge/items?${params.toString()}`);
+    const data = await apiFetch(`/api/knowledge/items?${params.toString()}`, {
+      signal: itemsLoadAbortController.signal,
+    });
+    if (!isCurrentItemsLoad(requestId, packageId)) return;
     renderItems(
       data.items || [],
       data.total || 0,
@@ -189,8 +217,11 @@ export async function loadItems() {
       data.page_size || ITEMS_PAGE_SIZE,
     );
   } catch (error) {
+    if (isAbortError(error) || !isCurrentItemsLoad(requestId, packageId)) return;
     showKnowledgeToast(error.message, true);
     console.warn('[knowledge] loadItems failed', error);
+  } finally {
+    if (requestId === itemsLoadRequestId) itemsLoadAbortController = null;
   }
 }
 

@@ -1,5 +1,5 @@
 from app.virtual_host import (
-    DanmuBatchCreated,
+    DanmuDisplayed,
     HostTurnResult,
     KnowledgeContextResult,
     SceneContext,
@@ -19,13 +19,15 @@ def _snapshot_loader(
     return lambda: snapshot
 
 
-def _batch(batch_id, created_at, generation, lines=("弹幕来了",)):
-    return DanmuBatchCreated.from_lines(
+def _batch(batch_id, created_at, generation, lines=("弹幕来了",), *, ttl_seconds=10):
+    return DanmuDisplayed.from_lines(
         batch_id=batch_id,
         lines=list(lines),
+        event_id=f"event:{batch_id}",
+        display_surface="overlay",
         created_at=created_at,
         scene_generation=generation,
-        ttl_seconds=10,
+        ttl_seconds=ttl_seconds,
     )
 
 
@@ -62,6 +64,23 @@ def test_session_rejects_duplicate_expired_and_stale_batches():
     assert session.last_batch_acceptance.reason == "scene_generation"
 
 
+def test_session_keeps_an_accepted_batch_after_generation_advances():
+    session = VirtualHostSession(session_id="session-generation", clock=lambda: 100.0)
+    session.update_scene_context(SceneContext(scene_generation=0, summary="old", updated_at=100.0))
+
+    decision = session.ingest_danmu_batch(
+        _batch("new-generation", 100.0, 1),
+        current_scene_generation=1,
+        now=100.0,
+    )
+
+    assert decision.accepted is True
+    assert session.scene_generation == 1
+    assert tuple(batch.batch_id for batch in session.recent_batches(now=100.0)) == (
+        "new-generation",
+    )
+
+
 def test_session_retains_at_most_three_batches_and_character_budget():
     session = VirtualHostSession(session_id="session-3", batch_char_budget=6)
     for index in range(4):
@@ -76,12 +95,50 @@ def test_session_retains_at_most_three_batches_and_character_budget():
     assert batches[-1].batch_id == "b3"
 
 
-def test_session_remembers_accepted_batch_id_after_retention_eviction():
+def test_session_rejects_replay_within_the_display_event_ttl_window():
     session = VirtualHostSession(session_id="session-eviction", batch_char_budget=5)
     assert session.accept_danmu_batch(_batch("once", 100.0, 0, ("12345",)), now=100.0)
     assert session.accept_danmu_batch(_batch("new", 101.0, 0, ("abcde",)), now=101.0)
     assert not session.accept_danmu_batch(_batch("once", 102.0, 0, ("12345",)), now=102.0)
     assert session.last_batch_acceptance.reason == "duplicate"
+
+
+def test_session_retains_display_event_ids_with_lru_capacity():
+    session = VirtualHostSession(
+        session_id="session-display-lru",
+        max_retained_display_event_ids=3,
+        clock=lambda: 106.0,
+    )
+    for index in range(6):
+        assert session.accept_danmu_batch(
+            _batch(f"event-{index}", 100.0 + index, 0),
+            now=100.0 + index,
+        )
+
+    assert session.retained_display_event_count == 3
+    assert not session.accept_danmu_batch(_batch("event-5", 105.0, 0), now=105.0)
+    assert session.last_batch_acceptance.reason == "duplicate"
+    assert session.accept_danmu_batch(_batch("event-0", 106.0, 0), now=106.0)
+    assert session.retained_display_event_count == 3
+
+
+def test_session_allows_replay_after_the_display_event_ttl_window():
+    session = VirtualHostSession(session_id="session-display-ttl", clock=lambda: 103.0)
+    assert session.accept_danmu_batch(
+        _batch("replay", 100.0, 0, ttl_seconds=2),
+        now=100.0,
+    )
+    assert not session.accept_danmu_batch(
+        _batch("replay", 101.0, 0, ttl_seconds=2),
+        now=101.0,
+    )
+    assert session.last_batch_acceptance.reason == "duplicate"
+
+    assert session.accept_danmu_batch(
+        _batch("replay", 103.0, 0, ttl_seconds=2),
+        now=103.0,
+    )
+    assert session.retained_display_event_count == 1
 
 
 def test_prompt_layers_keep_persona_scene_danmu_knowledge_and_input_separate():

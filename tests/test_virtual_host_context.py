@@ -1,6 +1,6 @@
 from app.virtual_host import (
     ActionDraft,
-    DanmuBatchCreated,
+    DanmuGenerated,
     EmotionDraft,
     HostTurnResult,
     KnowledgeContextAdapter,
@@ -9,7 +9,7 @@ from app.virtual_host import (
 
 
 def test_danmu_batch_normalizes_limits_and_character_budget():
-    batch = DanmuBatchCreated.from_lines(
+    batch = DanmuGenerated.from_lines(
         batch_id="batch-1",
         lines=["  第一条\n弹幕 ", "第一条 弹幕", "第二条", "第三条"],
         created_at=100.0,

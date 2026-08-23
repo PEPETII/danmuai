@@ -158,7 +158,14 @@ def _tts_manager(*, calls: list[str] | None = None) -> TtsManager:
 
 
 def _fake_app(config: _FakeConfig) -> SimpleNamespace:
-    return SimpleNamespace(config=config, personae=None, logger=SimpleNamespace(warning=lambda *a, **k: None))
+    app = SimpleNamespace(
+        config=config,
+        personae=None,
+        logger=SimpleNamespace(warning=lambda *a, **k: None),
+        scene_generation=0,
+    )
+    app.get_scene_generation_snapshot = lambda: app.scene_generation
+    return app
 
 
 class _FakePlayer:
@@ -448,7 +455,7 @@ def _vision_config(
 
 def _vision_service(monkeypatch, config: _FakeConfig) -> VirtualHostRuntimeService:
     pool = QThreadPool()
-    monkeypatch.setattr("app.virtual_host.runtime_service.ai_worker_pool", lambda: pool)
+    monkeypatch.setattr("app.virtual_host.runtime_service.submit_virtual_host_job", lambda runnable: pool.start(runnable) or True)
     monkeypatch.setattr(
         "app.virtual_host.runtime_service.compress_screenshot",
         lambda _pixmap: "data:image/jpeg;base64,ZmFrZQ==",
@@ -670,7 +677,7 @@ def test_scene_vision_http_failure_clears_vision_in_flight(qapp, monkeypatch):
 def test_repeated_vision_capture_drains_worker_pool(qapp, monkeypatch):
     config = _vision_config()
     pool = QThreadPool()
-    monkeypatch.setattr("app.virtual_host.runtime_service.ai_worker_pool", lambda: pool)
+    monkeypatch.setattr("app.virtual_host.runtime_service.submit_virtual_host_job", lambda runnable: pool.start(runnable) or True)
     monkeypatch.setattr(
         "app.virtual_host.runtime_service.compress_screenshot",
         lambda _pixmap: "data:image/jpeg;base64,ZmFrZQ==",

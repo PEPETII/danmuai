@@ -4,31 +4,34 @@
 
 ## 截图 capture worker
 
-`CaptureRunnable` 在 `capture_worker_pool` 执行 `execute_capture`，经 `CaptureCoordinator.completed` /
+Qt GUI 主线程完成 QApplication/QScreen/QPixmap capture，并在投递前转换为不可变、线程安全的图像
+载荷；`CaptureRunnable` 在 `capture_worker_pool` 仅处理该载荷，结果经 `CaptureCoordinator.completed` /
 `CaptureCoordinator.failed` 队列回主线程 `_on_capture_completed` / `_on_capture_failed`。
 
 ## 视觉 AI worker
 
-`AiRunnable` 在 `ai_worker_pool` 执行压缩与 `AiWorker._request()`，经 `finished`/`error` 信号回主线程。
+`AiRunnable` 在 `ai_worker_pool` 对线程安全载荷压缩并执行 `AiWorker._request()`，经 `finished`/`error`
+信号回主线程。每个 runnable 捕获不可复用的 session token；stop 使旧 token 失效，压缩、HTTP 与回调
+投递前均验证它，因此 stop/start 后排队的旧任务不会发起 provider HTTP。
 
 ## 虚拟主播场景视觉 worker
 
 `VirtualHostRuntimeService` 在 `on_capture_completed`（主线程）压缩截图后，将 `_SceneVisionRunnable`
-投递至 `ai_worker_pool`；worker 仅调用 `request_scene_summary`，经 `SceneVisionCoordinator.completed`
+投递至有界 `virtual_host_worker_pool`；worker 仅调用 `request_scene_summary`，经 `SceneVisionCoordinator.completed`
 信号回主线程 `_on_scene_vision_completed` → `_complete_scene_vision`。禁止 worker 直接修改
 `VirtualHostRuntimeService` / `VirtualHostSession` 状态。
 
-`QThreadPool` / `QTimer` 触发点：截图 timer、`ai_worker_pool().start`（主链路与虚拟主播场景视觉）。
+`QThreadPool` / `QTimer` 触发点：截图 timer、`ai_worker_pool().start`（主视觉/麦克风）和
+`virtual_host_worker_pool` 的有界投递（虚拟主播 scene/chat/ASR/TTS）。后者记录 pending/in-flight/
+rejected，不能占用主视觉的两个 worker slot。
 
 ## 主链路弹幕批次 → 虚拟主播会话
 
-`GenerationPipeline.handle_reply_parsed`（Qt 主线程，`ai_worker.finished` 回调链）在
-`normalized_items` 非空且 `enqueue_reply_batch_for_pipeline` 成功后构造
-`DanmuBatchCreated`（`source="ai"`，lines 为已规范化文本），经
-`VirtualHostRuntimeService.on_danmu_batch_created` 调用
-`VirtualHostSession.ingest_danmu_batch`（`current_scene_generation` 取自
-`DanmuApp._scene_generation`）。runtime 未 `running` 时拒绝；不触发 Chat/TTS，
-与 overlay / floating_panel / pet 显示分发解耦。
+`GenerationPipeline.handle_reply_parsed`（Qt 主线程，`ai_worker.finished` 回调链）在入队时仅产生
+`DanmuGenerated` / `DanmuQueued`。overlay、floating panel、pet 仅在自己实际接受文本时发出
+`DanmuDisplayed`；该事件才经 `VirtualHostRuntimeService.on_danmu_displayed` 调用
+`VirtualHostSession.ingest_danmu_batch`。runtime 通过 `DanmuApp.get_scene_generation_snapshot()` 读取
+generation，并由主线程变更通知原子清空旧上下文；runtime 未 `running` 时拒绝，不触发 Chat/TTS。
 
 ## 虚拟主播 TTS → Live2D 反馈层
 

@@ -47,6 +47,39 @@ def repo(db: KnowledgeDatabase) -> KnowledgeRepository:
 
 
 # ---------------------------------------------------------------------------
+# 聚合列表查询
+# ---------------------------------------------------------------------------
+
+
+class TestPackageListAggregation:
+    def test_list_packages_with_counts_is_single_query(
+        self, db: KnowledgeDatabase, repo: KnowledgeRepository
+    ) -> None:
+        first = repo.create_package(name="高优先级", priority=2)
+        second = repo.create_package(name="空包", priority=0)
+        first_id = repo.get_package(first["public_id"])["id"]  # type: ignore[index]
+        source = repo.create_source(
+            package_id=first_id, source_type="pasted_text", display_name="source"
+        )
+        repo.insert_item(
+            package_id=first_id, source_id=source["id"], chunk_id=None,
+            kind="fact", title="title", content="content"
+        )
+        statements: list[str] = []
+        with db.read_connection() as conn:
+            conn.set_trace_callback(statements.append)
+            packages = repo.list_packages_with_counts()
+            conn.set_trace_callback(None)
+        selects = [sql for sql in statements if sql.lstrip().upper().startswith("SELECT")]
+        assert len(selects) == 1
+        assert [pkg["public_id"] for pkg in packages] == [first["public_id"], second["public_id"]]
+        assert packages[0]["source_count"] == 1
+        assert packages[0]["item_count"] == 1
+        assert packages[1]["source_count"] == 0
+        assert packages[1]["item_count"] == 0
+
+
+# ---------------------------------------------------------------------------
 # 模型测试
 # ---------------------------------------------------------------------------
 
@@ -567,8 +600,6 @@ class TestMultiThreadSafety:
         """
         pkg = repo.create_package(name="root")
         package_id = repo.get_package(pkg["public_id"])["id"]  # type: ignore[index]
-        db_path = db.path
-
         # 预先插入一些数据
         for i in range(5):
             repo.create_source(
@@ -578,21 +609,26 @@ class TestMultiThreadSafety:
             )
 
         errors: list[Exception] = []
+        connection_ids: set[int] = set()
+        pragma_values: set[tuple[str, int]] = set()
+        observation_lock = threading.Lock()
         stop = threading.Event()
 
         def reader() -> None:
             try:
-                # 独立连接（spec §5.1 推荐）；不复用共享 db.conn，避免游标冲突
-                conn = sqlite3.connect(str(db_path), check_same_thread=False)
-                try:
+                # 运行时连接工厂为本线程创建独立、同配置的连接。
+                with db.read_connection() as conn:
+                    journal = str(conn.execute("PRAGMA journal_mode").fetchone()[0])
+                    busy_timeout = int(conn.execute("PRAGMA busy_timeout").fetchone()[0])
+                    with observation_lock:
+                        connection_ids.add(id(conn))
+                        pragma_values.add((journal.lower(), busy_timeout))
                     while not stop.is_set():
                         conn.execute(
                             "SELECT COUNT(*) FROM knowledge_sources WHERE package_id=?",
                             (package_id,),
                         ).fetchone()
                         time.sleep(0.001)
-                finally:
-                    conn.close()
             except Exception as exc:  # noqa: BLE001
                 errors.append(exc)
 
@@ -619,6 +655,8 @@ class TestMultiThreadSafety:
             t.join(timeout=5)
 
         assert not errors, f"concurrent read/write raised: {errors}"
+        assert len(connection_ids) == 3
+        assert pragma_values == {("wal", 5000)}
         # 最终一致性：通过共享 repo 读到全部 25 条（5 pre + 20 new）
         sources = repo.list_sources(package_id)
         assert len(sources) == 25
@@ -1060,7 +1098,7 @@ class TestRepositoryCrud:
 
 
 class TestDatabaseClose:
-    """A1.3：close() 在写锁内关闭连接（仿 ConfigStore.close）。"""
+    """关闭先停止新访问，再排空已登记的访问并关闭线程连接。"""
 
     def test_close_is_safe_to_call_twice(self, tmp_path: Path) -> None:
         db = KnowledgeDatabase._open_at(tmp_path / "knowledge.db")
@@ -1068,13 +1106,37 @@ class TestDatabaseClose:
         # 第二次 close 不应抛异常
         db.close()
 
-    def test_close_acquires_write_lock(self, tmp_path: Path) -> None:
-        """close 应在写锁内完成；通过先持有写锁验证会阻塞（非阻塞 acquire 失败）。"""
+    def test_close_waits_for_active_reader_and_rejects_new_access(
+        self, tmp_path: Path
+    ) -> None:
+        """关闭不会截断已登记读访问，完成后也不能重新打开连接。"""
         db = KnowledgeDatabase._open_at(tmp_path / "knowledge.db")
-        # 先持有写锁
-        with db._write_lock:  # noqa: SLF001
-            # 此时 close 需要等锁；非阻塞 close 不可行，但可验证锁被持有
-            second = db._write_lock.acquire(blocking=False)  # noqa: SLF001
-            assert not second, "write lock should be held by outer with"
-        # 出 with 后锁释放
-        db.close()
+        reader_started = threading.Event()
+        allow_reader_exit = threading.Event()
+        close_finished = threading.Event()
+
+        def reader() -> None:
+            with db.read_connection() as conn:
+                conn.execute("SELECT 1").fetchone()
+                reader_started.set()
+                assert allow_reader_exit.wait(timeout=5)
+
+        reader_thread = threading.Thread(target=reader)
+        reader_thread.start()
+        assert reader_started.wait(timeout=5)
+
+        def closer() -> None:
+            db.close()
+            close_finished.set()
+
+        close_thread = threading.Thread(target=closer)
+        close_thread.start()
+        time.sleep(0.05)
+        assert not close_finished.is_set()
+        allow_reader_exit.set()
+        reader_thread.join(timeout=5)
+        close_thread.join(timeout=5)
+        assert close_finished.is_set()
+        with pytest.raises(RuntimeError, match="knowledge database is closed"):
+            with db.read_connection():
+                pass

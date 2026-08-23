@@ -13,6 +13,16 @@ from app.knowledge import source_extractors
 from app.knowledge.source_extractors import MAX_REDIRECTS, MAX_RESPONSE_BYTES, extract
 
 
+class _PeerStream:
+    def __init__(self, peer_ip: str):
+        self.peer_ip = peer_ip
+
+    def get_extra_info(self, name: str):
+        if name == "server_addr":
+            return (self.peer_ip, 443)
+        return None
+
+
 class _MockStreamResponse:
     def __init__(
         self,
@@ -22,12 +32,14 @@ class _MockStreamResponse:
         headers: dict[str, str] | None = None,
         content: bytes = b"",
         iter_chunks: list[bytes] | None = None,
+        peer_ip: str = "93.184.216.34",
     ):
         self.url = url
         self.status_code = status_code
         self.headers = headers or {}
         self._content = content
         self._iter_chunks = iter_chunks
+        self.extensions = {"network_stream": _PeerStream(peer_ip)}
 
     @property
     def charset_encoding(self) -> str | None:
@@ -173,6 +185,7 @@ def test_allowed_redirects_are_checked_each_hop_and_final_url_is_recorded(no_rea
     ]
     assert client.kwargs["follow_redirects"] is False
     assert client.kwargs["max_redirects"] == MAX_REDIRECTS
+    assert client.kwargs["trust_env"] is False
 
 
 def test_blocked_final_response_url_is_rejected(no_real_dns):
@@ -194,6 +207,46 @@ def test_blocked_final_response_url_is_rejected(no_real_dns):
     assert result.error == "ssrf_blocked"
     assert result.metadata["final_url"] == "http://127.0.0.1/final"
     assert client.calls == [("GET", source_url)]
+
+
+@pytest.mark.parametrize("peer_ip", ["127.0.0.1", "10.0.0.1", "169.254.169.254"])
+def test_dns_rebinding_to_blocked_connected_peer_is_rejected(no_real_dns, peer_ip: str):
+    source_url = "https://public.test/article"
+    client = _RedirectClient(
+        {
+            source_url: _MockStreamResponse(
+                url=source_url,
+                status_code=200,
+                headers={"content-type": "text/html; charset=utf-8"},
+                content=b"must not be extracted",
+                peer_ip=peer_ip,
+            )
+        }
+    )
+
+    with patch.object(source_extractors.httpx, "Client", return_value=client):
+        result = extract("webpage", {"source_url": source_url})
+
+    assert result.error == "ssrf_blocked"
+    assert result.metadata["final_url"] == source_url
+    assert client.calls == [("GET", source_url)]
+
+
+def test_missing_connected_peer_fails_closed(no_real_dns):
+    source_url = "https://public.test/article"
+    response = _MockStreamResponse(
+        url=source_url,
+        status_code=200,
+        headers={"content-type": "text/html; charset=utf-8"},
+        content=b"must not be extracted",
+    )
+    response.extensions = {}
+    client = _RedirectClient({source_url: response})
+
+    with patch.object(source_extractors.httpx, "Client", return_value=client):
+        result = extract("webpage", {"source_url": source_url})
+
+    assert result.error == "peer_verification_failed"
 
 
 def test_redirect_limit_is_enforced_before_next_request(no_real_dns):

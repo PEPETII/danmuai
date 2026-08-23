@@ -122,6 +122,25 @@
 
   let source = null;
   let reconnectDelay = 2000;
+  const seenIds = new Set();
+  const seenOrder = [];
+  const MAX_SEEN_IDS = 128;
+
+  function isDuplicate(payload) {
+    const id = Number(payload && payload.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      return false;
+    }
+    if (seenIds.has(id)) {
+      return true;
+    }
+    seenIds.add(id);
+    seenOrder.push(id);
+    if (seenOrder.length > MAX_SEEN_IDS) {
+      seenIds.delete(seenOrder.shift());
+    }
+    return false;
+  }
 
   function connect() {
     if (source) {
@@ -135,11 +154,16 @@
 
     source.onmessage = (ev) => {
       try {
-        handlePayload(JSON.parse(ev.data));
+        const payload = JSON.parse(ev.data);
+        if (!isDuplicate(payload)) {
+          handlePayload(payload);
+        }
       } catch (_e) {
         /* ignore malformed */
       }
     };
+    source.addEventListener('reset', () => {});
+    source.addEventListener('overflow', () => {});
 
     source.onerror = () => {
       source.close();

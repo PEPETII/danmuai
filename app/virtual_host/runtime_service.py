@@ -25,7 +25,7 @@ from app.virtual_host.audio import (
 from app.virtual_host.chat import HostChatHttpResult, request_host_chat
 from app.virtual_host.contracts import (
     BatchAcceptance,
-    DanmuBatchCreated,
+    DanmuDisplayed,
     HostTurn,
     HostTurnResult,
     KnowledgeContextResult,
@@ -60,7 +60,7 @@ from app.virtual_host.vision import (
 )
 from app.virtual_host.voice_status import export_voice_status
 from app.virtual_host_playback_adapter import DanmuTtsPlaybackAdapter
-from app.worker_pools import ai_worker_pool
+from app.worker_pools import submit_virtual_host_job, virtual_host_pool_snapshot
 
 if TYPE_CHECKING:
     from main import DanmuApp
@@ -321,6 +321,7 @@ class VirtualHostRuntimeService:
         self._session = VirtualHostSession(
             persona_snapshot_loader=lambda: load_virtual_host_persona_snapshot(self._app.config),
         )
+        self._session.reset_scene_generation(self._current_scene_generation())
         self._response_scheduler = VirtualHostResponseScheduler()
         self._tts_binding: TtsBinding | None = None
         self._spoken_tts_states: dict[tuple[str, int], _SpokenTtsState] = {}
@@ -386,6 +387,43 @@ class VirtualHostRuntimeService:
     @property
     def runtime_generation(self) -> int:
         return self._runtime_generation
+
+    def _submit_virtual_host_job(self, runnable: QRunnable, *, task_kind: str, **fields: object) -> bool:
+        if submit_virtual_host_job(runnable):
+            return True
+        log_diagnostic(
+            "worker_pool_rejected",
+            runtime_generation=self._runtime_generation,
+            reason="virtual_host_pool_capacity",
+            task_kind=task_kind,
+            pool=virtual_host_pool_snapshot(),
+            **fields,
+        )
+        return False
+
+    def _current_scene_generation(self) -> int:
+        """Read the main-thread scene generation through DanmuApp's public facade."""
+
+        snapshot = getattr(self._app, "get_scene_generation_snapshot", None)
+        if not callable(snapshot):
+            return 0
+        return int(snapshot())
+
+    def on_scene_generation_changed(
+        self,
+        scene_generation: int,
+        *,
+        reset: bool = False,
+    ) -> None:
+        """Main-thread notification that invalidates retained scene-owned state."""
+
+        previous = self._session.scene_generation
+        if reset:
+            self._session.reset_scene_generation(scene_generation)
+        elif not self._session.sync_scene_generation(scene_generation):
+            return
+        if reset or self._session.scene_generation != previous:
+            self._bump_runtime_generation()
 
     @property
     def dialogue_enabled(self) -> bool:
@@ -604,13 +642,13 @@ class VirtualHostRuntimeService:
     def _build_tts_synthesizer(self) -> TtsSynthesizer:
         return self._build_worker_tts_synthesizer()
 
-    def on_danmu_batch_created(self, batch: DanmuBatchCreated) -> BatchAcceptance:
-        """主链路弹幕批次入口；未 running 时拒绝，不触发 Chat/TTS。"""
+    def on_danmu_displayed(self, event: DanmuDisplayed) -> BatchAcceptance:
+        """仅接收显示面实际接受的弹幕；未 running 时不触发 Chat/TTS。"""
 
         if not self._running:
-            batch_id = batch.batch_id if isinstance(batch, DanmuBatchCreated) else ""
+            batch_id = event.batch_id if isinstance(event, DanmuDisplayed) else ""
             log_diagnostic(
-                "danmu_batch",
+                "danmu_displayed",
                 runtime_generation=self._runtime_generation,
                 model_id=self._active_vision_model_id,
                 batch_id=batch_id,
@@ -618,10 +656,10 @@ class VirtualHostRuntimeService:
                 reason="runtime_stopped",
             )
             return BatchAcceptance(False, "invalid", batch_id)
-        batch_id = batch.batch_id if isinstance(batch, DanmuBatchCreated) else ""
+        batch_id = event.batch_id if isinstance(event, DanmuDisplayed) else ""
         if not self._autonomous_response_enabled():
             log_diagnostic(
-                "danmu_batch",
+                "danmu_displayed",
                 runtime_generation=self._runtime_generation,
                 model_id=self._active_vision_model_id,
                 batch_id=batch_id,
@@ -629,9 +667,9 @@ class VirtualHostRuntimeService:
                 reason="mode_disabled",
             )
             return BatchAcceptance(False, "mode_disabled", batch_id)
-        scene_generation = int(getattr(self._app, "_scene_generation", 0))
+        scene_generation = self._current_scene_generation()
         decision = self._session.ingest_danmu_batch(
-            batch,
+            event,
             current_scene_generation=scene_generation,
         )
         if decision.accepted:
@@ -644,13 +682,14 @@ class VirtualHostRuntimeService:
                 )
             )
         log_diagnostic(
-            "danmu_batch",
+            "danmu_displayed",
             runtime_generation=self._runtime_generation,
             model_id=self._active_vision_model_id,
             batch_id=decision.batch_id,
             accepted=decision.accepted,
             reason=decision.reason,
             scene_generation=scene_generation,
+            display_surface=(event.display_surface if isinstance(event, DanmuDisplayed) else None),
         )
         return decision
 
@@ -749,7 +788,12 @@ class VirtualHostRuntimeService:
             job=job,
             config=self._app.config,
         )
-        ai_worker_pool().start(runnable)
+        if not self._submit_virtual_host_job(runnable, task_kind="mic_asr", turn_id=job.turn_id):
+            self._on_mic_asr_completed(
+                job.turn_id,
+                MicTranscriptionResult(False, error="pool_qos_rejected"),
+                job.runtime_generation,
+            )
 
     def _on_mic_asr_completed(
         self,
@@ -784,7 +828,7 @@ class VirtualHostRuntimeService:
 
         if not self._running or not self._dialogue_enabled:
             return
-        scene_generation = int(getattr(self._app, "_scene_generation", 0))
+        scene_generation = self._current_scene_generation()
         runtime_generation = self._runtime_generation
         try:
             state = self._audio.get_turn(voice_turn_id)
@@ -857,7 +901,15 @@ class VirtualHostRuntimeService:
             chat_model_id=chat_model_id,
             started_at=started_at,
         )
-        ai_worker_pool().start(runnable)
+        if not self._submit_virtual_host_job(runnable, task_kind="voice_chat", turn_id=voice_turn_id):
+            self._pending_voice_chat.pop(host_turn.turn_id, None)
+            self._chat_in_flight = False
+            self._audio.fail_chat(
+                voice_turn_id,
+                "pool_qos_rejected",
+                current_scene_generation=scene_generation,
+                current_runtime_generation=runtime_generation,
+            )
 
     def _should_apply_voice_chat_result(
         self,
@@ -891,7 +943,7 @@ class VirtualHostRuntimeService:
         runtime_generation: int,
         request_chat_model_id: str,
     ) -> None:
-        scene_generation = int(getattr(self._app, "_scene_generation", 0))
+        scene_generation = self._current_scene_generation()
         if not self._should_apply_voice_chat_result(
             voice_turn_id=voice_turn_id,
             host_turn=host_turn,
@@ -1066,7 +1118,8 @@ class VirtualHostRuntimeService:
             vision_model_id=vision_model_id,
             started_at=started_at,
         )
-        ai_worker_pool().start(runnable)
+        if not self._submit_virtual_host_job(runnable, task_kind="scene_vision", screenshot_id=screenshot_id):
+            self._vision_in_flight = False
 
     def update_scene_from_image_data_uri(
         self,
@@ -1210,7 +1263,17 @@ class VirtualHostRuntimeService:
             screenshot_id=screenshot_id,
             updated_at=wall_now,
         )
-        self._session.update_scene_context(context)
+        if not self._session.update_scene_context(context):
+            log_diagnostic(
+                "scene_end",
+                runtime_generation=self._runtime_generation,
+                model_id=result.model_id or self._active_vision_model_id,
+                status="stale",
+                applied=False,
+                screenshot_id=screenshot_id,
+                scene_generation=scene_generation,
+            )
+            return
         latency_fields: dict[str, float] = {}
         if captured_at is not None:
             latency_fields["scene_latency_ms"] = round(
@@ -1317,7 +1380,8 @@ class VirtualHostRuntimeService:
             chat_model_id=chat_model_id,
             started_at=started_at,
         )
-        ai_worker_pool().start(runnable)
+        if not self._submit_virtual_host_job(runnable, task_kind="autonomous_chat", turn_id=host_turn.turn_id):
+            self._chat_in_flight = False
 
     def _should_apply_chat_result(
         self,
@@ -1496,7 +1560,8 @@ class VirtualHostRuntimeService:
             job=job,
             synthesizer=self._build_worker_tts_synthesizer(),
         )
-        ai_worker_pool().start(runnable)
+        if not self._submit_virtual_host_job(runnable, task_kind="tts", turn_id=state.turn_id):
+            self._spoken_tts_states.pop(key, None)
 
     def _should_apply_tts_result(self, job: TtsSynthesisJob) -> bool:
         if not self._running:

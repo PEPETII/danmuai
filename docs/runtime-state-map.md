@@ -29,15 +29,20 @@
 | `chat_request_count` | Qt 主线程（调度时） | 任意只读 | 累计 Chat HTTP 次数 |
 | `tts_synthesize_count` | Qt 主线程（TTS 合成） | 任意只读 | 累计 TTS 次数 |
 
-`VirtualHostSession` 内的 `_scene_context` / `_scene_generation` 由主线程 `_apply_scene_summary` 写入；
-`_batches` / `_seen_batch_ids` 由主线程 `ingest_danmu_batch`（经 `on_danmu_batch_created` 或测试直调）写入。
-worker 禁止直接修改 `VirtualHostRuntimeService` 或 `VirtualHostSession`。
+`VirtualHostSession` 内的 `_scene_context` 由主线程 `_apply_scene_summary` 写入；`_scene_generation`
+由主线程的 `DanmuApp.get_scene_generation_snapshot()` 与变更通知同步。generation 前进或 reset
+会原子清空旧 scene/batch 上下文，随后才允许新 batch 接受。`_batches` 与有界、TTL 关联的
+`_seen_display_event_ids` 仅由主线程 `ingest_danmu_batch` 写入，诊断只暴露 retained 数量。
+worker 禁止直接修改 `VirtualHostRuntimeService` 或 `VirtualHostSession`，virtual host 也禁止直接
+读取 `DanmuApp._*` 私有字段。
 
 ## 主链路弹幕批次接入
 
-`GenerationPipeline.handle_reply_parsed` → `DanmuBatchCreated` →
-`VirtualHostRuntimeService.on_danmu_batch_created` → `VirtualHostSession.ingest_danmu_batch`。
-仅传递已规范化 `normalized_items`，不传递 AI 原始 response/JSON。
+`GenerationPipeline.handle_reply_parsed` 只产生 `DanmuGenerated` / `DanmuQueued`；每个 overlay、
+floating panel、pet 显示面实际接受文本后才产生 `DanmuDisplayed`，并由
+`VirtualHostRuntimeService.on_danmu_displayed` 送入 `VirtualHostSession`。因此裁剪、去重或显示面
+拒绝的文本不会触发虚拟主播自主回应；事件只携带已规范化文本和 request/batch/generation/source，
+不传递 AI 原始 response/JSON。
 
 ## 历史 DanmuApp 字段（节选）
 
@@ -48,6 +53,7 @@ worker 禁止直接修改 `VirtualHostRuntimeService` 或 `VirtualHostSession`�
 - `ai_in_flight`
 - `reply_buffer`
 - `_scene_generation`
+- `get_scene_generation_snapshot()` — Qt 主线程只读 façade；virtual host 通过它取得代际快照。
 - `_capture_in_flight`
 - `_capture_session_epoch`
 - `_capture_coordinator`

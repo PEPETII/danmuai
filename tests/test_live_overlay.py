@@ -198,6 +198,18 @@ def test_hub_remembers_recent_for_sse_replay():
     assert len(hub.recent_items()) == 2
 
 
+def test_hub_replays_only_items_after_cursor_and_reports_invalid_windows():
+    hub = LiveOverlayHub()
+    for index in range(3):
+        hub.broadcast_item(str(index), y=1, screen_width=1, screen_height=1, speed=1)
+
+    kind, items = hub.replay_after(1)
+    assert kind == "items"
+    assert [item["id"] for item in items] == [2, 3]
+    assert hub.replay_after(99)[0] == "reset"
+    assert hub.replay_after(-1)[0] == "overflow"
+
+
 def test_hub_broadcast_item_payload():
     hub = LiveOverlayHub()
     loop = asyncio.new_event_loop()

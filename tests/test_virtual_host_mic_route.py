@@ -32,7 +32,7 @@ def _runtime_service(
     arm_voice: bool = False,
 ) -> VirtualHostRuntimeService:
     pool = QThreadPool()
-    monkeypatch.setattr("app.virtual_host.runtime_service.ai_worker_pool", lambda: pool)
+    monkeypatch.setattr("app.virtual_host.runtime_service.submit_virtual_host_job", lambda runnable: pool.start(runnable) or True)
     service = VirtualHostRuntimeService(_fake_app(config))
     service.start()
     if arm_voice:

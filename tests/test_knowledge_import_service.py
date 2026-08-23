@@ -1040,3 +1040,182 @@ class TestImportOrchestratorCrossImportDedup:
             _wait_for_job_done(repo, job_id)
 
         assert captured.get("document_kind") == "livestream_log"
+
+
+class TestImportOrchestratorLifecycleAtomicity:
+    """删除/取消/停止要在模型返回后仍阻止当前 chunk 写入。"""
+
+    def test_cancel_after_model_returns_writes_no_item(
+        self, orchestrator, db, repo, config
+    ):
+        package_id, source_id = _create_package_and_source(db, repo)
+        started = threading.Event()
+        release = threading.Event()
+
+        def delayed_result(*args, **kwargs):
+            started.set()
+            assert release.wait(timeout=5)
+            return _ok_result(items=[_ok_item(content="must not persist")])
+
+        with patch(
+            "app.knowledge.import_service.organize_chunk", side_effect=delayed_result
+        ):
+            job_id = orchestrator.submit_import(
+                config=config, package_id=package_id, source_id=source_id,
+                source_type="pasted_text", payload={"pasted_text": "# T\n\ncontent"},
+            )
+            assert started.wait(timeout=5)
+            assert orchestrator.cancel_job(job_id)
+            release.set()
+            job = _wait_for_job_done(repo, job_id)
+
+        assert job["status"] == "cancelled"
+        assert repo.list_items(package_id=package_id)["total"] == 0
+
+    def test_delete_package_while_model_in_flight_leaves_no_orphans(
+        self, orchestrator, db, repo, config
+    ):
+        package_id, source_id = _create_package_and_source(db, repo)
+        package = next(pkg for pkg in repo.list_packages() if pkg["id"] == package_id)
+        started = threading.Event()
+        release = threading.Event()
+
+        def delayed_result(*args, **kwargs):
+            started.set()
+            assert release.wait(timeout=5)
+            return _ok_result(items=[_ok_item(content="deleted package item")])
+
+        with patch(
+            "app.knowledge.import_service.organize_chunk", side_effect=delayed_result
+        ):
+            orchestrator.submit_import(
+                config=config, package_id=package_id, source_id=source_id,
+                source_type="pasted_text", payload={"pasted_text": "# T\n\ncontent"},
+            )
+            assert started.wait(timeout=5)
+            assert orchestrator.cancel_package(package_id) == 1
+            assert repo.delete_package(package["public_id"])
+            release.set()
+            orchestrator.close()
+
+        with db.read_connection() as conn:
+            assert conn.execute("SELECT COUNT(*) FROM knowledge_items").fetchone()[0] == 0
+            assert conn.execute("SELECT COUNT(*) FROM knowledge_chunks").fetchone()[0] == 0
+            assert conn.execute("SELECT COUNT(*) FROM knowledge_jobs").fetchone()[0] == 0
+
+    def test_begin_shutdown_returns_without_waiting_for_model(
+        self, orchestrator, db, repo, config
+    ):
+        package_id, source_id = _create_package_and_source(db, repo)
+        started = threading.Event()
+        release = threading.Event()
+        drained = threading.Event()
+
+        def delayed_result(*args, **kwargs):
+            started.set()
+            assert release.wait(timeout=5)
+            return _ok_result(items=[])
+
+        with patch(
+            "app.knowledge.import_service.organize_chunk", side_effect=delayed_result
+        ):
+            orchestrator.submit_import(
+                config=config, package_id=package_id, source_id=source_id,
+                source_type="pasted_text", payload={"pasted_text": "# T\n\ncontent"},
+            )
+            assert started.wait(timeout=5)
+            started_at = time.monotonic()
+            orchestrator.begin_shutdown(drained.set)
+            assert time.monotonic() - started_at < 0.5
+            release.set()
+            assert drained.wait(timeout=5)
+
+    def test_begin_shutdown_finalizes_queued_imports(
+        self, orchestrator, db, repo, config
+    ):
+        first_package_id, first_source_id = _create_package_and_source(db, repo)
+        second_package_id, second_source_id = _create_package_and_source(db, repo)
+        started = threading.Event()
+        release = threading.Event()
+        drained = threading.Event()
+        calls = 0
+
+        def delayed_result(*args, **kwargs):
+            nonlocal calls
+            calls += 1
+            started.set()
+            assert release.wait(timeout=5)
+            return _ok_result(items=[])
+
+        with patch(
+            "app.knowledge.import_service.organize_chunk", side_effect=delayed_result
+        ):
+            first_job_id = orchestrator.submit_import(
+                config=config,
+                package_id=first_package_id,
+                source_id=first_source_id,
+                source_type="pasted_text",
+                payload={"pasted_text": "# First\n\ncontent"},
+            )
+            assert started.wait(timeout=5)
+            second_job_id = orchestrator.submit_import(
+                config=config,
+                package_id=second_package_id,
+                source_id=second_source_id,
+                source_type="pasted_text",
+                payload={"pasted_text": "# Second\n\ncontent"},
+            )
+
+            orchestrator.begin_shutdown(drained.set)
+            release.set()
+            assert drained.wait(timeout=5)
+
+        assert calls == 1
+        assert repo.get_job(first_job_id)["status"] == "cancelled"
+        assert repo.get_job(second_job_id)["status"] == "cancelled"
+        assert repo.list_sources(first_package_id)[0]["status"] == "cancelled"
+        assert repo.list_sources(second_package_id)[0]["status"] == "cancelled"
+
+    def test_runtime_close_defers_database_close_until_import_drains(
+        self, orchestrator, db, repo, config
+    ):
+        from app.knowledge.runtime_service import KnowledgeRuntimeService
+
+        package_id, source_id = _create_package_and_source(db, repo)
+        started = threading.Event()
+        release = threading.Event()
+
+        def delayed_result(*args, **kwargs):
+            started.set()
+            assert release.wait(timeout=5)
+            return _ok_result(items=[])
+
+        runtime = KnowledgeRuntimeService.__new__(KnowledgeRuntimeService)
+        runtime._closing = False
+        runtime._db = db
+        runtime.repository = repo
+        runtime.import_orchestrator = orchestrator
+        runtime.retriever = object()
+        runtime._last_injection = None
+        runtime._last_scene_context = None
+        runtime._cached_scene_generation = None
+
+        with patch(
+            "app.knowledge.import_service.organize_chunk", side_effect=delayed_result
+        ):
+            orchestrator.submit_import(
+                config=config, package_id=package_id, source_id=source_id,
+                source_type="pasted_text", payload={"pasted_text": "# T\n\ncontent"},
+            )
+            assert started.wait(timeout=5)
+            started_at = time.monotonic()
+            runtime.close()
+            assert time.monotonic() - started_at < 0.5
+            assert runtime._closing is True
+            release.set()
+            deadline = time.monotonic() + 5
+            while runtime._closing and time.monotonic() < deadline:
+                time.sleep(0.02)
+
+        assert runtime._closing is False
+        assert runtime.repository is None
