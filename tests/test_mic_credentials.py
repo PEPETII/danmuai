@@ -39,7 +39,9 @@ def test_resolve_mic_request_credentials_linked_custom_profile():
         default_model_id="doubao-seed-1-6-flash-250828",
         custom_models=[
             {
+                "name": "Test",
                 "default_model_id": "doubao-seed-1-6-flash-250828",
+                "modelId": "doubao-seed-1-6-flash-250828",
                 "endpoint": "https://ark.cn-beijing.volces.com/api/v3",
                 "mode": "doubao",
                 "apiKey": "sk-visual",
