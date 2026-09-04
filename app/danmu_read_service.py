@@ -303,6 +303,16 @@ class DanmuReadService(QObject):
             if "provider" in patch
             else (config.get("tts_provider") or "").strip()
         )
+        # raw_provider captures the pre-normalization value so the save guard
+        # can tell "user explicitly picked a platform (incl. MiMo)" apart from
+        # "no platform selected".  Without this, `_normalize_tts_provider` maps
+        # both `""` and `"mimo"` to `""` and the default MiMo save path trips
+        # `danmuRead.providerRequired` despite the catalog being valid.
+        raw_provider = (
+            str(patch.get("provider") or "").strip()
+            if "provider" in patch
+            else ""
+        )
         endpoint = (
             normalize_endpoint(str(patch.get("endpoint") or ""))
             if "endpoint" in patch
@@ -322,7 +332,7 @@ class DanmuReadService(QObject):
                 items["tts_provider"] = ""
                 items["tts_endpoint"] = ""
                 items["tts_model_id"] = ""
-            elif not provider and model_id:
+            elif not raw_provider and model_id:
                 raise ValueError(tr("danmuRead.providerRequired"))
             else:
                 validate_custom_tts_fields(provider, "", model_id)

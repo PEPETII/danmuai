@@ -39,6 +39,38 @@ _PUBLIC_API_PATHS = frozenset(
 )
 
 
+def should_use_windows_selector_event_loop(platform: str | None = None) -> bool:
+    """Windows source and frozen runs both need SelectorEventLoop, not Proactor."""
+    resolved = sys.platform if platform is None else platform
+    return resolved == "win32"
+
+
+def windows_uvicorn_loop_factory() -> asyncio.AbstractEventLoop:
+    """Build a SelectorEventLoop for uvicorn's asyncio.run() on Windows."""
+    return asyncio.SelectorEventLoop()
+
+
+def run_uvicorn_asyncio(serve_coro, *, platform: str | None = None) -> None:
+    """Run uvicorn.serve() without Windows Proactor WinError 10054.
+
+    ``wait_for_http_server`` and the desktop shell close ``/api/health`` as soon
+    as they see a 200. Windows' default ProactorEventLoop then raises
+    ``ConnectionResetError`` in ``_ProactorBasePipeTransport._call_connection_lost``
+    as an unhandled asyncio callback. The HTTP/WS server keeps serving; only
+    stderr is noisy.
+
+    Frozen builds used to set ``WindowsSelectorEventLoopPolicy`` (deprecated on
+    Python 3.14+). Source ``python main.py`` never did, so the traceback showed
+    up on ordinary launches. ``asyncio.run(server.serve())`` also ignores
+    uvicorn ``loop="asyncio"`` for loop creation, so both paths now pass
+    ``loop_factory`` instead of a process-wide policy.
+    """
+    if should_use_windows_selector_event_loop(platform):
+        asyncio.run(serve_coro, loop_factory=windows_uvicorn_loop_factory)
+        return
+    asyncio.run(serve_coro)
+
+
 def is_public_api_path(path: str) -> bool:
     """Return whether an HTTP API path is explicitly public by contract."""
     if path in _PUBLIC_API_PATHS:
@@ -325,12 +357,9 @@ def run_uvicorn_locked(server) -> None:
 
     server._server = _DanmuWebUvicornServer(config, server)
 
-    if is_frozen() and sys.platform == "win32":
-        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-
     try:
         append_frozen_log("uvicorn serve() starting")
-        asyncio.run(server._server.serve())
+        run_uvicorn_asyncio(server._server.serve())
         append_frozen_log("uvicorn serve() exited")
     except SystemExit:
         if not server._ready.is_set():

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
+import pytest
 from app.application.config_service import MASKED_API_KEY
 from app.config_store import ConfigStore
 from app.danmu_read_service import DanmuReadService, export_danmu_read_config
@@ -242,6 +243,66 @@ def test_apply_config_empty_api_key_clears_provider_secret(workspace_tmp):
         service.apply_config({"credentials": {"api_key": "minimax-key"}, "provider": TTS_PROVIDER_MINIMAX})
         assert stored_tts_credentials(store, TTS_PROVIDER_MINIMAX)["api_key"] == "minimax-key"
         service.apply_config({"provider": TTS_PROVIDER_MINIMAX, "api_key": ""})
+        assert stored_tts_credentials(store, TTS_PROVIDER_MINIMAX) == {}
+    finally:
+        store.close()
+
+
+# ---------------------------------------------------------------------------
+# Regression: AI播报 Tab 默认 MiMo 保存异常（W-TTS-AI-READ-PROVIDER-DEFAULT-001）
+#
+# 历史问题：
+# ``DanmuReadService.apply_config`` 先把 ``provider`` 经 ``_normalize_tts_provider``
+# 归一化（`""` 与 `"mimo"` 都映射为 `""`），再以 ``not provider and model_id`` 判定
+# 是否报 ``danmuRead.providerRequired``。结果：UI 默认 MiMo + ``mimo-v2.5-tts`` 落库
+# 时被误判为"未选平台"，抛"须选择 TTS 平台（百炼）"。
+#
+# 修复：用「原始未归一化」的值做守卫，保留空串存储约定。
+# ---------------------------------------------------------------------------
+
+
+def test_apply_config_mimo_default_passes(workspace_tmp):
+    """UI 默认 MiMo + mimo-v2.5-tts 直接保存必须成功，且仍落 ``tts_provider=""``。"""
+    store = ConfigStore(workspace_tmp / "mimo_default_save.db")
+    service = _make_read_service(store)
+    try:
+        service.apply_config(
+            {"provider": TTS_PROVIDER_MIMO, "model_id": "mimo-v2.5-tts"}
+        )
+        # 隐式 MiMo 存储约定：``tts_provider`` 仍写空串，catalog 解析时回落到 MiMo。
+        assert store.get("tts_provider") == ""
+        assert store.get("tts_model_id") == "mimo-v2.5-tts"
+        assert store.get("tts_endpoint") == ""
+    finally:
+        store.close()
+
+
+def test_apply_config_explicit_empty_provider_with_model_rejected(workspace_tmp):
+    """用户真正未选平台却填了模型 → 仍应报 ``providerRequired``（守卫语义保留）。"""
+    store = ConfigStore(workspace_tmp / "empty_provider_rejected.db")
+    service = _make_read_service(store)
+    try:
+        with pytest.raises(ValueError):
+            service.apply_config({"provider": "", "model_id": "some-model"})
+    finally:
+        store.close()
+
+
+def test_apply_config_mimo_default_does_not_orphan_credentials(workspace_tmp):
+    """MiMo 默认保存的凭据必须落到 ``tts_secret:mimo:api_key``，不因归一化被孤立。"""
+    store = ConfigStore(workspace_tmp / "mimo_default_creds.db")
+    service = _make_read_service(store)
+    try:
+        service.apply_config(
+            {
+                "provider": TTS_PROVIDER_MIMO,
+                "model_id": "mimo-v2.5-tts",
+                "credentials": {"api_key": "k"},
+            }
+        )
+        assert stored_tts_credentials(store, TTS_PROVIDER_MIMO)["api_key"] == "k"
+        # 反向：其他平台不应拿到这条凭据。
+        assert stored_tts_credentials(store, "dashscope") == {}
         assert stored_tts_credentials(store, TTS_PROVIDER_MINIMAX) == {}
     finally:
         store.close()
