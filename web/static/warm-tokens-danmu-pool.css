@@ -168,3 +168,114 @@
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-track { background: var(--color-bg); }
 ::-webkit-scrollbar-thumb { background: var(--color-secondary); border-radius: 4px; }
+
+/* ===== 烂梗公式化 · 新用户友好布局（W-DANMU-POOL-MEME-UX-001） ===== */
+
+/* 总开关关闭时禁用下方设置区 */
+.danmu-pool-page #memeSettingsArea.is-locked {
+  opacity: 0.45;
+  pointer-events: none;
+  filter: grayscale(0.3);
+  transition: opacity 0.2s, filter 0.2s;
+}
+
+/* 分类 / 显示形式 卡片（单选） */
+.danmu-pool-page .meme-opt-card {
+  position: relative;
+  display: block;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0.85rem 1rem;
+  cursor: pointer;
+  background: var(--color-surface);
+  transition: border-color 0.15s, background-color 0.15s, box-shadow 0.15s;
+}
+.danmu-pool-page .meme-opt-card:hover { border-color: var(--color-primary-hover); }
+.danmu-pool-page .meme-opt-card.is-selected {
+  border-color: var(--color-primary);
+  background: rgba(255, 182, 193, 0.18);
+  box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.16);
+}
+.danmu-pool-page .meme-opt-card .meme-opt-ico { font-size: 1.25rem; }
+.danmu-pool-page .meme-opt-card b { display: block; font-size: 0.9rem; margin: 0.35rem 0 0.2rem; }
+.danmu-pool-page .meme-opt-card p { font-size: 0.78rem; color: var(--color-text-muted, #9ca3af); margin: 0; line-height: 1.45; }
+.danmu-pool-page .meme-opt-badge {
+  position: absolute; top: -0.55rem; left: 0.85rem;
+  background: var(--color-good, #2faa6a); color: #fff;
+  font-size: 0.7rem; font-weight: 700; padding: 0.1rem 0.5rem; border-radius: 1rem;
+}
+.danmu-pool-page .meme-opt-count { color: var(--color-text-muted, #9ca3af); font-weight: 400; margin-left: 0.25rem; }
+
+/* 显示形式卡片的成本标签 */
+.danmu-pool-page .meme-cost {
+  display: inline-block; margin-top: 0.55rem; font-size: 0.72rem;
+  padding: 0.1rem 0.55rem; border-radius: 1rem;
+  background: var(--color-bg-subtle); color: var(--color-text-muted, #9ca3af);
+}
+.danmu-pool-page .meme-opt-card.is-selected .meme-cost {
+  background: #fff; color: var(--color-primary-hover);
+}
+[data-theme="dark"] .danmu-pool-page .meme-opt-card.is-selected .meme-cost { background: rgba(255, 255, 255, 0.12); color: var(--color-primary-hover); }
+
+/* 标签 chip（带示例） */
+.danmu-pool-page .meme-tag-chip {
+  border: 1.5px solid var(--border);
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  padding: 0.5rem 0.65rem;
+  cursor: pointer;
+  transition: border-color 0.15s, background-color 0.15s, box-shadow 0.15s;
+  min-width: 7.5rem;
+}
+.danmu-pool-page .meme-tag-chip:hover { border-color: var(--color-primary-hover); }
+.danmu-pool-page .meme-tag-chip.active {
+  border-color: var(--color-primary);
+  background: rgba(255, 182, 193, 0.18);
+  box-shadow: 0 0 0 2px rgba(var(--color-primary-rgb), 0.14);
+}
+.danmu-pool-page .meme-tag-chip.is-disabled { opacity: 0.5; cursor: not-allowed; }
+.danmu-pool-page .meme-tag-chip .name { font-size: 0.82rem; font-weight: 700; color: var(--color-text); }
+.danmu-pool-page .meme-tag-chip .ex { font-size: 0.72rem; color: var(--color-text-muted, #9ca3af); margin-top: 0.2rem; line-height: 1.4; }
+.danmu-pool-page .meme-tag-chip .ex .tag { color: var(--color-text-dim, #8b8b8b); }
+
+/* 提示气泡 */
+.danmu-pool-page .meme-tip {
+  display: flex; gap: 0.5rem; border-radius: var(--radius-md);
+  padding: 0.6rem 0.8rem; font-size: 0.78rem; margin-top: 0.75rem;
+  background: rgba(47, 170, 106, 0.12); border: 1px solid rgba(47, 170, 106, 0.28); color: #1f6b46;
+}
+.danmu-pool-page .meme-tip--warn {
+  background: rgba(217, 138, 31, 0.12); border-color: rgba(217, 138, 31, 0.28); color: #8a5a12;
+}
+[data-theme="dark"] .danmu-pool-page .meme-tip { color: #8fd9af; }
+[data-theme="dark"] .danmu-pool-page .meme-tip--warn { color: #e2b066; }
+
+/* 节奏滑块 */
+.danmu-pool-page .meme-rhythm-box {
+  border: 1px solid var(--border-soft, rgba(93, 87, 87, 0.12));
+  border-radius: var(--radius-md);
+  padding: 0.85rem 1rem;
+  background: var(--color-bg-subtle);
+}
+.danmu-pool-page .meme-rhythm-title { font-size: 0.85rem; margin: 0 0 0.6rem; font-weight: 700; color: var(--color-text); }
+.danmu-pool-page .meme-slider { margin: 0.7rem 0; }
+.danmu-pool-page .meme-range { width: 100%; accent-color: var(--color-primary); height: 0.3rem; }
+.danmu-pool-page .meme-presets { display: flex; gap: 0.5rem; margin-top: 0.4rem; align-items: center; flex-wrap: wrap; }
+.danmu-pool-page .meme-preset {
+  border: 1px solid var(--border); background: var(--color-surface);
+  border-radius: 1rem; padding: 0.2rem 0.7rem; font-size: 0.78rem; cursor: pointer; color: var(--color-text-muted, #9ca3af);
+}
+.danmu-pool-page .meme-preset:hover { border-color: var(--color-primary); color: var(--color-primary-hover); }
+
+/* 频率预估 */
+.danmu-pool-page .meme-freq {
+  background: rgba(255, 182, 193, 0.16);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.25);
+  border-radius: var(--radius-md);
+  padding: 0.85rem 1rem; margin-top: 0.85rem;
+}
+.danmu-pool-page .meme-freq-big { font-size: 0.95rem; font-weight: 800; color: var(--color-primary-hover); }
+.danmu-pool-page .meme-freq-big span { font-size: 1.35rem; }
+.danmu-pool-page .meme-freq-bars { display: flex; align-items: flex-end; gap: 0.25rem; height: 2rem; margin-top: 0.6rem; }
+.danmu-pool-page .meme-freq-bars i { flex: 1; background: var(--color-primary); border-radius: 2px 2px 0 0; opacity: 0.35; }
+.danmu-pool-page .meme-freq-qual { font-size: 0.75rem; color: var(--color-text-muted, #9ca3af); margin-top: 0.5rem; }

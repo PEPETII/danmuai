@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="9jLdc2G8wJdhVbdV9EnHvd">
+<head data-page-node-id="eQAbFAEOj37ij2s3cPmOyB">
+<meta charset="UTF-8" data-page-node-id="LgUIJvNEnkVfXjm1npyDfQ" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="8CmNuqt9FW8e7iOvQ9LEe2" />
+<title>AI模型配置 · 新用户友好改版原型</title>
+<style>
+  /* ===== 复用 DanmuAI 设计令牌 ===== */
+  :root {
+    --color-primary: #ffa5a5;
+    --color-primary-hover: #ff8585;
+    --color-primary-light: #ffc8c8;
+    --color-primary-rgb: 255, 165, 165;
+    --color-secondary: #ffe5d9;
+    --color-accent: #fff2cc;
+    --color-bg: #fdfbf7;
+    --color-bg-subtle: #faf6f0;
+    --color-surface: #ffffff;
+    --color-text: #5d5757;
+    --color-text-dim: #9ca3af;
+    --color-text-primary: #5d5757;
+    --color-text-muted: #6b7280;
+    --color-success: #16a34a;
+    --color-warning: #d97706;
+    --color-info: #2563eb;
+    --color-danger: #dc2626;
+    --border-brand: rgba(255, 165, 165, 0.35);
+    --shadow-warm: 0 4px 20px rgba(255, 165, 165, 0.1);
+    --shadow-warm-hover: 0 10px 25px rgba(255, 165, 165, 0.2);
+    --shadow-btn: 0 4px 15px rgba(255, 165, 165, 0.4);
+    --radius: 16px;
+    --radius-sm: 12px;
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+  html[data-theme="dark"] {
+    --color-primary: #ffa5a5;
+    --color-primary-hover: #ff8585;
+    --color-primary-light: #ffc8c8;
+    --color-secondary: #3f3a36;
+    --color-accent: #44403c;
+    --color-bg: #1c1917;
+    --color-bg-subtle: #231f1c;
+    --color-surface: #292524;
+    --color-text: #f5f0eb;
+    --color-text-dim: #a8a29e;
+    --color-text-primary: #f5f0eb;
+    --color-text-muted: #a8a29e;
+    --color-success: #86efac;
+    --color-warning: #fbbf24;
+    --color-info: #93c5fd;
+    --color-danger: #fca5a5;
+    --border-brand: rgba(255, 165, 165, 0.35);
+    --shadow-warm: 0 4px 20px rgba(0,0,0,0.35);
+    --shadow-warm-hover: 0 10px 25px rgba(0,0,0,0.45);
+    --shadow-btn: 0 4px 15px rgba(255, 165, 165, 0.25);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: var(--font); background: var(--color-bg);
+    color: var(--color-text); line-height: 1.6; -webkit-font-smoothing: antialiased;
+  }
+  .app-shell { display: flex; min-height: 100vh; }
+
+  /* ===== 侧边栏（仅作上下文） ===== */
+  .sidebar {
+    width: 220px; flex-shrink: 0; background: var(--color-bg-subtle);
+    border-right: 1px solid var(--border-brand); padding: 24px 14px;
+    position: sticky; top: 0; height: 100vh; overflow-y: auto;
+  }
+  .sidebar h1 { font-size: 15px; margin: 0 0 20px; color: var(--color-text-primary); padding: 0 8px; }
+  .side-item {
+    display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px;
+    color: var(--color-text-muted); font-size: 14px; margin-bottom: 4px; cursor: default;
+  }
+  .side-item.active { background: var(--color-secondary); color: var(--color-text-primary); font-weight: 600; }
+  .side-item .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--color-primary); flex-shrink: 0; }
+
+  /* ===== 主区域 ===== */
+  .main { flex: 1; padding: 28px 36px 64px; max-width: 1080px; }
+  .page-head { margin-bottom: 22px; }
+  .page-head h2 { font-size: 24px; margin: 0 0 4px; color: var(--color-text-primary); }
+  .page-head p { margin: 0; color: var(--color-text-muted); font-size: 14px; }
+
+  /* 顶栏控制 */
+  .toolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 22px; }
+  .seg { display: inline-flex; background: var(--color-bg-subtle); border: 1px solid var(--border-brand); border-radius: 999px; padding: 4px; }
+  .seg button {
+    border: none; background: transparent; color: var(--color-text-muted); font-size: 13px;
+    padding: 7px 16px; border-radius: 999px; cursor: pointer; font-family: var(--font);
+  }
+  .seg button.active { background: var(--color-primary); color: #fff; font-weight: 600; }
+  .theme-btn {
+    margin-left: auto; border: 1px solid var(--border-brand); background: var(--color-surface);
+    color: var(--color-text); padding: 8px 14px; border-radius: 10px; cursor: pointer; font-size: 13px;
+    font-family: var(--font);
+  }
+  .count-pill { font-size: 12px; color: var(--color-text-muted); }
+
+  /* tabs */
+  .tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--border-brand); margin-bottom: 22px; flex-wrap: wrap; }
+  .tab {
+    padding: 10px 16px; border: none; background: transparent; color: var(--color-text-muted);
+    font-size: 14px; cursor: pointer; border-bottom: 2px solid transparent; font-family: var(--font);
+  }
+  .tab.active { color: var(--color-text-primary); border-bottom-color: var(--color-primary); font-weight: 600; }
+
+  /* 卡片/区块通用 */
+  .card { background: var(--color-surface); border: 1px solid var(--border-brand); border-radius: var(--radius); padding: 22px; box-shadow: var(--shadow-warm); }
+  .section { margin-bottom: 22px; }
+  .section-title { font-size: 16px; font-weight: 700; color: var(--color-text-primary); margin: 0 0 12px; display: flex; align-items: center; gap: 8px; }
+  .hint { font-size: 13px; color: var(--color-text-muted); margin: 0; }
+  .hr { height: 1px; background: var(--border-brand); border: none; margin: 22px 0; }
+
+  /* 概念引导条 */
+  .lede {
+    display: flex; gap: 14px; align-items: flex-start; background: var(--color-secondary);
+    border: 1px solid var(--border-brand); border-radius: var(--radius-sm); padding: 16px 18px; margin-bottom: 22px;
+  }
+  .lede .ico { flex-shrink: 0; width: 34px; height: 34px; border-radius: 10px; background: var(--color-primary);
+    display: grid; place-items: center; color: #fff; font-size: 18px; }
+  .lede p { margin: 0; font-size: 14px; color: var(--color-text); }
+  .lede strong { color: var(--color-text-primary); }
+
+  /* 快速开始步骤 */
+  .steps { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 24px; }
+  .step {
+    flex: 1; min-width: 180px; background: var(--color-surface); border: 1px solid var(--border-brand);
+    border-radius: var(--radius-sm); padding: 14px 16px; display: flex; gap: 12px; align-items: flex-start;
+  }
+  .step .num { width: 26px; height: 26px; border-radius: 50%; background: var(--color-primary); color: #fff;
+    display: grid; place-items: center; font-size: 13px; font-weight: 700; flex-shrink: 0; }
+  .step p { margin: 0; font-size: 13px; color: var(--color-text); }
+  .step p b { color: var(--color-text-primary); }
+
+  /* 模型档案卡片 */
+  .model-list { display: flex; flex-direction: column; gap: 12px; }
+  .model-row {
+    display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: var(--radius-sm);
+    background: var(--color-bg-subtle); border: 1px solid var(--border-brand); flex-wrap: wrap;
+  }
+  .model-row .m-name { font-weight: 700; color: var(--color-text-primary); font-size: 15px; }
+  .chip { font-size: 12px; padding: 2px 10px; border-radius: 999px; font-weight: 600; }
+  .chip-prov { background: var(--color-secondary); color: var(--color-text); }
+  .chip-mic { background: rgba(37,99,235,0.12); color: var(--color-info); }
+  .chip-bad { background: rgba(217,119,6,0.14); color: var(--color-warning); }
+  .chip-ok { background: rgba(22,163,74,0.14); color: var(--color-success); }
+  .chip-use { background: var(--color-primary-light); color: var(--color-text-primary); }
+  .star { color: var(--color-warning); font-size: 13px; }
+  .m-id { font-family: monospace; font-size: 12px; color: var(--color-text-muted); }
+  .m-actions { margin-left: auto; display: flex; gap: 8px; }
+  .btn {
+    font-family: var(--font); border-radius: 10px; cursor: pointer; font-size: 13px; padding: 7px 14px;
+    border: 1px solid var(--border-brand); background: var(--color-surface); color: var(--color-text);
+  }
+  .btn-primary { background: var(--color-primary); color: #fff; border: none; box-shadow: var(--shadow-btn); }
+  .btn-primary:hover { background: var(--color-primary-hover); }
+  .btn-ghost { border-color: var(--color-danger); color: var(--color-danger); background: transparent; }
+  .add-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+
+  /* 空状态 */
+  .empty {
+    border: 2px dashed var(--border-brand); border-radius: var(--radius-sm); padding: 28px;
+    text-align: center; color: var(--color-text-muted); background: var(--color-bg-subtle);
+  }
+  .empty b { color: var(--color-text-primary); }
+
+  /* 识图设置 */
+  .field { margin-bottom: 16px; }
+  .field label { display: block; font-size: 14px; font-weight: 600; color: var(--color-text-primary); margin-bottom: 6px; }
+  .field .sub { font-size: 12px; color: var(--color-text-muted); font-weight: 400; }
+  .select, .input {
+    width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border-brand);
+    background: var(--color-surface); color: var(--color-text); font-family: var(--font); font-size: 14px;
+  }
+
+  /* 迁移提示 */
+  .move-out {
+    border: 1px dashed var(--color-info); border-radius: var(--radius-sm); padding: 14px 16px;
+    background: rgba(37,99,235,0.06); color: var(--color-text-muted); font-size: 13px;
+  }
+  .move-out b { color: var(--color-info); }
+
+  /* 当前版问题标注 */
+  .problem { position: relative; border-left: 3px solid var(--color-danger); padding: 4px 0 4px 14px; margin: 0 0 14px; }
+  .problem .tag { font-size: 11px; background: var(--color-danger); color: #fff; padding: 1px 8px; border-radius: 6px; margin-right: 6px; }
+  .problem p { margin: 4px 0 0; font-size: 13px; color: var(--color-text); }
+
+  /* 设计说明 */
+  .notes { margin-top: 30px; }
+  .notes summary {
+    cursor: pointer; font-weight: 700; color: var(--color-text-primary); font-size: 15px;
+    padding: 12px 16px; background: var(--color-bg-subtle); border-radius: 10px; border: 1px solid var(--border-brand);
+  }
+  .notes ul { margin: 14px 0 0; padding-left: 20px; }
+  .notes li { margin-bottom: 12px; font-size: 14px; color: var(--color-text); }
+  .notes li b { color: var(--color-text-primary); }
+
+  .footer-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 26px; }
+
+  /* 添加模型弹窗预览 */
+  .modal-mock { border: 1px solid var(--border-brand); border-radius: var(--radius); background: var(--color-surface);
+    padding: 22px; box-shadow: var(--shadow-warm-hover); }
+  .modal-mock h4 { margin: 0 0 4px; color: var(--color-text-primary); }
+  .help-inline { font-size: 12px; color: var(--color-text-muted); margin: 2px 0 10px; }
+  .help-inline a { color: var(--color-info); }
+
+  .hidden { display: none !important; }
+</style>
+</head>
+<body data-page-node-id="8sUKgujP7zTmZDnWQ6fJMb">
+<div class="app-shell" data-page-node-id="SBD0sNnC0fqd6EIfB6wHoZ">
+  <!-- 侧边栏上下文 -->
+  <aside class="sidebar" data-page-node-id="QVeCXECBWZneYXnuhQCWKV">
+    <h1 data-page-node-id="oaW3WrL51FPOUd6pKO7UNI">DanmuAI 控制台</h1>
+    <div class="side-item" data-page-node-id="r9134fQ7mDlukAKH1xnGZJ"><span class="dot" data-page-node-id="2nNypBbvwilDeNrJzyw8cu"></span> 总览</div>
+    <div class="side-item" data-page-node-id="PJ9bDgEgMhLMyChtKpVH7e"><span class="dot" data-page-node-id="FqA3OaP7hR8I72qa4Fd0jy"></span> 弹幕人格</div>
+    <div class="side-item active" data-page-node-id="FIrF5iy2NTNsdVTCyN3Iqb"><span class="dot" data-page-node-id="Vc358WVRV4lE6fHEeCReTR"></span> 弹幕设置</div>
+    <div class="side-item" data-page-node-id="uuDLEqyAKshcGjkbfXwF4J"><span class="dot" data-page-node-id="m39VciM1X8RwlpWOXxCHQM"></span> 知识库</div>
+    <div class="side-item" data-page-node-id="CG1yNLfu3PP6l2JLa18uUZ"><span class="dot" data-page-node-id="zx2XorUgyL3yE0UCjgPMiR"></span> 桌宠</div>
+  </aside>
+
+  <!-- 主区域 -->
+  <main class="main" data-page-node-id="ieXWsrrUfbxCYXT6sUlU4n">
+    <div class="page-head" data-page-node-id="8QG4sdfAuHliJjxM0i1yR0">
+      <h2 data-page-node-id="dXxXqIIOu7e5CcbFrpcCPq">弹幕设置</h2>
+      <p data-page-node-id="btbIW9ZdfZvWAR9bqO12wf">设置 AI 接口、识图屏幕和弹幕效果，保存后立即生效</p>
+    </div>
+
+    <div class="toolbar" data-page-node-id="Y6qdRtZetNrPIHGp7zcW6E">
+      <div class="seg" id="viewSeg" data-page-node-id="R3VfdquO6GorNDvzMcYF1O">
+        <button data-view="proposed" class="active" data-page-node-id="vs4uBAR22XHXhCHfoMSof2">建议改版（新用户友好）</button>
+        <button data-view="current" data-page-node-id="vT0QyZkzw2tKGuRkcnb0GG">当前版本（问题对照）</button>
+      </div>
+      <button class="theme-btn" id="themeBtn" data-page-node-id="oyRS1qqT7CwcFagzw8RltO">切换深色 / 浅色</button>
+    </div>
+
+    <!-- 标签页（仅展示，AI模型配置为当前） -->
+    <div class="tabs" data-page-node-id="PwhKMtkG8vpWvRD4ddPcRK">
+      <button class="tab active" data-page-node-id="2ggYBAmeSACyQX0Tf9CbO4">AI模型配置</button>
+      <button class="tab" data-page-node-id="4njzRkYcKEl8URHAT5ylRE">语音输入</button>
+      <button class="tab" data-page-node-id="M6BRiiC0uURUQO1DqNsEvz">AI播报</button>
+      <button class="tab" data-page-node-id="UPwnyREUavkELaOdsMMn3Z">弹幕显示</button>
+      <button class="tab" data-page-node-id="LCHbfOnVX21frT43eSjQI8">画面识别范围</button>
+    </div>
+
+    <!-- ================= 建议版 ================= -->
+    <div id="view-proposed" data-page-node-id="LITvh7Ues4jJuzqF3pj8C8">
+      <!-- 概念引导 -->
+      <div class="lede" data-page-node-id="0EioXx6aGCH0Apb2mc2gwn">
+        <div class="ico" data-page-node-id="7Wn5AJHDDtUM94wVXwZCYp">💡</div>
+        <p data-page-node-id="newKO6ibkCX1AuCBv02kcR"><strong data-page-node-id="P9OuNKDvgdXXeA2ie2v5JF">AI 模型档案</strong> = 你让软件用「哪家服务（如豆包 / OpenAI）」+「哪个密钥」+「哪个模型」来识别屏幕和聊天。先添加并填好一个档案，再把它设为<strong data-page-node-id="4sCt7aBN6r2TXA0BHQ1RJs">识图默认模型</strong>，就可以开始使用了。</p>
+      </div>
+
+      <!-- 快速开始 -->
+      <div class="steps" data-page-node-id="iEasgJu7vM9wddIlQWbZ7O">
+        <div class="step" data-page-node-id="KN2GvlxbOHq5GNleVRlrLL"><div class="num" data-page-node-id="wZ9geUuFAY5L5cQFMlHVD6">1</div><p data-page-node-id="2n6iqdIE8N1xaYJGl3X0hT"><b data-page-node-id="8I7uklzKcORgfBWQRIswPV">添加模型</b><br data-page-node-id="QuDTdREF2sgpfb9GTx7C73">选服务商 → 粘贴 API 密钥 → 挑一个模型</p></div>
+        <div class="step" data-page-node-id="FAFnRg7FAY7DfIMxUvUXTs"><div class="num" data-page-node-id="tTgFyfNQ9uax6iKojpFTHB">2</div><p data-page-node-id="3JDmvNO2HsV579zvQN3WzH"><b data-page-node-id="ZlEyPJaDlUBbCa8CqilFJZ">设为识图默认</b><br data-page-node-id="aqOpl5YuD8VqhH1FAaGW6T">在档案上点「设为默认」，屏幕才会被读取</p></div>
+        <div class="step" data-page-node-id="iIQbCV5XcqSEgClockusJL"><div class="num" data-page-node-id="CjpM81l7raeT27s5KisnPJ">3</div><p data-page-node-id="EAPkeUS72x2NZYEvw4Ny4F"><b data-page-node-id="KG5SLFljvApyRvFCfWRdD6">开始生成</b><br data-page-node-id="yAs5V6Q0NmLdh3K1UiWMef">到「弹幕人格」把模型绑给某个人格即可</p></div>
+      </div>
+
+      <!-- 模型档案 -->
+      <div class="section" data-page-node-id="YgQSGg5ZejY5cABLFEoBmX">
+        <div class="add-row" data-page-node-id="GwRBWgxVVy9SFEuZbehHwE">
+          <h3 class="section-title" data-page-node-id="Cb37bE3n5nOoBHGxXcJ6tH">你的模型档案</h3>
+          <span class="count-pill" data-page-node-id="ivftnaB1q5KRSSQBfQj8yL">已配置完整 2 / 共 3</span>
+        </div>
+        <p class="hint" style="margin-bottom:14px;" data-page-node-id="brkJsaafWUVBr8HjygT8xq">每个档案是一套「服务商 + 密钥 + 模型」的组合。可以在侧边栏【弹幕人格】里对不同人格切换不同档案。</p>
+
+        <div class="model-list" data-page-node-id="iRatL53NKGg12dH3HIgAC0">
+          <!-- 卡片：默认识图 + 使用中 -->
+          <div class="model-row" data-page-node-id="KCyUFg9WRe0AaHFhK2zzhT">
+            <span class="star" data-page-node-id="6c9wIykfcgrLDK7nzGzNvh">★ 默认识图</span>
+            <span class="m-name" data-page-node-id="BbjfP8TVQwbX4gcFTWbLg6">我的豆包视觉</span>
+            <span class="chip chip-prov" data-page-node-id="WPqa1ILI4AT97DratXG7eF">火山方舟 豆包</span>
+            <span class="chip chip-use" data-page-node-id="oF3mMvQ83QlZTJ1VioHX5g">使用中</span>
+            <span class="m-id" data-page-node-id="DhOqkYZospbEEQZLhZAlvU">doubao-seed-1.6</span>
+            <div class="m-actions" data-page-node-id="KsypZBvBrFp7xkQtcIFBEQ">
+              <button class="btn" data-page-node-id="ucYyky6GecH1B4cmHL1BLf">编辑</button>
+              <button class="btn btn-ghost" data-page-node-id="RcgNERmqxQOpFj9aJLm5X8">删除</button>
+            </div>
+          </div>
+          <!-- 卡片：支持麦克风 -->
+          <div class="model-row" data-page-node-id="EQbDuMzpycgQzgfZBNZDrN">
+            <span class="m-name" data-page-node-id="ztHq6GFQGpcrtRLXIFs9VK">MiMo 语音</span>
+            <span class="chip chip-prov" data-page-node-id="Fjo6Bv3hxNrc5aQ2vV5vgC">自定义 OpenAI</span>
+            <span class="chip chip-mic" data-page-node-id="zcKDMjRDojLHNz254Cmm3D">支持麦克风</span>
+            <span class="m-id" data-page-node-id="PSPm1GUEPUJ8ePCNK5L6MQ">mimo-v2.5</span>
+            <div class="m-actions" data-page-node-id="vjazKLJL07yoFGJA0R2g7D">
+              <button class="btn" data-page-node-id="M1WzZlYxz8zxA1huQjaXWj">编辑</button>
+              <button class="btn btn-ghost" data-page-node-id="FPPLB7del9B73Gn446jJFK">删除</button>
+            </div>
+          </div>
+          <!-- 卡片：配置不完整 -->
+          <div class="model-row" data-page-node-id="KeHxeCL3DFMG0rfGmRhqDY">
+            <span class="m-name" data-page-node-id="kNM0g5b6LMmJG6LiiRpJkR">未命名档案</span>
+            <span class="chip chip-bad" data-page-node-id="MmYZFpXKkknxJTrD6GL4Ck">配置不完整</span>
+            <span class="m-id" data-page-node-id="kCubrC38SiAhdH7NNDE1yf">（缺少 API 密钥）</span>
+            <div class="m-actions" data-page-node-id="kKvRKUGyHZ3dO63dXYz1JO">
+              <button class="btn" data-page-node-id="ZFBcmteuGBAgk3nR70v5lE">去补全</button>
+              <button class="btn btn-ghost" data-page-node-id="5ybfoej2gCDyEjypKanr1d">删除</button>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:14px;" data-page-node-id="A5tt1ohpAmC7kTftPRMU2m">
+          <button class="btn btn-primary" data-page-node-id="AekowV3DKvElPbRe9VR86u">+ 添加模型</button>
+        </div>
+      </div>
+
+      <hr class="hr" data-page-node-id="GUZ397xwpQNgJ0LShH3qri">
+
+      <!-- 识图设置（讲清模型与显示器的关系） -->
+      <div class="section" data-page-node-id="GmdqAGVHuwYVy7ENzQBwiP">
+        <h3 class="section-title" data-page-node-id="us8r0W6oLrDIY1BHKUtc6S">识图设置</h3>
+        <div class="field" data-page-node-id="QGo7H4WIgcgc6hdUJIN0zw">
+          <label data-page-node-id="4SMKjVH6ejDX0kyiJI9HcR">识图显示器 <span class="sub" data-page-node-id="2EnR4RbeUrA6AAxCYI8Bix">（被「默认识图模型」读取的屏幕）</span></label>
+          <select class="select" data-page-node-id="FpkyQ0RFxoGqy3YMLEImAj"><option data-page-node-id="CIW3UBbjWUHeAU0DsRSzdH">显示器 1（主屏）</option><option data-page-node-id="nYUId698MVpNPeP0oS0wuy">显示器 2</option></select>
+          <p class="help-inline" data-page-node-id="7iCzpqp3yJVdkPf2IMEHck">软件会按固定间隔截这张屏幕，发给上面的「默认识图模型」理解画面。截图只在内存里压缩后发送，不会存到硬盘。</p>
+        </div>
+        <div class="field" data-page-node-id="UicSd7yZC2UX7B6yHGfNjS">
+          <label data-page-node-id="iOLMVEZeThnMhd3zBsEDfb">默认识图模型 <span class="sub" data-page-node-id="9fyLLK02kxg3HImrk8DRjp">（从上方档案中选择）</span></label>
+          <select class="select" data-page-node-id="wxQVbEXjKsGglVDxjD2i0X"><option data-page-node-id="1ARjWtjdfaqXhD0JL421nS">我的豆包视觉（doubao-seed-1.6）</option><option data-page-node-id="s7e5400pfVA5xjETUpxcIp">MiMo 语音</option></select>
+        </div>
+      </div>
+
+      <hr class="hr" data-page-node-id="ovBbskznlo8jowGYyCq4UD">
+
+      <!-- 应迁移出去的字段 -->
+      <div class="section" data-page-node-id="I6E1XG5k11Lp7uyHwRbRdw">
+        <div class="move-out" data-page-node-id="NymbJ3lwdodh6aY7VtLrxs">
+          <b data-page-node-id="99Ut8MhzBo3POBaDjyZMge">建议迁移：</b>「弹幕显示模式」（横向弹幕 / 从下到上）属于<strong data-page-node-id="C1U703hbqyMh6PtAmHkzJQ">弹幕显示</strong>范畴，与新用户理解"AI 模型"无关，建议移入右侧「弹幕显示」标签页，本页不再出现，减少干扰。
+        </div>
+      </div>
+
+      <div class="footer-actions" data-page-node-id="X7YDF9mjaBhACq7qZEpwCr">
+        <button class="btn" data-page-node-id="OaB2zzHoelFvK7wHYH8ceC">测试连接</button>
+        <button class="btn" data-page-node-id="Bc7VMmdOAGokU4o5TBP82M">恢复默认</button>
+        <button class="btn btn-primary" data-page-node-id="GmdDOUF5FJsEjAp2m1VxaB">保存配置 ✦</button>
+      </div>
+
+      <!-- 弹窗预览（新用户真正卡住的地方） -->
+      <details style="margin-top:30px;" data-page-node-id="6tIPAktMFEtcc16EY6tGzq">
+        <summary class="notes" style="list-style:none;" data-page-node-id="xRcTegh6TRaocIY6aAaZMj"><span style="font-weight:700;color:var(--color-text-primary);cursor:pointer;" data-page-node-id="3cTg9liLGSmDl930pHeYi1">▸ 附：添加模型弹窗（建议的引导式字段）</span></summary>
+        <div class="modal-mock" style="margin-top:14px;" data-page-node-id="7inHkkHSlyp3BiIMnd8cFx">
+          <h4 data-page-node-id="kZwhaIcnzeXFGFsKlf5l89">添加模型档案</h4>
+          <p class="hint" data-page-node-id="kPRFGQktaBtdTPHzetNanD">填写以下 3 项即可开始；带 * 为必填。</p>
+          <div class="field" data-page-node-id="crva8umxETEn7fSio4Zx0c">
+            <label data-page-node-id="HjU9mlQhwsjT1aBpEmVG5X">① 服务商 *</label>
+            <select class="select" data-page-node-id="BsbN95fGJoNktUscOFKWv0"><option data-page-node-id="EfZM1ZYhDE1a7cjJO6ZQWH">火山方舟 豆包</option><option data-page-node-id="vCXcf2qr2rByi5XYbgYKs0">OpenAI</option><option data-page-node-id="h0HF2XHUz3E8LDAmuT1QKm">自定义 OpenAI 兼容</option></select>
+            <p class="help-inline" data-page-node-id="CIIe6DAA4QY5BY9R9zCSa6">选服务商后会自动填入官方接口地址，一般无需改动。</p>
+          </div>
+          <div class="field" data-page-node-id="VnjN1WvZJ5zTF4B2I9WyV9">
+            <label data-page-node-id="9ryBybBscd67CgjVDt47fl">② API 密钥 * <span class="sub" data-page-node-id="nFQbMIkbj23g55EcxMp8LH">（保存在本机并加密）</span></label>
+            <input class="input" placeholder="sk-..." data-page-node-id="KLNFrCbUjKnNYlOls2p5aG" />
+            <p class="help-inline" data-page-node-id="LtJtosiYO45mqGm85LIE1l"><a href="#" data-page-node-id="eXwI8YT0x0DrUa693KPnyZ">如何获取密钥？</a> 密钥只存你本机，不会上传给任何人。</p>
+          </div>
+          <div class="field" data-page-node-id="ThiA59TCGPR3ZBllD8QWpw">
+            <label data-page-node-id="aMjDPtRM7AoafMNNNPuiKI">③ 使用模型 *</label>
+            <select class="select" data-page-node-id="75WALDOlmS7OmuDDA6YIvw"><option data-page-node-id="oD9g2DakLXzVk16qHxKKMR">doubao-seed-1.6（推荐识图）</option><option data-page-node-id="4KzZZYMSOzWjiteSNgDg7P">doubao-视觉-pro</option></select>
+            <p class="help-inline" data-page-node-id="dMzB6TOdNBaU8talDCgVzu">选服务商后这里会列出它支持的模型；不知道选哪个就用带「推荐识图」的那项。</p>
+          </div>
+          <div class="footer-actions" style="margin-top:8px;" data-page-node-id="xVEGOoFlwViuFQRLFVz1hP">
+            <button class="btn" data-page-node-id="ZvgGtglw8Zyc0cJFaS4Ewt">取消</button>
+            <button class="btn btn-primary" data-page-node-id="pE4oL66HpKaTlTTGjfA622">保存并设为默认识图</button>
+          </div>
+        </div>
+      </details>
+    </div>
+
+    <!-- ================= 当前版（问题对照） ================= -->
+    <div id="view-current" class="hidden" data-page-node-id="fnWhUn041bqIqWSQMY2lOA">
+      <p class="hint" style="margin-bottom:16px;" data-page-node-id="5R7Atvq6dNsWsahC4UmxUl">下方是尽量还原的当前「AI模型配置」tab 结构，右侧/下方标注了新用户的困惑点。</p>
+
+      <div class="card" data-page-node-id="QxbFveGDLZJhNPqIrQiIn8">
+        <div class="add-row" data-page-node-id="3JOgbIkqeZG6asf770GpyY">
+          <h3 class="section-title" data-page-node-id="cfcbNZ2YfWm84QbdH67kis">AI 模型</h3>
+          <button class="btn" data-page-node-id="Rx5VmshCDgLoZ3D8zeuUHw">+ 添加模型</button>
+        </div>
+        <p class="hint" data-page-node-id="xa8YC3CDsS4CfYdhsLyysq">可以在侧边栏【弹幕人格】内对不同人格切换不同模型</p>
+        <div class="empty" style="margin-top:12px;" data-page-node-id="EQKBqSaHB9G3gSQCnAYNCy">（空列表：什么模型都没有，但页面上<strong data-page-node-id="hI6L5gT2y0t78ADP4C1Eup">看不到哪里填密钥</strong>）</div>
+
+        <div class="problem" style="margin-top:18px;" data-page-node-id="1gHVXNzmyrcNVeCFBm7zyk">
+          <span class="tag" data-page-node-id="ooiADUUHqyKZOW9iXRp1XO">问题 1</span><b data-page-node-id="mX9Rjh3Hg8Xxsl6GIhcyd9">关键配置全藏在弹窗里</b>
+          <p data-page-node-id="KodjTsruCO5Pmu1s2A2r5F">服务商、API 密钥、模型 ID 都只在「+ 添加模型」弹窗中填写；tab 页面本身没有可见的密钥输入框，新用户面对空列表不知从何下手。</p>
+        </div>
+        <div class="problem" data-page-node-id="BKJmPqutEQi3NZ4Shdv5Yo">
+          <span class="tag" data-page-node-id="kKcjELZPSOso50852gjVSI">问题 2</span><b data-page-node-id="PFj9wBNNrEZPj46HzMylfL">没有概念说明</b>
+          <p data-page-node-id="vTgkVmXRn3DI2eYx2dsu9h">页面未用一句话解释"模型档案 = 服务商 + 密钥 + 模型"，新用户不清楚"添加模型"到底要准备什么。</p>
+        </div>
+
+        <hr class="hr" data-page-node-id="B2Z1grNdGIVgunEj4Ely2h">
+
+        <div class="field" data-page-node-id="gCTXmiuRrZQDkBWopazrbg">
+          <label data-page-node-id="ix8OfCDKYkP1slttaz94mu">弹幕显示模式</label>
+          <select class="select" data-page-node-id="hMqmviYYYUa2MsD3xF71FY"><option data-page-node-id="ImHRtJ0WZPcLIToLpyBmpY">横向弹幕</option><option data-page-node-id="gmjRK340MTDFgzDqiUPB4b">从下到上</option></select>
+        </div>
+        <div class="problem" data-page-node-id="l9COCfyDZijk9DaDrHBOnZ">
+          <span class="tag" data-page-node-id="temZd7I7UvMT5KYZpBKWtI">问题 3</span><b data-page-node-id="hLBhvl1n3HRZGXlG94xqQq">混入无关设置</b>
+          <p data-page-node-id="Jabkoo0QAVksY7uDUboWiJ">「弹幕显示模式」属于显示设置，却放在"AI模型配置"里，新用户误以为它和模型有关，分不清主次。</p>
+        </div>
+
+        <hr class="hr" data-page-node-id="9IjPQWPGUWEcfOPs6O69Ok">
+
+        <div class="field" data-page-node-id="3qrKqheDNBR9j71DJKB5Xh">
+          <label data-page-node-id="0IdsW5ozWY6se4TJxTKHqE">识图显示器</label>
+          <select class="select" data-page-node-id="nuvj0vCviL0Pkz2gESCA76"><option data-page-node-id="VTBWxbgHspazpfQTJCWqeI">显示器 1</option><option data-page-node-id="j4lAtvcsQP9XlJfTzLPyf0">显示器 2</option></select>
+        </div>
+        <div class="problem" data-page-node-id="0TFQ9WAJU4rMUAIviJTtJS">
+          <span class="tag" data-page-node-id="cerOPe1TfKF99SHhVfnptE">问题 4</span><b data-page-node-id="I1AahC3YJS5toaFk8BDdup">模型与显示器关系不清</b>
+          <p data-page-node-id="8QQaVxUKcIL5GqGcqOnVn1">这里选了显示器，但"用哪个模型读它"散落在弹窗里，页面上没有把"默认识图模型 ↔ 显示器"的对应讲清楚。</p>
+        </div>
+
+        <div class="problem" data-page-node-id="MHhQ0X5SBOEAnA7x0UnZFf">
+          <span class="tag" data-page-node-id="lDP7ohCMxhIhbhQcN4dCRc">问题 5</span><b data-page-node-id="6TgdbRxFDhj6JKaD09Ra9p">隐藏的 legacy 字段</b>
+          <p data-page-node-id="vg4mRjO1l2Rt5Oezw71g5N">源码里有一整段 <code data-page-node-id="F13NtOwF8AIWix67yiU8cL">hidden</code> 的 API 地址 / 密钥 / 模型字段。新用户（或排查时）会困惑"配置到底存在哪"。</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 设计说明 -->
+    <details class="notes" data-page-node-id="uITDyTsEDD3u4RcGgmkrpS">
+      <summary data-page-node-id="BsqFH2fhYC9VM2RcuQlwi0">▾ 设计说明：本次改版解决的 5 个核心问题</summary>
+      <ul data-page-node-id="EzJvDB2rj3Eq3zstEblAXO">
+        <li data-page-node-id="ZlKGLYDfeelHJMJHNd7C0L"><b data-page-node-id="FZzmYoDHXrwQjp5klPPaA9">① 加概念引导条。</b>页面顶部一句话讲清"AI 模型档案 = 服务商 + 密钥 + 模型"，新用户先理解再操作。</li>
+        <li data-page-node-id="ZoszKhBTWPJrA5VNI3HUhy"><b data-page-node-id="FSSKhiXx4gmQEHiTgSmlGA">② 加 3 步快速开始。</b>把"添加 → 设为默认 → 绑定人格"的必经路径显式成步骤卡，降低决策成本。</li>
+        <li data-page-node-id="aTaganp9Ia8yaduOF5B2MG"><b data-page-node-id="vo1eN0i8aEeWPt9rX3w407">③ 档案卡片增强状态。</b>每张卡片直接显示「默认识图 ★ / 使用中 / 支持麦克风 / 配置不完整」，状态一眼可见，不再需要进弹窗确认。</li>
+        <li data-page-node-id="LeCrFeO1or2ctmOGvMOC8H"><b data-page-node-id="JstQxJYoUahkVYw6AyZTc3">④ 讲清模型与显示器关系。</b>把"识图显示器"和"默认识图模型"放在同一「识图设置」区块并互相说明，消除"配置存哪"的困惑。</li>
+        <li data-page-node-id="4qO6zGeN6qBnmOxNRFSahx"><b data-page-node-id="05QPztAXKPFXbYhXeCTKrj">⑤ 移出无关项 + 引导式弹窗。</b>把"弹幕显示模式"建议迁移到「弹幕显示」tab；同时在添加弹窗内对每个字段配"如何获取密钥"等内联帮助，把新用户真正卡住的入口做顺。</li>
+      </ul>
+    </details>
+  </main>
+</div>
+
+<script>
+  // 视图切换
+  const seg = document.getElementById('viewSeg');
+  const proposed = document.getElementById('view-proposed');
+  const current = document.getElementById('view-current');
+  seg.addEventListener('click', (e) => {
+    const btn = e.target.closest('button'); if (!btn) return;
+    [...seg.children].forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const v = btn.dataset.view;
+    proposed.classList.toggle('hidden', v !== 'proposed');
+    current.classList.toggle('hidden', v !== 'current');
+  });
+
+  // 主题切换
+  const themeBtn = document.getElementById('themeBtn');
+  themeBtn.addEventListener('click', () => {
+    const root = document.documentElement;
+    root.setAttribute('data-theme', root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+  });
+</script>
+</body>
+</html>
