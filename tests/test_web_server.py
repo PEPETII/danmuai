@@ -21,7 +21,7 @@ def test_model_catalog_api_payload():
     from app.model_catalog import list_platform_catalogs
 
     platforms = list_platform_catalogs()
-    assert len(platforms) == 19
+    assert len(platforms) == 20
     by_id = {p["platform_id"]: p for p in platforms}
 
     doubao = by_id["doubao"]
@@ -46,6 +46,12 @@ def test_model_catalog_api_payload():
     assert all(m["id"] != "qwen3-vl-max" for m in dashscope["models"])
     dash_mic = {m["id"] for m in dashscope["models"] if m["supports_mic"]}
     assert dash_mic == set()
+
+    tokenrhythm = by_id["tokenrhythm"]
+    assert tokenrhythm["region"] == "china"
+    assert tokenrhythm["default_model_id"] == "qwen3.7-flash"
+    assert tokenrhythm["models"][0]["input_modalities"] == ["text", "image", "video"]
+    assert tokenrhythm["models"][0]["status"] == "testing"
 
     assert len(by_id["openai"]["models"]) == 3
     assert len(by_id["google-gemini"]["models"]) == 5

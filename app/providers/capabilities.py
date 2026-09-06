@@ -127,6 +127,11 @@ _register(
     usage_token_style="dashscope",
     thinking_param_style="enable_thinking",
 )
+_register(
+    "tokenrhythm",
+    # Token Rhythm documents plain OpenAI SSE, not stream_options.
+    stream_usage_in_final_chunk=False,
+)
 _register("openai", thinking_param_style="none", supports_thinking=False)
 _register("google_gemini", thinking_param_style="none", supports_thinking=False)
 _register("xai", thinking_param_style="none", supports_thinking=False)

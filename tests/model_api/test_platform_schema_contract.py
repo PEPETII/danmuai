@@ -9,6 +9,7 @@ from app.providers.platform_registry import (
 REQUIRED_PLATFORM_IDS = {
     "doubao",
     "dashscope",
+    "tokenrhythm",
     "openai",
     "google-gemini",
     "xai",
@@ -32,7 +33,7 @@ REQUIRED_PLATFORM_IDS = {
 def test_catalog_covers_the_batch6_platform_contract():
     catalogs_by_platform = {item.platform_id: item for item in PLATFORM_CATALOGS}
 
-    assert len(PLATFORM_CATALOGS) >= 19
+    assert len(PLATFORM_CATALOGS) >= 20
     assert REQUIRED_PLATFORM_IDS <= catalogs_by_platform.keys()
     for catalog in PLATFORM_CATALOGS:
         assert catalog.platform_id

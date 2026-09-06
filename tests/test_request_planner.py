@@ -76,6 +76,34 @@ def test_catalog_model_inherits_vision():
     assert caps.vision is True
 
 
+def test_tokenrhythm_chat_plan_uses_catalog_vision_and_conservative_options():
+    planned = plan_http_request(
+        GenerationRequest(
+            purpose="visual_danmu",
+            model_id="qwen3.7-flash",
+            endpoint="https://tokenrhythm.studio/v1",
+            api_key="fixture-key",
+            api_mode="openai-compatible",
+            provider_id="tokenrhythm",
+            user_text="hi",
+            image_data_uri="data:image/jpeg;base64,abc",
+            max_output_tokens=64,
+            reasoning_enabled=False,
+            stream=True,
+            stream_options={"include_usage": True},
+        )
+    )
+    assert planned.url == "https://tokenrhythm.studio/v1/chat/completions"
+    assert planned.headers["Authorization"] == "Bearer fixture-key"
+    assert planned.json_body["model"] == "qwen3.7-flash"
+    assert planned.json_body["messages"][-1]["content"][1]["type"] == "image_url"
+    assert planned.applied_capabilities is not None
+    assert planned.applied_capabilities.vision is True
+    assert planned.applied_capabilities.thinking_param_style == "enable_thinking"
+    assert planned.json_body["enable_thinking"] is False
+    assert "stream_options" not in planned.json_body
+
+
 def test_thinking_styles_cover_seven_families():
     styles = [
         ("thinking_type", "thinking"),

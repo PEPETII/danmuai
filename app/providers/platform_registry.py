@@ -81,6 +81,7 @@ def _official_source_for_spec(spec) -> OfficialSource:
         "openrouter": "https://openrouter.ai/docs/quick-start",
         "stepfun": "https://platform.stepfun.com/docs/zh/api-reference/chat/chat-completion-create",
         "hunyuan": "https://cloud.tencent.com/document/product/1729/111007",
+        "tokenrhythm": "https://tokenrhythm.studio/docs/api-integration",
     }.get(spec.id)
     migration_url = getattr(spec, "migration_url", None)
     if spec.id == "hunyuan":

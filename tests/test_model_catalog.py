@@ -12,6 +12,7 @@ from app.model_catalog import (
     OPENROUTER_MODELS,
     SILICONFLOW_MODELS,
     TOGETHER_MODELS,
+    TOKENRHYTHM_MODELS,
     XAI_MODELS,
     ZAI_MODELS,
     catalog_model_ids,
@@ -55,6 +56,21 @@ def test_catalog_model_supports_mic():
     assert catalog_model_supports_mic("mimo-v2.5")
     assert not catalog_model_supports_mic("doubao-seed-1-6-flash-250828")
     assert not catalog_model_supports_mic("unknown-model")
+
+
+def test_tokenrhythm_catalog_has_official_qwen37_flash_metadata():
+    model = TOKENRHYTHM_MODELS[0]
+    assert model.id == "qwen3.7-flash"
+    assert model.supports_vision is True
+    assert model.thinking_mode == "hybrid"
+    assert model.reasoning_param_style_chat == "enable_thinking"
+    assert model.input_modalities == ("text", "image", "video")
+    assert model.output_modalities == ("text",)
+    assert model.status == "testing"
+    assert model.source_kind == "official"
+    assert model.source_url == "https://tokenrhythm.studio/models"
+    assert model.context_window == 1_000_000
+    assert model.max_output_tokens == 131_000
 
 
 def test_enriched_catalog_includes_thinking_metadata():
@@ -111,7 +127,7 @@ def _platform_by_id(platforms, platform_id):
 
 def test_list_platform_catalogs_has_vision_platforms():
     platforms = list_platform_catalogs()
-    assert len(platforms) == 19
+    assert len(platforms) == 20
     international = {
         "openai",
         "google_gemini",
@@ -138,6 +154,13 @@ def test_list_platform_catalogs_has_vision_platforms():
     assert dashscope["provider_id"] == "dashscope"
     assert dashscope["platform_label"] == "DashScope"
     assert len(dashscope["models"]) == 10
+    tokenrhythm = _platform_by_id(platforms, "tokenrhythm")
+    assert tokenrhythm["provider_id"] == "tokenrhythm"
+    assert tokenrhythm["platform_label"] == "基元律动"
+    assert tokenrhythm["region"] == "china"
+    assert tokenrhythm["default_model_id"] == "qwen3.7-flash"
+    assert tokenrhythm["models"][0]["id"] == "qwen3.7-flash"
+    assert tokenrhythm["models"][0]["supports_vision"] is True
     openai = _platform_by_id(platforms, "openai")
     assert openai["provider_id"] == "openai"
     assert len(openai["models"]) == 3

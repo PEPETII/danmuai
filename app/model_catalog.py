@@ -1,8 +1,9 @@
 """Platform model catalogs with pricing metadata for the Web console vision model picker.
 
-十八平台目录（按 ``_CATALOG_BY_PROVIDER`` key）：
+二十个平台目录（按 ``_CATALOG_BY_PROVIDER`` key）：
 - ``doubao``：火山方舟（豆包 Responses 模型）
 - ``dashscope``：阿里云百炼（qwen-vl-* 等）
+- ``tokenrhythm``：基元律动（qwen3.7-flash）
 - ``openai``：OpenAI（GPT 系列）
 - ``google_gemini``：Google Gemini（Gemini 系列）
 - ``xai``：xAI（Grok 系列）
@@ -13,6 +14,7 @@
 - ``siliconflow``：硅基流动（deepseek-ai/* 等）
 - ``mimo``：小米 MiMo（仅 ``mimo-v2.5``）
 - ``zai``：Z.AI / 智谱（GLM-4.6V / GLM-4.5V）
+- ``zhipu``：智谱 AI（GLM 视觉模型）
 - ``moonshot``：Moonshot Kimi（kimi-latest / kimi-thinking-preview 等）
 - ``hunyuan``：腾讯混元（hunyuan-turbos-vision 等）
 - ``stepfun``：阶跃星辰（step-3 / step-3-7-flash）
@@ -237,6 +239,28 @@ DASHSCOPE_MODELS: tuple[CatalogModel, ...] = (
         "qwen-vl-max",
         ModelPrice(input=1.6, audio=None, output=4),
         thinking_mode="off",
+    ),
+)
+
+# The platform documents Chat Completions; the model-level thinking mapping
+# follows Qwen3.7-Flash's upstream Chat contract and still needs live proxy verification.
+TOKENRHYTHM_MODELS: tuple[CatalogModel, ...] = (
+    CatalogModel(
+        "Qwen3.7-Flash",
+        "qwen3.7-flash",
+        ModelPrice(input=1.2, audio=None, output=4.8),
+        modality="文本 / 图像 / 视频输入 → 文本输出",
+        supports_vision=True,
+        thinking_mode="hybrid",
+        reasoning_param_style_chat="enable_thinking",
+        status="testing",
+        source_kind="official",
+        source_url="https://tokenrhythm.studio/models",
+        verified_at="2026-09-05",
+        input_modalities=("text", "image", "video"),
+        output_modalities=("text",),
+        context_window=1_000_000,
+        max_output_tokens=131_000,
     ),
 )
 
@@ -760,6 +784,7 @@ def _curate_static_models(models: tuple[CatalogModel, ...]) -> tuple[CatalogMode
 
 DOUBAO_MODELS = _curate_static_models(DOUBAO_MODELS)
 DASHSCOPE_MODELS = _curate_static_models(DASHSCOPE_MODELS)
+TOKENRHYTHM_MODELS = _curate_static_models(TOKENRHYTHM_MODELS)
 OPENAI_MODELS = _curate_static_models(OPENAI_MODELS)
 GOOGLE_GEMINI_MODELS = _curate_static_models(GOOGLE_GEMINI_MODELS)
 XAI_MODELS = _curate_static_models(XAI_MODELS)
@@ -790,6 +815,12 @@ PLATFORM_CATALOGS: tuple[PlatformCatalog, ...] = (
         platform_label="DashScope",
         provider_id="dashscope",
         models=DASHSCOPE_MODELS,
+    ),
+    PlatformCatalog(
+        platform_id="tokenrhythm",
+        platform_label="基元律动",
+        provider_id="tokenrhythm",
+        models=TOKENRHYTHM_MODELS,
     ),
     PlatformCatalog(
         platform_id="openai",

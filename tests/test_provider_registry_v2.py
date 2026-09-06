@@ -10,9 +10,9 @@ from app.providers.platform_registry import (
 from app.providers.registry import match_host_entry, provider_rules_for_api
 
 
-def test_registry_has_all_21_legacy_providers_and_no_secrets():
+def test_registry_has_all_22_legacy_providers_and_no_secrets():
     definitions = list_provider_definitions()
-    assert len(definitions) == 21
+    assert len(definitions) == 22
     assert [item.id for item in definitions] == [item.id for item in PROVIDERS]
     assert all(item.auth_profiles for item in definitions)
     assert all(

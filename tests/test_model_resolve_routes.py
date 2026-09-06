@@ -37,6 +37,27 @@ def test_openrouter_exact_host_and_catalog_model():
     assert payload["model"]["id"] == "google/gemini-3.1-flash-lite"
 
 
+def test_tokenrhythm_catalog_model_resolves_as_domestic_openai_chat_provider():
+    response = _client().post(
+        "/api/model-api/resolve",
+        headers={"Authorization": "Bearer test-token"},
+        json={
+            "endpoint": "https://tokenrhythm.studio/v1",
+            "model_id": "qwen3.7-flash",
+        },
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["provider_id"] == "tokenrhythm"
+    assert payload["provider"]["region"] == "china"
+    assert payload["api_family"] == "openai_chat_completions"
+    assert payload["model"]["id"] == "qwen3.7-flash"
+    assert payload["capabilities"]["vision"] is True
+    assert payload["capabilities"]["image_input"] is True
+    assert payload["capabilities"]["video_input"] is True
+    assert "unknown_model" not in payload["warnings"]
+
+
 def test_unknown_model_has_null_capabilities_and_stable_unknown_signal():
     response = _client().post(
         "/api/model-api/resolve",

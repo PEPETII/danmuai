@@ -575,10 +575,10 @@ def test_provider_for_api_includes_hunyuan_lifecycle_fields():
 
 
 def test_providers_website_field_present_on_all_built_in_presets():
-    # 21 个内置预设均含 website 字段（dataclass asdict 序列化键存在）
+    # 22 个内置预设均含 website 字段（dataclass asdict 序列化键存在）
     from dataclasses import asdict
 
-    assert len(PROVIDERS) == 21
+    assert len(PROVIDERS) == 22
     for spec in PROVIDERS:
         assert "website" in asdict(spec)
         assert hasattr(spec, "website")
@@ -588,6 +588,7 @@ def test_providers_website_non_null_for_built_in_presets():
     expected = {
         "doubao": "https://www.volcengine.com/product/ark",
         "dashscope": "https://help.aliyun.com/zh/dashscope/",
+        "tokenrhythm": "https://tokenrhythm.studio/",
         "openai": "https://platform.openai.com/",
         "google_gemini": "https://ai.google.dev/gemini-api/docs",
         "xai": "https://docs.x.ai/",

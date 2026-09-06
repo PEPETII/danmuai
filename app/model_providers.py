@@ -1,8 +1,9 @@
 """Provider presets and validation for custom model configurations.
 
-21 个服务商预设（``PROVIDERS`` 列表）：
+22 个服务商预设（``PROVIDERS`` 列表）：
 - doubao（火山方舟） — mode=doubao，lock_mode=True（不可切换 Chat Completions）
 - dashscope（阿里云百炼） — OpenAI 兼容
+- tokenrhythm（基元律动） — OpenAI 兼容；默认模型 qwen3.7-flash
 - openai（OpenAI） — OpenAI 兼容
 - google_gemini（Google Gemini） — OpenAI 兼容
 - xai（xAI） — OpenAI 兼容
@@ -80,6 +81,17 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         model_id_hint_en="e.g. qwen-vl-max",
         region="china",
         website="https://help.aliyun.com/zh/dashscope/",
+    ),
+    ProviderSpec(
+        id="tokenrhythm",
+        label_zh="基元律动",
+        label_en="Token Rhythm",
+        default_endpoint="https://tokenrhythm.studio/v1",
+        mode="openai-compatible",
+        model_id_hint_zh="例如：qwen3.7-flash",
+        model_id_hint_en="e.g. qwen3.7-flash",
+        region="china",
+        website="https://tokenrhythm.studio/",
     ),
     ProviderSpec(
         id="openai",
