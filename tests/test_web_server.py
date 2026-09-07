@@ -149,16 +149,23 @@ def test_settings_providers_js_filters_by_region_and_language():
     assert "provider.region === 'china'" in providers_js
 
 
-def test_settings_providers_js_has_modal_region_filter_helpers():
+def test_settings_providers_js_exposes_unified_provider_list():
     from app.bundle_paths import project_root
 
     providers_js = (
         project_root() / "web" / "static" / "modules" / "settings-providers.js"
     ).read_text(encoding="utf-8")
-    assert "getModalVisibleProviders" in providers_js
-    assert "isProviderVisibleInModalRegion" in providers_js
-    assert "inferModalProviderRegion" in providers_js
-    assert "fillModelProviderSelect" in providers_js
+    assert "getUnifiedModalProviders" in providers_js
+    assert "searchModalProviders" in providers_js
+    assert "isCustomProvider" in providers_js
+    assert "getDefaultEndpoint" in providers_js
+    assert "custom_doubao') return false" in providers_js
+    assert "custom_openai') return true" in providers_js
+    assert "getModalVisibleProviders" not in providers_js
+    assert "isProviderVisibleInModalRegion" not in providers_js
+    assert "inferModalProviderRegion" not in providers_js
+    assert "fillModelProviderSelect" not in providers_js
+    assert "modelProviderRegion" not in providers_js
     controls_start = providers_js.index("function renderProviderControls()")
     controls_end = providers_js.index("function renderProviderEmptyFallback()", controls_start)
     controls_block = providers_js[controls_start:controls_end]

@@ -949,26 +949,29 @@ def test_custom_model_supports_mic_persists_after_update_and_reopen(model_app):
     assert reopened["supportsMic"] is True
 
 
-def test_modals_html_has_model_provider_region_select():
+def test_modals_html_has_model_provider_picker_without_region_filter():
     html = MODALS_HTML.read_text(encoding="utf-8")
-    assert 'id="modelProviderRegion"' in html
-    assert 'for="modelProviderRegion"' in html
-    region_pos = html.index('id="modelProviderRegion"')
-    provider_pos = html.index('id="modelProvider"')
-    assert region_pos < provider_pos
+    assert 'id="modelProviderRegion"' not in html
+    assert 'id="modelProvider"' in html
+    assert 'id="modelProviderPicker"' in html
+    assert 'id="modelProviderSearch"' in html
+    assert 'id="modelProviderOptions"' in html
+    assert 'id="modelProviderEmpty"' in html
 
 
-def test_modals_html_has_model_list_table_and_multiselect():
+def test_modals_html_has_model_list_table_without_mode_select():
     html = MODALS_HTML.read_text(encoding="utf-8")
     assert 'id="modelListTable"' in html
-    assert 'id="modelCatalogMultiselect"' in html
-    assert 'id="modelMode"' in html
+    assert 'id="modelListTableBody"' in html
+    assert 'id="modelCatalogOptions"' in html
+    assert 'id="modelModeReadonly"' in html
+    assert 'id="modelMode"' not in html
     assert 'id="modelName"' not in html
     assert 'id="modelDescription"' not in html
     assert 'id="modelIdsTags"' not in html
-    mode_pos = html.index('id="modelMode"')
+    mode_pos = html.index('id="modelModeReadonly"')
     provider_pos = html.index('id="modelProvider"')
-    assert mode_pos < provider_pos
+    assert mode_pos > provider_pos
 
 
 def test_create_custom_model_persists_model_names(model_app):
@@ -992,15 +995,18 @@ def test_create_custom_model_persists_model_names(model_app):
     assert stored["model_names"]["model-b"] == "Name B"
 
 
-def test_settings_custom_models_js_wires_modal_provider_region():
+def test_settings_model_modal_form_wires_searchable_provider_picker():
     src = SETTINGS_MODEL_MODAL_FORM_JS.read_text(encoding="utf-8")
-    assert "modelProviderRegion" in src
-    assert "initModelProviderRegionSelect" in src
-    assert "onModalProviderRegionChange" in src
-    assert "inferModalProviderRegion" in src
-    assert "fillModelProviderSelect" in src
-    assert "MODAL_PROVIDER_REGION_CHINA" in src
-    assert "onProviderChangeInModal(providerId, { isEdit: false })" in src
+    assert "modelProviderRegion" not in src
+    assert "initModelProviderRegionSelect" not in src
+    assert "onModalProviderRegionChange" not in src
+    assert "inferModalProviderRegion" not in src
+    assert "fillModelProviderSelect" not in src
+    assert "MODAL_PROVIDER_REGION_CHINA" not in src
+    assert "modelProviderPicker" in src
+    assert "modelProviderSearch" in src
+    assert "onProviderChangeInModal(" in src
+    assert "{ isEdit: false }" in src
 
 
 # ---------------------------------------------------------------------------

@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Shell(node --version)",
+      "Shell(node --check web/static/modules/settings-providers.js)",
+      "Shell(node --check web/static/modules/settings-model-modal-form.js)",
+      "Shell(node --check web/static/modules/settings-model-modal-list.js)",
+      "Shell(node --check web/static/modules/settings-model-modal-validation.js)",
+      "Shell(node --check web/static/modules/settings-model-modal-state.js)",
+      "Shell(node --check web/static/modules/settings-model-modal-probe.js)",
+      "Shell(node --check web/static/modules/settings-custom-models.js)",
+      "Shell(python -c import json; [json.load(open(f'web/static/locales/{l}/dynamic.json',encoding='utf-8')) for l in ('zh','en')]; print('locales ok'))",
+      "Shell(python web/static/build_index_html.py)",
+      "Shell(python -m pytest tests/test_web_custom_models.py tests/test_web_server.py tests/test_model_api_ui_contract.py tests/test_ui_component_contract.py tests/test_ui_partial_hygiene.py -q -x)",
+      "Shell(git:*)",
+      "Shell(python -m pytest tests/test_web_server.py::test_web_content_page_field_hints_wired -q -x)",
+      "powershell",
+      "Shell(node tests/test_model_provider_picker.mjs)",
+      "Shell(python -m pytest tests/test_model_provider_picker.py tests/test_web_custom_models.py tests/test_model_api_ui_contract.py tests/test_ui_partial_hygiene.py tests/test_web_i18n_parity.py tests/test_web_i18n_interpolation.py tests/test_web_i18n_reverse_map.py -q -x)",
+      "Shell(python -m pytest tests/test_model_catalog.py tests/test_model_providers.py tests/test_web_custom_models.py tests/test_model_provider_picker.py -q -x)",
+      "Shell(ruff:*)",
+      "Shell(python -m pytest tests/test_web_server.py -q -k \"not test_web_content_page_field_hints_wired\")",
+      "Shell(python -m pytest tests/test_model_provider_picker.py tests/test_model_provider_picker.mjs tests/test_web_custom_models.py tests/test_model_api_ui_contract.py -q -x)",
+      "Shell(python -m pytest tests/test_model_provider_picker.py tests/test_web_custom_models.py tests/test_model_api_ui_contract.py -q -x)",
+      "Shell(python -m pytest tests/test_model_provider_picker.py tests/test_web_custom_models.py tests/test_model_api_ui_contract.py tests/test_ui_partial_hygiene.py tests/test_web_i18n_parity.py tests/test_web_i18n_interpolation.py tests/test_web_i18n_reverse_map.py tests/test_model_catalog.py tests/test_model_providers.py -q)",
+      "Shell(python -m pytest tests/test_model_provider_picker.py tests/test_web_custom_models.py tests/test_model_api_ui_contract.py tests/test_ui_partial_hygiene.py -q -x)"
+    ],
+    "deny": [],
+    "defaultMode": "default"
+  }
+}

@@ -127,8 +127,91 @@ export function syncApiModeLockState() {
   sel.disabled = locked;
 }
 
-export const MODAL_PROVIDER_REGION_CHINA = 'china';
-export const MODAL_PROVIDER_REGION_INTERNATIONAL = 'international';
+const MODAL_CUSTOM_PROVIDER_ID = 'custom_openai';
+
+const MODAL_PROVIDER_SEARCH_ALIASES = {
+  doubao: ['doubao', 'ark', 'volcengine', '火山', '方舟', '豆包'],
+  dashscope: ['dashscope', 'alibaba', '阿里', '百炼', 'qwen', '千问'],
+  tokenrhythm: ['tokenrhythm', 'token', 'rhythm', '基元', '律动'],
+  openai: ['openai', 'gpt'],
+  google_gemini: ['google', 'gemini', '谷歌'],
+  xai: ['xai', 'grok'],
+  mistral: ['mistral'],
+  together: ['together'],
+  fireworks: ['fireworks'],
+  dashscope_intl: ['dashscope', 'intl', 'international', '阿里', '百炼', '海外'],
+  zai: ['zai', 'zhipu', '智谱', 'glm'],
+  zhipu: ['zhipu', '智谱', 'bigmodel', 'glm'],
+  moonshot: ['moonshot', 'kimi', '月之暗面'],
+  siliconflow: ['siliconflow', 'silicon', 'flow', '硅基', '流动'],
+  mimo: ['mimo', 'xiaomi', '小米'],
+  hunyuan: ['hunyuan', 'tencent', '腾讯', '混元'],
+  stepfun: ['stepfun', 'step', '阶跃', '星辰'],
+  baidu_cloud: ['baidu', 'qianfan', '百度', '千帆'],
+  openrouter: ['openrouter', 'router'],
+  modelscope: ['modelscope', 'model', 'scope', '魔搭', '社区'],
+  custom_openai: ['custom', '自定义', 'openai', 'compatible', '兼容'],
+};
+
+function normalizeModalSearchText(value) {
+  return String(value ?? '').trim().toLowerCase();
+}
+
+function buildModalProviderHaystack(provider) {
+  const parts = [];
+  if (provider?.label) parts.push(provider.label);
+  const id = String(provider?.id || '');
+  if (id) {
+    parts.push(id);
+    parts.push(id.replace(/[_-]+/g, ' '));
+  }
+  const endpoint = String(provider?.default_endpoint || '');
+  if (endpoint) {
+    parts.push(endpoint);
+    try {
+      const url = new URL(endpoint.includes('://') ? endpoint : `https://${endpoint}`);
+      if (url.hostname) parts.push(url.hostname);
+    } catch {
+      /* ignore unparseable endpoints for search */
+    }
+  }
+  const aliases = MODAL_PROVIDER_SEARCH_ALIASES[id];
+  if (Array.isArray(aliases)) parts.push(aliases.join(' '));
+  return parts.join(' ').toLowerCase();
+}
+
+export function filterProvidersForModal(providers, keyword) {
+  const list = Array.isArray(providers) ? providers.filter(Boolean) : [];
+  const query = normalizeModalSearchText(keyword);
+  if (!query) return list.slice();
+  const tokens = query.split(/\s+/).filter(Boolean);
+  return list.filter((provider) => {
+    const haystack = buildModalProviderHaystack(provider);
+    return tokens.every((token) => haystack.includes(token));
+  });
+}
+
+export function getUnifiedModalProviders() {
+  const custom = findProvider(MODAL_CUSTOM_PROVIDER_ID) || null;
+  const seen = new Set();
+  if (custom) seen.add(custom.id);
+  const others = [];
+  providersCache.forEach((provider) => {
+    const id = provider?.id;
+    if (!id || seen.has(id)) return;
+    if (id === 'custom_doubao') return;
+    seen.add(id);
+    others.push(provider);
+  });
+  return custom ? [custom, ...others] : others;
+}
+
+export function searchModalProviders(keyword) {
+  const query = normalizeModalSearchText(keyword);
+  const all = getUnifiedModalProviders();
+  if (!query) return all;
+  return filterProvidersForModal(all, query);
+}
 
 function isProviderVisibleForLanguage(provider) {
   const id = provider?.id;
@@ -141,50 +224,14 @@ function isProviderVisibleForLanguage(provider) {
   return true;
 }
 
-function isProviderVisibleInModalRegion(provider, modalRegion) {
-  const id = provider?.id;
-  if (id === 'custom_doubao') return false;
-  if (id === 'custom_openai') return true;
-  if (provider.region === 'global') return true;
-  if (modalRegion === MODAL_PROVIDER_REGION_CHINA) {
-    return provider.region === 'china';
-  }
-  if (modalRegion === MODAL_PROVIDER_REGION_INTERNATIONAL) {
-    return provider.region === 'international';
-  }
-  return true;
-}
-
 function getVisibleProviders() {
   return providersCache.filter(isProviderVisibleForLanguage);
 }
 
-export function getModalVisibleProviders(modalRegion) {
-  return providersCache.filter((provider) => isProviderVisibleInModalRegion(provider, modalRegion));
-}
-
-export function inferModalProviderRegion(providerId) {
+export function getModalProviderLabel(providerId) {
+  if (!providerId) return '';
   const provider = findProvider(providerId);
-  if (!provider) return MODAL_PROVIDER_REGION_CHINA;
-  if (provider.region === 'international') return MODAL_PROVIDER_REGION_INTERNATIONAL;
-  return MODAL_PROVIDER_REGION_CHINA;
-}
-
-export function fillModelProviderSelect(modalRegion, selectedProviderId = '') {
-  const modelProv = document.getElementById('modelProvider');
-  if (!modelProv) return;
-  modelProv.innerHTML = '';
-  getModalVisibleProviders(modalRegion).forEach((provider) => {
-    const opt = document.createElement('option');
-    opt.value = provider.id;
-    opt.textContent = provider.label;
-    modelProv.appendChild(opt);
-  });
-  if (!modelProv.options.length) return;
-  const target = String(selectedProviderId || '').trim();
-  const hasOption = target
-    && Array.from(modelProv.options).some((opt) => opt.value === target);
-  modelProv.value = hasOption ? target : modelProv.options[0].value;
+  return provider?.label || String(providerId);
 }
 
 function appendManualProviderOption(sel) {

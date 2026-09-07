@@ -151,15 +151,16 @@ function bindChangeInvalidation() {
   bound = true;
   [
     "modelProvider",
-    "modelCatalogMultiselect",
-    "modelCatalogMultiselectTrigger",
+    "modelProviderTrigger",
+    "modelProviderSearch",
     "modelEndpoint",
     "modelApiKey",
-    "modelMode",
+    "modelModeValue",
     "modelMaxTokens",
     "modelSupportsMic",
     "modelListTable",
     "modelListTableBody",
+    "modelCatalogOptions",
   ].forEach((id) => {
     const node = el(id);
     node?.addEventListener("input", invalidateIfChanged);

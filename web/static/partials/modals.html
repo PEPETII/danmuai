@@ -15,43 +15,35 @@
           <div id="modelEditor" class="model-editor">
             <div id="modelProviderMigrationWarning" class="model-warning hidden" role="alert" aria-live="polite"></div>
 
-            <div class="field-row-2">
-              <div class="field">
-                <label for="modelProviderRegion" data-i18n="dynamic.settingsCustomModels.平台区域">平台区域</label>
-                <select id="modelProviderRegion" class="ui-control ui-select">
-                  <option value="china" data-i18n="dynamic.settingsCustomModels.国内">国内</option>
-                  <option value="international" data-i18n="dynamic.settingsCustomModels.国外">国外</option>
-                </select>
+            <div class="field">
+              <label for="modelProviderTrigger" data-i18n="dynamic.settingsCustomModels.模型平台">模型平台</label>
+              <div id="modelProviderPicker" class="model-provider-picker">
+                <button type="button" id="modelProviderTrigger" class="ui-control ui-select model-provider-trigger" aria-haspopup="listbox" aria-expanded="false">
+                  <span id="modelProviderTriggerLabel" class="model-provider-trigger-label"></span>
+                  <span class="model-provider-trigger-chevron" aria-hidden="true">▾</span>
+                </button>
+                <input type="hidden" id="modelProvider" value="">
+                <div id="modelProviderPanel" class="model-provider-panel hidden" role="listbox" aria-label="模型平台">
+                  <div class="model-provider-search-wrap">
+                    <input id="modelProviderSearch" type="text" autocomplete="off" class="ui-control ui-input model-provider-search" data-i18n-placeholder="dynamic.settingsCustomModels.搜索模型平台" placeholder="搜索模型平台">
+                  </div>
+                  <div id="modelProviderOptions" class="model-provider-options"></div>
+                  <div id="modelProviderEmpty" class="model-provider-empty hidden" data-i18n="dynamic.settingsCustomModels.未找到匹配平台">未找到匹配平台</div>
+                </div>
               </div>
-              <div class="field">
-                <label class="settings-field-label" for="modelMode" data-i18n="dynamic.settingsCustomModels.接口协议">接口协议</label>
-                <select id="modelMode" class="ui-control ui-select">
-                  <option value="doubao" data-i18n="settings.text.豆包_火山方舟">豆包（火山方舟）</option>
-                  <option value="openai" data-i18n="settings.text.OpenAI_兼容接口">OpenAI 兼容接口</option>
-                </select>
+              <div id="modelProviderName" class="model-provider-meta text-xs text-gray-500 hidden"></div>
+              <div id="modelProviderWebsite" class="model-provider-meta model-provider-website hidden">
+                <span class="text-xs text-gray-400" data-i18n="modals.text.官网">官网：</span>
+                <a id="modelProviderWebsiteLink" class="text-xs text-sky-600 underline break-all min-w-0" target="_blank" rel="noopener noreferrer"></a>
+                <button type="button" id="modelOpenWebsite" class="ui-button ui-button--secondary ui-button--sm" data-i18n="modals.text.打开官网">打开官网</button>
               </div>
+              <p id="modelProviderError" class="model-field-error" role="alert"></p>
             </div>
 
-            <div class="field-row-2">
-              <div class="field">
-                <label for="modelProvider" data-i18n="dynamic.settingsCustomModels.模型平台">模型平台</label>
-                <select id="modelProvider" class="ui-control ui-select"></select>
-                <div id="modelProviderName" class="model-provider-meta text-xs text-gray-500 hidden"></div>
-                <div id="modelProviderWebsite" class="model-provider-meta model-provider-website hidden">
-                  <span class="text-xs text-gray-400" data-i18n="modals.text.官网">官网：</span>
-                  <a id="modelProviderWebsiteLink" class="text-xs text-sky-600 underline break-all min-w-0" target="_blank" rel="noopener noreferrer"></a>
-                  <button type="button" id="modelOpenWebsite" class="ui-button ui-button--secondary ui-button--sm" data-i18n="modals.text.打开官网">打开官网</button>
-                </div>
-                <p id="modelProviderError" class="model-field-error" role="alert"></p>
-              </div>
-              <div class="field">
-                <label for="modelCatalogMultiselectTrigger" data-i18n="dynamic.settingsCustomModels.选择模型">选择模型</label>
-                <div id="modelCatalogMultiselect" class="model-catalog-multiselect">
-                  <button type="button" id="modelCatalogMultiselectTrigger" class="ui-control ui-select model-catalog-multiselect-trigger" aria-haspopup="listbox" aria-expanded="false" data-i18n="dynamic.settingsCustomModels.选择模型">选择模型</button>
-                  <div id="modelCatalogMultiselectPanel" class="model-catalog-multiselect-panel hidden" role="listbox" aria-multiselectable="true"></div>
-                </div>
-                <p id="modelIdError" class="model-field-error" role="alert"></p>
-              </div>
+            <div id="modelModeField" class="field hidden">
+              <label class="settings-field-label" data-i18n="dynamic.settingsCustomModels.接口协议">接口协议</label>
+              <div id="modelModeReadonly" class="ui-control ui-input is-readonly" aria-readonly="true" data-i18n="dynamic.settingsProviders.OpenAI_兼容接口">OpenAI 兼容接口</div>
+              <input type="hidden" id="modelModeValue" value="openai">
             </div>
 
             <div class="field">
@@ -69,7 +61,7 @@
               <p id="modelApiKeyError" class="model-field-error" role="alert"></p>
             </div>
 
-            <div class="field">
+            <div id="modelEndpointField" class="field hidden">
               <label for="modelEndpoint" data-i18n="dynamic.settingsCustomModels.API_地址">API 地址</label>
               <input id="modelEndpoint" type="url" autocomplete="url" class="ui-control ui-input min-w-0" placeholder="https://api.openai.com/v1">
               <p id="modelEndpointHint" class="hint" data-i18n="dynamic.settingsCustomModels.API_地址提示">支持 OpenAI 兼容的 Chat Completions 完整地址</p>
@@ -81,12 +73,12 @@
                 <span class="model-list-title" data-i18n="dynamic.settingsCustomModels.模型列表">模型列表</span>
                 <button type="button" id="btnAddCustomModelId" class="ui-button ui-button--secondary ui-button--sm" data-i18n="dynamic.settingsCustomModels.添加自定义模型_ID">添加自定义模型 ID</button>
               </div>
-              <table id="modelListTable" class="model-list-table" aria-label="模型列表">
+              <div id="modelCatalogOptions" class="model-catalog-options" role="radiogroup" aria-label="模型列表"></div>
+              <table id="modelListTable" class="model-list-table" aria-label="自定义模型">
                 <thead>
                   <tr>
                     <th scope="col" data-i18n="dynamic.settingsCustomModels.默认">默认</th>
-                    <th scope="col" data-i18n="dynamic.settingsCustomModels.模型_ID">模型 ID</th>
-                    <th scope="col" data-i18n="dynamic.settingsCustomModels.模型名称">模型名称</th>
+                    <th scope="col" data-i18n="dynamic.settingsCustomModels.自定义模型_ID">自定义模型 ID</th>
                     <th scope="col" data-i18n="dynamic.settingsCustomModels.操作">操作</th>
                   </tr>
                 </thead>

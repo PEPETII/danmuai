@@ -13,7 +13,6 @@ let listEntries = [];
 let defaultModelId = "";
 let editDescription = "";
 let listChangeHandler = null;
-let multiselectBindingsWired = false;
 
 export function resetModelModalListState() {
   listEntries = [];
@@ -101,6 +100,31 @@ function catalogIdsForProvider(providerId) {
   return new Set(getModelCatalogModels(providerId).map((item) => item.id));
 }
 
+export function getCatalogSelectionForProvider(providerId) {
+  const catalogIds = catalogIdsForProvider(providerId);
+  const selected = new Set();
+  listEntries.forEach((entry) => {
+    const id = String(entry?.id || "").trim();
+    if (id && catalogIds.has(id)) selected.add(id);
+  });
+  return selected;
+}
+
+export function setCatalogModelSelected(modelId, selected, providerId) {
+  const id = String(modelId || "").trim();
+  if (!id) return false;
+  if (selected) return addCatalogModelToList(id, providerId);
+  removeModelFromList(id);
+  return true;
+}
+
+export function toggleCatalogModelSelected(modelId, providerId) {
+  const id = String(modelId || "").trim();
+  if (!id) return false;
+  const selected = getModelIdsFromList().includes(id);
+  return setCatalogModelSelected(id, !selected, providerId);
+}
+
 export function addCatalogModelToList(modelId, providerId) {
   const id = String(modelId || "").trim();
   if (!id || id.length > TAG_MAX_LEN) return false;
@@ -163,7 +187,6 @@ export function removeModelEntryAt(index) {
   if (entry.id) removeModelFromList(entry.id);
   else listEntries.splice(index, 1);
   renderModelListTable();
-  syncCatalogMultiselectChecks(document.getElementById("modelProvider")?.value || "");
   notifyListChanged();
 }
 
@@ -178,11 +201,65 @@ export function replaceListForProvider(providerId, { defaultCatalogId = "" } = {
 }
 
 export function renderModelListTable() {
+  renderCatalogOptions();
+  renderCustomModelTable();
+}
+
+function renderCatalogOptions() {
+  const root = document.getElementById("modelCatalogOptions");
+  if (!root) return;
+  const providerId = document.getElementById("modelProvider")?.value || "";
+  const models = getModelCatalogModels(providerId);
+  root.replaceChildren();
+  if (!models.length) {
+    root.classList.add("hidden");
+    return;
+  }
+  root.classList.remove("hidden");
+  const selectedDefault = getDefaultModelIdFromList();
+  models.forEach((model) => {
+    const id = String(model?.id || "").trim();
+    if (!id) return;
+    const row = document.createElement("label");
+    row.className = "model-catalog-row";
+    const radio = document.createElement("input");
+    radio.type = "radio";
+    radio.name = "model_catalog_default";
+    radio.value = id;
+    radio.checked = id === selectedDefault;
+    radio.addEventListener("change", () => {
+      if (!radio.checked) return;
+      if (!getModelIdsFromList().includes(id)) {
+        addCatalogModelToList(id, providerId);
+      }
+      setDefaultModel(id);
+    });
+    const textWrap = document.createElement("span");
+    textWrap.className = "model-catalog-row-text";
+    const nameSpan = document.createElement("span");
+    nameSpan.className = "model-catalog-row-name";
+    nameSpan.textContent = model.name || id;
+    const idSpan = document.createElement("span");
+    idSpan.className = "model-catalog-row-id font-mono text-xs text-gray-400";
+    idSpan.textContent = id;
+    textWrap.append(nameSpan, idSpan);
+    row.append(radio, textWrap);
+    root.appendChild(row);
+  });
+}
+
+function renderCustomModelTable() {
   const tbody = document.getElementById("modelListTableBody");
   if (!tbody) return;
   tbody.replaceChildren();
 
+  const providerId = document.getElementById("modelProvider")?.value || "";
+  const catalogIds = catalogIdsForProvider(providerId);
+  let rendered = 0;
   listEntries.forEach((entry, index) => {
+    const id = String(entry?.id || "").trim();
+    if (id && catalogIds.has(id)) return;
+    rendered += 1;
     const row = document.createElement("tr");
     row.className = "model-list-row";
 
@@ -201,44 +278,22 @@ export function renderModelListTable() {
 
     const idCell = document.createElement("td");
     idCell.className = "model-list-col-id";
-    if (entry.isCustom || !entry.id) {
-      const idInput = document.createElement("input");
-      idInput.type = "text";
-      idInput.className = "ui-control ui-input model-list-id-input";
-      idInput.value = entry.id;
-      idInput.placeholder = t(
-        "dynamic.settingsCustomModels.例如_doubao_1_5_pro_32k_25",
-      );
-      idInput.addEventListener("input", () => {
-        updateModelEntryId(index, idInput.value);
-      });
-      idInput.addEventListener("change", () => {
-        updateModelEntryId(index, idInput.value);
-        renderModelListTable();
-        syncCatalogMultiselectChecks(
-          document.getElementById("modelProvider")?.value || "",
-        );
-        notifyListChanged();
-      });
-      idCell.appendChild(idInput);
-    } else {
-      const idSpan = document.createElement("span");
-      idSpan.className = "model-list-id-text font-mono text-sm";
-      idSpan.textContent = entry.id;
-      idCell.appendChild(idSpan);
-    }
-
-    const nameCell = document.createElement("td");
-    nameCell.className = "model-list-col-name";
-    const nameInput = document.createElement("input");
-    nameInput.type = "text";
-    nameInput.className = "ui-control ui-input model-list-name-input";
-    nameInput.value = entry.displayName || "";
-    nameInput.placeholder = t("dynamic.settingsCustomModels.模型名称");
-    nameInput.addEventListener("input", () => {
-      updateModelEntryDisplayName(index, nameInput.value);
+    const idInput = document.createElement("input");
+    idInput.type = "text";
+    idInput.className = "ui-control ui-input model-list-id-input";
+    idInput.value = entry.id;
+    idInput.placeholder = t(
+      "dynamic.settingsCustomModels.例如_doubao_1_5_pro_32k_25",
+    );
+    idInput.addEventListener("input", () => {
+      updateModelEntryId(index, idInput.value);
     });
-    nameCell.appendChild(nameInput);
+    idInput.addEventListener("change", () => {
+      updateModelEntryId(index, idInput.value);
+      renderModelListTable();
+      notifyListChanged();
+    });
+    idCell.appendChild(idInput);
 
     const actionCell = document.createElement("td");
     actionCell.className = "model-list-col-action";
@@ -250,81 +305,22 @@ export function renderModelListTable() {
     removeBtn.addEventListener("click", () => removeModelEntryAt(index));
     actionCell.appendChild(removeBtn);
 
-    row.append(defaultCell, idCell, nameCell, actionCell);
+    row.append(defaultCell, idCell, actionCell);
     tbody.appendChild(row);
   });
-}
-
-function closeMultiselectPanel() {
-  const panel = document.getElementById("modelCatalogMultiselectPanel");
-  const trigger = document.getElementById("modelCatalogMultiselectTrigger");
-  if (panel) panel.classList.add("hidden");
-  if (trigger) trigger.setAttribute("aria-expanded", "false");
-}
-
-function openMultiselectPanel() {
-  const panel = document.getElementById("modelCatalogMultiselectPanel");
-  const trigger = document.getElementById("modelCatalogMultiselectTrigger");
-  if (panel) panel.classList.remove("hidden");
-  if (trigger) trigger.setAttribute("aria-expanded", "true");
-}
-
-function updateMultiselectTriggerLabel() {
-  const trigger = document.getElementById("modelCatalogMultiselectTrigger");
-  if (!trigger) return;
-  const count = getModelIdsFromList().length;
-  trigger.textContent =
-    count > 0
-      ? t("dynamic.settingsCustomModels.已选模型数量", { count })
-      : t("dynamic.settingsCustomModels.选择模型");
+  const table = document.getElementById("modelListTable");
+  if (table) table.classList.toggle("hidden", rendered === 0);
 }
 
 export function buildCatalogMultiselect(providerId) {
-  const panel = document.getElementById("modelCatalogMultiselectPanel");
-  if (!panel) return;
-  panel.replaceChildren();
-  const models = getModelCatalogModels(providerId);
-  models.forEach((model) => {
-    const row = document.createElement("label");
-    row.className = "model-catalog-multiselect-option";
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.value = model.id;
-    checkbox.checked = listEntries.some((entry) => entry.id === model.id);
-    checkbox.addEventListener("change", () => {
-      if (checkbox.checked) {
-        addCatalogModelToList(model.id, providerId);
-      } else {
-        removeModelFromList(model.id);
-      }
-      renderModelListTable();
-      syncCatalogMultiselectChecks(providerId);
-      updateMultiselectTriggerLabel();
-      notifyListChanged();
-    });
-    const text = document.createElement("span");
-    text.textContent = model.name || model.id;
-    row.append(checkbox, text);
-    panel.appendChild(row);
-  });
-  updateMultiselectTriggerLabel();
+  renderModelListTable();
 }
 
-export function syncCatalogMultiselectChecks(providerId) {
-  const panel = document.getElementById("modelCatalogMultiselectPanel");
-  if (!panel) return;
-  const selected = new Set(getModelIdsFromList());
-  panel.querySelectorAll("input[type=checkbox]").forEach((node) => {
-    node.checked = selected.has(node.value);
-  });
-  updateMultiselectTriggerLabel();
+export function syncCatalogMultiselectChecks() {
+  renderModelListTable();
 }
 
-export function setCatalogMultiselectVisible(visible) {
-  const wrap = document.getElementById("modelCatalogMultiselect");
-  if (!wrap) return;
-  wrap.classList.toggle("hidden", !visible);
-  if (!visible) closeMultiselectPanel();
+export function setCatalogMultiselectVisible() {
 }
 
 export function initModelListBindings(onChange) {
@@ -334,24 +330,6 @@ export function initModelListBindings(onChange) {
   if (addBtn && addBtn.dataset.bound !== "true") {
     addBtn.dataset.bound = "true";
     addBtn.addEventListener("click", () => addCustomModelRow());
-  }
-
-  if (!multiselectBindingsWired) {
-    multiselectBindingsWired = true;
-    const trigger = document.getElementById("modelCatalogMultiselectTrigger");
-    if (trigger) {
-      trigger.addEventListener("click", (event) => {
-        event.preventDefault();
-        const panel = document.getElementById("modelCatalogMultiselectPanel");
-        if (panel?.classList.contains("hidden")) openMultiselectPanel();
-        else closeMultiselectPanel();
-      });
-    }
-    document.addEventListener("click", (event) => {
-      const root = document.getElementById("modelCatalogMultiselect");
-      if (!root || root.classList.contains("hidden")) return;
-      if (!root.contains(event.target)) closeMultiselectPanel();
-    });
   }
 }
 

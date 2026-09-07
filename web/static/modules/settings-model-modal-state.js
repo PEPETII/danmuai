@@ -177,14 +177,12 @@ export function syncModelModalUIState({
   preserveSavedCapabilities = false,
 } = {}) {
   const catalogModel = resolveCatalogModel(defaultModelId, catalogModels);
-  const endpoint = document.getElementById("modelEndpoint");
   const customIds = customProvider;
 
-  if (endpoint) {
-    endpoint.readOnly = !customProvider;
-    endpoint.classList.toggle("bg-gray-100", !customProvider);
-    endpoint.classList.toggle("cursor-not-allowed", !customProvider);
-  }
+  const modeField = document.getElementById("modelModeField");
+  if (modeField) modeField.classList.toggle("hidden", !customProvider);
+  const endpointField = document.getElementById("modelEndpointField");
+  if (endpointField) endpointField.classList.toggle("hidden", !customProvider);
 
   syncModelMicForDefault({
     catalogModel,

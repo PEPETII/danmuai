@@ -3,13 +3,11 @@ import { isMaskedApiKey } from "./settings-defaults.js";
 import { t } from "./i18n.js";
 import {
   findProvider,
-  getProviderWebsite,
-  isCustomProvider,
   getDefaultEndpoint,
-  MODAL_PROVIDER_REGION_CHINA,
-  MODAL_PROVIDER_REGION_INTERNATIONAL,
-  inferModalProviderRegion,
-  fillModelProviderSelect,
+  getModalProviderLabel,
+  getUnifiedModalProviders,
+  searchModalProviders,
+  isCustomProvider,
 } from "./settings-providers.js";
 import {
   getModelCatalogModels,
@@ -37,7 +35,6 @@ import {
 import { activateFocusTrap, deactivateFocusTrap } from "./modal-focus-trap.js";
 import {
   TAG_MAX_LEN,
-  addCatalogModelToList,
   buildCatalogMultiselect,
   getDefaultModelIdFromList,
   getEditDescription,
@@ -49,7 +46,6 @@ import {
   renderModelListTable,
   replaceListForProvider,
   resetModelModalListState,
-  setCatalogMultiselectVisible,
   setEditDescription,
   syncCatalogMultiselectChecks,
 } from "./settings-model-modal-list.js";
@@ -95,6 +91,12 @@ export function parseModelTemperatureInput() {
 
 export function configureModelModalForm(deps) {
   formDeps = { ...formDeps, ...deps };
+}
+
+function getProviderWebsite(providerId) {
+  const provider = findProvider(providerId);
+  const website = provider?.website;
+  return typeof website === "string" && website.trim() ? website.trim() : null;
 }
 
 function updateProviderWebsiteDisplay(providerId) {
@@ -161,19 +163,9 @@ function updateProviderWebsiteDisplay(providerId) {
   }
 }
 
-function setEndpointReadonly(readonly) {
-  const el = document.getElementById("modelEndpoint");
-  if (!el) return;
-  if (readonly) {
-    el.setAttribute("readonly", "");
-    el.classList.add("bg-gray-100", "cursor-not-allowed");
-  } else {
-    el.removeAttribute("readonly");
-    el.classList.remove("bg-gray-100", "cursor-not-allowed");
-  }
-}
+function setEndpointReadonly() {}
 
-function modeToSelectValue(mode, providerId = "") {
+function modeToSaveValue(mode, providerId = "") {
   const raw = String(mode ?? "")
     .trim()
     .toLowerCase();
@@ -183,40 +175,211 @@ function modeToSelectValue(mode, providerId = "") {
     raw === "openai-compatible" ||
     raw === "openai_compatible"
   ) {
-    return "openai";
+    return "openai-compatible";
   }
   if (providerId) {
     const provider = findProvider(providerId);
-    if (provider?.mode) {
-      return provider.mode === "openai-compatible" ? "openai" : provider.mode;
-    }
+    if (provider?.mode) return provider.mode;
   }
-  return "openai";
+  return "openai-compatible";
 }
 
-function initModelProviderRegionSelect(
-  preferredValue = MODAL_PROVIDER_REGION_CHINA,
-) {
-  const el = document.getElementById("modelProviderRegion");
-  if (!el) return;
-  const value = preferredValue || el.value || MODAL_PROVIDER_REGION_CHINA;
-  el.innerHTML = "";
-  [
-    {
-      value: MODAL_PROVIDER_REGION_CHINA,
-      label: t("dynamic.settingsCustomModels.国内"),
-    },
-    {
-      value: MODAL_PROVIDER_REGION_INTERNATIONAL,
-      label: t("dynamic.settingsCustomModels.国外"),
-    },
-  ].forEach(({ value: optionValue, label }) => {
-    const opt = document.createElement("option");
-    opt.value = optionValue;
-    opt.textContent = label;
-    el.appendChild(opt);
+function modeToSelectValue(mode, providerId = "") {
+  return modeToSaveValue(mode, providerId) === "doubao" ? "doubao" : "openai";
+}
+
+function resolveVisibleProviderId(requestedId = "") {
+  const wanted = String(requestedId || "").trim();
+  const all = getUnifiedModalProviders();
+  if (wanted) {
+    if (wanted === "custom_doubao") return "custom_openai";
+    if (all.some((provider) => provider?.id === wanted)) return wanted;
+    if (wanted === "custom" || wanted.startsWith("custom_")) {
+      return "custom_openai";
+    }
+  }
+  const fallback = document.getElementById("modelProvider")?.value || "";
+  if (fallback && all.some((provider) => provider?.id === fallback)) {
+    return fallback;
+  }
+  return all[0]?.id || "custom_openai";
+}
+
+function setSelectedProviderId(providerId, { keepSearch = false } = {}) {
+  const hidden = document.getElementById("modelProvider");
+  if (hidden) hidden.value = providerId || "";
+  const label = document.getElementById("modelProviderTriggerLabel");
+  if (label) {
+    label.textContent = providerId
+      ? getModalProviderLabel(providerId)
+      : t("dynamic.settingsCustomModels.请选择模型平台");
+  }
+  if (!keepSearch) {
+    const search = document.getElementById("modelProviderSearch");
+    if (search && document.activeElement !== search) search.value = "";
+  }
+}
+
+function renderProviderOptions(keyword = "") {
+  const root = document.getElementById("modelProviderOptions");
+  const empty = document.getElementById("modelProviderEmpty");
+  if (!root) return;
+  root.replaceChildren();
+  const selectedId = document.getElementById("modelProvider")?.value || "";
+  const providers = searchModalProviders(keyword);
+  providers.forEach((provider) => {
+    const option = document.createElement("button");
+    option.type = "button";
+    option.className = "model-provider-option";
+    option.setAttribute("role", "option");
+    option.dataset.providerId = provider.id;
+    option.setAttribute(
+      "aria-selected",
+      String(provider.id === selectedId),
+    );
+    if (provider.id === selectedId) option.classList.add("is-selected");
+    const name = document.createElement("span");
+    name.className = "model-provider-option-label";
+    name.textContent = provider.label || provider.id;
+    const id = document.createElement("span");
+    id.className = "model-provider-option-id font-mono text-xs text-gray-400";
+    id.textContent = provider.id;
+    option.append(name, id);
+    option.addEventListener("click", () => {
+      selectModalProvider(provider.id);
+    });
+    root.appendChild(option);
   });
-  el.value = value;
+  if (empty) empty.classList.toggle("hidden", providers.length > 0);
+}
+
+function isProviderPanelOpen() {
+  const panel = document.getElementById("modelProviderPanel");
+  if (!panel) return false;
+  return !panel.classList.contains("hidden");
+}
+
+function openProviderPanel({ focusSearch = true } = {}) {
+  const panel = document.getElementById("modelProviderPanel");
+  const trigger = document.getElementById("modelProviderTrigger");
+  if (!panel || !trigger) return;
+  panel.classList.remove("hidden");
+  trigger.setAttribute("aria-expanded", "true");
+  renderProviderOptions(
+    document.getElementById("modelProviderSearch")?.value || "",
+  );
+  if (focusSearch) {
+    const search = document.getElementById("modelProviderSearch");
+    if (search) search.focus();
+  }
+}
+
+function closeProviderPanel({ restoreFocus = false } = {}) {
+  const panel = document.getElementById("modelProviderPanel");
+  const trigger = document.getElementById("modelProviderTrigger");
+  if (panel) panel.classList.add("hidden");
+  if (trigger) trigger.setAttribute("aria-expanded", "false");
+  if (restoreFocus && trigger && document.activeElement !== trigger) {
+    trigger.focus();
+  }
+}
+
+function selectModalProvider(providerId, options = {}) {
+  const resolved = resolveVisibleProviderId(providerId);
+  setSelectedProviderId(resolved, { keepSearch: true });
+  renderProviderOptions(
+    document.getElementById("modelProviderSearch")?.value || "",
+  );
+  closeProviderPanel();
+  onProviderChangeInModal(resolved, options);
+  refreshModalCapabilitiesState();
+  const search = document.getElementById("modelProviderSearch");
+  if (search) search.value = "";
+}
+
+let providerPickerBindingsWired = false;
+
+function initProviderPickerBindings() {
+  if (providerPickerBindingsWired) return;
+  providerPickerBindingsWired = true;
+  const trigger = document.getElementById("modelProviderTrigger");
+  if (trigger) {
+    trigger.addEventListener("click", (event) => {
+      event.preventDefault();
+      if (isProviderPanelOpen()) closeProviderPanel();
+      else openProviderPanel();
+    });
+    trigger.addEventListener("keydown", (event) => {
+      if (event.key === "ArrowDown" || event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        openProviderPanel();
+      } else if (event.key === "Escape") {
+        closeProviderPanel({ restoreFocus: true });
+      }
+    });
+  }
+  const search = document.getElementById("modelProviderSearch");
+  if (search) {
+    search.addEventListener("input", () => {
+      renderProviderOptions(search.value);
+    });
+    search.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        closeProviderPanel({ restoreFocus: true });
+      } else if (event.key === "Enter") {
+        event.preventDefault();
+        const selectedId = document.getElementById("modelProvider")?.value || "";
+        const fallback = document.querySelector(
+          "#modelProviderOptions .model-provider-option",
+        );
+        const scoped = selectedId
+          ? document.querySelector(
+              `#modelProviderOptions .model-provider-option[data-provider-id="${selectedId}"]`,
+            )
+          : null;
+        const target = scoped || fallback;
+        if (target?.dataset.providerId) {
+          selectModalProvider(target.dataset.providerId, {
+            isEdit: isEditMode(),
+          });
+        }
+      } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault();
+        const options = Array.from(
+          document.querySelectorAll("#modelProviderOptions .model-provider-option"),
+        );
+        if (!options.length) return;
+        const active = document.activeElement;
+        const currentIndex = options.indexOf(active);
+        const nextIndex =
+          event.key === "ArrowDown"
+            ? (currentIndex + 1) % options.length
+            : (currentIndex - 1 + options.length) % options.length;
+        options[nextIndex]?.focus();
+      }
+    });
+  }
+  document.addEventListener("click", (event) => {
+    const root = document.getElementById("modelProviderPicker");
+    if (!root || !isProviderPanelOpen()) return;
+    if (!root.contains(event.target)) closeProviderPanel();
+  });
+}
+
+function syncProviderDependentVisibility(providerId) {
+  const custom = isCustomProvider(providerId);
+  const modeField = document.getElementById("modelModeField");
+  if (modeField) modeField.classList.toggle("hidden", !custom);
+  const modeValue = document.getElementById("modelModeValue");
+  if (modeValue) modeValue.value = "openai";
+  const endpointField = document.getElementById("modelEndpointField");
+  if (endpointField) endpointField.classList.toggle("hidden", !custom);
+}
+
+function refreshModelModeReadonlyLabel() {
+  const label = document.getElementById("modelModeReadonly");
+  if (label) label.textContent = t("dynamic.settingsProviders.OpenAI_兼容接口");
 }
 
 function isEditMode() {
@@ -237,56 +400,38 @@ function refreshModalCapabilitiesState(options = {}) {
   });
 }
 
-function onModalProviderRegionChange() {
-  const regionEl = document.getElementById("modelProviderRegion");
-  const modalRegion = regionEl?.value || MODAL_PROVIDER_REGION_CHINA;
-  const prevProviderId = document.getElementById("modelProvider")?.value || "";
-  fillModelProviderSelect(modalRegion, prevProviderId);
-  const providerId = document.getElementById("modelProvider")?.value || "";
-  onProviderChangeInModal(providerId, { isEdit: false });
-  refreshModalCapabilitiesState();
-}
-
 function onProviderChangeInModal(providerId, options = {}) {
   const { isEdit = false } = options;
-  updateProviderWebsiteDisplay(providerId);
+  const resolvedId = resolveVisibleProviderId(providerId);
+  if (resolvedId !== providerId) setSelectedProviderId(resolvedId, { keepSearch: true });
+  updateProviderWebsiteDisplay(resolvedId);
+  syncProviderDependentVisibility(resolvedId);
 
   const endpointEl = document.getElementById("modelEndpoint");
-  const custom = isCustomProvider(providerId);
+  const custom = isCustomProvider(resolvedId);
   if (custom) {
     if (!isEdit && endpointEl) endpointEl.value = "";
-    setEndpointReadonly(false);
   } else {
-    const defaultEp = getDefaultEndpoint(providerId);
+    const defaultEp = getDefaultEndpoint(resolvedId);
     if (endpointEl) endpointEl.value = defaultEp;
-    setEndpointReadonly(true);
   }
 
-  const modeEl = document.getElementById("modelMode");
-  if (modeEl) {
-    modeEl.value = modeToSelectValue(
-      findProvider(providerId)?.mode,
-      providerId,
-    );
-  }
-
-  setCatalogMultiselectVisible(!custom);
   if (!isEdit) {
     const defaultId =
-      pickDefaultCatalogModelId(providerId) ||
-      getModelCatalogModels(providerId)[0]?.id ||
+      pickDefaultCatalogModelId(resolvedId) ||
+      getModelCatalogModels(resolvedId)[0]?.id ||
       "";
     if (custom) {
       resetModelModalListState();
       renderModelListTable();
     } else {
-      replaceListForProvider(providerId, { defaultCatalogId: defaultId });
+      replaceListForProvider(resolvedId, { defaultCatalogId: defaultId });
     }
-    buildCatalogMultiselect(providerId);
+    buildCatalogMultiselect(resolvedId);
     renderModelListTable();
   } else {
-    buildCatalogMultiselect(providerId);
-    syncCatalogMultiselectChecks(providerId);
+    buildCatalogMultiselect(resolvedId);
+    syncCatalogMultiselectChecks();
     renderModelListTable();
   }
 }
@@ -304,34 +449,36 @@ export function openModelModal(index, model = {}) {
       ? t("dynamic.settingsCustomModels.编辑模型说明")
       : t("dynamic.settingsCustomModels.新增模型说明");
   }
+  closeProviderPanel();
+  const searchEl = document.getElementById("modelProviderSearch");
+  if (searchEl) searchEl.value = "";
+  refreshModelModeReadonlyLabel();
 
-  const providerId = isEdit ? model.provider || "" : "doubao";
-  const modalRegion = isEdit
-    ? inferModalProviderRegion(providerId)
-    : MODAL_PROVIDER_REGION_CHINA;
-  initModelProviderRegionSelect(modalRegion);
-  fillModelProviderSelect(modalRegion, providerId);
-  const resolvedProviderId =
-    document.getElementById("modelProvider")?.value || providerId;
+  const requestedProviderId = isEdit
+    ? String(model.provider || "").trim() ||
+      (String(model.mode || "").trim().toLowerCase() === "doubao"
+        ? "custom_openai"
+        : String(model.endpoint || "").trim()
+          ? "custom_openai"
+          : "doubao")
+    : "doubao";
+  const resolvedProviderId = resolveVisibleProviderId(requestedProviderId);
+  setSelectedProviderId(resolvedProviderId);
+  renderProviderOptions("");
 
   if (isEdit) {
     updateProviderWebsiteDisplay(resolvedProviderId);
+    syncProviderDependentVisibility(resolvedProviderId);
     const endpointEl = document.getElementById("modelEndpoint");
-    if (endpointEl) endpointEl.value = model.endpoint || "";
-    setEndpointReadonly(!isCustomProvider(resolvedProviderId));
+    if (endpointEl) {
+      endpointEl.value = isCustomProvider(resolvedProviderId)
+        ? model.endpoint || ""
+        : getDefaultEndpoint(resolvedProviderId);
+    }
     initModelListFromProfile(model, resolvedProviderId);
     buildCatalogMultiselect(resolvedProviderId);
-    syncCatalogMultiselectChecks(resolvedProviderId);
+    syncCatalogMultiselectChecks();
     renderModelListTable();
-    setCatalogMultiselectVisible(!isCustomProvider(resolvedProviderId));
-
-    const modeEl = document.getElementById("modelMode");
-    if (modeEl) {
-      modeEl.value = modeToSelectValue(
-        model.mode || document.getElementById("api_mode")?.value,
-        resolvedProviderId,
-      );
-    }
   } else {
     onProviderChangeInModal(resolvedProviderId, { isEdit: false });
   }
@@ -393,6 +540,7 @@ export function closeModelModal() {
   abortModelProbe();
   setModelModalBusy(false);
   deactivateFocusTrap();
+  closeProviderPanel();
   const modal = document.getElementById("modelModal");
   modal.classList.add("hidden");
   modal.classList.remove("flex");
@@ -400,6 +548,8 @@ export function closeModelModal() {
 }
 
 export function collectModelForm() {
+  const providerId = document.getElementById("modelProvider")?.value || "";
+  const custom = isCustomProvider(providerId);
   const modelIds = getModelIdsFromList();
   const defaultModelId = getDefaultModelIdFromList();
   const maxTokensRaw = parseInt(
@@ -408,17 +558,25 @@ export function collectModelForm() {
   );
   const maxTokens =
     Number.isNaN(maxTokensRaw) || maxTokensRaw < 512 ? 512 : maxTokensRaw;
+  const fallbackMode = modeToSaveValue(
+    document.getElementById("api_mode")?.value,
+    providerId,
+  );
+  const providerMode = modeToSaveValue(findProvider(providerId)?.mode, providerId);
+  const endpointValue = custom
+    ? document.getElementById("modelEndpoint")?.value || ""
+    : getDefaultEndpoint(providerId);
   return {
     name: getProfileDisplayName(),
     model_ids: modelIds,
     model_names: getModelNamesMap(),
     default_model_id: defaultModelId,
     max_tokens: maxTokens,
-    mode: document.getElementById("modelMode").value,
-    endpoint: document.getElementById("modelEndpoint").value,
+    mode: custom ? "openai-compatible" : providerMode || fallbackMode,
+    endpoint: endpointValue,
     apiKey: document.getElementById("modelApiKey").value,
     description: getEditDescription(),
-    provider: document.getElementById("modelProvider").value,
+    provider: providerId,
     supportsMic: Boolean(document.getElementById("modelSupportsMic")?.checked),
     thinking_effort:
       document.getElementById("modelThinkingEffort")?.value || "off",
@@ -471,8 +629,9 @@ export function initModelModalBindings() {
   initModelTemperatureControls();
   bindModelDefaultSelect();
   initModelModalProbe(collectModelForm);
-  initModelProviderRegionSelect();
+  initProviderPickerBindings();
   initModelListBindings(() => refreshModalCapabilitiesState());
+  refreshModelModeReadonlyLabel();
 
   const addBtn = document.getElementById("btnAddCustomModel");
   if (addBtn && addBtn.dataset.bound !== "true") {
@@ -486,17 +645,6 @@ export function initModelModalBindings() {
   document
     .getElementById("btnModelCancel")
     ?.addEventListener("click", closeModelModal);
-
-  const regionEl = document.getElementById("modelProviderRegion");
-  if (regionEl) regionEl.addEventListener("change", onModalProviderRegionChange);
-
-  const providerEl = document.getElementById("modelProvider");
-  if (providerEl) {
-    providerEl.addEventListener("change", (event) => {
-      onProviderChangeInModal(event.target.value, { isEdit: isEditMode() });
-      refreshModalCapabilitiesState();
-    });
-  }
 
   const openBtn = document.getElementById("modelOpenWebsite");
   if (openBtn) {

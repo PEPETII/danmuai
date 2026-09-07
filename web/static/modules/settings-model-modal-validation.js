@@ -15,9 +15,13 @@ const FIELD_RULES = [
 ];
 
 function setError(id, message) {
-  const input = document.getElementById(id);
   const error = document.getElementById(`${id}Error`);
   if (error) error.textContent = message || "";
+  const input =
+    document.getElementById(id) ||
+    (id === "modelProvider"
+      ? document.getElementById("modelProviderTrigger")
+      : null);
   if (input) {
     input.setAttribute("aria-invalid", message ? "true" : "false");
     input.classList.toggle("is-invalid", Boolean(message));
@@ -46,10 +50,15 @@ export function validateModelForm() {
   const ids = getModelIdsFromList();
   const defaultId = getDefaultModelIdFromList();
   const invalid = [];
+  const focusTargetFor = (id) =>
+    document.getElementById(id) ||
+    (id === "modelProvider"
+      ? document.getElementById("modelProviderTrigger")
+      : null);
   const add = (id, message) => {
     if (message) {
       setError(id, message);
-      invalid.push(document.getElementById(id));
+      invalid.push(focusTargetFor(id));
     }
   };
 
