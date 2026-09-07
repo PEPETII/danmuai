@@ -6,6 +6,7 @@ import {
   setModelListValidationError,
   TAG_MAX_LEN,
 } from "./settings-model-modal-list.js";
+import { isCustomProvider } from "./settings-providers.js";
 
 const FIELD_RULES = [
   { id: "modelProvider", error: "modelProviderError" },
@@ -26,10 +27,6 @@ function setError(id, message) {
     input.setAttribute("aria-invalid", message ? "true" : "false");
     input.classList.toggle("is-invalid", Boolean(message));
   }
-}
-
-function isCustomProvider(provider) {
-  return !provider || provider.startsWith("custom_") || provider === "custom";
 }
 
 function validateEndpoint(value) {

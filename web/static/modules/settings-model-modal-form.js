@@ -242,7 +242,7 @@ function renderProviderOptions(keyword = "") {
     name.className = "model-provider-option-label";
     name.textContent = provider.label || provider.id;
     const id = document.createElement("span");
-    id.className = "model-provider-option-id font-mono text-xs text-gray-400";
+    id.className = "model-provider-option-id font-mono text-xs";
     id.textContent = provider.id;
     option.append(name, id);
     option.addEventListener("click", () => {
@@ -367,14 +367,16 @@ function initProviderPickerBindings() {
   });
 }
 
-function syncProviderDependentVisibility(providerId) {
+export function syncProviderDependentVisibility(providerId) {
   const custom = isCustomProvider(providerId);
-  const modeField = document.getElementById("modelModeField");
-  if (modeField) modeField.classList.toggle("hidden", !custom);
+  ["modelModeField", "modelEndpointField"].forEach((fieldId) => {
+    const field = document.getElementById(fieldId);
+    if (!field) return;
+    field.hidden = !custom;
+    field.classList.toggle("hidden", !custom);
+  });
   const modeValue = document.getElementById("modelModeValue");
   if (modeValue) modeValue.value = "openai";
-  const endpointField = document.getElementById("modelEndpointField");
-  if (endpointField) endpointField.classList.toggle("hidden", !custom);
 }
 
 function refreshModelModeReadonlyLabel() {
@@ -390,6 +392,7 @@ function isEditMode() {
 
 function refreshModalCapabilitiesState(options = {}) {
   const providerId = document.getElementById("modelProvider")?.value || "";
+  syncProviderDependentVisibility(providerId);
   syncModelModalUIState({
     providerId,
     isEdit: isEditMode(),

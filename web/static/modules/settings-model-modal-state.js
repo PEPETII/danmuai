@@ -179,11 +179,6 @@ export function syncModelModalUIState({
   const catalogModel = resolveCatalogModel(defaultModelId, catalogModels);
   const customIds = customProvider;
 
-  const modeField = document.getElementById("modelModeField");
-  if (modeField) modeField.classList.toggle("hidden", !customProvider);
-  const endpointField = document.getElementById("modelEndpointField");
-  if (endpointField) endpointField.classList.toggle("hidden", !customProvider);
-
   syncModelMicForDefault({
     catalogModel,
     preserveSaved: preserveSavedCapabilities,

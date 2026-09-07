@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import subprocess
 from pathlib import Path
 
@@ -54,6 +55,75 @@ def test_model_modal_hides_technical_fields_until_custom():
     assert 'id="modelProviderRegion"' not in html
     assert 'id="modelMode"' not in html
     assert 'id="modelCatalogMultiselect"' not in html
+
+
+def test_provider_dependent_visibility_has_one_sync_path_and_css_guard():
+    form = FORM_JS.read_text(encoding="utf-8")
+    state = STATE_JS.read_text(encoding="utf-8")
+    html = MODALS_HTML.read_text(encoding="utf-8")
+    pages_css = (ROOT / "web" / "static" / "warm-tokens-pages.css").read_text(
+        encoding="utf-8"
+    )
+
+    assert re.search(r'id="modelModeField" class="field hidden"', html)
+    assert re.search(r'id="modelEndpointField" class="field hidden"', html)
+    assert "field.hidden" in pages_css
+    assert "field[hidden]" in pages_css
+
+    sync_start = form.index("function syncProviderDependentVisibility")
+    sync_end = form.index("function refreshModelModeReadonlyLabel", sync_start)
+    sync_block = form[sync_start:sync_end]
+    assert "isCustomProvider(providerId)" in sync_block
+    assert "field.hidden = !custom" in sync_block
+    assert 'field.classList.toggle("hidden", !custom)' in sync_block
+
+    refresh_start = form.index("function refreshModalCapabilitiesState")
+    refresh_end = form.index("function onProviderChangeInModal", refresh_start)
+    refresh_block = form[refresh_start:refresh_end]
+    assert refresh_block.index("syncProviderDependentVisibility(providerId)") < refresh_block.index(
+        "syncModelModalUIState"
+    )
+    open_start = form.index("export function openModelModal")
+    open_end = form.index("export function closeModelModal", open_start)
+    open_block = form[open_start:open_end]
+    assert "syncProviderDependentVisibility(resolvedProviderId)" in open_block
+    assert "onProviderChangeInModal(resolvedProviderId, { isEdit: false })" in open_block
+    assert "refreshModalCapabilitiesState({ preserveSavedCapabilities: isEdit })" in open_block
+    assert 'classList.toggle("hidden"' not in state
+
+
+def test_model_validation_reuses_shared_custom_provider_rule():
+    validation = VALIDATION_JS.read_text(encoding="utf-8")
+    assert 'import { isCustomProvider } from "./settings-providers.js";' in validation
+    assert "function isCustomProvider" not in validation
+    assert "if (isCustomProvider(provider))" in validation
+
+
+def test_model_provider_picker_uses_semantic_theme_tokens():
+    form = FORM_JS.read_text(encoding="utf-8")
+    css = (ROOT / "web" / "static" / "warm-tokens-pages.css").read_text(
+        encoding="utf-8"
+    )
+    start = css.index(".model-provider-panel")
+    end = css.index(".model-catalog-options", start)
+    picker_css = css[start:end]
+
+    for token in (
+        "var(--surface-card)",
+        "var(--surface-control)",
+        "var(--surface-subtle)",
+        "var(--text-primary)",
+        "var(--text-muted)",
+        "var(--border-default)",
+        "var(--color-primary)",
+    ):
+        assert token in picker_css
+    assert "scrollbar-color: var(--border-default) var(--surface-card)" in picker_css
+    assert "surface-elevated" not in picker_css
+    assert "surface-hover" not in picker_css
+    assert "#fff" not in picker_css
+    assert "rgba(0, 0, 0" not in picker_css
+    assert "model-provider-option-id font-mono text-xs text-gray-400" not in form
 
 
 def test_regular_provider_save_keeps_backend_payload():
