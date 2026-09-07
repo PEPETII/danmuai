@@ -1,6 +1,6 @@
 """虚拟主播会话层的数据契约。
 
-本模块只包含标准库 dataclass 和文本归一化，不依赖 Qt、Live2D、桌宠或
+本模块只包含标准库 dataclass 和文本归一化，不依赖 Qt、Live2D 或
 视觉请求运行态。动作是语义草稿，不能被本模块当作可执行指令处理。
 """
 
@@ -138,14 +138,14 @@ class DanmuDisplayed(DanmuGenerated):
     """一个显示面实际接受的弹幕事件，供虚拟主播作为唯一默认输入。"""
 
     event_id: str = ""
-    display_surface: Literal["overlay", "floating_panel", "pet"] = "overlay"
+    display_surface: Literal["overlay", "floating_panel"] = "overlay"
 
     def __post_init__(self) -> None:
         super().__post_init__()
         event_id = normalize_text(self.event_id)
         if not event_id:
             raise ValueError("event_id must not be empty")
-        if self.display_surface not in {"overlay", "floating_panel", "pet"}:
+        if self.display_surface not in {"overlay", "floating_panel"}:
             raise ValueError("unsupported display surface")
         object.__setattr__(self, "event_id", event_id)
 
@@ -156,7 +156,7 @@ class DanmuDisplayed(DanmuGenerated):
         batch_id: str,
         lines: list[str] | tuple[str, ...],
         event_id: str,
-        display_surface: Literal["overlay", "floating_panel", "pet"],
+        display_surface: Literal["overlay", "floating_panel"],
         created_at: float | None = None,
         source: str = "visual",
         screenshot_id: int | str | None = None,
@@ -195,7 +195,7 @@ class DanmuDisplayed(DanmuGenerated):
         queued: object,
         text: str,
         *,
-        display_surface: Literal["overlay", "floating_panel", "pet"],
+        display_surface: Literal["overlay", "floating_panel"],
         displayed_at: float | None = None,
     ) -> "DanmuDisplayed":
         """由已成功分发的 ``QueuedReply`` 建立单行 displayed 事件。"""

@@ -59,7 +59,6 @@ def test_meme_display_tick_uses_display_danmu_text(tmp_path, monkeypatch):
     app._update_stats = MagicMock()
     app._meme_barrage_service = MemeBarrageService(config)
     # display_danmu_text → _display_danmu_text 在 scrolling 模式下委托 engine.add_text
-    app._pet_barrage_mode_enabled = lambda: False
     app._danmu_render_mode = lambda: "scrolling"
 
     service = app._meme_barrage_service
@@ -87,7 +86,6 @@ def test_meme_display_tick_routes_to_floating_panel(tmp_path, monkeypatch):
     app._scene_generation = 0
     app._update_stats = MagicMock()
     app._meme_barrage_service = MemeBarrageService(config)
-    app._pet_barrage_mode_enabled = lambda: False
     app._danmu_render_mode = lambda: "floating_panel"
 
     fp_added: list[str] = []
@@ -161,7 +159,6 @@ def test_meme_display_tick_reentrancy_guard(tmp_path):
     app._update_stats = MagicMock()
     app._meme_display_ticking = False
     app._meme_barrage_service = MemeBarrageService(config)
-    app._pet_barrage_mode_enabled = lambda: False
     app._danmu_render_mode = lambda: "scrolling"
 
     added: list[str] = []
@@ -198,7 +195,6 @@ def test_meme_display_tick_recursion_depth_limit(tmp_path, monkeypatch):
     app._update_stats = MagicMock()
     app._meme_display_ticking = False
     app._meme_barrage_service = MemeBarrageService(config)
-    app._pet_barrage_mode_enabled = lambda: False
     app._danmu_render_mode = lambda: "scrolling"
 
     added: list[str] = []

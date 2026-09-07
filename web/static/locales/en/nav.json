@@ -4,7 +4,6 @@
     "persona": "Danmu Persona",
     "knowledge": "Danmu Knowledge Base",
     "danmuPool": "Formula Danmu Pool",
-    "pet": "Vtuber & Desktop Pet",
     "styleGenerator": "Danmaku Style",
     "settings": "Danmu Settings",
     "tooltipCanDoTitle": "What you can do",
@@ -30,6 +29,7 @@
     "newAnnouncementBadge": "New announcement",
     "openMenu": "Open navigation",
     "closeMenu": "Close navigation",
-    "sidebarAria": "Main navigation"
+    "sidebarAria": "Main navigation",
+    "virtualHost": "Vtuber"
   }
 }

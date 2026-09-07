@@ -49,7 +49,7 @@ git diff --stat
 | 配置与本地存储           | `app/config_store/`、相关 `app/application/` 服务                                            |
 | 知识库               | `app/knowledge/`、`app/web_api/knowledge*.py`、`web/static/modules/app-knowledge-page.js` |
 | 麦克风/语音            | `app/mic_*.py`、`app/danmu_read_service.py`、相关 Web API                                   |
-| 桌宠                | `app/pet/`、对应 `app/main_*_mixin.py` 和 Web API                                           |
+| 虚拟主播            | `app/virtual_host/`、`app/live2d/`、对应 Web API 和 `web/static/modules/app-vtuber-*.js` |
 | TTS               | `app/danmu_tts*.py`、`app/tts_*.py`                                                      |
 | 烂梗弹幕              | `app/meme_barrage/`、`app/main_meme_mixin.py`、对应 Web API                                 |
 | 模型适配器             | `app/providers/`、`app/ai_client.py`、`app/model_providers.py`                            |

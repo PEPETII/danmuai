@@ -31,8 +31,8 @@ vpk --version
 `DanmuAI.spec` 是唯一的 PyInstaller 入口，当前覆盖以下内容：
 
 - `web/static/` 全部静态资源，包括 HTML、CSS、JS、locale、JSON、预览图和截图；任何含 `supabase-config` 的文件默认排除，只保留 `supabase-config.example.js` 与 `supabase-client.js`。
-- `data/personae_builtin.json`、内置桌宠 `data/pet/default/` 和 `resources/icon.*`。
-- 当前 `app.application`、`app.config_store`、`app.knowledge`、`app.live2d`、`app.meme_barrage`、`app.pet`、`app.providers`、`app.tts`、`app.virtual_host`、`app.web_api` 包的源码子模块。这样覆盖了启动后才装配的知识库、虚拟主播、Live2D、TTS、provider 和 Web API 路由。
+- `data/personae_builtin.json` 和 `resources/icon.*`。
+- 当前 `app.application`、`app.config_store`、`app.knowledge`、`app.live2d`、`app.meme_barrage`、`app.providers`、`app.tts`、`app.virtual_host`、`app.web_api` 包的源码子模块。这样覆盖了启动后才装配的知识库、虚拟主播、Live2D、TTS、provider 和 Web API 路由。
 - `live2d-py` 的 `live2d` 子模块、包内 `.pyd/.dll` 和 shader 数据；`OpenGL.GL` 核心模块与 platform 适配模块。可选的 Tk/Togl、GLES、GLUT 全树不收集；Windows 系统的 `opengl32.dll` 仍由系统提供，Qt6 的 OpenGL/QtOpenGLWidgets 二进制由 PyInstaller Qt hooks 收集。
 - Velopack 的 `velopack.pyd`，以及 `sounddevice`、NumPy、PyQt6、pywebview、WebView2 检测模块等由依赖和 spec 共同收集。
 
@@ -60,7 +60,7 @@ $env:DANMU_BUILD_USE_RELEASE_LOCK = "1"
 - `dist\DanmuAI\DanmuAI.exe` 存在；
 - `dist\DanmuAI\_internal\` 存在；
 - `dist\DanmuAI\_internal\web\static\index.html`、关键 locale 和静态预览资源存在；
-- `dist\DanmuAI\_internal\data\personae_builtin.json`、`dist\DanmuAI\_internal\data\pet\default\pet.json`、`spritesheet.webp` 存在；
+- `dist\DanmuAI\_internal\data\personae_builtin.json`、Live2D/虚拟主播运行所需静态资源存在；
 - `web/static` 中没有被禁止的 Supabase credential config；
 - `build\DanmuAI\warn-DanmuAI.txt` 中没有本次运行路径所需的未解决模块。POSIX-only optional imports 可以保留，但要逐项判断，不能把 warn 文件为空当作要求。
 
@@ -82,7 +82,7 @@ Start-Process -FilePath (Resolve-Path .\dist\DanmuAI\DanmuAI.exe) -ArgumentList 
 4. 麦克风探针、TTS 播放和音频错误路径可观察。真实麦克风设备与真实 TTS provider 必须单独标记为已验证或未验证；
 5. 导入完整 Live2D 模型后，模型窗口可创建、OpenGL 帧可显示、动作/表情/参数反馈可用；
 6. 虚拟主播运行时能读取独立配置并连接 Live2D feedback；
-7. 桌宠资源和显示/隐藏路径可用；
+7. 虚拟主播页面、Live2D 模型导入/启动与相关控制接口可用；
 8. 通过托盘“退出应用”后 `DanmuAI.exe`、`Update.exe`、pywebview 子进程均结束；仅关闭主窗口可能按当前产品语义隐藏到托盘，不能把它当作进程退出证据。再次启动能正常建立单实例和 Web 服务。
 
 `--web-browser` 的启动成功只证明服务和浏览器入口，不代表 pywebview 窗口、Live2D GPU、麦克风设备或 TTS provider 已通过；这些必须有实际界面/设备证据。

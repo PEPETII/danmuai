@@ -26,8 +26,8 @@ function Resolve-PySpy {
 }
 
 $scenarios = @{
-    A = 'Overlay only: Web closed, pet hidden, engine running, idle 5min'
-    B = 'Typical: Web console open + WS connected + pet visible, engine running'
+    A = 'Overlay only: Web closed, engine running, idle 5min'
+    B = 'Typical: Web console open + WS connected, engine running'
     C = 'Stress: B + multi-screen + danmu-pool page + manually close WS for HTTP fallback'
 }
 
@@ -42,7 +42,7 @@ Write-Host "py-spy: $pySpy"
 Write-Host ''
 Write-Host '=== 6.1 main-thread hotspots (Qt) ==='
 Write-Host 'Watch: _maybe_pool_topup, _publish_live_status, publish_status,'
-Write-Host '       build_status_snapshot, _on_topmost_health_tick, PetWindow._on_anim_tick'
+Write-Host '       build_status_snapshot, _on_topmost_health_tick'
 Write-Host ''
 Write-Host '=== 6.2 uvicorn thread (use --subprocesses if needed) ==='
 Write-Host 'Watch: GET /api/status, GET /api/logs/recent when WS degraded'

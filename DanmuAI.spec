@@ -15,7 +15,7 @@ PyInstaller spec for DanmuAI（Web 控制台 + pywebview + Qt overlay）。
       ``uvicorn.protocols.http.auto`` / ``uvicorn.protocols.websockets.auto``
       / ``uvicorn.lifespan.on``（PyInstaller 静态分析不到协议自动选择）
     - ``hiddenimports`` 按分区组织：第三方包 → app 顶层 → app.application /
-      meme_barrage / pet / providers / web_api 子包；新增模块须同步此列表
+      meme_barrage / providers / web_api 子包；新增模块须同步此列表
     - 可选第三方懒加载（``keyboard``、``dashscope`` TTS）亦列入 hiddenimports
     - ``console=False``：发布为 GUI 应用（无控制台窗口）；debug 关闭
 
@@ -143,10 +143,6 @@ datas += _collect_dir_datas(
 )
 # 内置人格 JSON（app.persona_builtin 在 import 时读取，须在 Analysis 前可解析）
 datas.append((str(root / "data" / "personae_builtin.json"), "data"))
-# PET-009：内置桌宠素材（pet.json + spritesheet.webp），打包后通过
-# app.bundle_paths.resource_path("data", "pet", "default") 在 sys._MEIPASS
-# 下也能被 BUILTIN_PET_DIR 解析到；元组第二项必须是字符串，不能用 Path /
-datas.append((str(root / "data" / "pet" / "default"), "data/pet/default"))
 if (root / "resources" / "icon.png").is_file():
     datas.append((str(root / "resources" / "icon.png"), "resources"))
 
@@ -231,7 +227,6 @@ hiddenimports: list[str] = [
     *collect_submodules("app.knowledge"),
     *collect_submodules("app.live2d"),
     *collect_submodules("app.meme_barrage"),
-    *collect_submodules("app.pet"),
     *collect_submodules("app.providers"),
     *collect_submodules("app.tts"),
     *collect_submodules("app.virtual_host"),
@@ -276,7 +271,6 @@ hiddenimports: list[str] = [
     "app.live_overlay_hub",
     "app.logger",
     "app.main_render_coordinator_mixin",
-    "app.main_pet_mixin",
     "app.main_overlay_mixin",
     "app.main_floating_panel_mixin",
     "app.main_screen_topology_mixin",
@@ -377,16 +371,6 @@ hiddenimports: list[str] = [
     "app.meme_barrage.runnable",
     "app.meme_barrage.service",
     "app.meme_barrage.store",
-    # ── app.pet.* ────────────────────────────────────────────────
-    "app.pet",
-    "app.pet.pet_animation_mapper",
-    "app.pet.pet_assets",
-    "app.pet.pet_barrage",
-    "app.pet.pet_command_service",
-    "app.pet.pet_facade",
-    "app.pet.pet_prompt",
-    "app.pet.pet_state",
-    "app.pet.pet_window",
     "app.problems.classifier",
     # ── app.providers.* ──────────────────────────────────────────
     "app.providers",
@@ -411,7 +395,6 @@ hiddenimports: list[str] = [
     "app.web_api.meme_barrage",
     "app.web_api.mic_test",
     "app.web_api.persona",
-    "app.web_api.pet",
     "app.web_api.providers",
     "app.web_api.routes",
     "app.web_api.update",

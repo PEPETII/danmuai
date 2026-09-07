@@ -6,7 +6,7 @@
 /* -------------------------------------------------------------------------- */
 
 #page-danmu-pool,
-#page-pet,
+#page-virtual-host,
 #page-persona,
 #page-live-output-source,
 #page-guide,
@@ -19,7 +19,7 @@
 }
 
 #page-danmu-pool .ui-page-header,
-#page-pet .ui-page-header,
+#page-virtual-host .ui-page-header,
 #page-persona .ui-page-header,
 #page-guide .ui-page-header,
 #page-tutorial .ui-page-header,
@@ -31,7 +31,7 @@
 }
 
 #page-danmu-pool .card.ui-card:not(.ui-card--interactive):hover,
-#page-pet .card.ui-card:not(.ui-card--interactive):hover,
+#page-virtual-host .card.ui-card:not(.ui-card--interactive):hover,
 #page-persona .card.ui-card:not(.ui-card--interactive):hover,
 #page-live-output-source .card.ui-card:not(.ui-card--interactive):hover,
 #page-guide .card.ui-card:not(.ui-card--interactive):hover,
@@ -45,7 +45,7 @@
 
 .content-page-actions,
 #page-danmu-pool .flex.flex-wrap.gap-3,
-#page-pet .flex.flex-wrap.gap-3,
+#page-virtual-host .flex.flex-wrap.gap-3,
 #page-persona .flex.flex-wrap.gap-3,
 #page-knowledge .flex.flex-wrap.items-center.gap-3,
 #page-knowledge .flex.flex-wrap.gap-3,
@@ -57,7 +57,7 @@
 #page-knowledge .settings-field,
 #page-persona .settings-field,
 #page-danmu-pool .settings-field,
-#page-pet .settings-field {
+#page-virtual-host .settings-field {
   min-width: 0;
 }
 
@@ -70,147 +70,17 @@
   word-break: break-word;
 }
 
-/* W-UI-PET-ACCORDION-STYLE：桌宠页折叠面板复用「弹幕样式」的面板视觉。 */
-#page-pet .settings-rhythm-accordion {
-  margin: 0.5rem 0;
-  overflow: hidden;
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-md);
-  background: var(--surface-subtle);
-}
-
-#page-pet .settings-rhythm-accordion-item + .settings-rhythm-accordion-item {
-  border-top: 1px solid var(--border-soft);
-}
-
-#page-pet .settings-rhythm-accordion-item.is-open {
-  background: rgba(var(--color-primary-rgb), 0.045);
-}
-
-#page-pet .settings-rhythm-accordion-trigger {
-  align-items: flex-start;
-  min-height: 2.75rem;
-  padding-top: 0.75rem;
-  padding-bottom: 0.75rem;
-  color: var(--text-secondary);
-  font-size: 0.8125rem;
-  font-weight: 600;
-}
-
-#page-pet .settings-rhythm-accordion-trigger > span:first-child {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-#page-pet .settings-rhythm-accordion-trigger .settings-rhythm-accordion-chevron {
-  flex-shrink: 0;
-  margin-top: 0.35rem;
-}
-
-#page-pet .settings-rhythm-accordion-item.is-open .settings-rhythm-accordion-trigger {
-  color: var(--color-primary-hover);
-}
-
-#page-pet .settings-rhythm-accordion-panel {
-  padding: var(--space-4) var(--space-5) var(--space-5);
-}
-
-#page-pet .settings-rhythm-accordion-fields {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-2);
-  min-width: 0;
-  margin: 0;
-}
-
-#page-pet .settings-rhythm-accordion-field {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(9rem, 42%);
-  align-items: center;
-  gap: var(--space-4);
-  min-width: 0;
-  min-height: var(--control-height-md);
-  margin: 0;
-  padding: var(--space-1) 0;
-}
-
-#page-pet .settings-rhythm-accordion-field > div:first-child {
-  min-width: 0;
-}
-
-#page-pet .settings-rhythm-accordion-field > .settings-field-control,
-#page-pet .settings-rhythm-accordion-field > .settings-rhythm-accordion-control-group,
-#page-pet .settings-rhythm-accordion-field > .toggle-switch {
-  grid-column: 2;
-}
-
-#page-pet .settings-rhythm-accordion-field > .settings-field-control {
-  width: 100%;
-  min-width: 0;
-  text-align: left;
-  border: 0 !important;
-  background: rgba(var(--color-primary-rgb), 0.08) !important;
-  box-shadow: none !important;
-}
-
-#page-pet .settings-rhythm-accordion-field--toggle .toggle-switch {
-  justify-self: end;
-  margin: 0;
-}
-
-#page-pet .settings-rhythm-accordion-control-group {
-  width: 100%;
-  max-width: none;
-}
-
-#page-pet .settings-rhythm-accordion-control-group .settings-field-control {
-  flex-basis: 10rem;
-}
-
-#page-pet .settings-rhythm-accordion-field > .settings-field-control:focus,
-#page-pet .settings-rhythm-accordion-field > .settings-field-control:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.24) !important;
-}
-
-[data-theme="dark"] #page-pet .settings-rhythm-accordion {
-  border-color: var(--border-soft);
-  background: rgba(0, 0, 0, 0.18);
-}
-
-@media (max-width: 600px) {
-  #page-pet .settings-rhythm-accordion-field {
-    grid-template-columns: minmax(0, 1fr);
-    align-items: start;
-  }
-
-  #page-pet .settings-rhythm-accordion-field > .settings-field-control,
-  #page-pet .settings-rhythm-accordion-field > .settings-rhythm-accordion-control-group,
-  #page-pet .settings-rhythm-accordion-field > .toggle-switch {
-    grid-column: 1;
-  }
-
-  #page-pet .settings-rhythm-accordion-field--toggle {
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-  }
-
-  #page-pet .settings-rhythm-accordion-field--toggle > .toggle-switch {
-    grid-column: 2;
-  }
-}
-
-/* W-UI-PET-VTUBER-STATUS-001：虚拟主播页分层信息架构。 */
-#page-pet .settings-tab-panel.vtuber-page.active {
+/* W-UI-VIRTUAL-HOST-STATUS-001：虚拟主播页分层信息架构。 */
+#page-virtual-host .settings-tab-panel.vtuber-page.active {
   display: grid;
   gap: var(--space-5);
 }
 
-#page-pet .settings-tab-panel[hidden] {
+#page-virtual-host .settings-tab-panel[hidden] {
   display: none !important;
 }
 
-#page-pet .vtuber-hero {
+#page-virtual-host .vtuber-hero {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -218,25 +88,25 @@
   min-width: 0;
 }
 
-#page-pet .vtuber-hero__title {
+#page-virtual-host .vtuber-hero__title {
   margin: 0;
   font-size: 1.25rem;
   font-weight: 700;
   color: var(--text-primary);
 }
 
-#page-pet .vtuber-hero__description {
+#page-virtual-host .vtuber-hero__description {
   margin: var(--space-1) 0 0;
   color: var(--text-secondary);
   font-size: 0.9375rem;
   line-height: 1.5;
 }
 
-#page-pet .vtuber-hero__hint {
+#page-virtual-host .vtuber-hero__hint {
   margin-top: var(--space-2);
 }
 
-#page-pet .vtuber-hero__control {
+#page-virtual-host .vtuber-hero__control {
   display: grid;
   gap: var(--space-3);
   flex: 0 0 auto;
@@ -244,14 +114,14 @@
   text-align: right;
 }
 
-#page-pet .vtuber-hero__actions {
+#page-virtual-host .vtuber-hero__actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
   justify-content: flex-end;
 }
 
-#page-pet .vtuber-status-pill {
+#page-virtual-host .vtuber-status-pill {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
@@ -266,143 +136,143 @@
   line-height: 1.25;
 }
 
-#page-pet .vtuber-status-pill__dot {
+#page-virtual-host .vtuber-status-pill__dot {
   width: 0.5rem;
   height: 0.5rem;
   border-radius: 9999px;
   background: var(--text-muted);
 }
 
-#page-pet .vtuber-status-pill--ready {
+#page-virtual-host .vtuber-status-pill--ready {
   color: var(--status-success);
   border-color: color-mix(in srgb, var(--status-success) 35%, var(--border-default));
   background: var(--status-success-bg, color-mix(in srgb, var(--status-success) 8%, transparent));
 }
 
-#page-pet .vtuber-status-pill--ready .vtuber-status-pill__dot {
+#page-virtual-host .vtuber-status-pill--ready .vtuber-status-pill__dot {
   background: var(--status-success);
 }
 
-#page-pet .vtuber-status-pill--running {
+#page-virtual-host .vtuber-status-pill--running {
   color: var(--status-info, var(--text-accent));
   border-color: color-mix(in srgb, var(--text-accent) 35%, var(--border-default));
   background: color-mix(in srgb, var(--text-accent) 8%, transparent);
 }
 
-#page-pet .vtuber-status-pill--running .vtuber-status-pill__dot {
+#page-virtual-host .vtuber-status-pill--running .vtuber-status-pill__dot {
   background: var(--text-accent);
 }
 
-#page-pet .vtuber-status-pill--warning {
+#page-virtual-host .vtuber-status-pill--warning {
   color: var(--status-warning);
   border-color: color-mix(in srgb, var(--status-warning) 35%, var(--border-default));
   background: var(--status-warning-bg);
 }
 
-#page-pet .vtuber-status-pill--warning .vtuber-status-pill__dot {
+#page-virtual-host .vtuber-status-pill--warning .vtuber-status-pill__dot {
   background: var(--status-warning);
 }
 
-#page-pet .vtuber-status-pill--error {
+#page-virtual-host .vtuber-status-pill--error {
   color: var(--status-danger);
   border-color: color-mix(in srgb, var(--status-danger) 35%, var(--border-default));
   background: color-mix(in srgb, var(--status-danger) 8%, transparent);
 }
 
-#page-pet .vtuber-status-pill--error .vtuber-status-pill__dot {
+#page-virtual-host .vtuber-status-pill--error .vtuber-status-pill__dot {
   background: var(--status-danger);
 }
 
-#page-pet .vtuber-section-divider {
+#page-virtual-host .vtuber-section-divider {
   height: 1px;
   background: var(--border-default);
 }
 
-#page-pet .vtuber-section-divider--inner {
+#page-virtual-host .vtuber-section-divider--inner {
   margin: var(--space-2) 0 var(--space-3);
 }
 
-#page-pet .vtuber-section {
+#page-virtual-host .vtuber-section {
   display: grid;
   gap: var(--space-3);
   min-width: 0;
 }
 
-#page-pet .vtuber-section--compact {
+#page-virtual-host .vtuber-section--compact {
   gap: var(--space-2);
 }
 
-#page-pet .vtuber-section__title {
+#page-virtual-host .vtuber-section__title {
   margin: 0;
   font-size: 0.9375rem;
   font-weight: 700;
   color: var(--text-primary);
 }
 
-#page-pet .vtuber-section__body {
+#page-virtual-host .vtuber-section__body {
   display: grid;
   gap: var(--space-3);
   min-width: 0;
 }
 
-#page-pet .vtuber-field-row {
+#page-virtual-host .vtuber-field-row {
   display: grid;
   gap: var(--space-2);
   min-width: 0;
 }
 
-#page-pet .vtuber-field-row--scale {
+#page-virtual-host .vtuber-field-row--scale {
   gap: var(--space-3);
 }
 
-#page-pet .vtuber-field-row--toggle {
+#page-virtual-host .vtuber-field-row--toggle {
   margin-top: var(--space-1);
 }
 
-#page-pet .vtuber-toggle-list {
+#page-virtual-host .vtuber-toggle-list {
   gap: var(--space-2);
 }
 
-#page-pet .vtuber-model-select {
+#page-virtual-host .vtuber-model-select {
   max-width: 24rem;
 }
 
-#page-pet .vtuber-settings-fieldset {
+#page-virtual-host .vtuber-settings-fieldset {
   min-width: 0;
   margin: 0;
   padding: 0;
   border: 0;
 }
 
-#page-pet .vtuber-settings-fieldset > legend {
+#page-virtual-host .vtuber-settings-fieldset > legend {
   width: 100%;
   padding: 0;
 }
 
-#page-pet .vtuber-settings-actions {
+#page-virtual-host .vtuber-settings-actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-3);
   min-width: 0;
 }
 
-#page-pet .vtuber-settings-actions .ui-button {
+#page-virtual-host .vtuber-settings-actions .ui-button {
   min-width: min(100%, 15rem);
 }
 
-#page-pet .vtuber-model-card {
+#page-virtual-host .vtuber-model-card {
   display: grid;
   gap: var(--space-3);
   padding: var(--space-4);
 }
 
-#page-pet .vtuber-persona-textarea {
+#page-virtual-host .vtuber-persona-textarea {
   min-height: 9rem;
   resize: vertical;
   width: 100%;
 }
 
-#page-pet .vtuber-capability-summary {
+#page-virtual-host .vtuber-capability-summary {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-3) var(--space-4);
@@ -410,71 +280,71 @@
   font-size: 0.875rem;
 }
 
-#page-pet .vtuber-capability-summary__item {
+#page-virtual-host .vtuber-capability-summary__item {
   display: inline-flex;
   align-items: baseline;
   gap: var(--space-1);
 }
 
-#page-pet .vtuber-capability-summary__label {
+#page-virtual-host .vtuber-capability-summary__label {
   color: var(--text-secondary);
 }
 
-#page-pet .vtuber-capability-summary__value {
+#page-virtual-host .vtuber-capability-summary__value {
   color: var(--text-primary);
   font-weight: 700;
 }
 
-#page-pet .vtuber-capability-summary__warning {
+#page-virtual-host .vtuber-capability-summary__warning {
   color: var(--status-warning);
   font-size: 0.8125rem;
   font-weight: 600;
 }
 
-#page-pet .vtuber-model-error {
+#page-virtual-host .vtuber-model-error {
   color: var(--status-danger);
   font-size: 0.875rem;
   font-weight: 600;
 }
 
-#page-pet .vtuber-advanced {
+#page-virtual-host .vtuber-advanced {
   margin-top: var(--space-1);
 }
 
-#page-pet .vtuber-advanced-panel {
+#page-virtual-host .vtuber-advanced-panel {
   padding-top: var(--space-2);
 }
 
-#page-pet .vtuber-advanced-grid {
+#page-virtual-host .vtuber-advanced-grid {
   display: grid;
   gap: var(--space-3);
   margin: 0;
 }
 
-#page-pet .vtuber-advanced-row {
+#page-virtual-host .vtuber-advanced-row {
   display: grid;
   gap: var(--space-1);
   min-width: 0;
 }
 
-#page-pet .vtuber-advanced-row dt {
+#page-virtual-host .vtuber-advanced-row dt {
   color: var(--text-secondary);
   font-size: 0.75rem;
   font-weight: 600;
 }
 
-#page-pet .vtuber-advanced-row dd {
+#page-virtual-host .vtuber-advanced-row dd {
   margin: 0;
   color: var(--text-primary);
   font-size: 0.875rem;
   line-height: 1.45;
 }
 
-#page-pet .vtuber-advanced-actions {
+#page-virtual-host .vtuber-advanced-actions {
   margin-top: var(--space-2);
 }
 
-#page-pet .vtuber-display-scale-controls {
+#page-virtual-host .vtuber-display-scale-controls {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -483,62 +353,62 @@
   max-width: 28rem;
 }
 
-#page-pet .vtuber-display-scale-range {
+#page-virtual-host .vtuber-display-scale-range {
   flex: 1 1 12rem;
   min-width: 10rem;
   accent-color: var(--text-accent);
 }
 
-#page-pet .vtuber-display-scale-input-wrap {
+#page-virtual-host .vtuber-display-scale-input-wrap {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
 }
 
-#page-pet .vtuber-display-scale-input {
+#page-virtual-host .vtuber-display-scale-input {
   width: 5.5rem;
 }
 
-#page-pet .vtuber-display-scale-suffix {
+#page-virtual-host .vtuber-display-scale-suffix {
   color: var(--text-secondary);
   font-size: 0.875rem;
   font-weight: 600;
 }
 
 @media (max-width: 600px) {
-  #page-pet .vtuber-hero {
+  #page-virtual-host .vtuber-hero {
     flex-direction: column;
     gap: var(--space-3);
   }
 
-  #page-pet .vtuber-hero__control {
+  #page-virtual-host .vtuber-hero__control {
     align-items: stretch;
     text-align: left;
   }
 
-  #page-pet .vtuber-hero__actions {
+  #page-virtual-host .vtuber-hero__actions {
     justify-content: stretch;
   }
 
-  #page-pet .vtuber-settings-actions .ui-button {
+  #page-virtual-host .vtuber-settings-actions .ui-button {
     width: 100%;
   }
 }
 
-#page-pet .vtuber-download-page {
+#page-virtual-host .vtuber-download-page {
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
 }
 
-#page-pet .vtuber-download-hero__title {
+#page-virtual-host .vtuber-download-hero__title {
   margin: 0 0 var(--space-3);
   color: var(--text-primary);
   font-size: 1.125rem;
   font-weight: 700;
 }
 
-#page-pet .vtuber-download-intro {
+#page-virtual-host .vtuber-download-intro {
   display: grid;
   gap: var(--space-3);
   color: var(--text-secondary);
@@ -546,44 +416,44 @@
   line-height: 1.65;
 }
 
-#page-pet .vtuber-download-intro p {
+#page-virtual-host .vtuber-download-intro p {
   margin: 0;
 }
 
-#page-pet .vtuber-download-grid {
+#page-virtual-host .vtuber-download-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-4);
 }
 
-#page-pet .vtuber-download-card {
+#page-virtual-host .vtuber-download-card {
   display: flex;
   flex-direction: column;
   overflow: hidden;
   padding: 0;
 }
 
-#page-pet .vtuber-download-card__preview {
+#page-virtual-host .vtuber-download-card__preview {
   aspect-ratio: 4 / 3;
   background: linear-gradient(180deg, rgba(255, 248, 240, 0.9), rgba(255, 255, 255, 0.95));
   border-bottom: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.06));
 }
 
-#page-pet .vtuber-download-card__image {
+#page-virtual-host .vtuber-download-card__image {
   display: block;
   width: 100%;
   height: 100%;
   object-fit: contain;
 }
 
-#page-pet .vtuber-download-card__body {
+#page-virtual-host .vtuber-download-card__body {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
   padding: var(--space-4);
 }
 
-#page-pet .vtuber-download-card__title {
+#page-virtual-host .vtuber-download-card__title {
   margin: 0;
   color: var(--text-primary);
   font-size: 1rem;
@@ -592,14 +462,14 @@
   word-break: break-word;
 }
 
-#page-pet .vtuber-download-card__footer {
+#page-virtual-host .vtuber-download-card__footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
 }
 
-#page-pet .vtuber-download-tag {
+#page-virtual-host .vtuber-download-tag {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -611,27 +481,27 @@
   line-height: 1.2;
 }
 
-#page-pet .vtuber-download-tag--bilibili {
+#page-virtual-host .vtuber-download-tag--bilibili {
   background: rgba(251, 114, 153, 0.16);
   color: #d14f7d;
 }
 
-#page-pet .vtuber-download-tag--booth {
+#page-virtual-host .vtuber-download-tag--booth {
   background: rgba(252, 90, 90, 0.14);
   color: #d94848;
 }
 
-#page-pet .vtuber-download-tag--unknown {
+#page-virtual-host .vtuber-download-tag--unknown {
   background: rgba(120, 120, 120, 0.12);
   color: var(--text-secondary);
 }
 
-#page-pet .vtuber-download-card__action {
+#page-virtual-host .vtuber-download-card__action {
   flex-shrink: 0;
 }
 
 @media (max-width: 720px) {
-  #page-pet .vtuber-download-grid {
+  #page-virtual-host .vtuber-download-grid {
     grid-template-columns: 1fr;
   }
 }

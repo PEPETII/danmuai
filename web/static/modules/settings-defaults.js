@@ -99,8 +99,7 @@ function buildNormalReplyContractPreviewZh(count, maxChars) {
 export function updateNormalBatchPreview() {
   const countEl = document.getElementById('normal_reply_count');
   if (!countEl) return;
-  const barrageEnabled = document.getElementById('petBarrageModeEnabled')?.checked === true;
-  const count = barrageEnabled ? 5 : clampNormalReplyCount(countEl.value, DEFAULT_NORMAL_REPLY_COUNT);
+  const count = clampNormalReplyCount(countEl.value, DEFAULT_NORMAL_REPLY_COUNT);
   countEl.value = String(count);
   const hint = document.getElementById('normalBatchTotalHint');
   if (hint) {

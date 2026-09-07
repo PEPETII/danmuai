@@ -56,7 +56,7 @@ class DanmuAppScreenTopologyMixin:
 
     def _overlay_own_hwnds(self) -> tuple[int, ...]:
         hwnds: list[int] = []
-        for key in ("overlay", "floating_panel_overlay", "pet_window"):
+        for key in ("overlay", "floating_panel_overlay"):
             widget = self.__dict__.get(key)
             if widget is None or not widget.isVisible():
                 continue
@@ -68,17 +68,6 @@ class DanmuAppScreenTopologyMixin:
                 hwnds.append(hwnd)
         return tuple(hwnds)
 
-    def _reassert_pet_above_overlays(self) -> None:
-        pet = self.__dict__.get("pet_window")
-        if pet is None or not pet.isVisible():
-            return
-        settings = getattr(pet, "_settings", None)
-        if settings is None or not getattr(settings, "always_on_top", False):
-            return
-        reassert = getattr(pet, "_reassert_topmost", None)
-        if callable(reassert):
-            reassert()
-
     def _reassert_active_overlay_topmost(self) -> None:
         layer = self._active_overlay_layer()
         if layer is None:
@@ -86,7 +75,6 @@ class DanmuAppScreenTopologyMixin:
         reassert = getattr(layer, "reassert_topmost_zorder", None)
         if callable(reassert):
             reassert()
-        self._reassert_pet_above_overlays()
 
     def _update_screen_index_fallback_warning(self) -> None:
         runtime = self._ensure_web_runtime_state()

@@ -81,9 +81,7 @@ def is_public_api_path(path: str) -> bool:
     # allowlisted resource suffix, so this is a read-only local asset surface.
     if path.startswith("/api/live2d/resource/"):
         return True
-    # The preview is a static image used by an ``<img>`` element, which cannot
-    # attach an Authorization header.  It contains no configuration payload.
-    return path.startswith("/api/pet/barrage-slots/") and path.endswith("/preview")
+    return False
 
 
 def install_api_auth_middleware(app, check_token) -> None:

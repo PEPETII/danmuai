@@ -49,7 +49,6 @@ def test_stale_error_dropped_when_scene_generation_lagged(monkeypatch):
     app._register_request_meta(10, 10, 1, "visual")
     app._on_ai_error = main_mod.DanmuApp._on_ai_error.__get__(app, main_mod.DanmuApp)
     app._publish_live_status = lambda: None
-    app._notify_pet_visual_error = lambda: None
     app.report_problem = MagicMock()
 
     app._on_ai_error("provider 500", "persona-1", 10, 10, time.monotonic(), 1)
@@ -74,7 +73,6 @@ def test_fresh_visual_error_still_counts_failure(monkeypatch):
     app._register_request_meta(10, 10, 2, "visual")
     app._on_ai_error = main_mod.DanmuApp._on_ai_error.__get__(app, main_mod.DanmuApp)
     app._publish_live_status = lambda: None
-    app._notify_pet_visual_error = lambda: None
     app.report_problem = MagicMock()
 
     app._on_ai_error("provider 500", "persona-1", 10, 10, time.monotonic(), 2)
@@ -126,7 +124,6 @@ def test_fresh_reply_enqueues_when_scene_generation_matches(monkeypatch):
     app._on_ai_reply = main_mod.DanmuApp._on_ai_reply.__get__(app, main_mod.DanmuApp)
     app._generation_pipeline.consume_reply_queue = lambda: None
     app._publish_live_status = lambda: None
-    app._notify_pet_visual_success = lambda: None
 
     app._on_ai_reply('["ok"]', "persona-1", 10, 10, time.monotonic(), 2)
 

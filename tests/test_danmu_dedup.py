@@ -457,7 +457,6 @@ def test_start_clears_dedup_window(monkeypatch, workspace_tmp):
     monkeypatch.setattr(DanmuApp, "_on_normal_capture_tick", lambda self: None)
     monkeypatch.setattr(DanmuApp, "_sync_overlay_visibility", lambda self: None)
     monkeypatch.setattr(DanmuApp, "_sync_floating_panel_visibility", lambda self: None)
-    monkeypatch.setattr(DanmuApp, "_sync_pet_window_visibility", lambda self: None)
     monkeypatch.setattr(DanmuApp, "_reassert_active_overlay_topmost", lambda self: None)
     monkeypatch.setattr(DanmuApp, "_start_meme_barrage_timers", lambda self: None)
     monkeypatch.setattr(DanmuApp, "_sync_mic_service", lambda self: None)

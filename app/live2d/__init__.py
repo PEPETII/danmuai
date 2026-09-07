@@ -1,7 +1,7 @@
 """独立的 Live2D 虚拟主播运行时候选。
 
 该包只提供模型、渲染和参数控制边界，不在导入时创建 Qt/Live2D 对象，
-也不依赖桌宠、Overlay、Web API 或 DanmuApp。正式装配须等待 001 门禁。
+也不依赖 Overlay、Web API 或 DanmuApp。正式装配须等待 001 门禁。
 """
 
 from .host import HostResult, HostState, Live2DHostFacade

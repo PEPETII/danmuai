@@ -35,7 +35,6 @@ Bearer token 都不得写入日志或 URL query。
 | `/api/*` 其余 HTTP API | Bearer | 状态、日志、配置、人格、知识包/任务/条目及其他控制台 API 默认私有 |
 | `GET /api/live-overlay/status`、`/api/live-overlay/events` | 无 | 明确允许的直播 overlay 连接状态/SSE；不返回配置或凭据 |
 | `GET /api/live-overlay/config` | 无 | 仅返回 Overlay 字号 `font_size`；不返回其他配置或凭据 |
-| `GET /api/pet/barrage-slots/{slot_id}/preview` | 无 | 明确允许的静态预览图，供 `<img>` 使用 |
 | `GET /api/update/status` | Bearer | Velopack 应用内更新状态 |
 | `POST /api/update/check`、`/download`、`/restart` | Bearer | 应用内检查、下载、重启更新 |
 | `PUT/POST /api/config`、`POST /api/start`、`/api/stop`、`/api/toggle` | Bearer | 全局配置保存与启停控制 |
@@ -47,7 +46,6 @@ Bearer token 都不得写入日志或 URL query。
 | 朗读写操作（`PUT /api/danmu-read/config`、`POST /api/danmu-read/probe`） | Bearer | TTS 配置与探测 |
 | 麦克风写操作（`POST /api/mic/test`、`/api/mic/test-send`） | Bearer | 麦克风测试 |
 | 截图区域写操作（`POST /api/capture-region/select`、`/reset`） | Bearer | 触发可视化选区与重置 |
-| 桌宠写操作（`POST /api/pet/*`） | Bearer | 桌宠设置、显隐、指令、资源导入与弹幕槽操作 |
 | 知识库写操作（`POST/PATCH/DELETE /api/knowledge/*`、`POST /api/knowledge/retrieval/preview`） | Bearer | 知识包、条目、导入任务管理与检索预览 |
 | 字体写操作（`POST /api/fonts/import`、**`GET /api/fonts`**、`DELETE /api/fonts/{sha256}`） | Bearer | 字体导入、列表、删除（读操作同样需 Bearer） |
 | 直播 overlay 写操作（`POST /api/live-overlay/test`） | Bearer | 测试弹幕推送 |

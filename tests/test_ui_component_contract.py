@@ -200,9 +200,18 @@ def test_settings_footer_demo_uses_ui_button():
     assert "ui-button--primary" in footer
     assert "ui-button--secondary" in footer
     assert "ui-button--lg" in footer
-    # IDs preserved
-    assert 'id="btnProbe"' in footer
+    # The primary test-connection action now occupies the AI-model header slot;
+    # the add-model action remains available in the settings footer.
+    assert 'id="btnProbe"' not in footer
+    assert 'id="btnAddCustomModel"' in footer
     assert 'id="btnRestoreSettingsDefaults"' in footer
+    model_section_start = settings.find('id="customModelsSection"')
+    model_section_end = settings.find('id="providerStatus"', model_section_start)
+    model_section = settings[model_section_start:model_section_end]
+    assert 'id="btnProbe"' in model_section
+    assert 'id="btnAddCustomModel"' not in model_section
+    assert settings.count('id="btnProbe"') == 1
+    assert settings.count('id="btnAddCustomModel"') == 1
 
 
 def test_settings_page_controls_use_ui_dual_class():
@@ -362,7 +371,6 @@ def test_content_pages_f2_semantic_shell():
         "page-knowledge",
         "page-persona",
         "page-danmu-pool",
-        "page-pet",
         "page-live-output-source",
         "page-history-stats-source",
         "page-session-runs-source",
@@ -393,7 +401,6 @@ def test_content_pages_f2_semantic_shell():
 
     for bid in (
         "btnSaveMemeBarrageSettings",
-        "btnPetSave",
         "btnSavePersona",
         "btnKnowledgeNewPackage",
         "btnFeedbackSubmit",
@@ -406,12 +413,11 @@ def test_content_pages_f2_semantic_shell():
     assert 'id="btnAiButlerSend"' not in content
 
     for iid in (
-        "memeCollectInterval",
-        "poolMinOnScreen",
-        "personaSelect",
-        "knowledgePackageName",
-        "petScale",
-    ):
+            "memeCollectInterval",
+            "poolMinOnScreen",
+            "personaSelect",
+            "knowledgePackageName",
+        ):
         assert re.search(
             rf'id="{iid}"[^>]*class="[^"]*ui-control',
             content,
@@ -425,7 +431,6 @@ def test_content_pages_f2_semantic_shell():
         "poolTxtLineCount",
         "btnPoolOpenTxtFolder",
         "btnPoolRefreshTxt",
-        "petEnabled",
         "personaSelect",
         "liveOverlayUrl",
         "knowledgePackageList",

@@ -63,7 +63,7 @@ def resolve_root_hwnd(hwnd: int) -> int:
 
 
 def apply_overlay_exstyles(hwnd: int, *, click_through: bool = True) -> None:
-    """Win32：WS_EX_LAYERED + 可选 WS_EX_TRANSPARENT（Qt 透明 Overlay / 桌宠共用）。
+    """Win32：WS_EX_LAYERED + 可选 WS_EX_TRANSPARENT（Qt 透明叠加层共用）。
 
     Always operates on the top-level root HWND and refreshes the frame with
     SWP_FRAMECHANGED so hit-testing picks up the new extended styles.

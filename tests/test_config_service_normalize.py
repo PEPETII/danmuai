@@ -35,12 +35,6 @@ def test_normalize_danmu_render_mode_invalid_defaults_scrolling(config_service):
     assert items["danmu_render_mode"] == "scrolling"
 
 
-def test_normalize_pet_scale_clamped(config_service):
-    items = {"pet_scale": "9.9"}
-    config_service._normalize_items(items)
-    assert items["pet_scale"] == "2.0"
-
-
 def test_normalize_danmu_speed_invalid_defaults(config_service):
     items = {"danmu_speed": "not-a-number"}
     config_service._normalize_items(items)

@@ -108,13 +108,6 @@ const OVERVIEW_FIELD_TIPS = {
 const PERSONA_FIELD_TIPS = {
 };
 
-const PET_FIELD_TIPS = {
-  petScale: 'hints.petScale',
-  petOpacity: 'hints.petOpacity',
-  petAlwaysOnTop: 'hints.petAlwaysOnTop',
-  petClickThrough: 'hints.petClickThrough',
-};
-
 const CONTENT_PAGE_SECTION_TIPS = {
 };
 
@@ -298,12 +291,9 @@ export function initStyleGeneratorFieldHints() {
 export function initContentPageFieldHints() {
   const overviewRoot = document.getElementById('page-overview');
   const personaRoot = document.getElementById('page-persona');
-  const petRoot = document.getElementById('page-pet');
 
   attachFieldHintsInRoot(overviewRoot, OVERVIEW_FIELD_TIPS);
   attachFieldHintsInRoot(personaRoot, PERSONA_FIELD_TIPS);
-  attachFieldHintsInRoot(petRoot, PET_FIELD_TIPS, CONTENT_PAGE_CONTROL_HINT_IDS);
-
   Object.entries(CONTENT_PAGE_SECTION_TIPS).forEach(([elementId, tipKey]) => {
     const heading = document.getElementById(elementId);
     if (heading) attachHintToHeading(heading, resolveTipText(tipKey), `tip-section-${elementId}`);

@@ -113,7 +113,7 @@ let danmuReadRenderedProviderId = null;
 let danmuReadVoices = [];
 let danmuReadVoiceRequest = 0;
 let danmuPoolPagesReady = false;
-let petPageReady = false;
+let virtualHostPageReady = false;
 let vtuberPageReady = false;
 let styleGeneratorPageReady = false;
 let knowledgePageReady = false;
@@ -131,11 +131,11 @@ async function ensureDanmuPoolPages() {
   return { poolMod, memeMod };
 }
 
-async function ensurePetPage() {
-  const mod = await import('./modules/app-pet-page.js');
-  if (!petPageReady) {
-    mod.initPetPage({ showToast });
-    petPageReady = true;
+async function ensureVirtualHostPage() {
+  const mod = await import('./modules/app-virtual-host-page.js');
+  if (!virtualHostPageReady) {
+    mod.initVirtualHostPage({ showToast });
+    virtualHostPageReady = true;
   }
   return mod;
 }
@@ -1002,9 +1002,9 @@ function navigate(page) {
       .then((mod) => mod.stopMemeBarrageMetaPolling())
       .catch(() => {});
   }
-  if (page === 'pet') {
+  if (page === 'virtual-host') {
     Promise.all([
-      ensurePetPage().then((mod) => mod.loadPetPage()),
+      ensureVirtualHostPage().then((mod) => mod.loadVirtualHostPage()),
       ensureVtuberPage().then((mod) => mod.loadVtuberPage()),
     ])
       .catch((error) => showToast(error.message, true));

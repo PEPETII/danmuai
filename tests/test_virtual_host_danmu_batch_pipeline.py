@@ -96,7 +96,7 @@ def test_runtime_only_accepts_displayed_events_for_each_surface():
     assert service.on_danmu_displayed(generated).accepted is False
     assert service.on_danmu_displayed(queued).accepted is False
 
-    for surface in ("overlay", "floating_panel", "pet"):
+    for surface in ("overlay", "floating_panel"):
         event = DanmuDisplayed.from_lines(
             batch_id=f"batch-{surface}",
             event_id=f"displayed-{surface}",
@@ -108,7 +108,6 @@ def test_runtime_only_accepts_displayed_events_for_each_surface():
     assert [row.display_surface for row in service.session.recent_batches()] == [
         "overlay",
         "floating_panel",
-        "pet",
     ]
 
 

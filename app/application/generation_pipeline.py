@@ -34,24 +34,21 @@ if TYPE_CHECKING:
 class GenerationPipeline:
     """主链路回复消费与三路分发服务。
 
-    Phase 2：真三路分发——pet / floating_panel / overlay 各自独立方法，
-    打破 Phase 1 的 floating_panel 预检 + fall-through 模式。共享锚点更新
-    逻辑抽到 ``_compute_anchor_update``。
+    Phase 2：floating_panel / overlay 各自独立方法，打破 Phase 1 的
+    floating_panel 预检 + fall-through 模式。共享锚点更新逻辑抽到
+    ``_compute_anchor_update``。
     """
 
     def __init__(self, app: "DanmuApp") -> None:
         self._app = app
 
     def consume_reply_queue(self) -> None:
-        """从 reply_buffer 取出回复，分发到 pet / floating_panel / overlay 三条通道。
+        """从 reply_buffer 取出回复，分发到 floating_panel / overlay 两条通道。
 
         调用线程：Qt 主线程（reply_timer 单次触发回调；自适应间隔 100-1000ms）。
-        三路分发各自独立 return，无 fall-through。
+        两路分发各自独立 return，无 fall-through。
         """
         app = self._app
-        if app.is_pet_barrage_mode_enabled():
-            self._dispatch_to_pet(app)
-            return
         if app.danmu_render_mode() == "floating_panel":
             self._dispatch_to_floating_panel(app)
             return
@@ -149,7 +146,7 @@ class GenerationPipeline:
         # Phase B / Wave 7（B2）：通知知识包服务更新条目最近使用窗口。
         # 异常隔离：knowledge_runtime 未挂载或调用失败均 no-op，不打断主链路。
         # 用 __dict__.get 而非 getattr，兼容测试中 QObject 未走 __init__ 的场景
-        # （与 _build_visual_prompts 访问 pet_command_service 的模式一致）。
+        # （与其它可选运行时服务的访问模式一致）。
         knowledge_runtime = app.__dict__.get("knowledge_runtime")
         if knowledge_runtime is not None and knowledge_used:
             try:
@@ -158,7 +155,6 @@ class GenerationPipeline:
                 app.logger.debug(
                     "knowledge on_reply_consumed failed (non-fatal): %r", exc
                 )
-        app.notify_pet_visual_success()
         app.publish_live_status()
 
         if not app.reply_timer.isActive():
@@ -169,87 +165,6 @@ class GenerationPipeline:
         else:
             app.reply_timer.setInterval(min(app.reply_timer.interval(), 200))
         return True
-
-    def _dispatch_to_pet(self, app: "DanmuApp") -> None:
-        """桌宠气泡分发：批量 pop（最多 5 条）→ 渲染 → deliver_batch。"""
-        barrage = (
-            app.optional_pet_barrage_controller()
-            if callable(getattr(app, "optional_pet_barrage_controller", None))
-            else getattr(app, "pet_barrage_controller", None)
-        )
-        if barrage is None:
-            return
-        batch: list = []
-        while len(batch) < 5 and not app.reply_buffer.is_empty():
-            queued_item = app.reply_buffer.pop()
-            if queued_item is None:
-                break
-            batch.append(queued_item)
-        if not batch:
-            return
-        rendered_rows: list[tuple[object, str]] = []
-        for queued_item in batch:
-            display_text = resolve_danmu_display_text(
-                queued_item.content,
-                app.config,
-                queued_item.persona_id,
-            )
-            if not display_text:
-                app.logger.info(
-                    tr("app.danmu_not_entered").format(content=f"{queued_item.content[:20]}...")
-                    + f" [{tr('log.reject.pet_empty')}]"
-                )
-                app.log_reply_pipeline_from_queued(
-                    "reply_displayed",
-                    queued_item,
-                    displayed=False,
-                )
-                continue
-            rendered_rows.append((queued_item, display_text))
-        if not rendered_rows:
-            if not app.reply_buffer.is_empty():
-                app.reply_timer.start(100)
-            app.update_stats_from_pipeline(success=False)
-            app.maybe_pool_topup()
-            return
-        deliveries = barrage.deliver_batch(
-            [text for _, text in rendered_rows[:5]],
-            persona_id=rendered_rows[0][0].persona_id,
-            batch_id=rendered_rows[0][0].batch_id,
-            scene_generation=rendered_rows[0][0].scene_generation,
-            source=rendered_rows[0][0].source,
-        )
-        delivered_rows = rendered_rows[: len(deliveries)]
-        for queued_item, text in delivered_rows:
-            app.history_writer.enqueue(text, queued_item.persona_id, queued_item.batch_index)
-            app.log_reply_pipeline_from_queued(
-                "reply_displayed",
-                queued_item,
-                displayed=True,
-            )
-            self._notify_virtual_host_displayed(app, queued_item, text, "pet")
-        rejected_rows = rendered_rows[len(deliveries) :]
-        for queued_item, _text in rejected_rows:
-            app.log_reply_pipeline_from_queued(
-                "reply_displayed",
-                queued_item,
-                displayed=False,
-            )
-            app.record_undisplayed("pet_rejected", persona_id=queued_item.persona_id)
-        if not delivered_rows:
-            if not app.reply_buffer.is_empty():
-                app.reply_timer.start(100)
-            app.update_stats_from_pipeline(success=False)
-            app.maybe_pool_topup()
-            return
-        app.set_latest_displayed_from_pipeline(
-            screenshot_round=max(item.screenshot_round for item, _ in delivered_rows),
-            screenshot_id=max(item.screenshot_id for item, _ in delivered_rows),
-        )
-        if not app.reply_buffer.is_empty():
-            app.reply_timer.start(app.estimated_reply_gap_ms())
-        app.update_stats_from_pipeline(success=True, count=len(delivered_rows))
-        app.maybe_pool_topup()
 
     def _dispatch_to_floating_panel(self, app: "DanmuApp") -> None:
         """浮动面板分发：peek 预检（空文本/去重）→ pop + 上屏 + 锚点 + 失败回插。

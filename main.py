@@ -59,7 +59,6 @@ from app.main_live2d_mixin import DanmuAppLive2DMixin
 from app.main_meme_mixin import DanmuAppMemeMixin
 from app.main_mic_mixin import MIC_POLL_MS, MIC_POLL_PHASE_MS, DanmuAppMicMixin  # noqa: F401
 from app.main_overlay_mixin import DanmuAppOverlayMixin
-from app.main_pet_mixin import DanmuAppPetMixin
 from app.main_render_coordinator_mixin import DanmuAppRenderCoordinatorMixin
 from app.main_request_context_mixin import (
     DanmuAppRequestContextMixin,
@@ -99,7 +98,6 @@ class DanmuApp(
     DanmuAppStateMixin,
     DanmuAppMicMixin,
     DanmuAppRenderCoordinatorMixin,
-    DanmuAppPetMixin,
     DanmuAppLive2DMixin,
     DanmuAppOverlayMixin,
     DanmuAppFloatingPanelMixin,
@@ -175,10 +173,8 @@ class DanmuApp(
         """解析公式化补足目标面：('scrolling'|'floating_panel', plan_engine) 或 None。
 
         floating 时禁止写横向 DanmuEngine；scrolling 时禁止写 FP。
-        pet 模式或显示面未就绪时返回 None。
+        显示面未就绪时返回 None。
         """
-        if self._pet_barrage_mode_enabled():
-            return None
         mode = self._danmu_render_mode()
         if mode == "floating_panel":
             eng = self.__dict__.get("floating_panel_engine")
@@ -590,18 +586,6 @@ class DanmuApp(
         now = datetime.now().strftime("%H:%M:%S")
         user_pt = user_pt.replace("{current_time}", now)
         user_pt = user_pt.replace("{round}", str(self.screenshot_round))
-
-        pet_svc = self.__dict__.get("pet_command_service")
-        if pet_svc is not None:
-            from app.pet.pet_prompt import (
-                append_pet_command_to_system_pt,
-                build_pet_command_user_pt,
-            )
-
-            command_text = pet_svc.consume_for_prompt()
-            if command_text:
-                user_pt = build_pet_command_user_pt(user_pt, command_text)
-                system_pt = append_pet_command_to_system_pt(system_pt, command_text)
 
         # Phase B / Wave 7（B2）：知识包检索注入到 system_pt 末尾。
         # 异常隔离：knowledge_runtime 未挂载或检索失败 → 原样返回 system_pt。

@@ -138,21 +138,6 @@ class DanmuAppLifecycleMixin:
             self.config, self.floating_panel_engine
         )
 
-    def _ensure_pet_components(self) -> None:
-        """按需创建宠物组件（PetWindow / PetBarrageWindows / PetBarrageController / PetCommandService）。
-        仅在主线程调用，幂等：已创建则直接返回。"""
-        if self.__dict__.get("pet_window") is not None:
-            return
-        from app.pet.pet_barrage import PET_BARRAGE_COUNT, PetBarrageController
-        from app.pet.pet_command_service import PetCommandService
-        from app.pet.pet_window import PetWindow
-
-        self.pet_command_service = PetCommandService()
-        self.pet_window = PetWindow(self)
-        self.pet_barrage_windows = [PetWindow(self, slot_id=idx) for idx in range(PET_BARRAGE_COUNT)]
-        self.pet_barrage_controller = PetBarrageController(self)
-        self.pet_barrage_controller.attach_windows(self.pet_barrage_windows)
-
     def _init_request_pipeline_state(self) -> None:
         self.ai_worker = AiWorker(self.config)
         self.ai_worker.finished.connect(self._on_ai_reply)
@@ -420,18 +405,6 @@ class DanmuAppLifecycleMixin:
         # 虚拟主播运行时：Live2D 启动后消费独立视觉/TTS 配置。
         self._ensure_virtual_host_runtime()
 
-        # PET-009 / W-PET-LAZY-INIT-VISIBILITY-001：启动期按需初始化并同步桌宠显隐。
-        # config_changed 信号在 _start_web_console_stack 才连接，启动期收不到；
-        # _sync_pet_window_visibility 会在 enabled+visible 时触发 _ensure_pet_components。
-        if (
-            self.config.get("pet_enabled", "0") == "1"
-            and self.config.get("pet_visible", "0") == "1"
-        ):
-            try:
-                self._sync_pet_window_visibility()
-            except RuntimeError as exc:
-                self.logger.debug(f"pet startup visibility sync skipped: {exc!r}")
-
     def _start_web_console_stack(self, log_startup) -> None:
         from app.web_console import attach_web_console, classify_web_console_startup
         from app.webview_shell import notify_web_console_failure
@@ -531,21 +504,8 @@ class DanmuAppLifecycleMixin:
         self._sync_overlay_visibility()
         self._sync_floating_panel_visibility()
         self._sync_web_panel_click_through()
-        self._sync_pet_window_visibility()
         self._sync_mic_service()
         fp_overlay = self.__dict__.get("floating_panel_overlay")
-        pet_window = self.__dict__.get("pet_window")
-        if pet_window is not None:
-            try:
-                pet_window.apply_config()
-            except RuntimeError as exc:
-                self.logger.warning(f"pet window apply_config failed: {exc!r}")
-        pet_barrage_ctrl = self.__dict__.get("pet_barrage_controller")
-        if pet_barrage_ctrl is not None:
-            try:
-                pet_barrage_ctrl.apply_config()
-            except RuntimeError as exc:
-                self.logger.warning(f"pet barrage controller apply_config failed: {exc!r}")
         # Keep an already-running WebView converged with config changes,
         # including replacement/clearing of the managed custom CSS text.
         push_panel_config = getattr(self, "_push_panel_config", None)
@@ -590,8 +550,6 @@ class DanmuAppLifecycleMixin:
         timing_service = self._get_request_timing_service()
         self._consume_request_timing(request_round, screenshot_id, scene_generation)
         purged_timing = timing_service.purge_stale(now=time.monotonic())
-        self._notify_pet_visual_error()
-
         if diagnostic_reason:
             self.logger.error(
                 "视觉请求 in-flight 强制恢复: %s [persona=%s, round=%s, "
@@ -826,7 +784,6 @@ class DanmuAppLifecycleMixin:
         self._sync_floating_panel_visibility()
         self._topmost_health_timer.start()
         self._reassert_active_overlay_topmost()
-        self._sync_pet_window_visibility()
         self._pool_topup_timer.start()
         self._start_meme_barrage_timers()
         self.tray.update_state(running=True)
@@ -977,24 +934,6 @@ class DanmuAppLifecycleMixin:
         if overlay is not None:
             overlay.hide()
 
-        pet_window = self.__dict__.get("pet_window")
-        if pet_window is not None:
-            try:
-                pet_window.hide_pet()
-            except RuntimeError as exc:
-                logger = getattr(self, "logger", None)
-                if logger is not None:
-                    logger.debug(f"pet window hide on startup failure skipped: {exc!r}")
-
-        pet_barrage_ctrl = self.__dict__.get("pet_barrage_controller")
-        if pet_barrage_ctrl is not None:
-            try:
-                pet_barrage_ctrl.close()
-            except RuntimeError as exc:
-                logger = getattr(self, "logger", None)
-                if logger is not None:
-                    logger.debug(f"pet barrage close on startup failure skipped: {exc!r}")
-
         server = getattr(self, "web_server", None)
         web_shutdown_done = True
         if server is not None:
@@ -1123,20 +1062,6 @@ class DanmuAppLifecycleMixin:
                 self.logger.error(
                     "quit deferred config close: Web/worker shutdown barrier incomplete"
                 )
-
-            # 显式清理 pet 组件:停止 QTimer、释放 QPixmap,与 overlay 对称。
-            pet_window = self.__dict__.get("pet_window")
-            if pet_window is not None:
-                try:
-                    pet_window.hide_pet()
-                except RuntimeError as exc:
-                    self.logger.warning(f"pet window hide on quit failed: {exc!r}")
-            pet_barrage_ctrl = self.__dict__.get("pet_barrage_controller")
-            if pet_barrage_ctrl is not None:
-                try:
-                    pet_barrage_ctrl.close()
-                except RuntimeError as exc:
-                    self.logger.warning(f"pet barrage close on quit failed: {exc!r}")
 
             virtual_host_runtime = self.__dict__.get("virtual_host_runtime")
             if virtual_host_runtime is not None:

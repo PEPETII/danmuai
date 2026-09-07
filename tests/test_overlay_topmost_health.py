@@ -28,7 +28,6 @@ def _bind_display_facade(app) -> None:
         "_floating_panel_v2_enabled",
         "_active_overlay_layer",
         "_overlay_own_hwnds",
-        "_reassert_pet_above_overlays",
         "_reassert_active_overlay_topmost",
         "_update_overlay_compat_warning",
         "_on_topmost_health_tick",
@@ -69,7 +68,6 @@ def test_topmost_timer_lifecycle_on_start_stop(topmost_app):
     app._sync_overlay_visibility = Mock()
     app._sync_floating_panel_visibility = Mock()
     app._reassert_active_overlay_topmost = Mock()
-    app._sync_pet_window_visibility = Mock()
     app._pool_topup_timer = FakeTimer()
     app._start_meme_barrage_timers = Mock()
     app.tray = Mock()
@@ -178,7 +176,6 @@ def test_health_tick_reasserts_scrolling_overlay(topmost_app, qapp, monkeypatch)
     app.__dict__["_last_foreground_hwnd"] = 0
     calls: list[str] = []
     overlay.reassert_topmost_zorder = lambda: calls.append("overlay")
-    app._reassert_pet_above_overlays = Mock()
     app._update_overlay_compat_warning = Mock()
     app._update_screen_index_fallback_warning = Mock()
     app._on_topmost_health_tick()
@@ -198,7 +195,6 @@ def test_health_tick_reasserts_floating_panel(topmost_app, qapp, monkeypatch):
     app.__dict__["_last_foreground_hwnd"] = 0
     calls: list[str] = []
     fp_overlay.reassert_topmost_zorder = lambda: calls.append("fp")
-    app._reassert_pet_above_overlays = Mock()
     app._update_overlay_compat_warning = Mock()
     app._update_screen_index_fallback_warning = Mock()
     app._on_topmost_health_tick()
@@ -303,7 +299,6 @@ def test_health_tick_reasserts_on_fail_streak(topmost_app, qapp, monkeypatch):
     overlay._topmost_fail_streak = 2
     calls: list[str] = []
     overlay.reassert_topmost_zorder = lambda: calls.append("overlay")
-    app._reassert_pet_above_overlays = Mock()
     app._update_overlay_compat_warning = Mock()
     app._update_screen_index_fallback_warning = Mock()
     app._on_topmost_health_tick()

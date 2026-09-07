@@ -18,7 +18,7 @@ from tests.conftest import make_minimal_danmu_app
 # 已在各自专属测试覆盖，主链路单测不需要。
 KNOWN_OPTIONAL: frozenset[str] = frozenset({
     # 生命周期 / 启动编排（_init_* / start / stop / quit 等）
-    "_init_runtime_bridge_state", "_init_core_subsystems", "_ensure_pet_components",
+    "_init_runtime_bridge_state", "_init_core_subsystems",
     "_init_request_pipeline_state", "_init_runtime_tracking_state",
     "_reset_scene_generation_baseline", "_maybe_bump_scene_generation_on_config",
     "_on_scene_generation_bumped", "_init_startup_services", "_start_web_console_stack",
@@ -26,7 +26,7 @@ KNOWN_OPTIONAL: frozenset[str] = frozenset({
     "_sync_overlay_visibility", "_sync_floating_panel_visibility",
     "_floating_panel_v2_enabled", "_overlay_display_enabled",
     "_on_config_changed", "_on_app_focus_changed", "_on_state_changed",
-    "_display_danmu_text", "_danmu_render_mode", "_sync_pet_window_visibility",
+    "_display_danmu_text", "_danmu_render_mode",
     "_publish_live_status", "_on_topmost_health_tick",
     # 烂梗 / 麦 / TTS（已在各自 mixin 专属测试覆盖）
     "_init_meme_barrage_timers", "_stop_meme_barrage_timers",

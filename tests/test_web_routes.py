@@ -730,22 +730,6 @@ def test_empty_accel_truthy_string_normalizes_to_one(tmp_path):
     assert store.get("empty_accel") == "1"
 
 
-def test_pet_position_x_invalid_clears_value(tmp_path):
-    from app.application.config_service import apply_web_config_patch
-
-    app, store = _config_service_stub_app(tmp_path)
-    apply_web_config_patch(app, {"pet_position_x": "not-int"})
-    assert store.get("pet_position_x") == ""
-
-
-def test_pet_position_x_over_max_clamps(tmp_path):
-    from app.application.config_service import apply_web_config_patch
-
-    app, store = _config_service_stub_app(tmp_path)
-    apply_web_config_patch(app, {"pet_position_x": "999999"})
-    assert store.get("pet_position_x") == "32000"
-
-
 # W-FONT-002：字体导入 API（HTTP 契约；QFontDatabase 行为见 test_font_registry.py）
 
 
@@ -843,82 +827,6 @@ def test_post_fonts_import_rejects_oversized_file():
     )
     assert res.status_code == 400
     assert res.json()["detail"] == "file_too_large"
-
-
-def test_pet_settings_and_command_routes():
-    from app.web_api.routes import register_web_routes
-    from fastapi import FastAPI
-    from fastapi.testclient import TestClient
-
-    app = FastAPI()
-    bridge = MagicMock()
-    bridge.invoke_on_main.side_effect = lambda fn, *args, **kwargs: fn(*args, **kwargs)
-    bridge.danmu_app.get_pet_settings_snapshot.return_value = {
-        "enabled": False,
-        "visible": False,
-        "has_pending_command": False,
-    }
-    bridge.danmu_app.apply_pet_settings_patch.return_value = {"enabled": True}
-    bridge.danmu_app.import_pet_asset_via_dialog.return_value = {
-        "enabled": True,
-        "asset_source": "local",
-        "asset_path": "C:/pets/custom-cat",
-        "asset": {"ok": True, "display_name": "Custom Cat"},
-    }
-    bridge.danmu_app.reset_pet_asset_to_builtin.return_value = {
-        "enabled": True,
-        "asset_source": "builtin",
-        "asset_path": "",
-        "asset": {"ok": True, "display_name": "Yuexin Miao Animated"},
-    }
-    bridge.danmu_app.show_pet.return_value = {"ok": True}
-    bridge.danmu_app.submit_pet_command.return_value = {"ok": True, "id": "abc"}
-    bridge.danmu_app.get_pet_status_snapshot.return_value = {"animation": "idle"}
-
-    def _check_token(authorization: str | None = None) -> None:
-        if authorization != "Bearer pet-secret":
-            from fastapi import HTTPException
-
-            raise HTTPException(status_code=401)
-
-    register_web_routes(app, bridge, _check_token)
-    client = TestClient(app)
-
-    assert client.get("/api/pet/settings").status_code == 200
-    assert client.get("/api/pet/status").json()["animation"] == "idle"
-
-    denied = client.post("/api/pet/command", json={"text": "hi"})
-    assert denied.status_code == 401
-
-    ok = client.post(
-        "/api/pet/command",
-        json={"text": "接下来偏搞笑"},
-        headers={"Authorization": "Bearer pet-secret"},
-    )
-    assert ok.status_code == 200
-    bridge.danmu_app.submit_pet_command.assert_called_once_with("接下来偏搞笑", source="web_api")
-
-    show = client.post("/api/pet/show", headers={"Authorization": "Bearer pet-secret"})
-    assert show.status_code == 200
-    bridge.danmu_app.show_pet.assert_called_once()
-
-    save = client.post(
-        "/api/pet/settings",
-        json={"enabled": False, "visible": True, "scale": 1.0},
-        headers={"Authorization": "Bearer pet-secret"},
-    )
-    assert save.status_code == 200
-    patch_payload = bridge.danmu_app.apply_pet_settings_patch.call_args[0][0]
-    assert patch_payload.get("pet_enabled") is False
-    assert "pet_visible" not in patch_payload
-
-    imported = client.post("/api/pet/import-folder", headers={"Authorization": "Bearer pet-secret"})
-    assert imported.status_code == 200
-    bridge.danmu_app.import_pet_asset_via_dialog.assert_called_once()
-
-    reset = client.post("/api/pet/reset-asset", headers={"Authorization": "Bearer pet-secret"})
-    assert reset.status_code == 200
-    bridge.danmu_app.reset_pet_asset_to_builtin.assert_called_once()
 
 
 def test_delete_font_removes_from_list():

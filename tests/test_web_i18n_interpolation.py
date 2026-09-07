@@ -18,7 +18,6 @@ ALLOWED_MODULES = {
     "app-live-overlay-panel.js",
     "app-meme-barrage-page.js",
     "app-persona-topic-page.js",
-    "app-pet-page.js",
     "app-update-banner.js",
     "content-feedback.js",
     "settings-capture-region.js",

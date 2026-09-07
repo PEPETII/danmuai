@@ -41,7 +41,6 @@ NAV_LABEL_KEYS = {
     "温馨控制台": "overview",
     "人格工坊": "persona",
     "公式化弹幕库": "danmuPool",
-    "桌宠": "pet",
     "弹幕设置": "settings",
     "直播设置": "liveSettings",
     "教程|日志|反馈|公告": "guide",

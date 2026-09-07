@@ -27,11 +27,6 @@ CRITICAL_DEFERRED_IMPORTS: frozenset[str] = frozenset(
         "app.uninstall_service",
         "app.font_registry",
         "app.webview2_runtime",
-        "app.pet.pet_window",
-        "app.pet.pet_barrage",
-        "app.pet.pet_command_service",
-        "app.pet.pet_facade",
-        "app.pet.pet_assets",
     }
 )
 
@@ -56,7 +51,6 @@ CRITICAL_APP_PACKAGE_COVERAGE: frozenset[str] = frozenset(
         "app.knowledge",
         "app.live2d",
         "app.meme_barrage",
-        "app.pet",
         "app.providers",
         "app.tts",
         "app.virtual_host",

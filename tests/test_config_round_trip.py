@@ -51,16 +51,6 @@ _ROUND_TRIP_CASES = [
     ("normal_reply_count", "6", "6"),
     ("floating_panel_font_family", "SimHei", "SimHei"),
     ("floating_panel_font_bold", "1", "1"),
-    ("pet_enabled", "1", "1"),
-    ("pet_visible", "1", "1"),
-    ("pet_asset_source", "builtin", "builtin"),
-    ("pet_scale", "1.0", "1.0"),
-    ("pet_opacity", "0.8", "0.8"),
-    ("pet_always_on_top", "1", "1"),
-    ("pet_click_through", "0", "0"),
-    ("pet_command_box_enabled", "1", "1"),
-    ("pet_command_ttl_sec", "60", "60"),
-    ("pet_command_apply_count", "2", "2"),
     ("danmu_speed", "0", "0.5"),
 ]
 

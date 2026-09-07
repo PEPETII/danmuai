@@ -22,17 +22,10 @@ class DanmuAppRenderCoordinatorMixin:
     def _danmu_render_mode(self) -> str:
         return resolve_danmu_render_mode(self.config)
 
-    def _pet_barrage_mode_enabled(self) -> bool:
-        return self.config.get("pet_barrage_mode_enabled", "0") == "1"
-
     def _overlay_display_enabled(self) -> bool:
-        if self._pet_barrage_mode_enabled():
-            return False
         return self._danmu_render_mode() == "scrolling"
 
     def _floating_panel_v2_enabled(self) -> bool:
-        if self._pet_barrage_mode_enabled():
-            return False
         return self._danmu_render_mode() == "floating_panel"
 
     def _current_danmu_delay_sec(self) -> float:
@@ -113,8 +106,6 @@ class DanmuAppRenderCoordinatorMixin:
         pre_resolved: bool = False,
     ):
         """按 danmu_render_mode 路由上屏：互斥，floating_panel 不触碰 DanmuEngine。"""
-        if self._pet_barrage_mode_enabled():
-            return None
         if self._danmu_render_mode() == "floating_panel":
             return self._display_floating_panel_text(
                 content,

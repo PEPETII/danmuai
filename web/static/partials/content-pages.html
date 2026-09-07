@@ -192,197 +192,18 @@
         </div>
       </div>
     </section>
-
-    <!-- ========== 区域：桌宠 ========== -->
-        <section id="page-pet" class="page-panel" data-i18n-aria-label="content.text.桌宠" aria-label="桌宠" data-page-node-id="Mx4NjRMuFS4oX7BBii9HDf">
-      <header class="mb-8 ui-page-header" data-page-node-id="dFrwfLIGRMg3As2itMyjt3"><div class="ui-page-header__copy min-w-0" data-page-node-id="FJm1lCrOK3VMFY3nqXeIDX"><h2 class="text-2xl font-bold text-warmText ui-page-title" data-page-node-id="X2pljfILZQVn8GP13dEECg">桌宠</h2><p class="text-gray-500 mt-1 ui-page-description" data-page-node-id="DI0QCgO24WeE6wTYf6Yb5r">桌面互动宠物与弹幕指令入口；复用助手模型，不单独请求 AI</p></div>
-        <div class="mt-4 flex justify-center" data-page-node-id="oMQaX0hYj0AtOC7SRrkUDB">
-          <a href="https://petdex.dev/zh" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center px-5 py-2 rounded-full bg-softPeach text-warmText font-semibold shadow-warm hover:bg-softPeach/80 transition ui-button ui-button--secondary ui-button--md" data-page-node-id="NAxYsSZYSWb0XXijc1KSSi">去 PetDex 查找更多桌宠</a>
-        </div>
-      </header>
-      <div class="card p-8 space-y-8 pet-page ui-card" data-page-node-id="DHgIm7YDqareCw2BfEecIt">
-        <div class="settings-tabs-bar mb-6" data-page-node-id="Fzm8nj5X9ZFHz60AF0EhIM">
-          <div class="settings-tabs pet-tabs" role="tablist" aria-label="虚拟主播与桌宠分类" data-page-node-id="xzidVk2sGGVuBmGwlXV7uE">
-            <button type="button" role="tab" id="petTabBtn-pet" class="settings-tab active" data-pet-tab="pet" aria-controls="petTab-pet" aria-selected="true" data-page-node-id="ZWnu2pslSSQSAWWBrPHEkL">桌宠</button>
-            <button type="button" role="tab" id="petTabBtn-vtuber" class="settings-tab" data-pet-tab="vtuber" aria-controls="petTab-vtuber" aria-selected="false" data-page-node-id="w48shiS6bhDpoMbv4G86RP">虚拟主播</button>
-            <button type="button" role="tab" id="petTabBtn-vtuber-persona" class="settings-tab" data-pet-tab="vtuber-persona" aria-controls="petTab-vtuber-persona" aria-selected="false" data-i18n="content.text.虚拟主播人格" data-page-node-id="8acqZkblYcaJb6J51y8Bri">虚拟主播人格</button>
-            <button type="button" role="tab" id="petTabBtn-vtuber-download" class="settings-tab" data-pet-tab="vtuber-download" aria-controls="petTab-vtuber-download" aria-selected="false" data-page-node-id="7dTCEyrKN4qPouXdEDFsWg">虚拟主播下载</button>
+    <!-- ========== 区域：虚拟主播 ========== -->
+        <section id="page-virtual-host" class="page-panel" aria-label="虚拟主播">
+      <header class="mb-8 ui-page-header"><div class="ui-page-header__copy min-w-0"><h2 class="text-2xl font-bold text-warmText ui-page-title">虚拟主播</h2><p class="text-gray-500 mt-1 ui-page-description">虚拟主播 / Live2D</p></div></header>
+      <div class="card p-8 space-y-8 virtual-host-page ui-card">
+        <div class="settings-tabs-bar mb-6">
+          <div class="settings-tabs virtual-host-tabs" role="tablist" aria-label="虚拟主播">
+            <button type="button" role="tab" id="virtualHostTabBtn-vtuber" class="settings-tab active" data-virtual-host-tab="vtuber" aria-controls="virtualHostTab-vtuber" aria-selected="true">虚拟主播</button>
+            <button type="button" role="tab" id="virtualHostTabBtn-vtuber-persona" class="settings-tab" data-virtual-host-tab="vtuber-persona" aria-controls="virtualHostTab-vtuber-persona" aria-selected="false">虚拟主播人格</button>
+            <button type="button" role="tab" id="virtualHostTabBtn-vtuber-download" class="settings-tab" data-virtual-host-tab="vtuber-download" aria-controls="virtualHostTab-vtuber-download" aria-selected="false">虚拟主播下载</button>
           </div>
         </div>
-
-        <div id="petTab-pet" class="settings-tab-panel active space-y-8" data-pet-panel="pet" role="tabpanel" aria-labelledby="petTabBtn-pet" data-page-node-id="2H3J7sz27cFmroNgfxDzaH">
-        <div data-page-node-id="ros3RA66E55AkzzbFVgtRO">
-          <p class="settings-section-title" data-page-node-id="e7sD2fGULVhYlkgEqAfFZ5">状态</p>
-          <p id="petStatusText" class="text-warmText font-semibold min-w-0 break-words" data-page-node-id="VGn4t3m8BHHZhptmfXHmEk">未启用</p>
-          <p class="settings-section-hint mt-2" data-page-node-id="i1D1N9CrX7GRRCmnF5E4U5">当前桌宠：<span id="petAssetText" data-page-node-id="0iolClHvS9xi9sQ2wZ7IZN">默认桌宠</span></p>
-        </div>
-        <div class="settings-rhythm-accordion" data-settings-rhythm-accordion data-page-node-id="rRmXRXATacfdEfYiRMDdlb">
-          <section class="settings-rhythm-accordion-item" data-page-node-id="p6cv7SCvd9SbMAhWb9oGOm">
-            <h4 class="settings-rhythm-accordion-heading" data-page-node-id="LzbKV8J3n03BEkAP4W0eUj">
-              <button type="button" id="petEnableAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="petEnableAccordionPanel" data-page-node-id="umN5vZwTDEMT9xMG9OmNig">
-                <span data-page-node-id="nCxaxmZvnzrruCjm4G5jyD">启用桌宠</span>
-                <span class="settings-rhythm-accordion-chevron" aria-hidden="true" data-page-node-id="tWw2jdI8zxZhvYR0BqFOTQ"></span>
-              </button>
-            </h4>
-            <div id="petEnableAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="petEnableAccordionTrigger" hidden data-page-node-id="ymJisjayePAwZoUA7ZiF2c">
-              <div class="settings-rhythm-accordion-fields" data-page-node-id="xBnMKeOmvfQNEoJAPQJvQr">
-                <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--toggle" data-page-node-id="tmO45fTm3LqoE8F3qUrG1p">
-                  <div class="flex-1 min-w-0" data-page-node-id="CwmhMvKYPz9LPONPSaQFMJ">
-                    <span class="settings-field-label" data-page-node-id="6YstpeapdfFO833lC3juip">启用桌宠</span>
-                    <p class="text-xs text-gray-500 mt-1" data-page-node-id="Eln2EfrKOwf7AvrYI0BhoH">开启后桌宠将显示在桌面；临时隐藏请使用桌宠右键菜单。</p>
-                  </div>
-                  <label class="toggle-switch" data-page-node-id="C3kbP7sQGFLrwsLyDax2jo">
-                    <input type="checkbox" id="petEnabled" role="switch" data-page-node-id="yK9sbagtGd1BvW9VuLCWwe">
-                    <span aria-hidden="true" data-page-node-id="YMGPkNweZ82EH4KNhW6WRa"></span>
-                  </label>
-                </div>
-                <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--toggle" data-page-node-id="NYRRBWrx89rxLWspLAZh2v">
-                  <div class="flex-1 min-w-0" data-page-node-id="AVBzZPR5262zKgrUz6NBcJ">
-                    <span class="settings-field-label" data-page-node-id="vb48MnzviI4R3JSo15QPbW">开启桌宠弹幕模式</span>
-                    <p class="text-xs text-gray-500 mt-1" data-page-node-id="hiA6s8oYzQWO4CF8FdUGkv">开启后固定展示 5 个桌宠，弹幕会以聊天气泡形式显示在桌宠头顶。</p>
-                  </div>
-                  <label class="toggle-switch" data-page-node-id="xmYQTx7AjryKvUisePtCbf">
-                    <input type="checkbox" id="petBarrageModeEnabled" role="switch" data-page-node-id="DV4THBnxzFCeH9s3c2KxmM">
-                    <span aria-hidden="true" data-page-node-id="W5wK8lfueFwTElGuYCJ5nC"></span>
-                  </label>
-                </div>
-              </div>
-            </div>
-          </section>
-          <section class="settings-rhythm-accordion-item" data-page-node-id="B8BcpAXU0XanBOmNRRm5sI">
-            <h4 class="settings-rhythm-accordion-heading" data-page-node-id="G8sr8BkfDqPySJfqbbMmXz">
-              <button type="button" id="petDisplayAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="petDisplayAccordionPanel" data-page-node-id="67uHqkfZwiicz8Qxl7Ig2l">
-                <span data-page-node-id="Jw28fB73CIkjSNE8r3Ha6S">显示设置</span>
-                <span class="settings-rhythm-accordion-chevron" aria-hidden="true" data-page-node-id="lBFj58Z8EUBodo8NfuBPLd"></span>
-              </button>
-            </h4>
-            <div id="petDisplayAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="petDisplayAccordionTrigger" hidden data-page-node-id="K5nyOLKBBR5dBIRkeRLN5J">
-              <div class="settings-rhythm-accordion-fields" data-page-node-id="NlFHCifqLXJvcY7prYKzE4">
-                <div class="settings-rhythm-accordion-field" data-page-node-id="IFZWsTOpvcrmZGdHxfNgWS">
-                  <div class="flex-1 min-w-0" data-page-node-id="WfzrIu20dkbOe3422Z2CLh">
-                    <label for="petScale" class="settings-field-label" data-page-node-id="WNJ7oxa9ZCtn5Dzg46QBVb">大小倍率</label>
-                    <p class="text-xs text-gray-500 mt-1" data-page-node-id="OmOk5KQy3iYaogdKJgvTFA">桌宠显示大小倍率（0.5–2.0）。1 为默认尺寸。</p>
-                  </div>
-                  <input type="number" id="petScale" min="0.5" max="2" step="0.1" value="0.5" class="settings-field-control ui-control ui-input" data-page-node-id="yTDfN4MDuX1zqGxN9GTQe3">
-                </div>
-                <div class="settings-rhythm-accordion-field" data-page-node-id="zvOVee2M9t7Pcp4UrRDulX">
-                  <div class="flex-1 min-w-0" data-page-node-id="pkJlGdDkyb6dkbUkqfCOHx">
-                    <label for="petOpacity" class="settings-field-label" data-page-node-id="kZ6xOw6kBsflQOxZ8BaPGH">透明度</label>
-                    <p class="text-xs text-gray-500 mt-1" data-page-node-id="DwsBYn4KkGVyEV3kPSOUBd">桌宠窗口不透明度（0.2–1.0）。1 为完全不透明。</p>
-                  </div>
-                  <input type="number" id="petOpacity" min="0.2" max="1" step="0.1" value="1" class="settings-field-control ui-control ui-input" data-page-node-id="azvA5VIJCCC8yEkhz31VaF">
-                </div>
-                <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--toggle" data-page-node-id="tGOgUs8t2XHnIZ7urNsWcT">
-                  <div class="flex-1 min-w-0" data-page-node-id="p4kVI3ndEKrfXXk8XIW6Jo">
-                    <span class="settings-field-label" data-page-node-id="Jg8MFwFQ4blQ3uFmM2bEm9">窗口置顶</span>
-                    <p class="text-xs text-gray-500 mt-1" data-page-node-id="OjIoxUr1kXthU3YREuE7jy">开启后桌宠窗口始终置顶，不会被其它窗口遮挡。</p>
-                  </div>
-                  <label class="toggle-switch" data-page-node-id="X22uwwdnkAi43SHV21yDqC">
-                    <input type="checkbox" id="petAlwaysOnTop" role="switch" checked data-page-node-id="SJM259VrpLhyMdjiMUARgk">
-                    <span aria-hidden="true" data-page-node-id="sunHXNYWKBOkoCspQMsHHo"></span>
-                  </label>
-                </div>
-                <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--toggle" data-page-node-id="0724jpnPh0PPN9ygB5Mmf9">
-                  <div class="flex-1 min-w-0" data-page-node-id="HEQw6Mel0h6aF7hQNvLHsB">
-                    <span class="settings-field-label" data-page-node-id="0DAjuHTmzUUT4GnLJflU2q">鼠标穿透（开启后不可拖动）</span>
-                    <p class="text-xs text-gray-500 mt-1" data-page-node-id="zlUvREbMGDWLumCWe45EmN">开启后鼠标可穿透桌宠，但将无法拖动桌宠位置。</p>
-                  </div>
-                  <label class="toggle-switch" data-page-node-id="gbZ3zoAV3Ovb0O8xG0CTdq">
-                    <input type="checkbox" id="petClickThrough" role="switch" data-page-node-id="93Nqd6zW4vQcyJa7W50mnT">
-                    <span aria-hidden="true" data-page-node-id="TFpDf2D2mrPmDpO0OGOSAN"></span>
-                  </label>
-                </div>
-              </div>
-            </div>
-          </section>
-          <section class="settings-rhythm-accordion-item" data-page-node-id="EhONUpuGFqsGpcI2ASIUqR">
-            <h4 class="settings-rhythm-accordion-heading" data-page-node-id="5xz1NfqVtOTddgB1REA175">
-              <button type="button" id="petCommandAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="petCommandAccordionPanel" data-page-node-id="tmRcFsGPCBNpWzDSMoukIH">
-                <span data-page-node-id="tpZiNHajN91O13BFSSVIME">弹幕指令框</span>
-                <span class="settings-rhythm-accordion-chevron" aria-hidden="true" data-page-node-id="DVaem3abdguIxYhXCJBAtj"></span>
-              </button>
-            </h4>
-            <div id="petCommandAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="petCommandAccordionTrigger" hidden data-page-node-id="nWUIVxgA0GwHORGR7AKEdy">
-              <div class="settings-rhythm-accordion-fields" data-page-node-id="yYQYbTgfuJjkFoPrCc4WLH">
-                <div class="settings-rhythm-accordion-field settings-rhythm-accordion-field--toggle" data-page-node-id="FyOTHOkeDophkNpVgG88ZH">
-                  <div class="flex-1 min-w-0" data-page-node-id="gupxnmiDNMSEIRu63I0BGe">
-                    <span class="settings-field-label" data-page-node-id="5KBmoo7GC42UogqGxvqXGg">双击桌宠弹出指令框</span>
-                    <p class="text-xs text-gray-500 mt-1" data-page-node-id="ardTBXib739KbTHB0EnHlp">开启后双击桌宠可弹出弹幕指令输入框。</p>
-                  </div>
-                  <label class="toggle-switch" data-page-node-id="cJKHnCCDSStdrPPuPOLFBV">
-                    <input type="checkbox" id="petCommandBoxEnabled" role="switch" checked data-page-node-id="BbwM8RX6hz973xyZqyNCl5">
-                    <span aria-hidden="true" data-page-node-id="qGTojOrbG0wfZiDjMGPTMc"></span>
-                  </label>
-                </div>
-                <div class="settings-rhythm-accordion-field" data-page-node-id="BuISICCoHDcLMX6cfaRdtX">
-                  <div class="flex-1 min-w-0" data-page-node-id="TAKArz6nVGRtbjRd8iZgZq">
-                    <label for="petCommandTtl" class="settings-field-label" data-page-node-id="CUgrxopcVgpHFfYvdr8r9C">指令有效期（秒）</label>
-                    <p class="text-xs text-gray-500 mt-1" data-page-node-id="1yws2BS1IxOF4lPQWlxzTG">指令提交后在此秒数内有效（5–300 秒），超时自动失效。</p>
-                  </div>
-                  <input type="number" id="petCommandTtl" min="5" max="300" value="30" class="settings-field-control ui-control ui-input" data-page-node-id="iWzDsIdQywyxNKt7egfPG9">
-                </div>
-                <div class="settings-rhythm-accordion-field" data-page-node-id="jJmix7I0cHS6T4fHw2lCyc">
-                  <div class="flex-1 min-w-0" data-page-node-id="dMA6nVDEzXEG02gNqyJeBb">
-                    <label for="petCommandApplyCount" class="settings-field-label" data-page-node-id="HLQIuuF63Bgk28Zy1QKK1D">生效次数</label>
-                    <p class="text-xs text-gray-500 mt-1" data-page-node-id="RndJg3gG0U6sbAhY4PESLh">一条指令最多影响几次截图弹幕生成（1–5 次）。</p>
-                  </div>
-                  <input type="number" id="petCommandApplyCount" min="1" max="5" value="1" class="settings-field-control ui-control ui-input" data-page-node-id="qfBv3zm8Zqdj25EKANwq3B">
-                </div>
-                <div class="settings-rhythm-accordion-field" data-page-node-id="jDuJ9lADeZ7sMNwLppJKYQ">
-                  <div class="flex-1 min-w-0" data-page-node-id="fIwaT2Jq416IBGLyUMeB1C">
-                    <label for="petCommandInput" class="settings-field-label" data-page-node-id="dCuYf1G4uHOFjAXnTZEUSD">Web 调试指令</label>
-                    <p class="text-xs text-gray-500 mt-1" data-page-node-id="p1aeZdcAXpLpeuoE7ANSje">在 Web 页调试注入弹幕指令；不会立即请求 AI，而是并入下一次正常截图生成。</p>
-                  </div>
-                  <div class="settings-rhythm-accordion-control-group" data-page-node-id="DFBm5SQvDM7jwxvAXmGwz6">
-                    <input type="text" id="petCommandInput" maxlength="200" data-i18n-placeholder="content.placeholder.例如_接下来弹幕偏搞笑一点" placeholder="例如：接下来弹幕偏搞笑一点" class="settings-field-control ui-control ui-input" data-page-node-id="ftSVkwiSIqAJo40mq6baGW">
-                    <button type="button" id="btnPetCommandSubmit" class="btn-primary px-5 py-2 text-white rounded-xl font-bold shadow-warm ui-button ui-button--primary ui-button--md" data-page-node-id="3lEPGFMUC0Zad3E2AdXDaO">提交指令</button>
-                  </div>
-                </div>
-              </div>
-              <p class="settings-section-hint mt-2" data-page-node-id="zHqmHyYYdU2awsqsVKqqGp">指令不会立即请求 AI，而是注入下一次正常截图弹幕生成；生成时会优先结合你的输入与当前画面。</p>
-            </div>
-          </section>
-        </div>
-        <div class="settings-rhythm-accordion" data-settings-rhythm-accordion data-page-node-id="FEGaAPPfnjqAXGDWLfFjVj">
-          <section class="settings-rhythm-accordion-item" data-page-node-id="VaCHVb68rxTlCZY8grIKNB">
-            <h4 class="settings-rhythm-accordion-heading" data-page-node-id="abWVOhEuFli8YB0SkDwGul">
-              <button type="button" id="petAssetAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="petAssetAccordionPanel" data-page-node-id="AwVaD3GPW6nQyb8DxUCpdA">
-                <span data-page-node-id="5KpPunDdmnwH9pt84mkoJS">导入新桌宠图片</span>
-                <span class="settings-rhythm-accordion-chevron" aria-hidden="true" data-page-node-id="Pgpw5BR423PhUnLZbnUmFA"></span>
-              </button>
-            </h4>
-            <div id="petAssetAccordionPanel" class="settings-rhythm-accordion-panel" role="region" aria-labelledby="petAssetAccordionTrigger" hidden data-page-node-id="U2ubhJVvMMcHQifQYvGyeG">
-              <div class="settings-rhythm-accordion-fields" data-page-node-id="e1Fucmpkf1kAwPOhHzpmDl">
-                <div class="settings-rhythm-accordion-field" data-page-node-id="kWCRdjWgvYl0MFED2yeXj1">
-                  <span class="settings-field-label" data-page-node-id="ZrqlH5JmlK3JibHHTxvKui">素材来源</span>
-                  <p id="petAssetSourceText" class="settings-field-control min-h-[48px] flex items-center break-all min-w-0 break-words" data-page-node-id="8hc3O2husKBNFZmgXzA7Ie">使用默认桌宠</p>
-                </div>
-              </div>
-              <p id="petAssetErrorText" class="hidden text-sm font-semibold text-red-600 mt-2 min-w-0 break-words" data-page-node-id="TbnV5ZrVpKlP3TDpFWlCvS"></p>
-              <div class="flex flex-wrap gap-3 mt-3" data-page-node-id="5KB6RBXPQgploMkDkZp3gi">
-                <div data-page-node-id="EWkz1hCLAeYxEFpIVwr3C1">
-                  <button type="button" id="btnPetImportFolder" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm ui-button ui-button--primary ui-button--md" data-page-node-id="r7WNdaVk5bSc7EJWdY96yH">导入文件夹</button>
-                  <p class="text-xs text-gray-500 mt-1" data-page-node-id="Bu0lL446azfiADxyI6ynTG">从本地文件夹导入桌宠素材。目录需包含 pet.json 与 spritesheet.webp 或 spritesheet.png。</p>
-                </div>
-                <div data-page-node-id="s0BsFetmIlA8zjgU4IzPjX">
-                  <button type="button" id="btnPetResetAsset" class="px-6 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--md" data-page-node-id="WPdIlSjuCf7UuBVe1GtOV1">恢复默认桌宠</button>
-                  <p class="text-xs text-gray-500 mt-1" data-page-node-id="GJPIk9gbEyS5HBAQDIKjCl">恢复为内置默认桌宠，不会删除你原来的本地素材文件。</p>
-                </div>
-              </div>
-            </div>
-          </section>
-        </div>
-        <div id="petBarrageSlotsSection" class="space-y-4 hidden" data-page-node-id="YAMHOM9HriezDyX2yDJcm5">
-          <div data-page-node-id="gRsKZ8LYgvSpoSDgVU5PeK">
-            <p class="settings-section-title" data-page-node-id="urkUd1maMo5w5m5v32yf5c">桌宠弹幕槽位</p>
-            <p class="settings-section-hint" data-page-node-id="4jhOLYroBDD1T3dwj1cjD1">5 个槽位默认都使用当前默认桌宠。你可以分别为每个槽位切换资源，位置会在桌面上独立保存。</p>
-          </div>
-          <div id="petBarrageSlots" class="grid grid-cols-1 xl:grid-cols-2 gap-4" data-page-node-id="VVQ96UDTCFgskG3ORob6Im"></div>
-        </div>
-        <button type="button" id="btnPetSave" class="btn-primary px-6 py-2 text-white rounded-xl font-bold shadow-warm ui-button ui-button--primary ui-button--md" data-page-node-id="rStj3b7QuxKW1fbs4xwQPo">保存设置</button>
-        </div>
-
-        <div id="petTab-vtuber" class="settings-tab-panel vtuber-page" data-pet-panel="vtuber" role="tabpanel" aria-labelledby="petTabBtn-vtuber" hidden data-page-node-id="jxShwT6HwIivJbHarNfypR">
+<div id="virtualHostTab-vtuber" class="settings-tab-panel vtuber-page active" data-virtual-host-panel="vtuber" role="tabpanel" aria-labelledby="virtualHostTabBtn-vtuber" data-page-node-id="jxShwT6HwIivJbHarNfypR">
           <header class="vtuber-hero" aria-labelledby="vtuberHeroHeading" data-page-node-id="TNZFuCgHOpV03HAStmoY6w">
             <div class="vtuber-hero__intro min-w-0" data-page-node-id="Pdv2z42SqR5N2srlWybGe9">
               <h3 id="vtuberHeroHeading" class="vtuber-hero__title" data-page-node-id="Clboo9vgDCkiZsey4HsGJ4">虚拟主播</h3>
@@ -563,7 +384,7 @@
           </div>
         </div>
 
-        <div id="petTab-vtuber-download" class="settings-tab-panel vtuber-download-page" data-pet-panel="vtuber-download" role="tabpanel" aria-labelledby="petTabBtn-vtuber-download" hidden data-page-node-id="OfEp3YOZQC1zVRITO3EVGx">
+        <div id="virtualHostTab-vtuber-download" class="settings-tab-panel vtuber-download-page" data-virtual-host-panel="vtuber-download" role="tabpanel" aria-labelledby="virtualHostTabBtn-vtuber-download" hidden data-page-node-id="OfEp3YOZQC1zVRITO3EVGx">
           <header class="vtuber-download-hero" aria-labelledby="vtuberDownloadHeading" data-page-node-id="yXA3i9WT66TtAdnluKgErK">
             <h3 id="vtuberDownloadHeading" class="vtuber-download-hero__title" data-page-node-id="3FGEADEJs6DTAAHvdmZybZ">虚拟主播下载</h3>
             <div class="vtuber-download-intro" data-page-node-id="gE9XoBeAr67tYDNhvYXvtv">
@@ -575,10 +396,10 @@
           <div id="vtuberDownloadGrid" class="vtuber-download-grid" role="list" aria-label="Live2D 模型下载列表" data-page-node-id="DY9hJj2PA0YVnNmlUrlkSR"></div>
         </div>
 
-        <div id="petTab-vtuber-persona" class="settings-tab-panel space-y-6" data-pet-panel="vtuber-persona" role="tabpanel" aria-labelledby="petTabBtn-vtuber-persona" hidden data-page-node-id="u0eWggEt2yMku9qD32jjwW">
+        <div id="virtualHostTab-vtuber-persona" class="settings-tab-panel space-y-6" data-virtual-host-panel="vtuber-persona" role="tabpanel" aria-labelledby="virtualHostTabBtn-vtuber-persona" hidden data-page-node-id="u0eWggEt2yMku9qD32jjwW">
           <section class="vtuber-model-card ui-card" aria-labelledby="vtuberPersonaHeading" data-page-node-id="EUS8uGk0WipY52hZoHpnIo">
             <h3 id="vtuberPersonaHeading" class="settings-section-title" data-i18n="content.text.虚拟主播人格" data-page-node-id="DgnvoWwKCOt7Z8O1QSOCUB">虚拟主播人格</h3>
-            <p id="vtuberPersonaScopeHint" class="settings-section-hint" data-i18n="content.hint.vtuberPersonaScope" data-page-node-id="NP4G2wQFDeV1HA4a3OO7tm">此处仅影响虚拟主播语音对话与弹幕适配的基础人格层，不影响全局 AI 读弹幕、普通弹幕人格或桌宠。</p>
+            <p id="vtuberPersonaScopeHint" class="settings-section-hint" data-i18n="content.hint.vtuberPersonaScope" data-page-node-id="NP4G2wQFDeV1HA4a3OO7tm">此处仅影响虚拟主播语音对话与弹幕适配的基础人格层，不影响全局 AI 读弹幕或普通弹幕人格。</p>
             <div class="settings-rhythm-accordion-fields space-y-4" data-page-node-id="cTedb3NBUVr1gHyqoUxxYD">
               <div class="settings-rhythm-accordion-field" data-page-node-id="x9CgfMOaWmFZzMsSyuUpuU">
                 <label for="vtuberPersonaSystemPrompt" class="settings-field-label" data-i18n="content.label.vtuberPersonaSystem" data-page-node-id="ZOGV4aG1orMFJi0UOR7dx9">基础人格 Prompt</label>
@@ -600,6 +421,7 @@
         </div>
       </div>
     </section>
+
 <section id="page-persona" class="page-panel" data-page-node-id="Tdek44ekVfFgkZimqURbI8">
       <header class="mb-8 ui-page-header" data-page-node-id="kSci8MiAfVR47wAFJ9HUZn"><div class="ui-page-header__copy min-w-0" data-page-node-id="cxd08nNTj44GHBlSDXQd5L"><h2 class="text-2xl font-bold text-warmText ui-page-title" data-page-node-id="iwcILMIWlt1ZOkRNLtGuak">弹幕人格</h2><p class="text-gray-500 mt-1 ui-page-description" data-page-node-id="BZPzEqLihaWDqWZAyYbu9D">激活运行时人格，或编辑管理人格提示与契约</p></div></header>
       <div class="card p-8 space-y-4 ui-card" data-page-node-id="XS26FshG8DYrOyxNV6bO1Y">

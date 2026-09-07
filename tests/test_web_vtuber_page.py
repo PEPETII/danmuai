@@ -15,31 +15,31 @@ STATIC_ROOT = CONTENT_PAGES_HTML.parents[1]
 
 def _vtuber_panel() -> str:
     html = CONTENT_PAGES_HTML.read_text(encoding="utf-8")
-    start = html.index('id="petTab-vtuber"')
-    end = html.index('id="petTab-vtuber-persona"', start)
+    start = html.index('id="virtualHostTab-vtuber"')
+    end = html.index('id="virtualHostTab-vtuber-persona"', start)
     return html[start:end]
 
 
-def test_vtuber_panel_is_wired_to_pet_tabs():
+def test_vtuber_panel_is_wired_to_virtual_host_tabs():
     html = CONTENT_PAGES_HTML.read_text(encoding="utf-8")
     panel = _vtuber_panel()
 
-    assert 'data-pet-tab="vtuber"' in html
-    assert 'data-pet-tab="vtuber-persona"' in html
-    assert 'data-pet-tab="vtuber-download"' in html
-    assert 'aria-controls="petTab-vtuber"' in html
-    assert 'aria-controls="petTab-vtuber-persona"' in html
-    assert 'aria-controls="petTab-vtuber-download"' in html
-    assert 'data-pet-panel="vtuber"' in panel
-    assert 'data-pet-panel="vtuber-persona"' in html
-    assert 'data-pet-panel="vtuber-download"' in html
-    assert 'data-pet-tab="vtuber-knowledge"' not in html
+    assert 'data-virtual-host-tab="vtuber"' in html
+    assert 'data-virtual-host-tab="vtuber-persona"' in html
+    assert 'data-virtual-host-tab="vtuber-download"' in html
+    assert 'aria-controls="virtualHostTab-vtuber"' in html
+    assert 'aria-controls="virtualHostTab-vtuber-persona"' in html
+    assert 'aria-controls="virtualHostTab-vtuber-download"' in html
+    assert 'data-virtual-host-panel="vtuber"' in panel
+    assert 'data-virtual-host-panel="vtuber-persona"' in html
+    assert 'data-virtual-host-panel="vtuber-download"' in html
+    assert 'data-virtual-host-tab="vtuber-knowledge"' not in html
     assert 'role="tabpanel"' in panel
-    assert 'aria-labelledby="petTabBtn-vtuber"' in panel
-    assert re.search(r'id="petTab-vtuber"[^>]*\bhidden\b', panel)
-    assert re.search(r'id="petTab-vtuber-persona"[^>]*\bhidden\b', html)
+    assert 'aria-labelledby="virtualHostTabBtn-vtuber"' in panel
+    assert not re.search(r'id="virtualHostTab-vtuber"[^>]*\bhidden\b', panel)
+    assert re.search(r'id="virtualHostTab-vtuber-persona"[^>]*\bhidden\b', html)
     assert 'id="vtuberKnowledgeEnabled"' in panel
-    assert 'id="petTab-vtuber-knowledge"' not in html
+    assert 'id="virtualHostTab-vtuber-knowledge"' not in html
     assert "虚拟主播" in panel
     assert "让 AI 角色理解画面、与你交流并回应直播内容" in panel
     assert 'id="vtuberHeroHeading"' in panel
@@ -184,9 +184,9 @@ def test_vtuber_module_uses_native_model_api_without_web_control_panel():
 def test_vtuber_download_tab_panel_and_module():
     html = CONTENT_PAGES_HTML.read_text(encoding="utf-8")
     download_js = (STATIC_ROOT / "modules" / "app-vtuber-download-page.js").read_text(encoding="utf-8")
-    pet_js = (STATIC_ROOT / "modules" / "app-pet-page.js").read_text(encoding="utf-8")
+    virtual_host_js = (STATIC_ROOT / "modules" / "app-virtual-host-page.js").read_text(encoding="utf-8")
 
-    assert 'id="petTab-vtuber-download"' in html
+    assert 'id="virtualHostTab-vtuber-download"' in html
     assert 'id="vtuberDownloadGrid"' in html
     assert "所有 Live2D 模型均可免费使用" in html
     assert "【B站】" not in html
@@ -200,8 +200,8 @@ def test_vtuber_download_tab_panel_and_module():
     assert "https://booth.pm/en/items/5247208" in download_js or "booth.pm/en/items" in download_js
     assert "image: '1.png'" in download_js
     assert "https://pan.quark.cn/s/5e1fba5584d3#listshare" in download_js
-    assert "app-vtuber-download-page.js" in pet_js
-    assert "onVtuberDownloadTabActivated" in pet_js
+    assert "app-vtuber-download-page.js" in virtual_host_js
+    assert "onVtuberDownloadTabActivated" in virtual_host_js
 
 
 def test_vtuber_download_url_decoder_patterns():

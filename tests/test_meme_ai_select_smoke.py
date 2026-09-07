@@ -26,7 +26,7 @@ def _pick_project_image() -> Path:
     for rel in (
         "web/static/image/qrcode_1779738450536.jpg",
         "image/qrcode_1779738450536.jpg",
-        "data/pet/default/spritesheet.webp",
+        "web/static/image/1.png",
     ):
         path = ROOT / rel
         if path.is_file():

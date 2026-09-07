@@ -5,7 +5,7 @@
   ``{language, system_language, supported_languages}``。
 - ``PUT /api/language``：写入用户偏好（仅 zh/en，其他值归一化到 zh），
   并在主线程同步调用 ``Translator.set_language`` 触发 ``language_changed``
-  信号，使托盘菜单 / Overlay / 桌宠等 Qt 侧文本实时更新。
+  信号，使托盘菜单 / Overlay 等 Qt 侧文本实时更新。
 
 本模块**仅**处理语言偏好落库与 Qt 侧实时切换；Web 控制台自身字符串
 目前为硬编码中文，需重载页面由后续 i18n 工单覆盖。
@@ -49,7 +49,7 @@ def get_from_config(config) -> dict[str, object]:
 def save_to_config(config, language: str) -> None:
     normalized = normalize_language(language)
     config.set(LANGUAGE_KEY, normalized)
-    # 触发 language_changed 信号，Qt 侧（托盘/Overlay/桌宠）实时更新；
+    # 触发 language_changed 信号，Qt 侧（托盘/Overlay）实时更新；
     # 必须在主线程执行（经 bridge.invoke_on_main 调入）。
     Translator.set_language(normalized)
 

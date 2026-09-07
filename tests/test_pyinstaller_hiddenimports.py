@@ -44,17 +44,6 @@ def test_critical_deferred_imports_in_spec(audit_mod, spec_entries: set[str]) ->
     assert not missing_3p, f"missing third-party hiddenimports: {sorted(missing_3p)}"
 
 
-def test_spec_lists_pet_stack_literals(spec_text: str) -> None:
-    for name in (
-        "app.pet.pet_window",
-        "app.pet.pet_barrage",
-        "app.pet.pet_command_service",
-        "app.pet.pet_facade",
-        "app.pet.pet_assets",
-    ):
-        assert f'"{name}"' in spec_text, f"DanmuAI.spec must include {name}"
-
-
 def test_spec_lists_live_overlay_and_uninstall(spec_text: str) -> None:
     assert '"app.web_api.live_overlay"' in spec_text
     assert '"app.uninstall_service"' in spec_text

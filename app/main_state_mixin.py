@@ -226,9 +226,6 @@ class DanmuAppStateMixin:
     def cached_layout_mode(self) -> str:
         return self._ensure_web_runtime_state().cached_layout_mode
 
-    def optional_pet_barrage_controller(self):
-        return self._optional_instance_attr("pet_barrage_controller")
-
     def optional_floating_panel_engine(self):
         return self._optional_instance_attr("floating_panel_engine")
 

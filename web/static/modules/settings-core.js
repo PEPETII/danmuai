@@ -44,35 +44,6 @@ function resolveRenderModeFromCfg(cfg) {
   return 'scrolling';
 }
 
-function petBarrageModeEnabledFromCfg(cfg) {
-  if (cfg == null) {
-    return document.documentElement.dataset.petBarrageModeEnabled === '1';
-  }
-  const raw = String(cfg?.pet_barrage_mode_enabled ?? '').trim().toLowerCase();
-  return raw === '1' || raw === 'true';
-}
-
-export function syncPetBarrageSettingsLock(cfg = null) {
-  const enabled = petBarrageModeEnabledFromCfg(cfg);
-  const modeEl = document.getElementById('danmu_render_mode');
-  const countEl = document.getElementById('normal_reply_count');
-  const hintEl = document.getElementById('petBarrageSettingsLockHint');
-  if (modeEl) {
-    modeEl.disabled = enabled;
-    modeEl.classList.toggle('opacity-60', enabled);
-    modeEl.classList.toggle('cursor-not-allowed', enabled);
-  }
-  if (countEl) {
-    if (enabled) countEl.value = '5';
-    countEl.disabled = enabled;
-    countEl.classList.toggle('opacity-60', enabled);
-    countEl.classList.toggle('cursor-not-allowed', enabled);
-  }
-  if (hintEl) {
-    hintEl.classList.toggle('hidden', !enabled);
-  }
-}
-
 export function syncRenderModeFieldsVisibility() {
   const modeEl = document.getElementById('danmu_render_mode');
   const mode = modeEl?.value || 'scrolling';
@@ -222,7 +193,6 @@ export function collectFormData({ usesCustomCredentials = false } = {}) {
 }
 
 export async function fillForm(cfg) {
-  document.documentElement.dataset.petBarrageModeEnabled = petBarrageModeEnabledFromCfg(cfg) ? '1' : '0';
   const renderMode = resolveRenderModeFromCfg(cfg);
   const cfgWithMode = { ...cfg, danmu_render_mode: renderMode };
   CONFIG_FIELDS.forEach((name) => {
@@ -287,7 +257,6 @@ export async function fillForm(cfg) {
   if (normalCount && !cfg.normal_reply_count) {
     normalCount.value = configDefaultValue('normal_reply_count', renderMode) || '5';
   }
-  syncPetBarrageSettingsLock(cfg);
   updateNormalBatchPreview();
   refreshOpacityWarning();
   coreDeps.applyApiModeValue(cfg.api_mode);

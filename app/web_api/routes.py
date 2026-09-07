@@ -56,7 +56,6 @@ from app.web_api.misc_config_routes import register_misc_config_routes
 from app.web_api.model_discovery_routes import register_model_discovery_routes
 from app.web_api.model_resolve_routes import register_model_resolve_routes
 from app.web_api.persona_routes import register_persona_routes
-from app.web_api.pet_routes import register_pet_routes
 from app.web_api.route_invoke import make_invoke_main
 from app.web_api.update_routes import register_update_routes
 from app.web_api.virtual_host_routes import register_virtual_host_routes
@@ -111,7 +110,6 @@ def register_web_routes(app, bridge: "WebConsoleBridge", check_token: Callable) 
 
     register_danmu_pool_routes(app, bridge, check_token, invoke_main)
 
-    register_pet_routes(app, bridge, check_token, invoke_main)
     register_live2d_routes(app, bridge, check_token, invoke_main)
     register_virtual_host_routes(app, bridge, check_token, invoke_main)
 

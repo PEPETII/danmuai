@@ -36,7 +36,6 @@ def _hot_reload_app(store: ConfigStore) -> tuple[DanmuApp, DanmuOverlay]:
     app._sync_mic_service = lambda: None
     app._sync_overlay_visibility = Mock()
     app._sync_floating_panel_visibility = Mock()
-    app._sync_pet_window_visibility = Mock()
     app._sync_reply_batch_config = DanmuApp._sync_reply_batch_config.__get__(app, DanmuApp)
     app._normal_recognition_interval_ms = DanmuApp._normal_recognition_interval_ms.__get__(
         app, DanmuApp

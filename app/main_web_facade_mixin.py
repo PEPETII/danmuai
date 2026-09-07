@@ -530,10 +530,6 @@ class DanmuAppWebFacadeMixin:
 
     # --- GenerationPipeline Host Façade (W-T5-GP-005) ---
 
-    def is_pet_barrage_mode_enabled(self) -> bool:
-        """GP 读侧：桌宠弹幕模式是否启用。"""
-        return self._pet_barrage_mode_enabled()
-
     def danmu_render_mode(self) -> str:
         """GP 读侧：弹幕渲染模式（overlay / floating_panel）。"""
         return self._danmu_render_mode()
@@ -581,10 +577,6 @@ class DanmuAppWebFacadeMixin:
     def current_batch_id(self) -> int:
         """GP 读侧：当前批次 ID（drop_replaceable_fallbacks 键）。"""
         return int(self._batch_id)
-
-    def notify_pet_visual_success(self) -> None:
-        """GP 写回：桌宠视觉成功动画 hint。"""
-        self._notify_pet_visual_success()
 
     def publish_live_status(self) -> None:
         """GP 写回：刷新 live status 快照。"""

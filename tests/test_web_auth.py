@@ -322,7 +322,6 @@ def test_export_web_config_defaults():
     assert data["mic_api_endpoint"] == doubao.default_endpoint
     assert data["mic_input_device_id"] == ""
     assert data["temperature"] == "0.8"
-    assert data["pet_scale"] == "0.5"
 
     for key in WEB_CONFIG_KEYS:
         if key == "mic_api_endpoint":

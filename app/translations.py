@@ -3,8 +3,6 @@ from PyQt6.QtCore import QLocale, QObject, pyqtSignal
 from app.supported_languages import DEFAULT_LANGUAGE, is_supported
 from app.translations_danmu import TRANSLATIONS_EN as DANMU_EN
 from app.translations_danmu import TRANSLATIONS_ZH as DANMU_ZH
-from app.translations_pet import TRANSLATIONS_EN as PET_EN
-from app.translations_pet import TRANSLATIONS_ZH as PET_ZH
 from app.translations_problem import TRANSLATIONS_EN as PROBLEM_EN
 from app.translations_problem import TRANSLATIONS_ZH as PROBLEM_ZH
 from app.translations_settings import TRANSLATIONS_EN as SETTINGS_EN
@@ -17,8 +15,8 @@ from app.translations_ui import TRANSLATIONS_EN as UI_EN
 from app.translations_ui import TRANSLATIONS_ZH as UI_ZH
 
 TRANSLATIONS = {
-    "zh": {**UI_ZH, **DANMU_ZH, **SETTINGS_ZH, **TTS_ZH, **TRAY_ZH, **PET_ZH, **PROBLEM_ZH},
-    "en": {**UI_EN, **DANMU_EN, **SETTINGS_EN, **TTS_EN, **TRAY_EN, **PET_EN, **PROBLEM_EN},
+    "zh": {**UI_ZH, **DANMU_ZH, **SETTINGS_ZH, **TTS_ZH, **TRAY_ZH, **PROBLEM_ZH},
+    "en": {**UI_EN, **DANMU_EN, **SETTINGS_EN, **TTS_EN, **TRAY_EN, **PROBLEM_EN},
 }
 
 

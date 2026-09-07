@@ -459,36 +459,6 @@ def test_meme_source_credit_in_index_html():
     assert credit_idx < switch_idx
 
 
-def test_pet_page_in_index_html():
-    html = (project_root() / "web" / "static" / "index.html").read_text(encoding="utf-8")
-    assert 'data-page="pet"' in html
-    assert 'id="page-pet"' in html
-    assert 'id="petEnabled"' in html
-    assert 'id="btnPetSave"' in html
-    assert 'https://petdex.dev/zh' in html
-    assert 'id="btnPetImportFolder"' in html
-    assert 'id="btnPetResetAsset"' in html
-    assert 'id="petAssetText"' in html
-    assert 'id="petAssetSourceText"' in html
-    assert 'id="petAssetErrorText"' in html
-    assert '去 PetDex 查找更多桌宠' in html
-    assert '目录需包含 pet.json 与 spritesheet.webp 或 spritesheet.png' in html
-    assert 'id="petVisible"' not in html
-    assert 'id="btnPetShow"' not in html
-    assert 'id="btnPetHide"' not in html
-    assert 'id="btnPetClose"' not in html
-    app_js = (project_root() / "web" / "static" / "app.js").read_text(encoding="utf-8")
-    assert "initPetPage" in app_js
-    assert "loadPetPage" in app_js
-    pet_js = (project_root() / "web" / "static" / "modules" / "app-pet-page.js").read_text(
-        encoding="utf-8"
-    )
-    assert "asset_source: currentAssetSource" in pet_js
-    assert "asset_path: currentAssetPath" in pet_js
-    assert "/api/pet/import-folder" in pet_js
-    assert "/api/pet/reset-asset" in pet_js
-
-
 def test_style_generator_page_in_index_html():
     """W-UI-SETTINGS-STYLEGEN-TAB-001: 构建产物只含一个独立的样式生成器页面。"""
     root = project_root()
@@ -535,31 +505,6 @@ def test_danmu_pool_txt_folder_controls_in_content_pages():
         assert "自定义弹幕通过 TXT 文件管理" in html
     assert "openTxtFolder" in pool_js
     assert "refreshTxtPool" in pool_js
-
-
-def test_resource_path_pet_default_pet_json_and_spritesheet():
-    """PET-009: 验证 resource_path('data', 'pet', 'default', 'pet.json') 与
-    spritesheet.webp 指向真实文件，便于打包断言（与 tests/test_pet_assets.py 中
-    test_resource_path_pet_default_exists 区分，这里再覆盖 spritesheet 与 pet.json 同时存在）。"""
-    root = project_root()
-    pet_json = root / "data" / "pet" / "default" / "pet.json"
-    sheet = root / "data" / "pet" / "default" / "spritesheet.webp"
-    assert pet_json.is_file(), f"missing {pet_json}"
-    assert sheet.is_file(), f"missing {sheet}"
-    assert sheet.stat().st_size > 0
-
-
-def test_danmuai_spec_includes_pet_default_assets():
-    """PET-009: PyInstaller 打包声明必须覆盖 data/pet/default/，
-    否则 BUILTIN_PET_DIR 在 sys._MEIPASS 下找不到 pet.json / spritesheet.webp，
-    load_pet_assets 会抛 ValueError，桌宠窗口显示「宠物加载失败」。"""
-    spec_text = (project_root() / "DanmuAI.spec").read_text(encoding="utf-8")
-    # datas tuple 第二项必须是字符串（见 PACKAGING_WINDOWS.md §问题 1）
-    assert '"data/pet/default"' in spec_text, (
-        "DanmuAI.spec datas must bundle data/pet/default for the builtin pet pack"
-    )
-    # 同时确认源路径出现在源端（str(root / "data" / "pet" / "default") 形式）
-    assert "data" in spec_text and "pet" in spec_text and "default" in spec_text
 
 
 def test_en_hides_meme_formula_tab_in_danmu_pool():

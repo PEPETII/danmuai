@@ -29,24 +29,24 @@ def test_vtuber_persona_module_wires_persona_api():
 def test_vtuber_persona_tab_in_source_and_built_index():
     partial = (STATIC_ROOT / "partials" / "content-pages.html").read_text(encoding="utf-8")
     index = (STATIC_ROOT / "index.html").read_text(encoding="utf-8")
-    pet_page = (STATIC_ROOT / "modules" / "app-pet-page.js").read_text(encoding="utf-8")
+    virtual_host_page = (STATIC_ROOT / "modules" / "app-virtual-host-page.js").read_text(encoding="utf-8")
 
     for html in (partial, index):
-        assert 'data-pet-tab="vtuber-persona"' in html
-        assert 'id="petTabBtn-vtuber-persona"' in html
-        assert 'aria-controls="petTab-vtuber-persona"' in html
-        assert 'data-pet-panel="vtuber-persona"' in html
+        assert 'data-virtual-host-tab="vtuber-persona"' in html
+        assert 'id="virtualHostTabBtn-vtuber-persona"' in html
+        assert 'aria-controls="virtualHostTab-vtuber-persona"' in html
+        assert 'data-virtual-host-panel="vtuber-persona"' in html
         assert 'id="vtuberPersonaSystemPrompt"' in html
         assert 'id="vtuberPersonaVoicePrompt"' in html
         assert 'id="btnVtuberPersonaSave"' in html
         assert 'id="btnVtuberPersonaReset"' in html
-        assert re.search(r'id="petTab-vtuber-persona"[^>]*\bhidden\b', html)
+        assert re.search(r'id="virtualHostTab-vtuber-persona"[^>]*\bhidden\b', html)
         assert 'aria-describedby="vtuberPersonaSystemHint vtuberPersonaStatus"' in html
         assert 'maxlength="8000"' in html
 
-    assert "vtuber-persona" in pet_page
-    assert "app-vtuber-persona-page.js" in pet_page
-    assert "onVtuberPersonaTabActivated" in pet_page
+    assert "vtuber-persona" in virtual_host_page
+    assert "app-vtuber-persona-page.js" in virtual_host_page
+    assert "onVtuberPersonaTabActivated" in virtual_host_page
 
 
 def test_vtuber_persona_locale_keys_exist():

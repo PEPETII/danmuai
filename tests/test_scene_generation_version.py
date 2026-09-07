@@ -22,7 +22,6 @@ def _scene_version_app():
     app.overlay.display_settings_dirty = Mock(return_value=False)
     app._sync_overlay_visibility = Mock()
     app._sync_floating_panel_visibility = Mock()
-    app._sync_pet_window_visibility = Mock()
     app._sync_mic_service = Mock()
     app._overlay_display_enabled = lambda: False
     app._ensure_web_runtime_state = DanmuApp._ensure_web_runtime_state.__get__(app, DanmuApp)

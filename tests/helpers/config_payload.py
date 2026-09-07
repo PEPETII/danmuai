@@ -38,8 +38,6 @@ def boundary_web_config_overrides() -> dict[str, str]:
         "opacity": "150",
         "floating_panel_speed": "99",
         "floating_panel_max_items": "9999",
-        "pet_scale": "9",
-        "pet_opacity": "0.01",
         "mic_window_sec": "999",
         "normal_recognition_interval_sec": "0",
         "normal_reply_count": "0",
@@ -49,7 +47,6 @@ def boundary_web_config_overrides() -> dict[str, str]:
         "empty_accel": "yes",
         "mic_use_visual_model": "on",
         "danmu_font_bold": "true",
-        "pet_enabled": "yes",
     }
 
 

@@ -114,7 +114,6 @@ def test_start_resets_capture_in_flight(monkeypatch):
     app._sync_overlay_visibility = Mock()
     app._sync_floating_panel_visibility = Mock()
     app._reassert_active_overlay_topmost = Mock()
-    app._sync_pet_window_visibility = Mock()
     app._sync_mic_service = Mock()
     app._start_meme_barrage_timers = Mock()
     app._reset_scene_generation_baseline = Mock()

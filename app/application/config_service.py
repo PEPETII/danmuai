@@ -118,26 +118,6 @@ WEB_CONFIG_KEYS = (
     "danmu_font_bold",
     "floating_panel_font_family",
     "floating_panel_font_bold",
-    # PET-003：桌宠
-    "pet_enabled",
-    "pet_visible",
-    "pet_asset_source",
-    "pet_asset_path",
-    "pet_scale",
-    "pet_opacity",
-    "pet_always_on_top",
-    "pet_click_through",
-    "pet_position_x",
-    "pet_position_y",
-    "pet_command_box_enabled",
-    "pet_command_ttl_sec",
-    "pet_command_apply_count",
-    "pet_barrage_mode_enabled",
-    "pet_barrage_count",
-    "pet_barrage_slots",
-    "pet_barrage_slot_positions",
-    "pet_barrage_previous_render_mode",
-    "pet_barrage_previous_reply_count",
     "use_thinking",
     "danmu_font_color_selected",
     "danmu_font_color_mode",
@@ -454,74 +434,10 @@ class ConfigService:
                 items["floating_panel_custom_css_file"]
             )
 
-        # PET-003：桌宠配置归一化
-        if "pet_asset_source" in items:
-            _clamp_choice(items, "pet_asset_source", ("builtin", "local"), "builtin")
-        for _key in (
-            "pet_enabled",
-            "pet_visible",
-            "pet_always_on_top",
-            "pet_click_through",
-            "pet_command_box_enabled",
-            "pet_barrage_mode_enabled",
-            "live2d_click_through",
-        ):
+        for _key in ("live2d_click_through",):
             if _key in items:
                 _v = str(items[_key]).strip().lower()
                 items[_key] = "1" if _v in ("1", "true", "yes", "on") else "0"
-        if "pet_scale" in items:
-            try:
-                scale = float(items["pet_scale"])
-                items["pet_scale"] = str(max(0.5, min(scale, 2.0)))
-            except (TypeError, ValueError):
-                items["pet_scale"] = "0.5"
-        if "pet_opacity" in items:
-            try:
-                opacity = float(items["pet_opacity"])
-                items["pet_opacity"] = str(max(0.2, min(opacity, 1.0)))
-            except (TypeError, ValueError):
-                items["pet_opacity"] = "1.0"
-        _clamp_int_key(items, "pet_command_ttl_sec", 30, 5, 300)
-        _clamp_int_key(items, "pet_command_apply_count", 1, 1, 5)
-        _clamp_int_key(items, "pet_barrage_count", 5, 5, 5)
-        if "pet_barrage_previous_render_mode" in items:
-            _clamp_choice(
-                items,
-                "pet_barrage_previous_render_mode",
-                ("scrolling", "floating_panel"),
-                "scrolling",
-            )
-        if "pet_barrage_previous_reply_count" in items:
-            from app.persona_contract import DEFAULT_NORMAL_REPLY_COUNT, NORMAL_REPLY_COUNT_MAX
-
-            _clamp_int_key(
-                items,
-                "pet_barrage_previous_reply_count",
-                DEFAULT_NORMAL_REPLY_COUNT,
-                1,
-                NORMAL_REPLY_COUNT_MAX,
-            )
-        for _key in ("pet_position_x", "pet_position_y"):
-            if _key not in items:
-                continue
-            raw = str(items[_key] or "").strip().lower()
-            if not raw or raw in ("null", "none"):
-                items[_key] = ""
-                continue
-            try:
-                pos = int(raw)
-            except (TypeError, ValueError):
-                items[_key] = ""
-                continue
-            items[_key] = str(max(-32000, min(pos, 32000)))
-        for _key in ("pet_barrage_slots", "pet_barrage_slot_positions"):
-            if _key not in items:
-                continue
-            raw = str(items[_key] or "").strip()
-            if not raw:
-                items[_key] = "[]"
-                continue
-            items[_key] = raw
         if "use_thinking" in items:
             _v = str(items["use_thinking"]).strip().lower()
             items["use_thinking"] = "1" if _v in ("1", "true", "yes", "on") else "0"

@@ -2,13 +2,13 @@
  * 温馨控制台「快捷入口」：文本 + 按钮/下拉，复用既有页面与 Tab 切换。
  */
 
-/** @type {Record<string, { page: string, settingsTab?: string, petTab?: string, personaTab?: string }>} */
+/** @type {Record<string, { page: string, virtualHostTab?: string, personaTab?: string }>} */
 const QUICK_NAV_MAP = {
   mic: { page: 'settings', settingsTab: 'mic' },
   'danmu-read': { page: 'danmu-read' },
   danmu: { page: 'settings', settingsTab: 'danmu' },
   knowledge: { page: 'knowledge' },
-  vtuber: { page: 'pet', petTab: 'vtuber' },
+  vtuber: { page: 'virtual-host', virtualHostTab: 'vtuber' },
   'history-stats': { page: 'history-stats' },
   'live-output': { page: 'live-output' },
   'persona-manage': { page: 'persona', personaTab: 'manage' },
@@ -58,8 +58,8 @@ function initRenderModeQuickSync() {
   document.addEventListener('danmu:config-filled', syncQuickRenderModeFromMain);
 }
 
-function activatePetTab(tabId) {
-  document.getElementById(`petTabBtn-${tabId}`)?.click();
+function activateVirtualHostTab(tabId) {
+  document.getElementById(`virtualHostTabBtn-${tabId}`)?.click();
 }
 
 function activatePersonaTab(tabId) {
@@ -78,8 +78,8 @@ function handleQuickNav(key, { navigate, switchSettingsTab }) {
 
   navigate(target.page);
 
-  if (target.petTab) {
-    activatePetTab(target.petTab);
+  if (target.virtualHostTab) {
+    activateVirtualHostTab(target.virtualHostTab);
     return;
   }
 
