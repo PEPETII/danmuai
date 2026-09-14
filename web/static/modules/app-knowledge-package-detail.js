@@ -1,6 +1,10 @@
 import { apiFetch } from './transport.js';
 import { t } from './i18n.js';
-import { computePackageCardState } from './app-knowledge-status.js';
+import {
+  computePackageCardState,
+  assertKnowledgePayload,
+  knowledgeErrorMessage,
+} from './app-knowledge-status.js';
 import {
   currentPackageId,
   currentPackageSnapshot,
@@ -150,7 +154,10 @@ export async function openPackageDetail(packageId) {
     updateBackgroundJobBanner();
   } catch (error) {
     if (isAbortError(error) || !isCurrentDetailLoad(requestId, packageId)) return;
-    showKnowledgeToast(error.message, true);
+    showKnowledgeToast(
+      knowledgeErrorMessage(error, t('dynamic.appKnowledgePage.loadFailed')),
+      true,
+    );
     console.warn('[knowledge] openPackageDetail failed', error);
   } finally {
     if (requestId === detailLoadRequestId) detailLoadAbortController = null;
@@ -165,10 +172,16 @@ export async function savePackageSettings() {
     priority: parseInt(document.getElementById('knowledgePackagePriority')?.value, 10) || 0,
   };
   try {
-    const updated = await apiFetch(
-      `/api/knowledge/packages/${encodeURIComponent(currentPackageId)}`,
-      { method: 'PATCH', body: JSON.stringify(body) },
+    const updated = assertKnowledgePayload(
+      await apiFetch(
+        `/api/knowledge/packages/${encodeURIComponent(currentPackageId)}`,
+        { method: 'PATCH', body: JSON.stringify(body) },
+      ),
     );
+    if (!updated || typeof updated !== 'object' || !updated.public_id) {
+      // 没有返回有效 package 就不算保存成功：不覆盖表单、不显示已保存。
+      throw new Error(t('dynamic.appKnowledgePage.saveFailed'));
+    }
     const snapshot = {
       ...updated,
       source_count: currentPackageSnapshot?.source_count ?? 0,
@@ -179,7 +192,10 @@ export async function savePackageSettings() {
     markOverviewSaved();
     showKnowledgeToast(t('dynamic.appKnowledgePage.packageUpdated'));
   } catch (error) {
-    showKnowledgeToast(error.message, true);
+    showKnowledgeToast(
+      knowledgeErrorMessage(error, t('dynamic.appKnowledgePage.saveFailed')),
+      true,
+    );
   }
 }
 
@@ -193,14 +209,22 @@ export async function deleteCurrentPackage() {
   });
   if (!ok) return;
   try {
-    await apiFetch(
-      `/api/knowledge/packages/${encodeURIComponent(currentPackageId)}`,
-      { method: 'DELETE' },
+    const result = assertKnowledgePayload(
+      await apiFetch(
+        `/api/knowledge/packages/${encodeURIComponent(currentPackageId)}`,
+        { method: 'DELETE' },
+      ),
     );
+    if (!result?.ok) {
+      throw new Error(t('dynamic.appKnowledgePage.deleteFailed'));
+    }
     showKnowledgeToast(t('dynamic.appKnowledgePage.packageDeleted'));
     await loadKnowledgePage();
   } catch (error) {
-    showKnowledgeToast(error.message, true);
+    showKnowledgeToast(
+      knowledgeErrorMessage(error, t('dynamic.appKnowledgePage.deleteFailed')),
+      true,
+    );
   }
 }
 

@@ -378,7 +378,10 @@ class DanmuAppRequestContextMixin:
         mic_text: str = "",
     ):
         """组装知识检索场景语义；无语义时返回空 brief/keywords（禁止 round 占位）。"""
-        from app.knowledge.runtime_service import build_knowledge_scene_context
+        from app.knowledge.runtime_service import (
+            SCENE_CONTEXT_REUSE_MAX_AGE_SEC,
+            build_knowledge_scene_context,
+        )
 
         live_topic = ""
         user_nickname = ""
@@ -404,7 +407,7 @@ class DanmuAppRequestContextMixin:
         except Exception:
             scene_generation = 0
 
-        return build_knowledge_scene_context(
+        ctx = build_knowledge_scene_context(
             live_topic=live_topic,
             recent_danmu=recent_danmu,
             mic_text=mic_text,
@@ -415,6 +418,26 @@ class DanmuAppRequestContextMixin:
             screenshot_id=screenshot_id,
             scene_generation=scene_generation,
         )
+        if ctx.has_semantic_query:
+            return ctx
+
+        # 本轮没有新的真实语义时，复用同一场景代际内**上一轮已产出**的场景语义
+        # （由 live_topic / 最近弹幕 / 麦克风文本等真实来源组装，非占位伪造）。
+        # 复用窗口比常规 TTL 更短，避免陈旧上下文污染检索。
+        runtime = self.__dict__.get("knowledge_runtime")
+        getter = getattr(runtime, "get_last_scene_context", None)
+        if not callable(getter):
+            return ctx
+        try:
+            previous = getter(
+                scene_generation=scene_generation,
+                max_age_sec=SCENE_CONTEXT_REUSE_MAX_AGE_SEC,
+            )
+        except Exception:
+            return ctx
+        if previous is None or not previous.has_semantic_query:
+            return ctx
+        return previous
 
     def _inject_knowledge_prompt(
         self,
@@ -428,9 +451,21 @@ class DanmuAppRequestContextMixin:
     ) -> str:
         """注入知识包检索结果到 system_pt 末尾。
 
-        使用 live_topic / 最近弹幕 / 麦文本等真实语义检索；无语义则跳过注入。
-        禁止使用 ``round=… screenshot=…`` 作为查询文本。
+        检索语义来源（全部为 AI 调用前**已存在**的真实数据，不额外发起视觉请求）：
+        1. ``live_topic``（当前直播主题，配置项）；
+        2. 最近已发送弹幕中可安全提取的短关键词；
+        3. 麦克风链路传入的 ``mic_text``；
+        4. 传入的 ``scene_brief_extra`` / ``extra_keywords``（调用方已有语义时）；
+        5. 同一场景代际内、``SCENE_CONTEXT_REUSE_MAX_AGE_SEC`` 以内的上一轮
+           已产出场景语义（连续性复用，非占位伪造）。
+
+        以上均为空时**不发起检索**（``reason=empty_query``），也绝不使用
+        ``round=… screenshot=…`` 作为查询文本。
         注入成功时由 runtime 更新 use_count（注入次数），不依赖模型 knowledge_used。
+
+        诊断原因：``knowledge_disabled`` / ``empty_query`` / ``no_hit`` /
+        ``retriever_error`` / ``injected``，见 ``KnowledgeRuntimeService``
+        与 ``diagnostic_snapshot`` 的 ``last_retrieval_reason``。
 
         若 ``knowledge_runtime`` 未挂载、检索无命中或任何异常 → 原样返回
         ``system_pt``（主链路不得因知识模块故障中断）。
@@ -438,7 +473,28 @@ class DanmuAppRequestContextMixin:
         # 用 __dict__.get 而非 getattr，兼容测试中 QObject 未走 __init__ 的场景
         knowledge_runtime = self.__dict__.get("knowledge_runtime")
         if knowledge_runtime is None:
+            self.logger.debug(
+                "knowledge retrieval reason=knowledge_disabled request_round=%s "
+                "screenshot_id=%s",
+                request_round,
+                screenshot_id,
+            )
             return system_pt
+
+        def note_retrieval_reason(reason: str) -> None:
+            setter = getattr(knowledge_runtime, "set_retrieval_diagnostic", None)
+            if callable(setter):
+                try:
+                    setter(reason)
+                except Exception:
+                    pass
+            self.logger.debug(
+                "knowledge retrieval reason=%s request_round=%s screenshot_id=%s",
+                reason,
+                request_round,
+                screenshot_id,
+            )
+
         try:
             scene_generation = int(getattr(self, "_scene_generation", 0) or 0)
             note_fn = getattr(knowledge_runtime, "note_scene_generation", None)
@@ -453,6 +509,7 @@ class DanmuAppRequestContextMixin:
                 mic_text=mic_text,
             )
             if not ctx.has_semantic_query:
+                note_retrieval_reason("empty_query")
                 return system_pt
 
             injection = knowledge_runtime.build_visual_prompt_injection(
@@ -463,12 +520,35 @@ class DanmuAppRequestContextMixin:
                 scene_tags=list(ctx.scene_tags),
             )
         except Exception as exc:  # boundary: 知识注入失败不影响主链路
+            note_retrieval_reason("retriever_error")
             self.logger.debug(
                 "knowledge prompt injection failed (non-fatal): %r", exc
             )
             return system_pt
         if not injection:
+            reason = "no_hit"
+            getter = getattr(knowledge_runtime, "get_retrieval_diagnostic", None)
+            if callable(getter):
+                try:
+                    reason = str(getter() or reason)
+                except Exception:
+                    pass
+            if reason not in {
+                "knowledge_disabled",
+                "empty_query",
+                "no_hit",
+                "retriever_error",
+                "injected",
+            }:
+                reason = "no_hit"
+            self.logger.debug(
+                "knowledge retrieval reason=%s request_round=%s screenshot_id=%s",
+                reason,
+                request_round,
+                screenshot_id,
+            )
             return system_pt
+        note_retrieval_reason("injected")
         prompt_text = getattr(injection, "prompt_text", None)
         if not prompt_text:
             # 兼容旧测试/stub 返回纯 str

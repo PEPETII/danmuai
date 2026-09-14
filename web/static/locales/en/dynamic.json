@@ -57,6 +57,7 @@
       "importWebpage": "Fetch webpage",
       "importFootnote": "After import, the system reads, splits, and organizes materials automatically.",
       "importBlockedActive": "Materials are being organized. Wait until completion before adding more.",
+      "importNotStarted": "Import did not start. Please retry (your input was kept).",
       "jobProgress": "Processing progress",
       "jobProgressHint": "After import, content is read, split, and organized. Results appear under Knowledge items.",
       "items": "Knowledge items",
@@ -136,13 +137,18 @@
       "packageDeleted": "Package deleted",
       "itemDeleted": "Item deleted",
       "itemUpdated": "Item updated",
+      "itemUpdateFailed": "Could not update the item. Please retry.",
+      "itemDeleteFailed": "Could not delete the item. Please retry.",
+      "deleteFailed": "Delete failed, please retry",
       "jobCompleted": "Import completed, {count} items generated",
       "jobCompletedWithErrors": "Partial success, {count} items generated",
       "jobFailed": "Import failed",
       "jobFailedWithError": "Import failed: {error}",
       "jobInterrupted": "Import interrupted",
       "jobCancelled": "Job cancelled",
+      "cancelFailed": "Could not cancel the job. Please retry.",
       "loadFailed": "Load failed, please retry",
+      "saveFailed": "Save failed, please retry",
       "confirmDeletePackage": "Delete this package? All sources and items will be removed.",
       "confirmDeleteItem": "Delete this item?",
       "noJobs": "No jobs",
@@ -156,6 +162,7 @@
         "nameHint": "Distinguish material collections, e.g. Genshin character lore.",
         "namePlaceholder": "e.g. Black Myth Wukong characters and story",
         "nameRequired": "Package name is required",
+        "failed": "Could not create the package. Please retry (your name was kept).",
         "submit": "Create package"
       },
       "cardStatus": {
@@ -209,6 +216,16 @@
         "noItemsGenerated": "No knowledge items generated",
         "noChunksGenerated": "No chunks generated (content too short or empty)",
         "cancelled": "Cancelled"
+      },
+      "apiErrors": {
+        "serviceUnavailable": "Knowledge service is unavailable right now. Please retry shortly.",
+        "stopping": "Knowledge service is shutting down. Please retry shortly.",
+        "notFound": "The knowledge package, item, or job was not found",
+        "invalidRequest": "The request payload is invalid. Please check it and retry.",
+        "sourceTooLarge": "The source is too large. Please split it and retry.",
+        "missingQuery": "Enter a scene description or keywords before searching",
+        "internal": "Internal knowledge error. Please retry or check the logs.",
+        "unknown": "Knowledge operation failed. Please retry."
       },
       "fields": {
         "examples": "Examples",

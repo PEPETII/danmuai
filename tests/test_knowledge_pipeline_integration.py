@@ -134,38 +134,81 @@ def test_knowledge_runtime_lifecycle_mount_and_close(isolated_db_path):
 
 
 def test_knowledge_runtime_remount_preserves_packages_after_close(isolated_db_path):
-    """stop 后再次挂载必须读取同一 knowledge.db 中已有的知识包。"""
+    """重复 ``mount()`` 不重建 DB：同一运行时对象、同一批知识包。
+
+    （旧语义是「close 后再 mount 重开」，本轮已改为：只有整个应用退出才 close，
+    因此这里断言的是 mount() 幂等且复用同一 knowledge.db。）
+    """
     app_stub = MagicMock()
     svc = KnowledgeRuntimeService(app_stub)
     package = svc.repository.create_package(name="重启后仍存在")
 
-    svc.close()
-    assert svc.repository is None
     assert svc.mount() is True
+    assert svc.is_ready is True
+    assert svc.repository is not None
 
     packages = svc.repository.list_packages()
     assert [pkg["public_id"] for pkg in packages] == [package["public_id"]]
     svc.close()
 
 
-def test_lifecycle_ensure_knowledge_runtime_reopens_closed_service(isolated_db_path):
-    """生命周期恢复入口必须重新挂载 stop() 关闭的运行时。"""
+def test_knowledge_runtime_close_is_terminal_and_never_resurrects(isolated_db_path):
+    """整应用退出后的 close 是终止态：mount() 拒绝重开，不产生第二套 DB。"""
+    app_stub = MagicMock()
+    svc = KnowledgeRuntimeService(app_stub)
+    svc.repository.create_package(name="退出前的包")
+
+    svc.close(wait=True)
+
+    assert svc.is_closed is True
+    assert svc.repository is None
+    assert svc.import_orchestrator is None
+    assert svc.retriever is None
+    # 终止态：不因 _closing 归位而被重新打开
+    assert svc.mount() is False
+    assert svc.is_ready is False
+    assert svc.repository is None
+
+
+def test_lifecycle_ensure_knowledge_runtime_keeps_mounted_runtime(isolated_db_path):
+    """已挂载的运行时应被原样复用（不新建实例、不重开 DB）。"""
     from app.main_lifecycle_mixin import DanmuAppLifecycleMixin
 
     runtime_app = MagicMock()
     svc = KnowledgeRuntimeService(runtime_app)
     package = svc.repository.create_package(name="生命周期恢复包")
-    svc.close()
 
     lifecycle_app = SimpleNamespace(
         knowledge_runtime=svc,
         logger=MagicMock(),
     )
     assert DanmuAppLifecycleMixin._ensure_knowledge_runtime(lifecycle_app) is True
+    assert lifecycle_app.knowledge_runtime is svc
     assert lifecycle_app.knowledge_runtime.repository.get_package(
         package["public_id"]
     )["public_id"] == package["public_id"]
     svc.close()
+
+
+def test_lifecycle_ensure_knowledge_runtime_does_not_reopen_closed_runtime(
+    isolated_db_path,
+):
+    """应用退出后 close 的运行时不得被 ``_ensure_knowledge_runtime`` 复活。"""
+    from app.main_lifecycle_mixin import DanmuAppLifecycleMixin
+
+    runtime_app = MagicMock()
+    svc = KnowledgeRuntimeService(runtime_app)
+    svc.repository.create_package(name="退出后的包")
+    svc.close(wait=True)
+
+    lifecycle_app = SimpleNamespace(
+        knowledge_runtime=svc,
+        logger=MagicMock(),
+    )
+    assert DanmuAppLifecycleMixin._ensure_knowledge_runtime(lifecycle_app) is False
+    assert lifecycle_app.knowledge_runtime is svc
+    assert svc.is_closed is True
+    assert svc.repository is None
 
 
 def test_knowledge_runtime_degraded_mode_when_db_open_fails(monkeypatch):

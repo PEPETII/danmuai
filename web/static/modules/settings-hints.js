@@ -94,8 +94,6 @@ const SETTINGS_FIELD_TIPS = {
     'dynamic.settingsHints.发给_AI_前把截图缩到多宽_越小越省流量和费用',
   image_quality:
     'dynamic.settingsHints.JPEG_压缩质量_1_100_默认_85_越高',
-  btnProbe:
-    'dynamic.settingsHints.用当前填写的地址_模式和密钥试连一次_AI_不开',
 };
 
 const OVERVIEW_FIELD_TIPS = {
@@ -111,7 +109,7 @@ const PERSONA_FIELD_TIPS = {
 const CONTENT_PAGE_SECTION_TIPS = {
 };
 
-const SETTINGS_CONTROL_HINT_IDS = new Set(['btnMicTest', 'btnMicTestSend', 'btnProbe']);
+const SETTINGS_CONTROL_HINT_IDS = new Set(['btnMicTest', 'btnMicTestSend']);
 
 const CONTENT_PAGE_CONTROL_HINT_IDS = new Set([
 ]);

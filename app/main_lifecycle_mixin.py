@@ -332,21 +332,33 @@ class DanmuAppLifecycleMixin:
     def _ensure_knowledge_runtime(self) -> bool:
         """确保知识包运行时在启动或重新启动后可用。"""
         runtime = self.__dict__.get("knowledge_runtime")
+        mount_result = True
         try:
             if runtime is None:
                 from app.knowledge.runtime_service import KnowledgeRuntimeService
 
                 runtime = KnowledgeRuntimeService(self)
                 self.knowledge_runtime = runtime
+                mount_result = bool(getattr(runtime, "_mount_result", False))
             else:
                 mount = getattr(runtime, "mount", None)
                 if callable(mount):
-                    mount()
+                    mount_result = bool(mount())
         except Exception as exc:
             self.logger.warning(f"knowledge_runtime mount failed: {exc!r}")
-            self.knowledge_runtime = None
             return False
-        return getattr(runtime, "repository", None) is not None
+        # ``_closing``：关闭进行中；``_closed``：整个应用已退出并终止该运行时。
+        # 两种情况下都不得重新挂载，否则会造出第二套 DB / executor。
+        if (
+            not mount_result
+            or bool(getattr(runtime, "_closing", False))
+            or bool(getattr(runtime, "_closed", False))
+        ):
+            return False
+        return all(
+            getattr(runtime, attr, None) is not None
+            for attr in ("repository", "import_orchestrator", "retriever")
+        )
 
     def _ensure_virtual_host_runtime(self) -> bool:
         runtime = self.__dict__.get("virtual_host_runtime")
@@ -706,8 +718,14 @@ class DanmuAppLifecycleMixin:
     def start(self) -> None:
         from app.ai_client_requests import format_credential_error, visual_credentials_ready
 
-        # stop() 会关闭知识库连接；重新启动前必须恢复同一运行时对象的挂载。
-        self._ensure_knowledge_runtime()
+        # 运行时通常已在应用启动时挂载；若启动阶段曾降级，则在这里用
+        # 同一个对象重试挂载。返回值必须参与判定：知识库不可用时只记录
+        # 结构化诊断，不阻断弹幕主链路（知识故障不得影响弹幕生成）。
+        if not self._ensure_knowledge_runtime():
+            self.logger.warning(
+                "knowledge runtime unavailable at start; "
+                "reason=knowledge_disabled danmu pipeline continues"
+            )
 
         if not visual_credentials_ready(self.config):
             msg = format_credential_error(self.config)
@@ -889,14 +907,6 @@ class DanmuAppLifecycleMixin:
         if fp_engine is not None:
             fp_engine.stop()
 
-        # Phase B / Wave 7（B2）：关闭知识包运行时服务（执行器 + DB 连接）。
-        knowledge_runtime = self.__dict__.get("knowledge_runtime")
-        if knowledge_runtime is not None:
-            try:
-                knowledge_runtime.close()
-            except Exception as exc:
-                self.logger.warning(f"knowledge_runtime close failed: {exc!r}")
-
         self.tray.update_state(running=False)
         self.state_changed.emit(False)
         self.logger.info(tr("app.stopped"))
@@ -954,7 +964,7 @@ class DanmuAppLifecycleMixin:
         knowledge_runtime = self.__dict__.get("knowledge_runtime")
         if knowledge_runtime is not None:
             try:
-                knowledge_runtime.close()
+                knowledge_runtime.close(wait=True)
             except Exception as exc:
                 logger = getattr(self, "logger", None)
                 if logger is not None:
@@ -1044,6 +1054,27 @@ class DanmuAppLifecycleMixin:
                 self.logger,
                 context="quit",
             )
+
+            # Knowledge Runtime belongs to the whole application, not to the
+            # danmu business toggle. Stop accepting HTTP first, then cancel
+            # and drain imports before closing knowledge.db.
+            knowledge_runtime = self.__dict__.get("knowledge_runtime")
+            if knowledge_runtime is not None:
+                try:
+                    knowledge_runtime.close(wait=True)
+                except Exception as exc:
+                    self.logger.warning(f"knowledge_runtime close failed: {exc!r}")
+
+            try:
+                from app.web_api.knowledge_routes import (
+                    shutdown_knowledge_route_executor,
+                )
+
+                shutdown_knowledge_route_executor(wait=True)
+            except Exception as exc:
+                self.logger.warning(
+                    f"knowledge route executor close failed: {exc!r}"
+                )
 
             shell = getattr(self, "webview_shell", None)
             if shell:

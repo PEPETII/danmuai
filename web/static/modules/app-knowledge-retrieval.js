@@ -1,7 +1,11 @@
 import { apiFetch } from './transport.js';
 import { t } from './i18n.js';
 import { showKnowledgeToast } from './app-knowledge-state.js';
-import { parseCommaList } from './app-knowledge-status.js';
+import {
+  parseCommaList,
+  assertKnowledgePayload,
+  knowledgeErrorMessage,
+} from './app-knowledge-status.js';
 
 export function renderRetrievalResult(result) {
   const wrap = document.getElementById('knowledgeRetrievalResult');
@@ -69,13 +73,28 @@ export async function startPreview() {
   if (sceneBrief) body.scene_brief = sceneBrief;
   const keywords = parseCommaList(keywordsRaw);
   if (keywords.length > 0) body.keywords = keywords;
+  if (!body.scene_brief && !(body.keywords && body.keywords.length > 0)) {
+    // 空查询会在后端返回 400 missing_query；这里提前给出可理解提示，
+    // 不渲染成「无命中结果」。
+    showKnowledgeToast(t('dynamic.appKnowledgePage.apiErrors.missingQuery'), true);
+    return;
+  }
   try {
-    const result = await apiFetch('/api/knowledge/retrieval/preview', {
-      method: 'POST',
-      body: JSON.stringify(body),
-    });
+    const result = assertKnowledgePayload(
+      await apiFetch('/api/knowledge/retrieval/preview', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+    );
     renderRetrievalResult(result);
   } catch (error) {
-    showKnowledgeToast(error.message, true);
+    showKnowledgeToast(
+      knowledgeErrorMessage(
+        error,
+        t('dynamic.appKnowledgePage.loadFailed'),
+      ),
+      true,
+    );
+    console.warn('[knowledge] retrieval preview failed', error);
   }
 }

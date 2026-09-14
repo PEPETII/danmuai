@@ -663,17 +663,30 @@ def test_stop_continues_cleanup_when_flush_pending_fails(workspace_tmp, monkeypa
     app.state_changed.emit.assert_called_once_with(False)
 
 
-def test_stop_closes_knowledge_runtime_when_lifetime_flush_fails(workspace_tmp, monkeypatch):
-    """STOP-TEARDOWN: knowledge runtime close must run even when flush fails."""
-    store = ConfigStore(db_path=workspace_tmp / "kb_stop_fail.db")
+def test_stop_keeps_knowledge_runtime_alive_when_lifetime_flush_fails(
+    workspace_tmp, monkeypatch
+):
+    """知识库运行时属于整个应用，不属于弹幕开关：stop() 不得关闭它。
+
+    回归 Case B/C：Stop 弹幕（含 flush 失败路径）之后，知识库
+    repository / retriever / import_orchestrator 必须仍然可用，
+    正在执行的导入任务也不会被取消。
+    """
+    store = ConfigStore(db_path=workspace_tmp / "kb_stop_keep.db")
     lifetime = LifetimeStats(store)
     session_log = SessionRunLog(store)
     app = DanmuApp.__new__(DanmuApp)
     _bind_app_for_full_stop(app, config=store, lifetime_stats=lifetime, session_run_log=session_log)
-    knowledge_runtime = SimpleNamespace(close=Mock())
+    knowledge_runtime = SimpleNamespace(
+        close=Mock(),
+        mount=Mock(return_value=True),
+        repository=object(),
+        retriever=object(),
+        import_orchestrator=object(),
+    )
     object.__setattr__(app, "knowledge_runtime", knowledge_runtime)
 
-    session_log.begin(started_at=time.time() - 5.0, model="kb-fail")
+    session_log.begin(started_at=time.time() - 5.0, model="kb-keep")
     app.stats_state.start_time = time.monotonic() - 2.0
 
     monkeypatch.setattr("main.mic_audio_supported_for_mic_config", lambda _cfg: False)
@@ -681,7 +694,61 @@ def test_stop_closes_knowledge_runtime_when_lifetime_flush_fails(workspace_tmp, 
     with patch.object(store, "set_batch", side_effect=sqlite3.OperationalError("locked")):
         DanmuApp.stop(app)
 
-    knowledge_runtime.close.assert_called_once()
+    knowledge_runtime.close.assert_not_called()
+    assert knowledge_runtime.repository is not None
+    assert knowledge_runtime.retriever is not None
+    assert knowledge_runtime.import_orchestrator is not None
+
+
+def test_start_stop_cycles_never_close_or_remount_knowledge_runtime(
+    workspace_tmp, monkeypatch
+):
+    """回归 Case D：连续 Start/Stop 不得关闭或重建知识库运行时。
+
+    ``_ensure_knowledge_runtime`` 对已存在的运行时调用的是**幂等** ``mount()``：
+    组件齐备时直接返回 True，不会再建第二套 DB / retriever / executor。
+    因此这里要断言的"不重复装配"不变量是 **运行时实例身份保持不变**
+    （没有被换出第二套），而不是 ``mount`` 完全不被调用。
+    """
+    store = ConfigStore(db_path=workspace_tmp / "kb_cycle.db")
+    lifetime = LifetimeStats(store)
+    session_log = SessionRunLog(store)
+    app = DanmuApp.__new__(DanmuApp)
+    _bind_app_for_full_stop(app, config=store, lifetime_stats=lifetime, session_run_log=session_log)
+
+    mount = Mock(return_value=True)
+    knowledge_runtime = SimpleNamespace(
+        close=Mock(),
+        mount=mount,
+        repository=object(),
+        retriever=object(),
+        import_orchestrator=object(),
+    )
+    object.__setattr__(app, "knowledge_runtime", knowledge_runtime)
+
+    # start() 在缺少视觉凭证时会走托盘提示 + 问题上报分支
+    app.tray.show_api_key_missing_hint = Mock()
+    app.report_problem = Mock()
+    object.__setattr__(app, "web_server", None)
+
+    monkeypatch.setattr("main.mic_audio_supported_for_mic_config", lambda _cfg: False)
+    monkeypatch.setattr(
+        "app.ai_client_requests.visual_credentials_ready", lambda _cfg: False
+    )
+
+    for _ in range(3):
+        DanmuApp.start(app)
+        DanmuApp.stop(app)
+
+    # stop() 绝不关闭知识库运行时
+    knowledge_runtime.close.assert_not_called()
+    # 复用同一个实例：连续开关不得重建出第二套 DB / executor
+    assert app.knowledge_runtime is knowledge_runtime
+    # 每次 start 只做一次幂等挂载确认（同一实例被复用，而非被替换）
+    assert mount.call_count == 3
+    assert knowledge_runtime.repository is not None
+    assert knowledge_runtime.retriever is not None
+    assert knowledge_runtime.import_orchestrator is not None
 
 
 def test_stop_logs_flush_failure_without_reporting_success(workspace_tmp, monkeypatch):

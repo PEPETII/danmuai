@@ -57,6 +57,7 @@
       "importWebpage": "读取网页",
       "importFootnote": "导入后，系统会自动读取、拆分并整理资料。",
       "importBlockedActive": "当前已有资料正在整理，请等待完成后再添加。",
+      "importNotStarted": "导入未开始，请重试（输入内容已保留）",
       "jobProgress": "处理进度",
       "jobProgressHint": "导入后，系统会依次读取、切分并整理资料。处理完成后，生成的内容会出现在「知识条目」中。",
       "items": "知识条目",
@@ -136,13 +137,18 @@
       "packageDeleted": "知识包已删除",
       "itemDeleted": "条目已删除",
       "itemUpdated": "条目已更新",
+      "itemUpdateFailed": "条目更新失败，请重试",
+      "itemDeleteFailed": "条目删除失败，请重试",
+      "deleteFailed": "删除失败，请重试",
       "jobCompleted": "导入完成，生成 {count} 条",
       "jobCompletedWithErrors": "导入部分成功，生成 {count} 条",
       "jobFailed": "导入失败",
       "jobFailedWithError": "导入失败：{error}",
       "jobInterrupted": "导入任务已中断",
       "jobCancelled": "任务已取消",
+      "cancelFailed": "取消任务失败，请重试",
       "loadFailed": "加载失败，请重试",
+      "saveFailed": "保存失败，请重试",
       "confirmDeletePackage": "确定删除该知识包？所有来源与条目将被一并删除。",
       "confirmDeleteItem": "确定删除该条目？",
       "noJobs": "暂无任务",
@@ -156,6 +162,7 @@
         "nameHint": "用于区分不同资料集合，例如「原神角色资料」。",
         "namePlaceholder": "例如：黑神话悟空角色与剧情",
         "nameRequired": "请填写知识包名称",
+        "failed": "创建知识包失败，请重试（名称已保留）",
         "submit": "创建知识包"
       },
       "cardStatus": {
@@ -209,6 +216,16 @@
         "noItemsGenerated": "未生成任何知识条目",
         "noChunksGenerated": "未能分块（内容过短或为空）",
         "cancelled": "已取消"
+      },
+      "apiErrors": {
+        "serviceUnavailable": "知识库服务当前不可用，请稍后重试",
+        "stopping": "知识库正在关闭，请稍后重试",
+        "notFound": "未找到对应的知识包、条目或任务",
+        "invalidRequest": "请求内容不合法，请检查后重试",
+        "sourceTooLarge": "来源内容过大，请拆分后重试",
+        "missingQuery": "请填写场景描述或关键词后再检索",
+        "internal": "知识库内部错误，请重试或查看日志",
+        "unknown": "知识库操作失败，请重试"
       },
       "fields": {
         "examples": "示例",

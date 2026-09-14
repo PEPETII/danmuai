@@ -203,6 +203,7 @@ class DiagnosticSnapshotBuilder:
                 "last_injected_count": 0,
                 "last_injected_public_ids": [],
                 "last_query_brief": "",
+                "last_retrieval_reason": "knowledge_disabled",
             }
         retriever = getattr(runtime, "retriever", None)
         repo = getattr(runtime, "repository", None)
@@ -210,6 +211,13 @@ class DiagnosticSnapshotBuilder:
         last_injected_count = 0
         last_injected_public_ids: list[str] = []
         last_query_brief = ""
+        last_retrieval_reason = ""
+        get_reason = getattr(runtime, "get_retrieval_diagnostic", None)
+        if callable(get_reason):
+            try:
+                last_retrieval_reason = str(get_reason() or "")
+            except Exception:
+                last_retrieval_reason = ""
         if retriever is not None:
             fts_backend = str(getattr(retriever, "_fts_backend", "") or "")
             last_injected_count = len(
@@ -260,6 +268,7 @@ class DiagnosticSnapshotBuilder:
             "last_injected_count": last_injected_count,
             "last_injected_public_ids": last_injected_public_ids,
             "last_query_brief": last_query_brief,
+            "last_retrieval_reason": last_retrieval_reason,
         }
 
 
@@ -360,7 +369,8 @@ def build_diagnostic_report(snapshot: dict[str, object]) -> str:
         f"enabled_packages_count: {knowledge.get('enabled_packages_count', 0)}",
         f"items_count: {knowledge.get('items_count', 0)}",
         f"enabled_items_count: {knowledge.get('enabled_items_count', 0)}",
-        f"last_injected_count: {knowledge.get('last_injected_count', 0)}",
+         f"last_injected_count: {knowledge.get('last_injected_count', 0)}",
+         f"last_retrieval_reason: {knowledge.get('last_retrieval_reason', '')}",
         "",
         "[boundary_guard]",
         "- Phase 4 ownership freeze remains in force",

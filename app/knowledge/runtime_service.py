@@ -43,6 +43,7 @@ __all__ = [
     "build_knowledge_scene_context",
     "KnowledgeSceneContext",
     "KnowledgeInjectionResult",
+    "SCENE_CONTEXT_REUSE_MAX_AGE_SEC",
 ]
 
 # 场景 brief 总长度上限（检索查询，非 prompt 注入预算）
@@ -53,6 +54,9 @@ _KEYWORDS_MAX = 16
 _RECENT_DANMU_MAX = 8
 # 场景上下文过期（秒）；generation 变化时立即失效
 _SCENE_CONTEXT_TTL_SEC = 900.0
+# 普通视觉链路复用「上一轮已产出的场景语义」时的最长年龄（秒）。
+# 比 TTL 更短：仅用于同一场景代际内的连续性，避免陈旧上下文污染检索。
+SCENE_CONTEXT_REUSE_MAX_AGE_SEC = 180.0
 
 _STOPWORDS: frozenset[str] = frozenset(
     {
@@ -248,17 +252,43 @@ class KnowledgeRuntimeService:
         self._last_injection: KnowledgeInjectionResult | None = None
         self._last_scene_context: KnowledgeSceneContext | None = None
         self._cached_scene_generation: int | None = None
+        self._last_retrieval_diagnostic = "knowledge_disabled"
         self._closing = False
-        self.mount()
+        # 终止态：只有真正的应用退出（quit / 启动失败回收）才会置位。
+        # 置位后 mount() 永久拒绝，避免已关闭的运行时被重新打开。
+        self._closed = False
+        self._mount_result = self.mount()
+
+    @property
+    def is_ready(self) -> bool:
+        """Return whether this same runtime instance is fully mounted and usable."""
+        return bool(
+            getattr(self, "_mount_result", False)
+            and not getattr(self, "_closing", False)
+            and not getattr(self, "_closed", False)
+            and self._db is not None
+            and self.repository is not None
+            and self.import_orchestrator is not None
+            and self.retriever is not None
+        )
+
+    @property
+    def is_closed(self) -> bool:
+        """True once the whole-application teardown finished closing this runtime."""
+        return bool(getattr(self, "_closed", False))
 
     def mount(self) -> bool:
         """挂载或重新挂载知识库运行时。
 
-        ``stop()`` 会关闭当前数据库连接与导入执行器，但应用对象本身会
-        保留 ``knowledge_runtime`` 引用，以便下一次 ``start()`` 重新打开。
-        挂载失败时保留降级模式，并由调用方决定是否继续启动主链路。
+        ``stop()`` 不会触碰知识库运行时；只有真正的应用退出才会调用
+        ``close(wait=True)``。挂载失败时保留同一个运行时对象的降级状态，
+        由调用方在后续启动时重试，避免创建第二个运行时或重建数据库。
+
+        ``_closing``（关闭进行中）与 ``_closed``（已终止）都直接返回 ``False``，
+        因此不会在关闭中途“假恢复”出一个半可用的运行时。
         """
-        if self._closing:
+        if self._closing or self._closed:
+            self._mount_result = False
             return False
         if (
             self._db is not None
@@ -266,10 +296,12 @@ class KnowledgeRuntimeService:
             and self.import_orchestrator is not None
             and self.retriever is not None
         ):
+            self._mount_result = True
             return True
 
-        # 清理上一次失败或已关闭的部分状态；close() 本身是幂等的。
-        self.close()
+        # 清理上一次装配失败留下的部分状态。必须同步完成，不能在异步 close
+        # 尚未结束时继续打开另一套 DB / executor；这里**不**进入终止态。
+        self._discard_partial_state()
         db = None
         orch = None
         try:
@@ -293,6 +325,8 @@ class KnowledgeRuntimeService:
             self.repository = repo
             self.import_orchestrator = orch
             self.retriever = retriever
+            self._mount_result = True
+            self._last_retrieval_diagnostic = "empty_query"
             return True
         except Exception as exc:
             if orch is not None:
@@ -315,6 +349,8 @@ class KnowledgeRuntimeService:
             self.repository = None
             self.import_orchestrator = None
             self.retriever = None
+            self._mount_result = False
+            self._last_retrieval_diagnostic = "knowledge_disabled"
             return False
 
     # ------------------------------------------------------------------
@@ -348,8 +384,13 @@ class KnowledgeRuntimeService:
         *,
         scene_generation: int | None = None,
         now: float | None = None,
+        max_age_sec: float | None = None,
     ) -> KnowledgeSceneContext | None:
-        """返回未过期且 generation 匹配的缓存场景；否则 None。"""
+        """返回未过期且 generation 匹配的缓存场景；否则 None。
+
+        ``max_age_sec`` 可收紧默认 TTL（普通视觉链路复用上一轮语义时用更短
+        窗口，避免陈旧上下文污染检索）。
+        """
         ctx = self._last_scene_context
         if ctx is None:
             return None
@@ -357,8 +398,13 @@ class KnowledgeRuntimeService:
             scene_generation or 0
         ):
             return None
+        limit = (
+            _SCENE_CONTEXT_TTL_SEC
+            if max_age_sec is None
+            else max(0.0, float(max_age_sec))
+        )
         ts = float(now if now is not None else time.time())
-        if ts - float(ctx.updated_at or 0.0) > _SCENE_CONTEXT_TTL_SEC:
+        if ts - float(ctx.updated_at or 0.0) > limit:
             return None
         return ctx
 
@@ -386,10 +432,12 @@ class KnowledgeRuntimeService:
         """
         retriever = self.retriever
         if retriever is None:
+            self.set_retrieval_diagnostic("knowledge_disabled")
             return None
         brief = str(scene_brief or "").strip()
         kw_list = [str(k).strip() for k in (keywords or []) if str(k or "").strip()]
         if not brief and not kw_list:
+            self.set_retrieval_diagnostic("empty_query")
             return None
         try:
             tag_list = [
@@ -407,12 +455,14 @@ class KnowledgeRuntimeService:
                 screenshot_id=screenshot_id,
             )
         except Exception as exc:
+            self.set_retrieval_diagnostic("retriever_error")
             logger.warning(
-                "knowledge build_visual_prompt_injection retrieve failed: %r",
+                "knowledge retrieval reason=retriever_error failed: %r",
                 exc,
             )
             return None
         if result is None:
+            self.set_retrieval_diagnostic("no_hit")
             return None
         try:
             prompt_text = getattr(result, "prompt_text", "") or ""
@@ -420,8 +470,10 @@ class KnowledgeRuntimeService:
             retrieval_ms = int(getattr(result, "retrieval_ms", 0) or 0)
             items = list(getattr(result, "items", []) or [])
         except Exception:
+            self.set_retrieval_diagnostic("retriever_error")
             return None
         if not prompt_text or hit_count <= 0 or not items:
+            self.set_retrieval_diagnostic("no_hit")
             return None
 
         item_ids: list[int] = []
@@ -470,6 +522,12 @@ class KnowledgeRuntimeService:
         )
         self._last_injection = injection
         try:
+            previous_ctx = self._last_scene_context
+            same_semantics = (
+                previous_ctx is not None
+                and previous_ctx.scene_brief == brief
+                and tuple(previous_ctx.keywords) == tuple(kw_list)
+            )
             self.remember_scene_context(
                 KnowledgeSceneContext(
                     scene_brief=brief,
@@ -482,12 +540,40 @@ class KnowledgeRuntimeService:
                     source_request_round=int(request_round or 0),
                     source_screenshot_id=int(screenshot_id or 0),
                     scene_generation=int(self._cached_scene_generation or 0),
-                    updated_at=time.time(),
+                    # 复用同一批语义时保留最初时间戳：让复用窗口（见
+                    # SCENE_CONTEXT_REUSE_MAX_AGE_SEC）成为硬上限，
+                    # 而不是每次复用都把窗口往后推导致陈旧污染。
+                    updated_at=(
+                        float(previous_ctx.updated_at or 0.0)
+                        if same_semantics
+                        else time.time()
+                    ),
                 )
             )
         except Exception:
             pass
+        self.set_retrieval_diagnostic("injected")
         return injection
+
+    def set_retrieval_diagnostic(self, reason: str) -> None:
+        """Record the latest non-sensitive retrieval outcome for diagnostics."""
+        allowed = {
+            "knowledge_disabled",
+            "empty_query",
+            "no_hit",
+            "retriever_error",
+            "injected",
+        }
+        self._last_retrieval_diagnostic = (
+            reason if reason in allowed else "retriever_error"
+        )
+
+    def get_retrieval_diagnostic(self) -> str:
+        """Return the latest structured retrieval outcome."""
+        return str(
+            getattr(self, "_last_retrieval_diagnostic", "knowledge_disabled")
+            or "knowledge_disabled"
+        )
 
     def get_last_injection(self) -> KnowledgeInjectionResult | None:
         return self._last_injection
@@ -537,41 +623,95 @@ class KnowledgeRuntimeService:
     # 生命周期
     # ------------------------------------------------------------------
 
-    def close(self) -> None:
-        """请求导入停止；DB 在 worker 排空后异步关闭，不能阻塞 Qt 主线程。"""
+    def close(self, *, wait: bool = False) -> None:
+        """Close the runtime; optionally wait for import cancellation to drain.
+
+        This is only reached by the whole-application teardown (``quit()`` /
+        startup-failure release). The danmu business toggle (``stop()``) must
+        never call it. ``wait=False`` keeps the historical non-blocking
+        teardown for callers that are already leaving a background context;
+        ``wait=True`` cancels and drains imports before closing the database
+        so no importer thread or DB connection survives the process.
+        """
         if self._closing:
+            if wait:
+                orch = self.import_orchestrator
+                if orch is not None:
+                    try:
+                        orch.close()
+                    except Exception as exc:
+                        logger.warning(
+                            "knowledge_runtime import_orchestrator close failed: %r",
+                            exc,
+                        )
+                self._finish_close_after_imports()
             return
         self._closing = True
+        self._mount_result = False
         orch = self.import_orchestrator
         if orch is not None:
             try:
-                orch.begin_shutdown(self._finish_close_after_imports)
+                if wait:
+                    orch.begin_shutdown()
+                    orch.close()
+                    self._finish_close_after_imports()
+                else:
+                    orch.begin_shutdown(self._finish_close_after_imports)
             except Exception as exc:
                 logger.warning(
                     "knowledge_runtime import_orchestrator stop failed: %r",
                     exc,
                 )
+                try:
+                    orch.close()
+                except Exception as close_exc:
+                    logger.warning(
+                        "knowledge_runtime import_orchestrator close failed: %r",
+                        close_exc,
+                    )
                 self._finish_close_after_imports()
             return
         self._finish_close_after_imports()
 
-    def _finish_close_after_imports(self) -> None:
-        """仅由已排空的 import worker 回调执行数据库收尾。"""
-        if not self._closing:
-            return
+    def _discard_partial_state(self) -> None:
+        """Synchronously release importer + DB handles without entering terminal state.
+
+        Used by ``mount()`` to clean up a previous partial/failed assembly.
+        Callers that are tearing the runtime down for good must go through
+        ``close()``, which additionally latches ``_closed``.
+        """
+        orch = self.import_orchestrator
+        if orch is not None:
+            try:
+                orch.close()
+            except Exception as exc:
+                logger.warning(
+                    "knowledge_runtime import_orchestrator cleanup failed: %r", exc
+                )
         db = self._db
         if db is not None:
             try:
                 db.close()
             except Exception as exc:
-                logger.warning(
-                    "knowledge_runtime db close failed: %r", exc
-                )
+                logger.warning("knowledge_runtime db cleanup failed: %r", exc)
         self._db = None
         self.repository = None
         self.import_orchestrator = None
         self.retriever = None
+
+    def _finish_close_after_imports(self) -> None:
+        """收尾：仅在 import worker 排空后由 close 路径执行。
+
+        完成后再置 ``_closed=True``（终止态），此后 ``mount()`` 永久返回
+        ``False``，不会因为 ``_closing`` 归位而被意外重新打开。
+        """
+        if not self._closing:
+            return
+        self._discard_partial_state()
         self._last_injection = None
         self._last_scene_context = None
         self._cached_scene_generation = None
+        self._last_retrieval_diagnostic = "knowledge_disabled"
         self._closing = False
+        self._closed = True
+

@@ -72,6 +72,81 @@ export function humanizeJobError(errorMessage) {
   return String(errorMessage);
 }
 
+/**
+ * 知识库 Web API 业务错误码 → i18n key。
+ * HTTP 非 2xx 已由 transport.apiFetch() 抛错；这里的映射用于
+ * 兜底识别历史上「200 + {error}」的响应体，避免再次出现假成功。
+ */
+export const KNOWLEDGE_API_ERROR_KEYS = {
+  not_initialized: 'serviceUnavailable',
+  runtime_unavailable: 'serviceUnavailable',
+  service_unavailable: 'serviceUnavailable',
+  orchestrator_not_ready: 'serviceUnavailable',
+  retriever_not_ready: 'serviceUnavailable',
+  orchestrator_stopping: 'stopping',
+  not_found: 'notFound',
+  package_not_found: 'notFound',
+  not_found_or_completed: 'notFound',
+  missing_query: 'missingQuery',
+  missing_pasted_text: 'invalidRequest',
+  missing_content_base64: 'invalidRequest',
+  missing_source_url: 'invalidRequest',
+  invalid_base64: 'invalidRequest',
+  invalid_source_url: 'invalidRequest',
+  unknown_source_type: 'invalidRequest',
+  parameter_bad: 'invalidRequest',
+  source_too_large: 'sourceTooLarge',
+  internal_error: 'internal',
+};
+
+export function humanizeKnowledgeApiError(code) {
+  const raw = String(code || '').trim();
+  if (!raw) return '';
+  const key = KNOWLEDGE_API_ERROR_KEYS[raw];
+  if (key) {
+    // 显式传空默认值：locale 分片未加载时 t() 会退化成 key 的末段
+    // （如 'notFound'），那属于伪文案，必须回退到原始错误码。
+    const localized = t(`dynamic.appKnowledgePage.apiErrors.${key}`, undefined, '');
+    if (localized) return localized;
+  }
+  return raw;
+}
+
+/**
+ * 知识库调用失败时的可读文案。
+ *
+ * HTTP 非 2xx 的响应体是 `{"detail": {"ok": false, "error": "<code>"}}`，
+ * `formatApiError()` 会取到裸错误码；这里优先把它翻译成用户可理解的中文，
+ * 未知错误码再回退到原始 message / 给定兜底文案。
+ */
+export function knowledgeErrorMessage(error, fallback = '') {
+  const code = typeof error?.code === 'string' ? error.code : '';
+  if (code && KNOWLEDGE_API_ERROR_KEYS[code]) {
+    return humanizeKnowledgeApiError(code);
+  }
+  const message = String(error?.message || '').trim();
+  return message || fallback;
+}
+
+/**
+ * 防御性校验：业务失败不得被当作成功。
+ *
+ * 正常情况下非 2xx 已由 apiFetch() 抛错；此函数只处理旧接口返回
+ * `200 + {"error": "xxx"}` 的残留形态，抛出的 Error 带 `code` 字段，
+ * 便于调用方区分处理。始终返回原 payload（无 error 时）。
+ */
+export function assertKnowledgePayload(data) {
+  if (data && typeof data === 'object' && !Array.isArray(data)) {
+    const code = data.error;
+    if (typeof code === 'string' && code) {
+      const error = new Error(humanizeKnowledgeApiError(code));
+      error.code = code;
+      throw error;
+    }
+  }
+  return data;
+}
+
 export function kindKey(kind) {
   const map = {
     fact: 'kindFact',

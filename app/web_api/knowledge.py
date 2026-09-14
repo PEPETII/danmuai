@@ -52,7 +52,7 @@ def _get_knowledge_runtime(app: "DanmuApp"):
 def _get_or_create_repository(app: "DanmuApp"):
     """从 ``knowledge_runtime`` 取 repository；若 runtime 未初始化（B2 前），返回 None。"""
     runtime = _get_knowledge_runtime(app)
-    if runtime is None:
+    if runtime is None or bool(getattr(runtime, "_closing", False)):
         return None
     return getattr(runtime, "repository", None)
 
@@ -140,8 +140,12 @@ def delete_package(
     """
     runtime = _get_knowledge_runtime(app)
     repo = _get_or_create_repository(app)
-    if repo is None or runtime is None:
+    if runtime is None:
         return {"error": "not_initialized"}
+    if bool(getattr(runtime, "_closing", False)):
+        return {"error": "orchestrator_stopping"}
+    if repo is None:
+        return {"error": "runtime_unavailable"}
     orchestrator = getattr(runtime, "import_orchestrator", None)
     package = repo.get_package(package_public_id)
     if package is None:
@@ -217,7 +221,11 @@ def import_source(
     runtime = _get_knowledge_runtime(app)
     if runtime is None:
         return {"error": "not_initialized"}
-    repo = runtime.repository
+    if bool(getattr(runtime, "_closing", False)):
+        return {"error": "orchestrator_stopping"}
+    repo = getattr(runtime, "repository", None)
+    if repo is None:
+        return {"error": "runtime_unavailable"}
     orchestrator = getattr(runtime, "import_orchestrator", None)
     if orchestrator is None:
         return {"error": "orchestrator_not_ready"}
@@ -277,6 +285,8 @@ def cancel_job(app: "DanmuApp", job_public_id: str) -> dict[str, Any]:
     runtime = _get_knowledge_runtime(app)
     if runtime is None:
         return {"error": "not_initialized"}
+    if bool(getattr(runtime, "_closing", False)):
+        return {"error": "orchestrator_stopping"}
     orchestrator = getattr(runtime, "import_orchestrator", None)
     if orchestrator is None:
         return {"error": "orchestrator_not_ready"}
@@ -373,6 +383,9 @@ def preview_retrieval(
 ) -> dict[str, Any]:
     """POST /api/knowledge/retrieval/preview — 检索预览（不更新运行时缓存）。
 
+    空查询是客户端参数错误（``missing_query``），不是「0 条命中」；
+    路由层会把它映射为 400，避免前端把失败渲染成空结果。
+
     Returns:
         ``{"items": [...], "prompt_text": "...", "hit_count": N,
            "retrieval_ms": N, "fts_backend": "..."}``。
@@ -380,12 +393,22 @@ def preview_retrieval(
     runtime = _get_knowledge_runtime(app)
     if runtime is None:
         return {"error": "not_initialized"}
+    if bool(getattr(runtime, "_closing", False)):
+        return {"error": "runtime_unavailable"}
     retriever = getattr(runtime, "retriever", None)
     if retriever is None:
         return {"error": "retriever_not_ready"}
+    scene_brief = str(payload.get("scene_brief") or "").strip()
+    keywords = [
+        str(k).strip()
+        for k in (payload.get("keywords") or [])
+        if str(k or "").strip()
+    ]
+    if not scene_brief and not keywords:
+        return {"error": "missing_query"}
     result = retriever.retrieve(
-        scene_brief=payload.get("scene_brief", ""),
-        keywords=payload.get("keywords", []),
+        scene_brief=scene_brief,
+        keywords=keywords,
         max_items=payload.get("max_items") or 4,
         max_chars=payload.get("max_chars") or 360,
     )

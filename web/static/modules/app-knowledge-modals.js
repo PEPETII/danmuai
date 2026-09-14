@@ -2,6 +2,10 @@ import { apiFetch } from './transport.js';
 import { t } from './i18n.js';
 import { activateFocusTrap, deactivateFocusTrap } from './modal-focus-trap.js';
 import { showKnowledgeToast } from './app-knowledge-state.js';
+import {
+  assertKnowledgePayload,
+  knowledgeErrorMessage,
+} from './app-knowledge-status.js';
 
 let confirmResolve = null;
 let confirmCleanup = null;
@@ -107,14 +111,28 @@ export function openCreatePackageModal() {
       if (nameError) nameError.classList.add('hidden');
       submitBtn.disabled = true;
       try {
-        const result = await apiFetch('/api/knowledge/packages', {
-          method: 'POST',
-          body: JSON.stringify({ name }),
-        });
+        const result = assertKnowledgePayload(
+          await apiFetch('/api/knowledge/packages', {
+            method: 'POST',
+            body: JSON.stringify({ name }),
+          }),
+        );
+        const packageId =
+          typeof result?.package_id === 'string' ? result.package_id.trim() : '';
+        if (!packageId) {
+          // 没有 package_id 就等于没有创建成功：不弹成功提示、不关弹窗。
+          throw new Error(t('dynamic.appKnowledgePage.create.failed'));
+        }
         showKnowledgeToast(t('dynamic.appKnowledgePage.packageCreated'));
-        close(result);
+        close({ ...result, package_id: packageId });
       } catch (error) {
-        showKnowledgeToast(error.message, true);
+        showKnowledgeToast(
+          knowledgeErrorMessage(
+            error,
+            t('dynamic.appKnowledgePage.create.failed'),
+          ),
+          true,
+        );
       } finally {
         submitBtn.disabled = false;
       }

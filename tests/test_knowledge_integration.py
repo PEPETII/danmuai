@@ -646,10 +646,10 @@ def test_web_api_end_to_end(client, repo):
     assert resp.status_code == 200
     assert resp.json() == {"ok": True}
 
-    # 10. 删除后 GET 返回 not_found
+    # 10. 删除后 GET 返回 404 + 结构化错误（不再用 200 + {"error"} 假成功）
     resp = client.get(f"/api/knowledge/packages/{pid}")
-    assert resp.status_code == 200
-    assert resp.json() == {"error": "not_found"}
+    assert resp.status_code == 404
+    assert resp.json() == {"detail": {"ok": False, "error": "not_found"}}
 
 
 # ---------------------------------------------------------------------------

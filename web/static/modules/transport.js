@@ -250,7 +250,13 @@ export async function apiFetch(path, options = {}, retried = false) {
       res.status === 404
         ? t('dynamic.transport.接口不存在_请完全退出并重新运行_python')
         : res.statusText;
-    throw new Error(formatApiError(err.detail, fallback));
+    const error = new Error(formatApiError(err.detail, fallback));
+    // 带上 HTTP status / 业务错误码，便于调用方区分失败类型（不改变抛错行为）。
+    error.status = res.status;
+    if (err && typeof err.detail === 'object' && err.detail !== null) {
+      error.code = err.detail.error || undefined;
+    }
+    throw error;
   }
   return res.json();
 }

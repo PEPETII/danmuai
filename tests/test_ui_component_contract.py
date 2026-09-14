@@ -200,16 +200,16 @@ def test_settings_footer_demo_uses_ui_button():
     assert "ui-button--primary" in footer
     assert "ui-button--secondary" in footer
     assert "ui-button--lg" in footer
-    # The primary test-connection action now occupies the AI-model header slot;
-    # the add-model action remains available in the settings footer.
+    # Both model actions stay in the AI-model header; the footer keeps the
+    # restore/save actions and no longer swaps in the add-model action.
     assert 'id="btnProbe"' not in footer
-    assert 'id="btnAddCustomModel"' in footer
+    assert 'id="btnAddCustomModel"' not in footer
     assert 'id="btnRestoreSettingsDefaults"' in footer
     model_section_start = settings.find('id="customModelsSection"')
     model_section_end = settings.find('id="providerStatus"', model_section_start)
     model_section = settings[model_section_start:model_section_end]
     assert 'id="btnProbe"' in model_section
-    assert 'id="btnAddCustomModel"' not in model_section
+    assert 'id="btnAddCustomModel"' in model_section
     assert settings.count('id="btnProbe"') == 1
     assert settings.count('id="btnAddCustomModel"') == 1
 

@@ -35,6 +35,8 @@ import {
   organizeStageKey,
   statusKey,
   formatElapsedMs,
+  assertKnowledgePayload,
+  knowledgeErrorMessage,
 } from './app-knowledge-status.js';
 import { openKnowledgeConfirmModal } from './app-knowledge-modals.js';
 import { fillPackageForm, updateOverview } from './app-knowledge-package-detail.js';
@@ -295,13 +297,24 @@ async function cancelOrganizeJob() {
   const liveEl = document.getElementById('knowledgeOrganizeStatusLive');
   if (liveEl) liveEl.textContent = t('dynamic.appKnowledgePage.organizeModal.cancelling');
   try {
-    await apiFetch(
-      `/api/knowledge/jobs/${encodeURIComponent(organizeModalJobId)}/cancel`,
-      { method: 'POST' },
+    const result = assertKnowledgePayload(
+      await apiFetch(
+        `/api/knowledge/jobs/${encodeURIComponent(organizeModalJobId)}/cancel`,
+        { method: 'POST' },
+      ),
     );
+    if (!result?.ok) {
+      throw new Error(t('dynamic.appKnowledgePage.cancelFailed'));
+    }
     await refreshJobs();
   } catch (error) {
-    showKnowledgeToast(error.message, true);
+    showKnowledgeToast(
+      knowledgeErrorMessage(
+        error,
+        t('dynamic.appKnowledgePage.cancelFailed'),
+      ),
+      true,
+    );
   }
 }
 
@@ -453,13 +466,24 @@ async function cancelJobById(jobId) {
   });
   if (!ok) return;
   try {
-    await apiFetch(`/api/knowledge/jobs/${encodeURIComponent(jobId)}/cancel`, {
-      method: 'POST',
-    });
+    const result = assertKnowledgePayload(
+      await apiFetch(`/api/knowledge/jobs/${encodeURIComponent(jobId)}/cancel`, {
+        method: 'POST',
+      }),
+    );
+    if (!result?.ok) {
+      throw new Error(t('dynamic.appKnowledgePage.cancelFailed'));
+    }
     showKnowledgeToast(t('dynamic.appKnowledgePage.jobCancelled'));
     await refreshJobs();
   } catch (error) {
-    showKnowledgeToast(error.message, true);
+    showKnowledgeToast(
+      knowledgeErrorMessage(
+        error,
+        t('dynamic.appKnowledgePage.cancelFailed'),
+      ),
+      true,
+    );
   }
 }
 
@@ -510,12 +534,20 @@ export async function refreshJobs() {
   const packageId = currentPackageId;
   const token = jobPollToken;
   try {
-    const data = await apiFetch(
-      `/api/knowledge/jobs?package_id=${encodeURIComponent(packageId)}`,
+    const data = assertKnowledgePayload(
+      await apiFetch(
+        `/api/knowledge/jobs?package_id=${encodeURIComponent(packageId)}`,
+      ),
     );
     if (token !== jobPollToken || packageId !== currentPackageId) return;
 
-    const jobs = data.jobs || [];
+    // 只有拿到 jobs 数组才更新列表；否则保持上一次状态，
+    // 避免把「接口失败」渲染成「当前没有任务」。
+    if (!Array.isArray(data?.jobs)) {
+      throw new Error(t('dynamic.appKnowledgePage.loadFailed'));
+    }
+
+    const jobs = data.jobs;
     let anyTerminalTransition = false;
     const transitionedJobs = [];
 

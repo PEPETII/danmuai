@@ -10,11 +10,14 @@
 """
 from __future__ import annotations
 
+import time
 from unittest.mock import MagicMock
 
 import pytest
 from app.knowledge.models import KnowledgeSceneContext
 from app.knowledge.runtime_service import (
+    _SCENE_CONTEXT_TTL_SEC,
+    SCENE_CONTEXT_REUSE_MAX_AGE_SEC,
     KnowledgeRuntimeService,
     build_knowledge_scene_context,
 )
@@ -190,3 +193,199 @@ def test_note_scene_generation_same_value_keeps_cache(isolated_runtime):
     got = svc.get_last_scene_context(scene_generation=3, now=4001.0)
     assert got is not None
     assert got.has_semantic_query
+
+
+# ---------------------------------------------------------------------------
+# Case H：普通视觉链路的真实语义 —— 检索诊断 + 复用窗口
+# ---------------------------------------------------------------------------
+
+
+class _FakeRetrieveResult:
+    def __init__(self, prompt_text: str, items: list[dict]):
+        self.prompt_text = prompt_text
+        self.items = items
+        self.hit_count = len(items)
+        self.retrieval_ms = 3
+
+
+class _StubRetriever:
+    """只实现 runtime 注入路径用到的三个方法的最小替身。"""
+
+    def __init__(self, hit: bool = True):
+        self.hit = hit
+        self.last_injected = None
+        self.used_batches: list[list[int]] = []
+        self.calls: list[dict] = []
+
+    def retrieve(self, **kwargs):
+        self.calls.append(kwargs)
+        if not self.hit:
+            return None
+        return _FakeRetrieveResult(
+            prompt_text="知识：葛瑞克弱点是龙头",
+            items=[{"id": 11, "public_id": "ki_11", "content": "葛瑞克弱点是龙头"}],
+        )
+
+    def set_last_injected(self, contents):
+        self.last_injected = list(contents)
+
+    def mark_items_used(self, ids):
+        self.used_batches.append(list(ids))
+
+
+def test_visual_injection_uses_real_semantics_and_reports_injected(isolated_runtime):
+    """真实场景语义 → 检索命中 → 诊断 injected，并记录使用次数。"""
+    svc = isolated_runtime
+    stub = _StubRetriever()
+    svc.retriever = stub
+
+    injection = svc.build_visual_prompt_injection(
+        "葛瑞克二阶段", ["葛瑞克"], request_round=4, screenshot_id=7
+    )
+
+    assert injection is not None
+    assert injection.hit_count == 1
+    assert "葛瑞克" in injection.prompt_text
+    assert svc.get_retrieval_diagnostic() == "injected"
+    assert stub.used_batches == [[11]]
+    # 传给检索器的是真实语义，不是 round/screenshot 编号占位
+    assert stub.calls and stub.calls[0]["scene_brief"] == "葛瑞克二阶段"
+    assert "round=" not in stub.calls[0]["scene_brief"]
+
+
+def test_empty_scene_semantics_never_fabricates_query(isolated_runtime):
+    """无真实语义时不得检索、不得伪造查询，诊断标记 empty_query。"""
+    svc = isolated_runtime
+    stub = _StubRetriever()
+    svc.retriever = stub
+
+    assert (
+        svc.build_visual_prompt_injection(
+            "", [], request_round=9, screenshot_id=9
+        )
+        is None
+    )
+    assert svc.get_retrieval_diagnostic() == "empty_query"
+    assert stub.calls == []
+    assert svc.get_last_injection() is None
+
+
+def test_retriever_none_reports_knowledge_disabled(isolated_runtime):
+    svc = isolated_runtime
+    svc.retriever = None
+
+    assert (
+        svc.build_visual_prompt_injection(
+            "葛瑞克", ["葛瑞克"], request_round=1, screenshot_id=1
+        )
+        is None
+    )
+    assert svc.get_retrieval_diagnostic() == "knowledge_disabled"
+
+
+def test_retriever_exception_reports_retriever_error(isolated_runtime):
+    svc = isolated_runtime
+
+    class _Boom(_StubRetriever):
+        def retrieve(self, **kwargs):
+            raise RuntimeError("db gone")
+
+    svc.retriever = _Boom()
+
+    assert (
+        svc.build_visual_prompt_injection(
+            "葛瑞克", ["葛瑞克"], request_round=1, screenshot_id=1
+        )
+        is None
+    )
+    assert svc.get_retrieval_diagnostic() == "retriever_error"
+
+
+def test_retriever_miss_reports_no_hit(isolated_runtime):
+    svc = isolated_runtime
+    svc.retriever = _StubRetriever(hit=False)
+
+    assert (
+        svc.build_visual_prompt_injection(
+            "葛瑞克", ["葛瑞克"], request_round=1, screenshot_id=1
+        )
+        is None
+    )
+    assert svc.get_retrieval_diagnostic() == "no_hit"
+
+
+def test_reuse_window_is_strictly_narrower_than_default_ttl():
+    """复用窗口必须是收紧的硬上限，否则陈旧语义会持续污染检索。"""
+    assert 0 < SCENE_CONTEXT_REUSE_MAX_AGE_SEC < _SCENE_CONTEXT_TTL_SEC
+
+
+def test_max_age_override_narrows_reuse_window(isolated_runtime):
+    """普通视觉链路复用上一轮语义时，窗口由 max_age_sec 收紧。"""
+    svc = isolated_runtime
+    ctx = build_knowledge_scene_context(
+        live_topic="葛瑞克", scene_generation=7, now=5000.0
+    )
+    svc.remember_scene_context(ctx)
+
+    reuse = SCENE_CONTEXT_REUSE_MAX_AGE_SEC
+    # 窗口内可读
+    assert (
+        svc.get_last_scene_context(
+            scene_generation=7,
+            now=5000.0 + reuse - 1.0,
+            max_age_sec=reuse,
+        )
+        is not None
+    )
+    # 超出复用窗口 → 拒绝
+    assert (
+        svc.get_last_scene_context(
+            scene_generation=7,
+            now=5000.0 + reuse + 1.0,
+            max_age_sec=reuse,
+        )
+        is None
+    )
+    # 同一时刻不传 max_age_sec 时仍在默认 TTL 内 → 证明是窗口在收紧
+    assert (
+        svc.get_last_scene_context(
+            scene_generation=7, now=5000.0 + reuse + 1.0
+        )
+        is not None
+    )
+
+
+def test_repeated_identical_semantics_do_not_slide_reuse_window(isolated_runtime):
+    """同一批语义重复注入时复用窗口起点不变；新语义才重置窗口。"""
+    svc = isolated_runtime
+    svc.retriever = _StubRetriever()
+
+    first = svc.build_visual_prompt_injection(
+        "葛瑞克", ["葛瑞克"], request_round=1, screenshot_id=1
+    )
+    assert first is not None
+    ctx1 = svc.get_last_scene_context(scene_generation=0)
+    assert ctx1 is not None
+    recorded_at = ctx1.updated_at
+
+    # 留出可观测的时间差，确保 time.time() 确实前进
+    time.sleep(0.05)
+
+    again = svc.build_visual_prompt_injection(
+        "葛瑞克", ["葛瑞克"], request_round=2, screenshot_id=2
+    )
+    assert again is not None
+    ctx2 = svc.get_last_scene_context(scene_generation=0)
+    assert ctx2 is not None
+    assert ctx2.updated_at == recorded_at, "同语义重复注入不得把复用窗口起点往后推"
+
+    # 换一批新语义 → 窗口重置
+    time.sleep(0.05)
+    fresh = svc.build_visual_prompt_injection(
+        "女武神玛莲妮亚", ["玛莲妮亚"], request_round=3, screenshot_id=3
+    )
+    assert fresh is not None
+    ctx3 = svc.get_last_scene_context(scene_generation=0)
+    assert ctx3 is not None
+    assert ctx3.updated_at > recorded_at, "新语义应当重置复用窗口起点"
+

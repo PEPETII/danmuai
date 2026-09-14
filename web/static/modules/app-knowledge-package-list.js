@@ -3,6 +3,9 @@ import { t } from './i18n.js';
 import {
   computePackageCardState,
   humanizeJobError,
+  humanizeKnowledgeApiError,
+  knowledgeErrorMessage,
+  assertKnowledgePayload,
 } from './app-knowledge-status.js';
 import {
   resetPackageContext,
@@ -139,7 +142,13 @@ export function renderPackageList(packages, jobsByPackage = new Map()) {
     enterBtn.textContent = t('dynamic.appKnowledgePage.managePackage');
     enterBtn.addEventListener('click', () => {
       openPackageDetail(pkg.public_id).catch((error) =>
-        showKnowledgeToast(error.message, true),
+        showKnowledgeToast(
+          knowledgeErrorMessage(
+            error,
+            t('dynamic.appKnowledgePage.loadFailed'),
+          ),
+          true,
+        ),
       );
     });
     actions.append(enterBtn);
@@ -167,13 +176,24 @@ async function deletePackageFromList(packageId) {
   });
   if (!ok) return;
   try {
-    await apiFetch(`/api/knowledge/packages/${encodeURIComponent(packageId)}`, {
-      method: 'DELETE',
-    });
+    const result = assertKnowledgePayload(
+      await apiFetch(`/api/knowledge/packages/${encodeURIComponent(packageId)}`, {
+        method: 'DELETE',
+      }),
+    );
+    if (!result?.ok) {
+      throw new Error(t('dynamic.appKnowledgePage.deleteFailed'));
+    }
     showKnowledgeToast(t('dynamic.appKnowledgePage.packageDeleted'));
     await loadKnowledgePage();
   } catch (error) {
-    showKnowledgeToast(error.message, true);
+    showKnowledgeToast(
+      knowledgeErrorMessage(
+        error,
+        t('dynamic.appKnowledgePage.deleteFailed'),
+      ),
+      true,
+    );
   }
 }
 
@@ -194,7 +214,9 @@ export async function loadKnowledgePage() {
     ]);
     if (requestId !== packageLoadRequestId) return;
     if (pkgData?.error) {
-      throw new Error(pkgData.error);
+      // 兜底：历史上 runtime 未初始化时会返回 200 + {"error": ...}，
+      // 必须走失败分支，不能渲染成「暂无知识包」。
+      throw new Error(humanizeKnowledgeApiError(pkgData.error));
     }
     const packages = pkgData.packages || [];
     const jobsByPackage = groupJobsByPackageId(jobsData.jobs || [], packages);

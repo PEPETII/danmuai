@@ -325,9 +325,11 @@ def test_get_package_summary_omits_large_source_and_item_bodies(client, repo):
 
 
 def test_get_package_not_found(client):
+    """不存在 → HTTP 404（不得再返回 200 + {"error": ...}）。"""
     resp = client.get("/api/knowledge/packages/nonexistent_id")
-    assert resp.status_code == 200
-    assert resp.json() == {"error": "not_found"}
+    assert resp.status_code == 404
+    detail = resp.json()["detail"]
+    assert detail == {"ok": False, "error": "not_found"}
 
 
 # ---------------------------------------------------------------------------
@@ -359,9 +361,10 @@ def test_delete_package(client):
     assert resp.status_code == 200
     assert resp.json() == {"ok": True}
 
-    # 删除后再 GET 应返回 not_found
+    # 删除后再 GET 应返回 404 not_found
     after = client.get(f"/api/knowledge/packages/{pid}")
-    assert after.json() == {"error": "not_found"}
+    assert after.status_code == 404
+    assert after.json()["detail"]["error"] == "not_found"
 
 
 # ---------------------------------------------------------------------------
@@ -698,8 +701,8 @@ def test_list_items_filtered_by_package(client, repo):
 
     # 另一个不存在的 package
     resp2 = client.get("/api/knowledge/items?package_id=nonexistent")
-    assert resp2.status_code == 200
-    assert resp2.json() == {"error": "package_not_found"}
+    assert resp2.status_code == 404
+    assert resp2.json()["detail"]["error"] == "package_not_found"
 
 
 def test_get_item_detail(client, repo):
@@ -714,8 +717,8 @@ def test_get_item_detail(client, repo):
 
 def test_get_item_not_found(client):
     resp = client.get("/api/knowledge/items/nonexistent")
-    assert resp.status_code == 200
-    assert resp.json() == {"error": "not_found"}
+    assert resp.status_code == 404
+    assert resp.json()["detail"]["error"] == "not_found"
 
 
 def test_update_item(client, repo):
@@ -739,7 +742,8 @@ def test_delete_item(client, repo):
     assert resp.json() == {"ok": True}
 
     after = client.get(f"/api/knowledge/items/{iid}")
-    assert after.json() == {"error": "not_found"}
+    assert after.status_code == 404
+    assert after.json()["detail"]["error"] == "not_found"
 
 
 # ---------------------------------------------------------------------------
@@ -844,17 +848,16 @@ def test_end_to_end_import_flow_with_mocked_organizer(client, repo):
 
 
 # ---------------------------------------------------------------------------
-# 20. 未初始化 runtime 的兜底
+# 20. 未初始化 runtime 的兜底（Case F：必须是非 2xx，不能是 200 + error）
 # ---------------------------------------------------------------------------
 
 
-def test_routes_handle_uninitialized_runtime(tmp_path, config):
-    """knowledge_runtime 为 None 时，GET 路由应返回 not_initialized 兜底。"""
+def _uninitialized_runtime_client(config, *, runtime=None, closing=False):
     app = FastAPI()
     bridge = MagicMock()
     bridge.invoke_on_main.side_effect = lambda fn, *a, **k: fn(*a, **k)
     bridge.danmu_app = SimpleNamespace(
-        knowledge_runtime=None,  # 未初始化
+        knowledge_runtime=runtime,  # 未初始化 / 关闭中
         config=config,
         config_changed=MagicMock(),
     )
@@ -863,33 +866,125 @@ def test_routes_handle_uninitialized_runtime(tmp_path, config):
         return None
 
     register_web_routes(app, bridge, _check_token)
-    client = TestClient(app)
+    return TestClient(app)
+
+
+def test_routes_handle_uninitialized_runtime(tmp_path, config):
+    """knowledge_runtime 为 None → HTTP 503 + 稳定 error code（不是 200）。"""
+    client = _uninitialized_runtime_client(config)
 
     resp = client.get("/api/knowledge/packages")
-    assert resp.status_code == 200
-    body = resp.json()
-    assert body.get("error") == "not_initialized"
-    assert body["packages"] == []
-    assert body["total"] == 0
+    assert resp.status_code == 503
+    assert resp.json()["detail"] == {"ok": False, "error": "not_initialized"}
 
 
 def test_post_packages_handles_uninitialized_runtime(tmp_path, config):
-    """knowledge_runtime 为 None 时，POST 应返回 not_initialized（不创建任何记录）。"""
-    app = FastAPI()
-    bridge = MagicMock()
-    bridge.invoke_on_main.side_effect = lambda fn, *a, **k: fn(*a, **k)
-    bridge.danmu_app = SimpleNamespace(
-        knowledge_runtime=None,
-        config=config,
-        config_changed=MagicMock(),
-    )
-
-    def _check_token(_authorization: str | None = None) -> None:
-        return None
-
-    register_web_routes(app, bridge, _check_token)
-    client = TestClient(app)
+    """knowledge_runtime 为 None → POST 返回 503，且不创建任何记录。"""
+    client = _uninitialized_runtime_client(config)
 
     resp = client.post("/api/knowledge/packages", json={"name": "x"})
-    assert resp.status_code == 200
-    assert resp.json() == {"error": "not_initialized"}
+    assert resp.status_code == 503
+    assert resp.json()["detail"] == {"ok": False, "error": "not_initialized"}
+
+
+def test_runtime_closing_maps_to_409_on_writes(tmp_path, config, repo, retriever):
+    """关闭中的 runtime：写操作 409 orchestrator_stopping，检索预览 503。"""
+    closing_runtime = SimpleNamespace(
+        repository=repo,
+        retriever=retriever,
+        import_orchestrator=None,
+        _closing=True,
+    )
+    client = _uninitialized_runtime_client(config, runtime=closing_runtime)
+
+    delete_resp = client.delete("/api/knowledge/packages/anything")
+    assert delete_resp.status_code == 409
+    assert delete_resp.json()["detail"]["error"] == "orchestrator_stopping"
+
+    import_resp = client.post(
+        "/api/knowledge/packages/anything/imports",
+        json={"source_type": "pasted_text", "pasted_text": "x"},
+    )
+    assert import_resp.status_code == 409
+    assert import_resp.json()["detail"]["error"] == "orchestrator_stopping"
+
+    preview_resp = client.post(
+        "/api/knowledge/retrieval/preview",
+        json={"scene_brief": "场景", "keywords": ["场景"]},
+    )
+    assert preview_resp.status_code == 503
+    assert preview_resp.json()["detail"]["error"] == "runtime_unavailable"
+
+
+def test_uninitialized_runtime_covers_read_endpoints(tmp_path, config):
+    """所有读端点都必须是非 2xx（packages / jobs / items / detail）。"""
+    client = _uninitialized_runtime_client(config)
+
+    checks = [
+        client.get("/api/knowledge/packages/pkg"),
+        client.get("/api/knowledge/packages/pkg?summary=true"),
+        client.get("/api/knowledge/jobs"),
+        client.get("/api/knowledge/jobs/job"),
+        client.get("/api/knowledge/items"),
+        client.get("/api/knowledge/items/item"),
+    ]
+    for resp in checks:
+        assert resp.status_code == 503, resp.text
+        assert resp.json()["detail"]["error"] == "not_initialized"
+
+
+def test_retrieval_preview_empty_query_returns_400(client):
+    """空查询是参数错误（400 missing_query），不是「0 条命中」。"""
+    resp = client.post("/api/knowledge/retrieval/preview", json={})
+    assert resp.status_code == 400
+    assert resp.json()["detail"]["error"] == "missing_query"
+
+
+def test_import_invalid_payload_is_rejected_before_creating_source(client, repo):
+    """空 pasted_text 由 Pydantic 跨字段校验拦下 → 422，且不留下空 source。（Case F）"""
+    pid = client.post(
+        "/api/knowledge/packages", json={"name": "校验包"}
+    ).json()["package_id"]
+
+    resp = client.post(
+        f"/api/knowledge/packages/{pid}/imports",
+        json={"source_type": "pasted_text", "pasted_text": "   "},
+    )
+    assert resp.status_code == 422
+    assert "missing_pasted_text" in resp.text
+    assert repo.list_sources(repo.get_package(pid)["id"]) == []
+
+
+def test_import_service_validation_error_code_is_400_mapped():
+    """服务层校验错误码 → 400（非 Pydantic 调用方路径）。"""
+    from app.web_api.knowledge_routes import _knowledge_error_status
+
+    assert _knowledge_error_status("missing_pasted_text") == 400
+    assert _knowledge_error_status("invalid_source_url") == 400
+    assert _knowledge_error_status("unknown_source_type") == 400
+    assert _knowledge_error_status("source_too_large") == 400
+    assert _knowledge_error_status("missing_query") == 400
+    assert _knowledge_error_status("not_found") == 404
+    assert _knowledge_error_status("package_not_found") == 404
+    assert _knowledge_error_status("orchestrator_stopping") == 409
+    assert _knowledge_error_status("not_found_or_completed") == 409
+    assert _knowledge_error_status("not_initialized") == 503
+    assert _knowledge_error_status("runtime_unavailable") == 503
+    assert _knowledge_error_status("retriever_not_ready") == 503
+    assert _knowledge_error_status("something_unexpected") == 500
+
+
+def test_import_unknown_package_returns_404(client):
+    resp = client.post(
+        "/api/knowledge/packages/nonexistent/imports",
+        json={"source_type": "pasted_text", "pasted_text": "内容"},
+    )
+    assert resp.status_code == 404
+    assert resp.json()["detail"]["error"] == "package_not_found"
+
+
+def test_cancel_unknown_job_returns_409(client):
+    """取消一个不存在/已完成的任务 → 409 not_found_or_completed。"""
+    resp = client.post("/api/knowledge/jobs/nonexistent/cancel")
+    assert resp.status_code == 409
+    assert resp.json()["detail"]["error"] == "not_found_or_completed"

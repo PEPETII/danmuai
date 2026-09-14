@@ -12,6 +12,10 @@ import {
   startKnowledgeJobPolling,
   openOrganizeModalForJob,
 } from './app-knowledge-jobs.js';
+import {
+  assertKnowledgePayload,
+  knowledgeErrorMessage,
+} from './app-knowledge-status.js';
 
 const IMPORT_BTN_KEYS = {
   txt: 'importTxt',
@@ -219,19 +223,31 @@ export async function startImport() {
   }
 
   try {
-    const result = await apiFetch(
-      `/api/knowledge/packages/${encodeURIComponent(currentPackageId)}/imports`,
-      { method: 'POST', body: JSON.stringify(body) },
+    const result = assertKnowledgePayload(
+      await apiFetch(
+        `/api/knowledge/packages/${encodeURIComponent(currentPackageId)}/imports`,
+        { method: 'POST', body: JSON.stringify(body) },
+      ),
     );
-    if (result?.job_id) {
-      previousJobStatusById.set(result.job_id, 'pending');
-      openOrganizeModalForJob(result.job_id, body.display_name || displayName);
+    // 只有拿到合法 job_id 才算提交成功：清理输入 / 打开任务状态 / 刷新 job /
+    // 启动轮询都必须发生在这个判定之后，失败时保留用户输入。
+    const jobId = typeof result?.job_id === 'string' ? result.job_id.trim() : '';
+    if (!jobId) {
+      throw new Error(t('dynamic.appKnowledgePage.importNotStarted'));
     }
+    previousJobStatusById.set(jobId, 'pending');
+    openOrganizeModalForJob(jobId, body.display_name || displayName);
     clearImportInputs();
     await refreshJobs();
     startKnowledgeJobPolling(currentPackageId);
   } catch (error) {
-    showKnowledgeToast(error.message, true);
+    showKnowledgeToast(
+      knowledgeErrorMessage(
+        error,
+        t('dynamic.appKnowledgePage.importNotStarted'),
+      ),
+      true,
+    );
   }
 }
 

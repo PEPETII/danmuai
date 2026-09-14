@@ -7,7 +7,11 @@ import {
   showKnowledgeToast,
   setItemTotalPages,
 } from './app-knowledge-state.js';
-import { kindKey } from './app-knowledge-status.js';
+import {
+  kindKey,
+  assertKnowledgePayload,
+  knowledgeErrorMessage,
+} from './app-knowledge-status.js';
 import { openKnowledgeConfirmModal } from './app-knowledge-modals.js';
 
 let itemsLoadRequestId = 0;
@@ -206,9 +210,11 @@ export async function loadItems() {
   if (enabledRaw === 'true' || enabledRaw === 'false') params.set('enabled', enabledRaw);
   if (query) params.set('query', query);
   try {
-    const data = await apiFetch(`/api/knowledge/items?${params.toString()}`, {
-      signal: itemsLoadAbortController.signal,
-    });
+    const data = assertKnowledgePayload(
+      await apiFetch(`/api/knowledge/items?${params.toString()}`, {
+        signal: itemsLoadAbortController.signal,
+      }),
+    );
     if (!isCurrentItemsLoad(requestId, packageId)) return;
     renderItems(
       data.items || [],
@@ -218,7 +224,10 @@ export async function loadItems() {
     );
   } catch (error) {
     if (isAbortError(error) || !isCurrentItemsLoad(requestId, packageId)) return;
-    showKnowledgeToast(error.message, true);
+    showKnowledgeToast(
+      knowledgeErrorMessage(error, t('dynamic.appKnowledgePage.loadFailed')),
+      true,
+    );
     console.warn('[knowledge] loadItems failed', error);
   } finally {
     if (requestId === itemsLoadRequestId) itemsLoadAbortController = null;
@@ -227,13 +236,24 @@ export async function loadItems() {
 
 async function updateItemEnabled(itemId, enabled) {
   try {
-    await apiFetch(`/api/knowledge/items/${encodeURIComponent(itemId)}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ enabled }),
-    });
+    const updated = assertKnowledgePayload(
+      await apiFetch(`/api/knowledge/items/${encodeURIComponent(itemId)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ enabled }),
+      }),
+    );
+    if (!updated || typeof updated !== 'object' || !updated.public_id) {
+      throw new Error(t('dynamic.appKnowledgePage.itemUpdateFailed'));
+    }
     showKnowledgeToast(t('dynamic.appKnowledgePage.itemUpdated'));
   } catch (error) {
-    showKnowledgeToast(error.message, true);
+    showKnowledgeToast(
+      knowledgeErrorMessage(
+        error,
+        t('dynamic.appKnowledgePage.itemUpdateFailed'),
+      ),
+      true,
+    );
     await loadItems();
   }
 }
@@ -247,12 +267,23 @@ async function deleteItemById(itemId) {
   });
   if (!ok) return;
   try {
-    await apiFetch(`/api/knowledge/items/${encodeURIComponent(itemId)}`, {
-      method: 'DELETE',
-    });
+    const result = assertKnowledgePayload(
+      await apiFetch(`/api/knowledge/items/${encodeURIComponent(itemId)}`, {
+        method: 'DELETE',
+      }),
+    );
+    if (!result?.ok) {
+      throw new Error(t('dynamic.appKnowledgePage.itemDeleteFailed'));
+    }
     showKnowledgeToast(t('dynamic.appKnowledgePage.itemDeleted'));
     await loadItems();
   } catch (error) {
-    showKnowledgeToast(error.message, true);
+    showKnowledgeToast(
+      knowledgeErrorMessage(
+        error,
+        t('dynamic.appKnowledgePage.itemDeleteFailed'),
+      ),
+      true,
+    );
   }
 }
