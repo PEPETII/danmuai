@@ -15,7 +15,7 @@
 
 - 默认 UI 为 **Web 控制台**（`web/static/` + `app/web_console.py` + `app/web_api/`），PyQt6 仅用于 Overlay/托盘。
 - 优先修复稳定性、隐私和发布质量问题，再考虑新功能。
-- 修改 Web UI 前对照 [docs/ui/DESIGN_SYSTEM.md](docs/ui/DESIGN_SYSTEM.md)、[docs/ui/UI_CHANGE_CHECKLIST.md](docs/ui/UI_CHANGE_CHECKLIST.md)；Token 以 `web/static/warm-tokens-base.css` 为准（入口 `warm-tokens.css`）。Web 视觉原型（`Qwen_html_*.html`、`Qwen_markdown_*.md`）已迁至 `E:\test\danmuai_external\prototype\`，不再随仓库分发。
+- 修改 Web UI 前对照 `web/static/` 现有模块、partial 与 locale 契约；Token 以 `web/static/warm-tokens-base.css` 为准（入口 `warm-tokens.css`）。Web 视觉原型（`Qwen_html_*.html`、`Qwen_markdown_*.md`）已迁至 `E:\test\danmuai_external\prototype\`，不再随仓库分发。
 
 ## 开工前检查
 
@@ -75,7 +75,7 @@ python web/static/build_index_html.py
 
 本地 **不要** 跑全量 `python -m pytest tests/`：套件 700+ 条，内存占用高，易导致机器卡顿。请按改动范围 **分批** 执行（每批 `-q -x`）；全量仅 CI 或资源充足的维护者环境执行。
 
-分批策略与 Agent 边界以根目录 [AGENTS.md](AGENTS.md) §7 / §10 为准。可选本地补充：`.local-ai/prompts/IDE_AGENT_RULES.md` §10（该路径可能被 gitignore，克隆后不一定存在；**勿**依赖根级 `IDE_AGENT_RULES.md`）。Web UI 另见 [docs/ui/DESIGN_SYSTEM.md](docs/ui/DESIGN_SYSTEM.md)。
+分批策略与 Agent 边界以根目录 [AGENTS.md](AGENTS.md) §7 / §10 为准。可选本地补充：`.local-ai/prompts/IDE_AGENT_RULES.md` §10（该路径可能被 gitignore，克隆后不一定存在；**勿**依赖根级 `IDE_AGENT_RULES.md`）。
 
 ```bash
 pip install -r requirements-dev.txt
@@ -134,12 +134,12 @@ python scripts/boundary_guard.py
 - 新功能或可见行为变化需要同步更新：
   - `README.md`
   - [项目技术上下文](.local-ai/prompts/ai-project-context.md)（若涉及 Web API/UI）
-  - [CHANGELOG](docs/operations/CHANGELOG.md)
+  - `docs/release/` 下的版本发布记录（如适用）
 - 新增/删除/移动定时器、线程、后台任务或主链路触发点：同步 `docs/main-pipeline-sequence.md`。
 - 新增、删除或改变 `DanmuApp` 运行态字段：同步 `docs/runtime-state-map.md`。
 - 所有权、边界或架构基线改变：同步 `docs/final-architecture-baseline.md`。
-- Web/UI 改动：遵循 `docs/ui/*` 设计系统；新增页面状态、交互或响应式行为时，补充对应测试或手动验收记录。
-- 修改根级维护文档时，请同步更新 [CHANGELOG](docs/operations/CHANGELOG.md) 与对应的 Boundary Guard 登记表（若触达线程、状态或架构边界）。
+- Web/UI 改动：保持 `web/static/` 现有样式 token、partial、模块加载和 locale 契约一致；新增页面状态、交互或响应式行为时，补充对应测试或手动验收记录。
+- 修改根级维护文档时，请按需更新 `docs/release/` 下的版本发布记录与对应的 Boundary Guard 登记表（若触达线程、状态或架构边界）。
 
 ## 范围外问题处理
 

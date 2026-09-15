@@ -19,8 +19,8 @@ Closes #
 - [ ] 已按改动范围分批运行相关 `tests/test_*.py -q -x`，并记录每批通过/失败数；未由 Agent 本地执行全量 pytest
 - [ ] 未引入 API Key、日志、截图等敏感文件
 - [ ] **Web/API/UI**：已运行相关 Web 测试批次并带 `-q -x`；触达编排、Web API 或 `DanmuApp` 主链路时已运行 `python scripts/boundary_guard.py`
-- [ ] 如涉及 Web UI 变更，已对照 `docs/ui/DESIGN_SYSTEM.md`（视觉原型 `Qwen_html_*.html` 已迁至 `E:\test\danmuai_external\prototype\`）
-- [ ] 已按需要更新 `README.md`、`docs/operations/CHANGELOG.md`、架构登记表或工单状态
+- [ ] 如涉及 Web UI 变更，已对照 `web/static/` 现有模块与 `warm-tokens*.css` 样式 token 契约（视觉原型 `Qwen_html_*.html` 已迁至 `E:\test\danmuai_external\prototype\`）
+- [ ] 已按需要更新 `README.md`、`docs/release/` 版本发布记录、架构登记表或工单状态
 - [ ] 已列出手动验证结果、未验证路径、兼容旧契约的消费者和回滚方式
 
 ## 验证结果与风险

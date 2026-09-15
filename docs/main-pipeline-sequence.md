@@ -28,7 +28,7 @@ rejected，不能占用主视觉的两个 worker slot。
 ## 主链路弹幕批次 → 虚拟主播会话
 
 `GenerationPipeline.handle_reply_parsed`（Qt 主线程，`ai_worker.finished` 回调链）在入队时仅产生
-`DanmuGenerated` / `DanmuQueued`。overlay、floating panel、pet 仅在自己实际接受文本时发出
+`DanmuGenerated` / `DanmuQueued`。overlay、floating panel 仅在自己实际接受文本时发出
 `DanmuDisplayed`；该事件才经 `VirtualHostRuntimeService.on_danmu_displayed` 调用
 `VirtualHostSession.ingest_danmu_batch`。runtime 通过 `DanmuApp.get_scene_generation_snapshot()` 读取
 generation，并由主线程变更通知原子清空旧上下文；runtime 未 `running` 时拒绝，不触发 Chat/TTS。

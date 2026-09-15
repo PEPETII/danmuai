@@ -39,7 +39,7 @@ worker 禁止直接修改 `VirtualHostRuntimeService` 或 `VirtualHostSession`�
 ## 主链路弹幕批次接入
 
 `GenerationPipeline.handle_reply_parsed` 只产生 `DanmuGenerated` / `DanmuQueued`；每个 overlay、
-floating panel、pet 显示面实际接受文本后才产生 `DanmuDisplayed`，并由
+floating panel 显示面实际接受文本后才产生 `DanmuDisplayed`，并由
 `VirtualHostRuntimeService.on_danmu_displayed` 送入 `VirtualHostSession`。因此裁剪、去重或显示面
 拒绝的文本不会触发虚拟主播自主回应；事件只携带已规范化文本和 request/batch/generation/source，
 不传递 AI 原始 response/JSON。
