@@ -1,0 +1,25 @@
+﻿ M app/application/diagnostic_snapshot.py
+ M app/knowledge/runtime_service.py
+ M app/main_lifecycle_mixin.py
+ M app/main_request_context_mixin.py
+ M app/web_api/knowledge.py
+ M app/web_api/knowledge_routes.py
+ M tests/test_ui_component_contract.py
+ M web/static/index.html
+ M web/static/modules/settings-hints.js
+ M web/static/partials/settings.html
+ M web/static/warm-tokens-settings.css
+?? tmp/_git_status.txt
+--- diff --stat ---
+ app/application/diagnostic_snapshot.py |  12 ++-
+ app/knowledge/runtime_service.py       |  98 ++++++++++++++++++---
+ app/main_lifecycle_mixin.py            |  46 +++++++---
+ app/main_request_context_mixin.py      |  45 ++++++++++
+ app/web_api/knowledge.py               |  18 +++-
+ app/web_api/knowledge_routes.py        | 156 +++++++++++++++++++++++++++------
+ tests/test_ui_component_contract.py    |   8 +-
+ web/static/index.html                  |   2 +-
+ web/static/modules/settings-hints.js   |   4 +-
+ web/static/partials/settings.html      |  56 ++++--------
+ web/static/warm-tokens-settings.css    |   2 +-
+ 11 files changed, 344 insertions(+), 103 deletions(-)

@@ -1,0 +1,35 @@
+﻿TAP version 13
+# Subtest: slow A detail response cannot overwrite fast B detail
+ok 1 - slow A detail response cannot overwrite fast B detail
+  ---
+  duration_ms: 11.6355
+  type: 'test'
+  ...
+# Subtest: slow A items response cannot overwrite fast B items
+ok 2 - slow A items response cannot overwrite fast B items
+  ---
+  duration_ms: 0.4281
+  type: 'test'
+  ...
+# Subtest: aborted items request is silent after leaving detail view
+ok 3 - aborted items request is silent after leaving detail view
+  ---
+  duration_ms: 2.3193
+  type: 'test'
+  ...
+# Subtest: terminal job refresh handles modal open and closed states
+ok 4 - terminal job refresh handles modal open and closed states
+  ---
+  duration_ms: 5.5684
+  type: 'test'
+  ...
+1..4
+# tests 4
+# suites 0
+# pass 4
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 197.1961
+exit=0

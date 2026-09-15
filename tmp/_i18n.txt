@@ -1,0 +1,30 @@
+﻿
+FullName                                            Length
+--------                                            ------
+E:\test\danmu\web\static\locales\en\common.json       1971
+E:\test\danmu\web\static\locales\en\content.json     21888
+E:\test\danmu\web\static\locales\en\dynamic.json     57831
+E:\test\danmu\web\static\locales\en\hints.json        8971
+E:\test\danmu\web\static\locales\en\modals.json       4854
+E:\test\danmu\web\static\locales\en\nav.json          2519
+E:\test\danmu\web\static\locales\en\overview.json     2032
+E:\test\danmu\web\static\locales\en\settings.json    15288
+E:\test\danmu\web\static\locales\zh\common.json       1918
+E:\test\danmu\web\static\locales\zh\content.json     22550
+E:\test\danmu\web\static\locales\zh\dynamic.json     61137
+E:\test\danmu\web\static\locales\zh\hints.json       10998
+E:\test\danmu\web\static\locales\zh\modals.json       4971
+E:\test\danmu\web\static\locales\zh\nav.json          2638
+E:\test\danmu\web\static\locales\zh\overview.json     2081
+E:\test\danmu\web\static\locales\zh\settings.json    15327
+E:\test\danmu\web\static\locales\manifest.json         209
+E:\test\danmu\web\static\locales\_extracted_zh.json  99647
+E:\test\danmu\web\static\locales\_shard_counts.json    329
+
+
+
+FullName                                
+--------                                
+E:\test\danmu\web\static\modules\i18n.js
+
+

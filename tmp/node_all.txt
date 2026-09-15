@@ -1,0 +1,159 @@
+﻿TAP version 13
+# Subtest: assertKnowledgePayload throws a coded error on residual 200 + {error}
+ok 1 - assertKnowledgePayload throws a coded error on residual 200 + {error}
+  ---
+  duration_ms: 2.1598
+  type: 'test'
+  ...
+# Subtest: assertKnowledgePayload passes through genuine success payloads unchanged
+ok 2 - assertKnowledgePayload passes through genuine success payloads unchanged
+  ---
+  duration_ms: 0.6373
+  type: 'test'
+  ...
+# Subtest: assertKnowledgePayload tolerates empty error and non-object payloads
+ok 3 - assertKnowledgePayload tolerates empty error and non-object payloads
+  ---
+  duration_ms: 0.5786
+  type: 'test'
+  ...
+# Subtest: knowledgeErrorMessage never leaks a bare i18n pseudo-key
+ok 4 - knowledgeErrorMessage never leaks a bare i18n pseudo-key
+  ---
+  duration_ms: 0.2991
+  type: 'test'
+  ...
+# Subtest: knowledgeErrorMessage prefers mapped code, then message, then fallback
+ok 5 - knowledgeErrorMessage prefers mapped code, then message, then fallback
+  ---
+  duration_ms: 0.282
+  type: 'test'
+  ...
+# Subtest: every route-mapped knowledge error code has a frontend mapping
+ok 6 - every route-mapped knowledge error code has a frontend mapping
+  ---
+  duration_ms: 1.6223
+  type: 'test'
+  ...
+# Subtest: every frontend apiError key exists in both zh and en locales
+ok 7 - every frontend apiError key exists in both zh and en locales
+  ---
+  duration_ms: 3.4298
+  type: 'test'
+  ...
+# Subtest: slow A detail response cannot overwrite fast B detail
+ok 8 - slow A detail response cannot overwrite fast B detail
+  ---
+  duration_ms: 15.4471
+  type: 'test'
+  ...
+# Subtest: slow A items response cannot overwrite fast B items
+ok 9 - slow A items response cannot overwrite fast B items
+  ---
+  duration_ms: 0.6294
+  type: 'test'
+  ...
+# Subtest: aborted items request is silent after leaving detail view
+ok 10 - aborted items request is silent after leaving detail view
+  ---
+  duration_ms: 0.9728
+  type: 'test'
+  ...
+# Subtest: terminal job refresh handles modal open and closed states
+ok 11 - terminal job refresh handles modal open and closed states
+  ---
+  duration_ms: 6.3302
+  type: 'test'
+  ...
+# Subtest: provider picker modal markup keeps search contract
+ok 12 - provider picker modal markup keeps search contract
+  ---
+  duration_ms: 12.474
+  type: 'test'
+  ...
+# Subtest: filterProvidersForModal matches label/id/alias case-insensitively
+ok 13 - filterProvidersForModal matches label/id/alias case-insensitively
+  ---
+  duration_ms: 9.2075
+  type: 'test'
+  ...
+# Subtest: shared provider classification drives hidden and visible modal fields
+ok 14 - shared provider classification drives hidden and visible modal fields
+  ---
+  duration_ms: 26.3592
+  type: 'test'
+  ...
+# Subtest: non-custom provider validation ignores the hidden endpoint field
+ok 15 - non-custom provider validation ignores the hidden endpoint field
+  ---
+  duration_ms: 1.7613
+  type: 'test'
+  ...
+# [realtime] status WS connecting ws://127.0.0.1:18765/ws/status
+# [realtime] logs WS connecting ws://127.0.0.1:18765/ws/logs
+# [realtime] status WS open
+# [realtime] logs WS open
+# [realtime] status WS connecting ws://127.0.0.1:18765/ws/status
+# [realtime] logs WS connecting ws://127.0.0.1:18765/ws/logs
+# [realtime] status WS connecting ws://127.0.0.1:18765/ws/status
+# [realtime] logs WS connecting ws://127.0.0.1:18765/ws/logs
+# [realtime] status WS open
+# [realtime] logs WS open
+# Subtest: resumeRealtimeTransport coalesces concurrent visibility resumes
+ok 16 - resumeRealtimeTransport coalesces concurrent visibility resumes
+  ---
+  duration_ms: 26.3761
+  type: 'test'
+  ...
+# Subtest: resumeRealtimeTransport reuses healthy open sockets
+ok 17 - resumeRealtimeTransport reuses healthy open sockets
+  ---
+  duration_ms: 1.0615
+  type: 'test'
+  ...
+# Subtest: stale logs WS open callback does not bootstrap after reconnect
+ok 18 - stale logs WS open callback does not bootstrap after reconnect
+  ---
+  duration_ms: 2.8066
+  type: 'test'
+  ...
+# Subtest: transport exchanges fragment bootstrap once and removes the secret from location
+ok 19 - transport exchanges fragment bootstrap once and removes the secret from location
+  ---
+  duration_ms: 8.7217
+  type: 'test'
+  ...
+# [transport] session auth recovery failed (apiFetch) Error: 鏃犳硶鑾峰彇鎺у埗鍙颁細璇漘HTTP_res_sta璇风‘璁ょ粓绔湁_Web_鎺у埗鍙癬HTTP_WS_宸?#     at file:///E:/test/danmu/web/static/modules/transport.js:208:13
+#     at async apiFetch (file:///E:/test/danmu/web/static/modules/transport.js:240:7)
+#     at async waitForActual (node:assert:644:5)
+#     at async Function.rejects (node:assert:767:25)
+#     at async TestContext.<anonymous> (file:///E:/test/danmu/tests/test_web_session_token_recovery.mjs:115:3)
+#     at async Test.run (node:internal/test_runner/test:1054:7)
+#     at async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+# Subtest: refreshSession failure clears stored session and in-memory token
+ok 20 - refreshSession failure clears stored session and in-memory token
+  ---
+  duration_ms: 8.7244
+  type: 'test'
+  ...
+# Subtest: apiFetch stops retrying with stale bearer after refresh failure
+ok 21 - apiFetch stops retrying with stale bearer after refresh failure
+  ---
+  duration_ms: 2.9089
+  type: 'test'
+  ...
+# Subtest: apiFetch retries once after 401 when refresh succeeds
+ok 22 - apiFetch retries once after 401 when refresh succeeds
+  ---
+  duration_ms: 0.5675
+  type: 'test'
+  ...
+1..22
+# tests 22
+# suites 0
+# pass 22
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 347.2029

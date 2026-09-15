@@ -1,0 +1,55 @@
+﻿
+Name                                                     LastWriteTime     
+----                                                     -------------     
+meme_barrage_newuser_layout.html                         2026/9/6 10:18:03 
+DanmuAI_Issue_Diagnosis_Tray_NoWindow_2026-09-05.md      2026/9/5 15:10:40 
+DanmuAI_Issue_Diagnosis_Streaming_Response_2026-09-05.md 2026/9/5 15:06:22 
+W-I18N-DYNAMIC-AUDIT-001-完成报告.md                         2026/7/15 20:08:57
+W-MIC-INPUT-DEVICE-ENUM-001-完成报告.md                      2026/7/15 20:05:32
+W-I18N-DYNAMIC-PLACEHOLDER-001-完成报告.md                   2026/7/15 20:01:07
+T-TEST-004-completion-report.md                          2026/7/12 23:00:47
+T-TEST-009-completion-report.md                          2026/7/12 23:00:47
+T-TEST-012-completion-report.md                          2026/7/12 23:00:47
+T-TEST-011-completion-report.md                          2026/7/12 23:00:47
+T-TEST-010-completion-report.md                          2026/7/12 23:00:47
+T-TEST-003-completion-report.md                          2026/7/12 23:00:47
+T-TEST-002-completion-report.md                          2026/7/12 23:00:47
+T-TEST-001-completion-report.md                          2026/7/12 23:00:47
+README.md                                                2026/7/12 22:36:27
+windows-release-post-freeze.md                           2026/7/12 22:27:53
+W-REL-MSI-001-completion-report.md                       2026/7/12 22:27:53
+windows-code-signing-assessment.md                       2026/7/12 22:27:53
+windows-release-final-check.md                           2026/7/12 22:27:53
+W-REL-CLEANUP-001-completion-report.md                   2026/7/12 22:27:53
+W-ADD-MODEL-BTN-REMOVE-001-completion-report.md          2026/7/12 22:27:53
+release-url-migration-default-check.md                   2026/7/12 22:27:53
+W-BILILIVE-DM-PLUGIN-MODE-005-completion-report.md       2026/7/11 17:23:03
+W-THEME-LAG-QUEUE-PURGE-001-completion-report.md         2026/7/11 17:23:03
+W-VISUAL-INFLIGHT-WATCHDOG-001-completion-report.md      2026/7/11 17:23:03
+
+
+
+FullName                                                                       
+--------                                                                       
+E:\test\danmu\docs\operations\PACKAGING_WINDOWS.md                             
+E:\test\danmu\docs\release\v0.4.3.md                                           
+E:\test\danmu\docs\operations\RELEASE_MONITORING.md                            
+E:\test\danmu\docs\runtime-state-map.md                                        
+E:\test\danmu\docs\main-pipeline-sequence.md                                   
+E:\test\danmu\docs\final-architecture-baseline.md                              
+E:\test\danmu\docs\performance-optimization-research-2026-08-24.md             
+E:\test\danmu\docs\deep_functional_architecture_audit_2026-08-23.md            
+E:\test\danmu\docs\model-api-audit\current-test-assumptions.md                 
+E:\test\danmu\docs\model-api-audit\export_baseline.py                          
+E:\test\danmu\docs\model-api-audit\current-request-payloads.md                 
+E:\test\danmu\docs\workorders\W-PROBLEM-DISPLAY-001-IMPLEMENTATION-REPORT.md   
+E:\test\danmu\docs\danmuai_model_api_audit_2026-08-01\exports\01_现状盘点与官方差异矩阵...
+E:\test\danmu\docs\danmuai_model_api_audit_2026-08-01\danmuai_model_api_audi...
+E:\test\danmu\docs\danmuai-model-modal-tickets\00-模型添加弹窗优化-工单总览.md             
+E:\test\danmu\docs\danmuai-model-modal-tickets\03-W-MODEL-MODAL-PROBE-TEST-0...
+E:\test\danmu\docs\danmuai-model-modal-tickets\02-W-MODEL-MODAL-LOGIC-002-交互...
+E:\test\danmu\docs\danmuai-model-modal-tickets\01-W-MODEL-MODAL-UI-001-弹窗结构与...
+E:\test\danmu\docs\model-api-audit\batch0_current_574e6da\current-host-rules...
+E:\test\danmu\docs\model-api-audit\batch0_current_574e6da\manifest.json        
+
+

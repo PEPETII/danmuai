@@ -1,0 +1,4 @@
+﻿=========================== short test summary info ===========================
+FAILED tests/test_web_i18n_parity.py::test_zh_en_locale_key_parity - Assertio...
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed in 1.99s

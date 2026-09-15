@@ -1,0 +1,15 @@
+﻿False
+C:\Python314\python.exe exists: True
+3.13.14 (main, Jun 11 2026, 04:04:46) [MSC v.1944 64 bit (AMD64)]
+python.exe : Traceback (most recent call last):
+所在位置 行:453 字符: 1
++ & $py -c "import pytest, fastapi, PyQt6; print('deps ok')" 2>&1 | Out ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Traceback (most recent call last) 
+   ::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  File "<string>", line 1, in <module>
+    import pytest, fastapi, PyQt6; print('deps ok')
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'pytest'

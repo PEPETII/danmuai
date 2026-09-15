@@ -1,0 +1,4 @@
+﻿=========================== short test summary info ===========================
+FAILED tests/test_ui_component_contract.py::test_content_pages_f2_semantic_shell
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed, 23 passed in 0.76s

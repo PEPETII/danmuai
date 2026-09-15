@@ -1,0 +1,18 @@
+﻿.......F
+================================== FAILURES ===================================
+_________________________ test_get_package_not_found __________________________
+
+client = <starlette.testclient.TestClient object at 0x000001D9D48906B0>
+
+    def test_get_package_not_found(client):
+        resp = client.get("/api/knowledge/packages/nonexistent_id")
+>       assert resp.status_code == 200
+E       assert 404 == 200
+E        +  where 404 = <Response [404 Not Found]>.status_code
+
+tests\test_knowledge_api.py:329: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_knowledge_api.py::test_get_package_not_found - assert 404 =...
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed, 7 passed in 3.99s
+exit=1

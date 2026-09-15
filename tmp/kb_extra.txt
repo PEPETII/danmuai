@@ -1,0 +1,59 @@
+﻿.......................F.....F.........................                  [100%]
+================================== FAILURES ===================================
+_______________________ test_organize_chunk_doubao_path _______________________
+
+mock_cred = <MagicMock name='resolve_request_credentials' id='1850464277504'>
+mock_stream_openai = <MagicMock name='stream_openai' id='1850464278176'>
+mock_stream_doubao = <MagicMock name='stream_doubao' id='1850464277168'>
+
+    @patch("app.knowledge.ai_organizer.stream_doubao")
+    @patch("app.knowledge.ai_organizer.stream_openai")
+    @patch("app.knowledge.ai_organizer.resolve_request_credentials")
+    def test_organize_chunk_doubao_path(mock_cred, mock_stream_openai, mock_stream_doubao):
+        """鐢ㄤ緥 12锛歛pi_mode="doubao" 鈫?璋冪敤 stream_doubao锛屼笉璋冪敤 stream_openai銆?""
+        mock_cred.return_value = _CRED_DOUBAO
+        mock_stream_doubao.return_value = (
+            _ok_payload([{"kind": "fact", "title": "doubao", "content": "鍐呭"}]),
+            100,
+            50,
+            "",  # error 瀛楁
+        )
+        result = organize_chunk(_make_config(), "chunk", "game", "pkg-1", "src-1", "chunk-1")
+        assert result["ok"] is True
+        assert len(result["items"]) == 1
+        assert result["items"][0]["title"] == "doubao"
+        assert mock_stream_doubao.call_count == 1
+        assert mock_stream_openai.call_count == 0
+        # 楠岃瘉 doubao data 鍚?instructions锛坰ystem prompt锛? thinking disabled
+        doubao_data = mock_stream_doubao.call_args[0][4]
+        assert "instructions" in doubao_data
+>       assert doubao_data["thinking"] == {"type": "disabled"}
+               ^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'thinking'
+
+tests\test_knowledge_ai_organizer.py:372: KeyError
+_________ test_structured_output_true_sends_schema_and_records_tokens _________
+
+mock_caps = <MagicMock name='resolve_capabilities' id='1850464281872'>
+mock_cred = <MagicMock name='resolve_request_credentials' id='1850464282208'>
+mock_stream = <MagicMock name='stream_openai' id='1850464282544'>
+
+    @patch("app.knowledge.ai_organizer.stream_openai")
+    @patch("app.knowledge.ai_organizer.resolve_request_credentials")
+    @patch("app.providers.request_planner.resolve_capabilities")
+    def test_structured_output_true_sends_schema_and_records_tokens(
+        mock_caps, mock_cred, mock_stream
+    ):
+        """鏄庣‘鏀寔鏃剁敱 adapter 鍙?schema锛沷rganizer 浠嶄繚鐣?stream parser銆?""
+        mock_cred.return_value = _CRED_OPENAI
+>       mock_caps.return_value = SimpleNamespace(
+            **replace(ProviderCapabilities(), structured_output=True).__dict__,
+            max_output_tokens=128,
+        )
+E       TypeError: types.SimpleNamespace() got multiple values for keyword argument 'max_output_tokens'
+
+tests\test_knowledge_ai_organizer.py:457: TypeError
+=========================== short test summary info ===========================
+FAILED tests/test_knowledge_ai_organizer.py::test_organize_chunk_doubao_path
+FAILED tests/test_knowledge_ai_organizer.py::test_structured_output_true_sends_schema_and_records_tokens
+2 failed, 53 passed in 18.81s

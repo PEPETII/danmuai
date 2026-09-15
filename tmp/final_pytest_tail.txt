@@ -1,0 +1,3 @@
+﻿-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+53 passed, 15 warnings in 11.31s
+py_exit=0

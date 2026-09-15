@@ -1,0 +1,472 @@
+﻿"""Contract: static .card must not translate on hover; interactive may."""
+
+from __future__ import annotations
+
+import re
+from pathlib import Path
+
+
+def _static_dir() -> Path:
+    return Path(__file__).resolve().parents[1] / "web" / "static"
+
+
+def _base_css() -> str:
+    return (_static_dir() / "warm-tokens-base.css").read_text(encoding="utf-8")
+
+
+def _pages_css() -> str:
+    return (_static_dir() / "warm-tokens-pages.css").read_text(encoding="utf-8")
+
+
+def _rule_block(css: str, selector: str) -> str | None:
+    """Return body of first rule whose selector matches exactly (simple)."""
+    pattern = re.compile(
+        rf"(?m)^{re.escape(selector)}\s*\{{([^}}]*)\}}",
+    )
+    match = pattern.search(css)
+    return match.group(1) if match else None
+
+
+def test_model_modal_parameter_grid_keeps_controls_aligned_and_bounded():
+    modals = (_static_dir() / "partials" / "modals.html").read_text(encoding="utf-8")
+    css = _pages_css()
+
+    assert 'id="modelTemperature"' in modals
+    assert modals.count("model-parameter-field") >= 3
+    assert 'class="slider-group model-parameter-control"' in modals
+    assert 'class="model-parameter-control"' in modals
+    assert re.search(
+        r'class="field model-parameter-field model-mic-field">\s*'
+        r'<label for="modelSupportsMic"',
+        modals,
+    )
+
+    parameter_grid = _rule_block(css, "#modelModal .model-editor .field-row-3")
+    assert parameter_grid is not None
+    assert "align-items: start" in parameter_grid
+
+    body = _rule_block(css, ".model-modal-body")
+    assert body is not None
+    assert "overflow-y: auto" in body
+    assert "min-height: 0" in body
+
+    stepper = _rule_block(css, "#modelModal .model-parameter-control > .settings-rhythm-stepper")
+    assert stepper is not None
+    assert "height: var(--control-height-md)" in stepper
+
+
+def test_static_card_hover_has_no_translatey():
+    css = _base_css()
+    # Global .card:hover (alone or combined with .ui-card:hover) must not translateY.
+    card_hover = _rule_block(css, ".card:hover")
+    combined = re.search(
+        r"\.card:hover\s*,\s*\.ui-card:hover\s*\{([^}]*)\}",
+        css,
+    )
+    ui_only = re.search(
+        r"\.ui-card:hover\s*,\s*\.card:hover\s*\{([^}]*)\}",
+        css,
+    )
+    body = None
+    if card_hover is not None:
+        body = card_hover
+    elif combined is not None:
+        body = combined.group(1)
+    elif ui_only is not None:
+        body = ui_only.group(1)
+    assert body is not None, ".card:hover rule missing"
+    assert "translateY" not in body, (
+        ".card:hover must not use translateY (static cards must not lift)"
+    )
+
+
+def test_interactive_card_hover_may_translatey():
+    css = _base_css()
+    assert ".ui-card--interactive" in css
+    interactive_hover = _rule_block(css, ".ui-card--interactive:hover")
+    assert interactive_hover is not None
+    assert "translateY" in interactive_hover
+
+
+def test_card_transition_not_all():
+    css = _base_css()
+    # Prefer explicit property transitions over transition: all on .card
+    card_block = re.search(
+        r"\.card\s*,\s*\.ui-card\s*\{([^}]*)\}|\.card\s*\{([^}]*)\}",
+        css,
+    )
+    assert card_block is not None
+    body = card_block.group(1) or card_block.group(2) or ""
+    assert re.search(r"transition\s*:\s*all\b", body) is None, (
+        ".card should not use transition: all"
+    )
+
+
+def test_overview_stat_cards_have_interactive_class():
+    overview = (_static_dir() / "partials" / "overview.html").read_text(encoding="utf-8")
+    content = (_static_dir() / "partials" / "content-pages.html").read_text(encoding="utf-8")
+    # Four overview session stat cards on overview; four lifetime cards moved to guide tab.
+    session_stats_start = overview.index('id="page-overview"')
+    quick_settings_start = overview.index(
+        '<section class="overview-quick-settings',
+        session_stats_start,
+    )
+    session_stats = overview[session_stats_start:quick_settings_start]
+    count = session_stats.count("ui-card--interactive")
+    assert count == 4, f"expected 4 ui-card--interactive on overview session stats, got {count}"
+    for sid in (
+        "statDanmu",
+        "statAppInputTokens",
+        "statRuntime",
+        "statAppOutputTokens",
+    ):
+        assert sid in session_stats
+    for sid in (
+        "statLifetimeDanmu",
+        "statLifetimeRuntime",
+        "statLifetimeInputTokens",
+        "statLifetimeOutputTokens",
+    ):
+        assert sid in content
+
+
+def test_settings_form_card_not_interactive():
+    settings = (_static_dir() / "partials" / "settings.html").read_text(encoding="utf-8")
+    # Large settings form remains static .card without interactive lift.
+    assert 'id="settingsForm"' in settings
+    assert "ui-card--interactive" not in settings
+
+
+def _components_css() -> str:
+    return (_static_dir() / "warm-tokens-components.css").read_text(encoding="utf-8")
+
+
+def test_ui_button_semantic_selectors_exist():
+    css = _components_css()
+    required = [
+        ".ui-button",
+        ".ui-button--primary",
+        ".ui-button--secondary",
+        ".ui-button--danger",
+        ".ui-button--ghost",
+        ".ui-button--sm",
+        ".ui-button--md",
+        ".ui-button--lg",
+        ".ui-button:focus-visible",
+        ".ui-button.is-loading",
+    ]
+    for sel in required:
+        assert sel in css, f"missing button selector {sel}"
+    assert "var(--control-height-sm)" in css
+    assert "var(--control-height-md)" in css
+    assert "var(--control-height-lg)" in css
+
+
+def test_ui_field_and_control_selectors_exist():
+    css = _components_css()
+    required = [
+        ".ui-field",
+        ".ui-field__label",
+        ".ui-field__hint",
+        ".ui-control",
+        ".ui-input",
+        ".ui-select",
+        ".ui-textarea",
+        "aria-invalid",
+        ".is-error",
+        ".is-readonly",
+        ".is-disabled",
+    ]
+    for sel in required:
+        assert sel in css, f"missing form selector fragment {sel}"
+
+
+def test_btn_primary_compat_mapping_present():
+    base = _base_css()
+    components = _components_css()
+    assert ".btn-primary" in base
+    assert "btn-primary" in components
+    assert "ui-button--primary" in components
+
+
+def test_settings_footer_demo_uses_ui_button():
+    settings = (_static_dir() / "partials" / "settings.html").read_text(encoding="utf-8")
+    assert 'id="btnProbe"' in settings
+    assert 'id="btnRestoreSettingsDefaults"' in settings
+    footer_start = settings.find("settings-form-footer")
+    assert footer_start != -1
+    footer = settings[footer_start : footer_start + 800]
+    assert "ui-button" in footer
+    assert "ui-button--primary" in footer
+    assert "ui-button--secondary" in footer
+    assert "ui-button--lg" in footer
+    # The primary test-connection action now occupies the AI-model header slot;
+    # the add-model action remains available in the settings footer.
+    assert 'id="btnProbe"' not in footer
+    assert 'id="btnAddCustomModel"' in footer
+    assert 'id="btnRestoreSettingsDefaults"' in footer
+    model_section_start = settings.find('id="customModelsSection"')
+    model_section_end = settings.find('id="providerStatus"', model_section_start)
+    model_section = settings[model_section_start:model_section_end]
+    assert 'id="btnProbe"' in model_section
+    assert 'id="btnAddCustomModel"' not in model_section
+    assert settings.count('id="btnProbe"') == 1
+    assert settings.count('id="btnAddCustomModel"') == 1
+
+
+def test_settings_page_controls_use_ui_dual_class():
+    """W-UI-SETTINGS-MIGRATE-001锛氳缃〉涓昏鎺т欢鍙?class锛屾棤鍐呰仈 style銆?""
+    settings = (_static_dir() / "partials" / "settings.html").read_text(encoding="utf-8")
+    assert "<style>" not in settings
+    assert "ui-control" in settings
+    assert "ui-input" in settings
+    assert "ui-select" in settings
+    assert "ui-textarea" in settings
+    assert "settings-field-control" in settings
+    # 涓昏瑁?Tailwind 瑙嗚 class 宸茶縼鍑?    assert "px-4 py-3 bg-cream" not in settings
+    # 鍏抽敭 ID / name 淇濈暀
+    for field_id in (
+        "api_endpoint",
+        "screen_index",
+        "danmuReadInterval",
+        "danmu_render_mode",
+        "languageSelect",
+        "themeToggle",
+    ):
+        assert f'id="{field_id}"' in settings
+    assert 'id="temperature"' not in settings
+    # dual-class samples
+    assert re.search(
+        r'id="languageSelect"[^>]*class="[^"]*lang-select[^"]*ui-control',
+        settings,
+    ) or re.search(
+        r'id="languageSelect"[^>]*class="[^"]*ui-control[^"]*lang-select',
+        settings,
+    )
+
+
+def test_settings_legacy_hide_lives_in_compat_css():
+    static = _static_dir()
+    entry = (static / "warm-tokens.css").read_text(encoding="utf-8")
+    compat = (static / "warm-tokens-compat.css").read_text(encoding="utf-8")
+    assert "warm-tokens-compat.css" in entry
+    assert ".legacy-api-fields" in compat
+    assert "display: none !important" in compat or "display:none !important" in compat
+
+
+def test_overview_quick_settings_grid():
+    overview = (_static_dir() / "partials" / "overview.html").read_text(encoding="utf-8")
+    overview_css = (_static_dir() / "warm-tokens-pages-overview.css").read_text(encoding="utf-8")
+    quick_js = (_static_dir() / "modules" / "overview-quick-settings.js").read_text(encoding="utf-8")
+    assert 'id="overviewQuickSettingsTitle"' in overview
+    assert "蹇嵎璁剧疆" in overview
+    assert 'id="overviewQuickSettingsGrid"' in overview
+    assert 'class="quick-settings-grid"' in overview
+    assert 'id="danmu_render_mode_quick"' in overview
+    assert 'data-quick-nav="mic"' in overview
+    assert 'data-quick-nav="danmu-read"' in overview
+    assert 'data-quick-nav="knowledge"' in overview
+    assert 'data-quick-nav="persona-manage"' in overview
+    assert overview.count('<article class="quick-setting-card') == 9
+    assert "quick-setting-card__title" in overview
+    assert "quick-setting-card__desc" in overview
+    assert "锛? not in overview[overview.index("overviewQuickSettingsGrid"):overview.index("liveTopicInput")]
+    assert ".quick-settings-grid" in overview_css
+    assert ".quick-setting-card" in overview_css
+    assert "QUICK_NAV_MAP" in quick_js
+
+
+def test_overview_demo_topic_nickname_use_ui_field():
+    overview = (_static_dir() / "partials" / "overview.html").read_text(encoding="utf-8")
+    assert 'id="liveTopicInput"' in overview
+    assert 'id="userNicknameInput"' in overview
+    assert 'id="btnSaveLiveTopic"' in overview
+    assert 'id="btnSaveUserNickname"' in overview
+    assert 'id="btnToggle"' in overview
+    assert 'id="btnQuickToggleVtuber"' in overview
+    assert re.search(
+        r'id="btnQuickToggleVtuber"[^>]*class="[^"]*ui-button[^"]*ui-button--primary[^"]*ui-button--md',
+        overview,
+    )
+    assert "ui-field" in overview
+    assert "ui-field__label" in overview
+    assert "ui-control" in overview
+    assert "ui-input" in overview
+    assert "ui-textarea" in overview
+    assert "ui-button" in overview
+    # Dual-class primary toggle keeps btn-primary for status.js
+    assert re.search(
+        r'id="btnToggle"[^>]*class="[^"]*btn-primary[^"]*ui-button',
+        overview,
+    ) or re.search(
+        r'id="btnToggle"[^>]*class="[^"]*ui-button[^"]*btn-primary',
+        overview,
+    )
+
+
+def test_overview_f1_semantic_shell():
+    """W-UI-PAGES-OVERVIEW-001: page header, group titles, status banners, IDs."""
+    overview = (_static_dir() / "partials" / "overview.html").read_text(encoding="utf-8")
+    content = (_static_dir() / "partials" / "content-pages.html").read_text(encoding="utf-8")
+    components = _components_css()
+    pages = (_static_dir() / "warm-tokens-pages-overview.css").read_text(encoding="utf-8")
+    session_stats_start = overview.index('id="page-overview"')
+    quick_settings_start = overview.index(
+        '<section class="overview-quick-settings',
+        session_stats_start,
+    )
+    session_stats = overview[session_stats_start:quick_settings_start]
+
+    assert "ui-page-header" in overview
+    assert "ui-page-header__copy" in overview
+    assert "ui-page-header__actions" in overview
+    assert "ui-page-description" in overview
+    assert 'id="statusSub"' in overview
+    assert 'id="statusPill"' in overview
+    assert 'id="realtimeConnStatus"' in overview
+    assert 'id="statusDot"' in overview
+    assert 'id="errorBanner"' in overview
+    assert 'id="overlayCompatBanner"' in overview
+    assert 'id="sessionRunLog"' in content
+    assert "ui-status-banner" in overview
+    assert "ui-status-banner--danger" in overview
+    assert "ui-status-banner--warning" in overview
+    assert "overview-group-title" in overview
+    assert "鏈満锛堜粠鍚姩搴旂敤鍒板叧闂簲鐢級" in overview
+    assert "绱" not in session_stats
+    assert "绱" in content
+    # Lifetime cards no longer rely only on opacity/softPeach wash for grouping
+    assert "bg-white/80" not in overview
+    # Static large cards (topic/persona) keep .card without only-interactive
+    assert session_stats.count("ui-card--interactive") == 4
+    assert content.count("ui-card--interactive") >= 4
+    assert 'id="btnErrorReportFromBanner"' in overview
+    assert "ui-button" in overview
+    assert "ui-button--secondary" in overview
+
+    for sel in (
+        ".ui-page-header",
+        ".ui-page-description",
+        ".ui-status-banner",
+        ".ui-status-banner--danger",
+        ".ui-status-banner--warning",
+    ):
+        assert sel in components, f"missing component selector {sel}"
+
+    assert ".overview-group-title" in pages
+    assert ".session-run-log" in pages
+    assert "max-height" in pages
+    assert ".overview-stat-value" in pages
+
+
+def test_content_pages_f2_semantic_shell():
+    """W-UI-PAGES-CONTENT-001: content pages + modals dual-class semantic migration."""
+    static = _static_dir()
+    content = (static / "partials" / "content-pages.html").read_text(encoding="utf-8")
+    modals = (static / "partials" / "modals.html").read_text(encoding="utf-8")
+    pages = (static / "warm-tokens-pages.css").read_text(encoding="utf-8")
+
+    for page_id in (
+        "page-knowledge",
+        "page-persona",
+        "page-danmu-pool",
+        "page-live-output-source",
+        "page-history-stats-source",
+        "page-session-runs-source",
+        "page-guide",
+        "page-logs",
+        "page-feedback",
+        "page-announcements",
+    ):
+        assert f'id="{page_id}"' in content
+    # AI 绠″宸茬Щ闄?(W-AIBUTLER-REMOVE-REPLAN-001)
+    assert 'id="page-ai-butler"' not in content
+
+    assert content.count("ui-page-header") >= 9
+    assert content.count("ui-page-header__copy") >= 9
+    assert content.count("ui-page-title") >= 9
+    assert content.count("ui-card") >= 10
+    assert "ui-button--primary" in content
+    assert "ui-button--secondary" in content
+    assert "ui-control" in content
+    assert "ui-input" in content
+    assert "ui-select" in content
+    assert "ui-textarea" in content
+    # Lifetime stat cards in guide tab keep interactive lift; other content cards stay static.
+    assert content.count("ui-card--interactive") == 4
+    assert 'data-guide-tab="history-stats"' in content
+    assert 'data-guide-tab="session-runs"' in content
+    assert 'id="sessionRunLog"' in content
+
+    for bid in (
+        "btnSaveMemeBarrageSettings",
+        "btnSavePersona",
+        "btnKnowledgeNewPackage",
+        "btnFeedbackSubmit",
+        "btnLiveOverlayTest",
+    ):
+        assert re.search(
+            rf'id="{bid}"[^>]*class="[^"]*ui-button',
+            content,
+        ), f"missing ui-button on {bid}"
+    assert 'id="btnAiButlerSend"' not in content
+
+    for iid in (
+            "memeCollectInterval",
+            "poolMinOnScreen",
+            "personaSelect",
+            "knowledgePackageName",
+        ):
+        assert re.search(
+            rf'id="{iid}"[^>]*class="[^"]*ui-control',
+            content,
+        ), f"missing ui-control on {iid}"
+    assert 'id="aiButlerModelSelect"' not in content
+
+    # Critical IDs / data hooks preserved
+    for sid in (
+        "memeBarrageEnabled",
+        "poolTxtFileCount",
+        "poolTxtLineCount",
+        "btnPoolOpenTxtFolder",
+        "btnPoolRefreshTxt",
+        "personaSelect",
+        "liveOverlayUrl",
+        "knowledgePackageList",
+        "feedbackForm",
+        "logView",
+        "btnAnnouncementsRefresh",
+    ):
+        assert f'id="{sid}"' in content
+    assert 'id="aiButlerMessages"' not in content
+
+    assert 'id="modelModal"' in modals
+    assert "ui-button--primary" in modals
+    assert "ui-button--secondary" in modals
+    assert "ui-button--danger" in modals
+    assert "ui-control" in modals
+    assert re.search(r'id="modelProbeResult"[^>]*role="status"[^>]*aria-live="polite"', modals)
+    for probe_id in (
+        "modelProbeResultTitle",
+        "modelProbeResultMessage",
+        "modelProbeResultMeta",
+        "btnModelProbeTechnicalDetail",
+    ):
+        assert modals.count(f'id="{probe_id}"') == 1
+    assert re.search(
+        r'id="btnDeleteModelConfirmOk"[^>]*class="[^"]*ui-button--danger',
+        modals,
+    )
+    assert re.search(
+        r'id="btnModelCancel"[^>]*class="[^"]*ui-button',
+        modals,
+    )
+    assert re.search(
+        r'id="modelListTable"[^>]*class="[^"]*model-list-table',
+        modals,
+    )
+
+    assert "W-UI-PAGES-CONTENT-001" in pages or "#page-knowledge" in pages
+    assert "#page-danmu-pool" in pages
+    # AI 绠″宸茬Щ闄?(W-AIBUTLER-REMOVE-REPLAN-001)
+    assert "#page-ai-butler" not in pages

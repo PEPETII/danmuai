@@ -1,0 +1,48 @@
+﻿....F...                                                                 [100%]
+================================== FAILURES ===================================
+________ test_stop_closes_knowledge_runtime_when_lifetime_flush_fails _________
+
+workspace_tmp = WindowsPath('E:/test/danmu/.pytest_tmp/run-10968-e7411d7a/tests_test_reply_enqueue.py_test_stop_closes_knowledge_runtime_when_lifetime_flush_fails')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001BD29FD5040>
+
+    def test_stop_closes_knowledge_runtime_when_lifetime_flush_fails(workspace_tmp, monkeypatch):
+        """STOP-TEARDOWN: knowledge runtime close must run even when flush fails."""
+        store = ConfigStore(db_path=workspace_tmp / "kb_stop_fail.db")
+        lifetime = LifetimeStats(store)
+        session_log = SessionRunLog(store)
+        app = DanmuApp.__new__(DanmuApp)
+        _bind_app_for_full_stop(app, config=store, lifetime_stats=lifetime, session_run_log=session_log)
+        knowledge_runtime = SimpleNamespace(close=Mock())
+        object.__setattr__(app, "knowledge_runtime", knowledge_runtime)
+    
+        session_log.begin(started_at=time.time() - 5.0, model="kb-fail")
+        app.stats_state.start_time = time.monotonic() - 2.0
+    
+        monkeypatch.setattr("main.mic_audio_supported_for_mic_config", lambda _cfg: False)
+    
+        with patch.object(store, "set_batch", side_effect=sqlite3.OperationalError("locked")):
+            DanmuApp.stop(app)
+    
+>       knowledge_runtime.close.assert_called_once()
+
+tests\test_reply_enqueue.py:684: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <Mock id='1911965331680'>
+
+    def assert_called_once(self):
+        """assert that the mock was called only once.
+        """
+        if not self.call_count == 1:
+            msg = ("Expected '%s' to have been called once. Called %s times.%s"
+                   % (self._mock_name or 'mock',
+                      self.call_count,
+                      self._calls_repr()))
+>           raise AssertionError(msg)
+E           AssertionError: Expected 'mock' to have been called once. Called 0 times.
+
+C:\Python314\Lib\unittest\mock.py:964: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_reply_enqueue.py::test_stop_closes_knowledge_runtime_when_lifetime_flush_fails
+1 failed, 7 passed, 21 deselected in 3.84s
+exit=1

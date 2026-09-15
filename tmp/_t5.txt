@@ -1,0 +1,48 @@
+﻿.FF..................................                                    [100%]
+================================== FAILURES ===================================
+________ test_knowledge_runtime_remount_preserves_packages_after_close ________
+
+isolated_db_path = WindowsPath('E:/test/danmu/.pytest_tmp/run-10064-792afb62/tests_test_knowledge_pipeline_integration.py_test_knowledge_runtime_remount_preserves_packages_after_close/knowledge.db')
+
+    def test_knowledge_runtime_remount_preserves_packages_after_close(isolated_db_path):
+        """stop 后再次挂载必须读取同一 knowledge.db 中已有的知识包。"""
+        app_stub = MagicMock()
+        svc = KnowledgeRuntimeService(app_stub)
+        package = svc.repository.create_package(name="重启后仍存在")
+    
+        svc.close()
+        assert svc.repository is None
+>       assert svc.mount() is True
+E       assert False is True
+E        +  where False = mount()
+E        +    where mount = <app.knowledge.runtime_service.KnowledgeRuntimeService object at 0x000002114D7C4CD0>.mount
+
+tests\test_knowledge_pipeline_integration.py:144: AssertionError
+_______ test_lifecycle_ensure_knowledge_runtime_reopens_closed_service ________
+
+isolated_db_path = WindowsPath('E:/test/danmu/.pytest_tmp/run-10064-792afb62/tests_test_knowledge_pipeline_integration.py_test_lifecycle_ensure_knowledge_runtime_reopens_closed_service/knowledge.db')
+
+    def test_lifecycle_ensure_knowledge_runtime_reopens_closed_service(isolated_db_path):
+        """生命周期恢复入口必须重新挂载 stop() 关闭的运行时。"""
+        from app.main_lifecycle_mixin import DanmuAppLifecycleMixin
+    
+        runtime_app = MagicMock()
+        svc = KnowledgeRuntimeService(runtime_app)
+        package = svc.repository.create_package(name="生命周期恢复包")
+        svc.close()
+    
+        lifecycle_app = SimpleNamespace(
+            knowledge_runtime=svc,
+            logger=MagicMock(),
+        )
+>       assert DanmuAppLifecycleMixin._ensure_knowledge_runtime(lifecycle_app) is True
+E       AssertionError: assert False is True
+E        +  where False = <function DanmuAppLifecycleMixin._ensure_knowledge_runtime at 0x00000211758A4510>(namespace(knowledge_runtime=<app.knowledge.runtime_service.KnowledgeRuntimeService object at 0x0000021175801A90>, logger=<MagicMock id='2274009580944'>))
+E        +    where <function DanmuAppLifecycleMixin._ensure_knowledge_runtime at 0x00000211758A4510> = <class 'app.main_lifecycle_mixin.DanmuAppLifecycleMixin'>._ensure_knowledge_runtime
+
+tests\test_knowledge_pipeline_integration.py:164: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_knowledge_pipeline_integration.py::test_knowledge_runtime_remount_preserves_packages_after_close
+FAILED tests/test_knowledge_pipeline_integration.py::test_lifecycle_ensure_knowledge_runtime_reopens_closed_service
+2 failed, 35 passed in 6.46s
+exit=1

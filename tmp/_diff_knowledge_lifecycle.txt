@@ -1,0 +1,300 @@
+﻿diff --git a/app/knowledge/runtime_service.py b/app/knowledge/runtime_service.py
+index c7e5ca2..1283427 100644
+--- a/app/knowledge/runtime_service.py
++++ b/app/knowledge/runtime_service.py
+@@ -248,17 +248,31 @@ class KnowledgeRuntimeService:
+         self._last_injection: KnowledgeInjectionResult | None = None
+         self._last_scene_context: KnowledgeSceneContext | None = None
+         self._cached_scene_generation: int | None = None
++        self._last_retrieval_diagnostic = "knowledge_disabled"
+         self._closing = False
+-        self.mount()
++        self._mount_result = self.mount()
++
++    @property
++    def is_ready(self) -> bool:
++        """Return whether this same runtime instance is fully mounted and usable."""
++        return bool(
++            getattr(self, "_mount_result", False)
++            and not getattr(self, "_closing", False)
++            and self._db is not None
++            and self.repository is not None
++            and self.import_orchestrator is not None
++            and self.retriever is not None
++        )
+ 
+     def mount(self) -> bool:
+         """挂载或重新挂载知识库运行时。
+ 
+-        ``stop()`` 会关闭当前数据库连接与导入执行器，但应用对象本身会
+-        保留 ``knowledge_runtime`` 引用，以便下一次 ``start()`` 重新打开。
+-        挂载失败时保留降级模式，并由调用方决定是否继续启动主链路。
++        ``stop()`` 不会触碰知识库运行时；只有真正的应用退出才会调用
++        ``close(wait=True)``。挂载失败时保留同一个运行时对象的降级状态，
++        由调用方在后续启动时重试，避免创建第二个运行时或重建数据库。
+         """
+         if self._closing:
++            self._mount_result = False
+             return False
+         if (
+             self._db is not None
+@@ -266,10 +280,12 @@ class KnowledgeRuntimeService:
+             and self.import_orchestrator is not None
+             and self.retriever is not None
+         ):
++            self._mount_result = True
+             return True
+ 
+-        # 清理上一次失败或已关闭的部分状态；close() 本身是幂等的。
+-        self.close()
++        # 清理上一次失败的部分状态。这里必须同步完成，不能在异步 close
++        # 尚未结束时继续打开另一套 DB / executor。
++        self.close(wait=True)
+         db = None
+         orch = None
+         try:
+@@ -293,6 +309,8 @@ class KnowledgeRuntimeService:
+             self.repository = repo
+             self.import_orchestrator = orch
+             self.retriever = retriever
++            self._mount_result = True
++            self._last_retrieval_diagnostic = "empty_query"
+             return True
+         except Exception as exc:
+             if orch is not None:
+@@ -315,6 +333,8 @@ class KnowledgeRuntimeService:
+             self.repository = None
+             self.import_orchestrator = None
+             self.retriever = None
++            self._mount_result = False
++            self._last_retrieval_diagnostic = "knowledge_disabled"
+             return False
+ 
+     # ------------------------------------------------------------------
+@@ -386,10 +406,12 @@ class KnowledgeRuntimeService:
+         """
+         retriever = self.retriever
+         if retriever is None:
++            self.set_retrieval_diagnostic("knowledge_disabled")
+             return None
+         brief = str(scene_brief or "").strip()
+         kw_list = [str(k).strip() for k in (keywords or []) if str(k or "").strip()]
+         if not brief and not kw_list:
++            self.set_retrieval_diagnostic("empty_query")
+             return None
+         try:
+             tag_list = [
+@@ -407,12 +429,14 @@ class KnowledgeRuntimeService:
+                 screenshot_id=screenshot_id,
+             )
+         except Exception as exc:
++            self.set_retrieval_diagnostic("retriever_error")
+             logger.warning(
+-                "knowledge build_visual_prompt_injection retrieve failed: %r",
++                "knowledge retrieval reason=retriever_error failed: %r",
+                 exc,
+             )
+             return None
+         if result is None:
++            self.set_retrieval_diagnostic("no_hit")
+             return None
+         try:
+             prompt_text = getattr(result, "prompt_text", "") or ""
+@@ -420,8 +444,10 @@ class KnowledgeRuntimeService:
+             retrieval_ms = int(getattr(result, "retrieval_ms", 0) or 0)
+             items = list(getattr(result, "items", []) or [])
+         except Exception:
++            self.set_retrieval_diagnostic("retriever_error")
+             return None
+         if not prompt_text or hit_count <= 0 or not items:
++            self.set_retrieval_diagnostic("no_hit")
+             return None
+ 
+         item_ids: list[int] = []
+@@ -487,8 +513,29 @@ class KnowledgeRuntimeService:
+             )
+         except Exception:
+             pass
++        self.set_retrieval_diagnostic("injected")
+         return injection
+ 
++    def set_retrieval_diagnostic(self, reason: str) -> None:
++        """Record the latest non-sensitive retrieval outcome for diagnostics."""
++        allowed = {
++            "knowledge_disabled",
++            "empty_query",
++            "no_hit",
++            "retriever_error",
++            "injected",
++        }
++        self._last_retrieval_diagnostic = (
++            reason if reason in allowed else "retriever_error"
++        )
++
++    def get_retrieval_diagnostic(self) -> str:
++        """Return the latest structured retrieval outcome."""
++        return str(
++            getattr(self, "_last_retrieval_diagnostic", "knowledge_disabled")
++            or "knowledge_disabled"
++        )
++
+     def get_last_injection(self) -> KnowledgeInjectionResult | None:
+         return self._last_injection
+ 
+@@ -537,20 +584,50 @@ class KnowledgeRuntimeService:
+     # 生命周期
+     # ------------------------------------------------------------------
+ 
+-    def close(self) -> None:
+-        """请求导入停止；DB 在 worker 排空后异步关闭，不能阻塞 Qt 主线程。"""
++    def close(self, *, wait: bool = False) -> None:
++        """Close the runtime; optionally wait for import cancellation to drain.
++
++        Normal application ``stop()`` deliberately does not call this method.
++        ``wait=False`` keeps the historical non-blocking teardown for callers
++        that are already leaving a background context; the true application
++        teardown uses ``wait=True`` so no importer or DB connection survives.
++        """
+         if self._closing:
++            if wait:
++                orch = self.import_orchestrator
++                if orch is not None:
++                    try:
++                        orch.close()
++                    except Exception as exc:
++                        logger.warning(
++                            "knowledge_runtime import_orchestrator close failed: %r",
++                            exc,
++                        )
++                self._finish_close_after_imports()
+             return
+         self._closing = True
++        self._mount_result = False
+         orch = self.import_orchestrator
+         if orch is not None:
+             try:
+-                orch.begin_shutdown(self._finish_close_after_imports)
++                if wait:
++                    orch.begin_shutdown()
++                    orch.close()
++                    self._finish_close_after_imports()
++                else:
++                    orch.begin_shutdown(self._finish_close_after_imports)
+             except Exception as exc:
+                 logger.warning(
+                     "knowledge_runtime import_orchestrator stop failed: %r",
+                     exc,
+                 )
++                try:
++                    orch.close()
++                except Exception as close_exc:
++                    logger.warning(
++                        "knowledge_runtime import_orchestrator close failed: %r",
++                        close_exc,
++                    )
+                 self._finish_close_after_imports()
+             return
+         self._finish_close_after_imports()
+@@ -574,4 +651,5 @@ class KnowledgeRuntimeService:
+         self._last_injection = None
+         self._last_scene_context = None
+         self._cached_scene_generation = None
++        self._last_retrieval_diagnostic = "knowledge_disabled"
+         self._closing = False
+diff --git a/app/main_lifecycle_mixin.py b/app/main_lifecycle_mixin.py
+index 5a6dcda..7d795c7 100644
+--- a/app/main_lifecycle_mixin.py
++++ b/app/main_lifecycle_mixin.py
+@@ -332,21 +332,27 @@ class DanmuAppLifecycleMixin:
+     def _ensure_knowledge_runtime(self) -> bool:
+         """确保知识包运行时在启动或重新启动后可用。"""
+         runtime = self.__dict__.get("knowledge_runtime")
++        mount_result = True
+         try:
+             if runtime is None:
+                 from app.knowledge.runtime_service import KnowledgeRuntimeService
+ 
+                 runtime = KnowledgeRuntimeService(self)
+                 self.knowledge_runtime = runtime
++                mount_result = bool(getattr(runtime, "_mount_result", False))
+             else:
+                 mount = getattr(runtime, "mount", None)
+                 if callable(mount):
+-                    mount()
++                    mount_result = bool(mount())
+         except Exception as exc:
+             self.logger.warning(f"knowledge_runtime mount failed: {exc!r}")
+-            self.knowledge_runtime = None
+             return False
+-        return getattr(runtime, "repository", None) is not None
++        if not mount_result or bool(getattr(runtime, "_closing", False)):
++            return False
++        return all(
++            getattr(runtime, attr, None) is not None
++            for attr in ("repository", "import_orchestrator", "retriever")
++        )
+ 
+     def _ensure_virtual_host_runtime(self) -> bool:
+         runtime = self.__dict__.get("virtual_host_runtime")
+@@ -706,7 +712,8 @@ class DanmuAppLifecycleMixin:
+     def start(self) -> None:
+         from app.ai_client_requests import format_credential_error, visual_credentials_ready
+ 
+-        # stop() 会关闭知识库连接；重新启动前必须恢复同一运行时对象的挂载。
++        # 运行时通常已在应用启动时挂载；若启动阶段曾降级，则在这里用
++        # 同一个对象重试挂载，且 mount() 的结果必须参与启动判定。
+         self._ensure_knowledge_runtime()
+ 
+         if not visual_credentials_ready(self.config):
+@@ -889,14 +896,6 @@ class DanmuAppLifecycleMixin:
+         if fp_engine is not None:
+             fp_engine.stop()
+ 
+-        # Phase B / Wave 7（B2）：关闭知识包运行时服务（执行器 + DB 连接）。
+-        knowledge_runtime = self.__dict__.get("knowledge_runtime")
+-        if knowledge_runtime is not None:
+-            try:
+-                knowledge_runtime.close()
+-            except Exception as exc:
+-                self.logger.warning(f"knowledge_runtime close failed: {exc!r}")
+-
+         self.tray.update_state(running=False)
+         self.state_changed.emit(False)
+         self.logger.info(tr("app.stopped"))
+@@ -954,7 +953,7 @@ class DanmuAppLifecycleMixin:
+         knowledge_runtime = self.__dict__.get("knowledge_runtime")
+         if knowledge_runtime is not None:
+             try:
+-                knowledge_runtime.close()
++                knowledge_runtime.close(wait=True)
+             except Exception as exc:
+                 logger = getattr(self, "logger", None)
+                 if logger is not None:
+@@ -1045,6 +1044,27 @@ class DanmuAppLifecycleMixin:
+                 context="quit",
+             )
+ 
++            # Knowledge Runtime belongs to the whole application, not to the
++            # danmu business toggle. Stop accepting HTTP first, then cancel
++            # and drain imports before closing knowledge.db.
++            knowledge_runtime = self.__dict__.get("knowledge_runtime")
++            if knowledge_runtime is not None:
++                try:
++                    knowledge_runtime.close(wait=True)
++                except Exception as exc:
++                    self.logger.warning(f"knowledge_runtime close failed: {exc!r}")
++
++            try:
++                from app.web_api.knowledge_routes import (
++                    shutdown_knowledge_route_executor,
++                )
++
++                shutdown_knowledge_route_executor(wait=True)
++            except Exception as exc:
++                self.logger.warning(
++                    f"knowledge route executor close failed: {exc!r}"
++                )
++
+             shell = getattr(self, "webview_shell", None)
+             if shell:
+                 shell.destroy()

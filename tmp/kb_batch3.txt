@@ -1,0 +1,76 @@
+﻿.......................F
+================================== FAILURES ===================================
+____________________ test_content_pages_f2_semantic_shell _____________________
+
+    def test_content_pages_f2_semantic_shell():
+        """W-UI-PAGES-CONTENT-001: content pages + modals dual-class semantic migration."""
+        static = _static_dir()
+        content = (static / "partials" / "content-pages.html").read_text(encoding="utf-8")
+        modals = (static / "partials" / "modals.html").read_text(encoding="utf-8")
+        pages = (static / "warm-tokens-pages.css").read_text(encoding="utf-8")
+    
+        for page_id in (
+            "page-knowledge",
+            "page-persona",
+            "page-danmu-pool",
+            "page-live-output-source",
+            "page-history-stats-source",
+            "page-session-runs-source",
+            "page-guide",
+            "page-logs",
+            "page-feedback",
+            "page-announcements",
+        ):
+            assert f'id="{page_id}"' in content
+        # AI 绠″宸茬Щ闄?(W-AIBUTLER-REMOVE-REPLAN-001)
+        assert 'id="page-ai-butler"' not in content
+    
+        assert content.count("ui-page-header") >= 9
+        assert content.count("ui-page-header__copy") >= 9
+        assert content.count("ui-page-title") >= 9
+        assert content.count("ui-card") >= 10
+        assert "ui-button--primary" in content
+        assert "ui-button--secondary" in content
+        assert "ui-control" in content
+        assert "ui-input" in content
+        assert "ui-select" in content
+        assert "ui-textarea" in content
+        # Lifetime stat cards in guide tab keep interactive lift; other content cards stay static.
+        assert content.count("ui-card--interactive") == 4
+        assert 'data-guide-tab="history-stats"' in content
+        assert 'data-guide-tab="session-runs"' in content
+        assert 'id="sessionRunLog"' in content
+    
+        for bid in (
+            "btnSaveMemeBarrageSettings",
+            "btnSavePersona",
+            "btnKnowledgeNewPackage",
+            "btnFeedbackSubmit",
+            "btnLiveOverlayTest",
+        ):
+            assert re.search(
+                rf'id="{bid}"[^>]*class="[^"]*ui-button',
+                content,
+            ), f"missing ui-button on {bid}"
+        assert 'id="btnAiButlerSend"' not in content
+    
+        for iid in (
+                "memeCollectInterval",
+                "poolMinOnScreen",
+                "personaSelect",
+                "knowledgePackageName",
+            ):
+>           assert re.search(
+                rf'id="{iid}"[^>]*class="[^"]*ui-control',
+                content,
+            ), f"missing ui-control on {iid}"
+E           AssertionError: missing ui-control on memeCollectInterval
+E           assert None
+E            +  where None = <function search at 0x000001FDABA76980>('id="memeCollectInterval"[^>]*class="[^"]*ui-control', '    <section id="page-danmu-pool" class="page-panel" data-page-node-id="JSLX9ZKw0QjczQ4VHEuVlt">\n      <header class...2" data-page-node-id="Mh8Bsqpg5R9IsCuZxyxeDO"></div>\n          </div>\n        </div>\n      </div>\n    </section>\n')
+E            +    where <function search at 0x000001FDABA76980> = re.search
+
+tests\test_ui_component_contract.py:421: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_ui_component_contract.py::test_content_pages_f2_semantic_shell
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed, 23 passed in 0.76s

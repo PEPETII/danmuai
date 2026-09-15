@@ -1,0 +1,48 @@
+﻿........................................................................ [ 40%]
+...............F
+================================== FAILURES ===================================
+_________ TestImportOrchestratorSourceTooLarge.test_source_too_large __________
+
+self = <tests.test_knowledge_import_service.TestImportOrchestratorSourceTooLarge object at 0x000002B0E4C22AD0>
+orchestrator = <app.knowledge.import_service.ImportOrchestrator object at 0x000002B0E57AF070>
+db = <app.knowledge.database.KnowledgeDatabase object at 0x000002B0E59C8C50>
+repo = <app.knowledge.repository.KnowledgeRepository object at 0x000002B0E5AE9680>
+config = <tests.fakes.FakeConfig object at 0x000002B0E5D5D190>
+
+    def test_source_too_large(self, orchestrator, db, repo, config):
+        package_id, source_id = _create_package_and_source(db, repo)
+        huge_text = "a" * (MAX_SOURCE_CHARS + 1)
+        payload = {"pasted_text": "placeholder"}
+    
+        # mock extract_source 杩斿洖瓒呭ぇ鏂囨湰锛堢粫杩囨彁鍙栧櫒鑷韩鐨勫ぇ灏忔鏌ワ級
+        with patch(
+            "app.knowledge.import_service.extract_source",
+            return_value=ExtractionResult(
+                huge_text, {"source_type": "pasted_text"}
+            ),
+        ):
+            job_id = orchestrator.submit_import(
+                config=config,
+                package_id=package_id,
+                source_id=source_id,
+                source_type="pasted_text",
+                payload=payload,
+            )
+            job = _wait_for_job_done(repo, job_id)
+    
+        assert job["status"] == "failed"
+        assert job["error_message"] == "source_too_large"
+    
+        # 楠岃瘉 source 鐘舵€?
+        sources = repo.list_sources(package_id)
+>       assert sources[0]["status"] == "failed"
+E       AssertionError: assert 'pending' == 'failed'
+E         
+E         - failed
+E         + pending
+
+tests\test_knowledge_import_service.py:412: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_knowledge_import_service.py::TestImportOrchestratorSourceTooLarge::test_source_too_large
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed, 87 passed in 22.65s

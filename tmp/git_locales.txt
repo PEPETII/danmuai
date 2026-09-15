@@ -1,0 +1,2 @@
+﻿ M web/static/locales/en/dynamic.json
+ M web/static/locales/zh/dynamic.json

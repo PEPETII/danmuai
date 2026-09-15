@@ -1,0 +1,34 @@
+﻿git : warning: in the working copy of 'tests/test_ui_component_contract.py', LF
+ will be replaced by CRLF the next time Git touches it
+所在位置 行:446 字符: 1
++ git diff --unified=3 -- tests/test_ui_component_contract.py 2>&1 | Se ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (warning: in the... Git touches it 
+   :String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+diff --git a/tests/test_ui_component_contract.py b/tests/test_ui_component_contract.py
+index 9ee8191..0a16eee 100644
+--- a/tests/test_ui_component_contract.py
++++ b/tests/test_ui_component_contract.py
+@@ -200,16 +200,16 @@ def test_settings_footer_demo_uses_ui_button():
+     assert "ui-button--primary" in footer
+     assert "ui-button--secondary" in footer
+     assert "ui-button--lg" in footer
+-    # The primary test-connection action now occupies the AI-model header slot;
+-    # the add-model action remains available in the settings footer.
++    # Both model actions stay in the AI-model header; the footer keeps the
++    # restore/save actions and no longer swaps in the add-model action.
+     assert 'id="btnProbe"' not in footer
+-    assert 'id="btnAddCustomModel"' in footer
++    assert 'id="btnAddCustomModel"' not in footer
+     assert 'id="btnRestoreSettingsDefaults"' in footer
+     model_section_start = settings.find('id="customModelsSection"')
+     model_section_end = settings.find('id="providerStatus"', model_section_start)
+     model_section = settings[model_section_start:model_section_end]
+     assert 'id="btnProbe"' in model_section
+-    assert 'id="btnAddCustomModel"' not in model_section
++    assert 'id="btnAddCustomModel"' in model_section
+     assert settings.count('id="btnProbe"') == 1
+     assert settings.count('id="btnAddCustomModel"') == 1
+ 

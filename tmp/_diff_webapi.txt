@@ -1,0 +1,447 @@
+﻿diff --git a/app/application/diagnostic_snapshot.py b/app/application/diagnostic_snapshot.py
+index fac1eaa..9c8d8e7 100644
+--- a/app/application/diagnostic_snapshot.py
++++ b/app/application/diagnostic_snapshot.py
+@@ -203,6 +203,7 @@ class DiagnosticSnapshotBuilder:
+                 "last_injected_count": 0,
+                 "last_injected_public_ids": [],
+                 "last_query_brief": "",
++                "last_retrieval_reason": "knowledge_disabled",
+             }
+         retriever = getattr(runtime, "retriever", None)
+         repo = getattr(runtime, "repository", None)
+@@ -210,6 +211,13 @@ class DiagnosticSnapshotBuilder:
+         last_injected_count = 0
+         last_injected_public_ids: list[str] = []
+         last_query_brief = ""
++        last_retrieval_reason = ""
++        get_reason = getattr(runtime, "get_retrieval_diagnostic", None)
++        if callable(get_reason):
++            try:
++                last_retrieval_reason = str(get_reason() or "")
++            except Exception:
++                last_retrieval_reason = ""
+         if retriever is not None:
+             fts_backend = str(getattr(retriever, "_fts_backend", "") or "")
+             last_injected_count = len(
+@@ -260,6 +268,7 @@ class DiagnosticSnapshotBuilder:
+             "last_injected_count": last_injected_count,
+             "last_injected_public_ids": last_injected_public_ids,
+             "last_query_brief": last_query_brief,
++            "last_retrieval_reason": last_retrieval_reason,
+         }
+ 
+ 
+@@ -360,7 +369,8 @@ def build_diagnostic_report(snapshot: dict[str, object]) -> str:
+         f"enabled_packages_count: {knowledge.get('enabled_packages_count', 0)}",
+         f"items_count: {knowledge.get('items_count', 0)}",
+         f"enabled_items_count: {knowledge.get('enabled_items_count', 0)}",
+-        f"last_injected_count: {knowledge.get('last_injected_count', 0)}",
++         f"last_injected_count: {knowledge.get('last_injected_count', 0)}",
++         f"last_retrieval_reason: {knowledge.get('last_retrieval_reason', '')}",
+         "",
+         "[boundary_guard]",
+         "- Phase 4 ownership freeze remains in force",
+diff --git a/app/main_request_context_mixin.py b/app/main_request_context_mixin.py
+index 4bd1db4..b50a597 100644
+--- a/app/main_request_context_mixin.py
++++ b/app/main_request_context_mixin.py
+@@ -438,7 +438,28 @@ class DanmuAppRequestContextMixin:
+         # 用 __dict__.get 而非 getattr，兼容测试中 QObject 未走 __init__ 的场景
+         knowledge_runtime = self.__dict__.get("knowledge_runtime")
+         if knowledge_runtime is None:
++            self.logger.debug(
++                "knowledge retrieval reason=knowledge_disabled request_round=%s "
++                "screenshot_id=%s",
++                request_round,
++                screenshot_id,
++            )
+             return system_pt
++
++        def note_retrieval_reason(reason: str) -> None:
++            setter = getattr(knowledge_runtime, "set_retrieval_diagnostic", None)
++            if callable(setter):
++                try:
++                    setter(reason)
++                except Exception:
++                    pass
++            self.logger.debug(
++                "knowledge retrieval reason=%s request_round=%s screenshot_id=%s",
++                reason,
++                request_round,
++                screenshot_id,
++            )
++
+         try:
+             scene_generation = int(getattr(self, "_scene_generation", 0) or 0)
+             note_fn = getattr(knowledge_runtime, "note_scene_generation", None)
+@@ -453,6 +474,7 @@ class DanmuAppRequestContextMixin:
+                 mic_text=mic_text,
+             )
+             if not ctx.has_semantic_query:
++                note_retrieval_reason("empty_query")
+                 return system_pt
+ 
+             injection = knowledge_runtime.build_visual_prompt_injection(
+@@ -463,12 +485,35 @@ class DanmuAppRequestContextMixin:
+                 scene_tags=list(ctx.scene_tags),
+             )
+         except Exception as exc:  # boundary: 知识注入失败不影响主链路
++            note_retrieval_reason("retriever_error")
+             self.logger.debug(
+                 "knowledge prompt injection failed (non-fatal): %r", exc
+             )
+             return system_pt
+         if not injection:
++            reason = "no_hit"
++            getter = getattr(knowledge_runtime, "get_retrieval_diagnostic", None)
++            if callable(getter):
++                try:
++                    reason = str(getter() or reason)
++                except Exception:
++                    pass
++            if reason not in {
++                "knowledge_disabled",
++                "empty_query",
++                "no_hit",
++                "retriever_error",
++                "injected",
++            }:
++                reason = "no_hit"
++            self.logger.debug(
++                "knowledge retrieval reason=%s request_round=%s screenshot_id=%s",
++                reason,
++                request_round,
++                screenshot_id,
++            )
+             return system_pt
++        note_retrieval_reason("injected")
+         prompt_text = getattr(injection, "prompt_text", None)
+         if not prompt_text:
+             # 兼容旧测试/stub 返回纯 str
+diff --git a/app/web_api/knowledge.py b/app/web_api/knowledge.py
+index 5cf6474..e471088 100644
+--- a/app/web_api/knowledge.py
++++ b/app/web_api/knowledge.py
+@@ -52,7 +52,7 @@ def _get_knowledge_runtime(app: "DanmuApp"):
+ def _get_or_create_repository(app: "DanmuApp"):
+     """从 ``knowledge_runtime`` 取 repository；若 runtime 未初始化（B2 前），返回 None。"""
+     runtime = _get_knowledge_runtime(app)
+-    if runtime is None:
++    if runtime is None or bool(getattr(runtime, "_closing", False)):
+         return None
+     return getattr(runtime, "repository", None)
+ 
+@@ -140,8 +140,12 @@ def delete_package(
+     """
+     runtime = _get_knowledge_runtime(app)
+     repo = _get_or_create_repository(app)
+-    if repo is None or runtime is None:
++    if runtime is None:
+         return {"error": "not_initialized"}
++    if bool(getattr(runtime, "_closing", False)):
++        return {"error": "orchestrator_stopping"}
++    if repo is None:
++        return {"error": "runtime_unavailable"}
+     orchestrator = getattr(runtime, "import_orchestrator", None)
+     package = repo.get_package(package_public_id)
+     if package is None:
+@@ -217,7 +221,11 @@ def import_source(
+     runtime = _get_knowledge_runtime(app)
+     if runtime is None:
+         return {"error": "not_initialized"}
+-    repo = runtime.repository
++    if bool(getattr(runtime, "_closing", False)):
++        return {"error": "orchestrator_stopping"}
++    repo = getattr(runtime, "repository", None)
++    if repo is None:
++        return {"error": "runtime_unavailable"}
+     orchestrator = getattr(runtime, "import_orchestrator", None)
+     if orchestrator is None:
+         return {"error": "orchestrator_not_ready"}
+@@ -277,6 +285,8 @@ def cancel_job(app: "DanmuApp", job_public_id: str) -> dict[str, Any]:
+     runtime = _get_knowledge_runtime(app)
+     if runtime is None:
+         return {"error": "not_initialized"}
++    if bool(getattr(runtime, "_closing", False)):
++        return {"error": "orchestrator_stopping"}
+     orchestrator = getattr(runtime, "import_orchestrator", None)
+     if orchestrator is None:
+         return {"error": "orchestrator_not_ready"}
+@@ -380,6 +390,8 @@ def preview_retrieval(
+     runtime = _get_knowledge_runtime(app)
+     if runtime is None:
+         return {"error": "not_initialized"}
++    if bool(getattr(runtime, "_closing", False)):
++        return {"error": "runtime_unavailable"}
+     retriever = getattr(runtime, "retriever", None)
+     if retriever is None:
+         return {"error": "retriever_not_ready"}
+diff --git a/app/web_api/knowledge_routes.py b/app/web_api/knowledge_routes.py
+index 1dbfe70..c2d2e1a 100644
+--- a/app/web_api/knowledge_routes.py
++++ b/app/web_api/knowledge_routes.py
+@@ -22,7 +22,7 @@ import logging
+ from concurrent.futures import ThreadPoolExecutor
+ from typing import TYPE_CHECKING, Callable
+ 
+-from fastapi import Header, Query
++from fastapi import Header, HTTPException, Query
+ 
+ from app.knowledge.models import (
+     ImportPayload,
+@@ -41,9 +41,90 @@ logger = logging.getLogger(__name__)
+ 
+ # 路由层专用执行器：仅用于把 import_source 的 invoke_main 调用移出事件循环
+ # （实际长任务在 ImportOrchestrator 内的 knowledge-import 执行器中跑）。
+-_KNOWLEDGE_EXECUTOR = ThreadPoolExecutor(
+-    max_workers=2, thread_name_prefix="knowledge-route"
+-)
++def _new_knowledge_executor() -> ThreadPoolExecutor:
++    return ThreadPoolExecutor(max_workers=2, thread_name_prefix="knowledge-route")
++
++
++_KNOWLEDGE_EXECUTOR: ThreadPoolExecutor | None = _new_knowledge_executor()
++
++
++_KNOWLEDGE_ERROR_STATUSES = {
++    "not_initialized": 503,
++    "runtime_unavailable": 503,
++    "service_unavailable": 503,
++    "orchestrator_not_ready": 503,
++    "retriever_not_ready": 503,
++    "orchestrator_stopping": 409,
++    "not_found": 404,
++    "package_not_found": 404,
++    "not_found_or_completed": 409,
++}
++
++
++def _knowledge_error_status(error_code: str) -> int:
++    if error_code in _KNOWLEDGE_ERROR_STATUSES:
++        return _KNOWLEDGE_ERROR_STATUSES[error_code]
++    if (
++        error_code.startswith(("missing_", "invalid_", "unknown_", "decode_"))
++        or error_code in {"source_too_large", "parameter_bad"}
++    ):
++        return 400
++    return 500
++
++
++def _knowledge_result(result):
++    """Turn legacy business ``{"error": code}`` results into HTTP errors."""
++    if isinstance(result, dict):
++        error_code = result.get("error")
++        if error_code:
++            code = str(error_code)
++            raise HTTPException(
++                status_code=_knowledge_error_status(code),
++                detail={"ok": False, "error": code},
++            )
++    return result
++
++
++def _knowledge_read(fn, *args, **kwargs):
++    try:
++        return _knowledge_result(fn(*args, **kwargs))
++    except HTTPException:
++        raise
++    except Exception as exc:
++        logger.exception("knowledge read failed for %r", fn)
++        raise HTTPException(
++            status_code=500,
++            detail={"ok": False, "error": "internal_error"},
++        ) from exc
++
++
++def _knowledge_invoke(invoke_main, fn, *args, **kwargs):
++    try:
++        return _knowledge_result(invoke_main(fn, *args, **kwargs))
++    except HTTPException:
++        raise
++    except Exception as exc:
++        logger.exception("knowledge invoke failed for %r", fn)
++        raise HTTPException(
++            status_code=500,
++            detail={"ok": False, "error": "internal_error"},
++        ) from exc
++
++
++def _get_knowledge_executor() -> ThreadPoolExecutor:
++    global _KNOWLEDGE_EXECUTOR
++    if _KNOWLEDGE_EXECUTOR is None:
++        _KNOWLEDGE_EXECUTOR = _new_knowledge_executor()
++    return _KNOWLEDGE_EXECUTOR
++
++
++def shutdown_knowledge_route_executor(*, wait: bool = True) -> None:
++    """Release route adapter threads during true whole-application teardown."""
++    global _KNOWLEDGE_EXECUTOR
++    executor = _KNOWLEDGE_EXECUTOR
++    _KNOWLEDGE_EXECUTOR = None
++    if executor is not None:
++        executor.shutdown(wait=wait, cancel_futures=not wait)
+ 
+ 
+ def register_knowledge_routes(
+@@ -77,7 +158,7 @@ def register_knowledge_routes(
+ 
+     @app.get("/api/knowledge/packages")
+     def list_packages():
+-        return knowledge_api.list_packages(bridge.danmu_app)
++        return _knowledge_read(knowledge_api.list_packages, bridge.danmu_app)
+ 
+     @app.post("/api/knowledge/packages")
+     @require_auth(check_token)
+@@ -85,7 +166,8 @@ def register_knowledge_routes(
+         body: PackageCreatePayload,
+         authorization: str | None = Header(default=None),
+     ):
+-        return invoke_main(
++        return _knowledge_invoke(
++            invoke_main,
+             knowledge_api.create_package,
+             bridge.danmu_app,
+             body.model_dump(exclude_none=True),
+@@ -93,7 +175,8 @@ def register_knowledge_routes(
+ 
+     @app.get("/api/knowledge/packages/{package_id}")
+     def get_package(package_id: str, summary: bool = Query(default=False)):
+-        return knowledge_api.get_package(
++        return _knowledge_read(
++            knowledge_api.get_package,
+             bridge.danmu_app, package_id, summary=summary
+         )
+ 
+@@ -104,7 +187,8 @@ def register_knowledge_routes(
+         body: PackageUpdatePayload,
+         authorization: str | None = Header(default=None),
+     ):
+-        return invoke_main(
++        return _knowledge_invoke(
++            invoke_main,
+             knowledge_api.update_package,
+             bridge.danmu_app,
+             package_id,
+@@ -117,7 +201,8 @@ def register_knowledge_routes(
+         package_id: str,
+         authorization: str | None = Header(default=None),
+     ):
+-        return invoke_main(
++        return _knowledge_invoke(
++            invoke_main,
+             knowledge_api.delete_package, bridge.danmu_app, package_id
+         )
+ 
+@@ -139,15 +224,25 @@ def register_knowledge_routes(
+         """
+         payload = body.model_dump(exclude_none=True)
+         loop = asyncio.get_running_loop()
+-        return await loop.run_in_executor(
+-            _KNOWLEDGE_EXECUTOR,
+-            lambda: invoke_main(
+-                knowledge_api.import_source,
+-                bridge.danmu_app,
+-                package_id,
+-                payload,
+-            ),
+-        )
++        try:
++            result = await loop.run_in_executor(
++                _get_knowledge_executor(),
++                lambda: invoke_main(
++                    knowledge_api.import_source,
++                    bridge.danmu_app,
++                    package_id,
++                    payload,
++                ),
++            )
++        except HTTPException:
++            raise
++        except Exception as exc:
++            logger.exception("knowledge import route failed")
++            raise HTTPException(
++                status_code=500,
++                detail={"ok": False, "error": "internal_error"},
++            ) from exc
++        return _knowledge_result(result)
+ 
+     # ------------------------------------------------------------------
+     # jobs
+@@ -157,11 +252,13 @@ def register_knowledge_routes(
+     def list_jobs(
+         package_id: str | None = Query(default=None),
+     ):
+-        return knowledge_api.list_jobs(bridge.danmu_app, package_id)
++        return _knowledge_read(
++            knowledge_api.list_jobs, bridge.danmu_app, package_id
++        )
+ 
+     @app.get("/api/knowledge/jobs/{job_id}")
+     def get_job(job_id: str):
+-        return knowledge_api.get_job(bridge.danmu_app, job_id)
++        return _knowledge_read(knowledge_api.get_job, bridge.danmu_app, job_id)
+ 
+     @app.post("/api/knowledge/jobs/{job_id}/cancel")
+     @require_auth(check_token)
+@@ -169,7 +266,9 @@ def register_knowledge_routes(
+         job_id: str,
+         authorization: str | None = Header(default=None),
+     ):
+-        return invoke_main(knowledge_api.cancel_job, bridge.danmu_app, job_id)
++        return _knowledge_invoke(
++            invoke_main, knowledge_api.cancel_job, bridge.danmu_app, job_id
++        )
+ 
+     # ------------------------------------------------------------------
+     # items
+@@ -184,7 +283,8 @@ def register_knowledge_routes(
+         page: int = Query(default=1, ge=1),
+         page_size: int = Query(default=50, ge=1, le=200),
+     ):
+-        return knowledge_api.list_items(
++        return _knowledge_read(
++            knowledge_api.list_items,
+             bridge.danmu_app,
+             package_id,
+             kind,
+@@ -196,7 +296,7 @@ def register_knowledge_routes(
+ 
+     @app.get("/api/knowledge/items/{item_id}")
+     def get_item(item_id: str):
+-        return knowledge_api.get_item(bridge.danmu_app, item_id)
++        return _knowledge_read(knowledge_api.get_item, bridge.danmu_app, item_id)
+ 
+     @app.patch("/api/knowledge/items/{item_id}")
+     @require_auth(check_token)
+@@ -205,7 +305,8 @@ def register_knowledge_routes(
+         body: ItemUpdatePayload,
+         authorization: str | None = Header(default=None),
+     ):
+-        return invoke_main(
++        return _knowledge_invoke(
++            invoke_main,
+             knowledge_api.update_item,
+             bridge.danmu_app,
+             item_id,
+@@ -218,7 +319,9 @@ def register_knowledge_routes(
+         item_id: str,
+         authorization: str | None = Header(default=None),
+     ):
+-        return invoke_main(knowledge_api.delete_item, bridge.danmu_app, item_id)
++        return _knowledge_invoke(
++            invoke_main, knowledge_api.delete_item, bridge.danmu_app, item_id
++        )
+ 
+     # ------------------------------------------------------------------
+     # retrieval preview
+@@ -230,7 +333,8 @@ def register_knowledge_routes(
+         body: RetrievalPreviewPayload,
+         authorization: str | None = Header(default=None),
+     ):
+-        return invoke_main(
++        return _knowledge_invoke(
++            invoke_main,
+             knowledge_api.preview_retrieval,
+             bridge.danmu_app,
+             body.model_dump(exclude_none=True),

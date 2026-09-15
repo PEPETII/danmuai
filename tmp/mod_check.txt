@@ -1,0 +1,22 @@
+﻿OK    web/static/modules/transport.js
+OK    web/static/modules/app-knowledge-status.js
+OK    web/static/modules/app-knowledge-import.js
+OK    web/static/modules/app-knowledge-items.js
+OK    web/static/modules/app-knowledge-jobs.js
+OK    web/static/modules/app-knowledge-modals.js
+OK    web/static/modules/app-knowledge-package-detail.js
+OK    web/static/modules/app-knowledge-package-list.js
+OK    web/static/modules/app-knowledge-retrieval.js
+OK    web/static/modules/settings-hints.js
+OK    tests/test_knowledge_api_error_protocol.mjs
+ALL_MODULES_PARSE_OK
+node.exe : (node:33796) ExperimentalWarning: VM Modules is an experimental feat
+ure and might change at any time
+所在位置 行:446 字符: 1
++ & "C:\Users\KING\.workbuddy\binaries\node\versions\22.22.2-3\node.exe ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ((node:33796) Ex...nge at any time 
+   :String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+(Use `node --trace-warnings ...` to show where the warning was created)

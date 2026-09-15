@@ -1,0 +1,8 @@
+﻿d21e59f Refactor application architecture and remove obsolete code
+d48c59a Centralize custom provider visibility and theme picker fields
+8db8e57 Refine application behavior and supporting tests
+1e2be8e Refactor application workflows and supporting modules
+3df63d4 Add Token Rhythm qwen3.7-flash provider support
+5e8bf4e chore(release): prepare v0.4.3
+db722e2 Fix MiMo TTS saving and Windows uvicorn event loop handling
+25c0453 Merge origin/trae/agent-DZCrKd into main

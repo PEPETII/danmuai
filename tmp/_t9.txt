@@ -1,0 +1,67 @@
+﻿.....F...                                                                [100%]
+================================== FAILURES ===================================
+_______ test_start_stop_cycles_never_close_or_remount_knowledge_runtime _______
+
+workspace_tmp = WindowsPath('E:/test/danmu/.pytest_tmp/run-17172-7b6d60d1/tests_test_reply_enqueue.py_test_start_stop_cycles_never_close_or_remount_knowledge_runtime')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002320D284F30>
+
+    def test_start_stop_cycles_never_close_or_remount_knowledge_runtime(
+        workspace_tmp, monkeypatch
+    ):
+        """回归 Case D：连续 Start/Stop 不得关闭知识库，也不重复 mount。"""
+        store = ConfigStore(db_path=workspace_tmp / "kb_cycle.db")
+        lifetime = LifetimeStats(store)
+        session_log = SessionRunLog(store)
+        app = DanmuApp.__new__(DanmuApp)
+        _bind_app_for_full_stop(app, config=store, lifetime_stats=lifetime, session_run_log=session_log)
+    
+        mount = Mock(return_value=True)
+        knowledge_runtime = SimpleNamespace(
+            close=Mock(),
+            mount=mount,
+            repository=object(),
+            retriever=object(),
+            import_orchestrator=object(),
+        )
+        object.__setattr__(app, "knowledge_runtime", knowledge_runtime)
+    
+        # start() 在缺少视觉凭证时会走托盘提示 + 问题上报分支
+        app.tray.show_api_key_missing_hint = Mock()
+        app.report_problem = Mock()
+        object.__setattr__(app, "web_server", None)
+    
+        monkeypatch.setattr("main.mic_audio_supported_for_mic_config", lambda _cfg: False)
+        monkeypatch.setattr(
+            "app.ai_client_requests.visual_credentials_ready", lambda _cfg: False
+        )
+    
+        for _ in range(3):
+            DanmuApp.start(app)
+            DanmuApp.stop(app)
+    
+        knowledge_runtime.close.assert_not_called()
+        # 已挂载的运行时不需要重新 mount（避免重复装配出第二套 DB）
+>       mount.assert_not_called()
+
+tests\test_reply_enqueue.py:739: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <Mock id='2413993363168'>
+
+    def assert_not_called(self):
+        """assert that the mock was never called.
+        """
+        if self.call_count != 0:
+            msg = ("Expected '%s' to not have been called. Called %s times.%s"
+                   % (self._mock_name or 'mock',
+                      self.call_count,
+                      self._calls_repr()))
+>           raise AssertionError(msg)
+E           AssertionError: Expected 'mock' to not have been called. Called 3 times.
+E           Calls: [call(), call(), call()].
+
+C:\Python314\Lib\unittest\mock.py:946: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_reply_enqueue.py::test_start_stop_cycles_never_close_or_remount_knowledge_runtime
+1 failed, 8 passed, 21 deselected in 3.83s
+exit=1

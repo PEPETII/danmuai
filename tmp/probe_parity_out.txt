@@ -1,0 +1,18 @@
+===== HEAD (committed) =====
+[content] only_zh=1 only_en=0
+   ZH-ONLY: content.text.桌面互动宠物与弹幕指令入口_复用助手模型_不单独请求_AI
+[hints] only_zh=0 only_en=6
+   EN-ONLY: hints.btnPetResetAsset
+   EN-ONLY: hints.petAlwaysOnTop
+   EN-ONLY: hints.petClickThrough
+   EN-ONLY: hints.petCommandBoxEnabled
+   EN-ONLY: hints.petOpacity
+===== WORKING TREE =====
+[content] only_zh=1 only_en=0
+   ZH-ONLY: content.text.桌面互动宠物与弹幕指令入口_复用助手模型_不单独请求_AI
+[hints] only_zh=0 only_en=6
+   EN-ONLY: hints.btnPetResetAsset
+   EN-ONLY: hints.petAlwaysOnTop
+   EN-ONLY: hints.petClickThrough
+   EN-ONLY: hints.petCommandBoxEnabled
+   EN-ONLY: hints.petOpacity

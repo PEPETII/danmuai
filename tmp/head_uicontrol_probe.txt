@@ -1,0 +1,16 @@
+﻿HEAD_test_has_uicontrol_check=1
+HEAD_content_has_memeCollectInterval=2
+
+> tmp\head_content_pages.html:99:                    <div class="flex justify-b
+etween text-sm text-gray-500 mb-1" data-page-node-id="KFYV8Xf61RG5C37Wio8Rhu"><
+span data-page-node-id="oK7pdFcUD3Bae9Oxd5koiE">姣忛殧澶氬皯绉掓敹涓€娆?/span><b data-page
+-node-id="or7DnSKyBRcJFEYLGk1jke"><span id="memeCollectIntervalVal" data-page-n
+ode-id="9IMhloukofSJHL8QAuIyyf">5</span> 绉?/b></div>
+> tmp\head_content_pages.html:100:                    <input type="range" id="m
+emeCollectInterval" min="1" max="60" value="5" class="meme-range" data-page-nod
+e-id="1yrZKbnTc9e4ZBPBIB7QLA">
+  tmp\head_content_pages.html:101:                  </div>
+  tmp\head_content_pages.html:102:                  <div class="meme-slider" da
+ta-page-node-id="HcQYC9qPuHQnYGqC1fZ6c8">
+
+

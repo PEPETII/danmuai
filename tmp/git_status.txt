@@ -1,0 +1,132 @@
+﻿=== STATUS ===
+ M app/application/diagnostic_snapshot.py
+ M app/knowledge/runtime_service.py
+ M app/main_lifecycle_mixin.py
+ M app/main_request_context_mixin.py
+ M app/web_api/knowledge.py
+ M app/web_api/knowledge_routes.py
+ M tests/test_knowledge_api.py
+ M tests/test_knowledge_integration.py
+ M tests/test_knowledge_pipeline_integration.py
+ M tests/test_reply_enqueue.py
+ M tests/test_ui_component_contract.py
+ M web/static/index.html
+ M web/static/locales/en/dynamic.json
+ M web/static/locales/zh/dynamic.json
+ M web/static/modules/app-knowledge-import.js
+ M web/static/modules/app-knowledge-items.js
+ M web/static/modules/app-knowledge-jobs.js
+ M web/static/modules/app-knowledge-modals.js
+ M web/static/modules/app-knowledge-package-detail.js
+ M web/static/modules/app-knowledge-package-list.js
+ M web/static/modules/app-knowledge-retrieval.js
+ M web/static/modules/app-knowledge-status.js
+ M web/static/modules/settings-hints.js
+ M web/static/modules/transport.js
+ M web/static/partials/settings.html
+ M web/static/warm-tokens-settings.css
+?? tmp/_ci.txt
+?? tmp/_data.txt
+?? tmp/_diff_knowledge_lifecycle.txt
+?? tmp/_diff_webapi.txt
+?? tmp/_fe.txt
+?? tmp/_git_log.txt
+?? tmp/_git_status.txt
+?? tmp/_i18n.txt
+?? tmp/_i18n2.txt
+?? tmp/_memlist.txt
+?? tmp/_n1.txt
+?? tmp/_py.txt
+?? tmp/_py2.txt
+?? tmp/_reports.txt
+?? tmp/_ruff.txt
+?? tmp/_t1.txt
+?? tmp/_t2.txt
+?? tmp/_t3.txt
+?? tmp/_t4.txt
+?? tmp/_t5.txt
+?? tmp/_t6.txt
+?? tmp/_t7.txt
+?? tmp/_t8.txt
+?? tmp/_t9.txt
+?? tmp/git_status.txt
+?? tmp/kb_batch1.txt
+?? tmp/kb_batch1b.txt
+?? tmp/kb_batch1b_tail.txt
+?? tmp/kb_batch2.txt
+?? tmp/kb_batch_summary.txt
+?? tmp/kb_too_large_1.txt
+?? tmp/kb_too_large_2.txt
+?? tmp/kb_too_large_3.txt
+?? tmp/kb_too_large_sum.txt
+?? tmp/pytest_reply_enqueue_kb.txt
+=== DIFFSTAT ===
+git : warning: in the working copy of 'app/application/diagnostic_snapshot.py',
+ LF will be replaced by CRLF the next time Git touches it
+所在位置 行:449 字符: 1
++ git diff --stat 2>&1 | Out-File -Append E:\test\danmu\tmp\git_status. ...
++ ~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (warning: in the... Git touches it 
+   :String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+warning: in the working copy of 'app/knowledge/runtime_service.py', LF will be 
+replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/main_lifecycle_mixin.py', LF will be repla
+ced by CRLF the next time Git touches it
+warning: in the working copy of 'app/main_request_context_mixin.py', LF will be
+ replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/web_api/knowledge.py', LF will be replaced
+ by CRLF the next time Git touches it
+warning: in the working copy of 'app/web_api/knowledge_routes.py', LF will be r
+eplaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/test_knowledge_api.py', LF will be repla
+ced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/test_knowledge_integration.py', LF will 
+be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/test_knowledge_pipeline_integration.py',
+ LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/test_reply_enqueue.py', LF will be repla
+ced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/test_ui_component_contract.py', LF will 
+be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'web/static/locales/en/dynamic.json', LF will b
+e replaced by CRLF the next time Git touches it
+warning: in the working copy of 'web/static/locales/zh/dynamic.json', LF will b
+e replaced by CRLF the next time Git touches it
+warning: in the working copy of 'web/static/modules/app-knowledge-items.js', LF
+ will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'web/static/modules/app-knowledge-jobs.js', LF 
+will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'web/static/modules/app-knowledge-package-detai
+l.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'web/static/modules/settings-hints.js', LF will
+ be replaced by CRLF the next time Git touches it
+ app/application/diagnostic_snapshot.py             |  12 +-
+ app/knowledge/runtime_service.py                   | 182 ++++++++++++++++++---
+ app/main_lifecycle_mixin.py                        |  59 +++++--
+ app/main_request_context_mixin.py                  |  88 +++++++++-
+ app/web_api/knowledge.py                           |  33 +++-
+ app/web_api/knowledge_routes.py                    | 156 +++++++++++++++---
+ tests/test_knowledge_api.py                        | 163 ++++++++++++++----
+ tests/test_knowledge_integration.py                |   6 +-
+ tests/test_knowledge_pipeline_integration.py       |  55 ++++++-
+ tests/test_reply_enqueue.py                        |  79 ++++++++-
+ tests/test_ui_component_contract.py                |   8 +-
+ web/static/index.html                              |   2 +-
+ web/static/locales/en/dynamic.json                 |  17 ++
+ web/static/locales/zh/dynamic.json                 |  17 ++
+ web/static/modules/app-knowledge-import.js         |  30 +++-
+ web/static/modules/app-knowledge-items.js          |  59 +++++--
+ web/static/modules/app-knowledge-jobs.js           |  54 ++++--
+ web/static/modules/app-knowledge-modals.js         |  30 +++-
+ web/static/modules/app-knowledge-package-detail.js |  44 +++--
+ web/static/modules/app-knowledge-package-list.js   |  34 +++-
+ web/static/modules/app-knowledge-retrieval.js      |  31 +++-
+ web/static/modules/app-knowledge-status.js         |  73 +++++++++
+ web/static/modules/settings-hints.js               |   4 +-
+ web/static/modules/transport.js                    |   8 +-
+ web/static/partials/settings.html                  |  56 ++-----
+ web/static/warm-tokens-settings.css                |   2 +-
+ 26 files changed, 1071 insertions(+), 231 deletions(-)
+=== import_service touched? ===

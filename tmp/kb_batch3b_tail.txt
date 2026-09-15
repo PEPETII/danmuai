@@ -1,0 +1,4 @@
+﻿    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+34 passed, 1 deselected, 7 warnings in 2.67s

@@ -1,0 +1,8 @@
+﻿=== BATCH1 ===
+FAILED tests/test_knowledge_integration.py::test_web_api_end_to_end - assert ...
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed, 116 passed in 37.01s
+=== BATCH2 ===
+........................................................................ [ 71%]
+..........................................................               [100%]
+202 passed in 17.08s

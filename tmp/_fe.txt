@@ -1,0 +1,66 @@
+﻿
+FullName                                                         Length
+--------                                                         ------
+E:\test\danmu\web\static\modules\app-knowledge-import.js           9031
+E:\test\danmu\web\static\modules\app-knowledge-items.js            9456
+E:\test\danmu\web\static\modules\app-knowledge-jobs.js            21121
+E:\test\danmu\web\static\modules\app-knowledge-modals.js           5892
+E:\test\danmu\web\static\modules\app-knowledge-package-detail.js   7635
+E:\test\danmu\web\static\modules\app-knowledge-package-list.js     7777
+E:\test\danmu\web\static\modules\app-knowledge-page.js             4341
+E:\test\danmu\web\static\modules\app-knowledge-retrieval.js        3090
+E:\test\danmu\web\static\modules\app-knowledge-state.js            3164
+E:\test\danmu\web\static\modules\app-knowledge-status.js           4968
+E:\test\danmu\web\static\modules\transport.js                     25716
+
+
+
+Name                                     Length
+----                                     ------
+test_knowledge_ai_organizer.py            22831
+test_knowledge_api.py                     29993
+test_knowledge_async_loads.mjs             5696
+test_knowledge_chunker.py                 18820
+test_knowledge_database.py                44132
+test_knowledge_deduplicator.py            14839
+test_knowledge_diagnostics.py              7477
+test_knowledge_e2e_production.py          13781
+test_knowledge_extractors.py              30151
+test_knowledge_import_service.py          46423
+test_knowledge_integration.py             27355
+test_knowledge_jobs_modal.mjs              6367
+test_knowledge_pipeline_integration.py    23461
+test_knowledge_real_eldenring.py          15988
+test_knowledge_retriever.py               38806
+test_knowledge_scene_context.py            6943
+test_knowledge_source_extractors_ssrf.py  10308
+test_knowledge_validator.py               19312
+test_web_knowledge_page.py                 5062
+test_web_vtuber_knowledge_page.py           599
+
+
+
+Name                                          
+----                                          
+test_config_store_cross_domain_transactions.py
+test_knowledge_scene_context.py               
+test_main_launch_mixin.py                     
+test_main_single_instance.py                  
+test_mic_transcript_lifecycle.py              
+test_model_api_ui_contract.py                 
+test_p0_main_flow.py                          
+test_scene_freshness.py                       
+test_scene_generation_version.py              
+test_scene_refresh.py                         
+test_tts_playback_lifecycle.py                
+test_ui_component_contract.py                 
+test_ui_global_consistency.py                 
+test_ui_mode.py                               
+test_ui_partial_hygiene.py                    
+test_ui_responsive_shell.py                   
+test_ui_theme_init.py                         
+test_ui_token_contract.py                     
+test_virtual_host_playback_lifecycle.py       
+test_virtual_host_voice_dialogue_lifecycle.py 
+
+

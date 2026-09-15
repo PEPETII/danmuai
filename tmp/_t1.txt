@@ -1,0 +1,157 @@
+﻿.......F.F...........F.F.F...FF                                          [100%]
+================================== FAILURES ===================================
+_________________________ test_get_package_not_found __________________________
+
+client = <starlette.testclient.TestClient object at 0x000001C7409BBDF0>
+
+    def test_get_package_not_found(client):
+        resp = client.get("/api/knowledge/packages/nonexistent_id")
+>       assert resp.status_code == 200
+E       assert 404 == 200
+E        +  where 404 = <Response [404 Not Found]>.status_code
+
+tests\test_knowledge_api.py:329: AssertionError
+_____________________________ test_delete_package _____________________________
+
+client = <starlette.testclient.TestClient object at 0x000001C740C788D0>
+
+    def test_delete_package(client):
+        pid = client.post(
+            "/api/knowledge/packages", json={"name": "待删除"}
+        ).json()["package_id"]
+    
+        resp = client.delete(f"/api/knowledge/packages/{pid}")
+        assert resp.status_code == 200
+        assert resp.json() == {"ok": True}
+    
+        # 删除后再 GET 应返回 not_found
+        after = client.get(f"/api/knowledge/packages/{pid}")
+>       assert after.json() == {"error": "not_found"}
+E       AssertionError: assert {'detail': {'... 'ok': False}} == {'error': 'not_found'}
+E         
+E         Left contains 1 more item:
+E         {'detail': {'error': 'not_found', 'ok': False}}
+E         Right contains 1 more item:
+E         {'error': 'not_found'}
+E         Use -v to get more diff
+
+tests\test_knowledge_api.py:364: AssertionError
+_____________________ test_list_items_filtered_by_package _____________________
+
+client = <starlette.testclient.TestClient object at 0x000001C742602690>
+repo = <app.knowledge.repository.KnowledgeRepository object at 0x000001C742885910>
+
+    def test_list_items_filtered_by_package(client, repo):
+        pid, _iid, _item = _seed_item(client, repo)
+    
+        resp = client.get(f"/api/knowledge/items?package_id={pid}")
+        assert resp.status_code == 200
+        assert resp.json()["total"] == 1
+    
+        # 另一个不存在的 package
+        resp2 = client.get("/api/knowledge/items?package_id=nonexistent")
+>       assert resp2.status_code == 200
+E       assert 404 == 200
+E        +  where 404 = <Response [404 Not Found]>.status_code
+
+tests\test_knowledge_api.py:701: AssertionError
+___________________________ test_get_item_not_found ___________________________
+
+client = <starlette.testclient.TestClient object at 0x000001C74299A030>
+
+    def test_get_item_not_found(client):
+        resp = client.get("/api/knowledge/items/nonexistent")
+>       assert resp.status_code == 200
+E       assert 404 == 200
+E        +  where 404 = <Response [404 Not Found]>.status_code
+
+tests\test_knowledge_api.py:717: AssertionError
+______________________________ test_delete_item _______________________________
+
+client = <starlette.testclient.TestClient object at 0x000001C740B269C0>
+repo = <app.knowledge.repository.KnowledgeRepository object at 0x000001C742D38E50>
+
+    def test_delete_item(client, repo):
+        _pid, iid, _item = _seed_item(client, repo)
+    
+        resp = client.delete(f"/api/knowledge/items/{iid}")
+        assert resp.status_code == 200
+        assert resp.json() == {"ok": True}
+    
+        after = client.get(f"/api/knowledge/items/{iid}")
+>       assert after.json() == {"error": "not_found"}
+E       AssertionError: assert {'detail': {'... 'ok': False}} == {'error': 'not_found'}
+E         
+E         Left contains 1 more item:
+E         {'detail': {'error': 'not_found', 'ok': False}}
+E         Right contains 1 more item:
+E         {'error': 'not_found'}
+E         Use -v to get more diff
+
+tests\test_knowledge_api.py:742: AssertionError
+__________________ test_routes_handle_uninitialized_runtime ___________________
+
+tmp_path = WindowsPath('E:/test/danmu/.pytest_tmp/run-32716-45585a57/tests_test_knowledge_api.py_test_routes_handle_uninitialized_runtime')
+config = <tests.fakes.FakeConfig object at 0x000001C74065FA70>
+
+    def test_routes_handle_uninitialized_runtime(tmp_path, config):
+        """knowledge_runtime 为 None 时，GET 路由应返回 not_initialized 兜底。"""
+        app = FastAPI()
+        bridge = MagicMock()
+        bridge.invoke_on_main.side_effect = lambda fn, *a, **k: fn(*a, **k)
+        bridge.danmu_app = SimpleNamespace(
+            knowledge_runtime=None,  # 未初始化
+            config=config,
+            config_changed=MagicMock(),
+        )
+    
+        def _check_token(_authorization: str | None = None) -> None:
+            return None
+    
+        register_web_routes(app, bridge, _check_token)
+        client = TestClient(app)
+    
+        resp = client.get("/api/knowledge/packages")
+>       assert resp.status_code == 200
+E       assert 503 == 200
+E        +  where 503 = <Response [503 Service Unavailable]>.status_code
+
+tests\test_knowledge_api.py:869: AssertionError
+______________ test_post_packages_handles_uninitialized_runtime _______________
+
+tmp_path = WindowsPath('E:/test/danmu/.pytest_tmp/run-32716-45585a57/tests_test_knowledge_api.py_test_post_packages_handles_uninitialized_runtime')
+config = <tests.fakes.FakeConfig object at 0x000001C7421DA4B0>
+
+    def test_post_packages_handles_uninitialized_runtime(tmp_path, config):
+        """knowledge_runtime 为 None 时，POST 应返回 not_initialized（不创建任何记录）。"""
+        app = FastAPI()
+        bridge = MagicMock()
+        bridge.invoke_on_main.side_effect = lambda fn, *a, **k: fn(*a, **k)
+        bridge.danmu_app = SimpleNamespace(
+            knowledge_runtime=None,
+            config=config,
+            config_changed=MagicMock(),
+        )
+    
+        def _check_token(_authorization: str | None = None) -> None:
+            return None
+    
+        register_web_routes(app, bridge, _check_token)
+        client = TestClient(app)
+    
+        resp = client.post("/api/knowledge/packages", json={"name": "x"})
+>       assert resp.status_code == 200
+E       assert 503 == 200
+E        +  where 503 = <Response [503 Service Unavailable]>.status_code
+
+tests\test_knowledge_api.py:894: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_knowledge_api.py::test_get_package_not_found - assert 404 =...
+FAILED tests/test_knowledge_api.py::test_delete_package - AssertionError: ass...
+FAILED tests/test_knowledge_api.py::test_list_items_filtered_by_package - ass...
+FAILED tests/test_knowledge_api.py::test_get_item_not_found - assert 404 == 200
+FAILED tests/test_knowledge_api.py::test_delete_item - AssertionError: assert...
+FAILED tests/test_knowledge_api.py::test_routes_handle_uninitialized_runtime
+FAILED tests/test_knowledge_api.py::test_post_packages_handles_uninitialized_runtime
+7 failed, 24 passed in 11.29s
+exit=1

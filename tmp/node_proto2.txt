@@ -1,0 +1,52 @@
+﻿TAP version 13
+# Subtest: assertKnowledgePayload throws a coded error on residual 200 + {error}
+ok 1 - assertKnowledgePayload throws a coded error on residual 200 + {error}
+  ---
+  duration_ms: 1.2857
+  type: 'test'
+  ...
+# Subtest: assertKnowledgePayload passes through genuine success payloads unchanged
+ok 2 - assertKnowledgePayload passes through genuine success payloads unchanged
+  ---
+  duration_ms: 0.339
+  type: 'test'
+  ...
+# Subtest: assertKnowledgePayload tolerates empty error and non-object payloads
+ok 3 - assertKnowledgePayload tolerates empty error and non-object payloads
+  ---
+  duration_ms: 0.7937
+  type: 'test'
+  ...
+# Subtest: knowledgeErrorMessage never leaks a bare i18n pseudo-key
+ok 4 - knowledgeErrorMessage never leaks a bare i18n pseudo-key
+  ---
+  duration_ms: 0.2719
+  type: 'test'
+  ...
+# Subtest: knowledgeErrorMessage prefers mapped code, then message, then fallback
+ok 5 - knowledgeErrorMessage prefers mapped code, then message, then fallback
+  ---
+  duration_ms: 0.2353
+  type: 'test'
+  ...
+# Subtest: every route-mapped knowledge error code has a frontend mapping
+ok 6 - every route-mapped knowledge error code has a frontend mapping
+  ---
+  duration_ms: 1.1605
+  type: 'test'
+  ...
+# Subtest: every frontend apiError key exists in both zh and en locales
+ok 7 - every frontend apiError key exists in both zh and en locales
+  ---
+  duration_ms: 1.7545
+  type: 'test'
+  ...
+1..7
+# tests 7
+# suites 0
+# pass 7
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 183.1004

@@ -1,0 +1,33 @@
+﻿
+> web\static\locales\zh\dynamic.json:89:      "userStatusCompletedWithErrors": 
+"已完成，但部分内容处理失败",
+  web\static\locales\zh\dynamic.json:90:      "userStatusFailed": "处理失败",
+  web\static\locales\zh\dynamic.json:91:      "userStatusCancelled": "已取消",
+  web\static\locales\zh\dynamic.json:92:      "userStatusInterrupted": "处理被中断",
+  web\static\locales\zh\dynamic.json:93:      "organizeStageQueued": "正在准备资料",
+  web\static\locales\zh\dynamic.json:94:      "organizeStageExtracting": "正在读取资
+料",
+  web\static\locales\zh\dynamic.json:95:      "organizeStageChunking": "正在拆分内容"
+,
+  web\static\locales\zh\dynamic.json:96:      "organizeStageOrganizing": "AI 正在
+整理知识",
+  web\static\locales\zh\dynamic.json:97:      "organizeStageFinished": "资料整理完成"
+,
+  web\static\locales\zh\dynamic.json:98:      "organizeStageFailed": "资料整理失败",
+  web\static\locales\zh\dynamic.json:99:      "organizeStageCancelled": "已取消整理"
+,
+  web\static\locales\zh\dynamic.json:100:      "stageLabel": "阶段：{stage}",
+  web\static\locales\zh\dynamic.json:101:      "cancelJob": "取消",
+  web\static\locales\zh\dynamic.json:102:      "viewProgress": "查看进度",
+  web\static\locales\zh\dynamic.json:103:      "progress": "{processed} / {tota
+l}",
+  web\static\locales\zh\dynamic.json:104:      "failedChunks": "失败片段 {count}",
+  web\static\locales\zh\dynamic.json:105:      "generatedItems": "生成 {count} 条"
+,
+  web\static\locales\zh\dynamic.json:106:      "advancedSettings": "高级设置",
+  web\static\locales\zh\dynamic.json:107:      "advancedHint": "优先级与知识检索测试",
+  web\static\locales\zh\dynamic.json:108:      "testRetrieval": "测试知识检索",
+  web\static\locales\zh\dynamic.json:109:      "testRetrievalHint": "模拟一个画面或直播场
+景，检查系统会使用哪些知识。",
+
+

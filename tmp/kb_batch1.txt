@@ -1,0 +1,125 @@
+﻿........................................................................ [ 40%]
+............................................F
+================================== FAILURES ===================================
+___________________________ test_web_api_end_to_end ___________________________
+
+client = <starlette.testclient.TestClient object at 0x0000029F2B5CCAF0>
+repo = <app.knowledge.repository.KnowledgeRepository object at 0x0000029F2AED3480>
+
+    def test_web_api_end_to_end(client, repo):
+        """绔埌绔?Web API 娴佺▼锛?0 姝ワ級锛?
+    
+        1. GET /packages 绌哄垪琛?
+        2. POST /packages 鍒涘缓
+        3. GET /packages/{id} 璇︽儏
+        4. PATCH /packages/{id} 鏇存柊
+        5. POST /packages/{id}/imports 瀵煎叆锛坢ock AI锛?
+        6. 杞 GET /jobs/{id} 绛夊畬鎴?
+        7. GET /items?package_id={id} 搴旀湁鍛戒腑
+        8. POST /retrieval/preview 妫€绱㈤瑙?
+        9. DELETE /packages/{id} 绾ц仈鍒犻櫎
+        10. GET /packages/{id} 鈫?not_found
+        """
+        # 1. 绌哄垪琛?
+        resp = client.get("/api/knowledge/packages")
+        assert resp.status_code == 200
+        assert resp.json() == {"packages": [], "total": 0}
+    
+        # 2. 鍒涘缓
+        resp = client.post(
+            "/api/knowledge/packages",
+            json={"name": "Web 绔埌绔寘", "description": "闆嗘垚娴嬭瘯"},
+        )
+        assert resp.status_code == 200
+        create_body = resp.json()
+        assert create_body["ok"] is True
+        pid = create_body["package_id"]
+        assert pid
+    
+        # 3. 璇︽儏
+        resp = client.get(f"/api/knowledge/packages/{pid}")
+        assert resp.status_code == 200
+        detail = resp.json()
+        assert detail["public_id"] == pid
+        assert detail["name"] == "Web 绔埌绔寘"
+    
+        # 4. 鏇存柊
+        resp = client.patch(
+            f"/api/knowledge/packages/{pid}",
+            json={"name": "Web 绔埌绔寘(宸叉洿鏂?", "enabled": False},
+        )
+        assert resp.status_code == 200
+        updated = resp.json()
+        assert updated["name"] == "Web 绔埌绔寘(宸叉洿鏂?"
+        assert updated["enabled"] is False
+    
+        # 閲嶆柊鍚敤锛堝悗缁鍏ラ渶瑕佸寘鍚敤锛?
+        client.patch(f"/api/knowledge/packages/{pid}", json={"enabled": True})
+    
+        # 5. 瀵煎叆锛坢ock AI锛?
+        item = _ok_item(
+            kind="fact",
+            title="Web 瀵煎叆浜嬪疄",
+            content="閫氳繃 Web API 瀵煎叆鐨勪簨瀹炴潯鐩€?,
+        )
+        with patch(
+            "app.knowledge.import_service.organize_chunk",
+            return_value=_ok_result(items=[item]),
+        ):
+            resp = client.post(
+                f"/api/knowledge/packages/{pid}/imports",
+                json={
+                    "source_type": "pasted_text",
+                    "display_name": "Web 瀵煎叆鏂囨湰",
+                    "pasted_text": "# 娴嬭瘯\n\n杩欐槸閫氳繃 Web API 鎻愪氦鐨勬祴璇曞唴瀹广€?,
+                },
+            )
+            assert resp.status_code == 200
+            import_body = resp.json()
+            assert import_body["ok"] is True
+            job_id = import_body["job_id"]
+            assert job_id.startswith("kj_")
+    
+            # 6. 杞绛夊畬鎴?
+            final = _wait_for_job_done(repo, job_id, timeout=15.0)
+        assert final["status"] in ("completed", "completed_with_errors")
+        assert final["generated_items"] >= 1
+    
+        # 7. 鍒楀嚭鏉＄洰搴旀湁鍛戒腑
+        resp = client.get(f"/api/knowledge/items?package_id={pid}")
+        assert resp.status_code == 200
+        items_body = resp.json()
+        assert items_body["total"] >= 1
+        assert any(it["title"] == "Web 瀵煎叆浜嬪疄" for it in items_body["items"])
+    
+        # 8. 妫€绱㈤瑙?
+        resp = client.post(
+            "/api/knowledge/retrieval/preview",
+            json={
+                "scene_brief": "Web API 妫€绱㈠満鏅?,
+                "keywords": ["Web", "瀵煎叆"],
+                "max_items": 4,
+                "max_chars": 360,
+            },
+        )
+        assert resp.status_code == 200
+        preview = resp.json()
+        assert preview["hit_count"] >= 1
+        assert isinstance(preview["prompt_text"], str)
+    
+        # 9. 绾ц仈鍒犻櫎
+        resp = client.delete(f"/api/knowledge/packages/{pid}")
+        assert resp.status_code == 200
+        assert resp.json() == {"ok": True}
+    
+        # 10. 鍒犻櫎鍚?GET 杩斿洖 not_found
+        resp = client.get(f"/api/knowledge/packages/{pid}")
+>       assert resp.status_code == 200
+E       assert 404 == 200
+E        +  where 404 = <Response [404 Not Found]>.status_code
+
+tests\test_knowledge_integration.py:651: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_knowledge_integration.py::test_web_api_end_to_end - assert ...
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed, 116 passed in 37.01s
