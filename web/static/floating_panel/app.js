@@ -421,7 +421,7 @@
         : "：";
     var layout = msg.style && msg.style.layout === "stacked" ? "stacked" : "inline";
     var usernameHtml = usernameEnabled
-      ? '<div class="username">' + username + usernameSeparator + "</div>"
+      ? '<div class="username">' + username + "</div>"
       : '<div class="username is-hidden"></div>';
     if (layout === "stacked") {
       card.innerHTML =
@@ -431,6 +431,12 @@
       card.innerHTML =
         usernameHtml +
         '<div class="content">' + content + "</div>";
+    }
+    if (usernameEnabled) {
+      var usernameElement = card.querySelector(".username");
+      if (usernameElement) {
+        usernameElement.appendChild(document.createTextNode(usernameSeparator));
+      }
     }
     applyEntryAnimationClass(card);
     slot.appendChild(card);

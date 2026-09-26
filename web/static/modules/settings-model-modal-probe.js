@@ -17,11 +17,35 @@ export const MODEL_PROBE_STATES = Object.freeze({
   ERROR: "error",
 });
 
+// W-AUDIT-PROBE-PARITY-001：默认「测试连接」执行完整阶段链；逐项展示通过/失败/未执行。
+export const MODEL_PROBE_STAGE_ORDER = Object.freeze([
+  "local",
+  "auth_model",
+  "text",
+  "vision_stream",
+  "business_parse",
+]);
+
+const PROBE_STAGE_LABEL_KEYS = Object.freeze({
+  local: "阶段_本地校验",
+  auth_model: "阶段_鉴权与模型",
+  text: "阶段_文本连接",
+  vision: "阶段_视觉非流式",
+  audio: "阶段_音频输入",
+  stream: "阶段_流式文本",
+  vision_stream: "阶段_视觉流式请求",
+  business_parse: "阶段_业务解析",
+});
+
 let activeController = null;
 let requestToken = 0;
 let lastProbeFingerprint = "";
 let bound = false;
 let collectFormFn = () => ({});
+// W-AUDIT-PROBE-SECRET-001：登记"沿用已存 key"时的凭据作用域；作用域字段一旦
+// 改变即清除掩码 key，避免把已存密钥绑定到新的 endpoint/provider/model/mode。
+let storedKeyScope = "";
+let storedKeyMasked = false;
 
 function el(id) {
   return document.getElementById(id);
@@ -34,15 +58,59 @@ function hasApiKey(value) {
 
 export function buildProbeFingerprint(form = {}) {
   return JSON.stringify({
+    // W-AUDIT-PROBE-PARITY-001：绑定触发时的不可变档案身份与档案参数。
+    profile_id: form.profile_id || "",
     provider: form.provider || "",
     model_ids: Array.isArray(form.model_ids) ? form.model_ids : [],
     default_model_id: form.default_model_id || "",
     endpoint: form.endpoint || "",
     mode: form.mode || "",
     max_tokens: form.max_tokens || 0,
+    thinking_effort: form.thinking_effort || "off",
+    temperature: form.temperature ?? null,
     supportsMic: Boolean(form.supportsMic),
     apiKeyPresent: hasApiKey(form.apiKey),
   });
+}
+
+/** Credential-scope portion of the form; endpoint/provider/model/mode identity. */
+export function buildProbeScopeFingerprint(form = {}) {
+  return JSON.stringify({
+    provider: form.provider || "",
+    endpoint: form.endpoint || "",
+    mode: form.mode || "",
+    model_ids: Array.isArray(form.model_ids) ? form.model_ids : [],
+    default_model_id: form.default_model_id || "",
+  });
+}
+
+function isMaskedKeyText(value) {
+  const text = String(value || "");
+  return /^\*+$/.test(text) || /^•+$/.test(text);
+}
+
+/**
+ * 打开弹窗、把档案 key 回填为掩码值时调用：记住该作用域。
+ * 之后修改 endpoint/provider/model/mode 会使"沿用旧 key"失效。
+ */
+export function markModelModalStoredKey() {
+  storedKeyMasked = isMaskedKeyText(el("modelApiKey")?.value);
+  storedKeyScope = buildProbeScopeFingerprint(collectFormFn());
+}
+
+function clearStoredKeyIfScopeChanged() {
+  const input = el("modelApiKey");
+  if (!input) return false;
+  if (!storedKeyMasked || !isMaskedKeyText(input.value)) return false;
+  if (buildProbeScopeFingerprint(collectFormFn()) === storedKeyScope) return false;
+  input.value = "";
+  storedKeyMasked = false;
+  renderModelProbeResult({
+    state: MODEL_PROBE_STATES.ERROR,
+    title: t("dynamic.settingsCustomModels.探测目标已修改"),
+    message: t("dynamic.settingsCustomModels.探测目标已修改_请重新输入_API_Key"),
+  });
+  return true;
 }
 
 function setResultClass(state) {
@@ -53,6 +121,42 @@ function setResultClass(state) {
   result.classList.toggle("hidden", state === MODEL_PROBE_STATES.IDLE);
 }
 
+function stageLabel(stage) {
+  const key = PROBE_STAGE_LABEL_KEYS[stage];
+  return key ? t(`dynamic.settingsCustomModels.${key}`) : String(stage || "");
+}
+
+function stageStatusLabel(status) {
+  if (status === "passed") return t("dynamic.settingsCustomModels.阶段状态_通过");
+  if (status === "skipped") return t("dynamic.settingsCustomModels.阶段状态_未执行");
+  return t("dynamic.settingsCustomModels.阶段状态_失败");
+}
+
+/** 逐项渲染阶段结果；空列表时隐藏容器（不伪造任何阶段）。 */
+function renderProbeStages(stages) {
+  const list = el("modelProbeStages");
+  if (!list) return;
+  const items = Array.isArray(stages) ? stages : [];
+  if (typeof list.replaceChildren === "function") list.replaceChildren();
+  list.classList.toggle("hidden", items.length === 0);
+  if (typeof document.createElement !== "function") return;
+  items.forEach((item) => {
+    const status = String(item?.status || "failed");
+    const li = document.createElement("li");
+    li.className = `model-probe-stage model-probe-stage--${status}`;
+    li.dataset.stage = String(item?.stage || "");
+    li.dataset.status = status;
+    const name = document.createElement("span");
+    name.className = "model-probe-stage-name";
+    name.textContent = stageLabel(item?.stage);
+    const state = document.createElement("span");
+    state.className = "model-probe-stage-status";
+    state.textContent = stageStatusLabel(status);
+    li.append(name, state);
+    list.append(li);
+  });
+}
+
 export function renderModelProbeResult({
   state = MODEL_PROBE_STATES.IDLE,
   title = "",
@@ -60,6 +164,7 @@ export function renderModelProbeResult({
   meta = "",
   technicalDetail = "",
   problemCode = "",
+  stages = [],
 } = {}) {
   setResultClass(state);
   const titleEl = el("modelProbeResultTitle");
@@ -69,6 +174,7 @@ export function renderModelProbeResult({
   if (titleEl) titleEl.textContent = title;
   if (messageEl) messageEl.textContent = message;
   if (metaEl) metaEl.textContent = meta;
+  renderProbeStages(stages);
   if (detailBtn) {
     detailBtn.classList.toggle("hidden", !technicalDetail);
     detailBtn.dataset.detail = technicalDetail || "";
@@ -118,6 +224,7 @@ function technicalDetail(result, form, elapsedMs) {
     `endpoint: ${safeEndpoint(form.endpoint) || "n/a"}`,
     `model_id: ${form.default_model_id || "n/a"}`,
     `error_category: ${result.error_category || "n/a"}`,
+    "probe_policy: fixed 10s client timeout, no stream first-content timeout",
     `client_latency_ms: ${Math.round(elapsedMs)}`,
   ].join("\n");
 }
@@ -135,6 +242,8 @@ function setProbeBusy(isBusy) {
 }
 
 function invalidateIfChanged() {
+  // 作用域变更 → 先让"沿用旧 key"失效并提示重新输入（后端仍是最终校验者）。
+  if (clearStoredKeyIfScopeChanged()) return;
   if (!lastProbeFingerprint) return;
   const current = buildProbeFingerprint(collectFormFn());
   if (current !== lastProbeFingerprint) {
@@ -223,36 +332,68 @@ export async function probeModelConnection(collectForm) {
   });
 
   try {
+    // W-AUDIT-PROBE-PARITY-001：默认「测试连接」执行完整阶段链。
     const result = await apiFetch("/api/custom-models/probe", {
       method: "POST",
-      body: JSON.stringify({ ...form, index, model_id: form.default_model_id }),
+      body: JSON.stringify({
+        ...form,
+        index,
+        model_id: form.default_model_id,
+        stage: "full",
+      }),
       signal: controller.signal,
     });
     if (token !== requestToken) return result;
+    // 结果必须绑定触发时的档案身份；身份漂移时丢弃（不覆盖新结果）。
+    if (
+      form.profile_id &&
+      result?.profile_id !== undefined &&
+      String(result.profile_id || "") !== String(form.profile_id || "")
+    ) {
+      return result;
+    }
     const elapsed = performance.now() - started;
     const [title, suggestion] = categoryCopy(
       result.error_category,
       result.status_code,
     );
     const detail = technicalDetail(result, form, elapsed);
+    const stages = Array.isArray(result.stages) ? result.stages : [];
+    const passedCount = stages.filter((item) => item.status === "passed").length;
     lastProbeFingerprint = fingerprint;
-    if (result.ok) {
+    if (result.ok && result.complete) {
+      // 只有 business_parse 通过（完整视觉链路）才显示完整成功。
       renderModelProbeResult({
         state: MODEL_PROBE_STATES.SUCCESS,
         title: t("dynamic.settingsCustomModels.连接测试成功"),
-        message: result.message || t("common.connectionSuccess"),
+        message: t("dynamic.settingsCustomModels.完整视觉链路可用"),
         meta: `${Math.round(elapsed)} ms · ${form.default_model_id}`,
+        stages,
       });
     } else {
+      const textPassed = stages.some(
+        (item) => item.stage === "text" && item.status === "passed",
+      );
+      const partial = passedCount > 0;
       renderModelProbeResult({
         state: MODEL_PROBE_STATES.ERROR,
-        title:
-          t(`dynamic.settingsCustomModels.${title}`) ===
-          `dynamic.settingsCustomModels.${title}`
+        title: partial
+          ? t("dynamic.settingsCustomModels.连接测试未完全通过")
+          : t(`dynamic.settingsCustomModels.${title}`) ===
+              `dynamic.settingsCustomModels.${title}`
             ? title
             : t(`dynamic.settingsCustomModels.${title}`),
-        message: result.message || suggestion,
-        meta: suggestion,
+        message: partial
+          ? textPassed
+            ? t("dynamic.settingsCustomModels.文本连接可用_完整视觉链路未通过")
+            : t("dynamic.settingsCustomModels.部分阶段通过_请查看下方明细")
+          : result.message || suggestion,
+        // 超时属 probe 短超时策略差异，不能据此断言生产一定失败。
+        meta:
+          String(result.error_category || "") === "timeout"
+            ? `${suggestion} ${t("dynamic.settingsCustomModels.探测使用较短超时_不代表生产失败")}`.trim()
+            : suggestion,
+        stages,
         technicalDetail: detail,
         problemCode: `MODEL-PROBE-${String(result.error_category || "UNKNOWN").toUpperCase()}`,
       });

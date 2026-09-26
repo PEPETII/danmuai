@@ -7,6 +7,8 @@ MiMo 特殊路径：mimo-v2.5 走 Chat Completions input_audio + input_audio.dat
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass, replace
+from typing import Any
 
 import httpx
 
@@ -17,6 +19,7 @@ from app.ai_client_support import (
     execute_stream_request_with_retry,
     format_credential_error,
     resolve_danmu_max_output_tokens,
+    resolve_visual_request_context,
 )
 from app.main_helpers import STREAM_FIRST_CONTENT_TIMEOUT_SEC
 from app.model_catalog import catalog_model_supports_thinking_toggle
@@ -27,7 +30,12 @@ from app.model_providers import (
     normalize_endpoint,
     resolve_supports_mic_declared,
 )
-from app.providers.request_planner import GenerationRequest, plan_http_request
+from app.providers.request_context import ResolvedRequestContext
+from app.providers.request_planner import (
+    GenerationRequest,
+    PlannedHttpRequest,
+    plan_http_request,
+)
 from app.translations import tr
 
 logger = logging.getLogger(__name__)
@@ -39,16 +47,21 @@ def _apply_mic_audio_policy(
     endpoint: str,
     api_mode: str,
     audio_data_uri: str | None,
+    *,
+    request_context: ResolvedRequestContext | None = None,
 ) -> tuple[str | None, bool | None, bool | None]:
     """Return (effective_audio_uri, supports_mic_override, supports_mic_declared)."""
     if not audio_data_uri:
         return None, None, None
-    declared = resolve_supports_mic_declared(
-        worker.config,
-        model,
-        endpoint=endpoint,
-        api_mode=api_mode,
-    )
+    if request_context is not None:
+        declared = request_context.supports_mic_declared
+    else:
+        declared = resolve_supports_mic_declared(
+            worker.config,
+            model,
+            endpoint=endpoint,
+            api_mode=api_mode,
+        )
     if model_supports_mic_audio(
         model,
         endpoint=endpoint,
@@ -132,6 +145,113 @@ def _effective_thinking_effort(caps, model_id: str, configured: str) -> str | No
     return configured
 
 
+@dataclass(frozen=True)
+class VisualRequestTuning:
+    """正式视觉请求的 per-request tuning（档案参数 → provider 决策）。
+
+    W-AUDIT-PROBE-PARITY-001：把「caps 归一 + thinking 决策 + token 下限」抽成
+    单一纯函数，正式视觉链（``request_doubao`` / ``request_openai``）与连接探测
+    的 ``vision_stream`` 阶段都调用它，避免 probe 复制一套会漂移的参数决策。
+    """
+
+    caps: Any
+    temperature: float | None
+    thinking_effort: str | None
+    effective_use_thinking: bool
+    max_output_tokens: int
+
+
+def resolve_visual_tuning_from_params(
+    *,
+    model_id: str,
+    endpoint: str,
+    api_mode: str,
+    temperature: float | None,
+    thinking_effort: str,
+    max_tokens: int,
+) -> VisualRequestTuning:
+    """从显式档案参数快照解析正式视觉请求的 tuning。
+
+    参数由调用方给出（正式链读取 ``config`` 档案；probe 使用按 ``profile_id``
+    定位的不可变档案快照），本函数只做无副作用的 provider 能力归一。
+    """
+    caps = get_capabilities_for_model(model_id, endpoint, api_mode)
+    effort = _effective_thinking_effort(caps, model_id, thinking_effort)
+    use_thinking = effort not in (None, "none")
+    return VisualRequestTuning(
+        caps=caps,
+        temperature=temperature,
+        thinking_effort=effort,
+        effective_use_thinking=use_thinking,
+        max_output_tokens=resolve_danmu_max_output_tokens(
+            max_tokens, use_thinking=use_thinking
+        ),
+    )
+
+
+def resolve_visual_request_tuning(
+    config,
+    model: str,
+    endpoint: str,
+    api_mode: str,
+) -> VisualRequestTuning:
+    """正式视觉链的 tuning 入口：从 config 读取档案参数后走同一决策函数。"""
+    return resolve_visual_tuning_from_params(
+        model_id=model,
+        endpoint=endpoint,
+        api_mode=api_mode,
+        temperature=_configured_temperature(config, model),
+        thinking_effort=_configured_thinking_effort(config, model),
+        max_tokens=config.get_int("max_tokens", DEFAULT_MAX_TOKENS),
+    )
+
+
+def build_visual_planned_request(
+    *,
+    model: str,
+    endpoint: str,
+    api_key: str,
+    api_mode: str,
+    system_text: str,
+    user_text: str,
+    image_data_uri: str,
+    max_output_tokens: int,
+    temperature: float | None,
+    reasoning_enabled: bool,
+    reasoning_effort: str | None,
+    audio_data_uri: str | None = None,
+    supports_mic_override: bool | None = None,
+    supports_mic_declared: bool | str | None = None,
+    request_context: ResolvedRequestContext | None = None,
+) -> PlannedHttpRequest:
+    """构造正式视觉（可选麦克风）请求的 ``PlannedHttpRequest``。
+
+    正式链与 probe 的 ``vision_stream`` 阶段共用这一个入口，保证图片消息格式、
+    system/user 文本、thinking/streaming 决策与 request planner 路径完全一致。
+    """
+    return plan_http_request(
+        GenerationRequest(
+            purpose="mic_danmu" if audio_data_uri else "visual_danmu",
+            model_id=model,
+            endpoint=endpoint,
+            api_key=api_key,
+            api_mode=api_mode,
+            system_text=system_text or None,
+            user_text=user_text,
+            image_data_uri=image_data_uri,
+            audio_data_uri=audio_data_uri,
+            max_output_tokens=max_output_tokens,
+            temperature=temperature,
+            reasoning_enabled=reasoning_enabled,
+            reasoning_effort=reasoning_effort,
+            stream=True,
+            supports_mic_override=supports_mic_override,
+            supports_mic_declared=supports_mic_declared,
+            request_context=request_context,
+        )
+    )
+
+
 def _resolve_request_timing(
     worker,
     *,
@@ -188,6 +308,7 @@ def _prepare_visual_request_context(
     worker,
     *,
     resolved: tuple[str, str, str, str] | None,
+    request_context: ResolvedRequestContext | None,
     emit: bool,
     persona_id: str,
     request_round: int,
@@ -200,15 +321,21 @@ def _prepare_visual_request_context(
     """Shared preflight for doubao/openai visual stream requests.
 
     Returns either an error AiProbeResult from _deliver_outcome, or a context
-    tuple: (deadline_at, started_at, endpoint, api_key, model, api_mode, caps,
-    effective_use_thinking, thinking_effort, max_tokens, temperature, http_client).
+    tuple: (deadline_at, started_at, request_context, http_client).
     """
     deadline_at, started_at = _resolve_request_timing(
         worker, deadline_at=deadline_at, started_at=started_at
     )
-    if resolved is None:
-        resolved = worker._resolve_request_credentials()
-    if resolved is None:
+    context_was_supplied = request_context is not None
+    if request_context is None and resolved is None:
+        resolved = worker._resolve_request_credentials(persona_id)
+    if request_context is None:
+        request_context = resolve_visual_request_context(
+            worker.config,
+            persona_id,
+            resolved=resolved,
+        )
+    if request_context is None:
         return _deliver_request_error(
             worker,
             emit=emit,
@@ -219,22 +346,29 @@ def _prepare_visual_request_context(
             captured_at=captured_at,
             scene_generation=scene_generation,
         ), None
-    endpoint, api_key, model, api_mode = resolved
-    temperature = _configured_temperature(worker.config, model)
-    configured_max = worker.config.get_int("max_tokens", DEFAULT_MAX_TOKENS)
-    caps = get_capabilities_for_model(model, endpoint, api_mode)
-    configured_thinking_effort = _configured_thinking_effort(worker.config, model)
-    thinking_effort = _effective_thinking_effort(
-        caps,
-        model,
-        configured_thinking_effort,
-    )
-    effective_use_thinking = thinking_effort not in (None, "none")
-    max_tokens = resolve_danmu_max_output_tokens(
-        configured_max,
-        use_thinking=effective_use_thinking,
-    )
-    if not api_key:
+    if not context_was_supplied:
+        # Preserve the historical direct-call seam where tests/integrations
+        # override capability resolution before the context is dispatched.
+        caps = get_capabilities_for_model(
+            request_context.model_id,
+            request_context.endpoint,
+            request_context.api_mode,
+        )
+        if (
+            caps.thinking_param_style == "none"
+            or not getattr(caps, "supports_thinking", True)
+        ):
+            request_context = replace(
+                request_context,
+                thinking="off",
+                thinking_enabled=False,
+                reasoning_effort=None,
+                max_output_tokens=resolve_danmu_max_output_tokens(
+                    request_context.max_tokens,
+                    use_thinking=False,
+                ),
+            )
+    if not request_context.api_key:
         return _deliver_request_error(
             worker,
             emit=emit,
@@ -246,20 +380,7 @@ def _prepare_visual_request_context(
             scene_generation=scene_generation,
         ), None
     http_client = worker._get_http_client()
-    ctx = (
-        deadline_at,
-        started_at,
-        endpoint,
-        api_key,
-        model,
-        api_mode,
-        caps,
-        effective_use_thinking,
-        thinking_effort,
-        max_tokens,
-        temperature,
-        http_client,
-    )
+    ctx = (deadline_at, started_at, request_context, http_client)
     return None, ctx
 
 
@@ -304,6 +425,7 @@ def request_doubao(
     *,
     audio_data_uri: str | None = None,
     resolved: tuple[str, str, str, str] | None = None,
+    request_context: ResolvedRequestContext | None = None,
     emit: bool = True,
     deadline_at: float | None = None,
     started_at: float | None = None,
@@ -311,6 +433,7 @@ def request_doubao(
     err, ctx = _prepare_visual_request_context(
         worker,
         resolved=resolved,
+        request_context=request_context,
         emit=emit,
         persona_id=persona_id,
         request_round=request_round,
@@ -322,20 +445,15 @@ def request_doubao(
     )
     if ctx is None:
         return err
-    (
-        deadline_at,
-        started_at,
-        endpoint,
-        api_key,
-        model,
-        api_mode,
-        caps,
-        effective_use_thinking,
-        thinking_effort,
-        max_output_tokens,
-        temperature,
-        http_client,
-    ) = ctx
+    deadline_at, started_at, request_context, http_client = ctx
+    endpoint = request_context.endpoint
+    api_mode = request_context.api_mode
+    model = request_context.model_id
+    api_key = request_context.api_key
+    effective_use_thinking = request_context.thinking_enabled
+    thinking_effort = request_context.reasoning_effort
+    max_output_tokens = request_context.max_output_tokens
+    temperature = request_context.temperature
     if not image_data_uri or not image_data_uri.startswith("data:"):
         return _deliver_request_error(
             worker,
@@ -353,27 +471,24 @@ def request_doubao(
         endpoint,
         api_mode,
         audio_data_uri,
+        request_context=request_context,
     )
-    purpose = "mic_danmu" if mic_audio else "visual_danmu"
-    planned = plan_http_request(
-        GenerationRequest(
-            purpose=purpose,
-            model_id=model,
-            endpoint=endpoint,
-            api_key=api_key,
-            api_mode=api_mode,
-            system_text=system_pt or None,
-            user_text=user_pt,
-            image_data_uri=image_data_uri,
-            audio_data_uri=mic_audio,
-            max_output_tokens=max_output_tokens,
-            temperature=temperature,
-            reasoning_enabled=effective_use_thinking,
-            reasoning_effort=thinking_effort,
-            stream=True,
-            supports_mic_override=mic_override,
-            supports_mic_declared=mic_declared,
-        )
+    planned = build_visual_planned_request(
+        model=model,
+        endpoint=endpoint,
+        api_key=api_key,
+        api_mode=api_mode,
+        system_text=system_pt,
+        user_text=user_pt,
+        image_data_uri=image_data_uri,
+        audio_data_uri=mic_audio,
+        max_output_tokens=max_output_tokens,
+        temperature=temperature,
+        reasoning_enabled=effective_use_thinking,
+        reasoning_effort=thinking_effort,
+        supports_mic_override=mic_override,
+        supports_mic_declared=mic_declared,
+        request_context=request_context,
     )
     url = planned.url
     headers = planned.headers
@@ -456,6 +571,7 @@ def request_openai(
     *,
     audio_data_uri: str | None = None,
     resolved: tuple[str, str, str, str] | None = None,
+    request_context: ResolvedRequestContext | None = None,
     emit: bool = True,
     deadline_at: float | None = None,
     started_at: float | None = None,
@@ -463,6 +579,7 @@ def request_openai(
     err, ctx = _prepare_visual_request_context(
         worker,
         resolved=resolved,
+        request_context=request_context,
         emit=emit,
         persona_id=persona_id,
         request_round=request_round,
@@ -474,47 +591,39 @@ def request_openai(
     )
     if ctx is None:
         return err
-    (
-        deadline_at,
-        started_at,
-        endpoint,
-        api_key,
-        model,
-        api_mode,
-        caps,
-        effective_use_thinking,
-        thinking_effort,
-        max_tokens,
-        temperature,
-        http_client,
-    ) = ctx
+    deadline_at, started_at, request_context, http_client = ctx
+    endpoint = request_context.endpoint
+    api_mode = request_context.api_mode
+    model = request_context.model_id
+    api_key = request_context.api_key
+    effective_use_thinking = request_context.thinking_enabled
+    thinking_effort = request_context.reasoning_effort
+    max_tokens = request_context.max_output_tokens
+    temperature = request_context.temperature
     mic_audio, mic_override, mic_declared = _apply_mic_audio_policy(
         worker,
         model,
         endpoint,
         api_mode,
         audio_data_uri,
+        request_context=request_context,
     )
-    purpose = "mic_danmu" if mic_audio else "visual_danmu"
-    planned = plan_http_request(
-        GenerationRequest(
-            purpose=purpose,
-            model_id=model,
-            endpoint=endpoint,
-            api_key=api_key,
-            api_mode=api_mode,
-            system_text=system_pt or None,
-            user_text=user_pt,
-            image_data_uri=image_data_uri,
-            audio_data_uri=mic_audio,
-            max_output_tokens=max_tokens,
-            temperature=temperature,
-            reasoning_enabled=effective_use_thinking,
-            reasoning_effort=thinking_effort,
-            stream=True,
-            supports_mic_override=mic_override,
-            supports_mic_declared=mic_declared,
-        )
+    planned = build_visual_planned_request(
+        model=model,
+        endpoint=endpoint,
+        api_key=api_key,
+        api_mode=api_mode,
+        system_text=system_pt,
+        user_text=user_pt,
+        image_data_uri=image_data_uri,
+        audio_data_uri=mic_audio,
+        max_output_tokens=max_tokens,
+        temperature=temperature,
+        reasoning_enabled=effective_use_thinking,
+        reasoning_effort=thinking_effort,
+        supports_mic_override=mic_override,
+        supports_mic_declared=mic_declared,
+        request_context=request_context,
     )
     url = planned.url
     headers = planned.headers

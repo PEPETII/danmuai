@@ -14,7 +14,7 @@ from typing import Any
 
 from app.model_catalog import _CATALOG_BY_PROVIDER
 from app.model_providers import (
-    find_custom_model_profile,
+    first_custom_model_profile,
     guess_provider_from_endpoint,
     is_model_config_complete,
     is_valid_endpoint,
@@ -29,8 +29,13 @@ def infer_provider_id(api_endpoint: str, api_mode: str = "") -> str:
     return guess_provider_from_endpoint(api_endpoint, api_mode)
 
 
-def _custom_model_by_id(custom_models: list[Any], model_id: str) -> dict[str, Any] | None:
-    return find_custom_model_profile(custom_models, model_id)
+def _active_custom_model(config) -> dict[str, Any] | None:
+    """视觉运行时的活动档案：未显式选择时即首个完整档案。
+
+    W-AUDIT-MODEL-IDENTITY-001：身份由 ``profile_id`` 决定，因此活动档案直接取
+    首个档案，而不是按可重复的 ``default_model_id`` 反查（重复名会形成歧义）。
+    """
+    return first_custom_model_profile(config)
 
 
 def catalog_display_name(provider_id: str, model_id: str) -> str | None:
@@ -43,19 +48,17 @@ def catalog_display_name(provider_id: str, model_id: str) -> str | None:
     return None
 
 
-def _custom_models_list(config) -> list[Any]:
-    if not hasattr(config, "get_custom_models"):
-        return []
-    return config.get_custom_models()
-
-
 def _uses_complete_custom_model(config, model_id: str) -> bool:
     """True when active model uses a complete custom profile (own endpoint/key)."""
     mid = (model_id or "").strip()
     if not mid:
         return False
-    custom = _custom_model_by_id(_custom_models_list(config), mid)
-    return custom is not None and is_model_config_complete(custom)
+    custom = _active_custom_model(config)
+    if custom is None:
+        return False
+    if (custom.get("default_model_id") or "").strip() != mid:
+        return False
+    return is_model_config_complete(custom)
 
 
 def visual_api_endpoint_issue(config) -> str | None:
@@ -66,7 +69,7 @@ def visual_api_endpoint_issue(config) -> str | None:
     """
     model_id = resolve_active_model_id(config)
     if _uses_complete_custom_model(config, model_id):
-        custom = _custom_model_by_id(_custom_models_list(config), model_id)
+        custom = _active_custom_model(config)
         endpoint = normalize_endpoint((custom or {}).get("endpoint", ""))
         if not is_valid_endpoint(endpoint):
             return tr("config.error_api_endpoint_invalid")
@@ -101,8 +104,7 @@ def validate_web_config_patch(config, payload: dict[str, Any]) -> None:
 def resolve_model_status(config) -> dict[str, Any]:
     """Read-only model projection for /api/status and export_config."""
     active_model_id = resolve_active_model_id(config)
-    custom_models = _custom_models_list(config)
-    custom_entry = _custom_model_by_id(custom_models, active_model_id)
+    custom_entry = _active_custom_model(config)
     if custom_entry is not None:
         endpoint = normalize_endpoint(custom_entry.get("endpoint") or "")
         api_mode = custom_entry.get("mode", "doubao")

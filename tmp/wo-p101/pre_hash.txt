@@ -1,0 +1,9 @@
+37dd33c10b17ec62f7c9587a42404c50 *app/api_probe.py
+4f702346e866fc8403b3ed63aab166f9 *app/providers/request_planner.py
+f16ee20e52971359f474a6b0fc8c24d3 *app/web_api/custom_models.py
+e40f1feda2a5a76d04f1629d2c3437a9 *app/web_api/custom_models_routes.py
+5ddcf29b50075b932186449ebb461c06 *app/ai_client_requests.py
+24cd0c03f2f269f0ca85ba005ecdee00 *web/static/modules/settings-model-modal-probe.js
+9f761060794f7d72242d2ed646d7ca91 *tests/test_api_probe.py
+822202581de4a29943d189fded645957 *tests/test_probe_api_default_mode.py
+26b7791b512b7fbd47c5eabcacdfe3f6 *tests/test_web_custom_models.py

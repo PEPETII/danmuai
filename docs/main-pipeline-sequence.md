@@ -2,6 +2,33 @@
 
 主链路、线程池与 Qt 信号回主线程的调度登记。
 
+## 主链路 start 幂等门禁（P1-04）
+
+`DanmuApp.start()` 在 Qt 主线程执行，其第一项业务门禁是主线程运行态检查
+（`engine.running`）。引擎已在运行时，重复 `start()`（托盘/热键/`/api/start` 的
+`bridge.start_requested` 信号）直接返回并记录限频诊断，不重试知识运行时、不递增
+`_capture_session_epoch`、不调用 `engine.start()`、不重置统计/定时器、不清空
+`_pending_request_meta`、不触发 `_on_normal_capture_tick()`，因此在途视觉请求与
+capture 管道保持不变。完整 `stop()` → `start()` 仍按原顺序重建会话。`/api/start`
+保持异步 `{"ok": true}`，幂等由主线程门禁保证，前端禁用按钮只是辅助保护。
+
+## 视觉回复 outcome 分发与业务空解析暂停（P1-05）
+
+视觉回复在 `DanmuApp._on_ai_reply`（Qt 主线程，`ai_worker.finished` 回调）中先经
+scene/meta 门禁（`_abort_ai_reply_early` → `gate_dropped`，早退），再一次性释放
+in-flight、统计 token、消费 timing，然后调用
+`GenerationPipeline.handle_reply_parsed_outcome`，得到显式 `VisualReplyOutcome`：
+
+- `enqueued`：`DanmuApp` 清零 `_consecutive_empty_parses` 并复位失败退避；
+- `empty_parse`：`DanmuApp._handle_visual_empty_parse_failure` 累计一次业务空计数；
+  达 `EMPTY_PARSE_FAILURE_THRESHOLD` 后停止 `screenshot_timer` 并上报
+  `AI-FORMAT-001`（“响应格式不可用”）。
+
+该分发**不**新增线程/定时器：仍属 Qt 主线程，`screenshot_timer`/`reply_timer` 所有权
+不变，`GenerationPipeline` 只返回 outcome、不反向触发主链。业务空暂停复用既有
+`_failure_backoff_paused` 门禁（`_schedule_capture` / `_on_capture_completed` /
+`_try_scene_refresh` 已在暂停时早退），恢复路径为有效入队或 `stop()` → `start()`。
+
 ## 截图 capture worker
 
 Qt GUI 主线程完成 QApplication/QScreen/QPixmap capture，并在投递前转换为不可变、线程安全的图像
@@ -13,6 +40,11 @@ Qt GUI 主线程完成 QApplication/QScreen/QPixmap capture，并在投递前转
 `AiRunnable` 在 `ai_worker_pool` 对线程安全载荷压缩并执行 `AiWorker._request()`，经 `finished`/`error`
 信号回主线程。每个 runnable 捕获不可复用的 session token；stop 使旧 token 失效，压缩、HTTP 与回调
 投递前均验证它，因此 stop/start 后排队的旧任务不会发起 provider HTTP。
+
+视觉 runnable 派发前冻结 `ResolvedRequestContext`，并把不含凭据的 `public_projection()` 登记到
+`_pending_request_meta`；同一 context 随 runnable 进入 `AiWorker._request()`，provider path 不再
+重新读取全局 token/temperature。status、diagnostics 与错误 problem context 优先读取该 request
+projection，因此展示的 profile/model/provider/API family 与实际 dispatch 保持一致。
 
 ## 虚拟主播场景视觉 worker
 

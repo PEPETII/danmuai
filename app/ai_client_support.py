@@ -19,6 +19,10 @@ from app.providers import (
     get_openai_adapter,
     guess_provider_from_endpoint,
 )
+from app.providers.request_context import (
+    RequestCredentials,
+    ResolvedRequestContext,
+)
 from app.translations import tr
 
 HTTP_ERROR_MESSAGE_DISPLAY_MAX = 240
@@ -382,64 +386,302 @@ def execute_stream_request_with_retry(
     )
 
 
-def get_model_config(config) -> dict:
-    from app.model_providers import first_custom_model_profile
+try:
+    from app.persona_manager import PersonaModelBindingError as _PersonaModelBindingError
+except (ImportError, AttributeError):
+    class _PersonaModelBindingError(ValueError):
+        """Compatibility base used before P1's persona binding error exists."""
 
-    return first_custom_model_profile(config) or {}
+        def __init__(self, code: str, message: str):
+            super().__init__(message)
 
 
-def resolve_request_credentials(config) -> tuple[str, str, str, str] | None:
-    """Resolve visual AI credentials from the active custom_models profile."""
-    model_config = get_model_config(config)
-    if not model_config:
+class RequestContextResolutionError(_PersonaModelBindingError):
+    """请求档案无法唯一解析时抛出，不携带 endpoint/key 等敏感值。"""
+
+    def __init__(self, code: str, message: str):
+        super().__init__(code, message)
+        self.code = code
+
+
+def _custom_model_profiles(config) -> list[tuple[int, dict]]:
+    getter = getattr(config, "get_custom_models", None)
+    if not callable(getter):
+        return []
+    return [
+        (index, entry)
+        for index, entry in enumerate(getter())
+        if isinstance(entry, dict)
+    ]
+
+
+def _profile_model_ids(profile: dict) -> list[str]:
+    model_ids = profile.get("model_ids")
+    if isinstance(model_ids, list):
+        values = [str(value or "").strip() for value in model_ids]
+        return [value for value in values if value]
+    model_id = str(
+        profile.get("default_model_id")
+        or profile.get("modelId")
+        or profile.get("model_id")
+        or ""
+    ).strip()
+    return [model_id] if model_id else []
+
+
+def _profile_model_id(profile: dict) -> str:
+    model_ids = _profile_model_ids(profile)
+    default = str(profile.get("default_model_id") or "").strip()
+    return default or (model_ids[0] if model_ids else "")
+
+
+def _profile_identity(profile: dict, index: int) -> str:
+    from app.model_providers import custom_model_profile_identity
+
+    identity = custom_model_profile_identity(profile)
+    return identity or f"legacy:{index}"
+
+
+def _resolve_visual_profile(config, persona_id: str = ""):
+    """Resolve one profile without using a duplicate model name as identity."""
+    profiles = _custom_model_profiles(config)
+    if not profiles:
         return None
+
+    if persona_id:
+        from app.persona_manager import resolve_persona_model_binding
+
+        try:
+            resolved = resolve_persona_model_binding(config, persona_id)
+        except _PersonaModelBindingError as exc:
+            raise RequestContextResolutionError(
+                getattr(exc, "code", "unresolved"), str(exc)
+            ) from exc
+        if resolved is not None:
+            profile, model_id = resolved
+            for index, candidate in profiles:
+                if candidate is profile or candidate == profile:
+                    return profile, model_id, _profile_identity(profile, index)
+            raise RequestContextResolutionError(
+                "profile_missing", "模型档案绑定已失效"
+            )
+
+    index, profile = profiles[0]
+    return profile, _profile_model_id(profile), _profile_identity(profile, index)
+
+
+def _profile_credentials(profile: dict, model_id: str):
     from app.model_providers import normalize_endpoint, normalize_mode
 
-    endpoint = normalize_endpoint(model_config.get("endpoint", ""))
-    api_key = (model_config.get("apiKey") or "").strip()
-    model_id = (model_config.get("default_model_id") or "").strip()
-    api_mode = normalize_mode(model_config.get("mode", ""))
+    endpoint = normalize_endpoint(profile.get("endpoint", ""))
+    api_key = str(profile.get("apiKey") or "").strip()
+    api_mode = normalize_mode(profile.get("mode") or profile.get("api_mode") or "")
     if not endpoint or not api_key or not model_id:
         return None
     return endpoint, api_key, model_id, api_mode
+
+
+def get_model_config(config) -> dict:
+    resolved = _resolve_visual_profile(config)
+    return resolved[0] if resolved is not None else {}
+
+
+def resolve_request_credentials(config) -> tuple[str, str, str, str] | None:
+    """Resolve visual credentials from the explicit default profile."""
+    resolved = _resolve_visual_profile(config)
+    if resolved is None:
+        return None
+    return _profile_credentials(resolved[0], resolved[1])
 
 
 def visual_credentials_ready(config) -> bool:
     return resolve_request_credentials(config) is not None
 
 
-def _read_persona_model_bindings(config) -> dict:
-    raw = config.get("persona_model_bindings", "{}")
+def _coerce_request_temperature(raw) -> float | None:
+    if raw is None or isinstance(raw, bool):
+        return None
     try:
-        loaded = json.loads(raw)
-        return loaded if isinstance(loaded, dict) else {}
-    except (json.JSONDecodeError, TypeError):
-        return {}
+        value = float(raw)
+    except (TypeError, ValueError):
+        return None
+    return value if 0.0 <= value <= 2.0 else None
+
+
+def _profile_max_tokens(config, profile: dict | None) -> int:
+    raw = profile.get("max_tokens") if profile is not None else None
+    if raw is None:
+        return config.get_int("max_tokens", DEFAULT_MAX_TOKENS)
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return DEFAULT_MAX_TOKENS
+
+
+def _profile_temperature(config, profile: dict | None) -> float:
+    if profile is not None and "temperature" in profile:
+        value = _coerce_request_temperature(profile.get("temperature"))
+        if value is not None:
+            return value
+    return config.get_float("temperature", 0.8)
+
+
+def _profile_thinking(config, profile: dict | None) -> str:
+    raw = profile.get("thinking_effort") if profile is not None else None
+    if raw is None and profile is not None:
+        raw = profile.get("thinking")
+    if isinstance(raw, bool):
+        raw = "medium" if raw else "off"
+    if raw is None:
+        raw = "medium" if config.get("use_thinking", "0") == "1" else "off"
+    value = str(raw or "off").strip().lower()
+    allowed = {"off", "none", "minimal", "low", "medium", "high", "xhigh", "max"}
+    return value if value in allowed else "off"
+
+
+def _effective_thinking_effort(caps, model_id: str, configured: str) -> str | None:
+    from app.model_catalog import catalog_model_supports_thinking_toggle
+
+    if (
+        caps.thinking_param_style == "none"
+        or not catalog_model_supports_thinking_toggle(model_id)
+    ):
+        return None
+    allowed = getattr(caps, "reasoning_effort_values", ())
+    if configured in ("off", "none"):
+        return "none" if "none" in allowed else None
+    if allowed and configured not in allowed:
+        return "medium" if "medium" in allowed else None
+    return configured
+
+
+def resolve_visual_request_context(
+    config,
+    persona_id: str = "",
+    *,
+    resolved: tuple[str, str, str, str] | None = None,
+) -> ResolvedRequestContext | None:
+    """在 provider dispatch 前一次性冻结视觉请求所需的解析结果。"""
+    from app.model_providers import (
+        guess_provider_from_endpoint,
+        normalize_endpoint,
+        normalize_mode,
+        resolve_api_transport,
+    )
+    from app.providers.capabilities import capabilities_for_api_family
+    from app.providers.capability_resolver import resolve_capabilities
+    from app.providers.endpoint_resolver import extract_hostname, resolve_api_family
+
+    selected = _resolve_visual_profile(config, persona_id)
+    profile = selected[0] if selected is not None else None
+    profile_id = selected[2] if selected is not None else "legacy:resolved"
+    if resolved is None:
+        if selected is None:
+            return None
+        resolved = _profile_credentials(profile, selected[1])
+        if resolved is None:
+            return None
+    endpoint, api_key, model_id, api_mode = resolved
+    endpoint = normalize_endpoint(endpoint)
+    api_mode = normalize_mode(api_mode)
+    if not endpoint or not api_key or not model_id:
+        return None
+
+    provider_id = ""
+    profile_family = None
+    if profile is not None:
+        provider_id = str(
+            profile.get("provider_id") or profile.get("provider") or ""
+        ).strip()
+        profile_family = str(profile.get("api_family") or "").strip() or None
+    provider_id = provider_id or guess_provider_from_endpoint(endpoint, api_mode)
+    api_family = resolve_api_family(
+        transport=resolve_api_transport(endpoint, api_mode),
+        api_family=profile_family,
+    )
+    if not api_family:
+        raise RequestContextResolutionError(
+            "api_family_unknown", "无法解析模型请求 API family"
+        )
+    caps = resolve_capabilities(
+        model_id,
+        endpoint,
+        api_mode,
+        provider_id=provider_id,
+    )
+    caps = capabilities_for_api_family(caps, api_family)
+    configured_thinking = _profile_thinking(config, profile)
+    reasoning_effort = _effective_thinking_effort(
+        caps, model_id, configured_thinking
+    )
+    thinking_enabled = reasoning_effort not in (None, "none")
+    configured_max_tokens = _profile_max_tokens(config, profile)
+    max_output_tokens = resolve_danmu_max_output_tokens(
+        configured_max_tokens,
+        use_thinking=thinking_enabled,
+    )
+    supports_mic_declared = (
+        profile.get("supportsMic") if profile is not None else None
+    )
+    if supports_mic_declared is None and profile is None:
+        from app.model_providers import resolve_supports_mic_declared
+
+        supports_mic_declared = resolve_supports_mic_declared(
+            config,
+            model_id,
+            endpoint=endpoint,
+            api_mode=api_mode,
+        )
+    return ResolvedRequestContext(
+        profile_id=profile_id,
+        model_id=model_id,
+        provider_id=provider_id,
+        api_family=api_family,
+        endpoint=endpoint,
+        endpoint_host=extract_hostname(endpoint) or "",
+        api_mode=api_mode,
+        max_tokens=configured_max_tokens,
+        max_output_tokens=max_output_tokens,
+        temperature=_profile_temperature(config, profile),
+        thinking=(
+            reasoning_effort if reasoning_effort not in (None, "none") else "off"
+        ),
+        thinking_enabled=thinking_enabled,
+        reasoning_effort=reasoning_effort,
+        supports_mic_declared=supports_mic_declared,
+        credentials=RequestCredentials(api_key=api_key),
+    )
 
 
 def resolve_request_credentials_for_persona(
     config, persona_id: str = ""
 ) -> tuple[str, str, str, str] | None:
-    if persona_id:
-        from app.model_providers import (
-            is_model_config_complete,
-            normalize_endpoint,
-            normalize_mode,
+    """Resolve visual AI credentials for an explicitly bound persona.
+
+    W-AUDIT-MODEL-IDENTITY-001：显式绑定按不可变 ``profile_id`` 解析；绑定悬挂 /
+    歧义（重复模型名未迁移）/ 档案不完整 / 所选模型已不属于该档案时抛
+    ``PersonaModelBindingError``，**绝不**静默回退首个档案（不换 provider /
+    endpoint / 账户）。未绑定人格仍按产品默认使用首个档案。
+    """
+    if not persona_id:
+        return resolve_request_credentials(config)
+
+    from app.model_providers import normalize_endpoint, normalize_mode
+    from app.persona_manager import PersonaModelBindingError, resolve_persona_model_binding
+    from app.translations import tr
+
+    resolved = resolve_persona_model_binding(config, persona_id)
+    if resolved is None:
+        return resolve_request_credentials(config)
+    profile, model_id = resolved
+    endpoint = normalize_endpoint(profile.get("endpoint", ""))
+    api_key = (profile.get("apiKey") or "").strip()
+    api_mode = normalize_mode(profile.get("mode", ""))
+    if not endpoint or not api_key or not model_id:
+        raise PersonaModelBindingError(
+            "profile_incomplete", tr("persona.modelBindingProfileIncomplete")
         )
-
-        bound_id = (_read_persona_model_bindings(config).get(persona_id) or "").strip()
-        if bound_id:
-            from app.model_providers import find_custom_model_profile
-
-            entry = find_custom_model_profile(config.get_custom_models(), bound_id)
-            if entry is not None and is_model_config_complete(entry):
-                endpoint = normalize_endpoint(entry.get("endpoint", ""))
-                api_key = (entry.get("apiKey") or "").strip()
-                model_id = (entry.get("default_model_id") or "").strip()
-                api_mode = normalize_mode(entry.get("mode", ""))
-                if endpoint and api_key and model_id:
-                    return endpoint, api_key, model_id, api_mode
-    return resolve_request_credentials(config)
+    return endpoint, api_key, model_id, api_mode
 
 
 def resolve_mic_request_credentials(config) -> tuple[str, str, str, str] | None:

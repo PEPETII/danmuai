@@ -33,6 +33,7 @@ from app.ai_client_support import (
     DANMU_MIN_OUTPUT_TOKENS,
     DANMU_MIN_OUTPUT_TOKENS_THINKING,
     AiProbeResult,
+    RequestContextResolutionError,
     build_openai_vision_user_content,
     format_http_status_error,
     format_openai_http_error,
@@ -40,11 +41,14 @@ from app.ai_client_support import (
     openai_compatible_request_extensions,
     parse_stream_usage,
     resolve_danmu_max_output_tokens,
+    resolve_visual_request_context,
     sanitize_provider_error_snippet,
 )
 from app.config_store import ConfigStore
 from app.model_providers import resolve_api_transport
+from app.persona_manager import PersonaModelBindingError
 from app.providers.constants import THINKING_DISABLED
+from app.providers.request_context import ResolvedRequestContext
 from app.translations import tr
 
 logger = logging.getLogger(__name__)
@@ -186,6 +190,7 @@ class AiWorker(QObject):
         *,
         request_started_at: float | None = None,
         request_deadline_at: float | None = None,
+        request_context: ResolvedRequestContext | None = None,
     ):
         """双模式路由入口：根据 api_mode 分发到 request_doubao 或 request_openai。
 
@@ -194,12 +199,44 @@ class AiWorker(QObject):
         """
         if self._stopping.is_set():
             return
-        if audio_data_uri:
+        if request_context is not None:
+            resolved = (
+                request_context.endpoint,
+                request_context.api_key,
+                request_context.model_id,
+                request_context.api_mode,
+            )
+        elif audio_data_uri:
             resolved = self.resolve_mic_request_credentials()
+            request_context = resolve_visual_request_context(
+                self.config,
+                resolved=resolved,
+            )
         else:
             # W-PERSONA-MODEL-BIND-001：视觉路径按人格绑定解析凭证（未绑定/失效则回退全局）
-            resolved = self._resolve_request_credentials(persona_id)
-        if resolved is None:
+            # W-AUDIT-MODEL-IDENTITY-001：显式绑定失效抛 PersonaModelBindingError，
+            # 必须转成可观察的配置错误，而不是让工作线程抛出未处理异常。
+            try:
+                resolved = self._resolve_request_credentials(persona_id)
+                request_context = resolve_visual_request_context(
+                    self.config,
+                    persona_id,
+                    resolved=resolved,
+                )
+            except (PersonaModelBindingError, RequestContextResolutionError) as exc:
+                self._emit_result(
+                    "error",
+                    str(exc),
+                    persona_id,
+                    request_round,
+                    screenshot_id,
+                    captured_at,
+                    scene_generation,
+                    0,
+                    0,
+                )
+                return
+        if resolved is None or request_context is None:
             err_msg = (
                 format_mic_credential_error(self.config)
                 if audio_data_uri
@@ -217,8 +254,7 @@ class AiWorker(QObject):
                 0,
             )
             return
-        endpoint, _, _, api_mode = resolved
-        if resolve_api_transport(endpoint, api_mode) == "doubao":
+        if request_context.api_family == "openai_responses":
             request_doubao(
                 self,
                 image_data_uri,
@@ -231,6 +267,7 @@ class AiWorker(QObject):
                 scene_generation,
                 audio_data_uri=audio_data_uri,
                 resolved=resolved,
+                request_context=request_context,
                 deadline_at=request_deadline_at,
                 started_at=request_started_at,
             )
@@ -247,6 +284,7 @@ class AiWorker(QObject):
                 scene_generation,
                 audio_data_uri=audio_data_uri,
                 resolved=resolved,
+                request_context=request_context,
                 deadline_at=request_deadline_at,
                 started_at=request_started_at,
             )

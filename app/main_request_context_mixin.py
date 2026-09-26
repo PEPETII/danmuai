@@ -44,10 +44,36 @@ class DanmuAppRequestContextMixin:
         screenshot_id: int,
         scene_generation: int,
         source: str,
+        request_context=None,
     ) -> tuple[int, int, int]:
         key = self._reply_request_id(request_round, screenshot_id, scene_generation)
-        self._pending_request_meta[key] = {"source": source}
+        meta = {"source": source}
+        if request_context is not None:
+            try:
+                projection = request_context.public_projection()
+                fields = (
+                    "profile_id",
+                    "model_id",
+                    "provider_id",
+                    "api_family",
+                    "endpoint_host",
+                    "max_tokens",
+                    "temperature",
+                    "thinking",
+                )
+                public_context = {
+                    field: getattr(projection, field) for field in fields
+                }
+                meta["request_context"] = public_context
+                self._last_request_context_public = dict(public_context)
+            except (AttributeError, TypeError, ValueError):
+                self.logger.debug("request context projection unavailable")
+        self._pending_request_meta[key] = meta
         return key
+
+    def get_request_context_projection(self) -> dict[str, object]:
+        """Return the latest safe request-profile projection for Web snapshots."""
+        return dict(self.__dict__.get("_last_request_context_public") or {})
 
     def _pop_request_meta(
         self,

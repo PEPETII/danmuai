@@ -17,6 +17,30 @@
 - 默认不保存截图，不会把截图原文写入日志。
 - 过期请求和旧场景回复会被丢弃，避免旧内容覆盖当前画面。
 
+### 模型连接探测的凭据作用域与出站策略（W-AUDIT-PROBE-SECRET-001）
+
+掩码值 `********` 在探测请求里含义是"沿用已保存的档案 key"，因此恢复它有严格前提：
+
+- **通用 `POST /api/probe`** 没有不可变档案身份（只能回落到"首个档案"）。当调用方
+  未显式提供新 key（空值或掩码值）时，禁止与调用方显式提供的 `api_endpoint` /
+  `model` / `api_mode` 组合；要测试新配置必须随请求显式提供新的 key。越界请求在
+  发出任何 HTTP 请求之前返回 **400**（`error = probe_scope_violation`）。
+- **`POST /api/custom-models/probe`** 仅在同时满足下列条件时才恢复掩码 key：命中
+  同一档案记录，且归一化后的 endpoint、provider/transport、mode 与档案已存作用域
+  一致，且探测的 `model_id` 在该档案 `model_ids` allowlist 内。替换 endpoint /
+  provider / mode 或选用档案外 model 同样返回 400，要求重新输入 key。
+- 前端模型弹窗在 endpoint / provider / model / mode 变化后会清除"沿用旧 key"状态
+  并提示重新输入；后端始终是最终校验者。
+- **出站目标策略**：只允许 `http` / `https`；loopback（用户明确保存或输入的本地兼容
+  服务）与公网目标允许；私网（RFC1918 等）、link-local（含 `169.254.0.0/16`）、
+  云元数据（如 `169.254.169.254`、`100.100.100.200`、`fd00:ec2::254`）、多播 /
+  未指定 / 保留地址一律拒绝（`error_category = outbound_target_blocked`）。主机名
+  会解析全部 A/AAAA 记录后按同一规则判定。
+- 探测默认 **不跟随 HTTP 重定向**（显式 `follow_redirects=False`）；3xx 响应按
+  `outbound_redirect_blocked` 拒绝，原 `Authorization` 不会跨 origin 转发。
+- 上述策略只在发出真实出站请求的阶段生效；`local` 阶段不发起网络请求。探测错误
+  只返回稳定分类与安全摘要，不回传目标响应体、凭据或敏感 header。
+
 ## 本地 Web API 威胁模型
 
 Web 控制台仅监听 **`127.0.0.1`**，面向**单用户本机**场景，不是多用户网络服务。

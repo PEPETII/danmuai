@@ -100,8 +100,12 @@ class _FakeConfig:
 
 
 def _vision_profile(model_id: str = "qwen3-vl-flash", *, api_key: str = "vision-secret") -> dict:
+    # W-AUDIT-MODEL-IDENTITY-001：视觉引用按不可变 profile_id。这些运行时用例只关心
+    # 视觉档案内容，故 fixture 让身份与上游模型名一致；专门的"身份≠模型名"契约用例
+    # 在 tests/test_virtual_host_model_config.py 覆盖。
     return {
         "name": f"Vision {model_id}",
+        "profile_id": model_id,
         "default_model_id": model_id,
         "model_ids": [model_id],
         "endpoint": "https://dashscope.aliyuncs.com/compatible-mode/v1",
@@ -114,6 +118,7 @@ def _vision_profile(model_id: str = "qwen3-vl-flash", *, api_key: str = "vision-
 def _danmu_profile(model_id: str = "danmu-model") -> dict:
     return {
         "name": "Danmu default",
+        "profile_id": model_id,
         "default_model_id": model_id,
         "model_ids": [model_id],
         "endpoint": "https://api.openai.com/v1",

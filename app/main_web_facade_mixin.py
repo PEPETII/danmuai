@@ -209,6 +209,8 @@ class DanmuAppWebFacadeMixin:
         stage: str = "text",
     ) -> dict[str, object]:
         from app.ai_client_requests import resolve_request_credentials
+        from app.api_probe import ProbeScopeViolation
+        from app.model_providers import normalize_endpoint, normalize_mode
 
         default_mode = CONFIG_DEFAULTS.get("api_mode", "openai")
         cred_endpoint = ""
@@ -219,27 +221,39 @@ class DanmuAppWebFacadeMixin:
         if resolved:
             cred_endpoint, cred_key, cred_model, cred_mode = resolved
 
-        explicit_endpoint_or_model = bool(
-            (api_endpoint or "").strip() or (model or "").strip()
-        )
-        explicit_api_key = bool(
-            (api_key or "").strip() and (api_key or "").strip() != MASKED_KEY
-        )
-        resolved_key = (api_key or "").strip()
-        if not resolved_key or resolved_key == MASKED_KEY:
-            # W-GLOBAL-VISUAL-APIKEY-REMOVE-001: 不再回退全局 get_api_key()；
-            # MASKED 或空 key 时使用档案凭证 key，无档案则 key 为空（由 probe 返回错误）
-            resolved_key = cred_key
+        caller_endpoint = (api_endpoint or "").strip()
+        caller_model = (model or "").strip()
+        caller_mode = (api_mode or "").strip()
+        caller_key = (api_key or "").strip()
+        explicit_api_key = bool(caller_key and caller_key != MASKED_KEY)
+        wants_stored_key = not caller_key or caller_key == MASKED_KEY
+
+        if wants_stored_key and cred_key:
+            # W-AUDIT-PROBE-SECRET-001：通用 /api/probe 没有不可变档案身份，只有
+            # "首档案回落"这一隐式来源；因此禁止把该已存 key 与调用方显式提供的
+            # endpoint/model/mode 组合。要测新配置必须显式提供新的 api_key。
+            scope_violated = (
+                (caller_endpoint and normalize_endpoint(caller_endpoint) != normalize_endpoint(cred_endpoint))
+                or (caller_model and caller_model != cred_model)
+                or (caller_mode and normalize_mode(caller_mode) != normalize_mode(cred_mode))
+            )
+            if scope_violated:
+                raise ProbeScopeViolation(tr("custom_model.error_probe_scope_rekey"))
+
+        explicit_endpoint_or_model = bool(caller_endpoint or caller_model)
+        # W-GLOBAL-VISUAL-APIKEY-REMOVE-001: 不再回退全局 get_api_key()；
+        # MASKED 或空 key 时使用档案凭证 key，无档案则 key 为空（由 probe 返回错误）
+        resolved_key = caller_key if explicit_api_key else cred_key
 
         if explicit_endpoint_or_model or explicit_api_key:
-            effective_mode = (api_mode or cred_mode).strip() or default_mode
+            effective_mode = (caller_mode or cred_mode).strip() or default_mode
         else:
             effective_mode = (cred_mode or "").strip() or default_mode
 
         probe_args = (
-            (api_endpoint or cred_endpoint).strip(),
+            (caller_endpoint or cred_endpoint).strip(),
             resolved_key,
-            (model or cred_model).strip(),
+            (caller_model or cred_model).strip(),
             effective_mode,
         )
         if stage == "text":
@@ -281,9 +295,12 @@ class DanmuAppWebFacadeMixin:
         self.personae.set_active(active)
         self.config_changed.emit()
 
-    def set_persona_model_binding(self, name: str, model_id: str) -> None:
-        # W-PERSONA-MODEL-BIND-001：人格 → 模型档案绑定（空串清除）
-        self.personae.set_model_binding(name, model_id)
+    def set_persona_model_binding(
+        self, name: str, model_id: str, profile_id: str = ""
+    ) -> None:
+        # W-PERSONA-MODEL-BIND-001 / W-AUDIT-MODEL-IDENTITY-001：
+        # 人格 → 模型档案绑定（空串清除）；优先按不可变 profile_id 绑定。
+        self.personae.set_model_binding(name, model_id, profile_id)
         self.config_changed.emit()
 
     def get_capture_region_status(self) -> dict[str, object]:

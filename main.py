@@ -32,6 +32,7 @@ from datetime import datetime
 
 from app.api_schedule import pixels_per_second
 from app.application.config_service import ConfigService
+from app.application.generation_pipeline import VisualReplyOutcome
 from app.application.status_snapshot import StatusSnapshotBuilder
 from app.live_freshness import (
     build_local_fallback_batch,
@@ -629,6 +630,16 @@ class DanmuApp(
             request_id=request_id,
             now=time.monotonic(),
         )
+        from app.ai_client_support import resolve_visual_request_context
+
+        request_context = None
+        try:
+            request_context = resolve_visual_request_context(self.config, persona)
+        except Exception as exc:
+            self.logger.warning(
+                "request context pre-resolution failed: %s",
+                type(exc).__name__,
+            )
         self._log_reply_pipeline(
             "request_started",
             request_id=format_reply_request_id(request_round, screenshot_id, self._scene_generation),
@@ -641,7 +652,13 @@ class DanmuApp(
             enqueued=False,
             displayed=False,
         )
-        self._register_request_meta(request_round, screenshot_id, self._scene_generation, "visual")
+        self._register_request_meta(
+            request_round,
+            screenshot_id,
+            self._scene_generation,
+            "visual",
+            request_context=request_context,
+        )
 
         from app.runnable import AiRunnable
         from app.worker_pools import ai_worker_pool
@@ -663,6 +680,7 @@ class DanmuApp(
             session_token=getattr(self, "_capture_session_epoch", 0),
             session_is_current=lambda token: token
             == getattr(self, "_capture_session_epoch", None),
+            request_context=request_context,
         )
         ai_worker_pool().start(runnable)
 
@@ -883,9 +901,17 @@ class DanmuApp(
         scene_generation: int,
         request_started_at: float,
         reply_received_at: float,
+        input_tokens: int = 0,
+        output_tokens: int = 0,
     ) -> None:
+        """视觉回复 outcome 分发（P1-05）：以明确 outcome 区分成功/业务空结果。
+
+        到达此处时 in-flight 已释放、token 已统计（``_on_ai_reply``）；本方法只补
+        timing 消费一次，并按 outcome 复位退避或累计业务空预算。空结果不得伪造成功，
+        也不得重复释放 slot/meta/timing 或重复计 token。
+        """
         self._consume_request_timing(request_round, screenshot_id, scene_generation)
-        enqueued = self._generation_pipeline.handle_reply_parsed(
+        outcome = self._generation_pipeline.handle_reply_parsed_outcome(
             text=text,
             persona_id=persona_id,
             request_round=request_round,
@@ -895,8 +921,19 @@ class DanmuApp(
             request_started_at=request_started_at,
             reply_received_at=reply_received_at,
         )
-        if enqueued:
+        if outcome is VisualReplyOutcome.ENQUEUED:
+            self._reset_empty_parse_backoff_if_needed()
             self._reset_failure_backoff_if_needed()
+        elif outcome is VisualReplyOutcome.EMPTY_PARSE:
+            self._handle_visual_empty_parse_failure(
+                persona_id=persona_id,
+                request_round=request_round,
+                screenshot_id=screenshot_id,
+                scene_generation=scene_generation,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+            )
+        # GATE_DROPPED 不会到达本方法：scene/meta 门禁在 _abort_ai_reply_early 早退。
 
     def _abort_ai_reply_early(
         self,
@@ -980,6 +1017,8 @@ class DanmuApp(
             scene_generation=scene_generation,
             request_started_at=request_started_at,
             reply_received_at=reply_received_at,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
         )
 
     def _consume_reply_queue(self):

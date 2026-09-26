@@ -1,6 +1,6 @@
 """Main flow tests: capture, backoff, and web launch."""
 
-from unittest.mock import MagicMock, Mock
+from unittest.mock import MagicMock, Mock, call
 
 import pytest
 from app.reply_queue import QueuedReply
@@ -8,7 +8,149 @@ from app.runnable import AiRunnable
 from main import compress_screenshot
 
 from tests.conftest import make_minimal_danmu_app, start_app_timers
-from tests.fakes import FakeCapturer, FakeConfig, FakePixmap, FakeTimer
+from tests.fakes import (
+    FakeCapturer,
+    FakeConfig,
+    FakeEngine,
+    FakePixmap,
+    FakeTimer,
+)
+
+
+def _startable_config() -> FakeConfig:
+    """start() 的凭据/端点检查在本文件用 monkeypatch 覆盖，配置只需可读。"""
+    return FakeConfig({"api_key": "test-key"})
+
+
+def _build_startable_app(monkeypatch, *, real_capture_tick: bool = False):
+    """构造一个能完整跑通真实 ``DanmuApp.start()`` 成功路径的最小实例。
+
+    在 ``make_minimal_danmu_app()`` 之上补齐 start() 触达的依赖，并把与业务失败
+    无关的副作用换成可断言的 Mock / FakeTimer。``real_capture_tick=True`` 时保留
+    真实 ``_on_normal_capture_tick``（用于断言只投递一个 CaptureRunnable）。
+    """
+    from main import DanmuApp
+
+    app = make_minimal_danmu_app()
+    app.config = _startable_config()
+    app.engine = FakeEngine()
+    app._engine_start_spy = Mock(side_effect=app.engine.start)
+    app.engine.start = app._engine_start_spy
+    app.screenshot_timer = FakeTimer()
+    app.reply_timer = FakeTimer()
+    app._live_status_timer = FakeTimer()
+    app._lifetime_flush_timer = FakeTimer()
+    app._topmost_health_timer = FakeTimer()
+    app._pool_topup_timer = FakeTimer()
+    app.ai_worker = Mock()
+    app.session_run_log = Mock()
+    app.tray = Mock()
+    app.overlay = Mock()
+    app.state_changed = Mock()
+    app.clear_problem = Mock()
+    app.report_problem = Mock()
+    object.__setattr__(app, "web_server", None)
+    object.__setattr__(app, "knowledge_runtime", None)
+    object.__setattr__(app, "virtual_host_runtime", None)
+    object.__setattr__(app, "_danmu_read_service", None)
+
+    app._ensure_knowledge_runtime = Mock(return_value=False)
+    app._reset_scene_generation_baseline = Mock()
+    app._sync_overlay_visibility = Mock()
+    app._sync_floating_panel_visibility = Mock()
+    app._reassert_active_overlay_topmost = Mock()
+    app._start_meme_barrage_timers = Mock()
+    app._sync_mic_service = Mock()
+    if not real_capture_tick:
+        app._on_normal_capture_tick = Mock()
+
+    # 计时/调度服务的 reset 副作用计数（重复 start 必须为 0）
+    timing = app._get_request_timing_service()
+    app._timing_reset_spy = Mock(wraps=timing.reset_started)
+    timing.reset_started = app._timing_reset_spy
+    scheduler = app._get_request_scheduler()
+    app._sched_reset_spy = Mock(wraps=scheduler.reset_trigger_time)
+    scheduler.reset_trigger_time = app._sched_reset_spy
+
+    app.start = DanmuApp.start.__get__(app, DanmuApp)
+
+    monkeypatch.setattr(
+        "app.ai_client_requests.visual_credentials_ready", lambda _cfg: True
+    )
+    monkeypatch.setattr(
+        "app.model_selection.visual_api_endpoint_issue", lambda _cfg: None
+    )
+    return app
+
+
+def _session_state_snapshot(app) -> dict:
+    """第二次 start() 调用前后用于逐字段比较的完整会话状态快照。"""
+    return {
+        "capture_session_epoch": app._capture_session_epoch,
+        "ai_in_flight": app.ai_in_flight,
+        "mic_in_flight": app.mic_in_flight,
+        "capture_in_flight": app._capture_in_flight,
+        "is_generating": app._is_generating,
+        "local_fallback_active": app._local_fallback_active,
+        "pending_request_meta": dict(app._pending_request_meta),
+        "consecutive_failures": app._consecutive_failures,
+        "failure_backoff_paused": app._failure_backoff_paused,
+        "last_error_message": app._last_error_message,
+        "scene_generation": app._scene_generation,
+        "inflight_scene_generation": app._inflight_scene_generation,
+        "latest_screenshot_id": app._latest_screenshot_id,
+        "latest_requested_screenshot_id": app._latest_requested_screenshot_id,
+        "latest_queued_screenshot_id": app._latest_queued_screenshot_id,
+        "latest_displayed_screenshot_id": app._latest_displayed_screenshot_id,
+        "inflight_screenshot_id": app._inflight_screenshot_id,
+        "inflight_started_at": app._inflight_started_at,
+        "latest_screenshot": app._latest_screenshot,
+        "latest_screenshot_time": app._latest_screenshot_time,
+        "batch_id": app._batch_id,
+        "current_batch": app._current_batch,
+        "mic_request_seq": app._mic_request_seq,
+        "mic_batch_id": app._mic_batch_id,
+        "scene_refresh_wanted": app._scene_refresh_wanted,
+        "pending_api_trigger_source": app._pending_api_trigger_source,
+        "stats_danmu_count": app.stats_state.danmu_count,
+        "stats_start_time": app.stats_state.start_time,
+        "reply_queue_metrics": app.reply_buffer.metrics_snapshot().to_dict(),
+        "screenshot_timer_starts": app.screenshot_timer.started,
+        "screenshot_timer_stops": app.screenshot_timer.stopped,
+        "screenshot_timer_active": app.screenshot_timer.active,
+        "screenshot_timer_interval": app.screenshot_timer.interval(),
+        "reply_timer_starts": app.reply_timer.started,
+        "reply_timer_active": app.reply_timer.active,
+        "live_status_timer_starts": app._live_status_timer.started,
+        "lifetime_flush_timer_starts": app._lifetime_flush_timer.started,
+        "topmost_health_timer_starts": app._topmost_health_timer.started,
+        "pool_topup_timer_starts": app._pool_topup_timer.started,
+    }
+
+
+def _snapshot_diff(before: dict, after: dict) -> dict:
+    return {
+        key: (before.get(key), after.get(key))
+        for key in before.keys() | after.keys()
+        if before.get(key) != after.get(key)
+    }
+
+
+def _start_side_effects(app) -> dict:
+    """会随 start() 会话初始化变化的副作用调用次数（tick 必须是 Mock）。"""
+    assert isinstance(app._on_normal_capture_tick, Mock)
+    return {
+        "engine_start": app._engine_start_spy.call_count,
+        "reset_stopping": app.ai_worker.reset_stopping.call_count,
+        "first_capture_tick": app._on_normal_capture_tick.call_count,
+        "knowledge_retry": app._ensure_knowledge_runtime.call_count,
+        "scene_baseline_reset": app._reset_scene_generation_baseline.call_count,
+        "state_changed": app.state_changed.emit.call_count,
+        "session_begin": app.session_run_log.begin.call_count,
+        "timing_reset": app._timing_reset_spy.call_count,
+        "scheduler_reset": app._sched_reset_spy.call_count,
+        "screenshot_timer_starts": app.screenshot_timer.started,
+    }
 
 
 def test_normal_mode_start_uses_configured_capture_interval():
@@ -95,54 +237,16 @@ def test_capture_in_flight_skips_second_schedule(monkeypatch):
 
 
 def test_start_resets_capture_in_flight(monkeypatch):
-    """BUG-A02: start() 应重置 _capture_in_flight，避免 stop→start 快速切换后截图管道卡死。"""
-    from main import DanmuApp
+    """BUG-A02: stop→start 后 start() 应重置 _capture_in_flight，避免截图管道卡死。
 
-    app = make_minimal_danmu_app()
-    # 模拟 stop 前的状态：截图正在进行
+    P1-04 之后“运行中重复 start”是 no-op，因此这里把前置状态建模为 stop() 之后：
+    截图 worker 在途残留（``_capture_in_flight=True``）但引擎已停止
+    （``engine.running=False``）。
+    """
+    app = _build_startable_app(monkeypatch)
     app._capture_in_flight = True
-    app.engine.running = True
+    app.engine.running = False
     initial_epoch = app._capture_session_epoch
-
-    # 设置 start() 所需的最小依赖
-    app.config = FakeConfig({"api_key": "test-key"})
-    app.tray = Mock()
-    app.tray.update_state = Mock()
-    app.overlay = Mock()
-    app.overlay.stop_render_loop = Mock()
-    app.overlay.hide = Mock()
-    app._sync_overlay_visibility = Mock()
-    app._sync_floating_panel_visibility = Mock()
-    app._reassert_active_overlay_topmost = Mock()
-    app._sync_mic_service = Mock()
-    app._start_meme_barrage_timers = Mock()
-    app._reset_scene_generation_baseline = Mock()
-    app._ensure_stats_state = Mock(return_value=Mock(
-        reset_session=Mock(), start_time=0
-    ))
-    app.session_run_log = Mock()
-    app._live_status_timer = FakeTimer()
-    app._lifetime_flush_timer = FakeTimer()
-    app._topmost_health_timer = FakeTimer()
-    app._pool_topup_timer = FakeTimer()
-    app.reply_timer = FakeTimer()
-    app.state_changed = Mock()
-    app._set_error_status_safe = Mock()
-    app._open_web_console = Mock()
-    # __new__ 未调 QObject.__init__：未设置属性 getattr 会 RuntimeError
-    object.__setattr__(app, "web_server", None)
-    app.ai_worker.reset_stopping = Mock()
-    app._on_normal_capture_tick = Mock()
-
-    # 跳过凭据/端点检查，直接进入 start 复位分支
-    monkeypatch.setattr(
-        "app.ai_client_requests.visual_credentials_ready",
-        lambda _cfg: True,
-    )
-    monkeypatch.setattr("app.model_selection.visual_api_endpoint_issue", lambda c: None)
-
-    # 绑定真实 start 方法
-    app.start = DanmuApp.start.__get__(app, DanmuApp)
 
     app.start()
 
@@ -150,6 +254,191 @@ def test_start_resets_capture_in_flight(monkeypatch):
         "start() 应将 _capture_in_flight 重置为 False"
     )
     assert app._capture_session_epoch == initial_epoch + 1
+
+
+def test_first_start_starts_timers_and_first_capture_tick(monkeypatch):
+    """首次 start 仍启动定时器、首 tick 并发一次 state_changed(True)。"""
+    app = _build_startable_app(monkeypatch)
+    assert app.engine.running is False
+
+    app.start()
+
+    assert app.engine.running is True
+    assert app._engine_start_spy.call_count == 1
+    assert app.screenshot_timer.started == 1
+    assert app._live_status_timer.started == 1
+    assert app._lifetime_flush_timer.started == 1
+    assert app._topmost_health_timer.started == 1
+    assert app._pool_topup_timer.started == 1
+    assert app._on_normal_capture_tick.call_count == 1
+    assert app._capture_session_epoch == 1
+    assert app.state_changed.emit.call_args_list == [call(True)]
+
+
+def test_repeated_start_while_running_preserves_session_state(monkeypatch):
+    """P1-04 核心：运行中第二次 start() 必须对会话状态零副作用（逐字段快照比较）。"""
+    app = _build_startable_app(monkeypatch)
+    app.start()
+
+    # 运行中：存在在途视觉请求、request meta、失败计数与已累计统计。
+    app.ai_in_flight = 1
+    app._capture_in_flight = False
+    app._pending_request_meta[(4, 9, 0)] = {"source": "visual"}
+    app._latest_requested_screenshot_id = 9
+    app._consecutive_failures = 2
+    app._scene_generation = 3
+    app.stats_state.add_danmu(5)
+
+    effects_before = _start_side_effects(app)
+    before = _session_state_snapshot(app)
+
+    app.start()  # 运行中重复调用 → 必须 no-op
+
+    after = _session_state_snapshot(app)
+    assert after == before, f"重复 start 改动了会话状态: {_snapshot_diff(before, after)}"
+    assert _start_side_effects(app) == effects_before
+    assert any(
+        "reason=already_running" in msg for msg in app.logger.info_messages
+    ), "重复 start 应记录 already_running 诊断"
+
+
+def test_repeated_start_does_not_create_second_capture_runnable(monkeypatch):
+    """重复 start 不得再次调用 _on_normal_capture_tick，也不创建第二个 runnable。"""
+    app = _build_startable_app(monkeypatch, real_capture_tick=True)
+    app.capturer = FakeCapturer(FakePixmap(0b1))
+    monkeypatch.setattr("main.pixmap_to_image_snapshot", lambda _pixmap: object())
+    started: list[object] = []
+
+    class _FakePool:
+        def start(self, runnable):
+            started.append(runnable)
+
+    monkeypatch.setattr("app.worker_pools.capture_worker_pool", lambda: _FakePool())
+
+    app.start()
+    assert len(started) == 1
+    first_epoch = app._capture_session_epoch
+    assert started[0]._session_epoch == first_epoch
+
+    app.start()  # 运行中重复 start
+
+    assert len(started) == 1, "重复 start 不得投递第二个 capture runnable"
+    assert app._capture_session_epoch == first_epoch
+
+
+def test_two_duplicate_start_requests_start_engine_once(monkeypatch):
+    """两个 /api/start 信号在主线程顺序处理 → 只产生一次真实启动。
+
+    Qt 主线程串行处理排队的 ``start_requested``，等价于这里连续两次调用 ``start()``。
+    """
+    app = _build_startable_app(monkeypatch)
+
+    app.start()
+    app.start()
+
+    assert app._engine_start_spy.call_count == 1
+    assert app._capture_session_epoch == 1
+    assert app.state_changed.emit.call_count == 1
+
+
+def test_stop_then_start_opens_new_session(monkeypatch):
+    """完整 stop→start 仍递增新会话 epoch、重置 capture gate 并允许新请求。"""
+    app = _build_startable_app(monkeypatch)
+    app.start()
+    first_epoch = app._capture_session_epoch
+
+    app.engine.stop()  # 模拟 stop() 结束当前会话（running=False）
+    app._capture_in_flight = False
+    app.start()
+
+    assert app._capture_session_epoch == first_epoch + 1
+    assert app._engine_start_spy.call_count == 2
+    assert app._on_normal_capture_tick.call_count == 2
+    assert app._capture_in_flight is False
+
+
+def test_start_without_credentials_still_prompts_when_not_running(monkeypatch):
+    """凭据缺失时首次 start 仍走现有提示路径，guard 不得误拦截。"""
+    app = _build_startable_app(monkeypatch)
+    monkeypatch.setattr(
+        "app.ai_client_requests.visual_credentials_ready", lambda _cfg: False
+    )
+
+    app.start()
+
+    assert app.engine.running is False
+    assert app._engine_start_spy.call_count == 0
+    assert app.report_problem.call_count == 1
+    app.tray.show_api_key_missing_hint.assert_called_once()
+    app.tray.update_state.assert_called_once_with(running=False)
+
+
+def test_duplicate_start_after_transient_credential_loss_is_noop(monkeypatch):
+    """已经运行后配置瞬时变化不得让重复 start 破坏当前会话或弹出缺失提示。"""
+    app = _build_startable_app(monkeypatch)
+    app.start()
+    monkeypatch.setattr(
+        "app.ai_client_requests.visual_credentials_ready", lambda _cfg: False
+    )
+
+    before = _session_state_snapshot(app)
+    app.start()
+
+    assert app.report_problem.call_count == 0
+    app.tray.show_api_key_missing_hint.assert_not_called()
+    assert app._ensure_knowledge_runtime.call_count == 1
+    assert _session_state_snapshot(app) == before
+
+
+def test_duplicate_start_diagnostic_is_rate_limited(monkeypatch):
+    """重复 start 的 already_running 诊断按间隔限频，不随每次调用刷屏。"""
+    app = _build_startable_app(monkeypatch)
+    app.start()
+    app.logger.info_messages.clear()
+
+    app.start()
+    app.start()
+    app.start()
+
+    duplicates = [
+        msg for msg in app.logger.info_messages if "reason=already_running" in msg
+    ]
+    assert len(duplicates) == 1
+
+
+def test_web_start_request_signal_is_guarded_on_main_thread(monkeypatch, qapp):
+    """WebConsoleBridge.start_requested 直连 danmu_app.start；两次 emit 只启动一次。
+
+    ``/api/start`` 路由 emit 的正是 ``bridge.start_requested`` → ``danmu_app.start``
+    这条路径，因此主线程 guard 就是该 HTTP 接口的幂等保证。这里用 MagicMock 承载
+    bridge 的接线要求，并让它的 ``start`` 指向真实 ``DanmuApp.start``。
+    """
+    from app.web_console import WebConsoleBridge
+
+    app = _build_startable_app(monkeypatch)
+    mock_app = MagicMock()
+    # 用普通 callable 转发，避免 __new__ 构造的 QObject 线程亲和性导致 Qt 丢弃信号。
+    mock_app.start = lambda: app.start()
+
+    bridge = WebConsoleBridge(mock_app)
+    bridge.start_requested.emit()
+    bridge.start_requested.emit()
+    qapp.processEvents()
+
+    assert app._engine_start_spy.call_count == 1
+    assert app._capture_session_epoch == 1
+    assert app.state_changed.emit.call_count == 1
+
+
+def test_api_start_route_reaches_danmu_app_start():
+    """锁定 /api/start → bridge.start_requested → danmu_app.start 的幂等主线程路径。"""
+    from pathlib import Path
+
+    web_console = Path("app/web_console.py").read_text(encoding="utf-8")
+    runtime = Path("app/web_console_runtime.py").read_text(encoding="utf-8")
+
+    assert "self.start_requested.connect(danmu_app.start)" in web_console
+    assert "bridge.start_requested.emit()" in runtime
 
 
 @pytest.mark.parametrize(

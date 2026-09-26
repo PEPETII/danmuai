@@ -16,8 +16,13 @@ class DanmuTtsPlaybackAdapter:
         self._on_complete: Callable[[], None] | None = None
         self._active_playback_id = 0
         playback.playback_finished.connect(self._handle_finished)
+        playback.playback_failed.connect(self._handle_terminal)
+        playback.playback_stopped.connect(self._handle_terminal)
 
     def _handle_finished(self, playback_id: int) -> None:
+        self._handle_terminal(playback_id)
+
+    def _handle_terminal(self, playback_id: int) -> None:
         if int(playback_id) != self._active_playback_id:
             return
         callback = self._on_complete

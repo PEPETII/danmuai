@@ -44,7 +44,48 @@ floating panel 显示面实际接受文本后才产生 `DanmuDisplayed`，并由
 拒绝的文本不会触发虚拟主播自主回应；事件只携带已规范化文本和 request/batch/generation/source，
 不传递 AI 原始 response/JSON。
 
+## 主链路生命周期幂等（P1-04）
+
+| 字段 | 写入线程 | 读取线程 | 生命周期 |
+|------|----------|----------|----------|
+| `_duplicate_start_log_at` | Qt 主线程（`DanmuApp._note_duplicate_start`） | Qt 主线程 | 进程内；最近一次“运行中重复 start”限频诊断的 `time.monotonic()` 时间戳 |
+
+`DanmuApp.start()` 的第一项业务门禁是主线程运行态检查 `_visual_session_active()`
+（读取主线程专属的 `engine.running`）。`engine.running` 只由 Qt 主线程的
+`engine.start()`/`engine.stop()` 写入，故无需额外同步原语，也不是跨线程无锁布尔值。
+引擎已在运行时，重复 `start()` 是无副作用 no-op：不递增 `_capture_session_epoch`、
+不清空 `_pending_request_meta`、不重启定时器、不再次触发 `_on_normal_capture_tick()`。
+需要重启的调用者必须显式 `stop()` 后再 `start()`。
+
+## 主链路业务空解析预算与暂停（P1-05）
+
+| 字段 | 写入线程 | 读取线程 | 生命周期 |
+|------|----------|----------|----------|
+| `_consecutive_empty_parses` | Qt 主线程（`DanmuApp._handle_visual_empty_parse_failure`） | Qt 主线程；诊断快照经 `__dict__` 只读投影 | 会话内；连续业务空解析（`empty_parse`）计数，有效入队或 `start`/`stop` 清零 |
+| `_empty_parse_paused` | Qt 主线程（业务失败入口；`_reset_empty_parse_backoff_if_needed` / `start` / `stop`） | Qt 主线程；诊断快照只读投影 | 布尔；达阈值置真，表示因“响应格式不可用”暂停截图调度 |
+| `EMPTY_PARSE_FAILURE_THRESHOLD` | 主线程（`_init_runtime_tracking_state` / `start`，覆盖类属性） | 主线程；诊断快照只读投影 | 会话常量（默认 `EMPTY_PARSE_FAILURE_THRESHOLD = 5`），阈值依据见完成报告 |
+
+`GenerationPipeline.handle_reply_parsed_outcome` 返回显式 `VisualReplyOutcome`
+（`enqueued` / `empty_parse` / `gate_dropped`）：`enqueued` 时清零业务空计数并按既有
+退避合同恢复；`empty_parse` 时由 `DanmuApp._handle_visual_empty_parse_failure`（post-transport
+业务失败入口）累计一次业务空计数，达阈值后置 `_empty_parse_paused`、复用 `_failure_backoff_paused`
+停止 `screenshot_timer`，并上报 problem 码 `AI-FORMAT-001`（“响应格式不可用”），
+不与网络/连接错误共用文案。该入口**不**释放 in-flight/meta/timing、**不**重复计 token、
+**不**累计传输失败 `_consecutive_failures`。`gate_dropped`（scene/meta 门禁）与 mic
+回复、provider 错误均不参与业务空计数。
+
 ## 历史 DanmuApp 字段（节选）
+
+## 视觉请求档案公开投影（P2-02/P2-03）
+
+| 字段 | 写入线程 | 读取线程 | 生命周期 |
+|------|----------|----------|----------|
+| `_pending_request_meta[*].request_context` | Qt 主线程派发前登记；内容来自冻结 context 的 `public_projection()` | Qt 主线程错误处理、status/diagnostic 快照 | 单个 request_id；不含 API key、完整 endpoint、图片 |
+| `_last_request_context_public` | Qt 主线程派发前登记 | Qt 主线程；Web 只读快照经 façade 投影 | 进程内最近一次视觉请求；会话停止后可被下一次请求替换 |
+
+`ResolvedRequestContext` 在 provider dispatch 前冻结 profile/model/provider/API family、endpoint host、
+max_tokens、temperature 和 thinking。公开 projection 只允许进入 request metadata、status/diagnostics
+及 problem context；不得从可变全局配置重新猜测已发请求的档案，也不得投影凭据或完整请求正文。
 
 - `web_server`
 - `_web_error_message`

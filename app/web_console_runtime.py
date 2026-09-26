@@ -38,6 +38,16 @@ _PUBLIC_API_PATHS = frozenset(
     }
 )
 
+CUSTOM_MODELS_CONFIG_WRITE_ERROR = (
+    "custom_models writes must use /api/custom-models"
+)
+
+
+def reject_custom_models_config_write(payload: dict[str, Any]) -> None:
+    """Keep the public /api/config path from becoming a second model CRUD API."""
+    if "custom_models" in payload:
+        raise ValueError(CUSTOM_MODELS_CONFIG_WRITE_ERROR)
+
 
 def should_use_windows_selector_event_loop(platform: str | None = None) -> bool:
     """Windows source and frozen runs both need SelectorEventLoop, not Proactor."""
@@ -212,21 +222,31 @@ def run_uvicorn_locked(server) -> None:
     @app.get("/api/personae")
     def list_personae():
         from app.persona_builtin import BUILTIN_PERSONAE
+        from app.persona_manager import persona_model_binding_message
 
         names = bridge.danmu_app.personae.list()
         active = set(bridge.danmu_app.personae.get_active())
-        return {
-            "items": [
+        items = []
+        for name in names:
+            # W-AUDIT-MODEL-IDENTITY-001：绑定身份以不可变 profile_id 为准；
+            # binding_status / binding_message 暴露 unresolvable/悬挂/模型被移除
+            # 状态，供 UI 提示重新选择（不回退首项）。
+            binding = bridge.danmu_app.personae.get_model_binding(name)
+            status = bridge.danmu_app.personae.describe_model_binding(name)["status"]
+            items.append(
                 {
                     "id": name,
                     "label": bridge.danmu_app.personae.get_display_name(name),
                     "active": name in active,
                     "builtin": name in BUILTIN_PERSONAE,
-                    # W-PERSONA-MODEL-BIND-001：人格绑定的模型档案 model_id（未绑定为 ""）
-                    "model_id": bridge.danmu_app.personae.get_model_binding(name),
+                    "profile_id": binding,
+                    "model_id": bridge.danmu_app.personae.get_model_binding_model_id(name),
+                    "binding_status": status,
+                    "binding_message": persona_model_binding_message(status),
                 }
-                for name in names
-            ],
+            )
+        return {
+            "items": items,
             "active": bridge.danmu_app.personae.get_active(),
         }
 
@@ -266,6 +286,7 @@ def run_uvicorn_locked(server) -> None:
     ):
         try:
             data = extract_config_payload(body)
+            reject_custom_models_config_write(data)
             from app.model_selection import validate_web_config_patch
 
             validate_web_config_patch(bridge.danmu_app.config, data)

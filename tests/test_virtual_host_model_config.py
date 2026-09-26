@@ -52,8 +52,12 @@ class _FakeConfig:
 
 
 def _vision_profile(model_id: str = "vision-model") -> dict:
+    # W-AUDIT-MODEL-IDENTITY-001：视觉引用按不可变 profile_id。本文件大部分用例只关心
+    # 档案内容，故 fixture 让身份与上游模型名一致；"身份≠模型名 / 重复名" 的专门契约
+    # 用例见本文件下方 *_profile_id_* / *_duplicate_* 测试。
     return {
         "name": "Vision profile",
+        "profile_id": model_id,
         "default_model_id": model_id,
         "model_ids": [model_id],
         "endpoint": "https://ark.cn-beijing.volces.com/api/v3",
@@ -66,6 +70,7 @@ def _vision_profile(model_id: str = "vision-model") -> dict:
 def _text_only_profile(model_id: str = "gpt-4.1-mini") -> dict:
     return {
         "name": "Text profile",
+        "profile_id": model_id,
         "default_model_id": model_id,
         "model_ids": [model_id],
         "endpoint": "https://api.openai.com/v1",
@@ -78,6 +83,7 @@ def _text_only_profile(model_id: str = "gpt-4.1-mini") -> dict:
 def _catalog_vision_profile(model_id: str = "qwen3-vl-flash") -> dict:
     return {
         "name": "Catalog vision profile",
+        "profile_id": model_id,
         "default_model_id": model_id,
         "model_ids": [model_id],
         "endpoint": "https://dashscope.aliyuncs.com/compatible-mode/v1",
@@ -147,6 +153,113 @@ def test_purge_virtual_host_model_refs_clears_deleted_vision_model():
     config = _FakeConfig({VISION_MODEL_KEY: "vision-model"})
     purge_virtual_host_model_refs(config, "vision-model")
     assert config.get(VISION_MODEL_KEY) == ""
+
+
+# ---------------------------------------------------------------------------
+# W-AUDIT-MODEL-IDENTITY-001：视觉引用使用不可变 profile_id（身份 ≠ 上游模型名）
+# ---------------------------------------------------------------------------
+
+
+def _vision_profile_with_identity(
+    profile_id: str,
+    model_id: str,
+    *,
+    api_key: str = "secret",
+) -> dict:
+    return {
+        "name": f"Vision {profile_id}",
+        "profile_id": profile_id,
+        "default_model_id": model_id,
+        "model_ids": [model_id],
+        "endpoint": "https://ark.cn-beijing.volces.com/api/v3",
+        "apiKey": api_key,
+        "mode": "doubao",
+        "max_tokens": 512,
+    }
+
+
+def test_vision_options_expose_profile_id_and_resolve_correct_duplicate():
+    """两个档案共享同一上游模型名时，选项 id 是各自 profile_id，且各自命中正确档案。"""
+    shared_model = "doubao-seed-1-6-vision-32k-250115"
+    config = _FakeConfig(
+        custom_models=[
+            _vision_profile_with_identity("cmp_a", shared_model, api_key="key-a"),
+            _vision_profile_with_identity("cmp_b", shared_model, api_key="key-b"),
+        ]
+    )
+    options = list_vision_model_options(config)
+    assert {item["id"] for item in options} == {"cmp_a", "cmp_b"}
+    assert {item["model_id"] for item in options} == {shared_model}
+
+    apply_virtual_host_model_config(config, {"vision_model_id": "cmp_b"})
+    assert config.get(VISION_MODEL_KEY) == "cmp_b"
+    resolved = resolve_virtual_host_vision_credentials(config)
+    assert resolved is not None
+    endpoint, api_key, model_id, _mode = resolved
+    assert api_key == "key-b"
+    assert model_id == shared_model
+
+
+def test_apply_virtual_host_model_config_rejects_ambiguous_model_name():
+    """按重复的上游模型名提交视觉选择 → 不猜测首项，直接拒绝。"""
+    shared_model = "doubao-seed-1-6-vision-32k-250115"
+    config = _FakeConfig(
+        custom_models=[
+            _vision_profile_with_identity("cmp_a", shared_model, api_key="key-a"),
+            _vision_profile_with_identity("cmp_b", shared_model, api_key="key-b"),
+        ]
+    )
+    with pytest.raises(ValueError, match="virtual_host_vision_model_unavailable"):
+        apply_virtual_host_model_config(config, {"vision_model_id": shared_model})
+
+
+def test_sanitize_migrates_unique_legacy_model_name_vision_ref():
+    """唯一匹配的旧版按模型名记录 → 归一化为 profile_id 并持久化。"""
+    legacy_model = "qwen3-vl-flash"
+    profile = {
+        **_catalog_vision_profile(legacy_model),
+        "profile_id": "cmp_vision",
+    }
+    config = _FakeConfig({VISION_MODEL_KEY: legacy_model}, custom_models=[profile])
+    normalized = sanitize_virtual_host_model_config(config, persist=True)
+    assert normalized[VISION_MODEL_KEY] == "cmp_vision"
+    assert config.get(VISION_MODEL_KEY) == "cmp_vision"
+
+
+def test_sanitize_clears_ambiguous_legacy_model_name_vision_ref():
+    """重复模型名的旧版视觉引用无法唯一确定 → 回落为空并写回（要求重新选择）。"""
+    shared_model = "doubao-seed-1-6-vision-32k-250115"
+    config = _FakeConfig(
+        {VISION_MODEL_KEY: shared_model},
+        custom_models=[
+            _vision_profile_with_identity("cmp_a", shared_model),
+            _vision_profile_with_identity("cmp_b", shared_model),
+        ],
+    )
+    normalized = sanitize_virtual_host_model_config(config, persist=True)
+    assert normalized[VISION_MODEL_KEY] == ""
+    assert config.get(VISION_MODEL_KEY) == ""
+
+
+def test_purge_virtual_host_model_refs_keeps_other_profile_with_same_model_name():
+    """删除重复名之一时：只按被删档案 profile_id 清理，另一档案引用不受影响。"""
+    shared_model = "doubao-seed-1-6-vision-32k-250115"
+    remaining = [_vision_profile_with_identity("cmp_b", shared_model)]
+
+    # 引用指向 A 的 profile_id → 清理
+    config_a = _FakeConfig({VISION_MODEL_KEY: "cmp_a"}, custom_models=remaining)
+    purge_virtual_host_model_refs(config_a, "cmp_a", shared_model)
+    assert config_a.get(VISION_MODEL_KEY) == ""
+
+    # 旧版按模型名记录，且剩余档案仍拥有该模型名 → 不清理
+    config_legacy = _FakeConfig({VISION_MODEL_KEY: shared_model}, custom_models=remaining)
+    purge_virtual_host_model_refs(config_legacy, "cmp_a", shared_model)
+    assert config_legacy.get(VISION_MODEL_KEY) == shared_model
+
+    # 旧版按模型名记录，且没有任何剩余档案拥有该模型名 → 清理
+    config_orphan = _FakeConfig({VISION_MODEL_KEY: shared_model}, custom_models=[])
+    purge_virtual_host_model_refs(config_orphan, "cmp_a", shared_model)
+    assert config_orphan.get(VISION_MODEL_KEY) == ""
 
 
 class FakeProvider(BaseTtsProvider):

@@ -34,6 +34,7 @@ from app.providers.endpoint_resolver import (
 )
 from app.providers.platform_registry import auth_profile_for_provider, get_provider_definition
 from app.providers.registry import guess_provider_from_endpoint, is_minimax_endpoint
+from app.providers.request_context import ResolvedRequestContext
 from app.providers.stream_parser import parser_id_for_api_family, usage_normalizer_id_for_caps
 from app.providers.thinking import apply_thinking_disabled, apply_thinking_mode
 
@@ -76,6 +77,9 @@ class GenerationRequest:
     structured_output: dict | None = None
     extra_user_headers: dict[str, str] | None = None
     stream_options: dict | None = None
+    # New callers pass the frozen context. ``None`` preserves the historical
+    # loose-field API used by probes, knowledge, and older integrations.
+    request_context: ResolvedRequestContext | None = None
 
 
 @dataclass
@@ -94,6 +98,21 @@ class PlannedHttpRequest:
 
 def plan_http_request(req: GenerationRequest) -> PlannedHttpRequest:
     """Plan URL, auth headers, and JSON body for one provider HTTP call."""
+    if req.request_context is not None:
+        context = req.request_context
+        req = replace(
+            req,
+            model_id=context.model_id,
+            endpoint=context.endpoint,
+            api_key=context.api_key,
+            api_mode=context.api_mode,
+            provider_id=context.provider_id,
+            api_family=context.api_family,
+            max_output_tokens=context.max_output_tokens,
+            temperature=context.temperature,
+            reasoning_enabled=context.thinking_enabled,
+            reasoning_effort=context.reasoning_effort,
+        )
     endpoint = normalize_endpoint(req.endpoint)
     api_mode = req.api_mode or ""
     provider_id = (req.provider_id or guess_provider_from_endpoint(endpoint, api_mode)).strip()

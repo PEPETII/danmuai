@@ -21,9 +21,10 @@ def persona_app(tmp_path):
     templates = TemplateManager(config)
     config_changed = MagicMock()
 
-    # W-PERSONA-MODEL-BIND-001：façade 闭包，委托到 personae.set_model_binding
-    def set_persona_model_binding(name, model_id):
-        personae.set_model_binding(name, model_id)
+    # W-PERSONA-MODEL-BIND-001 / W-AUDIT-MODEL-IDENTITY-001：façade 闭包，
+    # 委托到 personae.set_model_binding（优先按 profile_id）。
+    def set_persona_model_binding(name, model_id, profile_id=""):
+        personae.set_model_binding(name, model_id, profile_id)
         config_changed.emit()
 
     app = SimpleNamespace(

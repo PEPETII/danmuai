@@ -1,0 +1,120 @@
+baseline _STAGES = ['audio', 'auth_model', 'local', 'stream', 'text', 'vision']
+current  _STAGES = ['audio', 'auth_model', 'business_parse', 'full', 'local', 'stream', 'text', 'vision', 'vision_stream']
+
+mode               baseline(text)   baseline(stream/vision)    current(full)  stages
+------------------------------------------------------------------------------------
+text_only          ok=True         vision:ok=False              ok=False      complete=False local=passed auth_model=passed text=passed vision_stream=failed business_parse=skipped
+vision_reject      ok=True         vision:ok=False              ok=False      complete=False local=passed auth_model=passed text=passed vision_stream=failed business_parse=skipped
+malformed_sse      ok=True         stream:ok=False              ok=False      complete=False local=passed auth_model=passed text=passed vision_stream=failed business_parse=skipped
+empty_sse          ok=True         stream:ok=False              ok=False      complete=False local=passed auth_model=passed text=passed vision_stream=passed business_parse=failed
+reasoning_only_sse ok=True         stream:ok=True               ok=False      complete=False local=passed auth_model=passed text=passed vision_stream=passed business_parse=failed
+filtered_items     ok=True         stream:ok=True               ok=False      complete=False local=passed auth_model=passed text=passed vision_stream=passed business_parse=failed
+legal_sse          ok=True         stream:ok=True               ok=True       complete=True local=passed auth_model=passed text=passed vision_stream=passed business_parse=passed
+
+JSON: [
+  {
+    "mode": "text_only",
+    "baseline_text_ok": true,
+    "baseline_legacy_stage": "vision",
+    "baseline_legacy_ok": false,
+    "current_ok": false,
+    "current_complete": false,
+    "current_stages": {
+      "local": "passed",
+      "auth_model": "passed",
+      "text": "passed",
+      "vision_stream": "failed",
+      "business_parse": "skipped"
+    }
+  },
+  {
+    "mode": "vision_reject",
+    "baseline_text_ok": true,
+    "baseline_legacy_stage": "vision",
+    "baseline_legacy_ok": false,
+    "current_ok": false,
+    "current_complete": false,
+    "current_stages": {
+      "local": "passed",
+      "auth_model": "passed",
+      "text": "passed",
+      "vision_stream": "failed",
+      "business_parse": "skipped"
+    }
+  },
+  {
+    "mode": "malformed_sse",
+    "baseline_text_ok": true,
+    "baseline_legacy_stage": "stream",
+    "baseline_legacy_ok": false,
+    "current_ok": false,
+    "current_complete": false,
+    "current_stages": {
+      "local": "passed",
+      "auth_model": "passed",
+      "text": "passed",
+      "vision_stream": "failed",
+      "business_parse": "skipped"
+    }
+  },
+  {
+    "mode": "empty_sse",
+    "baseline_text_ok": true,
+    "baseline_legacy_stage": "stream",
+    "baseline_legacy_ok": false,
+    "current_ok": false,
+    "current_complete": false,
+    "current_stages": {
+      "local": "passed",
+      "auth_model": "passed",
+      "text": "passed",
+      "vision_stream": "passed",
+      "business_parse": "failed"
+    }
+  },
+  {
+    "mode": "reasoning_only_sse",
+    "baseline_text_ok": true,
+    "baseline_legacy_stage": "stream",
+    "baseline_legacy_ok": true,
+    "current_ok": false,
+    "current_complete": false,
+    "current_stages": {
+      "local": "passed",
+      "auth_model": "passed",
+      "text": "passed",
+      "vision_stream": "passed",
+      "business_parse": "failed"
+    }
+  },
+  {
+    "mode": "filtered_items",
+    "baseline_text_ok": true,
+    "baseline_legacy_stage": "stream",
+    "baseline_legacy_ok": true,
+    "current_ok": false,
+    "current_complete": false,
+    "current_stages": {
+      "local": "passed",
+      "auth_model": "passed",
+      "text": "passed",
+      "vision_stream": "passed",
+      "business_parse": "failed"
+    }
+  },
+  {
+    "mode": "legal_sse",
+    "baseline_text_ok": true,
+    "baseline_legacy_stage": "stream",
+    "baseline_legacy_ok": true,
+    "current_ok": true,
+    "current_complete": true,
+    "current_stages": {
+      "local": "passed",
+      "auth_model": "passed",
+      "text": "passed",
+      "vision_stream": "passed",
+      "business_parse": "passed"
+    }
+  }
+]

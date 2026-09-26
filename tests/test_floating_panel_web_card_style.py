@@ -162,6 +162,14 @@ def test_empty_username_separator_does_not_force_colon():
     assert "(msg.style && msg.style.username_separator) || '：'" not in add_card_body
 
 
+def test_username_separator_is_appended_as_plain_text():
+    """separator must not become executable markup in the WebView sink."""
+    src = _app_js_text()
+    add_card_body = src.split("function addCard(msg)")[1].split("function clearCards")[0]
+    assert 'document.createTextNode(usernameSeparator)' in add_card_body
+    assert "username + usernameSeparator" not in add_card_body
+
+
 def test_panel_stack_is_clipped_and_cards_do_not_shrink():
     """可视窗口裁剪边界，卡片高度不被 flex 重排偷偷压缩。"""
     css = _style_css_text()

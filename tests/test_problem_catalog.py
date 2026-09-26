@@ -9,6 +9,7 @@ REQUIRED_CODES = (
     "AI-RATE-001",
     "AI-MODEL-001",
     "AI-TIMEOUT-001",
+    "AI-FORMAT-001",
     "NETWORK-001",
     "CAPTURE-001",
     "DISPLAY-001",

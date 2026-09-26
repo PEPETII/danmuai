@@ -12,6 +12,8 @@
 from __future__ import annotations
 
 import time
+from dataclasses import replace
+from enum import Enum
 from typing import TYPE_CHECKING
 
 from app.api_schedule import time_to_anchor_boundary
@@ -29,6 +31,27 @@ from app.virtual_host.contracts import DanmuDisplayed
 
 if TYPE_CHECKING:
     from main import DanmuApp
+
+
+class VisualReplyOutcome(str, Enum):
+    """视觉解析结果的明确 outcome（P1-05；替代裸 bool，调用方无需猜测空结果原因）。
+
+    - ``ENQUEUED``：解析出有效规范化结果并已入队；调用方应清零业务空计数并复位失败退避。
+    - ``EMPTY_PARSE``：传输成功但无有效弹幕（空字符串、`[]`、reasoning-only 无可见内容，
+      或解析出候选但全部被 normalize/filter 去除）；调用方应累计独立业务空计数，
+      不得与 provider 连接错误混用同一文案。
+    - ``GATE_DROPPED``：被 scene/meta 门禁丢弃；由 ``DanmuApp._abort_ai_reply_early``
+      在进入本服务前判定并早退，因此不会到达 ``handle_reply_parsed_outcome``。
+      该原因不参与业务空计数。
+    """
+
+    ENQUEUED = "enqueued"
+    EMPTY_PARSE = "empty_parse"
+    GATE_DROPPED = "gate_dropped"
+
+
+# Keep a failed floating-panel item from permanently blocking the FIFO head.
+FLOATING_PANEL_RENDER_RETRY_LIMIT = 2
 
 
 class GenerationPipeline:
@@ -54,7 +77,7 @@ class GenerationPipeline:
             return
         self._dispatch_to_overlay(app)
 
-    def handle_reply_parsed(
+    def handle_reply_parsed_outcome(
         self,
         text: str,
         persona_id: str,
@@ -64,13 +87,15 @@ class GenerationPipeline:
         scene_generation: int,
         request_started_at: float,
         reply_received_at: float,
-    ) -> bool:
-        """处理已通过门控的视觉回复并报告是否有规范化结果入队。
+    ) -> VisualReplyOutcome:
+        """处理已通过门控的视觉回复并返回明确的解析 outcome（P1-05）。
 
-        从 DanmuApp._on_ai_reply 后置段抽离（main.py:679-753）。
-        调用线程：Qt 主线程（ai_worker.finished 信号回调）。
+        从 DanmuApp._on_ai_reply 后置段抽离。调用线程：Qt 主线程
+        （ai_worker.finished 信号回调）。
         前置门控（释放在途/token 统计/scene_generation 门控/mic 分流/timing 消费）
-        仍属 DanmuApp._on_ai_reply；失败退避仅在本方法返回 True 后由 DanmuApp 复位。
+        仍属 DanmuApp._on_ai_reply；本方法只报告 outcome，不释放 in-flight、不统计
+        token、不累计业务失败计数，也不曾反向触发主链（AGENTS §9.3）。
+        失败退避/业务空预算由 DanmuApp 依据 outcome 复位或累计。
         """
         app = self._app
         # Phase B / Wave 7（B2）：用信封解析器提取 items + knowledge_used。
@@ -111,7 +136,7 @@ class GenerationPipeline:
                 len(raw_items),
             )
             app.record_undisplayed("empty_parse", persona_id=persona_id)
-            return False
+            return VisualReplyOutcome.EMPTY_PARSE
 
         request_id = app.reply_request_id(request_round, screenshot_id, scene_generation)
         app.log_reply_pipeline(
@@ -164,7 +189,37 @@ class GenerationPipeline:
             self.consume_reply_queue()
         else:
             app.reply_timer.setInterval(min(app.reply_timer.interval(), 200))
-        return True
+        return VisualReplyOutcome.ENQUEUED
+
+    def handle_reply_parsed(
+        self,
+        text: str,
+        persona_id: str,
+        request_round: int,
+        screenshot_id: int,
+        captured_at: float,
+        scene_generation: int,
+        request_started_at: float,
+        reply_received_at: float,
+    ) -> bool:
+        """向后兼容的布尔包装：仅返回是否有规范化结果入队。
+
+        新调用方应使用 ``handle_reply_parsed_outcome`` 以区分 ``empty_parse`` 等
+        业务失败原因（P1-05），不要依赖裸 bool 猜测。
+        """
+        return (
+            self.handle_reply_parsed_outcome(
+                text=text,
+                persona_id=persona_id,
+                request_round=request_round,
+                screenshot_id=screenshot_id,
+                captured_at=captured_at,
+                scene_generation=scene_generation,
+                request_started_at=request_started_at,
+                reply_received_at=reply_received_at,
+            )
+            is VisualReplyOutcome.ENQUEUED
+        )
 
     def _dispatch_to_floating_panel(self, app: "DanmuApp") -> None:
         """浮动面板分发：peek 预检（空文本/去重）→ pop + 上屏 + 锚点 + 失败回插。
@@ -336,10 +391,30 @@ class GenerationPipeline:
                 tr("app.danmu_not_entered").format(content=f"{queued.content[:20]}...")
                 + f" [{reject}]"
             )
-            # 仅真实渲染失败回插；不因旧条目占位做 spacing prepend
+            # 仅真实渲染失败回插；不因旧条目占位做 spacing prepend。
             if diag_reason == "floating_panel_render":
-                app.reply_buffer.prepend_batch([queued])
-                app.logger.warning(tr("log.floating_panel_requeued"))
+                retry_count = max(0, int(queued.render_retry_count))
+                if retry_count < FLOATING_PANEL_RENDER_RETRY_LIMIT:
+                    retry_item = replace(
+                        queued,
+                        render_retry_count=retry_count + 1,
+                    )
+                    app.reply_buffer.prepend_batch(
+                        [retry_item],
+                        preserve_existing=None,
+                    )
+                    app.logger.warning(
+                        "%s retry=%s/%s",
+                        tr("log.floating_panel_requeued"),
+                        retry_item.render_retry_count,
+                        FLOATING_PANEL_RENDER_RETRY_LIMIT,
+                    )
+                else:
+                    app.logger.warning(
+                        "floating panel render retry exhausted: retries=%s limit=%s",
+                        retry_count,
+                        FLOATING_PANEL_RENDER_RETRY_LIMIT,
+                    )
 
         if not app.reply_buffer.is_empty():
             delay = 100 if item is None else app.estimated_reply_gap_ms()

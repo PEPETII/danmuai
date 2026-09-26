@@ -126,6 +126,27 @@ PROBLEM_CATALOG: dict[str, dict[str, Any]] = {
         "recoverable": True,
         "feedback_allowed": True,
     },
+    "AI-FORMAT-001": {
+        "severity": "warning",
+        "category": "model",
+        "title_key": "problem.aiFormat.title",
+        "summary_key": "problem.aiFormat.summary",
+        "cause_key": "problem.aiFormat.cause",
+        "impact_key": "problem.aiFormat.impact",
+        "suggestion_keys": (
+            "problem.aiFormat.suggestion.checkPrompt",
+            "problem.aiFormat.suggestion.switchModel",
+        ),
+        "actions": (
+            {
+                "type": "navigate",
+                "label_key": "problem.action.openModelSettings",
+                "target": "settings/api",
+            },
+        ),
+        "recoverable": True,
+        "feedback_allowed": True,
+    },
     "NETWORK-001": {
         "severity": "error",
         "category": "network",

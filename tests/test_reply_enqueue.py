@@ -736,6 +736,9 @@ def test_start_stop_cycles_never_close_or_remount_knowledge_runtime(
         "app.ai_client_requests.visual_credentials_ready", lambda _cfg: False
     )
 
+    # P1-04：start() 对“引擎已在运行”的重复调用是 no-op，真实生命周期里
+    # 每次 start 前 engine 都处于停止态（stop() 会置 False）。这里显式建模该前置状态。
+    app.engine.running = False
     for _ in range(3):
         DanmuApp.start(app)
         DanmuApp.stop(app)

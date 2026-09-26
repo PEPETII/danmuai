@@ -22,6 +22,11 @@ from app.config_defaults import TTS_SECRET_MASK, TTS_SECRET_PROVIDER_ALIASES
 from app.config_store.crypto import (
     ConfigStoreCryptoUnavailableError,
     canonicalize_custom_model_profile,
+    custom_model_profile_id_type_error,
+    migrate_persona_model_bindings,
+    new_custom_model_profile_id,
+    profile_ids_by_versioned_model_id,
+    read_custom_model_profile_id,
 )
 from app.translations import tr
 
@@ -268,18 +273,44 @@ def _encrypt_custom_model_api_key(store: ConfigStore, key: str) -> str:
     return store._fernet.encrypt(key.encode("utf-8")).decode("utf-8")
 
 
-def _encode_custom_models_json(store: ConfigStore, models: list) -> str:
-    """Serialize custom models with encrypted apiKey fields (caller may hold write lock)."""
-    encrypted: list[dict] = []
+def _assign_missing_profile_ids(models: list[dict]) -> None:
+    """W-AUDIT-MODEL-IDENTITY-001：写入路径为缺身份的档案分配一次 ``profile_id``。
+
+    持久化是唯一的"批准"入口：读取路径绝不随机生成身份（否则重启/重复读取会漂移），
+    受控启动迁移与所有写入（创建 / 更新 / 批量保存）都经此补齐。已存在的身份保持不变，
+    因此重复写入稳定；``profile_id`` 类型错误的档案不自动"修复"，只保留诊断。
+    """
+    occupied = {
+        read_custom_model_profile_id(model)
+        for model in models
+        if isinstance(model, dict) and read_custom_model_profile_id(model)
+    }
     for model in models:
         if not isinstance(model, dict):
             continue
-        from app.config_store.crypto import (
-            normalize_custom_model_api_key_aliases,
-            read_custom_model_api_key,
-        )
+        if custom_model_profile_id_type_error(model):
+            continue
+        if read_custom_model_profile_id(model):
+            continue
+        profile_id = new_custom_model_profile_id(occupied)
+        model["profile_id"] = profile_id
+        occupied.add(profile_id)
 
-        entry = normalize_custom_model_api_key_aliases(dict(model))
+
+def _encode_custom_models_json(store: ConfigStore, models: list) -> str:
+    """Serialize custom models with encrypted apiKey fields (caller may hold write lock)."""
+    entries: list[dict] = []
+    for model in models:
+        if not isinstance(model, dict):
+            continue
+        from app.config_store.crypto import normalize_custom_model_api_key_aliases
+
+        entries.append(normalize_custom_model_api_key_aliases(dict(model)))
+    _assign_missing_profile_ids(entries)
+    encrypted: list[dict] = []
+    for entry in entries:
+        from app.config_store.crypto import read_custom_model_api_key
+
         plain_key = read_custom_model_api_key(entry)
         if plain_key:
             if _looks_like_fernet_token(store, plain_key):
@@ -468,3 +499,93 @@ def apply_web_save_for_store(
         invalidate_secret_cache_for_store(store, encrypted_key)
     if custom_models is not None:
         invalidate_custom_models_cache_for_store(store)
+
+
+def migrate_custom_model_identities_for_store(store: ConfigStore) -> bool:
+    """W-AUDIT-MODEL-IDENTITY-001：受控分配 ``profile_id`` 并版本化旧人格绑定。
+
+    契约（工单 §5.2）：
+
+    - 缺 ``profile_id`` 的旧档案分配一次并持久化；重复读取 / 重复运行 / 重启后稳定
+      （本函数只补齐缺失项，不重命名已有身份；同一进程内用已占用集合去重）。
+    - 旧人格绑定字符串仅在 ``default_model_id`` 唯一匹配一个档案时迁移为
+      ``{"v": 1, "profile_id": ..., "model_id": ...}``；零匹配或多匹配保留原字符串
+      （可诊断的 unresolved 状态），绝不猜测首项。
+    - 类型错误的 ``profile_id``、重复身份只记录诊断，不自动"修复"（避免删/改制造
+      表面成功）。
+    - 整个改写（档案 + 绑定）走一次 ``apply_web_save`` 单事务；失败时原始行不变，
+      不会出现"档案已变而引用只变一半"。持久化仍经既有 Fernet 路径。
+    - 迁移只解析原始 JSON 并做 canonical 化，**不解密任何 apiKey**（不需要），因此
+      不会预热/污染自定义模型缓存，也不会把损坏的密钥当成迁移失败。
+    """
+    raw = store.get("custom_models", "")
+    try:
+        parsed = json.loads(raw) if raw else []
+    except (json.JSONDecodeError, TypeError, ValueError):
+        logger.warning("custom model profile_id migration skipped: unparsable profiles")
+        return False
+    if not isinstance(parsed, list):
+        logger.warning("custom model profile_id migration skipped: profiles not a list")
+        return False
+    try:
+        models = [
+            canonicalize_custom_model_profile(dict(m))
+            for m in parsed
+            if isinstance(m, dict)
+        ]
+    except Exception:  # boundary: 损坏 / 冲突的档案不能让启动失败
+        logger.warning("custom model profile_id migration skipped: unreadable profiles")
+        return False
+
+    occupied: set[str] = {
+        read_custom_model_profile_id(m) for m in models if read_custom_model_profile_id(m)
+    }
+    profiles_changed = False
+    for model in models:
+        if custom_model_profile_id_type_error(model):
+            logger.warning("custom model profile_id has invalid type; left untouched")
+            continue
+        if read_custom_model_profile_id(model):
+            continue
+        profile_id = new_custom_model_profile_id(occupied)
+        model["profile_id"] = profile_id
+        occupied.add(profile_id)
+        profiles_changed = True
+
+    raw_bindings = store.get("persona_model_bindings", "{}")
+    try:
+        bindings = json.loads(raw_bindings) if raw_bindings else {}
+    except (ValueError, TypeError):
+        bindings = {}
+    if not isinstance(bindings, dict):
+        bindings = {}
+    migrated_bindings, bindings_changed = migrate_persona_model_bindings(
+        bindings,
+        profile_ids_by_versioned_model_id(models),
+    )
+
+    if not profiles_changed and not bindings_changed:
+        return False
+
+    items: dict[str, str] = {}
+    if bindings_changed:
+        items["persona_model_bindings"] = json.dumps(
+            migrated_bindings, ensure_ascii=False
+        )
+    try:
+        store.apply_web_save(
+            items=items or None,
+            custom_models=models if profiles_changed else None,
+        )
+    except Exception:  # boundary: 原子失败后保留原数据，不部分写入
+        logger.exception(
+            "custom model profile_id migration failed; original data preserved"
+        )
+        return False
+    logger.info(
+        "custom model profile_id migration applied profiles=%s bindings=%s",
+        profiles_changed,
+        bindings_changed,
+    )
+    return True
+

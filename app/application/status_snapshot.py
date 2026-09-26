@@ -91,6 +91,25 @@ class StatusSnapshotBuilder:
         lifetime = state.lifetime
         total_tokens = state.input_tokens + state.output_tokens
         model_status = resolve_model_status(self._app.config)
+        context_getter = getattr(self._app, "get_request_context_projection", None)
+        request_context = (
+            context_getter() if callable(context_getter) else {}
+        )
+        if not isinstance(request_context, dict):
+            request_context = {}
+        if request_context:
+            model_status = {
+                **model_status,
+                "active_model_id": request_context.get(
+                    "model_id", model_status.get("active_model_id", "")
+                ),
+                "inferred_provider_id": request_context.get(
+                    "provider_id", model_status.get("inferred_provider_id", "")
+                ),
+                "model_display_name": request_context.get(
+                    "model_id", model_status.get("model_display_name", "")
+                ),
+            }
         rx, ry, rw, rh = self._app.config.get_region()
         from app.web_api.capture_region import capture_region_mode
 
@@ -181,6 +200,7 @@ class StatusSnapshotBuilder:
                 else {}
             ),
             "danmu_track_layout": _build_track_layout(self._app),
+            "request_context": request_context,
             **model_status,
         }
 

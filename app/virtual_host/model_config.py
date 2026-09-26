@@ -10,7 +10,9 @@ from typing import Any
 
 from app.model_catalog import lookup_catalog_model
 from app.model_providers import (
-    find_custom_model_profile,
+    custom_model_profile_id,
+    custom_model_profile_identity,
+    find_custom_model_profile_by_profile_id,
     is_model_config_complete,
     normalize_endpoint,
     normalize_mode,
@@ -62,27 +64,68 @@ def custom_profile_supports_vision(profile: dict[str, Any]) -> bool:
     return False
 
 
-def list_vision_model_options(config) -> list[dict[str, str]]:
+def _vision_profiles(config) -> list[dict[str, Any]]:
+    """所有"完整且支持视觉"的 custom_models 档案（按配置顺序）。"""
     get_models = getattr(config, "get_custom_models", None)
     if not callable(get_models):
         return []
-    options: list[dict[str, str]] = []
+    profiles: list[dict[str, Any]] = []
     for profile in get_models():
         if not isinstance(profile, dict):
             continue
         if not custom_profile_supports_vision(profile):
             continue
-        model_id = (profile.get("default_model_id") or "").strip()
-        if not model_id:
+        if not custom_model_profile_id(profile):
+            continue
+        profiles.append(profile)
+    return profiles
+
+
+def list_vision_model_options(config) -> list[dict[str, str]]:
+    """视觉模型选项；``id`` 是档案不可变身份 ``profile_id``（W-AUDIT-MODEL-IDENTITY-001）。
+
+    上游 ``model_id`` 只是发给 provider 的标识、可重复，不能作为唯一引用，因此
+    仍然作为单独字段暴露给 UI 显示，但选项 value（``id``）与持久化引用统一使用
+    ``profile_id``。
+    """
+    options: list[dict[str, str]] = []
+    for profile in _vision_profiles(config):
+        profile_id = custom_model_profile_identity(profile)
+        model_id = custom_model_profile_id(profile)
+        if not profile_id or not model_id:
             continue
         options.append(
             {
-                "id": model_id,
+                "id": profile_id,
                 "label": _profile_label(profile),
                 "model_id": model_id,
             }
         )
     return options
+
+
+def _resolve_vision_reference(config, value: str) -> str:
+    """把视觉引用归一化为 ``profile_id``。
+
+    优先按 ``profile_id`` 精确命中；若传入的是旧版按 ``default_model_id`` 记录/
+    提交的值，仅在**唯一匹配**一个视觉档案时迁移为其 ``profile_id``。零匹配或
+    重复名歧义返回空串（不猜测首项），调用方据此视为"无有效视觉模型"。
+    """
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    profiles = _vision_profiles(config)
+    for profile in profiles:
+        if custom_model_profile_identity(profile) == raw:
+            return raw
+    matches = [
+        profile
+        for profile in profiles
+        if custom_model_profile_id(profile) == raw
+    ]
+    if len(matches) == 1:
+        return custom_model_profile_identity(matches[0])
+    return ""
 
 
 def _stored_tts_credentials(config, provider_id: str) -> dict[str, str]:
@@ -188,14 +231,12 @@ def list_tts_model_options(config) -> list[dict[str, str]]:
     return options
 
 
-def _sanitize_vision_model_id(config) -> str:
+def _sanitize_vision_profile_id(config) -> str:
+    """把持久化的视觉引用归一化为仍有效的 ``profile_id``；无效/歧义回落为空。"""
     stored = str(config.get(VISION_MODEL_KEY, "") or "").strip()
     if not stored:
         return ""
-    allowed = {item["id"] for item in list_vision_model_options(config)}
-    if stored in allowed:
-        return stored
-    return ""
+    return _resolve_vision_reference(config, stored)
 
 
 def _sanitize_tts_selection(config) -> tuple[str, str]:
@@ -214,12 +255,16 @@ def _sanitize_tts_selection(config) -> tuple[str, str]:
 
 
 def sanitize_virtual_host_model_config(config, *, persist: bool = False) -> dict[str, str]:
-    """将悬空 ID 回落为「无」；``persist=True`` 时写回 ConfigStore。"""
+    """将悬空 ID 回落为「无」；``persist=True`` 时写回 ConfigStore。
 
-    vision_model_id = _sanitize_vision_model_id(config)
+    W-AUDIT-MODEL-IDENTITY-001：视觉引用归一化为档案 ``profile_id``（旧版按模型名
+    记录的值在唯一匹配时迁移；重复名歧义则清空并要求重新选择）。TTS 选择合同不变。
+    """
+
+    vision_profile_id = _sanitize_vision_profile_id(config)
     tts_provider, tts_model_id = _sanitize_tts_selection(config)
     normalized = {
-        VISION_MODEL_KEY: vision_model_id,
+        VISION_MODEL_KEY: vision_profile_id,
         TTS_PROVIDER_KEY: tts_provider,
         TTS_MODEL_KEY: tts_model_id,
     }
@@ -231,7 +276,7 @@ def sanitize_virtual_host_model_config(config, *, persist: bool = False) -> dict
 
 
 def virtual_host_vision_enabled(config) -> bool:
-    return bool(_sanitize_vision_model_id(config))
+    return bool(_sanitize_vision_profile_id(config))
 
 
 def virtual_host_tts_enabled(config) -> bool:
@@ -240,15 +285,19 @@ def virtual_host_tts_enabled(config) -> bool:
 
 
 def resolve_virtual_host_vision_profile(config) -> dict[str, Any] | None:
-    """返回完整 custom_models 档案；未配置或无效时返回 ``None``（无 fallback）。"""
+    """返回完整 custom_models 档案；未配置或无效时返回 ``None``（无 fallback）。
 
-    model_id = _sanitize_vision_model_id(config)
-    if not model_id:
+    W-AUDIT-MODEL-IDENTITY-001：视觉引用按 ``profile_id`` 精确定位档案；上游
+    ``default_model_id`` 仅作为发给 provider 的模型标识由调用方读取。
+    """
+
+    profile_id = _sanitize_vision_profile_id(config)
+    if not profile_id:
         return None
     get_models = getattr(config, "get_custom_models", None)
     if not callable(get_models):
         return None
-    profile = find_custom_model_profile(get_models(), model_id)
+    profile = find_custom_model_profile_by_profile_id(get_models(), profile_id)
     if profile is None or not is_model_config_complete(profile):
         return None
     if not custom_profile_supports_vision(profile):
@@ -313,9 +362,10 @@ def apply_virtual_host_model_config(config, patch: dict[str, Any]) -> dict[str, 
     if "vision_model_id" in patch:
         value = str(patch.get("vision_model_id") or "").strip()
         if value:
-            allowed = {item["id"] for item in list_vision_model_options(config)}
-            if value not in allowed:
+            resolved_profile_id = _resolve_vision_reference(config, value)
+            if not resolved_profile_id:
                 raise ValueError("virtual_host_vision_model_unavailable")
+            value = resolved_profile_id
         items[VISION_MODEL_KEY] = value
     if "tts_option_id" in patch:
         provider, model_id = decode_tts_option_id(str(patch.get("tts_option_id") or ""))
@@ -348,13 +398,32 @@ def apply_virtual_host_model_config(config, patch: dict[str, Any]) -> dict[str, 
     return export_virtual_host_model_config(config)
 
 
-def purge_virtual_host_model_refs(config, model_id: str) -> None:
-    """删除 custom model 后清理虚拟主播视觉模型引用。"""
+def purge_virtual_host_model_refs(config, profile_id: str, model_id: str = "") -> None:
+    """删除 custom model 档案后清理虚拟主播视觉引用。
 
+    W-AUDIT-MODEL-IDENTITY-001：引用按不可变 ``profile_id`` 清理。``model_id`` 用于
+    兼容旧版按上游模型名持久化的引用：仅当没有任何剩余档案仍拥有该模型名时才清理
+    （避免误伤共享同一模型名的其他档案）。
+    """
+
+    pid = str(profile_id or "").strip()
     mid = str(model_id or "").strip()
-    if not mid:
+    if not pid and not mid:
         return
-    if str(config.get(VISION_MODEL_KEY, "") or "").strip() != mid:
+    stored = str(config.get(VISION_MODEL_KEY, "") or "").strip()
+    if not stored:
+        return
+    should_clear = False
+    if pid and stored == pid:
+        should_clear = True
+    elif mid and stored == mid:
+        remaining = [
+            profile
+            for profile in _vision_profiles(config)
+            if custom_model_profile_id(profile) == mid
+        ]
+        should_clear = not remaining
+    if not should_clear:
         return
     setter = getattr(config, "set_batch", None)
     if callable(setter):

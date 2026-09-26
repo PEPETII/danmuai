@@ -11,6 +11,7 @@
       <div class="model-modal-body">
         <form id="modelModalForm" class="model-modal-form">
           <input type="hidden" id="modelEditIndex" value="-1">
+          <input type="hidden" id="modelEditProfileId" value="">
 
           <div id="modelEditor" class="model-editor">
             <div id="modelProviderMigrationWarning" class="model-warning hidden" role="alert" aria-live="polite"></div>
@@ -94,6 +95,7 @@
               <h4 id="modelProbeResultTitle" class="font-semibold"></h4>
               <p id="modelProbeResultMessage" class="text-sm break-words"></p>
               <p id="modelProbeResultMeta" class="text-xs text-gray-500 break-all"></p>
+              <ul id="modelProbeStages" class="model-probe-stages hidden" aria-label="连接测试阶段"></ul>
             </div>
             <button type="button" id="btnModelProbeTechnicalDetail" class="ui-button ui-button--ghost ui-button--sm hidden">技术详情</button>
           </section>

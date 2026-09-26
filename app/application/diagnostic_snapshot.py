@@ -86,7 +86,11 @@ class DiagnosticSnapshotBuilder:
                 "scheduler_blocked": bool(block_reason),
                 "high_rtt": avg_rtt >= 3.0,
                 "has_pending_timing": request_started_count > 0,
+                "response_format_unavailable": bool(
+                    self._empty_parse_summary().get("paused")
+                ),
             },
+            "empty_parse": self._empty_parse_summary(),
             "undisplayed": undisplayed_summary,
             "knowledge": self._knowledge_summary(),
         }
@@ -125,14 +129,37 @@ class DiagnosticSnapshotBuilder:
                 "model_name": "",
                 "api_endpoint": "",
             }
+        context_getter = getattr(self._app, "get_request_context_projection", None)
+        request_context = (
+            context_getter() if callable(context_getter) else {}
+        )
+        if isinstance(request_context, dict) and request_context:
+            model_id = str(request_context.get("model_id", "") or "")
+            provider_id = str(request_context.get("provider_id", "") or "")
+            endpoint_host = str(request_context.get("endpoint_host", "") or "")
+            return {
+                "profile_id": str(request_context.get("profile_id", "") or ""),
+                "active_model_id": model_id,
+                "provider_id": provider_id,
+                "api_family": str(request_context.get("api_family", "") or ""),
+                "api_endpoint_host": endpoint_host,
+                "api_mode": "",
+                "model_name": model_id,
+                "api_endpoint": "",
+                "max_tokens": request_context.get("max_tokens"),
+                "temperature": request_context.get("temperature"),
+                "thinking": request_context.get("thinking", ""),
+            }
         endpoint = str(config.get("api_endpoint", "") or "").strip()
         api_mode = str(config.get("api_mode", "doubao") or "doubao")
         host = self._sanitize_api_endpoint_host(endpoint) if endpoint else ""
         active_model_id = resolve_active_model_id(config)
         model_status = resolve_model_status(config)
         return {
+            "profile_id": "",
             "active_model_id": active_model_id,
             "provider_id": guess_provider_from_endpoint(endpoint, api_mode),
+            "api_family": "",
             "api_endpoint_host": host,
             "api_mode": api_mode,
             "model_name": model_status.get("model_display_name") or active_model_id,
@@ -160,6 +187,18 @@ class DiagnosticSnapshotBuilder:
             "total_output_tokens": int(getattr(stats_state, "total_output_tokens", 0) or 0),
             "runtime_sec": float(runtime_sec),
         }
+
+    def _empty_parse_summary(self) -> dict[str, object]:
+        """P1-05：连续业务空解析预算/阈值/暂停状态（只读 façade 投影，不含原始响应）。"""
+        provider = getattr(self._app, "empty_parse_budget", None)
+        if isinstance(provider, dict):
+            return {
+                "consecutive": int(provider.get("consecutive", 0) or 0),
+                "threshold": int(provider.get("threshold", 0) or 0),
+                "paused": bool(provider.get("paused", False)),
+                "reason": str(provider.get("reason", "") or ""),
+            }
+        return {"consecutive": 0, "threshold": 0, "paused": False, "reason": ""}
 
     def _reply_queue_summary(self) -> dict[str, int]:
         """读取队列锁保护的指标快照，不暴露回复正文。"""
@@ -279,6 +318,7 @@ def build_diagnostic_report(snapshot: dict[str, object]) -> str:
     runtime_state = snapshot.get("runtime_state", {}) if isinstance(snapshot, dict) else {}
     diagnosis = snapshot.get("diagnosis", {}) if isinstance(snapshot, dict) else {}
     undisplayed = snapshot.get("undisplayed", {}) if isinstance(snapshot, dict) else {}
+    empty_parse = snapshot.get("empty_parse", {}) if isinstance(snapshot, dict) else {}
     knowledge = snapshot.get("knowledge", {}) if isinstance(snapshot, dict) else {}
     web_runtime = runtime_state.get("web_runtime", {}) if isinstance(runtime_state, dict) else {}
     stats = runtime_state.get("stats", {}) if isinstance(runtime_state, dict) else {}
@@ -296,6 +336,10 @@ def build_diagnostic_report(snapshot: dict[str, object]) -> str:
         recommendations.append("- Inspect network latency or upstream model response time")
     if diagnosis.get("has_pending_timing"):
         recommendations.append("- Inspect in-flight request completion and timing cleanup paths")
+    if diagnosis.get("response_format_unavailable"):
+        recommendations.append(
+            "- Response format unavailable: inspect model output format or switch model"
+        )
     if not recommendations:
         recommendations.append("- No immediate scheduler/timing anomaly detected from snapshot")
 
@@ -361,6 +405,12 @@ def build_diagnostic_report(snapshot: dict[str, object]) -> str:
         f"latest_reason: {undisplayed.get('latest_reason', '')}",
         f"top_reason: {undisplayed.get('top_reason', '')} ({undisplayed.get('top_reason_count', 0)})",
         f"reason_counts: {undisplayed.get('reason_counts', {})}",
+        "",
+        "[empty_parse]",
+        f"consecutive: {empty_parse.get('consecutive', 0)}",
+        f"threshold: {empty_parse.get('threshold', 0)}",
+        f"paused: {empty_parse.get('paused', False)}",
+        f"reason: {empty_parse.get('reason', '')}",
         "",
         "[knowledge]",
         f"enabled: {knowledge.get('enabled', False)}",

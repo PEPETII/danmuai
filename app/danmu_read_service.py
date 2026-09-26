@@ -58,20 +58,30 @@ def _service_alive(service: "DanmuReadService | None") -> bool:
         return False
 
 
-def _emit_tts_ready(service: "DanmuReadService", wav: bytes) -> None:
+def _emit_tts_ready(
+    service: "DanmuReadService",
+    wav: bytes,
+    session_epoch: int | None = None,
+) -> None:
     if not _service_alive(service):
         return
     try:
-        service._tts_ready.emit(wav)
+        epoch = service._tts_session_epoch if session_epoch is None else int(session_epoch)
+        service._tts_ready.emit(epoch, wav)
     except RuntimeError:
         pass
 
 
-def _emit_tts_failed(service: "DanmuReadService", message: str) -> None:
+def _emit_tts_failed(
+    service: "DanmuReadService",
+    message: str,
+    session_epoch: int | None = None,
+) -> None:
     if not _service_alive(service):
         return
     try:
-        service._tts_failed.emit(message)
+        epoch = service._tts_session_epoch if session_epoch is None else int(session_epoch)
+        service._tts_failed.emit(epoch, message)
     except RuntimeError:
         pass
 
@@ -171,6 +181,7 @@ class _DanmuTtsRunnable(QRunnable):
         volume: float | None = None,
         resolved: ResolvedTtsConfig,
         credentials: Mapping[str, str] | None = None,
+        session_epoch: int | None = None,
     ) -> None:
         super().__init__()
         self._service = service
@@ -184,6 +195,11 @@ class _DanmuTtsRunnable(QRunnable):
         self._volume = volume
         self._resolved = resolved
         self._credentials = dict(credentials or {})
+        self._session_epoch = int(
+            getattr(service, "_tts_session_epoch", 0)
+            if session_epoch is None
+            else session_epoch
+        )
         self.setAutoDelete(True)
 
     def run(self) -> None:
@@ -201,19 +217,27 @@ class _DanmuTtsRunnable(QRunnable):
                 credentials=self._credentials,
             )
         except DanmuTtsError as exc:
-            _emit_tts_failed(self._service, str(exc))
+            _emit_tts_failed(
+                self._service,
+                str(exc),
+                self._session_epoch,
+            )
             return
         except (OSError, RuntimeError, ValueError, TypeError) as exc:
-            _emit_tts_failed(self._service, str(exc))
+            _emit_tts_failed(
+                self._service,
+                str(exc),
+                self._session_epoch,
+            )
             return
-        _emit_tts_ready(self._service, wav)
+        _emit_tts_ready(self._service, wav, self._session_epoch)
 
 
 class DanmuReadService(QObject):
     """主线程 QObject；TTS HTTP 在 QThreadPool，结果经 Qt 信号回主线程。"""
 
-    _tts_ready = pyqtSignal(bytes)
-    _tts_failed = pyqtSignal(str)
+    _tts_ready = pyqtSignal(int, bytes)
+    _tts_failed = pyqtSignal(int, str)
 
     def __init__(self, app: "DanmuApp") -> None:
         super().__init__(app)
@@ -229,12 +253,14 @@ class DanmuReadService(QObject):
         self._tts_failed.connect(self._on_tts_failed)
         self._tts_in_flight = False
         self._probe_pending = False
+        self._tts_session_epoch = 0
         self._last_text = ""
         self._skip_log_flags: set[str] = set()
 
     def shutdown(self) -> None:
         """退出前调用：停止定时器、中断在播音频并忽略池线程迟到的 emit。"""
         self._shutdown = True
+        self._tts_session_epoch += 1
         self._timer.stop()
         self._stop_playback()
         self._tts_in_flight = False
@@ -256,6 +282,7 @@ class DanmuReadService(QObject):
         self._sync_timer()
 
     def on_engine_stopped(self) -> None:
+        self._tts_session_epoch += 1
         self._timer.stop()
         self._stop_playback()
         self._tts_in_flight = False
@@ -511,6 +538,7 @@ class DanmuReadService(QObject):
             volume=options["volume"],
             resolved=resolved,
             credentials=credentials,
+            session_epoch=self._tts_session_epoch,
         )
         QThreadPool.globalInstance().start(runnable)
         self._app.logger.info("danmu read: probe synthesis submitted")
@@ -579,11 +607,25 @@ class DanmuReadService(QObject):
             volume=options["volume"],
             resolved=resolved,
             credentials=credentials,
+            session_epoch=self._tts_session_epoch,
         )
         QThreadPool.globalInstance().start(runnable)
 
-    def _on_tts_ready(self, wav_bytes: bytes) -> None:
+    def _on_tts_ready(
+        self,
+        session_epoch_or_wav: int | bytes,
+        wav_bytes: bytes | None = None,
+    ) -> None:
         if self._shutdown:
+            return
+        if wav_bytes is None:
+            session_epoch = self._tts_session_epoch
+            wav = bytes(session_epoch_or_wav)
+        else:
+            session_epoch = int(session_epoch_or_wav)
+            wav = bytes(wav_bytes)
+        if session_epoch != self._tts_session_epoch:
+            self._app.logger.debug("danmu read: stale tts_ready dropped")
             return
         is_probe = self._probe_pending
         self._probe_pending = False
@@ -591,16 +633,16 @@ class DanmuReadService(QObject):
             self._tts_in_flight = False
             self._app.logger.warning("danmu read: tts_ready dropped (engine stopped)")
             return
-        if not wav_bytes:
+        if not wav:
             self._tts_in_flight = False
             self._app.logger.warning("danmu read: empty audio response")
             return
-        if not self._playback.play_wav_bytes(wav_bytes):
+        if not self._playback.play_wav_bytes(wav):
             self._tts_in_flight = False
             self._app.logger.warning("danmu read: playback skipped (busy)")
             return
         # 保持 _tts_in_flight 直至 playback_finished，避免定时 tick 触发新的 sd.play 打断当前句
-        self._app.logger.info("danmu read: playback started (%s bytes)", len(wav_bytes))
+        self._app.logger.info("danmu read: playback started (%s bytes)", len(wav))
 
     def _clear_playback_in_flight(self) -> None:
         self._tts_in_flight = False
@@ -617,10 +659,23 @@ class DanmuReadService(QObject):
         self._clear_playback_in_flight()
         self._app.logger.debug("danmu read: playback stopped")
 
-    def _on_tts_failed(self, message: str) -> None:
+    def _on_tts_failed(
+        self,
+        session_epoch_or_message: int | str,
+        message: str | None = None,
+    ) -> None:
+        if message is None:
+            session_epoch = self._tts_session_epoch
+            error_message = str(session_epoch_or_message)
+        else:
+            session_epoch = int(session_epoch_or_message)
+            error_message = message
+        if session_epoch != self._tts_session_epoch:
+            self._app.logger.debug("danmu read: stale tts_failed dropped")
+            return
         self._tts_in_flight = False
         self._probe_pending = False
-        self._app.logger.warning("danmu read tts failed: %s", message)
+        self._app.logger.warning("danmu read tts failed: %s", error_message)
 
 
 def _export_use_custom_model(provider: str, endpoint: str, model_id: str) -> bool:

@@ -31,6 +31,14 @@ class DefaultOpenAIAdapter:
 
     def build_messages(self, request, warnings: list[str]) -> list[dict]:
         if request.purpose == "connection_probe":
+            if request.image_data_uri:
+                return [{
+                    "role": "user",
+                    "content": self.build_vision_user_content(
+                        request.user_text or "ping",
+                        request.image_data_uri,
+                    ),
+                }]
             return [{"role": "user", "content": request.user_text or "ping"}]
         if request.purpose == "knowledge_organize":
             return [{"role": "system", "content": request.system_text or ""}, {"role": "user", "content": request.user_text}]

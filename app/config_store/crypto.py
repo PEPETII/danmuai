@@ -6,6 +6,7 @@
 import logging
 import os
 import subprocess
+import uuid
 from datetime import datetime
 from pathlib import Path
 
@@ -157,6 +158,135 @@ def canonicalize_custom_model_profile(entry: dict) -> dict:
 
 # W-CUSTOMMODEL-SCHEMA-002 别名；测试与既有 import 仍可用。
 _migrate_custom_model_shape = canonicalize_custom_model_profile
+
+
+# --- W-AUDIT-MODEL-IDENTITY-001：不可变模型档案身份 + 人格绑定版本化 -------------
+#
+# ``profile_id`` 是每个 custom_models 档案的持久化、不可编辑身份，允许两个档案
+# 共享同一上游 ``default_model_id``（模型名只是发给 provider 的标识，不唯一）。
+# 生成只发生在受控迁移 / 创建写入路径；读取路径绝不随机生成，否则会在重启或
+# 重复读取时漂移。
+
+PROFILE_ID_FIELD = "profile_id"
+PROFILE_ID_PREFIX = "cmp_"
+
+# 人格 → 模型档案绑定版本化结构：{"v": 1, "profile_id": ..., "model_id": ...}
+PERSONA_BINDING_VERSION = 1
+
+
+def new_custom_model_profile_id(used: set[str] | None = None) -> str:
+    """生成一个新的、非空且未被占用的模型档案身份。"""
+    taken = used if used is not None else set()
+    while True:
+        candidate = f"{PROFILE_ID_PREFIX}{uuid.uuid4().hex}"
+        if candidate not in taken:
+            return candidate
+
+
+def read_custom_model_profile_id(entry: dict | None) -> str:
+    """返回档案的规范化 ``profile_id``；缺失 / 非字符串 / 空白时返回空串。"""
+    if not isinstance(entry, dict):
+        return ""
+    value = entry.get(PROFILE_ID_FIELD)
+    if not isinstance(value, str):
+        return ""
+    return value.strip()
+
+
+def custom_model_profile_id_type_error(entry: dict | None) -> bool:
+    """``profile_id`` 存在但类型错误（非字符串且非 None）时为 True，用于诊断。"""
+    if not isinstance(entry, dict) or PROFILE_ID_FIELD not in entry:
+        return False
+    return entry.get(PROFILE_ID_FIELD) is not None and not isinstance(
+        entry.get(PROFILE_ID_FIELD), str
+    )
+
+
+def duplicate_custom_model_profile_ids(models) -> set[str]:
+    """返回在档案列表中重复出现的 ``profile_id`` 集合（歧义身份）。"""
+    seen: set[str] = set()
+    duplicates: set[str] = set()
+    for entry in models or []:
+        pid = read_custom_model_profile_id(entry)
+        if not pid:
+            continue
+        if pid in seen:
+            duplicates.add(pid)
+        seen.add(pid)
+    return duplicates
+
+
+def profile_ids_by_versioned_model_id(models) -> dict[str, list[str]]:
+    """``default_model_id`` → 拥有该模型名的 ``profile_id`` 列表（仅含有效身份）。"""
+    index: dict[str, list[str]] = {}
+    for entry in models or []:
+        if not isinstance(entry, dict):
+            continue
+        pid = read_custom_model_profile_id(entry)
+        mid = str(entry.get("default_model_id") or "").strip()
+        if not pid or not mid:
+            continue
+        index.setdefault(mid, []).append(pid)
+    return index
+
+
+def build_persona_model_binding(profile_id: str, model_id: str) -> dict:
+    """构造版本化人格绑定结构（至少含 ``profile_id`` / ``model_id``）。"""
+    return {
+        "v": PERSONA_BINDING_VERSION,
+        "profile_id": str(profile_id or "").strip(),
+        "model_id": str(model_id or "").strip(),
+    }
+
+
+def parse_persona_model_binding(value) -> dict | None:
+    """解析版本化绑定；非版本化（旧字符串 / 其他类型）返回 ``None``。"""
+    if not isinstance(value, dict):
+        return None
+    profile_id = value.get("profile_id")
+    model_id = value.get("model_id")
+    profile_id = profile_id.strip() if isinstance(profile_id, str) else ""
+    model_id = model_id.strip() if isinstance(model_id, str) else ""
+    if not profile_id:
+        return None
+    return {"profile_id": profile_id, "model_id": model_id}
+
+
+def legacy_persona_model_binding_model_id(value) -> str:
+    """旧绑定（模型名字符串）解析为 model_id；其他类型返回空串。"""
+    return value.strip() if isinstance(value, str) else ""
+
+
+def migrate_persona_model_bindings(
+    bindings: dict,
+    profile_ids_by_model_id: dict[str, list[str]] | None,
+) -> tuple[dict, bool]:
+    """把旧人格绑定字符串迁移为版本化结构。
+
+    规则（工单 §5.2）：仅当旧字符串 **唯一匹配** 一个档案的 ``default_model_id``
+    时才自动迁移；零匹配或多匹配不猜测首项，保留原始字符串作为可诊断的
+    unresolved 状态，等待用户在 UI 重新选择。已是版本化结构的绑定原样保留。
+    """
+    index = profile_ids_by_model_id or {}
+    result: dict = {}
+    changed = False
+    for persona, value in (bindings or {}).items():
+        parsed = parse_persona_model_binding(value)
+        if parsed is not None:
+            result[persona] = dict(value)
+            continue
+        legacy_model_id = legacy_persona_model_binding_model_id(value)
+        if not legacy_model_id:
+            result[persona] = value
+            continue
+        matches = index.get(legacy_model_id, [])
+        if len(matches) == 1:
+            result[persona] = build_persona_model_binding(matches[0], legacy_model_id)
+            changed = True
+        else:
+            result[persona] = value
+    return result, changed
+
 
 
 class ConfigStoreCryptoUnavailableError(ConfigError):

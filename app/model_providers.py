@@ -523,17 +523,47 @@ def custom_model_profile_id(entry: dict) -> str:
     return str(entry.get("default_model_id") or "").strip()
 
 
-def find_custom_model_profile(custom_models: list, model_id: str) -> dict | None:
-    """Find a custom model profile by canonical ``default_model_id``."""
-    mid = (model_id or "").strip()
-    if not mid:
+def custom_model_profile_identity(entry: dict) -> str:
+    """W-AUDIT-MODEL-IDENTITY-001：档案的不可变身份 ``profile_id``（缺失时为空串）。"""
+    from app.config_store.crypto import read_custom_model_profile_id
+
+    return read_custom_model_profile_id(entry)
+
+
+def find_custom_model_profile_by_profile_id(custom_models: list, profile_id: str) -> dict | None:
+    """主查找路径：按不可变 ``profile_id`` 精确定位档案。"""
+    pid = (profile_id or "").strip()
+    if not pid:
         return None
     for entry in custom_models:
-        if not isinstance(entry, dict):
-            continue
-        if custom_model_profile_id(entry) == mid:
+        if isinstance(entry, dict) and custom_model_profile_identity(entry) == pid:
             return entry
     return None
+
+
+def find_custom_model_profiles_by_model_id(custom_models: list, model_id: str) -> list[dict]:
+    """列出 ``default_model_id`` 匹配的全部档案（重复模型名 → 多个，不猜测首项）。"""
+    mid = (model_id or "").strip()
+    if not mid:
+        return []
+    return [
+        entry
+        for entry in custom_models
+        if isinstance(entry, dict) and custom_model_profile_id(entry) == mid
+    ]
+
+
+def find_custom_model_profile(custom_models: list, model_id: str) -> dict | None:
+    """Legacy 兼容查找：按上游 ``default_model_id``。
+
+    W-AUDIT-MODEL-IDENTITY-001：模型名不是唯一身份，因此本 helper 只允许用于
+    明确的旧数据迁移 / 上游模型能力查询，并且**对重复项返回歧义（None）而不是首项**。
+    精确定位档案请使用 :func:`find_custom_model_profile_by_profile_id`。
+    """
+    matches = find_custom_model_profiles_by_model_id(custom_models, model_id)
+    if len(matches) != 1:
+        return None
+    return matches[0]
 
 
 def first_custom_model_profile(config) -> dict | None:

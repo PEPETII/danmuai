@@ -45,6 +45,7 @@ class QueuedReply:
     is_fallback: bool = False  # True=本地轻量兜底批次，非模型输出
     source: str = "ai"  # ai | fallback | mic；mic 跳过去重
     replaceable: bool = False  # True 且 source=fallback 时，可被同 request_id/batch_id 的 AI 批次替换
+    render_retry_count: int = 0  # floating_panel 真实渲染失败后的已重试次数
 
 
 @dataclass(frozen=True)

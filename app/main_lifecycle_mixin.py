@@ -46,6 +46,18 @@ def _resolve_runtime_symbol(name: str, fallback):
     return getattr(module, name, fallback)
 
 
+# P1-04：运行中重复 start() 的限频诊断间隔（秒）。时间戳字段仅 Qt 主线程读写。
+START_GUARD_LOG_INTERVAL_SEC = 5.0
+
+# P1-05：连续业务空解析（传输成功但无有效弹幕）触发“响应格式不可用”暂停的阈值。
+# 复用视觉传输失败阈值量级（MAX_CONSECUTIVE_FAILURES 默认 5）：单次空响应不阻断，
+# 达到阈值才停止截图调度，避免把偶发空响应升级为暂停。测试与诊断显式写出该值。
+EMPTY_PARSE_FAILURE_THRESHOLD = 5
+
+# P1-05：业务空解析暂停时上报的稳定 problem 码（与网络/连接错误文案区分）。
+EMPTY_PARSE_PROBLEM_CODE = "AI-FORMAT-001"
+
+
 def _stop_and_wait_for_web_console(server, logger, *, context: str) -> bool:
     """Stop Web first and return whether its bounded shutdown barrier completed."""
     if server is None:
@@ -84,6 +96,9 @@ def _stop_and_wait_for_web_console(server, logger, *, context: str) -> bool:
 
 
 class DanmuAppLifecycleMixin:
+    # P1-05：业务空解析阈值（实例可覆盖；类属性确保最小测试实例也能解析）。
+    EMPTY_PARSE_FAILURE_THRESHOLD = EMPTY_PARSE_FAILURE_THRESHOLD
+
     def _init_runtime_bridge_state(self, web_launch_mode: str) -> None:
         # FastAPI/uvicorn 在独立线程；Qt 对象修改必须回主线程。
         self.web_launch_mode = web_launch_mode
@@ -242,6 +257,10 @@ class DanmuAppLifecycleMixin:
         self._failure_backoff_paused = False
         self._last_error_message = ""
         self.MAX_CONSECUTIVE_FAILURES = 5
+        # P1-05：连续业务空解析预算与暂停状态（Qt 主线程读写）。
+        self._consecutive_empty_parses = 0
+        self._empty_parse_paused = False
+        self.EMPTY_PARSE_FAILURE_THRESHOLD = EMPTY_PARSE_FAILURE_THRESHOLD
         self._inflight_screenshot_id = 0
         self._inflight_started_at = 0.0
         from app.application.danmu_diagnostics import DanmuDiagnosticsRecorder
@@ -547,6 +566,7 @@ class DanmuAppLifecycleMixin:
         diagnostic_reason: str = "",
         elapsed_ms: int | None = None,
         popped_meta: list[tuple[int, int, int]] | None = None,
+        request_context: dict[str, object] | None = None,
     ) -> None:
         """Apply the shared visual-request failure contract.
 
@@ -614,6 +634,23 @@ class DanmuAppLifecycleMixin:
             "model_id": resolve_active_model_id(self.config),
             **(classification.context or {}),
         }
+        if request_context:
+            context.update(
+                {
+                    key: request_context[key]
+                    for key in (
+                        "profile_id",
+                        "model_id",
+                        "provider_id",
+                        "api_family",
+                        "endpoint_host",
+                        "max_tokens",
+                        "temperature",
+                        "thinking",
+                    )
+                    if key in request_context
+                }
+            )
         if diagnostic_reason:
             context["reason"] = diagnostic_reason
         self.report_problem(
@@ -648,6 +685,95 @@ class DanmuAppLifecycleMixin:
             technical_detail=paused_msg,
             force_new_event=True,
         )
+
+    def _handle_visual_empty_parse_failure(
+        self,
+        *,
+        persona_id: str,
+        request_round: int,
+        screenshot_id: int,
+        scene_generation: int,
+        input_tokens: int = 0,
+        output_tokens: int = 0,
+    ) -> None:
+        """post-transport 业务空失败入口（P1-05）。
+
+        与 ``_handle_visual_ai_failure`` 的区别：调用本方法时视觉请求的 in-flight
+        slot、request meta、timing 均已在 ``_on_ai_reply`` 释放一次，token 也已统计
+        一次；因此这里**不得**再次 ``_release_inflight_for_source`` /
+        ``_consume_request_timing`` / 计 token，也不累计传输失败 ``_consecutive_failures``，
+        更不误报连接/网络错误。只累计独立业务空计数，达阈值后停止截图调度并上报
+        “响应格式不可用”（``EMPTY_PARSE_PROBLEM_CODE``）。
+
+        调用线程：Qt 主线程。空结果不伪造成功、不放宽 parser/normalize 校验。
+        """
+        count = int(self.__dict__.get("_consecutive_empty_parses", 0)) + 1
+        self._consecutive_empty_parses = count
+        threshold = int(
+            getattr(self, "EMPTY_PARSE_FAILURE_THRESHOLD", EMPTY_PARSE_FAILURE_THRESHOLD)
+        )
+        self.logger.warning(
+            "视觉空解析业务失败: request_round=%s screenshot_id=%s scene_generation=%s "
+            "persona=%s input_tokens=%s output_tokens=%s count=%s threshold=%s "
+            "reason=empty_parse",
+            request_round,
+            screenshot_id,
+            scene_generation,
+            persona_id,
+            input_tokens,
+            output_tokens,
+            count,
+            threshold,
+        )
+        if count < threshold:
+            return
+        if self.__dict__.get("_empty_parse_paused", False):
+            return
+        self._empty_parse_paused = True
+        # 复用既有退避暂停位：screenshot_timer 停止后主链路门禁
+        # （_schedule_capture / _on_capture_completed / _try_scene_refresh）不再发请求。
+        self._failure_backoff_paused = True
+        self.screenshot_timer.stop()
+        paused_msg = tr("app.response_format_unavailable").format(
+            count=count,
+            threshold=threshold,
+        )
+        self.report_problem(
+            EMPTY_PARSE_PROBLEM_CODE,
+            technical_detail=paused_msg,
+            context={
+                "reason": "empty_parse",
+                "empty_parse_count": count,
+                "empty_parse_threshold": threshold,
+                "persona_id": persona_id,
+            },
+        )
+        self.logger.warning(paused_msg)
+
+    def _reset_empty_parse_backoff_if_needed(self) -> None:
+        """有效规范化结果入队后清零业务空计数并解除业务暂停（P1-05，Qt 主线程）。"""
+        had_state = (
+            int(self.__dict__.get("_consecutive_empty_parses", 0)) > 0
+            or bool(self.__dict__.get("_empty_parse_paused", False))
+        )
+        if not had_state:
+            return
+        self._consecutive_empty_parses = 0
+        self._empty_parse_paused = False
+        active = self.get_active_problem() if hasattr(self, "get_active_problem") else None
+        if active and str(active.get("code", "")) == EMPTY_PARSE_PROBLEM_CODE:
+            self.clear_problem(code=EMPTY_PARSE_PROBLEM_CODE)
+        # 仅当没有其它业务暂停来源（传输失败退避）时才由业务空恢复解除暂停。
+        if self._failure_backoff_paused and int(
+            self.__dict__.get("_consecutive_failures", 0)
+        ) <= 0:
+            self._failure_backoff_paused = False
+        if (
+            self.engine.running
+            and not self._failure_backoff_paused
+            and not self.screenshot_timer.isActive()
+        ):
+            self.screenshot_timer.start()
 
     def _on_ai_error(
         self,
@@ -705,6 +831,7 @@ class DanmuAppLifecycleMixin:
             scene_generation,
             input_tokens,
             output_tokens,
+            request_context=meta.get("request_context"),
         )
 
     def _update_stats(self, *, success: bool = True, count: int = 1) -> None:
@@ -715,8 +842,43 @@ class DanmuAppLifecycleMixin:
             self.lifetime_stats.add_danmu(safe_count)
         self._maybe_log_dedup_profile()
 
+    def _visual_session_active(self) -> bool:
+        """P1-04 权威运行态：视觉会话（弹幕引擎）当前是否已在运行。
+
+        仅由 Qt 主线程读取（``start``/``toggle``/测试）；``engine.running`` 也只由
+        主线程的 ``engine.start()``/``engine.stop()`` 写入，因此这里不存在需要额外
+        同步原语的跨线程读写。``start()`` 只有在它返回 False 时才允许执行会话
+        初始化，重复 ``start()`` 因此成为无副作用 no-op。
+        """
+        engine = self.__dict__.get("engine")
+        return bool(engine is not None and getattr(engine, "running", False))
+
+    def _note_duplicate_start(self) -> None:
+        """运行中重复 ``start()`` 的限频诊断（Qt 主线程）。
+
+        托盘/热键/Web 重复点击会连续触发 ``start()``；按
+        ``START_GUARD_LOG_INTERVAL_SEC`` 限频，避免刷屏。``_duplicate_start_log_at``
+        仅主线程读写，进程内有效。
+        """
+        now = time.monotonic()
+        last = self.__dict__.get("_duplicate_start_log_at") or 0.0
+        if now - last < START_GUARD_LOG_INTERVAL_SEC:
+            return
+        self._duplicate_start_log_at = now
+        self.logger.info("start_ignored reason=already_running")
+
     def start(self) -> None:
         from app.ai_client_requests import format_credential_error, visual_credentials_ready
+
+        # P1-04（主链路生命周期幂等）：引擎已在运行时，重复 start 必须在任何
+        # 运行态重置和新 capture 之前无副作用返回。该门禁是 start() 的第一项
+        # 业务动作，早于知识运行时重试、凭据提示、session epoch 递增、
+        # engine.start()、统计/定时器变更、_pending_request_meta.clear() 与
+        # _on_normal_capture_tick()，因此在途请求、request meta、session epoch、
+        # 统计和定时器全部保持不变。需要重启的调用者必须显式 stop() 后再 start()。
+        if self._visual_session_active():
+            self._note_duplicate_start()
+            return
 
         # 运行时通常已在应用启动时挂载；若启动阶段曾降级，则在这里用
         # 同一个对象重试挂载。返回值必须参与判定：知识库不可用时只记录
@@ -771,6 +933,10 @@ class DanmuAppLifecycleMixin:
         self._consecutive_failures = 0
         self._failure_backoff_paused = False
         self._last_error_message = ""
+        # P1-05：新会话重置业务空解析预算与暂停（run 级清理）。
+        self._consecutive_empty_parses = 0
+        self._empty_parse_paused = False
+        self.EMPTY_PARSE_FAILURE_THRESHOLD = EMPTY_PARSE_FAILURE_THRESHOLD
         self._get_request_timing_service().reset_started()
         self._latest_queued_screenshot_id = 0
         self._latest_displayed_screenshot_id = 0
@@ -783,6 +949,7 @@ class DanmuAppLifecycleMixin:
         self._mic_request_seq = 0
         self._mic_batch_id = 0
         self._pending_request_meta.clear()
+        self._last_request_context_public = {}
         self.reply_buffer.set_max_items(self._queue_capacity())
         self.reply_buffer.reset_metrics()
         self.screenshot_timer.stop()
@@ -870,12 +1037,16 @@ class DanmuAppLifecycleMixin:
         self._capture_in_flight = False
         self._local_fallback_active = False
         self._pending_request_meta.clear()
+        self._last_request_context_public = {}
         self._mic_orchestrator.stop_detector()
         self._mic_poll_timer.stop()
         self._is_generating = False
         self._inflight_started_at = 0.0
         self._inflight_screenshot_id = 0
         self._current_batch = None
+        # P1-05：停止会话时清理业务空解析预算与暂停状态。
+        self._consecutive_empty_parses = 0
+        self._empty_parse_paused = False
         self.reply_timer.stop()
         self._pool_topup_timer.stop()
         stop_meme_timers = self.__dict__.get("_stop_meme_barrage_timers")

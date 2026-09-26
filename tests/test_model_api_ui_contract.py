@@ -82,6 +82,43 @@ def test_locales_are_valid_json():
         json.loads(read(f"web/static/locales/{language}/dynamic.json"))
 
 
+def test_probe_stage_ui_contract_has_bilingual_stage_copy():
+    """W-AUDIT-PROBE-PARITY-001：分阶段探活的中英文文案语义清晰且键对齐。"""
+    zh = json.loads(read("web/static/locales/zh/dynamic.json"))["dynamic"]["settingsCustomModels"]
+    en = json.loads(read("web/static/locales/en/dynamic.json"))["dynamic"]["settingsCustomModels"]
+    keys = [
+        "阶段_本地校验",
+        "阶段_鉴权与模型",
+        "阶段_文本连接",
+        "阶段_视觉流式请求",
+        "阶段_业务解析",
+        "阶段状态_通过",
+        "阶段状态_失败",
+        "阶段状态_未执行",
+        "完整视觉链路可用",
+        "连接测试未完全通过",
+        "文本连接可用_完整视觉链路未通过",
+        "部分阶段通过_请查看下方明细",
+    ]
+    for key in keys:
+        assert key in zh, key
+        assert key in en, key
+        assert zh[key] and en[key]
+    assert "文本连接" in zh["阶段_文本连接"]
+    assert "Business" in en["阶段_业务解析"]
+    assert "vision" in en["完整视觉链路可用"].lower()
+
+
+def test_probe_stage_dom_and_style_contract():
+    modal = read("web/static/partials/modals.html")
+    css = read("web/static/warm-tokens-pages.css")
+    assert 'id="modelProbeStages"' in modal
+    assert "model-probe-stages" in css
+    assert "model-probe-stage--passed" in css
+    assert "model-probe-stage--failed" in css
+    assert "model-probe-stage--skipped" in css
+
+
 def _sync_model_modal_mic_block(source: str) -> str:
     marker = "function syncModelMicForDefault"
     start = source.index(marker)

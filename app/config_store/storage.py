@@ -140,6 +140,9 @@ class ConfigStore:
         # 迁移函数自身有异常容错，不会再抛异常。
         self._maybe_migrate_legacy_api_to_custom_models()
         self._clear_obsolete_global_model_selection()
+        # W-AUDIT-MODEL-IDENTITY-001：受控分配不可变 profile_id 并版本化旧人格绑定；
+        # 单事务原子落库，失败保留原数据（不阻断启动）。
+        self._migrate_custom_model_identities()
 
     @property
     def schema_version(self) -> int:
@@ -819,6 +822,14 @@ class ConfigStore:
         if not (self.get("model", "") or self.get("default_model_id", "")):
             return
         self.apply_web_save(keys_to_delete=("model", "default_model_id"))
+
+    def _migrate_custom_model_identities(self) -> bool:
+        """W-AUDIT-MODEL-IDENTITY-001：启动期受控分配模型档案 profile_id。"""
+        from app.config_store.storage_models import (
+            migrate_custom_model_identities_for_store,
+        )
+
+        return migrate_custom_model_identities_for_store(self)
 
     def _migrate_legacy_tts_credentials(self) -> bool:
         from app.config_migrations import migrate_legacy_tts_credentials

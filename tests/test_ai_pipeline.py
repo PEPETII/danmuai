@@ -393,7 +393,7 @@ def test_empty_ai_reply_logs_warning(monkeypatch):
         lambda raw_items, **_kwargs: raw_items,
     )
 
-    app._on_ai_reply("not-json", "persona-1", 10, 10, time.monotonic(), 0)
+    app._on_ai_reply("[]", "persona-1", 10, 10, time.monotonic(), 0)
 
     assert any("empty_parse" in msg for msg in app.logger.warning_messages)
 

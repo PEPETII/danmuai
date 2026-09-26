@@ -199,6 +199,19 @@ class DanmuAppStateMixin:
         return self._optional_instance_attr("_danmu_diagnostics")
 
     @property
+    def empty_parse_budget(self) -> dict[str, object]:
+        """P1-05 只读 façade：连续业务空解析计数/阈值/暂停状态（诊断投影用）。"""
+        consecutive = int(self._optional_instance_attr("_consecutive_empty_parses") or 0)
+        threshold = int(self._optional_instance_attr("EMPTY_PARSE_FAILURE_THRESHOLD") or 0)
+        paused = bool(self._optional_instance_attr("_empty_parse_paused"))
+        return {
+            "consecutive": consecutive,
+            "threshold": threshold,
+            "paused": paused,
+            "reason": "empty_parse" if (consecutive or paused) else "",
+        }
+
+    @property
     def total_input_tokens(self) -> int:
         return self._ensure_stats_state().total_input_tokens
 

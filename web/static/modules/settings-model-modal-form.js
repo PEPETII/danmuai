@@ -30,6 +30,7 @@ import {
 import {
   abortModelProbe,
   initModelModalProbe,
+  markModelModalStoredKey,
   probeModelConnection,
 } from "./settings-model-modal-probe.js";
 import { activateFocusTrap, deactivateFocusTrap } from "./modal-focus-trap.js";
@@ -443,6 +444,12 @@ export function openModelModal(index, model = {}) {
   const isEdit = index >= 0;
   resetModelModalListState();
   document.getElementById("modelEditIndex").value = String(index);
+  // W-AUDIT-MODEL-IDENTITY-001：编辑时携带不可变 profile_id 精确定位档案；
+  // 新增时清空（服务端分配新身份，入参被忽略）。
+  const profileIdEl = document.getElementById("modelEditProfileId");
+  if (profileIdEl) {
+    profileIdEl.value = isEdit ? String(model.profile_id || "").trim() : "";
+  }
   document.getElementById("modelModalTitle").textContent = isEdit
     ? t("dynamic.settingsCustomModels.编辑模型")
     : t("dynamic.settingsCustomModels.新增模型");
@@ -537,6 +544,9 @@ export function openModelModal(index, model = {}) {
   bindModelDefaultSelect();
   initModelModalProbe(collectModelForm);
   refreshModalCapabilitiesState({ preserveSavedCapabilities: isEdit });
+  // W-AUDIT-PROBE-SECRET-001：在表单状态定稿后登记掩码 key 的凭据作用域；
+  // 之后改 endpoint/provider/model/mode 会使"沿用旧 key"失效并要求重新输入。
+  markModelModalStoredKey();
 }
 
 export function closeModelModal() {
@@ -571,6 +581,8 @@ export function collectModelForm() {
     : getDefaultEndpoint(providerId);
   return {
     name: getProfileDisplayName(),
+    // W-AUDIT-MODEL-IDENTITY-001：不可变档案身份；服务端以它为准定位/保持身份。
+    profile_id: document.getElementById("modelEditProfileId")?.value || "",
     model_ids: modelIds,
     model_names: getModelNamesMap(),
     default_model_id: defaultModelId,

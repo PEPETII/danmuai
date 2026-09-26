@@ -17,6 +17,7 @@ from app.image_metrics import log_compress_metrics
 from app.logger import SanitizedLogger
 from app.main_helpers import REQUEST_WALL_CLOCK_SEC
 from app.mic_encode import pcm_to_wav_data_uri
+from app.providers.request_context import ResolvedRequestContext
 from app.translations import tr
 
 
@@ -93,6 +94,7 @@ class AiRunnable(QRunnable):
         mic_attach_audio: bool = False,
         session_token: int | None = None,
         session_is_current=None,
+        request_context: ResolvedRequestContext | None = None,
     ):
         super().__init__()
         self.worker = worker
@@ -110,6 +112,7 @@ class AiRunnable(QRunnable):
         self.mic_attach_audio = mic_attach_audio
         self.session_token = session_token
         self.session_is_current = session_is_current
+        self.request_context = request_context
         self.setAutoDelete(True)
 
     def run(self):
@@ -209,6 +212,7 @@ class AiRunnable(QRunnable):
                 audio_data_uri=audio_data_uri,
                 request_started_at=started,
                 request_deadline_at=deadline_at,
+                request_context=self.request_context,
             )
         except Exception as exc:  # boundary: AI request worker top-level
             if self._session_is_current():

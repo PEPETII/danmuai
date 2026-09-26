@@ -171,25 +171,42 @@ def test_resolve_credentials_for_persona_uses_first_profile_without_global_selec
     assert config.get("default_model_id", "") == ""
 
 
-def test_resolve_credentials_for_persona_falls_back_when_model_deleted(persona_config):
-    """绑定的 model_id 不在 custom_models（被删除）→ 返回全局。"""
+def test_resolve_credentials_for_persona_explicit_binding_missing_raises(persona_config):
+    """显式绑定的档案已被删除（悬挂）→ 抛 PersonaModelBindingError，不回退首档案。
+
+    W-AUDIT-MODEL-IDENTITY-001：显式绑定失效必须成为可观察的配置错误，绝不静默换
+    provider / endpoint / 账户。
+    """
+    from app.persona_manager import PersonaModelBindingError
+
     config, personae = persona_config
-    _setup_global_model(config, model_id="global-model")
-    # 绑定一个不存在的 model_id
-    personae.set_model_binding("高压吐槽型", "deleted-model-xyz")
+    config.set_custom_models(
+        [
+            _make_complete_model(model_id="global-model", name="GlobalModel"),
+            _make_complete_model(model_id="bound-model-1", name="BoundModel"),
+        ]
+    )
+    personae.set_model_binding("高压吐槽型", "bound-model-1")
+    # 绑定后删除被绑定档案 → 版本化绑定悬挂（profile_id 已不存在）
+    config.set_custom_models(
+        [_make_complete_model(model_id="global-model", name="GlobalModel")]
+    )
 
-    global_resolved = resolve_request_credentials(config)
-    fallback = resolve_request_credentials_for_persona(config, "高压吐槽型")
-    assert fallback == global_resolved
-    assert fallback[2] == "global-model"
+    # 首档案仍可用（用于证明"回退"确实没有发生）
+    assert resolve_request_credentials(config)[2] == "global-model"
+
+    with pytest.raises(PersonaModelBindingError) as exc_info:
+        resolve_request_credentials_for_persona(config, "高压吐槽型")
+    assert exc_info.value.code == "profile_missing"
+    # 错误不含密钥
+    assert "sk-bound-key" not in str(exc_info.value)
 
 
-def test_resolve_credentials_for_persona_falls_back_when_incomplete(persona_config):
-    """绑定档案缺 apiKey（不完整）→ 返回全局。"""
+def test_resolve_credentials_for_persona_explicit_binding_incomplete_raises(persona_config):
+    """显式绑定档案缺 apiKey（不完整）→ 抛 PersonaModelBindingError，不回退首档案。"""
+    from app.persona_manager import PersonaModelBindingError
+
     config, personae = persona_config
-    # 全局模型完整
-    _setup_global_model(config, model_id="global-model")
-    # 绑定专用模型档案不完整（缺 apiKey）
     incomplete = _make_complete_model(model_id="bound-incomplete", name="IncompleteModel")
     incomplete["apiKey"] = ""
     config.set_custom_models(
@@ -200,10 +217,28 @@ def test_resolve_credentials_for_persona_falls_back_when_incomplete(persona_conf
     )
     personae.set_model_binding("高压吐槽型", "bound-incomplete")
 
-    global_resolved = resolve_request_credentials(config)
-    fallback = resolve_request_credentials_for_persona(config, "高压吐槽型")
-    assert fallback == global_resolved
-    assert fallback[2] == "global-model"
+    with pytest.raises(PersonaModelBindingError) as exc_info:
+        resolve_request_credentials_for_persona(config, "高压吐槽型")
+    assert exc_info.value.code == "profile_incomplete"
+    assert "sk-bound-key" not in str(exc_info.value)
+
+    # 未绑定人格仍按产品默认使用首档案（既有无绑定体验不回归）
+    unbound = resolve_request_credentials_for_persona(config, "未绑定的人格")
+    assert unbound is not None
+    assert unbound[2] == "global-model"
+
+
+def test_resolve_credentials_for_persona_explicit_binding_zero_match_raises(persona_config):
+    """旧字符串绑定零匹配（模型名不存在）→ 可诊断的 unresolved，不回退首档案。"""
+    from app.persona_manager import PersonaModelBindingError
+
+    config, personae = persona_config
+    _setup_global_model(config, model_id="global-model")
+    personae.set_model_binding("高压吐槽型", "deleted-model-xyz")
+
+    with pytest.raises(PersonaModelBindingError) as exc_info:
+        resolve_request_credentials_for_persona(config, "高压吐槽型")
+    assert exc_info.value.code == "unresolved"
 
 
 def test_resolve_credentials_for_persona_empty_persona_id_falls_back(persona_config):
@@ -218,11 +253,21 @@ def test_resolve_credentials_for_persona_empty_persona_id_falls_back(persona_con
 
 
 def test_persona_page_displays_first_model_for_unbound_persona():
-    """人格页下拉框的未绑定状态随首个模型显示，而非停留在占位项。"""
+    """人格页下拉框：未绑定跟随首个档案；显式绑定失效时不回退首项，提示重新选择。"""
     source = PERSONA_PAGE_JS.read_text(encoding="utf-8")
-    assert "const effectiveModelId = boundModelId || firstModelId;" in source
+    # option value 使用不可变 profile_id（与模型列表 / 虚拟主播视觉同一身份合同）
+    assert "opt.value = option.profileId;" in source
+    assert "const effectiveProfileId = boundProfileId || firstProfileId;" in source
+    # 空模型列表 → 停用占位项
     assert "const placeholderOpt = document.createElement('option');" in source
-    assert "if (!firstModelId)" in source
+    assert "if (!modelOptions.length)" in source
+    # 显式绑定失效 → 待重选占位项 + 警告，且不静默回退首项
+    assert "const needsReselect = document.createElement('option');" in source
+    assert "dynamic.appPersonaTopicPage.需重新选择模型" in source
+    assert "bindingInvalid" in source
+    # 绑定请求携带 profile_id + 上游 model_id
+    assert "profile_id: profileId," in source
+    assert "model_id: option ? option.modelId : ''," in source
 
 
 def test_config_store_clears_retired_global_model_keys_on_restart(tmp_path):

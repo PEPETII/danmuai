@@ -22,11 +22,18 @@ import os  # noqa: F401 — 重新导出以保留 app.config_store.os 属性路�
 import subprocess  # noqa: F401 — 重新导出以保留 app.config_store.subprocess 属性路径（测试 patch 依赖）
 
 from .crypto import (
+    PROFILE_ID_FIELD,
     ConfigStoreCryptoUnavailableError,
     _backup_corrupted_key_file,  # noqa: F401 — 保留旧 app.config_store._backup_corrupted_key_file 路径
     _migrate_custom_model_shape,
     _restrict_key_file_permissions,
+    build_persona_model_binding,
     canonicalize_custom_model_profile,
+    duplicate_custom_model_profile_ids,
+    migrate_persona_model_bindings,
+    new_custom_model_profile_id,
+    parse_persona_model_binding,
+    read_custom_model_profile_id,
 )
 from .pool import (
     get_custom_danmu_pool_for_store,
@@ -48,7 +55,14 @@ __all__ = [
     "ConfigStoreCryptoUnavailableError",
     "CONFIG_DIR",
     "CONFIG_FILE",
+    "PROFILE_ID_FIELD",
+    "build_persona_model_binding",
+    "duplicate_custom_model_profile_ids",
     "get_custom_danmu_pool_for_store",
+    "migrate_persona_model_bindings",
+    "new_custom_model_profile_id",
+    "parse_persona_model_binding",
+    "read_custom_model_profile_id",
     "set_custom_danmu_pool_for_store",
     "_restrict_key_file_permissions",
     "_migrate_custom_model_shape",

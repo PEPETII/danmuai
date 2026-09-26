@@ -5,7 +5,7 @@ import re
 import sqlite3
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from app.config_store import ConfigStore
@@ -1188,3 +1188,636 @@ def test_list_custom_model_masks_api_key_alias_only(model_app):
     assert "api_key" not in item
     assert "sk-list-alias-only" not in json.dumps(listing)
 
+
+
+# ---------------------------------------------------------------------------
+# W-AUDIT-PROBE-SECRET-001：掩码 key 只能在同一档案作用域内恢复
+# ---------------------------------------------------------------------------
+
+
+def _seed_probe_profile(model_app):
+    cm_api.create_custom_model(
+        model_app,
+        {
+            "name": "Scoped",
+            "model_ids": ["scoped-a", "scoped-b"],
+            "default_model_id": "scoped-a",
+            "mode": "openai",
+            "endpoint": "https://api.example.com/v1",
+            "apiKey": "sk-scoped-stored-key",
+            "provider": "custom_openai",
+        },
+    )
+
+
+def _masked_probe_payload(**overrides) -> dict:
+    payload = {
+        "name": "Scoped",
+        "model_ids": ["scoped-a", "scoped-b"],
+        "default_model_id": "scoped-a",
+        "mode": "openai",
+        "endpoint": "https://api.example.com/v1",
+        "apiKey": "********",
+        "provider": "custom_openai",
+        "model_id": "scoped-a",
+    }
+    payload.update(overrides)
+    return payload
+
+
+def test_probe_masked_key_same_scope_restores_stored_key(model_app):
+    _seed_probe_profile(model_app)
+    resolved = cm_api.resolve_probe_credentials(
+        model_app, _masked_probe_payload(), index=0
+    )
+    assert resolved["apiKey"] == "sk-scoped-stored-key"
+    assert resolved["endpoint"] == "https://api.example.com/v1"
+    assert resolved["default_model_id"] == "scoped-a"
+
+
+def test_probe_masked_key_with_changed_endpoint_requires_new_key(model_app):
+    from app.api_probe import ProbeScopeViolation
+
+    _seed_probe_profile(model_app)
+    with pytest.raises(ProbeScopeViolation) as exc:
+        cm_api.resolve_probe_credentials(
+            model_app,
+            _masked_probe_payload(endpoint="https://attacker.example.net/v1"),
+            index=0,
+        )
+    assert exc.value.error_code == "probe_scope_violation"
+
+
+def test_probe_masked_key_with_changed_provider_requires_new_key(model_app):
+    from app.api_probe import ProbeScopeViolation
+
+    _seed_probe_profile(model_app)
+    with pytest.raises(ProbeScopeViolation):
+        cm_api.resolve_probe_credentials(
+            model_app,
+            _masked_probe_payload(provider="custom_doubao"),
+            index=0,
+        )
+
+
+def test_probe_masked_key_with_changed_mode_requires_new_key(model_app):
+    from app.api_probe import ProbeScopeViolation
+
+    _seed_probe_profile(model_app)
+    with pytest.raises(ProbeScopeViolation):
+        cm_api.resolve_probe_credentials(
+            model_app, _masked_probe_payload(mode="doubao"), index=0
+        )
+
+
+def test_probe_masked_key_with_out_of_profile_model_requires_new_key(model_app):
+    from app.api_probe import ProbeScopeViolation
+
+    _seed_probe_profile(model_app)
+    with pytest.raises(ProbeScopeViolation):
+        cm_api.resolve_probe_credentials(
+            model_app, _masked_probe_payload(model_id="not-in-profile"), index=0
+        )
+
+
+def test_probe_masked_key_and_no_existing_record_keeps_empty_key(model_app):
+    """没有可命中的档案时不恢复任何 key（不会退回全局/首档案 key）。"""
+    resolved = cm_api.resolve_probe_credentials(
+        model_app, _masked_probe_payload(), index=-1
+    )
+    assert resolved["apiKey"] == ""
+
+
+def test_probe_explicit_new_key_allows_changed_endpoint(model_app):
+    """显式提供新 key 时允许探测新 endpoint（用户主动输入新凭据的合法路径）。"""
+    _seed_probe_profile(model_app)
+    resolved = cm_api.resolve_probe_credentials(
+        model_app,
+        _masked_probe_payload(
+            endpoint="https://attacker.example.net/v1",
+            apiKey="sk-caller-supplied-key",
+        ),
+        index=0,
+    )
+    assert resolved["apiKey"] == "sk-caller-supplied-key"
+    assert resolved["endpoint"] == "https://attacker.example.net/v1"
+
+
+def test_custom_model_probe_http_rejects_masked_key_with_changed_endpoint(tmp_path):
+    """POST /api/custom-models/probe 掩码 key + 改 endpoint → 400，不发 probe。"""
+    from app.web_api.routes import register_web_routes
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    app = FastAPI()
+    bridge = MagicMock()
+    bridge.invoke_on_main.side_effect = lambda fn, *args, **kwargs: fn(*args, **kwargs)
+    config = ConfigStore(db_path=tmp_path / "probe-scope.db")
+    danmu_app = SimpleNamespace(
+        config=config,
+        config_changed=MagicMock(),
+        probe_api_connection=MagicMock(return_value={"ok": True, "message": "ok"}),
+    )
+    bridge.danmu_app = danmu_app
+
+    def _check_token(_authorization: str | None = None) -> None:
+        return None
+
+    register_web_routes(app, bridge, _check_token)
+    client = TestClient(app, raise_server_exceptions=False)
+
+    created = client.post(
+        "/api/custom-models",
+        json={
+            "name": "Scoped",
+            "model_ids": ["scoped-a"],
+            "default_model_id": "scoped-a",
+            "mode": "openai",
+            "endpoint": "https://api.example.com/v1",
+            "apiKey": "sk-scoped-http-key",
+            "provider": "custom_openai",
+        },
+    )
+    assert created.status_code == 200
+
+    with patch("app.api_probe.probe_connection") as mock_probe:
+        res = client.post(
+            "/api/custom-models/probe",
+            json={
+                "name": "Scoped",
+                "model_ids": ["scoped-a"],
+                "default_model_id": "scoped-a",
+                "mode": "openai",
+                "endpoint": "https://attacker.example.net/v1",
+                "apiKey": "********",
+                "provider": "custom_openai",
+                "index": 0,
+                "model_id": "scoped-a",
+            },
+        )
+    assert res.status_code == 400, res.text
+    detail = res.json()["detail"]
+    assert detail["ok"] is False
+    assert detail["error"] == "probe_scope_violation"
+    assert "sk-scoped-http-key" not in res.text
+    mock_probe.assert_not_called()
+    danmu_app.probe_api_connection.assert_not_called()
+
+
+def test_custom_model_probe_http_allows_same_scope_masked_key(tmp_path):
+    """同一档案、作用域未变更时 probe 仍可复用已存 key，并把档案参数交给探测。"""
+    from app.web_api.routes import register_web_routes
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    app = FastAPI()
+    bridge = MagicMock()
+    bridge.invoke_on_main.side_effect = lambda fn, *args, **kwargs: fn(*args, **kwargs)
+    config = ConfigStore(db_path=tmp_path / "probe-ok.db")
+    danmu_app = SimpleNamespace(
+        config=config,
+        config_changed=MagicMock(),
+        probe_api_connection=MagicMock(return_value={"ok": True, "message": "ok"}),
+    )
+    bridge.danmu_app = danmu_app
+
+    def _check_token(_authorization: str | None = None) -> None:
+        return None
+
+    register_web_routes(app, bridge, _check_token)
+    client = TestClient(app, raise_server_exceptions=False)
+
+    client.post(
+        "/api/custom-models",
+        json={
+            "name": "Scoped",
+            "model_ids": ["scoped-a"],
+            "default_model_id": "scoped-a",
+            "mode": "openai",
+            "endpoint": "https://api.example.com/v1",
+            "apiKey": "sk-scoped-http-key",
+            "provider": "custom_openai",
+        },
+    )
+    with patch("app.api_probe.probe_connection") as mock_probe:
+        mock_probe.return_value.to_dict.return_value = {"ok": True, "message": "ok"}
+        res = client.post(
+            "/api/custom-models/probe",
+            json={
+                "name": "Scoped",
+                "model_ids": ["scoped-a"],
+                "default_model_id": "scoped-a",
+                "mode": "openai",
+                "endpoint": "https://api.example.com/v1",
+                "apiKey": "********",
+                "provider": "custom_openai",
+                "index": 0,
+                "model_id": "scoped-a",
+                "stage": "full",
+            },
+        )
+    assert res.status_code == 200, res.text
+    assert res.json()["ok"] is True
+    args, kwargs = mock_probe.call_args
+    assert args == (
+        "https://api.example.com/v1",
+        "sk-scoped-http-key",
+        "scoped-a",
+        "openai-compatible",
+    )
+    assert kwargs["stage"] == "full"
+    assert kwargs["profile_params"]["thinking_effort"] == "off"
+    assert kwargs["profile_params"]["max_tokens"] == 512
+
+
+# ---------------------------------------------------------------------------
+# W-AUDIT-PROBE-SECRET-001：模型弹窗凭据作用域变更 → 使"沿用旧 key"失效
+# ---------------------------------------------------------------------------
+
+
+def test_model_modal_probe_exports_scope_fingerprint_and_stored_key_marker():
+    src = SETTINGS_MODEL_MODAL_PROBE_JS.read_text(encoding="utf-8")
+    assert "export function buildProbeScopeFingerprint(form = {})" in src
+    assert "export function markModelModalStoredKey()" in src
+    assert "clearStoredKeyIfScopeChanged" in src
+    assert 'input.value = "";' in src
+    assert "探测目标已修改_请重新输入_API_Key" in src
+
+
+def test_model_modal_form_registers_stored_key_scope_when_opened():
+    src = SETTINGS_MODEL_MODAL_FORM_JS.read_text(encoding="utf-8")
+    assert "markModelModalStoredKey," in src.replace("\n", " ")
+    assert "markModelModalStoredKey();" in src
+
+
+def test_scope_rekey_locale_entries_exist_in_both_languages():
+    for lang in ("zh", "en"):
+        data = json.loads(
+            (
+                REPO_ROOT / "web" / "static" / "locales" / lang / "dynamic.json"
+            ).read_text(encoding="utf-8")
+        )
+        custom_models = data["dynamic"]["settingsCustomModels"]
+        assert "探测目标已修改" in custom_models
+        assert "探测目标已修改_请重新输入_API_Key" in custom_models
+
+# ---------------------------------------------------------------------------
+# W-AUDIT-MODEL-IDENTITY-001：档案不可变 profile_id、按 profile_id 定位/清理、
+# 探测身份判定与迁移诊断（工单 §5.1 / §5.3 / §6）
+# ---------------------------------------------------------------------------
+
+
+def _identity_diagnostics(app):
+    return cm_api.list_custom_models(app)["identity_diagnostics"]
+
+
+def test_create_assigns_unique_nonempty_profile_id_and_ignores_input(model_app):
+    """创建时服务端分配非空且唯一的 profile_id；入参 profile_id 被忽略。"""
+    cm_api.create_custom_model(
+        model_app, {**_model_payload("dup-model", name="A"), "profile_id": "cmp_forged"}
+    )
+    cm_api.create_custom_model(
+        model_app, {**_model_payload("dup-model", name="B"), "profile_id": "cmp_forged"}
+    )
+    profiles = model_app.config.get_custom_models()
+    ids = [p["profile_id"] for p in profiles]
+    assert all(isinstance(pid, str) and pid for pid in ids)
+    assert len(set(ids)) == 2
+    assert "cmp_forged" not in ids
+    # 两个档案共享同一上游模型名仍合法
+    assert {p["default_model_id"] for p in profiles} == {"dup-model"}
+
+
+def test_update_locates_by_profile_id_and_keeps_identity(model_app):
+    """更新以 profile_id 为准（index 只作兼容），改名/改 endpoint 后身份不变。"""
+    cm_api.create_custom_model(model_app, _model_payload("dup-model", name="A"))
+    cm_api.create_custom_model(model_app, _model_payload("dup-model", name="B"))
+    profiles = model_app.config.get_custom_models()
+    pid_a, pid_b = profiles[0]["profile_id"], profiles[1]["profile_id"]
+
+    # 故意传陈旧的 index=0 但 profile_id=B → 必须更新 B
+    updated = cm_api.update_custom_model(
+        model_app,
+        0,
+        {
+            **_model_payload(
+                "renamed-model",
+                name="B-renamed",
+                endpoint="https://renamed.example.com/v1",
+            ),
+            "profile_id": pid_b,
+        },
+    )
+    assert updated["index"] == 1
+    profiles = model_app.config.get_custom_models()
+    assert profiles[0]["profile_id"] == pid_a
+    assert profiles[1]["profile_id"] == pid_b
+    assert profiles[0]["name"] == "A"
+    assert profiles[1]["name"] == "B-renamed"
+    assert profiles[1]["endpoint"] == "https://renamed.example.com/v1"
+    assert profiles[1]["default_model_id"] == "renamed-model"
+
+
+def test_update_unknown_profile_id_raises(model_app):
+    """profile_id 不存在 → 明确错误（不静默改写其它档案）。"""
+    cm_api.create_custom_model(model_app, _model_payload("dup-model", name="A"))
+    with pytest.raises(ValueError, match="模型档案不存在"):
+        cm_api.update_custom_model(
+            model_app,
+            0,
+            {**_model_payload("dup-model"), "profile_id": "cmp_missing"},
+        )
+
+
+def test_delete_duplicate_name_only_purges_own_profile_references(tmp_path):
+    """删除同名档案之一只清理其 profile_id 引用，另一档案及其绑定不受影响。"""
+    from app.persona_manager import PersonaManager
+
+    config = ConfigStore(db_path=tmp_path / "config.db")
+    personae = PersonaManager(config)
+    app = SimpleNamespace(config=config, config_changed=MagicMock(), personae=personae)
+
+    cm_api.create_custom_model(app, _model_payload("dup-model", name="A"))
+    cm_api.create_custom_model(app, _model_payload("dup-model", name="B"))
+    profiles = config.get_custom_models()
+    pid_a, pid_b = profiles[0]["profile_id"], profiles[1]["profile_id"]
+
+    personae.set_model_binding("甲方", profile_id=pid_a)
+    personae.set_model_binding("乙方", profile_id=pid_b)
+
+    cm_api.delete_custom_model(app, 0)
+
+    assert personae.get_model_binding("甲方") == ""
+    assert personae.get_model_binding("乙方") == pid_b
+    remaining = config.get_custom_models()
+    assert len(remaining) == 1
+    assert remaining[0]["profile_id"] == pid_b
+
+
+def test_identity_diagnostics_report_missing_and_duplicate_profile_ids(model_app):
+    """缺失 / 重复身份必须产生明确诊断（不自动删改数据制造表面一致）。"""
+    from app.config_store.storage_models import invalidate_custom_models_cache_for_store
+
+    base = {
+        "model_ids": ["m"],
+        "default_model_id": "m",
+        "mode": "openai-compatible",
+        "endpoint": "https://api.example.com/v1",
+        "apiKey": "",
+    }
+    raw = [
+        {**base, "name": "Dup1", "profile_id": "cmp_dup"},
+        {**base, "name": "Dup2", "profile_id": "cmp_dup"},
+        {**base, "name": "Missing"},
+    ]
+    model_app.config.set("custom_models", json.dumps(raw))
+    invalidate_custom_models_cache_for_store(model_app.config)
+
+    codes = [issue["code"] for issue in _identity_diagnostics(model_app)["profiles"]]
+    assert "profile_id_duplicate" in codes
+    assert "profile_id_missing" in codes
+
+
+def test_identity_diagnostics_report_unresolved_persona_binding(model_app):
+    """旧字符串绑定零匹配 → 诊断暴露 unresolved（供 UI 提示重新选择）。"""
+    cm_api.create_custom_model(model_app, _model_payload("real-model"))
+    model_app.config.set(
+        "persona_model_bindings", json.dumps({"高压吐槽型": "ghost-model"})
+    )
+    issues = _identity_diagnostics(model_app)["persona_bindings"]
+    assert [issue["status"] for issue in issues] == ["unresolved"]
+    assert issues[0]["persona"] == "高压吐槽型"
+    assert issues[0]["model_id"] == "ghost-model"
+
+
+def test_probe_masked_key_recovered_within_same_profile_id(model_app):
+    """掩码 key + 同一 profile_id + 未变作用域 → 恢复档案已存 key。"""
+    cm_api.create_custom_model(
+        model_app, _model_payload("probe-model", apiKey="sk-probe-key-1234567890")
+    )
+    pid = model_app.config.get_custom_models()[0]["profile_id"]
+    resolved = cm_api.resolve_probe_credentials(
+        model_app,
+        {
+            **_model_payload("probe-model", apiKey="********"),
+            "profile_id": pid,
+            "model_id": "probe-model",
+        },
+        0,
+    )
+    assert resolved["apiKey"] == "sk-probe-key-1234567890"
+
+
+def test_probe_masked_key_not_reused_across_profiles(model_app):
+    """掩码 key 只在同一 profile_id 作用域内恢复，绝不跨档案泄漏旧 key。"""
+    cm_api.create_custom_model(
+        model_app, _model_payload("probe-model", apiKey="sk-probe-key-1234567890")
+    )
+    resolved = cm_api.resolve_probe_credentials(
+        model_app,
+        {
+            **_model_payload("probe-model", apiKey="********"),
+            "profile_id": "cmp_unknown",
+            "model_id": "probe-model",
+        },
+        0,
+    )
+    assert resolved["apiKey"] == ""
+
+
+def test_probe_masked_key_scope_violation_on_endpoint_change(model_app):
+    """同一 profile_id 但改了出站 endpoint → 拒绝沿用已存 key。"""
+    from app.api_probe import ProbeScopeViolation
+
+    cm_api.create_custom_model(
+        model_app, _model_payload("probe-model", apiKey="sk-probe-key-1234567890")
+    )
+    pid = model_app.config.get_custom_models()[0]["profile_id"]
+    with pytest.raises(ProbeScopeViolation):
+        cm_api.resolve_probe_credentials(
+            model_app,
+            {
+                **_model_payload(
+                    "probe-model",
+                    apiKey="********",
+                    endpoint="https://evil.example.com/v1",
+                ),
+                "profile_id": pid,
+                "model_id": "probe-model",
+            },
+            0,
+        )
+
+
+def test_model_modal_form_carries_profile_id_hidden_field():
+    """模型弹窗编辑时携带 profile_id 隐藏字段并在提交体里回传。"""
+    modals = MODALS_HTML.read_text(encoding="utf-8")
+    form_src = SETTINGS_MODEL_MODAL_FORM_JS.read_text(encoding="utf-8")
+    assert 'id="modelEditProfileId"' in modals
+    assert 'document.getElementById("modelEditProfileId")' in form_src
+    assert "profile_id:" in form_src
+
+
+# ---------------------------------------------------------------------------
+# W-AUDIT-PROBE-PARITY-001：分阶段探活合同与只读性
+# ---------------------------------------------------------------------------
+
+
+def test_custom_model_probe_route_is_read_only(tmp_path):
+    """完整链 probe 只读：只访问 app.config，不触碰任何运行态或主链路入口。"""
+    from app.web_api.routes import register_web_routes
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    app = FastAPI()
+    bridge = MagicMock()
+    bridge.invoke_on_main.side_effect = lambda fn, *args, **kwargs: fn(*args, **kwargs)
+    config = ConfigStore(db_path=tmp_path / "probe-readonly.db")
+    danmu_app = MagicMock()
+    danmu_app.config = config
+    bridge.danmu_app = danmu_app
+
+    def _check_token(_authorization: str | None = None) -> None:
+        return None
+
+    register_web_routes(app, bridge, _check_token)
+    client = TestClient(app, raise_server_exceptions=False)
+
+    client.post(
+        "/api/custom-models",
+        json={
+            "name": "RO",
+            "model_ids": ["ro-model"],
+            "default_model_id": "ro-model",
+            "mode": "openai",
+            "endpoint": "https://api.example.com/v1",
+            "apiKey": "sk-ro-key",
+            "provider": "custom_openai",
+        },
+    )
+    danmu_app.reset_mock()
+
+    runtime = SimpleNamespace(
+        ai_in_flight=0,
+        request_meta={},
+        token_stats={"input": 0, "output": 0},
+        danmu_stats={},
+        failure_count=0,
+        empty_parse_count=0,
+        reply_buffer=[],
+        scene_generation=7,
+    )
+    before = json.dumps(vars(runtime), sort_keys=True, default=str)
+
+    with patch("app.api_probe.probe_connection") as mock_probe:
+        mock_probe.return_value.to_dict.return_value = {
+            "ok": True,
+            "message": "ok",
+            "complete": True,
+            "stages": [],
+        }
+        res = client.post(
+            "/api/custom-models/probe",
+            json={
+                "name": "RO",
+                "model_ids": ["ro-model"],
+                "default_model_id": "ro-model",
+                "mode": "openai",
+                "endpoint": "https://api.example.com/v1",
+                "apiKey": "********",
+                "provider": "custom_openai",
+                "index": 0,
+                "model_id": "ro-model",
+                "stage": "full",
+            },
+        )
+    assert res.status_code == 200, res.text
+
+    after = json.dumps(vars(runtime), sort_keys=True, default=str)
+    assert after == before, "probe 不得改变运行态字段"
+    # danmu_app.config 是真实 ConfigStore，因此父 mock 不应记录到任何调用：
+    # probe 路径完全没有触碰 DanmuApp 自身的方法/属性。
+    assert danmu_app.mock_calls == [], f"probe 不应调用 DanmuApp 方法：{danmu_app.mock_calls}"
+    for name in (
+        "_on_ai_reply",
+        "_trigger_api_call",
+        "enqueue_reply_batch_for_pipeline",
+        "display_danmu_text",
+        "publish_live_status",
+        "broadcast_live_overlay_item",
+        "record_undisplayed",
+        "update_stats_from_pipeline",
+        "probe_api_connection",
+    ):
+        assert getattr(danmu_app, name).call_count == 0, name
+
+
+def test_custom_model_probe_returns_profile_id_binding(tmp_path):
+    """探活结果携带触发时的 profile_id，供 UI 使旧结果失效。"""
+    from app.web_api.routes import register_web_routes
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    app = FastAPI()
+    bridge = MagicMock()
+    bridge.invoke_on_main.side_effect = lambda fn, *args, **kwargs: fn(*args, **kwargs)
+    config = ConfigStore(db_path=tmp_path / "probe-binding.db")
+    danmu_app = SimpleNamespace(config=config, config_changed=MagicMock())
+    bridge.danmu_app = danmu_app
+
+    def _check_token(_authorization: str | None = None) -> None:
+        return None
+
+    register_web_routes(app, bridge, _check_token)
+    client = TestClient(app, raise_server_exceptions=False)
+
+    client.post(
+        "/api/custom-models",
+        json={
+            "name": "Bind",
+            "model_ids": ["bind-model"],
+            "default_model_id": "bind-model",
+            "mode": "openai",
+            "endpoint": "https://api.example.com/v1",
+            "apiKey": "sk-bind-key",
+            "provider": "custom_openai",
+        },
+    )
+    profile_id = config.get_custom_models()[0]["profile_id"]
+    assert profile_id
+    with patch("app.api_probe.probe_connection") as mock_probe:
+        mock_probe.return_value.to_dict.return_value = {"ok": True, "message": "ok"}
+        res = client.post(
+            "/api/custom-models/probe",
+            json={
+                "name": "Bind",
+                "model_ids": ["bind-model"],
+                "default_model_id": "bind-model",
+                "mode": "openai",
+                "endpoint": "https://api.example.com/v1",
+                "apiKey": "********",
+                "provider": "custom_openai",
+                "index": 0,
+                "model_id": "bind-model",
+                "stage": "full",
+            },
+        )
+    assert res.status_code == 200, res.text
+    assert res.json()["profile_id"] == profile_id
+
+
+def test_model_modal_probe_stage_contract_sources():
+    """前端默认执行完整阶段链，并逐项渲染阶段状态（源码静态合同）。"""
+    src = SETTINGS_MODEL_MODAL_PROBE_JS.read_text(encoding="utf-8")
+    assert 'stage: "full"' in src
+    assert "MODEL_PROBE_STAGE_ORDER" in src
+    for stage in ("local", "auth_model", "text", "vision_stream", "business_parse"):
+        assert f'"{stage}"' in src
+    assert "renderProbeStages" in src
+    assert 'result.ok && result.complete' in src
+    assert "完整视觉链路可用" in src
+    assert "文本连接可用_完整视觉链路未通过" in src
+    # 取消（AbortError）不得渲染为 provider 失败
+    assert 'error?.name === "AbortError"' in src
+    modals = MODALS_HTML.read_text(encoding="utf-8")
+    assert 'id="modelProbeStages"' in modals
