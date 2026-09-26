@@ -266,8 +266,8 @@ def test_persona_page_displays_first_model_for_unbound_persona():
     assert "dynamic.appPersonaTopicPage.需重新选择模型" in source
     assert "bindingInvalid" in source
     # 绑定请求携带 profile_id + 上游 model_id
-    assert "profile_id: profileId," in source
-    assert "model_id: option ? option.modelId : ''," in source
+    assert "profile_id: desiredProfileId," in source
+    assert "model_id: desiredModelId," in source
 
 
 def test_config_store_clears_retired_global_model_keys_on_restart(tmp_path):

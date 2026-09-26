@@ -1,6 +1,10 @@
 # Build DanmuAI Windows folder distribution (PyInstaller onedir).
-# Requires: a usable Python 3.12+ environment with PyInstaller installed.
+# Requires: a usable 64-bit Python 3.12 environment with PyInstaller installed.
 # Output: dist/<WINDOWS_DIST_DIR>/<WINDOWS_EXE_NAME> (see app.packaging_constants)
+
+param(
+    [switch]$AllowUnlockedBuild
+)
 
 $ErrorActionPreference = "Stop"
 $OutputEncoding = [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -9,11 +13,12 @@ Set-Location $Root
 
 . (Join-Path $PSScriptRoot "resolve_build_python.ps1")
 . (Join-Path $PSScriptRoot "version_parse.ps1")
+. (Join-Path $PSScriptRoot "verify_release_lock.ps1")
 $packagingPaths = Get-PackagingDistPaths -Root $Root
 $distDirName = $packagingPaths.DistDir
 $exeName = $packagingPaths.ExeName
 
-$PythonCmd = Resolve-BuildPythonCommand -Root $Root
+$PythonCmd = Assert-BuildPython -Root $Root
 Write-Host "Using Python: $($PythonCmd.Label) => $($PythonCmd.Path)"
 if ($PythonCmd.Path -ne "py" -and $PythonCmd.Path -ne "python") {
     $PythonPrefix = Split-Path -Parent $PythonCmd.Path
@@ -55,11 +60,17 @@ Original error: $($_.Exception.Message)
     }
 }
 
-$useReleaseLock = $env:DANMU_BUILD_USE_RELEASE_LOCK -eq "1"
+$useReleaseLock = -not $AllowUnlockedBuild
 $reqFiles = if ($useReleaseLock) {
     @("-r", "requirements-release-win-lock.txt")
 } else {
     @("-r", "requirements.txt", "-r", "requirements-dev.txt")
+}
+
+if ($AllowUnlockedBuild) {
+    Write-Warning "Unlocked build explicitly selected (-AllowUnlockedBuild); floating requirements will be used."
+} else {
+    Assert-ReleaseLockFile -ProjectRoot $Root
 }
 
 # Lock mode always installs so pre-provisioned .venv-build matches the pinned baseline.
@@ -71,7 +82,7 @@ if (-not $shouldInstall) {
     Write-Host "Skipping pip install for pre-provisioned build Python."
 } else {
     if ($useReleaseLock) {
-        Write-Host "Installing release lock deps (DANMU_BUILD_USE_RELEASE_LOCK=1)..."
+        Write-Host "Installing release lock dependencies..."
     } else {
         Write-Host "Installing build deps..."
     }
@@ -79,6 +90,10 @@ if (-not $shouldInstall) {
     if ($LASTEXITCODE -ne 0) {
         Write-Error "pip install failed with exit code $LASTEXITCODE"
     }
+}
+
+if ($useReleaseLock) {
+    Assert-ReleaseDependencyLock -ProjectRoot $Root -PythonCmd $PythonCmd
 }
 
 Stop-DanmuAiProcesses

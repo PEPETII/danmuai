@@ -8,6 +8,7 @@ from app.application.generation_pipeline_state import GenerationPipelineState
 from app.application.stats_state import StatsState
 from app.application.web_runtime_state import WebRuntimeState
 from app.web_console import WebConsoleBridge
+from app.web_console_support import WebStatusSnapshot
 from main import DanmuApp
 
 from tests.fakes import FakeConfig
@@ -22,6 +23,12 @@ def test_refresh_status_uses_public_status_snapshot():
     assert len(status.session_runs) == 1
     assert status.session_runs[0]["model"] == "gpt-test"
     bridge.danmu_app.build_status_snapshot.assert_called_once()
+
+
+def test_web_status_snapshot_accepts_request_context_projection():
+    snapshot = WebStatusSnapshot(request_context={"model_id": "gpt-test"})
+
+    assert snapshot.request_context == {"model_id": "gpt-test"}
 
 
 def test_build_status_snapshot_delegates_to_builder(monkeypatch):

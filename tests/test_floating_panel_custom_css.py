@@ -67,15 +67,87 @@ def test_import_rejects_unsafe_or_non_css_names(tmp_path, name):
 @pytest.mark.parametrize(
     "css",
     [
-        "@import url('https://example.com/theme.css');",
-        ".card { background: url(http://example.com/a.png); }",
-        ".card { background: javascript:alert(1); }",
+        pytest.param("@import url('https://example.com/theme.css');", id="import"),
+        pytest.param("@IMPORT url('//example.com/theme.css');", id="import-uppercase"),
+        pytest.param("@ import url('//example.com/theme.css');", id="import-whitespace"),
+        pytest.param("@/**/import url('//example.com/theme.css');", id="import-comment"),
+        pytest.param(r"@im\70 ort url('//example.com/theme.css');", id="import-escape"),
+        pytest.param("/* @import url('//example.com/theme.css'); */", id="import-in-comment"),
+        pytest.param(".card { background: url(http://example.com/a.png); }", id="http"),
+        pytest.param(".card { background: url(HTTPS://example.com/a.png); }", id="https-uppercase"),
+        pytest.param(".card { background: url( ' https://example.com/a.png ' ); }", id="https-quoted-space"),
+        pytest.param(".card { background: url(//example.com/a.png); }", id="protocol-relative"),
+        pytest.param(".card { background: url(' //example.com/a.png '); }", id="protocol-relative-quoted-space"),
+        pytest.param(".card { background: URL( \t\n //EXAMPLE.com/a.png ); }", id="protocol-relative-whitespace"),
+        pytest.param(".card { background: url(/* comment */ //example.com/a.png); }", id="protocol-relative-comment"),
+        pytest.param(".card { background: url(/* comment */https://example.com/a.png); }", id="scheme-comment"),
+        pytest.param(r".card { background: url(h/**/ttps://example.com/a.png); }", id="scheme-comment-inside"),
+        pytest.param(r".card { background: url(http/**/://example.com/a.png); }", id="colon-comment"),
+        pytest.param(r".card { background: url(\68 ttps://example.com/a.png); }", id="scheme-escape"),
+        pytest.param(r".card { background: url(http\3a//example.com/a.png); }", id="colon-escape"),
+        pytest.param(r".card { background: url(\2f \2f example.com/a.png); }", id="protocol-relative-escape"),
+        pytest.param(".card { background: url(https:\n//example.com/a.png); }", id="scheme-control-newline"),
+        pytest.param(".card { background: url(\x00https://example.com/a.png); }", id="nul"),
+        pytest.param(".card { background: url(javascript:alert(1)); }", id="javascript"),
+        pytest.param(r".card { background: url(java\73 cript:alert(1)); }", id="javascript-escape"),
         "   ",
     ],
 )
 def test_css_content_is_validated_before_storage(css):
     with pytest.raises(ValueError):
         validate_custom_css_text(css)
+
+
+@pytest.mark.parametrize(
+    "css",
+    [
+        ".card { color: red; }",
+        ".card { background: url(/static/example.png); }",
+        ".card::before { content: 'https://example.com'; }",
+        "/* local comment */ .card { color: red; }",
+        ".card { background: url(data:image/png;base64,AAAA); }",
+    ],
+)
+def test_local_css_content_remains_allowed_and_is_preserved(css):
+    assert validate_custom_css_text(css) == css
+
+
+@pytest.mark.parametrize(
+    "css",
+    [
+        pytest.param(".card { background: url(//example.com/a.png); }", id="protocol-relative"),
+        pytest.param(r".card { background: url(\68 ttps://example.com/a.png); }", id="scheme-escape"),
+        pytest.param(".card { background: url(\x00https://example.com/a.png); }", id="nul"),
+    ],
+)
+def test_rejected_css_is_not_written(tmp_path, css):
+    store = ConfigStore(db_path=tmp_path / "config.db")
+
+    with pytest.raises(ValueError):
+        import_custom_css_bytes(store, css.encode("utf-8"), "blocked.css")
+
+    css_dir = custom_css_dir_for_config(store)
+    assert not css_dir.exists()
+
+
+def test_existing_malicious_css_is_rejected_and_selection_fails_closed(tmp_path):
+    store = ConfigStore(db_path=tmp_path / "config.db")
+    css_dir = custom_css_dir_for_config(store)
+    css_dir.mkdir(parents=True)
+    (css_dir / "blocked.css").write_text(
+        ".card { background: url(/* comment */ //example.com/a.png); }",
+        encoding="utf-8",
+    )
+    store.set_batch(
+        {
+            "floating_panel_style_preset": "custom_css",
+            "floating_panel_custom_css_file": "blocked.css",
+        }
+    )
+
+    with pytest.raises(ValueError):
+        read_custom_css(store, "blocked.css")
+    assert selected_custom_css_text(store) == ""
 
 
 def test_custom_css_selection_is_separate_from_manual_custom(tmp_path):

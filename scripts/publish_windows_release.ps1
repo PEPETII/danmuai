@@ -14,6 +14,7 @@ Set-Location $Root
 
 . (Join-Path $PSScriptRoot "resolve_build_python.ps1")
 . (Join-Path $PSScriptRoot "version_parse.ps1")
+. (Join-Path $PSScriptRoot "verify_release_lock.ps1")
 
 # Guard: any file containing 'supabase-config' (except allowlist) contains credentials
 # and must not be packaged. Default-deny (BUG-005): the previous -Filter "supabase-config.js.*"
@@ -63,10 +64,13 @@ function Get-AppVersion {
 }
 
 $appVersion = Get-AppVersion
+Assert-ReleaseLockFile -ProjectRoot $Root
 
 if ($DryRun) {
     Write-Host "[DryRun] App version: $appVersion"
+    Assert-ReleaseDependencyLock -ProjectRoot $Root -PythonCmd $BuildPython
     Write-Host "[DryRun] Supabase guard passed. Skipping build/pack."
+    Write-Host "[DryRun] Release lock/Python preflight passed. No build, pack, or network operation was run."
     exit 0
 }
 

@@ -15,6 +15,140 @@ let templateLoadController = null;
 let toast = () => {};
 let handlersBound = false;
 
+// P2-08：模型绑定是独立于模板加载代际的资源。每个人格维护自己的串行队列，
+// 使 row 与 bulk 写入不能交错覆盖；confirmed 值只代表最后一次服务端确认结果。
+const personaBindingCoordinators = new Map();
+
+function getPersonaBindingCoordinator(personaId) {
+  const key = String(personaId || '');
+  let coordinator = personaBindingCoordinators.get(key);
+  if (!coordinator) {
+    coordinator = {
+      queue: Promise.resolve(),
+      nextOperationId: 0,
+      latestOperationId: 0,
+      pendingCount: 0,
+      initialized: false,
+      confirmedProfileId: '',
+      confirmedModelId: '',
+      currentView: null,
+    };
+    personaBindingCoordinators.set(key, coordinator);
+  }
+  return coordinator;
+}
+
+function normalizeBindingPart(value) {
+  return String(value || '').trim();
+}
+
+function syncPersonaBindingConfirmation(coordinator, item) {
+  if (coordinator.pendingCount > 0) return;
+  coordinator.confirmedProfileId = normalizeBindingPart(item?.profile_id);
+  coordinator.confirmedModelId = normalizeBindingPart(item?.model_id);
+  coordinator.initialized = true;
+}
+
+function applyConfirmedBindingToView(coordinator, view) {
+  if (!view?.select) return;
+  // 未绑定时 UI 仍展示产品默认的首个档案；confirmedProfileId 保留真实绑定身份。
+  view.select.value = coordinator.confirmedProfileId || view.unboundProfileId || '';
+}
+
+function isBindingCommitUnknown(error) {
+  const status = Number(error?.status);
+  return !Number.isFinite(status) || status >= 500;
+}
+
+async function readPersonaBindingConfirmation(personaId) {
+  try {
+    const data = await personaFetch('/api/personae');
+    const item = (data?.items || []).find((entry) => entry?.id === personaId);
+    if (!item) return null;
+    return {
+      profileId: normalizeBindingPart(item.profile_id),
+      modelId: normalizeBindingPart(item.model_id),
+    };
+  } catch (_) {
+    return null;
+  }
+}
+
+function invalidatePersonaBindingViews() {
+  for (const coordinator of personaBindingCoordinators.values()) {
+    coordinator.currentView = null;
+  }
+}
+
+function enqueuePersonaBinding(personaId, profileId, modelId, options = {}) {
+  const coordinator = getPersonaBindingCoordinator(personaId);
+  const view = options.view || coordinator.currentView;
+  const notify = options.notify !== false;
+  const desiredProfileId = normalizeBindingPart(profileId);
+  const desiredModelId = normalizeBindingPart(modelId);
+  if (!coordinator.initialized) {
+    coordinator.confirmedProfileId = normalizeBindingPart(view?.select?.value);
+    coordinator.confirmedModelId = '';
+    coordinator.initialized = true;
+  }
+
+  const operationId = ++coordinator.nextOperationId;
+  coordinator.latestOperationId = operationId;
+  coordinator.pendingCount += 1;
+
+  const isCurrentOperation = () =>
+    coordinator.latestOperationId === operationId && coordinator.currentView === view;
+
+  const run = async () => {
+    try {
+      await apiFetch(`/api/personae/${enc(personaId)}/model`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          profile_id: desiredProfileId,
+          model_id: desiredModelId,
+        }),
+      });
+      coordinator.confirmedProfileId = desiredProfileId;
+      coordinator.confirmedModelId = desiredModelId;
+      if (isCurrentOperation()) {
+        if (view?.select) view.select.value = desiredProfileId || view.unboundProfileId || '';
+        view?.clearBindingWarning?.();
+        if (notify) {
+          showToast(
+            desiredProfileId
+              ? t('dynamic.appPersonaTopicPage.模型已绑定')
+              : t('dynamic.appPersonaTopicPage.已清除绑定'),
+          );
+        }
+      }
+      return { ok: true, operationId };
+    } catch (error) {
+      let stateKnown = true;
+      if (isBindingCommitUnknown(error)) {
+        const confirmed = await readPersonaBindingConfirmation(personaId);
+        if (confirmed) {
+          coordinator.confirmedProfileId = confirmed.profileId;
+          coordinator.confirmedModelId = confirmed.modelId;
+        } else {
+          // 未能确认服务端是否已经提交：不要把本地值伪装成回滚事实。
+          stateKnown = false;
+        }
+      }
+      if (isCurrentOperation()) {
+        if (stateKnown) applyConfirmedBindingToView(coordinator, view);
+        if (notify) showToast(error.message, true);
+      }
+      return { ok: false, error, operationId, stateKnown };
+    } finally {
+      coordinator.pendingCount -= 1;
+    }
+  };
+
+  const task = coordinator.queue.then(run, run);
+  coordinator.queue = task.then(() => undefined, () => undefined);
+  return task;
+}
+
 function showToast(message, isError = false) {
   toast(message, isError);
 }
@@ -119,7 +253,8 @@ async function deletePersonaByName(name) {
   }
 }
 
-async function loadPersonaeCheckboxes(containerId) {
+export async function loadPersonaeCheckboxes(containerId) {
+  invalidatePersonaBindingViews();
   const data = await personaFetch('/api/personae');
   const box = document.getElementById(containerId);
   if (!box) return data;
@@ -209,7 +344,6 @@ async function loadPersonaeCheckboxes(containerId) {
       // ok/unbound 下绑定值不在选项（档案已切换）时仍回退首个完整档案。
       if (select.value !== effectiveProfileId) select.value = firstProfileId;
     }
-    let lastBindingValue = select.value;
     let bindingWarn = null;
     const clearBindingWarning = () => {
       if (bindingWarn) {
@@ -217,23 +351,19 @@ async function loadPersonaeCheckboxes(containerId) {
         bindingWarn = null;
       }
     };
-    const applyBinding = async (profileId) => {
+    const coordinator = getPersonaBindingCoordinator(item.id);
+    syncPersonaBindingConfirmation(coordinator, item);
+    const bindingView = {
+      select,
+      unboundProfileId: firstProfileId,
+      clearBindingWarning,
+    };
+    coordinator.currentView = bindingView;
+    const applyBinding = (profileId) => {
       const option = modelOptions.find((entry) => entry.profileId === profileId);
-      try {
-        await apiFetch(`/api/personae/${enc(item.id)}/model`, {
-          method: 'PUT',
-          body: JSON.stringify({
-            profile_id: profileId,
-            model_id: option ? option.modelId : '',
-          }),
-        });
-        lastBindingValue = profileId;
-        clearBindingWarning();
-        showToast(profileId ? t('dynamic.appPersonaTopicPage.模型已绑定') : t('dynamic.appPersonaTopicPage.已清除绑定'));
-      } catch (error) {
-        select.value = lastBindingValue;
-        showToast(error.message, true);
-      }
+      return enqueuePersonaBinding(item.id, profileId, option ? option.modelId : '', {
+        view: bindingView,
+      });
     };
     select.addEventListener('change', () => {
       applyBinding(select.value);
@@ -284,24 +414,26 @@ function closePersonaBulkModelModal() {
   deactivateFocusTrap();
 }
 
-async function applyBulkPersonaModel(profileId, modelId) {
+export async function applyBulkPersonaModel(profileId, modelId) {
   const pid = String(profileId || '').trim();
-  if (!pid) return;
+  if (!pid) return { total: 0, failed: [] };
   const mid = String(modelId || '').trim();
   const data = await personaFetch('/api/personae');
   const personaIds = (data?.items || []).map((item) => item.id).filter(Boolean);
-  if (!personaIds.length) return;
-  await Promise.all(
+  if (!personaIds.length) return { total: 0, failed: [] };
+  const results = await Promise.all(
     personaIds.map((personaId) =>
-      apiFetch(`/api/personae/${enc(personaId)}/model`, {
-        method: 'PUT',
-        body: JSON.stringify({ profile_id: pid, model_id: mid }),
+      enqueuePersonaBinding(personaId, pid, mid, {
+        view: getPersonaBindingCoordinator(personaId).currentView,
+        notify: false,
       }),
     ),
   );
   await loadPersonaeCheckboxes('personaActiveList');
-  showToast(t('dynamic.appPersonaTopicPage.已一键切换_n_个人格模型', { count: personaIds.length }));
-  showPersonaPageStatus(t('dynamic.appPersonaTopicPage.已一键切换_n_个人格模型', { count: personaIds.length }));
+  return {
+    total: personaIds.length,
+    failed: results.filter((result) => !result.ok),
+  };
 }
 
 async function openPersonaBulkModelModal() {
@@ -358,7 +490,16 @@ async function openPersonaBulkModelModal() {
     row.addEventListener('click', async () => {
       closePersonaBulkModelModal();
       try {
-        await applyBulkPersonaModel(profileId, modelId);
+        const result = await applyBulkPersonaModel(profileId, modelId);
+        if (result.failed.length) {
+          const firstError = result.failed.find((entry) => entry.error)?.error;
+          const message = firstError?.message || t('dynamic.appPersonaTopicPage.一键切换失败');
+          showToast(message, true);
+          showPersonaPageStatus(message, true);
+          return;
+        }
+        showToast(t('dynamic.appPersonaTopicPage.已一键切换_n_个人格模型', { count: result.total }));
+        showPersonaPageStatus(t('dynamic.appPersonaTopicPage.已一键切换_n_个人格模型', { count: result.total }));
       } catch (error) {
         showToast(error.message || t('dynamic.appPersonaTopicPage.一键切换失败'), true);
         showPersonaPageStatus(error.message || t('dynamic.appPersonaTopicPage.一键切换失败'), true);

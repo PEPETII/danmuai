@@ -89,7 +89,17 @@ class KnowledgeContextAdapter:
                 logger.debug("virtual host note_scene_generation failed: %r", exc)
 
         try:
-            if self.retriever is not None:
+            prepare_injection = getattr(runtime, "prepare_visual_prompt_injection", None)
+            if callable(prepare_injection):
+                raw_result = prepare_injection(
+                    scene_brief=query.scene_brief or input_text[:200],
+                    keywords=list(query.keywords),
+                    request_round=turn_id,
+                    screenshot_id=_safe_int(source_screenshot_id),
+                    scene_tags=list(query.scene_tags),
+                    scene_generation=source_generation,
+                )
+            elif self.retriever is not None:
                 raw_result = self.retriever.retrieve(
                     scene_brief=query.scene_brief or input_text[:200],
                     keywords=list(query.keywords),

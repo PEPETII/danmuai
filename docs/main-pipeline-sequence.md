@@ -2,6 +2,38 @@
 
 主链路、线程池与 Qt 信号回主线程的调度登记。
 
+## Knowledge import and quit drain (P2-13)
+
+HTTP import admission uses the route-adapter owner and then submits to the
+single `knowledge-import` owner. During application quit, route/import
+admission changes from `accepting` to `draining`; route queued calls are
+cancelled and import jobs receive cooperative cancellation Events. The Qt
+main thread does not call an unbounded executor wait. It observes
+`KnowledgeRuntimeService.poll_shutdown()` on a short `QTimer` until either:
+
+1. route, import, and retrieval Future sets are empty, then close
+   `route executor -> import executor -> retrieval executor -> knowledge.db` once;
+2. the monotonic deadline is reached, then enter `timeout`, keep still-used workers and DB open, and defer process exit until a later drain observation.
+
+The route owner here is only the import API adapter. Retrieval and
+`mark_items_used` have a separate `knowledge-retrieval` owner; this drain does
+not reuse either route or import executor.
+
+## Knowledge retrieval prefetch and usage writes (P2-14)
+
+Before a visual or microphone request is dispatched, the Qt thread only builds
+the semantic query and checks a completed in-memory result. A dedicated
+single-worker retrieval owner performs SQLite retrieval and usage-count writes.
+The first request with a new semantic key continues with no knowledge while the
+worker prefetches; a later request may use the result only when its scene
+generation is still current. Every worker publication and count write has a
+monotonic deadline; late results are discarded and never enter a newer scene.
+
+Reply-consumption count updates are queued to the same owner. Knowledge preview
+uses that owner from the HTTP thread with a bounded wait and no `invoke_main`
+call. The retrieval Future set is included in the quit drain before
+`knowledge.db` closes.
+
 ## 主链路 start 幂等门禁（P1-04）
 
 `DanmuApp.start()` 在 Qt 主线程执行，其第一项业务门禁是主线程运行态检查

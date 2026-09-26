@@ -104,6 +104,7 @@ class WebStatusSnapshot:
     uses_custom_credentials: bool = False
     model_source: str = "unknown"
     provider_model_mismatch: bool = False
+    request_context: dict[str, Any] = field(default_factory=dict)
     capture_mode: str = "screen"
     capture_window_hwnd: int = 0
     capture_region_mode: str = "full"

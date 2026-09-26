@@ -6,8 +6,26 @@ import pytest
 from app.web_console import (
     WebConsoleBridge,
 )
+from app.web_console_ws import _WS_MAX_AUTH_TOKEN_LENGTH
 
 from tests.web_console_helpers import build_ws_logs_test_app, build_ws_status_test_app
+
+_WS_ENDPOINT_CASES = (
+    ("/ws/status", "register_status_consumer", "unregister_status_consumer"),
+    ("/ws/logs", "register_log_consumer", "unregister_log_consumer"),
+    ("/ws/mic-logs", "register_mic_log_consumer", "unregister_mic_log_consumer"),
+    ("/ws/panel", "register_panel_consumer", "unregister_panel_consumer"),
+)
+
+_INVALID_FIRST_FRAME_TOKENS = (
+    pytest.param(None, id="null"),
+    pytest.param({"nested": "object"}, id="object"),
+    pytest.param(["array"], id="array"),
+    pytest.param(123, id="number"),
+    pytest.param(True, id="bool"),
+    pytest.param("x" * (_WS_MAX_AUTH_TOKEN_LENGTH + 1), id="overlong-string"),
+    pytest.param("wrong-token", id="wrong-string"),
+)
 
 
 def test_ws_status_websocket_accepts_valid_token_and_sends_status():
@@ -66,6 +84,7 @@ def test_ws_status_websocket_accepts_first_message_auth():
 
 def test_ws_status_websocket_rejects_invalid_token_with_1008():
     from fastapi.testclient import TestClient
+    from starlette.websockets import WebSocketDisconnect
 
     token = "ws-test-token-valid"
     bridge = MagicMock()
@@ -77,8 +96,74 @@ def test_ws_status_websocket_rejects_invalid_token_with_1008():
     with client.websocket_connect("/ws/status?ws_token=invalid-token") as ws:
         resp = ws.receive_json()
         assert resp == {"type": "auth", "ok": False, "error": "认证失败"}
+        with pytest.raises(WebSocketDisconnect) as exc_info:
+            ws.receive_json()
+        assert exc_info.value.code == 1008
+        assert exc_info.value.reason == "认证失败"
 
     bridge.register_status_consumer.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("path", "register_name", "unregister_name"), _WS_ENDPOINT_CASES
+)
+@pytest.mark.parametrize("auth_token", _INVALID_FIRST_FRAME_TOKENS)
+def test_ws_all_endpoints_reject_invalid_first_frame_token_types(
+    path, register_name, unregister_name, auth_token, caplog
+):
+    """P2-11: every WS auth gate rejects non-string/overlong tokens uniformly."""
+    from fastapi.testclient import TestClient
+    from starlette.websockets import WebSocketDisconnect
+
+    expected_token = "ws-test-token-valid"
+    bridge = MagicMock()
+    bridge._last_status_payload = {"running": False}
+    app = build_ws_status_test_app(bridge, expected_token)
+    client = TestClient(app)
+
+    with caplog.at_level("DEBUG", logger="app.web_console_ws"):
+        with client.websocket_connect(path) as ws:
+            ws.send_json({"type": "auth", "token": auth_token})
+            response = ws.receive_json()
+            assert response == {"type": "auth", "ok": False, "error": "认证失败"}
+            with pytest.raises(WebSocketDisconnect) as exc_info:
+                ws.receive_json()
+
+    assert exc_info.value.code == 1008
+    assert exc_info.value.reason == "认证失败"
+    getattr(bridge, register_name).assert_not_called()
+    getattr(bridge, unregister_name).assert_not_called()
+    if isinstance(auth_token, str):
+        assert auth_token not in repr(response)
+        assert auth_token not in exc_info.value.reason
+        assert auth_token not in caplog.text
+
+
+def test_ws_auth_failure_closes_when_failure_frame_send_times_out(monkeypatch):
+    """P2-11: a failed auth response must still attempt the 1008 close."""
+    import asyncio
+
+    from app.web_console_ws import _authenticate_websocket
+
+    class _WebSocket:
+        query_params = {}
+
+        def __init__(self):
+            self.closed = []
+
+        async def receive_json(self):
+            return {"type": "auth", "token": "wrong-token"}
+
+        async def close(self, *, code, reason):
+            self.closed.append((code, reason))
+
+    async def _failed_send(*_args, **_kwargs):
+        return False
+
+    monkeypatch.setattr("app.web_console_ws._send_json_with_timeout", _failed_send)
+    websocket = _WebSocket()
+    assert asyncio.run(_authenticate_websocket(websocket, "expected-token")) is False
+    assert websocket.closed == [(1008, "认证失败")]
 
 
 def test_ws_status_websocket_rejects_missing_token_with_1008():
@@ -91,10 +176,12 @@ def test_ws_status_websocket_rejects_missing_token_with_1008():
     app = build_ws_status_test_app(bridge, token)
     client = TestClient(app)
 
-    with pytest.raises(WebSocketDisconnect) as exc_info:
-        with client.websocket_connect("/ws/status"):
-            # 不发送认证消息，应该超时关闭
-            pass
+    with client.websocket_connect("/ws/status") as ws:
+        assert ws.receive_json() == {"type": "auth", "ok": False, "error": "认证超时"}
+        with pytest.raises(WebSocketDisconnect) as exc_info:
+            ws.receive_json()
+        assert exc_info.value.code == 1008
+        assert exc_info.value.reason == "认证超时"
 
     bridge.register_status_consumer.assert_not_called()
 

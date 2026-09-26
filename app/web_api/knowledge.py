@@ -395,6 +395,9 @@ def preview_retrieval(
         return {"error": "not_initialized"}
     if bool(getattr(runtime, "_closing", False)):
         return {"error": "runtime_unavailable"}
+    runtime_preview = getattr(runtime, "preview_retrieval", None)
+    if callable(runtime_preview):
+        return runtime_preview(payload)
     retriever = getattr(runtime, "retriever", None)
     if retriever is None:
         return {"error": "retriever_not_ready"}

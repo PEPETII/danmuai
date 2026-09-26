@@ -25,9 +25,11 @@ Windows 发布包（PyInstaller onedir，`DanmuAI.spec`）。
 
 ```powershell
 .\scripts\build_exe.ps1
+# 仅开发用途：显式允许浮动 requirements
+.\scripts\build_exe.ps1 -AllowUnlockedBuild
 ```
 
-输出 `dist\DanmuAI\DanmuAI.exe`。完整说明见 [docs/operations/PACKAGING_WINDOWS.md](../docs/operations/PACKAGING_WINDOWS.md)。构建前由发布脚本检查带凭据的 `supabase-config*` 文件，默认不允许打包。
+默认构建使用 `requirements-release-win-lock.txt`，并在 PyInstaller 前验证 Python 3.12 x64、已安装包版本和 `pip check`。`-AllowUnlockedBuild` 只能用于明确的开发构建。输出 `dist\DanmuAI\DanmuAI.exe`。完整说明见 [docs/operations/PACKAGING_WINDOWS.md](../docs/operations/PACKAGING_WINDOWS.md)。构建前由发布脚本检查带凭据的 `supabase-config*` 文件，默认不允许打包。
 
 ## `velopack_poc.ps1` / `velopack_pack.ps1`
 
@@ -44,8 +46,10 @@ Velopack 打包（需 .NET SDK + `dotnet tool install -g vpk`）：
 
 ```powershell
 .\scripts\publish_windows_release.ps1
-.\scripts\publish_windows_release.ps1 -DryRun   # version parse + Supabase guard only (no build)
+.\scripts\publish_windows_release.ps1 -DryRun   # lock/Python/dependency preflight only (no build/network)
 ```
+
+`publish_windows_release.ps1` 默认强制 release lock；DryRun 会失败于缺失或漂移的锁环境，不生成产物，也不访问 stable feed。
 
 | 输出 | 说明 |
 |------|------|
@@ -99,9 +103,9 @@ R2 为正式更新与主下载源（Setup.exe 为主入口）；不得改回 COS
 
 前者检查本地 Setup、Full、Delta（如有）、Portable 根目录和 `releases.win.json` 的版本一致性，并拒绝 MSI；后者生成或核对 `SHA256SUMS.txt`。两者都只操作本地 `release\velopack`，不能证明线上 alias 已切换。
 
-## `sign_windows_release.ps1` / `resolve_build_python.ps1`
+## `verify_release_lock.ps1` / `sign_windows_release.ps1` / `resolve_build_python.ps1`
 
-`sign_windows_release.ps1 -VerifyOnly` 只验证已有 Setup 的 Authenticode 签名；签名默认关闭，配置由环境变量传给 `velopack_pack.ps1`。`resolve_build_python.ps1` 为各发布脚本选择 `.venv-build`、`.venv-build-312` 或显式 `DANMU_BUILD_PYTHON`，不要把凭据写入脚本。
+`verify_release_lock.ps1` 只读验证 Python 3.12 x64、release lock 精确版本、已安装包漂移和 `pip check`。`sign_windows_release.ps1 -VerifyOnly` 只验证已有 Setup 的 Authenticode 签名；签名默认关闭，配置由环境变量传给 `velopack_pack.ps1`。`resolve_build_python.ps1` 为各发布脚本选择 `.venv-build`、`.venv-build-312`、显式 `DANMU_BUILD_PYTHON` 或系统 Python launcher，并验证发布解释器兼容性；不要把凭据写入脚本。
 
 ## `bench_jpeg_quality.py`
 

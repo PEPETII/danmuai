@@ -16,15 +16,17 @@
 
 边界约束（AGENTS.md §9.4 / §9.8）：
 - 不在 HTTP 线程读 DanmuApp 私有字段；
-- 不引入 QTimer / QThreadPool（检索由主线程调用）；
+- 不引入 Qt timer/thread；独立 `knowledge-retrieval` executor 负责检索与计数写入；
 - 所有写经 ``KnowledgeRepository`` / ``ImportOrchestrator``；
-- ``retriever`` 仅主线程访问。
+- Qt 主线程只读取完成的内存结果，不直接访问 ``retriever`` 或 SQLite。
 """
 from __future__ import annotations
 
 import logging
 import re
+import threading
 import time
+from concurrent.futures import Future, ThreadPoolExecutor, TimeoutError
 from typing import TYPE_CHECKING, Any
 
 from app.knowledge.models import (
@@ -241,7 +243,7 @@ def build_knowledge_scene_context(
 
 
 class KnowledgeRuntimeService:
-    """知识包运行时服务（异常隔离、主线程访问检索器）。"""
+    """知识包运行时服务（主线程只做内存组装，检索由专用 worker 负责）。"""
 
     def __init__(self, app: "DanmuApp") -> None:
         self._app = app
@@ -257,6 +259,23 @@ class KnowledgeRuntimeService:
         # 终止态：只有真正的应用退出（quit / 启动失败回收）才会置位。
         # 置位后 mount() 永久拒绝，避免已关闭的运行时被重新打开。
         self._closed = False
+        self._lifecycle_state = "accepting"
+        self._shutdown_deadline_at: float | None = None
+        self._close_finalized = False
+        self._lifecycle_lock = threading.RLock()
+        self._retrieval_executor = ThreadPoolExecutor(
+            max_workers=1,
+            thread_name_prefix="knowledge-retrieval",
+        )
+        self._retrieval_futures: set[Future] = set()
+        self._retrieval_lock = threading.RLock()
+        self._retrieval_accepting = True
+        self._retrieval_executor_closed = False
+        self._retrieval_drain_callback = None
+        self._retrieval_pending_keys: set[tuple[Any, ...]] = set()
+        self._retrieval_cache: dict[tuple[Any, ...], tuple[Any, float]] = {}
+        self._retrieval_scene_generation = 0
+        self._retrieval_deadline_sec = 0.25
         self._mount_result = self.mount()
 
     @property
@@ -276,6 +295,11 @@ class KnowledgeRuntimeService:
     def is_closed(self) -> bool:
         """True once the whole-application teardown finished closing this runtime."""
         return bool(getattr(self, "_closed", False))
+
+    @property
+    def lifecycle_state(self) -> str:
+        with self._lifecycle_lock:
+            return self._lifecycle_state
 
     def mount(self) -> bool:
         """挂载或重新挂载知识库运行时。
@@ -370,6 +394,9 @@ class KnowledgeRuntimeService:
             and self._cached_scene_generation != gen
         ):
             self._last_scene_context = None
+            with self._retrieval_lock:
+                self._retrieval_scene_generation = gen
+                self._retrieval_cache.clear()
         self._cached_scene_generation = gen
 
     def remember_scene_context(self, ctx: KnowledgeSceneContext) -> None:
@@ -411,6 +438,370 @@ class KnowledgeRuntimeService:
     # ------------------------------------------------------------------
     # prompt 注入
     # ------------------------------------------------------------------
+
+    def _retrieval_key(
+        self,
+        scene_brief: str,
+        keywords: list[str],
+        scene_tags: list[str],
+        scene_generation: int,
+        *,
+        purpose: str = "visual",
+    ) -> tuple[Any, ...]:
+        return (
+            purpose,
+            int(scene_generation or 0),
+            str(scene_brief or "").strip(),
+            tuple(str(value).strip() for value in keywords if str(value).strip()),
+            tuple(str(value).strip() for value in scene_tags if str(value).strip()),
+        )
+
+    def _retrieval_future_done(self, future: Future) -> None:
+        callback = None
+        with self._retrieval_lock:
+            self._retrieval_futures.discard(future)
+            if not self._retrieval_futures:
+                callback = self._retrieval_drain_callback
+                self._retrieval_drain_callback = None
+        if callable(callback):
+            try:
+                callback()
+            except Exception:
+                logger.exception("knowledge retrieval drain callback failed")
+
+    def _submit_retrieval_job(self, fn, /, *args, **kwargs) -> Future | None:
+        with self._retrieval_lock:
+            if not self._retrieval_accepting or self._retrieval_executor_closed:
+                return None
+            try:
+                future = self._retrieval_executor.submit(fn, *args, **kwargs)
+            except RuntimeError:
+                return None
+            self._retrieval_futures.add(future)
+            future.add_done_callback(self._retrieval_future_done)
+            return future
+
+    def is_retrieval_drained(self) -> bool:
+        with self._retrieval_lock:
+            return not self._retrieval_futures
+
+    def _ensure_retrieval_state(self) -> None:
+        """为未经过 ``__init__`` 的测试/兼容对象补齐检索生命周期状态。"""
+        if not hasattr(self, "_retrieval_lock"):
+            self._retrieval_lock = threading.RLock()
+        if not hasattr(self, "_retrieval_executor"):
+            self._retrieval_executor = ThreadPoolExecutor(
+                max_workers=1,
+                thread_name_prefix="knowledge-retrieval",
+            )
+        if not hasattr(self, "_retrieval_futures"):
+            self._retrieval_futures = set()
+        if not hasattr(self, "_retrieval_accepting"):
+            self._retrieval_accepting = True
+        if not hasattr(self, "_retrieval_executor_closed"):
+            self._retrieval_executor_closed = False
+        if not hasattr(self, "_retrieval_drain_callback"):
+            self._retrieval_drain_callback = None
+        if not hasattr(self, "_retrieval_pending_keys"):
+            self._retrieval_pending_keys = set()
+        if not hasattr(self, "_retrieval_cache"):
+            self._retrieval_cache = {}
+        if not hasattr(self, "_retrieval_scene_generation"):
+            self._retrieval_scene_generation = 0
+        if not hasattr(self, "_retrieval_deadline_sec"):
+            self._retrieval_deadline_sec = 0.25
+
+    def _retrieval_query_worker(
+        self,
+        *,
+        key: tuple[Any, ...],
+        scene_brief: str,
+        keywords: list[str],
+        scene_tags: list[str],
+        request_round: int,
+        screenshot_id: int,
+        scene_generation: int,
+        deadline_at: float,
+        cache_result: bool = True,
+    ):
+        try:
+            retriever = self.retriever
+            if retriever is None:
+                return None
+            result = retriever.retrieve(
+                scene_brief=scene_brief,
+                keywords=keywords,
+                scene_tags=scene_tags,
+                max_items=4,
+                max_chars=360,
+                request_round=request_round,
+                screenshot_id=screenshot_id,
+            )
+            # Retrieval implementations cannot be force-killed. The deadline
+            # therefore gates publication and all later writes, not the Python
+            # call itself.
+            if time.monotonic() > deadline_at:
+                return None
+            with self._retrieval_lock:
+                current_generation = self._retrieval_scene_generation
+                accepting = self._retrieval_accepting
+                if cache_result and accepting and current_generation == int(scene_generation):
+                    self._retrieval_cache[key] = (result, time.monotonic())
+            return result
+        except Exception as exc:
+            logger.warning("knowledge retrieval worker failed: %r", exc)
+            return None
+        finally:
+            with self._retrieval_lock:
+                self._retrieval_pending_keys.discard(key)
+
+    def _queue_retrieval(
+        self,
+        *,
+        key: tuple[Any, ...],
+        scene_brief: str,
+        keywords: list[str],
+        scene_tags: list[str],
+        request_round: int,
+        screenshot_id: int,
+        scene_generation: int,
+        deadline_sec: float,
+        cache_result: bool = True,
+    ) -> Future | None:
+        with self._retrieval_lock:
+            if key in self._retrieval_pending_keys:
+                return None
+            self._retrieval_pending_keys.add(key)
+        future = self._submit_retrieval_job(
+            self._retrieval_query_worker,
+            key=key,
+            scene_brief=scene_brief,
+            keywords=keywords,
+            scene_tags=scene_tags,
+            request_round=request_round,
+            screenshot_id=screenshot_id,
+            scene_generation=scene_generation,
+            deadline_at=time.monotonic() + max(0.01, float(deadline_sec)),
+            cache_result=cache_result,
+        )
+        if future is None:
+            with self._retrieval_lock:
+                self._retrieval_pending_keys.discard(key)
+        return future
+
+    @staticmethod
+    def _injection_from_result(
+        result: Any,
+        *,
+        scene_brief: str,
+        keywords: list[str],
+        request_round: int,
+        screenshot_id: int,
+    ) -> KnowledgeInjectionResult | None:
+        if result is None:
+            return None
+        prompt_text = str(getattr(result, "prompt_text", "") or "")
+        items = list(getattr(result, "items", []) or [])
+        hit_count = int(getattr(result, "hit_count", 0) or 0)
+        retrieval_ms = int(getattr(result, "retrieval_ms", 0) or 0)
+        if not prompt_text or hit_count <= 0 or not items:
+            return None
+        item_ids: list[int] = []
+        public_ids: list[str] = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            try:
+                if item.get("id") is not None:
+                    item_ids.append(int(item["id"]))
+            except (TypeError, ValueError):
+                pass
+            public_id = item.get("public_id")
+            if isinstance(public_id, str) and public_id:
+                public_ids.append(public_id)
+        return KnowledgeInjectionResult(
+            prompt_text=prompt_text,
+            item_ids=tuple(item_ids),
+            public_ids=tuple(public_ids),
+            request_round=int(request_round or 0),
+            screenshot_id=int(screenshot_id or 0),
+            hit_count=hit_count,
+            retrieval_ms=retrieval_ms,
+            scene_brief=scene_brief,
+            keywords=tuple(keywords),
+        )
+
+    def _queue_injection_usage(
+        self,
+        injection: KnowledgeInjectionResult,
+        *,
+        contents: list[str],
+        scene_generation: int,
+        deadline_sec: float,
+    ) -> None:
+        deadline_at = time.monotonic() + max(0.01, float(deadline_sec))
+
+        def write_usage() -> None:
+            if time.monotonic() > deadline_at:
+                return
+            with self._retrieval_lock:
+                if not self._retrieval_accepting or self._retrieval_scene_generation != int(scene_generation):
+                    return
+            retriever = self.retriever
+            if retriever is None:
+                return
+            try:
+                retriever.set_last_injected(contents)
+                if injection.item_ids and time.monotonic() <= deadline_at:
+                    retriever.mark_items_used(list(injection.item_ids))
+            except Exception as exc:
+                logger.warning("knowledge injection usage write failed: %r", exc)
+
+        self._submit_retrieval_job(write_usage)
+
+    def prepare_visual_prompt_injection(
+        self,
+        scene_brief: str,
+        keywords: list[str],
+        *,
+        request_round: int,
+        screenshot_id: int,
+        scene_tags: list[str] | None = None,
+        scene_generation: int | None = None,
+        deadline_sec: float | None = None,
+    ) -> KnowledgeInjectionResult | None:
+        """Return only a completed cache hit; queue retrieval without blocking Qt."""
+        brief = str(scene_brief or "").strip()
+        kw_list = [str(value).strip() for value in (keywords or []) if str(value or "").strip()]
+        tag_list = [str(value).strip() for value in (scene_tags or []) if str(value or "").strip()]
+        if not brief and not kw_list:
+            self.set_retrieval_diagnostic("empty_query")
+            return None
+        generation = int(
+            self._cached_scene_generation if scene_generation is None else scene_generation
+        )
+        with self._retrieval_lock:
+            self._retrieval_scene_generation = generation
+        key = self._retrieval_key(brief, kw_list, tag_list, generation)
+        now = time.monotonic()
+        result = None
+        cache_available = False
+        with self._retrieval_lock:
+            entry = self._retrieval_cache.get(key)
+            if entry is not None and now - entry[1] <= SCENE_CONTEXT_REUSE_MAX_AGE_SEC:
+                cache_available = True
+                result = entry[0]
+            elif entry is not None:
+                self._retrieval_cache.pop(key, None)
+        if not cache_available:
+            self._queue_retrieval(
+                key=key,
+                scene_brief=brief,
+                keywords=kw_list,
+                scene_tags=tag_list,
+                request_round=request_round,
+                screenshot_id=screenshot_id,
+                scene_generation=generation,
+                deadline_sec=deadline_sec or self._retrieval_deadline_sec,
+            )
+            self.set_retrieval_diagnostic("retrieval_pending")
+            return None
+        if result is None:
+            self.set_retrieval_diagnostic("no_hit")
+            return None
+        injection = self._injection_from_result(
+            result,
+            scene_brief=brief,
+            keywords=kw_list,
+            request_round=request_round,
+            screenshot_id=screenshot_id,
+        )
+        if injection is None:
+            self.set_retrieval_diagnostic("no_hit")
+            return None
+        contents = [
+            str(item.get("content"))
+            for item in (getattr(result, "items", []) or [])
+            if isinstance(item, dict) and item.get("content")
+        ]
+        self._last_injection = injection
+        self._queue_injection_usage(
+            injection,
+            contents=contents,
+            scene_generation=generation,
+            deadline_sec=deadline_sec or self._retrieval_deadline_sec,
+        )
+        self.set_retrieval_diagnostic("injected")
+        return injection
+
+    def preview_retrieval(
+        self,
+        payload: dict[str, Any],
+        *,
+        deadline_sec: float | None = None,
+    ) -> dict[str, Any]:
+        """Run preview retrieval on the retrieval owner, never through Qt."""
+        brief = str(payload.get("scene_brief") or "").strip()
+        keywords = [
+            str(value).strip()
+            for value in (payload.get("keywords") or [])
+            if str(value or "").strip()
+        ]
+        if not brief and not keywords:
+            return {"error": "missing_query"}
+        deadline = max(0.01, float(deadline_sec or self._retrieval_deadline_sec))
+        generation = int(self._cached_scene_generation or 0)
+        key = self._retrieval_key(brief, keywords, [], generation, purpose="preview")
+        future = self._queue_retrieval(
+            key=key,
+            scene_brief=brief,
+            keywords=keywords,
+            scene_tags=[],
+            request_round=0,
+            screenshot_id=0,
+            scene_generation=generation,
+            deadline_sec=deadline,
+            cache_result=False,
+        )
+        if future is None:
+            return {"error": "retrieval_pending"}
+        try:
+            result = future.result(timeout=deadline)
+        except TimeoutError:
+            return {"error": "retrieval_timeout"}
+        if result is None:
+            return {"items": [], "prompt_text": "", "hit_count": 0, "retrieval_ms": 0, "fts_backend": ""}
+        return {
+            "items": list(getattr(result, "items", []) or []),
+            "prompt_text": str(getattr(result, "prompt_text", "") or ""),
+            "hit_count": int(getattr(result, "hit_count", 0) or 0),
+            "retrieval_ms": int(getattr(result, "retrieval_ms", 0) or 0),
+            "fts_backend": str(getattr(result, "fts_backend", "") or ""),
+        }
+
+    def submit_usage_write(self, public_ids: list[str], *, deadline_sec: float | None = None) -> None:
+        """Queue reply-consumption count writes; the caller never touches SQLite."""
+        # 保留原有 repository 输入契约；无效值由 repository 的批量解析统一跳过。
+        ids = list(public_ids or [])
+        if not ids:
+            return
+        deadline_at = time.monotonic() + max(0.01, float(deadline_sec or self._retrieval_deadline_sec))
+
+        def write_usage() -> None:
+            if time.monotonic() > deadline_at:
+                return
+            repo = self.repository
+            retriever = self.retriever
+            if repo is None or retriever is None:
+                return
+            try:
+                internal_ids = repo.get_item_ids_by_public_ids(ids)
+                if internal_ids and time.monotonic() <= deadline_at:
+                    retriever.mark_items_used(internal_ids)
+            except Exception as exc:
+                logger.warning("knowledge reply usage write failed: %r", exc)
+
+        self._submit_retrieval_job(write_usage)
 
     def build_visual_prompt_injection(
         self,
@@ -560,6 +951,10 @@ class KnowledgeRuntimeService:
         allowed = {
             "knowledge_disabled",
             "empty_query",
+            "retrieval_pending",
+            "retrieval_timeout",
+            "scene_generation_lagged",
+            "count_write_failed",
             "no_hit",
             "retriever_error",
             "injected",
@@ -607,17 +1002,7 @@ class KnowledgeRuntimeService:
         """
         if not knowledge_used_item_ids:
             return
-        retriever = self.retriever
-        repo = self.repository
-        if retriever is None or repo is None:
-            return
-        try:
-            internal_ids = repo.get_item_ids_by_public_ids(knowledge_used_item_ids)
-            if not internal_ids:
-                return
-            retriever.mark_items_used(internal_ids)
-        except Exception as exc:
-            logger.warning("knowledge on_reply_consumed failed: %r", exc)
+        self.submit_usage_write(knowledge_used_item_ids)
 
     # ------------------------------------------------------------------
     # 生命周期
@@ -626,52 +1011,120 @@ class KnowledgeRuntimeService:
     def close(self, *, wait: bool = False) -> None:
         """Close the runtime; optionally wait for import cancellation to drain.
 
-        This is only reached by the whole-application teardown (``quit()`` /
-        startup-failure release). The danmu business toggle (``stop()``) must
-        never call it. ``wait=False`` keeps the historical non-blocking
-        teardown for callers that are already leaving a background context;
-        ``wait=True`` cancels and drains imports before closing the database
-        so no importer thread or DB connection survives the process.
+        This is only reached by whole-application teardown. ``wait`` is kept
+        for compatibility but does not make the caller block: shutdown always
+        starts cooperative cancellation and observes drain asynchronously.
+        The database closes only after both route and import owners report no
+        remaining Future.
         """
-        if self._closing:
-            if wait:
-                orch = self.import_orchestrator
-                if orch is not None:
-                    try:
-                        orch.close()
-                    except Exception as exc:
-                        logger.warning(
-                            "knowledge_runtime import_orchestrator close failed: %r",
-                            exc,
-                        )
-                self._finish_close_after_imports()
-            return
-        self._closing = True
-        self._mount_result = False
+        self.begin_shutdown(observe_async=True)
+        self.poll_shutdown()
+
+    def begin_shutdown(
+        self,
+        *,
+        deadline_at: float | None = None,
+        observe_async: bool = False,
+    ) -> str:
+        """Transition accepting -> draining without waiting on Qt's caller."""
+        if not hasattr(self, "_lifecycle_lock"):
+            self._lifecycle_lock = threading.RLock()
+            self._lifecycle_state = "accepting"
+            self._shutdown_deadline_at = None
+            self._close_finalized = False
+        self._ensure_retrieval_state()
+        with self._lifecycle_lock:
+            if self._lifecycle_state in {"closed", "timeout"}:
+                return self._lifecycle_state
+            if self._lifecycle_state == "draining":
+                if deadline_at is not None and self._shutdown_deadline_at is None:
+                    self._shutdown_deadline_at = deadline_at
+                return self._lifecycle_state
+            self._lifecycle_state = "draining"
+            self._closing = True
+            self._mount_result = False
+            self._shutdown_deadline_at = deadline_at
+            self._close_finalized = False
+
+        observation_ready = False
+
+        def observe() -> None:
+            if observe_async and observation_ready:
+                self.poll_shutdown()
+
+        try:
+            from app.web_api.knowledge_routes import (
+                begin_shutdown_knowledge_route_executor,
+            )
+
+            begin_shutdown_knowledge_route_executor(observe if observe_async else None)
+        except Exception as exc:
+            logger.warning("knowledge route executor shutdown start failed: %r", exc)
+
         orch = self.import_orchestrator
         if orch is not None:
             try:
-                if wait:
-                    orch.begin_shutdown()
-                    orch.close()
-                    self._finish_close_after_imports()
-                else:
-                    orch.begin_shutdown(self._finish_close_after_imports)
+                orch.begin_shutdown(observe if observe_async else None)
             except Exception as exc:
-                logger.warning(
-                    "knowledge_runtime import_orchestrator stop failed: %r",
-                    exc,
+                logger.warning("knowledge import shutdown start failed: %r", exc)
+        self._begin_retrieval_shutdown(observe if observe_async else None)
+        observation_ready = True
+        if observe_async:
+            self.poll_shutdown()
+        return "draining"
+
+    def _begin_retrieval_shutdown(self, on_drained=None) -> None:
+        with self._retrieval_lock:
+            self._retrieval_accepting = False
+            if callable(on_drained):
+                self._retrieval_drain_callback = on_drained
+            if self._retrieval_executor_closed:
+                return
+            self._retrieval_executor.shutdown(wait=False, cancel_futures=True)
+
+    def _close_retrieval_executor_if_drained(self) -> bool:
+        with self._retrieval_lock:
+            if self._retrieval_executor_closed:
+                return True
+            if self._retrieval_futures:
+                return False
+            self._retrieval_executor_closed = True
+        return True
+
+    def _all_workers_drained(self) -> bool:
+        orch = self.import_orchestrator
+        imports_drained = orch is None or bool(orch.is_drained())
+        try:
+            from app.web_api.knowledge_routes import knowledge_route_executor_is_drained
+
+            routes_drained = knowledge_route_executor_is_drained()
+        except Exception as exc:
+            logger.warning("knowledge route drain observation failed: %r", exc)
+            routes_drained = False
+        return imports_drained and routes_drained and self.is_retrieval_drained()
+
+    def poll_shutdown(self, *, now: float | None = None) -> str:
+        """Observe drain from Qt/event-loop code and finalize only after drain."""
+        with self._lifecycle_lock:
+            state = self._lifecycle_state
+            deadline_at = self._shutdown_deadline_at
+        if state == "closed":
+            return state
+        if state not in {"draining", "timeout"}:
+            return state
+        if self._all_workers_drained():
+            self._finish_close_after_imports()
+            with self._lifecycle_lock:
+                return self._lifecycle_state
+        if state == "draining" and deadline_at is not None:
+            if (time.monotonic() if now is None else now) >= deadline_at:
+                with self._lifecycle_lock:
+                    self._lifecycle_state = "timeout"
+                logger.error(
+                    "knowledge shutdown deadline reached; keeping DB and workers open"
                 )
-                try:
-                    orch.close()
-                except Exception as close_exc:
-                    logger.warning(
-                        "knowledge_runtime import_orchestrator close failed: %r",
-                        close_exc,
-                    )
-                self._finish_close_after_imports()
-            return
-        self._finish_close_after_imports()
+                return "timeout"
+        return state
 
     def _discard_partial_state(self) -> None:
         """Synchronously release importer + DB handles without entering terminal state.
@@ -705,13 +1158,43 @@ class KnowledgeRuntimeService:
         完成后再置 ``_closed=True``（终止态），此后 ``mount()`` 永久返回
         ``False``，不会因为 ``_closing`` 归位而被意外重新打开。
         """
-        if not self._closing:
+        with self._lifecycle_lock:
+            if not self._closing or self._close_finalized:
+                return
+            self._close_finalized = True
+        if not self._all_workers_drained():
+            with self._lifecycle_lock:
+                self._close_finalized = False
             return
-        self._discard_partial_state()
+        try:
+            from app.web_api.knowledge_routes import (
+                close_knowledge_route_executor_if_drained,
+            )
+
+            if not close_knowledge_route_executor_if_drained():
+                with self._lifecycle_lock:
+                    self._close_finalized = False
+                return
+            # Import worker 已排空后先释放其所有权，再关闭 retrieval executor，
+            # 最后才释放数据库；这样退出顺序与生命周期登记表一致。
+            if self.import_orchestrator is not None:
+                self.import_orchestrator.close(wait=False)
+                self.import_orchestrator = None
+            if not self._close_retrieval_executor_if_drained():
+                with self._lifecycle_lock:
+                    self._close_finalized = False
+                return
+            self._discard_partial_state()
+        except Exception as exc:
+            logger.warning("knowledge runtime final close failed: %r", exc)
+            with self._lifecycle_lock:
+                self._close_finalized = False
+            return
         self._last_injection = None
         self._last_scene_context = None
         self._cached_scene_generation = None
         self._last_retrieval_diagnostic = "knowledge_disabled"
-        self._closing = False
-        self._closed = True
-
+        with self._lifecycle_lock:
+            self._closing = False
+            self._closed = True
+            self._lifecycle_state = "closed"

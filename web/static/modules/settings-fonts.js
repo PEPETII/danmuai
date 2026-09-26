@@ -6,6 +6,16 @@ let fontDeps = {
   showToast: () => {},
 };
 
+const BUILTIN_FONT_FAMILIES = [
+  'Microsoft YaHei',
+  'SimHei',
+  'SimSun',
+  'KaiTi',
+  'DengXian',
+  'Arial',
+  'Segoe UI',
+];
+
 export function configureSettingsFonts(deps) {
   fontDeps = { ...fontDeps, ...deps };
 }
@@ -45,34 +55,49 @@ export async function loadFontFamilies() {
   }
 }
 
+export function populateFontSelect(select, families = [], current = select?.value || '') {
+  if (!select) return;
+  const apiFamilies = Array.isArray(families) ? families : [];
+  const merged = Array.from(new Set(
+    [...BUILTIN_FONT_FAMILIES, ...apiFamilies].map((family) => String(family)),
+  ));
+  const selected = String(current ?? '');
+  const options = [];
+  const defaultOption = document.createElement('option');
+  defaultOption.value = '';
+  defaultOption.textContent = t('settings.text.系统默认');
+  options.push(defaultOption);
+
+  merged.forEach((family) => {
+    const option = document.createElement('option');
+    option.value = family;
+    option.textContent = family;
+    options.push(option);
+  });
+
+  if (selected && !merged.includes(selected)) {
+    const option = document.createElement('option');
+    option.value = selected;
+    option.textContent = selected;
+    options.push(option);
+  }
+
+  select.replaceChildren(...options);
+  select.value = selected;
+}
+
 function refreshFontSelect(families) {
-  const builtin = ['Microsoft YaHei', 'SimHei', 'SimSun', 'KaiTi', 'DengXian', 'Arial', 'Segoe UI'];
   const danmuSel = document.getElementById('danmu_font_family');
   const fltSel = document.getElementById('floating_panel_font_family')
     || document.getElementById('sg-floating_panel_font_family');
   if (!danmuSel && !fltSel) return;
-  const merged = Array.from(new Set([...builtin, ...families]));
-  const buildOptions = (current) => {
-    const opts = [t('dynamic.settingsFonts.option_value_系统默认')];
-    merged.forEach((family) => {
-      const safe = String(family).replace(/"/g, '&quot;');
-      opts.push(`<option value="${safe}">${safe}</option>`);
-    });
-    if (current && !merged.includes(current)) {
-      const safe = String(current).replace(/"/g, '&quot;');
-      opts.push(t('dynamic.settingsFonts.option_value_safe', { safe }));
-    }
-    return opts.join('');
-  };
   if (danmuSel) {
     const danmuCurrent = danmuSel.value;
-    danmuSel.innerHTML = buildOptions(danmuCurrent);
-    danmuSel.value = danmuCurrent;
+    populateFontSelect(danmuSel, families, danmuCurrent);
   }
   if (fltSel) {
     const fltCurrent = fltSel.value;
-    fltSel.innerHTML = buildOptions(fltCurrent);
-    fltSel.value = fltCurrent;
+    populateFontSelect(fltSel, families, fltCurrent);
   }
 }
 

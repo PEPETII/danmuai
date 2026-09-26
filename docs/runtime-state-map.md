@@ -5,6 +5,21 @@
 
 ## DanmuApp 附属服务
 
+## knowledge_runtime lifecycle (P2-13)
+
+| field/state | owner/write thread | readers | lifetime/contract |
+|------|----------|----------|----------|
+| `KnowledgeRuntimeService._lifecycle_state` | Qt lifecycle owner (`begin_shutdown`/`poll_shutdown`) | Qt lifecycle and diagnostics | `accepting -> draining -> closed/timeout`; timeout never closes an in-use DB |
+| `KnowledgeRuntimeService._shutdown_deadline_at` | Qt lifecycle owner | Qt lifecycle | monotonic hard deadline for observation; it is not a worker cancellation guarantee |
+| `ImportOrchestrator._futures` | knowledge-import worker callbacks under its lock | lifecycle observer | import worker ownership; DB close is forbidden until empty |
+| `KnowledgeRouteExecutor._futures` | route executor callbacks under its lock | lifecycle observer | route-adapter worker ownership; queued work is cancelled at drain start |
+| `KnowledgeRuntimeService._retrieval_futures` | `knowledge-retrieval` worker callbacks under its lock | Qt lifecycle observer | retrieval prefetch and usage-write ownership; late scene/deadline results are discarded |
+| `KnowledgeRuntimeService._retrieval_cache` | retrieval worker publication under its lock | Qt main thread | completed immutable retrieval payloads keyed by scene generation/semantic query |
+
+Close order is owned by `KnowledgeRuntimeService`: route executor, import
+executor, retrieval executor, then `knowledge.db`. Retrieval work must not
+reuse either the route-adapter or import executor.
+
 - `virtual_host_runtime` — `VirtualHostRuntimeService`；Live2D 启动后挂载，停止时 `stop()`。
 
 ## virtual_host_runtime（`VirtualHostRuntimeService`）

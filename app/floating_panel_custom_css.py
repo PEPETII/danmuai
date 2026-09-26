@@ -24,9 +24,87 @@ MAX_CUSTOM_CSS_BYTES = 512 * 1024
 
 _INVALID_FILENAME_RE = re.compile(r'[\x00-\x1f<>:"/\\|?*]')
 _DISALLOWED_CSS_RE = re.compile(
-    r"@\s*import\b|javascript\s*:|url\s*\(\s*['\"]?\s*https?://",
+    r"@\s*import\b|javascript\s*:|url\s*\(\s*['\"]?\s*(?:https?://|//)",
     re.IGNORECASE,
 )
+_CSS_UNSAFE_CONTROL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+_CSS_WHITESPACE_RE = re.compile(r"\s+")
+
+
+def _decode_css_escape(text: str, index: int) -> tuple[str, int]:
+    """Decode one CSS escape for the safety scan and return the next offset."""
+
+    next_index = index + 1
+    if next_index >= len(text):
+        return "\\", next_index
+
+    char = text[next_index]
+    if char in "\r\n\f":
+        if char == "\r" and next_index + 1 < len(text) and text[next_index + 1] == "\n":
+            next_index += 1
+        return "", next_index + 1
+
+    if char not in "0123456789abcdefABCDEF":
+        return char, next_index + 1
+
+    end = next_index
+    while end < len(text) and end < next_index + 6 and text[end] in "0123456789abcdefABCDEF":
+        end += 1
+    codepoint = int(text[next_index:end], 16)
+    if end < len(text) and text[end] in " \t\r\n\f":
+        if text[end] == "\r" and end + 1 < len(text) and text[end + 1] == "\n":
+            end += 1
+        end += 1
+    if codepoint == 0 or codepoint > 0x10FFFF:
+        return "\ufffd", end
+    return chr(codepoint), end
+
+
+def _canonicalize_css_for_safety(text: str) -> str:
+    """Remove comments and decode escapes without changing quoted strings."""
+
+    output: list[str] = []
+    index = 0
+    quote: str | None = None
+    while index < len(text):
+        char = text[index]
+        if quote is None and char == "/" and index + 1 < len(text) and text[index + 1] == "*":
+            end = text.find("*/", index + 2)
+            if end < 0:
+                raise ValueError("CSS 注释未闭合")
+            index = end + 2
+            continue
+        if char in "'\"":
+            if quote is None:
+                quote = char
+            elif quote == char:
+                quote = None
+            output.append(char)
+            index += 1
+            continue
+        if char == "\\":
+            decoded, index = _decode_css_escape(text, index)
+            output.append(decoded)
+            continue
+        output.append(char)
+        index += 1
+    if quote is not None:
+        raise ValueError("CSS 字符串未闭合")
+    return "".join(output)
+
+
+def _validate_css_content_safety(text: str) -> None:
+    """Reject remote-resource syntax before CSS reaches a browser style node."""
+
+    if _CSS_UNSAFE_CONTROL_RE.search(text):
+        raise ValueError("CSS 不允许控制字符")
+    candidates = [text]
+    canonical = _canonicalize_css_for_safety(text)
+    if _CSS_UNSAFE_CONTROL_RE.search(canonical):
+        raise ValueError("CSS 不允许控制字符")
+    candidates.extend((canonical, _CSS_WHITESPACE_RE.sub("", canonical)))
+    if any(_DISALLOWED_CSS_RE.search(candidate) for candidate in candidates):
+        raise ValueError("CSS 不允许 @import、javascript: 或远程资源")
 
 # These templates intentionally use the same selectors as
 # ``web/static/floating_panel/style.css``.  They are starter files, not a
@@ -168,8 +246,7 @@ def validate_custom_css_text(data: bytes | str) -> str:
         if len(text.encode("utf-8")) > MAX_CUSTOM_CSS_BYTES:
             raise ValueError(f"CSS 文件不能超过 {MAX_CUSTOM_CSS_BYTES // 1024} KB")
 
-    if _DISALLOWED_CSS_RE.search(text):
-        raise ValueError("CSS 不允许 @import、javascript: 或远程 http(s) 资源")
+    _validate_css_content_safety(text)
     if not text.strip():
         raise ValueError("CSS 文件不能为空")
     return text

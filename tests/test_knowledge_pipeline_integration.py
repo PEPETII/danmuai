@@ -24,6 +24,7 @@
 """
 from __future__ import annotations
 
+import time
 from collections import deque
 from types import SimpleNamespace
 from unittest.mock import MagicMock, Mock
@@ -103,6 +104,24 @@ def _use_count(db, item_id: int) -> int:
         (item_id,),
     ).fetchone()
     return int(row[0])
+
+
+def _wait_for(predicate, *, timeout: float = 1.0) -> bool:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if predicate():
+            return True
+        time.sleep(0.01)
+    return bool(predicate())
+
+
+def _inject_with_retry(app, system_prompt: str, **kwargs):
+    result = app._inject_knowledge_prompt(system_prompt, **kwargs)
+    runtime = app.__dict__.get("knowledge_runtime")
+    if result == system_prompt and runtime is not None:
+        assert _wait_for(runtime.is_retrieval_drained)
+        result = app._inject_knowledge_prompt(system_prompt, **kwargs)
+    return result
 
 
 def _stub_personae(app, *, persona: str = "persona-1") -> None:
@@ -337,6 +356,7 @@ def test_on_reply_consumed_increments_use_count(seeded_runtime, knowledge_runtim
     knowledge_runtime.on_reply_consumed(public_ids)
 
     # 验证 use_count 已递增
+    assert _wait_for(lambda: _use_count(db, internal_ids[0]) >= 1)
     row_after = db.conn.execute(
         "SELECT use_count, last_used_at FROM knowledge_items WHERE id=?",
         (internal_ids[0],),
@@ -364,8 +384,13 @@ def test_on_reply_consumed_resolves_public_ids_in_one_batch(
         [public_ids[0], "missing", public_ids[1], public_ids[0], "", None]
     )
 
+    assert _wait_for(lambda: resolver.call_count == 1)
     resolver.assert_called_once_with(
         [public_ids[0], "missing", public_ids[1], public_ids[0], "", None]
+    )
+    assert _wait_for(
+        lambda: _use_count(knowledge_runtime._db, internal_ids[0]) == 1
+        and _use_count(knowledge_runtime._db, internal_ids[1]) == 1
     )
     assert _use_count(knowledge_runtime._db, internal_ids[0]) == 1
     assert _use_count(knowledge_runtime._db, internal_ids[1]) == 1
@@ -409,7 +434,8 @@ def test_inject_knowledge_prompt_noop_when_runtime_none():
     assert app.__dict__.get("knowledge_runtime") is None
 
     original_pt = "你是一名弹幕主播。"
-    result = app._inject_knowledge_prompt(
+    result = _inject_with_retry(
+        app,
         original_pt,
         request_round=1,
         screenshot_id=10,
@@ -427,7 +453,8 @@ def test_inject_knowledge_prompt_skips_without_semantic_query(
     app.engine.recent = deque()
 
     original_pt = "你是一名弹幕主播。"
-    result = app._inject_knowledge_prompt(
+    result = _inject_with_retry(
+        app,
         original_pt,
         request_round=99,
         screenshot_id=88,
@@ -465,7 +492,8 @@ def test_inject_knowledge_prompt_appends_when_runtime_returns_prompt(
     object.__setattr__(app, "knowledge_runtime", knowledge_runtime)
 
     original_pt = "你是一名弹幕主播。"
-    result = app._inject_knowledge_prompt(
+    result = _inject_with_retry(
+        app,
         original_pt,
         request_round=1,
         screenshot_id=10,
@@ -487,7 +515,8 @@ def test_inject_knowledge_prompt_hits_with_live_topic(
     app.config.set("live_topic", "葛瑞克")
 
     original_pt = "你是一名弹幕主播。"
-    result = app._inject_knowledge_prompt(
+    result = _inject_with_retry(
+        app,
         original_pt,
         request_round=3,
         screenshot_id=30,
@@ -507,7 +536,8 @@ def test_inject_with_hits_increments_use_count_without_knowledge_used(
     app = make_minimal_danmu_app()
     object.__setattr__(app, "knowledge_runtime", knowledge_runtime)
 
-    result = app._inject_knowledge_prompt(
+    result = _inject_with_retry(
+        app,
         "system_base",
         request_round=1,
         screenshot_id=10,
@@ -518,6 +548,9 @@ def test_inject_with_hits_increments_use_count_without_knowledge_used(
     injection = knowledge_runtime.get_last_injection()
     assert isinstance(injection, KnowledgeInjectionResult)
     assert injection.item_ids
+    assert _wait_for(
+        lambda: all(_use_count(db, item_id) >= 1 for item_id in injection.item_ids)
+    )
     for item_id in injection.item_ids:
         assert _use_count(db, item_id) >= 1
 
@@ -565,6 +598,7 @@ def test_handle_reply_parsed_invokes_on_reply_consumed_with_knowledge_used(
     assert accepted is True
 
     # 2. knowledge_used 中的 public_id 对应的条目 use_count 应递增
+    assert _wait_for(lambda: _use_count(db, internal_ids[0]) >= 1)
     row = db.conn.execute(
         "SELECT use_count FROM knowledge_items WHERE id=?", (internal_ids[0],)
     ).fetchone()
@@ -684,11 +718,18 @@ def test_build_visual_prompts_with_live_topic_hits_knowledge(
     assert result is not None
     system_pt, _user_pt, _persona = result
     assert system_pt.startswith("system_prompt_base")
+    assert _wait_for(knowledge_runtime.is_retrieval_drained)
+    result = app._build_visual_prompts(request_round=1, screenshot_id=1, batch_id=1)
+    assert result is not None
+    system_pt, _user_pt, _persona = result
     assert "葛瑞克" in system_pt
     # 注入即 use_count 更新
     injection = knowledge_runtime.get_last_injection()
     assert isinstance(injection, KnowledgeInjectionResult)
     assert injection.item_ids
     db = knowledge_runtime._db
+    assert _wait_for(
+        lambda: all(_use_count(db, item_id) >= 1 for item_id in injection.item_ids)
+    )
     for item_id in injection.item_ids:
         assert _use_count(db, item_id) >= 1

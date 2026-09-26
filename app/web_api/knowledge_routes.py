@@ -19,7 +19,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from concurrent.futures import ThreadPoolExecutor
+import threading
+from concurrent.futures import Future, ThreadPoolExecutor
 from typing import TYPE_CHECKING, Callable
 
 from fastapi import Header, HTTPException, Query
@@ -41,11 +42,83 @@ logger = logging.getLogger(__name__)
 
 # 路由层专用执行器：仅用于把 import_source 的 invoke_main 调用移出事件循环
 # （实际长任务在 ImportOrchestrator 内的 knowledge-import 执行器中跑）。
-def _new_knowledge_executor() -> ThreadPoolExecutor:
-    return ThreadPoolExecutor(max_workers=2, thread_name_prefix="knowledge-route")
+class KnowledgeRouteExecutor:
+    """Own route-adapter workers and expose a bounded drain observation point."""
+
+    def __init__(self) -> None:
+        self._executor = ThreadPoolExecutor(
+            max_workers=2,
+            thread_name_prefix="knowledge-route",
+        )
+        self._futures: set[Future] = set()
+        self._drain_callbacks: list[Callable[[], None]] = []
+        self._accepting = True
+        self._shutdown_started = False
+        self._closed = False
+        self._lock = threading.Lock()
+
+    def submit(self, fn, /, *args, **kwargs):
+        with self._lock:
+            if not self._accepting:
+                raise RuntimeError("knowledge route executor is stopping")
+            future = self._executor.submit(fn, *args, **kwargs)
+            self._futures.add(future)
+        future.add_done_callback(self._on_done)
+        return future
+
+    def begin_shutdown(self, on_drained: Callable[[], None] | None = None) -> None:
+        with self._lock:
+            if callable(on_drained):
+                self._drain_callbacks.append(on_drained)
+            first_shutdown = not self._shutdown_started
+            self._accepting = False
+            self._shutdown_started = True
+        if first_shutdown:
+            self._executor.shutdown(wait=False, cancel_futures=True)
+        self._notify_if_drained()
+
+    def is_accepting(self) -> bool:
+        with self._lock:
+            return self._accepting
+
+    def is_drained(self) -> bool:
+        with self._lock:
+            return not self._futures
+
+    def is_closed(self) -> bool:
+        with self._lock:
+            return self._closed
+
+    def close(self, *, wait: bool = False) -> None:
+        """Close once; callers must only use ``wait=True`` after drain."""
+        with self._lock:
+            if self._closed:
+                return
+        self.begin_shutdown()
+        self._executor.shutdown(wait=wait, cancel_futures=True)
+        if not wait or self.is_drained():
+            with self._lock:
+                self._closed = True
+
+    def _on_done(self, future: Future) -> None:
+        with self._lock:
+            self._futures.discard(future)
+        self._notify_if_drained()
+
+    def _notify_if_drained(self) -> None:
+        with self._lock:
+            if self._futures:
+                return
+            callbacks, self._drain_callbacks = self._drain_callbacks, []
+        for callback in callbacks:
+            try:
+                callback()
+            except Exception:
+                logger.exception("knowledge route executor drain callback failed")
 
 
-_KNOWLEDGE_EXECUTOR: ThreadPoolExecutor | None = _new_knowledge_executor()
+_KNOWLEDGE_EXECUTOR = KnowledgeRouteExecutor()
+_KNOWLEDGE_EXECUTOR_LOCK = threading.Lock()
 
 
 _KNOWLEDGE_ERROR_STATUSES = {
@@ -111,20 +184,36 @@ def _knowledge_invoke(invoke_main, fn, *args, **kwargs):
         ) from exc
 
 
-def _get_knowledge_executor() -> ThreadPoolExecutor:
+def _get_knowledge_executor() -> KnowledgeRouteExecutor:
     global _KNOWLEDGE_EXECUTOR
-    if _KNOWLEDGE_EXECUTOR is None:
-        _KNOWLEDGE_EXECUTOR = _new_knowledge_executor()
-    return _KNOWLEDGE_EXECUTOR
+    with _KNOWLEDGE_EXECUTOR_LOCK:
+        if _KNOWLEDGE_EXECUTOR.is_closed():
+            _KNOWLEDGE_EXECUTOR = KnowledgeRouteExecutor()
+        return _KNOWLEDGE_EXECUTOR
+
+
+def begin_shutdown_knowledge_route_executor(
+    on_drained: Callable[[], None] | None = None,
+) -> None:
+    """Reject new route work and cancel queued adapter calls without waiting."""
+    _get_knowledge_executor().begin_shutdown(on_drained)
+
+
+def knowledge_route_executor_is_drained() -> bool:
+    return _get_knowledge_executor().is_drained()
+
+
+def close_knowledge_route_executor_if_drained() -> bool:
+    executor = _get_knowledge_executor()
+    if not executor.is_drained():
+        return False
+    executor.close(wait=True)
+    return True
 
 
 def shutdown_knowledge_route_executor(*, wait: bool = True) -> None:
     """Release route adapter threads during true whole-application teardown."""
-    global _KNOWLEDGE_EXECUTOR
-    executor = _KNOWLEDGE_EXECUTOR
-    _KNOWLEDGE_EXECUTOR = None
-    if executor is not None:
-        executor.shutdown(wait=wait, cancel_futures=not wait)
+    _get_knowledge_executor().close(wait=wait)
 
 
 def register_knowledge_routes(
@@ -333,8 +422,7 @@ def register_knowledge_routes(
         body: RetrievalPreviewPayload,
         authorization: str | None = Header(default=None),
     ):
-        return _knowledge_invoke(
-            invoke_main,
+        return _knowledge_read(
             knowledge_api.preview_retrieval,
             bridge.danmu_app,
             body.model_dump(exclude_none=True),

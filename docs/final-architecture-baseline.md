@@ -2,6 +2,28 @@
 
 DanmuAI 架构基线：Qt 主线程拥有 timer、截图槽位与回复队列；worker 经 QObject 信号回主线程。
 
+## Knowledge runtime shutdown ownership (P2-13)
+
+`KnowledgeRuntimeService` owns the knowledge database, repository, import
+orchestrator, retriever, and the knowledge route-adapter executor as one
+application-lifetime boundary. Its lifecycle is `accepting -> draining ->
+closed` or `timeout`.
+
+`begin_shutdown()` rejects new import/route/retrieval work and requests
+cooperative cancellation. `poll_shutdown()` is observed by the Qt lifecycle
+code; only empty route, import, and retrieval Future sets may call the close
+sequence `route executor -> import executor -> retrieval executor ->
+knowledge.db`. On a hard deadline the state becomes `timeout`, the DB and
+still-used executors remain open, and the application does not report a
+completed close. Repeated shutdown calls are idempotent and finalization is
+guarded to run once.
+
+The dedicated `knowledge-retrieval` executor owns retrieval prefetch,
+scene-generation publication gates, and use-count writes. The Qt prompt path
+only reads a completed in-memory result or schedules prefetch; it does not
+perform synchronous SQLite work. Web preview waits in the HTTP thread under a
+deadline and does not invoke the Qt bridge.
+
 ## virtual_host_runtime
 
 `VirtualHostRuntimeService` 挂载于 `DanmuApp.virtual_host_runtime`；虚拟主播 scene/chat/ASR/TTS

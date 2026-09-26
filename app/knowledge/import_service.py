@@ -79,6 +79,8 @@ class ImportOrchestrator:
         self._job_packages: dict[str, int] = {}
         self._futures: set[Future] = set()
         self._accepting_submissions = True
+        self._shutdown_started = False
+        self._executor_closed = False
         self._drain_callbacks: list[Callable[[], None]] = []
         self._lock = threading.Lock()
 
@@ -172,29 +174,55 @@ class ImportOrchestrator:
         with self._lock:
             return self._accepting_submissions
 
+    def is_drained(self) -> bool:
+        """Return whether no import worker still owns importer/DB state."""
+        with self._lock:
+            return not self._futures
+
+    @property
+    def lifecycle_state(self) -> str:
+        with self._lock:
+            if self._executor_closed:
+                return "closed"
+            if self._accepting_submissions:
+                return "accepting"
+            return "draining"
+
     def begin_shutdown(self, on_drained: Any | None = None) -> None:
         """拒绝新任务、协作取消已有任务，且不等待 worker。"""
         with self._lock:
+            first_shutdown = not self._shutdown_started
+            self._shutdown_started = True
             self._accepting_submissions = False
             job_ids = list(self._cancel_flags)
             for flag in self._cancel_flags.values():
                 flag.set()
             if callable(on_drained):
                 self._drain_callbacks.append(on_drained)
-        for job_id in job_ids:
-            self._repository.update_job_progress(
-                job_id, status="cancelling", stage="cancelling"
-            )
+        if first_shutdown:
+            for job_id in job_ids:
+                self._repository.update_job_progress(
+                    job_id, status="cancelling", stage="cancelling"
+                )
         # Do not cancel queued futures here: a cancelled Future never enters
         # _run_import(), so it cannot atomically mark its job/source cancelled.
         # Queued jobs observe their already-set flag at entry and finish
         # without issuing extraction or model work.
-        self._executor.shutdown(wait=False, cancel_futures=False)
+        if first_shutdown:
+            self._executor.shutdown(wait=False, cancel_futures=False)
         self._notify_if_drained()
 
-    def close(self) -> None:
+    def close(self, *, wait: bool = True) -> None:
         """关闭执行器，等待未完成任务完成。"""
-        self._executor.shutdown(wait=True, cancel_futures=False)
+        with self._lock:
+            if self._executor_closed:
+                return
+            self._shutdown_started = True
+            self._accepting_submissions = False
+        self._executor.shutdown(wait=wait, cancel_futures=False)
+        if wait or self.is_drained():
+            with self._lock:
+                self._executor_closed = True
 
     # ------------------------------------------------------------------
     # 内部：job 行创建

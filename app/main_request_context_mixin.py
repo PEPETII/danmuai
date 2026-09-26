@@ -538,13 +538,26 @@ class DanmuAppRequestContextMixin:
                 note_retrieval_reason("empty_query")
                 return system_pt
 
-            injection = knowledge_runtime.build_visual_prompt_injection(
-                scene_brief=ctx.scene_brief,
-                keywords=list(ctx.keywords),
-                request_round=request_round,
-                screenshot_id=screenshot_id,
-                scene_tags=list(ctx.scene_tags),
+            prepare_injection = getattr(
+                knowledge_runtime, "prepare_visual_prompt_injection", None
             )
+            if callable(prepare_injection):
+                injection = prepare_injection(
+                    scene_brief=ctx.scene_brief,
+                    keywords=list(ctx.keywords),
+                    request_round=request_round,
+                    screenshot_id=screenshot_id,
+                    scene_tags=list(ctx.scene_tags),
+                    scene_generation=scene_generation,
+                )
+            else:
+                injection = knowledge_runtime.build_visual_prompt_injection(
+                    scene_brief=ctx.scene_brief,
+                    keywords=list(ctx.keywords),
+                    request_round=request_round,
+                    screenshot_id=screenshot_id,
+                    scene_tags=list(ctx.scene_tags),
+                )
         except Exception as exc:  # boundary: 知识注入失败不影响主链路
             note_retrieval_reason("retriever_error")
             self.logger.debug(
@@ -562,6 +575,10 @@ class DanmuAppRequestContextMixin:
             if reason not in {
                 "knowledge_disabled",
                 "empty_query",
+                "retrieval_pending",
+                "retrieval_timeout",
+                "scene_generation_lagged",
+                "count_write_failed",
                 "no_hit",
                 "retriever_error",
                 "injected",

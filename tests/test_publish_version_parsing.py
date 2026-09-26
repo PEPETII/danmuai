@@ -152,7 +152,7 @@ def test_resolve_build_python_exports_venv_candidates() -> None:
 def test_build_exe_dot_sources_resolve_build_python_before_packaging_helpers() -> None:
     text = _read_script("build_exe.ps1")
     assert "resolve_build_python.ps1" in text
-    assert "Resolve-BuildPythonCommand" in text
+    assert "Assert-BuildPython" in text
     assert "function Resolve-PythonCommand" not in text
     assert "Get-PackagingDistPaths -Root $Root" in text
     resolve_line = _line_number(text, "resolve_build_python.ps1")

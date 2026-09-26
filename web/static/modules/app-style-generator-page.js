@@ -12,6 +12,7 @@ import { t } from './i18n.js';
 import { initSettingsRhythmAccordion } from './settings-rhythm-accordion.js?v=20260717-number-stepper-v1';
 import { initNumberSteppers } from './number-stepper.js?v=20260717-number-stepper-v1';
 import { loadHorizontalFontPage, initHorizontalFontPage } from './app-horizontal-font-page.js';
+import { populateFontSelect } from './settings-fonts.js';
 import { initStyleGeneratorFieldHints } from './settings-hints.js';
 
 /** 保存/应用预设时提交的键（与 STYLE_PRESET_APPLY_KEYS 对齐） */
@@ -1286,22 +1287,9 @@ async function loadStyleGeneratorFontFamilies() {
 }
 
 function refreshStyleGeneratorFontSelect(families) {
-  const builtin = ['Microsoft YaHei', 'SimHei', 'SimSun', 'KaiTi', 'DengXian', 'Arial', 'Segoe UI'];
   const sel = document.getElementById('sg-floating_panel_font_family');
   if (!sel) return;
-  const current = sel.value;
-  const merged = Array.from(new Set([...builtin, ...families]));
-  let html = '<option value="">— 系统默认 —</option>';
-  merged.forEach((family) => {
-    const safe = String(family).replace(/"/g, '&quot;');
-    html += `<option value="${safe}">${safe}</option>`;
-  });
-  if (current && !merged.includes(current)) {
-    const safe = String(current).replace(/"/g, '&quot;');
-    html += `<option value="${safe}">${safe}</option>`;
-  }
-  sel.innerHTML = html;
-  sel.value = current || '';
+  populateFontSelect(sel, families, sel.value);
 }
 
 function renderStyleGeneratorImportedFontsList(imported) {

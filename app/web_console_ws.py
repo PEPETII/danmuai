@@ -22,6 +22,7 @@ _WS_MAX_MIC_LOG_CONSUMERS = 10
 _WS_MAX_PANEL_CONSUMERS = 1
 _WS_SEND_TIMEOUT_SEC = 2.0
 _WS_AUTH_TIMEOUT_SEC = 1.0
+_WS_MAX_AUTH_TOKEN_LENGTH = 256
 _WS_PANEL_HEARTBEAT_SEC = 2.0
 
 
@@ -40,9 +41,22 @@ async def _send_json_with_timeout(
 
 
 def _ws_token_valid(query_token: str | None, expected: str) -> bool:
-    if not query_token:
+    if not isinstance(query_token, str):
         return False
-    return secrets.compare_digest(query_token.strip(), expected)
+    token_text = query_token.strip()
+    if not token_text or len(token_text) > _WS_MAX_AUTH_TOKEN_LENGTH:
+        return False
+    return secrets.compare_digest(token_text, expected)
+
+
+async def _close_auth_failure(websocket, reason: str) -> None:
+    """发送固定认证失败响应并以 1008 关闭；发送响应超时也必须关闭。"""
+    try:
+        await _send_json_with_timeout(
+            websocket, {"type": "auth", "ok": False, "error": reason}
+        )
+    finally:
+        await websocket.close(code=1008, reason=reason)
 
 
 def _enqueue_ws(
@@ -87,41 +101,28 @@ async def _authenticate_websocket(websocket, expected_token: str, timeout_sec: f
     # query 参数（向后兼容）：显式 token 错误时立即拒绝
     query_token = websocket.query_params.get("ws_token")
     if query_token is not None:
-        token_text = str(query_token).strip()
-        if token_text and secrets.compare_digest(token_text, expected_token):
+        if _ws_token_valid(query_token, expected_token):
             return True
-        if not await _send_json_with_timeout(
-            websocket, {"type": "auth", "ok": False, "error": "认证失败"}
-        ):
-            return False
-        await websocket.close(code=1008, reason="认证失败")
+        await _close_auth_failure(websocket, "认证失败")
         return False
 
     # 连接后首条消息认证
     try:
         data = await asyncio.wait_for(websocket.receive_json(), timeout=timeout_sec)
         if isinstance(data, dict) and data.get("type") == "auth":
-            auth_token = data.get("token", "")
-            if secrets.compare_digest(auth_token.strip(), expected_token):
+            auth_token = data.get("token")
+            if isinstance(auth_token, str) and _ws_token_valid(auth_token, expected_token):
                 if not await _send_json_with_timeout(
                     websocket, {"type": "auth", "ok": True}
                 ):
                     return False
                 return True
-        if not await _send_json_with_timeout(
-            websocket, {"type": "auth", "ok": False, "error": "认证失败"}
-        ):
-            return False
-        await websocket.close(code=1008, reason="认证失败")
+        await _close_auth_failure(websocket, "认证失败")
         return False
     except asyncio.TimeoutError:
-        if not await _send_json_with_timeout(
-            websocket, {"type": "auth", "ok": False, "error": "认证超时"}
-        ):
-            return False
-        await websocket.close(code=1008, reason="认证超时")
+        await _close_auth_failure(websocket, "认证超时")
         return False
-    except (TypeError, ValueError, KeyError, RuntimeError, OSError) as exc:
+    except (AttributeError, TypeError, ValueError, KeyError, RuntimeError, OSError) as exc:
         logger.debug("websocket auth error: %r", exc)
         await websocket.close(code=1008, reason="认证异常")
         return False

@@ -38,6 +38,9 @@ from app.templates import TemplateManager
 from app.translations import Translator, tr
 from app.tray import TrayManager
 
+KNOWLEDGE_QUIT_DRAIN_DEADLINE_SEC = 2.0
+KNOWLEDGE_QUIT_DRAIN_POLL_MS = 50
+
 
 def _resolve_runtime_symbol(name: str, fallback):
     module = sys.modules.get("main") or sys.modules.get("__main__")
@@ -1152,101 +1155,83 @@ class DanmuAppLifecycleMixin:
                         "startup failure cleanup deferred config close: Web console still running"
                     )
 
-    def quit(self) -> None:
-        self.logger.info(tr("app.quitting"))
-
-        from PyQt6.QtCore import Qt
-        from PyQt6.QtWidgets import QProgressDialog
-
-        progress = QProgressDialog(tr("app.quitting"), None, 0, 0, None)
-        progress.setWindowModality(Qt.WindowModality.ApplicationModal)
-        progress.setCancelButton(None)
-        progress.setMinimumDuration(0)
-        progress.setWindowTitle("DanmuAI")
-        progress.show()
-        QApplication.processEvents()
-
-        try:
-            self.stop()
-            self._mic_service.stop()
-            self._pool_topup_timer.stop()
-            stop_meme_timers = self.__dict__.get("_stop_meme_barrage_timers")
-            if callable(stop_meme_timers):
-                stop_meme_timers()
-
-            read_svc = self.__dict__.get("_danmu_read_service")
-            if read_svc is not None:
-                read_svc.shutdown()
-
-            self.hotkey.unregister()
-            self.tray.hide()
-
-            from app.worker_pools import wait_all_worker_pools_done, worker_pool_for_label
-
-            # BUG-019：5 个 QThreadPool 并行 waitForDone，最坏 ~2s 而非串行 ~10s
-            pool_wait_labels = {
-                "capture": "capture worker thread pool",
-                "ai": "ai worker thread pool",
-                "meme_ai": "meme ai worker thread pool",
-                "meme_fetch": "meme fetch thread pool",
-                "global": "AI worker thread pool",
-            }
-            pool_results = wait_all_worker_pools_done(2000)
-            for label, done in pool_results.items():
-                if done:
-                    continue
-                pool = worker_pool_for_label(label)
-                self.logger.warning(
-                    "quit timed out waiting for %s active_threads=%s max_threads=%s",
-                    pool_wait_labels.get(label, label),
-                    pool.activeThreadCount() if pool is not None else "?",
-                    pool.maxThreadCount() if pool is not None else "?",
-                )
-
-            # W-TEARDOWN-RES-001 / BUG-G-008：等所有 worker pool 结束后再关闭 httpx 客户端，
-            # 避免在途 MemeFetchRunnable 使用已关闭 client。
-            workers_drained = all(pool_results.values())
-            close_meme_client = self.__dict__.get("close_meme_barrage_client")
-            if callable(close_meme_client):
-                if workers_drained:
-                    close_meme_client()
-                else:
-                    self.logger.error(
-                        "quit deferred Meme client close: worker pool timeout may leave "
-                        "MemeFetchRunnable in flight"
-                    )
-
-            # W-QUIT-TEARDOWN-001：先停 Web 控制台（含 meta 轮询），再关 config.db，
-            # 避免 HTTP 线程在 conn.close() 后仍读 meme_barrage_library。
-            self.stop_web_status_timer()
-            server = getattr(self, "web_server", None)
-            web_shutdown_done = _stop_and_wait_for_web_console(
-                server,
-                self.logger,
-                context="quit",
+    def _begin_knowledge_quit_shutdown(self) -> None:
+        """Start the non-blocking knowledge/route drain owned by quit()."""
+        self._knowledge_quit_deadline_at = (
+            time.monotonic() + KNOWLEDGE_QUIT_DRAIN_DEADLINE_SEC
+        )
+        runtime = self.__dict__.get("knowledge_runtime")
+        if runtime is not None:
+            runtime.begin_shutdown(
+                deadline_at=self._knowledge_quit_deadline_at,
+                observe_async=False,
+            )
+        else:
+            from app.web_api.knowledge_routes import (
+                begin_shutdown_knowledge_route_executor,
             )
 
-            # Knowledge Runtime belongs to the whole application, not to the
-            # danmu business toggle. Stop accepting HTTP first, then cancel
-            # and drain imports before closing knowledge.db.
-            knowledge_runtime = self.__dict__.get("knowledge_runtime")
-            if knowledge_runtime is not None:
-                try:
-                    knowledge_runtime.close(wait=True)
-                except Exception as exc:
-                    self.logger.warning(f"knowledge_runtime close failed: {exc!r}")
+            begin_shutdown_knowledge_route_executor()
 
+    def _knowledge_quit_state(self) -> str:
+        runtime = self.__dict__.get("knowledge_runtime")
+        if runtime is not None:
+            return runtime.poll_shutdown(now=time.monotonic())
+        from app.web_api.knowledge_routes import (
+            close_knowledge_route_executor_if_drained,
+            knowledge_route_executor_is_drained,
+        )
+
+        if knowledge_route_executor_is_drained():
+            return "closed" if close_knowledge_route_executor_if_drained() else "draining"
+        deadline_at = getattr(self, "_knowledge_quit_deadline_at", None)
+        if deadline_at is not None and time.monotonic() >= deadline_at:
+            return "timeout"
+        return "draining"
+
+    def _ensure_knowledge_quit_timer(self) -> None:
+        timer = self.__dict__.get("_knowledge_quit_timer")
+        if timer is None:
             try:
-                from app.web_api.knowledge_routes import (
-                    shutdown_knowledge_route_executor,
-                )
+                timer = QTimer(self)
+            except TypeError:
+                timer = QTimer()
+            timer.setInterval(KNOWLEDGE_QUIT_DRAIN_POLL_MS)
+            timer.timeout.connect(DanmuAppLifecycleMixin._poll_knowledge_quit)
+            self._knowledge_quit_timer = timer
+        timer.start()
 
-                shutdown_knowledge_route_executor(wait=True)
-            except Exception as exc:
-                self.logger.warning(
-                    f"knowledge route executor close failed: {exc!r}"
-                )
+    def _poll_knowledge_quit(self) -> None:
+        if getattr(self, "_quit_finalized", False):
+            timer = self.__dict__.get("_knowledge_quit_timer")
+            if timer is not None:
+                timer.stop()
+            return
+        state = DanmuAppLifecycleMixin._knowledge_quit_state(self)
+        if state == "closed":
+            timer = self.__dict__.get("_knowledge_quit_timer")
+            if timer is not None:
+                timer.stop()
+            DanmuAppLifecycleMixin._finish_quit_after_knowledge_shutdown(self)
+            return
+        if state == "timeout" and not getattr(self, "_knowledge_quit_timeout_reported", False):
+            self._knowledge_quit_timeout_reported = True
+            self.logger.error(
+                "knowledge shutdown timed out; DB remains open until workers drain"
+            )
+            progress = self.__dict__.get("_quit_progress")
+            if progress is not None:
+                progress.close()
+        DanmuAppLifecycleMixin._ensure_knowledge_quit_timer(self)
 
+    def _finish_quit_after_knowledge_shutdown(self) -> None:
+        if getattr(self, "_quit_finalized", False):
+            return
+        self._quit_finalized = True
+        workers_drained = getattr(self, "_quit_workers_drained", False)
+        web_shutdown_done = getattr(self, "_quit_web_shutdown_done", False)
+        progress = self.__dict__.get("_quit_progress")
+        try:
             shell = getattr(self, "webview_shell", None)
             if shell:
                 shell.destroy()
@@ -1280,9 +1265,91 @@ class DanmuAppLifecycleMixin:
                     self.logger.warning(f"Live2D desktop runtime close on quit failed: {exc!r}")
 
             self.overlay.hide()
-
             self.logger.info(tr("app.quit_done"))
         finally:
-            progress.close()
+            if progress is not None:
+                progress.close()
+            QApplication.quit()
 
-        QApplication.quit()
+    def quit(self) -> None:
+        """Begin bounded, event-loop-observed teardown; repeated calls are no-ops."""
+        if getattr(self, "_quit_in_progress", False):
+            DanmuAppLifecycleMixin._poll_knowledge_quit(self)
+            return
+        self._quit_in_progress = True
+        self._quit_finalized = False
+        self._knowledge_quit_timeout_reported = False
+        self.logger.info(tr("app.quitting"))
+
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtWidgets import QProgressDialog
+
+        progress = QProgressDialog(tr("app.quitting"), None, 0, 0, None)
+        progress.setWindowModality(Qt.WindowModality.ApplicationModal)
+        progress.setCancelButton(None)
+        progress.setMinimumDuration(0)
+        progress.setWindowTitle("DanmuAI")
+        progress.show()
+        self._quit_progress = progress
+        QApplication.processEvents()
+
+        self.stop()
+        self._mic_service.stop()
+        self._pool_topup_timer.stop()
+        stop_meme_timers = self.__dict__.get("_stop_meme_barrage_timers")
+        if callable(stop_meme_timers):
+            stop_meme_timers()
+
+        read_svc = self.__dict__.get("_danmu_read_service")
+        if read_svc is not None:
+            read_svc.shutdown()
+
+        self.hotkey.unregister()
+        self.tray.hide()
+
+        from app.worker_pools import wait_all_worker_pools_done, worker_pool_for_label
+
+        pool_wait_labels = {
+            "capture": "capture worker thread pool",
+            "ai": "ai worker thread pool",
+            "meme_ai": "meme ai worker thread pool",
+            "meme_fetch": "meme fetch thread pool",
+            "global": "AI worker thread pool",
+        }
+        pool_results = wait_all_worker_pools_done(2000)
+        for label, done in pool_results.items():
+            if done:
+                continue
+            pool = worker_pool_for_label(label)
+            self.logger.warning(
+                "quit timed out waiting for %s active_threads=%s max_threads=%s",
+                pool_wait_labels.get(label, label),
+                pool.activeThreadCount() if pool is not None else "?",
+                pool.maxThreadCount() if pool is not None else "?",
+            )
+
+        self._quit_workers_drained = all(pool_results.values())
+        close_meme_client = self.__dict__.get("close_meme_barrage_client")
+        if callable(close_meme_client):
+            if self._quit_workers_drained:
+                close_meme_client()
+            else:
+                self.logger.error(
+                    "quit deferred Meme client close: worker pool timeout may leave "
+                    "MemeFetchRunnable in flight"
+                )
+
+        self.stop_web_status_timer()
+        server = getattr(self, "web_server", None)
+        self._quit_web_shutdown_done = _stop_and_wait_for_web_console(
+            server,
+            self.logger,
+            context="quit",
+        )
+
+        try:
+            DanmuAppLifecycleMixin._begin_knowledge_quit_shutdown(self)
+        except Exception as exc:
+            self.logger.error("knowledge shutdown could not start: %r", exc)
+            self._knowledge_quit_timeout_reported = True
+        DanmuAppLifecycleMixin._poll_knowledge_quit(self)

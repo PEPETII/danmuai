@@ -201,7 +201,7 @@ def test_loader_reports_missing_dependencies_without_leaking_path(tmp_path):
 
     assert not result.ok
     assert result.status == "blocked"
-    assert result.reason == "dependency_missing"
+    assert result.reason == "core_dependency_missing"
     assert set(result.capabilities.missing_dependencies) == {
         "avatar.moc3",
         "texture 00.png",

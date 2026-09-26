@@ -12,8 +12,15 @@ from __future__ import annotations
 
 from fastapi import File, Header, HTTPException, Path, UploadFile
 
+from app import font_registry as font_registry_service
 from app.translations import tr
 from app.web_api.auth import require_auth
+from app.web_api.upload_limits import (
+    UPLOAD_READ_CHUNK_SIZE,
+    UploadSizeLimitExceeded,
+    read_upload_with_limit,
+    reject_upload_if_too_large,
+)
 from app.web_console import MainThreadInvokeTimeout
 
 
@@ -22,9 +29,26 @@ def register_font_registry_routes(app, bridge, check_token) -> None:
     @require_auth(check_token)
     async def fonts_import(
         file: UploadFile = File(...),
+        content_length: int | None = Header(default=None, alias="Content-Length"),
         authorization: str | None = Header(default=None),
     ):
-        data = await file.read()
+        limit = font_registry_service.MAX_FILE_BYTES
+        detail = tr("fontRegistry.fileTooLarge")
+        try:
+            reject_upload_if_too_large(
+                file,
+                content_length=content_length,
+                limit=limit,
+                detail=detail,
+            )
+            data = await read_upload_with_limit(
+                file,
+                limit=limit,
+                detail=detail,
+                chunk_size=UPLOAD_READ_CHUNK_SIZE,
+            )
+        except UploadSizeLimitExceeded as exc:
+            raise HTTPException(status_code=413, detail=exc.detail) from exc
         try:
             record = bridge.invoke_on_main(
                 bridge.danmu_app.font_registry.import_bytes,

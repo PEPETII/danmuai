@@ -22,9 +22,9 @@ dotnet --version
 vpk --version
 ```
 
-当前构建脚本按以下顺序选择 Python：可用的 `.venv-build`、可用的 `.venv-build-312`、`DANMU_BUILD_PYTHON`，最后才尝试系统 launcher。正式构建应使用 Python 3.12 x64，并设置 `DANMU_BUILD_USE_RELEASE_LOCK=1`。
+当前构建脚本按以下顺序选择 Python：可用的 `.venv-build`、可用的 `.venv-build-312`、`DANMU_BUILD_PYTHON`，最后才尝试系统 launcher。发布构建会在构建前验证 Python 3.12 x64；`build_exe.ps1` 默认使用 release lock，只有显式传入 `-AllowUnlockedBuild` 才允许浮动依赖。
 
-发布锁 `requirements-release-win-lock.txt` 是由 `requirements.txt`、`requirements-dev.txt` 和 Windows 构建工具组成的精确版本集合。修改运行时依赖后必须检查：直接依赖是否全部进入锁文件、锁文件是否可安装、`pip check` 是否通过；不要仅凭文件头部日期判断锁仍然有效。
+发布锁 `requirements-release-win-lock.txt` 是由 `requirements.txt`、`requirements-dev.txt` 和 Windows 构建工具组成的精确版本集合。`scripts/verify_release_lock.ps1` 会只读验证锁文件格式、Python 版本/架构、已安装包版本和 `pip check`；修改运行时依赖后必须检查直接依赖是否全部进入锁文件、锁文件是否可安装。当前锁文件不包含包 hash，本工单不扩大为 hash 锁定。
 
 ## 2. 打包覆盖范围
 
@@ -51,8 +51,13 @@ vpk --version
 正式构建前确认没有正在运行的 `DanmuAI.exe`、pywebview 子进程或占用 dist 文件的资源管理器窗口。脚本只清理 `dist\DanmuAI`，不会重置仓库或删除用户配置。
 
 ```powershell
-$env:DANMU_BUILD_USE_RELEASE_LOCK = "1"
 \.\scripts\build_exe.ps1
+```
+
+普通开发构建若确实需要浮动依赖，必须显式运行：
+
+```powershell
+\.\scripts\build_exe.ps1 -AllowUnlockedBuild
 ```
 
 成功条件：
@@ -92,11 +97,16 @@ Start-Process -FilePath (Resolve-Path .\dist\DanmuAI\DanmuAI.exe) -ArgumentList 
 确认 dist EXE 正常后：
 
 ```powershell
-$env:DANMU_BUILD_USE_RELEASE_LOCK = "1"
 \.\scripts\publish_windows_release.ps1
 ```
 
-脚本内部依次运行 `build_exe.ps1` 和 `velopack_pack.ps1`。它只清理当前目标版本和 MSI 文件，保留已有旧版 full nupkg 作为 delta 基线；当本地没有旧 full 包时，默认从 stable feed 下载历史包到本地。完全不需要 delta 时可使用 `-SkipDeltaBootstrap`，但这会改变增量产物预期。
+脚本默认强制 release lock，内部依次运行 `build_exe.ps1` 和 `velopack_pack.ps1`。`-DryRun` 只执行 Python/架构/锁文件/依赖 preflight 和本地 Supabase guard，不构建、不打包、不访问 stable feed。正式模式只清理当前目标版本和 MSI 文件，保留已有旧版 full nupkg 作为 delta 基线；当本地没有旧 full 包时，默认从 stable feed 下载历史包到本地。完全不需要 delta 时可使用 `-SkipDeltaBootstrap`，但这会改变增量产物预期。
+
+可单独运行只读 release lock 检查：
+
+```powershell
+\.\scripts\verify_release_lock.ps1
+```
 
 代码签名默认关闭。只有明确设置 `DANMU_CODE_SIGN=1` 且提供 `VPK_AZURE_TRUSTED_SIGN_FILE` 或 `VPK_SIGN_PARAMS` 时才启用；凭据只能来自环境变量，不能写入仓库或产物。
 

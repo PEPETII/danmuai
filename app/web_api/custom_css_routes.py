@@ -9,6 +9,12 @@ from fastapi import File, Header, HTTPException, Path, UploadFile
 from app import floating_panel_custom_css as custom_css
 from app.translations import tr
 from app.web_api.auth import require_auth
+from app.web_api.upload_limits import (
+    UPLOAD_READ_CHUNK_SIZE,
+    UploadSizeLimitExceeded,
+    read_upload_with_limit,
+    reject_upload_if_too_large,
+)
 from app.web_console import MainThreadInvokeTimeout
 
 
@@ -51,9 +57,26 @@ def register_custom_css_routes(
     @require_auth(check_token)
     async def custom_css_import(
         file: UploadFile = File(...),
+        content_length: int | None = Header(default=None, alias="Content-Length"),
         authorization: str | None = Header(default=None),
     ):
-        data = await file.read()
+        limit = custom_css.MAX_CUSTOM_CSS_BYTES
+        detail = f"CSS 文件不能超过 {limit // 1024} KB"
+        try:
+            reject_upload_if_too_large(
+                file,
+                content_length=content_length,
+                limit=limit,
+                detail=detail,
+            )
+            data = await read_upload_with_limit(
+                file,
+                limit=limit,
+                detail=detail,
+                chunk_size=UPLOAD_READ_CHUNK_SIZE,
+            )
+        except UploadSizeLimitExceeded as exc:
+            raise HTTPException(status_code=413, detail=exc.detail) from exc
         try:
             record = invoke_main(
                 custom_css.import_custom_css_bytes,
