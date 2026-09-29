@@ -1,4 +1,5 @@
 import { t } from "./i18n.js";
+import { isMaskedApiKey } from "./settings-defaults.js";
 import { getModelNameFromCatalog } from "./settings-model-catalog.js";
 
 const MODEL_TEMPERATURE_MIN = 0;
@@ -248,11 +249,44 @@ export function resetModelApiKeyVisibility() {
   if (input) input.type = "password";
   if (button) {
     button.setAttribute("aria-pressed", "false");
-    button.setAttribute(
-      "aria-label",
-      t("dynamic.settingsCustomModels.显示_API_Key"),
+  }
+  syncModelApiKeyVisibilityState();
+}
+
+function syncModelApiKeyVisibilityState() {
+  const input = document.getElementById("modelApiKey");
+  const button = document.getElementById("btnModelApiKeyVisibility");
+  if (!input || !button) return;
+
+  const masked = isMaskedApiKey(input.value);
+  if (masked) input.type = "password";
+  button.disabled = masked;
+  button.setAttribute("aria-disabled", String(masked));
+  button.setAttribute("aria-pressed", "false");
+  button.setAttribute(
+    "aria-label",
+    t(
+      masked
+        ? "dynamic.settingsCustomModels.saved_api_key_visibility_disabled"
+        : "dynamic.settingsCustomModels.显示_API_Key",
+    ),
+  );
+  button.setAttribute(
+    "title",
+    t(
+      masked
+        ? "dynamic.settingsCustomModels.saved_api_key_visibility_disabled"
+        : "dynamic.settingsCustomModels.显示",
+    ),
+  );
+
+  const hint = document.getElementById("modelApiKeyHint");
+  if (hint) {
+    hint.textContent = t(
+      masked
+        ? "dynamic.settingsCustomModels.saved_api_key_notice"
+        : "dynamic.settingsCustomModels.API_Key_安全说明",
     );
-    button.setAttribute("title", t("dynamic.settingsCustomModels.显示"));
   }
 }
 
@@ -261,7 +295,15 @@ export function initModelApiKeyVisibility() {
   const button = document.getElementById("btnModelApiKeyVisibility");
   if (!input || !button || button.dataset.bound === "true") return;
   button.dataset.bound = "true";
+  input.addEventListener("input", syncModelApiKeyVisibilityState);
+  input.addEventListener("focus", () => {
+    if (isMaskedApiKey(input.value)) input.select?.();
+  });
   button.addEventListener("click", () => {
+    if (isMaskedApiKey(input.value)) {
+      resetModelApiKeyVisibility();
+      return;
+    }
     const visible = input.type === "password";
     input.type = visible ? "text" : "password";
     button.setAttribute("aria-pressed", String(visible));
@@ -274,6 +316,7 @@ export function initModelApiKeyVisibility() {
       t(`dynamic.settingsCustomModels.${visible ? "隐藏" : "显示"}`),
     );
   });
+  syncModelApiKeyVisibilityState();
 }
 
 export function syncModelDefaultSelect() {

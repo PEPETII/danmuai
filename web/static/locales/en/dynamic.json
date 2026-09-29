@@ -555,6 +555,8 @@
       "推荐": "Recommended",
       "显示_API_Key": "Show API key",
       "隐藏_API_Key": "Hide API key",
+      "saved_api_key_notice": "Saved API key is not shown for security; enter a new key to replace it.",
+      "saved_api_key_visibility_disabled": "Saved API key cannot be shown; enter a new key to enable visibility",
       "显示": "Show",
       "隐藏": "Hide",
       "正在保存": "Saving…",

@@ -156,6 +156,11 @@ Fable5.md
 # ── Irrelevant directories (local clones, prototypes, AI prompts, internal reports) ──
 output/
 prototype/
+
+# Local UI/UX prototype runtime files
+ui-ux-prototype/index.html
+ui-ux-prototype/styles.css
+ui-ux-prototype/app.js
 experiments/
 project-prompts/
 reports/

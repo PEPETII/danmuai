@@ -555,6 +555,8 @@
       "推荐": "推荐",
       "显示_API_Key": "显示 API Key",
       "隐藏_API_Key": "隐藏 API Key",
+      "saved_api_key_notice": "已保存 API Key，出于安全原因不显示完整密钥；输入新 Key 可替换。",
+      "saved_api_key_visibility_disabled": "已保存 API Key 不可显示；输入新 Key 后可切换",
       "显示": "显示",
       "隐藏": "隐藏",
       "正在保存": "正在保存……",

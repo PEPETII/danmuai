@@ -50,7 +50,7 @@
             <div class="field">
               <label for="modelApiKey">API Key</label>
               <div class="input-with-toggle">
-                <input id="modelApiKey" type="password" autocomplete="off" class="ui-control ui-input min-w-0" placeholder="sk-...">
+                <input id="modelApiKey" type="password" autocomplete="off" class="ui-control ui-input min-w-0" placeholder="sk-..." aria-describedby="modelApiKeyHint modelApiKeyError">
                 <button type="button" id="btnModelApiKeyVisibility" class="toggle-btn field-icon-button" title="显示/隐藏" aria-pressed="false" data-i18n-aria-label="dynamic.settingsCustomModels.显示_API_Key" aria-label="显示 API Key">
                   <svg class="ui-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
@@ -58,7 +58,7 @@
                   </svg>
                 </button>
               </div>
-              <p class="hint" data-i18n="dynamic.settingsCustomModels.API_Key_安全说明">API Key 仅保存在本机配置中。编辑时不会显示完整密钥。</p>
+              <p id="modelApiKeyHint" class="hint" role="status" aria-live="polite" data-i18n="dynamic.settingsCustomModels.API_Key_安全说明">API Key 仅保存在本机配置中。编辑时不会显示完整密钥。</p>
               <p id="modelApiKeyError" class="model-field-error" role="alert"></p>
             </div>
 
