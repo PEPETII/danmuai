@@ -1067,9 +1067,9 @@ function initSidebarNavCategoryFilter() {
   if (!filterButtons.length || !scopedItems.length) return;
 
   const applyFilter = (requestedFilter) => {
-    const filter = requestedFilter === 'all' ? 'all' : 'common';
+    const filter = requestedFilter === 'enhanced' ? 'enhanced' : 'common';
     scopedItems.forEach((item) => {
-      item.hidden = filter === 'common' && item.dataset.navScope !== 'common';
+      item.hidden = item.dataset.navScope !== filter;
     });
     filterButtons.forEach((button) => {
       const selected = button.dataset.navFilter === filter;

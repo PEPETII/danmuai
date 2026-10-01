@@ -40,7 +40,7 @@ NAMESPACE = {
 NAV_LABEL_KEYS = {
     "温馨控制台": "overview",
     "常用功能": "commonFeatures",
-    "全部功能": "allFeatures",
+    "增强功能": "enhancedFeatures",
     "人格工坊": "persona",
     "公式化弹幕库": "danmuPool",
     "弹幕设置": "settings",

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 
@@ -67,20 +68,57 @@ def test_sidebar_shell_structure_and_preserved_ids():
     assert 'href="#ai-butler"' not in html
 
 
-def test_sidebar_navigation_filter_scopes_all_existing_items():
+def test_sidebar_navigation_filter_scopes_common_and_enhanced_items():
     html = _sidebar()
     app = (_static() / "app.js").read_text(encoding="utf-8")
     css = _layout_css()
 
     assert 'id="sidebarNavFilter"' in html
     assert 'data-nav-filter="common"' in html
-    assert 'data-nav-filter="all"' in html
+    assert 'data-nav-filter="enhanced"' in html
+    assert 'data-i18n="nav.commonFeatures"' in html
+    assert 'data-i18n="nav.enhancedFeatures"' in html
+    assert ">常用功能</button>" in html
+    assert ">增强功能</button>" in html
     assert html.count('data-page="') == 8
     assert html.count('data-nav-scope="common"') == 5
-    assert html.count('data-nav-scope="all"') == 3
+    assert html.count('data-nav-scope="enhanced"') == 3
+    assert 'data-nav-filter="all"' not in html
+    assert 'data-nav-scope="all"' not in html
     assert "initSidebarNavCategoryFilter" in app
-    assert "item.hidden = filter === 'common'" in app
+    assert "const filter = requestedFilter === 'enhanced' ? 'enhanced' : 'common';" in app
+    assert "item.hidden = item.dataset.navScope !== filter;" in app
+    assert "applyFilter('common');" in app
+    filter_fn = app[app.index("function initSidebarNavCategoryFilter()") : app.index("function bindCoreInteractions()")]
+    assert "navigate(" not in filter_fn
+    assert "window.location" not in filter_fn
     assert "#nav [data-nav-scope][hidden]" in css
+
+
+def test_sidebar_navigation_filter_categories_are_mutually_exclusive_and_localized():
+    html = _sidebar()
+    nav_start = html.index('<nav ')
+    nav_html = html[nav_start:]
+    common_pages = {
+        line.split('data-page="', 1)[1].split('"', 1)[0]
+        for line in nav_html.splitlines()
+        if 'data-nav-scope="common"' in line and 'data-page="' in line
+    }
+    enhanced_pages = {
+        line.split('data-page="', 1)[1].split('"', 1)[0]
+        for line in nav_html.splitlines()
+        if 'data-nav-scope="enhanced"' in line and 'data-page="' in line
+    }
+    assert common_pages
+    assert enhanced_pages
+    assert common_pages.isdisjoint(enhanced_pages)
+
+    zh = json.loads((_static() / "locales" / "zh" / "nav.json").read_text(encoding="utf-8"))
+    en = json.loads((_static() / "locales" / "en" / "nav.json").read_text(encoding="utf-8"))
+    assert zh["nav"]["commonFeatures"] == "常用功能"
+    assert zh["nav"]["enhancedFeatures"] == "增强功能"
+    assert en["nav"]["commonFeatures"] == "Frequently used"
+    assert en["nav"]["enhancedFeatures"] == "Enhanced features"
 
 
 def test_template_shell_toggle_and_ui_main():
