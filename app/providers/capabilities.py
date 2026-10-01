@@ -40,7 +40,7 @@ _CAPABILITIES_BY_ID: dict[str, ProviderCapabilities] = {}
 @dataclass(frozen=True)
 class ProviderCapabilities:
     transport: str = "openai"  # "doubao" | "openai"
-    vision: bool = True
+    vision: bool | None = True
     mic_audio: bool = False
     thinking_param: bool = False
     thinking_param_style: ThinkingParamStyle = "none"
@@ -133,6 +133,7 @@ _register(
     stream_usage_in_final_chunk=False,
 )
 _register("openai", thinking_param_style="none", supports_thinking=False)
+_register("deepseek", thinking_param_style="none", supports_thinking=False)
 _register("google_gemini", thinking_param_style="none", supports_thinking=False)
 _register("xai", thinking_param_style="none", supports_thinking=False)
 _register("mistral", thinking_param_style="none", supports_thinking=False)
@@ -158,6 +159,7 @@ _register(
     mic_audio=True,
 )
 _register("hunyuan", thinking_param_style="thinking_type")
+_register("tencent_tokenhub", thinking_param_style="none", supports_thinking=False)
 _register("stepfun", thinking_param_style="enable_thinking")
 _register(
     "baidu_cloud",

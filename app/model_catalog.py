@@ -1,10 +1,11 @@
 """Platform model catalogs with pricing metadata for the Web console vision model picker.
 
-二十个平台目录（按 ``_CATALOG_BY_PROVIDER`` key）：
+二十二个平台目录（按 ``_CATALOG_BY_PROVIDER`` key）：
 - ``doubao``：火山方舟（豆包 Responses 模型）
 - ``dashscope``：阿里云百炼（qwen-vl-* 等）
 - ``tokenrhythm``：基元律动（qwen3.7-flash）
 - ``openai``：OpenAI（GPT 系列）
+- ``deepseek``：DeepSeek（Flash / V4 系列）
 - ``google_gemini``：Google Gemini（Gemini 系列）
 - ``xai``：xAI（Grok 系列）
 - ``mistral``：Mistral AI（Mistral / Ministral 系列）
@@ -12,18 +13,19 @@
 - ``fireworks``：Fireworks AI（Kimi / Qwen / Step / Gemma）
 - ``dashscope_intl``：DashScope International（Qwen 视觉/多模态）
 - ``siliconflow``：硅基流动（deepseek-ai/* 等）
-- ``mimo``：小米 MiMo（仅 ``mimo-v2.5``）
+- ``mimo``：小米 MiMo（V2.6 与兼容保留的 V2.5）
 - ``zai``：Z.AI / 智谱（GLM-4.6V / GLM-4.5V）
 - ``zhipu``：智谱 AI（GLM 视觉模型）
 - ``moonshot``：Moonshot Kimi（kimi-latest / kimi-thinking-preview 等）
 - ``hunyuan``：腾讯混元（hunyuan-turbos-vision 等）
+- ``tencent_tokenhub``：腾讯 TokenHub（GLM / Kimi / MiMo 账号目录）
 - ``stepfun``：阶跃星辰（step-3 / step-3-7-flash）
 - ``baidu_cloud``：百度千帆 v2（ernie-*-vl / qianfan-*-vl）
 - ``openrouter``：OpenRouter 聚合（anthropic/claude-* / google/gemini-* 等）
 - ``modelscope``：魔搭社区（Qwen3-VL-* 开源镜像，免费额度）
 
 每个 ``CatalogModel`` 含：name、id、price、modality、supports_vision、
-main_flow_recommended、thinking_mode（off/hybrid/always）。
+main_flow_recommended、thinking_mode（off/hybrid/always）、lifecycle_status、availability。
 ``ModelPrice`` 含 input/output/可选 audio（每百万 token，默认 CNY）。
 
 价格元数据仅用于 Web「视觉模型选择器」的预估成本展示，**不**写入计费。
@@ -40,8 +42,8 @@ TemperatureSupport = Literal["always", "reasoning_none_only", "never"]
 
 @dataclass(frozen=True)
 class ModelPrice:
-    input: float
-    output: float
+    input: float | None
+    output: float | None
     audio: float | None = None
     currency: str = "CNY"
 
@@ -65,6 +67,8 @@ class CatalogModel:
     thinking_mode: ThinkingMode = "off"
     supports_mic: bool | None = False
     status: str = "active"
+    lifecycle_status: str | None = None
+    availability: str = "curated"
     replacement_model_id: str | None = None
     source_kind: str = "curated"
     source_url: str | None = None
@@ -95,6 +99,8 @@ class CatalogModel:
             "supports_thinking_toggle": self.supports_thinking_toggle,
             "supports_mic": self.supports_mic,
             "status": self.status,
+            "lifecycle_status": self.lifecycle_status or self.status,
+            "availability": self.availability,
             "replacement_model_id": self.replacement_model_id,
             "source_kind": self.source_kind,
             "source_url": self.source_url,
@@ -132,6 +138,26 @@ class PlatformCatalog:
 
 
 DOUBAO_MODELS: tuple[CatalogModel, ...] = (
+    CatalogModel(
+        "Doubao-Seed-2.1-pro",
+        "doubao-seed-2-1-pro-260915",
+        ModelPrice(input=None, audio=None, output=None),
+        supports_vision=True,
+        thinking_mode="hybrid",
+        source_kind="official",
+        source_url="https://docs.volcengine.com/docs/ark/model-release-announcement?lang=zh",
+        verified_at="2026-09-30",
+    ),
+    CatalogModel(
+        "Doubao-Seed-2.1-lite",
+        "doubao-seed-2-1-lite-260915",
+        ModelPrice(input=None, audio=None, output=None),
+        supports_vision=True,
+        thinking_mode="hybrid",
+        source_kind="official",
+        source_url="https://docs.volcengine.com/docs/ark/model-release-announcement?lang=zh",
+        verified_at="2026-09-30",
+    ),
     CatalogModel(
         "Doubao-Seed-2.0-pro",
         "doubao-seed-2-0-pro-260215",
@@ -180,6 +206,30 @@ DOUBAO_MODELS: tuple[CatalogModel, ...] = (
 )
 
 DASHSCOPE_MODELS: tuple[CatalogModel, ...] = (
+    CatalogModel(
+        "Qwen3.8-Max",
+        "qwen3.8-max",
+        ModelPrice(input=None, audio=None, output=None),
+        supports_vision=True,
+        thinking_mode="always",
+        source_kind="official",
+        source_url="https://help.aliyun.com/zh/model-studio/text-generation",
+        verified_at="2026-09-30",
+        reasoning_effort_values=("low", "medium", "high", "xhigh"),
+        reasoning_param_style_chat="enable_thinking",
+    ),
+    CatalogModel(
+        "Qwen3.8-Flash",
+        "qwen3.8-flash",
+        ModelPrice(input=None, audio=None, output=None),
+        supports_vision=True,
+        thinking_mode="always",
+        source_kind="official",
+        source_url="https://help.aliyun.com/zh/model-studio/text-generation",
+        verified_at="2026-09-30",
+        reasoning_effort_values=("low", "medium", "high", "xhigh"),
+        reasoning_param_style_chat="enable_thinking",
+    ),
     CatalogModel(
         "Qwen3-VL-Flash",
         "qwen3-vl-flash",
@@ -246,6 +296,26 @@ DASHSCOPE_MODELS: tuple[CatalogModel, ...] = (
 # follows Qwen3.7-Flash's upstream Chat contract and still needs live proxy verification.
 TOKENRHYTHM_MODELS: tuple[CatalogModel, ...] = (
     CatalogModel(
+        "Qwen3.8-Flash",
+        "qwen3.8-flash",
+        ModelPrice(input=None, output=None),
+        supports_vision=True,
+        thinking_mode="always",
+        source_kind="official",
+        source_url="https://tokenrhythm.studio/models",
+        verified_at="2026-09-30",
+    ),
+    CatalogModel(
+        "DeepSeek-Flash",
+        "deepseek-flash",
+        ModelPrice(input=None, output=None),
+        supports_vision=True,
+        thinking_mode="hybrid",
+        source_kind="official",
+        source_url="https://tokenrhythm.studio/models",
+        verified_at="2026-09-30",
+    ),
+    CatalogModel(
         "Qwen3.7-Flash",
         "qwen3.7-flash",
         ModelPrice(input=1.2, audio=None, output=4.8),
@@ -265,6 +335,36 @@ TOKENRHYTHM_MODELS: tuple[CatalogModel, ...] = (
 )
 
 OPENAI_MODELS: tuple[CatalogModel, ...] = (
+    CatalogModel(
+        "GPT-6 Astra",
+        "gpt-6-astra",
+        ModelPrice(input=None, audio=None, output=None, currency="USD"),
+        supports_vision=True,
+        thinking_mode="hybrid",
+        source_kind="official",
+        source_url="https://developers.openai.com/api/docs/models",
+        verified_at="2026-09-30",
+    ),
+    CatalogModel(
+        "GPT-6 Sol",
+        "gpt-6-sol",
+        ModelPrice(input=None, audio=None, output=None, currency="USD"),
+        supports_vision=True,
+        thinking_mode="hybrid",
+        source_kind="official",
+        source_url="https://developers.openai.com/api/docs/models",
+        verified_at="2026-09-30",
+    ),
+    CatalogModel(
+        "GPT-6 Luna",
+        "gpt-6-luna",
+        ModelPrice(input=None, audio=None, output=None, currency="USD"),
+        supports_vision=True,
+        thinking_mode="hybrid",
+        source_kind="official",
+        source_url="https://developers.openai.com/api/docs/models",
+        verified_at="2026-09-30",
+    ),
     CatalogModel(
         "GPT-5.6 Sol",
         "gpt-5.6-sol",
@@ -320,6 +420,51 @@ OPENAI_MODELS: tuple[CatalogModel, ...] = (
 
 GOOGLE_GEMINI_MODELS: tuple[CatalogModel, ...] = (
     CatalogModel(
+        "Gemini-3.8-Flash",
+        "gemini-3.8-flash",
+        ModelPrice(input=None, audio=None, output=None, currency="USD"),
+        supports_vision=True,
+        source_kind="official",
+        source_url="https://ai.google.dev/gemini-api/docs/models?hl=en",
+        verified_at="2026-09-30",
+    ),
+    CatalogModel(
+        "Gemini-3.7-Flash",
+        "gemini-3.7-flash",
+        ModelPrice(input=None, audio=None, output=None, currency="USD"),
+        supports_vision=True,
+        source_kind="official",
+        source_url="https://ai.google.dev/gemini-api/docs/models?hl=en",
+        verified_at="2026-09-30",
+    ),
+    CatalogModel(
+        "Gemini-3.6-Flash",
+        "gemini-3.6-flash",
+        ModelPrice(input=None, audio=None, output=None, currency="USD"),
+        supports_vision=True,
+        source_kind="official",
+        source_url="https://ai.google.dev/gemini-api/docs/models?hl=en",
+        verified_at="2026-09-30",
+    ),
+    CatalogModel(
+        "Gemini-3.1-Pro-Preview",
+        "gemini-3.1-pro-preview",
+        ModelPrice(input=None, audio=None, output=None, currency="USD"),
+        supports_vision=True,
+        source_kind="official",
+        source_url="https://ai.google.dev/gemini-api/docs/models?hl=en",
+        verified_at="2026-09-30",
+    ),
+    CatalogModel(
+        "Gemini-3-Flash-Preview",
+        "gemini-3-flash-preview",
+        ModelPrice(input=None, audio=None, output=None, currency="USD"),
+        supports_vision=True,
+        source_kind="official",
+        source_url="https://ai.google.dev/gemini-api/docs/models?hl=en",
+        verified_at="2026-09-30",
+    ),
+    CatalogModel(
         "Gemini-3.5-Flash",
         "gemini-3.5-flash",
         ModelPrice(input=0.3, audio=None, output=2.5, currency="USD"),
@@ -328,11 +473,19 @@ GOOGLE_GEMINI_MODELS: tuple[CatalogModel, ...] = (
         "Gemini-3.1-Pro",
         "gemini-3.1-pro",
         ModelPrice(input=1.25, audio=None, output=10.0, currency="USD"),
+        status="deprecated",
+        lifecycle_status="deprecated",
+        main_flow_recommended=False,
+        replacement_model_id="gemini-3.1-pro-preview",
     ),
     CatalogModel(
         "Gemini-3-Flash",
         "gemini-3-flash",
         ModelPrice(input=0.3, audio=None, output=2.5, currency="USD"),
+        status="deprecated",
+        lifecycle_status="deprecated",
+        main_flow_recommended=False,
+        replacement_model_id="gemini-3-flash-preview",
     ),
     CatalogModel(
         "Gemini-2.5-Pro",
@@ -347,6 +500,16 @@ GOOGLE_GEMINI_MODELS: tuple[CatalogModel, ...] = (
 )
 
 XAI_MODELS: tuple[CatalogModel, ...] = (
+    CatalogModel(
+        "Grok-4.7",
+        "grok-4.7",
+        ModelPrice(input=None, output=None, currency="USD"),
+        supports_vision=True,
+        thinking_mode="hybrid",
+        source_kind="official",
+        source_url="https://docs.x.ai/docs/models",
+        verified_at="2026-09-30",
+    ),
     CatalogModel(
         "Grok-4.3",
         "grok-4.3",
@@ -378,29 +541,58 @@ XAI_MODELS: tuple[CatalogModel, ...] = (
 
 MISTRAL_MODELS: tuple[CatalogModel, ...] = (
     CatalogModel(
+        "Mistral-Large-3",
+        "mistral-large-3",
+        ModelPrice(input=None, output=None, currency="USD"),
+        supports_vision=True,
+        source_kind="official",
+        source_url="https://docs.mistral.ai/models",
+        verified_at="2026-09-30",
+    ),
+    CatalogModel(
         "Mistral-Large-2512",
         "mistral-large-2512",
         ModelPrice(input=2.0, audio=None, output=6.0, currency="USD"),
+        status="deprecated",
+        lifecycle_status="deprecated",
+        main_flow_recommended=False,
+        replacement_model_id="mistral-large-3",
     ),
     CatalogModel(
         "Mistral-Medium-2508",
         "mistral-medium-2508",
         ModelPrice(input=0.4, audio=None, output=2.0, currency="USD"),
+        status="deprecated",
+        lifecycle_status="deprecated",
+        main_flow_recommended=False,
+        replacement_model_id="mistral-large-3",
     ),
     CatalogModel(
         "Mistral-Small-2506",
         "mistral-small-2506",
         ModelPrice(input=0.1, audio=None, output=0.3, currency="USD"),
+        status="deprecated",
+        lifecycle_status="deprecated",
+        main_flow_recommended=False,
+        replacement_model_id="mistral-large-3",
     ),
     CatalogModel(
         "Ministral-14B-2512",
         "ministral-14b-2512",
         ModelPrice(input=0.1, audio=None, output=0.3, currency="USD"),
+        status="deprecated",
+        lifecycle_status="deprecated",
+        main_flow_recommended=False,
+        replacement_model_id="mistral-large-3",
     ),
     CatalogModel(
         "Ministral-8B-2512",
         "ministral-8b-2512",
         ModelPrice(input=0.05, audio=None, output=0.1, currency="USD"),
+        status="deprecated",
+        lifecycle_status="deprecated",
+        main_flow_recommended=False,
+        replacement_model_id="mistral-large-3",
     ),
 )
 
@@ -462,6 +654,26 @@ FIREWORKS_MODELS: tuple[CatalogModel, ...] = (
 
 DASHSCOPE_INTL_MODELS: tuple[CatalogModel, ...] = (
     CatalogModel(
+        "Qwen3.8-Max",
+        "qwen3.8-max",
+        ModelPrice(input=None, audio=None, output=None, currency="USD"),
+        supports_vision=True,
+        thinking_mode="always",
+        source_kind="official",
+        source_url="https://help.aliyun.com/en/model-studio/text-generation",
+        verified_at="2026-09-30",
+    ),
+    CatalogModel(
+        "Qwen3.8-Flash",
+        "qwen3.8-flash",
+        ModelPrice(input=None, audio=None, output=None, currency="USD"),
+        supports_vision=True,
+        thinking_mode="always",
+        source_kind="official",
+        source_url="https://help.aliyun.com/en/model-studio/text-generation",
+        verified_at="2026-09-30",
+    ),
+    CatalogModel(
         "Qwen3-VL-Flash",
         "qwen3-vl-flash",
         ModelPrice(input=0.15, audio=None, output=1.5),
@@ -493,14 +705,47 @@ DASHSCOPE_INTL_MODELS: tuple[CatalogModel, ...] = (
     ),
 )
 
-# Vision/screenshot catalog: mimo-v2.5 only (official image input for screenshot danmu).
+# Vision/screenshot catalog.  Keep older IDs for configuration compatibility and
+# expose lifecycle metadata instead of deleting them during a refresh.
 MIMO_MODELS: tuple[CatalogModel, ...] = (
+    CatalogModel(
+        "MiMo-V2.6-Pro",
+        "mimo-v2.6-pro",
+        ModelPrice(input=None, audio=None, output=None),
+        supports_vision=True,
+        input_modalities=("text", "image", "audio"),
+        thinking_mode="hybrid",
+        supports_mic=True,
+        source_kind="official",
+        source_url="https://mimo.mi.com/docs/zh-CN/api/model/list-models",
+        verified_at="2026-09-30",
+    ),
+    CatalogModel(
+        "MiMo-V2.6-Flash",
+        "mimo-v2.6-flash",
+        ModelPrice(input=None, audio=None, output=None),
+        supports_vision=True,
+        input_modalities=("text", "image", "audio"),
+        thinking_mode="hybrid",
+        supports_mic=True,
+        source_kind="official",
+        source_url="https://mimo.mi.com/docs/zh-CN/api/model/list-models",
+        verified_at="2026-09-30",
+    ),
     CatalogModel(
         "MiMo-V2.5",
         "mimo-v2.5",
         ModelPrice(input=1.0, audio=1.0, output=2.0),
+        supports_vision=True,
+        input_modalities=("text", "image", "audio"),
         thinking_mode="hybrid",
         supports_mic=True,
+        status="deprecated",
+        lifecycle_status="deprecated",
+        replacement_model_id="mimo-v2.6-flash",
+        source_kind="official",
+        source_url="https://mimo.mi.com/docs/zh-CN/api/model/list-models",
+        verified_at="2026-09-30",
     ),
 )
 
@@ -569,6 +814,26 @@ SILICONFLOW_MODELS: tuple[CatalogModel, ...] = (
 
 ZAI_MODELS: tuple[CatalogModel, ...] = (
     CatalogModel(
+        "GLM-5.3-Flash",
+        "glm-5.3-flash",
+        ModelPrice(input=None, output=None, currency="USD"),
+        supports_vision=True,
+        thinking_mode="hybrid",
+        source_kind="official",
+        source_url="https://cloud.tencent.com/document/product/1823/130079",
+        verified_at="2026-09-30",
+    ),
+    CatalogModel(
+        "GLM-5.3-FlashX",
+        "glm-5.3-flashx",
+        ModelPrice(input=None, output=None, currency="USD"),
+        supports_vision=True,
+        thinking_mode="hybrid",
+        source_kind="official",
+        source_url="https://cloud.tencent.com/document/product/1823/130079",
+        verified_at="2026-09-30",
+    ),
+    CatalogModel(
         "GLM-4.6V",
         "glm-4.6v",
         ModelPrice(input=0.6, audio=None, output=1.8, currency="USD"),
@@ -585,6 +850,26 @@ ZAI_MODELS: tuple[CatalogModel, ...] = (
 # 智谱 AI（open.bigmodel.cn）— 视觉模型，无音频；定价来自智谱 AI 开放平台官网（CNY/百万 token）。
 # glm-4v-flash 免费额度；glm-4v-plus 0.005元/千 token。
 ZHIPU_MODELS: tuple[CatalogModel, ...] = (
+    CatalogModel(
+        "GLM-5.3-Flash",
+        "glm-5.3-flash",
+        ModelPrice(input=None, output=None),
+        supports_vision=True,
+        thinking_mode="hybrid",
+        source_kind="official",
+        source_url="https://cloud.tencent.com/document/product/1823/130079",
+        verified_at="2026-09-30",
+    ),
+    CatalogModel(
+        "GLM-5.3-FlashX",
+        "glm-5.3-flashx",
+        ModelPrice(input=None, output=None),
+        supports_vision=True,
+        thinking_mode="hybrid",
+        source_kind="official",
+        source_url="https://cloud.tencent.com/document/product/1823/130079",
+        verified_at="2026-09-30",
+    ),
     CatalogModel(
         "GLM-4V-Flash",
         "glm-4v-flash",
@@ -607,6 +892,26 @@ ZHIPU_MODELS: tuple[CatalogModel, ...] = (
 
 # Moonshot (Kimi) — 视觉模型，无音频；定价来自 Moonshot 官网（CNY/百万 token）。
 MOONSHOT_MODELS: tuple[CatalogModel, ...] = (
+    CatalogModel(
+        "Kimi-K3",
+        "kimi-k3",
+        ModelPrice(input=None, output=None),
+        supports_vision=None,
+        status="testing",
+        source_kind="curated",
+        source_url="https://platform.moonshot.cn/docs/intro",
+        verified_at="2026-09-30",
+    ),
+    CatalogModel(
+        "Kimi-K2.6",
+        "kimi-k2.6",
+        ModelPrice(input=None, output=None),
+        supports_vision=None,
+        status="testing",
+        source_kind="curated",
+        source_url="https://platform.moonshot.cn/docs/intro",
+        verified_at="2026-09-30",
+    ),
     CatalogModel(
         "Kimi-Latest",
         "kimi-latest",
@@ -639,36 +944,135 @@ MOONSHOT_MODELS: tuple[CatalogModel, ...] = (
     ),
 )
 
-# 腾讯混元 — 视觉模型，无音频；定价来自腾讯云官网（CNY/百万 token）。T1 为思考模型。
+# DeepSeek official catalog.  The flash alias is a multimodal entry; the
+# V4-Pro entry is intentionally text-only until an official vision contract
+# is published.
+DEEPSEEK_MODELS: tuple[CatalogModel, ...] = (
+    CatalogModel(
+        "DeepSeek-Flash",
+        "deepseek-flash",
+        ModelPrice(input=None, output=None, currency="USD"),
+        supports_vision=True,
+        thinking_mode="hybrid",
+        source_kind="official",
+        source_url="https://api-docs.deepseek.com/zh-cn/",
+        verified_at="2026-09-30",
+    ),
+    CatalogModel(
+        "DeepSeek-V4-Flash",
+        "deepseek-v4-flash",
+        ModelPrice(input=None, output=None, currency="USD"),
+        supports_vision=True,
+        thinking_mode="hybrid",
+        source_kind="official",
+        source_url="https://api-docs.deepseek.com/zh-cn/",
+        verified_at="2026-09-30",
+    ),
+    CatalogModel(
+        "DeepSeek-V4-Pro",
+        "deepseek-v4-pro",
+        ModelPrice(input=None, output=None, currency="USD"),
+        supports_vision=False,
+        thinking_mode="always",
+        source_kind="official",
+        source_url="https://api-docs.deepseek.com/zh-cn/",
+        verified_at="2026-09-30",
+    ),
+)
+
+# TokenHub is a separate provider/key domain.  Its model availability is
+# account-dependent; entries without an explicit visual contract stay unknown.
+TOKENHUB_MODELS: tuple[CatalogModel, ...] = (
+    CatalogModel(
+        "GLM-5.3-Flash",
+        "glm-5.3-flash",
+        ModelPrice(input=None, output=None),
+        supports_vision=True,
+        thinking_mode="hybrid",
+        source_kind="official",
+        source_url="https://cloud.tencent.com/document/product/1823/130079",
+        verified_at="2026-09-30",
+    ),
+    CatalogModel(
+        "Kimi-K3",
+        "kimi-k3",
+        ModelPrice(input=None, output=None),
+        supports_vision=True,
+        thinking_mode="hybrid",
+        source_kind="official",
+        source_url="https://cloud.tencent.com/document/product/1823/130079",
+        verified_at="2026-09-30",
+    ),
+    CatalogModel(
+        "MiMo-V2.6-Flash",
+        "mimo-v2.6-flash",
+        ModelPrice(input=None, output=None),
+        supports_vision=True,
+        input_modalities=("text", "image", "audio"),
+        thinking_mode="hybrid",
+        supports_mic=True,
+        source_kind="official",
+        source_url="https://cloud.tencent.com/document/product/1823/130079",
+        verified_at="2026-09-30",
+    ),
+)
+
+# 腾讯混元 — legacy endpoint/model IDs retained only for compatibility.
 HUNYUAN_MODELS: tuple[CatalogModel, ...] = (
     CatalogModel(
         "Hunyuan-Turbos-Vision",
         "hunyuan-turbos-vision",
         ModelPrice(input=3.0, output=9.0),
+        status="retired",
+        lifecycle_status="retired",
+        main_flow_recommended=False,
+        replacement_model_id="glm-5.3-flash",
         thinking_mode="off",
     ),
     CatalogModel(
         "Hunyuan-Vision",
         "hunyuan-vision",
         ModelPrice(input=3.0, output=9.0),
+        status="retired",
+        lifecycle_status="retired",
+        main_flow_recommended=False,
+        replacement_model_id="glm-5.3-flash",
         thinking_mode="off",
     ),
     CatalogModel(
         "Hunyuan-T1-Vision",
         "hunyuan-t1-vision",
         ModelPrice(input=6.0, output=18.0),
+        status="retired",
+        lifecycle_status="retired",
+        main_flow_recommended=False,
+        replacement_model_id="glm-5.3-flash",
         thinking_mode="hybrid",
     ),
     CatalogModel(
         "Hunyuan-Large-Vision",
         "hunyuan-large-vision",
         ModelPrice(input=4.0, output=12.0),
+        status="retired",
+        lifecycle_status="retired",
+        main_flow_recommended=False,
+        replacement_model_id="glm-5.3-flash",
         thinking_mode="off",
     ),
 )
 
 # 阶跃星辰 StepFun — 视觉模型，无音频；定价来自阶跃星辰官网（CNY/百万 token，近似值）。
 STEPFUN_MODELS: tuple[CatalogModel, ...] = (
+    CatalogModel(
+        "Step-3.7-Flash",
+        "step-3.7-flash",
+        ModelPrice(input=None, output=None),
+        supports_vision=True,
+        thinking_mode="hybrid",
+        source_kind="official",
+        source_url="https://platform.stepfun.com/",
+        verified_at="2026-09-30",
+    ),
     CatalogModel(
         "Step-1o-Turbo-Vision",
         "step-1o-turbo-vision",
@@ -685,6 +1089,26 @@ STEPFUN_MODELS: tuple[CatalogModel, ...] = (
 
 # 百度千帆 v2 — 视觉模型，无音频；定价为 USD/百万 token。ernie-5-0-thinking-latest 为思考模型。
 BAIDU_CLOUD_MODELS: tuple[CatalogModel, ...] = (
+    CatalogModel(
+        "ERNIE-5.0",
+        "ernie-5.0",
+        ModelPrice(input=None, output=None, currency="USD"),
+        supports_vision=True,
+        thinking_mode="hybrid",
+        source_kind="official",
+        source_url="https://qianfan.cloud.baidu.com/",
+        verified_at="2026-09-30",
+    ),
+    CatalogModel(
+        "ERNIE-5.1",
+        "ernie-5.1",
+        ModelPrice(input=None, output=None, currency="USD"),
+        supports_vision=False,
+        thinking_mode="hybrid",
+        source_kind="official",
+        source_url="https://qianfan.cloud.baidu.com/",
+        verified_at="2026-09-30",
+    ),
     CatalogModel(
         "ERNIE-4.5-Turbo-VL",
         "ernie-4-5-turbo-vl",
@@ -767,41 +1191,66 @@ MODELSCOPE_MODELS: tuple[CatalogModel, ...] = (
 )
 
 
-def _curate_static_models(models: tuple[CatalogModel, ...]) -> tuple[CatalogModel, ...]:
-    """Materialize the curated catalog's known vision capability.
+_EXPLICIT_VISION_MODEL_IDS = frozenset({
+    "doubao-seed-2-0-pro-260215", "doubao-seed-2-0-lite-260428", "doubao-seed-2-0-mini-260428",
+    "doubao-seed-1-8-251228", "doubao-seed-1-6-251015", "doubao-seed-1-6-vision-250815", "doubao-seed-1-6-flash-250828",
+    "qwen3-vl-flash", "qwen3-vl-plus", "qwen3.7-plus", "qwen3.5-flash", "qwen-vl-plus", "qwen3.5-plus",
+    "qwen3.5-omni-plus", "qwen3.6-flash", "qwen3.6-plus", "qwen-vl-max", "qwen3.7-flash",
+    "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna", "gemini-3.5-flash", "gemini-3.1-pro", "gemini-3-flash",
+    "gemini-2.5-pro", "gemini-2.5-flash", "grok-4.3", "grok-4.20-multi-agent-0309", "grok-4.20-0309-reasoning",
+    "grok-4.20-0309-non-reasoning", "grok-build-0.1", "mistral-large-2512", "mistral-medium-2508", "mistral-small-2506",
+    "ministral-14b-2512", "ministral-8b-2512", "Qwen/Qwen3.5-9B", "google/gemma-4-31B-it", "MiniMaxAI/MiniMax-M3",
+    "moonshotai/Kimi-K2.7-Code", "moonshotai/Kimi-K2.6", "accounts/fireworks/models/kimi-k2p6",
+    "accounts/fireworks/models/qwen3p6-plus", "accounts/fireworks/models/step-3p7-flash-nvfp4",
+    "accounts/fireworks/models/gemma-4-31b-it", "accounts/fireworks/models/qwen3-omni-30b-a3b-instruct",
+    "Qwen/Qwen3-VL-8B-Instruct", "Qwen/Qwen3-VL-8B-Thinking", "Qwen/Qwen3-VL-30B-A3B-Instruct",
+    "Qwen/Qwen3-VL-30B-A3B-Thinking", "Qwen/Qwen3-Omni-30B-A3B-Instruct", "Qwen/Qwen3-Omni-30B-A3B-Thinking",
+    "Qwen/Qwen3-Omni-30B-A3B-Captioner", "Qwen/Qwen3-VL-32B-Instruct", "Qwen/Qwen3-VL-235B-A22B-Instruct",
+    "zai-org/GLM-4.5V", "mimo-v2.5", "glm-4.6v", "glm-4.5v", "glm-4v-flash", "glm-4v-plus", "kimi-latest",
+    "kimi-latest-128k", "moonshot-v1-8k-vision-preview", "moonshot-v1-32k-vision-preview", "kimi-thinking-preview",
+    "hunyuan-turbos-vision", "hunyuan-vision", "hunyuan-t1-vision", "hunyuan-large-vision", "step-1o-turbo-vision",
+    "step-1o-vision-32k", "ernie-4-5-turbo-vl", "ernie-4-5-vl-a3b", "ernie-4-5-vl-a47b", "ernie-5-0",
+    "ernie-5-0-thinking-latest", "google/gemini-3.1-flash-lite", "xiaomi/mimo-v2.5", "google/gemini-3.1-pro-preview",
+    "anthropic/claude-sonnet-4.5", "anthropic/claude-sonnet-4.6", "Qwen/Qwen3-VL-30B-A3B-Instruct",
+    "Qwen/Qwen3-VL-32B-Instruct",
+})
 
-    ``CatalogModel`` also represents dynamic/manual entries, whose omitted
-    ``supports_vision`` must remain ``None``.  Only entries explicitly marked
-    as curated by this static catalog receive the legacy ``True`` default.
+
+def _apply_explicit_capability_manifest(models: tuple[CatalogModel, ...]) -> tuple[CatalogModel, ...]:
+    """Apply only the declared model-ID capability manifest.
+
+    A source label such as ``curated`` is not a capability claim.  Unknown
+    IDs therefore remain ``None`` and are excluded from the default vision
+    picker until a source-backed entry explicitly sets their capability.
     """
     return tuple(
         replace(model, supports_vision=True)
-        if model.source_kind == "curated" and model.supports_vision is None
+        if model.supports_vision is None and model.id in _EXPLICIT_VISION_MODEL_IDS
         else model
         for model in models
     )
 
 
-DOUBAO_MODELS = _curate_static_models(DOUBAO_MODELS)
-DASHSCOPE_MODELS = _curate_static_models(DASHSCOPE_MODELS)
-TOKENRHYTHM_MODELS = _curate_static_models(TOKENRHYTHM_MODELS)
-OPENAI_MODELS = _curate_static_models(OPENAI_MODELS)
-GOOGLE_GEMINI_MODELS = _curate_static_models(GOOGLE_GEMINI_MODELS)
-XAI_MODELS = _curate_static_models(XAI_MODELS)
-MISTRAL_MODELS = _curate_static_models(MISTRAL_MODELS)
-TOGETHER_MODELS = _curate_static_models(TOGETHER_MODELS)
-FIREWORKS_MODELS = _curate_static_models(FIREWORKS_MODELS)
-DASHSCOPE_INTL_MODELS = _curate_static_models(DASHSCOPE_INTL_MODELS)
-SILICONFLOW_MODELS = _curate_static_models(SILICONFLOW_MODELS)
-MIMO_MODELS = _curate_static_models(MIMO_MODELS)
-ZAI_MODELS = _curate_static_models(ZAI_MODELS)
-ZHIPU_MODELS = _curate_static_models(ZHIPU_MODELS)
-MOONSHOT_MODELS = _curate_static_models(MOONSHOT_MODELS)
-HUNYUAN_MODELS = _curate_static_models(HUNYUAN_MODELS)
-STEPFUN_MODELS = _curate_static_models(STEPFUN_MODELS)
-BAIDU_CLOUD_MODELS = _curate_static_models(BAIDU_CLOUD_MODELS)
-OPENROUTER_MODELS = _curate_static_models(OPENROUTER_MODELS)
-MODELSCOPE_MODELS = _curate_static_models(MODELSCOPE_MODELS)
+DOUBAO_MODELS = _apply_explicit_capability_manifest(DOUBAO_MODELS)
+DASHSCOPE_MODELS = _apply_explicit_capability_manifest(DASHSCOPE_MODELS)
+TOKENRHYTHM_MODELS = _apply_explicit_capability_manifest(TOKENRHYTHM_MODELS)
+OPENAI_MODELS = _apply_explicit_capability_manifest(OPENAI_MODELS)
+GOOGLE_GEMINI_MODELS = _apply_explicit_capability_manifest(GOOGLE_GEMINI_MODELS)
+XAI_MODELS = _apply_explicit_capability_manifest(XAI_MODELS)
+MISTRAL_MODELS = _apply_explicit_capability_manifest(MISTRAL_MODELS)
+TOGETHER_MODELS = _apply_explicit_capability_manifest(TOGETHER_MODELS)
+FIREWORKS_MODELS = _apply_explicit_capability_manifest(FIREWORKS_MODELS)
+DASHSCOPE_INTL_MODELS = _apply_explicit_capability_manifest(DASHSCOPE_INTL_MODELS)
+SILICONFLOW_MODELS = _apply_explicit_capability_manifest(SILICONFLOW_MODELS)
+MIMO_MODELS = _apply_explicit_capability_manifest(MIMO_MODELS)
+ZAI_MODELS = _apply_explicit_capability_manifest(ZAI_MODELS)
+ZHIPU_MODELS = _apply_explicit_capability_manifest(ZHIPU_MODELS)
+MOONSHOT_MODELS = _apply_explicit_capability_manifest(MOONSHOT_MODELS)
+HUNYUAN_MODELS = _apply_explicit_capability_manifest(HUNYUAN_MODELS)
+STEPFUN_MODELS = _apply_explicit_capability_manifest(STEPFUN_MODELS)
+BAIDU_CLOUD_MODELS = _apply_explicit_capability_manifest(BAIDU_CLOUD_MODELS)
+OPENROUTER_MODELS = _apply_explicit_capability_manifest(OPENROUTER_MODELS)
+MODELSCOPE_MODELS = _apply_explicit_capability_manifest(MODELSCOPE_MODELS)
 
 PLATFORM_CATALOGS: tuple[PlatformCatalog, ...] = (
     PlatformCatalog(
@@ -827,6 +1276,12 @@ PLATFORM_CATALOGS: tuple[PlatformCatalog, ...] = (
         platform_label="OpenAI",
         provider_id="openai",
         models=OPENAI_MODELS,
+    ),
+    PlatformCatalog(
+        platform_id="deepseek",
+        platform_label="DeepSeek",
+        provider_id="deepseek",
+        models=DEEPSEEK_MODELS,
     ),
     PlatformCatalog(
         platform_id="google-gemini",
@@ -901,6 +1356,12 @@ PLATFORM_CATALOGS: tuple[PlatformCatalog, ...] = (
         models=HUNYUAN_MODELS,
     ),
     PlatformCatalog(
+        platform_id="tencent-tokenhub",
+        platform_label="腾讯 TokenHub",
+        provider_id="tencent_tokenhub",
+        models=TOKENHUB_MODELS,
+    ),
+    PlatformCatalog(
         platform_id="stepfun",
         platform_label="阶跃星辰",
         provider_id="stepfun",
@@ -933,6 +1394,31 @@ for _platform in PLATFORM_CATALOGS:
     for _model in _platform.models:
         _CATALOG_BY_MODEL_ID[_model.id] = _model
 
+_CATALOG_SOURCE_BY_PROVIDER = {
+    "doubao": "https://docs.volcengine.com/docs/ark/model-release-announcement?lang=zh",
+    "dashscope": "https://help.aliyun.com/zh/model-studio/text-generation",
+    "tokenrhythm": "https://tokenrhythm.studio/docs/api-integration",
+    "openai": "https://developers.openai.com/api/docs/models",
+    "deepseek": "https://api-docs.deepseek.com/zh-cn/",
+    "google_gemini": "https://ai.google.dev/gemini-api/docs/models?hl=en",
+    "xai": "https://docs.x.ai/docs/models",
+    "mistral": "https://docs.mistral.ai/models",
+    "together": "https://docs.together.ai/docs/models",
+    "fireworks": "https://docs.fireworks.ai/guides/querying-models",
+    "dashscope_intl": "https://help.aliyun.com/en/model-studio/text-generation",
+    "siliconflow": "https://docs.siliconflow.cn/",
+    "mimo": "https://mimo.mi.com/docs/zh-CN/api/model/list-models",
+    "zai": "https://cloud.tencent.com/document/product/1823/130079",
+    "zhipu": "https://cloud.tencent.com/document/product/1823/130079",
+    "moonshot": "https://platform.moonshot.cn/docs/intro",
+    "hunyuan": "https://cloud.tencent.com/announce/detail/2287",
+    "tencent_tokenhub": "https://cloud.tencent.com/document/product/1823/130079",
+    "stepfun": "https://platform.stepfun.com/",
+    "baidu_cloud": "https://qianfan.cloud.baidu.com/",
+    "openrouter": "https://openrouter.ai/docs/quick-start",
+    "modelscope": "https://modelscope.cn/docs",
+}
+
 
 def enrich_platform_models(
     models: tuple[CatalogModel, ...] | list[CatalogModel],
@@ -944,16 +1430,19 @@ def enrich_platform_models(
     if not items:
         return []
 
-    min_input = min(m.price.input for m in items)
+    numeric_inputs = [m.price.input for m in items if m.price.input is not None]
+    min_input = min(numeric_inputs) if numeric_inputs else None
     cheapest_id: str | None = None
     for model in items:
-        if model.price.input == min_input:
+        if min_input is not None and model.price.input == min_input:
             cheapest_id = model.id
             break
 
     result: list[dict[str, Any]] = []
     for model in items:
         payload = model.to_dict()
+        payload["source_url"] = payload["source_url"] or _CATALOG_SOURCE_BY_PROVIDER.get(provider_id)
+        payload["verified_at"] = payload["verified_at"] or "2026-09-30"
         payload["cheapest"] = model.id == cheapest_id
         result.append(payload)
     return result
@@ -976,13 +1465,13 @@ def catalog_model_ids(provider_id: str) -> frozenset[str]:
     return frozenset(m.id for m in platform.models)
 
 
-_MIMO_DEFAULT_MODEL_ID = "mimo-v2.5"
+_MIMO_DEFAULT_MODEL_ID = "mimo-v2.6-flash"
 
 
 def default_catalog_model_id(provider_id: str) -> str:
     """Default vision model when switching provider: curated recommendation, else first.
 
-    MiMo catalog lists only ``mimo-v2.5``.
+    MiMo defaults to V2.6 Flash while retaining V2.5 for compatibility.
     """
     pid = (provider_id or "").strip()
     if pid == "mimo":

@@ -1057,6 +1057,35 @@ function navigate(page) {
   }
 }
 
+function initSidebarNavCategoryFilter() {
+  const filterRoot = document.getElementById('sidebarNavFilter');
+  const nav = document.getElementById('nav');
+  if (!filterRoot || !nav) return;
+
+  const filterButtons = [...filterRoot.querySelectorAll('[data-nav-filter]')];
+  const scopedItems = [...nav.querySelectorAll('[data-nav-scope]')];
+  if (!filterButtons.length || !scopedItems.length) return;
+
+  const applyFilter = (requestedFilter) => {
+    const filter = requestedFilter === 'all' ? 'all' : 'common';
+    scopedItems.forEach((item) => {
+      item.hidden = filter === 'common' && item.dataset.navScope !== 'common';
+    });
+    filterButtons.forEach((button) => {
+      const selected = button.dataset.navFilter === filter;
+      button.classList.toggle('is-active', selected);
+      button.setAttribute('aria-pressed', String(selected));
+    });
+    filterRoot.dataset.activeFilter = filter;
+  };
+
+  filterButtons.forEach((button) => {
+    button.addEventListener('click', () => applyFilter(button.dataset.navFilter));
+  });
+  // 新会话默认展示常用功能；切换只隐藏菜单项，不改变当前页面或 active 状态。
+  applyFilter('common');
+}
+
 function bindCoreInteractions() {
   initErrorReporting({ showToast, getLastStatus: getLastAppliedStatus });
   initProblemDialog({
@@ -1170,6 +1199,7 @@ function bindCoreInteractions() {
       navigate(el.dataset.page);
     });
   });
+  initSidebarNavCategoryFilter();
   initResponsiveShell();
 
   document.querySelectorAll('.log-level-cb').forEach((cb) => {

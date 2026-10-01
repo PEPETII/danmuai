@@ -30,6 +30,9 @@
     "openMenu": "Open navigation",
     "closeMenu": "Close navigation",
     "sidebarAria": "Main navigation",
-    "virtualHost": "Vtuber"
+    "virtualHost": "Vtuber",
+    "commonFeatures": "Frequently used",
+    "allFeatures": "All features",
+    "categoryAria": "Navigation categories"
   }
 }

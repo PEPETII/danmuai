@@ -83,7 +83,7 @@ class CapabilityProfile:
     """Declarative request/response capability flags for a provider."""
 
     transport: str = ""
-    vision: bool = True
+    vision: bool | None = None
     mic_audio: bool = False
     thinking_param: bool = False
     thinking_param_style: str = "none"
@@ -128,8 +128,8 @@ class CapabilityProfile:
 
 @dataclass(frozen=True)
 class ModelPriceDefinition:
-    input: float
-    output: float
+    input: float | None
+    output: float | None
     audio: float | None = None
     currency: str = "CNY"
 
@@ -157,6 +157,8 @@ class ModelDefinition:
     platform_id: str = ""
     aliases: tuple[str, ...] = ()
     status: str = "unknown"
+    lifecycle_status: str | None = None
+    availability: str = "curated"
     replacement_model_id: str | None = None
     input_modalities: tuple[str, ...] = ()
     output_modalities: tuple[str, ...] = ()
@@ -191,6 +193,8 @@ class ModelDefinition:
             "platform_id": self.platform_id,
             "aliases": list(self.aliases),
             "status": self.status,
+            "lifecycle_status": self.lifecycle_status or self.status,
+            "availability": self.availability,
             "replacement_model_id": self.replacement_model_id,
             "input_modalities": list(self.input_modalities),
             "output_modalities": list(self.output_modalities),
@@ -439,18 +443,27 @@ def capability_profile_from_provider_capabilities(caps) -> CapabilityProfile:
     )
 
 
-def model_definition_from_catalog_model(model, *, provider_id: str = "", platform_id: str = "") -> ModelDefinition:
+def model_definition_from_catalog_model(
+    model,
+    *,
+    provider_id: str = "",
+    platform_id: str = "",
+    fallback_source: OfficialSource | None = None,
+) -> ModelDefinition:
     """Map legacy ``CatalogModel`` to v2 ``ModelDefinition``."""
     from app.providers.capabilities import get_capabilities
 
     supports_mic = getattr(model, "supports_mic", False)
-    source_url = getattr(model, "source_url", None)
+    source_url = getattr(model, "source_url", None) or getattr(fallback_source, "url", None)
+    source_kind = getattr(model, "source_kind", "unknown")
+    verified_at = getattr(model, "verified_at", None) or getattr(fallback_source, "verified_at", None)
     input_modalities = getattr(model, "input_modalities", ())
     output_modalities = getattr(model, "output_modalities", ())
+    has_declared_modalities = bool(input_modalities)
     provider_caps = get_capabilities(provider_id) if provider_id else CapabilityProfile()
     chat_style = getattr(model, "reasoning_param_style_chat", None)
     capabilities = CapabilityProfile(
-        vision=getattr(model, "supports_vision", True),
+        vision=getattr(model, "supports_vision", None),
         mic_audio=supports_mic,
         thinking_param=bool(chat_style) or provider_caps.thinking_param,
         thinking_param_style=chat_style or provider_caps.thinking_param_style,
@@ -461,11 +474,11 @@ def model_definition_from_catalog_model(model, *, provider_id: str = "", platfor
         max_tokens_field=getattr(model, "max_tokens_field", None) or provider_caps.max_tokens_field,
         context_window=getattr(model, "context_window", None),
         max_output_tokens=getattr(model, "max_output_tokens", None),
-        text_input=("text" in input_modalities),
-        image_input=("image" in input_modalities),
-        audio_input=("audio" in input_modalities),
-        video_input=("video" in input_modalities),
-        file_input=("file" in input_modalities),
+        text_input=("text" in input_modalities) if has_declared_modalities else None,
+        image_input=getattr(model, "supports_vision", None),
+        audio_input=("audio" in input_modalities) if has_declared_modalities else None,
+        video_input=("video" in input_modalities) if has_declared_modalities else None,
+        file_input=("file" in input_modalities) if has_declared_modalities else None,
     )
     return ModelDefinition(
         id=model.id,
@@ -486,17 +499,19 @@ def model_definition_from_catalog_model(model, *, provider_id: str = "", platfor
         provider_id=provider_id,
         platform_id=platform_id,
         status=getattr(model, "status", "unknown"),
+        lifecycle_status=getattr(model, "lifecycle_status", None),
+        availability=getattr(model, "availability", "curated"),
         replacement_model_id=getattr(model, "replacement_model_id", None),
         input_modalities=input_modalities,
         output_modalities=output_modalities,
         source=(
             OfficialSource(
                 url=source_url,
-                source_kind=getattr(model, "source_kind", "unknown"),
-                verified_at=getattr(model, "verified_at", None),
+                source_kind=source_kind,
+                verified_at=verified_at,
             )
             if source_url
             else None
         ),
-        verified_at=getattr(model, "verified_at", None),
+        verified_at=verified_at,
     )

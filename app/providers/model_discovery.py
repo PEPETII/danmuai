@@ -4,14 +4,13 @@ from __future__ import annotations
 
 import hashlib
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from typing import Any, Callable, Mapping
 from urllib.parse import urlsplit, urlunsplit
 
-from app.model_catalog import get_catalog_for_provider
 from app.model_providers import normalize_endpoint
-from app.providers.endpoint_resolver import API_FAMILY_OPENAI_CHAT
+from app.providers.endpoint_resolver import API_FAMILY_OPENAI_CHAT, extract_hostname
 from app.providers.platform_definitions import ModelDefinition, ModelPriceDefinition, OfficialSource
 from app.providers.platform_registry import (
     get_provider_definition,
@@ -71,10 +70,50 @@ def _auth_headers(definition, api_key: str) -> dict[str, str]:
 
 
 def _fallback(provider_id: str, *, status: str, warnings: tuple[str, ...], now: Callable[[], float]) -> DiscoveryResult:
-    definition = list_model_definitions_for_provider(provider_id)
-    catalog = get_catalog_for_provider(provider_id)
-    source_url = (catalog or {}).get("source_url") if catalog else None
+    definition = tuple(
+        replace(model, availability="fallback")
+        for model in list_model_definitions_for_provider(provider_id)
+    )
+    source_url = next(
+        (model.source.url for model in definition if model.source and model.source.url),
+        None,
+    )
     return DiscoveryResult(definition, "curated_fallback", "curated", source_url, None, _timestamp(now), status, warnings)
+
+
+def _endpoint_is_allowed(provider_id: str, endpoint: str, definition) -> bool:
+    """Prevent a provider key from being sent to an unrelated endpoint."""
+    parsed = urlsplit(normalize_endpoint(endpoint))
+    if parsed.scheme != "https" or not parsed.hostname:
+        return False
+    if provider_id in {"custom_openai", "custom_doubao"}:
+        return True
+    hostname = extract_hostname(endpoint)
+    return hostname in set(definition.endpoint.exact_hosts)
+
+
+def _merge_discovered_capabilities(
+    provider_id: str,
+    models: tuple[ModelDefinition, ...],
+) -> tuple[ModelDefinition, ...]:
+    """Merge account availability with curated capabilities by provider + ID."""
+    curated = {
+        model.id: model for model in list_model_definitions_for_provider(provider_id)
+    }
+    merged: list[ModelDefinition] = []
+    for discovered in models:
+        known = curated.get(discovered.id)
+        if known is None:
+            merged.append(discovered)
+            continue
+        merged.append(replace(
+            known,
+            availability="account_discovery",
+            main_flow_recommended=False,
+            source=discovered.source,
+            verified_at=discovered.verified_at,
+        ))
+    return tuple(merged)
 
 
 def _parse_models(
@@ -97,13 +136,17 @@ def _parse_models(
             # validation; None is the honest value for undiscovered pricing.
             price=ModelPriceDefinition(None, None), modality="unknown",
             supports_vision=None, main_flow_recommended=False, provider_id=provider_id,
-            status="discovered", input_modalities=(), output_modalities=(),
+            status="active", lifecycle_status="active", availability="account_discovery",
+            input_modalities=(), output_modalities=(),
             source=OfficialSource(url=source_url, source_kind="account_discovery", verified_at=fetched_at),
             verified_at=fetched_at,
         ))
     if not models:
         return _fallback(provider_id, status="fallback_empty_payload", warnings=("no_valid_models",), now=lambda: datetime.fromisoformat(fetched_at).timestamp())
-    return DiscoveryResult(tuple(models), "account_discovery", "account", source_url, fetched_at, fetched_at, "ok", request_url=request_url)
+    return DiscoveryResult(
+        _merge_discovered_capabilities(provider_id, tuple(models)),
+        "account_discovery", "account", source_url, fetched_at, fetched_at, "ok", request_url=request_url,
+    )
 
 
 def discover_models(
@@ -120,6 +163,13 @@ def discover_models(
     selected_endpoint = endpoint or (definition.endpoint.base_url if definition else None)
     if definition is None or not selected_endpoint:
         return _fallback(provider_id, status="unknown", warnings=("unknown_provider_or_endpoint",), now=now)
+    if not _endpoint_is_allowed(provider_id, selected_endpoint, definition):
+        return _fallback(
+            provider_id,
+            status="rejected_endpoint",
+            warnings=("endpoint_provider_mismatch_or_insecure",),
+            now=now,
+        )
     if definition.endpoint.api_family != API_FAMILY_OPENAI_CHAT and provider_id != "openrouter":
         return _fallback(provider_id, status="unknown", warnings=("unknown_endpoint_family",), now=now)
     url = _models_url(selected_endpoint, provider_id)

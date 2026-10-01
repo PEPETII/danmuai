@@ -26,9 +26,9 @@ def test_catalog_model_metadata_round_trip_preserves_legacy_fields():
 
 def test_v2_registry_exposes_catalog_metadata_without_keys():
     models = list_model_definitions_for_provider("mimo")
-    assert len(models) == 1
+    assert len(models) == 3
     payload = models[0].to_dict()
-    assert payload["id"] == "mimo-v2.5"
+    assert payload["id"] == "mimo-v2.6-pro"
     assert "supports_mic" in payload
     assert "status" in payload
     assert "verified_at" in payload

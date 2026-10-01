@@ -21,12 +21,12 @@ def test_model_catalog_api_payload():
     from app.model_catalog import list_platform_catalogs
 
     platforms = list_platform_catalogs()
-    assert len(platforms) == 20
+    assert len(platforms) == 22
     by_id = {p["platform_id"]: p for p in platforms}
 
     doubao = by_id["doubao"]
     assert doubao["provider_id"] == "doubao"
-    assert len(doubao["models"]) == 7
+    assert len(doubao["models"]) == 9
     doubao_cheapest = [m for m in doubao["models"] if m["cheapest"]]
     assert len(doubao_cheapest) == 1
     assert doubao_cheapest[0]["id"] == "doubao-seed-1-6-flash-250828"
@@ -39,7 +39,7 @@ def test_model_catalog_api_payload():
 
     dashscope = by_id["dashscope"]
     assert dashscope["provider_id"] == "dashscope"
-    assert len(dashscope["models"]) == 10
+    assert len(dashscope["models"]) == 12
     dash_cheapest = [m for m in dashscope["models"] if m["cheapest"]]
     assert len(dash_cheapest) == 1
     assert dash_cheapest[0]["id"] == "qwen3-vl-flash"
@@ -49,17 +49,18 @@ def test_model_catalog_api_payload():
 
     tokenrhythm = by_id["tokenrhythm"]
     assert tokenrhythm["region"] == "china"
-    assert tokenrhythm["default_model_id"] == "qwen3.7-flash"
-    assert tokenrhythm["models"][0]["input_modalities"] == ["text", "image", "video"]
-    assert tokenrhythm["models"][0]["status"] == "testing"
+    assert tokenrhythm["default_model_id"] == "qwen3.8-flash"
+    qwen37 = next(model for model in tokenrhythm["models"] if model["id"] == "qwen3.7-flash")
+    assert qwen37["input_modalities"] == ["text", "image", "video"]
+    assert qwen37["status"] == "testing"
 
-    assert len(by_id["openai"]["models"]) == 3
-    assert len(by_id["google-gemini"]["models"]) == 5
-    assert len(by_id["xai"]["models"]) == 5
-    assert len(by_id["mistral"]["models"]) == 5
+    assert len(by_id["openai"]["models"]) == 6
+    assert len(by_id["google-gemini"]["models"]) == 10
+    assert len(by_id["xai"]["models"]) == 6
+    assert len(by_id["mistral"]["models"]) == 6
     assert len(by_id["together"]["models"]) == 5
     assert len(by_id["fireworks"]["models"]) == 5
-    assert len(by_id["dashscope-intl"]["models"]) == 5
+    assert len(by_id["dashscope-intl"]["models"]) == 7
 
     siliconflow = by_id["siliconflow"]
     assert siliconflow["platform_label"] == "硅基流动"
@@ -71,24 +72,26 @@ def test_model_catalog_api_payload():
 
     mimo = by_id["mimo"]
     assert mimo["provider_id"] == "mimo"
-    assert mimo["default_model_id"] == "mimo-v2.5"
-    assert len(mimo["models"]) == 1
+    assert mimo["default_model_id"] == "mimo-v2.6-flash"
+    assert len(mimo["models"]) == 3
     mimo_ids = {m["id"] for m in mimo["models"]}
-    assert mimo_ids == {"mimo-v2.5"}
-    assert mimo["models"][0]["supports_mic"] is True
+    assert mimo_ids == {"mimo-v2.6-pro", "mimo-v2.6-flash", "mimo-v2.5"}
+    assert all(model["supports_mic"] is True for model in mimo["models"])
 
     zai = by_id["zai"]
     assert zai["provider_id"] == "zai"
-    assert zai["default_model_id"] == "glm-4.6v"
-    assert {m["id"] for m in zai["models"]} == {"glm-4.6v", "glm-4.5v"}
+    assert zai["default_model_id"] == "glm-5.3-flash"
+    assert {m["id"] for m in zai["models"]} == {
+        "glm-5.3-flash", "glm-5.3-flashx", "glm-4.6v", "glm-4.5v",
+    }
 
 
-def test_providers_excludes_deepseek():
-    """GET /api/providers is built from PROVIDERS; DeepSeek is not an official preset."""
+def test_providers_includes_deepseek_and_keeps_custom_presets():
+    """GET /api/providers is built from PROVIDERS and includes official DeepSeek."""
     from app.model_providers import PROVIDERS
 
     ids = [p.id for p in PROVIDERS]
-    assert "deepseek" not in ids
+    assert "deepseek" in ids
     assert "doubao" in ids
     assert "dashscope" in ids
     assert "siliconflow" in ids

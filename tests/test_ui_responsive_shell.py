@@ -67,6 +67,22 @@ def test_sidebar_shell_structure_and_preserved_ids():
     assert 'href="#ai-butler"' not in html
 
 
+def test_sidebar_navigation_filter_scopes_all_existing_items():
+    html = _sidebar()
+    app = (_static() / "app.js").read_text(encoding="utf-8")
+    css = _layout_css()
+
+    assert 'id="sidebarNavFilter"' in html
+    assert 'data-nav-filter="common"' in html
+    assert 'data-nav-filter="all"' in html
+    assert html.count('data-page="') == 8
+    assert html.count('data-nav-scope="common"') == 5
+    assert html.count('data-nav-scope="all"') == 3
+    assert "initSidebarNavCategoryFilter" in app
+    assert "item.hidden = filter === 'common'" in app
+    assert "#nav [data-nav-scope][hidden]" in css
+
+
 def test_template_shell_toggle_and_ui_main():
     tpl = _template()
     assert "ui-shell" in tpl

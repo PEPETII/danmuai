@@ -39,6 +39,8 @@ NAMESPACE = {
 # Stable nav label keys
 NAV_LABEL_KEYS = {
     "温馨控制台": "overview",
+    "常用功能": "commonFeatures",
+    "全部功能": "allFeatures",
     "人格工坊": "persona",
     "公式化弹幕库": "danmuPool",
     "弹幕设置": "settings",
@@ -205,6 +207,8 @@ def build_zh_shards(extracted: dict[str, str], hints: dict[str, str]) -> dict[st
                     set_nested(shards["nav"], ["nav", "settingsHelpAria"], value)
                 elif value == "有新公告":
                     set_nested(shards["nav"], ["nav", "newAnnouncementBadge"], value)
+                elif value == "菜单分类":
+                    set_nested(shards["nav"], ["nav", "categoryAria"], value)
                 else:
                     k = slug_key(value, used_keys["nav"])
                     set_nested(shards["nav"], ["nav", "aria", k], value)

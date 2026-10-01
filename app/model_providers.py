@@ -1,10 +1,11 @@
 """Provider presets and validation for custom model configurations.
 
-22 个服务商预设（``PROVIDERS`` 列表）：
+24 个服务商预设（``PROVIDERS`` 列表）：
 - doubao（火山方舟） — mode=doubao，lock_mode=True（不可切换 Chat Completions）
 - dashscope（阿里云百炼） — OpenAI 兼容
 - tokenrhythm（基元律动） — OpenAI 兼容；默认模型 qwen3.7-flash
 - openai（OpenAI） — OpenAI 兼容
+- deepseek（DeepSeek） — OpenAI 兼容；官方模型目录
 - google_gemini（Google Gemini） — OpenAI 兼容
 - xai（xAI） — OpenAI 兼容
 - mistral（Mistral AI） — OpenAI 兼容
@@ -103,6 +104,17 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         model_id_hint_en="Vision danmu: gpt-5.6-sol / gpt-5.6-terra / gpt-5.6-luna",
         region="international",
         website="https://platform.openai.com/",
+    ),
+    ProviderSpec(
+        id="deepseek",
+        label_zh="DeepSeek",
+        label_en="DeepSeek",
+        default_endpoint="https://api.deepseek.com/v1",
+        mode="openai-compatible",
+        model_id_hint_zh="截图弹幕：deepseek-flash；deepseek-v4-pro 仅文本/推理",
+        model_id_hint_en="Vision danmu: deepseek-flash; deepseek-v4-pro is text/reasoning",
+        region="international",
+        website="https://api-docs.deepseek.com/",
     ),
     ProviderSpec(
         id="google_gemini",
@@ -246,6 +258,18 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
             "Tencent Hunyuan Open API is scheduled for full shutdown on 2026-09-30. "
             "Please migrate to TokenHub. See the official notice."
         ),
+    ),
+    ProviderSpec(
+        id="tencent_tokenhub",
+        label_zh="腾讯 TokenHub",
+        label_en="Tencent TokenHub",
+        default_endpoint="https://tokenhub.tencentmaas.com/v1",
+        mode="openai-compatible",
+        model_id_hint_zh="例如：glm-5.3-flash / kimi-k3 / mimo-v2.6-flash",
+        model_id_hint_en="e.g. glm-5.3-flash / kimi-k3 / mimo-v2.6-flash",
+        region="china",
+        website="https://cloud.tencent.com/product/tokenhub",
+        migration_url="https://cloud.tencent.com/document/product/1823/131382",
     ),
     ProviderSpec(
         id="stepfun",

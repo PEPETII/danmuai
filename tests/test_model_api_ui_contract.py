@@ -43,8 +43,8 @@ def test_provider_status_hides_unknown_source_for_active_providers():
     mimo = provider_for_api(get_provider("mimo"))
     assert doubao.get("status") == "active"
     assert mimo.get("status") == "active"
-    assert doubao["source"]["source_kind"] == "unknown"
-    assert mimo["source"]["source_kind"] == "unknown"
+    assert doubao["source"]["source_kind"] == "official"
+    assert mimo["source"]["source_kind"] == "official"
     assert doubao["source"]["url"]
     assert mimo["source"]["url"]
 

@@ -70,3 +70,23 @@ def test_unknown_provider_is_structured_unknown():
     result = discover_models("not-a-provider", "key", now=lambda: 1.0)
     assert result.status == "unknown"
     assert result.discovery_kind == "curated_fallback"
+
+
+def test_discovery_merges_account_availability_with_curated_capability():
+    clear_discovery_cache()
+    client = FakeClient(Response({"data": [{"id": "google/gemini-3.1-pro-preview"}]}))
+    result = discover_models("openrouter", "secret", http_client=client, now=lambda: 10.0)
+    model = result.models[0]
+    assert model.availability == "account_discovery"
+    assert model.supports_vision is True
+    assert model.source.source_kind == "account_discovery"
+
+
+def test_discovery_rejects_insecure_or_cross_provider_endpoint_before_network():
+    clear_discovery_cache()
+    client = FakeClient(Response({"data": [{"id": "should-not-be-called"}]}))
+    insecure = discover_models("openai", "secret", endpoint="http://api.openai.com/v1", http_client=client)
+    mismatch = discover_models("openai", "secret", endpoint="https://api.deepseek.com/v1", http_client=client)
+    assert insecure.status == "rejected_endpoint"
+    assert mismatch.status == "rejected_endpoint"
+    assert client.calls == []

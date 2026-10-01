@@ -78,6 +78,24 @@ def _endpoint_profile_for_spec(spec) -> EndpointProfile:
 
 def _official_source_for_spec(spec) -> OfficialSource:
     docs = {
+        "doubao": "https://docs.volcengine.com/docs/ark/model-release-announcement?lang=zh",
+        "dashscope": "https://help.aliyun.com/zh/model-studio/text-generation",
+        "dashscope_intl": "https://help.aliyun.com/en/model-studio/text-generation",
+        "openai": "https://developers.openai.com/api/docs/models",
+        "deepseek": "https://api-docs.deepseek.com/zh-cn/",
+        "google_gemini": "https://ai.google.dev/gemini-api/docs/models?hl=en",
+        "xai": "https://docs.x.ai/docs/models",
+        "mistral": "https://docs.mistral.ai/models",
+        "together": "https://docs.together.ai/docs/models",
+        "fireworks": "https://docs.fireworks.ai/guides/querying-models",
+        "zai": "https://docs.z.ai/guides/overview/quick-start",
+        "zhipu": "https://open.bigmodel.cn/dev/api",
+        "moonshot": "https://platform.moonshot.cn/docs/intro",
+        "siliconflow": "https://docs.siliconflow.cn/",
+        "mimo": "https://mimo.mi.com/docs/zh-CN/api/model/list-models",
+        "tencent_tokenhub": "https://cloud.tencent.com/document/product/1823/130079",
+        "baidu_cloud": "https://cloud.baidu.com/doc/WENXINWORKSHOP/index.html",
+        "modelscope": "https://modelscope.cn/docs",
         "openrouter": "https://openrouter.ai/docs/quick-start",
         "stepfun": "https://platform.stepfun.com/docs/zh/api-reference/chat/chat-completion-create",
         "hunyuan": "https://cloud.tencent.com/document/product/1729/111007",
@@ -85,7 +103,7 @@ def _official_source_for_spec(spec) -> OfficialSource:
     }.get(spec.id)
     migration_url = getattr(spec, "migration_url", None)
     if spec.id == "hunyuan":
-        migration_url = "https://cloud.tencent.com/document/product/1729/131925"
+        migration_url = "https://cloud.tencent.com/announce/detail/2287"
     return OfficialSource(
         website=spec.website,
         docs_url=docs,
@@ -139,7 +157,14 @@ def provider_definition_from_spec(spec) -> ProviderDefinition:
         auth_profiles=(auth_profile_for_provider(spec.id, default_endpoint=spec.default_endpoint),),
         api_families=(api_family,) if api_family else (),
         preferred_api_family=api_family,
-        model_discovery="unknown",
+        model_discovery=(
+            "dynamic"
+            if spec.id in {
+                "openrouter", "together", "fireworks", "modelscope",
+                "siliconflow", "tokenrhythm", "tencent_tokenhub",
+            }
+            else "unknown"
+        ),
         status=getattr(spec, "lifecycle_status", None) or ("unknown" if not spec.default_endpoint else "active"),
         verified_at=_VERIFIED_AT if spec.default_endpoint else None,
     )
@@ -193,11 +218,14 @@ def _build_model_definitions_by_provider() -> dict[str, tuple[ModelDefinition, .
 
     result: dict[str, tuple[ModelDefinition, ...]] = {}
     for platform in PLATFORM_CATALOGS:
+        provider_definition = get_provider_definition(platform.provider_id)
+        fallback_source = provider_definition.official_source if provider_definition else None
         models = tuple(
             model_definition_from_catalog_model(
                 model,
                 provider_id=platform.provider_id,
                 platform_id=platform.platform_id,
+                fallback_source=fallback_source,
             )
             for model in platform.models
         )

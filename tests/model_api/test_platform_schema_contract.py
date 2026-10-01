@@ -11,6 +11,7 @@ REQUIRED_PLATFORM_IDS = {
     "dashscope",
     "tokenrhythm",
     "openai",
+    "deepseek",
     "google-gemini",
     "xai",
     "mistral",
@@ -23,6 +24,7 @@ REQUIRED_PLATFORM_IDS = {
     "zhipu",
     "moonshot",
     "hunyuan",
+    "tencent-tokenhub",
     "stepfun",
     "baidu-cloud",
     "openrouter",
@@ -57,9 +59,12 @@ def test_provider_and_catalog_registry_join_on_current_ids():
         for model in model_definitions:
             assert model.provider_id == provider_id
             assert model.platform_id == catalog.platform_id
-            assert model.source is None or model.source.url == next(
+            expected_source = next(
                 item.source_url for item in catalog.models if item.id == model.id
-            )
+            ) or definition.official_source.url
+            assert model.source is not None
+            assert model.source.url == expected_source
+            assert model.verified_at
 
 
 def test_provider_schema_has_safe_official_source_and_serializable_metadata():

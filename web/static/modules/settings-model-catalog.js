@@ -64,6 +64,33 @@ function resolveFullCatalogPlatform(providerId) {
   return catalogCache.platforms.find((platform) => platform.provider_id === providerId) || null;
 }
 
+const VISION_PICKER_EXCLUDED_AVAILABILITY = new Set(['account_discovery']);
+const VISION_PICKER_EXCLUDED_STATUS = new Set(['retired']);
+
+function modelStatusRank(model) {
+  if (model?.status === 'active' && model?.main_flow_recommended) return 0;
+  if (model?.status === 'active') return 1;
+  if (model?.status === 'preview') return 2;
+  if (model?.status === 'testing') return 3;
+  if (model?.status === 'deprecated') return 4;
+  if (model?.status === 'retired') return 5;
+  return 6;
+}
+
+export function filterVisionCatalogModels(models, { includeSelectedId = '' } = {}) {
+  const list = Array.isArray(models) ? models.filter(Boolean) : [];
+  const visible = list.filter((model) => (
+    model.supports_vision === true
+    && !VISION_PICKER_EXCLUDED_STATUS.has(String(model.status || '').toLowerCase())
+    && !VISION_PICKER_EXCLUDED_AVAILABILITY.has(String(model.availability || '').toLowerCase())
+  ));
+  const selected = includeSelectedId
+    ? list.find((model) => model.id === includeSelectedId)
+    : null;
+  if (selected && !visible.some((model) => model.id === selected.id)) visible.push(selected);
+  return visible.sort((a, b) => modelStatusRank(a) - modelStatusRank(b));
+}
+
 export function catalogModelSupportsMic(modelId) {
   const id = (modelId || '').trim();
   if (!id) return false;
@@ -96,13 +123,14 @@ export function catalogModelThinkingMode(modelId) {
 
 export function pickDefaultCatalogModelId(providerId) {
   const platform = resolveCatalogPlatform(providerId);
-  if (!platform?.models?.length) return '';
+  const models = filterVisionCatalogModels(platform?.models || {});
+  if (!models.length) return '';
   const preferred = platform.default_model_id;
-  if (preferred && platform.models.some((model) => model.id === preferred)) {
+  if (preferred && models.some((model) => model.id === preferred)) {
     return preferred;
   }
-  const recommended = platform.models.find((model) => model.main_flow_recommended);
-  return (recommended || platform.models[0]).id;
+  const recommended = models.find((model) => model.main_flow_recommended);
+  return (recommended || models[0]).id;
 }
 
 function formatTokenPrice(value, currency = 'CNY') {
@@ -138,7 +166,29 @@ function buildModelRowBadges(model) {
     : t('dynamic.settingsModelCatalog.未验证'));
   if (capabilities.json_schema === true) add(t('dynamic.settingsModelCatalog.jsonSchema'));
   if (capabilities.stream_usage === true) add(t('dynamic.settingsModelCatalog.streamUsage'));
-  if (model.status) add(String(model.status));
+  const language = getLanguage();
+  const statusLabels = language === 'zh'
+    ? {
+      active: model.main_flow_recommended ? '最新推荐' : '可用',
+      preview: 'Preview',
+      testing: 'Testing',
+      deprecated: '即将退役',
+      retired: '已退役',
+    }
+    : {
+      active: model.main_flow_recommended ? 'Recommended' : 'Active',
+      preview: 'Preview',
+      testing: 'Testing',
+      deprecated: 'Deprecated',
+      retired: 'Retired',
+    };
+  if (model.status) add(statusLabels[model.status] || String(model.status));
+  if (model.availability === 'account_discovery') {
+    add(language === 'zh' ? '账号发现' : 'Account discovery');
+  }
+  if (model.supports_vision !== true) {
+    add(language === 'zh' ? '能力待确认' : 'Capability pending');
+  }
   return wrap.childElementCount ? wrap : null;
 }
 
@@ -314,20 +364,29 @@ export function renderVisionModelPicker(providerId, selectedModelId, options = {
   setVisionModelPickerVisible(true);
   picker.innerHTML = '';
   const knownIds = new Set(platform.models.map((model) => model.id));
+  const models = filterVisionCatalogModels(platform.models, { includeSelectedId: selectedModelId });
+  if (!models.length) {
+    picker.innerHTML = '';
+    setVisionModelPickerVisible(false);
+    const customInitial = providerSwitch ? '' : (selectedModelId || '');
+    showVisionModelCustom(true, customInitial);
+    setVisionModelValue(customInitial);
+    return;
+  }
   const defaultId = pickDefaultCatalogModelId(providerId);
   let selected;
   let useCustom;
   if (providerSwitch) {
-    selected = defaultId || platform.models[0].id;
+    selected = defaultId || models[0].id;
     useCustom = false;
   } else {
     selected = selectedModelId && knownIds.has(selectedModelId)
       ? selectedModelId
-      : (defaultId || platform.models[0].id);
+      : (defaultId || models[0].id);
     useCustom = Boolean(selectedModelId && !knownIds.has(selectedModelId));
   }
 
-  platform.models.forEach((model) => {
+  models.forEach((model) => {
     const row = document.createElement('label');
     row.className = 'vision-model-row';
     const radio = document.createElement('input');
@@ -388,8 +447,8 @@ export function syncVisionModelPickerFromForm(selectedModelId) {
 
 export function pickDefaultMicCatalogModelId(providerId) {
   const platform = resolveCatalogPlatform(providerId);
-  if (!platform?.models?.length) return '';
-  const micModel = platform.models.find((model) => model.supports_mic);
+  const micModel = filterVisionCatalogModels(platform?.models || {})
+    .find((model) => model.supports_mic);
   return micModel ? micModel.id : '';
 }
 
@@ -442,7 +501,8 @@ export function renderMicModelPicker(providerId, selectedModelId, options = {}) 
 
   const { providerSwitch = false } = options;
   const platform = resolveCatalogPlatform(providerId);
-  const micModels = (platform?.models || []).filter((model) => model.supports_mic);
+  const micModels = filterVisionCatalogModels(platform?.models || {})
+    .filter((model) => model.supports_mic);
   if (!micModels.length) {
     picker.innerHTML = '';
     setMicModelPickerVisible(false);

@@ -10,9 +10,9 @@ from app.providers.platform_registry import (
 from app.providers.registry import match_host_entry, provider_rules_for_api
 
 
-def test_registry_has_all_22_legacy_providers_and_no_secrets():
+def test_registry_has_all_24_providers_and_no_secrets():
     definitions = list_provider_definitions()
-    assert len(definitions) == 22
+    assert len(definitions) == 24
     assert [item.id for item in definitions] == [item.id for item in PROVIDERS]
     assert all(item.auth_profiles for item in definitions)
     assert all(
@@ -48,7 +48,7 @@ def test_stepfun_and_hunyuan_profiles_and_migration_source():
     assert stepfun.endpoint.exact_hosts == ("api.stepfun.com",)
     assert stepfun.official_source.docs_url == "https://platform.stepfun.com/docs/zh/api-reference/chat/chat-completion-create"
     assert hunyuan.endpoint.api_family == API_FAMILY_OPENAI_CHAT
-    assert hunyuan.official_source.migration_url == "https://cloud.tencent.com/document/product/1729/131925"
+    assert hunyuan.official_source.migration_url == "https://cloud.tencent.com/announce/detail/2287"
 
 
 def test_legacy_round_trip_and_api_rules_increment_only():

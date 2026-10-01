@@ -28,6 +28,7 @@ from app.providers.registry import HOST_ENTRIES
 def test_provider_region_classification():
     international = {
         "openai",
+            "deepseek",
         "google_gemini",
         "xai",
         "mistral",
@@ -220,7 +221,7 @@ def test_apply_provider_to_form_zai():
 
 
 def test_guess_provider_from_endpoint():
-    assert guess_provider_from_endpoint("https://api.deepseek.com/v1") == DEFAULT_PROVIDER_ID
+    assert guess_provider_from_endpoint("https://api.deepseek.com/v1") == "deepseek"
     assert guess_provider_from_endpoint("https://unknown.example/v1", "doubao") == "custom_doubao"
     assert guess_provider_from_endpoint("") == DEFAULT_PROVIDER_ID
     assert guess_provider_from_endpoint("https://api.xiaomimimo.com/v1") == "mimo"
@@ -548,6 +549,14 @@ def test_apply_provider_to_form_stepfun_and_hunyuan_endpoints():
     assert hunyuan["endpoint"] == "https://api.hunyuan.cloud.tencent.com/v1"
 
 
+def test_tokenhub_is_a_separate_provider_and_key_domain():
+    tokenhub = apply_provider_to_form("tencent_tokenhub")
+    hunyuan = apply_provider_to_form("hunyuan")
+    assert tokenhub["endpoint"] == "https://tokenhub.tencentmaas.com/v1"
+    assert hunyuan["endpoint"] != tokenhub["endpoint"]
+    assert tokenhub["mode"] == "openai-compatible"
+
+
 def test_hunyuan_lifecycle_metadata():
     from app.model_providers import get_provider
 
@@ -575,10 +584,10 @@ def test_provider_for_api_includes_hunyuan_lifecycle_fields():
 
 
 def test_providers_website_field_present_on_all_built_in_presets():
-    # 22 个内置预设均含 website 字段（dataclass asdict 序列化键存在）
+    # 24 个内置预设均含 website 字段（dataclass asdict 序列化键存在）
     from dataclasses import asdict
 
-    assert len(PROVIDERS) == 22
+    assert len(PROVIDERS) == 24
     for spec in PROVIDERS:
         assert "website" in asdict(spec)
         assert hasattr(spec, "website")
@@ -675,7 +684,7 @@ def test_v2_hunyuan_lifecycle_and_endpoint_fields():
     assert definition.lifecycle_status == "migrating"
     assert definition.sunset_date == "2026-09-30"
     assert definition.official_source.migration_url == (
-        "https://cloud.tencent.com/document/product/1729/131925"
+            "https://cloud.tencent.com/announce/detail/2287"
     )
     assert definition.endpoint.default_url == "https://api.hunyuan.cloud.tencent.com/v1"
     assert definition.endpoint.host_match_fragment == "api.hunyuan.cloud.tencent.com"
