@@ -70,9 +70,9 @@ function getStoredLangLocal() {
 }
 
 function applySelectValue(lang) {
-  const select = document.getElementById('languageSelect');
-  if (!select) return;
-  select.value = normalizeLanguage(lang);
+  document.querySelectorAll('[data-language-select]').forEach((select) => {
+    select.value = normalizeLanguage(lang);
+  });
 }
 
 async function syncLanguageFromServer() {
@@ -125,10 +125,9 @@ async function onChange(event, showToast) {
 export function initLanguage({ showToast } = {}) {
   applySelectValue(getStoredLangLocal());
   onLanguageChanged(refreshDynamicI18n);
-  const select = document.getElementById('languageSelect');
-  if (select) {
+  document.querySelectorAll('[data-language-select]').forEach((select) => {
     select.addEventListener('change', (e) => onChange(e, showToast));
-  }
+  });
   syncLanguageFromServer();
 }
 

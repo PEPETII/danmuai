@@ -118,7 +118,9 @@ export function bindContentPageControls(deps = {}) {
   document.getElementById('rewardModal')?.addEventListener('click', (event) => {
     if (event.target.id === 'rewardModal') closeRewardModal();
   });
-  document.getElementById('btnOfficialSiteExpand')?.addEventListener('click', openOfficialSiteModal);
+  document.querySelectorAll('.official-site-expand-btn, .js-official-site-open').forEach((btn) => {
+    btn.addEventListener('click', openOfficialSiteModal);
+  });
   document.getElementById('btnOfficialSiteClose')?.addEventListener('click', closeOfficialSiteModal);
   document.getElementById('officialSiteModal')?.addEventListener('click', (event) => {
     if (event.target.id === 'officialSiteModal') closeOfficialSiteModal();

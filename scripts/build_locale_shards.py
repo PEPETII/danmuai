@@ -38,22 +38,29 @@ NAMESPACE = {
 
 # Stable nav label keys
 NAV_LABEL_KEYS = {
+    "点击：官网与群聊 danmuai.xyz": "officialSite",
     "温馨控制台": "overview",
-    "常用功能": "commonFeatures",
-    "增强功能": "enhancedFeatures",
-    "人格工坊": "persona",
+    "常用": "commonFeatures",
+    "增强": "enhancedFeatures",
+    "展开增强功能": "expandEnhanced",
+    "收起增强功能": "collapseEnhanced",
+    "弹幕人格": "persona",
+    "弹幕知识库": "knowledge",
+    "弹幕样式": "styleGenerator",
     "公式化弹幕库": "danmuPool",
     "弹幕设置": "settings",
-    "直播设置": "liveSettings",
-    "教程|日志|反馈|公告": "guide",
+    "虚拟主播": "virtualHost",
+    "教程|日志|反馈|公告|群聊|直播": "guide",
+    "帮助与系统": "helpSystem",
     "赞赏": "reward",
     "当前版本：": "versionCurrent",
     "最新版本：": "versionLatest",
     "检查更新": "checkUpdate",
     "下载并重启": "downloadRestart",
     "能做什么": "tooltipCanDoTitle",
-    "七个分页": "tooltipTabsTitle",
+    "六个分页": "tooltipTabsTitle",
     "使用前注意": "tooltipNoticeTitle",
+    "有新版本": "newVersionBadge",
 }
 
 COMMON_STRING_KEYS = {
@@ -82,6 +89,9 @@ COMMON_STRING_KEYS = {
     "待接入": "comingSoon",
     "连接中": "connecting",
     "已连接": "connected",
+    "导出日志": "exportLogs",
+    "日志已导出": "logsExported",
+    "暂无可导出的日志": "noLogsToExport",
     "重连中": "reconnecting",
     "已降级轮询": "polling",
     "实时": "realtime",
@@ -128,16 +138,59 @@ def load_en_map() -> dict[str, str]:
     return {}
 
 
+def load_existing_shard(lang: str, shard: str) -> dict:
+    path = LOCALES / lang / f"{shard}.json"
+    if not path.exists():
+        return {}
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def merge_dicts(base: dict, updates: dict) -> dict:
+    """Merge generated entries without deleting translations absent from extraction."""
+    merged = dict(base)
+    for key, value in updates.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = merge_dicts(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
+
+
+def flatten_locale(node: dict, prefix: str = "") -> dict[str, str]:
+    out: dict[str, str] = {}
+    for key, value in node.items():
+        path = f"{prefix}.{key}" if prefix else key
+        if isinstance(value, dict):
+            out.update(flatten_locale(value, path))
+        else:
+            out[path] = str(value)
+    return out
+
+
 def parse_hints_js() -> dict[str, str]:
     text = HINTS_JS.read_text(encoding="utf-8")
+    existing_dynamic = flatten_locale(load_existing_shard("zh", "dynamic"))
+    existing_hints = flatten_locale(load_existing_shard("zh", "hints"))
+
+    def resolve_hint(value: str) -> str | None:
+        if value.startswith("dynamic."):
+            return existing_dynamic.get(value)
+        if value.startswith("hints."):
+            return existing_hints.get(value)
+        return value
+
     hints: dict[str, str] = {}
     for m in re.finditer(r"(\w+)\s*:\s*\n?\s*'((?:\\'|[^'])*)'", text):
         key, val = m.group(1), m.group(2).replace("\\'", "'")
         if key in ("SETTINGS_CONTROL_HINT_IDS", "CONTENT_PAGE_CONTROL_HINT_IDS"):
             continue
-        hints[key] = val
+        resolved = resolve_hint(val)
+        if resolved:
+            hints[key] = resolved
     for m in re.finditer(r"'([\w-]+)'\s*:\s*\n?\s*'((?:\\'|[^'])*)'", text):
-        hints[m.group(1)] = m.group(2).replace("\\'", "'")
+        resolved = resolve_hint(m.group(2).replace("\\'", "'"))
+        if resolved:
+            hints[m.group(1)] = resolved
     return hints
 
 
@@ -286,8 +339,8 @@ def count_leaves(node) -> int:
 def write_json(path: Path, data: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     text = json.dumps(data, ensure_ascii=False, indent=2)
-    if len(text.splitlines()) > 800:
-        raise SystemExit(f"{path.name} exceeds 800 lines ({len(text.splitlines())})")
+    if len(text.splitlines()) > 1200:
+        raise SystemExit(f"{path.name} exceeds 1200 lines ({len(text.splitlines())})")
     path.write_text(text + "\n", encoding="utf-8")
 
 
@@ -305,8 +358,12 @@ def main() -> None:
 
     counts: dict[str, dict[str, int]] = {"zh": {}, "en": {}}
     for shard in SHARDS:
-        zh_data = zh_shards.get(shard, {shard: {}})
-        en_data = translate_tree(zh_data, en_by_zh)
+        generated_zh = zh_shards.get(shard, {shard: {}})
+        existing_zh = load_existing_shard("zh", shard)
+        zh_data = merge_dicts(existing_zh, generated_zh)
+        generated_en = translate_tree(generated_zh, en_by_zh)
+        existing_en = load_existing_shard("en", shard)
+        en_data = merge_dicts(existing_en, generated_en)
         write_json(LOCALES / "zh" / f"{shard}.json", zh_data)
         write_json(LOCALES / "en" / f"{shard}.json", en_data)
         counts["zh"][shard] = count_leaves(zh_data)

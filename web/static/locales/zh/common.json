@@ -3,7 +3,6 @@
     "meta": {
       "title": "DanmuAI - 你的温馨弹幕小助手"
     },
-    "liveOverlayTitle": "DanmuAI Live Overlay",
     "save": "保存",
     "cancel": "取消",
     "close": "关闭",
@@ -26,11 +25,12 @@
     "edit": "编辑",
     "defaultLabel": "默认",
     "unnamed": "未命名",
-    "notSelected": "未选",
-    "notConfigured": "未配置",
     "comingSoon": "待接入",
     "connecting": "连接中",
     "connected": "已连接",
+    "exportLogs": "导出日志",
+    "logsExported": "日志已导出",
+    "noLogsToExport": "暂无可导出的日志",
     "reconnecting": "重连中",
     "polling": "已降级轮询",
     "realtime": "实时",

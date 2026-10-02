@@ -41,13 +41,23 @@ def test_shell_breakpoints_and_main_padding_tokens():
 
 def test_sidebar_shell_structure_and_preserved_ids():
     html = _sidebar()
+    content = (_static() / "partials" / "content-pages.html").read_text(encoding="utf-8")
     assert 'id="consoleSidebar"' in html
     assert "ui-sidebar" in html
     assert 'id="nav"' in html
     assert 'id="announcementsNavBadge"' in html
+    assert 'id="btnHelpSystem"' in html
+    assert 'id="appUpdateNavBadge"' in html
     assert 'id="sidebarVersionFooter"' in html
-    assert 'id="btnCheckAppUpdate"' in html
-    assert 'id="btnDownloadRestartAppUpdate"' in html
+    assert 'id="appVersionCurrent"' in html
+    assert 'id="appVersionLatest"' in html
+    assert 'id="btnCheckAppUpdate"' not in html
+    assert 'id="btnDownloadRestartAppUpdate"' not in html
+    assert 'id="page-help-system"' in content
+    assert 'id="appVersionCurrent"' not in content
+    assert 'id="appVersionLatest"' not in content
+    assert 'id="btnCheckAppUpdate"' in content
+    assert 'id="btnDownloadRestartAppUpdate"' in content
     assert 'id="btnSidebarReward"' in html
     assert 'id="btnShellNavClose"' in html
     assert "sidebar-item-label" in html
@@ -59,7 +69,7 @@ def test_sidebar_shell_structure_and_preserved_ids():
         "persona",
         "knowledge",
         "danmu-pool",
-        "pet",
+        "virtual-host",
         "guide",
     ):
         assert f'data-page="{page}"' in html
@@ -68,57 +78,83 @@ def test_sidebar_shell_structure_and_preserved_ids():
     assert 'href="#ai-butler"' not in html
 
 
-def test_sidebar_navigation_filter_scopes_common_and_enhanced_items():
+def test_help_system_groups_and_moved_update_controls():
+    content = (_static() / "partials" / "content-pages.html").read_text(encoding="utf-8")
+    sidebar = _sidebar()
+    app = (_static() / "app.js").read_text(encoding="utf-8")
+    update = (_static() / "modules" / "app-update-banner.js").read_text(encoding="utf-8")
+
+    assert content.count('class="help-system-group ui-card"') == 3
+    for label in ("使用帮助", "应用信息", "问题处理"):
+        assert f"content.text.{label}" in content
+    for control in (
+        'data-help-navigate="tutorial"',
+        'data-help-navigate="announcements"',
+        'data-help-navigate="feedback"',
+        'data-help-navigate="diagnostics"',
+        'id="btnExportLogs"',
+        'id="helpLanguageSelect"',
+        'id="helpThemeToggle"',
+    ):
+        assert control in content
+    assert 'id="btnHelpSystem"' in sidebar
+    assert 'id="appUpdateNavBadge"' in sidebar
+    assert 'id="sidebarVersionFooter"' in sidebar
+    assert "navigate('help-system')" in app
+    assert "appUpdateNavBadge" in update
+    assert "maybeShowAppUpdateModal();" not in update
+
+
+def test_sidebar_navigation_uses_common_group_and_collapsed_enhanced_group():
     html = _sidebar()
     app = (_static() / "app.js").read_text(encoding="utf-8")
     css = _layout_css()
 
-    assert 'id="sidebarNavFilter"' in html
-    assert 'data-nav-filter="common"' in html
-    assert 'data-nav-filter="enhanced"' in html
+    assert 'id="sidebarNavSections"' in html
+    assert 'id="btnSidebarEnhancedToggle"' in html
+    assert 'id="sidebarEnhancedItems"' in html
     assert 'data-i18n="nav.commonFeatures"' in html
     assert 'data-i18n="nav.enhancedFeatures"' in html
-    assert ">常用功能</button>" in html
-    assert ">增强功能</button>" in html
+    assert 'data-i18n="nav.expandEnhanced"' in html
+    assert 'data-i18n="nav.collapseEnhanced"' in html
+    assert ">常用</div>" in html
+    assert ">增强</span>" in html
+    assert ">展开增强功能</span>" in html
     assert html.count('data-page="') == 8
-    assert html.count('data-nav-scope="common"') == 5
-    assert html.count('data-nav-scope="enhanced"') == 3
-    assert 'data-nav-filter="all"' not in html
-    assert 'data-nav-scope="all"' not in html
-    assert "initSidebarNavCategoryFilter" in app
-    assert "const filter = requestedFilter === 'enhanced' ? 'enhanced' : 'common';" in app
-    assert "item.hidden = item.dataset.navScope !== filter;" in app
-    assert "applyFilter('common');" in app
-    filter_fn = app[app.index("function initSidebarNavCategoryFilter()") : app.index("function bindCoreInteractions()")]
+    assert 'data-nav-scope' not in html
+    assert 'aria-expanded="false"' in html
+    assert 'hidden>收起增强功能</span>' in html
+    assert "initSidebarNavDisclosure" in app
+    assert "enhancedItems.hidden = !expanded;" in app
+    assert "toggle.setAttribute('aria-expanded', String(expanded));" in app
+    filter_fn = app[app.index("function initSidebarNavDisclosure()") : app.index("function bindCoreInteractions()")]
     assert "navigate(" not in filter_fn
     assert "window.location" not in filter_fn
-    assert "#nav [data-nav-scope][hidden]" in css
+    assert "#nav [hidden]" in css
 
 
-def test_sidebar_navigation_filter_categories_are_mutually_exclusive_and_localized():
+def test_sidebar_navigation_groups_are_ordered_and_localized():
     html = _sidebar()
-    nav_start = html.index('<nav ')
-    nav_html = html[nav_start:]
-    common_pages = {
-        line.split('data-page="', 1)[1].split('"', 1)[0]
-        for line in nav_html.splitlines()
-        if 'data-nav-scope="common"' in line and 'data-page="' in line
-    }
-    enhanced_pages = {
-        line.split('data-page="', 1)[1].split('"', 1)[0]
-        for line in nav_html.splitlines()
-        if 'data-nav-scope="enhanced"' in line and 'data-page="' in line
-    }
-    assert common_pages
-    assert enhanced_pages
-    assert common_pages.isdisjoint(enhanced_pages)
+    common_start = html.index('sidebar-nav-common-group')
+    enhanced_start = html.index('id="btnSidebarEnhancedToggle"')
+    utility_start = html.index('class="sidebar-nav-utility-group"')
+    assert common_start < enhanced_start < utility_start
+    assert html.index('data-page="overview"', common_start) < html.index('data-page="settings"', common_start)
+    assert html.index('data-page="settings"', common_start) < html.index('data-page="persona"', common_start)
+    assert html.index('data-page="style-generator"', enhanced_start) < html.index('data-page="danmu-pool"', enhanced_start)
+    assert html.index('data-page="danmu-pool"', enhanced_start) < html.index('data-page="knowledge"', enhanced_start)
+    assert html.index('data-page="knowledge"', enhanced_start) < html.index('data-page="virtual-host"', enhanced_start)
 
     zh = json.loads((_static() / "locales" / "zh" / "nav.json").read_text(encoding="utf-8"))
     en = json.loads((_static() / "locales" / "en" / "nav.json").read_text(encoding="utf-8"))
-    assert zh["nav"]["commonFeatures"] == "常用功能"
-    assert zh["nav"]["enhancedFeatures"] == "增强功能"
-    assert en["nav"]["commonFeatures"] == "Frequently used"
-    assert en["nav"]["enhancedFeatures"] == "Enhanced features"
+    assert zh["nav"]["commonFeatures"] == "常用"
+    assert zh["nav"]["enhancedFeatures"] == "增强"
+    assert zh["nav"]["expandEnhanced"] == "展开增强功能"
+    assert zh["nav"]["collapseEnhanced"] == "收起增强功能"
+    assert en["nav"]["commonFeatures"] == "Common"
+    assert en["nav"]["enhancedFeatures"] == "Enhanced"
+    assert en["nav"]["expandEnhanced"] == "Show enhanced features"
+    assert en["nav"]["collapseEnhanced"] == "Hide enhanced features"
 
 
 def test_template_shell_toggle_and_ui_main():

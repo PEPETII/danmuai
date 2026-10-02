@@ -964,10 +964,16 @@ function navigate(page) {
   }
   document.querySelectorAll('.page-panel').forEach((panel) => panel.classList.remove('active'));
   document.querySelectorAll('#nav .sidebar-item').forEach((item) => item.classList.remove('active'));
+  document.getElementById('btnHelpSystem')?.classList.remove('active');
   const panel = document.getElementById(`page-${page}`);
   if (panel) panel.classList.add('active');
   const btn = document.querySelector(`#nav [data-page="${page}"]`);
+  const enhancedItems = document.getElementById('sidebarEnhancedItems');
+  if (btn && enhancedItems?.contains(btn) && enhancedItems.hidden) {
+    document.getElementById('btnSidebarEnhancedToggle')?.click();
+  }
   if (btn) btn.classList.add('active');
+  if (page === 'help-system') document.getElementById('btnHelpSystem')?.classList.add('active');
   // 保持 hash 与当前页一致，支持刷新深链接
   try {
     const desired = `#${page}`;
@@ -1057,33 +1063,30 @@ function navigate(page) {
   }
 }
 
-function initSidebarNavCategoryFilter() {
-  const filterRoot = document.getElementById('sidebarNavFilter');
-  const nav = document.getElementById('nav');
-  if (!filterRoot || !nav) return;
+function initSidebarNavDisclosure() {
+  const toggle = document.getElementById('btnSidebarEnhancedToggle');
+  const enhancedItems = document.getElementById('sidebarEnhancedItems');
+  if (!toggle || !enhancedItems) return;
 
-  const filterButtons = [...filterRoot.querySelectorAll('[data-nav-filter]')];
-  const scopedItems = [...nav.querySelectorAll('[data-nav-scope]')];
-  if (!filterButtons.length || !scopedItems.length) return;
-
-  const applyFilter = (requestedFilter) => {
-    const filter = requestedFilter === 'enhanced' ? 'enhanced' : 'common';
-    scopedItems.forEach((item) => {
-      item.hidden = item.dataset.navScope !== filter;
+  const labels = [...toggle.querySelectorAll('[data-sidebar-disclosure-label]')];
+  const setExpanded = (expanded) => {
+    enhancedItems.hidden = !expanded;
+    toggle.setAttribute('aria-expanded', String(expanded));
+    toggle.classList.toggle('is-expanded', expanded);
+    toggle.setAttribute(
+      'data-i18n-aria-label',
+      expanded ? 'nav.collapseEnhanced' : 'nav.expandEnhanced',
+    );
+    labels.forEach((label) => {
+      label.hidden = label.dataset.sidebarDisclosureLabel !== (expanded ? 'collapse' : 'expand');
     });
-    filterButtons.forEach((button) => {
-      const selected = button.dataset.navFilter === filter;
-      button.classList.toggle('is-active', selected);
-      button.setAttribute('aria-pressed', String(selected));
-    });
-    filterRoot.dataset.activeFilter = filter;
+    const visibleLabel = labels.find((label) => !label.hidden);
+    toggle.setAttribute('aria-label', visibleLabel?.textContent?.trim() || '');
   };
 
-  filterButtons.forEach((button) => {
-    button.addEventListener('click', () => applyFilter(button.dataset.navFilter));
-  });
-  // 新会话默认展示常用功能；切换只隐藏菜单项，不改变当前页面或 active 状态。
-  applyFilter('common');
+  toggle.addEventListener('click', () => setExpanded(enhancedItems.hidden));
+  // 新会话默认只展示常用入口；增强入口通过明确的披露操作展开。
+  setExpanded(false);
 }
 
 function bindCoreInteractions() {
@@ -1180,6 +1183,24 @@ function bindCoreInteractions() {
   });
   bindContentPageControls({ showToast, navigate });
 
+  document.getElementById('btnHelpSystem')?.addEventListener('click', () => {
+    navigate('help-system');
+  });
+  document.querySelectorAll('[data-help-navigate]').forEach((el) => {
+    el.addEventListener('click', () => {
+      const target = el.dataset.helpNavigate;
+      if (target === 'diagnostics') {
+        navigate('overview');
+        const banner = document.getElementById('errorBanner');
+        if (banner && !banner.classList.contains('hidden')) {
+          document.getElementById('btnProblemViewFromBanner')?.click();
+        }
+        return;
+      }
+      if (target) navigate(target);
+    });
+  });
+
   document.querySelectorAll('.sidebar-nav-hint').forEach((btn) => {
     btn.addEventListener('click', (event) => event.stopPropagation());
   });
@@ -1199,7 +1220,7 @@ function bindCoreInteractions() {
       navigate(el.dataset.page);
     });
   });
-  initSidebarNavCategoryFilter();
+  initSidebarNavDisclosure();
   initResponsiveShell();
 
   document.querySelectorAll('.log-level-cb').forEach((cb) => {
@@ -1219,6 +1240,23 @@ function bindCoreInteractions() {
       .map((item) => `[${item.level}] ${item.message}`)
       .join('\n');
     navigator.clipboard.writeText(text).then(() => showToast(t('common.copied')));
+  });
+  document.getElementById('btnExportLogs')?.addEventListener('click', () => {
+    const text = logBuffer
+      .map((item) => `[${item.level}] ${item.message}`)
+      .join('\n');
+    if (!text) {
+      showToast(t('common.noLogsToExport'), true);
+      return;
+    }
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `danmuai-logs-${new Date().toISOString().slice(0, 10)}.txt`;
+    anchor.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+    showToast(t('common.logsExported'));
   });
   document.getElementById('btnClearLogs')?.addEventListener('click', () => {
     clearLogBuffer();

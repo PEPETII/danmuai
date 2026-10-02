@@ -20,9 +20,14 @@ def has_cjk(text: str) -> bool:
     return bool(re.search(r"[\u4e00-\u9fff]", text))
 
 
+def is_i18n_key(text: str) -> bool:
+    """Avoid treating i18n lookup keys as Chinese source strings."""
+    return bool(re.match(r"^(?:common|nav|overview|settings|content|modals|hints|dynamic)\.", text))
+
+
 def add_key(keys: dict[str, str], domain: str, sub: str, text: str) -> None:
     text = text.strip()
-    if not text or not has_cjk(text):
+    if not text or not has_cjk(text) or is_i18n_key(text):
         return
     base = re.sub(r"[^\w\u4e00-\u9fff]+", "_", text[:24]).strip("_") or "item"
     key = f"{domain}.{sub}.{base}"

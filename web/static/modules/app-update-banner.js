@@ -311,6 +311,19 @@ async function loadUpdateMetadata() {
 }
 
 function refreshAppVersionFooter() {
+  const badge = document.getElementById('appUpdateNavBadge');
+  if (badge) {
+    const updateAvailable = appVersionState.checkStatus === 'update_available';
+    badge.classList.toggle('hidden', !updateAvailable);
+    if (updateAvailable) {
+      const label = t('nav.newVersionBadge');
+      badge.setAttribute('aria-label', label);
+      badge.title = label;
+    } else {
+      badge.removeAttribute('aria-label');
+      badge.removeAttribute('title');
+    }
+  }
   const currentEl = document.getElementById('appVersionCurrent');
   const latestEl = document.getElementById('appVersionLatest');
   if (!currentEl || !latestEl) return;
@@ -509,7 +522,6 @@ export async function initAppVersionAndUpdateCheck() {
     refreshAppVersionFooter();
 
     await loadAppUpdateDismissState();
-    maybeShowAppUpdateModal();
   } catch (error) {
     console.warn('[version] init check failed', error);
     appVersionState.checkStatus = 'check_failed';
@@ -540,8 +552,16 @@ async function runVelopackRestartUpdate() {
 }
 
 function refreshVelopackUpdateButtons(data) {
+  if (data?.update_available) {
+    appVersionState.checkStatus = 'update_available';
+  } else if (data?.ok && data?.frozen) {
+    appVersionState.checkStatus = 'up_to_date';
+  }
   const dlBtn = document.getElementById('btnDownloadRestartAppUpdate');
-  if (!dlBtn) return;
+  if (!dlBtn) {
+    refreshAppVersionFooter();
+    return;
+  }
   const show = Boolean(
     data?.frozen && (data?.download_ready || data?.update_available) && !inAppUpdateBusy,
   );

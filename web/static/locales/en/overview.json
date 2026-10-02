@@ -3,8 +3,8 @@
     "text": {
       "小助手正在待命_随时为你生成暖心弹幕": "Assistant is on standby, ready to generate cozy danmu anytime~",
       "反馈此问题": "Report this issue",
-      "本次生成弹幕": "Danmu this app session",
-      "本场_从启动应用到关闭应用": "This session (app launch to quit)",
+      "本次生成弹幕": "Danmu this session",
+      "本场_从启动应用到关闭应用": "本场（从启动应用到关闭应用）",
       "本次输入总_Token": "Input tokens this app session",
       "运行时长": "Runtime duration",
       "本次输出总_Token": "Output tokens this app session",
@@ -23,8 +23,40 @@
       "暂无记录_停止弹幕后会在此显示时间与_Token_用量": "No records yet; stop danmu to see time and token usage here",
       "公告": "Announcements",
       "弹幕日志": "Danmu log",
-      "麦克风日志": "Mic log",
-      "横向弹幕或右侧竖向弹幕": "Horizontal danmu or vertical danmu on the right"
+      "麦克风日志": "麦克风日志",
+      "横向弹幕或右侧竖向弹幕": "横向弹幕或右侧竖向弹幕",
+      "启动虚拟主播": "启动虚拟主播",
+      "查看问题": "查看问题",
+      "本次输入总_token": "本次输入总 token",
+      "本次输出总_token": "本次输出总 token",
+      "快捷设置": "快捷设置",
+      "语音与弹幕交流": "语音与弹幕交流",
+      "开启麦克风语音_与_AI_弹幕实时互动": "开启麦克风语音，与 AI 弹幕实时互动",
+      "语音输入": "语音输入",
+      "AI语音随机朗读弹幕": "AI语音随机朗读弹幕",
+      "随机挑选弹幕_由_AI_语音播报": "随机挑选弹幕，由 AI 语音播报",
+      "AI播报": "AI播报",
+      "弹幕显示形式": "弹幕显示形式",
+      "横向弹幕": "Horizontal danmu",
+      "竖向弹幕": "Vertical danmu",
+      "弹幕字数和数量": "弹幕字数和数量",
+      "调整单条长度_行数与出弹幕节奏": "调整单条长度、行数与出弹幕节奏",
+      "弹幕显示": "Danmu display",
+      "弹幕的知识程度": "弹幕的知识程度",
+      "导入知识包_让弹幕更懂当前内容": "导入知识包，让弹幕更懂当前内容",
+      "弹幕知识库": "Danmu Knowledge Base",
+      "虚拟主播切换": "虚拟主播切换",
+      "切换虚拟主播模型与画面输出": "切换虚拟主播模型与画面输出",
+      "虚拟主播": "Vtuber",
+      "历史运行统计": "历史运行统计",
+      "查看累计_Token_弹幕与运行时长": "查看累计 Token、弹幕与运行时长",
+      "直播设置": "Live Settings",
+      "配置直播输出窗口与画面叠加": "配置直播输出窗口与画面叠加",
+      "直播输出": "Live output",
+      "修改弹幕角色": "修改弹幕角色",
+      "编辑激活人格与人格库管理": "编辑激活人格与人格库管理",
+      "人格管理": "人格管理",
+      "更改会自动保存": "更改会自动保存"
     },
     "placeholder": {
       "描述本次你要玩的游戏或者直播主题等_以便_AI_更好地生成弹幕_文字尽量在_50": "Describe the game or stream topic so AI can generate better danmu; under 50 chars works best",
@@ -33,9 +65,10 @@
     "aria": {
       "关闭公告提示": "Dismiss announcement notice",
       "关闭错误提示": "Dismiss error notice",
-      "打开公告": "Open announcements",
+      "打开公告": "打开公告",
       "打开弹幕日志": "Open danmu log",
-      "打开麦克风日志": "Open mic log"
+      "打开麦克风日志": "Open mic log",
+      "弹幕显示形式_2": "弹幕显示形式"
     }
   }
 }

@@ -6,7 +6,7 @@ const APP_PATH = new URL("../web/static/app.js", import.meta.url);
 
 async function loadInitializer() {
   const source = await readFile(APP_PATH, "utf8");
-  const start = source.indexOf("function initSidebarNavCategoryFilter()");
+  const start = source.indexOf("function initSidebarNavDisclosure()");
   const braceStart = source.indexOf("{", start);
   let depth = 0;
   let end = -1;
@@ -25,52 +25,55 @@ async function loadInitializer() {
 }
 
 function createHarness() {
-  const handlers = new Map();
-  const buttons = ["common", "enhanced"].map((filter) => ({
-    dataset: { navFilter: filter },
+  let clickHandler;
+  const attributes = new Map();
+  const labels = [
+    { dataset: { sidebarDisclosureLabel: "expand" }, hidden: false, textContent: "展开增强功能" },
+    { dataset: { sidebarDisclosureLabel: "collapse" }, hidden: true, textContent: "收起增强功能" },
+  ];
+  const toggle = {
     classList: { toggle() {} },
-    setAttribute() {},
+    querySelectorAll(selector) {
+      assert.equal(selector, "[data-sidebar-disclosure-label]");
+      return labels;
+    },
+    setAttribute(name, value) {
+      attributes.set(name, value);
+    },
     addEventListener(_event, handler) {
-      handlers.set(filter, handler);
-    },
-  }));
-  const items = ["common", "common", "enhanced"].map((scope, index) => ({
-    dataset: { navScope: scope },
-    hidden: true,
-    className: index === 0 ? "sidebar-item active" : "sidebar-item",
-  }));
-  const filterRoot = {
-    dataset: {},
-    querySelectorAll(selector) {
-      assert.equal(selector, "[data-nav-filter]");
-      return buttons;
+      clickHandler = handler;
     },
   };
-  const nav = {
-    querySelectorAll(selector) {
-      assert.equal(selector, "[data-nav-scope]");
-      return items;
-    },
-  };
+  const enhancedItems = { hidden: true };
   globalThis.document = {
     getElementById(id) {
-      return id === "sidebarNavFilter" ? filterRoot : nav;
+      if (id === "btnSidebarEnhancedToggle") return toggle;
+      if (id === "sidebarEnhancedItems") return enhancedItems;
+      return null;
     },
   };
-  return { filterRoot, handlers, items };
+  return { attributes, clickHandler: () => clickHandler(), enhancedItems, labels };
 }
 
-test("sidebar filter defaults to common and switches to disjoint enhanced items", async () => {
+test("sidebar enhanced disclosure defaults collapsed and toggles without navigation", async () => {
   const initialize = await loadInitializer();
-  const { filterRoot, handlers, items } = createHarness();
+  const { attributes, clickHandler, enhancedItems, labels } = createHarness();
   initialize();
 
-  assert.deepEqual(items.map((item) => item.hidden), [false, false, true]);
-  assert.equal(filterRoot.dataset.activeFilter, "common");
-  assert.equal(items[0].className, "sidebar-item active");
+  assert.equal(enhancedItems.hidden, true);
+  assert.equal(attributes.get("aria-expanded"), "false");
+  assert.equal(attributes.get("data-i18n-aria-label"), "nav.expandEnhanced");
+  assert.equal(attributes.get("aria-label"), "展开增强功能");
+  assert.deepEqual(labels.map((label) => label.hidden), [false, true]);
 
-  handlers.get("enhanced")();
-  assert.deepEqual(items.map((item) => item.hidden), [true, true, false]);
-  assert.equal(filterRoot.dataset.activeFilter, "enhanced");
-  assert.equal(items[0].className, "sidebar-item active");
+  clickHandler();
+  assert.equal(enhancedItems.hidden, false);
+  assert.equal(attributes.get("aria-expanded"), "true");
+  assert.equal(attributes.get("data-i18n-aria-label"), "nav.collapseEnhanced");
+  assert.equal(attributes.get("aria-label"), "收起增强功能");
+  assert.deepEqual(labels.map((label) => label.hidden), [true, false]);
+
+  clickHandler();
+  assert.equal(enhancedItems.hidden, true);
+  assert.equal(attributes.get("aria-expanded"), "false");
 });

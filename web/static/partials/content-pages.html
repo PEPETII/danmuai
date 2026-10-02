@@ -584,6 +584,106 @@
       </div>
     </section>
 
+    <!-- ========== 区域：帮助与系统 ========== -->
+    <section id="page-help-system" class="page-panel" data-i18n-aria-label="nav.helpSystem" aria-label="帮助与系统">
+      <header class="mb-8 ui-page-header">
+        <div class="ui-page-header__copy min-w-0">
+          <h2 class="text-2xl font-bold text-warmText ui-page-title" data-i18n="nav.helpSystem">帮助与系统</h2>
+          <p class="text-gray-500 mt-1 ui-page-description" data-i18n="content.text.使用_DanmuAI_查看应用状态_处理问题">使用 DanmuAI、查看应用状态、处理问题</p>
+        </div>
+      </header>
+      <div class="help-system-grid">
+        <section class="help-system-group ui-card" aria-labelledby="helpSystemUsageTitle">
+          <h3 id="helpSystemUsageTitle" class="help-system-group-title" data-i18n="content.text.使用帮助">使用帮助</h3>
+          <div class="help-system-list">
+            <button type="button" class="help-system-action" data-help-navigate="tutorial">
+              <svg class="ui-icon" aria-hidden="true"><use href="#i-graduation"></use></svg>
+              <span data-i18n="content.text.使用教程">使用教程</span>
+              <span class="help-system-action-arrow" aria-hidden="true">›</span>
+            </button>
+            <button type="button" class="help-system-action" data-help-navigate="announcements">
+              <svg class="ui-icon" aria-hidden="true"><use href="#i-megaphone"></use></svg>
+              <span data-i18n="content.text.公告">公告</span>
+              <span class="help-system-action-arrow" aria-hidden="true">›</span>
+            </button>
+            <button type="button" class="help-system-action js-official-site-open" aria-haspopup="dialog" aria-controls="officialSiteModal">
+              <svg class="ui-icon" aria-hidden="true"><use href="#i-cloud"></use></svg>
+              <span data-i18n="content.text.官网">官网</span>
+              <span class="help-system-action-arrow" aria-hidden="true">›</span>
+            </button>
+            <button type="button" class="help-system-action" data-help-navigate="feedback">
+              <svg class="ui-icon" aria-hidden="true"><use href="#i-users"></use></svg>
+              <span data-i18n="content.text.群聊">群聊</span>
+              <span class="help-system-action-arrow" aria-hidden="true">›</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="help-system-group ui-card" aria-labelledby="helpSystemAppTitle">
+          <h3 id="helpSystemAppTitle" class="help-system-group-title" data-i18n="content.text.应用信息">应用信息</h3>
+          <div class="help-system-list">
+            <div class="help-system-info-row help-system-update-row">
+              <svg class="ui-icon" aria-hidden="true"><use href="#i-gauge"></use></svg>
+              <div class="help-system-info-copy">
+                <strong data-i18n="content.text.检查更新">检查更新</strong>
+                <span data-i18n="content.text.获取最新版本与更新内容">获取最新版本与更新内容</span>
+              </div>
+              <div class="help-system-update-actions">
+                <button type="button" id="btnCheckAppUpdate" class="ui-button ui-button--secondary ui-button--sm" data-i18n="nav.checkUpdate">检查更新</button>
+                <button type="button" id="btnDownloadRestartAppUpdate" class="ui-button ui-button--primary ui-button--sm hidden" data-i18n="nav.downloadRestart">下载并重启</button>
+              </div>
+              <div class="update-progress-panel hidden" data-update-progress-root>
+                <p class="update-progress-status" aria-live="polite"></p>
+                <div class="update-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                  <div class="update-progress-fill"></div>
+                </div>
+                <p class="update-progress-meta"></p>
+                <p class="update-progress-error hidden"></p>
+              </div>
+            </div>
+            <label class="help-system-info-row help-system-control-row" for="helpLanguageSelect">
+              <svg class="ui-icon" aria-hidden="true"><use href="#i-message"></use></svg>
+              <span class="help-system-info-copy"><strong data-i18n="content.text.语言">语言</strong></span>
+              <select id="helpLanguageSelect" class="lang-select ui-control ui-select" data-language-select data-i18n-aria-label="settings.aria.界面语言" aria-label="界面语言">
+                <option value="zh" data-i18n="common.langZh">中文</option>
+                <option value="en" data-i18n="common.langEn">英语</option>
+              </select>
+            </label>
+            <div class="help-system-info-row help-system-control-row">
+              <svg class="ui-icon" aria-hidden="true"><use href="#i-moon"></use></svg>
+              <span class="help-system-info-copy"><strong data-i18n="content.text.主题">主题</strong></span>
+              <button type="button" id="helpThemeToggle" class="theme-toggle-btn ui-button ui-button--secondary ui-button--sm" data-theme-toggle aria-pressed="false" data-i18n-aria-label="common.toggleDarkMode" aria-label="切换黑夜模式">
+                <svg class="ui-icon theme-toggle-icon theme-toggle-icon-moon" aria-hidden="true"><use href="#i-moon"></use></svg>
+                <svg class="ui-icon theme-toggle-icon theme-toggle-icon-sun" aria-hidden="true"><use href="#i-sun"></use></svg>
+                <span class="theme-toggle-label" data-i18n="common.darkMode">黑夜模式</span>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section class="help-system-group ui-card" aria-labelledby="helpSystemProblemTitle">
+          <h3 id="helpSystemProblemTitle" class="help-system-group-title" data-i18n="content.text.问题处理">问题处理</h3>
+          <div class="help-system-list">
+            <button type="button" class="help-system-action" data-help-navigate="diagnostics">
+              <svg class="ui-icon" aria-hidden="true"><use href="#i-info"></use></svg>
+              <span data-i18n="content.text.问题诊断">问题诊断</span>
+              <span class="help-system-action-arrow" aria-hidden="true">›</span>
+            </button>
+            <button type="button" id="btnExportLogs" class="help-system-action">
+              <svg class="ui-icon" aria-hidden="true"><use href="#i-box"></use></svg>
+              <span data-i18n="common.exportLogs">导出日志</span>
+              <span class="help-system-action-arrow" aria-hidden="true">›</span>
+            </button>
+            <button type="button" class="help-system-action" data-help-navigate="feedback">
+              <svg class="ui-icon" aria-hidden="true"><use href="#i-message"></use></svg>
+              <span data-i18n="content.text.反馈问题">反馈问题</span>
+              <span class="help-system-action-arrow" aria-hidden="true">›</span>
+            </button>
+          </div>
+        </section>
+      </div>
+    </section>
+
     <!-- ========== 区域：教程|日志|反馈|公告|群聊|直播（合并 Tab） ========== -->
     <section id="page-guide" class="page-panel" data-i18n-aria-label="content.text.教程_日志_反馈_公告" aria-label="教程|日志|反馈|公告|群聊|直播" data-page-node-id="AW04Dr7l4BWCSPTJan5rSB">
       <header class="mb-8 ui-page-header" data-page-node-id="CxC7MPiNhgPVLzT0XOrczG"><div class="ui-page-header__copy min-w-0" data-page-node-id="gZxy4Upz9oVfbEwhqCn4GQ"><h2 class="text-2xl font-bold text-warmText ui-page-title" data-page-node-id="PZBs56JnMFELlFzfCYqWDZ">教程|日志|反馈|公告|群聊|直播</h2><p class="text-gray-500 mt-1 ui-page-description" data-i18n="content.text.教程_弹幕日志_公告与问题反馈" data-page-node-id="3w0JEOkKFw1S1RllkKZpSS">教程、弹幕日志、公告、问题反馈、群聊与直播输出</p></div></header>

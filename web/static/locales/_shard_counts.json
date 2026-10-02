@@ -1,22 +1,22 @@
 {
   "zh": {
-    "common": 57,
-    "nav": 30,
-    "overview": 48,
-    "settings": 173,
-    "content": 170,
-    "modals": 61,
-    "hints": 81,
-    "dynamic": 469
+    "common": 60,
+    "nav": 29,
+    "overview": 64,
+    "settings": 254,
+    "content": 550,
+    "modals": 135,
+    "hints": 88,
+    "dynamic": 1022
   },
   "en": {
-    "common": 57,
-    "nav": 30,
-    "overview": 48,
-    "settings": 173,
-    "content": 170,
-    "modals": 61,
-    "hints": 81,
-    "dynamic": 469
+    "common": 60,
+    "nav": 29,
+    "overview": 64,
+    "settings": 254,
+    "content": 549,
+    "modals": 135,
+    "hints": 94,
+    "dynamic": 1022
   }
 }

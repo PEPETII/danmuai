@@ -61,16 +61,15 @@ export function applyTheme(theme) {
     root.removeAttribute('data-theme');
   }
 
-  const btn = document.getElementById('themeToggle');
-  if (btn) {
-    const isDark = normalized === 'dark';
+  const isDark = normalized === 'dark';
+  document.querySelectorAll('[data-theme-toggle]').forEach((btn) => {
     btn.setAttribute('aria-pressed', isDark ? 'true' : 'false');
     btn.setAttribute('aria-label', isDark ? t('common.toggleLightMode') : t('common.toggleDarkMode'));
     const label = btn.querySelector('.theme-toggle-label');
     if (label) {
       label.textContent = isDark ? t('common.lightMode') : t('common.darkMode');
     }
-  }
+  });
   return normalized;
 }
 
@@ -109,6 +108,8 @@ function toggleTheme() {
 
 export function initTheme() {
   applyTheme(getStoredTheme());
-  document.getElementById('themeToggle')?.addEventListener('click', toggleTheme);
+  document.querySelectorAll('[data-theme-toggle]').forEach((btn) => {
+    btn.addEventListener('click', toggleTheme);
+  });
   syncThemeFromServer();
 }

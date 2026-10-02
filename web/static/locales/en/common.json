@@ -3,7 +3,6 @@
     "meta": {
       "title": "DanmuAI - Your Cozy Danmu Assistant"
     },
-    "liveOverlayTitle": "DanmuAI Live Overlay",
     "save": "Save",
     "cancel": "Cancel",
     "close": "Close",
@@ -26,11 +25,12 @@
     "edit": "Edit",
     "defaultLabel": "Default",
     "unnamed": "Unnamed",
-    "notSelected": "Not selected",
-    "notConfigured": "Not configured",
     "comingSoon": "Coming soon",
     "connecting": "Connecting",
     "connected": "Connected",
+    "exportLogs": "Export logs",
+    "logsExported": "Logs exported",
+    "noLogsToExport": "No logs to export",
     "reconnecting": "Reconnecting",
     "polling": "Polling fallback",
     "realtime": "Realtime",
