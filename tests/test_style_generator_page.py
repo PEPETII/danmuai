@@ -122,7 +122,6 @@ def test_style_generator_tabs_share_accordion_layout_contract():
     assert partial.count('class="sg-action-bar"') == 2
 
     for button_id in (
-        "sgBtnSave",
         "sgBtnRestoreDefault",
         "sgBtnAddPreview",
         "sgBtnClearPreview",
@@ -132,6 +131,7 @@ def test_style_generator_tabs_share_accordion_layout_contract():
         start = partial.index(f'id="{button_id}"')
         button = partial[start : start + 220]
         assert "ui-button" in button, button_id
+    assert 'id="sgBtnSave"' not in partial
 
 
 def test_style_generator_accordion_titles_follow_domain_grouping():

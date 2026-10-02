@@ -1,5 +1,6 @@
 import { apiFetch } from './transport.js';
 import { t } from './i18n.js';
+import { createAutoSave } from './auto-save.js';
 
 let danmuPoolMeta = null;
 let toast = () => {};
@@ -93,19 +94,37 @@ export async function loadDanmuPoolPage() {
   renderTxtPoolStatus();
 }
 
-async function saveDanmuPoolSettings() {
-  const body = {
+function collectDanmuPoolSettings() {
+  return {
     custom_enabled: Boolean(document.getElementById('poolCustomEnabled')?.checked),
     min_on_screen: parseInt(document.getElementById('poolMinOnScreen')?.value, 10) || 0,
   };
+}
+
+async function saveDanmuPoolSettings(body = collectDanmuPoolSettings(), { isLatest = () => true } = {}) {
   await apiFetch('/api/danmu-pool/settings', {
     method: 'PUT',
     body: JSON.stringify(body),
   });
-  danmuPoolMeta = await apiFetch('/api/danmu-pool/meta');
-  updatePoolMinOnScreenControl();
-  renderTxtPoolStatus();
-  showToast(t('dynamic.appDanmuPoolPage.公式化弹幕库设置已保存'));
+  const meta = await apiFetch('/api/danmu-pool/meta');
+  if (isLatest()) {
+    danmuPoolMeta = meta;
+    updatePoolMinOnScreenControl();
+    renderTxtPoolStatus();
+  }
+}
+
+const danmuPoolAutoSave = createAutoSave({
+  capture: collectDanmuPoolSettings,
+  save: saveDanmuPoolSettings,
+  onState: (state, error) => {
+    if (state === 'error') showToast(error?.message || t('dynamic.appDanmuPoolPage.自动保存失败'), true);
+  },
+});
+
+function flushDanmuPoolSave() {
+  danmuPoolAutoSave.schedule({ immediate: true });
+  return danmuPoolAutoSave.flush();
 }
 
 async function refreshTxtPool() {
@@ -148,14 +167,17 @@ export function initDanmuPoolPage(deps = {}) {
   if (handlersBound) return;
   handlersBound = true;
 
-  document.getElementById('btnSavePoolSettings')?.addEventListener('click', () => {
-    saveDanmuPoolSettings().catch((error) => showToast(error.message, true));
-  });
   document.getElementById('poolCustomEnabled')?.addEventListener('change', () => {
     if (danmuPoolMeta) {
       danmuPoolMeta.effective_pool_enabled = poolEffectiveEnabledLocal();
     }
     updatePoolMinOnScreenControl();
+    flushDanmuPoolSave().catch(() => {});
+  });
+  const minEl = document.getElementById('poolMinOnScreen');
+  minEl?.addEventListener('input', () => danmuPoolAutoSave.schedule());
+  minEl?.addEventListener('change', () => {
+    flushDanmuPoolSave().catch(() => {});
   });
   document.getElementById('btnPoolRefreshTxt')?.addEventListener('click', () => {
     refreshTxtPool().catch((error) => showToast(error.message, true));

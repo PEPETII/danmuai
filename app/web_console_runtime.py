@@ -222,27 +222,17 @@ def run_uvicorn_locked(server) -> None:
     @app.get("/api/personae")
     def list_personae():
         from app.persona_builtin import BUILTIN_PERSONAE
-        from app.persona_manager import persona_model_binding_message
 
         names = bridge.danmu_app.personae.list()
         active = set(bridge.danmu_app.personae.get_active())
         items = []
         for name in names:
-            # W-AUDIT-MODEL-IDENTITY-001：绑定身份以不可变 profile_id 为准；
-            # binding_status / binding_message 暴露 unresolvable/悬挂/模型被移除
-            # 状态，供 UI 提示重新选择（不回退首项）。
-            binding = bridge.danmu_app.personae.get_model_binding(name)
-            status = bridge.danmu_app.personae.describe_model_binding(name)["status"]
             items.append(
                 {
                     "id": name,
                     "label": bridge.danmu_app.personae.get_display_name(name),
                     "active": name in active,
                     "builtin": name in BUILTIN_PERSONAE,
-                    "profile_id": binding,
-                    "model_id": bridge.danmu_app.personae.get_model_binding_model_id(name),
-                    "binding_status": status,
-                    "binding_message": persona_model_binding_message(status),
                 }
             )
         return {

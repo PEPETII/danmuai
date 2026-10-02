@@ -76,7 +76,7 @@
     "hintMemeTagTitle": "仅「自选」分类时可选择标签，最多 3 个。",
     "hintMemeCollectTitle": "控制烂梗弹幕的采集节奏：间隔秒数与每批采集条数。",
     "hintMemeDisplayTitle": "控制烂梗弹幕的上屏节奏：间隔秒数与每批展示条数。",
-    "hintPersonaActiveTitle": "勾选多个人格后，运行时每轮随机选一个生成弹幕；点「保存激活列表」生效。",
+    "hintPersonaActiveTitle": "勾选后自动保存。激活多个人格时，运行时每轮随机选择一个生成弹幕。",
     "custom-models": "在这里保存不同接口、模型和密钥的组合，并选择默认配置；模型档案里的密钥与上方通用密钥分开保存。"
   }
 }

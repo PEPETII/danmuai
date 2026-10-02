@@ -400,7 +400,6 @@ def test_content_pages_f2_semantic_shell():
     assert 'id="sessionRunLog"' in content
 
     for bid in (
-        "btnSaveMemeBarrageSettings",
         "btnSavePersona",
         "btnKnowledgeNewPackage",
         "btnFeedbackSubmit",

@@ -9,10 +9,7 @@ from unittest.mock import patch
 
 import pytest
 from app.ai_client_requests import request_doubao, request_openai
-from app.ai_client_support import (
-    RequestContextResolutionError,
-    resolve_visual_request_context,
-)
+from app.ai_client_support import resolve_visual_request_context
 from app.providers.request_context import ResolvedRequestContext
 from app.providers.request_planner import GenerationRequest, plan_http_request
 
@@ -21,20 +18,7 @@ class _Config:
     def __init__(self, profiles: list[dict]):
         self.profiles = profiles
         self.values = {
-            "persona_model_bindings": json.dumps(
-                {
-                    "persona-a": {
-                        "v": 1,
-                        "profile_id": "profile-a",
-                        "model_id": "shared-model",
-                    },
-                    "persona-b": {
-                        "v": 1,
-                        "profile_id": "profile-b",
-                        "model_id": "shared-model",
-                    },
-                }
-            ),
+            "active_model_profile_id": "profile-a",
             "max_tokens": "9999",
             "temperature": "1.8",
             "use_thinking": "1",
@@ -124,18 +108,18 @@ def _generation_request(context: ResolvedRequestContext) -> GenerationRequest:
     )
 
 
-def test_duplicate_model_ids_resolve_by_profile_id_and_hide_credentials():
+def test_persona_ids_resolve_to_the_same_global_profile_and_hide_credentials():
     config = _config()
     context_a = _context(config, "persona-a")
     context_b = _context(config, "persona-b")
 
     assert context_a.profile_id == "profile-a"
-    assert context_b.profile_id == "profile-b"
+    assert context_b.profile_id == "profile-a"
     assert context_a.model_id == context_b.model_id == "shared-model"
     assert context_a.provider_id == "custom_doubao"
-    assert context_b.provider_id == "custom_openai"
+    assert context_b.provider_id == "custom_doubao"
     assert context_a.api_key == "sk-profile-a"
-    assert context_b.api_key == "sk-profile-b"
+    assert context_b.api_key == "sk-profile-a"
 
     public = context_a.public_projection()
     assert public.profile_id == "profile-a"
@@ -145,21 +129,18 @@ def test_duplicate_model_ids_resolve_by_profile_id_and_hide_credentials():
         context_a.max_tokens = 1
 
 
-def test_legacy_duplicate_model_binding_fails_closed_instead_of_guessing():
+def test_legacy_persona_binding_does_not_change_global_resolution():
     config = _config()
-    config.values["persona_model_bindings"] = json.dumps(
-        {"persona-a": "shared-model"}
-    )
-
-    with pytest.raises(RequestContextResolutionError) as exc_info:
-        resolve_visual_request_context(config, "persona-a")
-
-    assert exc_info.value.code == "unresolved"
+    config.values["persona_model_bindings"] = json.dumps({"persona-a": "profile-b"})
+    context = _context(config, "persona-a")
+    assert context.profile_id == "profile-a"
+    assert context.api_key == "sk-profile-a"
 
 
 def test_profile_max_tokens_reach_both_final_payload_shapes():
     config = _config()
     context_a = _context(config, "persona-a")
+    config.values["active_model_profile_id"] = "profile-b"
     context_b = _context(config, "persona-b")
 
     planned_a = plan_http_request(_generation_request(context_a))
@@ -174,6 +155,7 @@ def test_profile_max_tokens_reach_both_final_payload_shapes():
 def test_provider_paths_use_frozen_context_after_config_changes():
     config = _config()
     context_a = _context(config, "persona-a")
+    config.values["active_model_profile_id"] = "profile-b"
     context_b = _context(config, "persona-b")
 
     config.profiles[0]["max_tokens"] = 1800

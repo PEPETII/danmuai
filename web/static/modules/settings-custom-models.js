@@ -22,6 +22,8 @@ let customModelDeps = {
 };
 
 let cachedCustomModels = [];
+let cachedActiveProfileId = "";
+let activationInFlight = false;
 let modelModalBindingsWired = false;
 
 export function getCachedCustomModels() {
@@ -69,30 +71,6 @@ export function configureSettingsCustomModels(deps) {
   });
 }
 
-function collectActivePersonaModelIds(personaeItems, firstModelId) {
-  const used = new Set();
-  const fallbackId = (firstModelId || "").trim();
-  const items = Array.isArray(personaeItems) ? personaeItems : [];
-  for (const item of items) {
-    if (!item?.active) continue;
-    const bound = (item.model_id || "").trim();
-    if (bound) used.add(bound);
-    else if (fallbackId) used.add(fallbackId);
-  }
-  return used;
-}
-
-function profileUsesAnyModelId(model, usedModelIds) {
-  if (!usedModelIds || usedModelIds.size === 0) return false;
-  const def = (model.default_model_id || "").trim();
-  if (def && usedModelIds.has(def)) return true;
-  const ids = Array.isArray(model.model_ids) ? model.model_ids : [];
-  return ids.some((id) => {
-    const mid = String(id || "").trim();
-    return mid && usedModelIds.has(mid);
-  });
-}
-
 export async function loadCustomModels() {
   if (!modelModalBindingsWired) {
     modelModalBindingsWired = true;
@@ -102,25 +80,20 @@ export async function loadCustomModels() {
       /* DOM not ready yet */
     }
   }
-  const [data, personaeData] = await Promise.all([
-    apiFetch("/api/custom-models"),
-    apiFetch("/api/personae").catch(() => ({ items: [] })),
-  ]);
-  cachedCustomModels = data.items || [];
+  const data = await apiFetch("/api/custom-models");
+  cachedCustomModels = Array.isArray(data?.items) ? data.items : [];
+  cachedActiveProfileId = String(data?.active_profile_id || "").trim();
   const list = document.getElementById("customModelsList");
   if (!list) return;
   list.innerHTML = "";
-  if (!data.items.length) {
+  if (!cachedCustomModels.length) {
     list.innerHTML = t("dynamic.settingsCustomModels.p_class_text_sm_text_g");
     return;
   }
-  const firstModelId = String(data.items[0]?.default_model_id || '').trim();
-  const usedByActivePersonae = collectActivePersonaModelIds(personaeData?.items, firstModelId);
-  data.items.forEach((model, index) => {
+  cachedCustomModels.forEach((model, index) => {
     const row = document.createElement("div");
     row.className =
       "custom-model-row flex flex-wrap items-center gap-3 p-3 bg-cream rounded-xl text-sm";
-    const inUseByPersona = profileUsesAnyModelId(model, usedByActivePersonae);
 
     const colName = document.createElement("div");
     colName.className = "flex items-center gap-2 min-w-0 flex-1";
@@ -167,18 +140,41 @@ export async function loadCustomModels() {
       colModelId.appendChild(extraSpan);
     }
 
-    const colStatus = document.createElement("div");
-    colStatus.className = "custom-model-status-col";
-    if (inUseByPersona) {
-      const badge = document.createElement("span");
-      badge.className =
-        "custom-model-in-use-badge px-2 py-0.5 rounded-full bg-softPeach text-warmText text-xs font-bold";
-      badge.textContent = t("dynamic.settingsCustomModels.使用_2");
-      colStatus.appendChild(badge);
-    }
-
     const colActions = document.createElement("div");
     colActions.className = "custom-model-actions flex items-center gap-2";
+    const isActive = String(model?.profile_id || "").trim() === cachedActiveProfileId;
+    const activateBtn = document.createElement("button");
+    activateBtn.type = "button";
+    activateBtn.className = isActive
+      ? "ui-button ui-button--primary ui-button--sm"
+      : "ui-button ui-button--secondary ui-button--sm";
+    activateBtn.textContent = isActive
+      ? t("dynamic.settingsCustomModels.使用中")
+      : t("dynamic.settingsCustomModels.启动");
+    activateBtn.disabled =
+      isActive || model.complete === false || !String(model?.profile_id || "").trim();
+    if (model.complete === false && !isActive) {
+      activateBtn.title = t("dynamic.settingsCustomModels.配置不完整");
+    }
+    activateBtn.onclick = async () => {
+      if (activateBtn.disabled || activationInFlight) return;
+      activationInFlight = true;
+      activateBtn.disabled = true;
+      activateBtn.textContent = t("dynamic.settingsCustomModels.启动中");
+      try {
+        await apiFetch("/api/custom-models/active", {
+          method: "PUT",
+          body: JSON.stringify({ profile_id: String(model.profile_id || "").trim() }),
+        });
+        await loadCustomModels();
+      } catch (error) {
+        activateBtn.disabled = false;
+        activateBtn.textContent = t("dynamic.settingsCustomModels.启动");
+        customModelDeps.showToast(error.message, true);
+      } finally {
+        activationInFlight = false;
+      }
+    };
     const editBtn = document.createElement("button");
     editBtn.type = "button";
     editBtn.className = "px-3 py-1 border border-gray-200 rounded-lg text-xs";
@@ -190,12 +186,12 @@ export async function loadCustomModels() {
       "px-3 py-1 border border-red-200 rounded-lg text-xs text-red-600";
     delBtn.textContent = t("common.delete");
     delBtn.onclick = () => openDeleteModelConfirm(model, index);
+    colActions.appendChild(activateBtn);
     colActions.appendChild(editBtn);
     colActions.appendChild(delBtn);
 
     row.appendChild(colName);
     row.appendChild(colModelId);
-    row.appendChild(colStatus);
     row.appendChild(colActions);
     list.appendChild(row);
   });
@@ -205,10 +201,14 @@ export function formatDeleteModelMessage(profile) {
   const display = resolveProfileDisplayName(profile);
   const ids = Array.isArray(profile?.model_ids) ? profile.model_ids : [];
   const n = ids.length || 1;
-  return t("dynamic.settingsCustomModels.确定删除模型_display_吗_该档案包", {
+  const base = t("dynamic.settingsCustomModels.确定删除模型_display_吗_该档案包", {
     display,
     n,
   });
+  if (String(profile?.profile_id || "").trim() !== cachedActiveProfileId) return base;
+  return `${base} ${t(cachedCustomModels.length > 1
+    ? "dynamic.settingsCustomModels.删除后将自动切换"
+    : "dynamic.settingsCustomModels.删除后无可用模型")}`;
 }
 
 let _deleteModelConfirmCleanup = null;

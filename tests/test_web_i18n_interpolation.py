@@ -267,7 +267,7 @@ def test_model_path_interpolation():
     assert _interpolate(zh["dynamic.settingsCustomModels.确定删除模型_display_吗_该档案包"], {
         "display": "豆包档案",
         "n": "3",
-    }) == "确定删除模型「豆包档案」吗？该档案包含 3 个模型 ID，将一并删除。若该档案是当前默认，将自动切换到下一条。"
+    }) == "确定删除模型「豆包档案」吗？该档案包含 3 个模型 ID，将一并删除。"
     assert _interpolate(zh["dynamic.settingsModelCatalog.查看_model_id_的价格说明"], {
         "modelId": "gpt-4o",
     }) == "查看 gpt-4o 的价格说明"

@@ -1,36 +1,19 @@
-"""W-PERSONA-MODEL-BIND-001：人格 → 自定义模型档案绑定。
-
-测试覆盖：
-1. PersonaManager 绑定 CRUD（get_model_bindings / get_model_binding / set_model_binding）
-2. delete_custom 删除自定义人格时同步清除绑定
-3. resolve_request_credentials_for_persona 按人格绑定解析凭证 + 各种回退场景
-
-模块级纯函数测试，不依赖 DanmuApp / Qt / Web API。
-"""
+"""人格历史绑定兼容数据与全局模型运行时行为。"""
 
 import json
-from pathlib import Path
 
 import pytest
-from app.ai_client_requests import (
-    resolve_request_credentials,
-    resolve_request_credentials_for_persona,
-)
+from app.ai_client_requests import resolve_request_credentials
 from app.config_store import ConfigStore
 from app.persona_manager import PersonaManager
-
-PERSONA_PAGE_JS = Path(__file__).resolve().parent.parent / "web" / "static" / "modules" / "app-persona-topic-page.js"
 
 
 @pytest.fixture
 def persona_config(tmp_path):
-    """fresh ConfigStore + PersonaManager（tmp_path 隔离，无 Qt）。"""
     config = ConfigStore(db_path=tmp_path / "config.db")
-    personae = PersonaManager(config)
-    return config, personae
+    return config, PersonaManager(config)
 
 
-# 便捷构造一个完整可用的自定义模型档案（参考 tests/test_web_custom_models.py 已验证结构）
 def _make_complete_model(
     name: str = "BoundModel",
     model_id: str = "bound-model-1",
@@ -47,231 +30,73 @@ def _make_complete_model(
     }
 
 
-# ---------------------------------------------------------------------------
-# PersonaManager 绑定 CRUD
-# ---------------------------------------------------------------------------
-
-
 def test_get_model_binding_empty_by_default(persona_config):
-    """新 ConfigStore，无任何绑定，get_model_binding 返回空串。"""
     _config, personae = persona_config
     assert personae.get_model_binding("高压吐槽型") == ""
-    assert personae.get_model_binding("不存在的某人格") == ""
     assert personae.get_model_bindings() == {}
 
 
-def test_set_and_get_model_binding_persists(persona_config):
-    """set 后 get 一致；ConfigStore 中 persona_model_bindings 键已写入。"""
+def test_legacy_model_binding_data_still_persists(persona_config):
+    """历史绑定保留在配置中，供兼容迁移/后续清理，不参与运行时选择。"""
     config, personae = persona_config
     personae.set_model_binding("高压吐槽型", "bound-model-1")
     assert personae.get_model_binding("高压吐槽型") == "bound-model-1"
-
-    # 持久化到 ConfigStore（独立键，JSON 字符串）
-    raw = config.get("persona_model_bindings", "{}")
-    parsed = json.loads(raw)
-    assert parsed == {"高压吐槽型": "bound-model-1"}
+    assert json.loads(config.get("persona_model_bindings", "{}")) == {
+        "高压吐槽型": "bound-model-1"
+    }
 
 
-def test_clear_model_binding_with_empty_string(persona_config):
-    """空串清除绑定：先 set 非空，再 set ""，get 返回 ""。"""
+def test_clear_legacy_model_binding_remains_supported(persona_config):
     _config, personae = persona_config
     personae.set_model_binding("高压吐槽型", "bound-model-1")
-    assert personae.get_model_binding("高压吐槽型") == "bound-model-1"
-
     personae.set_model_binding("高压吐槽型", "")
     assert personae.get_model_binding("高压吐槽型") == ""
     assert "高压吐槽型" not in personae.get_model_bindings()
 
 
-def test_delete_custom_persona_clears_binding(persona_config):
-    """删除自定义人格时同步清除其模型绑定（避免悬挂引用）。"""
-    _config, personae = persona_config
-    # 先创建自定义人格 + 绑定
+def test_delete_custom_persona_preserves_its_legacy_binding(persona_config):
+    config, personae = persona_config
     personae.save_custom("自定义测试人格", "sys prompt", "user prompt")
     personae.set_model_binding("自定义测试人格", "bound-model-1")
-    assert personae.get_model_binding("自定义测试人格") == "bound-model-1"
-
-    # 删除自定义人格 → 绑定应被清除
     personae.delete_custom("自定义测试人格")
-    assert personae.get_model_binding("自定义测试人格") == ""
-    assert "自定义测试人格" not in personae.get_model_bindings()
+    assert json.loads(config.get("persona_model_bindings", "{}")) == {
+        "自定义测试人格": "bound-model-1"
+    }
 
 
-def test_builtin_persona_can_bind(persona_config):
-    """内置人格（如"高压吐槽型"）也能 set/get 绑定（独立键设计，不进 custom_personae schema）。"""
-    _config, personae = persona_config
-    personae.set_model_binding("高压吐槽型", "bound-model-1")
-    assert personae.get_model_binding("高压吐槽型") == "bound-model-1"
-    # 内置人格不在 custom_personae 中，但绑定仍持久化
-    assert "高压吐槽型" in personae.get_model_bindings()
-
-
-# ---------------------------------------------------------------------------
-# resolve_request_credentials_for_persona
-# ---------------------------------------------------------------------------
-
-
-def _setup_global_model(config, model_id: str = "global-model") -> None:
-    """配置首个模型档案（用于未绑定人格的回退路径）。"""
-    config.set_custom_models([_make_complete_model(model_id=model_id, name="GlobalModel")])
-
-
-def test_resolve_credentials_for_persona_uses_binding(persona_config):
-    """绑定存在且档案完整 → 返回绑定档案的凭证（非全局）。"""
+def test_all_personas_resolve_same_global_profile(persona_config):
+    """persona bindings remain stored but cannot change runtime credentials."""
     config, personae = persona_config
-    # 全局模型 = global-model
-    _setup_global_model(config, model_id="global-model")
-    # 追加一个绑定专用模型档案 bound-model-1
     config.set_custom_models(
         [
-            _make_complete_model(model_id="global-model", name="GlobalModel"),
-            _make_complete_model(model_id="bound-model-1", name="BoundModel"),
+            _make_complete_model(name="Model A", model_id="model-a"),
+            _make_complete_model(name="Model B", model_id="model-b"),
         ]
     )
-    # 给"高压吐槽型"绑定 bound-model-1
-    personae.set_model_binding("高压吐槽型", "bound-model-1")
+    expected = resolve_request_credentials(config)
+    assert expected is not None
+    personae.set_model_binding("高压吐槽型", "model-b")
+    assert resolve_request_credentials(config) == expected
 
-    resolved = resolve_request_credentials_for_persona(config, "高压吐槽型")
+
+def test_global_profile_switch_is_immediate(persona_config):
+    from app.model_selection import set_active_model_profile
+
+    config, _personae = persona_config
+    config.set_custom_models(
+        [
+            _make_complete_model(name="Model A", model_id="model-a"),
+            _make_complete_model(name="Model B", model_id="model-b"),
+        ]
+    )
+    second = config.get_custom_models()[1]
+    set_active_model_profile(config, second["profile_id"])
+    resolved = resolve_request_credentials(config)
     assert resolved is not None
-    endpoint, api_key, model_id, _mode = resolved
-    assert model_id == "bound-model-1"
-    assert endpoint == "https://api.example.com/v1"
-    assert api_key == "sk-bound-key-1234567890"
+    assert resolved[2] == "model-b"
 
 
-def test_resolve_credentials_for_persona_falls_back_when_unbound(persona_config):
-    """persona_id 未在 bindings 中 → 返回全局 resolve_request_credentials 结果。"""
-    config, _personae = persona_config
-    _setup_global_model(config, model_id="global-model")
-
-    global_resolved = resolve_request_credentials(config)
-    assert global_resolved is not None
-    assert global_resolved[2] == "global-model"
-
-    # 未绑定的 persona_id 应回退全局
-    fallback = resolve_request_credentials_for_persona(config, "未绑定的人格")
-    assert fallback is not None
-    assert fallback == global_resolved
-
-
-def test_resolve_credentials_for_persona_uses_first_profile_without_global_selector(persona_config):
-    """未绑定人格没有全局选择器时，仍使用模型档案列表中的首个档案。"""
-    config, _personae = persona_config
-    config.set_custom_models(
-        [
-            _make_complete_model(model_id="first-model", name="FirstModel"),
-            _make_complete_model(model_id="second-model", name="SecondModel"),
-        ]
-    )
-
-    resolved = resolve_request_credentials_for_persona(config, "未绑定的人格")
-    assert resolved is not None
-    assert resolved[2] == "first-model"
-    assert config.get("model", "") == ""
-    assert config.get("default_model_id", "") == ""
-
-
-def test_resolve_credentials_for_persona_explicit_binding_missing_raises(persona_config):
-    """显式绑定的档案已被删除（悬挂）→ 抛 PersonaModelBindingError，不回退首档案。
-
-    W-AUDIT-MODEL-IDENTITY-001：显式绑定失效必须成为可观察的配置错误，绝不静默换
-    provider / endpoint / 账户。
-    """
-    from app.persona_manager import PersonaModelBindingError
-
-    config, personae = persona_config
-    config.set_custom_models(
-        [
-            _make_complete_model(model_id="global-model", name="GlobalModel"),
-            _make_complete_model(model_id="bound-model-1", name="BoundModel"),
-        ]
-    )
-    personae.set_model_binding("高压吐槽型", "bound-model-1")
-    # 绑定后删除被绑定档案 → 版本化绑定悬挂（profile_id 已不存在）
-    config.set_custom_models(
-        [_make_complete_model(model_id="global-model", name="GlobalModel")]
-    )
-
-    # 首档案仍可用（用于证明"回退"确实没有发生）
-    assert resolve_request_credentials(config)[2] == "global-model"
-
-    with pytest.raises(PersonaModelBindingError) as exc_info:
-        resolve_request_credentials_for_persona(config, "高压吐槽型")
-    assert exc_info.value.code == "profile_missing"
-    # 错误不含密钥
-    assert "sk-bound-key" not in str(exc_info.value)
-
-
-def test_resolve_credentials_for_persona_explicit_binding_incomplete_raises(persona_config):
-    """显式绑定档案缺 apiKey（不完整）→ 抛 PersonaModelBindingError，不回退首档案。"""
-    from app.persona_manager import PersonaModelBindingError
-
-    config, personae = persona_config
-    incomplete = _make_complete_model(model_id="bound-incomplete", name="IncompleteModel")
-    incomplete["apiKey"] = ""
-    config.set_custom_models(
-        [
-            _make_complete_model(model_id="global-model", name="GlobalModel"),
-            incomplete,
-        ]
-    )
-    personae.set_model_binding("高压吐槽型", "bound-incomplete")
-
-    with pytest.raises(PersonaModelBindingError) as exc_info:
-        resolve_request_credentials_for_persona(config, "高压吐槽型")
-    assert exc_info.value.code == "profile_incomplete"
-    assert "sk-bound-key" not in str(exc_info.value)
-
-    # 未绑定人格仍按产品默认使用首档案（既有无绑定体验不回归）
-    unbound = resolve_request_credentials_for_persona(config, "未绑定的人格")
-    assert unbound is not None
-    assert unbound[2] == "global-model"
-
-
-def test_resolve_credentials_for_persona_explicit_binding_zero_match_raises(persona_config):
-    """旧字符串绑定零匹配（模型名不存在）→ 可诊断的 unresolved，不回退首档案。"""
-    from app.persona_manager import PersonaModelBindingError
-
-    config, personae = persona_config
-    _setup_global_model(config, model_id="global-model")
-    personae.set_model_binding("高压吐槽型", "deleted-model-xyz")
-
-    with pytest.raises(PersonaModelBindingError) as exc_info:
-        resolve_request_credentials_for_persona(config, "高压吐槽型")
-    assert exc_info.value.code == "unresolved"
-
-
-def test_resolve_credentials_for_persona_empty_persona_id_falls_back(persona_config):
-    """persona_id="" → 直接回退全局（边界用例）。"""
-    config, _personae = persona_config
-    _setup_global_model(config, model_id="global-model")
-
-    global_resolved = resolve_request_credentials(config)
-    fallback = resolve_request_credentials_for_persona(config, "")
-    assert fallback == global_resolved
-    assert fallback[2] == "global-model"
-
-
-def test_persona_page_displays_first_model_for_unbound_persona():
-    """人格页下拉框：未绑定跟随首个档案；显式绑定失效时不回退首项，提示重新选择。"""
-    source = PERSONA_PAGE_JS.read_text(encoding="utf-8")
-    # option value 使用不可变 profile_id（与模型列表 / 虚拟主播视觉同一身份合同）
-    assert "opt.value = option.profileId;" in source
-    assert "const effectiveProfileId = boundProfileId || firstProfileId;" in source
-    # 空模型列表 → 停用占位项
-    assert "const placeholderOpt = document.createElement('option');" in source
-    assert "if (!modelOptions.length)" in source
-    # 显式绑定失效 → 待重选占位项 + 警告，且不静默回退首项
-    assert "const needsReselect = document.createElement('option');" in source
-    assert "dynamic.appPersonaTopicPage.需重新选择模型" in source
-    assert "bindingInvalid" in source
-    # 绑定请求携带 profile_id + 上游 model_id
-    assert "profile_id: desiredProfileId," in source
-    assert "model_id: desiredModelId," in source
-
-
-def test_config_store_clears_retired_global_model_keys_on_restart(tmp_path):
-    """旧数据库重启后清理全局选择键，但保留模型档案。"""
+def test_config_store_clears_retired_global_model_keys_and_initializes_active(tmp_path):
     db_path = tmp_path / "config.db"
     store = ConfigStore(db_path=db_path)
     store.set_custom_models([_make_complete_model(model_id="first-model")])
@@ -283,6 +108,6 @@ def test_config_store_clears_retired_global_model_keys_on_restart(tmp_path):
     try:
         assert reopened.get("model", "") == ""
         assert reopened.get("default_model_id", "") == ""
-        assert reopened.get_custom_models()[0]["default_model_id"] == "first-model"
+        assert reopened.get("active_model_profile_id", "") == reopened.get_custom_models()[0]["profile_id"]
     finally:
         reopened.close()

@@ -45,6 +45,12 @@ class CustomModelProbePayload(CustomModelPayload):
     stage: str = "text"
 
 
+class ActiveModelPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    profile_id: str
+
+
 class ProbePayload(BaseModel):
     api_endpoint: str = ""
     api_key: str = ""
@@ -70,6 +76,23 @@ def register_custom_models_routes(
         authorization: str | None = Header(default=None),
     ):
         return invoke_main(cm_api.create_custom_model, bridge.danmu_app, body.model_dump())
+
+    # Must stay before /api/custom-models/{index}; otherwise FastAPI may parse
+    # the literal ``active`` segment as an integer index.
+    @app.put("/api/custom-models/active")
+    @require_auth(check_token)
+    def put_active_custom_model(
+        body: ActiveModelPayload,
+        authorization: str | None = Header(default=None),
+    ):
+        try:
+            return invoke_main(
+                cm_api.activate_custom_model,
+                bridge.danmu_app,
+                body.profile_id,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.put("/api/custom-models/{index}")
     @require_auth(check_token)

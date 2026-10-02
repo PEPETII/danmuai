@@ -386,17 +386,7 @@ def execute_stream_request_with_retry(
     )
 
 
-try:
-    from app.persona_manager import PersonaModelBindingError as _PersonaModelBindingError
-except (ImportError, AttributeError):
-    class _PersonaModelBindingError(ValueError):
-        """Compatibility base used before P1's persona binding error exists."""
-
-        def __init__(self, code: str, message: str):
-            super().__init__(message)
-
-
-class RequestContextResolutionError(_PersonaModelBindingError):
+class RequestContextResolutionError(ValueError):
     """请求档案无法唯一解析时抛出，不携带 endpoint/key 等敏感值。"""
 
     def __init__(self, code: str, message: str):
@@ -443,31 +433,19 @@ def _profile_identity(profile: dict, index: int) -> str:
 
 
 def _resolve_visual_profile(config, persona_id: str = ""):
-    """Resolve one profile without using a duplicate model name as identity."""
+    """Resolve the one global profile; ``persona_id`` is compatibility-only."""
     profiles = _custom_model_profiles(config)
     if not profiles:
         return None
+    from app.model_selection import resolve_active_model_profile
 
-    if persona_id:
-        from app.persona_manager import resolve_persona_model_binding
-
-        try:
-            resolved = resolve_persona_model_binding(config, persona_id)
-        except _PersonaModelBindingError as exc:
-            raise RequestContextResolutionError(
-                getattr(exc, "code", "unresolved"), str(exc)
-            ) from exc
-        if resolved is not None:
-            profile, model_id = resolved
-            for index, candidate in profiles:
-                if candidate is profile or candidate == profile:
-                    return profile, model_id, _profile_identity(profile, index)
-            raise RequestContextResolutionError(
-                "profile_missing", "模型档案绑定已失效"
-            )
-
-    index, profile = profiles[0]
-    return profile, _profile_model_id(profile), _profile_identity(profile, index)
+    profile = resolve_active_model_profile(config)
+    if profile is None:
+        return None
+    for index, candidate in profiles:
+        if candidate is profile or candidate == profile:
+            return profile, _profile_model_id(profile), _profile_identity(profile, index)
+    raise RequestContextResolutionError("profile_missing", "全局模型档案已失效")
 
 
 def _profile_credentials(profile: dict, model_id: str):
@@ -492,6 +470,14 @@ def resolve_request_credentials(config) -> tuple[str, str, str, str] | None:
     if resolved is None:
         return None
     return _profile_credentials(resolved[0], resolved[1])
+
+
+def resolve_request_credentials_for_persona(
+    config, persona_id: str = ""
+) -> tuple[str, str, str, str] | None:
+    """Compatibility wrapper; persona identity no longer changes model selection."""
+    del persona_id
+    return resolve_request_credentials(config)
 
 
 def visual_credentials_ready(config) -> bool:
@@ -651,38 +637,6 @@ def resolve_visual_request_context(
         supports_mic_declared=supports_mic_declared,
         credentials=RequestCredentials(api_key=api_key),
     )
-
-
-def resolve_request_credentials_for_persona(
-    config, persona_id: str = ""
-) -> tuple[str, str, str, str] | None:
-    """Resolve visual AI credentials for an explicitly bound persona.
-
-    W-AUDIT-MODEL-IDENTITY-001：显式绑定按不可变 ``profile_id`` 解析；绑定悬挂 /
-    歧义（重复模型名未迁移）/ 档案不完整 / 所选模型已不属于该档案时抛
-    ``PersonaModelBindingError``，**绝不**静默回退首个档案（不换 provider /
-    endpoint / 账户）。未绑定人格仍按产品默认使用首个档案。
-    """
-    if not persona_id:
-        return resolve_request_credentials(config)
-
-    from app.model_providers import normalize_endpoint, normalize_mode
-    from app.persona_manager import PersonaModelBindingError, resolve_persona_model_binding
-    from app.translations import tr
-
-    resolved = resolve_persona_model_binding(config, persona_id)
-    if resolved is None:
-        return resolve_request_credentials(config)
-    profile, model_id = resolved
-    endpoint = normalize_endpoint(profile.get("endpoint", ""))
-    api_key = (profile.get("apiKey") or "").strip()
-    api_mode = normalize_mode(profile.get("mode", ""))
-    if not endpoint or not api_key or not model_id:
-        raise PersonaModelBindingError(
-            "profile_incomplete", tr("persona.modelBindingProfileIncomplete")
-        )
-    return endpoint, api_key, model_id, api_mode
-
 
 def resolve_mic_request_credentials(config) -> tuple[str, str, str, str] | None:
     if config.get("mic_use_visual_model", "1") == "1":

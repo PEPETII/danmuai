@@ -591,29 +591,20 @@ def find_custom_model_profile(custom_models: list, model_id: str) -> dict | None
 
 
 def first_custom_model_profile(config) -> dict | None:
-    """Return the first configured model profile used as the runtime fallback.
+    """Return the globally active profile (legacy helper name retained)."""
+    from app.model_selection import resolve_active_model_profile
 
-    Persona bindings remain explicit overrides.  When a persona has no binding,
-    the first profile in the user's custom-model list is the only fallback;
-    there is no separate global model selector.
-    """
-    get_models = getattr(config, "get_custom_models", None)
-    if not callable(get_models):
-        return None
-    for entry in get_models():
-        if isinstance(entry, dict) and custom_model_profile_id(entry):
-            return entry
-    return None
+    return resolve_active_model_profile(config)
 
 
 def first_custom_model_id(config) -> str:
-    """Return the model id of the first configured custom-model profile."""
+    """Return the upstream model id from the globally active profile."""
     entry = first_custom_model_profile(config)
     return custom_model_profile_id(entry) if entry is not None else ""
 
 
 def resolve_active_model_id(config) -> str:
-    """Model id used for API requests: the first custom-model profile."""
+    """Model id used for API requests from the global active profile."""
     return first_custom_model_id(config)
 
 

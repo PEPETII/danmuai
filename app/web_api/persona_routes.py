@@ -6,7 +6,6 @@
 - ``POST /api/personae`` / ``DELETE /api/personae/{name}`` / ``POST .../restore``：创建、删除、恢复内置
 - ``PUT /api/personae/{name}/label``：仅更新展示名（W-PERSONA-RENAME-DISPLAY-001）
 - ``PUT /api/personae/active``：活跃人格列表
-- ``PUT /api/personae/{name}/model``：人格 → 模型档案绑定
 
 写操作经 ``invoke_main``（``WebConsoleBridge.invoke_on_main`` 包装）回到主线程。
 """
@@ -47,14 +46,6 @@ class ActivePersonaePayload(BaseModel):
     active: list[str]
 
 
-class PersonaModelBindingPayload(BaseModel):
-    # W-PERSONA-MODEL-BIND-001：人格 → 模型档案绑定（空串 = 清除，回退首个档案）
-    # W-AUDIT-MODEL-IDENTITY-001：优先按不可变 profile_id 绑定；model_id 仅作旧客端
-    # 兼容（唯一匹配时升级为版本化绑定，否则保留可诊断的 unresolved 字符串）。
-    profile_id: str = ""
-    model_id: str = ""
-
-
 class PersonaLabelPayload(BaseModel):
     # W-PERSONA-RENAME-DISPLAY-001：展示名（空串 = 清除自定义 label，回退默认显示名）
     label: str = ""
@@ -91,7 +82,6 @@ def register_persona_routes(
             body.label is not None,
         )
         return {"ok": True}
-
     @app.post("/api/personae/{name}/rollback")
     @require_auth(check_token)
     def post_persona_rollback(
@@ -141,25 +131,4 @@ def register_persona_routes(
         if not body.active:
             raise HTTPException(status_code=400, detail=tr("persona.activeRequired"))
         invoke_main(bridge.danmu_app.set_active_personae, body.active)
-        return {"ok": True}
-
-    # W-PERSONA-MODEL-BIND-001：人格 → 模型档案绑定（空串清除，回退首个档案）
-    @app.put("/api/personae/{name}/model")
-    @require_auth(check_token)
-    def put_persona_model(
-        name: str,
-        body: PersonaModelBindingPayload,
-        authorization: str | None = Header(default=None),
-    ):
-        try:
-            invoke_main(
-                bridge.danmu_app.set_persona_model_binding,
-                unquote(name),
-                body.model_id or "",
-                body.profile_id or "",
-            )
-        except ValueError as exc:
-            # W-AUDIT-MODEL-IDENTITY-001：档案不存在 / 所选模型不属于该档案是
-            # 可观察的配置错误（400），而不是静默绑定到其它档案。
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
         return {"ok": True}

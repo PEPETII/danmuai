@@ -112,6 +112,7 @@ CONFIG_DEFAULTS: dict[str, str] = {
     "mic_use_visual_model": "1",
     "mic_api_mode": "doubao",
     "mic_model": "doubao-seed-2-0-mini-260428",
+    "active_model_profile_id": "",
     "normal_recognition_interval_sec": "5",
     "normal_reply_count": str(DEFAULT_NORMAL_REPLY_COUNT),
     "danmu_read_enabled": "0",

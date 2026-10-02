@@ -143,6 +143,9 @@ class ConfigStore:
         # W-AUDIT-MODEL-IDENTITY-001：受控分配不可变 profile_id 并版本化旧人格绑定；
         # 单事务原子落库，失败保留原数据（不阻断启动）。
         self._migrate_custom_model_identities()
+        # 全局模型选择必须在 profile_id 迁移完成后初始化，避免把数组下标或
+        # default_model_id 写成长期身份。
+        self._ensure_active_model_profile()
 
     @property
     def schema_version(self) -> int:
@@ -830,6 +833,11 @@ class ConfigStore:
         )
 
         return migrate_custom_model_identities_for_store(self)
+
+    def _ensure_active_model_profile(self) -> str:
+        from app.model_selection import ensure_active_model_profile
+
+        return ensure_active_model_profile(self)
 
     def _migrate_legacy_tts_credentials(self) -> bool:
         from app.config_migrations import migrate_legacy_tts_credentials

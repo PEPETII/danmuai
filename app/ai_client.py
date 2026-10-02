@@ -27,7 +27,6 @@ from app.ai_client_requests import (
     request_openai,
     resolve_mic_request_credentials,
     resolve_request_credentials,
-    resolve_request_credentials_for_persona,
 )
 from app.ai_client_support import (
     DANMU_MIN_OUTPUT_TOKENS,
@@ -46,7 +45,6 @@ from app.ai_client_support import (
 )
 from app.config_store import ConfigStore
 from app.model_providers import resolve_api_transport
-from app.persona_manager import PersonaModelBindingError
 from app.providers.constants import THINKING_DISABLED
 from app.providers.request_context import ResolvedRequestContext
 from app.translations import tr
@@ -213,9 +211,7 @@ class AiWorker(QObject):
                 resolved=resolved,
             )
         else:
-            # W-PERSONA-MODEL-BIND-001：视觉路径按人格绑定解析凭证（未绑定/失效则回退全局）
-            # W-AUDIT-MODEL-IDENTITY-001：显式绑定失效抛 PersonaModelBindingError，
-            # 必须转成可观察的配置错误，而不是让工作线程抛出未处理异常。
+            # persona_id remains request context for prompt/logging; model selection is global.
             try:
                 resolved = self._resolve_request_credentials(persona_id)
                 request_context = resolve_visual_request_context(
@@ -223,7 +219,7 @@ class AiWorker(QObject):
                     persona_id,
                     resolved=resolved,
                 )
-            except (PersonaModelBindingError, RequestContextResolutionError) as exc:
+            except RequestContextResolutionError as exc:
                 self._emit_result(
                     "error",
                     str(exc),
@@ -359,10 +355,6 @@ class AiWorker(QObject):
     def _resolve_request_credentials(
         self, persona_id: str = ""
     ) -> tuple[str, str, str, str] | None:
-        # W-PERSONA-MODEL-BIND-001：persona_id 非空时优先按人格绑定解析；
-        # 未绑定/档案失效自动回退 resolve_request_credentials（全局"使用"模型）
-        if persona_id:
-            return resolve_request_credentials_for_persona(self.config, persona_id)
         return resolve_request_credentials(self.config)
 
     def close(self):

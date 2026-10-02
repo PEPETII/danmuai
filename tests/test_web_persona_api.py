@@ -21,18 +21,11 @@ def persona_app(tmp_path):
     templates = TemplateManager(config)
     config_changed = MagicMock()
 
-    # W-PERSONA-MODEL-BIND-001 / W-AUDIT-MODEL-IDENTITY-001：façade 闭包，
-    # 委托到 personae.set_model_binding（优先按 profile_id）。
-    def set_persona_model_binding(name, model_id, profile_id=""):
-        personae.set_model_binding(name, model_id, profile_id)
-        config_changed.emit()
-
     app = SimpleNamespace(
         config=config,
         personae=personae,
         templates=templates,
         config_changed=config_changed,
-        set_persona_model_binding=set_persona_model_binding,
     )
     return app
 
@@ -511,7 +504,7 @@ def test_live_topic_in_web_config_keys():
 
 
 # ---------------------------------------------------------------------------
-# W-PERSONA-MODEL-BIND-001：人格 → 模型档案绑定 Web 端点
+# 全局模型改造：人格 API 不再暴露模型绑定能力
 # ---------------------------------------------------------------------------
 
 
@@ -528,36 +521,21 @@ def _persona_routes_client(persona_app):
     return TestClient(app)
 
 
-def test_put_persona_model_binding_persists(persona_app):
+def test_persona_model_binding_route_is_removed(persona_app):
     client = _persona_routes_client(persona_app)
-    # 绑定
     res = client.put("/api/personae/高压吐槽型/model", json={"model_id": "bound-model-1"})
-    assert res.status_code == 200
-    assert res.json() == {"ok": True}
-    # 数据层应已写入
-    assert persona_app.personae.get_model_binding("高压吐槽型") == "bound-model-1"
-    # façade 应触发 config_changed
-    assert persona_app.config_changed.emit.called
+    assert res.status_code == 404
 
 
-def test_put_persona_model_binding_empty_clears(persona_app):
-    client = _persona_routes_client(persona_app)
-    persona_app.personae.set_model_binding("高压吐槽型", "bound-model-1")
-    assert persona_app.personae.get_model_binding("高压吐槽型") == "bound-model-1"
-    # 空串清除
-    res = client.put("/api/personae/高压吐槽型/model", json={"model_id": ""})
-    assert res.status_code == 200
-    assert persona_app.personae.get_model_binding("高压吐槽型") == ""
+def test_persona_list_has_only_persona_fields(persona_app):
+    from pathlib import Path
 
-
-def test_put_persona_model_binding_url_encoded_name(persona_app):
-    """中文人格名经 URL 编码后路由仍能正确解析。"""
-    from urllib.parse import quote
-
-    client = _persona_routes_client(persona_app)
-    res = client.put(f"/api/personae/{quote('熬夜陪看型')}/model", json={"model_id": "m2"})
-    assert res.status_code == 200
-    assert persona_app.personae.get_model_binding("熬夜陪看型") == "m2"
+    runtime = Path(__file__).resolve().parents[1] / "app" / "web_console_runtime.py"
+    source = runtime.read_text(encoding="utf-8")
+    assert '"profile_id": binding' not in source
+    assert '"model_id": bridge.danmu_app.personae' not in source
+    assert '"binding_status": status' not in source
+    assert '"binding_message": persona_model_binding_message(status)' not in source
 
 
 def test_put_active_personae_empty_list_in_zh(persona_app):
@@ -604,17 +582,17 @@ def test_builtin_saved_zh_default_returns_en_prompt_when_language_en(persona_app
         persona_api.restore_builtin_default(persona_app, "高压吐槽型")
 
 
-def test_persona_bulk_model_switch_ui_wired():
+def test_persona_model_controls_are_removed_from_ui():
     from app.bundle_paths import project_root
 
     root = project_root()
     html = (root / "web" / "static" / "partials" / "content-pages.html").read_text(encoding="utf-8")
     modals = (root / "web" / "static" / "partials" / "modals.html").read_text(encoding="utf-8")
     js = (root / "web" / "static" / "modules" / "app-persona-topic-page.js").read_text(encoding="utf-8")
-    assert 'id="btnBulkSwitchPersonaModels"' in html
-    assert "一键切换全模型" in html
-    assert 'id="personaBulkModelModal"' in modals
-    assert 'id="personaBulkModelList"' in modals
-    assert "openPersonaBulkModelModal" in js
-    assert "applyBulkPersonaModel" in js
-    assert "/api/personae/${enc(personaId)}/model" in js
+    assert 'id="btnBulkSwitchPersonaModels"' not in html
+    assert "一键切换全模型" not in html
+    assert 'id="personaBulkModelModal"' not in modals
+    assert 'id="personaBulkModelList"' not in modals
+    assert "openPersonaBulkModelModal" not in js
+    assert "applyBulkPersonaModel" not in js
+    assert "/api/personae/${enc(personaId)}/model" not in js

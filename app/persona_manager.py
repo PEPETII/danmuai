@@ -46,11 +46,7 @@ PERSONA_MODEL_BINDINGS_KEY = "persona_model_bindings"
 
 
 class PersonaModelBindingError(ValueError):
-    """W-AUDIT-MODEL-IDENTITY-001：显式人格模型绑定无法解析。
-
-    只在人格**显式绑定**失效时抛出（悬挂 / 歧义 / 档案不完整 / 所选模型被移除）；
-    未绑定人格仍按产品默认使用首个档案，不经过本异常。错误信息不含任何密钥。
-    """
+    """Legacy historical-binding error for explicit compatibility callers."""
 
     def __init__(self, code: str, message: str):
         super().__init__(message)
@@ -132,7 +128,7 @@ def describe_persona_model_binding(raw_value, models: list[dict]) -> dict:
 
     返回 ``{"status", "profile_id", "model_id"}``；``status`` 取值：
 
-    - ``unbound``：没有绑定（产品默认 → 首个档案）。
+    - ``unbound``：没有历史绑定（当前运行时由全局活动档案决定）。
     - ``ok``：显式绑定可解析到唯一档案且所选模型仍属于该档案。
     - ``unresolved``：旧字符串绑定零匹配或多匹配，无法唯一确定（不猜测首项）。
     - ``profile_missing``：绑定的 ``profile_id`` 已不存在（悬挂）。
@@ -188,8 +184,9 @@ def persona_model_binding_message(status: str) -> str:
 def resolve_persona_model_binding(config, persona_id: str) -> tuple[dict, str] | None:
     """解析显式人格绑定的档案与上游模型。
 
-    返回 ``(profile, model_id)``；未绑定返回 ``None``（调用方回退首个档案）。
-    显式绑定失效时抛 :class:`PersonaModelBindingError`，绝不静默换到首档案。
+    返回 ``(profile, model_id)``；未绑定返回 ``None``。
+    显式历史绑定失效时抛 :class:`PersonaModelBindingError`；该 helper 不参与当前
+    运行时模型选择。
     """
     persona_name = normalize_persona_name(persona_id)
     if not persona_name:
@@ -445,13 +442,8 @@ class PersonaManager:
             if len(pruned) != len(raw):
                 self.set_active(pruned)
 
-        # W-PERSONA-MODEL-BIND-001：删除自定义人格时同步清除其模型绑定，避免悬挂引用
-        bindings = self.get_model_bindings()
-        if norm in bindings:
-            bindings.pop(norm, None)
-            self.config.set(
-                PERSONA_MODEL_BINDINGS_KEY, json.dumps(bindings, ensure_ascii=False)
-            )
+        # 人格模型绑定已退出产品能力；历史 persona_model_bindings 保留，不再由
+        # 人格删除动作主动清理，避免本工单破坏用户旧数据。
 
     def get_display_name(self, name: str) -> str:
         from app.persona_display import persona_display_name_with_config
@@ -473,9 +465,8 @@ class PersonaManager:
             labels.pop(norm, None)
         self.config.set("persona_labels", json.dumps(labels, ensure_ascii=False))
 
-    # W-PERSONA-MODEL-BIND-001：人格 → 自定义模型档案绑定
-    # 独立键 persona_model_bindings，不进 custom_personae schema，零迁移；
-    # 内置人格也能绑定。运行时 resolve_persona_model_binding 读取。
+    # Legacy compatibility: persona_model_bindings remains a separate historical
+    # config value and is not read by the active runtime model selection.
     #
     # W-AUDIT-MODEL-IDENTITY-001：绑定值升级为版本化结构
     # （``{"v": 1, "profile_id": ..., "model_id": ...}``），身份由不可变 profile_id
@@ -526,7 +517,7 @@ class PersonaManager:
           时抛 :class:`PersonaModelBindingError`（错误提示不含密钥）。
         - 仅有 ``model_id``（兼容旧调用 / 批量切换）：唯一匹配一个档案时升级为
           版本化绑定；零匹配或多匹配时保留原始字符串（不猜测首项）。
-        - 两者皆空：清除绑定，回退首个档案。
+        - 两者皆空：清除历史绑定；当前运行时模型仍由全局活动档案决定。
         """
         norm = normalize_persona_name(name)
         bindings = self.get_model_bindings()

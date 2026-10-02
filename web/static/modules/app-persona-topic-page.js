@@ -1,6 +1,6 @@
 import { apiFetch } from './transport.js';
 import { t } from './i18n.js';
-import { activateFocusTrap, deactivateFocusTrap } from './modal-focus-trap.js';
+import { createAutoSave } from './auto-save.js';
 
 // currentPersonaId：下拉框当前选择；loadedPersonaId：当前 DOM 内容实际所属的人格。
 // 两者与 tpl.id 三者一致时才允许保存，避免旧异步响应被当成新选择的内容。
@@ -14,140 +14,6 @@ let templateLoadGeneration = 0;
 let templateLoadController = null;
 let toast = () => {};
 let handlersBound = false;
-
-// P2-08：模型绑定是独立于模板加载代际的资源。每个人格维护自己的串行队列，
-// 使 row 与 bulk 写入不能交错覆盖；confirmed 值只代表最后一次服务端确认结果。
-const personaBindingCoordinators = new Map();
-
-function getPersonaBindingCoordinator(personaId) {
-  const key = String(personaId || '');
-  let coordinator = personaBindingCoordinators.get(key);
-  if (!coordinator) {
-    coordinator = {
-      queue: Promise.resolve(),
-      nextOperationId: 0,
-      latestOperationId: 0,
-      pendingCount: 0,
-      initialized: false,
-      confirmedProfileId: '',
-      confirmedModelId: '',
-      currentView: null,
-    };
-    personaBindingCoordinators.set(key, coordinator);
-  }
-  return coordinator;
-}
-
-function normalizeBindingPart(value) {
-  return String(value || '').trim();
-}
-
-function syncPersonaBindingConfirmation(coordinator, item) {
-  if (coordinator.pendingCount > 0) return;
-  coordinator.confirmedProfileId = normalizeBindingPart(item?.profile_id);
-  coordinator.confirmedModelId = normalizeBindingPart(item?.model_id);
-  coordinator.initialized = true;
-}
-
-function applyConfirmedBindingToView(coordinator, view) {
-  if (!view?.select) return;
-  // 未绑定时 UI 仍展示产品默认的首个档案；confirmedProfileId 保留真实绑定身份。
-  view.select.value = coordinator.confirmedProfileId || view.unboundProfileId || '';
-}
-
-function isBindingCommitUnknown(error) {
-  const status = Number(error?.status);
-  return !Number.isFinite(status) || status >= 500;
-}
-
-async function readPersonaBindingConfirmation(personaId) {
-  try {
-    const data = await personaFetch('/api/personae');
-    const item = (data?.items || []).find((entry) => entry?.id === personaId);
-    if (!item) return null;
-    return {
-      profileId: normalizeBindingPart(item.profile_id),
-      modelId: normalizeBindingPart(item.model_id),
-    };
-  } catch (_) {
-    return null;
-  }
-}
-
-function invalidatePersonaBindingViews() {
-  for (const coordinator of personaBindingCoordinators.values()) {
-    coordinator.currentView = null;
-  }
-}
-
-function enqueuePersonaBinding(personaId, profileId, modelId, options = {}) {
-  const coordinator = getPersonaBindingCoordinator(personaId);
-  const view = options.view || coordinator.currentView;
-  const notify = options.notify !== false;
-  const desiredProfileId = normalizeBindingPart(profileId);
-  const desiredModelId = normalizeBindingPart(modelId);
-  if (!coordinator.initialized) {
-    coordinator.confirmedProfileId = normalizeBindingPart(view?.select?.value);
-    coordinator.confirmedModelId = '';
-    coordinator.initialized = true;
-  }
-
-  const operationId = ++coordinator.nextOperationId;
-  coordinator.latestOperationId = operationId;
-  coordinator.pendingCount += 1;
-
-  const isCurrentOperation = () =>
-    coordinator.latestOperationId === operationId && coordinator.currentView === view;
-
-  const run = async () => {
-    try {
-      await apiFetch(`/api/personae/${enc(personaId)}/model`, {
-        method: 'PUT',
-        body: JSON.stringify({
-          profile_id: desiredProfileId,
-          model_id: desiredModelId,
-        }),
-      });
-      coordinator.confirmedProfileId = desiredProfileId;
-      coordinator.confirmedModelId = desiredModelId;
-      if (isCurrentOperation()) {
-        if (view?.select) view.select.value = desiredProfileId || view.unboundProfileId || '';
-        view?.clearBindingWarning?.();
-        if (notify) {
-          showToast(
-            desiredProfileId
-              ? t('dynamic.appPersonaTopicPage.模型已绑定')
-              : t('dynamic.appPersonaTopicPage.已清除绑定'),
-          );
-        }
-      }
-      return { ok: true, operationId };
-    } catch (error) {
-      let stateKnown = true;
-      if (isBindingCommitUnknown(error)) {
-        const confirmed = await readPersonaBindingConfirmation(personaId);
-        if (confirmed) {
-          coordinator.confirmedProfileId = confirmed.profileId;
-          coordinator.confirmedModelId = confirmed.modelId;
-        } else {
-          // 未能确认服务端是否已经提交：不要把本地值伪装成回滚事实。
-          stateKnown = false;
-        }
-      }
-      if (isCurrentOperation()) {
-        if (stateKnown) applyConfirmedBindingToView(coordinator, view);
-        if (notify) showToast(error.message, true);
-      }
-      return { ok: false, error, operationId, stateKnown };
-    } finally {
-      coordinator.pendingCount -= 1;
-    }
-  };
-
-  const task = coordinator.queue.then(run, run);
-  coordinator.queue = task.then(() => undefined, () => undefined);
-  return task;
-}
 
 function showToast(message, isError = false) {
   toast(message, isError);
@@ -180,6 +46,34 @@ function enc(name) {
 async function personaFetch(path, options = {}) {
   return apiFetch(path, { cache: 'no-store', ...options });
 }
+
+function collectActivePersonae() {
+  const active = [];
+  document.querySelectorAll('#personaActiveList input:checked').forEach((cb) => {
+    if (cb.value) active.push(cb.value);
+  });
+  return active;
+}
+
+const activePersonaeAutoSave = createAutoSave({
+  capture: collectActivePersonae,
+  save: (active) => {
+    if (!active.length) return Promise.resolve();
+    return apiFetch('/api/personae/active', {
+      method: 'PUT',
+      body: JSON.stringify({ active }),
+    });
+  },
+  onState: (state, error) => {
+    if (state === 'saved') {
+      showPersonaPageStatus(t('dynamic.appPersonaTopicPage.激活人格已更新_下一次生成会使用新内容'));
+    } else if (state === 'error') {
+      const message = error?.message || t('dynamic.appPersonaTopicPage.激活人格自动保存失败');
+      showToast(message, true);
+      showPersonaPageStatus(message, true);
+    }
+  },
+});
 
 function isAbortError(error) {
   return error?.name === 'AbortError';
@@ -254,20 +148,10 @@ async function deletePersonaByName(name) {
 }
 
 export async function loadPersonaeCheckboxes(containerId) {
-  invalidatePersonaBindingViews();
   const data = await personaFetch('/api/personae');
   const box = document.getElementById(containerId);
   if (!box) return data;
   box.innerHTML = '';
-
-  // W-PERSONA-MODEL-BIND-001：取自定义模型档案列表，渲染每行模型下拉
-  let modelItems = [];
-  try {
-    const models = await apiFetch('/api/custom-models');
-    modelItems = Array.isArray(models?.items) ? models.items : [];
-  } catch (e) {
-    console.warn('loadPersonaeCheckboxes: fetch custom-models failed:', e);
-  }
 
   data.items.forEach((item) => {
     const row = document.createElement('div');
@@ -281,101 +165,21 @@ export async function loadPersonaeCheckboxes(containerId) {
     cb.value = item.id;
     cb.checked = !!item.active;
     cb.className = 'shrink-0';
+    cb.addEventListener('change', () => {
+      if (!cb.checked && collectActivePersonae().length === 0) {
+        cb.checked = true;
+        const message = t('dynamic.appPersonaTopicPage.不能取消最后一个激活人格');
+        showToast(message, true);
+        showPersonaPageStatus(message, true);
+        return;
+      }
+      activePersonaeAutoSave.schedule();
+    });
     const span = document.createElement('span');
     span.className = 'truncate';
     span.textContent = item.label;
     label.append(cb, span);
     row.appendChild(label);
-
-    // W-AUDIT-MODEL-IDENTITY-001：模型下拉 value 使用不可变 profile_id（与模型列表、
-    // 虚拟主播视觉同一身份合同）；上游 model_id 仅作为绑定附属信息随请求提交。
-    const select = document.createElement('select');
-    select.className =
-      'shrink-0 max-w-[9rem] px-2 py-1 bg-white border border-gray-200 rounded-lg text-xs font-normal ui-control ui-select';
-    select.title = t('dynamic.appPersonaTopicPage.为该人格选择模型');
-    const modelOptions = modelItems
-      .map((m) => ({
-        profileId: String(m.profile_id || '').trim(),
-        modelId: String(m.default_model_id || m.modelId || '').trim(),
-        label: String(m.name || m.default_model_id || m.modelId || '').trim(),
-        complete: m.complete !== false,
-      }))
-      .filter((option) => option.profileId && option.modelId);
-    const firstProfileId =
-      (modelOptions.find((option) => option.complete) || modelOptions[0])?.profileId || '';
-    if (!modelOptions.length) {
-      const placeholderOpt = document.createElement('option');
-      placeholderOpt.value = '';
-      placeholderOpt.textContent = t('dynamic.appPersonaTopicPage.未绑定');
-      placeholderOpt.disabled = true;
-      select.appendChild(placeholderOpt);
-    }
-    modelOptions.forEach((option) => {
-      const opt = document.createElement('option');
-      opt.value = option.profileId;
-      opt.textContent = option.complete
-        ? option.label
-        : t('dynamic.appPersonaTopicPage.m_name_mid_未完成', { label: option.label });
-      select.appendChild(opt);
-    });
-    // 显式绑定失效（悬挂 / 歧义 / 档案不完整 / 所选模型被移除）时不静默回退首项，
-    // 而是显示待重选占位项并给出可观察提示。
-    const boundProfileId = String(item.profile_id || '').trim();
-    const bindingStatus = String(item.binding_status || 'unbound');
-    const bindingInvalid = [
-      'unresolved',
-      'profile_missing',
-      'profile_incomplete',
-      'model_removed',
-    ].includes(bindingStatus);
-    if (bindingInvalid && modelOptions.length) {
-      const needsReselect = document.createElement('option');
-      needsReselect.value = '';
-      needsReselect.textContent = t('dynamic.appPersonaTopicPage.需重新选择模型');
-      needsReselect.disabled = true;
-      select.insertBefore(needsReselect, select.firstChild);
-    }
-    if (bindingInvalid) {
-      const boundOptionExists = modelOptions.some((option) => option.profileId === boundProfileId);
-      select.value = boundOptionExists ? boundProfileId : '';
-    } else {
-      const effectiveProfileId = boundProfileId || firstProfileId;
-      select.value = effectiveProfileId;
-      // ok/unbound 下绑定值不在选项（档案已切换）时仍回退首个完整档案。
-      if (select.value !== effectiveProfileId) select.value = firstProfileId;
-    }
-    let bindingWarn = null;
-    const clearBindingWarning = () => {
-      if (bindingWarn) {
-        bindingWarn.remove();
-        bindingWarn = null;
-      }
-    };
-    const coordinator = getPersonaBindingCoordinator(item.id);
-    syncPersonaBindingConfirmation(coordinator, item);
-    const bindingView = {
-      select,
-      unboundProfileId: firstProfileId,
-      clearBindingWarning,
-    };
-    coordinator.currentView = bindingView;
-    const applyBinding = (profileId) => {
-      const option = modelOptions.find((entry) => entry.profileId === profileId);
-      return enqueuePersonaBinding(item.id, profileId, option ? option.modelId : '', {
-        view: bindingView,
-      });
-    };
-    select.addEventListener('change', () => {
-      applyBinding(select.value);
-    });
-    row.appendChild(select);
-    if (bindingInvalid && item.binding_message) {
-      bindingWarn = document.createElement('span');
-      bindingWarn.className = 'shrink-0 text-amber-600 text-xs font-bold cursor-help';
-      bindingWarn.textContent = '⚠';
-      bindingWarn.title = item.binding_message;
-      row.appendChild(bindingWarn);
-    }
 
     if (!item.builtin) {
       const delBtn = document.createElement('button');
@@ -393,124 +197,6 @@ export async function loadPersonaeCheckboxes(containerId) {
     box.appendChild(row);
   });
   return data;
-}
-
-function resolveProfileDisplayName(model) {
-  const def = String(model?.default_model_id || '').trim();
-  const names =
-    model?.model_names && typeof model.model_names === 'object'
-      ? model.model_names
-      : {};
-  if (def && names[def]) return String(names[def]).trim();
-  return String(model?.name || '').trim() || def || t('common.unnamed');
-}
-
-function closePersonaBulkModelModal() {
-  const modal = document.getElementById('personaBulkModelModal');
-  if (modal) {
-    modal.classList.add('hidden');
-    modal.classList.remove('flex');
-  }
-  deactivateFocusTrap();
-}
-
-export async function applyBulkPersonaModel(profileId, modelId) {
-  const pid = String(profileId || '').trim();
-  if (!pid) return { total: 0, failed: [] };
-  const mid = String(modelId || '').trim();
-  const data = await personaFetch('/api/personae');
-  const personaIds = (data?.items || []).map((item) => item.id).filter(Boolean);
-  if (!personaIds.length) return { total: 0, failed: [] };
-  const results = await Promise.all(
-    personaIds.map((personaId) =>
-      enqueuePersonaBinding(personaId, pid, mid, {
-        view: getPersonaBindingCoordinator(personaId).currentView,
-        notify: false,
-      }),
-    ),
-  );
-  await loadPersonaeCheckboxes('personaActiveList');
-  return {
-    total: personaIds.length,
-    failed: results.filter((result) => !result.ok),
-  };
-}
-
-async function openPersonaBulkModelModal() {
-  const modal = document.getElementById('personaBulkModelModal');
-  const list = document.getElementById('personaBulkModelList');
-  const empty = document.getElementById('personaBulkModelEmpty');
-  if (!modal || !list || !empty) return;
-
-  list.innerHTML = '';
-  let modelItems = [];
-  try {
-    const models = await apiFetch('/api/custom-models');
-    modelItems = Array.isArray(models?.items) ? models.items : [];
-  } catch (error) {
-    showToast(error.message, true);
-    return;
-  }
-
-  const usable = modelItems.filter(
-    (model) =>
-      String(model?.profile_id || '').trim() && String(model?.default_model_id || '').trim(),
-  );
-  empty.classList.toggle('hidden', usable.length > 0);
-  list.classList.toggle('hidden', usable.length === 0);
-
-  usable.forEach((model) => {
-    const profileId = String(model.profile_id || '').trim();
-    const modelId = String(model.default_model_id || '').trim();
-    const row = document.createElement('button');
-    row.type = 'button';
-    row.className =
-      'persona-bulk-model-option w-full text-left flex flex-wrap items-center gap-3 p-3 bg-cream rounded-xl text-sm hover:bg-softPeach transition-colors ui-button ui-button--ghost';
-    row.setAttribute('role', 'option');
-    row.dataset.profileId = profileId;
-    row.dataset.modelId = modelId;
-
-    const nameWrap = document.createElement('span');
-    nameWrap.className = 'font-semibold text-warmText min-w-0 flex-1 truncate';
-    nameWrap.textContent = resolveProfileDisplayName(model);
-    row.appendChild(nameWrap);
-
-    const idWrap = document.createElement('span');
-    idWrap.className = 'text-gray-500 text-xs font-mono truncate max-w-full';
-    idWrap.textContent = modelId;
-    row.appendChild(idWrap);
-
-    if (model.complete === false) {
-      const warn = document.createElement('span');
-      warn.className = 'text-amber-600 text-xs font-bold shrink-0';
-      warn.textContent = t('dynamic.settingsCustomModels.配置不完整');
-      row.appendChild(warn);
-    }
-
-    row.addEventListener('click', async () => {
-      closePersonaBulkModelModal();
-      try {
-        const result = await applyBulkPersonaModel(profileId, modelId);
-        if (result.failed.length) {
-          const firstError = result.failed.find((entry) => entry.error)?.error;
-          const message = firstError?.message || t('dynamic.appPersonaTopicPage.一键切换失败');
-          showToast(message, true);
-          showPersonaPageStatus(message, true);
-          return;
-        }
-        showToast(t('dynamic.appPersonaTopicPage.已一键切换_n_个人格模型', { count: result.total }));
-        showPersonaPageStatus(t('dynamic.appPersonaTopicPage.已一键切换_n_个人格模型', { count: result.total }));
-      } catch (error) {
-        showToast(error.message || t('dynamic.appPersonaTopicPage.一键切换失败'), true);
-        showPersonaPageStatus(error.message || t('dynamic.appPersonaTopicPage.一键切换失败'), true);
-      }
-    });
-    list.appendChild(row);
-  });
-
-  modal.classList.remove('hidden');
-  modal.classList.add('flex');
-  activateFocusTrap(modal, closePersonaBulkModelModal);
 }
 
 async function loadLiveTopic() {
@@ -850,32 +536,5 @@ export function initPersonaTopicPage(deps = {}) {
     const btn = e.currentTarget;
     const name = document.getElementById('personaSelect')?.value;
     if (name) await window.withLoadingState(btn, btn.textContent, () => deletePersonaByName(name));
-  });
-  document.getElementById('btnSavePersonaActive')?.addEventListener('click', async (e) => {
-    const btn = e.currentTarget;
-    try {
-      await window.withLoadingState(btn, btn.textContent, async () => {
-        const active = [];
-        document.querySelectorAll('#personaActiveList input:checked').forEach((cb) => {
-          active.push(cb.value);
-        });
-        await apiFetch('/api/personae/active', {
-          method: 'PUT',
-          body: JSON.stringify({ active }),
-        });
-      }, t('dynamic.appPersonaTopicPage.已保存'));
-      showToast(t('dynamic.appPersonaTopicPage.激活人格已更新'));
-      showPersonaPageStatus(t('dynamic.appPersonaTopicPage.激活人格已更新_下一次生成会使用新内容'));
-    } catch (error) {
-      showToast(error.message, true);
-      showPersonaPageStatus(error.message, true);
-    }
-  });
-  document.getElementById('btnBulkSwitchPersonaModels')?.addEventListener('click', () => {
-    openPersonaBulkModelModal().catch((error) => showToast(error.message, true));
-  });
-  document.getElementById('btnPersonaBulkModelClose')?.addEventListener('click', closePersonaBulkModelModal);
-  document.getElementById('personaBulkModelModal')?.addEventListener('click', (event) => {
-    if (event.target === event.currentTarget) closePersonaBulkModelModal();
   });
 }

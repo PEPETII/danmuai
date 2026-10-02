@@ -1,5 +1,6 @@
 import { apiFetch } from './transport.js';
 import { getLanguage, onLanguageChanged, t } from './i18n.js';
+import { createAutoSave } from './auto-save.js';
 
 const MAX_SELECTED_MEME_TAGS = 3;
 const DEFAULT_TAG = '06';
@@ -125,6 +126,7 @@ function renderMemeTagGrid(tags) {
         }
         renderMemeTagGrid(tags);
         updateMemeTagCount();
+        memeBarrageAutoSave.schedule();
       });
     }
     grid.append(chip);
@@ -286,8 +288,8 @@ async function refreshMemeMeta() {
   return meta;
 }
 
-async function saveMemeBarrageSettings() {
-  const body = {
+function collectMemeBarrageSettings() {
+  return {
     enabled: Boolean($('memeBarrageEnabled')?.checked),
     category: getSelectedCategory(),
     tag: Array.from(normalizeSelectedTags(selectedTags)),
@@ -297,12 +299,27 @@ async function saveMemeBarrageSettings() {
     display_interval_sec: parseInt($('memeDisplayInterval')?.value, 10) || 5,
     display_batch_size: parseInt($('memeDisplayBatch')?.value, 10) || 2,
   };
+}
+
+async function saveMemeBarrageSettings(body = collectMemeBarrageSettings(), { isLatest = () => true } = {}) {
   const meta = await apiFetch('/api/meme-barrage/settings', {
     method: 'PUT',
     body: JSON.stringify(body),
   });
-  applyMemeMetaToForm(meta);
-  showToast(t('dynamic.appMemeBarragePage.烂梗公式化设置已保存'));
+  if (isLatest()) applyMemeMetaToForm(meta);
+}
+
+const memeBarrageAutoSave = createAutoSave({
+  capture: collectMemeBarrageSettings,
+  save: saveMemeBarrageSettings,
+  onState: (state, error) => {
+    if (state === 'error') showToast(error?.message || t('dynamic.appMemeBarragePage.自动保存失败'), true);
+  },
+});
+
+function flushMemeBarrageSave() {
+  memeBarrageAutoSave.schedule({ immediate: true });
+  return memeBarrageAutoSave.flush();
 }
 
 async function resetMemeBarrageSettings() {
@@ -323,10 +340,10 @@ async function resetMemeBarrageSettings() {
   updateMemeCategoryView();
   updateMemeFreq();
   try {
-    await saveMemeBarrageSettings();
+    await flushMemeBarrageSave();
     showToast('已恢复默认设置');
-  } catch (error) {
-    showToast(error.message, true);
+  } catch (_) {
+    // The auto-save coordinator already surfaced the error and kept the form values.
   }
 }
 
@@ -374,28 +391,38 @@ export function initMemeBarragePage(deps = {}) {
   });
 
   document.querySelectorAll('input[name="memeCategory"]').forEach((input) => {
-    input.addEventListener('change', () => updateMemeCategoryView());
+    input.addEventListener('change', () => {
+      updateMemeCategoryView();
+      flushMemeBarrageSave().catch(() => {});
+    });
   });
 
   document.querySelectorAll('input[name="memeDisplayMode"]').forEach((input) => {
-    input.addEventListener('change', () => syncCardSelected());
+    input.addEventListener('change', () => {
+      syncCardSelected();
+      flushMemeBarrageSave().catch(() => {});
+    });
   });
 
   const enabledEl = $('memeBarrageEnabled');
-  if (enabledEl) enabledEl.addEventListener('change', () => updateMasterLock());
+  if (enabledEl) {
+    enabledEl.addEventListener('change', () => {
+      updateMasterLock();
+      flushMemeBarrageSave().catch(() => {});
+    });
+  }
 
-  [['memeCollectInterval', 'memeCollectBatch'], ['memeDisplayInterval', 'memeDisplayBatch']].forEach(
-    ([iId]) => {
-      const el = $(iId);
-      if (el) {
-        el.addEventListener('input', () => {
-          const v = $(iId + 'Val');
-          if (v) v.textContent = el.value;
-          updateMemeFreq();
-        });
-      }
-    },
-  );
+  ['memeCollectInterval', 'memeCollectBatch', 'memeDisplayInterval', 'memeDisplayBatch'].forEach((iId) => {
+    const el = $(iId);
+    if (!el) return;
+    el.addEventListener('input', () => {
+      const v = $(iId + 'Val');
+      if (v) v.textContent = el.value;
+      updateMemeFreq();
+      memeBarrageAutoSave.schedule();
+    });
+    el.addEventListener('change', () => flushMemeBarrageSave().catch(() => {}));
+  });
 
   document.querySelectorAll('.meme-preset').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -412,11 +439,8 @@ export function initMemeBarragePage(deps = {}) {
       setRangeVal(map[0], map[1]);
       setRangeVal(map[2], map[3]);
       updateMemeFreq();
+      memeBarrageAutoSave.schedule();
     });
-  });
-
-  $('btnSaveMemeBarrageSettings')?.addEventListener('click', () => {
-    saveMemeBarrageSettings().catch((error) => showToast(error.message, true));
   });
 
   $('btnResetMemeBarrageSettings')?.addEventListener('click', () => {

@@ -1,10 +1,10 @@
-"""自定义模型 CRUD；模型档案顺序决定未绑定人格的运行时回退。
+"""自定义模型 CRUD；全局活动档案决定所有人格的运行时模型。
 
 路由（由 ``app.web_api.routes`` 注册）：
 - ``GET /api/custom-models``：返回全部自定义模型，``apiKey`` 字段**掩码**为 ``MASKED_KEY``。
 - ``POST /api/custom-models`` / ``PUT /api/custom-models/{id}``：写入前经
   ``validate_model_config`` 校验 name/model_ids/endpoint/apiKey 完整性。
-- ``DELETE /api/custom-models/{id}``：删除后清理人格对该档案的悬挂绑定。
+- ``DELETE /api/custom-models/{id}``：删除后更新全局活动档案；历史人格绑定保留。
 
 W-ARCH-MODEL-PROFILE-CANONICAL-004：公开契约含 canonical 字段
 （``model_ids`` / ``default_model_id`` / ``max_tokens``）及档案级 ``temperature``；
@@ -16,7 +16,6 @@ legacy ``modelId`` 仅由持久化 adapter 在读取历史 JSON 时内部消费�
 
 from __future__ import annotations
 
-import json
 from typing import TYPE_CHECKING, Any
 
 from app.config_store.crypto import (
@@ -35,7 +34,12 @@ from app.model_providers import (
     normalize_mode,
     validate_model_config,
 )
-from app.model_selection import catalog_display_name
+from app.model_selection import (
+    catalog_display_name,
+    ensure_active_model_profile,
+    get_active_model_profile_id,
+    set_active_model_profile,
+)
 from app.translations import tr
 
 if TYPE_CHECKING:
@@ -151,28 +155,8 @@ def _resolve_new_profile_id(existing: dict | None) -> str:
     return new_custom_model_profile_id()
 
 
-def _persona_binding_diagnostics(app: "DanmuApp", models: list[dict]) -> list[dict]:
-    """列出无法解析的显式人格绑定（悬挂 / 歧义 / 不完整 / 模型被移除）。"""
-    from app.persona_manager import describe_persona_model_binding
-
-    raw = app.config.get("persona_model_bindings", "{}")
-    try:
-        bindings = json.loads(raw) if raw else {}
-    except (ValueError, TypeError):
-        return [{"persona": "", "status": "unparsable", "profile_id": "", "model_id": ""}]
-    if not isinstance(bindings, dict):
-        return [{"persona": "", "status": "unparsable", "profile_id": "", "model_id": ""}]
-    issues: list[dict] = []
-    for persona, value in bindings.items():
-        status = describe_persona_model_binding(value, models)
-        if status["status"] in ("unbound", "ok"):
-            continue
-        issues.append({"persona": persona, **status})
-    return issues
-
-
 def custom_model_identity_diagnostics(app: "DanmuApp", models: list[dict]) -> dict:
-    """档案身份 + 人格绑定引用的诊断（供 Web UI 提示重新选择，不含密钥）。"""
+    """档案身份诊断（不暴露密钥，也不再计算人格绑定状态）。"""
     profile_issues: list[dict] = []
     for index, model in enumerate(models):
         if custom_model_profile_id_type_error(model):
@@ -181,10 +165,7 @@ def custom_model_identity_diagnostics(app: "DanmuApp", models: list[dict]) -> di
             profile_issues.append({"index": index, "code": "profile_id_missing"})
     for profile_id in sorted(duplicate_custom_model_profile_ids(models)):
         profile_issues.append({"code": "profile_id_duplicate", "profile_id": profile_id})
-    return {
-        "profiles": profile_issues,
-        "persona_bindings": _persona_binding_diagnostics(app, models),
-    }
+    return {"profiles": profile_issues}
 
 
 def list_custom_models(app: "DanmuApp") -> dict[str, Any]:
@@ -194,6 +175,7 @@ def list_custom_models(app: "DanmuApp") -> dict[str, Any]:
             {**_mask_model(m), "complete": is_model_config_complete(m)}
             for m in models
         ],
+        "active_profile_id": get_active_model_profile_id(app.config),
         "identity_diagnostics": custom_model_identity_diagnostics(app, models),
     }
 
@@ -521,6 +503,7 @@ def create_custom_model(app: "DanmuApp", payload: dict) -> dict:
     models = list(app.config.get_custom_models())
     models.append(model)
     app.config.set_custom_models(models)
+    ensure_active_model_profile(app.config)
     app.config_changed.emit()
     return {"index": len(models) - 1, "item": _mask_model(model)}
 
@@ -545,6 +528,7 @@ def update_custom_model(app: "DanmuApp", index: int, payload: dict) -> dict:
 
     models[position] = model
     app.config.set_custom_models(models)
+    ensure_active_model_profile(app.config)
     app.config_changed.emit()
     return {"index": position, "item": _mask_model(model)}
 
@@ -558,14 +542,19 @@ def delete_custom_model(app: "DanmuApp", index: int) -> None:
     app.config.set_custom_models(models)
     removed_profile_id = read_custom_model_profile_id(removed)
     removed_model_id = (removed.get("default_model_id") or "").strip()
-    # W-AUDIT-MODEL-IDENTITY-001：只清理被删档案自身的引用；不再按可重复的
-    # ``default_model_id`` 批量清理其他共享同一模型名的档案。
-    from app.persona_manager import purge_model_bindings_for_profile
-
-    purge_model_bindings_for_profile(
-        app.config, removed_profile_id, removed_model_id, models
-    )
+    # 人格模型绑定属于历史数据兼容范围，本工单不再主动删除它们。
+    ensure_active_model_profile(app.config)
     from app.virtual_host.model_config import purge_virtual_host_model_refs
 
     purge_virtual_host_model_refs(app.config, removed_profile_id, removed_model_id)
     app.config_changed.emit()
+
+
+def activate_custom_model(app: "DanmuApp", profile_id: str) -> dict[str, Any]:
+    """Activate one complete custom model profile by immutable identity."""
+    set_active_model_profile(app.config, profile_id)
+    app.config_changed.emit()
+    return {
+        "ok": True,
+        "active_profile_id": get_active_model_profile_id(app.config),
+    }

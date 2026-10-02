@@ -76,6 +76,7 @@ def test_custom_model_crud(model_app):
     assert listing["items"][0]["max_tokens"] == 512
     assert listing["items"][0]["thinking_effort"] == "high"
     assert "modelId" not in listing["items"][0]
+    assert listing["active_profile_id"] == listing["items"][0]["profile_id"]
 
     updated = cm_api.update_custom_model(
         model_app,
@@ -109,6 +110,46 @@ def test_custom_model_crud(model_app):
 
     cm_api.delete_custom_model(model_app, 0)
     assert model_app.config.get_custom_models() == []
+
+
+def test_custom_model_global_activation_uses_profile_id(model_app):
+    first = cm_api.create_custom_model(model_app, _model_payload("model-a", name="A"))
+    second = cm_api.create_custom_model(model_app, _model_payload("model-b", name="B"))
+    first_id = first["item"]["profile_id"]
+    second_id = second["item"]["profile_id"]
+    assert model_app.config.get("active_model_profile_id") == first_id
+
+    result = cm_api.activate_custom_model(model_app, second_id)
+    assert result == {"ok": True, "active_profile_id": second_id}
+    assert model_app.config.get("active_model_profile_id") == second_id
+    assert cm_api.list_custom_models(model_app)["active_profile_id"] == second_id
+
+    with pytest.raises(ValueError):
+        cm_api.activate_custom_model(model_app, "not-a-profile-id")
+    assert model_app.config.get("active_model_profile_id") == second_id
+
+
+def test_incomplete_custom_model_cannot_be_activated(model_app):
+    created = cm_api.create_custom_model(model_app, _model_payload("complete"))
+    incomplete = dict(_model_payload("incomplete"))
+    incomplete["apiKey"] = ""
+    # Store-level fixtures can represent an upgrade-era incomplete profile.
+    model_app.config.set_custom_models(
+        [model_app.config.get_custom_models()[0], {**incomplete, "profile_id": "cmp_incomplete"}]
+    )
+    with pytest.raises(ValueError):
+        cm_api.activate_custom_model(model_app, "cmp_incomplete")
+    assert model_app.config.get("active_model_profile_id") == created["item"]["profile_id"]
+
+
+def test_delete_active_custom_model_falls_back_and_last_delete_clears(model_app):
+    first = cm_api.create_custom_model(model_app, _model_payload("model-a"))
+    second = cm_api.create_custom_model(model_app, _model_payload("model-b"))
+    cm_api.activate_custom_model(model_app, second["item"]["profile_id"])
+    cm_api.delete_custom_model(model_app, 1)
+    assert model_app.config.get("active_model_profile_id") == first["item"]["profile_id"]
+    cm_api.delete_custom_model(model_app, 0)
+    assert model_app.config.get("active_model_profile_id") == ""
 
 
 @pytest.mark.parametrize(
@@ -623,7 +664,7 @@ def test_delete_model_confirm_modal_reuses_restore_defaults_styles():
 def test_format_delete_model_message_python_equivalent():
     """W-DELETE-CONFIRM-005：Python 等价实现验证 spec 文案规则（与 JS 实现并行，锁住语义）。"""
 
-    def fmt(profile):
+    def fmt(profile, *, is_active=False, remaining_count=0):
         name = (profile.get("name") or "").strip() if isinstance(profile, dict) else ""
         ids = (
             profile.get("model_ids")
@@ -632,9 +673,15 @@ def test_format_delete_model_message_python_equivalent():
         )
         n = len(ids) or 1
         display = name or "这条模型档案"
-        return (
+        message = (
             f"确定删除模型「{display}」吗？该档案包含 {n} 个模型 ID，将一并删除。"
-            f"若该档案是当前默认，将自动切换到下一条。"
+        )
+        if not is_active:
+            return message
+        return message + (
+            "若该档案是当前默认，将自动切换到下一条。"
+            if remaining_count > 0
+            else "若该档案是当前默认，删除后将没有可用的 AI 模型。"
         )
 
     # name 非空 + 多 model_ids
@@ -642,7 +689,13 @@ def test_format_delete_model_message_python_equivalent():
     assert "「豆包Pro」" in msg1
     assert "2 个模型 ID" in msg1
     assert msg1.startswith("确定删除模型「豆包Pro」吗？")
-    assert msg1.endswith("将自动切换到下一条。")
+    assert not msg1.endswith("将自动切换到下一条。")
+    active_msg = fmt(
+        {"name": "豆包Pro", "model_ids": ["a", "b"]},
+        is_active=True,
+        remaining_count=1,
+    )
+    assert active_msg.endswith("将自动切换到下一条。")
 
     # name 空降级
     msg2 = fmt({"name": "", "model_ids": ["a"]})
@@ -652,6 +705,7 @@ def test_format_delete_model_message_python_equivalent():
     # model_ids 缺失降级为 1
     msg3 = fmt({"name": "X"})
     assert "1 个模型 ID" in msg3
+    assert "没有可用的 AI 模型" not in msg3
     assert "「X」" in msg3
 
     # model_ids 空数组降级为 1
@@ -735,20 +789,19 @@ def test_settings_js_sets_hidden_on_legacy_field_wrappers():
         assert f"'{field_id}'" in src
 
 
-def test_settings_custom_models_js_has_row_structure_without_default_controls():
-    """W-UI-MODEL-DEFAULT-CONTROLS-REMOVE-001：列表保留名称/modelId/使用中徽章/编辑删除。"""
+def test_settings_custom_models_js_has_global_activation_controls():
+    """全局模型列表只通过启动/使用中按钮表达当前档案。"""
     src = SETTINGS_CUSTOM_MODELS_JS.read_text(encoding="utf-8")
     assert "custom-model-row" in src
     assert "custom-model-provider-chip" in src
     assert "custom-model-id-col" in src
     assert "(+${extra})" in src
-    assert "custom-model-status-col" in src
-    assert "custom-model-in-use-badge" in src
     assert "custom-model-actions" in src
-    assert "collectActivePersonaModelIds" in src
-    assert "profileUsesAnyModelId" in src
-    assert "/api/personae" in src
-    assert "inUseByPersona" in src
+    assert "/api/custom-models/active" in src
+    assert "active_profile_id" in src
+    assert "dynamic.settingsCustomModels.使用中" in src
+    assert "dynamic.settingsCustomModels.启动" in src
+    assert "dynamic.settingsCustomModels.启动中" in src
     assert "custom-model-default-col" not in src
     assert "setProfileAsDefault" not in src
     assert "设为使用" not in src
@@ -847,12 +900,12 @@ def test_custom_models_ui_no_model_id_fallback_reads():
 
 
 # ---------------------------------------------------------------------------
-# W-PERSONA-MODEL-BIND-001：删除自定义模型时清理 persona_model_bindings
+# 全局模型改造：删除模型不主动清理历史 persona_model_bindings
 # ---------------------------------------------------------------------------
 
 
-def test_delete_custom_model_clears_persona_bindings(model_app):
-    """删除模型档案后，引用该 model_id 的人格绑定应被清空。"""
+def test_delete_custom_model_preserves_persona_bindings(model_app):
+    """删除模型档案不破坏历史人格绑定数据。"""
     cm_api.create_custom_model(model_app, _model_payload("bound-1", name="Bound"))
     cm_api.create_custom_model(model_app, _model_payload("other-2", name="Other"))
     # 绑定：高压吐槽型 → bound-1，熬夜陪看型 → other-2
@@ -861,17 +914,17 @@ def test_delete_custom_model_clears_persona_bindings(model_app):
     )
     # 删除 index 0（Bound / bound-1）
     cm_api.delete_custom_model(model_app, 0)
-    # bound-1 的绑定应被清除；other-2 的绑定应保留
+    # 历史绑定保留，运行时已不再读取它们
     import json as _json
 
     raw = model_app.config.get("persona_model_bindings", "{}")
     bindings = _json.loads(raw)
-    assert "高压吐槽型" not in bindings
+    assert bindings.get("高压吐槽型") == "bound-1"
     assert bindings.get("熬夜陪看型") == "other-2"
 
 
 def test_delete_custom_model_no_bindings_is_noop(model_app):
-    """删除模型时若无人格绑定引用它，清理逻辑应幂等无副作用。"""
+    """删除模型时没有历史绑定仍保持幂等。"""
     cm_api.create_custom_model(model_app, _model_payload("solo-1", name="Solo"))
     # 无人格绑定
     cm_api.delete_custom_model(model_app, 0)
@@ -1077,6 +1130,26 @@ def test_custom_model_http_post_persists_form_fields(tmp_path):
     assert stored["supportsMic"] is True
     assert stored["thinking_effort"] == "high"
     assert stored["apiKey"] == "sk-http-contract-key"
+
+
+def test_custom_model_http_active_route_uses_profile_id_and_rejects_invalid(tmp_path):
+    client, config = _custom_model_http_client(tmp_path)
+    first = client.post("/api/custom-models", json=_model_payload("route-model-a"))
+    second = client.post("/api/custom-models", json=_model_payload("route-model-b"))
+    assert first.status_code == 200
+    assert second.status_code == 200
+    first_id = first.json()["item"]["profile_id"]
+    second_id = second.json()["item"]["profile_id"]
+
+    activated = client.put("/api/custom-models/active", json={"profile_id": second_id})
+    assert activated.status_code == 200
+    assert activated.json() == {"ok": True, "active_profile_id": second_id}
+    assert config.get("active_model_profile_id") == second_id
+
+    invalid = client.put("/api/custom-models/active", json={"profile_id": "missing"})
+    assert invalid.status_code == 400
+    assert config.get("active_model_profile_id") == second_id
+    assert first_id != second_id
 
 
 def test_custom_model_http_put_persists_form_fields(tmp_path):
@@ -1529,8 +1602,8 @@ def test_update_unknown_profile_id_raises(model_app):
         )
 
 
-def test_delete_duplicate_name_only_purges_own_profile_references(tmp_path):
-    """删除同名档案之一只清理其 profile_id 引用，另一档案及其绑定不受影响。"""
+def test_delete_duplicate_name_preserves_historical_profile_references(tmp_path):
+    """删除档案不主动清理已退出产品能力的历史人格绑定。"""
     from app.persona_manager import PersonaManager
 
     config = ConfigStore(db_path=tmp_path / "config.db")
@@ -1547,8 +1620,9 @@ def test_delete_duplicate_name_only_purges_own_profile_references(tmp_path):
 
     cm_api.delete_custom_model(app, 0)
 
-    assert personae.get_model_binding("甲方") == ""
-    assert personae.get_model_binding("乙方") == pid_b
+    historical = json.loads(config.get("persona_model_bindings", "{}"))
+    assert historical["甲方"]["profile_id"] == pid_a
+    assert historical["乙方"]["profile_id"] == pid_b
     remaining = config.get_custom_models()
     assert len(remaining) == 1
     assert remaining[0]["profile_id"] == pid_b
@@ -1578,16 +1652,15 @@ def test_identity_diagnostics_report_missing_and_duplicate_profile_ids(model_app
     assert "profile_id_missing" in codes
 
 
-def test_identity_diagnostics_report_unresolved_persona_binding(model_app):
-    """旧字符串绑定零匹配 → 诊断暴露 unresolved（供 UI 提示重新选择）。"""
+def test_identity_diagnostics_no_longer_projects_persona_bindings(model_app):
+    """人格模型绑定保留在历史配置中，但不再进入模型 API 诊断投影。"""
     cm_api.create_custom_model(model_app, _model_payload("real-model"))
     model_app.config.set(
         "persona_model_bindings", json.dumps({"高压吐槽型": "ghost-model"})
     )
-    issues = _identity_diagnostics(model_app)["persona_bindings"]
-    assert [issue["status"] for issue in issues] == ["unresolved"]
-    assert issues[0]["persona"] == "高压吐槽型"
-    assert issues[0]["model_id"] == "ghost-model"
+    diagnostics = _identity_diagnostics(model_app)
+    assert "persona_bindings" not in diagnostics
+    assert json.loads(model_app.config.get("persona_model_bindings"))["高压吐槽型"] == "ghost-model"
 
 
 def test_probe_masked_key_recovered_within_same_profile_id(model_app):

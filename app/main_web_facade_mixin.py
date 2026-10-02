@@ -295,14 +295,6 @@ class DanmuAppWebFacadeMixin:
         self.personae.set_active(active)
         self.config_changed.emit()
 
-    def set_persona_model_binding(
-        self, name: str, model_id: str, profile_id: str = ""
-    ) -> None:
-        # W-PERSONA-MODEL-BIND-001 / W-AUDIT-MODEL-IDENTITY-001：
-        # 人格 → 模型档案绑定（空串清除）；优先按不可变 profile_id 绑定。
-        self.personae.set_model_binding(name, model_id, profile_id)
-        self.config_changed.emit()
-
     def get_capture_region_status(self) -> dict[str, object]:
         from app.web_api.capture_region import read_capture_region_status
 

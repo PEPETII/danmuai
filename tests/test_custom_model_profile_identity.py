@@ -22,6 +22,7 @@ from app.model_providers import (
     find_custom_model_profile,
     find_custom_model_profile_by_profile_id,
 )
+from app.model_selection import set_active_model_profile
 from app.persona_manager import (
     PersonaManager,
     PersonaModelBindingError,
@@ -275,7 +276,7 @@ def test_find_profile_is_ambiguous_on_duplicate_model_name(legacy_db):
 # ---------------------------------------------------------------------------
 
 
-def test_duplicate_model_profiles_hit_correct_bound_profile(tmp_path):
+def test_duplicate_model_profiles_share_the_selected_global_profile(tmp_path):
     db_path = tmp_path / "duplicate.db"
     models = [
         _canonical_profile(
@@ -304,11 +305,13 @@ def test_duplicate_model_profiles_hit_correct_bound_profile(tmp_path):
         assert personae.get_model_binding("甲方人格") == profile_a["profile_id"]
         assert personae.get_model_binding("乙方人格") == profile_b["profile_id"]
 
+        set_active_model_profile(store, profile_b["profile_id"])
         creds_a = resolve_request_credentials_for_persona(store, "甲方人格")
         creds_b = resolve_request_credentials_for_persona(store, "乙方人格")
         assert creds_a is not None and creds_b is not None
-        assert creds_a[0] == "https://api.openai.com/v1"
-        assert creds_a[1] == PLAINTEXT_KEY_A
+        assert creds_a == creds_b
+        assert creds_a[0] == "https://api.deepseek.com/v1"
+        assert creds_a[1] == PLAINTEXT_KEY_B
         assert creds_b[0] == "https://api.deepseek.com/v1"
         assert creds_b[1] == PLAINTEXT_KEY_B
         # 上游模型标识仍正确传给 provider
@@ -332,32 +335,35 @@ def test_duplicate_model_profiles_hit_correct_bound_profile(tmp_path):
                 api_mode=creds_b[3],
             )
         )
-        assert planned_a.url.startswith("https://api.openai.com/")
+        assert planned_a.url.startswith("https://api.deepseek.com/")
         assert planned_b.url.startswith("https://api.deepseek.com/")
-        assert planned_a.headers.get("Authorization") == f"Bearer {PLAINTEXT_KEY_A}"
+        assert planned_a.headers.get("Authorization") == f"Bearer {PLAINTEXT_KEY_B}"
         assert planned_b.headers.get("Authorization") == f"Bearer {PLAINTEXT_KEY_B}"
         assert planned_a.model_id == "gpt-4o-mini" == planned_b.model_id
     finally:
         store.close()
 
 
-def test_unbound_persona_uses_first_profile(legacy_db):
-    """未显式绑定的人格继续使用首档案（既有无绑定体验不回归）。"""
+def test_personas_use_the_selected_global_profile(legacy_db):
+    """人格绑定历史值不影响运行时；所有人格都使用当前全局档案。"""
     db_path, _raw = legacy_db
     store = ConfigStore(db_path=db_path)
     try:
         personae = PersonaManager(store)
+        profiles = store.get_custom_models()
+        set_active_model_profile(store, profiles[1]["profile_id"])
         assert personae.get_model_binding("未绑定的人格") == ""
-        creds = resolve_request_credentials_for_persona(store, "未绑定的人格")
-        assert creds is not None
-        assert creds[0] == "https://api.openai.com/v1"
-        assert creds[1] == PLAINTEXT_KEY_A
+        creds_a = resolve_request_credentials_for_persona(store, "未绑定的人格")
+        creds_b = resolve_request_credentials_for_persona(store, "其它人格")
+        assert creds_a is not None and creds_a == creds_b
+        assert creds_a[0] == "https://api.deepseek.com/v1"
+        assert creds_a[1] == PLAINTEXT_KEY_B
     finally:
         store.close()
 
 
-def test_model_removed_from_bound_profile_raises(tmp_path):
-    """所选上游模型已不属于绑定档案 → 显式失效，不回退首档案。"""
+def test_model_removed_from_historical_binding_does_not_change_global_runtime(tmp_path):
+    """历史人格绑定失效时，运行时仍只按全局档案解析。"""
     store = ConfigStore(db_path=tmp_path / "removed.db")
     models = [
         _canonical_profile(
@@ -378,15 +384,19 @@ def test_model_removed_from_bound_profile_raises(tmp_path):
         personae.set_model_binding(
             "高压吐槽型", model_id="bound-a", profile_id=profiles[1]["profile_id"]
         )
+        set_active_model_profile(store, profiles[1]["profile_id"])
         # 从该档案移除被绑定的上游模型（保留档案身份）
         updated = dict(profiles[1])
         updated["model_ids"] = ["bound-b"]
         updated["default_model_id"] = "bound-b"
         store.set_custom_models([profiles[0], updated])
 
-        with pytest.raises(PersonaModelBindingError) as exc_info:
-            resolve_request_credentials_for_persona(store, "高压吐槽型")
-        assert exc_info.value.code == "model_removed"
-        assert PLAINTEXT_KEY_B not in str(exc_info.value)
+        creds = resolve_request_credentials_for_persona(store, "高压吐槽型")
+        assert creds is not None
+        assert creds[:3] == (
+            "https://api.deepseek.com/v1",
+            PLAINTEXT_KEY_B,
+            "bound-b",
+        )
     finally:
         store.close()

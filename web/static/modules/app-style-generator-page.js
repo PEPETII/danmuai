@@ -9,6 +9,7 @@
 
 import { API, apiFetch, apiFormFetch } from './transport.js';
 import { t } from './i18n.js';
+import { createAutoSave } from './auto-save.js';
 import { initSettingsRhythmAccordion } from './settings-rhythm-accordion.js?v=20260717-number-stepper-v1';
 import { initNumberSteppers } from './number-stepper.js?v=20260717-number-stepper-v1';
 import { loadHorizontalFontPage, initHorizontalFontPage } from './app-horizontal-font-page.js';
@@ -142,6 +143,30 @@ let exitAnimationCached = 'fade';
 let pushDurationMsCached = 180;
 const previewPushTransitionHandlers = new WeakMap();
 let previewUsername = '高压吐槽型';
+
+const styleGeneratorAutoSave = createAutoSave({
+  capture: collectStylePayload,
+  save: async (payload, { isLatest }) => {
+    await apiFetch('/api/config', {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+    // A response from an older snapshot must not clear a newer edit.
+    if (isLatest()) styleGeneratorDirty = false;
+  },
+  onState: (state, error) => {
+    const status = document.getElementById('sgSaveStatus');
+    if (state === 'saving') {
+      if (status) status.textContent = t('dynamic.appStyleGenerator.正在自动保存');
+    } else if (state === 'saved') {
+      if (status) status.textContent = t('dynamic.appStyleGenerator.已自动保存');
+    } else if (state === 'error') {
+      styleGeneratorDirty = true;
+      if (status) status.textContent = t('dynamic.appStyleGenerator.自动保存失败');
+      showToast(error?.message || t('dynamic.appStyleGenerator.自动保存失败'), true);
+    }
+  },
+});
 
 function previewStageEl() {
   return document.getElementById('styleGeneratorPreview');
@@ -380,6 +405,8 @@ function setFieldValue(name, value) {
 function collectStylePayload() {
   const data = {};
   STYLE_SAVE_KEYS.forEach((key) => {
+    // The display-area toggle has its own serialized save path below.
+    if (key === ADJUST_DISPLAY_AREA_KEY) return;
     if (DERIVED_STYLE_SAVE_KEYS.has(key)) return;
     if (BOOL_KEYS.has(key)) {
       const checked = readBool(key);
@@ -429,6 +456,10 @@ function markCustomIfNeeded() {
   setFieldValue('floating_panel_style_preset', 'custom');
   syncPresetSelect();
   syncPresetVisibility(activePresetId);
+}
+
+function scheduleStyleSave(options = {}) {
+  styleGeneratorAutoSave.schedule(options);
 }
 
 /** 可见下拉仅表示基础风格地基；custom/wechat 等回退到产品默认仿微信。 */
@@ -673,6 +704,7 @@ function applyPreset(presetId) {
     syncPresetVisibility('custom_css');
     setPreviewCustomCss(customCssText);
     styleGeneratorDirty = true;
+    scheduleStyleSave();
     showToast(t('dynamic.appStyleGenerator.已切换自定义CSS'));
     return;
   }
@@ -693,6 +725,7 @@ function applyPreset(presetId) {
   setPreviewCustomCss('');
   styleGeneratorDirty = true;
   restyleVisiblePreviewItems();
+  scheduleStyleSave();
   showToast(t('dynamic.appStyleGenerator.已应用预设_preset', { preset: presetId }));
 }
 
@@ -1166,6 +1199,8 @@ function onFormChange(event) {
   }
 
   restyleVisiblePreviewItems();
+  scheduleStyleSave({ immediate: event.type === 'change' });
+  if (event.type === 'change') styleGeneratorAutoSave.flush().catch(() => {});
 }
 
 function onColorListClick(event) {
@@ -1184,6 +1219,7 @@ function onColorListClick(event) {
   renderColorList(kind, colors);
   markCustomIfNeeded();
   restyleVisiblePreviewItems();
+  scheduleStyleSave();
 }
 
 function addColor(kind) {
@@ -1207,6 +1243,7 @@ function addColor(kind) {
   renderColorList(kind, colors);
   markCustomIfNeeded();
   restyleVisiblePreviewItems();
+  scheduleStyleSave();
 }
 
 function onSingleColorPickerInput(event) {
@@ -1219,6 +1256,7 @@ function onSingleColorPickerInput(event) {
   textEl.value = mergePickerRgbPreserveAlpha(picker.value, textEl.value);
   markCustomIfNeeded();
   restyleVisiblePreviewItems();
+  scheduleStyleSave();
 }
 
 function onSingleColorTextInput(event) {
@@ -1247,30 +1285,12 @@ function onAddColorHexInput(event) {
   if (hexEl.id === 'sgTextColorHex') syncAddColorPickerFromHex('text');
 }
 
-async function saveStyle(event) {
-  event?.preventDefault?.();
-  const status = document.getElementById('sgSaveStatus');
-  const payload = collectStylePayload();
-  try {
-    await apiFetch('/api/config', {
-      method: 'PUT',
-      body: JSON.stringify(payload),
-    });
-    // 样式已保存；字体字段由横向模式页独立维护
-    styleGeneratorDirty = false;
-    if (status) status.textContent = t('dynamic.appStyleGenerator.样式已保存');
-    showToast(t('dynamic.appStyleGenerator.样式已保存'));
-  } catch (error) {
-    if (status) status.textContent = '';
-    showToast(error.message || t('dynamic.appStyleGenerator.保存失败'), true);
-  }
-}
-
 async function restoreDefaultAndSave() {
   // 页面当前的“仿微信”基础风格对应 LineLike 预设；不要恢复到
   // 不再展示为按钮的旧 wechat 预设，否则不会有任何基础风格处于选中状态。
   applyPreset('blivechat_line');
-  await saveStyle();
+  styleGeneratorAutoSave.schedule({ immediate: true });
+  await styleGeneratorAutoSave.flush();
 }
 
 /* ---- 字体加载与导入 ---- */
@@ -1428,6 +1448,7 @@ function renderCustomCssFiles(files) {
       syncPresetSelect('custom_css');
       syncPresetVisibility('custom_css');
       styleGeneratorDirty = true;
+      scheduleStyleSave();
       loadCustomCssFile(fileName).catch((error) => showToast(error.message, true));
     });
     const name = document.createElement('span');
@@ -1500,6 +1521,7 @@ async function importCustomCssFile() {
     styleGeneratorDirty = true;
     await loadStyleGeneratorCustomCssResources(fileName);
     renderCustomCssFiles(customCssFiles);
+    scheduleStyleSave();
     showToast(t('dynamic.appStyleGenerator.CSS文件已导入'));
   } catch (error) {
     showToast(error.message || t('dynamic.appStyleGenerator.导入失败'), true);
@@ -1584,7 +1606,6 @@ export function initStyleGeneratorPage(deps = {}) {
   const form = formEl();
   if (!form) return;
 
-  form.addEventListener('submit', saveStyle);
   form.addEventListener('input', onFormChange);
   form.addEventListener('change', onFormChange);
 

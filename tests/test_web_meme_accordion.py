@@ -23,9 +23,8 @@ def test_meme_accordion_wraps_only_target_sections():
     assert 'id="memeDisplayAccordionTrigger"' in section
     assert 'id="memeBarrageEnabled"' in section
     assert 'id="memeTagGrid"' in section
-    assert 'id="btnSaveMemeBarrageSettings"' in section
+    assert 'id="btnSaveMemeBarrageSettings"' not in section
     assert section.index('id="memeTagGrid"') < section.index('data-settings-rhythm-accordion')
-    assert section.index('data-settings-rhythm-accordion') < section.index('id="btnSaveMemeBarrageSettings"')
     # 分类模式含标签选择；采集/展示为独立分区
     assert 'id="hintMemeCategoryTitle"' in section
     assert '分类模式' in section
