@@ -719,74 +719,80 @@ def test_format_delete_model_message_python_equivalent():
 
 
 # ---------------------------------------------------------------------------
-# W-SETTINGS-RESTRUCT-A-006：顶栏旧字段软隐藏 + 列表行重排 4 列（前端静态契约断言）
+# W-SETTINGS-RESTRUCT-A-006：旧全局字段 Compatibility Removal Gate + 列表行重排 4 列
 #
-# 锁住以下不变量：
-#   1. partials/settings.html 含 .legacy-api-fields class（5 个旧字段 wrapper）
-#   2. index.html 经 build 重建后含 .legacy-api-fields { display:none !important } CSS
-#   3. 旧字段 DOM 节点仍存在（api_endpoint / api_key / model / max_tokens / api_mode ID）
-#   4. settings-defaults.js CONFIG_FIELDS 仍含旧 key（api_key 按设计不在 CONFIG_FIELDS，
-#      走加密独立路径；此处验证 4 个在 CONFIG_FIELDS 中的旧 key 保留）
-#   5. settings.js 给旧字段 wrapper 同步 hidden=true（DOM 属性双保险）
-#   6. settings-custom-models.js 列表行重排 4 列结构
-#   7. "AI 模型" 标题 + "+ 添加模型" 按钮（btnAddCustomModel）→ openModelModal(-1)
-#   8. 列表行含 custom-model-status-col + custom-model-in-use-badge（列 3：使用中状态徽章）
+# Removal Gate 锁住以下不变量：
+#   1. 旧字段 DOM、.legacy-api-fields 和 compat CSS 均已删除
+#   2. CONFIG_FIELDS / 恢复默认 / 运行时前端绑定不再引用旧全局字段
+#   3. 新模型档案入口和 active_profile_id 仍存在
 # ---------------------------------------------------------------------------
 
 
-def test_settings_html_has_legacy_api_fields_class():
-    """W-SETTINGS-RESTRUCT-A-006：settings.html 5 个旧字段 wrapper 含 legacy-api-fields class。"""
+def test_settings_html_passes_compatibility_removal_gate():
+    """Compatibility Removal Gate：源 partial 不再包含旧全局字段 DOM。"""
     html = SETTINGS_HTML.read_text(encoding="utf-8")
-    # 5 个旧字段 wrapper 应各带一个 legacy-api-fields class
-    assert html.count('class="legacy-api-fields"') + html.count(' legacy-api-fields"') + html.count(' legacy-api-fields ') >= 5
-    # 内联 <style> 已迁出（W-UI-SETTINGS-MIGRATE-001）；DOM class 仍保留
+    assert "legacy-api-fields" not in html
+    for field_id in ("api_endpoint", "api_mode", "api_key", "model", "max_tokens"):
+        assert f'id="{field_id}"' not in html
+    assert 'id="customModelsSection"' in html
+    assert 'id="btnAddCustomModel"' in html
     assert "<style>" not in html
-    assert "legacy-api-fields" in html
 
 
-def test_index_html_has_legacy_api_fields_css_rule():
-    """W-SETTINGS-RESTRUCT-A-006 / E：.legacy-api-fields 软隐藏规则在 compat CSS，DOM 仍在 index。"""
+def test_index_html_passes_compatibility_removal_gate():
+    """Compatibility Removal Gate：生成 bundle 不再携带旧 DOM 或 compat CSS。"""
     html = INDEX_HTML.read_text(encoding="utf-8")
-    assert "legacy-api-fields" in html
-    # 规则迁入 warm-tokens-compat.css（由 warm-tokens.css @import）
     static = SETTINGS_HTML.parent.parent
-    compat = (static / "warm-tokens-compat.css").read_text(encoding="utf-8")
     entry = (static / "warm-tokens.css").read_text(encoding="utf-8")
-    assert ".legacy-api-fields" in compat
-    assert "display: none !important" in compat or "display:none !important" in compat
-    assert "warm-tokens-compat.css" in entry
-
-
-def test_legacy_field_dom_ids_still_present_in_settings_html():
-    """W-SETTINGS-RESTRUCT-A-006：旧字段 DOM 节点保留（不删除），5 个 ID 仍可找到。"""
-    html = SETTINGS_HTML.read_text(encoding="utf-8")
+    assert "legacy-api-fields" not in html
+    assert "warm-tokens-compat.css" not in entry
+    assert not (static / "warm-tokens-compat.css").exists()
     for field_id in ("api_endpoint", "api_mode", "api_key", "model", "max_tokens"):
-        assert f'id="{field_id}"' in html, f"旧字段 DOM 节点 {field_id} 应保留"
-
-
-def test_legacy_field_dom_ids_still_present_in_index_html():
-    """W-SETTINGS-RESTRUCT-A-006：index.html 经 build 重建后旧字段 DOM 节点仍保留。"""
-    html = INDEX_HTML.read_text(encoding="utf-8")
-    for field_id in ("api_endpoint", "api_mode", "api_key", "model", "max_tokens"):
-        assert f'id="{field_id}"' in html, f"旧字段 DOM 节点 {field_id} 应在 index.html 中保留"
+        assert f'id="{field_id}"' not in html
 
 
 def test_config_fields_drops_retired_global_model_key():
-    """全局默认模型已移除；遗留隐藏 DOM 不再进入可保存字段。"""
+    """全局 API 字段不再进入 Web 配置白名单或恢复默认分组。"""
     src = SETTINGS_DEFAULTS_JS.read_text(encoding="utf-8")
     for key in ("api_endpoint", "api_mode", "max_tokens"):
-        assert f"'{key}'" in src, f"CONFIG_FIELDS 应保留旧 key '{key}'"
+        assert f"'{key}'" not in src
     assert "'model'" not in src
 
 
-def test_settings_js_sets_hidden_on_legacy_field_wrappers():
-    """W-SETTINGS-RESTRUCT-A-006：settings.js 给旧字段 wrapper 同步 hidden=true（DOM 属性双保险）。"""
-    src = SETTINGS_JS.read_text(encoding="utf-8")
-    assert "legacy-api-fields" in src
-    assert ".parentElement.hidden = true" in src
-    # 5 个旧字段 ID 均在 hidden 同步列表中
-    for field_id in ("api_endpoint", "api_mode", "api_key", "model", "max_tokens"):
-        assert f"'{field_id}'" in src
+def test_settings_runtime_passes_compatibility_removal_gate():
+    """前端运行时不再软隐藏或读取旧全局字段。"""
+    module_names = (
+        "settings.js",
+        "settings-core.js",
+        "settings-model-catalog.js",
+        "settings-providers.js",
+        "settings-model-modal-form.js",
+    )
+    for name in module_names:
+        src = (SETTINGS_JS.parent / name).read_text(encoding="utf-8")
+        assert "legacy-api-fields" not in src
+        assert "syncVisionModelToHidden" not in src
+        for field_id in ("api_endpoint", "api_mode", "api_key", "max_tokens"):
+            assert f"getElementById('{field_id}')" not in src
+    assert "getActiveCustomModel" in SETTINGS_JS.read_text(encoding="utf-8")
+
+
+def test_legacy_global_field_translation_keys_are_removed():
+    """Compatibility Removal Gate：旧全局字段的 hints/dynamic 文案不再孤立残留。"""
+    legacy_hint_keys = {"api_endpoint", "api_mode", "model", "max_tokens", "api_key"}
+    legacy_dynamic_keys = {
+        "视觉模型服务的网址_火山方舟豆包一般填到_ap",
+        "doubao_火山方舟豆包_openai_其他兼",
+        "实际调用的模型名称或接入点_ID_也可在下方_模",
+        "单次_AI_回复允许的最长输出_开启_思考_类模",
+        "访问_AI_的密钥_保存在本机并加密_留空点_保",
+    }
+    for language in ("zh", "en"):
+        locale_dir = REPO_ROOT / "web" / "static" / "locales" / language
+        hints = json.loads((locale_dir / "hints.json").read_text(encoding="utf-8"))["hints"]
+        dynamic = json.loads((locale_dir / "dynamic.json").read_text(encoding="utf-8"))["dynamic"]
+        assert legacy_hint_keys.isdisjoint(hints)
+        assert legacy_dynamic_keys.isdisjoint(dynamic["settingsHints"])
 
 
 def test_settings_custom_models_js_has_global_activation_controls():

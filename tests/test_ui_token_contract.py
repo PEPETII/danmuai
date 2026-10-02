@@ -11,7 +11,6 @@ _WARM_CSS_REQUIRED = (
     "warm-tokens-base.css",
     "warm-tokens-layout.css",
     "warm-tokens-components.css",
-    "warm-tokens-compat.css",
     "warm-tokens-feedback.css",
     "warm-tokens-pages-overview.css",
     "warm-tokens-settings.css",

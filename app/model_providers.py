@@ -752,11 +752,7 @@ def mic_audio_supported_for_config(config) -> bool:
             api_mode=(model.get("mode") or ""),
             supports_mic_declared=model.get("supportsMic"),
         )
-    return model_supports_mic_audio(
-        resolve_active_model_id(config),
-        endpoint=(config.get("api_endpoint") or ""),
-        api_mode=(config.get("api_mode") or ""),
-    )
+    return False
 
 
 def mic_audio_supported_for_mic_config(config) -> bool:

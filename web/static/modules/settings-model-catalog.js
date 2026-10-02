@@ -3,16 +3,13 @@ import { getLanguage, t } from './i18n.js';
 import {
   guessProviderIdFromEndpoint,
   resolveMicProviderIdForPicker,
-  resolveProviderIdForPicker,
 } from './settings-providers.js';
 
-const VISION_MODEL_CUSTOM_VALUE = '__custom__';
 const MIC_MODEL_CUSTOM_VALUE = '__mic_custom__';
 
 let catalogDeps = {
   updateMicModeHint: () => {},
   onCatalogLoadFailed: () => {},
-  onVisionModelChanged: () => {},
 };
 
 let catalogCache = { platforms: [] };
@@ -300,149 +297,6 @@ function appendVisionModelRowMeta(row, model) {
   const badges = buildModelRowBadges(model);
   if (badges) row.appendChild(badges);
   row.appendChild(createModelPriceHint(model));
-}
-
-function setVisionModelValue(modelId) {
-  const hidden = document.getElementById('model');
-  if (hidden) hidden.value = modelId || '';
-  catalogDeps.updateMicModeHint();
-  catalogDeps.onVisionModelChanged();
-}
-
-export function syncVisionModelToHidden() {
-  const customWrap = document.getElementById('visionModelCustom');
-  const customInput = document.getElementById('modelCustom');
-  const checked = document.querySelector('input[name="vision_model_choice"]:checked');
-  if (checked?.value === VISION_MODEL_CUSTOM_VALUE) {
-    setVisionModelValue(customInput?.value?.trim() || '');
-    return;
-  }
-  if (checked) {
-    setVisionModelValue(checked.value);
-    return;
-  }
-  if (customWrap && !customWrap.classList.contains('hidden') && customInput) {
-    setVisionModelValue(customInput.value.trim());
-  }
-}
-
-function showVisionModelCustom(show, initialValue = '') {
-  const wrap = document.getElementById('visionModelCustom');
-  const input = document.getElementById('modelCustom');
-  if (!wrap || !input) return;
-  if (show) {
-    wrap.classList.remove('hidden');
-    if (initialValue !== undefined && initialValue !== null) input.value = initialValue;
-    input.oninput = () => setVisionModelValue(input.value.trim());
-  } else {
-    wrap.classList.add('hidden');
-    input.oninput = null;
-  }
-}
-
-function setVisionModelPickerVisible(visible) {
-  const picker = document.getElementById('visionModelPicker');
-  if (!picker) return;
-  picker.classList.toggle('hidden', !visible);
-}
-
-export function renderVisionModelPicker(providerId, selectedModelId, options = {}) {
-  const picker = document.getElementById('visionModelPicker');
-  if (!picker) return;
-
-  const { providerSwitch = false } = options;
-  const platform = resolveCatalogPlatform(providerId);
-  if (!platform || !platform.models?.length) {
-    picker.innerHTML = '';
-    setVisionModelPickerVisible(false);
-    const customInitial = providerSwitch ? '' : (selectedModelId || '');
-    showVisionModelCustom(true, customInitial);
-    setVisionModelValue(customInitial);
-    return;
-  }
-
-  setVisionModelPickerVisible(true);
-  picker.innerHTML = '';
-  const knownIds = new Set(platform.models.map((model) => model.id));
-  const models = filterVisionCatalogModels(platform.models, { includeSelectedId: selectedModelId });
-  if (!models.length) {
-    picker.innerHTML = '';
-    setVisionModelPickerVisible(false);
-    const customInitial = providerSwitch ? '' : (selectedModelId || '');
-    showVisionModelCustom(true, customInitial);
-    setVisionModelValue(customInitial);
-    return;
-  }
-  const defaultId = pickDefaultCatalogModelId(providerId);
-  let selected;
-  let useCustom;
-  if (providerSwitch) {
-    selected = defaultId || models[0].id;
-    useCustom = false;
-  } else {
-    selected = selectedModelId && knownIds.has(selectedModelId)
-      ? selectedModelId
-      : (defaultId || models[0].id);
-    useCustom = Boolean(selectedModelId && !knownIds.has(selectedModelId));
-  }
-
-  models.forEach((model) => {
-    const row = document.createElement('label');
-    row.className = 'vision-model-row';
-    const radio = document.createElement('input');
-    radio.type = 'radio';
-    radio.name = 'vision_model_choice';
-    radio.value = model.id;
-    radio.checked = !useCustom && model.id === selected;
-    radio.addEventListener('change', () => {
-      if (radio.checked) {
-        showVisionModelCustom(false);
-        setVisionModelValue(model.id);
-      }
-    });
-
-    const textWrap = document.createElement('span');
-    textWrap.className = 'vision-model-id flex flex-col min-w-0';
-    const nameSpan = document.createElement('span');
-    nameSpan.className = 'font-semibold text-warmText truncate';
-    nameSpan.textContent = model.name || model.id;
-    const idSpan = document.createElement('span');
-    idSpan.className = 'text-xs text-gray-400 truncate';
-    idSpan.textContent = model.id;
-    textWrap.append(nameSpan, idSpan);
-
-    row.append(radio, textWrap);
-    appendVisionModelRowMeta(row, model);
-    picker.appendChild(row);
-  });
-
-  const otherRow = document.createElement('label');
-  otherRow.className = 'vision-model-row';
-  const otherRadio = document.createElement('input');
-  otherRadio.type = 'radio';
-  otherRadio.name = 'vision_model_choice';
-  otherRadio.value = VISION_MODEL_CUSTOM_VALUE;
-  otherRadio.checked = useCustom;
-  otherRadio.addEventListener('change', () => {
-    const current = document.getElementById('model')?.value || '';
-    showVisionModelCustom(true, useCustom ? (selectedModelId || current) : '');
-    syncVisionModelToHidden();
-  });
-  const otherLabel = document.createElement('span');
-  otherLabel.className = 'vision-model-id';
-  otherLabel.textContent = t('dynamic.settingsModelCatalog.手动输入模型_ID');
-  otherRow.append(otherRadio, otherLabel);
-  picker.appendChild(otherRow);
-
-  if (useCustom) {
-    showVisionModelCustom(true, selectedModelId);
-  } else {
-    setVisionModelValue(selected);
-  }
-}
-
-export function syncVisionModelPickerFromForm(selectedModelId) {
-  renderVisionModelPicker(resolveProviderIdForPicker(), selectedModelId || '');
 }
 
 export function pickDefaultMicCatalogModelId(providerId) {

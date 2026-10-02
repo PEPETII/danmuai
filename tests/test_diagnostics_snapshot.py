@@ -30,10 +30,15 @@ def test_config_context_sanitizes_endpoint_userinfo_query_and_fragment(
     app = make_diagnostic_app()
     app.config.values.update(
         {
-            "api_endpoint": endpoint,
-            "api_mode": "openai",
-            "model": "gpt-4o",
-            "default_model_id": "gpt-4o",
+            "active_model_profile_id": "cmp_diag_sanitize",
+            "custom_models": [{
+                "profile_id": "cmp_diag_sanitize",
+                "default_model_id": "gpt-4o",
+                "model_ids": ["gpt-4o"],
+                "endpoint": endpoint,
+                "mode": "openai-compatible",
+                "apiKey": "sk-diagnostic-placeholder",
+            }],
         }
     )
 
@@ -77,8 +82,15 @@ def test_diagnostics_api_response_omits_endpoint_credentials(monkeypatch: pytest
         config=FakeConfig(
             {
                 "screenshot_interval": "3",
-                "api_endpoint": endpoint,
-                "api_mode": "openai",
+                "custom_models": [{
+                    "profile_id": "cmp_diag_api",
+                    "default_model_id": "gpt-4o",
+                    "model_ids": ["gpt-4o"],
+                    "endpoint": endpoint,
+                    "mode": "openai-compatible",
+                    "apiKey": "sk-diagnostic-placeholder",
+                }],
+                "active_model_profile_id": "cmp_diag_api",
             }
         )
     )
@@ -193,10 +205,15 @@ def test_runtime_diagnostics_summarize_runtime_state_without_polluting_status_sn
 
     app.config.values.update(
         {
-            "api_endpoint": "https://ark.cn-beijing.volces.com/api/v3",
-            "api_mode": "doubao",
-            "model": "doubao-seed-1-6-flash-250828",
-            "default_model_id": "doubao-seed-1-6-flash-250828",
+            "active_model_profile_id": "cmp_diag_runtime",
+            "custom_models": [{
+                "profile_id": "cmp_diag_runtime",
+                "default_model_id": "doubao-seed-1-6-flash-250828",
+                "model_ids": ["doubao-seed-1-6-flash-250828"],
+                "endpoint": "https://ark.cn-beijing.volces.com/api/v3",
+                "mode": "doubao",
+                "apiKey": "sk-diagnostic-placeholder",
+            }],
         }
     )
 

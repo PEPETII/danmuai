@@ -202,7 +202,7 @@ def resolve_visual_request_tuning(
         api_mode=api_mode,
         temperature=_configured_temperature(config, model),
         thinking_effort=_configured_thinking_effort(config, model),
-        max_tokens=config.get_int("max_tokens", DEFAULT_MAX_TOKENS),
+        max_tokens=DEFAULT_MAX_TOKENS,
     )
 
 

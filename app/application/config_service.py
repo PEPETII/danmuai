@@ -17,7 +17,6 @@ MASKED_API_KEY = "********"
 
 WEB_CONFIG_KEYS = (
     "temperature",
-    "max_tokens",
     "danmu_speed",
     "danmu_lines",
     "danmu_max_chars",

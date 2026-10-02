@@ -404,27 +404,23 @@ def test_web_content_page_field_hints_wired():
     assert 'id="hintPersonaActiveTitle"' in html
 
 
-def test_web_api_mode_select_initialized():
+def test_web_model_profile_controls_replace_global_api_fields():
     from app.bundle_paths import project_root
 
     root = project_root()
-    providers_js = (
-        root / "web" / "static" / "modules" / "settings-providers.js"
-    ).read_text(encoding="utf-8")
+    model_form_js = (root / "web" / "static" / "modules" / "settings-model-modal-form.js").read_text(encoding="utf-8")
     settings_html = (root / "web" / "static" / "partials" / "settings.html").read_text(
         encoding="utf-8"
     )
+    modals_html = (root / "web" / "static" / "partials" / "modals.html").read_text(
+        encoding="utf-8"
+    )
     html = (root / "web" / "static" / "index.html").read_text(encoding="utf-8")
-    assert "API_MODE_OPTIONS" in providers_js
-    assert "function initApiModeSelect" in providers_js or "export function initApiModeSelect" in providers_js
-    assert "initApiModeSelect()" in providers_js
-    assert "applyApiModeValue" in providers_js
-    assert "syncApiModeLockState" in providers_js
-    assert 'id="api_mode"' in settings_html
-    assert 'option value="doubao"' in settings_html
-    assert 'option value="openai"' in settings_html
-    assert 'id="api_mode"' in html
-    assert 'option value="doubao"' in html
+    assert 'id="modelProvider"' in model_form_js or 'id="modelProvider"' in modals_html
+    assert 'id="modelMaxTokens"' in modals_html
+    assert 'id="api_mode"' not in settings_html
+    assert 'id="api_mode"' not in html
+    assert 'id="customModelsSection"' in settings_html
 
 
 def test_web_app_js_removes_orphaned_visual_provider_preset():
@@ -437,10 +433,10 @@ def test_web_app_js_removes_orphaned_visual_provider_preset():
     providers_js = (
         root / "web" / "static" / "modules" / "settings-providers.js"
     ).read_text(encoding="utf-8")
-    assert "function pickDefaultCatalogModelId" in settings_js
-    assert "platform.default_model_id" in settings_js
-    assert "function resolveProviderIdForPicker" in settings_js
-    assert "renderVisionModelPicker(" in providers_js
+    assert "function pickDefaultCatalogModelId" not in settings_js
+    assert "resolveProviderIdForPicker" not in settings_js
+    assert "resolveProviderIdForPicker" not in providers_js
+    assert "renderVisionModelPicker(" not in providers_js
     assert "renderMicModelPicker(providerId, defaultModelId, { providerSwitch: true })" in providers_js
     assert "getElementById('providerPreset')" not in settings_js
     assert "getElementById('providerPreset')" not in providers_js

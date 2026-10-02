@@ -2,7 +2,7 @@
  * DanmuAI warm CSS bundle entry.
  *
  * Load order (W-UI-CSS-SPLIT-001 — physical split, cascade-equivalent):
- *   base -> layout -> components -> compat
+ *   base -> layout -> components
  *   -> feedback -> pages-overview -> settings
  *   -> live-output -> danmu-pool -> live-output-preview
  *   -> pages-stylegen -> pages (content shell)
@@ -18,7 +18,6 @@
 @import url('/static/warm-tokens-base.css');
 @import url('/static/warm-tokens-layout.css');
 @import url('/static/warm-tokens-components.css');
-@import url('/static/warm-tokens-compat.css');
 @import url('/static/warm-tokens-feedback.css');
 @import url('/static/warm-tokens-pages-overview.css');
 @import url('/static/warm-tokens-settings.css?v=20260816-danmu-read-ui-v1');

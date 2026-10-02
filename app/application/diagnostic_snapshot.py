@@ -13,8 +13,8 @@ from urllib.parse import urlparse
 from app.api_schedule import min_api_interval_elapsed
 from app.application.danmu_diagnostics import DanmuDiagnosticsRecorder
 from app.application.generation_pipeline_state import GenerationPipelineState
-from app.model_providers import guess_provider_from_endpoint, resolve_active_model_id
-from app.model_selection import resolve_model_status
+from app.model_providers import guess_provider_from_endpoint
+from app.model_selection import resolve_active_model_profile, resolve_model_status
 
 if TYPE_CHECKING:
     from main import DanmuApp
@@ -150,15 +150,28 @@ class DiagnosticSnapshotBuilder:
                 "temperature": request_context.get("temperature"),
                 "thinking": request_context.get("thinking", ""),
             }
-        endpoint = str(config.get("api_endpoint", "") or "").strip()
-        api_mode = str(config.get("api_mode", "doubao") or "doubao")
+        profile = resolve_active_model_profile(config)
+        if profile is None:
+            return {
+                "profile_id": "",
+                "active_model_id": "",
+                "provider_id": "",
+                "api_family": "",
+                "api_endpoint_host": "",
+                "api_mode": "",
+                "model_name": "",
+                "api_endpoint": "",
+            }
+        endpoint = str(profile.get("endpoint", "") or "").strip()
+        api_mode = str(profile.get("mode", "") or "")
         host = self._sanitize_api_endpoint_host(endpoint) if endpoint else ""
-        active_model_id = resolve_active_model_id(config)
+        active_model_id = str(profile.get("default_model_id", "") or "").strip()
         model_status = resolve_model_status(config)
         return {
-            "profile_id": "",
+            "profile_id": str(profile.get("profile_id", "") or ""),
             "active_model_id": active_model_id,
-            "provider_id": guess_provider_from_endpoint(endpoint, api_mode),
+            "provider_id": str(profile.get("provider", "") or "").strip()
+            or guess_provider_from_endpoint(endpoint, api_mode),
             "api_family": "",
             "api_endpoint_host": host,
             "api_mode": api_mode,

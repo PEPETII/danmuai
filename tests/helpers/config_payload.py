@@ -14,16 +14,12 @@ def full_web_config_payload(**overrides: str) -> dict[str, str]:
     from app.model_providers import get_provider
 
     payload = export_web_config_defaults()
-    # W-GLOBAL-VISUAL-APIKEY-REMOVE-001: api_endpoint/api_mode 已不在 WEB_CONFIG_KEYS；
-    # 仅补齐 model / mic_api_endpoint 供完整表单测试
+    # W-GLOBAL-VISUAL-APIKEY-REMOVE-001: 旧全局视觉字段已不在 WEB_CONFIG_KEYS；
+    # 仅补齐独立麦克风 endpoint 供完整表单测试
     doubao = get_provider("doubao")
-    if not str(payload.get("model", "")).strip():
-        payload["model"] = "doubao-seed-1-6-flash-250828"
     if not str(payload.get("mic_api_endpoint", "")).strip():
         payload["mic_api_endpoint"] = doubao.default_endpoint
     payload.update(overrides)
-    if not str(payload.get("model", "")).strip():
-        payload["model"] = "doubao-seed-1-6-flash-250828"
     return payload
 
 

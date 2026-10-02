@@ -303,11 +303,7 @@ def _thinking_supported(config, active_model_id: str) -> bool:
         caps = get_capabilities_for_model(active_model_id, endpoint, api_mode)
         return caps.thinking_param_style != "none"
 
-    # 全局 api_endpoint + api_mode
-    endpoint = config.get("api_endpoint") or ""
-    api_mode = config.get("api_mode") or "doubao"
-    caps = get_capabilities_for_model(active_model_id, endpoint, api_mode)
-    return caps.thinking_param_style != "none"
+    return False
 
 
 def extract_config_payload(body: Any) -> dict[str, Any]:

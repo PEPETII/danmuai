@@ -30,7 +30,6 @@ _COVERED_ELSEWHERE = frozenset(
 
 _ROUND_TRIP_CASES = [
     ("temperature", "0.9", "0.9"),
-    ("max_tokens", "600", "600"),
     ("danmu_lines", "12", "12"),
     ("danmu_max_chars", "20", "20"),
     ("dedup_threshold", "0.7", "0.7"),

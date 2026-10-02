@@ -37,7 +37,7 @@ def test_settings_partial_has_no_style_block():
     text = settings.read_text(encoding="utf-8")
     assert _STYLE_OPEN.search(text) is None, (
         "settings.html must not contain <style> "
-        "(legacy rules belong in warm-tokens-compat.css)"
+        "(shared styles belong in warm-tokens-*.css)"
     )
 
 

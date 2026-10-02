@@ -1,15 +1,9 @@
-import { apiFetch, authHeaders } from './transport.js';
+import { apiFetch } from './transport.js';
 import { getLanguage, t } from './i18n.js';
 
 const MANUAL_PROVIDER_LABEL = t('dynamic.settingsProviders.手动填写');
 const FALLBACK_DEFAULT_PROVIDER_ID = 'custom_openai';
-const FALLBACK_EDITABLE_API_MODE_PROVIDER_IDS = new Set(['custom_openai', 'custom_doubao']);
 const PROVIDER_BOOTSTRAP_TIMEOUT_MS = 10000;
-
-export const API_MODE_OPTIONS = [
-  { value: 'doubao', label: t('dynamic.settingsProviders.豆包_火山方舟') },
-  { value: 'openai', label: t('dynamic.settingsProviders.OpenAI_兼容接口') },
-];
 
 // Mic tab only: suffix clarifies audio capability; API tab uses plain provider labels.
 const MIC_LABEL_SUFFIX = {
@@ -21,8 +15,6 @@ const MIC_LABEL_SUFFIX = {
 
 let providersDeps = {
   showToast: () => {},
-  pickDefaultCatalogModelId: () => '',
-  renderVisionModelPicker: () => {},
   pickDefaultMicCatalogModelId: () => '',
   renderMicModelPicker: () => {},
   updateMicModeHint: () => {},
@@ -31,7 +23,6 @@ let providersDeps = {
 let providersCache = [];
 let hostEntriesCache = [];
 let defaultProviderIdCache = FALLBACK_DEFAULT_PROVIDER_ID;
-let editableApiModeProviderIds = new Set(FALLBACK_EDITABLE_API_MODE_PROVIDER_IDS);
 let thinkingSupportedProviderIds = new Set(['doubao', 'custom_doubao']);
 let providerStatusCache = [];
 
@@ -82,49 +73,13 @@ export function resolveApiTransport(endpoint, apiMode) {
 export function guessProviderIdFromEndpoint(endpoint, apiMode) {
   const entry = matchHostEntry(endpoint);
   if (entry) return entry.provider_id;
-  const mode = apiMode ?? document.getElementById('api_mode')?.value ?? '';
+  const mode = apiMode ?? '';
   if (isDoubaoMode(mode)) return 'custom_doubao';
   return defaultProviderIdCache || FALLBACK_DEFAULT_PROVIDER_ID;
 }
 
 export function configureSettingsProviders(deps) {
   providersDeps = { ...providersDeps, ...deps };
-}
-
-export function initApiModeSelect() {
-  const sel = document.getElementById('api_mode');
-  if (!sel) return;
-  sel.innerHTML = '';
-  API_MODE_OPTIONS.forEach(({ value, label }) => {
-    const opt = document.createElement('option');
-    opt.value = value;
-    opt.textContent = label;
-    sel.appendChild(opt);
-  });
-}
-
-export function normalizeApiModeForSelect(mode, endpoint = '') {
-  const endpointVal = endpoint || document.getElementById('api_endpoint')?.value || '';
-  const transport = resolveApiTransport(endpointVal, mode);
-  return transport === 'doubao' ? 'doubao' : 'openai';
-}
-
-export function applyApiModeValue(mode) {
-  initApiModeSelect();
-  const sel = document.getElementById('api_mode');
-  if (!sel) return;
-  const endpoint = document.getElementById('api_endpoint')?.value || '';
-  const normalized = normalizeApiModeForSelect(mode, endpoint);
-  const hasOption = Array.from(sel.options).some((opt) => opt.value === normalized);
-  if (hasOption) sel.value = normalized;
-}
-
-export function syncApiModeLockState() {
-  const sel = document.getElementById('api_mode');
-  if (!sel) return;
-  const presetId = resolveProviderIdForPicker();
-  const locked = Boolean(presetId && !editableApiModeProviderIds.has(presetId));
-  sel.disabled = locked;
 }
 
 const MODAL_CUSTOM_PROVIDER_ID = 'custom_openai';
@@ -298,12 +253,7 @@ function renderProviderControls() {
   const micSel = document.getElementById('micProviderPreset');
   if (micSel) fillProviderPresetSelect(micSel, { mic: true });
 
-  initApiModeSelect();
   syncMicProviderPresetFromEndpoint();
-  providersDeps.renderVisionModelPicker(
-    resolveProviderIdForPicker(),
-    document.getElementById('model')?.value || '',
-  );
   providersDeps.renderMicModelPicker(
     resolveMicProviderIdForPicker(),
     document.getElementById('mic_model')?.value || '',
@@ -321,10 +271,6 @@ function renderProviderEmptyFallback() {
 function applyProviderRulesCache(rules) {
   hostEntriesCache = Array.isArray(rules?.host_entries) ? rules.host_entries : [];
   defaultProviderIdCache = rules?.default_provider_id || FALLBACK_DEFAULT_PROVIDER_ID;
-  const editableIds = Array.isArray(rules?.editable_api_mode_provider_ids)
-    ? rules.editable_api_mode_provider_ids
-    : [...FALLBACK_EDITABLE_API_MODE_PROVIDER_IDS];
-  editableApiModeProviderIds = new Set(editableIds);
   const thinkingIds = Array.isArray(rules?.thinking_supported_provider_ids)
     ? rules.thinking_supported_provider_ids
     : ['doubao', 'custom_doubao'];
@@ -418,29 +364,6 @@ export async function loadProviders() {
     if (providersCache.length === 0) renderProviderEmptyFallback();
     throw error;
   }
-}
-
-export async function resolveProviderByEndpoint() {
-  const endpoint = document.getElementById('api_endpoint')?.value || '';
-  const apiMode = document.getElementById('api_mode')?.value || '';
-  try {
-    const data = await apiFetch('/api/model-api/resolve', {
-      method: 'POST', headers: authHeaders(),
-      body: JSON.stringify({ endpoint, api_mode: apiMode }),
-    });
-    const providerId = data.provider?.id || data.provider_id || '';
-    renderProviderStatus(providerId || guessProviderIdFromEndpoint(endpoint, apiMode));
-    return data;
-  } catch (_error) {
-    renderProviderStatus(resolveProviderIdForPicker());
-    return null;
-  }
-}
-
-export function resolveProviderIdForPicker() {
-  const endpoint = document.getElementById('api_endpoint')?.value || '';
-  const apiMode = document.getElementById('api_mode')?.value || '';
-  return guessProviderIdFromEndpoint(endpoint, apiMode);
 }
 
 export function syncMicProviderPresetFromEndpoint() {

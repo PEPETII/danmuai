@@ -2,10 +2,6 @@ import { showFloatingTooltip, wireFloatingTooltipButton } from './settings-model
 import { t } from './i18n.js';
 
 const SETTINGS_FIELD_TIPS = {
-  api_endpoint:
-    'dynamic.settingsHints.视觉模型服务的网址_火山方舟豆包一般填到_ap',
-  api_mode:
-    'dynamic.settingsHints.doubao_火山方舟豆包_openai_其他兼',
   mic_use_visual_model:
     'dynamic.settingsHints.开启时开麦与识图共用上方_API_与模型_的接口',
   micProviderPreset:
@@ -18,14 +14,10 @@ const SETTINGS_FIELD_TIPS = {
     'dynamic.settingsHints.听懂麦克风并生成接话弹幕的模型_与识图视觉模型可',
   mic_api_key:
     'dynamic.settingsHints.麦克风专用_API_密钥_与识图密钥分开加密保存',
-  model:
-    'dynamic.settingsHints.实际调用的模型名称或接入点_ID_也可在下方_模',
   screen_index:
     'dynamic.settingsHints.弹幕显示在哪块显示器上_编号无效时会自动改用',
   capture_screen_index:
     'dynamic.settingsHints.AI_识别和框选区域使用哪块显示器_编号无效时会自动改用',
-  max_tokens:
-    'dynamic.settingsHints.单次_AI_回复允许的最长输出_开启_思考_类模',
   mic_mode_enabled:
     'hints.mic_mode_enabled',
   mic_window_sec:
@@ -34,8 +26,6 @@ const SETTINGS_FIELD_TIPS = {
     'dynamic.settingsHints.录大约_3_秒_检查麦克风是否有声音_不联网_不',
   btnMicTestSend:
     'dynamic.settingsHints.录大约_3_秒后_把声音和占位图发给_AI_确认',
-  api_key:
-    'dynamic.settingsHints.访问_AI_的密钥_保存在本机并加密_留空点_保',
   normal_recognition_interval_sec:
     'dynamic.settingsHints.普通模式下_每隔多少秒识图并生成一批弹幕_1_6',
   normal_reply_count:

@@ -17,7 +17,6 @@ import { activateFocusTrap, deactivateFocusTrap } from "./modal-focus-trap.js";
 let customModelDeps = {
   showToast: () => {},
   reloadConfigFromServer: async () => ({}),
-  syncVisionModelPickerFromForm: () => {},
   updateModelActiveSourceBanner: () => {},
 };
 
@@ -28,6 +27,12 @@ let modelModalBindingsWired = false;
 
 export function getCachedCustomModels() {
   return cachedCustomModels;
+}
+
+export function getActiveCustomModel() {
+  return cachedCustomModels.find((model) => (
+    String(model?.profile_id || '').trim() === cachedActiveProfileId
+  )) || null;
 }
 
 function resolveProfileDisplayName(model) {

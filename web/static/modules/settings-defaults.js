@@ -32,7 +32,7 @@ export function isMaskedApiKey(value) {
 }
 
 export const CONFIG_FIELDS = [
-  'api_endpoint', 'api_mode', 'temperature', 'max_tokens',
+  'temperature',
   'danmu_speed', 'danmu_lines', 'danmu_max_chars', 'dedup_threshold',
   'screen_index', 'capture_screen_index', 'layout_mode', 'opacity', 'font_size', 'hotkey',
   'eviction_mode', 'danmu_pending_entry_cap', 'danmu_track_retention_cap', 'reply_queue_max_items',
@@ -47,9 +47,7 @@ export const CONFIG_FIELDS = [
 ];
 
 export const SETTINGS_RESTORE_GROUPS = {
-  api: [
-    'api_endpoint', 'api_mode', 'max_tokens',
-  ],
+  api: [],
   mic: [
     'mic_window_sec', 'mic_input_device_id', 'mic_api_endpoint', 'mic_api_mode', 'mic_model',
   ],

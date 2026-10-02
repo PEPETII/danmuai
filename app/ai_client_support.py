@@ -497,7 +497,7 @@ def _coerce_request_temperature(raw) -> float | None:
 def _profile_max_tokens(config, profile: dict | None) -> int:
     raw = profile.get("max_tokens") if profile is not None else None
     if raw is None:
-        return config.get_int("max_tokens", DEFAULT_MAX_TOKENS)
+        return DEFAULT_MAX_TOKENS
     try:
         return int(raw)
     except (TypeError, ValueError):

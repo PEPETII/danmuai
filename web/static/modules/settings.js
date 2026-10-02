@@ -6,7 +6,7 @@
  *     序列化时哪些 key 会被读写；新增字段必须先在此登记。
  *   - SETTINGS_RESTORE_GROUPS / SETTINGS_RESTORE_CHECKBOXES：弹幕设置
  *     「恢复默认」按 tab 分组；默认值唯一来源是 GET /api/config/defaults，
- *     勿在此硬编码。api_key 不参与恢复；识图区域走独立 API 不在此恢复。
+ *     勿在此硬编码。模型档案凭证与麦克风独立 API 不在此恢复。
  *
  * 数据流：
  *   collectFormData() 读 DOM → patch 对象 → 调 PUT /api/config（主线程回执）
@@ -28,7 +28,6 @@
  * app/web_console.py 的 WebConsoleBridge 经主线程落库（详见 W-016）。
  */
 
-import { getLastAppliedStatus } from './status.js';
 import { t } from './i18n.js';
 import { createAutoSave } from './auto-save.js';
 import {
@@ -60,6 +59,7 @@ import {
   closeModelModal,
   configureSettingsCustomModels,
   customModelSupportsMic,
+  getActiveCustomModel,
   loadCustomModels,
   openModelModal,
   probe,
@@ -78,25 +78,16 @@ import {
   configureSettingsModelCatalog,
   evaluateMicAudioSupported,
   loadModelCatalog,
-  pickDefaultCatalogModelId as pickDefaultCatalogModelIdImpl,
   pickDefaultMicCatalogModelId as pickDefaultMicCatalogModelIdImpl,
   renderMicModelPicker as renderMicModelPickerImpl,
-  renderVisionModelPicker as renderVisionModelPickerImpl,
   syncMicModelPickerFromForm as syncMicModelPickerFromFormImpl,
   syncMicModelToHidden as syncMicModelToHiddenImpl,
-  syncVisionModelPickerFromForm as syncVisionModelPickerFromFormImpl,
-  syncVisionModelToHidden as syncVisionModelToHiddenImpl,
 } from './settings-model-catalog.js';
 import {
-  applyApiModeValue as applyApiModeValueImpl,
   applyMicProviderPreset as applyMicProviderPresetImpl,
   configureSettingsProviders,
   guessProviderIdFromEndpoint,
   loadProviders,
-  renderProviderStatus,
-  resolveProviderByEndpoint,
-  resolveProviderIdForPicker as resolveProviderIdForPickerImpl,
-  syncApiModeLockState as syncApiModeLockStateImpl,
   syncMicProviderPresetFromEndpoint as syncMicProviderPresetFromEndpointImpl,
 } from './settings-providers.js';
 import {
@@ -249,9 +240,7 @@ const settingsAutoSave = createAutoSave({
     const saveDanmuRead = settingsSaveDanmuRead;
     settingsSaveDanmuRead = false;
     return {
-      config: collectFormData({
-        usesCustomCredentials: getLastAppliedStatus()?.uses_custom_credentials === true,
-      }),
+      config: collectFormData(),
       saveDanmuRead,
     };
   },
@@ -296,8 +285,6 @@ export function configureSettingsBindings(deps) {
   });
   configureSettingsProviders({
     showToast,
-    pickDefaultCatalogModelId,
-    renderVisionModelPicker,
     pickDefaultMicCatalogModelId,
     renderMicModelPicker,
     updateMicModeHint,
@@ -308,18 +295,13 @@ export function configureSettingsBindings(deps) {
   configureSettingsCustomModels({
     showToast,
     reloadConfigFromServer,
-    syncVisionModelPickerFromForm,
     updateModelActiveSourceBanner,
   });
   configureSettingsCore({
     showToast,
     loadCustomModels,
     applyCaptureRegionFromPayload,
-    syncVisionModelToHidden,
     syncMicModelToHidden,
-    applyApiModeValue,
-    syncApiModeLockState,
-    syncVisionModelPickerFromForm,
     syncMicProviderPresetFromEndpoint,
     syncMicModelPickerFromForm,
     populateMicInputDevices,
@@ -342,29 +324,12 @@ function navigate(page) {
   bindDeps.navigate(page);
 }
 
-function pickDefaultCatalogModelId(providerId) {
-  // platform.default_model_id 优先级逻辑已下沉到 settings-model-catalog.js。
-  return pickDefaultCatalogModelIdImpl(providerId);
-}
-
 function pickDefaultMicCatalogModelId(providerId) {
   return pickDefaultMicCatalogModelIdImpl(providerId);
 }
 
-function renderVisionModelPicker(providerId, selectedModelId, options = {}) {
-  return renderVisionModelPickerImpl(providerId, selectedModelId, options);
-}
-
 function renderMicModelPicker(providerId, selectedModelId, options = {}) {
   return renderMicModelPickerImpl(providerId, selectedModelId, options);
-}
-
-function syncVisionModelToHidden() {
-  return syncVisionModelToHiddenImpl();
-}
-
-function syncVisionModelPickerFromForm(selectedModelId) {
-  return syncVisionModelPickerFromFormImpl(selectedModelId);
 }
 
 function syncMicModelToHidden() {
@@ -373,18 +338,6 @@ function syncMicModelToHidden() {
 
 function syncMicModelPickerFromForm(selectedModelId) {
   return syncMicModelPickerFromFormImpl(selectedModelId);
-}
-
-function applyApiModeValue(mode) {
-  return applyApiModeValueImpl(mode);
-}
-
-function syncApiModeLockState() {
-  return syncApiModeLockStateImpl();
-}
-
-function resolveProviderIdForPicker() {
-  return resolveProviderIdForPickerImpl();
 }
 
 function syncMicProviderPresetFromEndpoint() {
@@ -474,12 +427,24 @@ function applyMicIndependentVisibility() {
   section.classList.toggle('hidden', isMicUseVisualModel());
 }
 
-function getMicConfigContext() {
+function getVisualModelProfile(cfg = {}) {
+  const cached = getActiveCustomModel();
+  if (cached) return cached;
+  const activeModelId = String(cfg?.active_model_id || '').trim();
+  const profiles = Array.isArray(cfg?.custom_models) ? cfg.custom_models : [];
+  return profiles.find((profile) => (
+    String(profile?.default_model_id || '').trim() === activeModelId
+    || (Array.isArray(profile?.model_ids) && profile.model_ids.includes(activeModelId))
+  )) || null;
+}
+
+function getMicConfigContext(cfg = {}) {
   if (isMicUseVisualModel()) {
+    const profile = getVisualModelProfile(cfg);
     return {
-      apiMode: document.getElementById('api_mode')?.value || 'doubao',
-      modelId: (document.getElementById('model')?.value || '').trim(),
-      endpoint: document.getElementById('api_endpoint')?.value || '',
+      apiMode: profile?.mode || '',
+      modelId: String(profile?.default_model_id || cfg?.active_model_id || '').trim(),
+      endpoint: profile?.endpoint || '',
     };
   }
   return {
@@ -489,8 +454,8 @@ function getMicConfigContext() {
   };
 }
 
-function micModeConfigSupported() {
-  const { apiMode, modelId, endpoint } = getMicConfigContext();
+function micModeConfigSupported(cfg = {}) {
+  const { apiMode, modelId, endpoint } = getMicConfigContext(cfg);
   const supportsMicDeclared = isMicUseVisualModel()
     ? customModelSupportsMic(modelId)
     : false;
@@ -527,13 +492,9 @@ export function updateMicActiveSourceBanner(cfg) {
   const modelIdLabel = (modelId) => modelId || t('common.notSelected');
   const endpointLabel = (endpoint) => endpoint || t('common.notConfigured');
   if (useVisual) {
-    const usesCustom = cfg?.uses_custom_credentials === true;
-    const modelId = (cfg?.active_model_id || document.getElementById('model')?.value || '').trim();
-    const endpoint = usesCustom
-      ? (cfg?.custom_models || []).find((m) => m.modelId === modelId)?.endpoint
-        || document.getElementById('api_endpoint')?.value
-        || ''
-      : (document.getElementById('api_endpoint')?.value || cfg?.api_endpoint || '');
+    const profile = getVisualModelProfile(cfg);
+    const modelId = (cfg?.active_model_id || profile?.default_model_id || '').trim();
+    const endpoint = profile?.endpoint || '';
     banner.textContent = t('dynamic.settings.micBannerVisualModel', {
       modelId: modelIdLabel(modelId),
       endpoint: endpointLabel(endpoint),
@@ -555,7 +516,7 @@ export function updateMicActiveSourceBanner(cfg) {
   refreshMicInputDeviceHint();
 }
 
-export function updateMicModeHint() {
+export function updateMicModeHint(cfg = {}) {
   const hint = document.getElementById('micModeHint');
   const micOn = document.getElementById('mic_mode_enabled')?.checked;
   if (!hint) return;
@@ -564,7 +525,7 @@ export function updateMicModeHint() {
     hint.textContent = '';
     return;
   }
-  const { apiMode, modelId, endpoint } = getMicConfigContext();
+  const { apiMode, modelId, endpoint } = getMicConfigContext(cfg);
   const providerId = guessProviderIdFromEndpoint(endpoint, apiMode);
   const { selectedId, selectedLabel, defaultLabel } = currentMicDeviceContext();
   if (selectedId !== null && micDevicesCache?.available && !selectedLabel) {
@@ -574,7 +535,7 @@ export function updateMicModeHint() {
     });
     return;
   }
-  if (micModeConfigSupported()) {
+  if (micModeConfigSupported(cfg)) {
     hint.classList.add('hidden');
     hint.textContent = '';
     return;
@@ -635,15 +596,6 @@ export function bindSettingsControls(deps = {}) {
   configureSettingsBindings(deps);
   initSettingsRhythmAccordion();
   initSimpleSettingPresets();
-
-  // W-SETTINGS-RESTRUCT-A-006：旧顶栏 API 字段软隐藏（DOM 属性 hidden 双保险，配合 CSS .legacy-api-fields）
-  // DOM 节点保留不删除；仅隐藏。回滚：删除 partials/settings.html 中的 .legacy-api-fields CSS 规则 + 此段。
-  ['api_endpoint', 'api_mode', 'api_key', 'model', 'max_tokens'].forEach((fieldId) => {
-    const el = document.getElementById(fieldId);
-    if (el && el.parentElement && el.parentElement.classList.contains('legacy-api-fields')) {
-      el.parentElement.hidden = true;
-    }
-  });
 
   document.getElementById('mic_mode_enabled')?.addEventListener('change', () => {
     updateMicModeHint();
@@ -723,19 +675,6 @@ export function bindSettingsControls(deps = {}) {
 
   bindMicTestControls();
 
-  document.getElementById('toggleKey')?.addEventListener('click', () => {
-    const inp = document.getElementById('api_key');
-    if (!inp) return;
-    const visible = inp.type === 'password';
-    inp.type = visible ? 'text' : 'password';
-    const button = document.getElementById('toggleKey');
-    button?.setAttribute('aria-pressed', String(visible));
-    button?.setAttribute(
-      'aria-label',
-      t(`dynamic.settingsCustomModels.${visible ? '隐藏' : '显示'}_API_Key`),
-    );
-  });
-
   document.getElementById('toggleMicKey')?.addEventListener('click', () => {
     const inp = document.getElementById('mic_api_key');
     if (!inp) return;
@@ -750,14 +689,6 @@ export function bindSettingsControls(deps = {}) {
   });
 
   document.getElementById('btnModelCancel')?.addEventListener('click', closeModelModal);
-
-  document.getElementById('api_endpoint')?.addEventListener('change', () => {
-    resolveProviderByEndpoint();
-  });
-  document.getElementById('api_mode')?.addEventListener('change', () => {
-    resolveProviderByEndpoint();
-    updateMicModeHint();
-  });
 
   document.getElementById('modelModalForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();

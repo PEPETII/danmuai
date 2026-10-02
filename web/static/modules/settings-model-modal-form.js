@@ -571,10 +571,6 @@ export function collectModelForm() {
   );
   const maxTokens =
     Number.isNaN(maxTokensRaw) || maxTokensRaw < 512 ? 512 : maxTokensRaw;
-  const fallbackMode = modeToSaveValue(
-    document.getElementById("api_mode")?.value,
-    providerId,
-  );
   const providerMode = modeToSaveValue(findProvider(providerId)?.mode, providerId);
   const endpointValue = custom
     ? document.getElementById("modelEndpoint")?.value || ""
@@ -587,7 +583,7 @@ export function collectModelForm() {
     model_names: getModelNamesMap(),
     default_model_id: defaultModelId,
     max_tokens: maxTokens,
-    mode: custom ? "openai-compatible" : providerMode || fallbackMode,
+    mode: custom ? "openai-compatible" : providerMode,
     endpoint: endpointValue,
     apiKey: document.getElementById("modelApiKey").value,
     description: getEditDescription(),

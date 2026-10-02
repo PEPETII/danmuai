@@ -227,7 +227,6 @@ def test_settings_page_controls_use_ui_dual_class():
     assert "px-4 py-3 bg-cream" not in settings
     # 关键 ID / name 保留
     for field_id in (
-        "api_endpoint",
         "screen_index",
         "capture_screen_index",
         "danmuReadInterval",
@@ -247,13 +246,13 @@ def test_settings_page_controls_use_ui_dual_class():
     )
 
 
-def test_settings_legacy_hide_lives_in_compat_css():
+def test_settings_legacy_compatibility_layer_is_removed():
     static = _static_dir()
     entry = (static / "warm-tokens.css").read_text(encoding="utf-8")
-    compat = (static / "warm-tokens-compat.css").read_text(encoding="utf-8")
-    assert "warm-tokens-compat.css" in entry
-    assert ".legacy-api-fields" in compat
-    assert "display: none !important" in compat or "display:none !important" in compat
+    settings = (static / "partials" / "settings.html").read_text(encoding="utf-8")
+    assert "warm-tokens-compat.css" not in entry
+    assert "legacy-api-fields" not in settings
+    assert not (static / "warm-tokens-compat.css").exists()
 
 
 def test_overview_quick_settings_grid():

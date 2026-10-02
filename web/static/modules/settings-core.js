@@ -18,11 +18,7 @@ let coreDeps = {
   showToast: () => {},
   loadCustomModels: async () => {},
   applyCaptureRegionFromPayload: () => {},
-  syncVisionModelToHidden: () => {},
   syncMicModelToHidden: () => {},
-  applyApiModeValue: () => {},
-  syncApiModeLockState: () => {},
-  syncVisionModelPickerFromForm: () => {},
   syncMicProviderPresetFromEndpoint: () => {},
   syncMicModelPickerFromForm: () => {},
   populateMicInputDevices: async () => {},
@@ -162,22 +158,13 @@ function applySettingsDefaults(scope) {
     closeRestoreDefaultsModal();
     return;
   }
-  const apiKeyEl = document.getElementById('api_key');
   const micKeyEl = document.getElementById('mic_api_key');
-  const apiKeySnapshot = apiKeyEl?.value ?? '';
   const micKeySnapshot = micKeyEl?.value ?? '';
   const restoreMode = document.getElementById('danmu_render_mode')?.value || 'scrolling';
   keys.forEach((key) => {
     applyDefaultToField(key, configDefaultValue(key, restoreMode));
   });
-  if (apiKeyEl) apiKeyEl.value = apiKeySnapshot;
   if (micKeyEl) micKeyEl.value = micKeySnapshot;
-  coreDeps.applyApiModeValue(
-    document.getElementById('api_mode')?.value || configDefaultsCache.api_mode || '',
-  );
-  coreDeps.syncApiModeLockState();
-  const modelId = document.getElementById('model')?.value || '';
-  coreDeps.syncVisionModelPickerFromForm(modelId);
   coreDeps.syncMicProviderPresetFromEndpoint();
   const micModelId = configDefaultsCache.mic_model || document.getElementById('mic_model')?.value || '';
   coreDeps.syncMicModelPickerFromForm(micModelId);
@@ -220,14 +207,10 @@ export function initRestoreDefaultsControls() {
   });
 }
 
-const LEGACY_CREDENTIAL_FIELDS = new Set(['api_endpoint', 'api_key', 'model', 'max_tokens', 'api_mode']);
-
-export function collectFormData({ usesCustomCredentials = false } = {}) {
-  coreDeps.syncVisionModelToHidden();
+export function collectFormData() {
   coreDeps.syncMicModelToHidden();
   const data = {};
   CONFIG_FIELDS.forEach((name) => {
-    if (usesCustomCredentials && LEGACY_CREDENTIAL_FIELDS.has(name)) return;
     const el = document.getElementById(name);
     if (el) data[name] = el.value;
   });
@@ -258,7 +241,7 @@ export async function fillForm(cfg) {
   };
   [
     'screen_index', 'capture_screen_index', 'danmu_speed', 'danmu_lines', 'font_size', 'opacity', 'dedup_threshold', 'hotkey',
-    'image_max_width', 'max_tokens', 'image_quality', 'danmu_max_chars',
+    'image_max_width', 'image_quality', 'danmu_max_chars',
     'danmu_pending_entry_cap', 'danmu_track_retention_cap', 'reply_queue_max_items',
     'danmu_render_mode', 'danmu_font_family',
   ].forEach(setIfEmpty);
@@ -292,7 +275,7 @@ export async function fillForm(cfg) {
   const micKeyEl = document.getElementById('mic_api_key');
   if (micKeyEl) micKeyEl.value = cfg.has_mic_api_key ? MASKED_API_KEY : '';
   coreDeps.applyMicIndependentVisibility();
-  coreDeps.updateMicModeHint();
+  coreDeps.updateMicModeHint(cfg);
   const layoutMode = document.getElementById('layout_mode');
   if (layoutMode) {
     const allowed = ['fullscreen', '3/4', '1/2', '1/4'];
@@ -310,12 +293,6 @@ export async function fillForm(cfg) {
   updateNormalBatchPreview();
   syncSimpleSettingPresets();
   refreshOpacityWarning();
-  coreDeps.applyApiModeValue(cfg.api_mode);
-  coreDeps.syncApiModeLockState();
-  const modelId = cfg.active_model_id || '';
-  const modelEl = document.getElementById('model');
-  if (modelEl) modelEl.value = modelId;
-  coreDeps.syncVisionModelPickerFromForm(modelId);
   coreDeps.updateModelActiveSourceBanner(cfg);
   coreDeps.updateMicActiveSourceBanner(cfg);
   // W-GLOBAL-VISUAL-APIKEY-REMOVE-001: 视觉全局 api_key 已下线，不再回填 hidden input
@@ -328,11 +305,10 @@ export async function reloadConfigFromServer() {
   const cfg = await apiFetch('/api/config');
   await fillForm(cfg);
   coreDeps.refreshDanmuPreview();
-  const modelId = cfg.active_model_id || '';
-  coreDeps.syncVisionModelPickerFromForm(modelId);
-  coreDeps.updateModelActiveSourceBanner(cfg);
-  coreDeps.updateMicActiveSourceBanner(cfg);
   await coreDeps.loadCustomModels();
+  coreDeps.updateModelActiveSourceBanner(cfg);
+  coreDeps.updateMicModeHint(cfg);
+  coreDeps.updateMicActiveSourceBanner(cfg);
   coreDeps.applyCaptureRegionFromPayload({
     mode: cfg.capture_region_mode || (cfg.region_w > 0 && cfg.region_h > 0 ? 'custom' : 'full'),
     region: {
