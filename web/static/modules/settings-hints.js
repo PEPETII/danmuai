@@ -75,9 +75,9 @@ const SETTINGS_FIELD_TIPS = {
   danmu_render_mode:
     'dynamic.settingsHints.横向弹幕_全屏透明_Overlay_横向滚动_从',
   floating_panel_width:
-    'dynamic.settingsHints.从下到上模式窗口宽度_200_800_px_默',
+    'dynamic.settingsHints.竖向弹幕模式窗口宽度_200_800_px_默',
   floating_panel_speed:
-    'dynamic.settingsHints.从下到上模式的滚动速度_0_5_5_0_默认_1',
+    'dynamic.settingsHints.竖向弹幕模式的滚动速度_0_5_5_0_默认_1',
   floating_panel_x_offset:
     'dynamic.settingsHints.悬浮窗与屏幕右边缘的距离_px',
   floating_panel_y_offset:
@@ -265,7 +265,7 @@ export function initHorizontalFieldHints() {
   attachFieldHintsInRoot(form, HORIZONTAL_FIELD_TIPS);
 }
 
-/** 弹幕样式 → 从下到上模式：全局外观、布局频率、选色模式等字段提示 */
+/** 弹幕样式 → 竖向弹幕模式：全局外观、布局频率、选色模式等字段提示 */
 const STYLE_GENERATOR_FIELD_TIPS = {
   'sg-floating_panel_shape': 'hints.floating_panel_shape',
   'sg-floating_panel_layout': 'hints.floating_panel_layout',

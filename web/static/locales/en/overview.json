@@ -23,7 +23,8 @@
       "暂无记录_停止弹幕后会在此显示时间与_Token_用量": "No records yet; stop danmu to see time and token usage here",
       "公告": "Announcements",
       "弹幕日志": "Danmu log",
-      "麦克风日志": "Mic log"
+      "麦克风日志": "Mic log",
+      "横向弹幕或右侧竖向弹幕": "Horizontal danmu or vertical danmu on the right"
     },
     "placeholder": {
       "描述本次你要玩的游戏或者直播主题等_以便_AI_更好地生成弹幕_文字尽量在_50": "Describe the game or stream topic so AI can generate better danmu; under 50 chars works best",

@@ -54,8 +54,8 @@
       "保存_追加": "Save / append",
       "清空输入": "Clear input",
       "样式生成器": "Danmaku Style",
-      "编辑从下到上浮动面板样式_实时预览堆积效果_保存后经现有配置接口持久化": "Edit bottom-to-top floating panel style with live stack preview; save persists via the existing config API.",
-      "从下到上模式的设计参考开源项目": "The bottom-to-top mode design references the open-source project ",
+      "编辑竖向弹幕浮动面板样式_实时预览堆积效果_保存后经现有配置接口持久化": "Edit vertical danmu floating-panel style with live stack preview; save persists via the existing config API.",
+      "竖向弹幕模式的设计参考开源项目": "The vertical danmu mode design references the open-source project ",
       "非常感谢作者无私奉献": ", with sincere thanks to the author for their selfless contribution",
       "样式预设": "Basic style",
       "自定义": "Custom",
@@ -154,7 +154,7 @@
       "添加测试消息": "Add test message",
       "清空预览": "Clear preview",
       "堆积预览": "Stack preview",
-      "新条目从底部进入_旧条目向上顶推_空闲静止_左对齐_严格裁剪": "New items enter from the bottom; older items push up; idle is still; left-aligned; hard-clipped.",
+      "新条目从底部进入_旧条目向上顶推_空闲静止_左对齐_严格裁剪": "Mirrors the real vertical danmu Web floating panel: bottom-anchored stack, oldest items pushed up, two-line clipping, and live card/bubble preview.",
       "调整显示区域": "Adjust display area",
       "调整显示区域提示": "Turn on Adjust display area, move it to your preferred position, then turn it off.",
       "状态": "Status",
@@ -180,7 +180,7 @@
       "系统提示补充": "System prompt supplement",
       "保存人格": "Save persona",
       "名称显示": "Show name prefix",
-      "需要展示人格名称请到弹幕样式界面": "To show persona names, go to Danmu Style → Horizontal mode. When enabled, danmu appear as「Persona name: content」.",
+      "需要展示人格名称请到弹幕样式界面": "To show persona names, go to Danmu Style → Horizontal danmu. When enabled, danmu appear as「Persona name: content」.",
       "开启后_弹幕上屏为_人格名称_弹幕内容": "When on, danmu show as「Persona name: content」",
       "激活人格_运行时随机": "Active personas (random at runtime)",
       "保存激活列表": "Save active list",
@@ -253,8 +253,8 @@
       "切换后_后续对话自动使用新模型_当前对话历史保留": "After switching, new chats use the new model; current history is kept.",
       "告诉我你想调整什么设置_例如_把弹幕速度调快": "Ask anything, e.g.「where do I change danmu speed」",
       "弹幕样式": "Danmaku Style",
-      "从下到上模式": "Bottom-to-Top Mode",
-      "横向模式": "Horizontal Mode",
+      "竖向弹幕模式": "Vertical danmu",
+      "横向弹幕模式": "Horizontal danmu",
       "字体设置": "Font settings",
       "横向字体设置提示": "Horizontal danmu font, colors, and local import",
       "字体导入说明": "Supports .ttf / .otf, max 25MB per file. Ensure the font license allows personal use; DanmuAI loads fonts locally only and does not upload them.",
@@ -327,9 +327,9 @@
       "切换当前使用模型": "Switch active model",
       "浮动面板样式预览": "Floating panel style preview",
       "弹幕样式": "Danmaku Style",
-      "从下到上模式": "Bottom-to-Top Mode",
-      "横向模式": "Horizontal Mode",
-      "横向模式即将推出_敬请期待": "Horizontal mode is coming soon. Stay tuned!"
+      "竖向弹幕模式": "Vertical danmu",
+      "横向弹幕模式": "Horizontal danmu",
+      "横向弹幕模式即将推出_敬请期待": "Horizontal danmu is coming soon. Stay tuned!"
     }
   }
 }
