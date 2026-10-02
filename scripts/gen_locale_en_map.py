@@ -159,7 +159,7 @@ PHRASES: list[tuple[str, str]] = [
     ("检查更新", "Check for updates"),
     ("下载并重启", "Download & restart"),
     ("能做什么", "What you can do"),
-    ("七个分页", "Seven tabs"),
+    ("5 个分类", "Five categories"),
     ("使用前注意", "Before you start"),
     ("弹幕设置说明", "Danmu settings help"),
     ("有新公告", "New announcement"),

@@ -65,7 +65,7 @@ NAV_LABEL_KEYS = {
     "检查更新": "checkUpdate",
     "下载并重启": "downloadRestart",
     "能做什么": "tooltipCanDoTitle",
-    "六个分页": "tooltipTabsTitle",
+    "5 个分类": "tooltipTabsTitle",
     "使用前注意": "tooltipNoticeTitle",
     "有新版本": "newVersionBadge",
 }
@@ -291,7 +291,7 @@ def build_zh_shards(extracted: dict[str, str], hints: dict[str, str]) -> dict[st
                 elif value.startswith("：") or "设置 AI 接口" in value:
                     tip_key = slug_key(value, used_keys["nav"])
                     set_nested(shards["nav"], ["nav", "tooltip", tip_key], value.lstrip("："))
-                elif value in ("能做什么", "七个分页", "使用前注意"):
+                elif value in ("能做什么", "5 个分类", "使用前注意"):
                     pass  # titles handled via NAV_LABEL_KEYS
                 else:
                     k = slug_key(value, used_keys["nav"])

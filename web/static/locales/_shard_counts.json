@@ -1,9 +1,9 @@
 {
   "zh": {
     "common": 60,
-    "nav": 38,
+    "nav": 36,
     "overview": 64,
-    "settings": 288,
+    "settings": 284,
     "content": 550,
     "modals": 135,
     "hints": 89,
@@ -11,9 +11,9 @@
   },
   "en": {
     "common": 60,
-    "nav": 38,
+    "nav": 36,
     "overview": 64,
-    "settings": 288,
+    "settings": 284,
     "content": 550,
     "modals": 135,
     "hints": 89,

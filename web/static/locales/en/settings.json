@@ -2,14 +2,10 @@
   "settings": {
     "text": {
       "弹幕设置": "Danmu Settings",
-      "设置_AI_模型_弹幕显示和_AI_识别范围_保存后立即生效": "Configure the AI model, danmu display, and what AI recognizes; changes apply after saving",
-      "设置_AI_接口_识图屏幕和弹幕效果_保存后立即生效": "Set AI API, capture screen, and danmu effects—applies after save",
       "中文": "Chinese",
       "英语": "English",
       "黑夜模式": "Dark mode",
       "API_与模型": "AI model config",
-      "麦克风模式": "Mic mode",
-      "AI读弹幕": "AI broadcast",
       "弹幕显示": "Danmu display",
       "识图区域": "Capture region",
       "识图清晰度": "Capture quality",
@@ -32,7 +28,6 @@
       "AI_模型": "AI model",
       "当前启动的模型将统一用于所有弹幕人格": "当前启动的模型将统一用于所有弹幕人格",
       "添加模型": "+ Add model",
-      "麦克风模式_实验": "Mic mode (experimental)",
       "开启后_说完一句话会额外生成几条接话弹幕_并插队显示_不影响看屏识图的节奏_请": "When on, after you speak, extra reply danmu are generated and shown out of order without affecting capture rhythm. Please",
       "说完后停顿约半秒": "Pause ~0.5s after speaking",
       "环境较吵时启动后会自动校准_录音只在内存里处理_不会保存到硬盘": "; auto-calibrates in noisy environments. Audio stays in memory, not saved to disk.",
@@ -52,7 +47,6 @@
       "默认跟随_Windows_当前默认录音设备_也可以手动固定到某一只麦克风": "Follows Windows default recording device; or pin a specific mic manually.",
       "测试麦克风": "Test microphone",
       "测试发送": "Test send",
-      "测试麦克风_只检查有没有声音_不会联网_测试发送_会录音并请求_AI_请先点": "「Test microphone」checks for sound only—no network.「Test send」records and requests AI. Save settings first. For Bluetooth headsets, set the headset as default mic in Windows Settings → System → Sound → Input.",
       "读弹幕": "Danmu reader",
       "使用语音合成定时随机朗读当前屏幕上的一条弹幕": "Use TTS to randomly read one visible on-screen danmu on a timer",
       "默认使用": "Default in use",
@@ -95,7 +89,6 @@
       "平静": "平静",
       "直播感": "直播感",
       "试听当前设置": "试听当前设置",
-      "试听提示": "Preview uses the current unsaved form values; save and start generation for timed reading.",
       "凭据已保存": "Credentials saved",
       "按需填写凭据": "Enter credentials when needed",
       "API密钥": "API key",
@@ -212,8 +205,8 @@
       "保存配置": "Save settings",
       "modelCatalogCurrencyUnit": "CNY",
       "AI模型配置": "AI模型配置",
-      "语音输入": "语音输入",
-      "AI播报": "AI播报",
+      "语音输入": "Voice input",
+      "AI播报": "AI broadcast",
       "画面识别范围": "画面识别范围",
       "启用与模型来源": "启用与模型来源",
       "独立麦克风接口": "独立麦克风接口",
@@ -226,8 +219,6 @@
       "API_凭据": "API 凭据",
       "语音效果_高级": "语音效果（高级）",
       "自定义_Voice_ID": "自定义 Voice ID",
-      "试听会使用当前未保存的表单值_定时朗读须保存并开始生成": "试听会使用当前未保存的表单值；定时朗读须保存并开始生成。",
-      "识图显示器": "识图显示器",
       "更改会自动保存": "更改会自动保存",
       "核心设置": "核心设置",
       "扩展能力": "扩展能力",
@@ -261,7 +252,12 @@
       "识别节奏与压缩": "识别节奏与压缩",
       "AI_看哪里": "AI 看哪里",
       "先选择你想要的效果_需要精确控制时再展开高级参数": "先选择你想要的效果；需要精确控制时再展开高级参数。",
-      "选择_AI_要识别的屏幕和区域_截图只在内存里压缩后发给_AI_默认不会保存到硬": "选择 AI 要识别的屏幕和区域。截图只在内存里压缩后发给 AI，默认不会保存到硬盘。"
+      "选择_AI_要识别的屏幕和区域_截图只在内存里压缩后发给_AI_默认不会保存到硬": "选择 AI 要识别的屏幕和区域。截图只在内存里压缩后发给 AI，默认不会保存到硬盘。",
+      "管理_AI_模型_弹幕生成与显示_AI_看哪里_语音输入和_AI_播报_更改会自": "Manage AI model, danmu generation and display, where AI looks, voice input, and AI broadcast; changes save automatically.",
+      "测试麦克风_只检查有没有声音_不会联网_测试发送_会录音并请求_AI_修改设": "「Test microphone」checks for sound only—no network.「Test send」records and requests AI. After changing settings, wait for the status to show「Auto-saved」before testing. For Bluetooth headsets, set the headset as the default mic in Windows Settings → System → Sound → Input.",
+      "试听会使用当前未保存的表单值_定时朗读会在设置自动保存后_开始生成才会工作": "Preview uses the current unsaved form values; scheduled reading works after settings auto-save and danmu generation starts.",
+      "AI_播报": "AI broadcast",
+      "语音输入_实验": "Voice input (experimental)"
     },
     "placeholder": {
       "输入模型_ID": "Enter model ID",
@@ -292,9 +288,9 @@
       "弹幕设置分类": "Danmu settings category",
       "视觉模型_2": "Vision model",
       "麦克风模型_2": "Mic model",
-      "AI读弹幕_2": "AI broadcast",
       "显示_API_Key": "显示 API Key",
-      "AI播报_2": "AI播报"
+      "AI播报_2": "AI broadcast",
+      "AI_播报_2": "AI broadcast"
     }
   }
 }
