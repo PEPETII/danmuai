@@ -70,13 +70,13 @@ def test_shared_control_and_responsive_guards_are_declared() -> None:
 
 
 def test_danmu_read_uses_catalog_metadata_and_capability_gates() -> None:
-    app_js = (_static_dir() / "app.js").read_text(encoding="utf-8")
+    danmu_read_js = (_static_dir() / "modules" / "app-danmu-read-page.js").read_text(encoding="utf-8")
     settings = (_static_dir() / "partials" / "settings.html").read_text(encoding="utf-8")
 
-    assert "const DANMU_READ_FALLBACK_CATALOG = { providers: [] };" in app_js
-    assert "option.disabled = model.status !== 'active';" in app_js
-    assert "ID: ${voice.id}" in app_js
-    assert "voiceOverride = null" in app_js
-    assert "field.hidden || capabilityWrap?.hidden" in app_js
+    assert "const DANMU_READ_FALLBACK_CATALOG = { providers: [] };" in danmu_read_js
+    assert "option.disabled = model.status !== 'active';" in danmu_read_js
+    assert "ID: ${voice.id}" in danmu_read_js
+    assert "voiceOverride = null" in danmu_read_js
+    assert "field.hidden || capabilityWrap?.hidden" in danmu_read_js
     for capability in ("speed", "pitch", "volume", "emotion", "style_prompt"):
         assert f'data-tts-capability="{capability}"' in settings

@@ -71,10 +71,11 @@ def test_style_generator_form_names_match_contract_keys():
 
 def test_style_generator_inverts_click_through_and_autosaves_adjustment_toggle():
     mod = (_static() / "modules" / "app-style-generator-page.js").read_text(encoding="utf-8")
+    persistence = (_static() / "modules" / "style-generator-persistence.js").read_text(encoding="utf-8")
     html = (_static() / "index.html").read_text(encoding="utf-8")
     assert "ADJUST_DISPLAY_AREA_KEY" in mod
     assert "name === ADJUST_DISPLAY_AREA_KEY ? !enabled : enabled" in mod
-    assert "checked ? '0' : '1'" in mod
+    assert "checked ? '0' : '1'" in persistence
     assert "function saveAdjustDisplayArea()" in mod
     assert "if (event.type === 'change') saveAdjustDisplayArea();" in mod
     assert 'data-i18n="content.text.调整显示区域"' in html
@@ -259,7 +260,11 @@ def test_style_generator_module_uses_api_fetch_and_config_put():
     assert "/api/config" in mod
     assert "method: 'PUT'" in mod
     assert "localStorage" not in mod
-    assert "export function pickStyleColor" in mod
+    assert "from './style-generator-colors.js'" in mod
+    assert "from './style-generator-custom-css.js'" in mod
+    assert "from './style-generator-fonts.js'" in mod
+    assert "from './style-generator-preset.js'" in mod
+    assert "pickStyleColor" in mod
     assert "export async function loadStyleGeneratorPage" in mod
     assert "export function initStyleGeneratorPage" in mod
 
@@ -267,7 +272,8 @@ def test_style_generator_module_uses_api_fetch_and_config_put():
 def test_style_generator_derives_legacy_style_fields_on_save():
     """遗留键 font_size/font_bold/tail_size 由权威字段派生，不再暴露重复控件。"""
     mod = (_static() / "modules" / "app-style-generator-page.js").read_text(encoding="utf-8")
-    assert "export function applyDerivedLegacyStyleFields" in mod
+    assert "from './style-generator-preset.js'" in mod
+    assert "applyDerivedLegacyStyleFields" in mod
     assert "DERIVED_STYLE_SAVE_KEYS" in mod
 
     script = """

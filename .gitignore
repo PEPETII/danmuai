@@ -23,6 +23,7 @@ venv/
 # Local temp / scratch install artifacts (may contain copied supabase-config.js)
 .tmp/
 .tmp-*/
+/tmp/
 
 # Desktop app local data and secrets
 *.db

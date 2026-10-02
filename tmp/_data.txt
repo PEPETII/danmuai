@@ -1,8 +1,0 @@
-﻿
-Name                  Length
-----                  ------
-ATTRIBUTION.md           635
-personae_builtin.json  14340
-README.md                672
-
-
