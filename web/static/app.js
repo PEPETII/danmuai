@@ -94,7 +94,6 @@ import {
   loadPersonaEditor,
   loadPersonaTemplate,
 } from './modules/app-persona-topic-page.js';
-import { initOverviewQuickSettings } from './modules/overview-quick-settings.js';
 import {
   initAppUpdateModal,
   initAppVersionAndUpdateCheck,
@@ -511,7 +510,6 @@ function bindCoreInteractions() {
   });
   initLiveOverlayPanel({ showToast });
   initPersonaTopicPage({ showToast });
-  initOverviewQuickSettings({ navigate, switchSettingsTab });
 
   configureStatus({
     applyCaptureRegion: applyCaptureRegionFromPayload,

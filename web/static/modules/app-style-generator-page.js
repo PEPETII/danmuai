@@ -243,6 +243,32 @@ function setFieldValue(name, value) {
   }
 }
 
+function syncSingleColorPickersFromText() {
+  SG_SINGLE_COLOR_FIELDS.forEach((name) => {
+    const textEl = field(name);
+    const picker = formEl()?.querySelector(`[data-sg-color-for="${name}"]`);
+    if (textEl && picker) {
+      picker.value = hexToColorInputValue(textEl.value, picker.value || '#FFFFFF');
+    }
+  });
+}
+
+function syncAddColorHexFromPicker(kind) {
+  const picker = document.getElementById(kind === 'card' ? 'sgCardColorPicker' : 'sgTextColorPicker');
+  const hexEl = document.getElementById(kind === 'card' ? 'sgCardColorHex' : 'sgTextColorHex');
+  if (picker && hexEl) hexEl.value = mergePickerRgbPreserveAlpha(picker.value, hexEl.value);
+}
+
+function syncAddColorPickerFromHex(kind) {
+  const picker = document.getElementById(kind === 'card' ? 'sgCardColorPicker' : 'sgTextColorPicker');
+  const hexEl = document.getElementById(kind === 'card' ? 'sgCardColorHex' : 'sgTextColorHex');
+  const normalized = normalizeHex(hexEl?.value);
+  if (normalized && picker) {
+    hexEl.value = normalized;
+    picker.value = hexToColorInputValue(normalized);
+  }
+}
+
 function markCustomIfNeeded() {
   if (suppressCustomMark) return;
   styleGeneratorDirty = true;

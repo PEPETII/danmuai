@@ -19,7 +19,7 @@ def test_display_mode_labels_are_vertical_danmu_without_changing_backend_values(
     settings = (STATIC / "partials" / "settings.html").read_text(encoding="utf-8")
     style_generator = (STATIC / "partials" / "style-generator.html").read_text(encoding="utf-8")
 
-    assert 'value="floating_panel" data-i18n="settings.text.竖向弹幕">竖向弹幕</option>' in overview
+    assert 'id="danmu_render_mode_quick"' not in overview
     assert 'name="danmu_render_mode"' in settings
     assert 'value="floating_panel" data-i18n="settings.text.竖向">竖向</option>' in settings
     assert 'data-sg-tab="bottom-up"' in style_generator

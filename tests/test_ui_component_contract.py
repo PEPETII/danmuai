@@ -107,11 +107,11 @@ def test_overview_stat_cards_have_interactive_class():
     content = (_static_dir() / "partials" / "content-pages.html").read_text(encoding="utf-8")
     # Four overview session stat cards on overview; four lifetime cards moved to guide tab.
     session_stats_start = overview.index('id="page-overview"')
-    quick_settings_start = overview.index(
-        '<section class="overview-quick-settings',
+    topic_card_start = overview.index(
+        '<div class="card ui-card p-8 mb-6 space-y-4">',
         session_stats_start,
     )
-    session_stats = overview[session_stats_start:quick_settings_start]
+    session_stats = overview[session_stats_start:topic_card_start]
     count = session_stats.count("ui-card--interactive")
     assert count == 4, f"expected 4 ui-card--interactive on overview session stats, got {count}"
     for sid in (
@@ -255,26 +255,22 @@ def test_settings_legacy_compatibility_layer_is_removed():
     assert not (static / "warm-tokens-compat.css").exists()
 
 
-def test_overview_quick_settings_grid():
+def test_overview_quick_settings_are_removed():
     overview = (_static_dir() / "partials" / "overview.html").read_text(encoding="utf-8")
     overview_css = (_static_dir() / "warm-tokens-pages-overview.css").read_text(encoding="utf-8")
-    quick_js = (_static_dir() / "modules" / "overview-quick-settings.js").read_text(encoding="utf-8")
-    assert 'id="overviewQuickSettingsTitle"' in overview
-    assert "快捷设置" in overview
-    assert 'id="overviewQuickSettingsGrid"' in overview
-    assert 'class="quick-settings-grid"' in overview
-    assert 'id="danmu_render_mode_quick"' in overview
-    assert 'data-quick-nav="mic"' in overview
-    assert 'data-quick-nav="danmu-read"' in overview
-    assert 'data-quick-nav="knowledge"' in overview
-    assert 'data-quick-nav="persona-manage"' in overview
-    assert overview.count('<article class="quick-setting-card') == 9
-    assert "quick-setting-card__title" in overview
-    assert "quick-setting-card__desc" in overview
-    assert "：" not in overview[overview.index("overviewQuickSettingsGrid"):overview.index("liveTopicInput")]
-    assert ".quick-settings-grid" in overview_css
-    assert ".quick-setting-card" in overview_css
-    assert "QUICK_NAV_MAP" in quick_js
+    index = (_static_dir() / "index.html").read_text(encoding="utf-8")
+    app_js = (_static_dir() / "app.js").read_text(encoding="utf-8")
+    for fragment in (overview, index):
+        assert "overviewQuickSettings" not in fragment
+        assert "quick-setting" not in fragment
+        assert "data-quick-nav" not in fragment
+        assert "danmu_render_mode_quick" not in fragment
+        assert "快捷设置" not in fragment
+    assert "quick-setting" not in overview_css
+    assert "initOverviewQuickSettings" not in app_js
+    assert "overview-quick-settings.js" not in app_js
+    settings = (_static_dir() / "partials" / "settings.html").read_text(encoding="utf-8")
+    assert 'id="danmu_render_mode"' in settings
 
 
 def test_overview_demo_topic_nickname_use_ui_field():
@@ -312,11 +308,11 @@ def test_overview_f1_semantic_shell():
     components = _components_css()
     pages = (_static_dir() / "warm-tokens-pages-overview.css").read_text(encoding="utf-8")
     session_stats_start = overview.index('id="page-overview"')
-    quick_settings_start = overview.index(
-        '<section class="overview-quick-settings',
+    topic_card_start = overview.index(
+        '<div class="card ui-card p-8 mb-6 space-y-4">',
         session_stats_start,
     )
-    session_stats = overview[session_stats_start:quick_settings_start]
+    session_stats = overview[session_stats_start:topic_card_start]
 
     assert "ui-page-header" in overview
     assert "ui-page-header__copy" in overview
