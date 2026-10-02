@@ -101,6 +101,18 @@ python -m pytest tests/test_knowledge_import_service.py tests/test_knowledge_dat
 
 与改动相关的其他 `tests/test_*.py` 请单独成批追加；**禁止**无文件参数的 `pytest` / `python -m pytest tests/`。
 
+### 前端运行测试
+
+使用 Node.js 22，测试只依赖 Node 内置模块，无需安装 npm 依赖。本地按改动指定 `tests/test_*.mjs` 文件：
+
+```powershell
+node --test --test-concurrency=1 tests/test_settings_module_identity.mjs tests/test_auto_save_controller.mjs
+```
+
+CI 在 Windows 上排序枚举全部 `tests/test_*.mjs`，将显式文件列表交给同一命令；没有发现测试或任一测试失败时，该步骤失败。Python 测试中的 Node wrapper 继续保留。
+
+有状态的 ES 模块必须由各调用方使用同一解析 URL 导入；不同 query 会创建独立实例。`app.js` 与 `language.js` 共用无 query 的 `settings.js`，由 `test_settings_module_identity.mjs` 验证设备缓存能跨入口复用。
+
 ### 静态检查与 Boundary Guard
 
 Python 代码改动至少运行：

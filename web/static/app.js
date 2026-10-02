@@ -53,7 +53,7 @@ import {
   reloadConfigFromServer,
   switchSettingsTab,
   getActiveSettingsTabId,
-} from './modules/settings.js?v=20260717-number-stepper-v1';
+} from './modules/settings.js';
 import { initNumberSteppers } from './modules/number-stepper.js?v=20260717-number-stepper-v1';
 import {
   configureGuideTabs,

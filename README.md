@@ -149,6 +149,12 @@ ruff check app main.py tests scripts
 python -m pytest tests/test_web_console.py tests/test_web_persona_api.py tests/test_web_custom_models.py tests/test_ui_mode.py -q -x
 ```
 
+前端运行测试使用 Node.js 22，无需安装 npm 依赖。CI 会执行全部 `tests/test_*.mjs`；本地可指定与改动相关的文件，例如：
+
+```powershell
+node --test --test-concurrency=1 tests/test_settings_module_identity.mjs tests/test_auto_save_controller.mjs
+```
+
 修改 `web/static/` 中的 HTML/CSS/JS 后，需要重新生成入口 HTML：
 
 ```powershell

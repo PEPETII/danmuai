@@ -2,19 +2,28 @@
 
 import time
 
+import pytest
 from app.config_store import ConfigStore
 from app.danmu_engine import ENTRY_ZONE_PX, DanmuEngine, DanmuItem
 from app.danmu_engine_models import Track
+
+
+@pytest.fixture(autouse=True)
+def _fixed_test_dpi(monkeypatch):
+    """Keep item density independent of the host display's DPI and Qt app state."""
+    monkeypatch.setattr("app.danmu_engine.screen.ui_scale_factor", lambda: 1.0)
 
 
 def _make_engine(tmp_path, *, lines: int = 8, width: float = 1920.0) -> DanmuEngine:
     store = ConfigStore(db_path=tmp_path / "perf.db")
     store.set("danmu_speed", "2.0")
     store.set("danmu_lines", str(lines))
+    store.set("layout_mode", "fullscreen")
     engine = DanmuEngine(store)
     engine.set_screen_width(width)
     engine.set_screen_height(1080.0)
     engine.reload_tracks()
+    assert len(engine.tracks) == lines
     engine.recent.clear()
     engine.recent_exact_set.clear()
     return engine
@@ -95,12 +104,14 @@ def test_capacity_counts_match_scan_after_motion_and_eviction(tmp_path, monkeypa
     store = ConfigStore(db_path=tmp_path / "motion.db")
     store.set("danmu_speed", "8.0")
     store.set("danmu_lines", "6")
+    store.set("layout_mode", "fullscreen")
     store.set("danmu_pending_entry_cap", "4")
     store.set("danmu_track_retention_cap", "12")
     engine = DanmuEngine(store)
     engine.set_screen_width(1000.0)
     engine.set_screen_height(400.0)
     engine.reload_tracks()
+    assert len(engine.tracks) == 6
     engine.recent.clear()
     engine.recent_exact_set.clear()
 
@@ -120,11 +131,13 @@ def test_eviction_still_drops_furthest_offscreen(tmp_path, monkeypatch):
     store = ConfigStore(db_path=tmp_path / "evict.db")
     store.set("danmu_speed", "2.0")
     store.set("danmu_lines", "2")
+    store.set("layout_mode", "fullscreen")
     store.set("danmu_pending_entry_cap", "2")
     engine = DanmuEngine(store)
     engine.set_screen_width(1000.0)
     engine.set_screen_height(400.0)
     engine.reload_tracks()
+    assert len(engine.tracks) == 2
 
     engine.tracks[0].add(DanmuItem(content="far-a", x=1100.0, width=50.0))
     engine.tracks[1].add(DanmuItem(content="far-b", x=1200.0, width=50.0))
@@ -206,12 +219,14 @@ def test_prepare_capacity_high_density_within_budget(tmp_path, monkeypatch):
     store = ConfigStore(db_path=tmp_path / "cap.db")
     store.set("danmu_speed", "2.0")
     store.set("danmu_lines", "8")
+    store.set("layout_mode", "fullscreen")
     store.set("danmu_pending_entry_cap", "8")
     store.set("danmu_track_retention_cap", "24")
     engine = DanmuEngine(store)
     engine.set_screen_width(1000.0)
     engine.set_screen_height(1080.0)
     engine.reload_tracks()
+    assert len(engine.tracks) == 8
     engine.recent.clear()
     engine.recent_exact_set.clear()
 
