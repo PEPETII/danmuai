@@ -306,12 +306,12 @@ class DanmuAppWebFacadeMixin:
     def request_capture_region_selection(self) -> None:
         from app.region_selector import request_capture_region_selection as _request_selection
         from app.region_selector import screen_for_index
-        from app.snipper import resolve_screen_index
+        from app.snipper import resolve_capture_screen_index
 
         _request_selection(
             self,
             logger=self.logger,
-            resolve_screen_index_fn=lambda: resolve_screen_index(self.config),
+            resolve_screen_index_fn=lambda: resolve_capture_screen_index(self.config),
             screen_for_index_fn=screen_for_index,
             close_region_selector_fn=self._close_region_selector,
             on_finished_fn=self._on_region_selection_finished,

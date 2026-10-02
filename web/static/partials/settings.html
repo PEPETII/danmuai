@@ -6,7 +6,7 @@
       <header class="ui-page-header flex flex-wrap justify-between items-start gap-4 mb-8">
         <div class="ui-page-header__copy min-w-0">
           <h2 class="ui-page-title text-2xl font-bold text-warmText" data-i18n="settings.text.弹幕设置">弹幕设置</h2>
-          <p class="ui-page-description text-gray-500 mt-1" data-i18n="settings.text.设置_AI_接口_识图屏幕和弹幕效果_保存后立即生效">设置 AI 接口、识图屏幕和弹幕效果，保存后立即生效</p>
+          <p class="ui-page-description text-gray-500 mt-1" data-i18n="settings.text.设置_AI_模型_弹幕显示和_AI_识别范围_保存后立即生效">设置 AI 模型、弹幕显示和 AI 识别范围，保存后立即生效</p>
         </div>
         <div class="theme-toggle-wrap shrink-0">
           <label class="lang-select-wrap" data-i18n-aria-label="settings.aria.界面语言" aria-label="界面语言">
@@ -24,19 +24,17 @@
         </div>
       </header>
 
-      <!-- 设置 tab 列表：api / mic / danmu-read / danmu / capture -->
+      <!-- 设置 tab 列表：核心设置（模型 / 生成与显示 / AI 看哪里）+ 扩展能力 -->
       <form id="settingsForm" class="card p-8 space-y-0">
         <div class="settings-tabs-bar">
           <div class="settings-tabs" role="tablist" data-i18n-aria-label="settings.aria.弹幕设置分类" aria-label="弹幕设置分类">
-            <!-- tab: API 与模型 — 服务商/Key/视觉模型/Token/记忆模式/模型配置档案 -->
-            <button type="button" id="settingsTabBtn-api" role="tab" class="settings-tab active" data-settings-tab="api" aria-controls="settingsTab-api" aria-selected="true" data-i18n="settings.text.API_与模型">AI模型配置</button>
-            <!-- tab: 麦克风模式 — 开麦/与视觉同模型/独立 mic 服务商 -->
+            <span class="settings-tab-group-label" data-i18n="settings.text.核心设置">核心设置</span>
+            <button type="button" id="settingsTabBtn-api" role="tab" class="settings-tab active" data-settings-tab="api" aria-controls="settingsTab-api" aria-selected="true" data-i18n="settings.text.AI_模型">AI 模型</button>
+            <button type="button" id="settingsTabBtn-danmu" role="tab" class="settings-tab" data-settings-tab="danmu" aria-controls="settingsTab-danmu" aria-selected="false" data-i18n="settings.text.弹幕生成与显示">弹幕生成与显示</button>
+            <button type="button" id="settingsTabBtn-capture" role="tab" class="settings-tab" data-settings-tab="capture" aria-controls="settingsTab-capture" aria-selected="false" data-i18n="settings.text.AI看哪里">AI 看哪里</button>
+            <span class="settings-tab-group-label settings-tab-group-label--secondary" data-i18n="settings.text.扩展能力">扩展能力</span>
             <button type="button" id="settingsTabBtn-mic" role="tab" class="settings-tab" data-settings-tab="mic" aria-controls="settingsTab-mic" aria-selected="false" data-i18n="settings.text.麦克风模式">语音输入</button>
-            <!-- tab: AI读弹幕 — MiMo TTS 启用/声音/语速/抽屏间隔 -->
             <button type="button" id="settingsTabBtn-danmu-read" role="tab" class="settings-tab" data-settings-tab="danmu-read" aria-controls="settingsTab-danmu-read" aria-selected="false" data-i18n="settings.text.AI读弹幕">AI播报</button>
-            <button type="button" id="settingsTabBtn-danmu" role="tab" class="settings-tab" data-settings-tab="danmu" aria-controls="settingsTab-danmu" aria-selected="false" data-i18n="settings.text.弹幕显示">弹幕显示</button>
-            <!-- tab: AI识图相关 — 鼠标框选子区域 + 压缩质量/最大宽度（POST /api/capture-region） -->
-            <button type="button" id="settingsTabBtn-capture" role="tab" class="settings-tab" data-settings-tab="capture" aria-controls="settingsTab-capture" aria-selected="false" data-i18n="settings.text.AI识图相关">画面识别范围</button>
           </div>
 
         </div>
@@ -59,27 +57,6 @@
             <div id="customModelsList" class="space-y-2"></div>
           </div>
           <div id="providerStatus" class="hidden rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status" aria-live="polite"></div>
-
-          <hr class="border-gray-200">
-
-          <!-- A1 弹幕展示方式 -->
-          <div>
-            <label class="block text-sm font-semibold mb-2 text-warmText"><svg class="ui-icon field-label-icon" aria-hidden="true"><use href="#i-message"></use></svg>弹幕展示方式</label>
-            <select name="danmu_render_mode" id="danmu_render_mode" class="settings-field-control w-full ui-control ui-select">
-              <option value="scrolling" data-i18n="settings.text.横向弹幕">横向弹幕</option>
-              <option value="floating_panel" data-i18n="settings.text.竖向弹幕">竖向弹幕</option>
-            </select>
-          </div>
-
-          <hr class="border-gray-200">
-
-          <!-- A2 弹幕显示器 -->
-          <div>
-            <label class="block text-sm font-semibold mb-2 text-warmText"><svg class="ui-icon field-label-icon" aria-hidden="true"><use href="#i-monitor"></use></svg>弹幕显示器</label>
-            <select name="screen_index" id="screen_index" class="settings-field-control w-full ui-control ui-select"></select>
-          </div>
-
-          <hr class="border-gray-200">
 
           <!-- legacy 字段（保留但隐藏） -->
           <div class="hidden">
@@ -381,8 +358,61 @@
         <!-- 弹幕显示 -->
         <div id="settingsTab-danmu" class="settings-tab-panel space-y-6" data-settings-panel="danmu" role="tabpanel" aria-labelledby="settingsTabBtn-danmu" hidden>
           <h3 class="text-lg font-bold text-warmText flex items-center gap-2">
-            <svg class="ui-icon text-warmPink" aria-hidden="true"><use href="#i-message"></use></svg> 弹幕与显示
+            <svg class="ui-icon text-warmPink" aria-hidden="true"><use href="#i-message"></use></svg>
+            <span data-i18n="settings.text.弹幕生成与显示">弹幕生成与显示</span>
           </h3>
+          <section class="settings-simple-settings" aria-labelledby="danmuSimpleSettingsTitle">
+            <div class="settings-section-heading">
+              <div>
+                <h4 id="danmuSimpleSettingsTitle" class="settings-section-title" data-i18n="settings.text.常用设置">常用设置</h4>
+                <p class="settings-section-hint" data-i18n="settings.text.先选择感受再展开高级参数">先选择你想要的效果；需要精确控制时再展开高级参数。</p>
+              </div>
+            </div>
+            <div class="settings-simple-grid">
+              <div class="settings-simple-field">
+                <label for="danmu_render_mode" class="settings-field-label" data-i18n="settings.text.显示形式">显示形式</label>
+                <select name="danmu_render_mode" id="danmu_render_mode" class="settings-field-control w-full ui-control ui-select">
+                  <option value="scrolling" data-i18n="settings.text.横向">横向</option>
+                  <option value="floating_panel" data-i18n="settings.text.竖向">竖向</option>
+                </select>
+              </div>
+              <div class="settings-simple-field">
+                <label for="danmu_density_preset" class="settings-field-label" data-i18n="settings.text.每次生成数量">每次生成数量</label>
+                <select id="danmu_density_preset" class="settings-field-control w-full ui-control ui-select">
+                  <option value="low" data-i18n="settings.text.少">少</option>
+                  <option value="medium" data-i18n="settings.text.适中">适中</option>
+                  <option value="high" data-i18n="settings.text.多">多</option>
+                  <option value="custom" data-i18n="settings.text.自定义">自定义</option>
+                </select>
+              </div>
+              <div class="settings-simple-field">
+                <label for="danmu_length_preset" class="settings-field-label" data-i18n="settings.text.弹幕长度">弹幕长度</label>
+                <select id="danmu_length_preset" class="settings-field-control w-full ui-control ui-select">
+                  <option value="short" data-i18n="settings.text.短">短</option>
+                  <option value="medium" data-i18n="settings.text.中">中</option>
+                  <option value="long" data-i18n="settings.text.长">长</option>
+                  <option value="custom" data-i18n="settings.text.自定义">自定义</option>
+                </select>
+              </div>
+              <div class="settings-simple-field">
+                <label for="danmu_frequency_preset" class="settings-field-label" data-i18n="settings.text.生成频率">生成频率</label>
+                <select id="danmu_frequency_preset" class="settings-field-control w-full ui-control ui-select">
+                  <option value="slow" data-i18n="settings.text.慢">慢</option>
+                  <option value="medium" data-i18n="settings.text.适中">适中</option>
+                  <option value="fast" data-i18n="settings.text.快">快</option>
+                  <option value="custom" data-i18n="settings.text.自定义">自定义</option>
+                </select>
+              </div>
+              <div class="settings-simple-field">
+                <label for="screen_index" class="settings-field-label" data-i18n="settings.text.弹幕显示屏幕">弹幕显示屏幕</label>
+                <select name="screen_index" id="screen_index" class="settings-field-control w-full ui-control ui-select"></select>
+              </div>
+            </div>
+          </section>
+
+          <details class="settings-advanced-section" id="danmuAdvancedSettings">
+            <summary data-i18n="settings.text.高级参数">高级参数</summary>
+            <div class="settings-advanced-section__body">
           <div class="settings-rhythm-accordion" data-settings-rhythm-accordion>
             <section class="settings-rhythm-accordion-item">
               <h4 class="settings-rhythm-accordion-heading">
@@ -470,32 +500,44 @@
               </div>
             </section>
           </div>
+            </div>
+          </details>
         </div>
-        <!-- AI识图相关：识图区域 + 识图清晰度（原 capture / rhythm 合并） -->
+        <!-- AI 看哪里：识别屏幕 + 识图区域 + 高级画质设置 -->
         <div id="settingsTab-capture" class="settings-tab-panel space-y-6" data-settings-panel="capture" role="tabpanel" aria-labelledby="settingsTabBtn-capture" hidden>
           <h3 class="text-lg font-bold text-warmText flex items-center gap-2">
             <svg class="ui-icon text-warmPink" aria-hidden="true"><use href="#i-crop"></use></svg>
-            <span data-i18n="settings.text.AI识图相关">画面识别范围</span>
+            <span data-i18n="settings.text.AI看哪里">AI 看哪里</span>
           </h3>
           <div class="bg-softPeach/30 p-4 rounded-xl text-sm text-warmText border border-softPeach flex gap-3">
             <svg class="ui-icon mt-1 text-warmPink" aria-hidden="true"><use href="#i-info"></use></svg>
-            <p>默认识图<strong class="text-warmPink">所选显示器全屏</strong>；也可点击下方按钮用鼠标框选子区域（坐标相对该屏左上角）。请在「API 与模型」选好<strong class="text-warmPink">识图显示器</strong>后再框选。截图只在内存里压缩后发给 AI，<strong class="text-warmPink">默认不会保存到硬盘</strong>。</p>
+            <p data-i18n="settings.text.AI看哪里说明">选择 AI 要识别的屏幕和区域。截图只在内存里压缩后发给 AI，默认不会保存到硬盘。</p>
           </div>
+          <section class="settings-simple-settings" aria-labelledby="captureSimpleSettingsTitle">
+            <div class="settings-simple-field">
+              <label for="capture_screen_index" class="settings-field-label" data-i18n="settings.text.识别屏幕">识别屏幕</label>
+              <select name="capture_screen_index" id="capture_screen_index" class="settings-field-control w-full ui-control ui-select"></select>
+              <p class="settings-section-hint" data-i18n="settings.text.框选区域会跟随此屏幕">框选区域会跟随此屏幕。</p>
+            </div>
+          </section>
           <div class="settings-section space-y-3">
-            <p class="settings-section-title">当前识图范围</p>
+            <p id="captureSimpleSettingsTitle" class="settings-section-title" data-i18n="settings.text.识别范围">识别范围</p>
             <p id="captureRegionModeLabel" class="text-sm font-semibold text-warmText">全屏识图</p>
             <p id="captureRegionCoords" class="text-xs text-gray-500 hidden" aria-live="polite"></p>
             <p id="captureRegionHint" class="text-xs text-gray-400">框选时按 Esc 或右键取消；区域过小（小于 10×10 像素）将视为无效。</p>
             <div class="flex flex-wrap gap-3">
-              <button type="button" id="btnCaptureRegionSelect" class="btn-primary ui-button ui-button--primary ui-button--md">鼠标框选识图范围</button>
+              <button type="button" id="btnCaptureRegionSelect" class="btn-primary ui-button ui-button--primary ui-button--md" data-i18n="settings.text.框选区域">框选区域</button>
               <button type="button" id="btnCaptureRegionReset" class="ui-button ui-button--secondary ui-button--md hidden">恢复全屏识图</button>
             </div>
           </div>
+          <details class="settings-advanced-section" id="captureAdvancedSettings">
+            <summary data-i18n="settings.text.高级画质设置">高级画质设置</summary>
+            <div class="settings-advanced-section__body">
           <div class="settings-rhythm-accordion" data-settings-rhythm-accordion>
             <section class="settings-rhythm-accordion-item">
               <h4 class="settings-rhythm-accordion-heading">
                 <button type="button" id="settingsRhythmAccordionTrigger" class="settings-rhythm-accordion-trigger" aria-expanded="false" aria-controls="settingsRhythmCompressionPanel">
-                  <span>识图节奏与压缩</span>
+                  <span data-i18n="settings.text.识别节奏与压缩">识别节奏与压缩</span>
                   <span class="settings-rhythm-accordion-chevron" aria-hidden="true"></span>
                 </button>
               </h4>
@@ -513,6 +555,8 @@
               </div>
             </section>
           </div>
+            </div>
+          </details>
         </div>
         <div class="settings-form-footer flex flex-wrap items-center justify-between gap-4">
           <span id="settingsSaveStatus" class="settings-section-hint" role="status" aria-live="polite" data-i18n="dynamic.autoSaveStatus.hint">更改会自动保存</span>

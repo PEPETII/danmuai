@@ -35,6 +35,7 @@ _ROUND_TRIP_CASES = [
     ("danmu_max_chars", "20", "20"),
     ("dedup_threshold", "0.7", "0.7"),
     ("screen_index", "1", "1"),
+    ("capture_screen_index", "2", "2"),
     ("layout_mode", "1/2", "1/2"),
     ("opacity", "80", "80"),
     ("empty_accel", "0", "0"),

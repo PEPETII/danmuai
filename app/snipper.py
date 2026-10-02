@@ -31,18 +31,39 @@ class CapturePlan:
     hwnd: int = 0
 
 
-def resolve_screen_index_with_meta(config=None) -> tuple[int, bool]:
-    """返回 (有效 screen_index, 是否因屏数变化被 clamp)。"""
-    screens = QApplication.screens()
+def _resolve_configured_screen_index(
+    config, key: str, *, screens=None
+) -> tuple[int, bool]:
+    """Resolve a screen setting while keeping out-of-range values safe."""
+    screens = QApplication.screens() if screens is None else screens
     if not screens:
         return 0, False
-    raw = config.get_int("screen_index", 0) if config is not None else 0
+    raw = config.get_int(key, 0) if config is not None else 0
     clamped = max(0, min(raw, len(screens) - 1))
     return clamped, raw != clamped
 
 
+def resolve_screen_index_with_meta(config=None) -> tuple[int, bool]:
+    """返回弹幕显示器的有效 screen_index，以及是否因屏数变化被 clamp。"""
+    screens = QApplication.screens()
+    return _resolve_configured_screen_index(config, "screen_index", screens=screens)
+
+
 def resolve_screen_index(config=None) -> int:
     index, _ = resolve_screen_index_with_meta(config)
+    return index
+
+
+def resolve_capture_screen_index_with_meta(config=None) -> tuple[int, bool]:
+    """返回 AI 识别屏幕的有效 capture_screen_index，以及是否被 clamp。"""
+    screens = QApplication.screens()
+    return _resolve_configured_screen_index(
+        config, "capture_screen_index", screens=screens
+    )
+
+
+def resolve_capture_screen_index(config=None) -> int:
+    index, _ = resolve_capture_screen_index_with_meta(config)
     return index
 
 
@@ -137,7 +158,7 @@ def build_capture_plan(config) -> CapturePlan | None:
     screens = QApplication.screens()
     if not screens:
         return None
-    screen_index = resolve_screen_index(config)
+    screen_index = resolve_capture_screen_index(config)
     if screen_index >= len(screens):
         screen_index = 0
     geo = screens[screen_index].geometry()

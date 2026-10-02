@@ -91,7 +91,12 @@ def should_log_broadcast(last_at: float, *, consumer_count: int) -> tuple[bool, 
     return True, now
 
 
-async def _authenticate_websocket(websocket, expected_token: str, timeout_sec: float = _WS_AUTH_TIMEOUT_SEC) -> bool:
+async def _authenticate_websocket(
+    websocket,
+    expected_token: str,
+    timeout_sec: float = _WS_AUTH_TIMEOUT_SEC,
+    websocket_disconnect=None,
+) -> bool:
     """首次消息认证：客户端连接后发送 {"type":"auth","token":"xxx"} 进行认证。
 
     认证成功返回 True，失败或超时返回 False 并关闭连接。
@@ -122,7 +127,14 @@ async def _authenticate_websocket(websocket, expected_token: str, timeout_sec: f
     except asyncio.TimeoutError:
         await _close_auth_failure(websocket, "认证超时")
         return False
-    except (AttributeError, TypeError, ValueError, KeyError, RuntimeError, OSError) as exc:
+    except Exception as exc:
+        if websocket_disconnect is not None and isinstance(exc, websocket_disconnect):
+            logger.debug("websocket auth disconnected")
+            return False
+        if not isinstance(
+            exc, (AttributeError, TypeError, ValueError, KeyError, RuntimeError, OSError)
+        ):
+            raise
         logger.debug("websocket auth error: %r", exc)
         await websocket.close(code=1008, reason="认证异常")
         return False
@@ -131,7 +143,12 @@ async def _authenticate_websocket(websocket, expected_token: str, timeout_sec: f
 def register_websocket_routes(app, bridge, token: str, websocket_route, websocket_disconnect) -> None:
     async def _ws_status_endpoint(websocket):
         await websocket.accept()
-        if not await _authenticate_websocket(websocket, token, timeout_sec=_WS_AUTH_TIMEOUT_SEC):
+        if not await _authenticate_websocket(
+            websocket,
+            token,
+            timeout_sec=_WS_AUTH_TIMEOUT_SEC,
+            websocket_disconnect=websocket_disconnect,
+        ):
             return
         if len(bridge._ws_status_queues) >= _WS_MAX_STATUS_CONSUMERS:
             await websocket.close(code=1008, reason="连接数已满")
@@ -162,7 +179,12 @@ def register_websocket_routes(app, bridge, token: str, websocket_route, websocke
 
     async def _ws_logs_endpoint(websocket):
         await websocket.accept()
-        if not await _authenticate_websocket(websocket, token, timeout_sec=_WS_AUTH_TIMEOUT_SEC):
+        if not await _authenticate_websocket(
+            websocket,
+            token,
+            timeout_sec=_WS_AUTH_TIMEOUT_SEC,
+            websocket_disconnect=websocket_disconnect,
+        ):
             return
         if len(bridge._ws_log_queues) >= _WS_MAX_LOG_CONSUMERS:
             await websocket.close(code=1008, reason="连接数已满")
@@ -188,7 +210,12 @@ def register_websocket_routes(app, bridge, token: str, websocket_route, websocke
 
     async def _ws_mic_logs_endpoint(websocket):
         await websocket.accept()
-        if not await _authenticate_websocket(websocket, token, timeout_sec=_WS_AUTH_TIMEOUT_SEC):
+        if not await _authenticate_websocket(
+            websocket,
+            token,
+            timeout_sec=_WS_AUTH_TIMEOUT_SEC,
+            websocket_disconnect=websocket_disconnect,
+        ):
             return
         if len(bridge._ws_mic_log_queues) >= _WS_MAX_MIC_LOG_CONSUMERS:
             await websocket.close(code=1008, reason="连接数已满")
@@ -214,7 +241,12 @@ def register_websocket_routes(app, bridge, token: str, websocket_route, websocke
 
     async def _ws_panel_endpoint(websocket):
         await websocket.accept()
-        if not await _authenticate_websocket(websocket, token, timeout_sec=_WS_AUTH_TIMEOUT_SEC):
+        if not await _authenticate_websocket(
+            websocket,
+            token,
+            timeout_sec=_WS_AUTH_TIMEOUT_SEC,
+            websocket_disconnect=websocket_disconnect,
+        ):
             return
         panel_queues = getattr(bridge, "_ws_panel_queues", None)
         if panel_queues is None or not hasattr(bridge, "register_panel_consumer"):

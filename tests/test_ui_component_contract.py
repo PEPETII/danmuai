@@ -229,6 +229,7 @@ def test_settings_page_controls_use_ui_dual_class():
     for field_id in (
         "api_endpoint",
         "screen_index",
+        "capture_screen_index",
         "danmuReadInterval",
         "danmu_render_mode",
         "languageSelect",

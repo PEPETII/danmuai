@@ -4,6 +4,7 @@ from app.snipper import (
     ScreenCapturer,
     grab_rect_screen_local,
     resolve_capture_rect,
+    resolve_capture_screen_index,
     resolve_screen_index,
 )
 
@@ -63,6 +64,19 @@ def test_resolve_screen_index_returns_zero_when_no_screens():
 
     with patch("app.snipper.QApplication.screens", return_value=[]):
         assert resolve_screen_index(config) == 0
+
+
+def test_capture_screen_index_is_independent_from_overlay_screen_index():
+    screens = [object(), object(), object()]
+    config = MagicMock()
+    config.get_int.side_effect = lambda key, _default=0: {
+        "screen_index": 0,
+        "capture_screen_index": 1,
+    }[key]
+
+    with patch("app.snipper.QApplication.screens", return_value=screens):
+        assert resolve_screen_index(config) == 0
+        assert resolve_capture_screen_index(config) == 1
 
 
 def test_resolve_capture_rect_full_screen_without_config():

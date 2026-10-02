@@ -15,6 +15,13 @@ EN_MAP = Path(__file__).resolve().parent / "locale_en_extra.json"
 
 SHARDS = ["common", "nav", "overview", "settings", "content", "modals", "hints", "dynamic"]
 
+DYNAMIC_TEMPLATE_OVERRIDES = {
+    "dynamic.appMemeBarragePage.最多只能选择_MAX_SELECTED_ME": {
+        "zh": "最多只能选择 {maxTags} 个标签",
+        "en": "Select at most {maxTags} tags",
+    },
+}
+
 DOMAIN_TO_SHARD = {
     "sidebar": "nav",
     "overview": "overview",
@@ -61,6 +68,19 @@ NAV_LABEL_KEYS = {
     "六个分页": "tooltipTabsTitle",
     "使用前注意": "tooltipNoticeTitle",
     "有新版本": "newVersionBadge",
+}
+
+NAV_STATIC_LABELS = {
+    "versionCurrent": "\u5f53\u524d\u7248\u672c",
+    "versionLatest": "\u6700\u65b0\u7248\u672c\uff1a",
+    "checkUpdate": "\u68c0\u67e5\u66f4\u65b0",
+    "downloadRestart": "\u4e0b\u8f7d\u5e76\u91cd\u542f",
+    "settingsHelpAria": "\u5f39\u5e55\u8bbe\u7f6e\u8bf4\u660e",
+    "newAnnouncementBadge": "\u6709\u65b0\u516c\u544a",
+    "newVersionBadge": "\u6709\u65b0\u7248\u672c",
+    "openMenu": "\u6253\u5f00\u5bfc\u822a",
+    "closeMenu": "\u5173\u95ed\u5bfc\u822a",
+    "sidebarAria": "\u4e3b\u5bfc\u822a",
 }
 
 COMMON_STRING_KEYS = {
@@ -156,6 +176,24 @@ def merge_dicts(base: dict, updates: dict) -> dict:
     return merged
 
 
+def set_flattened(root: dict, path: str, value: str) -> None:
+    parts = path.split(".")
+    set_nested(root, parts, value)
+
+
+def prune_to_reference(node: dict, reference: dict) -> dict:
+    pruned: dict = {}
+    for key, value in node.items():
+        if key not in reference:
+            continue
+        ref_value = reference[key]
+        if isinstance(value, dict) and isinstance(ref_value, dict):
+            pruned[key] = prune_to_reference(value, ref_value)
+        elif not isinstance(value, dict) and not isinstance(ref_value, dict):
+            pruned[key] = value
+    return pruned
+
+
 def flatten_locale(node: dict, prefix: str = "") -> dict[str, str]:
     out: dict[str, str] = {}
     for key, value in node.items():
@@ -229,6 +267,9 @@ def build_zh_shards(extracted: dict[str, str], hints: dict[str, str]) -> dict[st
 
     # hints from JS (authoritative)
     shards["hints"]["hints"] = dict(hints)
+
+    for key, value in NAV_STATIC_LABELS.items():
+        set_nested(shards["nav"], ["nav", key], value)
 
     # Process extracted flat keys
     for flat_key, value in extracted.items():
@@ -364,6 +405,15 @@ def main() -> None:
         generated_en = translate_tree(generated_zh, en_by_zh)
         existing_en = load_existing_shard("en", shard)
         en_data = merge_dicts(existing_en, generated_en)
+        for path, values in DYNAMIC_TEMPLATE_OVERRIDES.items():
+            if path.startswith(f"{shard}."):
+                set_flattened(zh_data, path, values["zh"])
+                set_flattened(en_data, path, values["en"])
+        en_flat = flatten_locale(en_data)
+        for path, zh_value in flatten_locale(zh_data).items():
+            if path not in en_flat:
+                set_flattened(en_data, path, en_by_zh.get(zh_value, zh_value))
+        en_data = prune_to_reference(en_data, zh_data)
         write_json(LOCALES / "zh" / f"{shard}.json", zh_data)
         write_json(LOCALES / "en" / f"{shard}.json", en_data)
         counts["zh"][shard] = count_leaves(zh_data)

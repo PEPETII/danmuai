@@ -28,10 +28,19 @@
     "versionLatest": "Latest version:",
     "helpSystem": "Help & System",
     "aria": {
-      "主导航": "主导航",
-      "关闭导航": "关闭导航",
+      "主导航": "Main navigation",
+      "关闭导航": "Close navigation",
       "页面": "页面"
     },
-    "categoryAria": "Navigation categories"
+    "categoryAria": "Navigation categories",
+    "versionCurrent": "Current version",
+    "checkUpdate": "Check for updates",
+    "downloadRestart": "Download & restart",
+    "settingsHelpAria": "Danmu settings help",
+    "newAnnouncementBadge": "New announcement",
+    "newVersionBadge": "New version available",
+    "openMenu": "Open navigation",
+    "closeMenu": "Close navigation",
+    "sidebarAria": "Main navigation"
   }
 }

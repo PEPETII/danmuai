@@ -49,6 +49,7 @@ import {
   collectFormData,
   configureSettingsCore,
   fillForm,
+  initSimpleSettingPresets,
   initRenderModeControls,
   initNumberFieldValidation,
   initOpacityWarning,
@@ -612,18 +613,20 @@ export function updateModelActiveSourceBanner(cfg) {
 
 export async function loadScreens() {
   const screens = validateScreensPayload(await fetchSettingsBootstrap('/api/screens'));
-  const sel = document.getElementById('screen_index');
-  if (!sel) return screens;
-  const current = sel.value;
-  sel.innerHTML = '';
-  screens.forEach((s) => {
-    const opt = document.createElement('option');
-    opt.value = String(s.index);
-    opt.textContent = s.label;
-    sel.appendChild(opt);
+  ['screen_index', 'capture_screen_index'].forEach((id) => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    const current = sel.value;
+    sel.innerHTML = '';
+    screens.forEach((s) => {
+      const opt = document.createElement('option');
+      opt.value = String(s.index);
+      opt.textContent = s.label;
+      sel.appendChild(opt);
+    });
+    if (current !== '') sel.value = current;
+    sel.disabled = screens.length <= 1;
   });
-  if (current !== '') sel.value = current;
-  sel.disabled = screens.length <= 1;
   return screens;
 }
 
@@ -631,6 +634,7 @@ export async function loadScreens() {
 export function bindSettingsControls(deps = {}) {
   configureSettingsBindings(deps);
   initSettingsRhythmAccordion();
+  initSimpleSettingPresets();
 
   // W-SETTINGS-RESTRUCT-A-006：旧顶栏 API 字段软隐藏（DOM 属性 hidden 双保险，配合 CSS .legacy-api-fields）
   // DOM 节点保留不删除；仅隐藏。回滚：删除 partials/settings.html 中的 .legacy-api-fields CSS 规则 + 此段。

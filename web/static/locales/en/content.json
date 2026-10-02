@@ -491,7 +491,8 @@
       "限制最终发送给_AI_的知识文本长度": "限制最终发送给 AI 的知识文本长度。",
       "开始预览": "开始预览",
       "实际注入的知识文本": "实际注入的知识文本",
-      "这是系统在当前测试场景下准备发送给_AI_的知识内容": "这是系统在当前测试场景下准备发送给 AI 的知识内容。"
+      "这是系统在当前测试场景下准备发送给_AI_的知识内容": "这是系统在当前测试场景下准备发送给 AI 的知识内容。",
+      "桌面互动宠物与弹幕指令入口_复用助手模型_不单独请求_AI": "Desktop interactive pet and danmu commands reuse the assistant model; no separate AI request"
     },
     "hint": {
       "vtuberPersonaSystem": "Describe the host identity, personality, tone, and long-term behavior boundaries.",

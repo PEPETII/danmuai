@@ -2,9 +2,9 @@
 
 ``CONFIG_DEFAULTS`` 分组说明（新增字段时请同步到对应组并核对 ``WEB_CONFIG_KEYS``）：
 
-- 弹幕显示（``danmu_*`` + ``layout_mode`` + ``opacity`` + ``eviction_mode`` + ``empty_accel`` +
+- 弹幕显示（``screen_index`` + ``danmu_*`` + ``layout_mode`` + ``opacity`` + ``eviction_mode`` + ``empty_accel`` +
   ``danmu_pending_entry_cap`` + ``danmu_track_retention_cap`` + ``reply_queue_max_items``）
-- 截图策略（``screen_index`` + ``region_*`` + ``image_max_width`` + ``image_quality`` + ``normal_recognition_interval_sec``）
+- 截图策略（``capture_screen_index`` + ``region_*`` + ``image_max_width`` + ``image_quality`` + ``normal_recognition_interval_sec``）
 - 麦克风（``mic_*``）
 - 悬浮窗（``danmu_render_mode`` + ``floating_panel_*``；W-FP-V2-001/002） — 枚举 ``danmu_render_mode``：
   - ``scrolling``（默认）：横向 DanmuOverlay
@@ -77,7 +77,10 @@ CONFIG_DEFAULTS: dict[str, str] = {
     "danmu_max_chars": "",
     "dedup_threshold": "0.5",
     "danmu_recent_ttl_sec": str(DEFAULT_DANMU_RECENT_TTL_SEC),
+    # 弹幕显示器；旧版本该字段同时用于截图，seed_config_defaults 会迁移旧值。
     "screen_index": "0",
+    # AI 识别显示器；与弹幕显示器独立，首次升级时从旧 screen_index 迁移。
+    "capture_screen_index": "0",
     "layout_mode": "1/2",
     "opacity": "100",
     "font_size": "24",
@@ -259,6 +262,15 @@ def migrate_legacy_image_max_width(config) -> bool:
     return True
 
 
+def migrate_legacy_capture_screen_index(config) -> bool:
+    """Copy the pre-split screen choice into the new capture-only key once."""
+    if config.get("capture_screen_index", ""):
+        return False
+    legacy = config.get("screen_index", "") or CONFIG_DEFAULTS["capture_screen_index"]
+    config.set("capture_screen_index", legacy)
+    return True
+
+
 def migrate_legacy_danmu_max_chars_factory(config) -> bool:
     """Clear historic language-blind factory default 15 so lang fallback applies.
 
@@ -344,5 +356,11 @@ def seed_config_defaults(config: "ConfigStore") -> None:
     }
     if config.get("reply_queue_max_items", "") == "0":
         items["reply_queue_max_items"] = str(DEFAULT_REPLY_QUEUE_MAX_ITEMS)
+    # Before the screen split, screen_index controlled both capture and overlay.
+    # Preserve that user choice when the new capture-specific key is first seeded.
+    if not config.get("capture_screen_index", ""):
+        items["capture_screen_index"] = (
+            config.get("screen_index", "") or CONFIG_DEFAULTS["capture_screen_index"]
+        )
     if items:
         config.set_batch(items)

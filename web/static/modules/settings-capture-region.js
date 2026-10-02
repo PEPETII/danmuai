@@ -25,11 +25,11 @@ export function applyCaptureRegionFromPayload(data) {
 
   if (selectBtn) {
     selectBtn.disabled = selecting;
-    selectBtn.textContent = selecting ? t('dynamic.settingsCaptureRegion.正在框选') : t('dynamic.settingsCaptureRegion.鼠标框选识图范围');
+    selectBtn.textContent = selecting ? t('dynamic.settingsCaptureRegion.正在框选') : t('settings.text.框选区域');
   }
 
   if (selecting) {
-    modeEl.textContent = t('dynamic.settingsCaptureRegion.正在框选_请在识图显示器上拖动鼠标_Esc_取消');
+    modeEl.textContent = t('dynamic.settingsCaptureRegion.正在框选_请在识别屏幕上拖动鼠标_Esc_取消');
     coordsEl?.classList.add('hidden');
     return;
   }
@@ -109,7 +109,7 @@ export function initCaptureRegionControls() {
         region: { x: 0, y: 0, w: 0, h: 0 },
         selection_state: res.selection_state || 'selecting',
       });
-      captureRegionDeps.showToast(t('dynamic.settingsCaptureRegion.请在识图显示器上拖动鼠标框选区域'));
+      captureRegionDeps.showToast(t('dynamic.settingsCaptureRegion.请在识别屏幕上拖动鼠标框选区域'));
       const done = await pollCaptureRegionUntilDone();
       if (!done) return;
       if (done.selection_state === 'saved') {

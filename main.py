@@ -11,7 +11,7 @@
 
 关键设计：
 - screenshot_id：每帧截图递增，用于「更新帧优于在途回复」的 supersede 判定
-- scene_generation：场景配置指纹版本（live_topic/user_nickname/screen_index/region_* 变更递增；start/stop 重置；截图不推进）
+- scene_generation：场景配置指纹版本（live_topic/user_nickname/capture_screen_index/region_* 变更递增；start/stop 重置；截图不推进）
 - MAX_IN_FLIGHT=1：并发视觉请求会破坏过期判断与回复顺序，故硬限制为 1
 
 线程：DanmuApp 在 Qt 主线程抓屏并创建 QImage 快照；CaptureRunnable 在
@@ -330,13 +330,13 @@ class DanmuApp(
             self._record_undisplayed("capture_failure")
             return False
         if image.isNull() or image.width() <= 0 or image.height() <= 0:
-            screen_index = self.config.get_int("screen_index", 0)
+            screen_index = self.config.get_int("capture_screen_index", 0)
             region_x = self.config.get_int("region_x", 0)
             region_y = self.config.get_int("region_y", 0)
             region_w = self.config.get_int("region_w", 0)
             region_h = self.config.get_int("region_h", 0)
             self.logger.warning(
-                "截图无效: is_null=%s width=%s height=%s screen_index=%s "
+                "截图无效: is_null=%s width=%s height=%s capture_screen_index=%s "
                 "region_x=%s region_y=%s region_w=%s region_h=%s reason=null_pixmap",
                 image.isNull(),
                 image.width(),

@@ -24,6 +24,7 @@ WEB_CONFIG_KEYS = (
     "dedup_threshold",
     "danmu_recent_ttl_sec",
     "screen_index",
+    "capture_screen_index",
     "layout_mode",
     "opacity",
     "font_size",
@@ -131,7 +132,7 @@ RESTORABLE_CONFIG_KEYS = WEB_CONFIG_KEYS
 SCENE_VERSION_CONFIG_KEYS = (
     "live_topic",
     "user_nickname",
-    "screen_index",
+    "capture_screen_index",
     "region_x",
     "region_y",
     "region_w",
@@ -139,7 +140,7 @@ SCENE_VERSION_CONFIG_KEYS = (
 )
 
 _SCENE_VERSION_INT_KEYS = frozenset(
-    {"screen_index", "region_x", "region_y", "region_w", "region_h"}
+    {"capture_screen_index", "region_x", "region_y", "region_w", "region_h"}
 )
 
 

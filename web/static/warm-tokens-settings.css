@@ -45,6 +45,25 @@
   scrollbar-width: thin;
 }
 
+.settings-tab-group-label {
+  align-self: center;
+  flex: 0 0 auto;
+  margin-left: 0.25rem;
+  padding: 0.25rem 0.15rem;
+  color: var(--color-text-dim);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.settings-tab-group-label--secondary {
+  margin-left: 0.75rem;
+  padding-left: 0.75rem;
+  border-left: 1px solid var(--border);
+}
+
 .settings-tab {
   flex: 0 0 auto;
   min-height: var(--control-height-sm);
@@ -88,6 +107,65 @@
 
 .settings-tab-panel.active {
   display: block;
+}
+
+.settings-simple-settings {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: rgba(var(--color-primary-rgb), 0.035);
+}
+
+.settings-section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.settings-simple-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.settings-simple-field {
+  min-width: 0;
+}
+
+.settings-advanced-section {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.settings-advanced-section > summary {
+  cursor: pointer;
+  padding: var(--space-4);
+  color: var(--text-primary);
+  font-weight: 700;
+  list-style-position: inside;
+}
+
+.settings-advanced-section > summary::marker {
+  color: var(--color-primary);
+}
+
+.settings-advanced-section__body {
+  padding: 0 var(--space-4) var(--space-4);
+}
+
+@media (max-width: 640px) {
+  .settings-simple-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .settings-tab-group-label--secondary {
+    margin-left: 0.25rem;
+    padding-left: 0.25rem;
+  }
 }
 
 /* 设置表单滚动主体（W-UI-SETTINGS-STICKY-ACTION-001） */

@@ -21,7 +21,7 @@ def test_display_mode_labels_are_vertical_danmu_without_changing_backend_values(
 
     assert 'value="floating_panel" data-i18n="settings.text.竖向弹幕">竖向弹幕</option>' in overview
     assert 'name="danmu_render_mode"' in settings
-    assert 'value="floating_panel" data-i18n="settings.text.竖向弹幕">竖向弹幕</option>' in settings
+    assert 'value="floating_panel" data-i18n="settings.text.竖向">竖向</option>' in settings
     assert 'data-sg-tab="bottom-up"' in style_generator
     assert "竖向弹幕模式" in style_generator
     assert "从下到上" not in overview + settings + style_generator
@@ -41,10 +41,19 @@ def test_display_mode_labels_are_vertical_danmu_without_changing_backend_values(
     assert "Vertical danmu" in en_dynamic["dynamic"]["settingsHints"]["竖向弹幕模式窗口宽度_200_800_px_默"]
 
 
-def test_ai_model_configuration_uses_danmu_display_labels():
+def test_danmu_display_labels_live_in_generation_settings():
     settings = (STATIC / "partials" / "settings.html").read_text(encoding="utf-8")
+    api_start = settings.index('id="settingsTab-api"')
+    danmu_start = settings.index('id="settingsTab-danmu"')
+    api = settings[api_start:danmu_start]
+    danmu = settings[danmu_start:settings.index('id="settingsTab-capture"', danmu_start)]
 
-    assert ">弹幕展示方式</label>" in settings
-    assert ">弹幕显示器</label>" in settings
+    assert 'id="danmu_render_mode"' in danmu
+    assert 'id="screen_index"' in danmu
+    assert 'data-i18n="settings.text.弹幕显示屏幕"' in danmu
+    assert 'data-i18n="settings.text.显示形式"' in danmu
+    assert 'id="capture_screen_index"' in settings
+    assert 'data-i18n="settings.text.AI看哪里"' in settings
+    assert 'id="danmu_render_mode"' not in api
+    assert 'id="screen_index"' not in api
     assert ">弹幕显示模式</label>" not in settings
-    assert ">识图显示器</label>" not in settings

@@ -269,6 +269,7 @@ def test_web_config_keys_cover_core_settings():
     assert "api_endpoint" not in WEB_CONFIG_KEYS
     assert "api_mode" not in WEB_CONFIG_KEYS
     assert "screen_index" in WEB_CONFIG_KEYS
+    assert "capture_screen_index" in WEB_CONFIG_KEYS
     assert "region_x" not in WEB_CONFIG_KEYS
     assert "hotkey" in WEB_CONFIG_KEYS
     assert "danmu_speed" in WEB_CONFIG_KEYS

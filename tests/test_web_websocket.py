@@ -166,6 +166,44 @@ def test_ws_auth_failure_closes_when_failure_frame_send_times_out(monkeypatch):
     assert websocket.closed == [(1008, "认证失败")]
 
 
+def test_ws_auth_returns_cleanly_when_client_disconnects_before_auth():
+    """A refresh/close during the auth wait must not escape as an ASGI error."""
+    import asyncio
+
+    from app.web_console_ws import _authenticate_websocket
+    from starlette.websockets import WebSocketDisconnect
+
+    class _WebSocket:
+        query_params = {}
+
+        async def receive_json(self):
+            raise WebSocketDisconnect(code=1000)
+
+    websocket = _WebSocket()
+    assert asyncio.run(
+        _authenticate_websocket(
+            websocket,
+            "expected-token",
+            websocket_disconnect=WebSocketDisconnect,
+        )
+    ) is False
+
+
+def test_ws_logs_client_disconnects_before_auth_without_server_error():
+    """The /ws/logs route must handle a client close before the auth frame."""
+    from fastapi.testclient import TestClient
+
+    token = "ws-test-token-disconnect"
+    bridge = MagicMock()
+    app = build_ws_logs_test_app(bridge, token)
+    client = TestClient(app)
+
+    with client.websocket_connect("/ws/logs") as websocket:
+        websocket.close()
+
+    bridge.register_log_consumer.assert_not_called()
+
+
 def test_ws_status_websocket_rejects_missing_token_with_1008():
     from fastapi.testclient import TestClient
     from starlette.websockets import WebSocketDisconnect

@@ -1,4 +1,8 @@
 {
+  "\u6253\u5f00\u5bfc\u822a": "Open navigation",
+  "\u5173\u95ed\u5bfc\u822a": "Close navigation",
+  "\u4e3b\u5bfc\u822a": "Main navigation",
+  "桌面互动宠物与弹幕指令入口；复用助手模型，不单独请求 AI": "Desktop interactive pet and danmu commands reuse the assistant model; no separate AI request",
   "帮助与系统": "Help & system",
   "使用 DanmuAI、查看应用状态、处理问题": "Use DanmuAI, review app status, and troubleshoot issues",
   "使用帮助": "User help",
@@ -727,6 +731,7 @@
   "设为使用": "Set as active",
   "设置 AI 接口、用哪块屏幕识图、弹幕样式，以及截图与压缩参数。改完后点「保存配置」立即生效。": "Set AI API, capture display, danmu style, and screenshot/compression. Click Save settings to apply.",
   "设置 AI 接口、识图屏幕和弹幕效果，保存后立即生效": "Set AI API, capture screen, and danmu effects—applies after save",
+  "设置 AI 模型、弹幕显示和 AI 识别范围，保存后立即生效": "Configure the AI model, danmu display, and what AI recognizes; changes apply after saving",
   "设默认": "Set default",
   "访问 AI 的密钥，保存在本机并加密。留空点「保存配置」不会覆盖已有密钥。": "API key stored locally encrypted. Leaving blank on Save won't overwrite existing key.",
   "识别间隔（秒）": "Capture interval (seconds)",

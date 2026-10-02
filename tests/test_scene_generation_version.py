@@ -52,7 +52,7 @@ def test_live_topic_change_bumps_once():
     assert app._scene_generation == 1
 
 
-def test_user_nickname_and_screen_index_bump():
+def test_user_nickname_and_capture_screen_index_bump_but_display_screen_does_not():
     app = _scene_version_app()
 
     app.config.set("user_nickname", "小明")
@@ -60,6 +60,10 @@ def test_user_nickname_and_screen_index_bump():
     assert app._scene_generation == 1
 
     app.config.set("screen_index", "1")
+    app._on_config_changed()
+    assert app._scene_generation == 1
+
+    app.config.set("capture_screen_index", "1")
     app._on_config_changed()
     assert app._scene_generation == 2
 

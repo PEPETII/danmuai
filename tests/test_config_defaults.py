@@ -39,6 +39,35 @@ def test_seed_migrates_legacy_unlimited_reply_queue_capacity(tmp_path):
     store.close()
 
 
+def test_seed_migrates_legacy_screen_choice_to_capture_screen(tmp_path):
+    store = ConfigStore(db_path=tmp_path / "screen-split.db")
+    store.set("screen_index", "2")
+    store.set("capture_screen_index", "")
+
+    seed_config_defaults(store)
+
+    assert store.get("capture_screen_index") == "2"
+    store.close()
+
+
+def test_existing_config_startup_migrates_screen_choice_even_when_seed_is_skipped(tmp_path):
+    db_path = tmp_path / "existing-screen-split.db"
+    store = ConfigStore(db_path=db_path)
+    store.set("danmu_speed", "2")
+    store.set("screen_index", "2")
+    store.set("capture_screen_index", "")
+    store.close()
+
+    reopened = ConfigStore(db_path=db_path)
+    assert reopened.get("capture_screen_index") == "2"
+    reopened.close()
+
+
+def test_capture_screen_key_is_defaulted_and_web_writable():
+    assert CONFIG_DEFAULTS["capture_screen_index"] == "0"
+    assert "capture_screen_index" in WEB_CONFIG_KEYS
+
+
 # W-FP-V2-001：danmu_render_mode 与侧边悬浮窗配置字段
 FP_KEYS = (
     "danmu_render_mode",

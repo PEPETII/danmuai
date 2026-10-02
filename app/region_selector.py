@@ -268,7 +268,7 @@ def on_region_selection_finished(
     danmu_app._region_selector = None
     screen_index = danmu_app._region_selection_screen_index
     if screen_index is None:
-        screen_index = danmu_app.config.get_int("screen_index", 0)
+        screen_index = danmu_app.config.get_int("capture_screen_index", 0)
     screen = screen_for_index(screen_index)
     if screen is None:
         danmu_app._region_selection_state = SELECTION_INVALID

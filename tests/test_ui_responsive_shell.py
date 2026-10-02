@@ -49,6 +49,7 @@ def test_sidebar_shell_structure_and_preserved_ids():
     assert 'id="btnHelpSystem"' in html
     assert 'id="appUpdateNavBadge"' in html
     assert 'id="sidebarVersionFooter"' in html
+    assert "sidebar-version-icon" in html
     assert 'id="appVersionCurrent"' in html
     assert 'id="appVersionLatest"' in html
     assert 'id="btnCheckAppUpdate"' not in html

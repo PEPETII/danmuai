@@ -1,22 +1,22 @@
 {
   "zh": {
     "common": 60,
-    "nav": 29,
+    "nav": 38,
     "overview": 64,
-    "settings": 254,
+    "settings": 288,
     "content": 550,
     "modals": 135,
-    "hints": 88,
-    "dynamic": 1022
+    "hints": 89,
+    "dynamic": 1023
   },
   "en": {
     "common": 60,
-    "nav": 29,
+    "nav": 38,
     "overview": 64,
-    "settings": 254,
-    "content": 549,
+    "settings": 288,
+    "content": 550,
     "modals": 135,
-    "hints": 94,
-    "dynamic": 1022
+    "hints": 89,
+    "dynamic": 1023
   }
 }

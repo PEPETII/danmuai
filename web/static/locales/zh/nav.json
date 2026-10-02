@@ -32,6 +32,15 @@
       "关闭导航": "关闭导航",
       "页面": "页面"
     },
-    "categoryAria": "菜单分类"
+    "categoryAria": "菜单分类",
+    "versionCurrent": "当前版本",
+    "checkUpdate": "检查更新",
+    "downloadRestart": "下载并重启",
+    "settingsHelpAria": "弹幕设置说明",
+    "newAnnouncementBadge": "有新公告",
+    "newVersionBadge": "有新版本",
+    "openMenu": "打开导航",
+    "closeMenu": "关闭导航",
+    "sidebarAria": "主导航"
   }
 }

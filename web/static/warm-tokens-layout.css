@@ -286,6 +286,10 @@ a.sidebar-item {
 }
 
 .sidebar-version-footer {
+  display: grid;
+  grid-template-columns: 1.25rem minmax(0, 1fr) minmax(0, 1.7fr);
+  align-items: center;
+  column-gap: 0.625rem;
   margin: 0.25rem 0 0.5rem;
   padding: 0.625rem 0.75rem 0.5rem;
   color: var(--color-text-muted, #9b9292);
@@ -294,11 +298,17 @@ a.sidebar-item {
   border-top: 1px solid var(--color-accent);
 }
 
-.sidebar-version-line {
+.sidebar-version-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: var(--color-primary, #ff8585);
+}
+
+.sidebar-version-copy {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.75rem;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.125rem;
 }
 
 .sidebar-version-label {
@@ -313,9 +323,9 @@ a.sidebar-item {
 }
 
 .sidebar-version-latest {
-  margin-top: 0.25rem;
+  min-width: 0;
   overflow-wrap: anywhere;
-  text-align: right;
+  text-align: left;
 }
 
 .sidebar-help-btn {

@@ -51,6 +51,52 @@ export function syncRenderModeFieldsVisibility() {
   if (scrollingBox) scrollingBox.classList.toggle('hidden', mode !== 'scrolling');
 }
 
+const SIMPLE_SETTING_PRESETS = {
+  danmu_density_preset: {
+    target: 'normal_reply_count',
+    values: { low: '3', medium: '5', high: '10' },
+  },
+  danmu_length_preset: {
+    target: 'danmu_max_chars',
+    values: { short: '10', medium: '15', long: '30' },
+    emptyPreset: 'medium',
+  },
+  danmu_frequency_preset: {
+    target: 'normal_recognition_interval_sec',
+    values: { slow: '8', medium: '5', fast: '3' },
+  },
+};
+
+function resolveSimpleSettingPreset(selectId) {
+  const definition = SIMPLE_SETTING_PRESETS[selectId];
+  const select = document.getElementById(selectId);
+  const target = definition && document.getElementById(definition.target);
+  if (!definition || !select || !target) return;
+  const current = String(target.value ?? '');
+  const match = Object.entries(definition.values).find(([, value]) => value === current);
+  select.value = match ? match[0] : (current === '' && definition.emptyPreset ? definition.emptyPreset : 'custom');
+}
+
+export function syncSimpleSettingPresets() {
+  Object.keys(SIMPLE_SETTING_PRESETS).forEach(resolveSimpleSettingPreset);
+}
+
+export function initSimpleSettingPresets() {
+  Object.entries(SIMPLE_SETTING_PRESETS).forEach(([selectId, definition]) => {
+    const select = document.getElementById(selectId);
+    const target = document.getElementById(definition.target);
+    if (!select || !target) return;
+    select.addEventListener('change', () => {
+      const value = definition.values[select.value];
+      if (value !== undefined) target.value = value;
+      syncSimpleSettingPresets();
+    });
+    target.addEventListener('input', () => resolveSimpleSettingPreset(selectId));
+    target.addEventListener('change', () => resolveSimpleSettingPreset(selectId));
+  });
+  syncSimpleSettingPresets();
+}
+
 export function initRenderModeControls() {
   const modeEl = document.getElementById('danmu_render_mode');
   if (!modeEl) return;
@@ -142,6 +188,7 @@ function applySettingsDefaults(scope) {
   coreDeps.applyMicIndependentVisibility();
   coreDeps.updateMicModeHint();
   updateNormalBatchPreview();
+  syncSimpleSettingPresets();
   coreDeps.refreshDanmuPreview();
   closeRestoreDefaultsModal();
   document.dispatchEvent(new CustomEvent('danmu:settings-mutated', {
@@ -210,7 +257,7 @@ export async function fillForm(cfg) {
     }
   };
   [
-    'danmu_speed', 'danmu_lines', 'font_size', 'opacity', 'dedup_threshold', 'hotkey',
+    'screen_index', 'capture_screen_index', 'danmu_speed', 'danmu_lines', 'font_size', 'opacity', 'dedup_threshold', 'hotkey',
     'image_max_width', 'max_tokens', 'image_quality', 'danmu_max_chars',
     'danmu_pending_entry_cap', 'danmu_track_retention_cap', 'reply_queue_max_items',
     'danmu_render_mode', 'danmu_font_family',
@@ -261,6 +308,7 @@ export async function fillForm(cfg) {
     normalCount.value = configDefaultValue('normal_reply_count', renderMode) || '5';
   }
   updateNormalBatchPreview();
+  syncSimpleSettingPresets();
   refreshOpacityWarning();
   coreDeps.applyApiModeValue(cfg.api_mode);
   coreDeps.syncApiModeLockState();
