@@ -1,4 +1,6 @@
 import { apiFetch } from './transport.js';
+import { createAutoSave } from './auto-save.js';
+import { t } from './i18n.js';
 
 const MAX_PROMPT_CHARS = 8000;
 
@@ -54,6 +56,20 @@ function validatePersonaPayload(payload) {
   }
 }
 
+const vtuberPersonaAutoSave = createAutoSave({
+  capture: readPersonaForm,
+  save: (payload, options) => persistVtuberPersona(payload, options),
+  onState: (state, error) => {
+    if (state === 'saving') renderPersonaStatus(t('dynamic.autoSaveStatus.saving'));
+    if (state === 'saved') renderPersonaStatus(t('dynamic.autoSaveStatus.saved'));
+    if (state === 'error') {
+      renderPersonaStatus(error?.message || t('dynamic.autoSaveStatus.error'));
+      toast(error?.message || t('dynamic.autoSaveStatus.error'), true);
+    }
+  },
+  delay: 800,
+});
+
 export async function loadVtuberPersonaPage({ silent = false } = {}) {
   try {
     const data = await apiFetch('/api/virtual-host/persona');
@@ -67,9 +83,8 @@ export async function loadVtuberPersonaPage({ silent = false } = {}) {
   }
 }
 
-async function saveVtuberPersona() {
+async function persistVtuberPersona(payload, { isLatest = () => true, restoreOnError = false } = {}) {
   if (personaRequestInFlight) return null;
-  const payload = readPersonaForm();
   validatePersonaPayload(payload);
   const token = ++personaSaveToken;
   personaRequestInFlight = true;
@@ -81,14 +96,14 @@ async function saveVtuberPersona() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    if (token !== personaSaveToken) return data;
+    if (token !== personaSaveToken || !isLatest()) return data;
     personaCache = data;
     applyPersonaForm(data);
     renderPersonaStatus('虚拟主播人格已保存。');
     toast('虚拟主播人格已保存');
     return data;
   } catch (error) {
-    if (token === personaSaveToken && personaCache) applyPersonaForm(personaCache);
+    if (restoreOnError && token === personaSaveToken && personaCache) applyPersonaForm(personaCache);
     renderPersonaStatus(error?.message || '保存虚拟主播人格失败');
     throw error;
   } finally {
@@ -97,8 +112,13 @@ async function saveVtuberPersona() {
   }
 }
 
+async function saveVtuberPersona() {
+  return persistVtuberPersona(readPersonaForm(), { restoreOnError: true });
+}
+
 async function resetVtuberPersona() {
   if (personaRequestInFlight) return null;
+  if (!confirm(t('dynamic.autoSaveStatus.restoreConfirm'))) return null;
   const token = ++personaSaveToken;
   personaRequestInFlight = true;
   setPersonaControlsDisabled(true);
@@ -130,8 +150,24 @@ export function initVtuberPersonaPage(deps = {}) {
   if (handlersBound) return;
   handlersBound = true;
 
+  if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+    window.addEventListener('pagehide', () => vtuberPersonaAutoSave.cancel());
+  }
+
   element('btnVtuberPersonaSave')?.addEventListener('click', () => {
     saveVtuberPersona().catch((error) => toast(error.message, true));
+  });
+  element('vtuberPersonaSystemPrompt')?.addEventListener('input', () => {
+    vtuberPersonaAutoSave.schedule();
+  });
+  element('vtuberPersonaVoicePrompt')?.addEventListener('input', () => {
+    vtuberPersonaAutoSave.schedule();
+  });
+  [element('vtuberPersonaSystemPrompt'), element('vtuberPersonaVoicePrompt')].forEach((field) => {
+    field?.addEventListener('change', () => {
+      vtuberPersonaAutoSave.schedule({ immediate: true });
+      vtuberPersonaAutoSave.flush().catch(() => {});
+    });
   });
   element('btnVtuberPersonaReset')?.addEventListener('click', () => {
     resetVtuberPersona().catch((error) => toast(error.message, true));

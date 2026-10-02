@@ -66,3 +66,23 @@ test('auto-save keeps a failed value dirty and retries after the next edit', asy
   await autoSave.flush();
   assert.equal(calls, 2);
 });
+
+test('auto-save can invalidate a pending snapshot before switching records', async () => {
+  let value = 'old';
+  const requests = [];
+  const autoSave = createAutoSave({
+    delay: 5,
+    capture: () => value,
+    save: async (snapshot) => {
+      requests.push(snapshot);
+    },
+  });
+
+  autoSave.schedule();
+  autoSave.cancel();
+  value = 'new';
+  autoSave.schedule({ immediate: true });
+  await autoSave.flush();
+
+  assert.deepEqual(requests, ['new']);
+});

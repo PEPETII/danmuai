@@ -144,6 +144,9 @@ function applySettingsDefaults(scope) {
   updateNormalBatchPreview();
   coreDeps.refreshDanmuPreview();
   closeRestoreDefaultsModal();
+  document.dispatchEvent(new CustomEvent('danmu:settings-mutated', {
+    detail: { immediate: true, source: 'restore-defaults' },
+  }));
   coreDeps.showToast(t('dynamic.settingsCore.已恢复默认值_请点击_保存配置_生效'));
 }
 

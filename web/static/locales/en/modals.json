@@ -21,7 +21,7 @@
       "支持麦克风_input_audio": "Supports microphone (input_audio)",
       "OpenRouter_等自定义_OpenAI_兼容网关_若模型文档声明支持音频理": "For OpenRouter and other OpenAI-compatible gateways: if the model docs declare audio support, check this to attach mic audio.",
       "恢复默认设置": "Restore default settings",
-      "恢复后仅更新表单_不会自动保存_请点击_保存配置_后才会写入本机配置_API_密": "Restore updates the form only, not auto-saved. Click Save settings to write locally. API keys are not cleared or changed.",
+      "恢复后仅更新表单_不会自动保存_请点击_保存配置_后才会写入本机配置_API_密": "After confirmation, the defaults are saved automatically. API keys are not cleared or changed.",
       "仅恢复当前界面设置": "Restore current page settings only",
       "恢复所有设置": "Restore all settings",
       "删除模型档案": "Delete model profile",

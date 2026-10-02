@@ -39,6 +39,21 @@ function showPersonaPageStatus(message, isError = false) {
   }, 4000);
 }
 
+function setAutoSaveStatus(id, state, error = null) {
+  const status = document.getElementById(id);
+  if (!status) return;
+  const messages = {
+    saving: t('dynamic.autoSaveStatus.saving'),
+    saved: t('dynamic.autoSaveStatus.saved'),
+    error: error?.message || t('dynamic.autoSaveStatus.error'),
+  };
+  status.textContent = messages[state] || '';
+  status.dataset.state = state;
+  status.classList.remove('hidden');
+  status.classList.toggle('text-red-600', state === 'error');
+  status.classList.toggle('text-green-600', state === 'saved');
+}
+
 function enc(name) {
   return encodeURIComponent(name);
 }
@@ -210,15 +225,22 @@ async function loadLiveTopic() {
   }
 }
 
-async function saveLiveTopic() {
-  const input = document.getElementById('liveTopicInput');
-  if (!input) return;
-  const value = (input.value || '').trim().slice(0, 200);
+async function saveLiveTopicValue(value, { isLatest = () => true } = {}) {
   await apiFetch('/api/config', {
     method: 'PUT',
     body: JSON.stringify({ live_topic: value }),
   });
-  input.value = value;
+  if (isLatest()) {
+    const input = document.getElementById('liveTopicInput');
+    if (input) input.value = value;
+  }
+}
+
+async function saveLiveTopic() {
+  const input = document.getElementById('liveTopicInput');
+  if (!input) return;
+  const value = (input.value || '').trim().slice(0, 200);
+  await saveLiveTopicValue(value);
 }
 
 async function loadUserNickname() {
@@ -232,16 +254,69 @@ async function loadUserNickname() {
   }
 }
 
-async function saveUserNickname() {
-  const input = document.getElementById('userNicknameInput');
-  if (!input) return;
-  const value = (input.value || '').trim().slice(0, 20);
+async function saveUserNicknameValue(value, { isLatest = () => true } = {}) {
   await apiFetch('/api/config', {
     method: 'PUT',
     body: JSON.stringify({ user_nickname: value }),
   });
-  input.value = value;
+  if (isLatest()) {
+    const input = document.getElementById('userNicknameInput');
+    if (input) input.value = value;
+  }
 }
+
+async function saveUserNickname() {
+  const input = document.getElementById('userNicknameInput');
+  if (!input) return;
+  const value = (input.value || '').trim().slice(0, 20);
+  await saveUserNicknameValue(value);
+}
+
+const topicAutoSave = createAutoSave({
+  capture: () => (document.getElementById('liveTopicInput')?.value || '').trim().slice(0, 200),
+  save: saveLiveTopicValue,
+  onState: (state, error) => {
+    setAutoSaveStatus('overviewGlobalSaveStatus', state, error);
+    if (state === 'error') showToast(error?.message || t('dynamic.autoSaveStatus.error'), true);
+  },
+  delay: 800,
+});
+
+const nicknameAutoSave = createAutoSave({
+  capture: () => (document.getElementById('userNicknameInput')?.value || '').trim().slice(0, 20),
+  save: saveUserNicknameValue,
+  onState: (state, error) => {
+    setAutoSaveStatus('overviewGlobalSaveStatus', state, error);
+    if (state === 'error') showToast(error?.message || t('dynamic.autoSaveStatus.error'), true);
+  },
+  delay: 800,
+});
+
+const personaTemplateAutoSave = createAutoSave({
+  capture: () => {
+    const personaId = selectedPersonaId();
+    if (!personaId || personaId !== loadedPersonaId || personaTemplateError || personaTemplateLoading) {
+      return null;
+    }
+    return {
+      personaId,
+      payload: { system_custom: document.getElementById('personaSystemCustom')?.value ?? '' },
+    };
+  },
+  save: async (snapshot, { isLatest }) => {
+    if (!snapshot) return;
+    await apiFetch(`/api/personae/${enc(snapshot.personaId)}/template`, {
+      method: 'PUT',
+      body: JSON.stringify(snapshot.payload),
+    });
+    if (!isLatest() || selectedPersonaId() !== snapshot.personaId) return;
+  },
+  onState: (state, error) => {
+    setAutoSaveStatus('personaSaveStatusBanner', state, error);
+    if (state === 'error') showToast(error?.message || t('dynamic.autoSaveStatus.error'), true);
+  },
+  delay: 800,
+});
 
 export async function loadPersonaTemplate() {
   const name = selectedPersonaId();
@@ -359,6 +434,7 @@ export async function savePersonaTemplate() {
 export async function loadPersonaEditor() {
   // 页面（重新）进入时让上一轮在途模板加载失效，避免旧响应覆盖新一轮。
   cancelPersonaTemplateLoad();
+  personaTemplateAutoSave.cancel();
   const data = await personaFetch('/api/personae');
   const select = document.getElementById('personaSelect');
   if (!select) return;
@@ -418,11 +494,38 @@ export function initPersonaTopicPage(deps = {}) {
 
   // 页面销毁/离开时让在途模板加载失效（生成代际仍然兜底）。
   if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
-    window.addEventListener('pagehide', () => cancelPersonaTemplateLoad());
+    window.addEventListener('pagehide', () => {
+      cancelPersonaTemplateLoad();
+      topicAutoSave.cancel();
+      nicknameAutoSave.cancel();
+      personaTemplateAutoSave.cancel();
+    });
   }
 
   document.getElementById('personaSelect')?.addEventListener('change', () => {
+    personaTemplateAutoSave.cancel();
     loadPersonaTemplate().catch((error) => showToast(error.message, true));
+  });
+  document.getElementById('liveTopicInput')?.addEventListener('input', () => {
+    topicAutoSave.schedule();
+  });
+  document.getElementById('liveTopicInput')?.addEventListener('change', () => {
+    topicAutoSave.schedule({ immediate: true });
+    topicAutoSave.flush().catch(() => {});
+  });
+  document.getElementById('userNicknameInput')?.addEventListener('input', () => {
+    nicknameAutoSave.schedule();
+  });
+  document.getElementById('userNicknameInput')?.addEventListener('change', () => {
+    nicknameAutoSave.schedule({ immediate: true });
+    nicknameAutoSave.flush().catch(() => {});
+  });
+  document.getElementById('personaSystemCustom')?.addEventListener('input', () => {
+    personaTemplateAutoSave.schedule();
+  });
+  document.getElementById('personaSystemCustom')?.addEventListener('change', () => {
+    personaTemplateAutoSave.schedule({ immediate: true });
+    personaTemplateAutoSave.flush().catch(() => {});
   });
   document.getElementById('btnSaveLiveTopic')?.addEventListener('click', async (e) => {
     const btn = e.currentTarget;
@@ -459,6 +562,7 @@ export function initPersonaTopicPage(deps = {}) {
       showToast(t('dynamic.appPersonaTopicPage.内容未就绪_请重新加载后再保存'), true);
       return;
     }
+    if (!confirm(t('dynamic.autoSaveStatus.restoreConfirm'))) return;
     try {
       await window.withLoadingState(btn, btn.textContent, async () => {
         const data = await apiFetch(`/api/personae/${enc(targetPersonaId)}/restore`, {

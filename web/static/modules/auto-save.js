@@ -80,11 +80,23 @@ export function createAutoSave({ capture, save, delay = 400, onState = () => {} 
     return pump();
   }
 
+  // Invalidate a pending debounce or an in-flight snapshot before switching
+  // to another record (for example, another persona).
+  function cancel() {
+    if (disposed) return;
+    if (timer !== null) {
+      clearTimeout(timer);
+      timer = null;
+    }
+    pendingVersion += 1;
+    savedVersion = pendingVersion;
+  }
+
   function dispose() {
     disposed = true;
     if (timer !== null) clearTimeout(timer);
     timer = null;
   }
 
-  return { schedule, flush, dispose };
+  return { schedule, flush, cancel, dispose };
 }

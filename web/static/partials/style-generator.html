@@ -750,10 +750,10 @@
             </div>
 
             <div class="sg-action-bar">
-              <button type="submit" id="hfBtnSave" class="btn-primary ui-button ui-button--primary ui-button--md" data-i18n="content.text.保存字体设置">保存字体设置</button>
+              <button type="submit" id="hfBtnSave" class="btn-primary ui-button ui-button--primary ui-button--md" data-i18n="content.text.保存字体设置" hidden aria-hidden="true">保存字体设置</button>
               <button type="button" id="hfBtnRestoreDefault" class="ui-button ui-button--secondary ui-button--md" data-i18n="content.text.恢复字体默认">恢复默认</button>
             </div>
-            <p id="hfSaveStatus" class="text-sm text-gray-500 px-1" aria-live="polite"></p>
+            <p id="hfSaveStatus" class="text-sm text-gray-500 px-1" aria-live="polite" data-i18n="dynamic.autoSaveStatus.hint">更改会自动保存</p>
           </form>
 
           <div class="style-generator-preview-pane card p-6 space-y-3">

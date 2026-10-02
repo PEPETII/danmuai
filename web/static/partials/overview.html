@@ -196,7 +196,7 @@
               data-i18n-placeholder="overview.placeholder.描述本次你要玩的游戏或者直播主题等_以便_AI_更好地生成弹幕_文字尽量在_50" placeholder="描述本次你要玩的游戏或者直播主题等，以便 AI 更好地生成弹幕，文字尽量在 50 字内效果最佳"
             ></textarea>
           </div>
-          <button type="button" id="btnSaveLiveTopic" class="ui-button ui-button--secondary ui-button--md shrink-0">保存主题</button>
+          <button type="button" id="btnSaveLiveTopic" class="ui-button ui-button--secondary ui-button--md shrink-0" hidden aria-hidden="true">保存主题</button>
         </div>
         <div class="flex flex-wrap gap-3 items-end">
           <div class="ui-field flex-1 min-w-[220px]">
@@ -210,7 +210,8 @@
               data-i18n-placeholder="overview.placeholder.请输入你的昵称_AI_可在合适时自然称呼你" placeholder="请输入你的昵称（AI 可在合适时自然称呼你）"
             />
           </div>
-          <button type="button" id="btnSaveUserNickname" class="ui-button ui-button--secondary ui-button--md shrink-0">保存昵称</button>
+          <button type="button" id="btnSaveUserNickname" class="ui-button ui-button--secondary ui-button--md shrink-0" hidden aria-hidden="true">保存昵称</button>
         </div>
+        <p id="overviewGlobalSaveStatus" class="settings-section-hint" role="status" aria-live="polite" data-i18n="dynamic.autoSaveStatus.hint">更改会自动保存</p>
       </div>
     </section>

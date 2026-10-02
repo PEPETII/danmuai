@@ -514,11 +514,12 @@
             </section>
           </div>
         </div>
-        <div class="settings-form-footer flex flex-wrap justify-end gap-4">
+        <div class="settings-form-footer flex flex-wrap items-center justify-between gap-4">
+          <span id="settingsSaveStatus" class="settings-section-hint" role="status" aria-live="polite" data-i18n="dynamic.autoSaveStatus.hint">更改会自动保存</span>
           <button type="button" id="btnRestoreSettingsDefaults" class="ui-button ui-button--secondary ui-button--lg">
             恢复默认
           </button>
-          <button type="submit" class="btn-primary ui-button ui-button--primary ui-button--lg">
+          <button type="submit" class="btn-primary ui-button ui-button--primary ui-button--lg" hidden aria-hidden="true">
             保存配置 <svg class="ui-icon" aria-hidden="true"><use href="#i-sparkles"></use></svg>
           </button>
         </div>

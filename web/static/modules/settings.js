@@ -30,6 +30,7 @@
 
 import { getLastAppliedStatus } from './status.js';
 import { t } from './i18n.js';
+import { createAutoSave } from './auto-save.js';
 import {
   apiFetch
 } from './transport.js';
@@ -225,6 +226,55 @@ let bindDeps = {
   onConfigSaved: null,
   onSettingsTabSwitch: null,
 };
+
+let settingsSaveDanmuRead = false;
+
+function setSettingsSaveStatus(state, error = null) {
+  const status = document.getElementById('settingsSaveStatus');
+  if (!status) return;
+  const messages = {
+    saving: t('dynamic.autoSaveStatus.saving'),
+    saved: t('dynamic.autoSaveStatus.saved'),
+    error: error?.message || t('dynamic.autoSaveStatus.error'),
+  };
+  status.textContent = messages[state] || '';
+  status.dataset.state = state;
+  status.classList.toggle('text-red-600', state === 'error');
+  status.classList.toggle('text-green-600', state === 'saved');
+}
+
+const settingsAutoSave = createAutoSave({
+  capture: () => {
+    const saveDanmuRead = settingsSaveDanmuRead;
+    settingsSaveDanmuRead = false;
+    return {
+      config: collectFormData({
+        usesCustomCredentials: getLastAppliedStatus()?.uses_custom_credentials === true,
+      }),
+      saveDanmuRead,
+    };
+  },
+  save: async (snapshot, { isLatest }) => {
+    await apiFetch('/api/config', {
+      method: 'POST',
+      body: JSON.stringify({ data: snapshot.config }),
+    });
+    if (snapshot.saveDanmuRead && typeof window.saveDanmuReadSettings === 'function') {
+      await window.saveDanmuReadSettings();
+    }
+    if (!isLatest()) return;
+    refreshDanmuPreview();
+    ['mic_api_key', 'danmuReadApiKey'].forEach((id) => {
+      const input = document.getElementById(id);
+      if (input?.value && input.value !== MASKED_API_KEY) input.value = MASKED_API_KEY;
+    });
+  },
+  onState: (state, error) => {
+    setSettingsSaveStatus(state, error);
+    if (state === 'error') showToast(error?.message || t('dynamic.autoSaveStatus.error'), true);
+  },
+  delay: 800,
+});
 
 export function configureSettingsBindings(deps) {
   bindDeps = { ...bindDeps, ...deps };
@@ -581,7 +631,6 @@ export async function loadScreens() {
 export function bindSettingsControls(deps = {}) {
   configureSettingsBindings(deps);
   initSettingsRhythmAccordion();
-  const { onConfigSaved } = bindDeps;
 
   // W-SETTINGS-RESTRUCT-A-006：旧顶栏 API 字段软隐藏（DOM 属性 hidden 双保险，配合 CSS .legacy-api-fields）
   // DOM 节点保留不删除；仅隐藏。回滚：删除 partials/settings.html 中的 .legacy-api-fields CSS 规则 + 此段。
@@ -625,38 +674,31 @@ export function bindSettingsControls(deps = {}) {
     });
   });
 
-  document.getElementById('settingsForm')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const btn = e.submitter || document.activeElement;
-    await window.withLoadingState(btn, btn?.textContent, async () => {
+  const settingsForm = document.getElementById('settingsForm');
+  if (settingsForm) {
+    const scheduleSettingsSave = (event, immediate = false) => {
+      const target = event.target;
+      if (target?.type === 'number' && String(target.value || '').trim() === '') return;
+      settingsSaveDanmuRead = settingsSaveDanmuRead || Boolean(
+        target?.id?.startsWith('danmuRead') || target?.closest?.('.danmu-read-panel'),
+      );
+      settingsAutoSave.schedule({ immediate });
+    };
+    settingsForm.addEventListener('input', (event) => scheduleSettingsSave(event));
+    settingsForm.addEventListener('change', (event) => scheduleSettingsSave(event, true));
+    settingsForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      settingsAutoSave.schedule({ immediate: true });
       try {
-        const _status = getLastAppliedStatus();
-        await apiFetch('/api/config', { method: 'POST', body: JSON.stringify({ data: collectFormData({ usesCustomCredentials: _status?.uses_custom_credentials === true }) }) });
-        const cfg = await reloadConfigFromServer();
-        refreshDanmuPreview();
-        // 同时保存 danmu-read 专用配置
-        if (window.saveDanmuReadSettings) {
-          await window.saveDanmuReadSettings();
-        }
-        const active = cfg.active_model_id || '';
-        const label = cfg.model_display_name && cfg.model_display_name !== active
-          ? `${cfg.model_display_name}（${active}）`
-          : active;
-        showToast(label ? t('dynamic.settings.配置已保存_当前生效模型_label', { label }) : t('common.configSaved'));
-        if (onConfigSaved) onConfigSaved();
-        // W-GLOBAL-VISUAL-APIKEY-REMOVE-001: 视觉全局 api_key 已下线，不再回填；mic/tts 独立 key 保留回填
-        const micKeyInput = document.getElementById('mic_api_key');
-        if (micKeyInput?.value && micKeyInput.value !== MASKED_API_KEY) {
-          micKeyInput.value = MASKED_API_KEY;
-        }
-        const danmuReadKeyInput = document.getElementById('danmuReadApiKey');
-        if (danmuReadKeyInput?.value && danmuReadKeyInput.value !== MASKED_API_KEY) {
-          danmuReadKeyInput.value = MASKED_API_KEY;
-        }
-      } catch (err) {
-        showToast(err.message || t('dynamic.settings.保存时出了点小状况'), true);
+        await settingsAutoSave.flush();
+      } catch {
+        // onState already exposes the failure; keep the form editable.
       }
     });
+  }
+  document.addEventListener('danmu:settings-mutated', () => {
+    settingsSaveDanmuRead = false;
+    settingsAutoSave.schedule({ immediate: true });
   });
 
 

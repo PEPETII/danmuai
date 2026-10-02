@@ -13,6 +13,15 @@ let handlersBound = false;
 let metaPollTimer = null;
 let languageLayoutListenerRegistered = false;
 
+function setMemeSaveStatus(state, error = null) {
+  const status = document.getElementById('memeSaveStatus');
+  if (!status) return;
+  status.textContent = state === 'error'
+    ? (error?.message || t('dynamic.autoSaveStatus.error'))
+    : t(`dynamic.autoSaveStatus.${state}`);
+  status.dataset.state = state;
+}
+
 // 标签示例（说明用途，帮助用户判断标签主题；非真实弹幕内容，来自社区烂梗库 sb6657 的语义归纳）
 const TAG_EXAMPLES = {
   '00': '这机器打得太下饭了',
@@ -313,7 +322,8 @@ const memeBarrageAutoSave = createAutoSave({
   capture: collectMemeBarrageSettings,
   save: saveMemeBarrageSettings,
   onState: (state, error) => {
-    if (state === 'error') showToast(error?.message || t('dynamic.appMemeBarragePage.自动保存失败'), true);
+    setMemeSaveStatus(state, error);
+    if (state === 'error') showToast(error?.message || t('dynamic.autoSaveStatus.error'), true);
   },
 });
 

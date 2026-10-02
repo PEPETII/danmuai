@@ -10,6 +10,15 @@ function showToast(message, isError = false) {
   toast(message, isError);
 }
 
+function setPoolSaveStatus(state, error = null) {
+  const status = document.getElementById('poolSaveStatus');
+  if (!status) return;
+  status.textContent = state === 'error'
+    ? (error?.message || t('dynamic.autoSaveStatus.error'))
+    : t(`dynamic.autoSaveStatus.${state}`);
+  status.dataset.state = state;
+}
+
 function poolEffectiveEnabledLocal() {
   return Boolean(document.getElementById('poolCustomEnabled')?.checked);
 }
@@ -118,7 +127,8 @@ const danmuPoolAutoSave = createAutoSave({
   capture: collectDanmuPoolSettings,
   save: saveDanmuPoolSettings,
   onState: (state, error) => {
-    if (state === 'error') showToast(error?.message || t('dynamic.appDanmuPoolPage.自动保存失败'), true);
+    setPoolSaveStatus(state, error);
+    if (state === 'error') showToast(error?.message || t('dynamic.autoSaveStatus.error'), true);
   },
 });
 

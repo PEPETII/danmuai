@@ -1,5 +1,12 @@
 {
   "dynamic": {
+    "autoSaveStatus": {
+      "saving": "Saving…",
+      "saved": "Saved",
+      "error": "Save failed",
+      "hint": "Changes save automatically",
+      "restoreConfirm": "Restore the defaults? Your current edits will be replaced."
+    },
     "appKnowledgePage": {
       "title": "Knowledge Packages",
       "subtitle": "Put game notes, character lore, stream context, and memes into packages. The system organizes them and matches relevant knowledge when generating danmu.",
@@ -492,7 +499,7 @@
     "settingsCore": {
       "无法加载默认配置_请刷新页面后重试": "Cannot load defaults; refresh and retry",
       "当前分组无可恢复的表单项": "No restorable fields in current group",
-      "已恢复默认值_请点击_保存配置_生效": "Defaults restored; click Save settings to apply",
+      "已恢复默认值_请点击_保存配置_生效": "Defaults restored; saving automatically",
       "最小值_min_当前_num": "Min {min}, current {num}",
       "最大值_max_当前_num": "Max {max}, current {num}",
       "步长为_stepAttr_请输入合规值": "Step is {step}; enter a valid value"

@@ -5,6 +5,7 @@
 
 import { API, apiFetch } from './transport.js';
 import { t } from './i18n.js';
+import { createAutoSave } from './auto-save.js';
 import { initSettingsRhythmAccordion } from './settings-rhythm-accordion.js?v=20260717-number-stepper-v1';
 import {
   bindFontControls,
@@ -106,26 +107,40 @@ export async function loadHorizontalFontPage() {
   }
 }
 
+async function persistHorizontalFont(payload, { isLatest = () => true } = {}) {
+  await apiFetch('/api/config', {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+  if (!isLatest()) return;
+  updateDanmuPreviewSnapshot(payload);
+  refreshDanmuPreview();
+}
+
+const horizontalFontAutoSave = createAutoSave({
+  capture: collectHorizontalFontPayload,
+  save: persistHorizontalFont,
+  onState: (state, error) => {
+    const status = document.getElementById('hfSaveStatus');
+    if (status) {
+      status.textContent = state === 'error'
+        ? (error?.message || t('dynamic.autoSaveStatus.error'))
+        : t(`dynamic.autoSaveStatus.${state}`);
+      status.dataset.state = state;
+    }
+    if (state === 'error') toast(error?.message || t('dynamic.autoSaveStatus.error'), true);
+  },
+  delay: 400,
+});
+
 async function saveHorizontalFont(event) {
   event?.preventDefault?.();
-  const status = document.getElementById('hfSaveStatus');
-  const payload = collectHorizontalFontPayload();
-  try {
-    await apiFetch('/api/config', {
-      method: 'PUT',
-      body: JSON.stringify(payload),
-    });
-    updateDanmuPreviewSnapshot(payload);
-    if (status) status.textContent = t('dynamic.appHorizontalFont.字体设置已保存');
-    toast(t('dynamic.appHorizontalFont.字体设置已保存'));
-    refreshDanmuPreview();
-  } catch (error) {
-    if (status) status.textContent = '';
-    toast(error.message || t('dynamic.appHorizontalFont.保存失败'), true);
-  }
+  horizontalFontAutoSave.schedule({ immediate: true });
+  await horizontalFontAutoSave.flush();
 }
 
 async function restoreHorizontalFontDefaults() {
+  if (!confirm(t('dynamic.autoSaveStatus.restoreConfirm'))) return;
   try {
     const defaults = await apiFetch('/api/config/defaults');
     const values = {};
@@ -136,7 +151,8 @@ async function restoreHorizontalFontDefaults() {
       if (defaults[key] !== undefined) values[key] = defaults[key];
     });
     applyValuesToForm(values);
-    toast(t('dynamic.appHorizontalFont.已恢复默认_请点击保存生效'));
+    horizontalFontAutoSave.schedule({ immediate: true });
+    await horizontalFontAutoSave.flush();
   } catch (error) {
     toast(error.message || t('dynamic.appHorizontalFont.恢复默认失败'), true);
   }
@@ -156,8 +172,16 @@ export function initHorizontalFontPage(deps = {}) {
   if (!handlersBound) {
     handlersBound = true;
     form.addEventListener('submit', saveHorizontalFont);
-    form.addEventListener('input', onFormChange);
-    form.addEventListener('change', onFormChange);
+    form.addEventListener('input', (event) => {
+      onFormChange(event);
+      horizontalFontAutoSave.schedule();
+    });
+    form.addEventListener('change', (event) => {
+      onFormChange(event);
+      horizontalFontAutoSave.schedule({ immediate: true });
+      horizontalFontAutoSave.flush().catch(() => {});
+    });
+    window.addEventListener('pagehide', () => horizontalFontAutoSave.cancel());
     document.getElementById('hfBtnRestoreDefault')?.addEventListener('click', () => {
       restoreHorizontalFontDefaults().catch((error) => toast(error.message, true));
     });

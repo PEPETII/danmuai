@@ -149,6 +149,7 @@
 
           <div class="flex flex-wrap gap-3" data-page-node-id="xZJBpBRsEcFqw3gCJyMofx">
             <button type="button" id="btnResetMemeBarrageSettings" class="px-6 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText hover:bg-gray-50 ui-button ui-button--secondary ui-button--md" data-page-node-id="1g5DhgvNzAGyq64pG2CALA">恢复默认</button>
+            <p id="memeSaveStatus" class="settings-section-hint self-center" role="status" aria-live="polite" data-i18n="dynamic.autoSaveStatus.hint">更改会自动保存</p>
           </div>
         </div>
 
@@ -186,6 +187,7 @@
             </div>
             <p class="settings-section-hint" data-i18n="content.text.当屏幕上的弹幕少于该数量时_会从自定义公式化弹幕库中抽取短句补足" data-page-node-id="iEmZuScTPUV0HEmGHYoIdX">当屏幕上弹幕数量少于这个数时，自动从自定义句库里抽句子补上。设成 0 就关闭补足功能。</p>
             <p id="poolBothOffHint" class="settings-section-hint hidden" data-i18n="content.text.关闭自定义公式化弹幕库后_不会进行公式化弹幕补足" data-page-node-id="7l0eDGdTnBIoRMFSfqiQwv">关闭自定义公式化弹幕库后，不会进行公式化弹幕补足。</p>
+            <p id="poolSaveStatus" class="settings-section-hint" role="status" aria-live="polite" data-i18n="dynamic.autoSaveStatus.hint">更改会自动保存</p>
           </div>
         </div>
       </div>
@@ -411,7 +413,7 @@
               </div>
             </div>
             <div class="vtuber-settings-actions" aria-label="虚拟主播人格操作" data-page-node-id="66Bj1nemPiyzh5r1zi7Co9">
-              <button type="button" id="btnVtuberPersonaSave" class="ui-button ui-button--primary ui-button--md" data-i18n="content.text.保存" data-page-node-id="2OYRUILysBFvgKfMi4mryt">保存</button>
+              <button type="button" id="btnVtuberPersonaSave" class="ui-button ui-button--primary ui-button--md" data-i18n="content.text.保存" data-page-node-id="2OYRUILysBFvgKfMi4mryt" hidden aria-hidden="true">保存</button>
               <button type="button" id="btnVtuberPersonaReset" class="ui-button ui-button--secondary ui-button--md" data-i18n="content.text.恢复默认" data-page-node-id="Q1uffp3MCeg9qzAFyAvP1A">恢复默认</button>
             </div>
             <p id="vtuberPersonaStatus" class="settings-section-hint" role="status" aria-live="polite" data-page-node-id="sQonUlnilfpyxgx9Ay3LB1"></p>
@@ -456,18 +458,21 @@
               <button type="button" id="btnDeletePersona" class="px-4 py-3 bg-red-50 border border-red-200 rounded-xl font-semibold text-red-600 ui-button ui-button--secondary ui-button--md" data-page-node-id="ASadjzmZAAo9NSvMjUB0ET">删除</button>
             </div>
           </div>
-          <div data-page-node-id="WGcFzxBVvJZJQJEiTzc7rC">
-            <label for="personaContract" class="block text-sm font-semibold mb-2 text-warmText" data-page-node-id="kXW4CbL0PE3TXcPeCISa4q">输出契约（只读）</label>
-            <p class="text-xs text-gray-500 mb-2" data-page-node-id="Atbv4EWWGcc4JyB0QE1ix3">这里显示的是 AI 输出弹幕的固定格式，无法修改。如果想改每次生成多少条弹幕，请到「弹幕设置」→「弹幕显示」里调整。</p>
-            <textarea id="personaContract" readonly rows="4" class="w-full px-4 py-3 bg-cream rounded-xl text-sm text-gray-500 ui-control ui-textarea"></textarea>
-          </div>
           <div data-page-node-id="zQTB5paiIrUWyxIcmwGLq1">
             <label for="personaSystemCustom" class="block text-sm font-semibold mb-2 text-warmText" data-page-node-id="dO2HgGZenW9AvyrhFwRSEk">系统提示补充</label>
-            <p class="text-xs text-gray-500 mb-2" data-page-node-id="lt1LDLZe73cWyWAHsv4WQb">在这里填写你想让 AI 以什么风格说话，比如「毒舌吐槽」「温柔鼓励」等。写好后记得点「保存人格」才会生效。</p>
+            <p class="text-xs text-gray-500 mb-2" data-page-node-id="lt1LDLZe73cWyWAHsv4WQb">在这里填写你想让 AI 以什么风格说话，比如「毒舌吐槽」「温柔鼓励」等。停止输入约 800ms 后会自动保存。</p>
             <textarea id="personaSystemCustom" rows="4" class="w-full px-4 py-3 bg-cream rounded-xl text-warmText ui-control ui-textarea" data-i18n-placeholder="content.placeholder.例如_语气温柔治愈_像闺蜜一样吐槽主播操作_偶尔玩梗" placeholder="例如：语气温柔治愈，像闺蜜一样吐槽主播操作，偶尔玩梗"></textarea>
           </div>
+          <details id="personaAdvancedInfo" class="border border-softPeach rounded-xl overflow-hidden">
+            <summary class="px-4 py-3 text-sm font-semibold text-warmText cursor-pointer select-none">高级信息</summary>
+            <div class="px-4 pb-4">
+              <label for="personaContract" class="block text-sm font-semibold mb-2 text-warmText">输出契约（只读）</label>
+              <p class="text-xs text-gray-500 mb-2">这里显示的是 AI 输出弹幕的固定格式，无法修改。如果想改每次生成多少条弹幕，请到「弹幕设置」→「弹幕显示」里调整。</p>
+              <textarea id="personaContract" readonly rows="4" class="w-full px-4 py-3 bg-cream rounded-xl text-sm text-gray-500 ui-control ui-textarea"></textarea>
+            </div>
+          </details>
           <div class="flex flex-wrap gap-3" data-page-node-id="GPLIFtZyuqnLCS0CpRJVGa">
-            <button type="button" id="btnSavePersona" class="btn-primary px-6 py-2 text-white rounded-xl font-bold ui-button ui-button--primary ui-button--md" data-page-node-id="0phUEF8bmOGxqVRYmmHIoe">保存人格</button>
+            <button type="button" id="btnSavePersona" class="btn-primary px-6 py-2 text-white rounded-xl font-bold ui-button ui-button--primary ui-button--md" data-page-node-id="0phUEF8bmOGxqVRYmmHIoe" hidden aria-hidden="true">保存人格</button>
             <button type="button" id="btnRestorePersona" class="px-6 py-2 bg-white border border-gray-200 rounded-xl font-semibold text-warmText ui-button ui-button--secondary ui-button--md" data-page-node-id="G1NSTrhMrlZ3pZrpsLONzH">恢复默认</button>
           </div>
         </div>

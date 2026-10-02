@@ -596,3 +596,21 @@ def test_persona_model_controls_are_removed_from_ui():
     assert "openPersonaBulkModelModal" not in js
     assert "applyBulkPersonaModel" not in js
     assert "/api/personae/${enc(personaId)}/model" not in js
+
+
+def test_persona_output_contract_is_collapsed_advanced_info():
+    from app.bundle_paths import project_root
+
+    html = (
+        project_root() / "web" / "static" / "partials" / "content-pages.html"
+    ).read_text(encoding="utf-8")
+    details_start = html.index('<details id="personaAdvancedInfo"')
+    opening_end = html.index(">", details_start)
+    details_end = html.index("</details>", opening_end)
+    advanced = html[details_start : details_end + len("</details>")]
+
+    assert " open" not in html[details_start:opening_end]
+    assert ">高级信息</summary>" in advanced
+    assert 'id="personaContract"' in advanced
+    assert html.index('id="personaSystemCustom"') < details_start
+    assert details_end < html.index('id="btnSavePersona"')

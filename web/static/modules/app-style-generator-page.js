@@ -157,13 +157,13 @@ const styleGeneratorAutoSave = createAutoSave({
   onState: (state, error) => {
     const status = document.getElementById('sgSaveStatus');
     if (state === 'saving') {
-      if (status) status.textContent = t('dynamic.appStyleGenerator.正在自动保存');
+      if (status) status.textContent = t('dynamic.autoSaveStatus.saving');
     } else if (state === 'saved') {
-      if (status) status.textContent = t('dynamic.appStyleGenerator.已自动保存');
+      if (status) status.textContent = t('dynamic.autoSaveStatus.saved');
     } else if (state === 'error') {
       styleGeneratorDirty = true;
-      if (status) status.textContent = t('dynamic.appStyleGenerator.自动保存失败');
-      showToast(error?.message || t('dynamic.appStyleGenerator.自动保存失败'), true);
+      if (status) status.textContent = t('dynamic.autoSaveStatus.error');
+      showToast(error?.message || t('dynamic.autoSaveStatus.error'), true);
     }
   },
 });
