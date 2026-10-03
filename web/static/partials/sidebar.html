@@ -1,13 +1,14 @@
   <aside
     id="consoleSidebar"
-    class="ui-sidebar bg-white p-6 flex flex-col border-r border-pastelYellow shrink-0"
+    class="ui-sidebar flex flex-col shrink-0"
     data-i18n-aria-label="nav.sidebarAria"
     aria-label="主导航"
   >
-    <div class="ui-sidebar-brand flex items-center gap-3 mb-10 min-w-0">
-      <div class="w-10 h-10 bg-softPeach rounded-full flex items-center justify-center text-xl shadow-sm icon-badge shrink-0"><svg class="ui-icon ui-icon-lg" aria-hidden="true"><use href="#i-paw"></use></svg></div>
-      <div class="ui-sidebar-brand-text flex flex-col min-w-0 flex-1">
-        <h1 class="text-xl font-bold text-warmText truncate">DanmuAI</h1>
+    <div class="ui-sidebar-brand">
+      <div class="sidebar-brand-icon" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 24 24"><use href="#i-paw"></use></svg></div>
+      <div class="ui-sidebar-brand-text">
+        <h1>DanmuAI</h1>
+        <a class="sidebar-official-site" href="https://danmuai.xyz/" target="_blank" rel="noopener noreferrer" data-i18n="nav.officialSite">官网 danmuai.xyz</a>
       </div>
       <button
         type="button"
@@ -21,40 +22,24 @@
         </svg>
       </button>
     </div>
-    <div
-      id="sidebarNavSections"
-      class="sidebar-nav-sections"
-      role="group"
-      data-i18n-aria-label="nav.categoryAria"
-      aria-label="菜单分类"
-    >
-      <div class="sidebar-nav-section-label" data-i18n="nav.commonFeatures">常用</div>
-    </div>
-    <nav class="flex-1 min-h-0 overflow-y-auto sidebar-nav" id="nav" aria-label="页面">
+    <nav class="sidebar-nav" id="nav" aria-label="页面" data-i18n-aria-label="nav.aria.页面">
       <div class="sidebar-nav-group sidebar-nav-common-group">
-        <a href="#overview" data-page="overview" class="sidebar-item active w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-left">
-          <svg class="ui-icon w-5 shrink-0" aria-hidden="true"><use href="#i-home"></use></svg> <span class="sidebar-item-label" data-i18n="nav.overview">温馨控制台</span>
+        <div class="sidebar-nav-section-label" data-i18n="nav.start">开始</div>
+        <a href="#overview" data-page="overview" class="sidebar-item active">
+          <svg class="ui-icon" aria-hidden="true"><use href="#i-home"></use></svg> <span class="sidebar-item-label" data-i18n="nav.overview">温馨控制台</span>
         </a>
-        <div class="sidebar-item-row flex items-center gap-1 min-w-0">
-          <a href="#settings" data-page="settings" class="sidebar-item flex-1 min-w-0 flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-left">
-            <svg class="ui-icon w-5 shrink-0" aria-hidden="true"><use href="#i-sliders"></use></svg> <span class="sidebar-item-label" data-i18n="nav.settings">弹幕设置</span>
-          </a>
-          <span class="sidebar-nav-hint-wrap relative shrink-0">
-            <button type="button" class="sidebar-nav-hint" data-i18n-aria-label="nav.settingsHelpAria" aria-describedby="nav-tip-settings">
-              <svg class="ui-icon" aria-hidden="true"><use href="#i-info"></use></svg>
-            </button>
-            <span id="nav-tip-settings" role="tooltip" class="warm-tooltip">
-              <strong data-i18n="nav.tooltipCanDoTitle">能做什么</strong>：<span data-i18n="nav.tooltip.管理_AI_模型_弹幕生成与显示_AI_看哪里_语音输入和_AI_播报_更改会自">管理 AI 模型、弹幕生成与显示、AI 看哪里、语音输入和 AI 播报；更改会自动保存。</span><br><br>
-              <strong data-i18n="nav.tooltipTabsTitle">5 个分类</strong>：<span data-i18n="nav.tooltip.AI_模型_弹幕生成与显示_AI_看哪里_语音输入_AI_播报_想改人设和提示词">AI 模型、弹幕生成与显示、AI 看哪里、语音输入、AI 播报。想改人设和提示词请去「人格工坊」。</span><br><br>
-              <strong data-i18n="nav.tooltipNoticeTitle">使用前注意</strong>：<span data-i18n="nav.tooltip.请先在_温馨控制台_开始或停止弹幕_API_密钥">请先在「温馨控制台」开始或停止弹幕；API 密钥留空不会覆盖已有密钥；默认识图使用所选显示器全屏，可在「AI 看哪里」框选子区域；「模型配置档案」可单独填写地址和密钥。</span>
-            </span>
-          </span>
-        </div>
-        <a href="#persona" data-page="persona" class="sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-left">
-          <svg class="ui-icon w-5 shrink-0" aria-hidden="true"><use href="#i-magic"></use></svg> <span class="sidebar-item-label" data-i18n="nav.persona">弹幕人格</span>
+      </div>
+      <div class="sidebar-nav-group sidebar-nav-common-group">
+        <div class="sidebar-nav-section-label" data-i18n="nav.commonFeatures">常用功能</div>
+        <a href="#settings" data-page="settings" class="sidebar-item">
+          <svg class="ui-icon" aria-hidden="true"><use href="#i-sliders"></use></svg> <span class="sidebar-item-label" data-i18n="nav.settings">弹幕设置</span>
+        </a>
+        <a href="#persona" data-page="persona" class="sidebar-item">
+          <svg class="ui-icon" aria-hidden="true"><use href="#i-magic"></use></svg> <span class="sidebar-item-label" data-i18n="nav.persona">弹幕人格</span>
         </a>
       </div>
       <div class="sidebar-nav-group sidebar-nav-enhanced-group">
+        <div class="sidebar-nav-section-label" data-i18n="nav.enhancedFeatures">增强体验</div>
         <button
           type="button"
           id="btnSidebarEnhancedToggle"
@@ -63,48 +48,46 @@
           aria-controls="sidebarEnhancedItems"
           data-i18n-aria-label="nav.expandEnhanced"
         >
-          <span class="sidebar-nav-disclosure-chevron" aria-hidden="true">▸</span>
-          <span class="sidebar-nav-disclosure-title" data-i18n="nav.enhancedFeatures">增强</span>
-          <span class="sidebar-nav-disclosure-label" data-sidebar-disclosure-label="expand" data-i18n="nav.expandEnhanced">展开增强功能</span>
-          <span class="sidebar-nav-disclosure-label" data-sidebar-disclosure-label="collapse" data-i18n="nav.collapseEnhanced" hidden>收起增强功能</span>
+          <svg class="ui-icon sidebar-nav-disclosure-icon" aria-hidden="true"><use href="#i-sliders"></use></svg>
+          <span class="sidebar-nav-disclosure-title" data-i18n="nav.advancedTools">高级功能与工具</span>
+          <span class="sidebar-nav-disclosure-chevron" aria-hidden="true">›</span>
+          <span class="sidebar-nav-disclosure-label" data-sidebar-disclosure-label="expand" data-i18n="nav.expandEnhanced" hidden>展开高级功能与工具</span>
+          <span class="sidebar-nav-disclosure-label" data-sidebar-disclosure-label="collapse" data-i18n="nav.collapseEnhanced" hidden>收起高级功能与工具</span>
         </button>
         <div id="sidebarEnhancedItems" class="sidebar-nav-disclosure-items" hidden>
-          <a href="#style-generator" data-page="style-generator" class="sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-left">
-            <svg class="ui-icon w-5 shrink-0" aria-hidden="true"><use href="#i-sparkles"></use></svg> <span class="sidebar-item-label" data-i18n="nav.styleGenerator">弹幕样式</span>
+          <a href="#style-generator" data-page="style-generator" class="sidebar-item">
+            <svg class="ui-icon" aria-hidden="true"><use href="#i-sparkles"></use></svg> <span class="sidebar-item-label" data-i18n="nav.styleGenerator">弹幕样式</span>
           </a>
-          <a href="#danmu-pool" data-page="danmu-pool" class="sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-left">
-            <svg class="ui-icon w-5 shrink-0" aria-hidden="true"><use href="#i-hash"></use></svg> <span class="sidebar-item-label" data-i18n="nav.danmuPool">公式化弹幕库</span>
+          <a href="#danmu-pool" data-page="danmu-pool" class="sidebar-item">
+            <svg class="ui-icon" aria-hidden="true"><use href="#i-hash"></use></svg> <span class="sidebar-item-label" data-i18n="nav.danmuPool">公式化弹幕库</span>
           </a>
-          <a href="#knowledge" data-page="knowledge" class="sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-left">
-            <svg class="ui-icon w-5 shrink-0" aria-hidden="true"><use href="#i-book"></use></svg> <span class="sidebar-item-label" data-i18n="nav.knowledge">弹幕知识库</span>
+          <a href="#knowledge" data-page="knowledge" class="sidebar-item">
+            <svg class="ui-icon" aria-hidden="true"><use href="#i-book"></use></svg> <span class="sidebar-item-label" data-i18n="nav.knowledge">弹幕知识库</span>
           </a>
-          <a href="#virtual-host" data-page="virtual-host" class="sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-left">
-            <svg class="ui-icon w-5 shrink-0" aria-hidden="true"><use href="#i-paw"></use></svg> <span class="sidebar-item-label" data-i18n="nav.virtualHost">虚拟主播</span>
+          <a href="#virtual-host" data-page="virtual-host" class="sidebar-item">
+            <svg class="ui-icon" aria-hidden="true"><use href="#i-paw"></use></svg> <span class="sidebar-item-label" data-i18n="nav.virtualHost">虚拟主播</span>
+          </a>
+          <a href="#guide" data-page="guide" class="sidebar-item sidebar-item-with-badge">
+            <svg class="ui-icon" aria-hidden="true"><use href="#i-graduation"></use></svg> <span class="sidebar-item-label" data-i18n="nav.guide">教程|日志|反馈|公告|群聊|直播</span>
+            <span id="announcementsNavBadge" class="sidebar-nav-badge hidden" data-i18n-aria-label="nav.newAnnouncementBadge"></span>
           </a>
         </div>
-      </div>
-      <div class="sidebar-nav-utility-group">
-        <a href="#guide" data-page="guide" class="sidebar-item sidebar-item-with-badge w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-left">
-          <svg class="ui-icon w-5 shrink-0" aria-hidden="true"><use href="#i-graduation"></use></svg> <span class="sidebar-item-label" data-i18n="nav.guide">教程|日志|反馈|公告|群聊|直播</span>
-          <span id="announcementsNavBadge" class="sidebar-nav-badge hidden" data-i18n-aria-label="nav.newAnnouncementBadge"></span>
-        </a>
       </div>
     </nav>
     <div class="sidebar-bottom">
       <button
         type="button"
-        id="btnSidebarReward"
-        class="sidebar-reward-btn js-reward-fab"
-        aria-haspopup="dialog"
-        aria-controls="rewardModal"
+        id="btnHelpSystem"
+        class="sidebar-help-btn sidebar-item sidebar-item-with-badge"
+        aria-controls="page-help-system"
       >
-        <svg class="ui-icon sidebar-reward-icon" aria-hidden="true"><use href="#i-reward"></use></svg>
-        <span class="sidebar-item-label" data-i18n="nav.reward">赞赏</span>
+        <svg class="ui-icon" aria-hidden="true"><use href="#i-circle-help"></use></svg>
+        <span class="sidebar-item-label" data-i18n="nav.helpSystem">帮助与系统</span>
+        <span id="appUpdateNavBadge" class="sidebar-nav-badge hidden" data-i18n-aria-label="nav.newVersionBadge"></span>
       </button>
       <div id="sidebarVersionFooter" class="sidebar-version-footer" aria-live="polite">
-        <svg class="ui-icon sidebar-version-icon" aria-hidden="true"><use href="#i-box"></use></svg>
         <div class="sidebar-version-copy">
-          <span class="sidebar-version-label" data-i18n="content.text.当前版本">当前版本</span>
+          <span class="sidebar-version-label" data-i18n="nav.versionCurrent">应用版本</span>
           <span id="appVersionCurrent" class="sidebar-version-current">—</span>
         </div>
         <div class="sidebar-version-latest">
@@ -112,15 +95,5 @@
           <span id="appVersionLatest">—</span>
         </div>
       </div>
-      <button
-        type="button"
-        id="btnHelpSystem"
-        class="sidebar-help-btn sidebar-item sidebar-item-with-badge w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-left"
-        aria-controls="page-help-system"
-      >
-        <svg class="ui-icon w-5 shrink-0" aria-hidden="true"><use href="#i-cog"></use></svg>
-        <span class="sidebar-item-label" data-i18n="nav.helpSystem">帮助与系统</span>
-        <span id="appUpdateNavBadge" class="sidebar-nav-badge hidden" data-i18n-aria-label="nav.newVersionBadge"></span>
-      </button>
     </div>
   </aside>

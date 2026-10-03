@@ -71,7 +71,6 @@ import {
 import {
   initContentPageFieldHints,
   initSettingsFieldHints,
-  initSidebarNavFloatingHints,
 } from './settings-hints.js';
 import {
   catalogModelSupportsMic,
@@ -121,7 +120,6 @@ export { loadFontFamilies, uploadFontFile } from './settings-fonts.js';
 export {
   initContentPageFieldHints,
   initSettingsFieldHints,
-  initSidebarNavFloatingHints,
 } from './settings-hints.js';
 export { loadModelCatalog } from './settings-model-catalog.js';
 export { loadProviders } from './settings-providers.js';

@@ -28,8 +28,8 @@ function createHarness() {
   let clickHandler;
   const attributes = new Map();
   const labels = [
-    { dataset: { sidebarDisclosureLabel: "expand" }, hidden: false, textContent: "展开增强功能" },
-    { dataset: { sidebarDisclosureLabel: "collapse" }, hidden: true, textContent: "收起增强功能" },
+    { dataset: { sidebarDisclosureLabel: "expand" }, hidden: false, textContent: "展开高级功能与工具" },
+    { dataset: { sidebarDisclosureLabel: "collapse" }, hidden: true, textContent: "收起高级功能与工具" },
   ];
   const toggle = {
     classList: { toggle() {} },
@@ -63,14 +63,14 @@ test("sidebar enhanced disclosure defaults collapsed and toggles without navigat
   assert.equal(enhancedItems.hidden, true);
   assert.equal(attributes.get("aria-expanded"), "false");
   assert.equal(attributes.get("data-i18n-aria-label"), "nav.expandEnhanced");
-  assert.equal(attributes.get("aria-label"), "展开增强功能");
+  assert.equal(attributes.get("aria-label"), "展开高级功能与工具");
   assert.deepEqual(labels.map((label) => label.hidden), [false, true]);
 
   clickHandler();
   assert.equal(enhancedItems.hidden, false);
   assert.equal(attributes.get("aria-expanded"), "true");
   assert.equal(attributes.get("data-i18n-aria-label"), "nav.collapseEnhanced");
-  assert.equal(attributes.get("aria-label"), "收起增强功能");
+  assert.equal(attributes.get("aria-label"), "收起高级功能与工具");
   assert.deepEqual(labels.map((label) => label.hidden), [true, false]);
 
   clickHandler();

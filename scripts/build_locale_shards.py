@@ -47,12 +47,14 @@ NAMESPACE = {
 
 # Stable nav label keys
 NAV_LABEL_KEYS = {
-    "点击：官网与群聊 danmuai.xyz": "officialSite",
+    "官网 danmuai.xyz": "officialSite",
     "温馨控制台": "overview",
-    "常用": "commonFeatures",
-    "增强": "enhancedFeatures",
-    "展开增强功能": "expandEnhanced",
-    "收起增强功能": "collapseEnhanced",
+    "开始": "start",
+    "常用功能": "commonFeatures",
+    "增强体验": "enhancedFeatures",
+    "高级功能与工具": "advancedTools",
+    "展开高级功能与工具": "expandEnhanced",
+    "收起高级功能与工具": "collapseEnhanced",
     "弹幕人格": "persona",
     "弹幕知识库": "knowledge",
     "弹幕样式": "styleGenerator",
@@ -61,8 +63,7 @@ NAV_LABEL_KEYS = {
     "虚拟主播": "virtualHost",
     "教程|日志|反馈|公告|群聊|直播": "guide",
     "帮助与系统": "helpSystem",
-    "赞赏": "reward",
-    "当前版本：": "versionCurrent",
+    "应用版本": "versionCurrent",
     "最新版本：": "versionLatest",
     "检查更新": "checkUpdate",
     "下载并重启": "downloadRestart",
@@ -73,11 +74,10 @@ NAV_LABEL_KEYS = {
 }
 
 NAV_STATIC_LABELS = {
-    "versionCurrent": "\u5f53\u524d\u7248\u672c",
+    "versionCurrent": "\u5e94\u7528\u7248\u672c",
     "versionLatest": "\u6700\u65b0\u7248\u672c\uff1a",
     "checkUpdate": "\u68c0\u67e5\u66f4\u65b0",
     "downloadRestart": "\u4e0b\u8f7d\u5e76\u91cd\u542f",
-    "settingsHelpAria": "\u5f39\u5e55\u8bbe\u7f6e\u8bf4\u660e",
     "newAnnouncementBadge": "\u6709\u65b0\u516c\u544a",
     "newVersionBadge": "\u6709\u65b0\u7248\u672c",
     "openMenu": "\u6253\u5f00\u5bfc\u822a",

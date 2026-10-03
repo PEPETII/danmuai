@@ -43,7 +43,6 @@ import {
   initContentPageFieldHints,
   initSettingsFieldHints,
   initSettingsTabs,
-  initSidebarNavFloatingHints,
   loadConfigDefaults,
   loadCustomModels,
   loadModelCatalog,
@@ -535,7 +534,6 @@ function bindCoreInteractions() {
   initMicLogsPage({ showToast });
   initSettingsFieldHints();
   initContentPageFieldHints();
-  initSidebarNavFloatingHints();
   initNormalBatchControls();
   initRestoreDefaultsControls();
   initRenderModeControls();
@@ -598,9 +596,6 @@ function bindCoreInteractions() {
     });
   });
 
-  document.querySelectorAll('.sidebar-nav-hint').forEach((btn) => {
-    btn.addEventListener('click', (event) => event.stopPropagation());
-  });
   document.getElementById('btnGoAnnouncements')?.addEventListener('click', () => {
     navigate('announcements');
   });

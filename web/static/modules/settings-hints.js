@@ -223,22 +223,6 @@ function attachFieldHintsInRoot(root, fieldTips, controlHintIds = new Set()) {
   });
 }
 
-export function initSidebarNavFloatingHints() {
-  document.querySelectorAll('.sidebar-nav-hint-wrap').forEach((wrap) => {
-    const btn = wrap.querySelector('.sidebar-nav-hint');
-    const inlineTip = wrap.querySelector('.warm-tooltip');
-    if (!btn || !inlineTip || btn.dataset.floatingTip === '1') return;
-    const html = inlineTip.innerHTML;
-    const tipId = inlineTip.id || '';
-    if (tipId) btn.setAttribute('aria-describedby', tipId);
-    inlineTip.remove();
-    btn.dataset.floatingTip = '1';
-    wireFloatingTooltipButton(btn, () => {
-      showFloatingTooltip(btn, html, { html: true, wide: true, tipId });
-    });
-  });
-}
-
 export function initSettingsFieldHints() {
   const form = document.getElementById('settingsForm');
   if (!form) return;
