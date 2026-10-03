@@ -67,11 +67,20 @@ def _collect_dir_datas(
     *,
     exclude_names: frozenset[str] = frozenset(),
     exclude_name_predicates: tuple = (),
+    exclude_top_level_dirs: frozenset[str] = frozenset(),
+    exclude_suffixes: frozenset[str] = frozenset(),
 ) -> list:
     """Collect (src, dest_dir) pairs for PyInstaller datas (replaces Tree)."""
     entries: list = []
     for path in sorted(src_dir.rglob("*")):
         if not path.is_file():
+            continue
+        relative = path.relative_to(src_dir)
+        if (
+            relative.parts[0] in exclude_top_level_dirs
+            or "__pycache__" in relative.parts[:-1]
+            or path.suffix.lower() in exclude_suffixes
+        ):
             continue
         if path.name in exclude_names or any(fn(path.name) for fn in exclude_name_predicates):
             continue
@@ -139,7 +148,10 @@ datas = []
 datas += _collect_dir_datas(
     root / "web" / "static",
     "web/static",
+    exclude_names=frozenset({"index.template.html", "build_index_html.py", "utilities.input.css", "tailwindcdn.js"}),
     exclude_name_predicates=(_should_exclude_supabase_config,),
+    exclude_top_level_dirs=frozenset({"partials"}),
+    exclude_suffixes=frozenset({".pyc", ".pyo"}),
 )
 # 内置人格 JSON（app.persona_builtin 在 import 时读取，须在 Analysis 前可解析）
 datas.append((str(root / "data" / "personae_builtin.json"), "data"))

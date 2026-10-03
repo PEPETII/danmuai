@@ -9,7 +9,7 @@
 - 不把 `.local-ai/scratch/`、`.local-ai/reports/archive/` 等历史资料当作当前行为依据。
 - 默认不创建/切换分支，不提交、推送、发布、部署或修改生产数据；只有明确授权时才执行。
 
-详细原则与架构边界见根目录 [AGENTS.md](AGENTS.md)。
+架构所有权见[架构基线](docs/final-architecture-baseline.md)，线程与触发顺序见[主链路登记](docs/main-pipeline-sequence.md)。本页包含克隆仓库后所需的协作和验证规则；本地 `AGENTS.md` 只作为补充。
 
 ## 开发原则
 
@@ -58,24 +58,29 @@ git diff --stat
 ## 本地开发
 
 ```bash
-pip install -r requirements.txt
-pip install -r requirements-dev.txt
+pip install -r requirements.txt -r requirements-dev.txt
 python main.py
 ```
 
 配置目录默认为 `%APPDATA%/DanmuAI/`。在非 Windows 且未设置 `APPDATA` 时，会落在当前工作目录下的 `./DanmuAI/`。
 
-**Web UI 构建**：修改 `web/static/` 中的 HTML/CSS/JS 后，执行以下命令重新生成入口 HTML：
+**Web UI 构建**：修改源 template、partial、JS utility class 或 locale 来源后，使用 Node.js 22 与 Python 执行：
 
 ```powershell
 python web/static/build_index_html.py
+python scripts/build_locale_shards.py
+npm ci
+npm run build:css
+python web/static/build_index_html.py --check
+python scripts/build_locale_shards.py --check
+npm run check:css
 ```
 
 ## 提交前检查
 
 本地 **不要** 跑全量 `python -m pytest tests/`：套件 700+ 条，内存占用高，易导致机器卡顿。请按改动范围 **分批** 执行（每批 `-q -x`）；全量仅 CI 或资源充足的维护者环境执行。
 
-分批策略与 Agent 边界以根目录 [AGENTS.md](AGENTS.md) §7 / §10 为准。可选本地补充：`.local-ai/prompts/IDE_AGENT_RULES.md` §10（该路径可能被 gitignore，克隆后不一定存在；**勿**依赖根级 `IDE_AGENT_RULES.md`）。
+每批使用显式文件列表与 `-q -x`，一批通过后再执行下一批，失败时先诊断。下方列出选择范围及门禁。本地 `AGENTS.md` 和 `.local-ai/prompts/IDE_AGENT_RULES.md` 可提供补充约束，它们不随公开克隆分发。
 
 ```bash
 pip install -r requirements-dev.txt
@@ -97,7 +102,7 @@ python -m pytest tests/test_knowledge_import_service.py tests/test_knowledge_dat
 - `app/overlay.py`、`app/danmu_engine/`：`test_overlay_*.py`、`test_danmu_*.py`。
 - `app/config_store/`：`test_config_*.py`、加密/SQLite 并发相关测试。
 - `app/knowledge/`：`test_knowledge_*.py`，并核对真实 `knowledge_items` 持久化计数。
-- 更新/打包运行时：`test_update_api.py`、`test_update_service.py`、`test_velopack_runtime.py`；发布脚本仅按 AGENTS.md §9.8 规则验证。
+- 更新/打包运行时：`test_update_api.py`、`test_update_service.py`、`test_velopack_runtime.py`；发布脚本按[Windows 打包说明](docs/operations/PACKAGING_WINDOWS.md)验证，正式上传需要明确授权。
 
 与改动相关的其他 `tests/test_*.py` 请单独成批追加；**禁止**无文件参数的 `pytest` / `python -m pytest tests/`。
 
@@ -112,6 +117,10 @@ node --test --test-concurrency=1 tests/test_settings_module_identity.mjs tests/t
 CI 在 Windows 上排序枚举全部 `tests/test_*.mjs`，将显式文件列表交给同一命令；没有发现测试或任一测试失败时，该步骤失败。Python 测试中的 Node wrapper 继续保留。
 
 有状态的 ES 模块必须由各调用方使用同一解析 URL 导入；不同 query 会创建独立实例。`app.js` 与 `language.js` 共用无 query 的 `settings.js`，由 `test_settings_module_identity.mjs` 验证设备缓存能跨入口复用。
+
+Utility CSS 使用与原浏览器编译器相同的 Tailwind 3.4.17，在开发时生成并随仓库分发。`tailwind.config.cjs` 扫描 template、partial、入口及全部功能模块；utility class 要保留完整字面量，新增动态拼接时同步配置和页面验收。构建 CSS 需要 `npm ci`，运行应用或仅执行内置 Node 测试不需要 npm 安装。HTML、CSS、locale 的 `--check` 只读检查不会自动修复漂移。
+
+模型目录的独立审计只需 `pip install -r requirements-model-audit.txt`，随后运行 `python scripts/audit_model_catalog.py --json`。配置规范化规则见[配置合同](docs/operations/CONFIG_NORMALIZATION.md)，兼容接口及退出条件见[兼容矩阵](docs/operations/COMPATIBILITY.md)。
 
 ### 静态检查与 Boundary Guard
 
@@ -145,7 +154,7 @@ python scripts/boundary_guard.py
 - 不要把调试截图、缓存目录、`.coverage`、`__pycache__`、`.pytest_cache` 带入版本库。
 - 新功能或可见行为变化需要同步更新：
   - `README.md`
-  - [项目技术上下文](.local-ai/prompts/ai-project-context.md)（若涉及 Web API/UI）
+  - 本地 `.local-ai/prompts/ai-project-context.md`（存在时，涉及 Web API/UI 同步）
   - `docs/release/` 下的版本发布记录（如适用）
 - 新增/删除/移动定时器、线程、后台任务或主链路触发点：同步 `docs/main-pipeline-sequence.md`。
 - 新增、删除或改变 `DanmuApp` 运行态字段：同步 `docs/runtime-state-map.md`。

@@ -7,6 +7,7 @@ maintainable partials under ``web/static/partials/``.
 
 from __future__ import annotations
 
+import argparse
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -36,10 +37,20 @@ def build_index_html() -> str:
     return template
 
 
-def main() -> None:
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--check', action='store_true', help='Check the output without rewriting it.')
+    args = parser.parse_args()
     output = build_index_html()
+    if args.check:
+        if not OUTPUT_PATH.is_file() or OUTPUT_PATH.read_text(encoding='utf-8') != output:
+            print('index.html is stale; run python web/static/build_index_html.py.')
+            return 1
+        print('index.html matches its template and partials.')
+        return 0
     OUTPUT_PATH.write_text(output, encoding="utf-8")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

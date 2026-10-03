@@ -1072,6 +1072,47 @@ class TestImportOrchestratorLifecycleAtomicity:
         assert job["status"] == "cancelled"
         assert repo.list_items(package_id=package_id)["total"] == 0
 
+    def test_cancel_during_validation_keeps_atomic_commit_closed(
+        self, orchestrator, db, repo, config
+    ):
+        """Cancellation after preparation still wins before chunk persistence."""
+        from app.knowledge.validator import validate_batch
+
+        package_id, source_id = _create_package_and_source(db, repo)
+        validating = threading.Event()
+        release = threading.Event()
+
+        def blocked_validation(*args, **kwargs):
+            result = validate_batch(*args, **kwargs)
+            validating.set()
+            assert release.wait(timeout=5)
+            return result
+
+        try:
+            with patch(
+                "app.knowledge.import_service.organize_chunk",
+                return_value=_ok_result(items=[_ok_item(content="must not persist")]),
+            ), patch(
+                "app.knowledge.import_service.validate_batch", side_effect=blocked_validation,
+            ):
+                job_id = orchestrator.submit_import(
+                    config=config, package_id=package_id, source_id=source_id,
+                    source_type="pasted_text", payload={"pasted_text": "# T\n\ncontent"},
+                )
+                assert validating.wait(timeout=5)
+                assert orchestrator.cancel_job(job_id)
+                release.set()
+                orchestrator.close()
+        finally:
+            release.set()
+
+        assert repo.get_job(job_id)["status"] == "cancelled"
+        assert repo.list_sources(package_id)[0]["status"] == "cancelled"
+        with db.read_connection() as conn:
+            assert conn.execute("SELECT COUNT(*) FROM knowledge_items").fetchone()[0] == 0
+        assert job_id not in orchestrator._cancel_flags
+        assert job_id not in orchestrator._job_packages
+
     def test_delete_package_while_model_in_flight_leaves_no_orphans(
         self, orchestrator, db, repo, config
     ):

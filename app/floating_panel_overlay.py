@@ -11,6 +11,7 @@ import logging
 import math
 import sys
 import time
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from PyQt6.QtCore import QElapsedTimer, QPoint, QPointF, QRectF, Qt, QTimer
@@ -178,6 +179,29 @@ def fit_floating_panel_text(
 
     height = line_h * float(len(lines))
     return lines, min(float(max_w), used_w), height
+
+
+@dataclass(frozen=True)
+class _CardGeometry:
+    body: QRectF
+    pixel_width: int
+    pixel_height: int
+    dpr: float
+    pad_top: float
+    stacked: bool
+
+
+@dataclass(frozen=True)
+class _CardTextLayout:
+    lines: list[str]
+    content_font: QFont
+    username_font: QFont | None
+    username_label: str
+    username_width: float
+    username_ascent: float
+    text_x: float
+    baseline: float
+    line_height: float
 
 
 class FloatingPanelOverlay(QWidget):
@@ -660,326 +684,172 @@ class FloatingPanelOverlay(QWidget):
             style_index=int(item.style_index),
         )
 
-    def _render_card_pixmap(
-        self,
-        text: str,
-        width: int,
-        height: int,
-        *,
-        persona_id: str = "",
-        style_index: int = 0,
-    ) -> QPixmap:
-        """Render card/bubble pixmap from current style.
-
-        ``width`` / ``height`` are the **content body** size (text + padding).
-        Returned pixmap is larger by tail + shadow pads so nothing is clipped.
-        Colors are fixed by ``style_index`` (no re-sample during animation).
-        """
-        st = self._style
+    def _card_geometry(self, width: int, height: int) -> _CardGeometry:
         content_w = max(1, int(width))
         content_h = max(1, int(height))
-        pad_left_shadow, pad_top, pad_right, pad_bottom = self._shadow_pads()
+        pad_left_shadow, pad_top, _pad_right, pad_bottom = self._shadow_pads()
         space_above = self._space_above_body()
-        stacked = self._is_stacked_layout()
-        tail_w = self._tail_w()
-        left_origin = tail_w + pad_left_shadow
-        total_w = content_w + int(self._extra_width())
-        total_h = content_h + int(pad_top + pad_bottom + space_above)
         dpr = self.devicePixelRatio() or 1.0
-        w_px = max(1, int(total_w * dpr))
-        h_px = max(1, int(total_h * dpr))
-        pm = QPixmap(w_px, h_px)
-        pm.setDevicePixelRatio(dpr)
-        pm.fill(Qt.GlobalColor.transparent)
-        painter = QPainter(pm)
+        return _CardGeometry(
+            body=QRectF(self._tail_w() + pad_left_shadow, pad_top + space_above, float(content_w), float(content_h)),
+            pixel_width=max(1, int((content_w + int(self._extra_width())) * dpr)),
+            pixel_height=max(1, int((content_h + int(pad_top + pad_bottom + space_above)) * dpr)),
+            dpr=dpr,
+            pad_top=pad_top,
+            stacked=self._is_stacked_layout(),
+        )
+
+    def _paint_card_background(self, painter: QPainter, body: QRectF, style_index: int) -> None:
+        st = self._style
+        shape_path = self._body_path(body)
+        card_hex = _pick_palette_color(st.card_colors, st.card_color_mode, st.card_color_weights, style_index, fallback=WECHAT_CARD_COLORS[0])
+        card_alpha = int(round(255 * max(0, min(100, st.card_opacity)) / 100.0))
+        card_color = _hex_to_qcolor(card_hex, alpha_override=card_alpha)
+
+        # Preserve the existing soft-offset shadow and painting order.
+        if st.shadow_enabled:
+            shadow_alpha = int(round(255 * max(0, min(100, st.shadow_opacity)) / 100.0))
+            shadow_base = _hex_to_qcolor(st.shadow_color, alpha_override=shadow_alpha)
+            dx = float(st.shadow_offset_x)
+            dy = float(st.shadow_offset_y)
+            blur = max(0, int(st.shadow_blur))
+            if blur <= 0:
+                shadow_path = QPainterPath(shape_path)
+                shadow_path.translate(dx, dy)
+                painter.fillPath(shadow_path, shadow_base)
+            else:
+                steps = min(4, max(1, blur // 2))
+                for i in range(steps, 0, -1):
+                    frac = i / float(steps)
+                    soft = QPainterPath(shape_path)
+                    soft.translate(dx * frac, dy * frac)
+                    a = max(1, int(shadow_base.alpha() * (0.35 + 0.65 * (1.0 - frac * 0.5)) / steps * 1.2))
+                    color = QColor(shadow_base.red(), shadow_base.green(), shadow_base.blue(), min(255, a))
+                    painter.fillPath(soft, color)
+                solid = QPainterPath(shape_path)
+                solid.translate(dx, dy)
+                painter.fillPath(solid, shadow_base)
+        painter.fillPath(shape_path, card_color)
+        if st.border_enabled and st.border_width > 0:
+            border_alpha = int(round(255 * max(0, min(100, st.border_opacity)) / 100.0))
+            border_color = _hex_to_qcolor(st.border_color, alpha_override=border_alpha)
+            border_pen = QPen(border_color)
+            border_pen.setWidth(max(1, int(st.border_width)))
+            border_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+            border_pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+            painter.setPen(border_pen)
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawPath(shape_path)
+
+    def _layout_card_text(self, text: str, persona_id: str, geometry: _CardGeometry) -> _CardTextLayout:
+        st = self._style
+        username_text = self._username_for_persona(persona_id) if st.username_enabled else ""
+        username_sep = ("" if st.username_separator is None else str(st.username_separator)) if st.username_enabled else ""
+        username_label = username_text + username_sep
+        username_font = None
+        username_width = 0.0
+        username_ascent = 0.0
+        if username_text:
+            username_font = QFont(self._font)
+            username_font.setPointSize(max(6, min(72, int(st.username_size))))
+            username_font.setBold(int(st.username_weight) >= 600)
+            username_font.setWeight(max(1, min(99, int(st.username_weight))))
+            username_metrics = QFontMetrics(username_font)
+            username_width = float(username_metrics.horizontalAdvance(username_label))
+            username_ascent = float(username_metrics.ascent())
+        content_font = QFont(self._font)
+        content_font.setPointSize(max(6, min(72, int(st.content_size))))
+        content_font.setBold(int(st.content_weight) >= 600)
+        content_font.setWeight(max(1, min(99, int(st.content_weight))))
+        content_metrics = QFontMetrics(content_font)
+        line_spacing = max(1.0, float(st.content_line_height) / 100.0)
+        max_text_w = max(1.0, geometry.body.width() - float(st.padding_x) * 2.0)
+        content_max_w = max_text_w if geometry.stacked or not username_text else max(1.0, max_text_w - username_width - float(st.gap_username_content))
+        lines, _used_w, _text_h = fit_floating_panel_text(text, content_font, content_metrics, content_max_w)
+        return _CardTextLayout(
+            lines=lines,
+            content_font=content_font,
+            username_font=username_font,
+            username_label=username_label,
+            username_width=username_width,
+            username_ascent=username_ascent,
+            text_x=geometry.body.left() + float(st.padding_x),
+            baseline=geometry.body.top() + float(st.padding_y) + float(content_metrics.ascent()),
+            line_height=float(content_metrics.height()) * line_spacing,
+        )
+
+    def _draw_card_text_line(
+        self, painter: QPainter, font: QFont, text: str, x: float, baseline: float,
+        fill: QColor, *, fast: bool,
+    ) -> None:
+        st = self._style
+        outline_on = bool(st.outline_enabled) and st.outline_width > 0
+        outline_color = _hex_to_qcolor(st.outline_color)
+        outline_width = max(1, int(st.outline_width)) if outline_on else 0
+        if fast:
+            painter.setFont(font)
+            if outline_on:
+                outline_pen = QPen(outline_color)
+                outline_pen.setWidth(outline_width)
+                for dx, dy in _FAST_OUTLINE_OFFSETS:
+                    painter.setPen(outline_pen)
+                    painter.drawText(int(x + dx), int(baseline + dy), text)
+            painter.setPen(QPen(fill))
+            painter.drawText(int(x), int(baseline), text)
+            return
+        path = QPainterPath()
+        path.addText(x, baseline, font, text)
+        if outline_on:
+            pen = QPen(outline_color)
+            pen.setWidth(outline_width)
+            pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+            pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+            painter.setPen(pen)
+            painter.drawPath(path)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(fill)
+        painter.drawPath(path)
+
+    def _paint_card_text(self, painter: QPainter, layout: _CardTextLayout, geometry: _CardGeometry, style_index: int) -> None:
+        st = self._style
+        username_color = _hex_to_qcolor(st.username_color)
+        text_hex = _pick_palette_color(st.text_colors, st.text_color_mode, st.text_color_weights, style_index, fallback=WECHAT_TEXT_COLOR)
+        text_fill = _hex_to_qcolor(text_hex)
+        if geometry.stacked and layout.username_font is not None:
+            # Username remains in the band above the bubble body.
+            baseline = geometry.pad_top + layout.username_ascent
+            if baseline >= geometry.body.top() - 1.0:
+                baseline = max(geometry.pad_top + 1.0, geometry.body.top() - float(st.gap_username_content) - 1.0)
+            self._draw_card_text_line(painter, layout.username_font, layout.username_label, layout.text_x, baseline, username_color, fast=_use_fast_danmu_render(layout.username_label))
+        fast = _use_fast_danmu_render("\n".join(layout.lines))
+        for index, line_text in enumerate(layout.lines):
+            baseline = layout.baseline + index * layout.line_height
+            content_x = layout.text_x
+            if not geometry.stacked and index == 0 and layout.username_font is not None:
+                self._draw_card_text_line(painter, layout.username_font, layout.username_label, layout.text_x, baseline, username_color, fast=fast)
+                content_x += layout.username_width + float(st.gap_username_content)
+            self._draw_card_text_line(painter, layout.content_font, line_text, content_x, baseline, text_fill, fast=fast)
+
+    def _render_card_pixmap(
+        self, text: str, width: int, height: int, *, persona_id: str = "", style_index: int = 0,
+    ) -> QPixmap:
+        """Render fixed-palette card pixels, preserving body/tail/shadow and DPR budgets."""
+        geometry = self._card_geometry(width, height)
+        pixmap = QPixmap(geometry.pixel_width, geometry.pixel_height)
+        pixmap.setDevicePixelRatio(geometry.dpr)
+        pixmap.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(pixmap)
         try:
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
             painter.setRenderHint(QPainter.RenderHint.TextAntialiasing)
-
-            # Body (bubble fill) sits below stacked username / line_like top pad
-            body = QRectF(
-                left_origin,
-                pad_top + space_above,
-                float(content_w),
-                float(content_h),
-            )
-            shape_path = self._body_path(body)
-
-            # Card fill color (style_index fixed) × card_opacity
-            card_hex = _pick_palette_color(
-                st.card_colors,
-                st.card_color_mode,
-                st.card_color_weights,
-                style_index,
-                fallback=WECHAT_CARD_COLORS[0],
-            )
-            card_alpha = int(round(255 * max(0, min(100, st.card_opacity)) / 100.0))
-            card_color = _hex_to_qcolor(card_hex, alpha_override=card_alpha)
-
-            # Shadow (approximate blur via multi-pass soft offset)
-            if st.shadow_enabled:
-                shadow_alpha = int(round(255 * max(0, min(100, st.shadow_opacity)) / 100.0))
-                shadow_base = _hex_to_qcolor(st.shadow_color, alpha_override=shadow_alpha)
-                dx = float(st.shadow_offset_x)
-                dy = float(st.shadow_offset_y)
-                blur = max(0, int(st.shadow_blur))
-                if blur <= 0:
-                    shadow_path = QPainterPath(shape_path)
-                    shadow_path.translate(dx, dy)
-                    painter.fillPath(shadow_path, shadow_base)
-                else:
-                    # Soft shadow: concentric offsets with decreasing alpha
-                    steps = min(4, max(1, blur // 2))
-                    for i in range(steps, 0, -1):
-                        frac = i / float(steps)
-                        soft = QPainterPath(shape_path)
-                        soft.translate(dx * frac, dy * frac)
-                        a = max(1, int(shadow_base.alpha() * (0.35 + 0.65 * (1.0 - frac * 0.5)) / steps * 1.2))
-                        c = QColor(shadow_base.red(), shadow_base.green(), shadow_base.blue(), min(255, a))
-                        painter.fillPath(soft, c)
-                    solid = QPainterPath(shape_path)
-                    solid.translate(dx, dy)
-                    painter.fillPath(solid, shadow_base)
-
-            painter.fillPath(shape_path, card_color)
-
-            # Border on top of fill
-            if st.border_enabled and st.border_width > 0:
-                border_alpha = int(round(255 * max(0, min(100, st.border_opacity)) / 100.0))
-                border_color = _hex_to_qcolor(st.border_color, alpha_override=border_alpha)
-                border_pen = QPen(border_color)
-                border_pen.setWidth(max(1, int(st.border_width)))
-                border_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-                border_pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-                painter.setPen(border_pen)
-                painter.setBrush(Qt.BrushStyle.NoBrush)
-                painter.drawPath(shape_path)
-
-            if self._font is None or self._font_metrics is None:
-                return pm
-
-            text_hex = _pick_palette_color(
-                st.text_colors,
-                st.text_color_mode,
-                st.text_color_weights,
-                style_index,
-                fallback=WECHAT_TEXT_COLOR,
-            )
-            text_fill = _hex_to_qcolor(text_hex)
-            pad_x = float(st.padding_x)
-            pad_y = float(st.padding_y)
-            painter.setFont(self._font)
-
-            # 用户名与内容分离（参考 blivechat 的 author-name / message 层级）
-            # layout=stacked：用户名在气泡外上方；layout=inline：用户名与首行内容同基线（wechat）
-            username_on = bool(st.username_enabled)
-            username_text = self._username_for_persona(persona_id) if username_on else ""
-            # Preserve empty separator (blivechat_line); do not coerce "" → "："
-            username_sep = (
-                ("" if st.username_separator is None else str(st.username_separator))
-                if username_on
-                else ""
-            )
-            full_text = text
-            username_w = 0.0
-            username_font = None
-            username_metrics = None
-            if username_text:
-                username_font = QFont(self._font)
-                username_font.setPointSize(max(6, min(72, int(st.username_size))))
-                username_font.setBold(int(st.username_weight) >= 600)
-                username_font.setWeight(max(1, min(99, int(st.username_weight))))
-                username_metrics = QFontMetrics(username_font)
-                username_w = float(
-                    username_metrics.horizontalAdvance(username_text + username_sep)
-                )
-
-            content_font = QFont(self._font)
-            content_font.setPointSize(max(6, min(72, int(st.content_size))))
-            content_font.setBold(int(st.content_weight) >= 600)
-            content_font.setWeight(max(1, min(99, int(st.content_weight))))
-            content_metrics = QFontMetrics(content_font)
-            line_spacing = max(1.0, float(st.content_line_height) / 100.0)
-
-            text_x = body.left() + pad_x
-            max_text_w = max(1.0, float(content_w) - pad_x * 2.0)
-            if stacked or not username_text:
-                content_max_w = max_text_w
-            else:
-                content_max_w = max(
-                    1.0, max_text_w - username_w - float(st.gap_username_content)
-                )
-            lines, _used_w, _text_h = fit_floating_panel_text(
-                full_text,
-                content_font,
-                content_metrics,
-                content_max_w,
-            )
-            line_h = float(content_metrics.height()) * line_spacing
-            ascent = float(content_metrics.ascent())
-            joined = "\n".join(lines)
-
-            # 用户名颜色（与内容文字使用不同层级）
-            username_color = _hex_to_qcolor(st.username_color)
-
-            outline_on = bool(st.outline_enabled) and st.outline_width > 0
-            outline_color = _hex_to_qcolor(st.outline_color)
-            outline_w = max(1, int(st.outline_width)) if outline_on else 0
-
-            def _draw_text_line(
-                painter_: QPainter,
-                font_: QFont,
-                metrics_: QFontMetrics,
-                line_text: str,
-                x: float,
-                baseline_y: float,
-                fill_: QColor,
-                do_outline: bool,
-            ) -> None:
-                painter_.setFont(font_)
-                if do_outline:
-                    outline_pen_ = QPen(outline_color)
-                    outline_pen_.setWidth(outline_w)
-                    for odx, ody in _FAST_OUTLINE_OFFSETS:
-                        painter_.setPen(outline_pen_)
-                        painter_.drawText(int(x + odx), int(baseline_y + ody), line_text)
-                painter_.setPen(QPen(fill_))
-                painter_.drawText(int(x), int(baseline_y), line_text)
-
-            # stacked: username ABOVE bubble fill (outside shape_path), then content only inside
-            if stacked and username_text and username_font is not None and username_metrics is not None:
-                u_ascent = float(username_metrics.ascent())
-                # Username baseline sits in the band [pad_top, body.top())
-                u_baseline = pad_top + u_ascent
-                # Keep username baseline strictly above body.top()
-                if u_baseline >= body.top() - 1.0:
-                    u_baseline = max(pad_top + 1.0, body.top() - float(st.gap_username_content) - 1.0)
-                label = username_text + username_sep
-                if _use_fast_danmu_render(label):
-                    _draw_text_line(
-                        painter,
-                        username_font,
-                        username_metrics,
-                        label,
-                        text_x,
-                        u_baseline,
-                        username_color,
-                        outline_on,
-                    )
-                else:
-                    up = QPainterPath()
-                    up.addText(text_x, u_baseline, username_font, label)
-                    if outline_on:
-                        pen = QPen(outline_color)
-                        pen.setWidth(outline_w)
-                        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-                        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-                        painter.setPen(pen)
-                        painter.drawPath(up)
-                    painter.setPen(Qt.PenStyle.NoPen)
-                    painter.setBrush(username_color)
-                    painter.drawPath(up)
-
-            if _use_fast_danmu_render(joined):
-                for i, line_text in enumerate(lines):
-                    baseline_y = body.top() + pad_y + ascent + i * line_h
-                    if (
-                        not stacked
-                        and i == 0
-                        and username_text
-                        and username_font is not None
-                    ):
-                        ux = text_x
-                        _draw_text_line(
-                            painter,
-                            username_font,
-                            username_metrics,
-                            username_text + username_sep,
-                            ux,
-                            baseline_y,
-                            username_color,
-                            outline_on,
-                        )
-                        cx = ux + username_w + float(st.gap_username_content)
-                        _draw_text_line(
-                            painter,
-                            content_font,
-                            content_metrics,
-                            line_text,
-                            cx,
-                            baseline_y,
-                            text_fill,
-                            outline_on,
-                        )
-                    else:
-                        _draw_text_line(
-                            painter,
-                            content_font,
-                            content_metrics,
-                            line_text,
-                            text_x,
-                            baseline_y,
-                            text_fill,
-                            outline_on,
-                        )
-            else:
-                for i, line_text in enumerate(lines):
-                    baseline_y = body.top() + pad_y + ascent + i * line_h
-                    if (
-                        not stacked
-                        and i == 0
-                        and username_text
-                        and username_font is not None
-                    ):
-                        ux = text_x
-                        up = QPainterPath()
-                        up.addText(
-                            ux, baseline_y, username_font, username_text + username_sep
-                        )
-                        if outline_on:
-                            pen = QPen(outline_color)
-                            pen.setWidth(outline_w)
-                            pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-                            pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-                            painter.setPen(pen)
-                            painter.drawPath(up)
-                        painter.setPen(Qt.PenStyle.NoPen)
-                        painter.setBrush(username_color)
-                        painter.drawPath(up)
-
-                        cp = QPainterPath()
-                        cp.addText(
-                            ux + username_w + float(st.gap_username_content),
-                            baseline_y,
-                            content_font,
-                            line_text,
-                        )
-                        if outline_on:
-                            pen = QPen(outline_color)
-                            pen.setWidth(outline_w)
-                            pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-                            pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-                            painter.setPen(pen)
-                            painter.drawPath(cp)
-                        painter.setPen(Qt.PenStyle.NoPen)
-                        painter.setBrush(text_fill)
-                        painter.drawPath(cp)
-                    else:
-                        tp = QPainterPath()
-                        tp.addText(text_x, baseline_y, content_font, line_text)
-                        if outline_on:
-                            pen = QPen(outline_color)
-                            pen.setWidth(outline_w)
-                            pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-                            pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-                            painter.setPen(pen)
-                            painter.drawPath(tp)
-                        painter.setPen(Qt.PenStyle.NoPen)
-                        painter.setBrush(text_fill)
-                        painter.drawPath(tp)
+            self._paint_card_background(painter, geometry.body, style_index)
+            if self._font is not None and self._font_metrics is not None:
+                painter.setFont(self._font)
+                layout = self._layout_card_text(text, persona_id, geometry)
+                self._paint_card_text(painter, layout, geometry, style_index)
         finally:
             painter.end()
-        return pm
+        return pixmap
 
     def show_for_screen(self, screen_index: int = 0) -> None:
         screens = QApplication.screens()

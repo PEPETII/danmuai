@@ -28,6 +28,7 @@ import logging
 import re
 import sqlite3
 import time
+from collections import deque
 from dataclasses import dataclass
 from typing import Any
 
@@ -106,6 +107,12 @@ class KnowledgeRetriever:
         self._db = db
         self._fts_backend: str = db.fts_backend
         self._last_injected_contents: list[str] = []
+        self._query_count = 0
+        self._fallback_query_count = 0
+        self._query_timings: deque[float] = deque(maxlen=128)
+        self._last_query_backend = "empty"
+        self._last_like_term_count = 0
+        self._query_diagnostics: dict[str, Any] = {}
 
     # ------------------------------------------------------------------
     # 公开 API
@@ -139,6 +146,8 @@ class KnowledgeRetriever:
             ``RetrievalResult``；异常时返回空结果不抛异常。
         """
         start = time.perf_counter()
+        self._last_query_backend = "empty"
+        self._last_like_term_count = 0
         keywords = [str(k) for k in (keywords or []) if k]
         scene_brief = str(scene_brief or "")
         del scene_tags  # 统一知识空间：不再用于包级过滤
@@ -148,7 +157,8 @@ class KnowledgeRetriever:
         try:
             hits = self._query_hits(scene_brief, keywords)
         except sqlite3.Error as exc:
-            logger.warning("knowledge.retrieve sql error: %s", exc)
+            logger.warning("knowledge.retrieve sql error type=%s", type(exc).__name__)
+            self._record_query_diagnostics(start, len(keywords), 0)
             return RetrievalResult(
                 items=[],
                 prompt_text="",
@@ -158,6 +168,7 @@ class KnowledgeRetriever:
             )
 
         if not hits:
+            self._record_query_diagnostics(start, len(keywords), 0)
             return RetrievalResult(
                 items=[],
                 prompt_text="",
@@ -170,6 +181,7 @@ class KnowledgeRetriever:
         scored = self._score_hits(hits, scene_brief, keywords, recent_use_window_sec)
         selected = self._apply_quotas(scored, max_items)
         prompt_text = build_prompt_text(selected, max_chars=max_chars)
+        self._record_query_diagnostics(start, len(keywords), hit_count)
 
         return RetrievalResult(
             items=selected,
@@ -178,6 +190,34 @@ class KnowledgeRetriever:
             retrieval_ms=_elapsed_ms(start),
             fts_backend=self._fts_backend,
         )
+
+    def _record_query_diagnostics(self, start: float, keyword_count: int, hit_count: int) -> None:
+        """Record scalar metrics only; retain no query text, paths or item IDs."""
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        self._query_count += 1
+        self._fallback_query_count += int(self._last_query_backend == "fallback")
+        self._query_timings.append(elapsed_ms)
+        timings = sorted(self._query_timings)
+        self._query_diagnostics = {
+            "backend": self._last_query_backend,
+            "query_count": self._query_count,
+            "fallback_count": self._fallback_query_count,
+            "fallback_rate": self._fallback_query_count / self._query_count,
+            "keyword_count": keyword_count,
+            "like_term_count": self._last_like_term_count,
+            "hit_count": hit_count,
+            "retrieval_ms": elapsed_ms,
+            "p95_ms": timings[max(0, (len(timings) * 95 + 99) // 100 - 1)],
+            "timing_samples": len(timings),
+        }
+        logger.debug(
+            "knowledge retrieval backend=%s keyword_count=%d like_term_count=%d hit_count=%d retrieval_ms=%.3f",
+            self._last_query_backend, keyword_count, self._last_like_term_count, hit_count, elapsed_ms,
+        )
+
+    def get_query_diagnostics(self) -> dict[str, Any]:
+        """Read the latest complete scalar snapshot (p95 uses at most 128 calls)."""
+        return dict(self._query_diagnostics)
 
     def set_last_injected(self, contents: list[str]) -> None:
         """更新上次注入的 content 列表，用于下次 ``dedup_penalty`` 计算。
@@ -214,6 +254,7 @@ class KnowledgeRetriever:
             return []
 
         if self._fts_backend in ("trigram", "fts5"):
+            self._last_query_backend = self._fts_backend
             hits = self._query_fts(query_text)
             if hits:
                 return hits
@@ -240,7 +281,7 @@ class KnowledgeRetriever:
                 ).fetchall()
         except sqlite3.OperationalError as exc:
             # FTS 查询语法错误或表损坏 → 回退 LIKE
-            logger.debug("knowledge.fts query failed, fallback to LIKE: %s", exc)
+            logger.debug("knowledge.fts query failed, fallback to LIKE type=%s", type(exc).__name__)
             return []
         return [_deserialize_item_row(row) for row in rows]
 
@@ -248,13 +289,9 @@ class KnowledgeRetriever:
         self, scene_brief: str, keywords: list[str]
     ) -> list[dict[str, Any]]:
         """执行 LIKE 回退查询。"""
-        like_terms: list[str] = []
-        for kw in keywords:
-            if kw:
-                like_terms.append(f"%{kw}%")
-        for word in _split_words(scene_brief):
-            if word:
-                like_terms.append(f"%{word}%")
+        self._last_query_backend = "fallback"
+        like_terms = _like_terms(scene_brief, keywords)
+        self._last_like_term_count = len(like_terms)
         if not like_terms:
             return []
 
@@ -402,6 +439,13 @@ def _split_words(text: str) -> list[str]:
         return []
     parts = re.split(r"[\s,，。.!！?？;；:：、()（）\[\]【】]+", text)
     return [p.strip() for p in parts if p.strip()]
+
+
+def _like_terms(scene_brief: str, keywords: list[str]) -> list[str]:
+    """Remove exactly repeated OR patterns; preserve LIKE wildcard semantics."""
+    return list(dict.fromkeys(
+        f"%{word}%" for word in [*keywords, *_split_words(scene_brief)] if word
+    ))
 
 
 def _infer_scope(scene_brief: str) -> str:

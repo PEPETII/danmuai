@@ -26,6 +26,7 @@ import logging
 import re
 import threading
 import time
+from collections import deque
 from concurrent.futures import Future, ThreadPoolExecutor, TimeoutError
 from typing import TYPE_CHECKING, Any
 
@@ -59,6 +60,11 @@ _SCENE_CONTEXT_TTL_SEC = 900.0
 # 普通视觉链路复用「上一轮已产出的场景语义」时的最长年龄（秒）。
 # 比 TTL 更短：仅用于同一场景代际内的连续性，避免陈旧上下文污染检索。
 SCENE_CONTEXT_REUSE_MAX_AGE_SEC = 180.0
+# One retrieval owner; reserve admission for HTTP previews and usage writes.
+_RETRIEVAL_QUERY_LIMIT = 8
+_VISUAL_QUERY_LIMIT = 6
+_RETRIEVAL_CACHE_LIMIT = 64
+_USAGE_PENDING_LIMIT = 64
 
 _STOPWORDS: frozenset[str] = frozenset(
     {
@@ -276,6 +282,12 @@ class KnowledgeRuntimeService:
         self._retrieval_cache: dict[tuple[Any, ...], tuple[Any, float]] = {}
         self._retrieval_scene_generation = 0
         self._retrieval_deadline_sec = 0.25
+        self._usage_pending: deque[tuple[Any, ...]] = deque()
+        self._usage_drain_future: Future | None = None
+        self._retrieval_rejected_count = 0
+        self._retrieval_merged_count = 0
+        self._usage_rejected_count = 0
+        self._usage_expired_count = 0
         self._mount_result = self.mount()
 
     @property
@@ -506,10 +518,47 @@ class KnowledgeRuntimeService:
             self._retrieval_pending_keys = set()
         if not hasattr(self, "_retrieval_cache"):
             self._retrieval_cache = {}
+        if not hasattr(self, "_usage_pending"):
+            self._usage_pending = deque()
+            self._usage_drain_future = None
+            self._retrieval_rejected_count = 0
+            self._retrieval_merged_count = 0
+            self._usage_rejected_count = 0
+            self._usage_expired_count = 0
         if not hasattr(self, "_retrieval_scene_generation"):
             self._retrieval_scene_generation = 0
         if not hasattr(self, "_retrieval_deadline_sec"):
             self._retrieval_deadline_sec = 0.25
+
+    def _prune_retrieval_cache_locked(self, now: float) -> None:
+        for key, (_, created_at) in list(self._retrieval_cache.items()):
+            if (
+                key[1] != self._retrieval_scene_generation
+                or now - created_at > SCENE_CONTEXT_REUSE_MAX_AGE_SEC
+            ):
+                self._retrieval_cache.pop(key, None)
+        while len(self._retrieval_cache) > _RETRIEVAL_CACHE_LIMIT:
+            self._retrieval_cache.pop(next(iter(self._retrieval_cache)))
+
+    def get_retrieval_pressure(self) -> dict[str, int]:
+        """Return bounded owner counts without semantic text or item identities."""
+        self._ensure_retrieval_state()
+        with self._retrieval_lock:
+            return {
+                "query_pending": len(self._retrieval_pending_keys),
+                "visual_pending": sum(key[0] == "visual" for key in self._retrieval_pending_keys),
+                "usage_pending": len(self._usage_pending),
+                "usage_future": int(self._usage_drain_future is not None),
+                "cache_entries": len(self._retrieval_cache),
+                "query_rejected": self._retrieval_rejected_count,
+                "query_merged": self._retrieval_merged_count,
+                "usage_rejected": self._usage_rejected_count,
+                "usage_expired": self._usage_expired_count,
+            }
+
+    def _retrieval_query_done(self, future: Future, key: tuple[Any, ...]) -> None:
+        with self._retrieval_lock:
+            self._retrieval_pending_keys.discard(key)
 
     def _retrieval_query_worker(
         self,
@@ -523,8 +572,21 @@ class KnowledgeRuntimeService:
         scene_generation: int,
         deadline_at: float,
         cache_result: bool = True,
+        queued_at: float = 0.0,
     ):
         try:
+            now = time.monotonic()
+            logger.debug(
+                "knowledge retrieval start purpose=%s queue_wait_ms=%.3f",
+                key[0], max(0.0, now - queued_at) * 1000,
+            )
+            with self._retrieval_lock:
+                if (
+                    not self._retrieval_accepting
+                    or now > deadline_at
+                    or (cache_result and self._retrieval_scene_generation != int(scene_generation))
+                ):
+                    return None
             retriever = self.retriever
             if retriever is None:
                 return None
@@ -546,14 +608,13 @@ class KnowledgeRuntimeService:
                 current_generation = self._retrieval_scene_generation
                 accepting = self._retrieval_accepting
                 if cache_result and accepting and current_generation == int(scene_generation):
+                    self._retrieval_cache.pop(key, None)
                     self._retrieval_cache[key] = (result, time.monotonic())
+                    self._prune_retrieval_cache_locked(time.monotonic())
             return result
         except Exception as exc:
-            logger.warning("knowledge retrieval worker failed: %r", exc)
+            logger.warning("knowledge retrieval worker failed type=%s", type(exc).__name__)
             return None
-        finally:
-            with self._retrieval_lock:
-                self._retrieval_pending_keys.discard(key)
 
     def _queue_retrieval(
         self,
@@ -568,25 +629,43 @@ class KnowledgeRuntimeService:
         deadline_sec: float,
         cache_result: bool = True,
     ) -> Future | None:
+        self._ensure_retrieval_state()
         with self._retrieval_lock:
+            self._prune_retrieval_cache_locked(time.monotonic())
+            if not self._retrieval_accepting or self._retrieval_executor_closed:
+                self.set_retrieval_diagnostic("knowledge_disabled")
+                return None
             if key in self._retrieval_pending_keys:
+                self._retrieval_merged_count += 1
+                self.set_retrieval_diagnostic("retrieval_pending")
+                return None
+            visual_pending = sum(k[0] == "visual" for k in self._retrieval_pending_keys)
+            if (
+                len(self._retrieval_pending_keys) >= _RETRIEVAL_QUERY_LIMIT
+                or (key[0] == "visual" and visual_pending >= _VISUAL_QUERY_LIMIT)
+            ):
+                self._retrieval_rejected_count += 1
+                self.set_retrieval_diagnostic("retrieval_busy")
                 return None
             self._retrieval_pending_keys.add(key)
-        future = self._submit_retrieval_job(
-            self._retrieval_query_worker,
-            key=key,
-            scene_brief=scene_brief,
-            keywords=keywords,
-            scene_tags=scene_tags,
-            request_round=request_round,
-            screenshot_id=screenshot_id,
-            scene_generation=scene_generation,
-            deadline_at=time.monotonic() + max(0.01, float(deadline_sec)),
-            cache_result=cache_result,
-        )
-        if future is None:
-            with self._retrieval_lock:
+            queued_at = time.monotonic()
+            future = self._submit_retrieval_job(
+                self._retrieval_query_worker,
+                key=key,
+                scene_brief=scene_brief,
+                keywords=keywords,
+                scene_tags=scene_tags,
+                request_round=request_round,
+                screenshot_id=screenshot_id,
+                scene_generation=scene_generation,
+                deadline_at=queued_at + max(0.01, float(deadline_sec)),
+                cache_result=cache_result,
+                queued_at=queued_at,
+            )
+            if future is None:
                 self._retrieval_pending_keys.discard(key)
+            else:
+                future.add_done_callback(lambda done: self._retrieval_query_done(done, key))
         return future
 
     @staticmethod
@@ -638,26 +717,88 @@ class KnowledgeRuntimeService:
         contents: list[str],
         scene_generation: int,
         deadline_sec: float,
-    ) -> None:
+    ) -> bool:
         deadline_at = time.monotonic() + max(0.01, float(deadline_sec))
+        return self._queue_usage_event(
+            ("injection", injection.item_ids, tuple(contents), int(scene_generation), deadline_at)
+        )
 
-        def write_usage() -> None:
-            if time.monotonic() > deadline_at:
-                return
+    def _prune_usage_pending_locked(self, now: float) -> None:
+        kept = deque()
+        for event in self._usage_pending:
+            generation, deadline_at = event[3], event[4]
+            if now > deadline_at or (
+                generation is not None and generation != self._retrieval_scene_generation
+            ):
+                self._usage_expired_count += 1
+            else:
+                kept.append(event)
+        self._usage_pending = kept
+
+    def _queue_usage_event(self, event: tuple[Any, ...]) -> bool:
+        """Batch events under one Future; retain each deadline and use increment."""
+        self._ensure_retrieval_state()
+        with self._retrieval_lock:
+            if not self._retrieval_accepting or self._retrieval_executor_closed:
+                return False
+            self._prune_usage_pending_locked(time.monotonic())
+            if len(self._usage_pending) >= _USAGE_PENDING_LIMIT:
+                self._usage_rejected_count += 1
+                self.set_retrieval_diagnostic("count_write_failed")
+                return False
+            self._usage_pending.append(event)
+            if self._usage_drain_future is None:
+                self._schedule_usage_drain_locked()
+            return self._usage_drain_future is not None
+
+    def _schedule_usage_drain_locked(self) -> None:
+        future = self._submit_retrieval_job(self._drain_usage_writes)
+        self._usage_drain_future = future
+        if future is not None:
+            future.add_done_callback(self._usage_drain_done)
+        else:
+            self._usage_pending.clear()
+            self.set_retrieval_diagnostic("count_write_failed")
+
+    def _usage_drain_done(self, future: Future) -> None:
+        with self._retrieval_lock:
+            if self._usage_drain_future is future:
+                self._usage_drain_future = None
+            if self._usage_pending and self._retrieval_accepting:
+                self._schedule_usage_drain_locked()
+
+    def _drain_usage_writes(self) -> None:
+        # Yield to already queued queries even if producers keep replenishing usage.
+        # The completion callback schedules the next bounded batch at the tail.
+        for _ in range(_USAGE_PENDING_LIMIT):
             with self._retrieval_lock:
-                if not self._retrieval_accepting or self._retrieval_scene_generation != int(scene_generation):
+                if not self._retrieval_accepting:
+                    self._usage_pending.clear()
                     return
+                self._prune_usage_pending_locked(time.monotonic())
+                if not self._usage_pending:
+                    return
+                kind, ids, contents, generation, deadline_at = self._usage_pending.popleft()
             retriever = self.retriever
             if retriever is None:
-                return
+                continue
             try:
-                retriever.set_last_injected(contents)
-                if injection.item_ids and time.monotonic() <= deadline_at:
-                    retriever.mark_items_used(list(injection.item_ids))
+                if kind == "injection":
+                    with self._retrieval_lock:
+                        if generation != self._retrieval_scene_generation:
+                            continue
+                    retriever.set_last_injected(list(contents))
+                    internal_ids = list(ids)
+                else:
+                    repo = self.repository
+                    if repo is None:
+                        continue
+                    internal_ids = repo.get_item_ids_by_public_ids(list(ids))
+                if internal_ids and time.monotonic() <= deadline_at:
+                    retriever.mark_items_used(internal_ids)
             except Exception as exc:
-                logger.warning("knowledge injection usage write failed: %r", exc)
-
-        self._submit_retrieval_job(write_usage)
+                self.set_retrieval_diagnostic("count_write_failed")
+                logger.warning("knowledge usage write failed type=%s", type(exc).__name__)
 
     def prepare_visual_prompt_injection(
         self,
@@ -687,6 +828,7 @@ class KnowledgeRuntimeService:
         result = None
         cache_available = False
         with self._retrieval_lock:
+            self._prune_retrieval_cache_locked(now)
             entry = self._retrieval_cache.get(key)
             if entry is not None and now - entry[1] <= SCENE_CONTEXT_REUSE_MAX_AGE_SEC:
                 cache_available = True
@@ -694,7 +836,7 @@ class KnowledgeRuntimeService:
             elif entry is not None:
                 self._retrieval_cache.pop(key, None)
         if not cache_available:
-            self._queue_retrieval(
+            future = self._queue_retrieval(
                 key=key,
                 scene_brief=brief,
                 keywords=kw_list,
@@ -704,7 +846,8 @@ class KnowledgeRuntimeService:
                 scene_generation=generation,
                 deadline_sec=deadline_sec or self._retrieval_deadline_sec,
             )
-            self.set_retrieval_diagnostic("retrieval_pending")
+            if future is not None:
+                self.set_retrieval_diagnostic("retrieval_pending")
             return None
         if result is None:
             self.set_retrieval_diagnostic("no_hit")
@@ -725,13 +868,14 @@ class KnowledgeRuntimeService:
             if isinstance(item, dict) and item.get("content")
         ]
         self._last_injection = injection
-        self._queue_injection_usage(
+        usage_accepted = self._queue_injection_usage(
             injection,
             contents=contents,
             scene_generation=generation,
             deadline_sec=deadline_sec or self._retrieval_deadline_sec,
         )
-        self.set_retrieval_diagnostic("injected")
+        if usage_accepted:
+            self.set_retrieval_diagnostic("injected")
         return injection
 
     def preview_retrieval(
@@ -787,21 +931,7 @@ class KnowledgeRuntimeService:
             return
         deadline_at = time.monotonic() + max(0.01, float(deadline_sec or self._retrieval_deadline_sec))
 
-        def write_usage() -> None:
-            if time.monotonic() > deadline_at:
-                return
-            repo = self.repository
-            retriever = self.retriever
-            if repo is None or retriever is None:
-                return
-            try:
-                internal_ids = repo.get_item_ids_by_public_ids(ids)
-                if internal_ids and time.monotonic() <= deadline_at:
-                    retriever.mark_items_used(internal_ids)
-            except Exception as exc:
-                logger.warning("knowledge reply usage write failed: %r", exc)
-
-        self._submit_retrieval_job(write_usage)
+        self._queue_usage_event(("reply", tuple(ids), (), None, deadline_at))
 
     def build_visual_prompt_injection(
         self,
@@ -952,6 +1082,7 @@ class KnowledgeRuntimeService:
             "knowledge_disabled",
             "empty_query",
             "retrieval_pending",
+            "retrieval_busy",
             "retrieval_timeout",
             "scene_generation_lagged",
             "count_write_failed",
@@ -1076,6 +1207,8 @@ class KnowledgeRuntimeService:
     def _begin_retrieval_shutdown(self, on_drained=None) -> None:
         with self._retrieval_lock:
             self._retrieval_accepting = False
+            self._usage_pending.clear()
+            self._retrieval_cache.clear()
             if callable(on_drained):
                 self._retrieval_drain_callback = on_drained
             if self._retrieval_executor_closed:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import re
 from pathlib import Path
@@ -12,6 +13,7 @@ LOCALES = STATIC / "locales"
 EXTRACTED = LOCALES / "_extracted_zh.json"
 HINTS_JS = STATIC / "modules" / "settings-hints.js"
 EN_MAP = Path(__file__).resolve().parent / "locale_en_extra.json"
+CHECK_ONLY = False
 
 SHARDS = ["common", "nav", "overview", "settings", "content", "modals", "hints", "dynamic"]
 
@@ -378,11 +380,15 @@ def count_leaves(node) -> int:
 
 
 def write_json(path: Path, data: dict) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
     text = json.dumps(data, ensure_ascii=False, indent=2)
     if len(text.splitlines()) > 1200:
         raise SystemExit(f"{path.name} exceeds 1200 lines ({len(text.splitlines())})")
-    path.write_text(text + "\n", encoding="utf-8")
+    if CHECK_ONLY:
+        if not path.is_file() or json.loads(path.read_text(encoding='utf-8')) != data:
+            raise SystemExit(f'{path.relative_to(ROOT)} is stale; run python scripts/build_locale_shards.py.')
+    else:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text + "\n", encoding="utf-8")
 
 
 def main() -> None:
@@ -427,4 +433,7 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--check', action='store_true', help='Validate generated JSON without rewriting files.')
+    CHECK_ONLY = parser.parse_args().check
     main()

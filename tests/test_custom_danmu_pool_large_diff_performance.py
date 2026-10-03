@@ -53,15 +53,18 @@ def test_diff_large_pool_correctness(tmp_path):
 
     pool = store.get_custom_danmu_pool()
     assert len(pool) == 10_000
+    pool_set = set(pool)
+    assert len(pool_set) == len(pool)
+    assert pool_set == set(new_items)
     # 保留的旧条目都在
     for i in range(5_000, 10_000):
-        assert f"句A-{i:05d}" in pool
+        assert f"句A-{i:05d}" in pool_set
     # 新增的条目都在
     for j in range(5_000):
-        assert f"句B-{j:05d}" in pool
+        assert f"句B-{j:05d}" in pool_set
     # 被删的不在
     for i in range(5_000):
-        assert f"句A-{i:05d}" not in pool
+        assert f"句A-{i:05d}" not in pool_set
     store.close()
 
 

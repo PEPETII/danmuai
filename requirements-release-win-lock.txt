@@ -94,7 +94,6 @@ tzdata==2026.3
 tzlocal==5.4.4
 uvicorn==0.50.2
 velopack==1.2.0
-volcengine-python-sdk==5.0.38
 watchfiles==1.2.0
 websocket-client==1.9.0
 websockets==13.1

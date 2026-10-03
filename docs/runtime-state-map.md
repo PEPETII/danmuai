@@ -14,7 +14,12 @@
 | `ImportOrchestrator._futures` | knowledge-import worker callbacks under its lock | lifecycle observer | import worker ownership; DB close is forbidden until empty |
 | `KnowledgeRouteExecutor._futures` | route executor callbacks under its lock | lifecycle observer | route-adapter worker ownership; queued work is cancelled at drain start |
 | `KnowledgeRuntimeService._retrieval_futures` | `knowledge-retrieval` worker callbacks under its lock | Qt lifecycle observer | retrieval prefetch and usage-write ownership; late scene/deadline results are discarded |
-| `KnowledgeRuntimeService._retrieval_cache` | retrieval worker publication under its lock | Qt main thread | completed immutable retrieval payloads keyed by scene generation/semantic query |
+| `KnowledgeRuntimeService._retrieval_cache` | retrieval worker publication and pruning under its lock | Qt main thread | completed immutable payloads; at most 64 entries, generation matched, TTL 180 seconds |
+| `KnowledgeRuntimeService._retrieval_pending_keys` | query admission/completion under `_retrieval_lock` | Qt/HTTP/worker under the same lock | at most eight queries, at most six visual queries |
+| `KnowledgeRuntimeService._usage_pending` | Qt admission and retrieval worker drain under `_retrieval_lock` | retrieval worker | at most 64 events, each retains generation/deadline; cleared at shutdown |
+| `KnowledgeRuntimeService._usage_drain_future` | admission/completion under `_retrieval_lock` | lifecycle observer under lock | at most one drain Future on the existing retrieval executor |
+| `KnowledgeRuntimeService._retrieval_rejected_count/_retrieval_merged_count/_usage_rejected_count/_usage_expired_count` | admission/drain under `_retrieval_lock` | scalar pressure snapshot under lock | application lifetime; expose counts without queries, content or IDs |
+| `KnowledgeRetriever._query_timings/_query_diagnostics` | retrieval executor | copied read-only snapshot | at most 128 timing samples; backend/fallback rate/keyword count/p95 only |
 
 Close order is owned by `KnowledgeRuntimeService`: route executor, import
 executor, retrieval executor, then `knowledge.db`. Retrieval work must not
@@ -28,6 +33,7 @@ reuse either the route-adapter or import executor.
 |------|----------|----------|----------|
 | `_running` | Qt 主线程（`start`/`stop`） | Qt 主线程 | Live2D start→stop |
 | `_vision_in_flight` | Qt 主线程（调度/完成槽） | Qt 主线程 | 单次视觉 HTTP 在途 |
+| `_vision_cancel_event` | Qt 主线程创建、置位与释放 | scene worker 只读 Event | 每个场景任务独立；代际切换取消，提交失败或主线程完成时释放 |
 | `_chat_in_flight` | Qt 主线程（调度/完成槽） | Qt 主线程 | 单次 Chat HTTP 在途 |
 | `_runtime_generation` | Qt 主线程（start/stop/模型切换/模式切换） | Qt 主线程 | 递增令牌，失效旧视觉/Chat 请求 |
 | `_dialogue_enabled` | Qt 主线程（`refresh_mode_settings`） | Qt 主线程 | 虚拟主播对话模式开关（与弹幕适配互斥） |
@@ -40,7 +46,7 @@ reuse either the route-adapter or import executor.
 **业务时间 vs 性能计时**：Session / TTL / Scheduler 业务时间戳一律使用 **wall clock**（`time.time()`），包括 `SceneContext.updated_at`、`DanmuBatchCreated.created_at`、`ResponseCandidateEvent.at`、`HostTurn.created_at`、`_last_spoke_at`。主链路 `captured_at`（`DanmuApp._latest_screenshot_time`，**monotonic**）仅用于截图→场景诊断耗时（`scene_latency_ms` 等），禁止写入 `SceneContext.updated_at` 或 `ResponseCandidateEvent.at`。
 | `_vision_coordinator` | 构造时 | Qt 主线程 | `SceneVisionCoordinator` 信号桥 |
 | `_chat_coordinator` | 构造时 | Qt 主线程 | `ChatResponseCoordinator` 信号桥 |
-| `vision_request_count` | Qt 主线程（调度时） | 任意只读 | 累计视觉 HTTP 次数 |
+| `vision_request_count` | Qt 主线程（完成槽，request_started 为真） | 任意只读 | 累计实际开始的视觉 HTTP；排队取消/压缩失败不计数，HTTP 失败仍计数 |
 | `chat_request_count` | Qt 主线程（调度时） | 任意只读 | 累计 Chat HTTP 次数 |
 | `tts_synthesize_count` | Qt 主线程（TTS 合成） | 任意只读 | 累计 TTS 次数 |
 

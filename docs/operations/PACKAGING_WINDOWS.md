@@ -26,11 +26,13 @@ vpk --version
 
 发布锁 `requirements-release-win-lock.txt` 是由 `requirements.txt`、`requirements-dev.txt` 和 Windows 构建工具组成的精确版本集合。`scripts/verify_release_lock.ps1` 会只读验证锁文件格式、Python 版本/架构、已安装包版本和 `pip check`；修改运行时依赖后必须检查直接依赖是否全部进入锁文件、锁文件是否可安装。当前锁文件不包含包 hash，本工单不扩大为 hash 锁定。
 
+从锁文件删除依赖后，`pip install -r ...` 不会自动卸载旧环境的多余包。正式构建建议创建干净的 Python 3.12 x64 环境并安装 release lock；多余的 `volcengine-python-sdk` 会被版本漂移检查拒绝，`-SkipDependencyInstall` 不能绕过该检查。
+
 ## 2. 打包覆盖范围
 
 `DanmuAI.spec` 是唯一的 PyInstaller 入口，当前覆盖以下内容：
 
-- `web/static/` 全部静态资源，包括 HTML、CSS、JS、locale、JSON、预览图和截图；任何含 `supabase-config` 的文件默认排除，只保留 `supabase-config.example.js` 与 `supabase-client.js`。
+- `web/static/` 运行时静态资源，包括生成的 `index.html`、`utilities.css`、JS、locale、JSON 和预览图；排除 template、partial、HTML 构建器、CSS 输入、旧浏览器 utility 编译器及 bytecode。任何含 `supabase-config` 的文件默认排除，只保留 `supabase-config.example.js` 与 `supabase-client.js`。
 - `data/personae_builtin.json` 和 `resources/icon.*`。
 - 当前 `app.application`、`app.config_store`、`app.knowledge`、`app.live2d`、`app.meme_barrage`、`app.providers`、`app.tts`、`app.virtual_host`、`app.web_api` 包的源码子模块。这样覆盖了启动后才装配的知识库、虚拟主播、Live2D、TTS、provider 和 Web API 路由。
 - `live2d-py` 的 `live2d` 子模块、包内 `.pyd/.dll` 和 shader 数据；`OpenGL.GL` 核心模块与 platform 适配模块。可选的 Tk/Togl、GLES、GLUT 全树不收集；Windows 系统的 `opengl32.dll` 仍由系统提供，Qt6 的 OpenGL/QtOpenGLWidgets 二进制由 PyInstaller Qt hooks 收集。
@@ -59,6 +61,12 @@ vpk --version
 ```powershell
 \.\scripts\build_exe.ps1 -AllowUnlockedBuild
 ```
+
+依赖已经安装的环境可传 `-SkipDependencyInstall`，正式构建仍检查 Python、`pip check` 和已安装版本与 release lock 的一致性。开发增量构建需要同时传 `-AllowUnlockedBuild -Incremental`；正式默认路径始终使用 `--clean`。
+
+`-OutputRoot <绝对目录>` 可把 dist 与 work 缓存放入独立目录，该路径不停止已有应用进程；脚本只清理目标目录的 `dist\DanmuAI`，拒绝经过 junction/reparse point 的递归删除。`-PythonPath <python.exe>` 可显式选择隔离解释器，其版本与架构检查仍执行。不同源码工作区应使用不同输出目录，增量缓存不能当作正式发布验收。
+
+Web 输出已随仓库保存；修改 UI 源码后，先按 [CONTRIBUTING.md](../../CONTRIBUTING.md) 生成并检查 HTML、CSS、locale，再打包。运行 frozen 应用不需要 Node 或 Tailwind。
 
 成功条件：
 

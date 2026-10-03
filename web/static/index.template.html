@@ -27,25 +27,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
-  <script>
-    window.tailwind = window.tailwind || {};
-    window.tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            cream: '#FDFBF7',
-            warmPink: '#FFA5A5',
-            warmPinkHover: '#FF8585',
-            softPeach: '#FFE5D9',
-            pastelYellow: '#FFF2CC',
-            warmText: '#5D5757',
-          },
-          fontFamily: { sans: ['Nunito', 'sans-serif'] },
-          boxShadow: { warm: '0 4px 15px -3px rgba(255, 165, 165, 0.2)' },
-        },
-      },
-    };
-  </script>
+  <link rel="stylesheet" href="/static/utilities.css?v=20261003-precompiled">
 </head>
 <body class="font-sans flex h-screen overflow-hidden ui-shell">
   <button
@@ -120,7 +102,6 @@
 
   <script src="/static/supabase-config.js"></script>
   <script src="/static/supabase-client.js"></script>
-  <script src="/static/tailwindcdn.js"></script>
   <script type="module" src="/static/app.js?v=20260816-danmu-read-ui-v1"></script>
 </body>
 </html>

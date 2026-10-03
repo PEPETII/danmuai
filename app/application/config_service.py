@@ -203,6 +203,47 @@ def _normalize_reply_queue_capacity(items: dict[str, str]) -> None:
     items[key] = str(min(value, 9999))
 
 
+_SIMPLE_INT_RULES = (
+    ("danmu_recent_ttl_sec", 30, 1, 600),
+    ("opacity", 100, 0, 100),
+    ("floating_panel_width", 360, 200, 800),
+    ("floating_panel_max_items", 12, 1, 50),
+    ("floating_panel_danmu_per_second", 1, 1, 5),
+    ("floating_panel_lifetime_sec", 7, 2, 60),
+    ("floating_panel_x_offset", 20, 0, 400),
+    ("floating_panel_y_offset", 80, 0, 400),
+    ("floating_panel_opacity", 85, 0, 100),
+    ("font_size", 24, 12, 72),
+    ("floating_panel_font_size", 20, 12, 48),
+)
+_SIMPLE_BOOL_KEYS = (
+    "empty_accel", "persona_name_prefix_enabled", "danmu_font_bold",
+    "floating_panel_font_bold", "floating_panel_click_through",
+    "live2d_click_through", "use_thinking",
+)
+
+
+def _normalize_bool_key(items: dict[str, str], key: str, *, case_sensitive: bool = False) -> None:
+    if key not in items:
+        return
+    value = str(items[key]).strip()
+    if not case_sensitive:
+        value = value.lower()
+    items[key] = "1" if value in ("1", "true", "yes", "on") else "0"
+
+
+def _clamp_float_key(
+    items: dict[str, str], key: str, default: str, min_value: float, max_value: float,
+) -> None:
+    if key not in items:
+        return
+    try:
+        value = max(min_value, min(float(items[key]), max_value))
+        items[key] = f"{value:.3f}".rstrip("0").rstrip(".")
+    except (TypeError, ValueError):
+        items[key] = default
+
+
 def _submitted_api_key(value: Any) -> str:
     key = str(value or "").strip()
     if not key or key == MASKED_API_KEY:
@@ -260,6 +301,7 @@ class ConfigService:
         self._app.config_changed.emit()
 
     def _normalize_items(self, items: dict[str, str]) -> None:
+        # Cross-field mode resolution stays ahead of single-field rules.
         if "mic_api_endpoint" in items or "mic_api_mode" in items:
             from app.model_providers import normalize_api_mode_for_select
 
@@ -267,9 +309,12 @@ class ConfigService:
             api_mode = items.get("mic_api_mode", self._config.get("mic_api_mode", "doubao"))
             items["mic_api_mode"] = normalize_api_mode_for_select(api_mode, endpoint)
 
-        if "mic_use_visual_model" in items:
-            value = str(items["mic_use_visual_model"]).strip()
-            items["mic_use_visual_model"] = "1" if value in ("1", "true", "yes", "on") else "0"
+        # Preserve the legacy case-sensitive microphone switch contract.
+        _normalize_bool_key(items, "mic_use_visual_model", case_sensitive=True)
+        for key in _SIMPLE_BOOL_KEYS:
+            _normalize_bool_key(items, key)
+        for rule in _SIMPLE_INT_RULES:
+            _clamp_int_key(items, *rule)
 
         if "mic_window_sec" in items:
             from app.mic_buffer import clamp_mic_window_sec
@@ -296,41 +341,20 @@ class ConfigService:
             except (TypeError, ValueError):
                 items["danmu_lines"] = str(DEFAULT_DANMU_LINES)
 
-        # W-CONFIG-UI-LINK-001 / W-RENDER-TOPMOST-BATCH-001：danmu_speed 钳位 0.5–10.0
-        if "danmu_speed" in items:
-            try:
-                from app.config_defaults import (
-                    DANMU_SPEED_MAX,
-                    DANMU_SPEED_MIN,
-                )
+        from app.config_defaults import (
+            CONFIG_DEFAULTS,
+            DANMU_SPEED_MAX,
+            DANMU_SPEED_MIN,
+            DEFAULT_FLOATING_PANEL_SPEED,
+        )
 
-                speed = max(DANMU_SPEED_MIN, min(float(items["danmu_speed"]), DANMU_SPEED_MAX))
-                items["danmu_speed"] = f"{speed:.3f}".rstrip("0").rstrip(".")
-            except (TypeError, ValueError):
-                from app.config_defaults import CONFIG_DEFAULTS
+        _clamp_float_key(items, "danmu_speed", CONFIG_DEFAULTS["danmu_speed"], DANMU_SPEED_MIN, DANMU_SPEED_MAX)
+        _clamp_float_key(items, "dedup_threshold", "0.5", 0.0, 1.0)
+        _clamp_float_key(items, "floating_panel_speed", DEFAULT_FLOATING_PANEL_SPEED, 0.5, 5.0)
 
-                items["danmu_speed"] = CONFIG_DEFAULTS["danmu_speed"]
-        if "dedup_threshold" in items:
-            try:
-                threshold = max(0.0, min(float(items["dedup_threshold"]), 1.0))
-                items["dedup_threshold"] = f"{threshold:.3f}".rstrip("0").rstrip(".")
-            except (TypeError, ValueError):
-                items["dedup_threshold"] = "0.5"
-        if "danmu_recent_ttl_sec" in items:
-            _clamp_int_key(items, "danmu_recent_ttl_sec", 30, 1, 600)
-        if "empty_accel" in items:
-            _v = str(items["empty_accel"]).strip().lower()
-            items["empty_accel"] = "1" if _v in ("1", "true", "yes", "on") else "0"
-
-        if "persona_name_prefix_enabled" in items:
-            _v = str(items["persona_name_prefix_enabled"]).strip().lower()
-            items["persona_name_prefix_enabled"] = "1" if _v in ("1", "true", "yes", "on") else "0"
-
-        if (
-            "danmu_pending_entry_cap" in items
-            or "danmu_track_retention_cap" in items
-            or "reply_queue_max_items" in items
-        ):
+        if any(key in items for key in (
+            "danmu_pending_entry_cap", "danmu_track_retention_cap", "reply_queue_max_items",
+        )):
             from app.danmu_engine import (
                 DANMU_PENDING_ENTRY_CAP_MAX,
                 DANMU_TRACK_RETENTION_CAP_MAX,
@@ -345,102 +369,41 @@ class ConfigService:
 
             items["layout_mode"] = normalize_layout_mode(items["layout_mode"])
 
-        _clamp_int_key(items, "opacity", 100, 0, 100)
-
         if "normal_recognition_interval_sec" in items or "normal_reply_count" in items:
             from app.persona_contract import DEFAULT_NORMAL_REPLY_COUNT, NORMAL_REPLY_COUNT_MAX
 
             _clamp_int_key(items, "normal_recognition_interval_sec", 5, 1, 60)
-            _clamp_int_key(
-                items,
-                "normal_reply_count",
-                DEFAULT_NORMAL_REPLY_COUNT,
-                1,
-                NORMAL_REPLY_COUNT_MAX,
-            )
+            _clamp_int_key(items, "normal_reply_count", DEFAULT_NORMAL_REPLY_COUNT, 1, NORMAL_REPLY_COUNT_MAX)
 
-        # W-FP-V2-001：danmu_render_mode 与侧边悬浮窗配置归一化
-        if "danmu_render_mode" in items:
-            _clamp_choice(
-                items,
-                "danmu_render_mode",
-                ("scrolling", "floating_panel"),
-                "scrolling",
-            )
-        _clamp_int_key(items, "floating_panel_width", 360, 200, 800)
-        _clamp_int_key(items, "floating_panel_max_items", 12, 1, 50)
-        _clamp_int_key(items, "floating_panel_danmu_per_second", 1, 1, 5)
-        _clamp_int_key(items, "floating_panel_lifetime_sec", 7, 2, 60)
-        if "floating_panel_speed" in items:
-            try:
-                speed = max(0.5, min(float(items["floating_panel_speed"]), 5.0))
-                items["floating_panel_speed"] = f"{speed:.3f}".rstrip("0").rstrip(".")
-            except (TypeError, ValueError):
-                from app.config_defaults import DEFAULT_FLOATING_PANEL_SPEED
-
-                items["floating_panel_speed"] = DEFAULT_FLOATING_PANEL_SPEED
-        _clamp_int_key(items, "floating_panel_x_offset", 20, 0, 400)
-        _clamp_int_key(items, "floating_panel_y_offset", 80, 0, 400)
-        # Absolute window origins may be negative on a monitor positioned left
-        # or above the primary display.  Blank values retain legacy offset mode.
-        for _key in ("floating_panel_x", "floating_panel_y"):
-            if _key not in items:
+        _clamp_choice(items, "danmu_render_mode", ("scrolling", "floating_panel"), "scrolling")
+        # Absolute origins may be negative; blank values retain legacy offsets.
+        for key in ("floating_panel_x", "floating_panel_y"):
+            if key not in items:
                 continue
-            _raw = str(items[_key] or "").strip().lower()
-            if not _raw or _raw in ("null", "none"):
-                items[_key] = ""
+            raw = str(items[key] or "").strip().lower()
+            if not raw or raw in ("null", "none"):
+                items[key] = ""
                 continue
             try:
-                _pos = int(_raw)
+                position = int(raw)
             except (TypeError, ValueError):
-                items[_key] = ""
+                items[key] = ""
                 continue
-            items[_key] = str(max(-32000, min(_pos, 32000)))
-        _clamp_int_key(items, "floating_panel_opacity", 85, 0, 100)
-        _clamp_int_key(items, "floating_panel_font_size", 20, 12, 48)
+            items[key] = str(max(-32000, min(position, 32000)))
 
-        # W-FONT-001：字体名 / 加粗 / 字号归一化
-        if "font_size" in items:
-            _clamp_int_key(items, "font_size", 24, 12, 72)
-        if "floating_panel_font_size" in items:
-            _clamp_int_key(items, "floating_panel_font_size", 20, 12, 48)
-        for _key in ("danmu_font_bold", "floating_panel_font_bold"):
-            if _key in items:
-                _v = str(items[_key]).strip().lower()
-                items[_key] = "1" if _v in ("1", "true", "yes", "on") else "0"
+        for key in ("danmu_font_family", "floating_panel_font_family"):
+            if key in items:
+                value = str(items[key]).strip()
+                items[key] = value if value else "Microsoft YaHei"
 
-        # W-FP-WEB-DRAG-001：Web 浮动面板穿透开关
-        if "floating_panel_click_through" in items:
-            _v = str(items["floating_panel_click_through"]).strip().lower()
-            items["floating_panel_click_through"] = (
-                "1" if _v in ("1", "true", "yes", "on") else "0"
-            )
-        for _key in ("danmu_font_family", "floating_panel_font_family"):
-            if _key in items:
-                _v = str(items[_key]).strip()
-                items[_key] = _v if _v else "Microsoft YaHei"
-
-        # W-FP-STYLE-CONTRACT-001：样式预设展开与扁平字段归一化
-        # （classic/wechat 展开；custom 非法回退 wechat；不改 danmu_render_mode）
+        # Preset expansion consumes normalized fields; secrets remain in apply_web_payload.
         from app.floating_panel_style import normalize_floating_panel_style_items
 
         normalize_floating_panel_style_items(items)
-
-        # CSS 文件模式只允许保存受管目录内的单层 .css 文件名，不接受绝对路径。
         if "floating_panel_custom_css_file" in items:
             from app.floating_panel_custom_css import normalize_custom_css_file_name
 
-            items["floating_panel_custom_css_file"] = normalize_custom_css_file_name(
-                items["floating_panel_custom_css_file"]
-            )
-
-        for _key in ("live2d_click_through",):
-            if _key in items:
-                _v = str(items[_key]).strip().lower()
-                items[_key] = "1" if _v in ("1", "true", "yes", "on") else "0"
-        if "use_thinking" in items:
-            _v = str(items["use_thinking"]).strip().lower()
-            items["use_thinking"] = "1" if _v in ("1", "true", "yes", "on") else "0"
+            items["floating_panel_custom_css_file"] = normalize_custom_css_file_name(items["floating_panel_custom_css_file"])
 
     def _merge_custom_models(self, payload_models: list[Any]) -> list[dict[str, Any]]:
         from app.config_store.crypto import (

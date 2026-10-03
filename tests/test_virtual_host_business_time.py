@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 
+import pytest
 from app.virtual_host.chat import HostChatHttpResult
 from app.virtual_host.contracts import DanmuDisplayed, DanmuGenerated, HostTurnResult, SceneContext
 from app.virtual_host.model_config import VISION_MODEL_KEY, apply_virtual_host_model_config
@@ -11,8 +12,19 @@ from app.virtual_host.response_scheduler import ResponseCandidateEvent, VirtualH
 from app.virtual_host.runtime_service import VirtualHostRuntimeService, _monotonic_elapsed_since
 from app.virtual_host.vision import SceneSummaryResult
 
-from tests.fakes import FakePixmap
-from tests.test_virtual_host_runtime import _fake_app, _FakeConfig, _vision_profile
+from tests.test_virtual_host_runtime import (
+    _capture_image,
+    _fake_app,
+    _FakeConfig,
+    _register_runtime_test,
+    _runtime_worker_owner,
+    _vision_profile,
+)
+
+
+@pytest.fixture(autouse=True)
+def _business_time_runtime_teardown(qapp, monkeypatch):
+    yield from _runtime_worker_owner(qapp, monkeypatch)
 
 
 def _vision_config(vision_model: str = "qwen3-vl-flash") -> _FakeConfig:
@@ -50,6 +62,7 @@ def _running_service(monkeypatch, *, sync_workers: bool = False) -> VirtualHostR
         monkeypatch.setattr("app.virtual_host.runtime_service.submit_virtual_host_job", lambda runnable: _SyncPool().start(runnable) or True)
     service = VirtualHostRuntimeService(_fake_app(_vision_config()))
     service.start()
+    _register_runtime_test(service)
     return service
 
 
@@ -59,6 +72,7 @@ def test_monotonic_captured_at_scene_context_is_fresh_with_wall_clock_now():
     captured_at = time.monotonic() - 0.05
     service = VirtualHostRuntimeService(_fake_app(_vision_config()))
     service.start()
+    _register_runtime_test(service)
     service._apply_scene_summary(
         SceneSummaryResult(ok=True, text="Boss 战", model_id="qwen3-vl-flash"),
         screenshot_id=1,
@@ -205,9 +219,10 @@ def test_scene_latency_diagnostic_uses_monotonic_capture_stamp(monkeypatch, qapp
 
     service = VirtualHostRuntimeService(_fake_app(config))
     service.start()
+    _register_runtime_test(service, pool)
     capture_stamp = time.monotonic()
     service.on_capture_completed(
-        FakePixmap(1),
+        _capture_image(),
         screenshot_id=8,
         scene_generation=1,
         captured_at=capture_stamp,

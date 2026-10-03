@@ -159,9 +159,11 @@ node --test --test-concurrency=1 tests/test_settings_module_identity.mjs tests/t
 
 ```powershell
 python web/static/build_index_html.py
+npm ci
+npm run build:css
 ```
 
-更完整的协作边界、架构说明和分批测试策略见 [CONTRIBUTING.md](CONTRIBUTING.md) 与 [AGENTS.md](AGENTS.md)。
+更完整的协作与分批测试策略见 [CONTRIBUTING.md](CONTRIBUTING.md)，架构所有权见[架构基线](docs/final-architecture-baseline.md)。
 
 ## 🤝 交流与反馈
 

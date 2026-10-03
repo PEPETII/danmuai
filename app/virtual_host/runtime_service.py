@@ -3,16 +3,18 @@
 from __future__ import annotations
 
 import logging
+import threading
 import time
 from collections import deque
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from PyQt6.QtCore import QObject, QRunnable, pyqtSignal
+from PyQt6.QtGui import QImage, QPixmap
 
 from app.danmu_tts_playback import DanmuTtsPlayback
 from app.mic_transcription import MicTranscriptionResult, transcribe_pcm
-from app.screenshot_compress import compress_screenshot
+from app.screenshot_compress import compress_screenshot, pixmap_to_image_snapshot
 from app.tts.types import TtsError
 from app.tts_providers import get_tts_manager
 from app.virtual_host.audio import (
@@ -93,7 +95,7 @@ class ChatResponseCoordinator(QObject):
 class SceneVisionCoordinator(QObject):
     """主线程 QObject；场景视觉 worker 经 completed 信号回传结构化结果。"""
 
-    completed = pyqtSignal(object, int, int, float, int, str)
+    completed = pyqtSignal(object, int, int, float, int, str, bool)
 
 
 class TtsSynthesisCoordinator(QObject):
@@ -254,7 +256,8 @@ class _SceneVisionRunnable(QRunnable):
         self,
         coordinator: SceneVisionCoordinator,
         *,
-        image_data_uri: str,
+        image: QImage,
+        cancelled: threading.Event,
         resolved: tuple[str, str, str, str],
         screenshot_id: int,
         scene_generation: int,
@@ -265,7 +268,9 @@ class _SceneVisionRunnable(QRunnable):
     ) -> None:
         super().__init__()
         self._coordinator = coordinator
-        self._image_data_uri = image_data_uri
+        self._image: QImage | None = image
+        self._cancelled = cancelled
+        self._request_started = False
         self._resolved = resolved
         self._screenshot_id = int(screenshot_id)
         self._scene_generation = int(scene_generation)
@@ -275,12 +280,29 @@ class _SceneVisionRunnable(QRunnable):
         self._started_at = time.monotonic() if started_at is None else float(started_at)
         self.setAutoDelete(True)
 
-    def run(self) -> None:
+    def _encode_and_request(self) -> SceneSummaryResult:
+        if self._cancelled.is_set():
+            self.release_image()
+            return SceneSummaryResult(ok=False, error="cancelled")
         try:
-            result = request_scene_summary(self._image_data_uri, self._resolved)
+            image_data_uri = compress_screenshot(self._image)
+        except Exception as exc:
+            logger.warning("virtual_host scene compression failed: %r", exc)
+            return SceneSummaryResult(ok=False, error=f"compress_failed:{type(exc).__name__}")
+        finally:
+            # HTTP retains only the encoded image, never the raw capture.
+            self.release_image()
+        if self._cancelled.is_set():
+            return SceneSummaryResult(ok=False, error="cancelled")
+        try:
+            self._request_started = True
+            return request_scene_summary(image_data_uri, self._resolved)
         except Exception as exc:
             logger.warning("virtual_host scene vision worker failed: %r", exc)
-            result = SceneSummaryResult(ok=False, error=type(exc).__name__)
+            return SceneSummaryResult(ok=False, error=type(exc).__name__)
+
+    def run(self) -> None:
+        result = self._encode_and_request()
         log_diagnostic(
             "scene_request_end",
             runtime_generation=self._runtime_generation,
@@ -289,6 +311,7 @@ class _SceneVisionRunnable(QRunnable):
             error=result.error,
             screenshot_id=self._screenshot_id,
             scene_generation=self._scene_generation,
+            request_started=self._request_started,
             request_latency_ms=round((time.monotonic() - self._started_at) * 1000, 1),
         )
         self._coordinator.completed.emit(
@@ -298,7 +321,11 @@ class _SceneVisionRunnable(QRunnable):
             self._captured_at,
             self._runtime_generation,
             self._vision_model_id,
+            self._request_started,
         )
+
+    def release_image(self) -> None:
+        self._image = None
 
 
 class VirtualHostRuntimeService:
@@ -308,6 +335,7 @@ class VirtualHostRuntimeService:
         self._app = app
         self._running = False
         self._vision_in_flight = False
+        self._vision_cancel_event: threading.Event | None = None
         self._chat_in_flight = False
         self._runtime_generation = 0
         mode_settings = export_virtual_host_mode_settings(app.config)
@@ -570,6 +598,8 @@ class VirtualHostRuntimeService:
         )
 
     def _bump_runtime_generation(self) -> int:
+        if self._vision_cancel_event is not None:
+            self._vision_cancel_event.set()
         self._runtime_generation += 1
         self._live2d_feedback.set_runtime_generation(self._runtime_generation)
         self._spoken_tts_states.clear()
@@ -1033,7 +1063,7 @@ class VirtualHostRuntimeService:
 
     def on_capture_completed(
         self,
-        pixmap: Any,
+        pixmap: QImage | QPixmap,
         *,
         screenshot_id: int,
         scene_generation: int,
@@ -1081,16 +1111,18 @@ class VirtualHostRuntimeService:
             )
             return
         try:
-            image_data_uri = compress_screenshot(pixmap)
+            # A distinct QImage wrapper keeps the shared capture pixels alive;
+            # subsequent writes detach through Qt's implicit-sharing contract.
+            image = QImage(pixmap) if isinstance(pixmap, QImage) else pixmap_to_image_snapshot(pixmap)
         except Exception as exc:
-            logger.debug("virtual_host scene compress skipped: %r", exc)
+            logger.warning("virtual_host scene snapshot skipped: %r", exc)
             log_diagnostic(
                 "scene_request_skipped",
                 runtime_generation=self._runtime_generation,
                 model_id=resolved[2],
                 screenshot_id=screenshot_id,
                 scene_generation=scene_generation,
-                reason="compress_failed",
+                reason="snapshot_failed",
                 error=type(exc).__name__,
             )
             return
@@ -1099,7 +1131,7 @@ class VirtualHostRuntimeService:
         captured_at_value = captured_at if captured_at is not None else time.monotonic()
         started_at = time.monotonic()
         self._vision_in_flight = True
-        self.vision_request_count += 1
+        self._vision_cancel_event = threading.Event()
         log_diagnostic(
             "scene_request_start",
             runtime_generation=runtime_generation,
@@ -1109,7 +1141,8 @@ class VirtualHostRuntimeService:
         )
         runnable = _SceneVisionRunnable(
             self._vision_coordinator,
-            image_data_uri=image_data_uri,
+            image=image,
+            cancelled=self._vision_cancel_event,
             resolved=resolved,
             screenshot_id=screenshot_id,
             scene_generation=scene_generation,
@@ -1118,8 +1151,17 @@ class VirtualHostRuntimeService:
             vision_model_id=vision_model_id,
             started_at=started_at,
         )
-        if not self._submit_virtual_host_job(runnable, task_kind="scene_vision", screenshot_id=screenshot_id):
+        try:
+            submitted = self._submit_virtual_host_job(runnable, task_kind="scene_vision", screenshot_id=screenshot_id)
+        except Exception:
             self._vision_in_flight = False
+            self._vision_cancel_event = None
+            runnable.release_image()
+            raise
+        if not submitted:
+            self._vision_in_flight = False
+            self._vision_cancel_event = None
+            runnable.release_image()
 
     def update_scene_from_image_data_uri(
         self,
@@ -1178,6 +1220,7 @@ class VirtualHostRuntimeService:
         captured_at: float,
         runtime_generation: int,
         request_vision_model_id: str,
+        request_started: bool,
     ) -> None:
         self._complete_scene_vision(
             result,
@@ -1186,6 +1229,7 @@ class VirtualHostRuntimeService:
             captured_at=captured_at,
             runtime_generation=runtime_generation,
             request_vision_model_id=request_vision_model_id,
+            request_started=request_started,
         )
 
     def _should_apply_scene_vision_result(
@@ -1211,8 +1255,12 @@ class VirtualHostRuntimeService:
         captured_at: float,
         runtime_generation: int,
         request_vision_model_id: str,
+        request_started: bool = False,
     ) -> None:
+        if request_started:
+            self.vision_request_count += 1
         self._vision_in_flight = False
+        self._vision_cancel_event = None
         if not self._should_apply_scene_vision_result(
             runtime_generation=runtime_generation,
             request_vision_model_id=request_vision_model_id,

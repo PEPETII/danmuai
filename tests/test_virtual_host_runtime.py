@@ -21,6 +21,7 @@ from app.tts import (
     VoiceDescriptor,
 )
 from app.tts.audio import pcm_to_wav
+from app.virtual_host.chat import HostChatHttpResult
 from app.virtual_host.contracts import HostTurnResult, SceneContext
 from app.virtual_host.model_config import (
     VISION_MODEL_KEY,
@@ -30,14 +31,23 @@ from app.virtual_host.model_config import (
     sanitize_virtual_host_model_config,
 )
 from app.virtual_host.playback import PlaybackQueue
-from app.virtual_host.runtime_service import SceneVisionCoordinator, VirtualHostRuntimeService
+from app.virtual_host.runtime_service import (
+    SceneVisionCoordinator,
+    VirtualHostRuntimeService,
+    _SceneVisionRunnable,
+)
 from app.virtual_host.vision import SceneSummaryResult
 from PyQt6.QtCore import QObject, QThreadPool, pyqtSlot
-
-from tests.fakes import FakePixmap
+from PyQt6.QtGui import QImage, QPixmap
 
 _vh_runtime_services: list[VirtualHostRuntimeService] = []
 _vh_runtime_pools: list[QThreadPool] = []
+
+
+def _capture_image() -> QImage:
+    image = QImage(32, 16, QImage.Format.Format_RGB888)
+    image.fill(0xAABBCC)
+    return image
 
 
 def _register_runtime_test(
@@ -49,28 +59,53 @@ def _register_runtime_test(
         _vh_runtime_pools.append(pool)
 
 
-@pytest.fixture(autouse=True)
-def _virtual_host_runtime_teardown(qapp):
+def _defer_scene_job(submitted, runnable):
+    """Keep scene dispatch controllable while owning consequent Chat workers."""
+    if isinstance(runnable, _SceneVisionRunnable):
+        submitted.append(runnable)
+    else:
+        _vh_runtime_pools[0].start(runnable)
+    return True
+
+
+def _runtime_worker_owner(qapp, monkeypatch):
+    """Own scene-triggered Chat workers until their queued Qt signals drain."""
+    pool = QThreadPool()
+    _vh_runtime_pools.append(pool)
+    monkeypatch.setattr(
+        "app.virtual_host.runtime_service.submit_virtual_host_job",
+        lambda runnable: pool.start(runnable) or True,
+    )
+    monkeypatch.setattr(
+        "app.virtual_host.runtime_service.request_host_chat",
+        lambda *_args, **_kwargs: HostChatHttpResult(ok=False, error="isolated_scene_test"),
+    )
     yield
     for service in _vh_runtime_services:
-        try:
-            if service.running:
-                service.stop()
-        except Exception:
-            pass
+        if service.running:
+            service.stop()
     deadline = time.monotonic() + 5.0
     while time.monotonic() < deadline:
+        # A scene completion can enqueue Chat in the main-thread slot; waiting
+        # once before processing signals does not own that second wave of work.
+        for registered_pool in _vh_runtime_pools:
+            registered_pool.waitForDone(100)
         qapp.processEvents()
         if all(
             not service.vision_in_flight and not service.chat_in_flight
             for service in _vh_runtime_services
-        ):
+        ) and all(registered_pool.activeThreadCount() == 0 for registered_pool in _vh_runtime_pools):
             break
-    for pool in _vh_runtime_pools:
-        pool.waitForDone(5000)
+    assert all(not service.vision_in_flight and not service.chat_in_flight for service in _vh_runtime_services), "runtime callbacks did not drain"
+    assert all(registered_pool.waitForDone(100) for registered_pool in _vh_runtime_pools), "runtime worker pool did not drain"
+    qapp.processEvents()
     _vh_runtime_services.clear()
     _vh_runtime_pools.clear()
-    qapp.processEvents()
+
+
+@pytest.fixture(autouse=True)
+def _virtual_host_runtime_teardown(qapp, monkeypatch):
+    yield from _runtime_worker_owner(qapp, monkeypatch)
 
 
 class _FakeConfig:
@@ -476,7 +511,7 @@ class _SceneVisionCompleteReceiver(QObject):
         super().__init__()
         self.thread_ids: list[int] = []
 
-    @pyqtSlot(object, int, int, float, int, str)
+    @pyqtSlot(object, int, int, float, int, str, bool)
     def on_completed(
         self,
         _result: object,
@@ -485,6 +520,7 @@ class _SceneVisionCompleteReceiver(QObject):
         _captured_at: float,
         _runtime_generation: int,
         _vision_model_id: str,
+        _request_started: bool,
     ) -> None:
         self.thread_ids.append(threading.get_ident())
 
@@ -508,7 +544,8 @@ def test_scene_vision_worker_result_delivered_on_main_thread_via_signal(qapp, mo
     resolved = service._active_vision_model_id
     runnable = _SceneVisionRunnable(
         coordinator,
-        image_data_uri="data:image/jpeg;base64,ZmFrZQ==",
+        image=_capture_image(),
+        cancelled=threading.Event(),
         resolved=(
             "https://dashscope.aliyuncs.com/compatible-mode/v1",
             "vision-secret",
@@ -547,7 +584,7 @@ def test_scene_vision_stale_result_after_stop_does_not_update_scene_context(qapp
     monkeypatch.setattr("app.virtual_host.runtime_service.request_scene_summary", _slow_request)
 
     service.on_capture_completed(
-        FakePixmap(1),
+        _capture_image(),
         screenshot_id=9,
         scene_generation=2,
     )
@@ -576,7 +613,7 @@ def test_scene_vision_stale_result_after_stop_start_does_not_update_scene_contex
     monkeypatch.setattr("app.virtual_host.runtime_service.request_scene_summary", _slow_request)
 
     service.on_capture_completed(
-        FakePixmap(1),
+        _capture_image(),
         screenshot_id=3,
         scene_generation=1,
     )
@@ -609,7 +646,7 @@ def test_scene_vision_stale_model_result_does_not_update_scene_context(qapp, mon
     monkeypatch.setattr("app.virtual_host.runtime_service.request_scene_summary", _slow_request)
 
     service.on_capture_completed(
-        FakePixmap(1),
+        _capture_image(),
         screenshot_id=5,
         scene_generation=4,
     )
@@ -636,7 +673,7 @@ def test_scene_vision_success_clears_vision_in_flight(qapp, monkeypatch):
     monkeypatch.setattr("app.virtual_host.runtime_service.request_scene_summary", _fake_request)
 
     service.on_capture_completed(
-        FakePixmap(1),
+        _capture_image(),
         screenshot_id=11,
         scene_generation=6,
     )
@@ -664,7 +701,7 @@ def test_scene_vision_http_failure_clears_vision_in_flight(qapp, monkeypatch):
     monkeypatch.setattr("app.virtual_host.runtime_service.request_scene_summary", _failed_request)
 
     service.on_capture_completed(
-        FakePixmap(1),
+        _capture_image(),
         screenshot_id=12,
         scene_generation=7,
     )
@@ -699,7 +736,7 @@ def test_repeated_vision_capture_drains_worker_pool(qapp, monkeypatch):
         service.start()
         _register_runtime_test(service, pool)
         service.on_capture_completed(
-            FakePixmap(1),
+            _capture_image(),
             screenshot_id=20,
             scene_generation=8,
         )
@@ -710,3 +747,151 @@ def test_repeated_vision_capture_drains_worker_pool(qapp, monkeypatch):
         service.stop()
 
     assert pool.waitForDone(3000)
+
+
+@pytest.mark.parametrize("capture_kind", ["image", "pixmap"])
+def test_scene_encoding_runs_in_worker_with_independent_snapshot(qapp, monkeypatch, capture_kind):
+    service = _vision_service(monkeypatch, _vision_config())
+    submitted = []
+    monkeypatch.setattr(
+        "app.virtual_host.runtime_service.submit_virtual_host_job",
+        lambda runnable: _defer_scene_job(submitted, runnable),
+    )
+    main_thread = threading.get_ident()
+    encoding_threads = []
+    encoded_colors = []
+    requests = []
+
+    def encode(image):
+        assert isinstance(image, QImage)
+        encoding_threads.append(threading.get_ident())
+        encoded_colors.append(image.pixelColor(0, 0).name())
+        return "data:image/jpeg;base64,ZmFrZQ=="
+
+    def request(uri, resolved):
+        assert submitted[0]._image is None, "release raw image before HTTP"
+        requests.append(uri)
+        return SceneSummaryResult(ok=True, text="worker snapshot", model_id=resolved[2])
+
+    monkeypatch.setattr("app.virtual_host.runtime_service.compress_screenshot", encode)
+    monkeypatch.setattr("app.virtual_host.runtime_service.request_scene_summary", request)
+    image = _capture_image()
+    capture = image if capture_kind == "image" else QPixmap.fromImage(image)
+    service.on_capture_completed(capture, screenshot_id=1, scene_generation=0)
+    capture.fill(0x112233)
+    service.on_capture_completed(_capture_image(), screenshot_id=2, scene_generation=0)
+    assert service.vision_in_flight
+    assert len(submitted) == 1
+    assert not encoding_threads, "dispatch must not encode on the Qt thread"
+
+    worker = threading.Thread(target=submitted[0].run)
+    worker.start()
+    worker.join(timeout=2)
+    assert not worker.is_alive()
+    qapp.processEvents()
+    assert encoding_threads and encoding_threads[0] != main_thread
+    assert encoded_colors == ["#aabbcc"]
+    assert requests == ["data:image/jpeg;base64,ZmFrZQ=="]
+    assert service.vision_request_count == 1
+    assert submitted[0]._image is None
+    assert not service.vision_in_flight
+    assert service.session.current_scene_context().summary == "worker snapshot"
+
+
+def test_scene_encoding_failure_clears_gate_without_http(qapp, monkeypatch):
+    service = _vision_service(monkeypatch, _vision_config())
+    submitted = []
+    monkeypatch.setattr("app.virtual_host.runtime_service.submit_virtual_host_job", lambda job: _defer_scene_job(submitted, job))
+    requests = []
+
+    def encode(_image):
+        raise RuntimeError("synthetic encoder failure")
+
+    monkeypatch.setattr("app.virtual_host.runtime_service.compress_screenshot", encode)
+    monkeypatch.setattr("app.virtual_host.runtime_service.request_scene_summary", lambda *args: requests.append(args))
+    service.on_capture_completed(_capture_image(), screenshot_id=1, scene_generation=0)
+    submitted[0].run()
+    assert not service.vision_in_flight
+    assert submitted[0]._image is None
+    assert not requests
+    assert service.vision_request_count == 0
+    assert service.session.current_scene_context() is None
+    service.on_capture_completed(_capture_image(), screenshot_id=2, scene_generation=0)
+    assert len(submitted) == 2
+    submitted[1].run()
+    assert not service.vision_in_flight
+
+
+@pytest.mark.parametrize("submission_error", [False, True])
+def test_scene_submission_failure_releases_snapshot_and_gate(qapp, monkeypatch, submission_error):
+    service = _vision_service(monkeypatch, _vision_config())
+    submitted = []
+
+    def submit(job):
+        submitted.append(job)
+        if submission_error:
+            raise RuntimeError("synthetic pool failure")
+        return False
+
+    monkeypatch.setattr("app.virtual_host.runtime_service.submit_virtual_host_job", submit)
+    if submission_error:
+        with pytest.raises(RuntimeError, match="synthetic pool failure"):
+            service.on_capture_completed(_capture_image(), screenshot_id=1, scene_generation=0)
+    else:
+        service.on_capture_completed(_capture_image(), screenshot_id=1, scene_generation=0)
+    assert not service.vision_in_flight
+    assert submitted[0]._image is None
+
+
+@pytest.mark.parametrize("stage", ["queued", "encoding"])
+@pytest.mark.parametrize("invalidate", ["stop", "restart", "model", "scene"])
+def test_scene_invalidation_before_http_cancels_work(qapp, monkeypatch, invalidate, stage):
+    config = _vision_config(extra_models=[_vision_profile("vision-model-b", api_key="fixture-b")])
+    service = _vision_service(monkeypatch, config)
+    submitted = []
+    monkeypatch.setattr("app.virtual_host.runtime_service.submit_virtual_host_job", lambda job: _defer_scene_job(submitted, job))
+    encoding_started = threading.Event()
+    encoding_release = threading.Event()
+    encoded = []
+    requests = []
+
+    def encode(_image):
+        encoded.append(True)
+        encoding_started.set()
+        assert encoding_release.wait(2)
+        return "data:image/jpeg;base64,ZmFrZQ=="
+
+    monkeypatch.setattr("app.virtual_host.runtime_service.compress_screenshot", encode)
+    monkeypatch.setattr("app.virtual_host.runtime_service.request_scene_summary", lambda *args: requests.append(args))
+    service.on_capture_completed(_capture_image(), screenshot_id=1, scene_generation=0)
+    worker = None
+    if stage == "encoding":
+        worker = threading.Thread(target=submitted[0].run)
+        worker.start()
+        assert encoding_started.wait(2)
+    if invalidate == "stop":
+        service.stop()
+    elif invalidate == "restart":
+        service.stop()
+        service.start()
+    elif invalidate == "model":
+        config.set_batch({VISION_MODEL_KEY: "vision-model-b"})
+        service.refresh_model_bindings()
+    else:
+        service.on_scene_generation_changed(1)
+    assert service.vision_in_flight
+    encoding_release.set()
+    if worker is not None:
+        worker.join(timeout=2)
+        assert not worker.is_alive()
+        qapp.processEvents()
+    else:
+        submitted[0].run()
+    assert not service.vision_in_flight
+    assert service._vision_cancel_event is None
+    assert submitted[0]._image is None
+    assert not requests
+    assert service.vision_request_count == 0
+    assert bool(encoded) == (stage == "encoding")
+    context = service.session.current_scene_context()
+    assert context is None or context.summary != "stale image"

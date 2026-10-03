@@ -1,0 +1,3 @@
+# Model catalog audit only; keep the httpx version range in requirements.txt.
+# No desktop, audio, or release dependencies are needed by this command.
+httpx>=0.27,<1

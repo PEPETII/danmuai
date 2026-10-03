@@ -54,6 +54,46 @@ def _content_hash(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
+def _extraction_error(extraction_result: Any) -> str:
+    """Check extracted text without mutating source/job state."""
+    if extraction_result.error:
+        return extraction_result.error
+    text = extraction_result.normalized_text
+    if not text:
+        return "empty_content"
+    if len(text) > MAX_SOURCE_CHARS:
+        return "source_too_large"
+    return ""
+
+
+def _prepare_chunk_rows(
+    source_type: str, normalized_text: str, *, content_kind: str, document_kind: str
+) -> list[dict[str, Any]]:
+    """Prepare chunk payloads; persistence remains in the orchestrator."""
+    chunks = chunk_source(
+        source_type, normalized_text,
+        content_kind=content_kind, document_kind=document_kind,
+    )
+    return [
+        {"sequence_no": chunk.sequence_no, "heading": chunk.heading, "content": chunk.content}
+        for chunk in chunks
+    ]
+
+
+def _validate_organized_items(
+    result: dict[str, Any], document_kind: str, source_text: str
+) -> tuple[list[Any], list[str], str]:
+    """Validate candidates and format errors without progress or DB writes."""
+    valid_items, errors = validate_batch(
+        {"document_kind": document_kind, "items": result.get("items") or []},
+        source_text,
+    )
+    message = "; ".join(errors[:5])
+    if len(errors) > 5:
+        message += f"; ... and {len(errors) - 5} more"
+    return valid_items, errors, message
+
+
 class ImportOrchestrator:
     """知识包导入编排：extract → chunk → AI organize → validate → dedupe → save → update job progress。
 
@@ -317,38 +357,18 @@ class ImportOrchestrator:
             if self._is_cancelled(job_public_id):
                 self._finalize_cancelled(job_public_id, package_id, source_id)
                 return
-            if extraction_result.error:
+            extraction_error = _extraction_error(extraction_result)
+            if extraction_error:
                 self._fail_job(
                     job_public_id,
-                    extraction_result.error,
+                    extraction_error,
                     source_id=source_id,
                     source_status="failed",
-                    source_error=extraction_result.error,
+                    source_error=extraction_error,
                 )
                 return
 
             normalized_text = extraction_result.normalized_text
-            if not normalized_text:
-                # 防御性：提取成功但文本为空
-                self._fail_job(
-                    job_public_id,
-                    "empty_content",
-                    source_id=source_id,
-                    source_status="failed",
-                    source_error="empty_content",
-                )
-                return
-
-            # 3. 检查大小上限（5 MiB）
-            if len(normalized_text) > MAX_SOURCE_CHARS:
-                self._fail_job(
-                    job_public_id,
-                    "source_too_large",
-                    source_id=source_id,
-                    source_status="failed",
-                    source_error="source_too_large",
-                )
-                return
 
             # 4. 更新 source.normalized_text + status='extracted'
             self._update_source(
@@ -360,7 +380,7 @@ class ImportOrchestrator:
 
             # 5. 分块（传 document_kind，使 livestream_log 在 content_kind=auto 时仍走直播分块）
             self._repository.update_job_progress(job_public_id, stage="chunking")
-            chunks = chunk_source(
+            chunk_dicts = _prepare_chunk_rows(
                 source_type,
                 normalized_text,
                 content_kind=content_kind,
@@ -368,7 +388,7 @@ class ImportOrchestrator:
             )
 
             # 5.1 无 chunk：立即失败（不进入 AI 整理）
-            if not chunks:
+            if not chunk_dicts:
                 self._fail_job(
                     job_public_id,
                     "no_chunks_generated",
@@ -379,14 +399,6 @@ class ImportOrchestrator:
                 return
 
             # 6. 插入 chunks 行
-            chunk_dicts: list[dict[str, Any]] = [
-                {
-                    "sequence_no": c.sequence_no,
-                    "heading": c.heading,
-                    "content": c.content,
-                }
-                for c in chunks
-            ]
             inserted_chunks = self._repository.insert_chunks(
                 source_id=source_id, chunks=chunk_dicts
             )
@@ -480,12 +492,9 @@ class ImportOrchestrator:
                     continue
 
                 # 11.5 校验
-                items_raw = result.get("items") or []
-                parsed = {
-                    "document_kind": document_kind,
-                    "items": items_raw,
-                }
-                valid_items, validation_errors = validate_batch(parsed, chunk["content"])
+                valid_items, validation_errors, val_msg = _validate_organized_items(
+                    result, document_kind, chunk["content"]
+                )
 
                 # 11.5.1 校验错误写入 chunk 和 all_errors
                 if validation_errors:
@@ -493,9 +502,6 @@ class ImportOrchestrator:
                     # failed_chunks 是 chunk 级统计，因此同一 chunk 只计一次；
                     # 具体条目错误仍通过 chunk/job error_message 暴露。
                     total_failed += 1
-                    val_msg = "; ".join(validation_errors[:5])
-                    if len(validation_errors) > 5:
-                        val_msg += f"; ... and {len(validation_errors) - 5} more"
                     all_errors.append(
                         {"chunk_id": chunk["id"], "error": f"validation: {val_msg}"}
                     )

@@ -23,6 +23,8 @@
 """
 from __future__ import annotations
 
+import json
+import logging
 import time
 from pathlib import Path
 
@@ -693,6 +695,57 @@ class TestLikeFallback:
         assert result.fts_backend == "fallback"
         titles = [it["title"] for it in result.items]
         assert "葛瑞克二阶段" in titles
+
+    def test_duplicate_or_terms_preserve_ordered_hits_and_scores(self, populated_db):
+        """Use the pre-change SQL as the oracle, including wildcard compatibility."""
+        object.__setattr__(populated_db, "fts_backend", "fallback")
+        retriever = KnowledgeRetriever(populated_db)
+        from app.knowledge.retriever import _deserialize_item_row, _split_words
+
+        for scene_brief, keywords in [
+            ("葛瑞克 葛瑞克", ["葛瑞克", "葛瑞克"]),
+            ("二阶段 葛瑞克", ["葛瑞克", "二阶段", "葛瑞克"]),
+            ("", ["%", "%", "_"]),
+            ("缺失 缺失", ["缺失", "缺失"]),
+        ]:
+            terms = [f"%{word}%" for word in [*keywords, *_split_words(scene_brief)] if word]
+            conditions = " OR ".join("(i.search_text LIKE ? OR i.title LIKE ?)" for _ in terms)
+            sql = (
+                "SELECT i.*, p.priority AS pkg_priority, "
+                "p.scope_mode AS pkg_scope_mode, p.scope_tags_json AS pkg_scope_tags_json "
+                "FROM knowledge_items i JOIN knowledge_packages p ON i.package_id=p.id "
+                f"WHERE p.enabled=1 AND i.enabled=1 AND ({conditions}) "
+                "ORDER BY i.priority DESC, i.id ASC LIMIT ?"
+            )
+            with populated_db.read_connection() as conn:
+                rows = conn.execute(sql, [value for term in terms for value in (term, term)] + [50]).fetchall()
+            legacy_hits = [_deserialize_item_row(row) for row in rows]
+            hits = retriever._query_like(scene_brief, keywords)
+            assert [item["id"] for item in hits] == [item["id"] for item in legacy_hits]
+            legacy_scored = retriever._score_hits(legacy_hits, scene_brief, keywords, 120)
+            scored = retriever._score_hits(hits, scene_brief, keywords, 120)
+            assert [(item["id"], item["score"]) for item in scored] == [
+                (item["id"], item["score"]) for item in legacy_scored
+            ]
+
+    def test_scalar_diagnostics_hide_query_and_bound_samples(self, populated_db, caplog):
+        object.__setattr__(populated_db, "fts_backend", "fallback")
+        retriever = KnowledgeRetriever(populated_db)
+        secret_query = "private-query-sentinel"
+        with caplog.at_level(logging.DEBUG, logger="app.knowledge.retriever"):
+            for _ in range(130):
+                retriever.retrieve(scene_brief=secret_query, keywords=[secret_query, secret_query])
+        snapshot = retriever.get_query_diagnostics()
+        assert snapshot["backend"] == "fallback"
+        assert snapshot["query_count"] == 130
+        assert snapshot["fallback_count"] == 130
+        assert snapshot["fallback_rate"] == 1.0
+        assert snapshot["keyword_count"] == 2
+        assert snapshot["like_term_count"] == 1
+        assert snapshot["timing_samples"] == 128
+        assert snapshot["p95_ms"] >= 0
+        assert secret_query not in json.dumps(snapshot)
+        assert secret_query not in caplog.text
 
     def test_like_fallback_with_scene_brief(
         self, populated_db: KnowledgeDatabase

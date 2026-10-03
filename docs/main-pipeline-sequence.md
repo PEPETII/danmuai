@@ -80,10 +80,21 @@ projection，因此展示的 profile/model/provider/API family 与实际 dispatc
 
 ## 虚拟主播场景视觉 worker
 
-`VirtualHostRuntimeService` 在 `on_capture_completed`（主线程）压缩截图后，将 `_SceneVisionRunnable`
-投递至有界 `virtual_host_worker_pool`；worker 仅调用 `request_scene_summary`，经 `SceneVisionCoordinator.completed`
+`VirtualHostRuntimeService` 在 `on_capture_completed`（主线程）只取得 QImage 快照，将 `_SceneVisionRunnable`
+投递至有界 `virtual_host_worker_pool`；worker 检查取消 Event，压缩后释放原图，再检查取消并调用
+`request_scene_summary`，经 `SceneVisionCoordinator.completed`（含 request_started）
 信号回主线程 `_on_scene_vision_completed` → `_complete_scene_vision`。禁止 worker 直接修改
 `VirtualHostRuntimeService` / `VirtualHostSession` 状态。
+
+stop/start、模型/模式/场景代际变化置位本任务 Event；旧任务完成之前保留在途门禁，随后由
+主线程释放并丢弃旧结果。拒绝提交与提交异常立即释放图像和门禁；压缩失败经同一信号回
+主线程。此路径不新增 timer/pool；`vision_request_count` 在完成槽仅按实际开始的 HTTP 累加。
+
+知识检索继续使用已有单 worker 的 `knowledge-retrieval` executor。查询入场最多八个，其中
+视觉预取最多六个；相同语义键合并，余量留给 Web preview。使用计数以最多 64 个独立事件
+进入单个 drain Future，按原始 deadline/generation 丢弃过期事件，关闭时先停止入场并清空
+待消费事件，再等所有已拥有 Future 排空后关闭数据库。缓存最多 64 项、TTL 180 秒，不新增 Qt 触发点。
+每个 usage drain 批次最多处理 64 个事件，然后把下一批排在已有查询之后，持续写入不会独占检索 worker。
 
 `QThreadPool` / `QTimer` 触发点：截图 timer、`ai_worker_pool().start`（主视觉/麦克风）和
 `virtual_host_worker_pool` 的有界投递（虚拟主播 scene/chat/ASR/TTS）。后者记录 pending/in-flight/
