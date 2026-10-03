@@ -17,7 +17,6 @@ import { activateFocusTrap, deactivateFocusTrap } from "./modal-focus-trap.js";
 let customModelDeps = {
   showToast: () => {},
   reloadConfigFromServer: async () => ({}),
-  updateModelActiveSourceBanner: () => {},
 };
 
 let cachedCustomModels = [];

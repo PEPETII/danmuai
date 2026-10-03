@@ -127,6 +127,7 @@ def test_sidebar_navigation_uses_named_groups_and_collapsed_enhanced_group():
     assert ">常用功能</div>" in html
     assert ">增强体验</div>" in html
     assert ">高级功能与工具</span>" in html
+    assert 'class="sidebar-item sidebar-nav-disclosure"' in html
     assert ">展开高级功能与工具</span>" in html
     assert html.count('data-page="') == 8
     assert 'data-nav-scope' not in html
@@ -140,6 +141,16 @@ def test_sidebar_navigation_uses_named_groups_and_collapsed_enhanced_group():
     assert "window.location" not in filter_fn
     assert ".sidebar-nav-disclosure-items[hidden]" in css
     assert "sidebar-nav-disclosure-icon" in css
+    section_label_css = css[
+        css.index(".sidebar-nav-section-label") : css.index(".sidebar-item {\n  display")
+    ]
+    assert "font-size: 0.458333rem;" in section_label_css
+    disclosure_items_css = css[
+        css.index(".sidebar-nav-disclosure-items {") : css.index(".sidebar-nav-disclosure-items[hidden]")
+    ]
+    assert "margin-left: 0;" in disclosure_items_css
+    assert "padding-left: 0;" in disclosure_items_css
+    assert ".sidebar-nav-disclosure.is-expanded .sidebar-nav-disclosure-chevron" in css
     assert "sidebar-nav-utility-group" not in css
 
 

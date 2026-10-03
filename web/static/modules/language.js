@@ -26,7 +26,6 @@ import {
   loadScreens,
   updateMicActiveSourceBanner,
   updateMicModeHint,
-  updateModelActiveSourceBanner,
 } from './settings.js';
 import { loadPersonaTemplate } from './app-persona-topic-page.js';
 
@@ -44,7 +43,6 @@ function refreshDynamicI18n() {
   }
   updateMicModeHint();
   updateMicActiveSourceBanner({});
-  updateModelActiveSourceBanner({});
 }
 
 async function refreshServerLocalizedContent() {

@@ -24,7 +24,6 @@ let coreDeps = {
   populateMicInputDevices: async () => {},
   applyMicIndependentVisibility: () => {},
   updateMicModeHint: () => {},
-  updateModelActiveSourceBanner: () => {},
   updateMicActiveSourceBanner: () => {},
   setMicAudioLikelySupported: () => {},
   refreshDanmuPreview: () => {},
@@ -293,7 +292,6 @@ export async function fillForm(cfg) {
   updateNormalBatchPreview();
   syncSimpleSettingPresets();
   refreshOpacityWarning();
-  coreDeps.updateModelActiveSourceBanner(cfg);
   coreDeps.updateMicActiveSourceBanner(cfg);
   // W-GLOBAL-VISUAL-APIKEY-REMOVE-001: 视觉全局 api_key 已下线，不再回填 hidden input
   syncColorUIFromConfig(cfg);
@@ -306,7 +304,6 @@ export async function reloadConfigFromServer() {
   await fillForm(cfg);
   coreDeps.refreshDanmuPreview();
   await coreDeps.loadCustomModels();
-  coreDeps.updateModelActiveSourceBanner(cfg);
   coreDeps.updateMicModeHint(cfg);
   coreDeps.updateMicActiveSourceBanner(cfg);
   coreDeps.applyCaptureRegionFromPayload({

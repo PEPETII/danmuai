@@ -293,7 +293,6 @@ export function configureSettingsBindings(deps) {
   configureSettingsCustomModels({
     showToast,
     reloadConfigFromServer,
-    updateModelActiveSourceBanner,
   });
   configureSettingsCore({
     showToast,
@@ -305,7 +304,6 @@ export function configureSettingsBindings(deps) {
     populateMicInputDevices,
     applyMicIndependentVisibility,
     updateMicModeHint,
-    updateModelActiveSourceBanner,
     updateMicActiveSourceBanner,
     setMicAudioLikelySupported: (value) => {
       micAudioLikelySupported = value;
@@ -550,24 +548,6 @@ export function updateMicModeHint(cfg = {}) {
     return;
   }
   hint.textContent = t('dynamic.settings.micHintPickMicModel', { prefix, modelId: modelLabel });
-}
-
-export function updateModelActiveSourceBanner(cfg) {
-  const banner = document.getElementById('modelActiveSourceBanner');
-  if (!banner) return;
-  const usesCustom = cfg?.uses_custom_credentials === true;
-  if (!usesCustom) {
-    banner.classList.add('hidden');
-    banner.textContent = '';
-    return;
-  }
-  const name = cfg.model_display_name || cfg.active_model_id || '';
-  const id = cfg.active_model_id || '';
-  banner.textContent = t('dynamic.settings.当前使用模型来自模型配置档案_name', { name, id });
-  banner.classList.remove('hidden');
-  if (cfg.provider_model_mismatch) {
-    banner.textContent += t('dynamic.settings.另外_当前_API_地址与已选模型目录不一致_保');
-  }
 }
 
 export async function loadScreens() {
