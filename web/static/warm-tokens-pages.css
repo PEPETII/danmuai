@@ -395,11 +395,11 @@
   }
 }
 
-/* Help and system landing page: three clear destinations instead of a flat
+/* Help and system landing page: three clear sections instead of a flat
    list of support, update, and diagnostic actions. */
 .help-system-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   gap: var(--space-5);
   align-items: start;
 }

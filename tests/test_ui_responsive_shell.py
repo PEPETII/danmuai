@@ -88,8 +88,11 @@ def test_help_system_groups_and_moved_update_controls():
     sidebar = _sidebar()
     app = (_static() / "app.js").read_text(encoding="utf-8")
     update = (_static() / "modules" / "app-update-banner.js").read_text(encoding="utf-8")
+    pages_css = (_static() / "warm-tokens-pages.css").read_text(encoding="utf-8")
 
     assert content.count('class="help-system-group ui-card"') == 3
+    assert ".help-system-grid {\n  display: grid;\n  grid-template-columns: 1fr;" in pages_css
+    assert "grid-template-columns: repeat(3" not in pages_css
     for label in ("使用帮助", "应用信息", "问题处理"):
         assert f"content.text.{label}" in content
     for control in (
