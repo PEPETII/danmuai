@@ -1,6 +1,6 @@
 # DanmuAI Windows 打包与本地发布
 
-本文是当前仓库的 Windows 打包说明。适用版本由 `app/version.py` 提供；本次本地发布目标为 `0.4.3`。
+本文是当前仓库的 Windows 打包说明。适用版本由 `app/version.py` 提供；本次本地发布目标为 `5.0.0`。
 
 本地正式产物链路固定为：
 
@@ -79,6 +79,14 @@ Web 输出已随仓库保存；修改 UI 源码后，先按 [CONTRIBUTING.md](..
 
 当前构建仍会在 warn 文件中报告 `app.window_capture`：`app.snipper` 保留了一个延迟导入，但仓库中没有对应模块；当前设置页使用屏幕/区域捕获，不暴露该旧窗口捕获模式，因此本次不把不存在的模块伪装成 hidden import。若重新启用窗口捕获模式，必须先修复源码调用链并增加运行验收。
 
+构建完成后还会运行源码到 frozen 产物的关键资源合同审计；也可以单独执行：
+
+```powershell
+.\.venv-build-312\Scripts\python.exe scripts\audit_release_bundle.py
+```
+
+该审计只检查关键 Web/locale/data/image、Live2D 与 Velopack native runtime、凭据/用户数据排除和 `_internal` 布局，不要求每个普通 Python 源文件以独立文件出现在 dist 中。
+
 ## 4. dist EXE 本地冒烟
 
 先用浏览器模式验证本地 Web 服务，避免把 WebView2 冷启动问题误判成服务或静态资源缺失：
@@ -123,15 +131,15 @@ Start-Process -FilePath (Resolve-Path .\dist\DanmuAI\DanmuAI.exe) -ArgumentList 
 | 产物 | 用途 |
 |---|---|
 | `PEPETII.DanmuAI-win-Setup.exe` | Velopack 原始 Setup 输出 |
-| `PEPETII.DanmuAI-0.4.3-Setup.exe` | 当前版本化 Setup |
-| `PEPETII.DanmuAI-0.4.3-full.nupkg` | full 更新包 |
-| `PEPETII.DanmuAI-0.4.3-delta.nupkg` | 有上一版 full 元数据时的 delta 包 |
+| `PEPETII.DanmuAI-5.0.0-Setup.exe` | 当前版本化 Setup |
+| `PEPETII.DanmuAI-5.0.0-full.nupkg` | full 更新包 |
+| `PEPETII.DanmuAI-5.0.0-delta.nupkg` | 有上一版 full 元数据时的 delta 包 |
 | `PEPETII.DanmuAI-win-Portable.zip` | PyInstaller onedir 便携包，根目录含 `DanmuAI.exe` |
 | `releases.win.json` | Velopack feed，至少含当前 full，若生成 delta 还应含 delta |
 | `VERSION.txt` | 版本、时间、Git SHA 和本地打包说明 |
 | `SHA256SUMS.txt` | 本地产物 SHA256 清单，不是代码签名 |
 
-MSI 不属于当前链路；`*.msi` 出现即失败。`velopack_poc.ps1` 只用于隔离 POC，不是正式 0.4.3 发布入口。
+MSI 不属于当前链路；`*.msi` 出现即失败。`velopack_poc.ps1` 只用于隔离 POC，不是正式 5.0.0 发布入口。
 
 `velopack_pack.ps1` 在生成 Portable ZIP 前会对 `dist` 便携包源目录和 `release\velopack\` 递归执行 `Unblock-File`，并检查输出目录及重新解压的 Portable ZIP 不含 `Zone.Identifier`。`verify_windows_release_artifacts.ps1` 会重复该检查；任一依赖 DLL（包括 `Python.Runtime.dll`、`Microsoft.Web.WebView2.Core.dll`）或其他文件残留 Mark-of-the-Web 时，构建/校验失败。
 
@@ -140,8 +148,8 @@ MSI 不属于当前链路；`*.msi` 出现即失败。`velopack_poc.ps1` 只用�
 ## 6. 产物校验
 
 ```powershell
-\.\scripts\verify_windows_release_artifacts.ps1 -ReleaseDir .\release\velopack -Version 0.4.3
-\.\scripts\write_release_hash_manifest.ps1 -ReleaseDir .\release\velopack -Version 0.4.3 -VerifyOnly
+\.\scripts\verify_windows_release_artifacts.ps1 -ReleaseDir .\release\velopack -Version 5.0.0
+\.\scripts\write_release_hash_manifest.ps1 -ReleaseDir .\release\velopack -Version 5.0.0 -VerifyOnly
 ```
 
 校验脚本检查 Setup、full、delta/feed 一致性、Portable ZIP 根目录布局、`_internal`、当前版本和 MSI 排除。`SHA256SUMS.txt` 的校验只能证明本地产物在生成后未被修改，不能证明 R2 或 GitHub 上的文件已更新。

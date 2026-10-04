@@ -155,6 +155,14 @@ if (-not (Test-Path $exe)) {
     Write-Error "Build failed: $exe not found"
 }
 
+Write-Host "Auditing source-derived runtime resources in the frozen bundle..."
+& $PythonCmd.Path @($PythonCmd.Args) (Join-Path $Root "scripts\audit_release_bundle.py") `
+    --source-root $Root `
+    --dist-dir $distDir
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Release bundle audit failed; inspect the frozen resource contract before packaging."
+}
+
 # Credential leak check: supabase-config.js and backup variants must not be in dist output.
 $supabaseStaticDist = Join-Path $distDir "web\static"
 $leakedConfigs = @()

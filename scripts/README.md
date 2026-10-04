@@ -21,6 +21,8 @@ python scripts/generate_app_icon.py
 
 ## `build_exe.ps1`
 
+构建成功后还会执行 `scripts/audit_release_bundle.py`，检查关键运行时资源是否进入 frozen `_internal` 目录，并拒绝凭据、用户数据库、构建源和 MSI。
+
 Windows 发布包（PyInstaller onedir，`DanmuAI.spec`）。
 
 ```powershell
