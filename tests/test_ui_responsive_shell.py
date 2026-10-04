@@ -90,11 +90,21 @@ def test_help_system_groups_and_moved_update_controls():
     update = (_static() / "modules" / "app-update-banner.js").read_text(encoding="utf-8")
     pages_css = (_static() / "warm-tokens-pages.css").read_text(encoding="utf-8")
 
-    assert content.count('class="help-system-group ui-card"') == 3
+    assert content.count('class="help-system-group ui-card"') == 4
     assert ".help-system-grid {\n  display: grid;\n  grid-template-columns: 1fr;" in pages_css
     assert "grid-template-columns: repeat(3" not in pages_css
     for label in ("使用帮助", "应用信息", "问题处理"):
         assert f"content.text.{label}" in content
+    assert 'id="helpSystemRewardTitle"' in content
+    assert 'data-i18n="modals.text.赞赏"' in content
+    assert 'class="help-system-action js-reward-fab"' in content
+    group_order = (
+        content.index('id="helpSystemRewardTitle"'),
+        content.index('id="helpSystemUsageTitle"'),
+        content.index('id="helpSystemProblemTitle"'),
+        content.index('id="helpSystemAppTitle"'),
+    )
+    assert group_order == tuple(sorted(group_order))
     for control in (
         'data-help-navigate="tutorial"',
         'data-help-navigate="announcements"',

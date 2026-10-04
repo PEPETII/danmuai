@@ -92,3 +92,48 @@ def test_aggregate_candidate_runs_exposes_final_score_and_avg_tokens():
     )
     assert aggregate["final_score"] == 8.05
     assert aggregate["avg_tokens"] == 450.0
+
+
+def test_v2_eval_fixtures_cover_all_personae_and_keep_contract_in_harness():
+    root = Path(__file__).resolve().parents[1]
+    reply_count, candidates = eval_mod.load_candidates(
+        root / "data" / "prompt_eval" / "persona_candidates.json"
+    )
+    scenes = eval_mod.load_scene_samples(
+        root / "data" / "prompt_eval" / "scene_samples.json"
+    )
+
+    assert reply_count == 5
+    assert len(candidates) == 28
+    assert len({candidate.persona_id for candidate in candidates}) == 14
+    assert 25 <= len(scenes) <= 40
+    assert all(candidate.feature_groups for candidate in candidates)
+
+    candidate = candidates[0]
+    prompt = eval_mod.build_user_prompt(candidate, scenes[0], reply_count)
+    assert "仅返回 JSON 字符串数组" in prompt
+    assert "\\n" not in candidate.user_prompt_template
+    assert "\n" in candidate.user_prompt_template
+    assert "仅返回 JSON 字符串数组" not in candidate.system_prompt
+    assert "仅返回 JSON 字符串数组" not in candidate.user_prompt_template
+
+
+def test_persona_scores_include_distinctiveness_and_consistency():
+    scene = eval_mod.SceneSample(
+        scene_id="aqua",
+        scene_text="计划失败，角色突然落水",
+        keywords=("失败", "落水"),
+    )
+    comments = ["又失败了", "这下直接落水", "自信呢", "绷不住"]
+    score = eval_mod.score_rule_batch(
+        comments=comments,
+        scene=scene,
+        reply_count=4,
+        total_tokens=400,
+        token_target_per_call=600,
+        feature_groups=(("失败", "翻车"), ("自信", "膨胀"), ("落水", "危险")),
+    )
+
+    assert score["persona_distinctiveness"] > 5.0
+    assert score["persona_consistency"] > 5.0
+    assert score["total"] > 0.0

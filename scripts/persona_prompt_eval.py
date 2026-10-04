@@ -31,6 +31,9 @@ DEFAULT_TEMPERATURE = 0.9
 DEFAULT_MAX_TOTAL_TOKENS = 2_000_000
 DEFAULT_TOKEN_TARGET_PER_CALL = 600
 DEFAULT_OUTPUT_DIR = Path("reports/persona-prompt-eval")
+EVAL_OUTPUT_CONTRACT = (
+    "输出{reply_count}条短直播弹幕，仅返回 JSON 字符串数组，不要解释，不要 Markdown。"
+)
 
 AI_TONE_PATTERNS = (
     "主播你",
@@ -70,6 +73,7 @@ class PromptCandidate:
     persona_goal: str
     system_prompt: str
     user_prompt_template: str
+    feature_groups: tuple[tuple[str, ...], ...]
 
 
 @dataclass(frozen=True)
@@ -107,6 +111,15 @@ def load_candidates(path: Path) -> tuple[int, list[PromptCandidate]]:
         persona_id = str(persona["id"])
         persona_name = str(persona["display_name"])
         persona_goal = str(persona.get("persona_goal", ""))
+        feature_groups = tuple(
+            tuple(
+                str(marker).casefold().strip()
+                for marker in group
+                if str(marker).strip()
+            )
+            for group in persona.get("feature_groups", [])
+            if isinstance(group, list) and group
+        )
         for candidate in persona.get("candidates", []):
             candidates.append(
                 PromptCandidate(
@@ -115,7 +128,10 @@ def load_candidates(path: Path) -> tuple[int, list[PromptCandidate]]:
                     candidate_id=str(candidate["id"]),
                     persona_goal=persona_goal,
                     system_prompt=str(candidate["system_prompt"]),
-                    user_prompt_template=str(candidate["user_prompt_template"]),
+                    user_prompt_template=str(candidate["user_prompt_template"]).replace(
+                        "\\n", "\n"
+                    ),
+                    feature_groups=feature_groups,
                 )
             )
     return reply_count, candidates
@@ -130,11 +146,15 @@ def filter_candidates(candidates: list[PromptCandidate], persona_filter: str) ->
 
 def build_user_prompt(candidate: PromptCandidate, scene: SceneSample, reply_count: int) -> str:
     keywords_text = "、".join(scene.keywords) if scene.keywords else "无"
-    return candidate.user_prompt_template.format(
+    task = candidate.user_prompt_template.format(
         scene_text=scene.scene_text,
         keywords_text=keywords_text,
         reply_count=reply_count,
         persona_goal=candidate.persona_goal,
+    )
+    return (
+        f"{task}\n"
+        f"{EVAL_OUTPUT_CONTRACT.format(reply_count=reply_count)}"
     )
 
 
@@ -301,12 +321,56 @@ def score_cost(total_tokens: int, token_target_per_call: int) -> float:
     return clamp_score(10.0 - overflow_ratio * 8.0)
 
 
+def _comment_feature_groups(
+    comment: str,
+    feature_groups: tuple[tuple[str, ...], ...],
+) -> set[int]:
+    folded = comment.casefold()
+    return {
+        index
+        for index, group in enumerate(feature_groups)
+        if any(marker and marker in folded for marker in group)
+    }
+
+
+def score_persona_distinctiveness(
+    comments: list[str],
+    feature_groups: tuple[tuple[str, ...], ...],
+) -> float:
+    """Supplemental behavior-signal score; no signal is a neutral result, not a fail."""
+    if not comments:
+        return 0.0
+    if not feature_groups:
+        return 5.0
+    covered = set()
+    for comment in comments:
+        covered.update(_comment_feature_groups(comment, feature_groups))
+    coverage = len(covered) / len(feature_groups)
+    return clamp_score(5.0 + coverage * 5.0)
+
+
+def score_persona_consistency(
+    comments: list[str],
+    feature_groups: tuple[tuple[str, ...], ...],
+) -> float:
+    """Estimate whether a batch repeatedly reflects the candidate's behavior signals."""
+    if not comments:
+        return 0.0
+    if not feature_groups:
+        return 5.0
+    hits = [_comment_feature_groups(comment, feature_groups) for comment in comments]
+    non_empty_ratio = sum(bool(item) for item in hits) / len(hits)
+    group_spread = len(set().union(*hits)) / len(feature_groups)
+    return clamp_score(5.0 + 5.0 * (non_empty_ratio * 0.7 + group_spread * 0.3))
+
+
 def score_rule_batch(
     comments: list[str],
     scene: SceneSample,
     reply_count: int,
     total_tokens: int,
     token_target_per_call: int,
+    feature_groups: tuple[tuple[str, ...], ...] = (),
 ) -> dict[str, float]:
     format_score = score_format(comments, reply_count)
     relevance_score = score_relevance(comments, scene.keywords)
@@ -314,13 +378,22 @@ def score_rule_batch(
     diversity_score = score_diversity(comments)
     concision_score = score_concision(comments)
     cost_score = score_cost(total_tokens, token_target_per_call)
-    total = (
+    base_total = (
         format_score * 0.18
         + relevance_score * 0.27
         + naturalness_score * 0.23
         + diversity_score * 0.16
         + concision_score * 0.08
         + cost_score * 0.08
+    )
+    distinctiveness_score = score_persona_distinctiveness(comments, feature_groups)
+    consistency_score = score_persona_consistency(comments, feature_groups)
+    total = (
+        base_total
+        if not feature_groups
+        else base_total * 0.84
+        + distinctiveness_score * 0.10
+        + consistency_score * 0.06
     )
     return {
         "format": round(format_score, 3),
@@ -329,6 +402,8 @@ def score_rule_batch(
         "diversity": round(diversity_score, 3),
         "concision": round(concision_score, 3),
         "cost": round(cost_score, 3),
+        "persona_distinctiveness": round(distinctiveness_score, 3),
+        "persona_consistency": round(consistency_score, 3),
         "total": round(total, 3),
     }
 
@@ -343,11 +418,13 @@ def aggregate_candidate_runs(run_scores: list[dict[str, float]], token_totals: l
             "avg_diversity": 0.0,
             "avg_concision": 0.0,
             "avg_cost": 0.0,
+            "avg_persona_distinctiveness": 0.0,
+            "avg_persona_consistency": 0.0,
             "avg_tokens": 0.0,
             "final_score": 0.0,
         }
     def _avg(key: str) -> float:
-        return sum(item[key] for item in run_scores) / len(run_scores)
+        return sum(float(item.get(key, 0.0)) for item in run_scores) / len(run_scores)
 
     avg_total = _avg("total")
     avg_tokens = sum(token_totals) / max(1, len(token_totals))
@@ -359,6 +436,10 @@ def aggregate_candidate_runs(run_scores: list[dict[str, float]], token_totals: l
         "avg_diversity": round(_avg("diversity"), 3),
         "avg_concision": round(_avg("concision"), 3),
         "avg_cost": round(_avg("cost"), 3),
+        "avg_persona_distinctiveness": round(
+            _avg("persona_distinctiveness"), 3
+        ),
+        "avg_persona_consistency": round(_avg("persona_consistency"), 3),
         "avg_tokens": round(avg_tokens, 3),
         "final_score": round(avg_total, 3),
     }
@@ -578,6 +659,7 @@ def run_evaluation(args: argparse.Namespace) -> int:
                         reply_count=reply_count,
                         total_tokens=generation.total_tokens,
                         token_target_per_call=args.token_target_per_call,
+                        feature_groups=candidate.feature_groups,
                     )
                     total_tokens_used += generation.total_tokens
                     per_candidate_runs[candidate_key].append(
@@ -660,8 +742,8 @@ def render_markdown_summary(payload: dict[str, Any]) -> str:
         "",
         "## 排名",
         "",
-        "| 排名 | Persona | Candidate | Final | Avg Tokens | Relevance | Naturalness | Diversity |",
-        "|------|---------|-----------|-------|------------|-----------|-------------|-----------|",
+        "| 排名 | Persona | Candidate | Final | Avg Tokens | Relevance | Naturalness | Diversity | Distinctiveness | Consistency |",
+        "|------|---------|-----------|-------|------------|-----------|-------------|-----------|-----------------|-------------|",
     ]
     for index, row in enumerate(payload.get("ranking", []), start=1):
         aggregate = row["aggregate"]
@@ -669,7 +751,9 @@ def render_markdown_summary(payload: dict[str, Any]) -> str:
             f"| {index} | {row['persona_name']} | {row['candidate_id']} | "
             f"{aggregate['final_score']} | {aggregate['avg_tokens']} | "
             f"{aggregate['avg_relevance']} | {aggregate['avg_naturalness']} | "
-            f"{aggregate['avg_diversity']} |"
+            f"{aggregate['avg_diversity']} | "
+            f"{aggregate['avg_persona_distinctiveness']} | "
+            f"{aggregate['avg_persona_consistency']} |"
         )
     return "\n".join(lines) + "\n"
 

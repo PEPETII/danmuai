@@ -179,11 +179,11 @@ def test_test1_persona_strip_roundtrip():
     assert "测试" not in BUILTIN_PERSONAE
 
 
-def test_legacy_test1_persona_strip_roundtrip():
-    system_zh = BUILTIN_PERSONAE["测试1"]["system_zh"]
-    user_zh = BUILTIN_PERSONAE["测试1"]["user_zh"]
-    assert "随机选择一种口吻" in system_zh
-    assert "【人格：真实直播间五人弹幕】" in user_zh
+def test_aqua_persona_strip_roundtrip():
+    system_zh = BUILTIN_PERSONAE["阿库娅"]["system_zh"]
+    user_zh = BUILTIN_PERSONAE["阿库娅"]["user_zh"]
+    assert "高情绪机制" in system_zh
+    assert "【人格：阿库娅】" in user_zh
     cfg = FakeConfig({"normal_reply_count": "5"})
     merged = ensure_reply_contract(system_zh, cfg)
     assert "固定输出5条" in merged

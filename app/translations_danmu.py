@@ -25,3 +25,39 @@ TRANSLATIONS_EN: dict[str, str] = {'danmu.title': 'Danmu Style', 'danmu.subtitle
     'log.floating_panel_requeued': 'floating_panel display failed after pop; re-queued head item',
     'log.region_fallback_read_error': 'Capture region fell back to fullscreen: reason=region_read_error error={error}',
     'log.capture_mode_screen': 'Capture mode: screen'}
+# Persona labels are presentation-only and use the stable IDs from the builtin data.
+# Remove retired keys from the effective dictionaries, then expose the new
+# stable persona labels used by data/personae_builtin.json.
+for _legacy_persona_key in (
+    "persona.scheming",
+    "persona.test1",
+    "persona.test2",
+    "persona.test3",
+):
+    TRANSLATIONS_ZH.pop(_legacy_persona_key, None)
+    TRANSLATIONS_EN.pop(_legacy_persona_key, None)
+
+TRANSLATIONS_ZH.update(
+    {
+        "persona.hu_tao": "胡桃",
+        "persona.aqua": "阿库娅",
+        "persona.silver_wolf": "银狼",
+        "persona.frieren": "芙莉莲",
+        "persona.maomao": "猫猫",
+        "persona.kirby": "卡比",
+        "persona.arthur_morgan": "亚瑟·摩根",
+        "persona.hitori_gotoh": "后藤一里",
+    }
+)
+TRANSLATIONS_EN.update(
+    {
+        "persona.hu_tao": "Hu Tao",
+        "persona.aqua": "Aqua",
+        "persona.silver_wolf": "Silver Wolf",
+        "persona.frieren": "Frieren",
+        "persona.maomao": "Maomao",
+        "persona.kirby": "Kirby",
+        "persona.arthur_morgan": "Arthur Morgan",
+        "persona.hitori_gotoh": "Hitori Gotoh",
+    }
+)

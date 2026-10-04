@@ -5,10 +5,16 @@ from unittest.mock import MagicMock
 
 import pytest
 from app.config_store import ConfigStore
-from app.persona_builtin import BUILTIN_PERSONA_PINNED_FIRST, BUILTIN_PERSONAE
+from app.persona_builtin import (
+    BUILTIN_PERSONA_PINNED_FIRST,
+    BUILTIN_PERSONAE,
+    LEGACY_NAME_MAP,
+    PERSONA_NAME_KEYS,
+    normalize_persona_name,
+)
 from app.persona_manager import PersonaManager
 from app.templates import TemplateManager
-from app.translations import Translator
+from app.translations import TRANSLATIONS, Translator
 from app.web_api import persona as persona_api
 
 
@@ -262,20 +268,25 @@ def test_save_builtin_test_persona_preserves_user_zh(persona_app):
     assert "【人格：高压吐槽型】" in user_pt
 
 
-def test_save_legacy_builtin_persona_preserves_user_zh(persona_app):
-    builtin_user = BUILTIN_PERSONAE["测试1"]["user_zh"]
+def test_renamed_builtin_persona_alias_preserves_user_zh(persona_app):
+    builtin_user = BUILTIN_PERSONAE["阿库娅"]["user_zh"]
     persona_api.save_template(
         persona_app,
         "测试1",
-        BUILTIN_PERSONAE["测试1"]["system_zh"],
+        BUILTIN_PERSONAE["阿库娅"]["system_zh"],
         "",
     )
-    _, user_pt = persona_app.personae.get_prompt("测试1")
+    _, user_pt = persona_app.personae.get_prompt("阿库娅")
     assert user_pt == builtin_user
-    assert "【人格：真实直播间五人弹幕】" in user_pt
+    assert "【人格：阿库娅】" in user_pt
+    import json
+
+    stored = json.loads(persona_app.config.get("custom_personae", "{}"))
+    assert "阿库娅" in stored
+    assert "测试1" not in stored
 
 
-def test_default_active_is_eleven_personae(tmp_path):
+def test_default_active_keeps_nine_personae(tmp_path):
     config = ConfigStore(db_path=tmp_path / "config.db")
     personae = PersonaManager(config)
     active = personae.get_active()
@@ -285,15 +296,15 @@ def test_default_active_is_eleven_personae(tmp_path):
         "熬夜陪看型",
         "阴阳锐评型",
         "抽象玩梗型",
-        "测试1",
-        "测试3",
         "吐槽型",
         "傲娇型",
-        "腹黑型",
+        "胡桃",
+        "阿库娅",
+        "银狼",
     ]
 
 
-def test_active_personae_v4_migrates_to_v9_default(tmp_path):
+def test_active_personae_v4_migrates_to_v12_default(tmp_path):
     config = ConfigStore(db_path=tmp_path / "config-v4.db")
     config.set_json("active_personae", ["路人惊讶型", "搞笑玩梗型"])
     config.set("active_personae_version", "4")
@@ -302,10 +313,10 @@ def test_active_personae_v4_migrates_to_v9_default(tmp_path):
     assert active == list(PersonaManager.DEFAULT_ACTIVE)
     assert "路人惊讶型" not in active
     assert "搞笑玩梗型" not in active
-    assert config.get_int("active_personae_version") == 11
+    assert config.get_int("active_personae_version") == 12
 
 
-def test_active_personae_v8_resets_to_eleven_default(tmp_path):
+def test_active_personae_v8_resets_to_v12_default(tmp_path):
     config = ConfigStore(db_path=tmp_path / "config-v6.db")
     config.set_json(
         "active_personae",
@@ -319,16 +330,16 @@ def test_active_personae_v8_resets_to_eleven_default(tmp_path):
         "熬夜陪看型",
         "阴阳锐评型",
         "抽象玩梗型",
-        "测试1",
-        "测试3",
         "吐槽型",
         "傲娇型",
-        "腹黑型",
+        "胡桃",
+        "阿库娅",
+        "银狼",
     ):
         assert name in active
     assert "萌系型" not in active
     assert "毒舌型" not in active
-    assert config.get_int("active_personae_version") == 11
+    assert config.get_int("active_personae_version") == 12
 
 
 _REMOVED_TRIM_002 = (
@@ -344,13 +355,81 @@ _REMOVED_TRIM_002 = (
 )
 
 
-def test_builtin_personae_count_is_nine(persona_app):
+def test_builtin_personae_count_is_fourteen(persona_app):
     names = persona_app.personae.list()
-    assert len(names) == 9
+    assert len(names) == 14
     for name in PersonaManager.DEFAULT_ACTIVE:
         assert name in names
-    for name in ("测试1", "测试3", "吐槽型", "傲娇型", "腹黑型"):
+    for name in ("芙莉莲", "猫猫", "卡比", "亚瑟·摩根", "后藤一里"):
         assert name in names
+    for old_name in ("测试1", "测试3", "腹黑型"):
+        assert old_name not in names
+
+
+def test_builtin_personae_v2_use_structured_prompts_and_stable_keys():
+    expected_names = {
+        "高压吐槽型",
+        "熬夜陪看型",
+        "阴阳锐评型",
+        "抽象玩梗型",
+        "吐槽型",
+        "傲娇型",
+        "胡桃",
+        "阿库娅",
+        "银狼",
+        "芙莉莲",
+        "猫猫",
+        "卡比",
+        "亚瑟·摩根",
+        "后藤一里",
+    }
+    assert set(BUILTIN_PERSONAE) == expected_names
+    assert set(PERSONA_NAME_KEYS) == expected_names
+    assert set(PERSONA_NAME_KEYS.values()) == {
+        "persona.sharp_roast",
+        "persona.late_night_chat",
+        "persona.scheming_snark",
+        "persona.abstract_meme",
+        "persona.roast",
+        "persona.tsundere",
+        "persona.hu_tao",
+        "persona.aqua",
+        "persona.silver_wolf",
+        "persona.frieren",
+        "persona.maomao",
+        "persona.kirby",
+        "persona.arthur_morgan",
+        "persona.hitori_gotoh",
+    }
+    for language in ("zh", "en"):
+        for key in PERSONA_NAME_KEYS.values():
+            assert TRANSLATIONS[language][key]
+    assert normalize_persona_name("腹黑型") == "胡桃"
+    assert normalize_persona_name("测试1") == "阿库娅"
+    assert normalize_persona_name("测试3") == "银狼"
+    assert LEGACY_NAME_MAP["腹黑型"] == "胡桃"
+
+    required_sections = (
+        "角色身份：",
+        "核心性格：",
+        "观察偏好：",
+        "反应逻辑：",
+        "语言表现：",
+        "行为边界：",
+    )
+    forbidden_contract_fragments = (
+        "【口吻参考】",
+        "【经典台词】",
+        "【示例】",
+        "固定输出",
+        "JSON 字符串数组",
+        "JSON string array",
+    )
+    for prompt in BUILTIN_PERSONAE.values():
+        assert set(prompt) >= {"system_zh", "user_zh", "system_en", "user_en"}
+        assert all(section in prompt["system_zh"] for section in required_sections)
+        raw_prompt = "\n".join(str(value) for value in prompt.values())
+        assert not any(fragment in raw_prompt for fragment in forbidden_contract_fragments)
 
 
 def test_removed_builtin_purged_from_active_on_init(tmp_path):
@@ -373,7 +452,7 @@ def test_removed_builtin_purged_from_active_on_init(tmp_path):
     active = personae.get_active()
     for removed in _REMOVED_TRIM_002:
         assert removed not in active
-    assert "测试1" in active
+    assert "阿库娅" in active
     assert "吐槽型" in active
 
 
@@ -415,18 +494,18 @@ def test_removed_builtin_personae_not_listed(persona_app):
 def test_experimental_personae_pinned_first(persona_app):
     names = persona_app.personae.list()
     assert names[:4] == list(BUILTIN_PERSONA_PINNED_FIRST)
-    assert "测试1" in names
+    assert "阿库娅" in names
     assert "吐槽型" in names
     assert "测试4" not in names
-    assert "测试1" in BUILTIN_PERSONAE
+    assert "阿库娅" in BUILTIN_PERSONAE
 
 
 def test_experimental_personae_have_prompts(persona_app):
     expected_snippets = {
-        "高压吐槽型": "吐槽观众",
-        "熬夜陪看型": "佛系观众",
-        "阴阳锐评型": "句句带味的观众",
-        "抽象玩梗型": "整活的观众",
+        "高压吐槽型": "高压吐槽观众",
+        "熬夜陪看型": "熬夜陪看观众",
+        "阴阳锐评型": "锐评观众",
+        "抽象玩梗型": "整活观众",
     }
     for name in BUILTIN_PERSONA_PINNED_FIRST:
         assert name in BUILTIN_PERSONAE
@@ -440,19 +519,35 @@ def test_experimental_personae_have_prompts(persona_app):
         assert user_pt.endswith("看图发弹幕：")
 
 
-def test_legacy_builtin_personae_still_have_prompts(persona_app):
+def test_character_builtin_personae_still_have_prompts(persona_app):
     expected = {
-            "测试1": "随机选择一种口吻",
-            "测试3": "短句、口语、碎片化",
-            "吐槽型": "嘴碎吐槽党",
-            "傲娇型": "嘴硬心软",
-            "腹黑型": "表面客气",
+            "胡桃": "胡桃式",
+            "阿库娅": "阿库娅式",
+            "银狼": "银狼式",
+            "芙莉莲": "芙莉莲式",
+            "猫猫": "猫猫式",
+            "卡比": "卡比式",
+            "亚瑟·摩根": "亚瑟·摩根式",
+            "后藤一里": "后藤一里的高敏感",
         }
     for name, snippet in expected.items():
         assert name in BUILTIN_PERSONAE
         detail = persona_api.get_template_detail(persona_app, name)
         assert detail["builtin"]
         assert snippet in detail["system_custom"]
+
+
+def test_new_character_personae_support_activate_override_and_restore(persona_app):
+    character_names = ["芙莉莲", "猫猫", "卡比", "亚瑟·摩根", "后藤一里"]
+    persona_app.personae.set_active(character_names)
+    assert persona_app.personae.get_active() == character_names
+
+    for name in character_names:
+        persona_api.save_template(persona_app, name, "临时覆盖", "临时用户提示")
+        assert "临时覆盖" in persona_app.personae.get_prompt(name)[0]
+        restored = persona_api.restore_builtin_default(persona_app, name)
+        assert name in restored["system_custom"]
+        assert "临时覆盖" not in restored["system_custom"]
 
 
 # W-LIVE-TOPIC-001
@@ -575,7 +670,7 @@ def test_builtin_saved_zh_default_returns_en_prompt_when_language_en(persona_app
     Translator.set_language("en")
     try:
         detail = persona_api.get_template_detail(persona_app, "高压吐槽型")
-        assert "sharp roast viewer" in detail["system_custom"]
+        assert "high-pressure roast viewer" in detail["system_custom"]
         assert "吐槽观众" not in detail["system_custom"]
     finally:
         Translator.set_language("zh")

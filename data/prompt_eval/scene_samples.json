@@ -1,0 +1,40 @@
+{
+  "meta": {
+    "version": 1,
+    "description": "Deterministic text scene descriptions for persona prompt comparison."
+  },
+  "scenes": [
+    {"id": "game_fps_miss", "scene_text": "第一人称射击游戏中，角色绕后开火却连续空枪，准星已经贴到目标身边。", "keywords": ["绕后", "空枪", "失误"]},
+    {"id": "game_moba_clutch", "scene_text": "多人竞技游戏里，残血角色在队友赶到前反杀两名追击者，局势突然翻转。", "keywords": ["残血", "反杀", "反转"]},
+    {"id": "game_idle", "scene_text": "游戏角色停在安全区域很久，画面只有环境动画和缓慢变化的计时器。", "keywords": ["停滞", "等待", "深夜"]},
+    {"id": "game_boss", "scene_text": "Boss 战进入第二阶段，场地范围缩小，多个危险区域同时亮起。", "keywords": ["Boss", "危险", "机制"]},
+    {"id": "game_death", "scene_text": "角色在关卡终点前被连续攻击击倒，屏幕显示失败和重新挑战按钮。", "keywords": ["死亡", "失败", "重来"]},
+    {"id": "game_inventory", "scene_text": "游戏停在背包界面，装备栏和资源数量占据屏幕，角色没有移动。", "keywords": ["背包", "资源", "菜单"]},
+    {"id": "game_stats_change", "scene_text": "战斗结算界面中，金币、经验和伤害数字快速跳动，最终排名上升一位。", "keywords": ["数值", "结算", "排名"]},
+    {"id": "game_puzzle", "scene_text": "解谜游戏中，玩家把最后一块图案放入凹槽，锁门打开，新的房间亮起。", "keywords": ["解谜", "打开", "新房间"]},
+    {"id": "game_stealth_alarm", "scene_text": "潜行关卡里，警戒条已经接近满格，守卫朝角色藏身的位置转身。", "keywords": ["潜行", "警戒", "暴露"]},
+    {"id": "game_racing_crash", "scene_text": "赛车在最后一个弯道冲出赛道撞上护栏，原本领先的车辆被后方对手超过。", "keywords": ["赛车", "撞车", "领先丢失"]},
+    {"id": "desktop_ide", "scene_text": "IDE 中打开一段 Python 文件，编辑器底部出现红色语法错误提示，终端还没有运行结果。", "keywords": ["IDE", "代码", "错误"]},
+    {"id": "desktop_browser", "scene_text": "浏览器同时打开多个标签页，其中一个页面正在加载，地址栏下方出现权限提示。", "keywords": ["浏览器", "加载", "权限"]},
+    {"id": "desktop_video", "scene_text": "视频播放器停在暂停画面，进度条位于中段，右下角音量图标显示静音。", "keywords": ["视频", "暂停", "静音"]},
+    {"id": "desktop_files", "scene_text": "文件管理器打开下载目录，多个压缩包和重复文件按日期排列，没有文件被选中。", "keywords": ["文件", "下载", "重复"]},
+    {"id": "desktop_blank", "scene_text": "桌面上只有一张浅色壁纸和回收站图标，没有窗口、提示或明显活动。", "keywords": ["空白", "静止", "桌面"]},
+    {"id": "desktop_spreadsheet", "scene_text": "表格窗口显示几列数字，当前单元格被选中，右侧一列出现与其他行不同的颜色。", "keywords": ["表格", "数字", "异常颜色"]},
+    {"id": "desktop_terminal", "scene_text": "终端窗口停在一串构建日志末尾，最后一行显示进程返回码为一，光标没有继续移动。", "keywords": ["终端", "构建", "返回码"]},
+    {"id": "desktop_drawing", "scene_text": "绘图软件画布上有几条粗细不同的线，工具栏当前选中橡皮擦，右侧图层列表展开。", "keywords": ["绘图", "图层", "橡皮擦"]},
+    {"id": "error_dialog", "scene_text": "窗口中央弹出错误对话框，标题写着请求失败，背景页面仍然停留在半加载状态。", "keywords": ["错误弹窗", "请求失败", "加载"]},
+    {"id": "network_lost", "scene_text": "直播页面右上角显示网络断开，播放器画面冻结，重连按钮出现在中央。", "keywords": ["断网", "冻结", "重连"]},
+    {"id": "page_failed", "scene_text": "网页显示空白错误页，中央有页面加载失败提示和返回上一页按钮。", "keywords": ["页面失败", "空白", "返回"]},
+    {"id": "ui_broken", "scene_text": "应用侧边栏文字互相重叠，两个按钮挤在一起，其中一个图标没有加载出来。", "keywords": ["UI异常", "重叠", "图标缺失"]},
+    {"id": "permission_denied", "scene_text": "文件操作弹出权限不足提示，确认按钮可用但目标路径显示为只读。", "keywords": ["权限", "只读", "文件操作"]},
+    {"id": "captcha", "scene_text": "登录页面停在验证码区域，输入框为空，验证码图片旁边有刷新图标。", "keywords": ["验证码", "登录", "等待"]},
+    {"id": "audio_error", "scene_text": "播放器显示音频设备不可用，视频画面正常播放，设置按钮旁有警告标记。", "keywords": ["音频", "设备", "警告"]},
+    {"id": "midnight_quiet", "scene_text": "深夜直播画面光线很暗，角色安静站在小房间里，弹幕区域几乎没有新消息。", "keywords": ["深夜", "安静", "陪伴"]},
+    {"id": "chaotic_scene", "scene_text": "高强度战斗中多个特效同时爆开，角色、伤害数字和提示文字挤满屏幕。", "keywords": ["混乱", "特效", "高强度"]},
+    {"id": "cute_scene", "scene_text": "画面里出现一只小动物靠近镜头，背景色彩明亮，旁边有闪烁的装饰物。", "keywords": ["可爱", "动物", "明亮"]},
+    {"id": "food_scene", "scene_text": "桌面镜头对着一盘刚端上来的食物，热气明显，旁边放着还没有打开的饮料。", "keywords": ["食物", "热气", "新鲜"]},
+    {"id": "social_dialogue", "scene_text": "游戏对话框里两名角色面对面，选项按钮同时出现，计时条正在减少。", "keywords": ["对话", "选择", "压力"]},
+    {"id": "rain_window", "scene_text": "视频画面是雨夜窗边，玻璃上有水痕，房间内只有一盏小灯亮着。", "keywords": ["雨夜", "窗边", "安静"]},
+    {"id": "celebration", "scene_text": "结算画面出现胜利标志和奖励动画，队伍头像全部亮起，背景音乐提示即将进入下一局。", "keywords": ["胜利", "奖励", "庆祝"]}
+  ]
+}

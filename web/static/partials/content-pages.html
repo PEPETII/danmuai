@@ -593,6 +593,17 @@
         </div>
       </header>
       <div class="help-system-grid">
+        <section class="help-system-group ui-card" aria-labelledby="helpSystemRewardTitle">
+          <h3 id="helpSystemRewardTitle" class="help-system-group-title" data-i18n="modals.text.赞赏">赞赏</h3>
+          <div class="help-system-list">
+            <button type="button" class="help-system-action js-reward-fab" aria-haspopup="dialog" aria-controls="rewardModal">
+              <svg class="ui-icon" aria-hidden="true"><use href="#i-star"></use></svg>
+              <span data-i18n="modals.text.赞赏">赞赏</span>
+              <span class="help-system-action-arrow" aria-hidden="true">›</span>
+            </button>
+          </div>
+        </section>
+
         <section class="help-system-group ui-card" aria-labelledby="helpSystemUsageTitle">
           <h3 id="helpSystemUsageTitle" class="help-system-group-title" data-i18n="content.text.使用帮助">使用帮助</h3>
           <div class="help-system-list">
@@ -614,6 +625,27 @@
             <button type="button" class="help-system-action" data-help-navigate="feedback">
               <svg class="ui-icon" aria-hidden="true"><use href="#i-users"></use></svg>
               <span data-i18n="content.text.群聊">群聊</span>
+              <span class="help-system-action-arrow" aria-hidden="true">›</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="help-system-group ui-card" aria-labelledby="helpSystemProblemTitle">
+          <h3 id="helpSystemProblemTitle" class="help-system-group-title" data-i18n="content.text.问题处理">问题处理</h3>
+          <div class="help-system-list">
+            <button type="button" class="help-system-action" data-help-navigate="diagnostics">
+              <svg class="ui-icon" aria-hidden="true"><use href="#i-info"></use></svg>
+              <span data-i18n="content.text.问题诊断">问题诊断</span>
+              <span class="help-system-action-arrow" aria-hidden="true">›</span>
+            </button>
+            <button type="button" id="btnExportLogs" class="help-system-action">
+              <svg class="ui-icon" aria-hidden="true"><use href="#i-box"></use></svg>
+              <span data-i18n="common.exportLogs">导出日志</span>
+              <span class="help-system-action-arrow" aria-hidden="true">›</span>
+            </button>
+            <button type="button" class="help-system-action" data-help-navigate="feedback">
+              <svg class="ui-icon" aria-hidden="true"><use href="#i-message"></use></svg>
+              <span data-i18n="content.text.反馈问题">反馈问题</span>
               <span class="help-system-action-arrow" aria-hidden="true">›</span>
             </button>
           </div>
@@ -658,27 +690,6 @@
                 <span class="theme-toggle-label" data-i18n="common.darkMode">黑夜模式</span>
               </button>
             </div>
-          </div>
-        </section>
-
-        <section class="help-system-group ui-card" aria-labelledby="helpSystemProblemTitle">
-          <h3 id="helpSystemProblemTitle" class="help-system-group-title" data-i18n="content.text.问题处理">问题处理</h3>
-          <div class="help-system-list">
-            <button type="button" class="help-system-action" data-help-navigate="diagnostics">
-              <svg class="ui-icon" aria-hidden="true"><use href="#i-info"></use></svg>
-              <span data-i18n="content.text.问题诊断">问题诊断</span>
-              <span class="help-system-action-arrow" aria-hidden="true">›</span>
-            </button>
-            <button type="button" id="btnExportLogs" class="help-system-action">
-              <svg class="ui-icon" aria-hidden="true"><use href="#i-box"></use></svg>
-              <span data-i18n="common.exportLogs">导出日志</span>
-              <span class="help-system-action-arrow" aria-hidden="true">›</span>
-            </button>
-            <button type="button" class="help-system-action" data-help-navigate="feedback">
-              <svg class="ui-icon" aria-hidden="true"><use href="#i-message"></use></svg>
-              <span data-i18n="content.text.反馈问题">反馈问题</span>
-              <span class="help-system-action-arrow" aria-hidden="true">›</span>
-            </button>
           </div>
         </section>
       </div>

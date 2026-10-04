@@ -3,7 +3,8 @@
 ``PersonaManager`` 是 ``DanmuApp.personae`` 的实际类型，提供：
 - 内置人格（``BUILTIN_PERSONAE``）的清单与中/英 prompt 获取。
 - 自定义人格（``custom_personae``）的增删改查与持久化到 ``ConfigStore``。
-- 活跃人格（``active_personae``）版本迁移：旧版人格（``阿静``/``测试``）会被自动剔除。
+- 活跃人格（``active_personae``）版本迁移：旧版人格会被清理或按
+  ``LEGACY_NAME_MAP`` 迁移到现行名称。
 - 随机抽签：``pick_random`` 从活跃人格中均匀随机选一个作为本轮回复的 persona。
 
 约束：本类不导入 Qt；可在主线程或 HTTP 线程安全调用（Dict / set 操作不修改 ConfigStore 以外的共享状态）。
@@ -270,7 +271,7 @@ class PersonaManager:
     关键属性：
     - ``_custom``：内存缓存的自定义人格字典，首次 ``_load_custom`` 时从 ``custom_personae`` 字符串读入。
     - ``_ACTIVE_VERSION``：活跃人格 schema 版本号；启动时 ``_migrate_active_personae`` 检查并迁移。
-    - ``_REMOVED_PERSONAE``：被弃用的人格名（``阿静``、``测试``），迁移时自动剔除。
+    - ``_REMOVED_PERSONAE``：被弃用且没有兼容映射的人格名，迁移时自动剔除。
 
     线程安全：主线程构造 + 主线程/HTTP 线程读取；自定义人格写入后需 ``save_custom`` 显式持久化。
     """
@@ -281,18 +282,19 @@ class PersonaManager:
         "熬夜陪看型",
         "阴阳锐评型",
         "抽象玩梗型",
-        "测试1",
-        "测试3",
         "吐槽型",
         "傲娇型",
-        "腹黑型",
+        "胡桃",
+        "阿库娅",
+        "银狼",
     ]
-    _ACTIVE_VERSION = 11
+    _ACTIVE_VERSION = 12
 
     def __init__(self, config: ConfigStore):
         self.config = config
         self._custom: dict = {}
         self._migrate_active_personae()
+        self._migrate_legacy_persona_storage()
         self._purge_removed_personae()
 
     def _merge_test_default_active(self, names: list[str]) -> list[str]:
@@ -316,7 +318,56 @@ class PersonaManager:
                 self.config.set_json("active_personae", filtered)
             if version < 9:
                 self.config.set_json("active_personae", self.DEFAULT_ACTIVE)
+            if version < 12:
+                active = self.config.get_json("active_personae", self.DEFAULT_ACTIVE)
+                normalized = self._filter_removed_active(
+                    active if isinstance(active, list) else []
+                )
+                self.config.set_json("active_personae", normalized)
             self.config.set("active_personae_version", str(self._ACTIVE_VERSION))
+
+    def _migrate_legacy_persona_storage(self):
+        """把可兼容的旧人格键持久化为新键，保留用户覆盖和展示标签。"""
+
+        raw_custom = self.config.get("custom_personae", "{}")
+        try:
+            loaded_custom = json.loads(raw_custom)
+        except (json.JSONDecodeError, TypeError):
+            loaded_custom = None
+        if isinstance(loaded_custom, dict):
+            migrated_custom: dict = {}
+            changed = False
+            for name, value in loaded_custom.items():
+                normalized = normalize_persona_name(name)
+                if normalized != name:
+                    changed = True
+                if normalized not in migrated_custom or normalized == name:
+                    migrated_custom[normalized] = value
+            if changed:
+                self.config.set(
+                    "custom_personae",
+                    json.dumps(migrated_custom, ensure_ascii=False),
+                )
+
+        raw_labels = self.config.get("persona_labels", "{}")
+        try:
+            loaded_labels = json.loads(raw_labels)
+        except (json.JSONDecodeError, TypeError):
+            loaded_labels = None
+        if isinstance(loaded_labels, dict):
+            migrated_labels: dict = {}
+            changed = False
+            for name, value in loaded_labels.items():
+                normalized = normalize_persona_name(name)
+                if normalized != name:
+                    changed = True
+                if normalized not in migrated_labels or normalized == name:
+                    migrated_labels[normalized] = value
+            if changed:
+                self.config.set(
+                    "persona_labels",
+                    json.dumps(migrated_labels, ensure_ascii=False),
+                )
 
     def _filter_removed_active(self, names: list[str]) -> list[str]:
         filtered = [
