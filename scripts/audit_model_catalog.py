@@ -10,11 +10,14 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
 VALID_STATUSES = {"active", "preview", "testing", "deprecated", "retired", "legacy", "unknown"}
-VALID_AVAILABILITY = {"curated", "account_discovery", "fallback", "unknown"}
+VALID_AVAILABILITY = {"curated", "account_discovery", "fallback", "restricted", "unknown"}
+STALE_SOURCE_WARNING_DAYS = 30
+STALE_SOURCE_HIGH_PRIORITY_DAYS = 90
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
@@ -74,6 +77,54 @@ def validate_snapshot(snapshot: dict[str, Any]) -> list[str]:
     return errors
 
 
+def _source_staleness_warnings(
+    snapshot: dict[str, Any],
+    *,
+    today: date | None = None,
+) -> list[dict[str, Any]]:
+    """Report stale official-source evidence without failing the contract.
+
+    Catalog freshness is a review signal, not a runtime validity gate.  This
+    keeps the no-credential audit deterministic while making old evidence
+    visible before a later connectivity phase.
+    """
+    reference_date = today or date.today()
+    warnings: list[dict[str, Any]] = []
+    for catalog in snapshot.get("catalogs", []):
+        provider_id = catalog.get("provider_id")
+        for model in catalog.get("models", []):
+            source = model.get("source")
+            if not isinstance(source, dict) or source.get("source_kind") != "official":
+                continue
+            verified_at = model.get("verified_at") or source.get("verified_at")
+            if not verified_at:
+                continue
+            try:
+                verified_date = datetime.fromisoformat(str(verified_at)[:10]).date()
+            except ValueError:
+                continue
+            age_days = (reference_date - verified_date).days
+            if age_days <= STALE_SOURCE_WARNING_DAYS:
+                continue
+            severity = (
+                "high"
+                if age_days > STALE_SOURCE_HIGH_PRIORITY_DAYS
+                else "warning"
+            )
+            warnings.append({
+                "provider_id": provider_id,
+                "model_id": model.get("id"),
+                "verified_at": str(verified_at),
+                "age_days": age_days,
+                "severity": severity,
+                "message": (
+                    "official source evidence is older than "
+                    f"{STALE_SOURCE_HIGH_PRIORITY_DAYS if severity == 'high' else STALE_SOURCE_WARNING_DAYS} days"
+                ),
+            })
+    return warnings
+
+
 def build_report(snapshot: dict[str, Any], baseline: dict[str, Any] | None = None) -> dict[str, Any]:
     current = _flatten(snapshot)
     report: dict[str, Any] = {
@@ -82,6 +133,7 @@ def build_report(snapshot: dict[str, Any], baseline: dict[str, Any] | None = Non
         "catalog_platform_count": len(snapshot.get("catalogs", [])),
         "model_count": len(current),
         "errors": validate_snapshot(snapshot),
+        "warnings": _source_staleness_warnings(snapshot),
         "added": [],
         "removed": [],
         "changed": [],

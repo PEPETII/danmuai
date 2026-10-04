@@ -163,25 +163,25 @@ def test_list_platform_catalogs_has_vision_platforms():
     assert tokenrhythm["models"][0]["supports_vision"] is True
     openai = _platform_by_id(platforms, "openai")
     assert openai["provider_id"] == "openai"
-    assert len(openai["models"]) == 6
+    assert len(openai["models"]) == 7
     gemini = _platform_by_id(platforms, "google-gemini")
     assert gemini["provider_id"] == "google_gemini"
-    assert len(gemini["models"]) == 10
+    assert len(gemini["models"]) == 11
     xai = _platform_by_id(platforms, "xai")
     assert xai["provider_id"] == "xai"
     assert len(xai["models"]) == 6
     mistral = _platform_by_id(platforms, "mistral")
     assert mistral["provider_id"] == "mistral"
-    assert len(mistral["models"]) == 6
+    assert len(mistral["models"]) == 7
     together = _platform_by_id(platforms, "together")
     assert together["provider_id"] == "together"
-    assert len(together["models"]) == 5
+    assert len(together["models"]) == 6
     fireworks = _platform_by_id(platforms, "fireworks")
     assert fireworks["provider_id"] == "fireworks"
-    assert len(fireworks["models"]) == 5
+    assert len(fireworks["models"]) == 6
     dashscope_intl = _platform_by_id(platforms, "dashscope-intl")
     assert dashscope_intl["provider_id"] == "dashscope_intl"
-    assert len(dashscope_intl["models"]) == 7
+    assert len(dashscope_intl["models"]) == 8
     siliconflow = _platform_by_id(platforms, "siliconflow")
     assert siliconflow["provider_id"] == "siliconflow"
     assert siliconflow["platform_label"] == "硅基流动"
@@ -214,7 +214,7 @@ def test_list_platform_catalogs_has_vision_platforms():
         assert "price" in model
         assert "currency" in model["price"]
         assert "modality" in model
-        assert model["supports_vision"] is True
+        assert model["supports_vision"] in (True, False, None)
         assert "main_flow_recommended" in model
         assert "cheapest" in model
         assert "supports_mic" in model
@@ -237,7 +237,7 @@ def test_dashscope_catalog_has_no_mic_flagged_models():
 def test_international_catalog_presets_have_five_models_each():
     expected = {
         "openai": (OPENAI_MODELS, {
-            "gpt-6-astra", "gpt-6-sol", "gpt-6-luna",
+            "gpt-6.1-sol", "gpt-6-astra", "gpt-6-sol", "gpt-6-luna",
             "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna",
         }),
         "google_gemini": (
@@ -246,6 +246,7 @@ def test_international_catalog_presets_have_five_models_each():
                 "gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash",
                 "gemini-3.1-pro-preview", "gemini-3-flash-preview",
                 "gemini-3.5-flash",
+                "gemini-3.1-flash-lite",
                 "gemini-3.1-pro",
                 "gemini-3-flash",
                 "gemini-2.5-pro",
@@ -270,6 +271,7 @@ def test_international_catalog_presets_have_five_models_each():
                 "mistral-small-2506",
                 "ministral-14b-2512",
                 "ministral-8b-2512",
+                "ministral-3b-2512",
             },
         ),
         "together": (
@@ -280,6 +282,7 @@ def test_international_catalog_presets_have_five_models_each():
                 "MiniMaxAI/MiniMax-M3",
                 "moonshotai/Kimi-K2.7-Code",
                 "moonshotai/Kimi-K2.6",
+                "moonshotai/Kimi-K3",
             },
         ),
         "fireworks": (
@@ -290,20 +293,21 @@ def test_international_catalog_presets_have_five_models_each():
                 "accounts/fireworks/models/step-3p7-flash-nvfp4",
                 "accounts/fireworks/models/gemma-4-31b-it",
                 "accounts/fireworks/models/qwen3-omni-30b-a3b-instruct",
+                "accounts/fireworks/models/kimi-k2p7-code",
             },
         ),
         "dashscope_intl": (
             DASHSCOPE_INTL_MODELS,
             {
-                "qwen3.8-max", "qwen3.8-flash", "qwen3-vl-flash", "qwen3-vl-plus",
+                "qwen3.8-max", "qwen3.8-flash", "qwen3.8-omni-flash", "qwen3-vl-flash", "qwen3-vl-plus",
                 "qwen-vl-plus", "qwen-vl-max", "qwen3.5-omni-plus",
             },
         ),
     }
     for provider_id, (models, ids) in expected.items():
         expected_count = {
-            "openai": 6, "google_gemini": 10, "dashscope_intl": 7,
-            "xai": 6, "mistral": 6,
+            "openai": 7, "google_gemini": 11, "dashscope_intl": 8,
+            "xai": 6, "mistral": 7, "together": 6, "fireworks": 6,
         }.get(provider_id, 5)
         assert len(models) == expected_count
         assert {m.id for m in models} == ids
@@ -340,6 +344,36 @@ def test_openai_catalog_uses_gpt56_official_metadata():
         assert model.max_tokens_field == "max_completion_tokens"
         assert model.context_window == 1_050_000
         assert model.max_output_tokens == 128_000
+
+
+def test_overseas_catalog_alias_and_capability_metadata():
+    openai = {model.id: model for model in OPENAI_MODELS}
+    assert openai["gpt-6.1-sol"].main_flow_recommended is True
+    assert openai["gpt-6.1-sol"].reasoning_effort_values == (
+        "low", "medium", "high", "xhigh", "max",
+    )
+    assert openai["gpt-6-sol"].status == "legacy"
+    assert openai["gpt-6-sol"].main_flow_recommended is False
+    assert openai["gpt-6-sol"].replacement_model_id == "gpt-6.1-sol"
+
+    deepseek = {model["id"]: model for model in get_catalog_for_provider("deepseek")["models"]}
+    assert deepseek["deepseek-flash"]["supports_vision"] is True
+    assert deepseek["deepseek-v4-flash"]["status"] == "legacy"
+    assert deepseek["deepseek-v4-flash"]["replacement_model_id"] == "deepseek-flash"
+    assert deepseek["deepseek-v4-pro"]["supports_vision"] is False
+    assert deepseek["deepseek-v4-pro"]["input_modalities"] == ["text"]
+
+    gemini = {model.id: model for model in GOOGLE_GEMINI_MODELS}
+    assert gemini["gemini-3.1-flash-lite"].reasoning_effort_values == (
+        "minimal", "low", "medium", "high",
+    )
+    assert gemini["gemini-2.5-pro"].availability == "restricted"
+    assert gemini["gemini-2.5-pro"].main_flow_recommended is False
+
+    mistral = {model.id: model for model in MISTRAL_MODELS}
+    assert mistral["mistral-large-3"].supports_vision is None
+    assert mistral["mistral-large-3"].replacement_model_id == "mistral-large-2512"
+    assert default_catalog_model_id("mistral") == "mistral-large-2512"
 
 
 def test_get_catalog_for_provider_doubao():
@@ -451,7 +485,7 @@ def test_default_catalog_model_id_prefers_curated_catalog_order_over_cheapest():
     assert default_catalog_model_id("openai") == "gpt-6-astra"
     assert default_catalog_model_id("google_gemini") == "gemini-3.8-flash"
     assert default_catalog_model_id("xai") == "grok-4.7"
-    assert default_catalog_model_id("mistral") == "mistral-large-3"
+    assert default_catalog_model_id("mistral") == "mistral-large-2512"
     assert default_catalog_model_id("together") == "Qwen/Qwen3.5-9B"
     assert default_catalog_model_id("fireworks") == "accounts/fireworks/models/kimi-k2p6"
     assert default_catalog_model_id("dashscope_intl") == "qwen3.8-max"

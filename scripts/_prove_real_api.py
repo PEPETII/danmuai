@@ -11,7 +11,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from app.knowledge.database import KnowledgeDatabase
 from app.knowledge.retriever import KnowledgeRetriever
 
-API_KEY = "sk-5b8ece87b2e2444385541c086b1773e5"
+API_KEY = os.environ.get("DANMU_DEEPSEEK_PROBE_API_KEY", "").strip()
+if not API_KEY:
+    print("DANMU_DEEPSEEK_PROBE_API_KEY is not set; skipping real API probe.")
+    raise SystemExit(0)
 API_URL = "https://api.deepseek.com/v1/chat/completions"
 
 # ---- 构造两组完全一样的输入，唯一差别是知识注入 ----

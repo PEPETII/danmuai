@@ -27,9 +27,41 @@ venv/
 
 # Desktop app local data and secrets
 *.db
-*.sqlite
-*.sqlite3
+*.sqlite*
 *.key
+*.pem
+*.p12
+*.pfx
+*.crt
+*.cer
+*.session
+*.dump
+*.trace
+# Credential/secret data files only; source modules with these words remain trackable.
+credentials*.json
+credentials*.yaml
+credentials*.yml
+credentials*.toml
+credentials*.ini
+credentials*.txt
+secrets*.json
+secrets*.yaml
+secrets*.yml
+secrets*.toml
+secrets*.ini
+secrets*.txt
+*_secret.json
+*_secret.yaml
+*_secret.yml
+*_secret.toml
+*_secret.ini
+*_secret.txt
+*_credentials.json
+*_credentials.yaml
+*_credentials.yml
+*_credentials.toml
+*_credentials.ini
+*_credentials.txt
 log/
 ph/
 
@@ -126,15 +158,34 @@ workorders/local/
 reports/local/
 docs/工单列表/
 docs/reports/
-docs/*
-!docs/runtime-state-map.md
-!docs/main-pipeline-sequence.md
-!docs/final-architecture-baseline.md
-!docs/glossary.md
-!docs/ui/
+# Local audits, workorders, prompts, prototypes, and generated planning material.
+# Public docs under docs/ (including docs/operations/ and docs/release/) remain visible
+# to Git so new documentation is not silently ignored.
+docs/archive/
+docs/architecture-workorders/
+docs/danmuai-model-modal-tickets/
+docs/danmuai_gepa_prompt_training_docs/
+docs/danmuai_knowledge_fix_prompts/
+docs/danmuai_live2d_plan_md/
+docs/danmuai_model_api_audit_*/
+docs/danmuai_problem_display_workorders/
+docs/danmuai_ui_repair_docs/
+docs/floating_panel_web/NEXT_CODEX_PROMPT.md
+docs/model-api-audit/
+docs/reports/
+docs/superpowers/
+docs/workorders/
+docs/*audit_report*.md
+docs/*Audit_Report*.md
+docs/*_audit_*.md
+docs/*-audit-*.md
+docs/performance-optimization-research-*.md
+docs/*报告*.md
+docs/海外模型目录漂移审计.md
+docs/审计报告/
+docs/工单计划/
 docs/ui/*
 !docs/ui/**
-!docs/operations/
 docs/operations/*
 !docs/operations/**
 
